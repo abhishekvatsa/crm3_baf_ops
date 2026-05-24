@@ -359,6 +359,12 @@ void main() {
         final adminDirectives = _read(
           'lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart',
         );
+        final adminTemplates = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart',
+        );
+        final adminExecutions = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_executions_browser.dart',
+        );
         final adminDirectiveDialog = _read(
           'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
         );
@@ -387,7 +393,10 @@ void main() {
           'final messenger = ScaffoldMessenger.maybeOf(context);',
         );
         _expectNotContains(admin, 'String? _cleanOptionalText(');
-        _expectContains(admin, 'showDialog<AdminDeleteDecision>');
+        _expectContains(adminTickets, 'showDialog<AdminDeleteDecision>');
+        _expectContains(adminDirectives, 'showDialog<AdminDeleteDecision>');
+        _expectContains(adminTemplates, 'showDialog<AdminDeleteDecision>');
+        _expectContains(adminExecutions, 'showDialog<AdminDeleteDecision>');
         _expectContains(
           adminTickets,
           'class _AdminEditTicketDialog extends StatefulWidget',
@@ -464,6 +473,8 @@ const _guardedFiles = <String>[
   'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
   'lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart',
   'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_executions_browser.dart',
   'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
   'lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart',
   'test/startup_recovery_hardening_contract_test.dart',
@@ -547,6 +558,8 @@ const _recentlyHardenedDialogFiles = <String>[
   'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
   'lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart',
   'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_executions_browser.dart',
   'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
   'lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart',
 ];
