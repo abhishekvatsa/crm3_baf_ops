@@ -365,6 +365,9 @@ void main() {
         final adminExecutions = _read(
           'lib/features/admin/presentation/admin_data_browser/admin_executions_browser.dart',
         );
+        final adminAbnormalities = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_abnormalities_tab.dart',
+        );
         final adminDirectiveDialog = _read(
           'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
         );
@@ -409,6 +412,15 @@ void main() {
         _expectContains(
           adminDeleteDialog,
           'class AdminDeleteReasonDialog extends StatefulWidget',
+        );
+
+        _expectContains(
+          adminAbnormalities,
+          'class AbnormalitiesAdminTab extends StatelessWidget',
+        );
+        _expectContains(
+          adminAbnormalities,
+          'class _AdminAbnormalityActionCard extends StatelessWidget',
         );
 
         _expectContains(
@@ -475,6 +487,7 @@ const _guardedFiles = <String>[
   'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
   'lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart',
   'lib/features/admin/presentation/admin_data_browser/admin_executions_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_abnormalities_tab.dart',
   'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
   'lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart',
   'test/startup_recovery_hardening_contract_test.dart',
@@ -560,6 +573,7 @@ const _recentlyHardenedDialogFiles = <String>[
   'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
   'lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart',
   'lib/features/admin/presentation/admin_data_browser/admin_executions_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_abnormalities_tab.dart',
   'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
   'lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart',
 ];

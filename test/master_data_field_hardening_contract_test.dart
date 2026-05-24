@@ -35,6 +35,7 @@ void main() {
     late String directiveDialogSrc;
     late String templateSrc;
     late String executionSrc;
+    late String abnormalityAdminSrc;
     setUpAll(() {
       src = _read('lib/features/admin/presentation/admin_data_browser.dart');
       sharedSrc = _read(
@@ -57,6 +58,9 @@ void main() {
       );
       executionSrc = _read(
         'lib/features/admin/presentation/admin_data_browser/admin_executions_browser.dart',
+      );
+      abnormalityAdminSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_abnormalities_tab.dart',
       );
     });
 
@@ -105,6 +109,7 @@ void main() {
         expect(directiveSrc, isNot(contains('ScaffoldMessenger.of(')));
         expect(templateSrc, isNot(contains('ScaffoldMessenger.of(')));
         expect(executionSrc, isNot(contains('ScaffoldMessenger.of(')));
+        expect(abnormalityAdminSrc, isNot(contains('ScaffoldMessenger.of(')));
       },
     );
 
