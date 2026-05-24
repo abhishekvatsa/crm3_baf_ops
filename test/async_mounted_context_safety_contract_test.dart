@@ -209,9 +209,12 @@ void main() {
     test(
       'admin data browser captures repositories and sync coordinator before awaited admin mutations',
       () {
-        final source = _read(
-          'lib/features/admin/presentation/admin_data_browser.dart',
-        );
+        final source = [
+          _read('lib/features/admin/presentation/admin_data_browser.dart'),
+          _read(
+            'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
+          ),
+        ].join('\n');
 
         for (final expectation in <_AdminMutationExpectation>[
           const _AdminMutationExpectation(

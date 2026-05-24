@@ -30,6 +30,7 @@ void main() {
     late String src;
     late String sharedSrc;
     late String deleteDialogSrc;
+    late String ticketSrc;
     setUpAll(() {
       src = _read('lib/features/admin/presentation/admin_data_browser.dart');
       sharedSrc = _read(
@@ -37,6 +38,9 @@ void main() {
       );
       deleteDialogSrc = _read(
         'lib/features/admin/presentation/admin_data_browser/admin_delete_reason_dialog.dart',
+      );
+      ticketSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
       );
     });
 
@@ -51,10 +55,10 @@ void main() {
 
     test('uses dialog-owned controllers for ticket edit', () {
       expect(
-        src,
+        ticketSrc,
         contains('class _AdminEditTicketDialog extends StatefulWidget'),
       );
-      expect(src, contains('showDialog<MaintenanceRecord>'));
+      expect(ticketSrc, contains('showDialog<MaintenanceRecord>'));
     });
 
     test('uses dialog-owned controllers for directive edit', () {
@@ -78,6 +82,7 @@ void main() {
       () {
         // The helper must be the ONLY way snackbars are shown; no raw .of() left.
         expect(src, isNot(contains('ScaffoldMessenger.of(')));
+        expect(ticketSrc, isNot(contains('ScaffoldMessenger.of(')));
       },
     );
 
@@ -92,6 +97,10 @@ void main() {
       );
       expect(src, isNot(contains('final titleCtrl = TextEditingController')));
       expect(src, isNot(contains('reasonController.dispose();')));
+      expect(
+        ticketSrc,
+        isNot(contains('final assetNumberCtrl = TextEditingController')),
+      );
     });
   });
 

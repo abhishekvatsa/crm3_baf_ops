@@ -353,6 +353,9 @@ void main() {
         final admin = _read(
           'lib/features/admin/presentation/admin_data_browser.dart',
         );
+        final adminTickets = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
+        );
         final adminShared = _read(
           'lib/features/admin/presentation/admin_data_browser/admin_data_browser_shared.dart',
         );
@@ -380,7 +383,7 @@ void main() {
         _expectNotContains(admin, 'String? _cleanOptionalText(');
         _expectContains(admin, 'showDialog<AdminDeleteDecision>');
         _expectContains(
-          admin,
+          adminTickets,
           'class _AdminEditTicketDialog extends StatefulWidget',
         );
         _expectContains(
@@ -451,6 +454,7 @@ const _guardedFiles = <String>[
   'lib/features/maintenance/presentation/closed_tickets_screen.dart',
   'lib/features/directives/presentation/directives_screen.dart',
   'lib/features/admin/presentation/admin_data_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
   'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
   'lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart',
   'test/startup_recovery_hardening_contract_test.dart',
@@ -531,6 +535,7 @@ const _recentlyHardenedDialogFiles = <String>[
   'lib/features/maintenance/presentation/closed_tickets_screen.dart',
   'lib/features/directives/presentation/directives_screen.dart',
   'lib/features/admin/presentation/admin_data_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
   'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
   'lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart',
 ];
