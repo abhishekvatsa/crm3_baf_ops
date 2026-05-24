@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>BAF Direct Completion Denial Check</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 32px;
+      line-height: 1.5;
+    }
+    button {
+      padding: 10px 16px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    pre {
+      background: #f4f4f4;
+      padding: 16px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h2>BAF Direct Completion Denial Check</h2>
+
+  <p>
+    This signs in with Google as a normal client user, then attempts a forbidden
+    direct Firestore write to complete a job execution.
+  </p>
+
+  <p>
+    Expected result: <b>PERMISSION_DENIED</b>
+  </p>
+
+  <button id="runBtn">Sign in with Google and run denial test</button>
+
+  <pre id="log">Waiting...</pre>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+    } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      updateDoc,
+      increment,
+    } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCe_Bz7zowdJhWINJIRI9NyfpGCEtORzM8",
+      authDomain: "crm3-baf-ops-b8638.firebaseapp.com",
+      projectId: "crm3-baf-ops-b8638",
+      storageBucket: "crm3-baf-ops-b8638.firebasestorage.app",
+      messagingSenderId: "894346496105",
+      appId: "1:894346496105:web:b7a8cff97a3a90a0e63af8",
+    };
+
+    const executionId = "e3bdc34a-19b0-4d9f-a4d2-64161a18a8b7";
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const logEl = document.getElementById("log");
+    const runBtn = document.getElementById("runBtn");
+
+    function log(message) {
+      logEl.textContent += message + "\n";
+    }
+
+    runBtn.addEventListener("click", async () => {
+      logEl.textContent = "";
+
+      try {
+        log("Opening Google sign-in popup...");
+        const provider = new GoogleAuthProvider();
+        const credential = await signInWithPopup(auth, provider);
+        const user = credential.user;
+
+        log("Signed in as UID: " + user.uid);
+        log("Signed in as email: " + user.email);
+        log("Attempting forbidden direct completion write...");
+        log("Target execution: " + executionId);
+
+        await updateDoc(doc(db, "job_executions", executionId), {
+          isCompleted: true,
+          completedAt: new Date().toISOString(),
+          completedByUid: user.uid,
+          completedByName: "Direct Client Denial Test",
+          updatedAt: new Date().toISOString(),
+          version: increment(1),
+        });
+
+        log("");
+        log("❌ UNEXPECTED: direct client completion write succeeded.");
+        log("This means the Firestore rule did NOT deny the direct completion write.");
+      } catch (error) {
+        log("");
+        log("Write failed.");
+        log("Code: " + error.code);
+        log("Message: " + error.message);
+
+        if (
+          error.code === "permission-denied" ||
+          String(error.message).includes("PERMISSION_DENIED")
+        ) {
+          log("");
+          log("✅ PASS: direct client completion is denied by Firestore rules.");
+        } else {
+          log("");
+          log("❌ FAILED FOR A DIFFERENT REASON.");
+        }
+      }
+    });
+  </script>
+</body>
+</html>

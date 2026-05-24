@@ -1,0 +1,41 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.pub-cache/
+.pub/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Android signing — CRITICAL: never commit these
+key.properties
+android/key.properties
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Release artifacts
+*.aab
+*.apk
+
+# Node / npm
+node_modules/
+functions/node_modules/
+
+# Firebase emulator + debug output
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
+.firebase/
+
+# Stray binaries / build artifacts
+isar.dll
+*.dll

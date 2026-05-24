@@ -1,0 +1,478 @@
+// FILE: lib/features/auth/data/user_model.dart
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../maintenance/data/maintenance_model.dart';
+
+AppRole _parseAppRole(dynamic value) {
+  if (value is! String) return AppRole.operations;
+  for (final role in AppRole.values) {
+    if (role.name == value) return role;
+  }
+  return AppRole.operations;
+}
+
+List<AppRole> _parseRoles(dynamic value) {
+  if (value is! List) return [AppRole.operations];
+
+  final roles = <AppRole>{};
+  for (final raw in value) {
+    roles.add(_parseAppRole(raw));
+  }
+
+  return roles.isEmpty ? [AppRole.operations] : roles.toList();
+}
+
+String _cleanText(dynamic value) {
+  if (value is! String) return '';
+  return value.trim();
+}
+
+String? _cleanOptionalText(dynamic value) {
+  if (value is! String) return null;
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
+}
+
+String _normalisePermissionKey(String? value) {
+  return value
+      ?.trim()
+      .toLowerCase()
+      .replaceAll('&', 'and')
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '') ??
+      '';
+}
+
+
+DateTime _parseDateTime(dynamic value) {
+  if (value is Timestamp) return value.toDate();
+  if (value is DateTime) return value;
+  if (value is String) {
+    final parsed = DateTime.tryParse(value);
+    if (parsed != null) return parsed;
+  }
+  return DateTime.now();
+}
+
+class AppUser {
+  final String uid;
+  final String name;
+  final String email;
+  final String? photoUrl;
+  final List<AppRole> roles;
+  final bool isApproved;
+  final String? fcmToken;
+  final DateTime createdAt;
+
+  AppUser({
+    required this.uid,
+    required this.name,
+    required this.email,
+    this.photoUrl,
+    required this.roles,
+    required this.isApproved,
+    this.fcmToken,
+    required this.createdAt,
+  });
+
+  // ───────────────────────────────────────────────────────────
+  // ROLE CHECKS
+  // ───────────────────────────────────────────────────────────
+
+  bool get isAdmin => roles.contains(AppRole.admin);
+  bool get isSI => roles.contains(AppRole.si);
+  bool get isContractSupervisor =>
+      roles.contains(AppRole.contractSupervisor);
+  bool get isShiftSupervisor =>
+      roles.contains(AppRole.shiftSupervisor);
+  bool get isOperations => roles.contains(AppRole.operations);
+
+  bool get isRefractory =>
+      roles.contains(AppRole.refractory) ||
+          roles.contains(AppRole.seniorRefractory);
+
+  bool get isElectrical =>
+      roles.contains(AppRole.seniorElectrical);
+
+  bool get isMechanical =>
+      roles.contains(AppRole.seniorMechanical);
+
+  bool get isInstrumentation =>
+      roles.contains(AppRole.seniorInstrumentation);
+
+  bool get isSeniorRole =>
+      roles.any((r) => [
+        AppRole.seniorElectrical,
+        AppRole.seniorMechanical,
+        AppRole.seniorInstrumentation,
+        AppRole.seniorRefractory,
+      ].contains(r));
+
+  // ───────────────────────────────────────────────────────────
+  // TICKET PERMISSIONS
+  // ───────────────────────────────────────────────────────────
+
+  /// Maintenance-ticket closure is a senior/supervisory authority event.
+  /// The same authority applies to ordinary and red/refractory tickets.
+  bool get canCloseMaintenanceTicket =>
+      isApproved &&
+          (isAdmin ||
+              isSI ||
+              isContractSupervisor ||
+              isShiftSupervisor ||
+              isSeniorRole);
+
+  bool get canCloseAnyTicket => canCloseMaintenanceTicket;
+
+  bool get canCloseRedTicket => canCloseMaintenanceTicket;
+
+  /// Reopening is deliberately plant/operations-side: Admin/SI may reopen,
+  /// and Operations may challenge/revive a closed issue.
+  bool get canReopenMaintenanceTicket =>
+      isApproved && (isAdmin || isSI || isOperations);
+
+  /// Historical correction and deletion are Admin-only audit actions.
+  bool get canAdminEditMaintenanceTicket => isApproved && isAdmin;
+
+  bool get canSoftDeleteMaintenanceTicket => isApproved && isAdmin;
+
+  bool get canLogRedRequest => roles.any((r) => [
+    AppRole.admin,
+    AppRole.si,
+    AppRole.operations,
+    AppRole.seniorElectrical,
+    AppRole.seniorMechanical,
+    AppRole.seniorInstrumentation,
+    AppRole.seniorRefractory,
+  ].contains(r));
+
+  bool get canSeeAllTickets =>
+      roles.any((r) => r != AppRole.operations);
+
+  bool get canManageUsers => isApproved && isAdmin;
+
+  bool get canViewAuditLogs => isApproved && isAdmin;
+
+  bool get canReviewSyncConflicts => isApproved && isAdmin;
+
+  bool get canResolveSyncConflicts => canReviewSyncConflicts;
+
+  bool get canViewReports => isApproved;
+
+  bool get canOpenAdminDataBrowser => isApproved && isAdmin;
+
+  // ───────────────────────────────────────────────────────────
+  // LEGACY PLANNED-MAINTENANCE TEMPLATE / ASSIGNMENT PERMISSIONS
+  // ───────────────────────────────────────────────────────────
+
+  /// Legacy runtime JobTemplate creation/editing is still allowed for Admin/SI
+  /// while the Template Governance publisher is being wired into assignment.
+  bool get canCreateLegacyJobTemplate =>
+      isApproved && (isAdmin || isSI);
+
+  bool get canEditLegacyJobTemplate => canCreateLegacyJobTemplate;
+
+  /// Deleting/retiring a legacy runtime template is stricter than creating or
+  /// editing because it removes the template from active operational use.
+  bool get canDeleteLegacyJobTemplate => isApproved && isAdmin;
+
+  bool get canViewPlannedMaintenance => isApproved;
+
+  bool get canViewClosedJobDossiers => isApproved;
+
+  /// Planned job assignment is an operational authority event. Senior
+  /// discipline users can assign work, but ordinary Operations/plain
+  /// Refractory users cannot.
+  bool get canAssignJobExecution =>
+      isApproved &&
+          (isAdmin ||
+              isSI ||
+              isContractSupervisor ||
+              isShiftSupervisor ||
+              isSeniorRole);
+
+  /// Manual module addition changes the scope of an active planned job, so it
+  /// follows the same authority as planned-job assignment.
+  bool get canAddJobModuleDuringExecution => canAssignJobExecution;
+
+  /// Admin-only back-office deletion of planned job executions from the
+  /// Admin Data Browser. Normal job closure remains governed separately.
+  bool get canDeleteJobExecution => isApproved && isAdmin;
+
+  // ───────────────────────────────────────────────────────────
+  // DIRECTIVE PERMISSIONS
+  // ───────────────────────────────────────────────────────────
+
+  bool get canCreateDirective =>
+      isApproved &&
+          (isAdmin ||
+              isSI ||
+              isContractSupervisor ||
+              isShiftSupervisor ||
+              isOperations);
+
+  /// Supervisory/Admin actors may close any directive. Creators and
+  /// acknowledged recipients are handled by [canCloseDirectiveInstance].
+  bool get canCloseDirective =>
+      isApproved && (isAdmin || isSI || isContractSupervisor || isShiftSupervisor);
+
+  /// Supervisors are deliberately allowed to close/override directive
+  /// lifecycle state. Editing/deleting directive records remains Admin-only
+  /// because it is a back-office correction function, not a field closure.
+  bool get canOverrideDirectiveClose => canCloseDirective;
+
+  bool get canEditDirective => isApproved && isAdmin;
+  bool get canDeleteDirective => isApproved && isAdmin;
+
+  bool canBeTarget(AppRole role) {
+    return isApproved && roles.contains(role);
+  }
+
+  bool canAcknowledgeDirective(AppRole directedTo) {
+    return isApproved && roles.contains(directedTo);
+  }
+
+  bool canCloseDirectiveInstance({
+    required String? createdByUid,
+    AppRole? directedTo,
+    String? acknowledgedByUid,
+  }) {
+    if (!isApproved) return false;
+
+    if (canCloseDirective) return true;
+
+    if (createdByUid == uid) return true;
+
+    if (directedTo != null &&
+        acknowledgedByUid == uid &&
+        canAcknowledgeDirective(directedTo)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  List<AppRole> get directiveTargets {
+    if (isAdmin) {
+      return AppRole.values
+          .where((r) => r != AppRole.admin)
+          .toList();
+    }
+
+    if (isSI) {
+      return [
+        AppRole.contractSupervisor,
+        AppRole.shiftSupervisor,
+        AppRole.operations,
+        AppRole.seniorElectrical,
+        AppRole.seniorMechanical,
+        AppRole.seniorInstrumentation,
+        AppRole.seniorRefractory,
+      ];
+    }
+
+    if (isContractSupervisor) {
+      return [
+        AppRole.shiftSupervisor,
+        AppRole.operations,
+        AppRole.seniorElectrical,
+        AppRole.seniorMechanical,
+        AppRole.seniorInstrumentation,
+        AppRole.seniorRefractory,
+      ];
+    }
+
+    if (isShiftSupervisor) {
+      return [
+        AppRole.operations,
+        AppRole.seniorElectrical,
+        AppRole.seniorMechanical,
+        AppRole.seniorInstrumentation,
+        AppRole.seniorRefractory,
+      ];
+    }
+
+    if (isOperations) {
+      return [
+        AppRole.contractSupervisor,
+        AppRole.shiftSupervisor,
+        AppRole.seniorElectrical,
+        AppRole.seniorMechanical,
+        AppRole.seniorInstrumentation,
+        AppRole.seniorRefractory,
+      ];
+    }
+
+    return [];
+  }
+
+
+  // ───────────────────────────────────────────────────────────
+  // PLANNED-MAINTENANCE MODULE PERMISSIONS
+  // ───────────────────────────────────────────────────────────
+
+  /// Supervisory actors can review and govern module lifecycle transitions.
+  /// This intentionally excludes ordinary operations/refractory users so that
+  /// submit/accept/reopen/not-applicable decisions remain auditable authority
+  /// events rather than casual edits.
+  bool get isModuleLifecycleSupervisor =>
+      isApproved && (isAdmin || isSI || isContractSupervisor || isShiftSupervisor);
+
+  bool get canAcceptJobModule => isModuleLifecycleSupervisor;
+  bool get canReopenJobModule => isModuleLifecycleSupervisor;
+  bool get canMarkJobModuleNotApplicable => isModuleLifecycleSupervisor;
+
+  /// Saving module responses/work is limited to Admin/SI, supervisors, and
+  /// senior discipline users. Ordinary Operations/plain Refractory can view
+  /// planned work, but cannot mutate planned-maintenance module responses.
+  bool get canSaveJobModuleWork =>
+      isApproved &&
+          (isAdmin ||
+              isSI ||
+              isContractSupervisor ||
+              isShiftSupervisor ||
+              isSeniorRole);
+
+  /// Supervisors/Admin/SI can submit any module. Senior discipline users can
+  /// submit only their own discipline lane. Operations users cannot submit
+  /// planned-maintenance modules, including operations-discipline modules.
+  bool canSubmitJobModule(String? moduleDisciplineName) {
+    if (!isApproved) return false;
+    if (isModuleLifecycleSupervisor) return true;
+
+    final discipline = _normalisePermissionKey(moduleDisciplineName);
+    switch (discipline) {
+      case 'mechanical':
+        return isMechanical;
+      case 'electrical':
+        return isElectrical;
+      case 'instrumentation':
+      case 'instrument':
+      case 'ia':
+      case 'ianda':
+      case 'instrumentationandautomation':
+      case 'instrumentationautomation':
+        return isInstrumentation;
+      case 'refractory':
+      case 'others':
+        return roles.contains(AppRole.seniorRefractory);
+      case 'operations':
+      case 'shiftincharge':
+      case 'safety':
+      case 'admin':
+      case 'shared':
+      default:
+        return false;
+    }
+  }
+
+
+  // ───────────────────────────────────────────────────────────
+  // JOB DIARY PERMISSIONS
+  // ───────────────────────────────────────────────────────────
+
+  bool get canCreateJobDiaryEntry =>
+      isApproved &&
+          (isAdmin ||
+              isSI ||
+              isContractSupervisor ||
+              isShiftSupervisor ||
+              isSeniorRole);
+
+  bool canEditJobDiaryEntry({required String? createdByUid}) {
+    if (!isApproved) return false;
+    if (isAdmin || isSI) return true;
+    return createdByUid == uid;
+  }
+
+  // ───────────────────────────────────────────────────────────
+  // ABNORMALITY PERMISSIONS
+  // ───────────────────────────────────────────────────────────
+
+  bool get canManageAbnormalityTypes => isApproved && isAdmin;
+
+  bool get canLogChargeAbnormality =>
+      isApproved &&
+          (isAdmin ||
+              isSI ||
+              isContractSupervisor ||
+              isShiftSupervisor ||
+              isOperations);
+
+  bool get canEditChargeAbnormality => isApproved && isAdmin;
+
+  bool get canSoftDeleteChargeAbnormality => isApproved && isAdmin;
+
+
+  // ───────────────────────────────────────────────────────────
+  // TEMPLATE GOVERNANCE PERMISSIONS
+  // ───────────────────────────────────────────────────────────
+
+  /// Template governance is intentionally narrower than ordinary template
+  /// editing. Admin/SI can create drafts, publish immutable versions, retire
+  /// versions, and manage the governance audit trail. Runtime job execution
+  /// and closed-job dossier flows remain separately governed.
+  bool get canManageTemplateGovernance => isApproved && (isAdmin || isSI);
+
+  bool get canPublishTemplateVersion => canManageTemplateGovernance;
+  bool get canRetireTemplateVersion => canManageTemplateGovernance;
+
+  // ───────────────────────────────────────────────────────────
+  // PLANNED-MAINTENANCE JOB COMPLETION PERMISSIONS
+  // ───────────────────────────────────────────────────────────
+
+  /// Final planned-job closure is a supervisory authority event.
+  /// The module closure gate decides whether the dossier is ready; this
+  /// predicate decides whether the actor may perform the final closure action.
+  bool get canCompleteJobExecution => isModuleLifecycleSupervisor;
+
+  // ───────────────────────────────────────────────────────────
+  // SERIALIZATION
+  // ───────────────────────────────────────────────────────────
+
+  factory AppUser.fromFirestore(Map<String, dynamic> data, String uid) {
+    return AppUser(
+      uid: uid,
+      name: _cleanText(data['name']),
+      email: _cleanText(data['email']),
+      photoUrl: _cleanOptionalText(data['photoUrl']),
+      roles: _parseRoles(data['roles']),
+      isApproved: data['isApproved'] == true,
+      fcmToken: _cleanOptionalText(data['fcmToken']),
+      createdAt: _parseDateTime(data['createdAt']),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'name': name.trim(),
+      'email': email.trim(),
+      'photoUrl': photoUrl?.trim().isEmpty == true ? null : photoUrl,
+      'roles': roles.map((r) => r.name).toList(),
+      'isApproved': isApproved,
+      'fcmToken': fcmToken,
+      'createdAt': createdAt,
+    };
+  }
+
+  AppUser copyWith({
+    String? name,
+    String? email,
+    String? photoUrl,
+    List<AppRole>? roles,
+    bool? isApproved,
+    String? fcmToken,
+    DateTime? createdAt,
+  }) {
+    return AppUser(
+      uid: uid,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      photoUrl: photoUrl ?? this.photoUrl,
+      roles: roles ?? this.roles,
+      isApproved: isApproved ?? this.isApproved,
+      fcmToken: fcmToken ?? this.fcmToken,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+}

@@ -1,0 +1,182 @@
+import {onCall, HttpsError, CallableRequest} from "firebase-functions/v2/https";
+import {
+  onDocumentCreated,
+  onDocumentUpdated,
+} from "firebase-functions/v2/firestore";
+import * as logger from "firebase-functions/logger";
+import * as admin from "firebase-admin";
+import {
+  ClosureValidationError,
+  completePlannedJobWithDb,
+} from "./plannedJobClosure";
+import type {FirestoreLike, JsonMap} from "./plannedJobClosure";
+import {
+  buildJobAssignedNotification,
+  buildTicketCreatedNotification,
+  buildTicketResolvedNotification,
+  getTokenLookupForUser,
+  getTokenLookupsForRoles,
+  sendNotification,
+} from "./notifications";
+import type {
+  FirestoreLike as NotifFirestoreLike,
+  MessagingLike,
+} from "./notifications";
+
+admin.initializeApp();
+
+const NOTIFICATION_REGION = "asia-south1";
+const CALLABLE_REGION = "asia-south1";
+
+// ─── Callable: planned-job closure ───────────────────────────────────────────
+
+interface CompletePlannedJobRequest {
+  executionId?: unknown;
+  completedByUid?: unknown;
+  remarks?: unknown;
+  teamsInvolved?: unknown;
+  responsesJson?: unknown;
+  actionsJson?: unknown;
+  responses?: unknown;
+  actions?: unknown;
+  expectedCompletionVersion?: unknown;
+}
+
+export const completePlannedJobExecution = onCall(
+  {
+    region: CALLABLE_REGION,
+    timeoutSeconds: 60,
+    memory: "512MiB",
+    concurrency: 20,
+  },
+  async (request: CallableRequest<CompletePlannedJobRequest>) => {
+    try {
+      return await completePlannedJobWithDb({
+        db: admin.firestore() as unknown as FirestoreLike,
+        authUid: request.auth?.uid ?? null,
+        data: (request.data ?? {}) as JsonMap,
+        timestampFromDate: (date) => admin.firestore.Timestamp.fromDate(date),
+      });
+    } catch (error) {
+      if (error instanceof ClosureValidationError) {
+        throw new HttpsError(error.code, error.message, error.details);
+      }
+      logger.error("completePlannedJobExecution failed", error);
+      throw new HttpsError(
+        "internal",
+        "Server-side planned-job completion failed.",
+      );
+    }
+  },
+);
+
+// ─── Notification triggers ───────────────────────────────────────────────────
+
+function firestoreAdapter(): NotifFirestoreLike {
+  // firebase-admin Firestore satisfies our minimal interface at runtime.
+  return admin.firestore() as unknown as NotifFirestoreLike;
+}
+
+function messagingAdapter(): MessagingLike {
+  // firebase-admin Messaging satisfies sendEach at runtime.
+  return admin.messaging() as unknown as MessagingLike;
+}
+
+function logOutcome(
+  fn: string,
+  outcome: {
+    attempted: number;
+    succeeded: number;
+    failed: number;
+    staleTokensCleared: number;
+    unknownAgencies: ReadonlyArray<string>;
+  },
+): void {
+  logger.info(`${fn} delivered`, outcome);
+  if (outcome.unknownAgencies.length > 0) {
+    logger.warn(`${fn} encountered unknown agencies`, {
+      unknownAgencies: outcome.unknownAgencies,
+    });
+  }
+}
+
+export const onTicketCreated = onDocumentCreated(
+  {
+    document: "maintenance_records/{ticketId}",
+    region: NOTIFICATION_REGION,
+  },
+  async (event) => {
+    const ticket = event.data?.data();
+    if (ticket == null) return;
+    const plan = buildTicketCreatedNotification(ticket);
+    const db = firestoreAdapter();
+    const recipients = await getTokenLookupsForRoles(db, plan.roles);
+    const outcome = await sendNotification({
+      db,
+      messaging: messagingAdapter(),
+      recipients,
+      title: plan.title,
+      body: plan.body,
+    });
+    logOutcome("onTicketCreated", outcome);
+  },
+);
+
+export const onTicketResolved = onDocumentUpdated(
+  {
+    document: "maintenance_records/{ticketId}",
+    region: NOTIFICATION_REGION,
+  },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (before == null || after == null) return;
+    if (before.isResolved === after.isResolved) return;
+    if (after.isResolved !== true) return;
+
+    const plan = buildTicketResolvedNotification(after);
+    const db = firestoreAdapter();
+
+    const roleRecipients = await getTokenLookupsForRoles(db, plan.roles);
+    const recipients = [...roleRecipients];
+    if (plan.loggedByUid != null) {
+      const loggedByLookup = await getTokenLookupForUser(db, plan.loggedByUid);
+      if (loggedByLookup != null) recipients.push(loggedByLookup);
+    }
+
+    const outcome = await sendNotification({
+      db,
+      messaging: messagingAdapter(),
+      recipients,
+      title: plan.title,
+      body: plan.body,
+    });
+    logOutcome("onTicketResolved", outcome);
+  },
+);
+
+export const onJobAssigned = onDocumentCreated(
+  {
+    document: "job_executions/{executionId}",
+    region: NOTIFICATION_REGION,
+  },
+  async (event) => {
+    const execution = event.data?.data();
+    if (execution == null) return;
+
+    const plan = buildJobAssignedNotification(execution);
+    if (plan == null) return; // No agencies — nothing to do.
+
+    const db = firestoreAdapter();
+    const recipients = await getTokenLookupsForRoles(db, plan.roles);
+    const outcome = await sendNotification({
+      db,
+      messaging: messagingAdapter(),
+      recipients,
+      title: plan.title,
+      body: plan.body,
+      unknownAgencies: plan.unknownAgencies,
+    });
+    logOutcome("onJobAssigned", outcome);
+  },
+);

@@ -1,0 +1,783 @@
+// FILE: lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart
+
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+
+import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../audit/models/audit_event_model.dart';
+import '../../auth/data/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../maintenance/data/maintenance_model.dart';
+import '../data/baf_module_catalogue_seed.dart';
+import '../data/job_diary_model.dart';
+import '../data/job_module_model.dart';
+import '../data/job_template_model.dart';
+import '../data/template_governance_model.dart';
+import '../domain/published_runtime_module_catalogue.dart';
+import '../domain/runtime_module_lineage.dart';
+import '../models/component_action_model.dart';
+import '../providers/job_diary_provider.dart';
+import '../providers/job_module_provider.dart';
+import '../providers/planned_maintenance_provider.dart';
+import '../providers/template_governance_provider.dart';
+import 'complete_job_screen.dart';
+import 'job_module_detail_screen.dart';
+import 'widgets/job_module_card.dart';
+import 'widgets/job_module_response_summary.dart';
+
+part 'dossier/planned_job_detail_common.dart';
+part 'dossier/planned_job_diary_dossier.dart';
+part 'dossier/planned_job_module_dossier.dart';
+
+/// Read-only planned-maintenance job dossier for the current legacy execution
+/// model.
+///
+/// This is intentionally additive. It does not change JobExecution,
+/// JobTemplate, sync, repositories, or completion behavior. The screen acts as
+/// the first "legacy single-module dossier" foundation for the future
+/// module/diary/workspace architecture.
+class PlannedJobDetailScreen extends ConsumerStatefulWidget {
+  final JobExecution execution;
+
+  /// Optional when the caller already has the template, such as from
+  /// JobHistoryScreen. If omitted, the screen attempts to load the template by
+  /// execution.templateFirestoreId.
+  final JobTemplate? template;
+
+  const PlannedJobDetailScreen({
+    super.key,
+    required this.execution,
+    this.template,
+  });
+
+  @override
+  ConsumerState<PlannedJobDetailScreen> createState() =>
+      _PlannedJobDetailScreenState();
+}
+
+class _PlannedJobDetailScreenState
+    extends ConsumerState<PlannedJobDetailScreen> {
+  JobTemplate? _template;
+  bool _isLoadingTemplate = true;
+  String? _templateLoadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _template = widget.template;
+    if (_template != null) {
+      _isLoadingTemplate = false;
+    } else {
+      _loadTemplate();
+    }
+  }
+
+  Future<void> _loadTemplate() async {
+    if (widget.execution.isGovernedTemplateAssignment) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingTemplate = false;
+        _templateLoadError = null;
+      });
+      return;
+    }
+
+    final templateFirestoreId = widget.execution.templateFirestoreId.trim();
+    if (templateFirestoreId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingTemplate = false;
+        _templateLoadError = 'Template reference missing on this job.';
+      });
+      return;
+    }
+
+    try {
+      final template = await ref
+          .read(plannedRepositoryProvider)
+          .getTemplateByFirestoreId(templateFirestoreId);
+      if (!mounted) return;
+      setState(() {
+        _template = template;
+        _isLoadingTemplate = false;
+        _templateLoadError = template == null ? 'Template not found.' : null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingTemplate = false;
+        _templateLoadError = 'Could not load template: $e';
+      });
+    }
+  }
+
+  Future<void> _openCompletionScreen() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CompleteJobScreen(execution: widget.execution),
+      ),
+    );
+  }
+
+  Future<void> _openAddDiaryEntrySheet() async {
+    AppUser? actor;
+    try {
+      actor = await ref.read(currentAppUserProvider.future);
+    } catch (_) {
+      actor = null;
+    }
+
+    if (!mounted) return;
+
+    if (actor == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not identify the signed-in user.')),
+      );
+      return;
+    }
+
+    if (!actor.canCreateJobDiaryEntry) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'You are not authorized to create planned-job diary entries.',
+          ),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
+
+    final draft = await showModalBottomSheet<_DiaryEntryDraft>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: BafColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(BafRadius.large),
+        ),
+      ),
+      builder: (sheetContext) {
+        return _AddDiaryEntrySheet(
+          initialDiscipline: _disciplineForUser(actor!),
+        );
+      },
+    );
+
+    if (!mounted || draft == null) return;
+
+    final execution = widget.execution;
+    final now = DateTime.now();
+    final entry =
+        JobDiaryEntry()
+          ..jobExecutionFirestoreId = _cleanOptionalString(
+            execution.firestoreId,
+          )
+          ..jobExecutionLocalId = kIsWeb ? null : execution.id
+          ..assetType = execution.assetType
+          ..assetNumber = execution.assetNumber
+          ..chargeNoAtEvent = execution.chargeNoAtEvent
+          ..templateFirestoreId = _cleanOptionalString(
+            execution.templateFirestoreId,
+          )
+          ..templateName = _cleanOptionalString(
+            execution.templateName ?? _template?.jobName,
+          )
+          ..kind = draft.kind
+          ..discipline = draft.discipline
+          ..severity = draft.severity
+          ..isBlocker = draft.kind == JobDiaryKind.blocker
+          ..isHandover = draft.kind == JobDiaryKind.handover
+          ..blockerStatus =
+              draft.kind == JobDiaryKind.blocker ? JobBlockerStatus.open : null
+          ..functionalSection = draft.functionalSection
+          ..componentGroup = draft.componentGroup
+          ..targetRef = draft.targetRef
+          ..procedureRef = draft.procedureRef
+          ..title = draft.title
+          ..note = draft.note
+          ..actionTaken = draft.actionTaken
+          ..pendingIssue = draft.pendingIssue
+          ..requiresFollowUp = draft.requiresFollowUp
+          ..createdByUid = actor.uid
+          ..createdByName = actor.name
+          ..createdAt = now
+          ..updatedByUid = actor.uid
+          ..updatedByName = actor.name
+          ..updatedAt = now;
+
+    try {
+      await ref
+          .read(jobDiaryRepositoryProvider)
+          .saveEntry(
+            entry,
+            actor: actor,
+            auditContext: AuditContext(
+              performedByUid: actor.uid,
+              performedByName: actor.name,
+              summary: 'Added planned-maintenance diary entry',
+            ),
+          );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Diary entry saved'),
+          backgroundColor: BafColors.sync,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not save diary entry: $e'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openModuleWorkspace(JobModuleInstance module) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => JobModuleDetailScreen(
+              execution: widget.execution,
+              module: module,
+            ),
+      ),
+    );
+  }
+
+  Future<_PublishedRuntimeCatalogueLoad> _loadPublishedRuntimeCatalogue({
+    required JobExecution execution,
+    required List<JobModuleInstance> currentModules,
+  }) async {
+    if (!execution.isGovernedTemplateAssignment) {
+      return const _PublishedRuntimeCatalogueLoad(candidates: []);
+    }
+
+    final versionId = _cleanOptionalString(execution.templateVersionId);
+    if (versionId == null) {
+      return const _PublishedRuntimeCatalogueLoad(
+        candidates: [],
+        errorMessage:
+            'Published TemplateVersion reference is missing on this job.',
+      );
+    }
+
+    try {
+      final governanceRepo = ref.read(templateGovernanceRepositoryProvider);
+      final version = await governanceRepo.getVersionByFirestoreId(versionId);
+      if (version == null) {
+        return _PublishedRuntimeCatalogueLoad(
+          candidates: const [],
+          errorMessage:
+              'Published TemplateVersion $versionId was not found locally.',
+        );
+      }
+
+      TemplatePackage? package;
+      final packageId =
+          _cleanOptionalString(version.packageFirestoreId) ??
+          _cleanOptionalString(execution.templatePackageId);
+      if (packageId != null) {
+        package = await governanceRepo.getPackageByFirestoreId(packageId);
+      }
+
+      final candidates = publishedRuntimeModuleCandidatesFromVersion(
+        version: version,
+        package: package,
+        assetType: execution.assetType,
+        existingModuleCodes:
+            currentModules
+                .map((module) => module.moduleCode?.trim())
+                .whereType<String>()
+                .where((code) => code.isNotEmpty)
+                .toSet(),
+        existingTemplateModuleIds:
+            currentModules
+                .map((module) => module.templateModuleId?.trim() ?? '')
+                .where((id) => id.isNotEmpty)
+                .toSet(),
+      );
+
+      return _PublishedRuntimeCatalogueLoad(candidates: candidates);
+    } catch (error) {
+      return _PublishedRuntimeCatalogueLoad(
+        candidates: const [],
+        errorMessage: 'Could not load published runtime-add catalogue: $error',
+      );
+    }
+  }
+
+  Future<void> _openAddJobModuleSheet(
+    List<JobModuleInstance> currentModules,
+  ) async {
+    AppUser? actor;
+    try {
+      actor = await ref.read(currentAppUserProvider.future);
+    } catch (_) {
+      actor = null;
+    }
+
+    if (!mounted) return;
+
+    if (actor == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not identify the signed-in user.')),
+      );
+      return;
+    }
+
+    if (!actor.canAddJobModuleDuringExecution) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Not authorized to add process modules to this job.'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
+
+    final execution = widget.execution;
+    final publishedCatalogue = await _loadPublishedRuntimeCatalogue(
+      execution: execution,
+      currentModules: currentModules,
+    );
+
+    if (!mounted) return;
+
+    JobModuleInstance? module;
+    String? auditSummary;
+    String? snackText;
+
+    if (publishedCatalogue.candidates.isNotEmpty) {
+      final publishedDraft =
+          await showModalBottomSheet<_PublishedRuntimeModuleDraft>(
+            context: context,
+            isScrollControlled: true,
+            useSafeArea: true,
+            backgroundColor: BafColors.card,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(BafRadius.large),
+              ),
+            ),
+            builder: (sheetContext) {
+              return _AddPublishedRuntimeModuleSheet(
+                candidates: publishedCatalogue.candidates,
+                actor: actor!,
+              );
+            },
+          );
+
+      if (!mounted || publishedDraft == null) return;
+
+      if (!publishedDraft.useEmergencyManualFallback) {
+        final candidate = publishedDraft.candidate;
+        if (candidate == null) return;
+        final now = DateTime.now();
+        module = candidate.toJobModuleInstance(
+          execution: execution,
+          actor: actor,
+          now: now,
+          addReason: publishedDraft.addReason,
+          displayOrderOverride: now.millisecondsSinceEpoch,
+        );
+        if (kIsWeb) module.jobExecutionLocalId = null;
+        auditSummary =
+            'Added published governed runtime module ${candidate.moduleCode}';
+        snackText = 'Added published governed module ${candidate.moduleCode}';
+      }
+    } else if (publishedCatalogue.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(publishedCatalogue.errorMessage!),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+    }
+
+    if (module == null) {
+      final draft = await showModalBottomSheet<_JobModuleDraft>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: BafColors.card,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(BafRadius.large),
+          ),
+        ),
+        builder: (sheetContext) {
+          return _AddJobModuleSheet(
+            assetType: execution.assetType,
+            initialDiscipline: _moduleDisciplineForUser(actor!),
+            actor: actor,
+            isGovernedTemplateAssignment:
+                execution.isGovernedTemplateAssignment,
+          );
+        },
+      );
+
+      if (!mounted || draft == null) return;
+
+      final now = DateTime.now();
+      module = draft.seed.toJobModuleInstance(
+        parentAssetType: execution.assetType,
+        parentAssetNumber: execution.assetNumber,
+        discipline: draft.discipline,
+        useMode: draft.useMode,
+        requiredForClosure: draft.requiredForClosure,
+        addedDuringExecution: true,
+        actorUid: actor.uid,
+        actorName: actor.name,
+        now: now,
+        jobExecutionFirestoreId: _cleanOptionalString(execution.firestoreId),
+        jobExecutionLocalId: kIsWeb ? null : execution.id,
+        chargeNoAtEvent: execution.chargeNoAtEvent,
+        templateFirestoreId: _cleanOptionalString(
+          execution.templateFirestoreId,
+        ),
+        templateName: _cleanOptionalString(
+          execution.templateName ?? _template?.jobName,
+        ),
+        addReason: draft.addReason,
+        displayOrder: now.millisecondsSinceEpoch,
+      );
+      auditSummary =
+          'Added Emergency/manual seed process module ${draft.seed.moduleCode}';
+      snackText = 'Added Emergency/manual seed module ${draft.seed.moduleCode}';
+    }
+
+    final moduleToSave = module;
+    final summaryToAudit = auditSummary ?? 'Added process module';
+    final messageToShow = snackText ?? 'Added process module';
+
+    try {
+      await ref
+          .read(jobModuleRepositoryProvider)
+          .saveModule(
+            moduleToSave,
+            actor: actor,
+            auditContext: AuditContext(
+              performedByUid: actor.uid,
+              performedByName: actor.name,
+              summary: summaryToAudit,
+            ),
+          );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(messageToShow), backgroundColor: BafColors.sync),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not add process module: $e'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final execution = widget.execution;
+    final statusColor =
+        execution.isCompleted ? BafColors.sync : BafColors.warning;
+    final diaryAsync = ref.watch(
+      jobDiaryEntriesProvider(
+        JobDiaryQueryKey(
+          jobExecutionFirestoreId: _cleanOptionalString(execution.firestoreId),
+          jobExecutionLocalId: kIsWeb ? null : execution.id,
+          limit: 50,
+        ),
+      ),
+    );
+    final modulesAsync = ref.watch(
+      jobModulesProvider(
+        JobModuleQueryKey(
+          jobExecutionFirestoreId: _cleanOptionalString(execution.firestoreId),
+          jobExecutionLocalId: kIsWeb ? null : execution.id,
+          limit: 100,
+        ),
+      ),
+    );
+
+    return Scaffold(
+      backgroundColor: BafColors.background,
+      appBar: AppBar(
+        title: const Text(
+          'Planned Job Detail',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        backgroundColor: BafColors.card,
+        foregroundColor: BafColors.textPrimary,
+        elevation: 0,
+        surfaceTintColor: BafColors.card,
+      ),
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+          BafSpacing.lg,
+          BafSpacing.md,
+          BafSpacing.lg,
+          execution.isCompleted ? BafSpacing.xl : 112,
+        ),
+        children: [
+          _DossierHeaderCard(
+            execution: execution,
+            template: _template,
+            statusColor: statusColor,
+          ),
+          if (execution.isCompleted) ...[
+            const SizedBox(height: BafSpacing.lg),
+            _ClosedDossierStatusCard(execution: execution),
+          ],
+          const SizedBox(height: BafSpacing.lg),
+          _SectionCard(
+            title: 'Job context',
+            subtitle: 'Assignment, asset, charge, teams and sync context.',
+            icon: Icons.assignment_rounded,
+            children: [
+              _InfoRow(
+                label: 'Asset',
+                value:
+                    '${_assetTypeLabel(execution.assetType)} ${execution.assetNumber}',
+              ),
+              _InfoRow(
+                label: 'Template',
+                value: _cleanDisplay(
+                  execution.templateName ?? _template?.jobName,
+                  fallback: 'Unnamed planned job',
+                ),
+              ),
+              if (execution.isGovernedTemplateAssignment) ...[
+                _InfoRow(
+                  label: 'Governed version',
+                  value: _governedTemplateVersionLabel(execution),
+                ),
+                if (_hasText(execution.templateContentHash))
+                  _InfoRow(
+                    label: 'Content hash',
+                    value: execution.templateContentHash!.trim(),
+                  ),
+              ],
+              if (_template != null) ...[
+                _InfoRow(
+                  label: 'Template scope',
+                  value: _templateScopeLabel(_template!),
+                ),
+                _ChipInfoRow(
+                  label: 'Assigned agencies',
+                  values: _template!.assignedAgencies,
+                  colorFor: _agencyColor,
+                  emptyText: 'No agency scope recorded',
+                ),
+              ] else if (_templateLoadError != null) ...[
+                _WarningBox(text: _templateLoadError!),
+              ] else if (_isLoadingTemplate) ...[
+                const _InlineLoadingRow(label: 'Template'),
+              ],
+              _InfoRow(
+                label: 'Status',
+                value: execution.isCompleted ? 'Completed' : 'Open / Pending',
+              ),
+              _InfoRow(
+                label: 'Assigned on',
+                value: _formatDateTime(execution.createdAt),
+              ),
+              if (_hasText(execution.assignedByName))
+                _InfoRow(
+                  label: 'Assigned by',
+                  value: execution.assignedByName!.trim(),
+                ),
+              if (execution.chargeNoAtEvent != null)
+                _InfoRow(
+                  label: 'Charge no.',
+                  value: execution.chargeNoAtEvent.toString(),
+                ),
+              if (execution.isCompleted && execution.completedAt != null)
+                _InfoRow(
+                  label: 'Completed on',
+                  value: _formatDateTime(execution.completedAt!),
+                ),
+              if (_hasText(execution.completedByName))
+                _InfoRow(
+                  label: 'Completed by',
+                  value: execution.completedByName!.trim(),
+                ),
+              _ChipInfoRow(
+                label: 'Teams involved',
+                values: execution.teamsInvolved,
+                colorFor: _agencyColor,
+                emptyText:
+                    execution.isCompleted
+                        ? 'No teams recorded'
+                        : 'Not submitted yet',
+              ),
+              _InfoRow(
+                label: 'Last updated',
+                value: _formatDateTime(execution.updatedAt),
+              ),
+              _InfoRow(
+                label: 'Sync state',
+                value:
+                    execution.isSynced || kIsWeb
+                        ? 'Remote-backed / synced'
+                        : 'Saved locally · pending sync',
+              ),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.lg),
+          _SectionCard(
+            title: 'Legacy module summary',
+            subtitle:
+                'Current jobs are shown as one legacy execution module until module instances are introduced.',
+            icon: Icons.view_module_rounded,
+            children: [
+              _LegacyModuleCard(execution: execution, template: _template),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.lg),
+          _SectionCard(
+            title:
+                execution.isCompleted
+                    ? 'Closed process modules'
+                    : 'Process modules',
+            subtitle:
+                execution.isCompleted
+                    ? 'Read-only module evidence, lifecycle decisions and structured responses captured before closure.'
+                    : 'Published governed runtime-add catalogue first, with Emergency/manual seed catalogue fallback.',
+            icon: Icons.account_tree_rounded,
+            children: [
+              _ProcessModuleDossier(
+                modulesAsync: modulesAsync,
+                isOpenJob: !execution.isCompleted,
+                onAddModule: _openAddJobModuleSheet,
+                onOpenModule: _openModuleWorkspace,
+              ),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.lg),
+          _SectionCard(
+            title:
+                execution.isCompleted
+                    ? 'Closed diary / handover'
+                    : 'Live diary / handover',
+            subtitle:
+                execution.isCompleted
+                    ? 'Read-only running notes, blockers and handovers preserved with the closed dossier.'
+                    : 'Running notes, blockers and shift handovers attached to this planned job.',
+            icon: Icons.forum_rounded,
+            children: [
+              _DiaryDossier(
+                entriesAsync: diaryAsync,
+                isOpenJob: !execution.isCompleted,
+                onAddEntry: _openAddDiaryEntrySheet,
+              ),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.lg),
+          _SectionCard(
+            title:
+                execution.isCompleted
+                    ? 'Closed checklist responses'
+                    : 'Checklist responses',
+            subtitle:
+                execution.isCompleted
+                    ? 'Final legacy checklist responses preserved as the submitted job evidence.'
+                    : 'Template fields and submitted responses for this job.',
+            icon: Icons.fact_check_rounded,
+            children: [
+              _ChecklistDossier(
+                template: _template,
+                responses: execution.responses,
+                isLoadingTemplate: _isLoadingTemplate,
+              ),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.lg),
+          _SectionCard(
+            title:
+                execution.isCompleted
+                    ? 'Closed actions / observations'
+                    : 'Actions / observations',
+            subtitle:
+                execution.isCompleted
+                    ? 'Final component-level observations, replacements and work notes captured at closure.'
+                    : 'Component-level observations and work recorded at completion.',
+            icon: Icons.build_circle_rounded,
+            children: [
+              if (execution.actions.isEmpty)
+                const _EmptyInlineState(
+                  icon: Icons.add_task_rounded,
+                  text: 'No component actions or observations were recorded.',
+                  color: BafColors.planned,
+                )
+              else
+                ...execution.actions.map(_ActionDossierCard.new),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.lg),
+          _SectionCard(
+            title:
+                execution.isCompleted
+                    ? 'Final remarks and raw dossier notes'
+                    : 'Remarks and raw dossier notes',
+            subtitle:
+                execution.isCompleted
+                    ? 'Final completion remarks and raw metadata preserved with the closed job dossier.'
+                    : 'Current legacy remarks are preserved here until assignment notes, diary and final remarks are split.',
+            icon: Icons.notes_rounded,
+            children: [
+              if (_hasText(execution.remarks))
+                _RemarksBox(text: execution.remarks!.trim())
+              else
+                const _EmptyInlineState(
+                  icon: Icons.notes_rounded,
+                  text: 'No remarks recorded.',
+                  color: BafColors.admin,
+                ),
+              if (_hasText(execution.metadataJson)) ...[
+                const SizedBox(height: BafSpacing.md),
+                _MetadataBox(metadataJson: execution.metadataJson!),
+              ],
+            ],
+          ),
+        ],
+      ),
+      bottomNavigationBar:
+          execution.isCompleted
+              ? null
+              : _OpenJobBottomBar(
+                onAddEntry: _openAddDiaryEntrySheet,
+                onComplete: _openCompletionScreen,
+              ),
+    );
+  }
+}
+
+String _governedTemplateVersionLabel(JobExecution execution) {
+  final versionNumber = execution.templateVersionNumber;
+  final label = _cleanDisplay(execution.templateVersionLabel, fallback: '');
+  final packageCode = _cleanDisplay(
+    execution.templatePackageCode,
+    fallback: 'Governed catalogue',
+  );
+  final versionText =
+      versionNumber == null ? 'published version' : 'v$versionNumber';
+  return label.isEmpty
+      ? '$packageCode · $versionText'
+      : '$packageCode · $versionText · $label';
+}

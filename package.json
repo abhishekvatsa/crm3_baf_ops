@@ -1,0 +1,22 @@
+{
+  "name": "crm3_baf_ops",
+  "version": "1.0.0",
+  "description": "CRM-III BAF App",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+  "test:rules": "jest --runInBand",
+  "emulator:test:rules": "firebase emulators:exec --only firestore \"npm run test:rules\""
+},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "firebase": "^12.13.0",
+    "jest": "^30.4.2"
+  }
+}
