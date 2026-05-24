@@ -28,48 +28,88 @@ void main() {
 
   group('67C.1 admin_data_browser', () {
     late String src;
+    late String sharedSrc;
+    late String deleteDialogSrc;
+    late String ticketSrc;
+    late String directiveSrc;
+    late String directiveDialogSrc;
+    late String templateSrc;
+    late String executionSrc;
+    late String abnormalityAdminSrc;
     setUpAll(() {
       src = _read('lib/features/admin/presentation/admin_data_browser.dart');
+      sharedSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_data_browser_shared.dart',
+      );
+      deleteDialogSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_delete_reason_dialog.dart',
+      );
+      ticketSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
+      );
+      directiveSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart',
+      );
+      directiveDialogSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
+      );
+      templateSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart',
+      );
+      executionSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_executions_browser.dart',
+      );
+      abnormalityAdminSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_abnormalities_tab.dart',
+      );
     });
 
-    test('uses dialog-owned _AdminDeleteReasonDialog for all soft-deletes', () {
+    test('uses dialog-owned AdminDeleteReasonDialog for all soft-deletes', () {
       expect(
-        src,
-        contains('class _AdminDeleteReasonDialog extends StatefulWidget'),
+        deleteDialogSrc,
+        contains('class AdminDeleteReasonDialog extends StatefulWidget'),
       );
-      expect(src, contains('class _AdminDeleteDecision'));
-      expect(src, contains('showDialog<_AdminDeleteDecision>'));
+      expect(deleteDialogSrc, contains('class AdminDeleteDecision'));
+      expect(ticketSrc, contains('showDialog<AdminDeleteDecision>'));
+      expect(directiveSrc, contains('showDialog<AdminDeleteDecision>'));
+      expect(templateSrc, contains('showDialog<AdminDeleteDecision>'));
+      expect(executionSrc, contains('showDialog<AdminDeleteDecision>'));
     });
 
     test('uses dialog-owned controllers for ticket edit', () {
       expect(
-        src,
+        ticketSrc,
         contains('class _AdminEditTicketDialog extends StatefulWidget'),
       );
-      expect(src, contains('showDialog<MaintenanceRecord>'));
+      expect(ticketSrc, contains('showDialog<MaintenanceRecord>'));
     });
 
     test('uses dialog-owned controllers for directive edit', () {
       expect(
-        src,
-        contains('class _AdminEditDirectiveDialog extends StatefulWidget'),
+        directiveDialogSrc,
+        contains('class AdminEditDirectiveDialog extends StatefulWidget'),
       );
-      expect(src, contains('showDialog<OperationalDirective>'));
+      expect(directiveSrc, contains('showDialog<OperationalDirective>'));
     });
 
-    test('_showAdminDataSnack helper is defined with maybeOf', () {
-      expect(src, contains('void _showAdminDataSnack('));
+    test('showAdminDataSnack helper is defined with maybeOf', () {
+      expect(sharedSrc, contains('void showAdminDataSnack('));
       expect(
-        src,
+        sharedSrc,
         contains('final messenger = ScaffoldMessenger.maybeOf(context);'),
       );
     });
 
     test(
-      '_showAdminDataSnack is used everywhere – zero raw ScaffoldMessenger.of calls',
+      'showAdminDataSnack is used everywhere – zero raw ScaffoldMessenger.of calls',
       () {
         // The helper must be the ONLY way snackbars are shown; no raw .of() left.
         expect(src, isNot(contains('ScaffoldMessenger.of(')));
+        expect(ticketSrc, isNot(contains('ScaffoldMessenger.of(')));
+        expect(directiveSrc, isNot(contains('ScaffoldMessenger.of(')));
+        expect(templateSrc, isNot(contains('ScaffoldMessenger.of(')));
+        expect(executionSrc, isNot(contains('ScaffoldMessenger.of(')));
+        expect(abnormalityAdminSrc, isNot(contains('ScaffoldMessenger.of(')));
       },
     );
 
@@ -84,6 +124,10 @@ void main() {
       );
       expect(src, isNot(contains('final titleCtrl = TextEditingController')));
       expect(src, isNot(contains('reasonController.dispose();')));
+      expect(
+        ticketSrc,
+        isNot(contains('final assetNumberCtrl = TextEditingController')),
+      );
     });
   });
 

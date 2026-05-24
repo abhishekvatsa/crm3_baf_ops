@@ -353,6 +353,30 @@ void main() {
         final admin = _read(
           'lib/features/admin/presentation/admin_data_browser.dart',
         );
+        final adminTickets = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
+        );
+        final adminDirectives = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart',
+        );
+        final adminTemplates = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart',
+        );
+        final adminExecutions = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_executions_browser.dart',
+        );
+        final adminAbnormalities = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_abnormalities_tab.dart',
+        );
+        final adminDirectiveDialog = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
+        );
+        final adminShared = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_data_browser_shared.dart',
+        );
+        final adminDeleteDialog = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_delete_reason_dialog.dart',
+        );
         final abnormality = _read(
           'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
         );
@@ -364,26 +388,39 @@ void main() {
         );
 
         _expectContains(
-          admin,
-          'void _showAdminDataSnack(BuildContext context, String message, {Color? color})',
+          adminShared,
+          'void showAdminDataSnack(BuildContext context, String message, {Color? color})',
         );
         _expectContains(
-          admin,
+          adminShared,
           'final messenger = ScaffoldMessenger.maybeOf(context);',
         );
         _expectNotContains(admin, 'String? _cleanOptionalText(');
-        _expectContains(admin, 'showDialog<_AdminDeleteDecision>');
+        _expectContains(adminTickets, 'showDialog<AdminDeleteDecision>');
+        _expectContains(adminDirectives, 'showDialog<AdminDeleteDecision>');
+        _expectContains(adminTemplates, 'showDialog<AdminDeleteDecision>');
+        _expectContains(adminExecutions, 'showDialog<AdminDeleteDecision>');
         _expectContains(
-          admin,
+          adminTickets,
           'class _AdminEditTicketDialog extends StatefulWidget',
         );
         _expectContains(
-          admin,
-          'class _AdminEditDirectiveDialog extends StatefulWidget',
+          adminDirectiveDialog,
+          'class AdminEditDirectiveDialog extends StatefulWidget',
+        );
+        _expectContains(adminDirectives, 'showDialog<OperationalDirective>');
+        _expectContains(
+          adminDeleteDialog,
+          'class AdminDeleteReasonDialog extends StatefulWidget',
+        );
+
+        _expectContains(
+          adminAbnormalities,
+          'class AbnormalitiesAdminTab extends StatelessWidget',
         );
         _expectContains(
-          admin,
-          'class _AdminDeleteReasonDialog extends StatefulWidget',
+          adminAbnormalities,
+          'class _AdminAbnormalityActionCard extends StatelessWidget',
         );
 
         _expectContains(
@@ -445,6 +482,12 @@ const _guardedFiles = <String>[
   'lib/features/maintenance/presentation/closed_tickets_screen.dart',
   'lib/features/directives/presentation/directives_screen.dart',
   'lib/features/admin/presentation/admin_data_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_executions_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_abnormalities_tab.dart',
   'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
   'lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart',
   'test/startup_recovery_hardening_contract_test.dart',
@@ -501,8 +544,9 @@ const _snackbarGuards = <_SnackGuard>[
     mountedGuard: 'if (!mounted)',
   ),
   _SnackGuard(
-    path: 'lib/features/admin/presentation/admin_data_browser.dart',
-    marker: 'void _showAdminDataSnack(',
+    path:
+        'lib/features/admin/presentation/admin_data_browser/admin_data_browser_shared.dart',
+    marker: 'void showAdminDataSnack(',
     mountedGuard: 'if (!context.mounted)',
   ),
   _SnackGuard(
@@ -524,6 +568,12 @@ const _recentlyHardenedDialogFiles = <String>[
   'lib/features/maintenance/presentation/closed_tickets_screen.dart',
   'lib/features/directives/presentation/directives_screen.dart',
   'lib/features/admin/presentation/admin_data_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_executions_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_abnormalities_tab.dart',
   'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
   'lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart',
 ];
