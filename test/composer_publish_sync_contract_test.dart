@@ -4,10 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('composer direct draft and publish actions request governance sync', () {
-    final source =
-        File(
-          'lib/features/planned_maintenance/presentation/module_composer_screen.dart',
-        ).readAsStringSync();
+    final source = _readModuleComposerLibrary();
 
     expect(
       source,
@@ -25,4 +22,17 @@ void main() {
     );
     expect(source, contains('runFullSync(reason: reason, force: true)'));
   });
+}
+
+String _readModuleComposerLibrary() {
+  const paths = <String>[
+    'lib/features/planned_maintenance/presentation/module_composer_screen.dart',
+    'lib/features/planned_maintenance/presentation/module_composer_screen.builders.dart',
+    'lib/features/planned_maintenance/presentation/module_composer_screen.actions.dart',
+    'lib/features/planned_maintenance/presentation/module_composer_screen.support.dart',
+    'lib/features/planned_maintenance/presentation/module_composer_screen.helpers.dart',
+    'lib/features/planned_maintenance/presentation/module_composer_widgets.dart',
+    'lib/features/planned_maintenance/presentation/module_composer_dialogs.dart',
+  ];
+  return paths.map((path) => File(path).readAsStringSync()).join('\\n');
 }

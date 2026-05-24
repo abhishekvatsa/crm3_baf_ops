@@ -7,10 +7,7 @@ void main() {
     late String source;
 
     setUpAll(() {
-      source =
-          File(
-            'lib/features/planned_maintenance/presentation/module_composer_screen.dart',
-          ).readAsStringSync();
+      source = _readModuleComposerLibrary();
     });
 
     test('seed cloud knowledge dialog owns its controller', () {
@@ -158,6 +155,19 @@ void main() {
       expect(compactPreviewBody, isNot(contains('substring(0, 2200)')));
     });
   });
+}
+
+String _readModuleComposerLibrary() {
+  const paths = <String>[
+    'lib/features/planned_maintenance/presentation/module_composer_screen.dart',
+    'lib/features/planned_maintenance/presentation/module_composer_screen.builders.dart',
+    'lib/features/planned_maintenance/presentation/module_composer_screen.actions.dart',
+    'lib/features/planned_maintenance/presentation/module_composer_screen.support.dart',
+    'lib/features/planned_maintenance/presentation/module_composer_screen.helpers.dart',
+    'lib/features/planned_maintenance/presentation/module_composer_widgets.dart',
+    'lib/features/planned_maintenance/presentation/module_composer_dialogs.dart',
+  ];
+  return paths.map((path) => File(path).readAsStringSync()).join('\\n');
 }
 
 String _functionBody(String source, String functionName) {
