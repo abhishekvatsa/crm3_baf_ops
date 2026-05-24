@@ -22,28 +22,9 @@ import 'user_management_screen.dart';
 import 'local_diagnostics_screen.dart';
 import '../../abnormalities/presentation/abnormality_types_screen.dart';
 import '../../abnormalities/presentation/abnormality_reports_screen.dart';
-
-// ============================================================================
-// LOCAL STREAM PROVIDERS (live data for each tab)
-// ============================================================================
-
-final _allTicketsProvider = StreamProvider<List<MaintenanceRecord>>((ref) {
-  return ref.watch(maintenanceRepositoryProvider).watchAllTickets();
-});
-
-final _allDirectivesProvider = StreamProvider<List<OperationalDirective>>((
-  ref,
-) {
-  return ref.watch(directiveRepositoryProvider).watchAllDirectives();
-});
-
-final _allTemplatesProvider = StreamProvider<List<JobTemplate>>((ref) {
-  return ref.watch(plannedRepositoryProvider).watchAllTemplates();
-});
-
-final _allExecutionsProvider = StreamProvider<List<JobExecution>>((ref) {
-  return ref.watch(plannedRepositoryProvider).watchAllExecutions();
-});
+import '../providers/admin_stream_providers.dart';
+import '../utils/admin_search_sort_helpers.dart';
+import '../utils/admin_ticket_helpers.dart';
 
 // ============================================================================
 // MAIN ADMIN DATA BROWSER (Tab Bar)
@@ -510,15 +491,6 @@ class UsersTab extends StatelessWidget {
 // TICKETS BROWSER (with search, edit, delete, and timeline invalidation)
 // ============================================================================
 
-String? _cleanAdminOptionalText(String value) {
-  final trimmed = value.trim();
-  return trimmed.isEmpty ? null : trimmed;
-}
-
-String? _cleanAdminTagText(String value) {
-  return _cleanAdminOptionalText(value)?.toUpperCase();
-}
-
 Color _adminTicketStatusColor(TicketStatus status) {
   switch (status) {
     case TicketStatus.open:
@@ -530,101 +502,6 @@ Color _adminTicketStatusColor(TicketStatus status) {
     case TicketStatus.resolved:
       return BafColors.success;
   }
-}
-
-MaintenanceRecord _copyTicketForAdminEdit({
-  required MaintenanceRecord source,
-  required AssetType assetType,
-  required int assetNumber,
-  required String description,
-  required RoutedTo routedTo,
-  required MaintenanceType maintenanceType,
-  required TicketStatus status,
-  required String? component,
-  required String? tag,
-  required String? remarks,
-  required String editedByUid,
-  required String editedByName,
-}) {
-  final now = DateTime.now();
-  final wasResolved =
-      source.isResolved || source.status == TicketStatus.resolved;
-  final willBeResolved = status == TicketStatus.resolved;
-  final resolvedAt = source.endDate ?? now;
-  final downtimeHours =
-      source.downtimeHours ??
-      resolvedAt.difference(source.startDate).inMinutes / 60.0;
-
-  final edited =
-      MaintenanceRecord()
-        ..id = source.id
-        ..firestoreId = source.firestoreId
-        ..version = source.version
-        ..isSynced = source.isSynced
-        ..isDeleted = source.isDeleted
-        ..deletedAt = source.deletedAt
-        ..deletedByUid = source.deletedByUid
-        ..deletedByName = source.deletedByName
-        ..deleteReason = source.deleteReason
-        ..assetType = assetType
-        ..assetNumber = assetNumber
-        ..component = component
-        ..subsystem = source.subsystem
-        ..tag = tag
-        ..hierarchyPath =
-            source.hierarchyPath == null
-                ? null
-                : List<String>.from(source.hierarchyPath!)
-        ..maintenanceType = maintenanceType
-        ..classification = source.classification
-        ..description = description
-        ..routedTo = routedTo
-        ..otherDepartment = source.otherDepartment
-        ..status = status
-        ..isResolved = willBeResolved
-        ..loggedByUid = source.loggedByUid
-        ..loggedByName = source.loggedByName
-        ..reportedBy = source.reportedBy
-        ..acknowledgedByUid = source.acknowledgedByUid
-        ..acknowledgedByName = source.acknowledgedByName
-        ..acknowledgedAt = source.acknowledgedAt
-        ..closedByUid =
-            willBeResolved ? (source.closedByUid ?? editedByUid) : null
-        ..closedByName =
-            willBeResolved ? (source.closedByName ?? editedByName) : null
-        ..teamsInvolved =
-            willBeResolved
-                ? List<String>.from(source.teamsInvolved)
-                : <String>[]
-        ..performedBy = source.performedBy
-        ..remarks = remarks
-        ..startDate = source.startDate
-        ..endDate = willBeResolved ? resolvedAt : null
-        ..downtimeHours = willBeResolved ? downtimeHours : null
-        ..chargeNoAtEvent = source.chargeNoAtEvent
-        ..createdAt = source.createdAt
-        ..updatedAt = now
-        ..metadataJson = source.metadataJson
-        ..actionsJson = willBeResolved ? source.actionsJson : '[]'
-        ..resolutionHistoryJson = source.resolutionHistoryJson;
-
-  if (wasResolved && !willBeResolved) {
-    final history = source.resolutionHistory;
-    history.add(
-      ResolutionHistory(
-        resolvedByUid: source.closedByUid,
-        resolvedByName: source.closedByName,
-        resolvedAt: source.endDate,
-        actionsJson: source.actionsJson,
-        remarks: source.remarks,
-        downtimeHours: source.downtimeHours,
-        teamsInvolved: List<String>.from(source.teamsInvolved),
-      ),
-    );
-    edited.resolutionHistory = history;
-  }
-
-  return edited;
 }
 
 class _AdminDeleteDecision {
@@ -715,7 +592,7 @@ class _AdminDeleteReasonDialogState extends State<_AdminDeleteReasonDialog> {
                 context,
                 _AdminDeleteDecision(
                   reason: _selectedReason,
-                  notes: _cleanAdminOptionalText(_notesController.text),
+                  notes: cleanAdminOptionalText(_notesController.text),
                 ),
               ),
           child: const Text('Mark Deleted'),
@@ -945,7 +822,7 @@ class _AdminEditTicketDialogState extends State<_AdminEditTicketDialog> {
             }
             Navigator.pop(
               context,
-              _copyTicketForAdminEdit(
+              copyTicketForAdminEdit(
                 source: widget.ticket,
                 assetType: _selectedType,
                 assetNumber: int.parse(_assetNumberController.text.trim()),
@@ -953,9 +830,9 @@ class _AdminEditTicketDialogState extends State<_AdminEditTicketDialog> {
                 routedTo: _selectedRouted,
                 maintenanceType: _selectedMaintenanceType,
                 status: _selectedStatus,
-                component: _cleanAdminOptionalText(_componentController.text),
-                tag: _cleanAdminTagText(_tagController.text),
-                remarks: _cleanAdminOptionalText(_remarksController.text),
+                component: cleanAdminOptionalText(_componentController.text),
+                tag: cleanAdminTagText(_tagController.text),
+                remarks: cleanAdminOptionalText(_remarksController.text),
                 editedByUid: widget.editedByUid,
                 editedByName: widget.editedByName,
               ),
@@ -1183,14 +1060,14 @@ class _AdminEditDirectiveDialogState extends State<_AdminEditDirectiveDialog> {
                       _selectedAssetType == null
                           ? null
                           : int.parse(_assetNumberController.text.trim())
-                  ..component = _cleanAdminOptionalText(
+                  ..component = cleanAdminOptionalText(
                     _componentController.text,
                   )
-                  ..subsystem = _cleanAdminOptionalText(
+                  ..subsystem = cleanAdminOptionalText(
                     _subsystemController.text,
                   )
-                  ..tag = _cleanAdminTagText(_tagController.text)
-                  ..remarks = _cleanAdminOptionalText(_remarksController.text);
+                  ..tag = cleanAdminTagText(_tagController.text)
+                  ..remarks = cleanAdminOptionalText(_remarksController.text);
             Navigator.pop(context, updated);
           },
           child: const Text('Save'),
@@ -1222,7 +1099,7 @@ class _TicketsBrowserState extends ConsumerState<TicketsBrowser> {
 
   @override
   Widget build(BuildContext context) {
-    final ticketsAsync = ref.watch(_allTicketsProvider);
+    final ticketsAsync = ref.watch(adminTicketsStreamProvider);
 
     return ColoredBox(
       color: BafColors.background,
@@ -1462,19 +1339,22 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
       final syncCoordinator = ref.read(syncCoordinatorProvider);
 
       await repository.deleteTicket(
-            id,
-            actor: appUser,
-            auditContext: AuditContext(
-              performedByUid: appUser.uid,
-              performedByName: appUser.name,
-              reason: decision.reason,
-              reasonNotes: decision.notes,
-              before: ticket.toAuditMap(),
-            ),
-          );
+        id,
+        actor: appUser,
+        auditContext: AuditContext(
+          performedByUid: appUser.uid,
+          performedByName: appUser.name,
+          reason: decision.reason,
+          reasonNotes: decision.notes,
+          before: ticket.toAuditMap(),
+        ),
+      );
 
       unawaited(
-        syncCoordinator.runFullSync(reason: 'admin_ticket_deleted', force: true),
+        syncCoordinator.runFullSync(
+          reason: 'admin_ticket_deleted',
+          force: true,
+        ),
       );
 
       if (!mounted) return;
@@ -1506,7 +1386,7 @@ class _DirectivesBrowserState extends ConsumerState<DirectivesBrowser> {
 
   @override
   Widget build(BuildContext context) {
-    final directivesAsync = ref.watch(_allDirectivesProvider);
+    final directivesAsync = ref.watch(adminDirectivesStreamProvider);
 
     return ColoredBox(
       color: BafColors.background,
@@ -1815,7 +1695,10 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       await repository.updateDirective(updated, actor: appUser);
 
       unawaited(
-        syncCoordinator.runFullSync(reason: 'admin_directive_edited', force: true),
+        syncCoordinator.runFullSync(
+          reason: 'admin_directive_edited',
+          force: true,
+        ),
       );
 
       if (!mounted) return;
@@ -1872,19 +1755,22 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       final syncCoordinator = ref.read(syncCoordinatorProvider);
 
       await repository.deleteDirective(
-            id,
-            actor: appUser,
-            auditContext: AuditContext(
-              performedByUid: appUser.uid,
-              performedByName: appUser.name,
-              reason: decision.reason,
-              reasonNotes: decision.notes,
-              before: directive.toAuditMap(),
-            ),
-          );
+        id,
+        actor: appUser,
+        auditContext: AuditContext(
+          performedByUid: appUser.uid,
+          performedByName: appUser.name,
+          reason: decision.reason,
+          reasonNotes: decision.notes,
+          before: directive.toAuditMap(),
+        ),
+      );
 
       unawaited(
-        syncCoordinator.runFullSync(reason: 'admin_directive_deleted', force: true),
+        syncCoordinator.runFullSync(
+          reason: 'admin_directive_deleted',
+          force: true,
+        ),
       );
 
       if (!mounted) return;
@@ -1945,7 +1831,7 @@ class _TemplatesBrowserState extends ConsumerState<TemplatesBrowser> {
 
   @override
   Widget build(BuildContext context) {
-    final templatesAsync = ref.watch(_allTemplatesProvider);
+    final templatesAsync = ref.watch(adminTemplatesStreamProvider);
 
     return ColoredBox(
       color: BafColors.background,
@@ -1989,13 +1875,13 @@ class _TemplatesBrowserState extends ConsumerState<TemplatesBrowser> {
                 final filtered =
                     templates
                         .where(
-                          (template) => _templateMatchesAdminSearch(
+                          (template) => templateMatchesAdminSearch(
                             template,
                             _searchQuery,
                           ),
                         )
                         .toList()
-                      ..sort(_compareTemplatesForAdmin);
+                      ..sort(compareTemplatesForAdmin);
 
                 if (filtered.isEmpty) {
                   return const Center(
@@ -2035,7 +1921,7 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
   Widget build(BuildContext context) {
     final template = widget.template;
     final fieldCount = template.parsedFields.length;
-    final scopeLabel = _templateScopeLabel(template);
+    final scopeLabel = templateScopeLabel(template);
 
     return Card(
       color: BafColors.card,
@@ -2075,7 +1961,7 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${template.applicableAssetType.name.toUpperCase()} | ${_formatAgencyList(template.assignedAgencies)}',
+                '${template.applicableAssetType.name.toUpperCase()} | ${formatAgencyList(template.assignedAgencies)}',
                 style: const TextStyle(
                   color: BafColors.textSecondary,
                   fontSize: 12,
@@ -2180,19 +2066,22 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
       final syncCoordinator = ref.read(syncCoordinatorProvider);
 
       await repository.deleteTemplate(
-            id,
-            actor: appUser,
-            auditContext: AuditContext(
-              performedByUid: appUser.uid,
-              performedByName: appUser.name,
-              reason: decision.reason,
-              reasonNotes: decision.notes,
-              before: template.toAuditMap(),
-            ),
-          );
+        id,
+        actor: appUser,
+        auditContext: AuditContext(
+          performedByUid: appUser.uid,
+          performedByName: appUser.name,
+          reason: decision.reason,
+          reasonNotes: decision.notes,
+          before: template.toAuditMap(),
+        ),
+      );
 
       unawaited(
-        syncCoordinator.runFullSync(reason: 'admin_template_deleted', force: true),
+        syncCoordinator.runFullSync(
+          reason: 'admin_template_deleted',
+          force: true,
+        ),
       );
 
       if (!mounted) return;
@@ -2224,7 +2113,7 @@ class _ExecutionsBrowserState extends ConsumerState<ExecutionsBrowser> {
 
   @override
   Widget build(BuildContext context) {
-    final executionsAsync = ref.watch(_allExecutionsProvider);
+    final executionsAsync = ref.watch(adminExecutionsStreamProvider);
 
     return ColoredBox(
       color: BafColors.background,
@@ -2267,13 +2156,13 @@ class _ExecutionsBrowserState extends ConsumerState<ExecutionsBrowser> {
                 final filtered =
                     executions
                         .where(
-                          (execution) => _executionMatchesAdminSearch(
+                          (execution) => executionMatchesAdminSearch(
                             execution,
                             _searchQuery,
                           ),
                         )
                         .toList()
-                      ..sort(_compareExecutionsForAdmin);
+                      ..sort(compareExecutionsForAdmin);
 
                 if (filtered.isEmpty) {
                   return const Center(
@@ -2360,7 +2249,7 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${execution.assetType.name.toUpperCase()} ${execution.assetNumber} | ${_formatAgencyList(execution.assignedAgencies)}',
+                '${execution.assetType.name.toUpperCase()} ${execution.assetNumber} | ${formatAgencyList(execution.assignedAgencies)}',
                 style: const TextStyle(
                   color: BafColors.textSecondary,
                   fontSize: 12,
@@ -2461,19 +2350,22 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
       final syncCoordinator = ref.read(syncCoordinatorProvider);
 
       await repository.deleteExecution(
-            id,
-            actor: appUser,
-            auditContext: AuditContext(
-              performedByUid: appUser.uid,
-              performedByName: appUser.name,
-              reason: decision.reason,
-              reasonNotes: decision.notes,
-              before: execution.toAuditMap(),
-            ),
-          );
+        id,
+        actor: appUser,
+        auditContext: AuditContext(
+          performedByUid: appUser.uid,
+          performedByName: appUser.name,
+          reason: decision.reason,
+          reasonNotes: decision.notes,
+          before: execution.toAuditMap(),
+        ),
+      );
 
       unawaited(
-        syncCoordinator.runFullSync(reason: 'admin_execution_deleted', force: true),
+        syncCoordinator.runFullSync(
+          reason: 'admin_execution_deleted',
+          force: true,
+        ),
       );
 
       if (!mounted) return;
@@ -2517,71 +2409,4 @@ class _AdminChip extends StatelessWidget {
       ),
     );
   }
-}
-
-bool _templateMatchesAdminSearch(JobTemplate template, String query) {
-  if (query.isEmpty) return true;
-  return template.jobName.toLowerCase().contains(query) ||
-      (template.description?.toLowerCase().contains(query) ?? false) ||
-      template.applicableAssetType.name.toLowerCase().contains(query) ||
-      template.assignedAgencies.any(
-        (agency) => agency.toLowerCase().contains(query),
-      ) ||
-      (template.component?.toLowerCase().contains(query) ?? false) ||
-      (template.subsystem?.toLowerCase().contains(query) ?? false) ||
-      (template.createdByName?.toLowerCase().contains(query) ?? false);
-}
-
-bool _executionMatchesAdminSearch(JobExecution execution, String query) {
-  if (query.isEmpty) return true;
-  final completionLabel = execution.isCompleted ? 'completed' : 'open';
-  return (execution.templateName?.toLowerCase().contains(query) ?? false) ||
-      execution.assetType.name.toLowerCase().contains(query) ||
-      execution.assetNumber.toString().contains(query) ||
-      execution.assignedAgencies.any(
-        (agency) => agency.toLowerCase().contains(query),
-      ) ||
-      (execution.assignedByName?.toLowerCase().contains(query) ?? false) ||
-      (execution.completedByName?.toLowerCase().contains(query) ?? false) ||
-      (execution.remarks?.toLowerCase().contains(query) ?? false) ||
-      completionLabel.contains(query);
-}
-
-int _compareTemplatesForAdmin(JobTemplate a, JobTemplate b) {
-  final deletedCompare = (a.isDeleted ? 1 : 0).compareTo(b.isDeleted ? 1 : 0);
-  if (deletedCompare != 0) return deletedCompare;
-  final typeCompare = a.applicableAssetType.index.compareTo(
-    b.applicableAssetType.index,
-  );
-  if (typeCompare != 0) return typeCompare;
-  return a.jobName.toLowerCase().compareTo(b.jobName.toLowerCase());
-}
-
-int _compareExecutionsForAdmin(JobExecution a, JobExecution b) {
-  final deletedCompare = (a.isDeleted ? 1 : 0).compareTo(b.isDeleted ? 1 : 0);
-  if (deletedCompare != 0) return deletedCompare;
-  return b.updatedAt.compareTo(a.updatedAt);
-}
-
-String _formatAgencyList(List<String> agencies) {
-  final cleaned =
-      agencies
-          .map((agency) => agency.trim())
-          .where((agency) => agency.isNotEmpty)
-          .map((agency) => agency.toUpperCase())
-          .toList();
-  if (cleaned.isEmpty) return 'No agencies';
-  return cleaned.join(', ');
-}
-
-String? _templateScopeLabel(JobTemplate template) {
-  final component = _cleanAdminOptionalText(template.component ?? '');
-  if (component != null) return component;
-  final hierarchy =
-      template.hierarchyPath
-          ?.map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toList();
-  if (hierarchy != null && hierarchy.isNotEmpty) return 'Scoped';
-  return null;
 }
