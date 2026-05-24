@@ -1,4 +1,3 @@
-// FILE: lib/features/admin/presentation/admin_data_browser.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +24,8 @@ import '../../abnormalities/presentation/abnormality_reports_screen.dart';
 import '../providers/admin_stream_providers.dart';
 import '../utils/admin_search_sort_helpers.dart';
 import '../utils/admin_ticket_helpers.dart';
+import 'admin_data_browser/admin_data_browser_shared.dart';
+import 'admin_data_browser/admin_delete_reason_dialog.dart';
 
 // ============================================================================
 // MAIN ADMIN DATA BROWSER (Tab Bar)
@@ -504,104 +505,6 @@ Color _adminTicketStatusColor(TicketStatus status) {
   }
 }
 
-class _AdminDeleteDecision {
-  final AuditReason? reason;
-  final String? notes;
-
-  const _AdminDeleteDecision({this.reason, this.notes});
-}
-
-class _AdminDeleteReasonDialog extends StatefulWidget {
-  final String title;
-  final String message;
-
-  const _AdminDeleteReasonDialog({required this.title, required this.message});
-
-  @override
-  State<_AdminDeleteReasonDialog> createState() =>
-      _AdminDeleteReasonDialogState();
-}
-
-class _AdminDeleteReasonDialogState extends State<_AdminDeleteReasonDialog> {
-  final TextEditingController _notesController = TextEditingController();
-  AuditReason? _selectedReason;
-
-  @override
-  void dispose() {
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.title),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(widget.message),
-              const SizedBox(height: BafSpacing.md),
-              DropdownButtonFormField<AuditReason>(
-                initialValue: _selectedReason,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Reason (optional)',
-                  border: OutlineInputBorder(),
-                ),
-                items:
-                    AuditReason.values.map((reason) {
-                      return DropdownMenuItem<AuditReason>(
-                        value: reason,
-                        child: Text(
-                          reason.name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }).toList(),
-                onChanged: (value) => setState(() => _selectedReason = value),
-              ),
-              const SizedBox(height: BafSpacing.sm),
-              TextFormField(
-                controller: _notesController,
-                maxLines: 2,
-                textInputAction: TextInputAction.newline,
-                decoration: const InputDecoration(
-                  labelText: 'Additional notes (optional)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: BafColors.danger,
-            foregroundColor: Colors.white,
-          ),
-          onPressed:
-              () => Navigator.pop(
-                context,
-                _AdminDeleteDecision(
-                  reason: _selectedReason,
-                  notes: cleanAdminOptionalText(_notesController.text),
-                ),
-              ),
-          child: const Text('Mark Deleted'),
-        ),
-      ],
-    );
-  }
-}
-
 class _AdminEditTicketDialog extends StatefulWidget {
   final MaintenanceRecord ticket;
   final String editedByUid;
@@ -1077,16 +980,6 @@ class _AdminEditDirectiveDialogState extends State<_AdminEditDirectiveDialog> {
   }
 }
 
-void _showAdminDataSnack(BuildContext context, String message, {Color? color}) {
-  if (!context.mounted) {
-    return;
-  }
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  messenger?.showSnackBar(
-    SnackBar(content: Text(message), backgroundColor: color),
-  );
-}
-
 class TicketsBrowser extends ConsumerStatefulWidget {
   const TicketsBrowser({super.key});
 
@@ -1262,7 +1155,7 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
   Future<void> _showEditDialog(MaintenanceRecord ticket) async {
     final appUser = ref.read(currentAppUserProvider).value;
     if (appUser == null) {
-      _showAdminDataSnack(
+      showAdminDataSnack(
         context,
         'Admin identity is still loading. Try again.',
         color: BafColors.warning,
@@ -1296,17 +1189,17 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
       );
 
       if (!mounted) return;
-      _showAdminDataSnack(context, 'Ticket updated');
+      showAdminDataSnack(context, 'Ticket updated');
     } catch (e) {
       if (!mounted) return;
-      _showAdminDataSnack(context, 'Save failed: $e', color: BafColors.danger);
+      showAdminDataSnack(context, 'Save failed: $e', color: BafColors.danger);
     }
   }
 
   Future<void> _confirmDelete(MaintenanceRecord ticket) async {
     final appUser = ref.read(currentAppUserProvider).value;
     if (appUser == null) {
-      _showAdminDataSnack(
+      showAdminDataSnack(
         context,
         'Admin identity is still loading. Try again.',
         color: BafColors.warning,
@@ -1314,10 +1207,10 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
       return;
     }
 
-    final decision = await showDialog<_AdminDeleteDecision>(
+    final decision = await showDialog<AdminDeleteDecision>(
       context: context,
       builder:
-          (_) => const _AdminDeleteReasonDialog(
+          (_) => const AdminDeleteReasonDialog(
             title: 'Mark Ticket as Deleted',
             message:
                 'Mark this as deleted? It will be hidden from active records but retained for audit and recovery.',
@@ -1327,7 +1220,7 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
 
     final id = kIsWeb ? ticket.firestoreId : ticket.id;
     if (id == null) {
-      _showAdminDataSnack(context, 'Ticket is missing its sync identifier.');
+      showAdminDataSnack(context, 'Ticket is missing its sync identifier.');
       return;
     }
 
@@ -1358,14 +1251,10 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
       );
 
       if (!mounted) return;
-      _showAdminDataSnack(context, 'Ticket marked as deleted');
+      showAdminDataSnack(context, 'Ticket marked as deleted');
     } catch (e) {
       if (!mounted) return;
-      _showAdminDataSnack(
-        context,
-        'Delete failed: $e',
-        color: BafColors.danger,
-      );
+      showAdminDataSnack(context, 'Delete failed: $e', color: BafColors.danger);
     }
   }
 }
@@ -1575,19 +1464,16 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                     runSpacing: BafSpacing.sm,
                     children: [
                       if (d.assetType != null)
-                        _MiniChip(
+                        MiniChip(
                           label:
                               '${_assetTypeLabel(d.assetType!)} ${d.assetNumber ?? ''}'
                                   .trim(),
                           color: BafColors.assets,
                         ),
                       if (d.component != null)
-                        _MiniChip(
-                          label: d.component!,
-                          color: BafColors.planned,
-                        ),
+                        MiniChip(label: d.component!, color: BafColors.planned),
                       if (d.tag != null)
-                        _MiniChip(label: d.tag!, color: BafColors.audit),
+                        MiniChip(label: d.tag!, color: BafColors.audit),
                     ],
                   ),
                 ],
@@ -1613,7 +1499,7 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                   onPressed: () => _confirmDelete(d),
                 )
               else
-                const _MiniChip(label: 'DELETED', color: BafColors.admin),
+                const MiniChip(label: 'DELETED', color: BafColors.admin),
             ],
           ),
         ],
@@ -1673,7 +1559,7 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
   Future<void> _showEditDialog(OperationalDirective directive) async {
     final appUser = ref.read(currentAppUserProvider).value;
     if (appUser == null) {
-      _showAdminDataSnack(
+      showAdminDataSnack(
         context,
         'Admin identity is still loading. Try again.',
         color: BafColors.warning,
@@ -1702,17 +1588,17 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       );
 
       if (!mounted) return;
-      _showAdminDataSnack(context, 'Directive updated');
+      showAdminDataSnack(context, 'Directive updated');
     } catch (e) {
       if (!mounted) return;
-      _showAdminDataSnack(context, 'Save failed: $e', color: BafColors.danger);
+      showAdminDataSnack(context, 'Save failed: $e', color: BafColors.danger);
     }
   }
 
   Future<void> _confirmDelete(OperationalDirective directive) async {
     final appUser = ref.read(currentAppUserProvider).value;
     if (appUser == null) {
-      _showAdminDataSnack(
+      showAdminDataSnack(
         context,
         'Admin identity is still loading. Please try again.',
         color: BafColors.warning,
@@ -1721,7 +1607,7 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
     }
 
     if (!appUser.canDeleteDirective) {
-      _showAdminDataSnack(
+      showAdminDataSnack(
         context,
         'Only Admin can delete directives.',
         color: BafColors.danger,
@@ -1729,10 +1615,10 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       return;
     }
 
-    final decision = await showDialog<_AdminDeleteDecision>(
+    final decision = await showDialog<AdminDeleteDecision>(
       context: context,
       builder:
-          (_) => const _AdminDeleteReasonDialog(
+          (_) => const AdminDeleteReasonDialog(
             title: 'Mark Directive as Deleted',
             message:
                 'Mark this as deleted? It will be hidden from active records but retained for audit and recovery.',
@@ -1742,7 +1628,7 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
 
     final id = kIsWeb ? directive.firestoreId : directive.id;
     if (id == null) {
-      _showAdminDataSnack(
+      showAdminDataSnack(
         context,
         'Directive is missing its sync identifier.',
         color: BafColors.warning,
@@ -1774,44 +1660,11 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       );
 
       if (!mounted) return;
-      _showAdminDataSnack(context, 'Directive marked as deleted');
+      showAdminDataSnack(context, 'Directive marked as deleted');
     } catch (e) {
       if (!mounted) return;
-      _showAdminDataSnack(
-        context,
-        'Delete failed: $e',
-        color: BafColors.danger,
-      );
+      showAdminDataSnack(context, 'Delete failed: $e', color: BafColors.danger);
     }
-  }
-}
-
-class _MiniChip extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _MiniChip({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: BafSpacing.sm,
-        vertical: BafSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
   }
 }
 
@@ -1972,19 +1825,19 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
                 spacing: BafSpacing.xs,
                 runSpacing: BafSpacing.xs,
                 children: [
-                  _AdminChip(
+                  AdminChip(
                     label: '$fieldCount fields',
                     color: BafColors.planned,
                   ),
                   if (scopeLabel != null)
-                    _AdminChip(label: scopeLabel, color: BafColors.assets),
+                    AdminChip(label: scopeLabel, color: BafColors.assets),
                   if (template.isDeprecated)
-                    const _AdminChip(
+                    const AdminChip(
                       label: 'DEPRECATED',
                       color: BafColors.warning,
                     ),
                   if (template.isDeleted)
-                    const _AdminChip(
+                    const AdminChip(
                       label: 'DELETED',
                       color: BafColors.textSecondary,
                     ),
@@ -2014,10 +1867,7 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
                 onPressed: () => _confirmDelete(template),
               )
             else
-              const _AdminChip(
-                label: 'DELETED',
-                color: BafColors.textSecondary,
-              ),
+              const AdminChip(label: 'DELETED', color: BafColors.textSecondary),
           ],
         ),
       ),
@@ -2027,7 +1877,7 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
   Future<void> _confirmDelete(JobTemplate template) async {
     final appUser = ref.read(currentAppUserProvider).value;
     if (appUser == null) {
-      _showAdminDataSnack(
+      showAdminDataSnack(
         context,
         'Admin identity is still loading. Try again.',
         color: BafColors.warning,
@@ -2035,10 +1885,10 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
       return;
     }
 
-    final decision = await showDialog<_AdminDeleteDecision>(
+    final decision = await showDialog<AdminDeleteDecision>(
       context: context,
       builder:
-          (_) => const _AdminDeleteReasonDialog(
+          (_) => const AdminDeleteReasonDialog(
             title: 'Mark Template as Deleted',
             message:
                 'Mark this as deleted? It will be hidden from active records but retained for audit and recovery.',
@@ -2048,7 +1898,7 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
 
     final id = kIsWeb ? template.firestoreId : template.id;
     if (id == null) {
-      _showAdminDataSnack(
+      showAdminDataSnack(
         context,
         'Template ID is missing',
         color: BafColors.warning,
@@ -2085,14 +1935,10 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
       );
 
       if (!mounted) return;
-      _showAdminDataSnack(context, 'Template marked as deleted');
+      showAdminDataSnack(context, 'Template marked as deleted');
     } catch (e) {
       if (!mounted) return;
-      _showAdminDataSnack(
-        context,
-        'Delete failed: $e',
-        color: BafColors.danger,
-      );
+      showAdminDataSnack(context, 'Delete failed: $e', color: BafColors.danger);
     }
   }
 }
@@ -2260,14 +2106,14 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
                 spacing: BafSpacing.xs,
                 runSpacing: BafSpacing.xs,
                 children: [
-                  _AdminChip(label: statusLabel, color: statusColor),
-                  _AdminChip(
+                  AdminChip(label: statusLabel, color: statusColor),
+                  AdminChip(
                     label:
                         'Assigned ${DateFormat('dd MMM yyyy').format(execution.createdAt)}',
                     color: BafColors.planned,
                   ),
                   if (execution.completedAt != null)
-                    _AdminChip(
+                    AdminChip(
                       label:
                           'Done ${DateFormat('dd MMM yyyy').format(execution.completedAt!)}',
                       color: BafColors.success,
@@ -2298,10 +2144,7 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
                 onPressed: () => _confirmDelete(execution),
               )
             else
-              const _AdminChip(
-                label: 'DELETED',
-                color: BafColors.textSecondary,
-              ),
+              const AdminChip(label: 'DELETED', color: BafColors.textSecondary),
           ],
         ),
       ),
@@ -2311,7 +2154,7 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
   Future<void> _confirmDelete(JobExecution execution) async {
     final appUser = ref.read(currentAppUserProvider).value;
     if (appUser == null) {
-      _showAdminDataSnack(
+      showAdminDataSnack(
         context,
         'Admin identity is still loading. Try again.',
         color: BafColors.warning,
@@ -2319,10 +2162,10 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
       return;
     }
 
-    final decision = await showDialog<_AdminDeleteDecision>(
+    final decision = await showDialog<AdminDeleteDecision>(
       context: context,
       builder:
-          (_) => const _AdminDeleteReasonDialog(
+          (_) => const AdminDeleteReasonDialog(
             title: 'Mark Execution as Deleted',
             message:
                 'Mark this as deleted? It will be hidden from active records but retained for audit and recovery.',
@@ -2332,7 +2175,7 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
 
     final id = kIsWeb ? execution.firestoreId : execution.id;
     if (id == null) {
-      _showAdminDataSnack(
+      showAdminDataSnack(
         context,
         'Execution does not have a valid local/remote id.',
         color: BafColors.warning,
@@ -2369,44 +2212,10 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
       );
 
       if (!mounted) return;
-      _showAdminDataSnack(context, 'Execution marked as deleted');
+      showAdminDataSnack(context, 'Execution marked as deleted');
     } catch (e) {
       if (!mounted) return;
-      _showAdminDataSnack(
-        context,
-        'Delete failed: $e',
-        color: BafColors.danger,
-      );
+      showAdminDataSnack(context, 'Delete failed: $e', color: BafColors.danger);
     }
-  }
-}
-
-class _AdminChip extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _AdminChip({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.11),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.20)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 10,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.3,
-          ),
-        ),
-      ),
-    );
   }
 }

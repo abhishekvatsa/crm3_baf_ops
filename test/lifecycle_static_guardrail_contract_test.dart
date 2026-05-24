@@ -353,6 +353,12 @@ void main() {
         final admin = _read(
           'lib/features/admin/presentation/admin_data_browser.dart',
         );
+        final adminShared = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_data_browser_shared.dart',
+        );
+        final adminDeleteDialog = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_delete_reason_dialog.dart',
+        );
         final abnormality = _read(
           'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
         );
@@ -364,15 +370,15 @@ void main() {
         );
 
         _expectContains(
-          admin,
-          'void _showAdminDataSnack(BuildContext context, String message, {Color? color})',
+          adminShared,
+          'void showAdminDataSnack(BuildContext context, String message, {Color? color})',
         );
         _expectContains(
-          admin,
+          adminShared,
           'final messenger = ScaffoldMessenger.maybeOf(context);',
         );
         _expectNotContains(admin, 'String? _cleanOptionalText(');
-        _expectContains(admin, 'showDialog<_AdminDeleteDecision>');
+        _expectContains(admin, 'showDialog<AdminDeleteDecision>');
         _expectContains(
           admin,
           'class _AdminEditTicketDialog extends StatefulWidget',
@@ -382,8 +388,8 @@ void main() {
           'class _AdminEditDirectiveDialog extends StatefulWidget',
         );
         _expectContains(
-          admin,
-          'class _AdminDeleteReasonDialog extends StatefulWidget',
+          adminDeleteDialog,
+          'class AdminDeleteReasonDialog extends StatefulWidget',
         );
 
         _expectContains(
@@ -501,8 +507,9 @@ const _snackbarGuards = <_SnackGuard>[
     mountedGuard: 'if (!mounted)',
   ),
   _SnackGuard(
-    path: 'lib/features/admin/presentation/admin_data_browser.dart',
-    marker: 'void _showAdminDataSnack(',
+    path:
+        'lib/features/admin/presentation/admin_data_browser/admin_data_browser_shared.dart',
+    marker: 'void showAdminDataSnack(',
     mountedGuard: 'if (!context.mounted)',
   ),
   _SnackGuard(

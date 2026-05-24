@@ -28,17 +28,25 @@ void main() {
 
   group('67C.1 admin_data_browser', () {
     late String src;
+    late String sharedSrc;
+    late String deleteDialogSrc;
     setUpAll(() {
       src = _read('lib/features/admin/presentation/admin_data_browser.dart');
+      sharedSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_data_browser_shared.dart',
+      );
+      deleteDialogSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_delete_reason_dialog.dart',
+      );
     });
 
-    test('uses dialog-owned _AdminDeleteReasonDialog for all soft-deletes', () {
+    test('uses dialog-owned AdminDeleteReasonDialog for all soft-deletes', () {
       expect(
-        src,
-        contains('class _AdminDeleteReasonDialog extends StatefulWidget'),
+        deleteDialogSrc,
+        contains('class AdminDeleteReasonDialog extends StatefulWidget'),
       );
-      expect(src, contains('class _AdminDeleteDecision'));
-      expect(src, contains('showDialog<_AdminDeleteDecision>'));
+      expect(deleteDialogSrc, contains('class AdminDeleteDecision'));
+      expect(src, contains('showDialog<AdminDeleteDecision>'));
     });
 
     test('uses dialog-owned controllers for ticket edit', () {
@@ -57,16 +65,16 @@ void main() {
       expect(src, contains('showDialog<OperationalDirective>'));
     });
 
-    test('_showAdminDataSnack helper is defined with maybeOf', () {
-      expect(src, contains('void _showAdminDataSnack('));
+    test('showAdminDataSnack helper is defined with maybeOf', () {
+      expect(sharedSrc, contains('void showAdminDataSnack('));
       expect(
-        src,
+        sharedSrc,
         contains('final messenger = ScaffoldMessenger.maybeOf(context);'),
       );
     });
 
     test(
-      '_showAdminDataSnack is used everywhere – zero raw ScaffoldMessenger.of calls',
+      'showAdminDataSnack is used everywhere – zero raw ScaffoldMessenger.of calls',
       () {
         // The helper must be the ONLY way snackbars are shown; no raw .of() left.
         expect(src, isNot(contains('ScaffoldMessenger.of(')));
