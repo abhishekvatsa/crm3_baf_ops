@@ -214,6 +214,9 @@ void main() {
           _read(
             'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
           ),
+          _read(
+            'lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart',
+          ),
         ].join('\n');
 
         for (final expectation in <_AdminMutationExpectation>[

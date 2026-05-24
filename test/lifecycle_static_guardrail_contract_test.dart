@@ -356,6 +356,12 @@ void main() {
         final adminTickets = _read(
           'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
         );
+        final adminDirectives = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart',
+        );
+        final adminDirectiveDialog = _read(
+          'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
+        );
         final adminShared = _read(
           'lib/features/admin/presentation/admin_data_browser/admin_data_browser_shared.dart',
         );
@@ -387,9 +393,10 @@ void main() {
           'class _AdminEditTicketDialog extends StatefulWidget',
         );
         _expectContains(
-          admin,
-          'class _AdminEditDirectiveDialog extends StatefulWidget',
+          adminDirectiveDialog,
+          'class AdminEditDirectiveDialog extends StatefulWidget',
         );
+        _expectContains(adminDirectives, 'showDialog<OperationalDirective>');
         _expectContains(
           adminDeleteDialog,
           'class AdminDeleteReasonDialog extends StatefulWidget',
@@ -455,6 +462,8 @@ const _guardedFiles = <String>[
   'lib/features/directives/presentation/directives_screen.dart',
   'lib/features/admin/presentation/admin_data_browser.dart',
   'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
   'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
   'lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart',
   'test/startup_recovery_hardening_contract_test.dart',
@@ -536,6 +545,8 @@ const _recentlyHardenedDialogFiles = <String>[
   'lib/features/directives/presentation/directives_screen.dart',
   'lib/features/admin/presentation/admin_data_browser.dart',
   'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart',
+  'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
   'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
   'lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart',
 ];

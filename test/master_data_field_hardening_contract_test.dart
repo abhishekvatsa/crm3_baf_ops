@@ -31,6 +31,8 @@ void main() {
     late String sharedSrc;
     late String deleteDialogSrc;
     late String ticketSrc;
+    late String directiveSrc;
+    late String directiveDialogSrc;
     setUpAll(() {
       src = _read('lib/features/admin/presentation/admin_data_browser.dart');
       sharedSrc = _read(
@@ -41,6 +43,12 @@ void main() {
       );
       ticketSrc = _read(
         'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
+      );
+      directiveSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart',
+      );
+      directiveDialogSrc = _read(
+        'lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart',
       );
     });
 
@@ -63,10 +71,10 @@ void main() {
 
     test('uses dialog-owned controllers for directive edit', () {
       expect(
-        src,
-        contains('class _AdminEditDirectiveDialog extends StatefulWidget'),
+        directiveDialogSrc,
+        contains('class AdminEditDirectiveDialog extends StatefulWidget'),
       );
-      expect(src, contains('showDialog<OperationalDirective>'));
+      expect(directiveSrc, contains('showDialog<OperationalDirective>'));
     });
 
     test('showAdminDataSnack helper is defined with maybeOf', () {
@@ -83,6 +91,7 @@ void main() {
         // The helper must be the ONLY way snackbars are shown; no raw .of() left.
         expect(src, isNot(contains('ScaffoldMessenger.of(')));
         expect(ticketSrc, isNot(contains('ScaffoldMessenger.of(')));
+        expect(directiveSrc, isNot(contains('ScaffoldMessenger.of(')));
       },
     );
 
