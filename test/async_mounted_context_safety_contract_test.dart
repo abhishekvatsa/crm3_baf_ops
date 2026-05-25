@@ -37,9 +37,7 @@ void main() {
     test(
       'dialog and clipboard continuations guard mounted state before UI mutation',
       () {
-        final templatePublisher = _read(
-          'lib/features/planned_maintenance/presentation/template_publisher_screen.dart',
-        );
+        final templatePublisher = _templatePublisherSource();
         final paste = _bodyStartingAt(
           templatePublisher,
           'Future<void> _pasteFromClipboard',
@@ -189,16 +187,15 @@ void main() {
           reason:
               'Post-completion sync must remain best-effort if pre-sync setup fails.',
         );
-        _expectCapturedSyncBeforeAwait(
-          path:
-              'lib/features/planned_maintenance/presentation/template_publisher_screen.dart',
+        final templatePublisher = _templatePublisherSource();
+        _expectCapturedSyncBeforeAwaitInSource(
+          source: templatePublisher,
           methodMarker: 'Future<void> _saveDraft',
           awaitMarker: 'await _ensurePackageSaved(repo, actor);',
           syncReason: 'template_governance_draft_saved',
         );
-        _expectCapturedSyncBeforeAwait(
-          path:
-              'lib/features/planned_maintenance/presentation/template_publisher_screen.dart',
+        _expectCapturedSyncBeforeAwaitInSource(
+          source: templatePublisher,
           methodMarker: 'Future<void> _publish',
           awaitMarker: 'await _ensurePackageSaved(repo, actor);',
           syncReason: 'template_governance_version_published',
@@ -474,7 +471,20 @@ void _expectCapturedSyncBeforeAwait({
   required String awaitMarker,
   required String syncReason,
 }) {
-  final source = _read(path);
+  _expectCapturedSyncBeforeAwaitInSource(
+    source: _read(path),
+    methodMarker: methodMarker,
+    awaitMarker: awaitMarker,
+    syncReason: syncReason,
+  );
+}
+
+void _expectCapturedSyncBeforeAwaitInSource({
+  required String source,
+  required String methodMarker,
+  required String awaitMarker,
+  required String syncReason,
+}) {
   final body = _bodyStartingAt(source, methodMarker);
   final finalCapture = body.indexOf(
     'final syncCoordinator = ref.read(syncCoordinatorProvider);',
@@ -524,6 +534,22 @@ void _expectBefore(String source, String before, String after) {
 }
 
 String _read(String path) => File(path).readAsStringSync();
+
+String _templatePublisherSource() =>
+    _templatePublisherLibraryFiles.map(_read).join('\n');
+
+const _templatePublisherLibraryFiles = <String>[
+  'lib/features/planned_maintenance/presentation/template_publisher_screen.dart',
+  'lib/features/planned_maintenance/presentation/template_publisher_screen.builders.dart',
+  'lib/features/planned_maintenance/presentation/template_publisher_screen.actions.dart',
+  'lib/features/planned_maintenance/presentation/template_publisher_screen.validation.dart',
+  'lib/features/planned_maintenance/presentation/template_publisher_screen.support.dart',
+  'lib/features/planned_maintenance/presentation/template_publisher_screen.helpers.dart',
+  'lib/features/planned_maintenance/presentation/template_publisher_sections.dart',
+  'lib/features/planned_maintenance/presentation/template_publisher_json_panel.dart',
+  'lib/features/planned_maintenance/presentation/template_publisher_widgets.dart',
+  'lib/features/planned_maintenance/presentation/template_publisher_models.dart',
+];
 
 String _windowAfter(String source, String marker, int length) {
   final start = source.indexOf(marker);
