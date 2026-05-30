@@ -62,14 +62,16 @@ beforeAll(async () => {
       port: 8080,
     },
   });
-});
+}, 120000);
 
 beforeEach(async () => {
   await testEnv.clearFirestore();
 });
 
 afterAll(async () => {
-  await testEnv.cleanup();
+  if (testEnv) {
+    await testEnv.cleanup();
+  }
   setLogLevel("warn");
 });
 
@@ -170,6 +172,110 @@ describe("maintenance_records", () => {
     );
   });
 
+  test("senior can close maintenance ticket using mobile resolution fields", async () => {
+    const createdAt = new Date(Date.now() - 60000).toISOString();
+    const updatedAt = createdAt;
+    const closedAt = new Date().toISOString();
+
+    await seedDoc("maintenance_records/ticketCloseMobile", {
+      firestoreId: "ticketCloseMobile",
+      version: 1,
+      assetType: "base",
+      assetNumber: 1,
+      maintenanceType: "breakdown",
+      description: "Original evidence",
+      routedTo: "mechanical",
+      status: "open",
+      isResolved: false,
+      isCritical: true,
+      loggedByUid: "ops1",
+      createdAt,
+      updatedAt,
+      isDeleted: false,
+    });
+
+    const db = dbAs("seniorMech");
+
+    await assertSucceeds(
+      updateDoc(doc(db, "maintenance_records/ticketCloseMobile"), {
+        isResolved: true,
+        status: "resolved",
+        endDate: closedAt,
+        closedByUid: "seniorMech",
+        closedByName: "Senior Mechanical",
+        remarks: "Adjusted and verified.",
+        downtimeHours: 1.5,
+        teamsInvolved: ["mechanical"],
+        actionsJson: "[]",
+        updatedAt: closedAt,
+        updatedByUid: "seniorMech",
+        updatedByName: "Senior Mechanical",
+        version: 2,
+      })
+    );
+  });
+
+
+  test("maintenance close requires resolved status and matching closer identity", async () => {
+    const createdAt = new Date(Date.now() - 60000).toISOString();
+    const closedAt = new Date().toISOString();
+
+    await seedDoc("maintenance_records/ticketCloseInvariant", {
+      firestoreId: "ticketCloseInvariant",
+      version: 1,
+      assetType: "base",
+      assetNumber: 1,
+      maintenanceType: "breakdown",
+      description: "Original evidence",
+      routedTo: "mechanical",
+      status: "open",
+      isResolved: false,
+      isCritical: true,
+      loggedByUid: "ops1",
+      createdAt,
+      updatedAt: createdAt,
+      isDeleted: false,
+    });
+
+    const db = dbAs("seniorMech");
+
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketCloseInvariant"), {
+        isResolved: true,
+        status: "open",
+        endDate: closedAt,
+        closedByUid: "seniorMech",
+        closedByName: "Senior Mechanical",
+        remarks: "Status mismatch should fail.",
+        downtimeHours: 1.5,
+        teamsInvolved: ["mechanical"],
+        actionsJson: "[]",
+        updatedAt: closedAt,
+        updatedByUid: "seniorMech",
+        updatedByName: "Senior Mechanical",
+        version: 2,
+      })
+    );
+
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketCloseInvariant"), {
+        isResolved: true,
+        status: "resolved",
+        endDate: closedAt,
+        closedByUid: "ops1",
+        closedByName: "Operations User",
+        remarks: "Closer identity mismatch should fail.",
+        downtimeHours: 1.5,
+        teamsInvolved: ["mechanical"],
+        actionsJson: "[]",
+        updatedAt: closedAt,
+        updatedByUid: "seniorMech",
+        updatedByName: "Senior Mechanical",
+        version: 2,
+      })
+    );
+  });
+
   test("admin edit cannot mutate maintenance identity fields", async () => {
     const createdAt = new Date(Date.now() - 60000).toISOString();
     const updatedAt = createdAt;
@@ -239,6 +345,225 @@ describe("maintenance_records", () => {
     );
   });
 
+  test("operations can reopen using mobile reopen fields and resolution history", async () => {
+    const closedAt = new Date(Date.now() - 60000).toISOString();
+
+    await seedDoc("maintenance_records/ticketReopenMobile", {
+      firestoreId: "ticketReopenMobile",
+      version: 2,
+      assetType: "base",
+      assetNumber: 101,
+      maintenanceType: "breakdown",
+      description: "Closed ticket",
+      routedTo: "mechanical",
+      status: "resolved",
+      isResolved: true,
+      isCritical: false,
+      loggedByUid: "ops1",
+      createdAt: new Date(Date.now() - 120000).toISOString(),
+      updatedAt: closedAt,
+      endDate: closedAt,
+      closedByUid: "seniorMech",
+      closedByName: "Senior Mechanical",
+      remarks: "Resolved after inspection.",
+      downtimeHours: 1.5,
+      teamsInvolved: ["mechanical"],
+      actionsJson: "[]",
+      resolutionHistoryJson: "[]",
+      isDeleted: false,
+    });
+
+    const db = dbAs("ops1");
+
+    await assertSucceeds(
+      updateDoc(doc(db, "maintenance_records/ticketReopenMobile"), {
+        isResolved: false,
+        status: "open",
+        endDate: null,
+        closedByUid: null,
+        closedByName: null,
+        downtimeHours: null,
+        teamsInvolved: [],
+        actionsJson: "[]",
+        remarks: "Issue recurred during operation.",
+        resolutionHistoryJson: JSON.stringify([
+          {
+            resolvedByUid: "seniorMech",
+            resolvedByName: "Senior Mechanical",
+            resolvedAt: closedAt,
+            actionsJson: "[]",
+            remarks: "Resolved after inspection.",
+            downtimeHours: 1.5,
+            teamsInvolved: ["mechanical"],
+          },
+        ]),
+        updatedAt: new Date().toISOString(),
+        updatedByUid: "ops1",
+        updatedByName: "Operations User",
+        version: 3,
+      })
+    );
+  });
+
+
+  test("maintenance reopen requires open status and clears active close fields", async () => {
+    const closedAt = new Date(Date.now() - 60000).toISOString();
+
+    await seedDoc("maintenance_records/ticketReopenInvariant", {
+      firestoreId: "ticketReopenInvariant",
+      version: 2,
+      assetType: "base",
+      assetNumber: 101,
+      maintenanceType: "breakdown",
+      description: "Closed ticket",
+      routedTo: "mechanical",
+      status: "resolved",
+      isResolved: true,
+      isCritical: false,
+      loggedByUid: "ops1",
+      createdAt: new Date(Date.now() - 120000).toISOString(),
+      updatedAt: closedAt,
+      endDate: closedAt,
+      closedByUid: "seniorMech",
+      closedByName: "Senior Mechanical",
+      remarks: "Resolved after inspection.",
+      downtimeHours: 1.5,
+      teamsInvolved: ["mechanical"],
+      actionsJson: "[]",
+      resolutionHistoryJson: "[]",
+      isDeleted: false,
+    });
+
+    const db = dbAs("ops1");
+
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketReopenInvariant"), {
+        isResolved: false,
+        status: "resolved",
+        endDate: null,
+        closedByUid: null,
+        closedByName: null,
+        downtimeHours: null,
+        teamsInvolved: [],
+        actionsJson: "[]",
+        remarks: "Status mismatch should fail.",
+        resolutionHistoryJson: "[]",
+        updatedAt: new Date().toISOString(),
+        updatedByUid: "ops1",
+        updatedByName: "Operations User",
+        version: 3,
+      })
+    );
+
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketReopenInvariant"), {
+        isResolved: false,
+        status: "open",
+        endDate: closedAt,
+        closedByUid: "seniorMech",
+        closedByName: "Senior Mechanical",
+        downtimeHours: 1.5,
+        teamsInvolved: [],
+        actionsJson: "[]",
+        remarks: "Uncleared close fields should fail.",
+        resolutionHistoryJson: "[]",
+        updatedAt: new Date().toISOString(),
+        updatedByUid: "ops1",
+        updatedByName: "Operations User",
+        version: 3,
+      })
+    );
+  });
+
+  test("maintenance mobile reopen clears active work payload fields", async () => {
+    const closedAt = new Date(Date.now() - 60000).toISOString();
+
+    await seedDoc("maintenance_records/ticketReopenPayloadInvariant", {
+      firestoreId: "ticketReopenPayloadInvariant",
+      version: 2,
+      assetType: "base",
+      assetNumber: 101,
+      maintenanceType: "breakdown",
+      description: "Closed ticket",
+      routedTo: "mechanical",
+      status: "resolved",
+      isResolved: true,
+      isCritical: false,
+      loggedByUid: "ops1",
+      createdAt: new Date(Date.now() - 120000).toISOString(),
+      updatedAt: closedAt,
+      endDate: closedAt,
+      closedByUid: "seniorMech",
+      closedByName: "Senior Mechanical",
+      remarks: "Resolved after inspection.",
+      downtimeHours: 1.5,
+      teamsInvolved: ["mechanical"],
+      actionsJson: "[]",
+      resolutionHistoryJson: "[]",
+      isDeleted: false,
+    });
+
+    const db = dbAs("ops1");
+
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketReopenPayloadInvariant"), {
+        isResolved: false,
+        status: "open",
+        endDate: null,
+        closedByUid: null,
+        closedByName: null,
+        downtimeHours: null,
+        teamsInvolved: ["mechanical"],
+        actionsJson: "[]",
+        remarks: "Teams must be cleared on reopen.",
+        resolutionHistoryJson: JSON.stringify([
+          {
+            resolvedByUid: "seniorMech",
+            resolvedByName: "Senior Mechanical",
+            resolvedAt: closedAt,
+            actionsJson: "[]",
+            remarks: "Resolved after inspection.",
+            downtimeHours: 1.5,
+            teamsInvolved: ["mechanical"],
+          },
+        ]),
+        updatedAt: new Date().toISOString(),
+        updatedByUid: "ops1",
+        updatedByName: "Operations User",
+        version: 3,
+      })
+    );
+
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketReopenPayloadInvariant"), {
+        isResolved: false,
+        status: "open",
+        endDate: null,
+        closedByUid: null,
+        closedByName: null,
+        downtimeHours: null,
+        teamsInvolved: [],
+        actionsJson: JSON.stringify([{ action: "leftover action" }]),
+        remarks: "Actions must be cleared on reopen.",
+        resolutionHistoryJson: JSON.stringify([
+          {
+            resolvedByUid: "seniorMech",
+            resolvedByName: "Senior Mechanical",
+            resolvedAt: closedAt,
+            actionsJson: "[]",
+            remarks: "Resolved after inspection.",
+            downtimeHours: 1.5,
+            teamsInvolved: ["mechanical"],
+          },
+        ]),
+        updatedAt: new Date().toISOString(),
+        updatedByUid: "ops1",
+        updatedByName: "Operations User",
+        version: 3,
+      })
+    );
+  });
+
   test("operations can reopen maintenance ticket without changing resolution evidence", async () => {
     const closedAt = new Date(Date.now() - 60000).toISOString();
 
@@ -278,6 +603,56 @@ describe("maintenance_records", () => {
         reopenedByName: "Operations User",
         reopenedAt: new Date().toISOString(),
         reopenReason: "Issue recurred during operation.",
+        updatedAt: new Date().toISOString(),
+        updatedByUid: "ops1",
+        updatedByName: "Operations User",
+        version: 3,
+      })
+    );
+  });
+
+  test("legacy reopen cannot introduce mobile resolution payload fields", async () => {
+    const closedAt = new Date(Date.now() - 60000).toISOString();
+
+    await seedDoc("maintenance_records/ticketLegacyPayloadTamper", {
+      firestoreId: "ticketLegacyPayloadTamper",
+      version: 2,
+      assetType: "base",
+      assetNumber: 101,
+      maintenanceType: "breakdown",
+      description: "Closed legacy ticket",
+      routedTo: "mechanical",
+      status: "closed",
+      isResolved: true,
+      isCritical: false,
+      loggedByUid: "ops1",
+      createdAt: new Date(Date.now() - 120000).toISOString(),
+      updatedAt: closedAt,
+      closedByUid: "seniorMech",
+      closedByName: "Senior Mechanical",
+      closedAt,
+      resolvedByUid: "seniorMech",
+      resolvedByName: "Senior Mechanical",
+      resolvedAt: closedAt,
+      resolutionNote: "Resolved after inspection.",
+      resolutionNotes: "Resolved after inspection.",
+      resolutionDetails: "Clamp adjusted and verified.",
+      isDeleted: false,
+    });
+
+    const db = dbAs("ops1");
+
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketLegacyPayloadTamper"), {
+        isResolved: false,
+        status: "open",
+        reopenedByUid: "ops1",
+        reopenedByName: "Operations User",
+        reopenedAt: new Date().toISOString(),
+        reopenReason: "Issue recurred during operation.",
+        teamsInvolved: [],
+        actionsJson: "[]",
+        resolutionHistoryJson: "[]",
         updatedAt: new Date().toISOString(),
         updatedByUid: "ops1",
         updatedByName: "Operations User",
