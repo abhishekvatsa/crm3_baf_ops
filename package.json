@@ -8,9 +8,9 @@
     "test": "test"
   },
   "scripts": {
-  "test:rules": "jest --runInBand",
-  "emulator:test:rules": "firebase emulators:exec --only firestore \"npm run test:rules\""
-},
+    "test:rules": "jest --runInBand",
+    "emulator:test:rules": "firebase emulators:exec --only firestore \"npm run test:rules\""
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -18,5 +18,8 @@
     "@firebase/rules-unit-testing": "^5.0.1",
     "firebase": "^12.13.0",
     "jest": "^30.4.2"
+  },
+  "overrides": {
+    "protobufjs": "7.5.8"
   }
 }
