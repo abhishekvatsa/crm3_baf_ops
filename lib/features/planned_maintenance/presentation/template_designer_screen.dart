@@ -227,9 +227,8 @@ class _TemplateDesignerScreenState extends ConsumerState<TemplateDesignerScreen>
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: _fields.length,
                   buildDefaultDragHandles: false,
-                  onReorder: (oldIndex, newIndex) {
+                  onReorderItem: (oldIndex, newIndex) {
                     setState(() {
-                      if (oldIndex < newIndex) newIndex -= 1;
                       final item = _fields.removeAt(oldIndex);
                       _fields.insert(newIndex, item);
                     });
