@@ -39,3 +39,6 @@ ui-debug.log
 # Stray binaries / build artifacts
 isar.dll
 *.dll
+release_evidence/
+
+release_evidence/
