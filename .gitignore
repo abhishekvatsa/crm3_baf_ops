@@ -42,3 +42,4 @@ isar.dll
 release_evidence/
 
 release_evidence/
+release_gate_*.log

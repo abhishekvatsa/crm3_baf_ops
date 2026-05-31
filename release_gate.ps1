@@ -1,60 +1,69 @@
 <#
-  release_gate.ps1  —  CRM-III BAF Ops repeatable release gate
-  --------------------------------------------------------------
-  Runs every source-level gate in one command and STOPS at the first failure.
-  This is the single command CI will later call, and the thing you run before
-  cutting any build. Field gates (physical device, weak-network, rollback) are
-  NOT in here — they are manual and tracked separately in PHASE-1 below.
+  release_gate.ps1 — CRM-III BAF Ops repeatable local release gate
+  ----------------------------------------------------------------
+  Runs source-level gates and stops at the first failure.
+
+  Field gates are intentionally manual and remain outside this script:
+    - signed APK install on a physical Android device
+    - weak-network/offline smoke
+    - rollback/recovery drill
+    - dependency/security review
 
   Usage:
-    pwsh ./release_gate.ps1              # full gate
-    pwsh ./release_gate.ps1 -SkipBuild   # skip the release APK build (faster)
+    pwsh ./release_gate.ps1
+    pwsh ./release_gate.ps1 -SkipBuild
     pwsh ./release_gate.ps1 -SkipFunctions
     pwsh ./release_gate.ps1 -SkipRules
-
-  Exit code 0 = all gates green. Non-zero = first failed gate.
 #>
 
 param(
   [switch]$SkipBuild,
   [switch]$SkipFunctions,
-  [switch]$SkipRules
+  [switch]$SkipRules,
+  [string]$EvidenceRoot = "release_evidence/local_release_gate"
 )
 
 $ErrorActionPreference = 'Stop'
 $script:step = 0
+$startedAt = Get-Date
+$stamp = $startedAt.ToString('yyyyMMdd_HHmmss')
+$EvidenceDir = Join-Path $EvidenceRoot $stamp
+New-Item -ItemType Directory -Force -Path $EvidenceDir | Out-Null
 
 function Run-Gate {
   param([string]$Name, [scriptblock]$Action)
   $script:step++
   Write-Host ""
-  Write-Host ("============================================================") -ForegroundColor Cyan
-  Write-Host ("[$script:step] $Name") -ForegroundColor Cyan
-  Write-Host ("============================================================") -ForegroundColor Cyan
+  Write-Host "============================================================" -ForegroundColor Cyan
+  Write-Host "[$script:step] $Name" -ForegroundColor Cyan
+  Write-Host "============================================================" -ForegroundColor Cyan
+  $global:LASTEXITCODE = 0
   & $Action
-  if ($LASTEXITCODE -ne 0) {
+  $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { $LASTEXITCODE }
+  if ($exitCode -ne 0) {
     Write-Host ""
-    Write-Host ">>> GATE FAILED: $Name (exit $LASTEXITCODE)" -ForegroundColor Red
-    exit $LASTEXITCODE
+    Write-Host ">>> GATE FAILED: $Name (exit $exitCode)" -ForegroundColor Red
+    exit $exitCode
   }
   Write-Host ">>> PASS: $Name" -ForegroundColor Green
 }
 
-$startedAt = Get-Date
 Write-Host "CRM-III BAF Ops — release gate starting at $startedAt" -ForegroundColor Yellow
+Write-Host "Evidence directory: $EvidenceDir" -ForegroundColor Yellow
 
-# ── 1. Static: formatting (WARN-ONLY for now) ─────────────────────
-# Temporarily non-blocking: formatting is cosmetic and was getting in the way
-# of seeing the gates that matter. This reports unformatted hand-written files
-# but does NOT fail the run. Restore to a hard gate (use Run-Gate) once the
-# one-time `dart format` sweep is committed. Generated *.g.dart excluded to
-# match analysis_options.yaml.
+# Record tool identity.
+flutter --version | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_version.log")
+dart --version 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "dart_version.log")
+git status --short --untracked-files=all | Tee-Object -FilePath (Join-Path $EvidenceDir "git_status_start.log")
+git log -1 --oneline | Tee-Object -FilePath (Join-Path $EvidenceDir "git_head.log")
+
+# 1. Formatting is warning-only for now, matching current project policy.
 $script:step++
 Write-Host ""
-Write-Host ("============================================================") -ForegroundColor Cyan
-Write-Host ("[$script:step] dart format (WARN-ONLY — not blocking)") -ForegroundColor Cyan
-Write-Host ("============================================================") -ForegroundColor Cyan
-dart format lib test --output=none --set-exit-if-changed *> $null
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host "[$script:step] dart format (WARN-ONLY — not blocking)" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
+dart format lib test --output=none --set-exit-if-changed *> (Join-Path $EvidenceDir "dart_format.log")
 if ($LASTEXITCODE -ne 0) {
   Write-Host ">>> WARN: some files are not dart-formatted (non-blocking; run 'dart format lib test' later)" -ForegroundColor Yellow
 } else {
@@ -62,19 +71,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 $global:LASTEXITCODE = 0
 
-# ── 2. Static: analyzer must be clean ─────────────────────────────
 Run-Gate "flutter analyze" {
-  flutter analyze
+  flutter analyze 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_analyze.log")
 }
 
-# ── 3. Full Flutter test suite ────────────────────────────────────
 Run-Gate "flutter test (full suite)" {
-  flutter test
+  flutter test 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_test_full.log")
 }
 
-# ── 4. No-loss regression spine (explicit, named) ─────────────────
-# These are the contracts the audit calls the no-loss spine. Running them
-# by name makes a spine break obvious even if someone weakens the full run.
 Run-Gate "no-loss regression spine" {
   flutter test `
     test/issue_1_tombstone_conflict_regression_test.dart `
@@ -85,71 +89,70 @@ Run-Gate "no-loss regression spine" {
     test/job_module_lifecycle_replay_contract_test.dart `
     test/maintenance_lifecycle_replay_contract_test.dart `
     test/release_startup_hygiene_contract_test.dart `
-    test/firestore_deployment_readiness_contract_test.dart
+    test/firestore_deployment_readiness_contract_test.dart `
+    2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_test_no_loss_spine.log")
 }
 
-# ── 5. Firestore rules via emulator (capture the Jest summary) ────
 if (-not $SkipRules) {
   Run-Gate "firestore rules (emulator + jest)" {
-    # emulator:exec runs the emulator, runs the JS rules suites, tears down.
-    # Output is tee'd so the Jest pass/fail summary is captured to a file —
-    # the audit specifically noted this summary was missing from evidence.
-    npm run emulator:test:rules 2>&1 | Tee-Object -FilePath "release_gate_rules.log"
+    if (Test-Path ".\firestore-debug.log") { Remove-Item ".\firestore-debug.log" -Force }
+    npm run emulator:test:rules 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "release_gate_rules.log")
   }
 
   Run-Gate "rules expression-limit check (must be ABSENT)" {
-    # The audit's mandatory grep: the debug log must NOT contain the
-    # 1000-expression warning. Present = fail.
     if (Test-Path ".\firestore-debug.log") {
+      Copy-Item ".\firestore-debug.log" (Join-Path $EvidenceDir "firestore-debug.log") -Force
       $hit = Select-String -Path ".\firestore-debug.log" -Pattern "maximum of 1000 expressions"
       if ($hit) {
         Write-Host "FOUND expression-limit warning in firestore-debug.log:" -ForegroundColor Red
-        $hit
+        $hit | Tee-Object -FilePath (Join-Path $EvidenceDir "expression_limit_hit.log")
         $global:LASTEXITCODE = 1
       } else {
         Write-Host "Clean: no 'maximum of 1000 expressions' warning." -ForegroundColor Green
         $global:LASTEXITCODE = 0
       }
     } else {
-      Write-Host "firestore-debug.log not found (emulator may not have written it) — treat as inconclusive, FAIL." -ForegroundColor Red
+      Write-Host "firestore-debug.log not found; expression-limit gate is inconclusive." -ForegroundColor Red
       $global:LASTEXITCODE = 1
     }
   }
 }
 
-# ── 6. Cloud Functions build + test ───────────────────────────────
 if (-not $SkipFunctions) {
   Run-Gate "functions build + test" {
     Push-Location functions
     try {
-      npm run build
+      npm run build 2>&1 | Tee-Object -FilePath (Join-Path ".." $EvidenceDir "functions_build.log")
       if ($LASTEXITCODE -ne 0) { return }
-      npm test
+      npm test 2>&1 | Tee-Object -FilePath (Join-Path ".." $EvidenceDir "functions_test.log")
     } finally {
       Pop-Location
     }
   }
 }
 
-# ── 7. Release APK build (artifact for the device gate) ───────────
 if (-not $SkipBuild) {
   Run-Gate "flutter build apk --release" {
-    flutter build apk --release
+    flutter build apk --release 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_build_apk_release.log")
   }
-  # Record the artifact hash + version so the build is traceable (Git gate).
+
   $apk = "build\app\outputs\flutter-apk\app-release.apk"
   if (Test-Path $apk) {
     $hash = (Get-FileHash $apk -Algorithm SHA256).Hash
+    $line = "$((Get-Date).ToString('o'))  app-release.apk  $hash"
     Write-Host "Release APK SHA-256: $hash"
-    "$($(Get-Date).ToString('o'))  app-release.apk  $hash" | Out-File -Append -FilePath "release_gate_artifacts.log"
+    $line | Out-File -Append -FilePath (Join-Path $EvidenceDir "release_gate_artifacts.log")
   }
 }
+
+git status --short --untracked-files=all | Tee-Object -FilePath (Join-Path $EvidenceDir "git_status_end.log")
 
 $elapsed = (Get-Date) - $startedAt
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Green
 Write-Host "ALL SOURCE GATES GREEN  ($([int]$elapsed.TotalSeconds)s)" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
+Write-Host "Evidence directory: $EvidenceDir" -ForegroundColor Green
 Write-Host ""
 Write-Host "Source gate is NOT the whole release. Field gates remain manual:" -ForegroundColor Yellow
 Write-Host "  [ ] Install app-release.apk on a physical Android device; smoke role/sync/closure/diagnostics"

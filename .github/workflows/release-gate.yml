@@ -1,12 +1,12 @@
 name: release-gate
 
-# Runs the same checks as release_gate.ps1, but on Linux CI for every push and
-# pull request. Mirrors the locally-proven gate:
-#   analyze -> full test -> no-loss spine -> firestore rules (emulator+jest)
-#   -> expression-limit check -> functions build+test
-# The release APK build is intentionally NOT here (it's the device-gate
-# artifact, built and smoke-tested manually). Formatting is a non-blocking
-# warning, matching the local gate's current WARN-ONLY policy.
+# Source-level CI gate for CRM-III BAF Ops.
+# Mirrors the local release_gate.ps1 source gates:
+#   format warning -> analyze -> full Flutter test -> no-loss spine
+#   -> Firestore rules/Jest + expression-limit scan -> Functions build/test
+#
+# Field gates remain manual: signed APK install, physical-device smoke,
+# weak-network/offline drill, rollback/recovery, dependency/security triage.
 
 on:
   push:
@@ -14,10 +14,12 @@ on:
   pull_request:
     branches: ["**"]
 
-# Cancel superseded runs on the same ref to save CI minutes.
 concurrency:
   group: release-gate-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   flutter-gates:
@@ -27,20 +29,55 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Flutter (stable, satisfies Dart ^3.7.0)
+      - name: Set up Flutter 3.44.0
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: "3.44.0"
           cache: true
 
       - name: Flutter version
         run: flutter --version
 
-      - name: Install dependencies
+      - name: Install Flutter dependencies
         run: flutter pub get
 
-      # ---- Gate 1: formatting (WARN-ONLY, never fails the build) ----
+      # Isar native tests on Linux need libisar.so available at runtime.
+      # The prior CI failure was: repo-root/libisar.so not found during Isar.initializeIsarCore.
+      # Keep this as an explicit CI preparation step so the two no-loss/closure Isar tests
+      # run in CI instead of being skipped or weakened.
+      - name: Prepare Isar native library for Linux tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .dart_tool/ci
+          cat > .dart_tool/ci/prepare_isar.dart <<'DART'
+          import 'package:isar/isar.dart';
+
+          Future<void> main() async {
+            await Isar.initializeIsarCore(download: true);
+          }
+          DART
+
+          dart run .dart_tool/ci/prepare_isar.dart
+
+          if [ ! -f "libisar.so" ]; then
+            found="$(find "$HOME/.pub-cache" "$PWD" -name libisar.so -type f 2>/dev/null | head -n 1 || true)"
+            if [ -n "$found" ]; then
+              cp "$found" ./libisar.so
+            fi
+          fi
+
+          if [ ! -f "libisar.so" ]; then
+            echo "::error::libisar.so was not prepared; native Isar tests cannot run on Linux CI."
+            find "$HOME/.pub-cache" "$PWD" -maxdepth 8 -iname '*isar*' -print || true
+            exit 1
+          fi
+
+          ls -l libisar.so
+
       - name: dart format (warn-only)
+        shell: bash
         run: |
           if dart format lib test --output=none --set-exit-if-changed > /dev/null 2>&1; then
             echo "::notice::formatting clean"
@@ -48,15 +85,12 @@ jobs:
             echo "::warning::some files are not dart-formatted (non-blocking; run 'dart format lib test')"
           fi
 
-      # ---- Gate 2: analyzer (hard) ----
       - name: flutter analyze
         run: flutter analyze
 
-      # ---- Gate 3: full suite (hard) ----
       - name: flutter test (full suite)
         run: flutter test
 
-      # ---- Gate 4: no-loss regression spine, by name (hard) ----
       - name: no-loss regression spine
         run: |
           flutter test \
@@ -81,38 +115,49 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
 
-      - name: Set up Java (required by Firestore emulator)
+      - name: Set up Java 17 for Firestore emulator
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Install root deps (rules-unit-testing, jest)
+      - name: Install root deps
         run: npm ci
 
       - name: Install firebase-tools
         run: npm install -g firebase-tools
 
       - name: Run rules suites in the Firestore emulator
-        run: npm run emulator:test:rules 2>&1 | tee firestore_rules_ci.log
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run emulator:test:rules 2>&1 | tee firestore_rules_ci.log
 
       - name: Expression-limit check (must be ABSENT)
+        shell: bash
         run: |
-          if [ -f firestore-debug.log ] && grep -q "maximum of 1000 expressions" firestore-debug.log; then
+          if [ ! -f firestore-debug.log ]; then
+            echo "::error::firestore-debug.log not found; expression-limit gate is inconclusive."
+            exit 1
+          fi
+          if grep -q "maximum of 1000 expressions" firestore-debug.log; then
             echo "::error::expression-limit warning present in firestore-debug.log"
             grep "maximum of 1000 expressions" firestore-debug.log
             exit 1
-          else
-            echo "::notice::clean — no expression-limit warning"
           fi
+          echo "::notice::clean — no expression-limit warning"
 
-      - name: Upload rules log
+      - name: Upload rules evidence logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: firestore-rules-log
-          path: firestore_rules_ci.log
+          name: firestore-rules-logs
+          path: |
+            firestore_rules_ci.log
+            firestore-debug.log
+          if-no-files-found: ignore
 
   functions:
     name: Cloud Functions build + test
@@ -125,6 +170,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
 
       - name: Install functions deps
         working-directory: functions
