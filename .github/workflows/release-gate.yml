@@ -1,0 +1,135 @@
+name: release-gate
+
+# Runs the same checks as release_gate.ps1, but on Linux CI for every push and
+# pull request. Mirrors the locally-proven gate:
+#   analyze -> full test -> no-loss spine -> firestore rules (emulator+jest)
+#   -> expression-limit check -> functions build+test
+# The release APK build is intentionally NOT here (it's the device-gate
+# artifact, built and smoke-tested manually). Formatting is a non-blocking
+# warning, matching the local gate's current WARN-ONLY policy.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter-gates:
+    name: Flutter analyze + tests + no-loss spine
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter (stable, satisfies Dart ^3.7.0)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # ---- Gate 1: formatting (WARN-ONLY, never fails the build) ----
+      - name: dart format (warn-only)
+        run: |
+          if dart format lib test --output=none --set-exit-if-changed > /dev/null 2>&1; then
+            echo "::notice::formatting clean"
+          else
+            echo "::warning::some files are not dart-formatted (non-blocking; run 'dart format lib test')"
+          fi
+
+      # ---- Gate 2: analyzer (hard) ----
+      - name: flutter analyze
+        run: flutter analyze
+
+      # ---- Gate 3: full suite (hard) ----
+      - name: flutter test (full suite)
+        run: flutter test
+
+      # ---- Gate 4: no-loss regression spine, by name (hard) ----
+      - name: no-loss regression spine
+        run: |
+          flutter test \
+            test/issue_1_tombstone_conflict_regression_test.dart \
+            test/sync_remote_freshness_policy_test.dart \
+            test/sync_coordinator_queue_contract_test.dart \
+            test/planned_job_closure_guard_test.dart \
+            test/planned_job_closure_attestation_test.dart \
+            test/job_module_lifecycle_replay_contract_test.dart \
+            test/maintenance_lifecycle_replay_contract_test.dart \
+            test/release_startup_hygiene_contract_test.dart \
+            test/firestore_deployment_readiness_contract_test.dart
+
+  firestore-rules:
+    name: Firestore rules (emulator + jest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Java (required by Firestore emulator)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install root deps (rules-unit-testing, jest)
+        run: npm ci
+
+      - name: Install firebase-tools
+        run: npm install -g firebase-tools
+
+      - name: Run rules suites in the Firestore emulator
+        run: npm run emulator:test:rules 2>&1 | tee firestore_rules_ci.log
+
+      - name: Expression-limit check (must be ABSENT)
+        run: |
+          if [ -f firestore-debug.log ] && grep -q "maximum of 1000 expressions" firestore-debug.log; then
+            echo "::error::expression-limit warning present in firestore-debug.log"
+            grep "maximum of 1000 expressions" firestore-debug.log
+            exit 1
+          else
+            echo "::notice::clean — no expression-limit warning"
+          fi
+
+      - name: Upload rules log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firestore-rules-log
+          path: firestore_rules_ci.log
+
+  functions:
+    name: Cloud Functions build + test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install functions deps
+        working-directory: functions
+        run: npm ci
+
+      - name: Build + test functions
+        working-directory: functions
+        run: npm test
