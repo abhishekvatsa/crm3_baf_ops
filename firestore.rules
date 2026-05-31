@@ -13,7 +13,8 @@ service cloud.firestore {
 
     function hasUserDoc() {
       return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+        ? exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        : false;
     }
 
     function userDoc() {
@@ -22,13 +23,16 @@ service cloud.firestore {
 
     function isApprovedUser() {
       return hasUserDoc()
-        && userDoc().data.isApproved == true
-        && userDoc().data.roles is list;
+        ? (userDoc().data.keys().hasAll(['isApproved', 'roles'])
+          && userDoc().data.get('isApproved', false) == true
+          && userDoc().data.get('roles', null) is list)
+        : false;
     }
 
     function hasAnyRole(roles) {
       return isApprovedUser()
-        && userDoc().data.roles.hasAny(roles);
+        ? userDoc().data.get('roles', []).hasAny(roles)
+        : false;
     }
 
     function isAdmin() {
@@ -88,34 +92,38 @@ service cloud.firestore {
     }
 
     function isSelf(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return isSignedIn()
+        ? request.auth.uid == userId
+        : false;
     }
 
     function validPendingUserCreate(userId) {
       return isSelf(userId)
-        && request.resource.data.keys().hasAll([
-          'name',
-          'email',
-          'roles',
-          'isApproved',
-          'createdAt'
-        ])
-        && request.resource.data.keys().hasOnly([
-          'name',
-          'email',
-          'photoUrl',
-          'roles',
-          'isApproved',
-          'fcmToken',
-          'createdAt'
-        ])
-        && request.resource.data.name is string
-        && request.resource.data.email is string
-        && request.resource.data.roles is list
-        && request.resource.data.roles.hasAll(['operations'])
-        && request.resource.data.roles.hasOnly(['operations'])
-        && request.resource.data.isApproved == false
-        && request.resource.data.createdAt is timestamp;
+        ? (request.resource.data.keys().hasAll([
+            'name',
+            'email',
+            'roles',
+            'isApproved',
+            'createdAt'
+          ])
+          ? (request.resource.data.keys().hasOnly([
+              'name',
+              'email',
+              'photoUrl',
+              'roles',
+              'isApproved',
+              'fcmToken',
+              'createdAt'
+            ])
+            && request.resource.data.get('name', null) is string
+            && request.resource.data.get('email', null) is string
+            && request.resource.data.get('roles', []) is list
+            && request.resource.data.get('roles', []).hasAll(['operations'])
+            && request.resource.data.get('roles', []).hasOnly(['operations'])
+            && request.resource.data.get('isApproved', null) == false
+            && request.resource.data.get('createdAt', null) is timestamp)
+          : false)
+        : false;
     }
 
     function validSelfUserUpdate(userId) {
@@ -126,20 +134,23 @@ service cloud.firestore {
           'photoUrl',
           'fcmToken'
         ])
-        && request.resource.data.roles == resource.data.roles
-        && request.resource.data.isApproved == resource.data.isApproved
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && request.resource.data.get('roles', []) == resource.data.get('roles', [])
+        && request.resource.data.get('isApproved', null) == resource.data.get('isApproved', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null);
     }
 
     function validAdminUserWrite(userId) {
       return isAdmin()
-        && request.resource.data.roles is list
-        && request.resource.data.roles.size() > 0
-        && request.resource.data.isApproved is bool
-        && (
-          request.auth.uid != userId
-          || request.resource.data.roles.hasAny(['admin'])
-        );
+        ? (request.resource.data.keys().hasAll(['roles', 'isApproved'])
+          ? (request.resource.data.get('roles', []) is list
+            && request.resource.data.get('roles', []).size() > 0
+            && request.resource.data.get('isApproved', null) is bool
+            && (
+              request.auth.uid != userId
+              || request.resource.data.get('roles', []).hasAny(['admin'])
+            ))
+          : false)
+        : false;
     }
 
     // ─────────────────────────────────────────────
@@ -206,8 +217,7 @@ service cloud.firestore {
     }
 
     function validJobExecutionCreate(docId) {
-      return isJobExecutionAssigner()
-        && request.resource.data.keys().hasAll([
+      return request.resource.data.keys().hasAll([
           'firestoreId',
           'templateFirestoreId',
           'assetType',
@@ -219,40 +229,42 @@ service cloud.firestore {
           'isCompleted',
           'isDeleted'
         ])
-        && request.resource.data.keys().hasOnly(jobExecutionAllowedFields())
-        && request.resource.data.firestoreId == docId
-        && request.resource.data.templateFirestoreId is string
-        && request.resource.data.assetType is string
-        && request.resource.data.assetNumber is int
-        && request.resource.data.assignedByUid is string
-        && request.resource.data.assignedByUid == request.auth.uid
-        && request.resource.data.createdAt is string
-        && request.resource.data.updatedAt is string
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && request.resource.data.get('isCompleted', false) == false
-        && request.resource.data.get('isDeleted', false) == false;
+        ? (isJobExecutionAssigner()
+          && request.resource.data.keys().hasOnly(jobExecutionAllowedFields())
+          && request.resource.data.get('firestoreId', null) == docId
+          && request.resource.data.get('templateFirestoreId', null) is string
+          && request.resource.data.get('assetType', null) is string
+          && request.resource.data.get('assetNumber', -1) is int
+          && request.resource.data.get('assignedByUid', null) is string
+          && request.resource.data.get('assignedByUid', null) == request.auth.uid
+          && request.resource.data.get('createdAt', null) is string
+          && request.resource.data.get('updatedAt', null) is string
+          && request.resource.data.get('version', -1) is int
+          && request.resource.data.get('version', -1) >= 1
+          && request.resource.data.get('isCompleted', false) == false
+          && request.resource.data.get('isDeleted', false) == false)
+        : false;
     }
 
     function validJobExecutionBaseUpdate(docId) {
       return isApprovedUser()
-        && resource.data.firestoreId == docId
-        && request.resource.data.firestoreId == resource.data.firestoreId
+        && resource.data.get('firestoreId', null) == docId
+        && request.resource.data.get('firestoreId', null) == resource.data.get('firestoreId', null)
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
-        && request.resource.data.templateFirestoreId == resource.data.templateFirestoreId
+        && request.resource.data.get('templateFirestoreId', null) == resource.data.get('templateFirestoreId', null)
         && request.resource.data.get('templatePackageId', null) == resource.data.get('templatePackageId', null)
         && request.resource.data.get('templateVersionId', null) == resource.data.get('templateVersionId', null)
         && request.resource.data.get('templateVersionNumber', null) == resource.data.get('templateVersionNumber', null)
         && request.resource.data.get('templateContentHash', null) == resource.data.get('templateContentHash', null)
-        && request.resource.data.assetNumber == resource.data.assetNumber
-        && request.resource.data.assetType == resource.data.assetType
+        && request.resource.data.get('assetNumber', -1) == resource.data.get('assetNumber', -1)
+        && request.resource.data.get('assetType', null) == resource.data.get('assetType', null)
         && request.resource.data.get('assignedByUid', null) == resource.data.get('assignedByUid', null)
         && request.resource.data.get('assignedByName', null) == resource.data.get('assignedByName', null)
         && request.resource.data.get('assignedAgencies', []) == resource.data.get('assignedAgencies', [])
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.version is int
-        && resource.data.version is int
-        && request.resource.data.version > resource.data.version;
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.get('version', -1) is int
+        && resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) > resource.data.get('version', -1);
     }
 
     function jobExecutionWorkChangedFieldsOnly() {
@@ -269,8 +281,8 @@ service cloud.firestore {
 
     function validJobExecutionWorkUpdate() {
       return isJobExecutionAssigner()
-        && resource.data.isCompleted == false
-        && request.resource.data.isCompleted == false
+        && resource.data.get('isCompleted', null) == false
+        && request.resource.data.get('isCompleted', null) == false
         && jobExecutionWorkChangedFieldsOnly();
     }
 
@@ -357,7 +369,7 @@ service cloud.firestore {
     }
 
     function validJobModuleCreatePayload(docId) {
-      return request.resource.data.firestoreId == docId
+      return request.resource.data.get('firestoreId', null) == docId
         && request.resource.data.keys().hasAll([
           'firestoreId',
           'moduleTitle',
@@ -377,21 +389,21 @@ service cloud.firestore {
           'version',
           'isDeleted'
         ])
-        && request.resource.data.moduleTitle is string
-        && request.resource.data.assetType is string
-        && request.resource.data.assetNumber is int
-        && request.resource.data.status is string
-        && request.resource.data.discipline is string
-        && request.resource.data.safetyClass is string
-        && request.resource.data.requiredForClosure is bool
-        && request.resource.data.addedDuringExecution is bool
-        && request.resource.data.moduleSnapshotJson is string
-        && request.resource.data.fieldDefinitionsJson is string
-        && request.resource.data.createdByUid == request.auth.uid
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && request.resource.data.isDeleted == false
+        && request.resource.data.get('moduleTitle', null) is string
+        && request.resource.data.get('assetType', null) is string
+        && request.resource.data.get('assetNumber', -1) is int
+        && request.resource.data.get('status', null) is string
+        && request.resource.data.get('discipline', null) is string
+        && request.resource.data.get('safetyClass', null) is string
+        && request.resource.data.get('requiredForClosure', null) is bool
+        && request.resource.data.get('addedDuringExecution', null) is bool
+        && request.resource.data.get('moduleSnapshotJson', null) is string
+        && request.resource.data.get('fieldDefinitionsJson', null) is string
+        && request.resource.data.get('createdByUid', null) == request.auth.uid
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) >= 1
+        && request.resource.data.get('isDeleted', null) == false
         && isApprovedUser()
         && canAddJobModuleDuringExecution()
         && validRuntimeModuleCreateAuthority();
@@ -420,10 +432,10 @@ service cloud.firestore {
           'isSynced'
         ])
         && isApprovedUser()
-        && resource.data.firestoreId == docId
-        && request.resource.data.version is int
-        && resource.data.version is int
-        && request.resource.data.version > resource.data.version;
+        && resource.data.get('firestoreId', null) == docId
+        && request.resource.data.get('version', -1) is int
+        && resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) > resource.data.get('version', -1);
     }
 
     function isOpenModuleStatus(status) {
@@ -543,50 +555,50 @@ service cloud.firestore {
     }
 
     function validJobModuleWorkUpdate(changedKeys, roles) {
-      return isOpenModuleStatus(request.resource.data.status)
+      return isOpenModuleStatus(request.resource.data.get('status', null))
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
         && jobModuleCoreWorkChangedFieldsOnly(changedKeys)
-        && request.resource.data.updatedByUid is string
-        && request.resource.data.updatedByUid == request.auth.uid
+        && request.resource.data.get('updatedByUid', null) is string
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
         && rolesCanSaveJobModuleWork(roles);
     }
 
     function validJobModuleSubmit(changedKeys, roles) {
-      return request.resource.data.status == 'submitted'
-        && isOpenModuleStatus(resource.data.status)
+      return request.resource.data.get('status', null) == 'submitted'
+        && isOpenModuleStatus(resource.data.get('status', null))
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
         && jobModuleSubmitChangedFieldsOnly(changedKeys)
-        && request.resource.data.submittedByUid == request.auth.uid
-        && rolesCanSubmitJobModuleDiscipline(roles, resource.data.discipline);
+        && request.resource.data.get('submittedByUid', null) == request.auth.uid
+        && rolesCanSubmitJobModuleDiscipline(roles, resource.data.get('discipline', null));
     }
 
     function validJobModuleAccept(changedKeys, roles) {
-      return request.resource.data.status == 'accepted'
-        && resource.data.status == 'submitted'
+      return request.resource.data.get('status', null) == 'accepted'
+        && resource.data.get('status', null) == 'submitted'
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
         && jobModuleAcceptChangedFieldsOnly(changedKeys)
-        && request.resource.data.acceptedByUid == request.auth.uid
+        && request.resource.data.get('acceptedByUid', null) == request.auth.uid
         && rolesAreModuleLifecycleModerator(roles);
     }
 
     function validJobModuleReopen(changedKeys, roles) {
-      return request.resource.data.status == 'reopened'
+      return request.resource.data.get('status', null) == 'reopened'
         && (
-          resource.data.status == 'submitted'
-          || resource.data.status == 'accepted'
-          || resource.data.status == 'notApplicable'
+          resource.data.get('status', null) == 'submitted'
+          || resource.data.get('status', null) == 'accepted'
+          || resource.data.get('status', null) == 'notApplicable'
         )
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
         && jobModuleReopenChangedFieldsOnly(changedKeys)
-        && request.resource.data.reopenedByUid == request.auth.uid
+        && request.resource.data.get('reopenedByUid', null) == request.auth.uid
         && rolesAreModuleLifecycleModerator(roles);
     }
 
     function validJobModuleNotApplicable(changedKeys, roles) {
-      return request.resource.data.status == 'notApplicable'
+      return request.resource.data.get('status', null) == 'notApplicable'
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
         && jobModuleNotApplicableChangedFieldsOnly(changedKeys)
-        && request.resource.data.notApplicableByUid == request.auth.uid
+        && request.resource.data.get('notApplicableByUid', null) == request.auth.uid
         && rolesAreModuleLifecycleModerator(roles);
     }
 
@@ -594,7 +606,7 @@ service cloud.firestore {
       return resource.data.get('isDeleted', false) == false
         && request.resource.data.get('isDeleted', false) == true
         && jobModuleSoftDeleteChangedFieldsOnly(changedKeys)
-        && request.resource.data.deletedByUid == request.auth.uid
+        && request.resource.data.get('deletedByUid', null) == request.auth.uid
         && rolesAreModuleLifecycleModerator(roles);
     }
 
@@ -617,7 +629,7 @@ service cloud.firestore {
       // writes. The selected branch of this conditional should prevent that
       // chain from being evaluated for known local-only/legacy payloads.
       //
-      // 47D.4: Guard userDoc().data.roles with isApprovedUser() — without
+      // 47D.4: Guard userDoc().data.get('roles', []) with isApprovedUser() — without
       // this, a signed-in user with no user doc (deletion in flight, fresh
       // signup before doc creation, admin-removed doc) makes this rule
       // ERROR instead of cleanly deny. Behavior is still deny in the end,
@@ -627,7 +639,8 @@ service cloud.firestore {
       return changedKeys.hasAny(['responses', 'isSynced'])
         ? false
         : (isApprovedUser()
-            && validJobModuleUpdatePayload(docId, changedKeys, userDoc().data.roles));
+            ? validJobModuleUpdatePayload(docId, changedKeys, userDoc().data.get('roles', []))
+            : false);
     }
 
     // ─────────────────────────────────────────────
@@ -646,20 +659,20 @@ service cloud.firestore {
           'version',
           'isDeleted'
         ])
-        && request.resource.data.firestoreId == docId
-        && request.resource.data.note is string
-        && request.resource.data.createdByUid == request.auth.uid
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && request.resource.data.isDeleted == false;
+        && request.resource.data.get('firestoreId', null) == docId
+        && request.resource.data.get('note', null) is string
+        && request.resource.data.get('createdByUid', null) == request.auth.uid
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) >= 1
+        && request.resource.data.get('isDeleted', null) == false;
     }
 
     function validJobDiaryUpdate(docId) {
       // Diary notes remain editable by their creator and by Admin/SI.
       // Version must strictly advance and hard/soft delete is not allowed here.
       return isApprovedUser()
-        && resource.data.firestoreId == docId
+        && resource.data.get('firestoreId', null) == docId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'note',
           'updatedByUid',
@@ -667,18 +680,18 @@ service cloud.firestore {
           'updatedAt',
           'version'
         ])
-        && request.resource.data.firestoreId == resource.data.firestoreId
-        && request.resource.data.createdByUid == resource.data.createdByUid
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.version is int
-        && resource.data.version is int
-        && request.resource.data.version > resource.data.version
+        && request.resource.data.get('firestoreId', null) == resource.data.get('firestoreId', null)
+        && request.resource.data.get('createdByUid', null) == resource.data.get('createdByUid', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('version', -1) is int
+        && resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) > resource.data.get('version', -1)
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
         && request.resource.data.get('isDeleted', false) == false
         && (
           isAdminOrSI()
-          || resource.data.createdByUid == request.auth.uid
+          || resource.data.get('createdByUid', null) == request.auth.uid
         );
     }
 
@@ -692,8 +705,8 @@ service cloud.firestore {
 
     function hasRequesterDirectiveTargetRole(role) {
       return isApprovedUser()
-        && role is string
-        && userDoc().data.roles.hasAny([role]);
+        ? (role is string && userDoc().data.get('roles', []).hasAny([role]))
+        : false;
     }
 
     function canDirectiveCreatorTarget(role) {
@@ -808,62 +821,63 @@ service cloud.firestore {
           'version',
           'isDeleted'
         ])
-        && request.resource.data.keys().hasOnly(directiveAllowedFields())
-        && request.resource.data.firestoreId is string
-        && request.resource.data.firestoreId == docId
-        && request.resource.data.get('isDeleted', false) == false
-        && request.resource.data.status == 'open'
-        && request.resource.data.title is string
-        && request.resource.data.description is string
-        && request.resource.data.directedTo is string
-        && request.resource.data.createdByUid is string
-        && request.resource.data.createdByUid == request.auth.uid
-        && request.resource.data.issuedByUid is string
-        && request.resource.data.issuedByUid == request.auth.uid
-        && request.resource.data.createdAt is string
-        && request.resource.data.updatedAt is string
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && canDirectiveCreatorTarget(request.resource.data.directedTo);
+        ? (request.resource.data.keys().hasOnly(directiveAllowedFields())
+          && request.resource.data.get('firestoreId', null) is string
+          && request.resource.data.get('firestoreId', null) == docId
+          && request.resource.data.get('isDeleted', false) == false
+          && request.resource.data.get('status', null) == 'open'
+          && request.resource.data.get('title', null) is string
+          && request.resource.data.get('description', null) is string
+          && request.resource.data.get('directedTo', null) is string
+          && request.resource.data.get('createdByUid', null) is string
+          && request.resource.data.get('createdByUid', null) == request.auth.uid
+          && request.resource.data.get('issuedByUid', null) is string
+          && request.resource.data.get('issuedByUid', null) == request.auth.uid
+          && request.resource.data.get('createdAt', null) is string
+          && request.resource.data.get('updatedAt', null) is string
+          && request.resource.data.get('version', -1) is int
+          && request.resource.data.get('version', -1) >= 1
+          && canDirectiveCreatorTarget(request.resource.data.get('directedTo', null)))
+        : false;
     }
 
     function validDirectiveBaseUpdate() {
       return isApprovedUser()
         && resource.data.get('isDeleted', false) == false
         && request.resource.data.get('isDeleted', false) == false
-        && request.resource.data.createdByUid == resource.data.createdByUid
-        && request.resource.data.issuedByUid == resource.data.issuedByUid
-        && request.resource.data.directedTo == resource.data.directedTo
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.version is int
-        && resource.data.version is int
-        && request.resource.data.version > resource.data.version;
+        && request.resource.data.get('createdByUid', null) == resource.data.get('createdByUid', null)
+        && request.resource.data.get('issuedByUid', null) == resource.data.get('issuedByUid', null)
+        && request.resource.data.get('directedTo', null) == resource.data.get('directedTo', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.get('version', -1) is int
+        && resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) > resource.data.get('version', -1);
     }
 
     function validDirectiveAcknowledge() {
       return validDirectiveBaseUpdate()
-        && resource.data.status == 'open'
-        && request.resource.data.status == 'acknowledged'
-        && request.resource.data.acknowledgedByUid == request.auth.uid
-        && request.resource.data.acknowledgedAt != null
-        && hasRequesterDirectiveTargetRole(resource.data.directedTo)
-        && request.resource.data.closedByUid == null
-        && request.resource.data.closedAt == null;
+        && resource.data.get('status', null) == 'open'
+        && request.resource.data.get('status', null) == 'acknowledged'
+        && request.resource.data.get('acknowledgedByUid', null) == request.auth.uid
+        && request.resource.data.get('acknowledgedAt', null) != null
+        && hasRequesterDirectiveTargetRole(resource.data.get('directedTo', null))
+        && request.resource.data.get('closedByUid', null) == null
+        && request.resource.data.get('closedAt', null) == null;
     }
 
     function validDirectiveClose() {
       return validDirectiveBaseUpdate()
-        && (resource.data.status == 'open' || resource.data.status == 'acknowledged')
-        && request.resource.data.status == 'closed'
-        && request.resource.data.closedByUid == request.auth.uid
-        && request.resource.data.closedAt != null
+        && (resource.data.get('status', null) == 'open' || resource.data.get('status', null) == 'acknowledged')
+        && request.resource.data.get('status', null) == 'closed'
+        && request.resource.data.get('closedByUid', null) == request.auth.uid
+        && request.resource.data.get('closedAt', null) != null
         && (
           canCloseAnyDirective()
           || directiveIssuedByRequester(resource.data)
           || (
-            resource.data.status == 'acknowledged'
-            && resource.data.acknowledgedByUid == request.auth.uid
-            && hasRequesterDirectiveTargetRole(resource.data.directedTo)
+            resource.data.get('status', null) == 'acknowledged'
+            && resource.data.get('acknowledgedByUid', null) == request.auth.uid
+            && hasRequesterDirectiveTargetRole(resource.data.get('directedTo', null))
           )
         );
     }
@@ -872,16 +886,16 @@ service cloud.firestore {
       return isAdmin()
         && request.resource.data.get('isDeleted', false) ==
           resource.data.get('isDeleted', false)
-        && request.resource.data.version is int
-        && resource.data.version is int
-        && request.resource.data.version > resource.data.version;
+        && request.resource.data.get('version', -1) is int
+        && resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) > resource.data.get('version', -1);
     }
 
     function validDirectiveAdminDelete() {
       return isAdmin()
         && resource.data.get('isDeleted', false) == false
         && request.resource.data.get('isDeleted', false) == true
-        && request.resource.data.deletedByUid == request.auth.uid;
+        && request.resource.data.get('deletedByUid', '') == request.auth.uid;
     }
 
     function validDirectiveUpdate() {
@@ -916,68 +930,84 @@ service cloud.firestore {
 
     function validTemplatePackageCreate(docId) {
       return isTemplateGovernor()
-        && request.resource.data.firestoreId == docId
-        && request.resource.data.packageCode is string
-        && request.resource.data.title is string
-        && request.resource.data.lifecycleStatus == 'active'
-        && request.resource.data.latestVersionNumber is int
-        && request.resource.data.latestVersionNumber >= 0
-        && request.resource.data.createdByUid == request.auth.uid
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && request.resource.data.schemaVersion is int
-        && request.resource.data.isDeleted == false;
+        && request.resource.data.get('firestoreId', null) == docId
+        && request.resource.data.get('packageCode', null) is string
+        && request.resource.data.get('title', null) is string
+        && request.resource.data.get('lifecycleStatus', null) == 'active'
+        && request.resource.data.get('latestVersionNumber', -1) is int
+        && request.resource.data.get('latestVersionNumber', -1) >= 0
+        && request.resource.data.get('createdByUid', null) == request.auth.uid
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) >= 1
+        && request.resource.data.get('schemaVersion', -1) is int
+        && request.resource.data.get('isDeleted', null) == false;
     }
 
     function validTemplatePackageUpdate(docId) {
       return isTemplateGovernor()
-        && resource.data.firestoreId == docId
-        && request.resource.data.firestoreId == resource.data.firestoreId
-        && request.resource.data.createdByUid == resource.data.createdByUid
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.isDeleted == resource.data.isDeleted
-        && isPackageLifecycleStatus(request.resource.data.lifecycleStatus)
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.version is int
-        && resource.data.version is int
-        && request.resource.data.version > resource.data.version;
+        && resource.data.get('firestoreId', null) == docId
+        && request.resource.data.get('firestoreId', null) == resource.data.get('firestoreId', null)
+        && request.resource.data.get('createdByUid', null) == resource.data.get('createdByUid', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.get('isDeleted', null) == resource.data.get('isDeleted', null)
+        && isPackageLifecycleStatus(request.resource.data.get('lifecycleStatus', null))
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('version', -1) is int
+        && resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) > resource.data.get('version', -1);
     }
 
     function validTemplateVersionCreate(docId) {
-      return isTemplateGovernor()
-        && request.resource.data.firestoreId == docId
-        && request.resource.data.packageFirestoreId is string
-        && request.resource.data.versionNumber is int
-        && request.resource.data.versionNumber >= 1
-        && request.resource.data.status == 'draft'
-        && request.resource.data.jobTemplateSnapshotJson is string
-        && request.resource.data.moduleSnapshotsJson is string
-        && request.resource.data.fieldDefinitionsJson is string
-        && request.resource.data.checklistJson is string
-        && request.resource.data.createdByUid == request.auth.uid
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && request.resource.data.schemaVersion is int
-        && request.resource.data.isDeleted == false;
+      return request.resource.data.keys().hasAll([
+          'firestoreId',
+          'packageFirestoreId',
+          'versionNumber',
+          'status',
+          'jobTemplateSnapshotJson',
+          'moduleSnapshotsJson',
+          'fieldDefinitionsJson',
+          'checklistJson',
+          'createdByUid',
+          'updatedByUid',
+          'version',
+          'schemaVersion',
+          'isDeleted'
+        ])
+        ? (isTemplateGovernor()
+          && request.resource.data.get('firestoreId', null) == docId
+          && request.resource.data.get('packageFirestoreId', null) is string
+          && request.resource.data.get('versionNumber', -1) is int
+          && request.resource.data.get('versionNumber', -1) >= 1
+          && request.resource.data.get('status', null) == 'draft'
+          && request.resource.data.get('jobTemplateSnapshotJson', null) is string
+          && request.resource.data.get('moduleSnapshotsJson', null) is string
+          && request.resource.data.get('fieldDefinitionsJson', null) is string
+          && request.resource.data.get('checklistJson', null) is string
+          && request.resource.data.get('createdByUid', null) == request.auth.uid
+          && request.resource.data.get('updatedByUid', null) == request.auth.uid
+          && request.resource.data.get('version', -1) is int
+          && request.resource.data.get('version', -1) >= 1
+          && request.resource.data.get('schemaVersion', -1) is int
+          && request.resource.data.get('isDeleted', null) == false)
+        : false;
     }
 
     function templateVersionIdentityUnchanged() {
-      return request.resource.data.firestoreId == resource.data.firestoreId
-        && request.resource.data.packageFirestoreId == resource.data.packageFirestoreId
-        && request.resource.data.versionNumber == resource.data.versionNumber
+      return request.resource.data.get('firestoreId', null) == resource.data.get('firestoreId', null)
+        && request.resource.data.get('packageFirestoreId', null) == resource.data.get('packageFirestoreId', null)
+        && request.resource.data.get('versionNumber', -1) == resource.data.get('versionNumber', -1)
         && request.resource.data.get('sourceVersionFirestoreId', null) == resource.data.get('sourceVersionFirestoreId', null)
-        && request.resource.data.createdByUid == resource.data.createdByUid
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.isDeleted == resource.data.isDeleted;
+        && request.resource.data.get('createdByUid', null) == resource.data.get('createdByUid', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.get('isDeleted', null) == resource.data.get('isDeleted', null);
     }
 
     function templateVersionPayloadJsonUnchanged() {
-      return request.resource.data.jobTemplateSnapshotJson == resource.data.jobTemplateSnapshotJson
-        && request.resource.data.moduleSnapshotsJson == resource.data.moduleSnapshotsJson
-        && request.resource.data.fieldDefinitionsJson == resource.data.fieldDefinitionsJson
-        && request.resource.data.checklistJson == resource.data.checklistJson
+      return request.resource.data.get('jobTemplateSnapshotJson', null) == resource.data.get('jobTemplateSnapshotJson', null)
+        && request.resource.data.get('moduleSnapshotsJson', null) == resource.data.get('moduleSnapshotsJson', null)
+        && request.resource.data.get('fieldDefinitionsJson', null) == resource.data.get('fieldDefinitionsJson', null)
+        && request.resource.data.get('checklistJson', null) == resource.data.get('checklistJson', null)
         && request.resource.data.get('targetRefs', []) == resource.data.get('targetRefs', [])
         && request.resource.data.get('deviceTagRefs', []) == resource.data.get('deviceTagRefs', [])
         && request.resource.data.get('safetyClass', null) == resource.data.get('safetyClass', null)
@@ -997,8 +1027,8 @@ service cloud.firestore {
     }
 
     function templateContentHashLooksValid() {
-      return request.resource.data.contentHash is string
-        && request.resource.data.contentHash.matches('^tg2-sha256:[0-9a-f]{64}$');
+      return request.resource.data.get('contentHash', null) is string
+        && request.resource.data.get('contentHash', null).matches('^tg2-sha256:[0-9a-f]{64}$');
     }
 
     function closureReviewPolicySatisfied() {
@@ -1015,42 +1045,45 @@ service cloud.firestore {
 
     function validTemplateVersionUpdateCommon(docId) {
       return isTemplateGovernor()
-        && resource.data.firestoreId == docId
+        && resource.data.get('firestoreId', null) == docId
         && templateVersionIdentityUnchanged()
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.version is int
-        && resource.data.version is int
-        && request.resource.data.version > resource.data.version;
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('version', -1) is int
+        && resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) > resource.data.get('version', -1);
     }
 
     function validDraftTemplateVersionUpdateDelta() {
-      return resource.data.status == 'draft'
-        && request.resource.data.status == 'draft';
+      return resource.data.get('status', null) == 'draft'
+        && request.resource.data.get('status', null) == 'draft';
     }
 
     function validTemplateVersionPublishDelta() {
-      return resource.data.status == 'draft'
-        && request.resource.data.status == 'published'
-        && templateVersionPayloadJsonUnchanged()
-        && templateContentHashLooksValid()
-        && closureReviewPolicySatisfied()
-        && request.resource.data.publishedByUid == request.auth.uid
-        && request.resource.data.publishedAt != null;
+      return resource.data.get('status', null) == 'draft'
+        && request.resource.data.get('status', null) == 'published'
+        ? (templateVersionPayloadJsonUnchanged()
+          && templateContentHashLooksValid()
+          && closureReviewPolicySatisfied()
+          && request.resource.data.get('publishedByUid', '') == request.auth.uid
+          && request.resource.data.get('publishedAt', null) != null)
+        : false;
     }
 
     function validTemplateVersionRetireDelta() {
-      return resource.data.status == 'published'
-        && request.resource.data.status == 'retired'
-        && templateVersionFrozenPayloadUnchanged()
-        && request.resource.data.retiredByUid == request.auth.uid
-        && request.resource.data.retiredAt != null
-        && request.resource.data.retireReason is string;
+      return resource.data.get('status', null) == 'published'
+        && request.resource.data.get('status', null) == 'retired'
+        ? (templateVersionFrozenPayloadUnchanged()
+          && request.resource.data.get('retiredByUid', '') == request.auth.uid
+          && request.resource.data.get('retiredAt', null) != null
+          && request.resource.data.get('retireReason', null) is string)
+        : false;
     }
 
     function validTemplateVersionArchiveDelta() {
-      return resource.data.status == 'retired'
-        && request.resource.data.status == 'archived'
-        && templateVersionFrozenPayloadUnchanged();
+      return resource.data.get('status', null) == 'retired'
+        && request.resource.data.get('status', null) == 'archived'
+        ? templateVersionFrozenPayloadUnchanged()
+        : false;
     }
 
     function validTemplateVersionUpdate(docId) {
@@ -1065,16 +1098,16 @@ service cloud.firestore {
 
     function validTemplatePublishAuditCreate(docId) {
       return isTemplateGovernor()
-        && request.resource.data.firestoreId == docId
-        && request.resource.data.packageFirestoreId is string
-        && request.resource.data.versionFirestoreId is string
-        && isTemplateAuditAction(request.resource.data.action)
-        && request.resource.data.performedByUid == request.auth.uid
-        && request.resource.data.performedAt != null
-        && request.resource.data.updatedAt != null
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && request.resource.data.isDeleted == false;
+        && request.resource.data.get('firestoreId', null) == docId
+        && request.resource.data.get('packageFirestoreId', null) is string
+        && request.resource.data.get('versionFirestoreId', null) is string
+        && isTemplateAuditAction(request.resource.data.get('action', null))
+        && request.resource.data.get('performedByUid', null) == request.auth.uid
+        && request.resource.data.get('performedAt', null) != null
+        && request.resource.data.get('updatedAt', null) != null
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) >= 1
+        && request.resource.data.get('isDeleted', null) == false;
     }
 
 
@@ -1107,8 +1140,8 @@ service cloud.firestore {
     }
 
     function moduleRegistryContentHashLooksValid() {
-      return request.resource.data.contentHash is string
-        && request.resource.data.contentHash.matches('^mrg1-sha256:[0-9a-f]{64}$');
+      return request.resource.data.get('contentHash', null) is string
+        && request.resource.data.get('contentHash', null).matches('^mrg1-sha256:[0-9a-f]{64}$');
     }
 
     function validModuleRegistryFamilyFields() {
@@ -1162,51 +1195,51 @@ service cloud.firestore {
           'schemaVersion',
           'isDeleted'
         ])
-        && request.resource.data.registryModuleId is string
-        && request.resource.data.moduleCode is string
-        && request.resource.data.canonicalTitle is string
-        && isModuleRegistryFamilyStatus(request.resource.data.status)
-        && request.resource.data.discipline is string
-        && request.resource.data.ownerDisciplines is list
-        && request.resource.data.assetType is string
-        && request.resource.data.functionalSection is string
-        && request.resource.data.componentGroup is string
-        && request.resource.data.targetRefs is list
-        && request.resource.data.deviceTagRefs is list
-        && request.resource.data.safetyClasses is list
-        && request.resource.data.requiredForClosure is bool
-        && request.resource.data.latestPublishedRevisionNumber is int
-        && request.resource.data.latestPublishedRevisionNumber >= 0
-        && request.resource.data.createdByUid is string
+        && request.resource.data.get('registryModuleId', null) is string
+        && request.resource.data.get('moduleCode', null) is string
+        && request.resource.data.get('canonicalTitle', null) is string
+        && isModuleRegistryFamilyStatus(request.resource.data.get('status', null))
+        && request.resource.data.get('discipline', null) is string
+        && request.resource.data.get('ownerDisciplines', []) is list
+        && request.resource.data.get('assetType', null) is string
+        && request.resource.data.get('functionalSection', null) is string
+        && request.resource.data.get('componentGroup', null) is string
+        && request.resource.data.get('targetRefs', []) is list
+        && request.resource.data.get('deviceTagRefs', []) is list
+        && request.resource.data.get('safetyClasses', []) is list
+        && request.resource.data.get('requiredForClosure', null) is bool
+        && request.resource.data.get('latestPublishedRevisionNumber', null) is int
+        && request.resource.data.get('latestPublishedRevisionNumber', null) >= 0
+        && request.resource.data.get('createdByUid', null) is string
         && moduleRegistryOptionalString(request.resource.data.get('createdByName', null))
-        && request.resource.data.updatedByUid is string
+        && request.resource.data.get('updatedByUid', null) is string
         && moduleRegistryOptionalString(request.resource.data.get('updatedByName', null))
         && moduleRegistryOptionalString(request.resource.data.get('retiredByUid', null))
         && moduleRegistryOptionalString(request.resource.data.get('retiredByName', null))
         && moduleRegistryOptionalString(request.resource.data.get('retireReason', null))
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && request.resource.data.schemaVersion == 1
-        && request.resource.data.isDeleted == false;
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) >= 1
+        && request.resource.data.get('schemaVersion', -1) == 1
+        && request.resource.data.get('isDeleted', null) == false;
     }
 
     function validModuleRegistryFamilyCreate(docId) {
       return isModuleRegistryGovernor()
         && validModuleRegistryFamilyFields()
-        && request.resource.data.registryModuleId == docId
-        && request.resource.data.status == 'active'
-        && request.resource.data.latestPublishedRevisionNumber == 0
-        && request.resource.data.createdByUid == request.auth.uid
-        && request.resource.data.updatedByUid == request.auth.uid;
+        && request.resource.data.get('registryModuleId', null) == docId
+        && request.resource.data.get('status', null) == 'active'
+        && request.resource.data.get('latestPublishedRevisionNumber', null) == 0
+        && request.resource.data.get('createdByUid', null) == request.auth.uid
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid;
     }
 
     function moduleRegistryFamilyIdentityUnchanged() {
-      return request.resource.data.registryModuleId == resource.data.registryModuleId
-        && request.resource.data.createdByUid == resource.data.createdByUid
+      return request.resource.data.get('registryModuleId', null) == resource.data.get('registryModuleId', null)
+        && request.resource.data.get('createdByUid', null) == resource.data.get('createdByUid', null)
         && request.resource.data.get('createdByName', null) == resource.data.get('createdByName', null)
         && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
-        && request.resource.data.schemaVersion == resource.data.schemaVersion
-        && request.resource.data.isDeleted == resource.data.isDeleted;
+        && request.resource.data.get('schemaVersion', -1) == resource.data.get('schemaVersion', -1)
+        && request.resource.data.get('isDeleted', null) == resource.data.get('isDeleted', null);
     }
     function moduleRegistryFamilyPublishChangedFieldsOnly() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -1246,29 +1279,29 @@ service cloud.firestore {
 
     function validModuleRegistryFamilyUpdate(docId) {
       return isModuleRegistryGovernor()
-        && resource.data.registryModuleId == docId
+        && resource.data.get('registryModuleId', null) == docId
         && validModuleRegistryFamilyFields()
-        && request.resource.data.registryModuleId == docId
+        && request.resource.data.get('registryModuleId', null) == docId
         && moduleRegistryFamilyIdentityUnchanged()
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.version is int
-        && resource.data.version is int
-        && request.resource.data.version == resource.data.version + 1
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('version', -1) is int
+        && resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) == resource.data.get('version', -1) + 1
         && (
           (
-            resource.data.status == 'active'
-            && request.resource.data.status == 'active'
+            resource.data.get('status', null) == 'active'
+            && request.resource.data.get('status', null) == 'active'
             && moduleRegistryFamilyPublishChangedFieldsOnly()
-            && request.resource.data.latestPublishedRevisionNumber == resource.data.latestPublishedRevisionNumber + 1
+            && request.resource.data.get('latestPublishedRevisionNumber', null) == resource.data.get('latestPublishedRevisionNumber', null) + 1
           )
           || (
-            resource.data.status == 'active'
-            && request.resource.data.status == 'retired'
+            resource.data.get('status', null) == 'active'
+            && request.resource.data.get('status', null) == 'retired'
             && moduleRegistryFamilyRetireChangedFieldsOnly()
-            && request.resource.data.latestPublishedRevisionNumber == resource.data.latestPublishedRevisionNumber
-            && request.resource.data.retiredByUid == request.auth.uid
-            && request.resource.data.retiredAt != null
-            && request.resource.data.retireReason is string
+            && request.resource.data.get('latestPublishedRevisionNumber', null) == resource.data.get('latestPublishedRevisionNumber', null)
+            && request.resource.data.get('retiredByUid', null) == request.auth.uid
+            && request.resource.data.get('retiredAt', null) != null
+            && request.resource.data.get('retireReason', null) is string
           )
         );
     }
@@ -1317,95 +1350,95 @@ service cloud.firestore {
           'schemaVersion',
           'isDeleted'
         ])
-        && request.resource.data.registryModuleId is string
-        && request.resource.data.revisionId is string
-        && request.resource.data.revisionNumber is int
-        && request.resource.data.revisionNumber >= 0
-        && isModuleRegistryRevisionStatus(request.resource.data.revisionStatus)
-        && request.resource.data.moduleSnapshotJson is string
-        && request.resource.data.fieldDefinitionsJson is string
-        && request.resource.data.checklistJson is string
-        && request.resource.data.lineageJson is string
+        && request.resource.data.get('registryModuleId', null) is string
+        && request.resource.data.get('revisionId', null) is string
+        && request.resource.data.get('revisionNumber', -1) is int
+        && request.resource.data.get('revisionNumber', -1) >= 0
+        && isModuleRegistryRevisionStatus(request.resource.data.get('revisionStatus', null))
+        && request.resource.data.get('moduleSnapshotJson', null) is string
+        && request.resource.data.get('fieldDefinitionsJson', null) is string
+        && request.resource.data.get('checklistJson', null) is string
+        && request.resource.data.get('lineageJson', null) is string
         && moduleRegistryContentHashLooksValid()
-        && request.resource.data.createdByUid is string
+        && request.resource.data.get('createdByUid', null) is string
         && moduleRegistryOptionalString(request.resource.data.get('createdByName', null))
-        && request.resource.data.updatedByUid is string
+        && request.resource.data.get('updatedByUid', null) is string
         && moduleRegistryOptionalString(request.resource.data.get('updatedByName', null))
         && moduleRegistryOptionalString(request.resource.data.get('publishedByUid', null))
         && moduleRegistryOptionalString(request.resource.data.get('publishedByName', null))
         && moduleRegistryOptionalString(request.resource.data.get('retiredByUid', null))
         && moduleRegistryOptionalString(request.resource.data.get('retiredByName', null))
         && moduleRegistryOptionalString(request.resource.data.get('retireReason', null))
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && request.resource.data.schemaVersion == 1
-        && request.resource.data.isDeleted == false;
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) >= 1
+        && request.resource.data.get('schemaVersion', -1) == 1
+        && request.resource.data.get('isDeleted', null) == false;
     }
 
     function validModuleRegistryRevisionCreate(registryModuleId, revisionId) {
       return isModuleRegistryGovernor()
         && validModuleRegistryRevisionFields()
-        && request.resource.data.registryModuleId == registryModuleId
-        && request.resource.data.revisionId == revisionId
-        && request.resource.data.revisionStatus == 'draft'
-        && request.resource.data.revisionNumber == 0
-        && request.resource.data.createdByUid == request.auth.uid
-        && request.resource.data.updatedByUid == request.auth.uid;
+        && request.resource.data.get('registryModuleId', null) == registryModuleId
+        && request.resource.data.get('revisionId', null) == revisionId
+        && request.resource.data.get('revisionStatus', null) == 'draft'
+        && request.resource.data.get('revisionNumber', -1) == 0
+        && request.resource.data.get('createdByUid', null) == request.auth.uid
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid;
     }
 
     function moduleRegistryRevisionIdentityUnchanged() {
-      return request.resource.data.registryModuleId == resource.data.registryModuleId
-        && request.resource.data.revisionId == resource.data.revisionId
-        && request.resource.data.createdByUid == resource.data.createdByUid
+      return request.resource.data.get('registryModuleId', null) == resource.data.get('registryModuleId', null)
+        && request.resource.data.get('revisionId', null) == resource.data.get('revisionId', null)
+        && request.resource.data.get('createdByUid', null) == resource.data.get('createdByUid', null)
         && request.resource.data.get('createdByName', null) == resource.data.get('createdByName', null)
         && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
-        && request.resource.data.schemaVersion == resource.data.schemaVersion
-        && request.resource.data.isDeleted == resource.data.isDeleted;
+        && request.resource.data.get('schemaVersion', -1) == resource.data.get('schemaVersion', -1)
+        && request.resource.data.get('isDeleted', null) == resource.data.get('isDeleted', null);
     }
 
     function moduleRegistryRevisionContentUnchanged() {
-      return request.resource.data.moduleSnapshotJson == resource.data.moduleSnapshotJson
-        && request.resource.data.fieldDefinitionsJson == resource.data.fieldDefinitionsJson
-        && request.resource.data.checklistJson == resource.data.checklistJson
-        && request.resource.data.contentHash == resource.data.contentHash
-        && request.resource.data.lineageJson == resource.data.lineageJson;
+      return request.resource.data.get('moduleSnapshotJson', null) == resource.data.get('moduleSnapshotJson', null)
+        && request.resource.data.get('fieldDefinitionsJson', null) == resource.data.get('fieldDefinitionsJson', null)
+        && request.resource.data.get('checklistJson', null) == resource.data.get('checklistJson', null)
+        && request.resource.data.get('contentHash', null) == resource.data.get('contentHash', null)
+        && request.resource.data.get('lineageJson', null) == resource.data.get('lineageJson', null);
     }
 
     function validModuleRegistryRevisionUpdate(registryModuleId, revisionId) {
       return isModuleRegistryGovernor()
         && validModuleRegistryRevisionFields()
-        && resource.data.registryModuleId == registryModuleId
-        && resource.data.revisionId == revisionId
-        && request.resource.data.registryModuleId == registryModuleId
-        && request.resource.data.revisionId == revisionId
+        && resource.data.get('registryModuleId', null) == registryModuleId
+        && resource.data.get('revisionId', null) == revisionId
+        && request.resource.data.get('registryModuleId', null) == registryModuleId
+        && request.resource.data.get('revisionId', null) == revisionId
         && moduleRegistryRevisionIdentityUnchanged()
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.version is int
-        && resource.data.version is int
-        && request.resource.data.version == resource.data.version + 1
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('version', -1) is int
+        && resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) == resource.data.get('version', -1) + 1
         && (
           (
-            resource.data.revisionStatus == 'draft'
-            && request.resource.data.revisionStatus == 'draft'
-            && request.resource.data.revisionNumber == resource.data.revisionNumber
+            resource.data.get('revisionStatus', null) == 'draft'
+            && request.resource.data.get('revisionStatus', null) == 'draft'
+            && request.resource.data.get('revisionNumber', -1) == resource.data.get('revisionNumber', -1)
           )
           || (
-            resource.data.revisionStatus == 'draft'
-            && request.resource.data.revisionStatus == 'published'
+            resource.data.get('revisionStatus', null) == 'draft'
+            && request.resource.data.get('revisionStatus', null) == 'published'
             && moduleRegistryRevisionContentUnchanged()
-            && request.resource.data.revisionNumber is int
-            && request.resource.data.revisionNumber > 0
-            && request.resource.data.publishedByUid == request.auth.uid
-            && request.resource.data.publishedAt != null
+            && request.resource.data.get('revisionNumber', -1) is int
+            && request.resource.data.get('revisionNumber', -1) > 0
+            && request.resource.data.get('publishedByUid', null) == request.auth.uid
+            && request.resource.data.get('publishedAt', null) != null
           )
           || (
-            resource.data.revisionStatus == 'published'
-            && request.resource.data.revisionStatus == 'retired'
+            resource.data.get('revisionStatus', null) == 'published'
+            && request.resource.data.get('revisionStatus', null) == 'retired'
             && moduleRegistryRevisionContentUnchanged()
-            && request.resource.data.revisionNumber == resource.data.revisionNumber
-            && request.resource.data.retiredByUid == request.auth.uid
-            && request.resource.data.retiredAt != null
-            && request.resource.data.retireReason is string
+            && request.resource.data.get('revisionNumber', -1) == resource.data.get('revisionNumber', -1)
+            && request.resource.data.get('retiredByUid', null) == request.auth.uid
+            && request.resource.data.get('retiredAt', null) != null
+            && request.resource.data.get('retireReason', null) is string
           )
         );
     }
@@ -1437,24 +1470,24 @@ service cloud.firestore {
           'version',
           'isDeleted'
         ])
-        && request.resource.data.firestoreId == docId
-        && request.resource.data.registryModuleId is string
-        && isModuleRegistryAuditAction(request.resource.data.action)
-        && request.resource.data.performedByUid == request.auth.uid
+        && request.resource.data.get('firestoreId', null) == docId
+        && request.resource.data.get('registryModuleId', null) is string
+        && isModuleRegistryAuditAction(request.resource.data.get('action', null))
+        && request.resource.data.get('performedByUid', null) == request.auth.uid
         && moduleRegistryOptionalString(request.resource.data.get('revisionId', null))
         && (
           request.resource.data.get('revisionNumber', null) == null
           || request.resource.data.get('revisionNumber', null) is int
         )
         && moduleRegistryOptionalString(request.resource.data.get('performedByName', null))
-        && request.resource.data.performedAt != null
+        && request.resource.data.get('performedAt', null) != null
         && moduleRegistryOptionalString(request.resource.data.get('reasonNotes', null))
         && moduleRegistryOptionalString(request.resource.data.get('beforeHash', null))
         && moduleRegistryOptionalString(request.resource.data.get('afterHash', null))
         && moduleRegistryOptionalString(request.resource.data.get('lineageSummaryJson', null))
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && request.resource.data.isDeleted == false;
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) >= 1
+        && request.resource.data.get('isDeleted', null) == false;
     }
 
     // ─────────────────────────────────────────────
@@ -1488,71 +1521,71 @@ service cloud.firestore {
     }
 
     function validKnowledgeChangeSummary() {
-      return request.resource.data.changeSummary is string
-        && request.resource.data.changeSummary.size() >= 15;
+      return request.resource.data.get('changeSummary', null) is string
+        && request.resource.data.get('changeSummary', null).size() >= 15;
     }
 
     function validKnowledgeBaseCommon(docId) {
       return isTemplateGovernor()
-        && request.resource.data.rowCode == docId
-        && request.resource.data.schemaVersion == 1
-        && request.resource.data.taskText is string
-        && request.resource.data.moduleCandidateCode is string
-        && request.resource.data.ownerDisciplines is list
-        && request.resource.data.safetyClasses is list
-        && request.resource.data.procedureRefs is list
-        && request.resource.data.partRefs is list
-        && request.resource.data.deviceTags is list
-        && request.resource.data.targetRefs is list
-        && request.resource.data.suggestedFields is list
-        && request.resource.data.composerReadiness is string
-        && isKnowledgeReadiness(request.resource.data.composerReadiness)
-        && request.resource.data.confidence is string
-        && isKnowledgeConfidence(request.resource.data.confidence)
-        && request.resource.data.lifecycleStatus is string
-        && isKnowledgeLifecycleStatus(request.resource.data.lifecycleStatus)
-        && request.resource.data.matrixVersion is string
+        && request.resource.data.get('rowCode', null) == docId
+        && request.resource.data.get('schemaVersion', -1) == 1
+        && request.resource.data.get('taskText', null) is string
+        && request.resource.data.get('moduleCandidateCode', null) is string
+        && request.resource.data.get('ownerDisciplines', []) is list
+        && request.resource.data.get('safetyClasses', []) is list
+        && request.resource.data.get('procedureRefs', []) is list
+        && request.resource.data.get('partRefs', []) is list
+        && request.resource.data.get('deviceTags', []) is list
+        && request.resource.data.get('targetRefs', []) is list
+        && request.resource.data.get('suggestedFields', []) is list
+        && request.resource.data.get('composerReadiness', null) is string
+        && isKnowledgeReadiness(request.resource.data.get('composerReadiness', null))
+        && request.resource.data.get('confidence', null) is string
+        && isKnowledgeConfidence(request.resource.data.get('confidence', null))
+        && request.resource.data.get('lifecycleStatus', null) is string
+        && isKnowledgeLifecycleStatus(request.resource.data.get('lifecycleStatus', null))
+        && request.resource.data.get('matrixVersion', null) is string
         && validKnowledgeChangeSummary()
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('updatedAt', null) == request.time;
     }
 
     function validKnowledgeBaseCreate(docId) {
       return validKnowledgeBaseCommon(docId)
-        && request.resource.data.version is int
-        && request.resource.data.version == 1
-        && request.resource.data.createdByUid == request.auth.uid
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.isDeleted == false;
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) == 1
+        && request.resource.data.get('createdByUid', null) == request.auth.uid
+        && request.resource.data.get('createdAt', null) == request.time
+        && request.resource.data.get('isDeleted', null) == false;
     }
 
     function validKnowledgeBaseUpdate(docId) {
       return validKnowledgeBaseCommon(docId)
-        && resource.data.rowCode == docId
-        && request.resource.data.rowCode == resource.data.rowCode
-        && request.resource.data.schemaVersion == resource.data.schemaVersion
-        && request.resource.data.createdByUid == resource.data.createdByUid
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.version is int
-        && resource.data.version is int
-        && request.resource.data.version > resource.data.version
-        && request.resource.data.changeSummary != resource.data.get('changeSummary', '')
-        && request.resource.data.isDeleted == resource.data.get('isDeleted', false);
+        && resource.data.get('rowCode', null) == docId
+        && request.resource.data.get('rowCode', null) == resource.data.get('rowCode', null)
+        && request.resource.data.get('schemaVersion', -1) == resource.data.get('schemaVersion', -1)
+        && request.resource.data.get('createdByUid', null) == resource.data.get('createdByUid', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.get('version', -1) is int
+        && resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) > resource.data.get('version', -1)
+        && request.resource.data.get('changeSummary', null) != resource.data.get('changeSummary', '')
+        && request.resource.data.get('isDeleted', null) == resource.data.get('isDeleted', false);
     }
 
     function validKnowledgeMetaWrite(docId) {
       return isTemplateGovernor()
         && docId == 'current'
-        && request.resource.data.matrixVersion is string
-        && request.resource.data.sourceLabel is string
-        && request.resource.data.knowledgeRowCount is int
-        && request.resource.data.tagRowCount is int
-        && request.resource.data.schemaVersion == 1
-        && request.resource.data.version is int
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.updatedAt == request.time
-        && request.resource.data.changeSummary is string
-        && request.resource.data.changeSummary.size() >= 15;
+        && request.resource.data.get('matrixVersion', null) is string
+        && request.resource.data.get('sourceLabel', null) is string
+        && request.resource.data.get('knowledgeRowCount', -1) is int
+        && request.resource.data.get('tagRowCount', -1) is int
+        && request.resource.data.get('schemaVersion', -1) == 1
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('updatedAt', null) == request.time
+        && request.resource.data.get('changeSummary', null) is string
+        && request.resource.data.get('changeSummary', null).size() >= 15;
     }
 
     // ─────────────────────────────────────────────
@@ -1577,25 +1610,25 @@ service cloud.firestore {
           'updatedAt',
           'isDeleted'
         ])
-        && request.resource.data.firestoreId == docId
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && request.resource.data.assetType is string
-        && request.resource.data.assetNumber is int
-        && request.resource.data.maintenanceType is string
-        && request.resource.data.description is string
-        && request.resource.data.routedTo is string
-        && request.resource.data.status is string
-        && request.resource.data.isResolved == false
-        && request.resource.data.isCritical is bool
-        && request.resource.data.loggedByUid == request.auth.uid
-        && request.resource.data.createdAt is string
-        && request.resource.data.updatedAt is string
-        && request.resource.data.isDeleted == false;
+        && request.resource.data.get('firestoreId', null) == docId
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) >= 1
+        && request.resource.data.get('assetType', null) is string
+        && request.resource.data.get('assetNumber', -1) is int
+        && request.resource.data.get('maintenanceType', null) is string
+        && request.resource.data.get('description', null) is string
+        && request.resource.data.get('routedTo', null) is string
+        && request.resource.data.get('status', null) is string
+        && request.resource.data.get('isResolved', null) == false
+        && request.resource.data.get('isCritical', null) is bool
+        && request.resource.data.get('loggedByUid', null) == request.auth.uid
+        && request.resource.data.get('createdAt', null) is string
+        && request.resource.data.get('updatedAt', null) is string
+        && request.resource.data.get('isDeleted', null) == false;
     }
 
-    function maintenanceCloseChangedFieldsOnly() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+    function maintenanceCloseChangedFieldsOnly(affected) {
+      return affected.hasOnly([
         'isResolved',
         'status',
         'closedByUid',
@@ -1607,6 +1640,11 @@ service cloud.firestore {
         'resolutionNote',
         'resolutionNotes',
         'resolutionDetails',
+        'endDate',
+        'remarks',
+        'downtimeHours',
+        'teamsInvolved',
+        'actionsJson',
         'updatedAt',
         'updatedByUid',
         'updatedByName',
@@ -1626,51 +1664,160 @@ service cloud.firestore {
         && request.resource.data.get('resolutionDetails', null) == resource.data.get('resolutionDetails', null);
     }
 
-    function maintenanceReopenChangedFieldsOnly() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+    function maintenanceReopenChangedFieldsOnly(affected) {
+      return affected.hasOnly([
         'isResolved',
         'status',
         'reopenedByUid',
         'reopenedByName',
         'reopenedAt',
         'reopenReason',
+        'endDate',
+        'closedByUid',
+        'closedByName',
+        'downtimeHours',
+        'teamsInvolved',
+        'actionsJson',
+        'remarks',
+        'resolutionHistoryJson',
         'updatedAt',
         'updatedByUid',
         'updatedByName',
         'version'
-      ])
-      && maintenanceResolutionFieldsFrozenOnReopen();
+      ]);
+    }
+
+    function maintenanceUsesMobileCloseFields() {
+      return resource.data.keys().hasAny([
+        'endDate',
+        'downtimeHours',
+        'teamsInvolved',
+        'actionsJson',
+        'resolutionHistoryJson'
+      ]);
+    }
+
+    function maintenanceMobileCloseFieldsClearedOnReopen() {
+      return maintenanceUsesMobileCloseFields()
+        && request.resource.data.get('endDate', null) == null
+        && request.resource.data.get('closedByUid', null) == null
+        && request.resource.data.get('closedByName', null) == null
+        && request.resource.data.get('downtimeHours', null) == null
+        && request.resource.data.get('teamsInvolved', []) is list
+        && request.resource.data.get('teamsInvolved', []).size() == 0
+        && request.resource.data.get('actionsJson', '[]') == '[]'
+        && request.resource.data.get('resolutionHistoryJson', '[]') is string;
+    }
+
+    function maintenanceLegacyResolutionFieldsFrozenOnReopen(affected) {
+      return !maintenanceUsesMobileCloseFields()
+        && !affected.hasAny([
+          'endDate',
+          'closedByUid',
+          'closedByName',
+          'downtimeHours',
+          'teamsInvolved',
+          'actionsJson',
+          'remarks',
+          'resolutionHistoryJson'
+        ])
+        && maintenanceResolutionFieldsFrozenOnReopen();
     }
 
     function maintenanceVersionAdvances() {
-      return request.resource.data.version is int
-        && resource.data.version is int
-        && request.resource.data.version > resource.data.version;
+      return request.resource.data.get('version', -1) is int
+        && resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) > resource.data.get('version', -1);
     }
 
-    function validMaintenanceClose() {
-      return canCloseMaintenanceTicket()
-        && resource.data.get('isDeleted', false) == false
-        && request.resource.data.get('isDeleted', false) == false
-        && resource.data.get('isResolved', false) == false
-        && request.resource.data.get('isResolved', false) == true
-        && request.resource.data.closedByUid == request.auth.uid
-        && maintenanceVersionAdvances()
-        && maintenanceCloseChangedFieldsOnly();
+    function maintenanceIsCloseTransition() {
+      return resource.data.get('isResolved', false) == false
+        && request.resource.data.get('isResolved', false) == true;
     }
 
-    function validMaintenanceReopen() {
-      return canReopenMaintenanceTicket()
-        && resource.data.get('isDeleted', false) == false
-        && request.resource.data.get('isDeleted', false) == false
-        && resource.data.get('isResolved', false) == true
-        && request.resource.data.get('isResolved', false) == false
-        && maintenanceVersionAdvances()
-        && maintenanceReopenChangedFieldsOnly();
+    function maintenanceIsReopenTransition() {
+      return resource.data.get('isResolved', false) == true
+        && request.resource.data.get('isResolved', false) == false;
     }
 
-    function maintenanceAdminEditChangedFieldsOnly() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+    function maintenanceSoftDeleteChangedFieldsOnly(affected) {
+      return affected.hasOnly([
+        'isDeleted',
+        'deletedAt',
+        'deletedByUid',
+        'deletedByName',
+        'deleteReason',
+        'updatedAt',
+        'version'
+      ]);
+    }
+
+    function maintenanceAdminEditShape(affected) {
+      return maintenanceAdminEditChangedFieldsOnly(affected)
+        && !maintenanceIsCloseTransition()
+        && !maintenanceIsReopenTransition()
+        && !affected.hasAny([
+          'isDeleted',
+          'deletedAt',
+          'deletedByUid',
+          'deletedByName',
+          'deleteReason'
+        ]);
+    }
+
+    function validMaintenanceCloseUpdate() {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      return maintenanceCloseChangedFieldsOnly(affected)
+        && affected.hasAll(['isResolved', 'status', 'closedByUid'])
+        ? (maintenanceIsCloseTransition()
+          && canCloseMaintenanceTicket()
+          && resource.data.get('isDeleted', false) == false
+          && request.resource.data.get('isDeleted', false) == false
+          && request.resource.data.get('status', null) == 'resolved'
+          && request.resource.data.get('closedByUid', null) == request.auth.uid
+          && request.resource.data.get('endDate', '') is string
+          && request.resource.data.get('teamsInvolved', []) is list
+          && request.resource.data.get('actionsJson', '[]') is string
+          && maintenanceVersionAdvances())
+        : false;
+    }
+
+    function validMaintenanceReopenUpdate() {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      return maintenanceReopenChangedFieldsOnly(affected)
+        && affected.hasAll(['isResolved', 'status'])
+        ? (maintenanceIsReopenTransition()
+          && canReopenMaintenanceTicket()
+          && resource.data.get('isDeleted', false) == false
+          && request.resource.data.get('isDeleted', false) == false
+          && request.resource.data.get('status', null) == 'open'
+          && (maintenanceMobileCloseFieldsClearedOnReopen()
+            || maintenanceLegacyResolutionFieldsFrozenOnReopen(affected))
+          && maintenanceVersionAdvances())
+        : false;
+    }
+
+    function validMaintenanceSoftDeleteUpdate() {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      return maintenanceSoftDeleteChangedFieldsOnly(affected)
+        && affected.hasAll(['isDeleted', 'deletedByUid'])
+        ? (isAdmin()
+          && resource.data.get('isDeleted', false) == false
+          && request.resource.data.get('isDeleted', false) == true
+          && request.resource.data.get('deletedByUid', '') == request.auth.uid
+          && maintenanceVersionAdvances())
+        : false;
+    }
+
+    function validMaintenanceAdminEditUpdate() {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      return isAdmin()
+        && maintenanceAdminEditShape(affected)
+        && maintenanceVersionAdvances();
+    }
+
+    function maintenanceAdminEditChangedFieldsOnly(affected) {
+      return affected.hasOnly([
         'maintenanceType',
         'description',
         'routedTo',
@@ -1697,38 +1844,30 @@ service cloud.firestore {
       ]);
     }
 
-    function validMaintenanceAdminEdit() {
+    function validMaintenanceAdminEdit(affected) {
       return isAdmin()
-        && request.resource.data.firestoreId == resource.data.firestoreId
-        && request.resource.data.assetType == resource.data.assetType
-        && request.resource.data.assetNumber == resource.data.assetNumber
-        && request.resource.data.loggedByUid == resource.data.loggedByUid
-        && request.resource.data.createdAt == resource.data.createdAt
+        && maintenanceAdminEditShape(affected)
+        && request.resource.data.get('firestoreId', null) == resource.data.get('firestoreId', null)
+        && request.resource.data.get('assetType', null) == resource.data.get('assetType', null)
+        && request.resource.data.get('assetNumber', -1) == resource.data.get('assetNumber', -1)
+        && request.resource.data.get('loggedByUid', null) == resource.data.get('loggedByUid', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
-        && maintenanceVersionAdvances()
-        && maintenanceAdminEditChangedFieldsOnly();
+        && maintenanceVersionAdvances();
     }
 
-    function validMaintenanceAdminSoftDelete() {
-      return isAdmin()
+    function validMaintenanceAdminSoftDelete(affected) {
+      return maintenanceSoftDeleteChangedFieldsOnly(affected)
+        && isAdmin()
         && resource.data.get('isDeleted', false) == false
         && request.resource.data.get('isDeleted', false) == true
-        && request.resource.data.firestoreId == resource.data.firestoreId
-        && request.resource.data.assetType == resource.data.assetType
-        && request.resource.data.assetNumber == resource.data.assetNumber
-        && request.resource.data.loggedByUid == resource.data.loggedByUid
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.deletedByUid == request.auth.uid
-        && maintenanceVersionAdvances()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'isDeleted',
-          'deletedAt',
-          'deletedByUid',
-          'deletedByName',
-          'deleteReason',
-          'updatedAt',
-          'version'
-        ]);
+        && request.resource.data.get('firestoreId', null) == resource.data.get('firestoreId', null)
+        && request.resource.data.get('assetType', null) == resource.data.get('assetType', null)
+        && request.resource.data.get('assetNumber', -1) == resource.data.get('assetNumber', -1)
+        && request.resource.data.get('loggedByUid', null) == resource.data.get('loggedByUid', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.get('deletedByUid', null) == request.auth.uid
+        && maintenanceVersionAdvances();
     }
 
     // ─────────────────────────────────────────────
@@ -1754,22 +1893,22 @@ service cloud.firestore {
           'version',
           'isDeleted'
         ])
-        && request.resource.data.firestoreId == docId
-        && request.resource.data.sourceChargeNo is int
-        && request.resource.data.abnormalityTypeId is string
-        && request.resource.data.abnormalityTypeTitle is string
-        && request.resource.data.abnormalityTypeCode is string
-        && request.resource.data.category is string
-        && request.resource.data.severity is string
-        && request.resource.data.affectedAssets is list
-        && request.resource.data.observedReason is string
-        && request.resource.data.loggedAt is string
-        && request.resource.data.updatedAt is string
-        && request.resource.data.loggedByUid == request.auth.uid
-        && request.resource.data.updatedByUid == request.auth.uid
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && request.resource.data.isDeleted == false;
+        && request.resource.data.get('firestoreId', null) == docId
+        && request.resource.data.get('sourceChargeNo', -1) is int
+        && request.resource.data.get('abnormalityTypeId', null) is string
+        && request.resource.data.get('abnormalityTypeTitle', null) is string
+        && request.resource.data.get('abnormalityTypeCode', null) is string
+        && request.resource.data.get('category', null) is string
+        && request.resource.data.get('severity', null) is string
+        && request.resource.data.get('affectedAssets', []) is list
+        && request.resource.data.get('observedReason', null) is string
+        && request.resource.data.get('loggedAt', null) is string
+        && request.resource.data.get('updatedAt', null) is string
+        && request.resource.data.get('loggedByUid', null) == request.auth.uid
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) >= 1
+        && request.resource.data.get('isDeleted', null) == false;
     }
 
     // ─────────────────────────────────────────────
@@ -1828,13 +1967,13 @@ service cloud.firestore {
           'beforeJson',
           'afterJson'
         ])
-        && validNonEmptyString(request.resource.data.entityType, 80)
-        && validNonEmptyString(request.resource.data.entityId, 200)
-        && validAuditActionValue(request.resource.data.action)
-        && request.resource.data.performedByUid == request.auth.uid
+        && validNonEmptyString(request.resource.data.get('entityType', null), 80)
+        && validNonEmptyString(request.resource.data.get('entityId', null), 200)
+        && validAuditActionValue(request.resource.data.get('action', null))
+        && request.resource.data.get('performedByUid', null) == request.auth.uid
         && validOptionalString(request.resource.data.get('performedByName', null), 160)
-        && request.resource.data.timestamp is timestamp
-        && validAuditSeverityValue(request.resource.data.severity)
+        && request.resource.data.get('timestamp', null) is timestamp
+        && validAuditSeverityValue(request.resource.data.get('severity', null))
         && validOptionalString(request.resource.data.get('reason', null), 80)
         && validOptionalString(request.resource.data.get('reasonNotes', null), 2000)
         && validOptionalString(request.resource.data.get('summary', null), 500)
@@ -1863,15 +2002,15 @@ service cloud.firestore {
           'version',
           'isDeleted'
         ])
-        && request.resource.data.type == 'knowledge_base_seed'
-        && request.resource.data.action == 'seed_baseline'
-        && request.resource.data.performedByUid == request.auth.uid
+        && request.resource.data.get('type', null) == 'knowledge_base_seed'
+        && request.resource.data.get('action', null) == 'seed_baseline'
+        && request.resource.data.get('performedByUid', null) == request.auth.uid
         && validOptionalString(request.resource.data.get('performedByName', null), 160)
-        && request.resource.data.performedAt is timestamp
+        && request.resource.data.get('performedAt', null) is timestamp
         && validOptionalString(request.resource.data.get('details', null), 2000)
-        && request.resource.data.version is int
-        && request.resource.data.version >= 1
-        && request.resource.data.isDeleted == false;
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) >= 1
+        && request.resource.data.get('isDeleted', null) == false;
     }
 
     function validAuditCreate() {
@@ -1893,8 +2032,10 @@ service cloud.firestore {
       allow create: if validPendingUserCreate(userId)
         || validAdminUserWrite(userId);
 
-      allow update: if validSelfUserUpdate(userId)
-        || validAdminUserWrite(userId);
+      allow update: if exists(/databases/$(database)/documents/users/$(userId))
+        ? (validSelfUserUpdate(userId)
+          || validAdminUserWrite(userId))
+        : false;
 
       allow delete: if false;
     }
@@ -1905,8 +2046,12 @@ service cloud.firestore {
 
     match /knowledge_base/{docId} {
       allow read: if isApprovedUser();
-      allow create: if validKnowledgeBaseCreate(docId);
-      allow update: if validKnowledgeBaseUpdate(docId);
+      allow create: if isApprovedUser()
+        ? validKnowledgeBaseCreate(docId)
+        : false;
+      allow update: if exists(/databases/$(database)/documents/knowledge_base/$(docId))
+        ? (isApprovedUser() ? validKnowledgeBaseUpdate(docId) : false)
+        : false;
       allow delete: if false;
     }
 
@@ -1923,10 +2068,18 @@ service cloud.firestore {
     match /maintenance_records/{docId} {
       allow read: if isApprovedUser();
       allow create: if validMaintenanceCreate(docId);
-      allow update: if validMaintenanceAdminEdit()
-        || validMaintenanceAdminSoftDelete()
-        || validMaintenanceClose()
-        || validMaintenanceReopen();
+      allow update: if exists(/databases/$(database)/documents/maintenance_records/$(docId))
+        ? (isApprovedUser() ? validMaintenanceCloseUpdate() : false)
+        : false;
+      allow update: if exists(/databases/$(database)/documents/maintenance_records/$(docId))
+        ? (isApprovedUser() ? validMaintenanceReopenUpdate() : false)
+        : false;
+      allow update: if exists(/databases/$(database)/documents/maintenance_records/$(docId))
+        ? (isApprovedUser() ? validMaintenanceSoftDeleteUpdate() : false)
+        : false;
+      allow update: if exists(/databases/$(database)/documents/maintenance_records/$(docId))
+        ? (isApprovedUser() ? validMaintenanceAdminEditUpdate() : false)
+        : false;
       allow delete: if false;
     }
 
@@ -1943,8 +2096,12 @@ service cloud.firestore {
 
     match /template_versions/{docId} {
       allow read: if isApprovedUser();
-      allow create: if validTemplateVersionCreate(docId);
-      allow update: if validTemplateVersionUpdate(docId);
+      allow create: if isApprovedUser()
+        ? validTemplateVersionCreate(docId)
+        : false;
+      allow update: if exists(/databases/$(database)/documents/template_versions/$(docId))
+        ? (isApprovedUser() ? validTemplateVersionUpdate(docId) : false)
+        : false;
       allow delete: if false;
     }
 
@@ -1960,14 +2117,22 @@ service cloud.firestore {
 
     match /module_registry/{registryModuleId} {
       allow read: if isApprovedUser();
-      allow create: if validModuleRegistryFamilyCreate(registryModuleId);
-      allow update: if validModuleRegistryFamilyUpdate(registryModuleId);
+      allow create: if isApprovedUser()
+        ? validModuleRegistryFamilyCreate(registryModuleId)
+        : false;
+      allow update: if exists(/databases/$(database)/documents/module_registry/$(registryModuleId))
+        ? (isApprovedUser() ? validModuleRegistryFamilyUpdate(registryModuleId) : false)
+        : false;
       allow delete: if false;
 
       match /revisions/{revisionId} {
         allow read: if isApprovedUser();
-        allow create: if validModuleRegistryRevisionCreate(registryModuleId, revisionId);
-        allow update: if validModuleRegistryRevisionUpdate(registryModuleId, revisionId);
+        allow create: if isApprovedUser()
+          ? validModuleRegistryRevisionCreate(registryModuleId, revisionId)
+          : false;
+        allow update: if exists(/databases/$(database)/documents/module_registry/$(registryModuleId)/revisions/$(revisionId))
+          ? (isApprovedUser() ? validModuleRegistryRevisionUpdate(registryModuleId, revisionId) : false)
+          : false;
         allow delete: if false;
       }
     }
@@ -1996,8 +2161,12 @@ service cloud.firestore {
 
     match /job_executions/{docId} {
       allow read: if isApprovedUser();
-      allow create: if validJobExecutionCreate(docId);
-      allow update: if validJobExecutionUpdate(docId);
+      allow create: if isApprovedUser()
+        ? validJobExecutionCreate(docId)
+        : false;
+      allow update: if exists(/databases/$(database)/documents/job_executions/$(docId))
+        ? (isApprovedUser() ? validJobExecutionUpdate(docId) : false)
+        : false;
       allow delete: if false;
     }
 
@@ -2008,7 +2177,9 @@ service cloud.firestore {
     match /job_diary_entries/{docId} {
       allow read: if isApprovedUser();
       allow create: if validJobDiaryCreate(docId);
-      allow update: if validJobDiaryUpdate(docId);
+      allow update: if exists(/databases/$(database)/documents/job_diary_entries/$(docId))
+        ? (isApprovedUser() ? validJobDiaryUpdate(docId) : false)
+        : false;
       allow delete: if false;
     }
 
@@ -2018,8 +2189,12 @@ service cloud.firestore {
 
     match /job_modules/{docId} {
       allow read: if isApprovedUser();
-      allow create: if validJobModuleCreate(docId);
-      allow update: if validJobModuleUpdate(docId);
+      allow create: if isApprovedUser()
+        ? validJobModuleCreate(docId)
+        : false;
+      allow update: if exists(/databases/$(database)/documents/job_modules/$(docId))
+        ? (isApprovedUser() ? validJobModuleUpdate(docId) : false)
+        : false;
       allow delete: if false;
     }
 
@@ -2029,8 +2204,12 @@ service cloud.firestore {
 
     match /directives/{docId} {
       allow read: if isApprovedUser();
-      allow create: if validDirectiveCreate(docId);
-      allow update: if validDirectiveUpdate();
+      allow create: if isApprovedUser()
+        ? validDirectiveCreate(docId)
+        : false;
+      allow update: if exists(/databases/$(database)/documents/directives/$(docId))
+        ? (isApprovedUser() ? validDirectiveUpdate() : false)
+        : false;
       allow delete: if false;
     }
 

@@ -141,6 +141,16 @@ abstract class MaintenanceRepository {
     List<String> firestoreIds,
   );
   Future<void> batchUpsertTickets(List<MaintenanceRecord> records);
+
+  /// Applies one server-visible maintenance lifecycle replay step as a remote
+  /// field-scoped merge. Used only by sync when offline local-first ticket
+  /// actions collapsed create/close/reopen transitions into one dirty snapshot.
+  /// Local repositories do not support this remote push primitive.
+  Future<void> applyRemoteMaintenanceLifecycleReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> stepData,
+  );
+
   Future<void> markTicketsSynced(List<int> ids);
   Future<void> markTicketsSyncedIfUnchanged(List<SyncPushSnapshot> snapshots);
 }
@@ -872,6 +882,17 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
   }
 
   @override
+  Future<void> applyRemoteMaintenanceLifecycleReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> stepData,
+  ) {
+    throw UnsupportedError(
+      'applyRemoteMaintenanceLifecycleReplayStepForSync is a remote sync '
+      'primitive and is not supported by the local Isar maintenance repository.',
+    );
+  }
+
+  @override
   Future<void> markTicketsSynced(List<int> ids) async {
     await isar.writeTxn(() async {
       final records =
@@ -1429,6 +1450,24 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       }
     }
     await batch.commit();
+  }
+
+  @override
+  Future<void> applyRemoteMaintenanceLifecycleReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> stepData,
+  ) async {
+    final id = _cleanOptionalMaintenanceText(firestoreId);
+    if (id == null) {
+      throw ArgumentError(
+        'applyRemoteMaintenanceLifecycleReplayStepForSync requires a non-empty firestoreId',
+      );
+    }
+
+    // Field-scoped merge: the caller provides only the fields for one
+    // maintenance lifecycle rule branch. This avoids pushing a collapsed final
+    // dirty snapshot that skips the server-visible open/closed/open sequence.
+    await _collection.doc(id).set(stepData, SetOptions(merge: true));
   }
 
   @override

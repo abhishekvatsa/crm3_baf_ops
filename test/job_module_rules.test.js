@@ -162,7 +162,7 @@ beforeAll(async () => {
       port: 8080,
     },
   });
-});
+}, 120000);
 
 beforeEach(async () => {
   await testEnv.clearFirestore();
@@ -170,7 +170,9 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await testEnv.cleanup();
+  if (testEnv) {
+    await testEnv.cleanup();
+  }
   setLogLevel('warn');
 });
 

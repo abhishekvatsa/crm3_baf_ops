@@ -90,16 +90,30 @@ void main() {
       expect(rules, contains('return false;'));
       expect(rules, contains('match /module_registry/{registryModuleId}'));
       expect(rules, contains('match /revisions/{revisionId}'));
-      expect(
-        rules,
-        contains('request.resource.data.version == resource.data.version + 1'),
+      final exactRegistryVersionAdvance = RegExp(
+        r"request\.resource\.data\.get\('version', -1\)\s*==\s*"
+        r"resource\.data\.get\('version', -1\)\s*\+\s*1",
       );
       expect(
-        rules,
-        contains(
-          'request.resource.data.latestPublishedRevisionNumber == '
-          'resource.data.latestPublishedRevisionNumber + 1',
-        ),
+        exactRegistryVersionAdvance.allMatches(rules).length,
+        greaterThanOrEqualTo(2),
+        reason:
+            'Registry family and revision updates must still advance '
+            'exactly by one version using null-safe .get access.',
+      );
+
+      final latestPublishedRevisionAdvance = RegExp(
+        r"request\.resource\.data\.get\('latestPublishedRevisionNumber', null\)"
+        r"\s*==\s*resource\.data\.get\('latestPublishedRevisionNumber', null\)"
+        r"\s*\+\s*1",
+      );
+      expect(
+        latestPublishedRevisionAdvance.hasMatch(rules),
+        isTrue,
+        reason:
+            'Registry family publish must still advance '
+            'latestPublishedRevisionNumber by exactly one using null-safe '
+            '.get access.',
       );
       expect(rules, contains('moduleRegistryFamilyPublishChangedFieldsOnly'));
       expect(rules, contains('moduleRegistryRevisionContentUnchanged'));

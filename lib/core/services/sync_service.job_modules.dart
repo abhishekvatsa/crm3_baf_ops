@@ -94,6 +94,24 @@ extension _SyncServiceJobModules on SyncService {
           continue;
         }
 
+        if (remote != null) {
+          final replayed = await _tryPushDecomposedJobModule(record, remote);
+          if (replayed) {
+            lastSuccessCount++;
+            skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            debugPrint(
+              '🪜 Replayed collapsed job-module submit→accept lifecycle: '
+              '${record.firestoreId} (${_shortText(record.moduleTitle)})',
+            );
+            continue;
+          }
+
+          // If a first replay step committed but the second did not, the remote
+          // may now be at `submitted`. Falling through to the normal push lets
+          // the existing single-record diagnostics either complete the now
+          // single-hop accepted update or surface the remaining rejection.
+        }
+
         recordsToPush.add(record);
       }
 
@@ -385,4 +403,131 @@ extension _SyncServiceJobModules on SyncService {
 
     return diffs.isEmpty ? 'none' : diffs.join(', ');
   }
+
+  List<_JobModuleReplayStep> _jobModuleLifecycleReplayPlan(
+    JobModuleInstance local,
+    JobModuleInstance remote,
+  ) {
+    final firestoreId = _cleanText(local.firestoreId);
+    if (firestoreId == null || firestoreId != _cleanText(remote.firestoreId)) {
+      return const [];
+    }
+    if (local.isDeleted || remote.isDeleted) return const [];
+    if (local.status != JobModuleStatus.accepted) return const [];
+    if (!_isOpenJobModuleStatus(remote.status)) return const [];
+
+    // This repair is deliberately limited to the proven offline multi-hop
+    // collapse. A normal one-hop update remains on the existing batch path.
+    if (local.version <= remote.version + 1) return const [];
+
+    final currentUid = _cleanText(FirebaseAuth.instance.currentUser?.uid);
+    final submittedByUid = _cleanText(local.submittedByUid);
+    final acceptedByUid = _cleanText(local.acceptedByUid);
+    if (currentUid == null || submittedByUid == null || acceptedByUid == null) {
+      return const [];
+    }
+
+    // Firestore rules bind submittedByUid and acceptedByUid to request.auth.uid.
+    // Therefore the first safe implementation only replays same-auth collapses.
+    // Cross-actor offline submit→accept remains unsupported and should fail via
+    // the normal diagnostics path rather than being replayed incorrectly.
+    if (submittedByUid != currentUid || acceptedByUid != currentUid) {
+      return const [];
+    }
+
+    if (local.submittedAt == null || local.acceptedAt == null) return const [];
+
+    if (_jobModulePinnedFieldDiff(local, remote) != 'none') return const [];
+
+    return const [_JobModuleReplayStep.submit, _JobModuleReplayStep.accept];
+  }
+
+  Future<bool> _tryPushDecomposedJobModule(
+    JobModuleInstance local,
+    JobModuleInstance remote,
+  ) async {
+    final plan = _jobModuleLifecycleReplayPlan(local, remote);
+    if (plan.isEmpty) return false;
+
+    final firestoreId = _cleanText(local.firestoreId);
+    if (firestoreId == null) return false;
+
+    var stepVersion = remote.version;
+    try {
+      for (final step in plan) {
+        final Map<String, dynamic> stepData;
+        if (step == _JobModuleReplayStep.submit) {
+          stepVersion += 1;
+          stepData = _jobModuleSubmitReplayStepData(local, stepVersion);
+        } else {
+          stepData = _jobModuleAcceptReplayStepData(local);
+          stepVersion = stepData['version'] as int;
+        }
+
+        await _retry(() async {
+          await _firestoreJobModule.applyRemoteLifecycleReplayStepForSync(
+            firestoreId,
+            stepData,
+          );
+        });
+      }
+      return true;
+    } catch (error, stackTrace) {
+      debugPrint(
+        '⚠️ Decomposed job-module lifecycle replay did not fully complete for '
+        '$firestoreId (${_shortText(local.moduleTitle)}): $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
+    }
+  }
+
+  Map<String, dynamic> _jobModuleSubmitReplayStepData(
+    JobModuleInstance local,
+    int version,
+  ) {
+    final full = local.toMap();
+    return <String, dynamic>{
+      'status': JobModuleStatus.submitted.name,
+      'responsesJson': full['responsesJson'],
+      'actionsJson': full['actionsJson'],
+      'draftNote': full['draftNote'],
+      'pendingIssue': full['pendingIssue'],
+      'requiresFollowUp': full['requiresFollowUp'],
+      'submittedByUid': full['submittedByUid'],
+      'submittedByName': full['submittedByName'],
+      'submittedAt': full['submittedAt'],
+      'submissionNote': full['submissionNote'],
+      'updatedAt': full['submittedAt'] ?? full['updatedAt'],
+      'updatedByUid': full['submittedByUid'],
+      'updatedByName': full['submittedByName'],
+      'version': version,
+      'metadataJson': full['metadataJson'],
+    };
+  }
+
+  Map<String, dynamic> _jobModuleAcceptReplayStepData(JobModuleInstance local) {
+    final full = local.toMap();
+    return <String, dynamic>{
+      'status': JobModuleStatus.accepted.name,
+      'acceptedByUid': full['acceptedByUid'],
+      'acceptedByName': full['acceptedByName'],
+      'acceptedAt': full['acceptedAt'],
+      'acceptanceNote': full['acceptanceNote'],
+      'updatedAt': full['acceptedAt'] ?? full['updatedAt'],
+      'updatedByUid': full['acceptedByUid'],
+      'updatedByName': full['acceptedByName'],
+      'version': full['version'],
+      'metadataJson': full['metadataJson'],
+    };
+  }
+
+  bool _isOpenJobModuleStatus(JobModuleStatus status) {
+    return status == JobModuleStatus.notStarted ||
+        status == JobModuleStatus.draftSaved ||
+        status == JobModuleStatus.inProgress ||
+        status == JobModuleStatus.reopened;
+  }
 }
+
+enum _JobModuleReplayStep { submit, accept }

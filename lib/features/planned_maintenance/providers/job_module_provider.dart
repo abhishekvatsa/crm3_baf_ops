@@ -513,6 +513,18 @@ abstract class JobModuleRepository {
 
   Future<List<JobModuleInstance>> getModulesByFirestoreIds(List<String> ids);
   Future<void> batchUpsertModules(List<JobModuleInstance> records);
+
+  /// Applies one server-visible lifecycle replay step as a remote field-scoped merge.
+  ///
+  /// This is intentionally narrower than a general map-write escape hatch: it is
+  /// used only by the push service when a local-first job-module lifecycle has
+  /// collapsed multiple offline transitions into one dirty final snapshot. The
+  /// caller must send only the fields allowed for that single Firestore rules
+  /// transition. Local repositories do not support this remote push primitive.
+  Future<void> applyRemoteLifecycleReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> stepData,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1127,6 +1139,17 @@ class IsarJobModuleRepository implements JobModuleRepository {
       }
     });
   }
+
+  @override
+  Future<void> applyRemoteLifecycleReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> stepData,
+  ) {
+    throw UnsupportedError(
+      'applyRemoteLifecycleReplayStepForSync is a remote sync primitive and is not '
+      'supported by the local Isar job-module repository.',
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1586,6 +1609,24 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
 
       await batch.commit();
     }
+  }
+
+  @override
+  Future<void> applyRemoteLifecycleReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> stepData,
+  ) async {
+    final id = _cleanOptionalText(firestoreId);
+    if (id == null) {
+      throw ArgumentError(
+        'applyRemoteLifecycleReplayStepForSync requires a non-empty firestoreId',
+      );
+    }
+
+    // Field-scoped merge: the caller provides only the keys for one lifecycle
+    // rule branch. This avoids pushing a final dirty snapshot that collapses
+    // submit+accept into a single Firestore update.
+    await _modules.doc(id).set(stepData, SetOptions(merge: true));
   }
 }
 
