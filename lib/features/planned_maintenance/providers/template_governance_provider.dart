@@ -374,6 +374,26 @@ abstract class TemplateGovernanceRepository {
   Future<List<TemplateVersion>> getVersionsByFirestoreIds(List<String> ids);
   Future<void> batchUpsertVersions(List<TemplateVersion> records);
 
+  /// Creates the remote draft leg for a TemplateVersion publish replay.
+  ///
+  /// This is intentionally a remote-only sync primitive. It is used when a
+  /// local-first device created a draft and published it before Firestore ever
+  /// saw the draft document. Firestore rules must continue to reject direct
+  /// create-as-published, so the sync engine replays the missing draft first.
+  Future<void> createRemoteVersionDraftReplayForSync(
+    String firestoreId,
+    Map<String, dynamic> draftData,
+  );
+
+  /// Applies the publish leg after the draft replay document exists remotely.
+  ///
+  /// The payload must contain only fields needed for the draft -> published
+  /// rule branch. Local repositories do not support this remote push primitive.
+  Future<void> applyRemoteVersionPublishReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> publishData,
+  );
+
   Future<List<TemplatePublishAudit>> getAuditsByFirestoreIds(List<String> ids);
   Future<void> batchUpsertAudits(List<TemplatePublishAudit> records);
 }
@@ -935,6 +955,28 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   }
 
   @override
+  Future<void> createRemoteVersionDraftReplayForSync(
+    String firestoreId,
+    Map<String, dynamic> draftData,
+  ) {
+    throw UnsupportedError(
+      'createRemoteVersionDraftReplayForSync is a remote sync primitive and is not '
+      'supported by the local Isar template-governance repository.',
+    );
+  }
+
+  @override
+  Future<void> applyRemoteVersionPublishReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> publishData,
+  ) {
+    throw UnsupportedError(
+      'applyRemoteVersionPublishReplayStepForSync is a remote sync primitive and is not '
+      'supported by the local Isar template-governance repository.',
+    );
+  }
+
+  @override
   Future<List<TemplatePublishAudit>> getAuditsByFirestoreIds(List<String> ids) async {
     if (ids.isEmpty) return [];
     final records = <TemplatePublishAudit>[];
@@ -1345,6 +1387,51 @@ class FirestoreTemplateGovernanceRepository implements TemplateGovernanceReposit
       }
     }
     await batch.commit();
+  }
+
+  @override
+  Future<void> createRemoteVersionDraftReplayForSync(
+    String firestoreId,
+    Map<String, dynamic> draftData,
+  ) async {
+    final id = _cleanOptionalText(firestoreId);
+    if (id == null) {
+      throw ArgumentError(
+        'createRemoteVersionDraftReplayForSync requires a non-empty firestoreId',
+      );
+    }
+
+    // Full document create: Firestore create rules require the draft document
+    // shape to exist. This deliberately does not create a published document.
+    // A transaction avoids overwriting a document that appeared after the
+    // sync engine fetched the remote map.
+    final ref = _versions.doc(id);
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final existing = await transaction.get(ref);
+      if (existing.exists) {
+        throw StateError(
+          'TemplateVersion $id already exists; draft replay create refused.',
+        );
+      }
+      transaction.set(ref, draftData);
+    });
+  }
+
+  @override
+  Future<void> applyRemoteVersionPublishReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> publishData,
+  ) async {
+    final id = _cleanOptionalText(firestoreId);
+    if (id == null) {
+      throw ArgumentError(
+        'applyRemoteVersionPublishReplayStepForSync requires a non-empty firestoreId',
+      );
+    }
+
+    // Field-scoped merge: the caller provides only the keys for the
+    // draft -> published rule branch. This avoids direct create-as-published.
+    await _versions.doc(id).set(publishData, SetOptions(merge: true));
   }
 
   @override
