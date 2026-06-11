@@ -1,27 +1,61 @@
-import 'dart:ffi';
 // FILE: test/issue_1_tombstone_conflict_regression_test.dart
 //
 // Issue 1 regression tests: remote tombstones must not bury fresher unsynced
 // local field evidence. These tests exercise the Isar repository methods that
 // GlobalPullService/SyncService call when Firestore returns a remote tombstone.
 
+
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:isar/isar.dart';
 
 // Use package imports so analyzer treats test references to lib/ as the
 // canonical package libraries. Repository-relative imports resolve to the
 // same package:crm3_baf_ops/main.dart library.
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/main.dart' as app;
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/core/services/remote_tombstone_apply_result.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_diary_model.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_diary_provider.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_module_provider.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/planned_maintenance_provider.dart';
 
 Future<void> _withTestIsar(Future<void> Function(Isar isar) body) async {
@@ -193,12 +227,16 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await Isar.initializeIsarCore(
-      libraries: {
-        Abi.linuxX64: 'libisar.so',
-      },
-      download: true,
-    );
+    if (Abi.current() == Abi.linuxX64) {
+      await Isar.initializeIsarCore(
+        libraries: {
+          Abi.linuxX64: '${Directory.current.path}/libisar.so',
+        },
+        download: true,
+      );
+    } else {
+      await Isar.initializeIsarCore(download: true);
+    }
   });
 
   group('Issue 1: remote tombstones preserve fresher unsynced local evidence', () {

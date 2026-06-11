@@ -1,16 +1,44 @@
+
 import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:isar/isar.dart';
 
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/main.dart' as app;
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/planned_maintenance_provider.dart';
+import 'dart:ffi';
+import 'dart:io';
+
 import 'package:crm3_baf_ops/features/planned_maintenance/services/planned_job_server_completion_service.dart';
 
 Future<void> _withTestIsar(Future<void> Function(Isar isar) body) async {
@@ -167,12 +195,16 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await Isar.initializeIsarCore(
-      libraries: {
-        Abi.linuxX64: 'libisar.so',
-      },
-      download: true,
-    );
+    if (Abi.current() == Abi.linuxX64) {
+      await Isar.initializeIsarCore(
+        libraries: {
+          Abi.linuxX64: '${Directory.current.path}/libisar.so',
+        },
+        download: true,
+      );
+    } else {
+      await Isar.initializeIsarCore(download: true);
+    }
   });
 
   group('server completion no-loss preflight', () {
