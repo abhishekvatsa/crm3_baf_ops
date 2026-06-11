@@ -54,7 +54,7 @@ jobs:
       - name: flutter analyze
         run: flutter analyze
 
-      - name: flutter test (full suite)
+      - name: Prepare and validate Isar native library
         shell: bash
         run: |
           set -euo pipefail
@@ -68,29 +68,87 @@ jobs:
           }
           DART
 
+          cat > .dart_tool/ci/probe_isar.dart <<'DART'
+          import 'dart:ffi';
+          import 'dart:io';
+
+          void main() {
+            final lib = File('${Directory.current.path}/libisar.so');
+            stdout.writeln('cwd=${Directory.current.path}');
+            stdout.writeln('probe=${lib.path}');
+            stdout.writeln('exists=${lib.existsSync()} length=${lib.existsSync() ? lib.lengthSync() : -1}');
+            DynamicLibrary.open(lib.path);
+            stdout.writeln('dlopen=ok');
+          }
+          DART
+
           dart run .dart_tool/ci/prepare_isar.dart
 
-          if [ ! -f "libisar.so" ]; then
-            found="$(find "$HOME/.pub-cache" "$PWD" "${RUNNER_TEMP:-/tmp}" -name libisar.so -type f 2>/dev/null | head -n 1 || true)"
-            if [ -n "$found" ]; then
-              cp "$found" ./libisar.so
-            fi
-          fi
+          echo "Isar native library candidates:"
+          find "$HOME/.pub-cache" "$PWD" "${RUNNER_TEMP:-/tmp}" \
+            -name libisar.so -type f -print0 2>/dev/null | xargs -0 -r file || true
 
-          if [ ! -f "libisar.so" ]; then
-            echo "::error::libisar.so was not prepared before flutter test."
-            find "$HOME/.pub-cache" "$PWD" "${RUNNER_TEMP:-/tmp}" -maxdepth 8 -iname '*isar*' -print || true
+          is_linux_x64_so() {
+            file "$1" 2>/dev/null | grep -Eqi 'ELF 64-bit.*x86-64'
+          }
+
+          rm -f ./libisar.so
+
+          found="$(
+            find "$HOME/.pub-cache" "$PWD" "${RUNNER_TEMP:-/tmp}" \
+              -name libisar.so -type f 2>/dev/null |
+            while IFS= read -r candidate; do
+              case "$candidate" in
+                *jniLibs*|*android*|*Android*) continue ;;
+              esac
+
+              if is_linux_x64_so "$candidate"; then
+                echo "$candidate"
+                break
+              fi
+            done
+          )"
+
+          if [ -z "$found" ]; then
+            echo "::error::No Linux x86-64 libisar.so candidate found after Isar preparation."
+            find "$HOME/.pub-cache" "$PWD" "${RUNNER_TEMP:-/tmp}" \
+              -maxdepth 10 -iname '*isar*' -print || true
             exit 1
           fi
 
-          ls -l libisar.so
+          echo "Using Linux x86-64 Isar library: $found"
+          cp "$found" ./libisar.so
+          chmod 0644 ./libisar.so
+
+          ls -l ./libisar.so
+          file ./libisar.so
+          ldd ./libisar.so || true
+
+          dart run .dart_tool/ci/probe_isar.dart
+
+          sudo cp -f ./libisar.so /usr/lib/libisar.so
+          sudo chmod 0644 /usr/lib/libisar.so
+          ls -l /usr/lib/libisar.so
+          file /usr/lib/libisar.so
+
+          echo "LD_LIBRARY_PATH=$PWD:/usr/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+
+      - name: flutter test (full suite)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f ./libisar.so
+          file ./libisar.so | grep -Eqi 'ELF 64-bit.*x86-64'
+          dart run .dart_tool/ci/probe_isar.dart
           flutter test --concurrency=1
 
       - name: no-loss regression spine
         shell: bash
         run: |
-          test -f libisar.so
-          ls -l libisar.so
+          set -euo pipefail
+          test -f ./libisar.so
+          file ./libisar.so | grep -Eqi 'ELF 64-bit.*x86-64'
+          dart run .dart_tool/ci/probe_isar.dart
           flutter test --concurrency=1 \
             test/issue_1_tombstone_conflict_regression_test.dart \
             test/sync_remote_freshness_policy_test.dart \
