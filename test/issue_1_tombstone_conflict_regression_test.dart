@@ -204,14 +204,15 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    if (Abi.current() == Abi.linuxX64) {
-      await Isar.initializeIsarCore(
-        libraries: {Abi.linuxX64: '${Directory.current.path}/libisar.so'},
-        download: true,
-      );
-    } else {
-      await Isar.initializeIsarCore(download: true);
-    }
+    final isarLib = File('${Directory.current.path}/libisar.so');
+
+    await Isar.initializeIsarCore(
+      libraries: {
+        if (Abi.current() == Abi.linuxX64 && isarLib.existsSync())
+          Abi.linuxX64: isarLib.path,
+      },
+      download: true,
+    );
   });
 
   group(
