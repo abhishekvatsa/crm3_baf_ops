@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -166,7 +167,12 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await Isar.initializeIsarCore(download: true);
+    await Isar.initializeIsarCore(
+      libraries: {
+        Abi.linuxX64: 'libisar.so',
+      },
+      download: true,
+    );
   });
 
   group('server completion no-loss preflight', () {

@@ -1,3 +1,4 @@
+import 'dart:ffi';
 // FILE: test/issue_1_tombstone_conflict_regression_test.dart
 //
 // Issue 1 regression tests: remote tombstones must not bury fresher unsynced
@@ -192,7 +193,12 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await Isar.initializeIsarCore(download: true);
+    await Isar.initializeIsarCore(
+      libraries: {
+        Abi.linuxX64: 'libisar.so',
+      },
+      download: true,
+    );
   });
 
   group('Issue 1: remote tombstones preserve fresher unsynced local evidence', () {
