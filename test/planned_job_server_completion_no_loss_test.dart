@@ -166,7 +166,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await Isar.initializeIsarCore(download: false);
+    await Isar.initializeIsarCore(download: true);
   });
 
   group('server completion no-loss preflight', () {

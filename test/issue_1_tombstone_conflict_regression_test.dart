@@ -192,7 +192,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await Isar.initializeIsarCore(download: false);
+    await Isar.initializeIsarCore(download: true);
   });
 
   group('Issue 1: remote tombstones preserve fresher unsynced local evidence', () {
