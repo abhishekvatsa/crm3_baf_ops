@@ -84,14 +84,14 @@ jobs:
           fi
 
           ls -l libisar.so
-          flutter test
+          flutter test --concurrency=1
 
       - name: no-loss regression spine
         shell: bash
         run: |
           test -f libisar.so
           ls -l libisar.so
-          flutter test \
+          flutter test --concurrency=1 \
             test/issue_1_tombstone_conflict_regression_test.dart \
             test/sync_remote_freshness_policy_test.dart \
             test/sync_coordinator_queue_contract_test.dart \
