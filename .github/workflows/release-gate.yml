@@ -88,6 +88,20 @@ jobs:
       - name: flutter analyze
         run: flutter analyze
 
+      - name: prepare Isar native library for VM tests
+        shell: bash
+        run: |
+          mkdir -p tool
+          cat > tool/ci_download_isar_core.dart <<'DART'
+          import 'package:isar/isar.dart';
+
+          Future<void> main() async {
+            await Isar.initializeIsarCore(download: true);
+          }
+          DART
+          dart run tool/ci_download_isar_core.dart
+          rm tool/ci_download_isar_core.dart
+
       - name: flutter test (full suite)
         run: flutter test
 
