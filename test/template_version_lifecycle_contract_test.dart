@@ -87,7 +87,12 @@ void main() {
       expect(builder, contains("job.remove('generatedAt')"));
       expect(actions, contains('hasUnsavedComposerChanges:'));
       expect(dialog, contains('widget.hasUnsavedComposerChanges'));
-      expect(dialog, contains('Save Draft, wait for sync'));
+      expect(
+        dialog,
+        contains(
+          'Save Draft to synchronize the same record before publishing.',
+        ),
+      );
     });
 
     test('saved drafts require successful sync before publication', () {

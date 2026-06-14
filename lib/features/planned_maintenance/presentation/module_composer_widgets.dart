@@ -369,7 +369,7 @@ class _TagResolutionSummary extends StatelessWidget {
   }
 }
 
-class _FieldTile extends StatelessWidget {
+class ComposerFieldCard extends StatelessWidget {
   final ComposerFieldDraft field;
   final ValueChanged<bool> onRequiredChanged;
   final VoidCallback onEdit;
@@ -378,7 +378,8 @@ class _FieldTile extends StatelessWidget {
   final VoidCallback? onMoveDown;
   final VoidCallback onDelete;
 
-  const _FieldTile({
+  const ComposerFieldCard({
+    super.key,
     required this.field,
     required this.onRequiredChanged,
     required this.onEdit,
@@ -390,78 +391,184 @@ class _FieldTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final evidenceRole = field.evidenceRole;
     return Container(
       margin: const EdgeInsets.only(bottom: BafSpacing.sm),
+      padding: const EdgeInsets.all(BafSpacing.md),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(BafRadius.medium),
         border: Border.all(
           color:
-              field.isSafetyCriticalPreset
+              field.isSafetyCriticalPreset ||
+                      evidenceRole != ComposerEvidenceRole.none
                   ? BafColors.warning.withValues(alpha: 0.5)
                   : BafColors.border,
         ),
       ),
-      child: ListTile(
-        dense: true,
-        leading: Icon(
-          field.isSafetyCriticalPreset
-              ? Icons.health_and_safety_rounded
-              : Icons.edit_note_rounded,
-          color:
-              field.isSafetyCriticalPreset
-                  ? BafColors.warning
-                  : BafColors.planned,
-        ),
-        title: Text(
-          field.label,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        subtitle: Text(
-          '${field.key} • ${field.type.name}${field.unit == null ? '' : ' • ${field.unit}'}',
-        ),
-        trailing: Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 2,
-          children: [
-            const Text('Req'),
-            Switch(value: field.isRequired, onChanged: onRequiredChanged),
-            IconButton(
-              tooltip: 'Move up',
-              icon: const Icon(Icons.keyboard_arrow_up_rounded),
-              onPressed: onMoveUp,
-            ),
-            IconButton(
-              tooltip: 'Move down',
-              icon: const Icon(Icons.keyboard_arrow_down_rounded),
-              onPressed: onMoveDown,
-            ),
-            IconButton(
-              tooltip: 'Edit field',
-              icon: const Icon(Icons.edit_rounded, color: BafColors.planned),
-              onPressed: onEdit,
-            ),
-            IconButton(
-              tooltip: 'Duplicate field',
-              icon: const Icon(Icons.copy_rounded, color: BafColors.sync),
-              onPressed: onDuplicate,
-            ),
-            IconButton(
-              tooltip: 'Delete field',
-              icon: const Icon(
-                Icons.delete_outline_rounded,
-                color: BafColors.danger,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                field.isSafetyCriticalPreset ||
+                        evidenceRole != ComposerEvidenceRole.none
+                    ? Icons.health_and_safety_rounded
+                    : Icons.edit_note_rounded,
+                color:
+                    field.isSafetyCriticalPreset ||
+                            evidenceRole != ComposerEvidenceRole.none
+                        ? BafColors.warning
+                        : BafColors.planned,
               ),
-              onPressed: onDelete,
-            ),
-          ],
-        ),
+              const SizedBox(width: BafSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      field.label,
+                      key: ValueKey<String>(
+                        'composer-field-label-${field.key}',
+                      ),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${field.key} • ${field.type.name}'
+                      '${field.unit == null ? '' : ' • ${field.unit}'}',
+                      style: const TextStyle(
+                        color: BafColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (evidenceRole != ComposerEvidenceRole.none) ...[
+                      const SizedBox(height: BafSpacing.xs),
+                      Text(
+                        'Evidence role: '
+                        '${composerEvidenceRoleLabel(evidenceRole)}',
+                        style: const TextStyle(
+                          color: BafColors.warning,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.sm),
+          const Divider(height: 1),
+          const SizedBox(height: BafSpacing.xs),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final requiredToggle = Semantics(
+                container: true,
+                label: '${field.label}: required field',
+                toggled: field.isRequired,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Required',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    Switch.adaptive(
+                      key: ValueKey<String>(
+                        'composer-field-required-${field.key}',
+                      ),
+                      value: field.isRequired,
+                      onChanged: onRequiredChanged,
+                    ),
+                  ],
+                ),
+              );
+              final actionButtons = <Widget>[
+                _ComposerActionIcon(
+                  actionKey: ValueKey<String>(
+                    'composer-field-move-up-${field.key}',
+                  ),
+                  tooltip: 'Move ${field.label} up',
+                  icon: Icons.keyboard_arrow_up_rounded,
+                  onPressed: onMoveUp,
+                ),
+                _ComposerActionIcon(
+                  actionKey: ValueKey<String>(
+                    'composer-field-move-down-${field.key}',
+                  ),
+                  tooltip: 'Move ${field.label} down',
+                  icon: Icons.keyboard_arrow_down_rounded,
+                  onPressed: onMoveDown,
+                ),
+                _ComposerActionIcon(
+                  actionKey: ValueKey<String>(
+                    'composer-field-edit-${field.key}',
+                  ),
+                  tooltip: 'Edit ${field.label}',
+                  icon: Icons.edit_rounded,
+                  color: BafColors.planned,
+                  onPressed: onEdit,
+                ),
+                _ComposerActionIcon(
+                  actionKey: ValueKey<String>(
+                    'composer-field-duplicate-${field.key}',
+                  ),
+                  tooltip: 'Duplicate ${field.label}',
+                  icon: Icons.copy_rounded,
+                  color: BafColors.sync,
+                  onPressed: onDuplicate,
+                ),
+                _ComposerActionIcon(
+                  actionKey: ValueKey<String>(
+                    'composer-field-delete-${field.key}',
+                  ),
+                  tooltip: 'Delete ${field.label}',
+                  icon: Icons.delete_outline_rounded,
+                  color: BafColors.danger,
+                  onPressed: onDelete,
+                ),
+              ];
+
+              if (constraints.maxWidth >= 520) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    requiredToggle,
+                    const SizedBox(width: BafSpacing.sm),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 2,
+                          runSpacing: 2,
+                          children: actionButtons,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              return Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 2,
+                runSpacing: 2,
+                children: [requiredToggle, ...actionButtons],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ChecklistTile extends StatelessWidget {
+class ComposerChecklistCard extends StatelessWidget {
   final ComposerChecklistItemDraft item;
   final VoidCallback onEdit;
   final VoidCallback onDuplicate;
@@ -469,7 +576,8 @@ class _ChecklistTile extends StatelessWidget {
   final VoidCallback? onMoveDown;
   final VoidCallback onDelete;
 
-  const _ChecklistTile({
+  const ComposerChecklistCard({
+    super.key,
     required this.item,
     required this.onEdit,
     required this.onDuplicate,
@@ -482,55 +590,159 @@ class _ChecklistTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: BafSpacing.sm),
+      padding: const EdgeInsets.all(BafSpacing.md),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(BafRadius.medium),
         border: Border.all(color: BafColors.border),
       ),
-      child: ListTile(
-        dense: true,
-        leading: Icon(
-          item.isRequired
-              ? Icons.task_alt_rounded
-              : Icons.check_circle_outline_rounded,
-          color: BafColors.sync,
-        ),
-        title: Text(
-          item.title,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        subtitle: Text(
-          item.description.isEmpty ? 'No description' : item.description,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Wrap(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.keyboard_arrow_up_rounded),
-              onPressed: onMoveUp,
-            ),
-            IconButton(
-              icon: const Icon(Icons.keyboard_arrow_down_rounded),
-              onPressed: onMoveDown,
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit_rounded, color: BafColors.planned),
-              onPressed: onEdit,
-            ),
-            IconButton(
-              icon: const Icon(Icons.copy_rounded, color: BafColors.sync),
-              onPressed: onDuplicate,
-            ),
-            IconButton(
-              icon: const Icon(
-                Icons.delete_outline_rounded,
-                color: BafColors.danger,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                item.isRequired
+                    ? Icons.task_alt_rounded
+                    : Icons.check_circle_outline_rounded,
+                color: BafColors.sync,
               ),
-              onPressed: onDelete,
+              const SizedBox(width: BafSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      key: ValueKey<String>(
+                        'composer-checklist-title-${item.id}',
+                      ),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.description.isEmpty
+                          ? 'No description'
+                          : item.description,
+                      style: const TextStyle(
+                        color: BafColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: BafSpacing.xs),
+                    if (item.isRequired)
+                      const Text(
+                        'Required checklist evidence',
+                        style: TextStyle(
+                          color: BafColors.warning,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    if (item.linkedFieldKey?.trim().isNotEmpty == true)
+                      Text(
+                        'Linked field: ${item.linkedFieldKey}',
+                        style: const TextStyle(
+                          color: BafColors.sync,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.sm),
+          const Divider(height: 1),
+          const SizedBox(height: BafSpacing.xs),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 2,
+              runSpacing: 2,
+              children: [
+                _ComposerActionIcon(
+                  actionKey: ValueKey<String>(
+                    'composer-checklist-move-up-${item.id}',
+                  ),
+                  tooltip: 'Move ${item.title} up',
+                  icon: Icons.keyboard_arrow_up_rounded,
+                  onPressed: onMoveUp,
+                ),
+                _ComposerActionIcon(
+                  actionKey: ValueKey<String>(
+                    'composer-checklist-move-down-${item.id}',
+                  ),
+                  tooltip: 'Move ${item.title} down',
+                  icon: Icons.keyboard_arrow_down_rounded,
+                  onPressed: onMoveDown,
+                ),
+                _ComposerActionIcon(
+                  actionKey: ValueKey<String>(
+                    'composer-checklist-edit-${item.id}',
+                  ),
+                  tooltip: 'Edit ${item.title}',
+                  icon: Icons.edit_rounded,
+                  color: BafColors.planned,
+                  onPressed: onEdit,
+                ),
+                _ComposerActionIcon(
+                  actionKey: ValueKey<String>(
+                    'composer-checklist-duplicate-${item.id}',
+                  ),
+                  tooltip: 'Duplicate ${item.title}',
+                  icon: Icons.copy_rounded,
+                  color: BafColors.sync,
+                  onPressed: onDuplicate,
+                ),
+                _ComposerActionIcon(
+                  actionKey: ValueKey<String>(
+                    'composer-checklist-delete-${item.id}',
+                  ),
+                  tooltip: 'Delete ${item.title}',
+                  icon: Icons.delete_outline_rounded,
+                  color: BafColors.danger,
+                  onPressed: onDelete,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComposerActionIcon extends StatelessWidget {
+  final Key? actionKey;
+  final String tooltip;
+  final IconData icon;
+  final Color? color;
+  final VoidCallback? onPressed;
+
+  const _ComposerActionIcon({
+    this.actionKey,
+    required this.tooltip,
+    required this.icon,
+    this.color,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: tooltip,
+      enabled: onPressed != null,
+      child: IconButton(
+        key: actionKey,
+        tooltip: tooltip,
+        visualDensity: VisualDensity.compact,
+        icon: Icon(icon, color: color),
+        onPressed: onPressed,
       ),
     );
   }

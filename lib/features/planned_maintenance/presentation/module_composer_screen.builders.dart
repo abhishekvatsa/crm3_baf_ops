@@ -886,7 +886,8 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
             displayIndex < sortedFields.length;
             displayIndex++
           )
-            _FieldTile(
+            ComposerFieldCard(
+              key: ObjectKey(sortedFields[displayIndex]),
               field: sortedFields[displayIndex],
               onRequiredChanged:
                   (value) => setState(
@@ -940,7 +941,8 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
             displayIndex < sortedItems.length;
             displayIndex++
           )
-            _ChecklistTile(
+            ComposerChecklistCard(
+              key: ObjectKey(sortedItems[displayIndex]),
               item: sortedItems[displayIndex],
               onEdit: () => _editChecklistItem(sortedItems[displayIndex]),
               onDuplicate:
@@ -965,10 +967,7 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
                         1,
                       ),
               onDelete:
-                  () => setState(
-                    () =>
-                        module.checklistItems.remove(sortedItems[displayIndex]),
-                  ),
+                  () => _removeChecklistItem(module, sortedItems[displayIndex]),
             ),
         ],
       ),

@@ -364,7 +364,7 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
             content: Text(
-              'Draft saved for ${package.packageCode}. Reopen it from Saved Template Drafts.',
+              'Draft saved and sync-confirmed for ${package.packageCode}. You can prepare publish again without reopening the saved draft.',
             ),
           ),
         );
@@ -380,14 +380,14 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
     if (widget.initialVersion != null && !widget.initialVersion!.isSynced) {
       setState(() {
         _error =
-            'This saved draft has not been confirmed by sync. Wait for a successful sync, then reopen the saved draft before publishing.';
+            'This saved draft has not been confirmed by sync. Use Save Draft to retry the same record and refresh publish eligibility after Firestore confirms it.';
       });
       return;
     }
     if (widget.initialVersion != null && widget.hasUnsavedComposerChanges) {
       setState(() {
         _error =
-            'This resumed draft has unsaved Composer changes. Save Draft, wait for sync, then reopen the saved draft before publishing.';
+            'This resumed draft has unsaved Composer changes. Save Draft to synchronize the same record before publishing.';
       });
       return;
     }
@@ -560,7 +560,7 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
                 const _SingleMessagePanel(
                   color: BafColors.warning,
                   message:
-                      'This draft is still pending sync. Publish is enabled only after Firestore confirms the saved draft; reopen it after sync succeeds.',
+                      'This draft is still pending sync. Use Save Draft to retry the same record; publish becomes eligible after Firestore confirmation.',
                 ),
               ],
               if (widget.initialVersion != null &&
@@ -569,7 +569,7 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
                 const _SingleMessagePanel(
                   color: BafColors.warning,
                   message:
-                      'Publish uses the exact last-saved governed payload. Save Draft and reopen it before publishing these Composer changes.',
+                      'Publish uses the exact last-saved governed payload. Save Draft to synchronize these Composer changes before publishing.',
                 ),
               ],
               if (!canGovern) ...[

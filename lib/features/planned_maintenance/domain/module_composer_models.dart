@@ -54,6 +54,60 @@ enum ComposerFieldType {
   dateTime,
 }
 
+/// Structured semantic meaning carried in a field's existing `meta` JSON.
+///
+/// `none` is deliberately not serialized. This keeps older snapshots valid
+/// while allowing governance to prefer explicit roles over technical-key
+/// heuristics.
+enum ComposerEvidenceRole { none, leakTightShutoffConfirmation }
+
+const String kComposerEvidenceRoleMetaKey = 'evidenceRole';
+const String kLeakTightShutoffEvidenceFieldKey = 'leak_tight_shutoff_confirmed';
+
+String composerEvidenceRoleLabel(ComposerEvidenceRole role) {
+  switch (role) {
+    case ComposerEvidenceRole.none:
+      return 'No structured evidence role';
+    case ComposerEvidenceRole.leakTightShutoffConfirmation:
+      return 'Leak-tight shutoff confirmation';
+  }
+}
+
+ComposerEvidenceRole composerEvidenceRoleFromValue(dynamic value) {
+  final normalized = _normaliseText(value).replaceAll('_', '');
+  if (normalized.isEmpty || normalized == 'none') {
+    return ComposerEvidenceRole.none;
+  }
+  if (normalized == 'leaktightshutoffconfirmation' ||
+      normalized == 'leaktightshutoffconfirmed' ||
+      normalized == 'tightshutoffconfirmation') {
+    return ComposerEvidenceRole.leakTightShutoffConfirmation;
+  }
+  return ComposerEvidenceRole.none;
+}
+
+ComposerEvidenceRole suggestComposerEvidenceRole(String value) {
+  final normalized = _normaliseText(value).replaceAll('_', '');
+  final hasLeak = normalized.contains('leak');
+  final hasTight = normalized.contains('tight');
+  final hasShutoff = normalized.contains('shutoff');
+  if ((hasLeak && (hasTight || hasShutoff)) || (hasTight && hasShutoff)) {
+    return ComposerEvidenceRole.leakTightShutoffConfirmation;
+  }
+  return ComposerEvidenceRole.none;
+}
+
+String suggestedComposerFieldKey({
+  required String label,
+  ComposerEvidenceRole evidenceRole = ComposerEvidenceRole.none,
+}) {
+  if (evidenceRole == ComposerEvidenceRole.leakTightShutoffConfirmation) {
+    return kLeakTightShutoffEvidenceFieldKey;
+  }
+  final suggested = _fieldKey(label);
+  return suggested.isEmpty ? 'field' : suggested;
+}
+
 // ─────────────────────────────────────────────────────────────
 // OUTPUT CONTRACT
 // ─────────────────────────────────────────────────────────────
@@ -84,6 +138,7 @@ class KnowledgeFieldPreset {
   final String? unit;
   final List<String> options;
   final bool isSafetyCriticalPreset;
+  final ComposerEvidenceRole evidenceRole;
   final String sourceText;
 
   const KnowledgeFieldPreset({
@@ -95,6 +150,7 @@ class KnowledgeFieldPreset {
     this.unit,
     this.options = const <String>[],
     this.isSafetyCriticalPreset = false,
+    this.evidenceRole = ComposerEvidenceRole.none,
   });
 
   factory KnowledgeFieldPreset.fromMap(
@@ -131,6 +187,9 @@ class KnowledgeFieldPreset {
           _boolFrom(map['isSafetyCriticalPreset']) ??
           _boolFrom(meta['isSafetyCriticalPreset']) ??
           defaultSafetyCritical,
+      evidenceRole: composerEvidenceRoleFromValue(
+        map[kComposerEvidenceRoleMetaKey] ?? meta[kComposerEvidenceRoleMetaKey],
+      ),
       sourceText: sourceText.isEmpty ? label : sourceText,
     );
   }
@@ -149,6 +208,8 @@ class KnowledgeFieldPreset {
         'meta': <String, dynamic>{
           'isSafetyCriticalPreset': isSafetyCriticalPreset,
           'sourcePreset': sourceText,
+          if (evidenceRole != ComposerEvidenceRole.none)
+            kComposerEvidenceRoleMetaKey: evidenceRole.name,
         },
       };
 }
@@ -715,12 +776,21 @@ class ComposerFieldDraft {
       meta: <String, dynamic>{
         'isSafetyCriticalPreset': preset.isSafetyCriticalPreset,
         'sourcePreset': preset.sourceText,
+        if (preset.evidenceRole != ComposerEvidenceRole.none)
+          kComposerEvidenceRoleMetaKey: preset.evidenceRole.name,
       },
     );
   }
 
   factory ComposerFieldDraft.fromMap(Map<String, dynamic> map) {
     final meta = _mapFrom(map['meta']);
+    final directEvidenceRole = composerEvidenceRoleFromValue(
+      map[kComposerEvidenceRoleMetaKey],
+    );
+    if (directEvidenceRole != ComposerEvidenceRole.none &&
+        !meta.containsKey(kComposerEvidenceRoleMetaKey)) {
+      meta[kComposerEvidenceRoleMetaKey] = directEvidenceRole.name;
+    }
     return ComposerFieldDraft(
       key: _stringFrom(map, const ['key', 'fieldId', 'id']) ?? 'field',
       label: _stringFrom(map, const ['label', 'title', 'name']) ?? 'Field',
@@ -740,6 +810,28 @@ class ComposerFieldDraft {
       ),
     );
   }
+
+  ComposerEvidenceRole get evidenceRole =>
+      composerEvidenceRoleFromValue(meta[kComposerEvidenceRoleMetaKey]);
+
+  set evidenceRole(ComposerEvidenceRole value) {
+    if (value == ComposerEvidenceRole.none) {
+      meta.remove(kComposerEvidenceRoleMetaKey);
+      return;
+    }
+    meta[kComposerEvidenceRoleMetaKey] = value.name;
+  }
+
+  ComposerEvidenceRole get suggestedEvidenceRole =>
+      suggestComposerEvidenceRole('$label $key $instructionText');
+
+  String get suggestedTechnicalKey => suggestedComposerFieldKey(
+    label: label,
+    evidenceRole:
+        evidenceRole == ComposerEvidenceRole.none
+            ? suggestedEvidenceRole
+            : evidenceRole,
+  );
 
   Map<String, dynamic> toMap({required String moduleCode}) => <String, dynamic>{
     'moduleCode': moduleCode,

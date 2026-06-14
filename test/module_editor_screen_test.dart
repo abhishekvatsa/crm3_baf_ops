@@ -160,6 +160,107 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'focused editor live field dialog offers semantic key and evidence role',
+    (tester) async {
+      final source = _module();
+      ComposerModuleDraft? result;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder:
+                (context) => Scaffold(
+                  body: Center(
+                    child: FilledButton(
+                      onPressed: () async {
+                        result = await Navigator.of(
+                          context,
+                        ).push<ComposerModuleDraft>(
+                          MaterialPageRoute(
+                            builder: (_) => ModuleEditorScreen(module: source),
+                          ),
+                        );
+                      },
+                      child: const Text('Open editor'),
+                    ),
+                  ),
+                ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open editor'));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byTooltip('Add observation field'),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Add observation field'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Add field'), findsOneWidget);
+      expect(
+        find.byKey(const Key('module-editor-field-key-input')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('module-editor-field-evidence-role')),
+        findsOneWidget,
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('module-editor-field-label-input')),
+        'Leak tight shutoff confirmation',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('leak_tight_shutoff_confirmed'), findsWidgets);
+      expect(
+        find.byKey(const Key('module-editor-field-use-suggested-key')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('module-editor-field-use-suggested-role')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const Key('module-editor-field-use-suggested-key')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('module-editor-field-use-suggested-role')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Save Module'));
+      await tester.pumpAndSettle();
+
+      expect(result, isNotNull);
+      final semanticField = result!.fields.singleWhere(
+        (field) => field.key == 'leak_tight_shutoff_confirmed',
+      );
+      expect(
+        semanticField.evidenceRole,
+        ComposerEvidenceRole.leakTightShutoffConfirmation,
+      );
+      expect(
+        semanticField.meta[kComposerEvidenceRoleMetaKey],
+        ComposerEvidenceRole.leakTightShutoffConfirmation.name,
+      );
+      expect(source.fields.length, 1);
+    },
+  );
 }
 
 ComposerModuleDraft _module() {
