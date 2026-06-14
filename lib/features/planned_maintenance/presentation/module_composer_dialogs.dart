@@ -146,22 +146,26 @@ class _SafetyCriticalFieldRemovalDialogState
   }
 }
 
-class _FieldEditorDialog extends StatefulWidget {
+class ComposerFieldEditorDialog extends StatefulWidget {
   final ComposerFieldDraft field;
 
-  const _FieldEditorDialog({required this.field});
+  const ComposerFieldEditorDialog({super.key, required this.field});
 
   @override
-  State<_FieldEditorDialog> createState() => _FieldEditorDialogState();
+  State<ComposerFieldEditorDialog> createState() =>
+      _ComposerFieldEditorDialogState();
 }
 
-class _FieldEditorDialogState extends State<_FieldEditorDialog> {
+class _ComposerFieldEditorDialogState extends State<ComposerFieldEditorDialog> {
   late final TextEditingController _keyController;
   late final TextEditingController _labelController;
   late final TextEditingController _unitController;
   late final TextEditingController _optionsController;
   late final TextEditingController _instructionController;
   late ComposerFieldType _type;
+  late ComposerEvidenceRole _evidenceRole;
+  late final Object? _initialEvidenceRoleValue;
+  bool _evidenceRoleChanged = false;
   late bool _required;
   late bool _safetyCritical;
 
@@ -178,12 +182,20 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
       text: widget.field.instructionText,
     );
     _type = widget.field.type;
+    _initialEvidenceRoleValue = widget.field.meta[kComposerEvidenceRoleMetaKey];
+    _evidenceRole = widget.field.evidenceRole;
     _required = widget.field.isRequired;
     _safetyCritical = widget.field.isSafetyCriticalPreset;
+    _keyController.addListener(_refreshSemanticSuggestions);
+    _labelController.addListener(_refreshSemanticSuggestions);
+    _instructionController.addListener(_refreshSemanticSuggestions);
   }
 
   @override
   void dispose() {
+    _keyController.removeListener(_refreshSemanticSuggestions);
+    _labelController.removeListener(_refreshSemanticSuggestions);
+    _instructionController.removeListener(_refreshSemanticSuggestions);
     _keyController.dispose();
     _labelController.dispose();
     _unitController.dispose();
@@ -192,8 +204,30 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
     super.dispose();
   }
 
+  void _refreshSemanticSuggestions() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final suggestedRole = suggestComposerEvidenceRole(
+      '${_labelController.text} ${_keyController.text} '
+      '${_instructionController.text}',
+    );
+    final roleForKeySuggestion =
+        _evidenceRole == ComposerEvidenceRole.none
+            ? suggestedRole
+            : _evidenceRole;
+    final suggestedKey = suggestedComposerFieldKey(
+      label: _labelController.text,
+      evidenceRole: roleForKeySuggestion,
+    );
+    final normalizedCurrentKey = _slugKey(_keyController.text);
+    final canUseSuggestedKey =
+        suggestedKey.isNotEmpty && normalizedCurrentKey != suggestedKey;
+
     return AlertDialog(
       title: const Text('Edit field'),
       content: ConstrainedBox(
@@ -201,16 +235,117 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextField(
-                controller: _keyController,
-                decoration: const InputDecoration(labelText: 'Field key'),
-              ),
-              const SizedBox(height: BafSpacing.sm),
-              TextField(
+                key: const Key('composer-field-label-input'),
                 controller: _labelController,
                 decoration: const InputDecoration(labelText: 'Label'),
               ),
+              const SizedBox(height: BafSpacing.sm),
+              TextField(
+                key: const Key('composer-field-key-input'),
+                controller: _keyController,
+                decoration: const InputDecoration(
+                  labelText: 'Technical field key',
+                  helperText:
+                      'Stable machine-readable key used by validation and runtime evidence.',
+                ),
+              ),
+              const SizedBox(height: BafSpacing.xs),
+              Container(
+                padding: const EdgeInsets.all(BafSpacing.sm),
+                decoration: BoxDecoration(
+                  color: BafColors.sync.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
+                  border: Border.all(
+                    color: BafColors.sync.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: BafSpacing.sm,
+                  runSpacing: BafSpacing.xs,
+                  children: [
+                    Text(
+                      'Suggested key: $suggestedKey',
+                      key: const Key('composer-field-suggested-key'),
+                      style: const TextStyle(
+                        color: BafColors.textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      key: const Key('composer-field-use-suggested-key'),
+                      onPressed:
+                          canUseSuggestedKey
+                              ? () => _keyController.text = suggestedKey
+                              : null,
+                      icon: const Icon(Icons.auto_fix_high_rounded),
+                      label: const Text('Use suggested key'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              DropdownButtonFormField<ComposerEvidenceRole>(
+                key: const Key('composer-field-evidence-role'),
+                isExpanded: true,
+                initialValue: _evidenceRole,
+                decoration: const InputDecoration(
+                  labelText: 'Evidence role',
+                  helperText:
+                      'Structured governance meaning stored in existing field metadata.',
+                ),
+                items: ComposerEvidenceRole.values
+                    .map(
+                      (role) => DropdownMenuItem<ComposerEvidenceRole>(
+                        value: role,
+                        child: Text(composerEvidenceRoleLabel(role)),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged:
+                    (value) => setState(() {
+                      _evidenceRoleChanged = true;
+                      _evidenceRole = value ?? ComposerEvidenceRole.none;
+                    }),
+              ),
+              if (suggestedRole != ComposerEvidenceRole.none &&
+                  _evidenceRole == ComposerEvidenceRole.none) ...[
+                const SizedBox(height: BafSpacing.xs),
+                Container(
+                  padding: const EdgeInsets.all(BafSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: BafColors.warning.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(BafRadius.medium),
+                    border: Border.all(
+                      color: BafColors.warning.withValues(alpha: 0.30),
+                    ),
+                  ),
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: BafSpacing.sm,
+                    runSpacing: BafSpacing.xs,
+                    children: [
+                      Text(
+                        'Suggested role: '
+                        '${composerEvidenceRoleLabel(suggestedRole)}',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      OutlinedButton(
+                        key: const Key('composer-field-use-suggested-role'),
+                        onPressed:
+                            () => setState(() {
+                              _evidenceRoleChanged = true;
+                              _evidenceRole = suggestedRole;
+                            }),
+                        child: const Text('Use suggested role'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: BafSpacing.sm),
               DropdownButtonFormField<ComposerFieldType>(
                 isExpanded: true,
@@ -277,7 +412,19 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
+          key: const Key('composer-field-save'),
           onPressed: () {
+            final nextMeta = Map<String, dynamic>.from(widget.field.meta);
+            if (_evidenceRole == ComposerEvidenceRole.none) {
+              final initialRoleWasRecognized =
+                  composerEvidenceRoleFromValue(_initialEvidenceRoleValue) !=
+                  ComposerEvidenceRole.none;
+              if (_evidenceRoleChanged || initialRoleWasRecognized) {
+                nextMeta.remove(kComposerEvidenceRoleMetaKey);
+              }
+            } else {
+              nextMeta[kComposerEvidenceRoleMetaKey] = _evidenceRole.name;
+            }
             Navigator.pop(
               context,
               ComposerFieldDraft(
@@ -296,7 +443,7 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                 options: _splitComma(_optionsController.text),
                 instructionText: _instructionController.text.trim(),
                 validation: Map<String, dynamic>.from(widget.field.validation),
-                meta: Map<String, dynamic>.from(widget.field.meta),
+                meta: nextMeta,
                 isSafetyCriticalPreset: _safetyCritical,
                 sourcePresetId: widget.field.sourcePresetId,
               ),

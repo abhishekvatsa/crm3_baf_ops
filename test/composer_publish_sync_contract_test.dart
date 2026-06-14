@@ -16,6 +16,9 @@ void main() {
       contains('void _triggerTemplateGovernanceSync(String reason)'),
     );
     expect(source, contains('template_governance_draft_saved_from_composer'));
+    expect(source, contains('saveAndRefreshComposerTemplateVersionDraft('));
+    expect(source, contains('runFullSyncWithResult('));
+    expect(source, contains('reloadLocal: repository.getVersionByFirestoreId'));
     expect(
       source,
       contains('template_governance_version_published_from_composer'),

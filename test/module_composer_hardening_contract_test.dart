@@ -74,6 +74,17 @@ void main() {
       },
     );
 
+    test('ordinary field and checklist deletion require confirmation', () {
+      final removeFieldBody = _functionBody(source, '_removeField');
+      expect(removeFieldBody, contains('_confirmComposerDelete('));
+      expect(removeFieldBody, contains("title: 'Delete field?'"));
+
+      final removeChecklistBody = _functionBody(source, '_removeChecklistItem');
+      expect(removeChecklistBody, contains('_confirmComposerDelete('));
+      expect(removeChecklistBody, contains("title: 'Delete checklist item?'"));
+      expect(source, contains("key: const Key('composer-confirm-delete')"));
+    });
+
     test(
       'knowledge loading and recovery save paths avoid spurious or stale writes',
       () {

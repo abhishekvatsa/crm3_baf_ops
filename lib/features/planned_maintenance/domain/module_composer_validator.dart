@@ -84,14 +84,13 @@ class ModuleComposerValidator {
       }
       final safetyText = module.safetyClasses.join(' ').toLowerCase();
       if (safetyText.contains('gas') &&
-          !module.fields.any(
-            (field) =>
-                field.key.toLowerCase().contains('leak') ||
-                field.key.toLowerCase().contains('shutoff') ||
-                field.key.toLowerCase().contains('tight'),
-          )) {
+          !module.fields.any(_hasLeakTightShutoffEvidence)) {
         warnings.add(
-          'Gas-risk module $code has no leak/tight-shutoff evidence field.',
+          'Gas-risk module $code needs a leak-tight shutoff confirmation '
+          'field. Set Evidence role to '
+          '"${composerEvidenceRoleLabel(ComposerEvidenceRole.leakTightShutoffConfirmation)}" '
+          '(preferred), or use technical key '
+          '"$kLeakTightShutoffEvidenceFieldKey" for legacy compatibility.',
         );
       }
       if (safetyText.contains('loto') &&
@@ -111,4 +110,18 @@ class ModuleComposerValidator {
       justificationsRequired: justifications,
     );
   }
+}
+
+bool _hasLeakTightShutoffEvidence(ComposerFieldDraft field) {
+  if (field.evidenceRole == ComposerEvidenceRole.leakTightShutoffConfirmation) {
+    return true;
+  }
+
+  // Backward compatibility: existing published/draft snapshots may carry only
+  // the historical semantic technical key. Keep accepting those records while
+  // new authoring prefers the structured role above.
+  final legacyKey = field.key.trim().toLowerCase();
+  return legacyKey.contains('leak') ||
+      legacyKey.contains('shutoff') ||
+      legacyKey.contains('tight');
 }

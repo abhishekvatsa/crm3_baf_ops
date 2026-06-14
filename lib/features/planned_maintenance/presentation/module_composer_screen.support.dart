@@ -1,5 +1,116 @@
 part of 'module_composer_screen.dart';
 
+/// Persists a Composer TemplateVersion draft, waits for a full sync, and then
+/// re-reads the same governed record from the local repository.
+///
+/// The helper deliberately returns only a remotely confirmed draft. A locally
+/// saved but still-unsynced record remains preserved and retryable, but it is
+/// not presented to the Composer as publish-eligible.
+Future<TemplateVersion> saveAndRefreshComposerTemplateVersionDraft({
+  required TemplateVersion version,
+  required Future<void> Function() persistLocal,
+  required Future<bool> Function() runSync,
+  required Future<TemplateVersion?> Function(String firestoreId) reloadLocal,
+}) async {
+  await persistLocal();
+
+  final firestoreId = version.firestoreId?.trim();
+  if (firestoreId == null || firestoreId.isEmpty) {
+    throw StateError(
+      'Draft was saved locally but has no stable Firestore identity.',
+    );
+  }
+  final expectedLocalId = version.id;
+  final expectedPackageFirestoreId = version.packageFirestoreId?.trim();
+  final expectedVersionNumber = version.versionNumber;
+  final expectedRecordVersion = version.version;
+  final expectedCreatedAt = version.createdAt;
+  final expectedHash = version.contentHash?.trim();
+  final expectedVersionLabel = version.versionLabel?.trim();
+  final expectedReleaseNotes = version.releaseNotes?.trim();
+  final expectedChangeSummary = version.changeSummary?.trim();
+  final expectedMinAppVersion = version.minAppVersion?.trim();
+  final expectedMetadataJson = version.metadataJson?.trim();
+
+  final syncReportedSuccess = await runSync();
+  final refreshed = await reloadLocal(firestoreId);
+  if (refreshed == null) {
+    throw StateError(
+      'Draft $firestoreId was saved locally but could not be reloaded after sync.',
+    );
+  }
+  if (refreshed.firestoreId != firestoreId) {
+    throw StateError(
+      'Draft identity changed during save/sync refresh. Expected '
+      '$firestoreId, found ${refreshed.firestoreId}.',
+    );
+  }
+  if (refreshed.id != expectedLocalId) {
+    throw StateError(
+      'Draft local identity changed during save/sync refresh. Expected '
+      '$expectedLocalId, found ${refreshed.id}.',
+    );
+  }
+  if (refreshed.packageFirestoreId?.trim() != expectedPackageFirestoreId) {
+    throw StateError(
+      'Draft $firestoreId changed package identity during save/sync refresh.',
+    );
+  }
+  if (refreshed.versionNumber != expectedVersionNumber) {
+    throw StateError(
+      'Draft $firestoreId changed version number during save/sync refresh. '
+      'Expected $expectedVersionNumber, found ${refreshed.versionNumber}.',
+    );
+  }
+  if (refreshed.version != expectedRecordVersion) {
+    throw StateError(
+      'Draft $firestoreId changed record version during save/sync refresh. '
+      'Expected $expectedRecordVersion, found ${refreshed.version}.',
+    );
+  }
+  if (!refreshed.createdAt.isAtSameMomentAs(expectedCreatedAt)) {
+    throw StateError(
+      'Draft $firestoreId changed creation metadata during save/sync refresh.',
+    );
+  }
+  if (refreshed.versionLabel?.trim() != expectedVersionLabel ||
+      refreshed.releaseNotes?.trim() != expectedReleaseNotes ||
+      refreshed.changeSummary?.trim() != expectedChangeSummary ||
+      refreshed.minAppVersion?.trim() != expectedMinAppVersion ||
+      refreshed.metadataJson?.trim() != expectedMetadataJson) {
+    throw StateError(
+      'Draft $firestoreId authoring metadata changed during save/sync refresh.',
+    );
+  }
+  if (!refreshed.isDraft) {
+    throw StateError(
+      'Draft $firestoreId changed lifecycle state during save/sync refresh.',
+    );
+  }
+
+  final refreshedHash = refreshed.contentHash?.trim();
+  if (expectedHash != null &&
+      expectedHash.isNotEmpty &&
+      refreshedHash != expectedHash) {
+    throw StateError(
+      'Draft $firestoreId payload changed during save/sync refresh.',
+    );
+  }
+
+  if (!refreshed.isSynced) {
+    final syncDetail =
+        syncReportedSuccess
+            ? 'Sync completed without a confirmed draft acknowledgement.'
+            : 'Sync did not complete successfully.';
+    throw StateError(
+      'Draft $firestoreId is saved locally and remains retryable, but '
+      'Firestore has not confirmed it. $syncDetail',
+    );
+  }
+
+  return refreshed;
+}
+
 extension _ModuleComposerSupport on _ModuleComposerScreenState {
   ComposerModuleDraft? get _selectedModule {
     if (_selectedModuleIndex < 0 ||

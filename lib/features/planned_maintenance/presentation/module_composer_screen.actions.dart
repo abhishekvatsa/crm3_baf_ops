@@ -333,13 +333,22 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
         savePackage: (package, actionActor) {
           return repository.savePackage(package, actor: actionActor);
         },
-        saveVersionDraft: (version, actionActor) async {
-          await repository.saveVersion(version, actor: actionActor);
-          await _clearRecoveryDraft();
-          _triggerTemplateGovernanceSync(
-            'template_governance_draft_saved_from_composer',
+        saveVersionDraft: (version, actionActor) {
+          return saveAndRefreshComposerTemplateVersionDraft(
+            version: version,
+            persistLocal: () async {
+              await repository.saveVersion(version, actor: actionActor);
+              await _clearRecoveryDraft();
+            },
+            runSync:
+                () => ref
+                    .read(syncCoordinatorProvider)
+                    .runFullSyncWithResult(
+                      reason: 'template_governance_draft_saved_from_composer',
+                      force: true,
+                    ),
+            reloadLocal: repository.getVersionByFirestoreId,
           );
-          return version;
         },
         publishVersion: (version, actionActor, reason) async {
           await repository.publishVersion(
@@ -784,7 +793,10 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
 
   Future<void> _removeField(ComposerModuleDraft module, int index) async {
     final field = module.fields[index];
-    if (field.isSafetyCriticalPreset) {
+    final needsGovernedJustification =
+        field.isSafetyCriticalPreset ||
+        field.evidenceRole != ComposerEvidenceRole.none;
+    if (needsGovernedJustification) {
       final reason = await _askSafetyJustification(field);
       if (!mounted || reason == null || reason.trim().isEmpty) {
         return;
@@ -792,6 +804,16 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       _draft.safetyJustifications.add(
         SafetyJustificationDraft(fieldKey: field.key, reason: reason.trim()),
       );
+    } else {
+      final confirmed = await _confirmComposerDelete(
+        title: 'Delete field?',
+        message:
+            'Delete "${field.label}" from module ${module.moduleCode}? '
+            'This removes the field from the current Composer draft.',
+      );
+      if (!mounted || !confirmed) {
+        return;
+      }
     }
     setState(() => module.fields.removeAt(index));
   }
@@ -834,7 +856,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
   Future<void> _editField(ComposerFieldDraft field) async {
     final edited = await showDialog<ComposerFieldDraft>(
       context: context,
-      builder: (context) => _FieldEditorDialog(field: field),
+      builder: (context) => ComposerFieldEditorDialog(field: field),
     );
     if (!mounted || edited == null) {
       return;
@@ -847,7 +869,10 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       field.unit = edited.unit;
       field.options = edited.options;
       field.instructionText = edited.instructionText;
+      field.validation = Map<String, dynamic>.from(edited.validation);
+      field.meta = Map<String, dynamic>.from(edited.meta);
       field.isSafetyCriticalPreset = edited.isSafetyCriticalPreset;
+      field.sourcePresetId = edited.sourcePresetId;
     });
   }
 
@@ -888,6 +913,51 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
     sorted[index].order = sorted[target].order;
     sorted[target].order = currentOrder;
     setState(() {});
+  }
+
+  Future<bool> _confirmComposerDelete({
+    required String title,
+    required String message,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                key: const Key('composer-confirm-delete'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: BafColors.danger,
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+    );
+    return confirmed == true;
+  }
+
+  Future<void> _removeChecklistItem(
+    ComposerModuleDraft module,
+    ComposerChecklistItemDraft item,
+  ) async {
+    final confirmed = await _confirmComposerDelete(
+      title: 'Delete checklist item?',
+      message:
+          'Delete "${item.title}" from module ${module.moduleCode}? '
+          'This removes the item from the current Composer draft.',
+    );
+    if (!mounted || !confirmed) {
+      return;
+    }
+    setState(() => module.checklistItems.remove(item));
   }
 
   void _addChecklistItem(ComposerModuleDraft module) {
