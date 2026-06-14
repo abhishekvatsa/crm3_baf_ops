@@ -59,6 +59,59 @@ extension _TemplatePublisherSupport on _TemplatePublisherScreenState {
     }
   }
 
+  void _resumeDraft(TemplateVersion source, List<TemplatePackage> packages) {
+    if (!source.isDraft || source.isDeleted) {
+      _showSnack(
+        'Only active draft TemplateVersions can be resumed.',
+        BafColors.danger,
+      );
+      return;
+    }
+    final packageId = source.packageFirestoreId?.trim();
+    final package =
+        packageId == null || packageId.isEmpty
+            ? null
+            : _findPackageById(packages, packageId);
+    if (package == null) {
+      _showSnack(
+        'The package for this saved draft is not available.',
+        BafColors.danger,
+      );
+      return;
+    }
+
+    _setPublisherState(() {
+      _selectedPackageId = package.firestoreId;
+      _selectedPackage = package;
+      _workingDraft = _cloneVersion(source);
+      _packageCodeController.text = package.packageCode;
+      _packageTitleController.text = package.title;
+      _packageDescriptionController.text = package.description ?? '';
+      _assetTypeController.text = package.assetType ?? 'furnace';
+      _assetScopeController.text = package.assetNumberScope ?? '';
+      _selectedDisciplines
+        ..clear()
+        ..addAll(_parseDisciplineScope(package.disciplineScope));
+      if (_selectedDisciplines.isEmpty) {
+        _selectedDisciplines.add('mechanical');
+      }
+      _versionLabelController.text = source.versionLabel ?? '';
+      _releaseNotesController.text = source.releaseNotes ?? '';
+      _changeSummaryController.text = source.changeSummary ?? '';
+      _minAppVersionController.text = source.minAppVersion ?? '';
+      _publishReasonController.clear();
+      _jobTemplateJsonController.text = source.jobTemplateSnapshotJson;
+      _moduleSnapshotsJsonController.text = source.moduleSnapshotsJson;
+      _fieldDefinitionsJsonController.text = source.fieldDefinitionsJson;
+      _checklistJsonController.text = source.checklistJson;
+    });
+
+    _showSnack(
+      'Resumed ${package.packageCode} v${source.versionNumber}.',
+      BafColors.sync,
+    );
+  }
+
   TemplatePackage? _findPackageById(List<TemplatePackage> packages, String id) {
     for (final package in packages) {
       if (package.firestoreId == id) return package;

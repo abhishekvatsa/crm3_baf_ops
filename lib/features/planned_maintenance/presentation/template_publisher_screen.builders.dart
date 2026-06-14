@@ -65,6 +65,14 @@ extension _TemplatePublisherBuilders on _TemplatePublisherScreenState {
                       assetScopeController: _assetScopeController,
                       onPackageChanged: (id) => _selectPackage(id, packages),
                     ),
+                    if (selectedPackageId != null) ...[
+                      const SizedBox(height: BafSpacing.lg),
+                      _ExistingVersionsSection(
+                        packageFirestoreId: selectedPackageId,
+                        onResumeDraft:
+                            (version) => _resumeDraft(version, packages),
+                      ),
+                    ],
                     const SizedBox(height: BafSpacing.lg),
                     _DisciplineSection(
                       selectedDisciplines: _selectedDisciplines,
@@ -96,12 +104,6 @@ extension _TemplatePublisherBuilders on _TemplatePublisherScreenState {
                     ),
                     const SizedBox(height: BafSpacing.lg),
                     _ValidationSection(validation: validation),
-                    if (selectedPackageId != null) ...[
-                      const SizedBox(height: BafSpacing.lg),
-                      _ExistingVersionsSection(
-                        packageFirestoreId: selectedPackageId,
-                      ),
-                    ],
                   ],
                 ),
               ),

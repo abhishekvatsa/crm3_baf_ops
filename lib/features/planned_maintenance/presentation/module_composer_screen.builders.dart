@@ -16,6 +16,15 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
         onSelected: (action) => _handleAppBarAction(action, validation),
         itemBuilder:
             (context) => [
+              if (canPreparePublish)
+                const PopupMenuItem(
+                  value: _ComposerAppBarAction.openSavedTemplateDrafts,
+                  child: ListTile(
+                    dense: true,
+                    leading: Icon(Icons.history_rounded),
+                    title: Text('Open Saved Template Drafts'),
+                  ),
+                ),
               const PopupMenuItem(
                 value: _ComposerAppBarAction.openWorkshop,
                 child: ListTile(
@@ -74,6 +83,9 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
     ModuleComposerValidationResult validation,
   ) {
     switch (action) {
+      case _ComposerAppBarAction.openSavedTemplateDrafts:
+        _openSavedTemplateDrafts();
+        break;
       case _ComposerAppBarAction.openWorkshop:
         _openModuleWorkshop();
         break;
@@ -201,6 +213,12 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
                 label: '${_draft.modules.length} modules',
                 color: BafColors.planned,
               ),
+              if (_editingTemplateVersion != null)
+                _MiniBadge(
+                  label:
+                      'Editing saved v${_editingTemplateVersion!.versionNumber}',
+                  color: BafColors.sync,
+                ),
               _MiniBadge(
                 label: '${validation.errors.length} errors',
                 color: errorColor,

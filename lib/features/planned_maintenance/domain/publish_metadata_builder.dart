@@ -142,44 +142,79 @@ TemplateVersion buildTemplateVersionForPublish({
   required TemplateComposerDraft draft,
   required TemplatePackage package,
   required int nextVersionNumber,
+  TemplateVersion? existingVersion,
+  bool preserveExistingPayload = false,
   AppUser? actor,
   DateTime? now,
 }) {
+  if (existingVersion != null && !existingVersion.isDraft) {
+    throw StateError('Only draft TemplateVersions can be resumed for editing.');
+  }
+
+  final existingPackageId = existingVersion?.packageFirestoreId?.trim();
+  final targetPackageId = package.firestoreId?.trim();
+  if (existingPackageId != null &&
+      existingPackageId.isNotEmpty &&
+      existingPackageId != targetPackageId) {
+    throw StateError(
+      'A resumed TemplateVersion draft cannot be moved to another package.',
+    );
+  }
+
+  if (preserveExistingPayload && existingVersion == null) {
+    throw StateError(
+      'An existing TemplateVersion is required when preserving a saved payload.',
+    );
+  }
+
   final timestamp = now ?? DateTime.now();
-  final output = ModuleComposerJsonBuilder.build(draft);
-  final version =
-      TemplateVersion()
-        ..packageFirestoreId = package.firestoreId
-        ..versionNumber = nextVersionNumber < 1 ? 1 : nextVersionNumber
-        ..versionLabel = _cleanOptional(input.versionLabel)
-        ..status = TemplateVersionStatus.draft
-        ..jobTemplateSnapshotJson = output.jobTemplateSnapshotJson
-        ..moduleSnapshotsJson = output.moduleSnapshotsJson
-        ..fieldDefinitionsJson = output.fieldDefinitionsJson
-        ..checklistJson = output.checklistJson
-        ..releaseNotes = _cleanOptional(input.releaseNotes)
-        ..changeSummary = _cleanOptional(input.changeSummary)
-        ..minAppVersion = _cleanOptional(input.minAppVersion)
-        ..targetRefs = _unionStrings(draft.modules.expand((m) => m.targetRefs))
-        ..deviceTagRefs = _unionStrings(
-          draft.modules.expand((m) => m.deviceTagRefs),
-        )
-        ..procedureRefs = _unionStrings(
-          draft.modules.expand((m) => m.procedureRefs),
-        )
-        ..operationalStatePreconditions = _unionStrings(
-          draft.modules.expand((m) => m.operationalStatePreconditions),
-        )
-        ..safetyClass = _cleanOptional(
-          _unionStrings(draft.modules.expand((m) => m.safetyClasses)).join(','),
-        )
-        ..createdAt = timestamp
-        ..updatedAt = timestamp;
+  final version = existingVersion ?? TemplateVersion();
+
+  version
+    ..packageFirestoreId = package.firestoreId
+    ..versionNumber =
+        existingVersion?.versionNumber ??
+        (nextVersionNumber < 1 ? 1 : nextVersionNumber)
+    ..versionLabel = _cleanOptional(input.versionLabel)
+    ..status = TemplateVersionStatus.draft
+    ..releaseNotes = _cleanOptional(input.releaseNotes)
+    ..changeSummary = _cleanOptional(input.changeSummary)
+    ..minAppVersion = _cleanOptional(input.minAppVersion)
+    ..updatedAt = timestamp;
+
+  if (!preserveExistingPayload) {
+    final output = ModuleComposerJsonBuilder.build(draft);
+    version
+      ..jobTemplateSnapshotJson = output.jobTemplateSnapshotJson
+      ..moduleSnapshotsJson = output.moduleSnapshotsJson
+      ..fieldDefinitionsJson = output.fieldDefinitionsJson
+      ..checklistJson = output.checklistJson
+      ..targetRefs = _unionStrings(draft.modules.expand((m) => m.targetRefs))
+      ..deviceTagRefs = _unionStrings(
+        draft.modules.expand((m) => m.deviceTagRefs),
+      )
+      ..procedureRefs = _unionStrings(
+        draft.modules.expand((m) => m.procedureRefs),
+      )
+      ..operationalStatePreconditions = _unionStrings(
+        draft.modules.expand((m) => m.operationalStatePreconditions),
+      )
+      ..safetyClass = _cleanOptional(
+        _unionStrings(draft.modules.expand((m) => m.safetyClasses)).join(','),
+      );
+  }
+
+  if (existingVersion == null) {
+    version.createdAt = timestamp;
+  }
 
   if (actor != null) {
+    if (existingVersion == null) {
+      version
+        ..createdByUid = actor.uid
+        ..createdByName = actor.name;
+    }
     version
-      ..createdByUid = actor.uid
-      ..createdByName = actor.name
       ..updatedByUid = actor.uid
       ..updatedByName = actor.name;
   }

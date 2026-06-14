@@ -10,6 +10,41 @@ const JsonEncoder _prettyJson = JsonEncoder.withIndent('  ');
 class ModuleComposerJsonBuilder {
   ModuleComposerJsonBuilder._();
 
+  /// Stable in-memory fingerprint used to detect whether a resumed governed
+  /// draft has been edited since it was loaded/saved.
+  ///
+  /// The snapshot's generatedAt value is deliberately excluded because it is
+  /// volatile and does not represent an authoring change.
+  static String semanticFingerprint(TemplateComposerDraft draft) {
+    final output = build(draft);
+    final job = jsonDecode(output.jobTemplateSnapshotJson);
+    if (job is Map<String, dynamic>) {
+      job.remove('generatedAt');
+    }
+
+    return jsonEncode(
+      _canonicalizeJson(<String, dynamic>{
+        'jobTemplateSnapshot': job,
+        'moduleSnapshots': jsonDecode(output.moduleSnapshotsJson),
+        'fieldDefinitions': jsonDecode(output.fieldDefinitionsJson),
+        'checklist': jsonDecode(output.checklistJson),
+      }),
+    );
+  }
+
+  static dynamic _canonicalizeJson(dynamic value) {
+    if (value is Map) {
+      final keys = value.keys.map((key) => key.toString()).toList()..sort();
+      return <String, dynamic>{
+        for (final key in keys) key: _canonicalizeJson(value[key]),
+      };
+    }
+    if (value is List) {
+      return value.map(_canonicalizeJson).toList(growable: false);
+    }
+    return value;
+  }
+
   static TemplateComposerOutput build(TemplateComposerDraft draft) {
     final moduleSnapshots = <Map<String, dynamic>>[];
     final fieldDefinitions = <Map<String, dynamic>>[];
@@ -17,17 +52,23 @@ class ModuleComposerJsonBuilder {
     final safetyClasses = <String>{};
     var closureCriticalCount = 0;
 
-    for (var moduleIndex = 0; moduleIndex < draft.modules.length; moduleIndex++) {
+    for (
+      var moduleIndex = 0;
+      moduleIndex < draft.modules.length;
+      moduleIndex++
+    ) {
       final module = draft.modules[moduleIndex];
       safetyClasses.addAll(module.safetyClasses);
       if (module.requiredForClosure) closureCriticalCount += 1;
 
       moduleSnapshots.add(_moduleToSnapshot(module, moduleIndex));
-      final sortedFields = [...module.fields]..sort((a, b) => a.order.compareTo(b.order));
+      final sortedFields = [...module.fields]
+        ..sort((a, b) => a.order.compareTo(b.order));
       for (final field in sortedFields) {
         fieldDefinitions.add(field.toMap(moduleCode: module.moduleCode));
       }
-      final sortedChecklist = [...module.checklistItems]..sort((a, b) => a.order.compareTo(b.order));
+      final sortedChecklist = [...module.checklistItems]
+        ..sort((a, b) => a.order.compareTo(b.order));
       for (final item in sortedChecklist) {
         checklist.add(item.toMap(moduleCode: module.moduleCode));
       }
@@ -46,7 +87,8 @@ class ModuleComposerJsonBuilder {
       'composerVersion': '5C/5D-RC3',
       'composer': <String, dynamic>{
         'draftLocalId': draft.localId,
-        'sourceKnowledgeVersion': draft.metadata['matrixVersion'] ?? 'bafKnowledge-v0.1',
+        'sourceKnowledgeVersion':
+            draft.metadata['matrixVersion'] ?? 'bafKnowledge-v0.1',
         'knowledgeSource': draft.metadata['knowledgeSource'],
         'knowledgeSourceLabel': draft.metadata['knowledgeSourceLabel'],
         'knowledgeCloudUpdatedAt': draft.metadata['knowledgeCloudUpdatedAt'],
@@ -55,12 +97,17 @@ class ModuleComposerJsonBuilder {
         'knowledgeTagRowCount': draft.metadata['knowledgeTagRowCount'],
         'closureReviewConfirmed': draft.closureReviewConfirmed,
         'closureReviewConfirmedAt': draft.metadata['closureReviewConfirmedAt'],
-        'closureReviewConfirmedByUid': draft.metadata['closureReviewConfirmedByUid'],
-        'closureReviewConfirmedByName': draft.metadata['closureReviewConfirmedByName'],
+        'closureReviewConfirmedByUid':
+            draft.metadata['closureReviewConfirmedByUid'],
+        'closureReviewConfirmedByName':
+            draft.metadata['closureReviewConfirmedByName'],
         'maintenanceManualRef': draft.metadata['maintenanceManualRef'],
-        'safetyOperationsManualRef': draft.metadata['safetyOperationsManualRef'],
-        'tagResolverCorrections': draft.tagResolverCorrections.map((item) => item.toMap()).toList(),
-        'safetyJustifications': draft.safetyJustifications.map((item) => item.toMap()).toList(),
+        'safetyOperationsManualRef':
+            draft.metadata['safetyOperationsManualRef'],
+        'tagResolverCorrections':
+            draft.tagResolverCorrections.map((item) => item.toMap()).toList(),
+        'safetyJustifications':
+            draft.safetyJustifications.map((item) => item.toMap()).toList(),
       },
     };
 
@@ -72,7 +119,10 @@ class ModuleComposerJsonBuilder {
     );
   }
 
-  static Map<String, dynamic> _moduleToSnapshot(ComposerModuleDraft module, int order) {
+  static Map<String, dynamic> _moduleToSnapshot(
+    ComposerModuleDraft module,
+    int order,
+  ) {
     return <String, dynamic>{
       'moduleCode': module.moduleCode,
       'moduleTitle': module.title,
@@ -105,9 +155,10 @@ class ModuleComposerJsonBuilder {
         'sourceReadiness': module.sourceReadiness.name,
         'confidence': module.confidence.name,
         'authoringNotes': module.authoringNotes,
-        'sharedSubmissionPolicy': module.discipline == JobModuleDiscipline.shared
-            ? 'admin_si_supervisor_only'
-            : 'discipline_or_supervisor_policy',
+        'sharedSubmissionPolicy':
+            module.discipline == JobModuleDiscipline.shared
+                ? 'admin_si_supervisor_only'
+                : 'discipline_or_supervisor_policy',
       },
     };
   }

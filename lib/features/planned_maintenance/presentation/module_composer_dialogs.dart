@@ -442,3 +442,71 @@ class _ChecklistEditorDialogState extends State<_ChecklistEditorDialog> {
     );
   }
 }
+
+class _SavedTemplateDraftEntry {
+  final TemplatePackage package;
+  final TemplateVersion version;
+
+  const _SavedTemplateDraftEntry({
+    required this.package,
+    required this.version,
+  });
+}
+
+class _SavedTemplateDraftPickerDialog extends StatelessWidget {
+  final List<_SavedTemplateDraftEntry> entries;
+
+  const _SavedTemplateDraftPickerDialog({required this.entries});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Saved Template Drafts'),
+      content: SizedBox(
+        width: 760,
+        child:
+            entries.isEmpty
+                ? const Text(
+                  'No saved TemplateVersion drafts are available for the active packages.',
+                )
+                : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: entries.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final entry = entries[index];
+                    final version = entry.version;
+                    final label = (version.versionLabel ?? '').trim();
+                    final updatedAt = version.updatedAt.toLocal();
+                    return ListTile(
+                      key: Key(
+                        'saved-template-draft-${version.firestoreId ?? version.id}',
+                      ),
+                      leading: const Icon(Icons.edit_note_rounded),
+                      title: Text(
+                        '${entry.package.packageCode} · v${version.versionNumber}'
+                        '${label.isEmpty ? '' : ' · $label'}',
+                      ),
+                      subtitle: Text(
+                        'Updated ${updatedAt.toIso8601String()}\n'
+                        'By ${version.updatedByName ?? version.createdByName ?? 'unknown'}',
+                      ),
+                      isThreeLine: true,
+                      trailing: FilledButton.tonalIcon(
+                        onPressed: () => Navigator.pop(context, entry),
+                        icon: const Icon(Icons.open_in_new_rounded),
+                        label: const Text('Resume'),
+                      ),
+                    );
+                  },
+                ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}

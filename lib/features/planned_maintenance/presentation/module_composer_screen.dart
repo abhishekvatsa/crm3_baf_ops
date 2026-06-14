@@ -48,6 +48,7 @@ class ModuleComposerScreen extends ConsumerStatefulWidget {
   final String actorName;
   final bool canSeedCloudKnowledge;
   final bool showSaveToPublisher;
+  final TemplateVersion? initialTemplateVersion;
   final Future<BafKnowledgeBundle> Function()? knowledgeBundleLoader;
 
   const ModuleComposerScreen({
@@ -61,6 +62,7 @@ class ModuleComposerScreen extends ConsumerStatefulWidget {
     this.actorName = '',
     this.canSeedCloudKnowledge = false,
     this.showSaveToPublisher = true,
+    this.initialTemplateVersion,
     this.knowledgeBundleLoader,
   });
 
@@ -71,6 +73,8 @@ class ModuleComposerScreen extends ConsumerStatefulWidget {
 
 class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
   late TemplateComposerDraft _draft;
+  TemplateVersion? _editingTemplateVersion;
+  String? _editingTemplateDraftFingerprint;
   int _selectedModuleIndex = -1;
   final Set<int> _mergeSelection = <int>{};
   String _knowledgeQuery = '';
@@ -96,8 +100,14 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
       fieldDefinitionsJson: widget.initialFieldDefinitionsJson,
       checklistJson: widget.initialChecklistJson,
     );
-    _draft.localId = _stableDraftLocalId();
+    _editingTemplateVersion = widget.initialTemplateVersion;
+    _draft.localId =
+        widget.initialTemplateVersion?.firestoreId ?? _stableDraftLocalId();
     _applyMatrixMetaToDraft();
+    if (_editingTemplateVersion != null) {
+      _editingTemplateDraftFingerprint =
+          ModuleComposerJsonBuilder.semanticFingerprint(_draft);
+    }
     if (_draft.modules.isNotEmpty) {
       _selectedModuleIndex = 0;
     }

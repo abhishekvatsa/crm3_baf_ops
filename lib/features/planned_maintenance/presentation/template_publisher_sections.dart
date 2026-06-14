@@ -699,8 +699,12 @@ class _ValidationSection extends StatelessWidget {
 
 class _ExistingVersionsSection extends ConsumerWidget {
   final String packageFirestoreId;
+  final ValueChanged<TemplateVersion> onResumeDraft;
 
-  const _ExistingVersionsSection({required this.packageFirestoreId});
+  const _ExistingVersionsSection({
+    required this.packageFirestoreId,
+    required this.onResumeDraft,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -711,7 +715,7 @@ class _ExistingVersionsSection extends ConsumerWidget {
     return _Panel(
       title: 'Existing package versions',
       subtitle:
-          'Recent versions for the selected package. Published rows are immutable source records.',
+          'Saved drafts can be resumed and published as the same governed record. Published rows remain immutable source records.',
       icon: Icons.history_rounded,
       child: versionsAsync.when(
         loading:
@@ -731,9 +735,18 @@ class _ExistingVersionsSection extends ConsumerWidget {
               style: TextStyle(color: BafColors.textSecondary),
             );
           }
+
+          final drafts = versions
+              .where((version) => version.isDraft && !version.isDeleted)
+              .toList(growable: false);
+          final recentNonDrafts = versions
+              .where((version) => !version.isDraft && !version.isDeleted)
+              .take(6);
+          final visible = <TemplateVersion>[...drafts, ...recentNonDrafts];
+
           return Column(
             children:
-                versions.take(6).map((version) {
+                visible.map((version) {
                   final color = switch (version.status) {
                     TemplateVersionStatus.draft => BafColors.warning,
                     TemplateVersionStatus.published => BafColors.success,
@@ -748,43 +761,66 @@ class _ExistingVersionsSection extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(BafRadius.medium),
                       border: Border.all(color: BafColors.border),
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _IconTile(
-                          icon: Icons.new_releases_rounded,
-                          color: color,
-                          size: 42,
-                        ),
-                        const SizedBox(width: BafSpacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'v${version.versionNumber} ${version.versionLabel ?? ''}'
-                                    .trim(),
-                                style: const TextStyle(
-                                  color: BafColors.textPrimary,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                              const SizedBox(height: BafSpacing.xs),
-                              Tooltip(
-                                message: version.contentHash ?? 'No hash yet',
-                                child: Text(
-                                  _compactContentHash(version.contentHash),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: BafColors.textSecondary,
-                                    fontSize: 12,
+                        Row(
+                          children: [
+                            _IconTile(
+                              icon: Icons.new_releases_rounded,
+                              color: color,
+                              size: 42,
+                            ),
+                            const SizedBox(width: BafSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'v${version.versionNumber} ${version.versionLabel ?? ''}'
+                                        .trim(),
+                                    style: const TextStyle(
+                                      color: BafColors.textPrimary,
+                                      fontWeight: FontWeight.w900,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: BafSpacing.xs),
+                                  Tooltip(
+                                    message:
+                                        version.contentHash ?? 'No hash yet',
+                                    child: Text(
+                                      _compactContentHash(version.contentHash),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: BafColors.textSecondary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                            StatusBadge(
+                              label: version.status.name,
+                              color: color,
+                            ),
+                          ],
                         ),
-                        StatusBadge(label: version.status.name, color: color),
+                        if (version.isDraft) ...[
+                          const SizedBox(height: BafSpacing.sm),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: FilledButton.tonalIcon(
+                              key: Key(
+                                'resume-template-version-${version.firestoreId ?? version.id}',
+                              ),
+                              onPressed: () => onResumeDraft(version),
+                              icon: const Icon(Icons.edit_note_rounded),
+                              label: const Text('Resume draft'),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   );

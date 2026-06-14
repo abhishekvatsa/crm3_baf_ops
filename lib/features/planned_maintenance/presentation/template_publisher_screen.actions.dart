@@ -127,7 +127,14 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
       final repo = ref.read(templateGovernanceRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
       final package = await _ensurePackageSaved(repo, actor);
-      final version = _buildDraftVersion(package);
+      final nextVersionNumber =
+          _workingDraft == null
+              ? await _nextAvailableVersionNumber(repo, package)
+              : null;
+      final version = _buildDraftVersion(
+        package,
+        versionNumberOverride: nextVersionNumber,
+      );
       await repo.saveVersion(version, actor: actor);
       _workingDraft = version;
       unawaited(
@@ -159,9 +166,13 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
       final repo = ref.read(templateGovernanceRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
       final package = await _ensurePackageSaved(repo, actor);
+      final nextVersionNumber =
+          _workingDraft == null
+              ? await _nextAvailableVersionNumber(repo, package)
+              : null;
       final version = _buildDraftVersion(
         package,
-        allocateFreshVersionNumber: true,
+        versionNumberOverride: nextVersionNumber,
       );
 
       await repo.publishVersion(
@@ -227,9 +238,27 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
     return package;
   }
 
+  Future<int> _nextAvailableVersionNumber(
+    TemplateGovernanceRepository repo,
+    TemplatePackage package,
+  ) async {
+    final packageId = package.firestoreId?.trim();
+    if (packageId == null || packageId.isEmpty) {
+      return 1;
+    }
+    final versions = await repo.getVersionsForPackage(packageId);
+    var latest = package.latestVersionNumber;
+    for (final version in versions) {
+      if (!version.isDeleted && version.versionNumber > latest) {
+        latest = version.versionNumber;
+      }
+    }
+    return latest + 1;
+  }
+
   TemplateVersion _buildDraftVersion(
     TemplatePackage package, {
-    bool allocateFreshVersionNumber = false,
+    int? versionNumberOverride,
   }) {
     final version =
         _workingDraft == null
@@ -239,11 +268,10 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
     version
       ..packageFirestoreId = package.firestoreId
       ..versionNumber =
-          allocateFreshVersionNumber
-              ? _nextVersionNumber(packageOverride: package)
-              : version.versionNumber > 0
+          _workingDraft != null && version.versionNumber > 0
               ? version.versionNumber
-              : _nextVersionNumber(packageOverride: package)
+              : versionNumberOverride ??
+                  _nextVersionNumber(packageOverride: package)
       ..versionLabel = _cleanOptional(_versionLabelController.text)
       ..status = TemplateVersionStatus.draft
       ..jobTemplateSnapshotJson = _normalizedJson(

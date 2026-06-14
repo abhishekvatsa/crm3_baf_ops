@@ -48,6 +48,7 @@ class _ComposerCard extends StatelessWidget {
 }
 
 enum _ComposerAppBarAction {
+  openSavedTemplateDrafts,
   openWorkshop,
   openRegistryAuthoring,
   preparePublish,

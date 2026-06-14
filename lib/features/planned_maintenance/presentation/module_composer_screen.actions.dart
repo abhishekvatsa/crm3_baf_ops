@@ -163,6 +163,117 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
     );
   }
 
+  Future<void> _openSavedTemplateDrafts() async {
+    final actor = ref.read(currentAppUserProvider).value;
+    if (actor == null || !actor.canPublishTemplateVersion) {
+      _showSnack(
+        'Only Admin/SI users can resume governed TemplateVersion drafts.',
+        BafColors.danger,
+      );
+      return;
+    }
+
+    final repository = ref.read(templateGovernanceRepositoryProvider);
+    final entries = <_SavedTemplateDraftEntry>[];
+    try {
+      final packages = await repository.getAllPackages();
+      for (final package in packages) {
+        final packageId = package.firestoreId?.trim();
+        if (packageId == null ||
+            packageId.isEmpty ||
+            package.isDeleted ||
+            package.lifecycleStatus != TemplatePackageLifecycleStatus.active) {
+          continue;
+        }
+        final versions = await repository.getVersionsForPackage(packageId);
+        for (final version in versions) {
+          if (!version.isDeleted && version.isDraft) {
+            entries.add(
+              _SavedTemplateDraftEntry(package: package, version: version),
+            );
+          }
+        }
+      }
+    } on Object catch (error) {
+      if (mounted) {
+        _showSnack('Unable to load saved drafts: $error', BafColors.danger);
+      }
+      return;
+    }
+
+    entries.sort((a, b) => b.version.updatedAt.compareTo(a.version.updatedAt));
+    if (!mounted) {
+      return;
+    }
+
+    final selected = await showDialog<_SavedTemplateDraftEntry>(
+      context: context,
+      builder: (_) => _SavedTemplateDraftPickerDialog(entries: entries),
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+
+    final currentVersionId = _editingTemplateVersion?.firestoreId;
+    if (currentVersionId != selected.version.firestoreId &&
+        _draft.modules.isNotEmpty) {
+      final replace = await showDialog<bool>(
+        context: context,
+        builder:
+            (dialogContext) => AlertDialog(
+              title: const Text('Replace current composer draft?'),
+              content: const Text(
+                'Opening the saved TemplateVersion draft will replace the current composer working state. Unsaved changes in the current composer will be discarded.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Open saved draft'),
+                ),
+              ],
+            ),
+      );
+      if (!mounted || replace != true) {
+        return;
+      }
+    }
+
+    await _clearRecoveryDraft();
+    if (!mounted) {
+      return;
+    }
+
+    _suppressRecoverySave = true;
+    try {
+      setState(() {
+        _editingTemplateVersion = selected.version;
+        _draft = TemplateComposerDraft.fromPayloads(
+          jobTemplateSnapshotJson: selected.version.jobTemplateSnapshotJson,
+          moduleSnapshotsJson: selected.version.moduleSnapshotsJson,
+          fieldDefinitionsJson: selected.version.fieldDefinitionsJson,
+          checklistJson: selected.version.checklistJson,
+        );
+        _draft.localId = selected.version.firestoreId ?? _stableDraftLocalId();
+        _applyMatrixMetaToDraft();
+        _editingTemplateDraftFingerprint =
+            ModuleComposerJsonBuilder.semanticFingerprint(_draft);
+        _selectedModuleIndex = _draft.modules.isEmpty ? -1 : 0;
+        _mergeSelection.clear();
+      });
+    } finally {
+      _suppressRecoverySave = false;
+    }
+
+    _showSnack(
+      'Resumed ${selected.package.packageCode} v${selected.version.versionNumber}.',
+      BafColors.sync,
+    );
+  }
+
   Future<void> _openPublishMetadataDialog() async {
     final validation = ModuleComposerValidator.validate(_draft);
     if (!validation.canSave) {
@@ -205,13 +316,19 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       return;
     }
 
-    await PublishMetadataDialog.show(
+    final result = await PublishMetadataDialog.show(
       context,
       actor: actor,
       draft: _draft,
       existingPackages: activePackages,
       initialPackageCode: _suggestPublishPackageCode(),
       initialPackageTitle: _draft.title,
+      initialPackageFirestoreId: _editingTemplateVersion?.packageFirestoreId,
+      initialVersion: _editingTemplateVersion,
+      hasUnsavedComposerChanges:
+          _editingTemplateVersion != null &&
+          _editingTemplateDraftFingerprint !=
+              ModuleComposerJsonBuilder.semanticFingerprint(_draft),
       actions: PublishMetadataDialogActions(
         savePackage: (package, actionActor) {
           return repository.savePackage(package, actor: actionActor);
@@ -222,6 +339,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
           _triggerTemplateGovernanceSync(
             'template_governance_draft_saved_from_composer',
           );
+          return version;
         },
         publishVersion: (version, actionActor, reason) async {
           await repository.publishVersion(
@@ -233,6 +351,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
           _triggerTemplateGovernanceSync(
             'template_governance_version_published_from_composer',
           );
+          return version;
         },
         nextVersionNumberFor: (package) async {
           final packageId = package.firestoreId;
@@ -253,6 +372,20 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
         },
       ),
     );
+
+    if (!mounted || result == null) {
+      return;
+    }
+    setState(() {
+      _editingTemplateVersion = result.published ? null : result.version;
+      if (result.published) {
+        _editingTemplateDraftFingerprint = null;
+      } else {
+        _draft.localId = result.version.firestoreId ?? _draft.localId;
+        _editingTemplateDraftFingerprint =
+            ModuleComposerJsonBuilder.semanticFingerprint(_draft);
+      }
+    });
   }
 
   void _triggerTemplateGovernanceSync(String reason) {
