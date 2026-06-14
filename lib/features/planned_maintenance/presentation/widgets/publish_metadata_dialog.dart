@@ -11,9 +11,9 @@ import '../../domain/template_version_snapshot_contract.dart';
 class PublishMetadataDialogActions {
   final Future<void> Function(TemplatePackage package, AppUser actor)
   savePackage;
-  final Future<void> Function(TemplateVersion version, AppUser actor)
+  final Future<TemplateVersion> Function(TemplateVersion version, AppUser actor)
   saveVersionDraft;
-  final Future<void> Function(
+  final Future<TemplateVersion> Function(
     TemplateVersion version,
     AppUser actor,
     String reason,
@@ -29,6 +29,22 @@ class PublishMetadataDialogActions {
   });
 }
 
+class PublishMetadataDialogResult {
+  final TemplateVersion version;
+  final bool published;
+
+  const PublishMetadataDialogResult._({
+    required this.version,
+    required this.published,
+  });
+
+  const PublishMetadataDialogResult.saved(TemplateVersion version)
+    : this._(version: version, published: false);
+
+  const PublishMetadataDialogResult.published(TemplateVersion version)
+    : this._(version: version, published: true);
+}
+
 class PublishMetadataDialog extends StatefulWidget {
   final AppUser actor;
   final TemplateComposerDraft draft;
@@ -36,6 +52,9 @@ class PublishMetadataDialog extends StatefulWidget {
   final PublishMetadataDialogActions actions;
   final String? initialPackageCode;
   final String? initialPackageTitle;
+  final String? initialPackageFirestoreId;
+  final TemplateVersion? initialVersion;
+  final bool hasUnsavedComposerChanges;
 
   const PublishMetadataDialog({
     super.key,
@@ -45,9 +64,12 @@ class PublishMetadataDialog extends StatefulWidget {
     required this.actions,
     this.initialPackageCode,
     this.initialPackageTitle,
+    this.initialPackageFirestoreId,
+    this.initialVersion,
+    this.hasUnsavedComposerChanges = false,
   });
 
-  static Future<void> show(
+  static Future<PublishMetadataDialogResult?> show(
     BuildContext context, {
     required AppUser actor,
     required TemplateComposerDraft draft,
@@ -55,8 +77,11 @@ class PublishMetadataDialog extends StatefulWidget {
     required PublishMetadataDialogActions actions,
     String? initialPackageCode,
     String? initialPackageTitle,
+    String? initialPackageFirestoreId,
+    TemplateVersion? initialVersion,
+    bool hasUnsavedComposerChanges = false,
   }) {
-    return showDialog<void>(
+    return showDialog<PublishMetadataDialogResult>(
       context: context,
       barrierDismissible: false,
       builder:
@@ -67,6 +92,9 @@ class PublishMetadataDialog extends StatefulWidget {
             actions: actions,
             initialPackageCode: initialPackageCode,
             initialPackageTitle: initialPackageTitle,
+            initialPackageFirestoreId: initialPackageFirestoreId,
+            initialVersion: initialVersion,
+            hasUnsavedComposerChanges: hasUnsavedComposerChanges,
           ),
     );
   }
@@ -97,6 +125,7 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
 
   bool _createNewPackage = false;
   bool _busy = false;
+  bool _invalidInitialVersion = false;
   String? _error;
   TemplatePackage? _selectedPackage;
   late AssetType _assetType;
@@ -124,9 +153,18 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
       _createNewPackage = true;
       _selectedDisciplines.addAll(_disciplineDefaultsFromDraft());
     } else {
-      _selectedPackage = widget.existingPackages.first;
+      final requestedPackageId = widget.initialPackageFirestoreId?.trim();
+      _selectedPackage = widget.existingPackages.firstWhere(
+        (package) =>
+            requestedPackageId != null &&
+            requestedPackageId.isNotEmpty &&
+            package.firestoreId == requestedPackageId,
+        orElse: () => widget.existingPackages.first,
+      );
       _hydrateFromSelectedPackage();
     }
+
+    _hydrateFromInitialVersion();
 
     for (final controller in <TextEditingController>[
       _packageCodeController,
@@ -192,6 +230,23 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
     if (asset != null) {
       _assetType = asset;
     }
+  }
+
+  void _hydrateFromInitialVersion() {
+    final version = widget.initialVersion;
+    if (version == null) {
+      return;
+    }
+    if (!version.isDraft) {
+      _invalidInitialVersion = true;
+      _error = 'Only draft TemplateVersions can be resumed.';
+      return;
+    }
+    _versionLabelController.text = version.versionLabel ?? '';
+    _releaseNotesController.text = version.releaseNotes ?? '';
+    _changeSummaryController.text = version.changeSummary ?? '';
+    _minAppVersionController.text = version.minAppVersion ?? '';
+    _publishReasonController.clear();
   }
 
   Set<String> _disciplineDefaultsFromDraft() {
@@ -268,6 +323,14 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
               actor: widget.actor,
             )
             : _selectedPackage!;
+    final resumedPackageId = widget.initialVersion?.packageFirestoreId?.trim();
+    if (resumedPackageId != null &&
+        resumedPackageId.isNotEmpty &&
+        package.firestoreId != resumedPackageId) {
+      throw StateError(
+        'A resumed TemplateVersion draft cannot be moved to another package.',
+      );
+    }
     if (_createNewPackage || package.firestoreId == null) {
       await widget.actions.savePackage(package, widget.actor);
     }
@@ -275,6 +338,9 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
   }
 
   Future<void> _saveDraft() async {
+    if (_invalidInitialVersion) {
+      return;
+    }
     final validation = _validation();
     if (!validation.canSaveDraft) {
       setState(() => _error = validation.errors.join('\n'));
@@ -287,19 +353,44 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
         draft: widget.draft,
         package: package,
         nextVersionNumber: await widget.actions.nextVersionNumberFor(package),
+        existingVersion: widget.initialVersion,
         actor: widget.actor,
       );
-      await widget.actions.saveVersionDraft(version, widget.actor);
+      final saved = await widget.actions.saveVersionDraft(
+        version,
+        widget.actor,
+      );
       if (mounted) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(content: Text('Draft saved for ${package.packageCode}.')),
+          SnackBar(
+            content: Text(
+              'Draft saved for ${package.packageCode}. Reopen it from Saved Template Drafts.',
+            ),
+          ),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, PublishMetadataDialogResult.saved(saved));
       }
     });
   }
 
   Future<void> _publish() async {
+    if (_invalidInitialVersion) {
+      return;
+    }
+    if (widget.initialVersion != null && !widget.initialVersion!.isSynced) {
+      setState(() {
+        _error =
+            'This saved draft has not been confirmed by sync. Wait for a successful sync, then reopen the saved draft before publishing.';
+      });
+      return;
+    }
+    if (widget.initialVersion != null && widget.hasUnsavedComposerChanges) {
+      setState(() {
+        _error =
+            'This resumed draft has unsaved Composer changes. Save Draft, wait for sync, then reopen the saved draft before publishing.';
+      });
+      return;
+    }
     final validation = _validation();
     if (!validation.canPublish) {
       final reason = _publishReasonController.text.trim();
@@ -319,18 +410,27 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
         draft: widget.draft,
         package: package,
         nextVersionNumber: await widget.actions.nextVersionNumberFor(package),
+        existingVersion: widget.initialVersion,
+        preserveExistingPayload: widget.initialVersion != null,
         actor: widget.actor,
       );
-      await widget.actions.publishVersion(
+      final published = await widget.actions.publishVersion(
         version,
         widget.actor,
         _publishReasonController.text.trim(),
       );
       if (mounted) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(content: Text('Published ${package.packageCode}.')),
+          SnackBar(
+            content: Text(
+              'Publication queued for ${package.packageCode}. It becomes assignable after sync confirms Firestore.',
+            ),
+          ),
         );
-        Navigator.pop(context);
+        Navigator.pop(
+          context,
+          PublishMetadataDialogResult.published(published),
+        );
       }
     });
   }
@@ -454,6 +554,24 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
                   messages: validation.warnings,
                 ),
               ],
+              if (widget.initialVersion != null &&
+                  !widget.initialVersion!.isSynced) ...[
+                const SizedBox(height: BafSpacing.md),
+                const _SingleMessagePanel(
+                  color: BafColors.warning,
+                  message:
+                      'This draft is still pending sync. Publish is enabled only after Firestore confirms the saved draft; reopen it after sync succeeds.',
+                ),
+              ],
+              if (widget.initialVersion != null &&
+                  widget.hasUnsavedComposerChanges) ...[
+                const SizedBox(height: BafSpacing.md),
+                const _SingleMessagePanel(
+                  color: BafColors.warning,
+                  message:
+                      'Publish uses the exact last-saved governed payload. Save Draft and reopen it before publishing these Composer changes.',
+                ),
+              ],
               if (!canGovern) ...[
                 const SizedBox(height: BafSpacing.md),
                 const _SingleMessagePanel(
@@ -477,7 +595,10 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
         OutlinedButton.icon(
           key: const Key('publish-save-draft'),
           onPressed:
-              _busy || !canGovern || !validation.canSaveDraft
+              _busy ||
+                      _invalidInitialVersion ||
+                      !canGovern ||
+                      !validation.canSaveDraft
                   ? null
                   : _saveDraft,
           icon: const Icon(Icons.save_outlined),
@@ -486,7 +607,16 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
         FilledButton.icon(
           key: const Key('publish-publish'),
           onPressed:
-              _busy || !canGovern || !validation.canPublish ? null : _publish,
+              _busy ||
+                      _invalidInitialVersion ||
+                      !canGovern ||
+                      (widget.initialVersion != null &&
+                          !widget.initialVersion!.isSynced) ||
+                      (widget.initialVersion != null &&
+                          widget.hasUnsavedComposerChanges) ||
+                      !validation.canPublish
+                  ? null
+                  : _publish,
           icon: const Icon(Icons.rocket_launch_rounded),
           label: const Text('Publish'),
         ),

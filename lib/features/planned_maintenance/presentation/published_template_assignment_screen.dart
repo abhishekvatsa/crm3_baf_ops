@@ -56,10 +56,11 @@ class _PublishedTemplateAssignmentScreenState
     final appUserAsync = ref.watch(currentAppUserProvider);
 
     return appUserAsync.when(
-      loading: () => const Scaffold(
-        backgroundColor: BafColors.background,
-        body: Center(child: CircularProgressIndicator()),
-      ),
+      loading:
+          () => const Scaffold(
+            backgroundColor: BafColors.background,
+            body: Center(child: CircularProgressIndicator()),
+          ),
       error: (e, _) => _AssignmentErrorScaffold(message: 'User error: $e'),
       data: (actor) {
         if (actor == null || !actor.canAssignJobExecution) {
@@ -68,13 +69,15 @@ class _PublishedTemplateAssignmentScreenState
 
         final packagesAsync = ref.watch(templatePackagesProvider);
         return packagesAsync.when(
-          loading: () => const Scaffold(
-            backgroundColor: BafColors.background,
-            body: Center(child: CircularProgressIndicator()),
-          ),
-          error: (e, _) => _AssignmentErrorScaffold(
-            message: 'Template package error: $e',
-          ),
+          loading:
+              () => const Scaffold(
+                backgroundColor: BafColors.background,
+                body: Center(child: CircularProgressIndicator()),
+              ),
+          error:
+              (e, _) => _AssignmentErrorScaffold(
+                message: 'Template package error: $e',
+              ),
           data: (packages) => _buildWithPackages(actor, packages),
         );
       },
@@ -82,20 +85,28 @@ class _PublishedTemplateAssignmentScreenState
   }
 
   Widget _buildWithPackages(AppUser actor, List<TemplatePackage> packages) {
-    final assignablePackages = packages
-        .where((package) =>
-    !package.isDeleted &&
-        package.lifecycleStatus == TemplatePackageLifecycleStatus.active &&
-        _clean(package.firestoreId) != null)
-        .toList()
-      ..sort((a, b) => a.title.compareTo(b.title));
+    final assignablePackages =
+        packages
+            .where(
+              (package) =>
+                  !package.isDeleted &&
+                  package.lifecycleStatus ==
+                      TemplatePackageLifecycleStatus.active &&
+                  _clean(package.firestoreId) != null,
+            )
+            .toList()
+          ..sort((a, b) => a.title.compareTo(b.title));
 
     _hydrateInitialPackage(assignablePackages);
 
-    final selectedPackage = _findPackage(assignablePackages, _selectedPackageId);
-    final versionsAsync = selectedPackage == null
-        ? null
-        : ref.watch(packageVersionsProvider(selectedPackage.firestoreId!));
+    final selectedPackage = _findPackage(
+      assignablePackages,
+      _selectedPackageId,
+    );
+    final versionsAsync =
+        selectedPackage == null
+            ? null
+            : ref.watch(packageVersionsProvider(selectedPackage.firestoreId!));
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -116,228 +127,261 @@ class _PublishedTemplateAssignmentScreenState
       ),
       body: Form(
         key: _formKey,
-        child: versionsAsync == null
-            ? _buildNoPackagesState(actor, assignablePackages)
-            : versionsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => _InlineError(message: 'Version error: $e'),
-          data: (versions) {
-            final assignableVersions = versions
-                .where((version) => version.isAssignable)
-                .toList()
-              ..sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
-            _hydrateInitialVersion(selectedPackage!, assignableVersions);
-            final selectedVersion =
-            _findVersion(assignableVersions, _selectedVersionId);
-            TemplateVersionAssignmentPreview? preview;
-            TemplateVersionAssignmentException? previewError;
-            if (selectedVersion != null) {
-              try {
-                preview = previewTemplateVersionAssignment(
-                  package: selectedPackage,
-                  version: selectedVersion,
-                );
-              } on TemplateVersionAssignmentException catch (error) {
-                previewError = error;
-              }
-            }
-
-            if (preview != null && !_assetTypeTouched) {
-              _assetType = preview.assetType;
-            }
-
-            return ListView(
-              keyboardDismissBehavior:
-              ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: const EdgeInsets.fromLTRB(
-                BafSpacing.lg,
-                BafSpacing.md,
-                BafSpacing.lg,
-                120,
-              ),
-              children: [
-                _AssignmentHeaderCard(
-                  package: selectedPackage,
-                  version: selectedVersion,
-                  preview: preview,
-                ),
-                if (previewError != null) ...[
-                  const SizedBox(height: BafSpacing.md),
-                  _PublisherPromptCallout(
-                    message:
-                    'This published version cannot be assigned because its governance snapshot is invalid: ${previewError.message}',
-                    onOpenPublisher: actor.canManageTemplateGovernance
-                        ? _openTemplatePublisher
-                        : null,
-                  ),
-                ],
-                const SizedBox(height: BafSpacing.lg),
-                _SectionCard(
-                  title: 'Governed catalogue source',
-                  subtitle:
-                  'Choose the active package/version to freeze into this job.',
-                  icon: Icons.verified_rounded,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      key: const ValueKey('published-package-selector'),
-                      initialValue: _selectedPackageId,
-                      isExpanded: true,
-                      decoration: _inputDecoration(
-                        'Template package',
-                        icon: Icons.inventory_2_rounded,
-                      ),
-                      items: assignablePackages
-                          .map(
-                            (package) => DropdownMenuItem<String>(
-                          value: package.firestoreId,
-                          child: Text(
-                            '${package.packageCode} — ${package.title}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                          .toList(),
-                      onChanged: _isSubmitting
-                          ? null
-                          : (value) => setState(() {
-                        _selectedPackageId = value;
-                        _selectedVersionId = null;
-                        _assetTypeTouched = false;
-                      }),
-                      validator: (value) => value == null
-                          ? 'Select a governed package'
-                          : null,
-                    ),
-                    const SizedBox(height: BafSpacing.md),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey('published-version-${_selectedPackageId ?? ''}'),
-                      initialValue: _selectedVersionId,
-                      isExpanded: true,
-                      decoration: _inputDecoration(
-                        'Published version',
-                        icon: Icons.new_releases_rounded,
-                      ),
-                      items: assignableVersions
-                          .map(
-                            (version) => DropdownMenuItem<String>(
-                          value: version.firestoreId,
-                          child: Text(
-                            _versionLabel(version),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                          .toList(),
-                      onChanged: _isSubmitting
-                          ? null
-                          : (value) => setState(() {
-                        _selectedVersionId = value;
-                        _assetTypeTouched = false;
-                      }),
-                      validator: (value) => value == null
-                          ? 'Select a published version'
-                          : null,
-                    ),
-                    if (assignableVersions.isEmpty) ...[
-                      const SizedBox(height: BafSpacing.sm),
-                      _PublisherPromptCallout(
-                        message:
-                        'This package has no active published TemplateVersion. Publish a valid version before assigning governed jobs.',
-                        onOpenPublisher: actor.canManageTemplateGovernance
-                            ? _openTemplatePublisher
-                            : null,
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: BafSpacing.lg),
-                _SectionCard(
-                  title: 'Job details',
-                  subtitle:
-                  'Choose the exact asset and add assignment context.',
-                  icon: Icons.assignment_turned_in_rounded,
-                  children: [
-                    DropdownButtonFormField<AssetType>(
-                      key: ValueKey('asset-type-${_selectedVersionId ?? ''}-${_assetType.name}'),
-                      initialValue: _assetType,
-                      decoration: _inputDecoration(
-                        'Asset type',
-                        icon: Icons.precision_manufacturing_rounded,
-                      ),
-                      items: AssetType.values
-                          .map(
-                            (type) => DropdownMenuItem<AssetType>(
-                          value: type,
-                          child: Text(type.name.toUpperCase()),
-                        ),
-                      )
-                          .toList(),
-                      onChanged: _isSubmitting
-                          ? null
-                          : (value) => setState(() {
-                        if (value != null) {
-                          _assetType = value;
-                          _assetTypeTouched = true;
-                        }
-                      }),
-                    ),
-                    const SizedBox(height: BafSpacing.md),
-                    TextFormField(
-                      controller: _assetNumberController,
-                      keyboardType: TextInputType.number,
-                      decoration: _inputDecoration(
-                        '${_assetType.name.toUpperCase()} Number',
-                        hint: 'e.g. 221',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Required';
-                        }
-                        final number = int.tryParse(value.trim());
-                        if (number == null) return 'Invalid number';
-                        if (!AssetValidator.isValid(_assetType, number)) {
-                          return AssetValidator.getValidationMessage(
-                            _assetType,
-                            number,
+        child:
+            versionsAsync == null
+                ? _buildNoPackagesState(actor, assignablePackages)
+                : versionsAsync.when(
+                  loading:
+                      () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => _InlineError(message: 'Version error: $e'),
+                  data: (versions) {
+                    final assignableVersions =
+                        versions
+                            .where(
+                              (version) =>
+                                  version.isAssignable && version.isSynced,
+                            )
+                            .toList()
+                          ..sort(
+                            (a, b) =>
+                                b.versionNumber.compareTo(a.versionNumber),
                           );
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: BafSpacing.md),
-                    TextFormField(
-                      controller: _chargeNoController,
-                      keyboardType: TextInputType.number,
-                      decoration: _inputDecoration(
-                        'Active charge number',
-                        hint: 'Optional',
+                    _hydrateInitialVersion(
+                      selectedPackage!,
+                      assignableVersions,
+                    );
+                    final selectedVersion = _findVersion(
+                      assignableVersions,
+                      _selectedVersionId,
+                    );
+                    TemplateVersionAssignmentPreview? preview;
+                    TemplateVersionAssignmentException? previewError;
+                    if (selectedVersion != null) {
+                      try {
+                        preview = previewTemplateVersionAssignment(
+                          package: selectedPackage,
+                          version: selectedVersion,
+                        );
+                      } on TemplateVersionAssignmentException catch (error) {
+                        previewError = error;
+                      }
+                    }
+
+                    if (preview != null && !_assetTypeTouched) {
+                      _assetType = preview.assetType;
+                    }
+
+                    return ListView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.fromLTRB(
+                        BafSpacing.lg,
+                        BafSpacing.md,
+                        BafSpacing.lg,
+                        120,
                       ),
-                      validator: (value) {
-                        final text = value?.trim() ?? '';
-                        if (text.isEmpty) return null;
-                        return int.tryParse(text) == null
-                            ? 'Invalid number'
-                            : null;
-                      },
-                    ),
-                    const SizedBox(height: BafSpacing.md),
-                    TextFormField(
-                      controller: _remarksController,
-                      maxLines: 3,
-                      decoration: _inputDecoration(
-                        'Instructions / remarks',
-                        hint: 'Optional notes for attending teams',
-                        alignLabelWithHint: true,
-                      ),
-                    ),
-                  ],
+                      children: [
+                        _AssignmentHeaderCard(
+                          package: selectedPackage,
+                          version: selectedVersion,
+                          preview: preview,
+                        ),
+                        if (previewError != null) ...[
+                          const SizedBox(height: BafSpacing.md),
+                          _PublisherPromptCallout(
+                            message:
+                                'This published version cannot be assigned because its governance snapshot is invalid: ${previewError.message}',
+                            onOpenPublisher:
+                                actor.canManageTemplateGovernance
+                                    ? _openTemplatePublisher
+                                    : null,
+                          ),
+                        ],
+                        const SizedBox(height: BafSpacing.lg),
+                        _SectionCard(
+                          title: 'Governed catalogue source',
+                          subtitle:
+                              'Choose the active package/version to freeze into this job.',
+                          icon: Icons.verified_rounded,
+                          children: [
+                            DropdownButtonFormField<String>(
+                              key: const ValueKey('published-package-selector'),
+                              initialValue: _selectedPackageId,
+                              isExpanded: true,
+                              decoration: _inputDecoration(
+                                'Template package',
+                                icon: Icons.inventory_2_rounded,
+                              ),
+                              items:
+                                  assignablePackages
+                                      .map(
+                                        (package) => DropdownMenuItem<String>(
+                                          value: package.firestoreId,
+                                          child: Text(
+                                            '${package.packageCode} — ${package.title}',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                              onChanged:
+                                  _isSubmitting
+                                      ? null
+                                      : (value) => setState(() {
+                                        _selectedPackageId = value;
+                                        _selectedVersionId = null;
+                                        _assetTypeTouched = false;
+                                      }),
+                              validator:
+                                  (value) =>
+                                      value == null
+                                          ? 'Select a governed package'
+                                          : null,
+                            ),
+                            const SizedBox(height: BafSpacing.md),
+                            DropdownButtonFormField<String>(
+                              key: ValueKey(
+                                'published-version-${_selectedPackageId ?? ''}',
+                              ),
+                              initialValue: _selectedVersionId,
+                              isExpanded: true,
+                              decoration: _inputDecoration(
+                                'Published version',
+                                icon: Icons.new_releases_rounded,
+                              ),
+                              items:
+                                  assignableVersions
+                                      .map(
+                                        (version) => DropdownMenuItem<String>(
+                                          value: version.firestoreId,
+                                          child: Text(
+                                            _versionLabel(version),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                              onChanged:
+                                  _isSubmitting
+                                      ? null
+                                      : (value) => setState(() {
+                                        _selectedVersionId = value;
+                                        _assetTypeTouched = false;
+                                      }),
+                              validator:
+                                  (value) =>
+                                      value == null
+                                          ? 'Select a published version'
+                                          : null,
+                            ),
+                            if (assignableVersions.isEmpty) ...[
+                              const SizedBox(height: BafSpacing.sm),
+                              _PublisherPromptCallout(
+                                message:
+                                    'This package has no active published TemplateVersion. Publish a valid version before assigning governed jobs.',
+                                onOpenPublisher:
+                                    actor.canManageTemplateGovernance
+                                        ? _openTemplatePublisher
+                                        : null,
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: BafSpacing.lg),
+                        _SectionCard(
+                          title: 'Job details',
+                          subtitle:
+                              'Choose the exact asset and add assignment context.',
+                          icon: Icons.assignment_turned_in_rounded,
+                          children: [
+                            DropdownButtonFormField<AssetType>(
+                              key: ValueKey(
+                                'asset-type-${_selectedVersionId ?? ''}-${_assetType.name}',
+                              ),
+                              initialValue: _assetType,
+                              decoration: _inputDecoration(
+                                'Asset type',
+                                icon: Icons.precision_manufacturing_rounded,
+                              ),
+                              items:
+                                  AssetType.values
+                                      .map(
+                                        (type) => DropdownMenuItem<AssetType>(
+                                          value: type,
+                                          child: Text(type.name.toUpperCase()),
+                                        ),
+                                      )
+                                      .toList(),
+                              onChanged:
+                                  _isSubmitting
+                                      ? null
+                                      : (value) => setState(() {
+                                        if (value != null) {
+                                          _assetType = value;
+                                          _assetTypeTouched = true;
+                                        }
+                                      }),
+                            ),
+                            const SizedBox(height: BafSpacing.md),
+                            TextFormField(
+                              controller: _assetNumberController,
+                              keyboardType: TextInputType.number,
+                              decoration: _inputDecoration(
+                                '${_assetType.name.toUpperCase()} Number',
+                                hint: 'e.g. 221',
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Required';
+                                }
+                                final number = int.tryParse(value.trim());
+                                if (number == null) return 'Invalid number';
+                                if (!AssetValidator.isValid(
+                                  _assetType,
+                                  number,
+                                )) {
+                                  return AssetValidator.getValidationMessage(
+                                    _assetType,
+                                    number,
+                                  );
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: BafSpacing.md),
+                            TextFormField(
+                              controller: _chargeNoController,
+                              keyboardType: TextInputType.number,
+                              decoration: _inputDecoration(
+                                'Active charge number',
+                                hint: 'Optional',
+                              ),
+                              validator: (value) {
+                                final text = value?.trim() ?? '';
+                                if (text.isEmpty) return null;
+                                return int.tryParse(text) == null
+                                    ? 'Invalid number'
+                                    : null;
+                              },
+                            ),
+                            const SizedBox(height: BafSpacing.md),
+                            TextFormField(
+                              controller: _remarksController,
+                              maxLines: 3,
+                              decoration: _inputDecoration(
+                                'Instructions / remarks',
+                                hint: 'Optional notes for attending teams',
+                                alignLabelWithHint: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: BafSpacing.lg),
+                        _ModulePreviewSection(preview: preview),
+                      ],
+                    );
+                  },
                 ),
-                const SizedBox(height: BafSpacing.lg),
-                _ModulePreviewSection(preview: preview),
-              ],
-            );
-          },
-        ),
       ),
       bottomNavigationBar: _AssignmentBottomBar(
         isSubmitting: _isSubmitting,
@@ -353,16 +397,16 @@ class _PublishedTemplateAssignmentScreenState
         padding: const EdgeInsets.all(BafSpacing.xl),
         child: _EmptyAssignmentState(
           onOpenPublisher:
-          actor.canManageTemplateGovernance ? _openTemplatePublisher : null,
+              actor.canManageTemplateGovernance ? _openTemplatePublisher : null,
         ),
       ),
     );
   }
 
   Future<void> _openTemplatePublisher() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const TemplatePublisherScreen()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const TemplatePublisherScreen()));
   }
 
   void _hydrateInitialPackage(List<TemplatePackage> packages) {
@@ -378,9 +422,9 @@ class _PublishedTemplateAssignmentScreenState
   }
 
   void _hydrateInitialVersion(
-      TemplatePackage package,
-      List<TemplateVersion> versions,
-      ) {
+    TemplatePackage package,
+    List<TemplateVersion> versions,
+  ) {
     if (_selectedVersionId != null &&
         versions.any((version) => version.firestoreId == _selectedVersionId)) {
       return;
@@ -422,7 +466,10 @@ class _PublishedTemplateAssignmentScreenState
     if (!mounted) return;
 
     if (package == null || version == null) {
-      _showSnack('Select a published catalogue version first.', BafColors.danger);
+      _showSnack(
+        'Select a published catalogue version first.',
+        BafColors.danger,
+      );
       return;
     }
 
@@ -444,10 +491,7 @@ class _PublishedTemplateAssignmentScreenState
       final jobModuleRepository = ref.read(jobModuleRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
 
-      await plannedRepository.saveExecution(
-        assignment.execution,
-        actor: actor,
-      );
+      await plannedRepository.saveExecution(assignment.execution, actor: actor);
 
       for (final module in assignment.modules) {
         if (!kIsWeb) {
@@ -499,28 +543,32 @@ class _PublishedTemplateAssignmentScreenState
   Future<TemplatePackage?> _selectedPackage() async {
     final id = _selectedPackageId;
     if (id == null) return null;
-    return ref.read(templateGovernanceRepositoryProvider).getPackageByFirestoreId(id);
+    return ref
+        .read(templateGovernanceRepositoryProvider)
+        .getPackageByFirestoreId(id);
   }
 
   Future<TemplateVersion?> _selectedVersion() async {
     final id = _selectedVersionId;
     if (id == null) return null;
-    return ref.read(templateGovernanceRepositoryProvider).getVersionByFirestoreId(id);
+    return ref
+        .read(templateGovernanceRepositoryProvider)
+        .getVersionByFirestoreId(id);
   }
 
   void _showSnack(String message, Color color) {
     if (!mounted) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color),
-    );
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 
   InputDecoration _inputDecoration(
-      String label, {
-        String? hint,
-        IconData? icon,
-        bool alignLabelWithHint = false,
-      }) {
+    String label, {
+    String? hint,
+    IconData? icon,
+    bool alignLabelWithHint = false,
+  }) {
     return InputDecoration(
       labelText: label,
       hintText: hint,
@@ -642,7 +690,7 @@ class _ModulePreviewSection extends StatelessWidget {
     return _SectionCard(
       title: 'Frozen module preview',
       subtitle:
-      'These module snapshots will be copied into the runtime job. Later catalogue edits will not mutate this assignment.',
+          'These module snapshots will be copied into the runtime job. Later catalogue edits will not mutate this assignment.',
       icon: Icons.account_tree_rounded,
       children: [
         if (modules.isEmpty)
@@ -650,7 +698,9 @@ class _ModulePreviewSection extends StatelessWidget {
             text: 'No published modules found in this version.',
           )
         else
-          ...modules.take(12).map((module) => _ModulePreviewTile(module: module)),
+          ...modules
+              .take(12)
+              .map((module) => _ModulePreviewTile(module: module)),
         if (modules.length > 12) ...[
           const SizedBox(height: BafSpacing.sm),
           Text(
@@ -687,7 +737,9 @@ class _ModulePreviewTile extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: _disciplineColor(module.discipline).withValues(alpha: 0.12),
+              color: _disciplineColor(
+                module.discipline,
+              ).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
             child: Icon(
@@ -827,16 +879,17 @@ class _AssignmentBottomBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
           ),
-          icon: isSubmitting
-              ? const SizedBox(
-            height: 18,
-            width: 18,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2,
-            ),
-          )
-              : const Icon(Icons.verified_rounded),
+          icon:
+              isSubmitting
+                  ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                  : const Icon(Icons.verified_rounded),
           label: Text(
             isSubmitting ? 'Assigning...' : 'Assign Published Job',
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
@@ -866,7 +919,11 @@ class _EmptyAssignmentState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.inventory_2_outlined, color: BafColors.admin, size: 48),
+          const Icon(
+            Icons.inventory_2_outlined,
+            color: BafColors.admin,
+            size: 48,
+          ),
           const SizedBox(height: BafSpacing.md),
           const Text(
             'No active published catalogue packages found',
@@ -901,10 +958,7 @@ class _PublisherPromptCallout extends StatelessWidget {
   final String message;
   final VoidCallback? onOpenPublisher;
 
-  const _PublisherPromptCallout({
-    required this.message,
-    this.onOpenPublisher,
-  });
+  const _PublisherPromptCallout({required this.message, this.onOpenPublisher});
 
   @override
   Widget build(BuildContext context) {
@@ -935,23 +989,20 @@ class _PublisherPromptCallout extends StatelessWidget {
             ],
           );
 
-          final action = onOpenPublisher == null
-              ? null
-              : TextButton.icon(
-            onPressed: onOpenPublisher,
-            icon: const Icon(Icons.publish_rounded),
-            label: const Text('Open Publisher'),
-          );
+          final action =
+              onOpenPublisher == null
+                  ? null
+                  : TextButton.icon(
+                    onPressed: onOpenPublisher,
+                    icon: const Icon(Icons.publish_rounded),
+                    label: const Text('Open Publisher'),
+                  );
 
           if (action == null) return text;
           if (constraints.maxWidth < 560) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                text,
-                const SizedBox(height: BafSpacing.sm),
-                action,
-              ],
+              children: [text, const SizedBox(height: BafSpacing.sm), action],
             );
           }
 
@@ -976,10 +1027,7 @@ class _InlineEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(color: BafColors.textSecondary),
-    );
+    return Text(text, style: const TextStyle(color: BafColors.textSecondary));
   }
 }
 
@@ -993,10 +1041,7 @@ class _InlineError extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(BafSpacing.xl),
-        child: Text(
-          message,
-          style: const TextStyle(color: BafColors.danger),
-        ),
+        child: Text(message, style: const TextStyle(color: BafColors.danger)),
       ),
     );
   }
@@ -1035,10 +1080,7 @@ class _AssignmentErrorScaffold extends StatelessWidget {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(BafSpacing.xl),
-          child: Text(
-            message,
-            style: const TextStyle(color: BafColors.danger),
-          ),
+          child: Text(message, style: const TextStyle(color: BafColors.danger)),
         ),
       ),
     );
@@ -1048,7 +1090,10 @@ class _AssignmentErrorScaffold extends StatelessWidget {
 String _versionLabel(TemplateVersion version) {
   final label = _clean(version.versionLabel);
   final hash = _clean(version.contentHash);
-  final suffix = hash == null ? '' : ' · ${hash.substring(0, hash.length < 8 ? hash.length : 8)}';
+  final suffix =
+      hash == null
+          ? ''
+          : ' · ${hash.substring(0, hash.length < 8 ? hash.length : 8)}';
   return 'v${version.versionNumber}${label == null ? '' : ' — $label'}$suffix';
 }
 

@@ -3,231 +3,271 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('70A TemplateVersion publish replay contract', () {
-    test(
-      'sync path replays remote-missing published versions before batch push',
-      () {
-        final source = _read(_syncPath);
-        final syncBlock = _blockStartingAt(
-          source,
-          'Future<void> _syncTemplateVersions()',
-        );
-
-        _expectOrder(syncBlock, const [
-          'final remote = remoteMap[record.firestoreId];',
-          'remote == null && !record.isDeleted && !record.isDraft',
-          'final replayed = await _tryPushDecomposedTemplateVersion(record);',
-          'skippedButSyncedSnapshots.add(_syncPushSnapshot(record));',
-          'recordsToPush.add(record);',
-        ]);
-
-        expect(
-          syncBlock,
-          contains(r'direct create-as-${record.status.name}'),
-          reason:
-              'remote-missing non-draft versions must not fall through to create-as-published',
-        );
-        expect(syncBlock, contains('lastSuccessCount++;'));
-        expect(syncBlock, contains('lastFailureCount++;'));
-        expect(
-          syncBlock,
-          isNot(contains('validTemplateVersionCreate')),
-          reason: 'sync must not encode rule relaxation as a client workaround',
-        );
-      },
-    );
-
-    test(
-      'replay is limited to published TemplateVersions with same-user metadata',
-      () {
-        final source = _read(_syncPath);
-        final block = _blockStartingAt(
-          source,
-          'Future<bool> _tryPushDecomposedTemplateVersion',
-        );
-
-        expect(block, contains('!local.isPublished'));
-        expect(block, contains('local.version <= 1'));
-        expect(block, contains('FirebaseAuth.instance.currentUser?.uid'));
-        expect(block, contains('local.createdByUid'));
-        expect(block, contains('local.publishedByUid'));
-        expect(block, contains('local.updatedByUid'));
-        expect(block, contains('createdByUid != currentUid'));
-        expect(block, contains('publishedByUid != currentUid'));
-        expect(block, contains('updatedByUid != currentUid'));
-        expect(block, contains('local.publishedAt == null'));
-        expect(block, contains('_cleanText(local.contentHash) == null'));
-      },
-    );
-
-    test('replay creates draft first and only then applies publish update', () {
+  group('70A TemplateVersion publish lifecycle replay contract', () {
+    test('sync path attempts replay before standard batch push', () {
       final source = _read(_syncPath);
-      final block = _blockStartingAt(
+      final syncBlock = _blockStartingAt(
         source,
-        'Future<bool> _tryPushDecomposedTemplateVersion',
+        'Future<void> _syncTemplateVersions()',
       );
 
-      _expectOrder(block, const [
-        '.createRemoteVersionDraftReplayForSync(',
-        '_templateVersionDraftReplayCreateData(local)',
-        '.applyRemoteVersionPublishReplayStepForSync(',
-        '_templateVersionPublishReplayStepData(local)',
+      _expectOrder(syncBlock, const [
+        'final remote = remoteMap[record.firestoreId];',
+        'final replayed = await _tryPushDecomposedTemplateVersion',
+        'skippedButSyncedSnapshots.add(_syncPushSnapshot(record));',
+        'recordsToPush.add(record);',
       ]);
 
+      expect(syncBlock, contains('lastSuccessCount++;'));
       expect(
-        block,
-        contains('return true;'),
+        syncBlock,
+        contains('remote may now be a draft'),
         reason:
-            'local may be marked synced only after both replay steps finish',
-      );
-      expect(
-        block,
-        contains('return false;'),
-        reason: 'partial replay failure must surface through diagnostics',
+            'partial draft replay should fall through safely instead of marking synced',
       );
     });
 
-    test('draft replay payload strips publish-only lifecycle fields', () {
+    test('replay scope is only missing/draft remote to published local', () {
       final source = _read(_syncPath);
-      final block = _blockStartingAt(
+      final plan = _blockStartingAt(
+        source,
+        'List<_TemplateVersionReplayStep> _templateVersionLifecycleReplayPlan',
+      );
+
+      expect(plan, contains('remote == null'));
+      expect(plan, contains('local.status != TemplateVersionStatus.published'));
+      expect(plan, contains('remote.status != TemplateVersionStatus.draft'));
+      expect(plan, contains('local.version <= 1'));
+      expect(plan, contains('local.version <= remote.version'));
+      expect(plan, contains('_templateVersionPinnedFieldDiff(local, remote)'));
+      expect(plan, contains('_templateVersionDraftPayloadDiff(local, remote)'));
+      expect(plan, contains('_TemplateVersionReplayStep.createDraft'));
+      expect(plan, contains('_TemplateVersionReplayStep.publish'));
+      expect(
+        source,
+        contains('enum _TemplateVersionReplayStep { createDraft, publish }'),
+        reason:
+            '70A must stay limited to TemplateVersion create-draft/publish replay.',
+      );
+    });
+
+    test(
+      'same-user guard is explicit for Firestore create and publish rules',
+      () {
+        final source = _read(_syncPath);
+        final guard = _blockStartingAt(
+          source,
+          'bool _canReplayTemplateVersionPublishForCurrentUser',
+        );
+
+        expect(guard, contains('FirebaseAuth.instance.currentUser?.uid'));
+        expect(guard, contains('local.createdByUid'));
+        expect(guard, contains('local.publishedByUid'));
+        expect(guard, contains('createdByUid == currentUid'));
+        expect(guard, contains('publishedByUid == currentUid'));
+        expect(
+          guard,
+          contains('Cross-actor reconstruction'),
+          reason:
+              'cross-actor offline publish replay must not be hidden in a client shortcut',
+        );
+      },
+    );
+
+    test('draft replay creates a draft-shaped predecessor, not published', () {
+      final source = _read(_syncPath);
+      final payload = _blockStartingAt(
         source,
         'Map<String, dynamic> _templateVersionDraftReplayCreateData',
       );
-
-      expect(block, contains("['status'] = TemplateVersionStatus.draft.name"));
-      expect(block, contains("['contentHash'] = null"));
-      expect(block, contains("['publishedByUid'] = null"));
-      expect(block, contains("['publishedByName'] = null"));
-      expect(block, contains("['publishedAt'] = null"));
-      expect(block, contains("['retiredByUid'] = null"));
-      expect(block, contains("['retiredByName'] = null"));
-      expect(block, contains("['retiredAt'] = null"));
-      expect(block, contains("['retireReason'] = null"));
-      expect(block, contains("['version'] = local.version - 1"));
-      expect(block, contains("['updatedAt'] = createdAt"));
-      expect(block, isNot(contains('TemplateVersionStatus.published.name')));
-    });
-
-    test('publish replay payload is field-scoped to draft -> published', () {
-      final source = _read(_syncPath);
-      final block = _blockStartingAt(
-        source,
-        'Map<String, dynamic> _templateVersionPublishReplayStepData',
+      final rules = _readFirstExisting(_rulePaths);
+      final createRules = _blockStartingAt(
+        rules,
+        'function validTemplateVersionCreate',
       );
 
-      for (final field in <String>{
+      for (final field in <String>[
+        'firestoreId',
+        'packageFirestoreId',
+        'versionNumber',
         'status',
-        'contentHash',
-        'closureReviewConfirmed',
-        'closureCriticalModuleCount',
-        'closureReviewConfirmedByUid',
-        'closureReviewConfirmedByName',
-        'closureReviewConfirmedAt',
-        'publishedByUid',
-        'publishedByName',
-        'publishedAt',
-        'updatedAt',
-        'updatedByUid',
-        'updatedByName',
-        'version',
-      }) {
-        expect(block, contains("'$field'"));
-      }
-
-      for (final forbidden in <String>{
         'jobTemplateSnapshotJson',
         'moduleSnapshotsJson',
         'fieldDefinitionsJson',
         'checklistJson',
-        'targetRefs',
-        'deviceTagRefs',
-        'procedureRefs',
-        'operationalStatePreconditions',
-      }) {
+        'createdByUid',
+        'updatedByUid',
+        'version',
+        'schemaVersion',
+        'isDeleted',
+      ]) {
         expect(
-          block,
+          payload,
+          contains("'$field'"),
+          reason: 'draft replay should include create-rule field $field',
+        );
+        expect(createRules, contains("'$field'"));
+      }
+
+      expect(payload, contains("'status': TemplateVersionStatus.draft.name"));
+      expect(payload, contains("'contentHash': null"));
+      expect(payload, contains("'publishedByUid': null"));
+      expect(payload, contains("'publishedByName': null"));
+      expect(payload, contains("'publishedAt': null"));
+      expect(payload, contains("'version': local.version - 1"));
+      expect(payload, contains("'isDeleted': false"));
+    });
+
+    test('publish replay uses field-scoped publish update payload', () {
+      final source = _read(_syncPath);
+      final payload = _blockStartingAt(
+        source,
+        'Map<String, dynamic> _templateVersionPublishReplayStepData',
+      );
+
+      for (final field in <String>[
+        'status',
+        'contentHash',
+        'publishedByUid',
+        'publishedByName',
+        'publishedAt',
+        'updatedByUid',
+        'updatedByName',
+        'updatedAt',
+        'version',
+      ]) {
+        expect(payload, contains("'$field'"));
+      }
+
+      expect(
+        payload,
+        contains("'status': TemplateVersionStatus.published.name"),
+      );
+      expect(payload, contains("'updatedByUid': full['publishedByUid']"));
+      expect(payload, contains("'version': full['version']"));
+
+      for (final forbidden in <String>[
+        'jobTemplateSnapshotJson',
+        'moduleSnapshotsJson',
+        'fieldDefinitionsJson',
+        'checklistJson',
+        'createdByUid',
+        'createdAt',
+        'packageFirestoreId',
+        'versionNumber',
+        'isDeleted',
+      ]) {
+        expect(
+          payload,
           isNot(contains("'$forbidden'")),
           reason:
-              'publish replay must not mutate frozen payload field $forbidden',
+              'publish replay must not resend frozen identity/payload fields as a broad full-doc write',
         );
       }
     });
 
-    test(
-      'remote-only repository primitives are explicit and Isar rejects them',
-      () {
-        final provider = _read(_providerPath);
-        final interfaceBlock = _blockStartingAt(
-          provider,
-          'abstract class TemplateGovernanceRepository',
-        );
-        expect(
-          interfaceBlock,
-          contains('createRemoteVersionDraftReplayForSync'),
-        );
-        expect(
-          interfaceBlock,
-          contains('applyRemoteVersionPublishReplayStepForSync'),
-        );
-
-        final isarStart = provider.indexOf(
-          'class IsarTemplateGovernanceRepository',
-        );
-        final firestoreStart = provider.indexOf(
-          'class FirestoreTemplateGovernanceRepository',
-        );
-        expect(isarStart, greaterThan(0));
-        expect(firestoreStart, greaterThan(isarStart));
-
-        final isarSection = provider.substring(isarStart, firestoreStart);
-        expect(isarSection, contains('createRemoteVersionDraftReplayForSync'));
-        expect(
-          isarSection,
-          contains('applyRemoteVersionPublishReplayStepForSync'),
-        );
-        expect(isarSection, contains('UnsupportedError'));
-        expect(isarSection, contains('remote sync primitive'));
-
-        final firestoreSlice = provider.substring(firestoreStart);
-        expect(firestoreSlice, contains('runTransaction'));
-        expect(firestoreSlice, contains('transaction.set(ref, draftData)'));
-        expect(firestoreSlice, contains('existing.exists'));
-        expect(
-          firestoreSlice,
-          contains('SetOptions(merge: true)'),
-          reason: 'publish replay step should be a field-scoped merge',
-        );
-      },
-    );
-
-    test('rules remain strict: create draft only, publish is update only', () {
-      final rules = _readFirstExisting(_rulePaths);
-      final create = _blockStartingAt(
-        rules,
-        'function validTemplateVersionCreate',
-      );
-      final publish = _blockStartingAt(
-        rules,
-        'function validTemplateVersionPublishDelta',
+    test('remote-only primitives are explicit and unsupported by Isar', () {
+      final provider = _read(_providerPath);
+      final firestoreBlock = _blockStartingAt(
+        provider,
+        'class FirestoreTemplateGovernanceRepository',
       );
 
       expect(
-        create,
-        contains("request.resource.data.get('status', null) == 'draft'"),
+        provider,
+        contains('createRemoteTemplateVersionDraftReplayStepForSync'),
       );
-      expect(publish, contains("resource.data.get('status', null) == 'draft'"));
       expect(
-        publish,
-        contains("request.resource.data.get('status', null) == 'published'"),
+        provider,
+        contains('applyRemoteTemplateVersionPublishReplayStepForSync'),
       );
-
       expect(
-        create,
-        isNot(
-          contains("request.resource.data.get('status', null) == 'published'"),
+        provider,
+        contains('supported by the local Isar template-governance repository'),
+      );
+      expect(
+        firestoreBlock,
+        contains('txn.set(ref, draftData);'),
+        reason:
+            'draft replay should create the missing draft predecessor remotely',
+      );
+      expect(
+        firestoreBlock,
+        contains(
+          '_versions.doc(id).set(publishData, SetOptions(merge: true));',
         ),
-        reason: 'direct create-as-published must remain impossible',
+        reason: 'publish replay must remain a field-scoped merge update',
       );
+    });
+
+    test('remote draft payload is authoritative for resumed publish replay', () {
+      final source = _read(_syncPath);
+
+      expect(
+        source,
+        contains('_shouldRestoreRemoteDraftPayloadBeforePublishReplay'),
+      );
+      expect(source, contains('_restoreRemoteDraftPayloadForPublishReplay'));
+      expect(
+        source,
+        contains('..jobTemplateSnapshotJson = remote.jobTemplateSnapshotJson'),
+      );
+      expect(source, contains('remote.jobTemplateSnapshotJson'));
+      expect(source, contains('local.refreshContentHash()'));
+      expect(
+        source,
+        contains('_templateGovernanceRepo.batchUpsertVersions'),
+        reason:
+            'the repaired published record must be persisted locally before replay is marked synced',
+      );
+    });
+
+    test('version lifecycle precedes package pointer and audit sync', () {
+      final source = _read(_syncPath);
+      final governance = _blockStartingAt(
+        source,
+        'Future<void> _syncTemplateGovernance()',
+      );
+
+      _expectOrder(governance, const [
+        'await _syncTemplateVersions();',
+        'await _syncTemplatePackages();',
+        'await _syncTemplatePublishAudits();',
+      ]);
+      expect(
+        source,
+        contains('_templatePublishAuditRemoteDependencySatisfied'),
+      );
+      expect(source, contains('Holding TemplateVersion audit'));
+    });
+
+    test('assignment only exposes remotely confirmed published versions', () {
+      final assignment = _read(
+        'lib/features/planned_maintenance/presentation/published_template_assignment_screen.dart',
+      );
+
+      expect(assignment, contains('version.isAssignable && version.isSynced'));
+    });
+
+    test('does not weaken rules or touch unrelated high-risk domains', () {
+      final source = _read(_syncPath);
+      final provider = _read(_providerPath);
+      final rules = _readFirstExisting(_rulePaths);
+
+      expect(
+        rules,
+        contains("request.resource.data.get('status', null) == 'draft'"),
+        reason: 'TemplateVersion create must remain draft-only.',
+      );
+      expect(
+        rules,
+        contains("resource.data.get('status', null) == 'draft'"),
+        reason: 'TemplateVersion publish must remain update-only from draft.',
+      );
+      expect(rules, isNot(contains('createAsPublished')));
+      expect(source, isNot(contains('completePlannedJobExecution')));
+      expect(source, isNot(contains('GlobalPullService')));
+      expect(provider, isNot(contains('FirebaseFunctions')));
     });
   });
 }
