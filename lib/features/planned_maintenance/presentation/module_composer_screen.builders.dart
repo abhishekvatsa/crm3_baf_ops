@@ -231,7 +231,8 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
           ),
           const SizedBox(height: BafSpacing.md),
           TextFormField(
-            initialValue: _draft.title,
+            key: const Key('module-composer-template-title'),
+            controller: _titleController,
             decoration: _inputDecoration('Template title', Icons.title_rounded),
             onChanged: (value) => setState(() => _draft.title = value),
           ),
