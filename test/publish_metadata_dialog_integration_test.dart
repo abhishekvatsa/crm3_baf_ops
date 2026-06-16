@@ -26,7 +26,7 @@ void main() {
       await tester.tap(find.byTooltip('More composer actions'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Open Saved Template Drafts'), findsOneWidget);
+      expect(find.text('Manage Template Drafts'), findsOneWidget);
       expect(find.text('Prepare Publish'), findsOneWidget);
       expect(find.text('Save to Publisher'), findsOneWidget);
     },
@@ -58,7 +58,7 @@ void main() {
       await tester.tap(find.byTooltip('More composer actions'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Open Saved Template Drafts'), findsOneWidget);
+      expect(find.text('Manage Template Drafts'), findsOneWidget);
       expect(find.text('Prepare Publish'), findsOneWidget);
       expect(find.text('Save to Publisher'), findsNothing);
     },
@@ -81,7 +81,7 @@ void main() {
     await tester.tap(find.byTooltip('More composer actions'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Open Saved Template Drafts'), findsOneWidget);
+    expect(find.text('Manage Template Drafts'), findsOneWidget);
     expect(find.text('Open Module Workshop'), findsOneWidget);
     expect(find.text('Open Registry Authoring'), findsOneWidget);
     expect(find.text('Prepare Publish'), findsOneWidget);

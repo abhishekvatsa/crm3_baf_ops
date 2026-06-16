@@ -114,6 +114,130 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
         meaningful(_checklistJsonController.text, '{}', '[]');
   }
 
+  Future<void> _archivePublisherDraft(
+    TemplateVersion version,
+    AppUser actor,
+  ) async {
+    if (_isPublishing) return;
+    if (version.isDeleted || !version.isDraft) {
+      _showSnack(
+        'Only active draft TemplateVersions can be archived.',
+        BafColors.danger,
+      );
+      return;
+    }
+
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => _ArchivePublisherDraftReasonDialog(version: version),
+    );
+    if (!mounted || reason == null) return;
+
+    _setPublisherState(() => _isPublishing = true);
+    try {
+      final repository = ref.read(templateGovernanceRepositoryProvider);
+      await repository.archiveDraftVersion(
+        version,
+        actor: actor,
+        reason: reason,
+      );
+
+      final archivedWorkingDraft =
+          _workingDraft?.firestoreId != null &&
+          _workingDraft?.firestoreId == version.firestoreId;
+      if (archivedWorkingDraft) {
+        _setPublisherState(() {
+          _workingDraft = null;
+        });
+      }
+
+      unawaited(
+        ref
+            .read(syncCoordinatorProvider)
+            .runFullSync(
+              reason:
+                  'template_governance_draft_archived_from_legacy_publisher',
+              force: true,
+            ),
+      );
+
+      if (!mounted) return;
+      _showSnack(
+        archivedWorkingDraft
+            ? 'Draft archived. Current editor content is retained as an unsaved new-draft copy.'
+            : version.isSynced
+            ? 'Draft archived and audit synchronized.'
+            : 'Draft archived locally and queued for governed sync.',
+        BafColors.audit,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack('Draft archive failed: $error', BafColors.danger);
+    } finally {
+      if (mounted) _setPublisherState(() => _isPublishing = false);
+    }
+  }
+
+  Future<void> _restorePublisherDraft(
+    TemplateVersion version,
+    AppUser actor,
+  ) async {
+    if (_isPublishing) return;
+    if (!version.isArchivedDraft) {
+      _showSnack(
+        'Only archived draft TemplateVersions can be restored.',
+        BafColors.danger,
+      );
+      return;
+    }
+    if (!version.isSynced) {
+      _showSnack(
+        'Wait for the archived draft lifecycle and audit to synchronize before restoring it.',
+        BafColors.warning,
+      );
+      return;
+    }
+
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => _RestorePublisherDraftReasonDialog(version: version),
+    );
+    if (!mounted || reason == null) return;
+
+    _setPublisherState(() => _isPublishing = true);
+    try {
+      final repository = ref.read(templateGovernanceRepositoryProvider);
+      await repository.restoreArchivedDraftVersion(
+        version,
+        actor: actor,
+        reason: reason,
+      );
+
+      unawaited(
+        ref
+            .read(syncCoordinatorProvider)
+            .runFullSync(
+              reason:
+                  'template_governance_draft_restored_from_legacy_publisher',
+              force: true,
+            ),
+      );
+
+      if (!mounted) return;
+      _showSnack(
+        version.isSynced
+            ? 'Archived draft restored and synchronized. It is available to resume.'
+            : 'Archived draft restored locally and queued for governed sync.',
+        BafColors.audit,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack('Draft restore failed: $error', BafColors.danger);
+    } finally {
+      if (mounted) _setPublisherState(() => _isPublishing = false);
+    }
+  }
+
   Future<void> _saveDraft(AppUser actor) async {
     if (_isPublishing) return;
     final validation = _buildDraftSaveValidation();

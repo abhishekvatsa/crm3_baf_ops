@@ -700,10 +700,14 @@ class _ValidationSection extends StatelessWidget {
 class _ExistingVersionsSection extends ConsumerWidget {
   final String packageFirestoreId;
   final ValueChanged<TemplateVersion> onResumeDraft;
+  final ValueChanged<TemplateVersion> onArchiveDraft;
+  final ValueChanged<TemplateVersion> onRestoreDraft;
 
   const _ExistingVersionsSection({
     required this.packageFirestoreId,
     required this.onResumeDraft,
+    required this.onArchiveDraft,
+    required this.onRestoreDraft,
   });
 
   @override
@@ -715,7 +719,7 @@ class _ExistingVersionsSection extends ConsumerWidget {
     return _Panel(
       title: 'Existing package versions',
       subtitle:
-          'Saved drafts can be resumed and published as the same governed record. Published rows remain immutable source records.',
+          'Saved drafts can be resumed or archived with a mandatory reason. Archived drafts remain visible here and can be restored after archive sync; published rows remain immutable.',
       icon: Icons.history_rounded,
       child: versionsAsync.when(
         loading:
@@ -739,10 +743,22 @@ class _ExistingVersionsSection extends ConsumerWidget {
           final drafts = versions
               .where((version) => version.isDraft && !version.isDeleted)
               .toList(growable: false);
-          final recentNonDrafts = versions
-              .where((version) => !version.isDraft && !version.isDeleted)
+          final archivedDrafts = versions
+              .where((version) => version.isArchivedDraft)
+              .toList(growable: false);
+          final recentImmutableVersions = versions
+              .where(
+                (version) =>
+                    !version.isDraft &&
+                    !version.isArchivedDraft &&
+                    !version.isDeleted,
+              )
               .take(6);
-          final visible = <TemplateVersion>[...drafts, ...recentNonDrafts];
+          final visible = <TemplateVersion>[
+            ...drafts,
+            ...archivedDrafts,
+            ...recentImmutableVersions,
+          ];
 
           return Column(
             children:
@@ -809,15 +825,54 @@ class _ExistingVersionsSection extends ConsumerWidget {
                         ),
                         if (version.isDraft) ...[
                           const SizedBox(height: BafSpacing.sm),
+                          Wrap(
+                            alignment: WrapAlignment.end,
+                            spacing: BafSpacing.sm,
+                            runSpacing: BafSpacing.sm,
+                            children: [
+                              OutlinedButton.icon(
+                                key: Key(
+                                  'archive-template-version-${version.firestoreId ?? version.id}',
+                                ),
+                                onPressed: () => onArchiveDraft(version),
+                                icon: const Icon(Icons.archive_outlined),
+                                label: const Text('Archive draft'),
+                              ),
+                              FilledButton.tonalIcon(
+                                key: Key(
+                                  'resume-template-version-${version.firestoreId ?? version.id}',
+                                ),
+                                onPressed: () => onResumeDraft(version),
+                                icon: const Icon(Icons.edit_note_rounded),
+                                label: const Text('Resume draft'),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (version.isArchivedDraft) ...[
+                          const SizedBox(height: BafSpacing.sm),
                           Align(
                             alignment: Alignment.centerRight,
-                            child: FilledButton.tonalIcon(
-                              key: Key(
-                                'resume-template-version-${version.firestoreId ?? version.id}',
+                            child: Tooltip(
+                              message:
+                                  version.isSynced
+                                      ? 'Restore this archived draft as the same governed identity.'
+                                      : 'Archive lifecycle and audit sync must complete before restore.',
+                              child: OutlinedButton.icon(
+                                key: Key(
+                                  'restore-template-version-${version.firestoreId ?? version.id}',
+                                ),
+                                onPressed:
+                                    version.isSynced
+                                        ? () => onRestoreDraft(version)
+                                        : null,
+                                icon: const Icon(Icons.restore_rounded),
+                                label: Text(
+                                  version.isSynced
+                                      ? 'Restore draft'
+                                      : 'Awaiting governed sync',
+                                ),
                               ),
-                              onPressed: () => onResumeDraft(version),
-                              icon: const Icon(Icons.edit_note_rounded),
-                              label: const Text('Resume draft'),
                             ),
                           ),
                         ],
@@ -828,6 +883,150 @@ class _ExistingVersionsSection extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _ArchivePublisherDraftReasonDialog extends StatefulWidget {
+  final TemplateVersion version;
+
+  const _ArchivePublisherDraftReasonDialog({required this.version});
+
+  @override
+  State<_ArchivePublisherDraftReasonDialog> createState() =>
+      _ArchivePublisherDraftReasonDialogState();
+}
+
+class _ArchivePublisherDraftReasonDialogState
+    extends State<_ArchivePublisherDraftReasonDialog> {
+  static const _minimumReasonLength = 10;
+
+  final _reasonController = TextEditingController();
+  String _reason = '';
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canArchive = _reason.trim().length >= _minimumReasonLength;
+    return AlertDialog(
+      title: const Text('Archive saved draft?'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'TemplateVersion v${widget.version.versionNumber} will be removed from active draft authoring, '
+              'while its payload and audit trail remain preserved as governed history.',
+            ),
+            const SizedBox(height: BafSpacing.md),
+            TextField(
+              key: const Key('publisher-archive-draft-reason'),
+              controller: _reasonController,
+              minLines: 2,
+              maxLines: 4,
+              autofocus: true,
+              onChanged: (value) => setState(() => _reason = value),
+              decoration: const InputDecoration(
+                labelText: 'Mandatory archive reason',
+                helperText: 'Enter at least 10 characters.',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          key: const Key('publisher-confirm-archive-draft'),
+          style: FilledButton.styleFrom(backgroundColor: BafColors.danger),
+          onPressed:
+              canArchive ? () => Navigator.pop(context, _reason.trim()) : null,
+          icon: const Icon(Icons.archive_rounded),
+          label: const Text('Archive draft'),
+        ),
+      ],
+    );
+  }
+}
+
+class _RestorePublisherDraftReasonDialog extends StatefulWidget {
+  final TemplateVersion version;
+
+  const _RestorePublisherDraftReasonDialog({required this.version});
+
+  @override
+  State<_RestorePublisherDraftReasonDialog> createState() =>
+      _RestorePublisherDraftReasonDialogState();
+}
+
+class _RestorePublisherDraftReasonDialogState
+    extends State<_RestorePublisherDraftReasonDialog> {
+  static const _minimumReasonLength = 10;
+
+  final _reasonController = TextEditingController();
+  String _reason = '';
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canRestore = _reason.trim().length >= _minimumReasonLength;
+    return AlertDialog(
+      title: const Text('Restore archived draft?'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'TemplateVersion v${widget.version.versionNumber} will return to active draft authoring under the same governed identity.',
+            ),
+            const SizedBox(height: BafSpacing.md),
+            TextField(
+              key: const Key('publisher-restore-draft-reason'),
+              controller: _reasonController,
+              minLines: 2,
+              maxLines: 4,
+              autofocus: true,
+              onChanged: (value) => setState(() => _reason = value),
+              decoration: const InputDecoration(
+                labelText: 'Mandatory restore reason',
+                helperText: 'Enter at least 10 characters.',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          key: const Key('publisher-confirm-restore-draft'),
+          onPressed:
+              canRestore ? () => Navigator.pop(context, _reason.trim()) : null,
+          icon: const Icon(Icons.restore_rounded),
+          label: const Text('Restore draft'),
+        ),
+      ],
     );
   }
 }

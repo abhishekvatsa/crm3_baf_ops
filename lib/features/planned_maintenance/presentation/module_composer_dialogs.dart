@@ -598,6 +598,30 @@ class _SavedTemplateDraftEntry {
     required this.package,
     required this.version,
   });
+
+  bool get canAttemptRestore => version.isArchivedDraft && version.isSynced;
+
+  String get restoreGuidance {
+    if (!version.isArchivedDraft) {
+      return 'Only archived TemplateVersion drafts can be restored.';
+    }
+    if (!version.isSynced) {
+      return 'Wait for the archived TemplateVersion state to synchronize before restoring it.';
+    }
+    return 'Restore will revalidate the synchronized archive audit in the governance repository before changing lifecycle state.';
+  }
+}
+
+enum _SavedTemplateDraftAction { resume, archive, restore }
+
+class _SavedTemplateDraftPickerResult {
+  final _SavedTemplateDraftEntry entry;
+  final _SavedTemplateDraftAction action;
+
+  const _SavedTemplateDraftPickerResult({
+    required this.entry,
+    required this.action,
+  });
 }
 
 class _SavedTemplateDraftPickerDialog extends StatelessWidget {
@@ -607,51 +631,458 @@ class _SavedTemplateDraftPickerDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeEntries = entries
+        .where((entry) => entry.version.isDraft)
+        .toList(growable: false);
+    final archivedEntries = entries
+        .where((entry) => entry.version.isArchivedDraft)
+        .toList(growable: false);
+
     return AlertDialog(
-      title: const Text('Saved Template Drafts'),
+      scrollable: true,
+      title: const Text('Governed Template Drafts'),
       content: SizedBox(
         width: 760,
         child:
             entries.isEmpty
                 ? const Text(
-                  'No saved TemplateVersion drafts are available for the active packages.',
+                  'No active or archived TemplateVersion drafts are available for the active packages.',
                 )
-                : ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: entries.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final entry = entries[index];
-                    final version = entry.version;
-                    final label = (version.versionLabel ?? '').trim();
-                    final updatedAt = version.updatedAt.toLocal();
-                    return ListTile(
-                      key: Key(
-                        'saved-template-draft-${version.firestoreId ?? version.id}',
+                : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _TemplateDraftGroupHeader(
+                      title: 'Active drafts',
+                      count: activeEntries.length,
+                      description:
+                          'Resume an active draft or archive it with a mandatory reason.',
+                    ),
+                    if (activeEntries.isEmpty)
+                      const _TemplateDraftEmptyGroup(
+                        message: 'No active saved drafts.',
+                      )
+                    else
+                      ...activeEntries.map(
+                        (entry) => _TemplateDraftEntryCard(
+                          entry: entry,
+                          onResume:
+                              () => Navigator.pop(
+                                context,
+                                _SavedTemplateDraftPickerResult(
+                                  entry: entry,
+                                  action: _SavedTemplateDraftAction.resume,
+                                ),
+                              ),
+                          onArchive:
+                              () => Navigator.pop(
+                                context,
+                                _SavedTemplateDraftPickerResult(
+                                  entry: entry,
+                                  action: _SavedTemplateDraftAction.archive,
+                                ),
+                              ),
+                        ),
                       ),
-                      leading: const Icon(Icons.edit_note_rounded),
-                      title: Text(
-                        '${entry.package.packageCode} · v${version.versionNumber}'
-                        '${label.isEmpty ? '' : ' · $label'}',
+                    const SizedBox(height: BafSpacing.md),
+                    _TemplateDraftGroupHeader(
+                      title: 'Archived drafts',
+                      count: archivedEntries.length,
+                      description:
+                          'Archived drafts remain recoverable under the same identity. The governance repository performs the final archive-audit readiness check.',
+                    ),
+                    if (archivedEntries.isEmpty)
+                      const _TemplateDraftEmptyGroup(
+                        message: 'No archived drafts.',
+                      )
+                    else
+                      ...archivedEntries.map(
+                        (entry) => _TemplateDraftEntryCard(
+                          entry: entry,
+                          onRestore:
+                              entry.canAttemptRestore
+                                  ? () => Navigator.pop(
+                                    context,
+                                    _SavedTemplateDraftPickerResult(
+                                      entry: entry,
+                                      action: _SavedTemplateDraftAction.restore,
+                                    ),
+                                  )
+                                  : null,
+                        ),
                       ),
-                      subtitle: Text(
-                        'Updated ${updatedAt.toIso8601String()}\n'
-                        'By ${version.updatedByName ?? version.createdByName ?? 'unknown'}',
-                      ),
-                      isThreeLine: true,
-                      trailing: FilledButton.tonalIcon(
-                        onPressed: () => Navigator.pop(context, entry),
-                        icon: const Icon(Icons.open_in_new_rounded),
-                        label: const Text('Resume'),
-                      ),
-                    );
-                  },
+                  ],
                 ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
+
+class _TemplateDraftGroupHeader extends StatelessWidget {
+  final String title;
+  final int count;
+  final String description;
+
+  const _TemplateDraftGroupHeader({
+    required this.title,
+    required this.count,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$title ($count)',
+            style: const TextStyle(
+              color: BafColors.textPrimary,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: BafSpacing.xs),
+          Text(
+            description,
+            style: const TextStyle(
+              color: BafColors.textSecondary,
+              fontSize: 12.5,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplateDraftEmptyGroup extends StatelessWidget {
+  final String message;
+
+  const _TemplateDraftEmptyGroup({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: BafSpacing.sm),
+      padding: const EdgeInsets.all(BafSpacing.md),
+      decoration: BoxDecoration(
+        color: BafColors.background,
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(color: BafColors.border),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(color: BafColors.textSecondary),
+      ),
+    );
+  }
+}
+
+class _TemplateDraftEntryCard extends StatelessWidget {
+  final _SavedTemplateDraftEntry entry;
+  final VoidCallback? onResume;
+  final VoidCallback? onArchive;
+  final VoidCallback? onRestore;
+
+  const _TemplateDraftEntryCard({
+    required this.entry,
+    this.onResume,
+    this.onArchive,
+    this.onRestore,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final version = entry.version;
+    final archived = version.isArchivedDraft;
+    final label = (version.versionLabel ?? '').trim();
+    final updatedAt = version.updatedAt.toLocal();
+    final actorName =
+        version.updatedByName ?? version.createdByName ?? 'unknown';
+
+    return Container(
+      key: Key(
+        '${archived ? 'archived' : 'saved'}-template-draft-${version.firestoreId ?? version.id}',
+      ),
+      margin: const EdgeInsets.only(bottom: BafSpacing.sm),
+      padding: const EdgeInsets.all(BafSpacing.md),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(color: BafColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                archived ? Icons.archive_rounded : Icons.edit_note_rounded,
+                color: archived ? BafColors.admin : BafColors.planned,
+              ),
+              const SizedBox(width: BafSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${entry.package.packageCode} · v${version.versionNumber}'
+                      '${label.isEmpty ? '' : ' · $label'}',
+                      style: const TextStyle(
+                        color: BafColors.textPrimary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: BafSpacing.xs),
+                    Text(
+                      'Updated ${updatedAt.toIso8601String()} · By $actorName',
+                      style: const TextStyle(
+                        color: BafColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: BafSpacing.sm,
+                  vertical: BafSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: (archived ? BafColors.admin : BafColors.warning)
+                      .withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  archived ? 'archived' : 'draft',
+                  style: TextStyle(
+                    color: archived ? BafColors.admin : BafColors.warning,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (archived) ...[
+            const SizedBox(height: BafSpacing.sm),
+            Text(
+              entry.restoreGuidance,
+              style: TextStyle(
+                color:
+                    entry.canAttemptRestore
+                        ? BafColors.textSecondary
+                        : BafColors.warning,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ],
+          const SizedBox(height: BafSpacing.sm),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: BafSpacing.sm,
+            runSpacing: BafSpacing.sm,
+            children: [
+              if (!archived && onArchive != null)
+                OutlinedButton.icon(
+                  key: Key(
+                    'archive-template-draft-${version.firestoreId ?? version.id}',
+                  ),
+                  onPressed: onArchive,
+                  icon: const Icon(Icons.archive_outlined),
+                  label: const Text('Archive draft'),
+                ),
+              if (!archived && onResume != null)
+                FilledButton.tonalIcon(
+                  key: Key(
+                    'resume-template-draft-${version.firestoreId ?? version.id}',
+                  ),
+                  onPressed: onResume,
+                  icon: const Icon(Icons.edit_note_rounded),
+                  label: const Text('Resume draft'),
+                ),
+              if (archived)
+                Tooltip(
+                  message: entry.restoreGuidance,
+                  child: OutlinedButton.icon(
+                    key: Key(
+                      'restore-template-draft-${version.firestoreId ?? version.id}',
+                    ),
+                    onPressed: onRestore,
+                    icon: const Icon(Icons.restore_rounded),
+                    label: Text(
+                      entry.canAttemptRestore
+                          ? 'Restore draft'
+                          : 'Awaiting archived state sync',
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArchiveTemplateDraftReasonDialog extends StatefulWidget {
+  final _SavedTemplateDraftEntry entry;
+
+  const _ArchiveTemplateDraftReasonDialog({required this.entry});
+
+  @override
+  State<_ArchiveTemplateDraftReasonDialog> createState() =>
+      _ArchiveTemplateDraftReasonDialogState();
+}
+
+class _ArchiveTemplateDraftReasonDialogState
+    extends State<_ArchiveTemplateDraftReasonDialog> {
+  static const _minimumReasonLength = 10;
+
+  final _reasonController = TextEditingController();
+  String _reason = '';
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final version = widget.entry.version;
+    final package = widget.entry.package;
+    final canArchive = _reason.trim().length >= _minimumReasonLength;
+
+    return AlertDialog(
+      title: const Text('Discard/archive saved draft?'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '${package.packageCode} · v${version.versionNumber} will be archived as governed history. '
+              'Its payload and audit trail will be retained, but it will no longer appear in the active draft picker.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const Key('archive-template-draft-reason'),
+              controller: _reasonController,
+              minLines: 2,
+              maxLines: 4,
+              autofocus: true,
+              onChanged: (value) => setState(() => _reason = value),
+              decoration: const InputDecoration(
+                labelText: 'Mandatory archive reason',
+                helperText: 'Enter at least 10 characters.',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          key: const Key('confirm-archive-template-draft'),
+          style: FilledButton.styleFrom(backgroundColor: BafColors.danger),
+          onPressed:
+              canArchive ? () => Navigator.pop(context, _reason.trim()) : null,
+          icon: const Icon(Icons.archive_rounded),
+          label: const Text('Archive draft'),
+        ),
+      ],
+    );
+  }
+}
+
+class _RestoreTemplateDraftReasonDialog extends StatefulWidget {
+  final _SavedTemplateDraftEntry entry;
+
+  const _RestoreTemplateDraftReasonDialog({required this.entry});
+
+  @override
+  State<_RestoreTemplateDraftReasonDialog> createState() =>
+      _RestoreTemplateDraftReasonDialogState();
+}
+
+class _RestoreTemplateDraftReasonDialogState
+    extends State<_RestoreTemplateDraftReasonDialog> {
+  static const _minimumReasonLength = 10;
+
+  final _reasonController = TextEditingController();
+  String _reason = '';
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final version = widget.entry.version;
+    final package = widget.entry.package;
+    final canRestore = _reason.trim().length >= _minimumReasonLength;
+
+    return AlertDialog(
+      title: const Text('Restore archived draft?'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '${package.packageCode} · v${version.versionNumber} will return to active draft authoring under the same Isar and Firestore identity. '
+              'Its archived history remains preserved and a restored lifecycle audit will be created.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const Key('restore-template-draft-reason'),
+              controller: _reasonController,
+              minLines: 2,
+              maxLines: 4,
+              autofocus: true,
+              onChanged: (value) => setState(() => _reason = value),
+              decoration: const InputDecoration(
+                labelText: 'Mandatory restore reason',
+                helperText: 'Enter at least 10 characters.',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          key: const Key('confirm-restore-template-draft'),
+          onPressed:
+              canRestore ? () => Navigator.pop(context, _reason.trim()) : null,
+          icon: const Icon(Icons.restore_rounded),
+          label: const Text('Restore draft'),
         ),
       ],
     );

@@ -16,6 +16,7 @@ const {
   where,
   Timestamp,
   serverTimestamp,
+  writeBatch,
   setLogLevel,
 } = require("firebase/firestore");
 
@@ -946,6 +947,409 @@ describe("template_versions", () => {
   });
 });
 
+
+describe("template_version draft archive governance", () => {
+  beforeEach(async () => {
+    await seedUser("si1", ["si"]);
+    await seedUser("si2", ["si"]);
+    await seedUser("ops1", ["operations"]);
+  });
+
+  function activeDraft(overrides = {}) {
+    return {
+      firestoreId: "draftArchive",
+      packageFirestoreId: "pkg1",
+      versionNumber: 3,
+      status: "draft",
+      jobTemplateSnapshotJson: "{\"name\":\"template\"}",
+      moduleSnapshotsJson: "[{\"moduleCode\":\"M1\"}]",
+      fieldDefinitionsJson: "[]",
+      checklistJson: "[]",
+      contentHash: null,
+      closureReviewConfirmed: false,
+      closureReviewConfirmedByUid: null,
+      closureReviewConfirmedByName: null,
+      closureReviewConfirmedAt: null,
+      closureCriticalModuleCount: 0,
+      createdByUid: "si1",
+      createdByName: "SI User",
+      updatedByUid: "si1",
+      updatedByName: "SI User",
+      createdAt: new Date(1000).toISOString(),
+      updatedAt: new Date(1000).toISOString(),
+      version: 2,
+      schemaVersion: 1,
+      isDeleted: false,
+      ...overrides,
+    };
+  }
+
+  test("SI can archive a draft and then write mandatory archive audit evidence", async () => {
+    await seedDoc("template_versions/draftArchive", activeDraft());
+    const db = dbAs("si1");
+    const archivedHash =
+      "tg2-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    await assertSucceeds(
+      updateDoc(doc(db, "template_versions/draftArchive"), {
+        status: "archived",
+        contentHash: archivedHash,
+        updatedByUid: "si1",
+        updatedByName: "SI User",
+        updatedAt: new Date().toISOString(),
+        version: 3,
+      })
+    );
+
+    await assertSucceeds(
+      setDoc(doc(db, "template_publish_audits/archiveAudit"), {
+        firestoreId: "archiveAudit",
+        packageFirestoreId: "pkg1",
+        versionFirestoreId: "draftArchive",
+        action: "archived",
+        performedByUid: "si1",
+        performedByName: "SI User",
+        performedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        reason: "Duplicate draft abandoned after review.",
+        beforeHash: null,
+        afterHash: archivedHash,
+        payloadSnapshotJson: '{"status":"archived"}',
+        version: 1,
+        schemaVersion: 1,
+        isDeleted: false,
+      })
+    );
+  });
+
+  test("archive and restore audits must be written by the lifecycle actor", async () => {
+    const lifecycleHash =
+      "tg2-sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+
+    await seedDoc(
+      "template_versions/actorBoundArchive",
+      activeDraft({
+        firestoreId: "actorBoundArchive",
+        status: "archived",
+        contentHash: lifecycleHash,
+        updatedByUid: "si1",
+        updatedByName: "SI User",
+        version: 3,
+      })
+    );
+
+    const si2Db = dbAs("si2");
+
+    await assertFails(
+      setDoc(doc(si2Db, "template_publish_audits/archiveActorMismatch"), {
+        firestoreId: "archiveActorMismatch",
+        packageFirestoreId: "pkg1",
+        versionFirestoreId: "actorBoundArchive",
+        action: "archived",
+        performedByUid: "si2",
+        performedByName: "Second SI",
+        performedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        reason: "A different governor must not attest this archive transition.",
+        beforeHash: null,
+        afterHash: lifecycleHash,
+        payloadSnapshotJson: '{"status":"archived"}',
+        version: 1,
+        schemaVersion: 1,
+        isDeleted: false,
+      })
+    );
+
+    await seedDoc(
+      "template_versions/actorBoundRestore",
+      activeDraft({
+        firestoreId: "actorBoundRestore",
+        status: "draft",
+        contentHash: lifecycleHash,
+        updatedByUid: "si1",
+        updatedByName: "SI User",
+        version: 4,
+      })
+    );
+
+    await assertFails(
+      setDoc(doc(si2Db, "template_publish_audits/restoreActorMismatch"), {
+        firestoreId: "restoreActorMismatch",
+        packageFirestoreId: "pkg1",
+        versionFirestoreId: "actorBoundRestore",
+        action: "restored",
+        performedByUid: "si2",
+        performedByName: "Second SI",
+        performedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        reason: "A different governor must not attest this restore transition.",
+        beforeHash: lifecycleHash,
+        afterHash: lifecycleHash,
+        payloadSnapshotJson: '{"status":"draft"}',
+        version: 1,
+        schemaVersion: 1,
+        isDeleted: false,
+      })
+    );
+  });
+  test("draft archive rejects operations user, payload mutation, and published source", async () => {
+    await seedDoc("template_versions/draftArchive", activeDraft());
+    const archivedHash =
+      "tg2-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    const opsDb = dbAs("ops1");
+    await assertFails(
+      updateDoc(doc(opsDb, "template_versions/draftArchive"), {
+        status: "archived",
+        contentHash: archivedHash,
+        updatedByUid: "ops1",
+        updatedAt: new Date().toISOString(),
+        version: 3,
+      })
+    );
+
+    const siDb = dbAs("si1");
+    await assertFails(
+      updateDoc(doc(siDb, "template_versions/draftArchive"), {
+        status: "archived",
+        contentHash: archivedHash,
+        moduleSnapshotsJson: "[{\"moduleCode\":\"MUTATED\"}]",
+        updatedByUid: "si1",
+        updatedAt: new Date().toISOString(),
+        version: 3,
+      })
+    );
+
+    await seedDoc(
+      "template_versions/publishedArchiveAttempt",
+      activeDraft({
+        firestoreId: "publishedArchiveAttempt",
+        status: "published",
+        contentHash: archivedHash,
+        publishedByUid: "si1",
+        publishedAt: new Date(2000).toISOString(),
+      })
+    );
+    await assertFails(
+      updateDoc(doc(siDb, "template_versions/publishedArchiveAttempt"), {
+        status: "archived",
+        updatedByUid: "si1",
+        updatedAt: new Date().toISOString(),
+        version: 3,
+      })
+    );
+  });
+
+  test("archive audit rejects short reason and direct archived creation remains denied", async () => {
+    await seedDoc(
+      "template_versions/draftArchive",
+      activeDraft({
+        status: "archived",
+        contentHash:
+          "tg2-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        version: 3,
+      })
+    );
+    const db = dbAs("si1");
+
+    await assertFails(
+      setDoc(doc(db, "template_publish_audits/archiveAuditShort"), {
+        firestoreId: "archiveAuditShort",
+        packageFirestoreId: "pkg1",
+        versionFirestoreId: "draftArchive",
+        action: "archived",
+        performedByUid: "si1",
+        performedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        reason: "short",
+        afterHash:
+          "tg2-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        payloadSnapshotJson: '{"status":"archived"}',
+        version: 1,
+        schemaVersion: 1,
+        isDeleted: false,
+      })
+    );
+
+    await assertFails(
+      setDoc(doc(db, "template_publish_audits/archiveAuditWrongHash"), {
+        firestoreId: "archiveAuditWrongHash",
+        packageFirestoreId: "pkg1",
+        versionFirestoreId: "draftArchive",
+        action: "archived",
+        performedByUid: "si1",
+        performedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        reason: "Archive audit hash must match the archived version.",
+        afterHash:
+          "tg2-sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        payloadSnapshotJson: '{"status":"archived"}',
+        version: 1,
+        schemaVersion: 1,
+        isDeleted: false,
+      })
+    );
+
+    await assertFails(
+      setDoc(
+        doc(db, "template_versions/directArchivedCreate"),
+        activeDraft({
+          firestoreId: "directArchivedCreate",
+          status: "archived",
+          contentHash:
+            "tg2-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        })
+      )
+    );
+  });
+
+  test("SI can restore an archived draft as the same identity with restore audit", async () => {
+    const archivedHash =
+      "tg2-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    await seedDoc(
+      "template_versions/draftRestore",
+      activeDraft({
+        firestoreId: "draftRestore",
+        status: "archived",
+        contentHash: archivedHash,
+        version: 3,
+      })
+    );
+    const db = dbAs("si1");
+
+    await assertSucceeds(
+      updateDoc(doc(db, "template_versions/draftRestore"), {
+        status: "draft",
+        contentHash: archivedHash,
+        updatedByUid: "si1",
+        updatedByName: "SI User",
+        updatedAt: new Date().toISOString(),
+        version: 4,
+      })
+    );
+
+    await assertSucceeds(
+      setDoc(doc(db, "template_publish_audits/restoreAudit"), {
+        firestoreId: "restoreAudit",
+        packageFirestoreId: "pkg1",
+        versionFirestoreId: "draftRestore",
+        action: "restored",
+        performedByUid: "si1",
+        performedByName: "SI User",
+        performedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        reason: "Archived draft restored after governance review.",
+        beforeHash: archivedHash,
+        afterHash: archivedHash,
+        payloadSnapshotJson: '{"status":"draft"}',
+        version: 1,
+        schemaVersion: 1,
+        isDeleted: false,
+      })
+    );
+  });
+
+  test("restore rejects operations, published history, and invalid audit evidence", async () => {
+    const archivedHash =
+      "tg2-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    await seedDoc(
+      "template_versions/opsRestore",
+      activeDraft({
+        firestoreId: "opsRestore",
+        status: "archived",
+        contentHash: archivedHash,
+        version: 3,
+      })
+    );
+    await assertFails(
+      updateDoc(doc(dbAs("ops1"), "template_versions/opsRestore"), {
+        status: "draft",
+        updatedByUid: "ops1",
+        updatedAt: new Date().toISOString(),
+        version: 4,
+      })
+    );
+
+    await seedDoc(
+      "template_versions/publishedHistoryRestore",
+      activeDraft({
+        firestoreId: "publishedHistoryRestore",
+        status: "archived",
+        contentHash: archivedHash,
+        publishedByUid: "si1",
+        publishedAt: new Date(2000).toISOString(),
+        retiredByUid: "si1",
+        retiredAt: new Date(3000).toISOString(),
+        retireReason: "Superseded published history.",
+        version: 4,
+      })
+    );
+    const siDb = dbAs("si1");
+    await assertFails(
+      updateDoc(doc(siDb, "template_versions/publishedHistoryRestore"), {
+        status: "draft",
+        updatedByUid: "si1",
+        updatedAt: new Date().toISOString(),
+        version: 5,
+      })
+    );
+
+    await seedDoc(
+      "template_versions/stillArchivedForAudit",
+      activeDraft({
+        firestoreId: "stillArchivedForAudit",
+        status: "archived",
+        contentHash: archivedHash,
+        version: 3,
+      })
+    );
+    await assertFails(
+      setDoc(doc(siDb, "template_publish_audits/restoreBeforeState"), {
+        firestoreId: "restoreBeforeState",
+        packageFirestoreId: "pkg1",
+        versionFirestoreId: "stillArchivedForAudit",
+        action: "restored",
+        performedByUid: "si1",
+        performedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        reason: "Restore audit cannot precede remote lifecycle state.",
+        afterHash: archivedHash,
+        payloadSnapshotJson: '{"status":"draft"}',
+        version: 1,
+        schemaVersion: 1,
+        isDeleted: false,
+      })
+    );
+
+    await seedDoc(
+      "template_versions/restoredForShortReason",
+      activeDraft({
+        firestoreId: "restoredForShortReason",
+        status: "draft",
+        contentHash: archivedHash,
+        version: 4,
+      })
+    );
+    await assertFails(
+      setDoc(doc(siDb, "template_publish_audits/restoreShortReason"), {
+        firestoreId: "restoreShortReason",
+        packageFirestoreId: "pkg1",
+        versionFirestoreId: "restoredForShortReason",
+        action: "restored",
+        performedByUid: "si1",
+        performedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        reason: "short",
+        afterHash: archivedHash,
+        payloadSnapshotJson: '{"status":"draft"}',
+        version: 1,
+        schemaVersion: 1,
+        isDeleted: false,
+      })
+    );
+  });
+});
+
 describe("job_executions", () => {
   beforeEach(async () => {
     await seedUser("ops1", ["operations"]);
@@ -1593,6 +1997,8 @@ describe("module_registry", () => {
       safetyClasses: ["rotating", "hmi"],
       requiredForClosure: true,
       latestPublishedRevisionNumber: 0,
+      latestPublishedRevisionId: null,
+      latestPublishedContentHash: null,
       createdByUid: "si1",
       createdByName: "SI User",
       createdAt: new Date(1000).toISOString(),
@@ -1752,7 +2158,7 @@ describe("module_registry", () => {
     expect(snap.size).toBe(1);
   });
 
-  test("SI can publish draft revision but cannot mutate frozen payload while publishing", async () => {
+  test("SI can publish draft revision atomically but cannot mutate frozen payload", async () => {
     await seedDoc(
       "module_registry/baf.module.base_fan_vibration",
       registryFamily()
@@ -1763,42 +2169,309 @@ describe("module_registry", () => {
     );
 
     const db = dbAs("si1");
+    const familyRef = doc(db, "module_registry/baf.module.base_fan_vibration");
+    const draft1Ref = doc(
+      db,
+      "module_registry/baf.module.base_fan_vibration/revisions/draft1"
+    );
+    const firstHash =
+      "mrg1-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const publishBatch = writeBatch(db);
+    publishBatch.update(familyRef, {
+      canonicalTitle: "Base fan vibration check rev 1",
+      latestPublishedRevisionNumber: 1,
+      latestPublishedRevisionId: "draft1",
+      latestPublishedContentHash: firstHash,
+      updatedByUid: "si1",
+      updatedAt: new Date().toISOString(),
+      version: 2,
+    });
+    publishBatch.update(draft1Ref, {
+      revisionStatus: "published",
+      revisionNumber: 1,
+      publishedByUid: "si1",
+      publishedAt: new Date().toISOString(),
+      updatedByUid: "si1",
+      updatedAt: new Date().toISOString(),
+      version: 2,
+    });
+    await assertSucceeds(publishBatch.commit());
 
+    const secondHash =
+      "mrg1-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    await seedDoc(
+      "module_registry/baf.module.base_fan_vibration/revisions/draft2",
+      registryRevision({ revisionId: "draft2", contentHash: secondHash })
+    );
+
+    const badBatch = writeBatch(db);
+    badBatch.update(familyRef, {
+      canonicalTitle: "Mutated draft should not publish",
+      latestPublishedRevisionNumber: 2,
+      latestPublishedRevisionId: "draft2",
+      latestPublishedContentHash: secondHash,
+      updatedByUid: "si1",
+      updatedAt: new Date().toISOString(),
+      version: 3,
+    });
+    badBatch.update(
+      doc(
+        db,
+        "module_registry/baf.module.base_fan_vibration/revisions/draft2"
+      ),
+      {
+        revisionStatus: "published",
+        revisionNumber: 2,
+        moduleSnapshotJson: '{"moduleCode":"MUTATED"}',
+        publishedByUid: "si1",
+        publishedAt: new Date().toISOString(),
+        updatedByUid: "si1",
+        updatedAt: new Date().toISOString(),
+        version: 2,
+      }
+    );
+    await assertFails(badBatch.commit());
+  });
+
+  test("legacy family cannot publish again until latest pointers are bootstrapped", async () => {
+    const firstHash =
+      "mrg1-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const secondHash =
+      "mrg1-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    await seedDoc(
+      "module_registry/baf.module.base_fan_vibration",
+      registryFamily({
+        latestPublishedRevisionNumber: 1,
+        latestPublishedRevisionId: null,
+        latestPublishedContentHash: null,
+        version: 2,
+      })
+    );
+    await seedDoc(
+      "module_registry/baf.module.base_fan_vibration/revisions/rev1",
+      registryRevision({
+        revisionId: "rev1",
+        revisionNumber: 1,
+        revisionStatus: "published",
+        publishedByUid: "si1",
+        publishedAt: new Date(2000).toISOString(),
+        version: 2,
+      })
+    );
+    await seedDoc(
+      "module_registry/baf.module.base_fan_vibration/revisions/draft2",
+      registryRevision({ revisionId: "draft2", contentHash: secondHash })
+    );
+
+    const db = dbAs("si1");
+    const batch = writeBatch(db);
+    batch.update(doc(db, "module_registry/baf.module.base_fan_vibration"), {
+      latestPublishedRevisionNumber: 2,
+      latestPublishedRevisionId: "draft2",
+      latestPublishedContentHash: secondHash,
+      updatedByUid: "si1",
+      updatedAt: new Date().toISOString(),
+      version: 3,
+    });
+    batch.update(
+      doc(
+        db,
+        "module_registry/baf.module.base_fan_vibration/revisions/draft2"
+      ),
+      {
+        revisionStatus: "published",
+        revisionNumber: 2,
+        publishedByUid: "si1",
+        publishedAt: new Date().toISOString(),
+        updatedByUid: "si1",
+        updatedAt: new Date().toISOString(),
+        version: 2,
+      }
+    );
+    await assertFails(batch.commit());
+  });
+
+  test("legacy latest-published pointers can only bootstrap from matching history", async () => {
+    const firstHash =
+      "mrg1-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    await seedDoc(
+      "module_registry/baf.module.base_fan_vibration",
+      registryFamily({
+        latestPublishedRevisionNumber: 1,
+        latestPublishedRevisionId: null,
+        latestPublishedContentHash: null,
+        version: 2,
+      })
+    );
+    await seedDoc(
+      "module_registry/baf.module.base_fan_vibration/revisions/rev1",
+      registryRevision({
+        revisionId: "rev1",
+        revisionNumber: 1,
+        revisionStatus: "published",
+        publishedByUid: "si1",
+        publishedAt: new Date(2000).toISOString(),
+        version: 2,
+      })
+    );
+
+    const db = dbAs("si1");
+    const familyRef = doc(db, "module_registry/baf.module.base_fan_vibration");
     await assertSucceeds(
-      updateDoc(
-        doc(db, "module_registry/baf.module.base_fan_vibration/revisions/draft1"),
-        {
-          revisionStatus: "published",
-          revisionNumber: 1,
-          publishedByUid: "si1",
-          publishedAt: new Date().toISOString(),
-          updatedByUid: "si1",
-          updatedAt: new Date().toISOString(),
-          version: 2,
-        }
-      )
+      updateDoc(familyRef, {
+        latestPublishedRevisionId: "rev1",
+        latestPublishedContentHash: firstHash,
+        updatedByUid: "si1",
+        updatedByName: "SI User",
+        updatedAt: new Date().toISOString(),
+        version: 3,
+      })
     );
 
     await seedDoc(
       "module_registry/baf.module.base_fan_vibration/revisions/draft2",
-      registryRevision({ revisionId: "draft2" })
+      registryRevision({ revisionId: "draft2", contentHash: firstHash })
+    );
+    const noOpBatch = writeBatch(db);
+    noOpBatch.update(familyRef, {
+      latestPublishedRevisionNumber: 2,
+      latestPublishedRevisionId: "draft2",
+      latestPublishedContentHash: firstHash,
+      updatedByUid: "si1",
+      updatedAt: new Date().toISOString(),
+      version: 4,
+    });
+    noOpBatch.update(
+      doc(
+        db,
+        "module_registry/baf.module.base_fan_vibration/revisions/draft2"
+      ),
+      {
+        revisionStatus: "published",
+        revisionNumber: 2,
+        publishedByUid: "si1",
+        publishedAt: new Date().toISOString(),
+        updatedByUid: "si1",
+        updatedAt: new Date().toISOString(),
+        version: 2,
+      }
+    );
+    await assertFails(noOpBatch.commit());
+  });
+
+  test("legacy pointer bootstrap rejects wrong hash and non-governor", async () => {
+    const firstHash =
+      "mrg1-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    await seedDoc(
+      "module_registry/baf.module.base_fan_vibration",
+      registryFamily({
+        latestPublishedRevisionNumber: 1,
+        latestPublishedRevisionId: null,
+        latestPublishedContentHash: null,
+        version: 2,
+      })
+    );
+    await seedDoc(
+      "module_registry/baf.module.base_fan_vibration/revisions/rev1",
+      registryRevision({
+        revisionId: "rev1",
+        revisionNumber: 1,
+        revisionStatus: "retired",
+        publishedByUid: "si1",
+        publishedAt: new Date(2000).toISOString(),
+        retiredByUid: "si1",
+        retiredAt: new Date(3000).toISOString(),
+        retireReason: "Superseded historical revision.",
+        version: 3,
+      })
     );
 
     await assertFails(
       updateDoc(
-        doc(db, "module_registry/baf.module.base_fan_vibration/revisions/draft2"),
+        doc(dbAs("si1"), "module_registry/baf.module.base_fan_vibration"),
         {
-          revisionStatus: "published",
-          revisionNumber: 1,
-          moduleSnapshotJson: '{"moduleCode":"MUTATED"}',
-          publishedByUid: "si1",
-          publishedAt: new Date().toISOString(),
+          latestPublishedRevisionId: "rev1",
+          latestPublishedContentHash:
+            "mrg1-sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
           updatedByUid: "si1",
           updatedAt: new Date().toISOString(),
-          version: 2,
+          version: 3,
         }
       )
     );
+
+    await assertFails(
+      updateDoc(
+        doc(dbAs("ops1"), "module_registry/baf.module.base_fan_vibration"),
+        {
+          latestPublishedRevisionId: "rev1",
+          latestPublishedContentHash: firstHash,
+          updatedByUid: "ops1",
+          updatedAt: new Date().toISOString(),
+          version: 3,
+        }
+      )
+    );
+  });
+
+  test("identical registry content hash cannot advance published revision history", async () => {
+    const firstHash =
+      "mrg1-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    await seedDoc(
+      "module_registry/baf.module.base_fan_vibration",
+      registryFamily({
+        latestPublishedRevisionNumber: 1,
+        latestPublishedRevisionId: "rev1",
+        latestPublishedContentHash: firstHash,
+        version: 2,
+      })
+    );
+    await seedDoc(
+      "module_registry/baf.module.base_fan_vibration/revisions/rev1",
+      registryRevision({
+        revisionId: "rev1",
+        revisionNumber: 1,
+        revisionStatus: "published",
+        publishedByUid: "si1",
+        publishedAt: new Date(2000).toISOString(),
+        version: 2,
+      })
+    );
+    await seedDoc(
+      "module_registry/baf.module.base_fan_vibration/revisions/draft2",
+      registryRevision({ revisionId: "draft2", contentHash: firstHash })
+    );
+
+    const db = dbAs("si1");
+    const noOpBatch = writeBatch(db);
+    noOpBatch.update(
+      doc(db, "module_registry/baf.module.base_fan_vibration"),
+      {
+        latestPublishedRevisionNumber: 2,
+        latestPublishedRevisionId: "draft2",
+        latestPublishedContentHash: firstHash,
+        updatedByUid: "si1",
+        updatedAt: new Date().toISOString(),
+        version: 3,
+      }
+    );
+    noOpBatch.update(
+      doc(
+        db,
+        "module_registry/baf.module.base_fan_vibration/revisions/draft2"
+      ),
+      {
+        revisionStatus: "published",
+        revisionNumber: 2,
+        publishedByUid: "si1",
+        publishedAt: new Date().toISOString(),
+        updatedByUid: "si1",
+        updatedAt: new Date().toISOString(),
+        version: 2,
+      }
+    );
+
+    await assertFails(noOpBatch.commit());
   });
 
   test("SI can retire published revision and hard delete is denied", async () => {
@@ -1836,23 +2509,46 @@ describe("module_registry", () => {
     );
   });
 
-  test("SI can refresh registry family metadata only as a publish-style revision advance", async () => {
+  test("SI can refresh registry family metadata only with the matching published revision", async () => {
     await seedDoc(
       "module_registry/baf.module.base_fan_vibration",
       registryFamily()
     );
+    await seedDoc(
+      "module_registry/baf.module.base_fan_vibration/revisions/draft1",
+      registryRevision()
+    );
 
     const db = dbAs("si1");
-
-    await assertSucceeds(
-      updateDoc(doc(db, "module_registry/baf.module.base_fan_vibration"), {
-        canonicalTitle: "Base fan vibration check rev 1",
-        latestPublishedRevisionNumber: 1,
+    const hash =
+      "mrg1-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const batch = writeBatch(db);
+    batch.update(doc(db, "module_registry/baf.module.base_fan_vibration"), {
+      canonicalTitle: "Base fan vibration check rev 1",
+      latestPublishedRevisionNumber: 1,
+      latestPublishedRevisionId: "draft1",
+      latestPublishedContentHash: hash,
+      updatedByUid: "si1",
+      updatedAt: new Date().toISOString(),
+      version: 2,
+    });
+    batch.update(
+      doc(
+        db,
+        "module_registry/baf.module.base_fan_vibration/revisions/draft1"
+      ),
+      {
+        revisionStatus: "published",
+        revisionNumber: 1,
+        publishedByUid: "si1",
+        publishedAt: new Date().toISOString(),
         updatedByUid: "si1",
         updatedAt: new Date().toISOString(),
         version: 2,
-      })
+      }
     );
+
+    await assertSucceeds(batch.commit());
   });
 
   test("registry draft family metadata drift is denied without a publish revision advance", async () => {

@@ -168,6 +168,166 @@ class ModuleRegistryRepository {
     });
   }
 
+  Future<ModuleRegistryRevision?> _loadLegacyLatestPublishedRevision(
+    String registryModuleId,
+  ) async {
+    final snapshot = await _revisions(registryModuleId).get();
+    ModuleRegistryRevision? latest;
+    for (final document in snapshot.docs) {
+      final revision = ModuleRegistryRevision.fromMap(
+        document.data(),
+        document.id,
+      );
+      if (revision.revisionNumber <= 0 ||
+          (!revision.isPublished && !revision.isRetired)) {
+        continue;
+      }
+      if (latest == null || revision.revisionNumber > latest.revisionNumber) {
+        latest = revision;
+        continue;
+      }
+      if (revision.revisionNumber == latest.revisionNumber &&
+          revision.revisionId != latest.revisionId) {
+        throw StateError(
+          'Registry publication history is ambiguous: multiple revisions claim latest published number '
+          '${revision.revisionNumber}. Repair governance history before publishing.',
+        );
+      }
+    }
+    return latest;
+  }
+
+  Future<void> _ensureLatestPublishedPointers({
+    required String registryModuleId,
+    required AppUser actor,
+  }) async {
+    final familyRef = _families.doc(registryModuleId);
+    final preflightFamilySnap = await familyRef.get();
+    if (!preflightFamilySnap.exists) {
+      return;
+    }
+
+    final preflightFamily = ModuleRegistryFamily.fromMap(
+      preflightFamilySnap.data()!,
+      preflightFamilySnap.id,
+    );
+    if (preflightFamily.latestPublishedRevisionNumber <= 0) {
+      return;
+    }
+
+    final existingRevisionId =
+        preflightFamily.latestPublishedRevisionId?.trim();
+    final existingHash = preflightFamily.latestPublishedContentHash?.trim();
+    if (existingRevisionId != null &&
+        existingRevisionId.isNotEmpty &&
+        existingHash != null &&
+        existingHash.isNotEmpty) {
+      return;
+    }
+
+    ModuleRegistryRevision? candidate;
+    if (existingRevisionId != null && existingRevisionId.isNotEmpty) {
+      final candidateSnap =
+          await _revisions(registryModuleId).doc(existingRevisionId).get();
+      if (candidateSnap.exists) {
+        candidate = ModuleRegistryRevision.fromMap(
+          candidateSnap.data()!,
+          candidateSnap.id,
+        );
+      }
+    } else {
+      candidate = await _loadLegacyLatestPublishedRevision(registryModuleId);
+    }
+
+    if (candidate == null ||
+        candidate.revisionNumber !=
+            preflightFamily.latestPublishedRevisionNumber ||
+        (!candidate.isPublished && !candidate.isRetired)) {
+      throw StateError(
+        'Registry latest-published pointers are missing and the historical revision cannot be resolved safely.',
+      );
+    }
+    if (existingHash != null &&
+        existingHash.isNotEmpty &&
+        existingHash != candidate.contentHash) {
+      throw StateError(
+        'Registry latest-published hash metadata conflicts with historical revision content.',
+      );
+    }
+
+    await _firestore.runTransaction((txn) async {
+      final familySnap = await txn.get(familyRef);
+      if (!familySnap.exists) {
+        throw StateError('Registry family not found.');
+      }
+      final currentFamily = ModuleRegistryFamily.fromMap(
+        familySnap.data()!,
+        familySnap.id,
+      );
+      final currentRevisionId = currentFamily.latestPublishedRevisionId?.trim();
+      final currentHash = currentFamily.latestPublishedContentHash?.trim();
+      if (currentRevisionId != null &&
+          currentRevisionId.isNotEmpty &&
+          currentHash != null &&
+          currentHash.isNotEmpty) {
+        return;
+      }
+      if (!currentFamily.isActive ||
+          currentFamily.latestPublishedRevisionNumber !=
+              preflightFamily.latestPublishedRevisionNumber) {
+        throw StateError(
+          'Registry publication history changed while latest-published pointers were being repaired. Reload and retry.',
+        );
+      }
+      if (currentRevisionId != null &&
+          currentRevisionId.isNotEmpty &&
+          currentRevisionId != candidate!.revisionId) {
+        throw StateError(
+          'Registry latest-published revision pointer changed unexpectedly.',
+        );
+      }
+      if (currentHash != null &&
+          currentHash.isNotEmpty &&
+          currentHash != candidate!.contentHash) {
+        throw StateError(
+          'Registry latest-published hash pointer changed unexpectedly.',
+        );
+      }
+
+      final revisionRef = _revisions(
+        registryModuleId,
+      ).doc(candidate!.revisionId);
+      final revisionSnap = await txn.get(revisionRef);
+      if (!revisionSnap.exists) {
+        throw StateError(
+          'Registry latest published revision disappeared during pointer repair.',
+        );
+      }
+      final currentRevision = ModuleRegistryRevision.fromMap(
+        revisionSnap.data()!,
+        revisionSnap.id,
+      );
+      if (currentRevision.revisionNumber !=
+              currentFamily.latestPublishedRevisionNumber ||
+          (!currentRevision.isPublished && !currentRevision.isRetired) ||
+          currentRevision.contentHash != candidate.contentHash) {
+        throw StateError(
+          'Registry historical revision changed during pointer repair. Reload and retry.',
+        );
+      }
+
+      final now = DateTime.now();
+      txn.update(familyRef, <String, dynamic>{
+        'latestPublishedRevisionId': currentRevision.revisionId,
+        'latestPublishedContentHash': currentRevision.contentHash,
+        'updatedByUid': actor.uid,
+        'updatedByName': actor.name,
+        'updatedAt': now.toIso8601String(),
+        'version': currentFamily.version + 1,
+      });
+    });
+  }
+
   Future<ModuleRegistryRevision> publishDraftRevision({
     required String registryModuleId,
     required String revisionId,
@@ -182,9 +342,14 @@ class ModuleRegistryRepository {
       );
     }
 
+    final familyRef = _families.doc(registryModuleId);
+    await _ensureLatestPublishedPointers(
+      registryModuleId: registryModuleId,
+      actor: actor,
+    );
+
     late ModuleRegistryRevision published;
     await _firestore.runTransaction((txn) async {
-      final familyRef = _families.doc(registryModuleId);
       final revisionRef = _revisions(registryModuleId).doc(revisionId);
       final familySnap = await txn.get(familyRef);
       final revisionSnap = await txn.get(revisionRef);
@@ -205,6 +370,53 @@ class ModuleRegistryRepository {
           'Only active registry families can publish revisions.',
         );
       }
+      if (!revision.isDraft) {
+        throw StateError('Only draft registry revisions can be published.');
+      }
+
+      ModuleRegistryRevision? latestPublished;
+      if (family.latestPublishedRevisionNumber > 0) {
+        final latestPublishedRevisionId =
+            family.latestPublishedRevisionId?.trim();
+        final pinnedHash = family.latestPublishedContentHash?.trim();
+        if (latestPublishedRevisionId == null ||
+            latestPublishedRevisionId.isEmpty ||
+            pinnedHash == null ||
+            pinnedHash.isEmpty) {
+          throw StateError(
+            'Registry latest-published pointers are incomplete. Reload and retry after metadata repair.',
+          );
+        }
+
+        final latestSnap = await txn.get(
+          _revisions(registryModuleId).doc(latestPublishedRevisionId),
+        );
+        if (!latestSnap.exists) {
+          throw StateError(
+            'Registry latest-published pointer is broken. Repair governance metadata before publishing.',
+          );
+        }
+        latestPublished = ModuleRegistryRevision.fromMap(
+          latestSnap.data()!,
+          latestSnap.id,
+        );
+        if (latestPublished.revisionNumber !=
+                family.latestPublishedRevisionNumber ||
+            (!latestPublished.isPublished && !latestPublished.isRetired) ||
+            pinnedHash != latestPublished.contentHash) {
+          throw StateError(
+            'Registry latest-published metadata is inconsistent. Repair it before publishing.',
+          );
+        }
+        if (latestPublished.contentHash == revision.contentHash) {
+          throw StateError(
+            'No-op registry publication rejected: candidate hash '
+            '${revision.contentHash} matches latest published revision '
+            '${latestPublished.revisionNumber}. Change governed content before publishing.',
+          );
+        }
+      }
+
       final beforeHash = revision.contentHash;
       final nextRevisionNumber = family.latestPublishedRevisionNumber + 1;
       final now = DateTime.now();
@@ -215,7 +427,9 @@ class ModuleRegistryRepository {
       );
       family
         ..refreshFromModule(revision.toComposerModuleDraft(), actor, now: now)
-        ..latestPublishedRevisionNumber = nextRevisionNumber;
+        ..latestPublishedRevisionNumber = nextRevisionNumber
+        ..latestPublishedRevisionId = revision.revisionId
+        ..latestPublishedContentHash = revision.contentHash;
 
       final audit = _audit(
         registryModuleId: registryModuleId,

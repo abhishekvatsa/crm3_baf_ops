@@ -14,11 +14,69 @@ void main() {
         'lib/features/planned_maintenance/presentation/module_composer_screen.actions.dart',
       );
 
-      expect(builders, contains('Open Saved Template Drafts'));
+      expect(builders, contains('Manage Template Drafts'));
       expect(actions, contains('Future<void> _openSavedTemplateDrafts()'));
-      expect(actions, contains('version.isDraft'));
+      expect(actions, contains('version.isDraft || version.isArchivedDraft'));
+      expect(actions, contains('_SavedTemplateDraftAction.restore'));
+      expect(actions, contains('restoreArchivedDraftVersion'));
+      expect(
+        actions,
+        contains('template_governance_draft_restored_from_composer'),
+      );
+      expect(
+        actions,
+        isNot(contains('getAuditsForVersion')),
+        reason:
+            'presentation must not duplicate archive-audit authority or require remote audit read permission',
+      );
       expect(actions, contains('TemplateComposerDraft.fromPayloads'));
       expect(actions, contains('_editingTemplateVersion = selected.version'));
+    });
+
+    test('saved drafts expose governed archive with mandatory reason', () {
+      final actions = _read(
+        'lib/features/planned_maintenance/presentation/module_composer_screen.actions.dart',
+      );
+      final dialogs = _read(
+        'lib/features/planned_maintenance/presentation/module_composer_dialogs.dart',
+      );
+      final provider = _read(
+        'lib/features/planned_maintenance/providers/template_governance_provider.dart',
+      );
+      final legacyBuilders = _read(
+        'lib/features/planned_maintenance/presentation/template_publisher_screen.builders.dart',
+      );
+      final legacySections = _read(
+        'lib/features/planned_maintenance/presentation/template_publisher_sections.dart',
+      );
+
+      expect(actions, contains('archiveDraftVersion'));
+      expect(actions, contains('_SavedTemplateDraftAction.archive'));
+      expect(actions, contains('unsaved detached copy'));
+      expect(dialogs, contains('Discard/archive saved draft?'));
+      expect(dialogs, contains('Mandatory archive reason'));
+      expect(dialogs, contains('confirm-archive-template-draft'));
+      expect(provider, contains('Future<void> archiveDraftVersion'));
+      expect(provider, contains('Future<void> restoreArchivedDraftVersion'));
+      expect(provider, contains('TemplatePublishAuditAction.archived'));
+      expect(provider, contains('TemplatePublishAuditAction.restored'));
+      expect(provider, contains('_requireRestoredDraftAuditSynced'));
+      expect(
+        provider,
+        contains('Only active draft TemplateVersions can be saved'),
+      );
+      expect(provider, contains('restored-draft audit'));
+      expect(legacyBuilders, contains('onArchiveDraft'));
+      expect(legacyBuilders, contains('onRestoreDraft'));
+      expect(legacySections, contains('Archive draft'));
+      expect(legacySections, contains('Restore draft'));
+      expect(legacySections, contains('Awaiting governed sync'));
+      expect(
+        legacySections,
+        contains(
+          'Archived drafts remain visible here and can be restored after archive sync',
+        ),
+      );
     });
 
     test('resumed draft identity is carried into publish metadata', () {

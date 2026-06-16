@@ -200,11 +200,25 @@ extension _SyncServiceTemplateGovernance on SyncService {
           continue;
         }
 
-        final replayed = await _tryPushDecomposedTemplateVersion(
+        final archiveReplayed = await _tryPushDecomposedTemplateVersionArchive(
           record,
           remote,
         );
-        if (replayed) {
+        if (archiveReplayed) {
+          lastSuccessCount++;
+          skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+          debugPrint(
+            '🪜 Replayed collapsed TemplateVersion draft→archive lifecycle: '
+            '${record.firestoreId} (package=${record.packageFirestoreId ?? 'unknown'})',
+          );
+          continue;
+        }
+
+        final publishReplayed = await _tryPushDecomposedTemplateVersion(
+          record,
+          remote,
+        );
+        if (publishReplayed) {
           lastSuccessCount++;
           skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
           debugPrint(
@@ -214,10 +228,10 @@ extension _SyncServiceTemplateGovernance on SyncService {
           continue;
         }
 
-        // If a first replay step committed but the publish step did not, the
+        // If a first replay step committed but the lifecycle step did not, the
         // remote may now be a draft. Falling through to the standard batch
         // path lets the existing push either complete the now single-hop
-        // draft→published update or surface the remaining rejection.
+        // update or surface the remaining rejection.
         recordsToPush.add(record);
       }
 
@@ -252,6 +266,166 @@ extension _SyncServiceTemplateGovernance on SyncService {
           snapshotsToMark,
         );
       }
+    }
+  }
+
+  List<_TemplateVersionReplayStep> _templateVersionArchiveReplayPlan(
+    TemplateVersion local,
+    TemplateVersion? remote,
+  ) {
+    final firestoreId = _cleanText(local.firestoreId);
+    if (firestoreId == null) return const [];
+    if (local.isDeleted || local.status != TemplateVersionStatus.archived) {
+      return const [];
+    }
+
+    if (remote == null) {
+      if (!_canReplayTemplateVersionArchiveForCurrentUser(
+        local,
+        requiresDraftCreate: true,
+      )) {
+        return const [];
+      }
+      if (local.version <= 1 || _cleanText(local.contentHash) == null) {
+        return const [];
+      }
+      return const [
+        _TemplateVersionReplayStep.createDraft,
+        _TemplateVersionReplayStep.archive,
+      ];
+    }
+
+    if (_cleanText(remote.firestoreId) != firestoreId) return const [];
+    if (remote.isDeleted) return const [];
+    if (remote.status != TemplateVersionStatus.draft) return const [];
+    if (!_canReplayTemplateVersionArchiveForCurrentUser(
+      local,
+      requiresDraftCreate: false,
+    )) {
+      return const [];
+    }
+    if (local.version <= remote.version) return const [];
+    if (_templateVersionPinnedFieldDiff(local, remote) != 'none') {
+      return const [];
+    }
+    final payloadDiff = _templateVersionDraftPayloadDiff(local, remote);
+    if (_cleanText(local.contentHash) == null) return const [];
+    if (payloadDiff != 'none') {
+      final predecessorVersion = local.version - 1;
+      if (predecessorVersion <= remote.version) return const [];
+      return const [
+        _TemplateVersionReplayStep.updateDraft,
+        _TemplateVersionReplayStep.archive,
+      ];
+    }
+
+    return const [_TemplateVersionReplayStep.archive];
+  }
+
+  bool _canReplayTemplateVersionArchiveForCurrentUser(
+    TemplateVersion local, {
+    required bool requiresDraftCreate,
+  }) {
+    final currentUid = _cleanText(FirebaseAuth.instance.currentUser?.uid);
+    final updatedByUid = _cleanText(local.updatedByUid);
+    if (currentUid == null || updatedByUid == null) return false;
+    if (updatedByUid != currentUid) return false;
+
+    if (!requiresDraftCreate) return true;
+    final createdByUid = _cleanText(local.createdByUid);
+    return createdByUid != null && createdByUid == currentUid;
+  }
+
+  bool _remoteTemplateVersionArchiveAlreadySatisfied(
+    TemplateVersion local,
+    TemplateVersion? remote,
+  ) {
+    if (remote == null || local.isDeleted || remote.isDeleted) return false;
+    if (local.status != TemplateVersionStatus.archived ||
+        remote.status != TemplateVersionStatus.archived) {
+      return false;
+    }
+    if (local.version != remote.version) return false;
+    if (_cleanText(local.contentHash) != _cleanText(remote.contentHash)) {
+      return false;
+    }
+    if (_cleanText(local.updatedByUid) != _cleanText(remote.updatedByUid)) {
+      return false;
+    }
+    if (_templateVersionPinnedFieldDiff(local, remote) != 'none') return false;
+    return _templateVersionDraftPayloadDiff(local, remote) == 'none';
+  }
+
+  Future<bool> _tryPushDecomposedTemplateVersionArchive(
+    TemplateVersion local,
+    TemplateVersion? remote,
+  ) async {
+    if (_remoteTemplateVersionArchiveAlreadySatisfied(local, remote)) {
+      return true;
+    }
+
+    final plan = _templateVersionArchiveReplayPlan(local, remote);
+    if (plan.isEmpty) return false;
+
+    final firestoreId = _cleanText(local.firestoreId);
+    if (firestoreId == null) return false;
+
+    var expectedDraftVersion = remote?.version;
+    try {
+      for (final step in plan) {
+        if (step == _TemplateVersionReplayStep.createDraft) {
+          await _retry(() async {
+            await _firestoreTemplateGovernance
+                .createRemoteTemplateVersionDraftReplayStepForSync(
+                  firestoreId,
+                  _templateVersionDraftReplayCreateData(local),
+                );
+          });
+          expectedDraftVersion = local.version - 1;
+          continue;
+        }
+        if (step == _TemplateVersionReplayStep.updateDraft) {
+          final predecessorVersion = expectedDraftVersion;
+          if (predecessorVersion == null) {
+            throw StateError(
+              'TemplateVersion draft update replay is missing its expected remote version.',
+            );
+          }
+          await _retry(() async {
+            await _firestoreTemplateGovernance
+                .applyRemoteTemplateVersionDraftUpdateReplayStepForSync(
+                  firestoreId,
+                  _templateVersionDraftReplayUpdateData(local),
+                  expectedDraftVersion: predecessorVersion,
+                );
+          });
+          expectedDraftVersion = local.version - 1;
+          continue;
+        }
+
+        final predecessorVersion = expectedDraftVersion;
+        if (predecessorVersion == null) {
+          throw StateError(
+            'TemplateVersion archive replay is missing its expected remote draft version.',
+          );
+        }
+        await _retry(() async {
+          await _firestoreTemplateGovernance
+              .applyRemoteTemplateVersionArchiveReplayStepForSync(
+                firestoreId,
+                _templateVersionArchiveReplayStepData(local),
+                expectedDraftVersion: predecessorVersion,
+              );
+        });
+      }
+      return true;
+    } catch (error, stackTrace) {
+      debugPrint(
+        '⚠️ Decomposed TemplateVersion archive replay did not fully complete '
+        'for $firestoreId: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
     }
   }
 
@@ -461,6 +635,37 @@ extension _SyncServiceTemplateGovernance on SyncService {
     };
   }
 
+  Map<String, dynamic> _templateVersionDraftReplayUpdateData(
+    TemplateVersion local,
+  ) {
+    final draftData = _templateVersionDraftReplayCreateData(local);
+    draftData
+      ..['updatedByUid'] = local.updatedByUid
+      ..['updatedByName'] = local.updatedByName
+      ..['updatedAt'] = local.updatedAt.toIso8601String()
+      ..['version'] = local.version - 1;
+    return draftData;
+  }
+
+  Map<String, dynamic> _templateVersionArchiveReplayStepData(
+    TemplateVersion local,
+  ) {
+    final full = local.toMap();
+    return <String, dynamic>{
+      'status': TemplateVersionStatus.archived.name,
+      'contentHash': full['contentHash'],
+      'closureReviewConfirmed': full['closureReviewConfirmed'],
+      'closureCriticalModuleCount': full['closureCriticalModuleCount'],
+      'closureReviewConfirmedByUid': full['closureReviewConfirmedByUid'],
+      'closureReviewConfirmedByName': full['closureReviewConfirmedByName'],
+      'closureReviewConfirmedAt': full['closureReviewConfirmedAt'],
+      'updatedByUid': full['updatedByUid'],
+      'updatedByName': full['updatedByName'],
+      'updatedAt': full['updatedAt'],
+      'version': full['version'],
+    };
+  }
+
   Map<String, dynamic> _templateVersionPublishReplayStepData(
     TemplateVersion local,
   ) {
@@ -547,6 +752,61 @@ extension _SyncServiceTemplateGovernance on SyncService {
     return diffs.isEmpty ? 'none' : diffs.join(', ');
   }
 
+  bool _templatePublishAuditMatchesRemote(
+    TemplatePublishAudit local,
+    TemplatePublishAudit remote,
+  ) {
+    return _cleanText(local.firestoreId) == _cleanText(remote.firestoreId) &&
+        _cleanText(local.packageFirestoreId) ==
+            _cleanText(remote.packageFirestoreId) &&
+        _cleanText(local.versionFirestoreId) ==
+            _cleanText(remote.versionFirestoreId) &&
+        local.action == remote.action &&
+        _cleanText(local.performedByUid) == _cleanText(remote.performedByUid) &&
+        _cleanText(local.performedByName) ==
+            _cleanText(remote.performedByName) &&
+        _sameInstant(local.performedAt, remote.performedAt) &&
+        _sameInstant(local.updatedAt, remote.updatedAt) &&
+        _cleanText(local.reason) == _cleanText(remote.reason) &&
+        _cleanText(local.beforeHash) == _cleanText(remote.beforeHash) &&
+        _cleanText(local.afterHash) == _cleanText(remote.afterHash) &&
+        _cleanText(local.payloadSnapshotJson) ==
+            _cleanText(remote.payloadSnapshotJson) &&
+        _cleanText(local.metadataJson) == _cleanText(remote.metadataJson) &&
+        local.version == remote.version &&
+        local.schemaVersion == remote.schemaVersion &&
+        local.isDeleted == remote.isDeleted;
+  }
+
+  bool _templateLifecycleAuditSnapshotMatchesRemote(
+    TemplatePublishAudit audit,
+    TemplateVersion remoteVersion,
+  ) {
+    final rawSnapshot = _cleanText(audit.payloadSnapshotJson);
+    if (rawSnapshot == null) return false;
+    try {
+      final decoded = jsonDecode(rawSnapshot);
+      if (decoded is! Map<String, dynamic>) return false;
+      final snapshotUpdatedAt = DateTime.tryParse(
+        decoded['updatedAt']?.toString() ?? '',
+      );
+      return _cleanText(decoded['firestoreId']?.toString()) ==
+              _cleanText(remoteVersion.firestoreId) &&
+          _cleanText(decoded['packageFirestoreId']?.toString()) ==
+              _cleanText(remoteVersion.packageFirestoreId) &&
+          decoded['status']?.toString() == remoteVersion.status.name &&
+          _cleanText(decoded['contentHash']?.toString()) ==
+              _cleanText(remoteVersion.contentHash) &&
+          decoded['version'] == remoteVersion.version &&
+          _cleanText(decoded['updatedByUid']?.toString()) ==
+              _cleanText(remoteVersion.updatedByUid) &&
+          snapshotUpdatedAt != null &&
+          _sameInstant(snapshotUpdatedAt, remoteVersion.updatedAt);
+    } on Object {
+      return false;
+    }
+  }
+
   bool _templatePublishAuditRemoteDependencySatisfied(
     TemplatePublishAudit audit,
     TemplateVersion? remoteVersion,
@@ -561,10 +821,13 @@ extension _SyncServiceTemplateGovernance on SyncService {
         return remoteVersion.status == TemplateVersionStatus.retired ||
             remoteVersion.status == TemplateVersionStatus.archived;
       case TemplatePublishAuditAction.archived:
-        return remoteVersion.status == TemplateVersionStatus.archived;
+        return remoteVersion.status == TemplateVersionStatus.archived &&
+            _templateLifecycleAuditSnapshotMatchesRemote(audit, remoteVersion);
+      case TemplatePublishAuditAction.restored:
+        return remoteVersion.status == TemplateVersionStatus.draft &&
+            _templateLifecycleAuditSnapshotMatchesRemote(audit, remoteVersion);
       case TemplatePublishAuditAction.created:
       case TemplatePublishAuditAction.edited:
-      case TemplatePublishAuditAction.restored:
         return true;
     }
   }
@@ -595,8 +858,10 @@ extension _SyncServiceTemplateGovernance on SyncService {
               .toList();
       final remoteList = await _firestoreTemplateGovernance
           .getAuditsByFirestoreIds(firestoreIds);
-      final remoteIds =
-          remoteList.map((e) => e.firestoreId).whereType<String>().toSet();
+      final remoteById = <String, TemplatePublishAudit>{
+        for (final remote in remoteList)
+          if (remote.firestoreId != null) remote.firestoreId!: remote,
+      };
       final versionIds = activeBatchRecords
           .map((record) => record.versionFirestoreId)
           .whereType<String>()
@@ -628,9 +893,24 @@ extension _SyncServiceTemplateGovernance on SyncService {
           continue;
         }
 
-        if (remoteIds.contains(record.firestoreId)) {
-          skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
-          lastSuccessCount++;
+        final existingRemote = remoteById[record.firestoreId];
+        if (existingRemote != null) {
+          if (_templatePublishAuditMatchesRemote(record, existingRemote)) {
+            skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            lastSuccessCount++;
+          } else {
+            lastFailureCount++;
+            _recordPushFailureDetail(
+              entityType: 'template_publish_audit',
+              entityId: record.firestoreId!,
+              error:
+                  'Remote audit identity exists with different immutable evidence; local audit was not marked synced.',
+            );
+            debugPrint(
+              '⛔ Template publish audit collision preserved locally: '
+              '${record.firestoreId}',
+            );
+          }
           continue;
         }
 
@@ -683,4 +963,4 @@ extension _SyncServiceTemplateGovernance on SyncService {
   }
 }
 
-enum _TemplateVersionReplayStep { createDraft, publish }
+enum _TemplateVersionReplayStep { createDraft, updateDraft, publish, archive }

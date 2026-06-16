@@ -71,6 +71,10 @@ extension _TemplatePublisherBuilders on _TemplatePublisherScreenState {
                         packageFirestoreId: selectedPackageId,
                         onResumeDraft:
                             (version) => _resumeDraft(version, packages),
+                        onArchiveDraft:
+                            (version) => _archivePublisherDraft(version, actor),
+                        onRestoreDraft:
+                            (version) => _restorePublisherDraft(version, actor),
                       ),
                     ],
                     const SizedBox(height: BafSpacing.lg),

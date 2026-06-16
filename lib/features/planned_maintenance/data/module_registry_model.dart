@@ -188,6 +188,8 @@ class ModuleRegistryFamily {
     required this.safetyClasses,
     required this.requiredForClosure,
     this.latestPublishedRevisionNumber = 0,
+    this.latestPublishedRevisionId,
+    this.latestPublishedContentHash,
     this.createdByUid,
     this.createdByName,
     this.createdAt,
@@ -217,6 +219,8 @@ class ModuleRegistryFamily {
   List<String> safetyClasses;
   bool requiredForClosure;
   int latestPublishedRevisionNumber;
+  String? latestPublishedRevisionId;
+  String? latestPublishedContentHash;
   String? createdByUid;
   String? createdByName;
   DateTime? createdAt;
@@ -300,6 +304,12 @@ class ModuleRegistryFamily {
           map['latestPublishedRevisionNumber'] is int
               ? map['latestPublishedRevisionNumber'] as int
               : 0,
+      latestPublishedRevisionId: _cleanOptionalText(
+        map['latestPublishedRevisionId'],
+      ),
+      latestPublishedContentHash: _cleanOptionalText(
+        map['latestPublishedContentHash'],
+      ),
       createdByUid: _cleanOptionalText(map['createdByUid']),
       createdByName: _cleanOptionalText(map['createdByName']),
       createdAt: _parseTimestamp(map['createdAt']),
@@ -372,6 +382,14 @@ class ModuleRegistryFamily {
     'safetyClasses': safetyClasses,
     'requiredForClosure': requiredForClosure,
     'latestPublishedRevisionNumber': latestPublishedRevisionNumber,
+    if (_cleanOptionalText(latestPublishedRevisionId) != null)
+      'latestPublishedRevisionId': _cleanOptionalText(
+        latestPublishedRevisionId,
+      ),
+    if (_cleanOptionalText(latestPublishedContentHash) != null)
+      'latestPublishedContentHash': _cleanOptionalText(
+        latestPublishedContentHash,
+      ),
     'createdByUid': createdByUid,
     'createdByName': createdByName,
     'createdAt': createdAt?.toIso8601String(),

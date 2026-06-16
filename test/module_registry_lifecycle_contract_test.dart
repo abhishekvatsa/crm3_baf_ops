@@ -56,6 +56,38 @@ void main() {
     },
   );
 
+  test('publish rejects identical latest hash and advances hash pointers', () {
+    final source = providerSource();
+    final publishDraft = methodBody(
+      source,
+      'Future<ModuleRegistryRevision> publishDraftRevision',
+      'Future<void> retirePublishedRevision',
+    );
+
+    expect(source, contains('_ensureLatestPublishedPointers'));
+    expect(source, contains('_loadLegacyLatestPublishedRevision'));
+    expect(
+      source,
+      contains('multiple revisions claim latest published number'),
+    );
+    expect(source, contains('latest-published pointers are missing'));
+    expect(publishDraft, contains('latestPublishedContentHash'));
+    expect(publishDraft, contains('latestPublishedRevisionId'));
+    expect(
+      publishDraft,
+      contains('latestPublished.contentHash == revision.contentHash'),
+    );
+    expect(publishDraft, contains('No-op registry publication rejected'));
+    expect(
+      publishDraft,
+      contains('..latestPublishedRevisionId = revision.revisionId'),
+    );
+    expect(
+      publishDraft,
+      contains('..latestPublishedContentHash = revision.contentHash'),
+    );
+  });
+
   test(
     'retire actions re-read current registry documents inside transactions',
     () {

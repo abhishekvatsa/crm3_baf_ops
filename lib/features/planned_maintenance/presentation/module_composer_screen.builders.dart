@@ -22,7 +22,7 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
                   child: ListTile(
                     dense: true,
                     leading: Icon(Icons.history_rounded),
-                    title: Text('Open Saved Template Drafts'),
+                    title: Text('Manage Template Drafts'),
                   ),
                 ),
               const PopupMenuItem(
