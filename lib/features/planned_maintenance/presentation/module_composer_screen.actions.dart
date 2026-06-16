@@ -351,6 +351,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
         );
         _draft.localId = selected.version.firestoreId ?? _stableDraftLocalId();
         _applyMatrixMetaToDraft();
+        _synchronizeTitleControllerFromDraft();
         _editingTemplateDraftFingerprint =
             ModuleComposerJsonBuilder.semanticFingerprint(_draft);
         _selectedModuleIndex = _draft.modules.isEmpty ? -1 : 0;

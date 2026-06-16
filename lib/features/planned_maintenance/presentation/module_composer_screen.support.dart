@@ -135,6 +135,17 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
     return 'RECOVERY::$actor::$scope::$draftId';
   }
 
+  void _synchronizeTitleControllerFromDraft() {
+    final nextTitle = _draft.title;
+    if (_titleController.text == nextTitle) {
+      return;
+    }
+    _titleController.value = TextEditingValue(
+      text: nextTitle,
+      selection: TextSelection.collapsed(offset: nextTitle.length),
+    );
+  }
+
   String _stableDraftLocalId() {
     final scope =
         widget.recoveryScopeId.trim().isEmpty
@@ -376,6 +387,7 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
           _draft.localId = _stableDraftLocalId();
         }
         _applyMatrixMetaToDraft();
+        _synchronizeTitleControllerFromDraft();
         _selectedModuleIndex = _draft.modules.isEmpty ? -1 : 0;
       });
     } finally {

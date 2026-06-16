@@ -80,6 +80,7 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
   String _knowledgeQuery = '';
   String _seedQuery = '';
   ComposerReadiness? _readinessFilter;
+  late final TextEditingController _titleController;
   final _tagController = TextEditingController();
   BafKnowledgeRepository? _knowledgeRepository;
   BafTagResolution? _lastTagResolution;
@@ -100,6 +101,7 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
       fieldDefinitionsJson: widget.initialFieldDefinitionsJson,
       checklistJson: widget.initialChecklistJson,
     );
+    _titleController = TextEditingController(text: _draft.title);
     _editingTemplateVersion = widget.initialTemplateVersion;
     _draft.localId =
         widget.initialTemplateVersion?.firestoreId ?? _stableDraftLocalId();
@@ -138,6 +140,7 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
   @override
   void dispose() {
     _recoverySaveDebounce?.cancel();
+    _titleController.dispose();
     _tagController.dispose();
     super.dispose();
   }
