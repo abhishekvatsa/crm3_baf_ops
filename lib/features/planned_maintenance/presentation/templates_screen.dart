@@ -10,44 +10,106 @@ import '../../../features/maintenance/data/maintenance_model.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import 'create_template_screen.dart';
+import 'open_executions_view.dart';
 import 'published_template_assignment_screen.dart';
 import 'template_detail_screen.dart';
 
-class TemplatesScreen extends ConsumerWidget {
+enum _PlannedWorkView { openJobs, templates }
+
+class TemplatesScreen extends ConsumerStatefulWidget {
   const TemplatesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TemplatesScreen> createState() => _TemplatesScreenState();
+}
+
+class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
+  _PlannedWorkView _selectedView = _PlannedWorkView.openJobs;
+
+  @override
+  Widget build(BuildContext context) {
     final templatesAsync = ref.watch(activeTemplatesProvider);
+    final executionsAsync = ref.watch(openExecutionsProvider);
     final appUser = ref.watch(currentAppUserProvider).value;
     final canCreateTemplate = appUser?.canCreateLegacyJobTemplate ?? false;
     final canAssignJob = appUser?.canAssignJobExecution ?? false;
     final bottomSafeInset = MediaQuery.of(context).viewPadding.bottom;
     final fabBottomGap = BafSpacing.lg + bottomSafeInset;
-    final hasAnyFab = canCreateTemplate || canAssignJob;
-    final listBottomPadding = hasAnyFab
-        ? 132 + bottomSafeInset + BafSpacing.xl
-        : BafSpacing.xl;
+    final showCreateTemplateFab =
+        canCreateTemplate && _selectedView == _PlannedWorkView.templates;
+    final showAssignFab = canAssignJob;
+    final hasAnyFab = showCreateTemplateFab || showAssignFab;
+    final listBottomPadding =
+        hasAnyFab ? 132 + bottomSafeInset + BafSpacing.xl : BafSpacing.xl;
 
     return Stack(
       children: [
         ColoredBox(
           color: BafColors.background,
-          child: templatesAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => _ErrorState(message: 'Error: $e'),
-            data: (templates) {
-              if (templates.isEmpty) return const _EmptyTemplatesState();
-              return _TemplateList(
-                templates: templates,
-                bottomPadding: listBottomPadding,
-              );
-            },
+          child: Column(
+            children: [
+              _PlannedWorkSelector(
+                selectedView: _selectedView,
+                openJobCount: executionsAsync.value?.length,
+                templateCount: templatesAsync.value?.length,
+                onChanged: (view) {
+                  if (view == _selectedView) return;
+                  setState(() => _selectedView = view);
+                },
+              ),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child:
+                      _selectedView == _PlannedWorkView.openJobs
+                          ? KeyedSubtree(
+                            key: const ValueKey('planned-work-open-jobs'),
+                            child: executionsAsync.when(
+                              loading:
+                                  () => const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                              error:
+                                  (e, _) => _ErrorState(
+                                    message: 'Could not load open jobs: $e',
+                                  ),
+                              data:
+                                  (executions) => OpenExecutionsView(
+                                    executions: executions,
+                                    bottomPadding: listBottomPadding,
+                                  ),
+                            ),
+                          )
+                          : KeyedSubtree(
+                            key: const ValueKey('planned-work-templates'),
+                            child: templatesAsync.when(
+                              loading:
+                                  () => const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                              error:
+                                  (e, _) => _ErrorState(
+                                    message: 'Could not load templates: $e',
+                                  ),
+                              data: (templates) {
+                                if (templates.isEmpty) {
+                                  return const _EmptyTemplatesState();
+                                }
+                                return _TemplateList(
+                                  templates: templates,
+                                  bottomPadding: listBottomPadding,
+                                );
+                              },
+                            ),
+                          ),
+                ),
+              ),
+            ],
           ),
         ),
-        if (canAssignJob)
+        if (showAssignFab)
           Positioned(
-            bottom: canCreateTemplate ? fabBottomGap + 64 : fabBottomGap,
+            bottom: showCreateTemplateFab ? fabBottomGap + 64 : fabBottomGap,
             right: BafSpacing.lg,
             child: FloatingActionButton.extended(
               heroTag: 'published_templates_fab',
@@ -69,7 +131,7 @@ class TemplatesScreen extends ConsumerWidget {
               },
             ),
           ),
-        if (canCreateTemplate)
+        if (showCreateTemplateFab)
           Positioned(
             bottom: fabBottomGap,
             right: BafSpacing.lg,
@@ -86,7 +148,9 @@ class TemplatesScreen extends ConsumerWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const CreateTemplateScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const CreateTemplateScreen(),
+                  ),
                 );
               },
             ),
@@ -96,14 +160,113 @@ class TemplatesScreen extends ConsumerWidget {
   }
 }
 
+class _PlannedWorkSelector extends StatelessWidget {
+  final _PlannedWorkView selectedView;
+  final int? openJobCount;
+  final int? templateCount;
+  final ValueChanged<_PlannedWorkView> onChanged;
+
+  const _PlannedWorkSelector({
+    required this.selectedView,
+    required this.openJobCount,
+    required this.templateCount,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(
+        BafSpacing.lg,
+        BafSpacing.lg,
+        BafSpacing.lg,
+        BafSpacing.sm,
+      ),
+      padding: const EdgeInsets.all(BafSpacing.md),
+      decoration: BoxDecoration(
+        color: BafColors.card,
+        borderRadius: BorderRadius.circular(BafRadius.large),
+        border: Border.all(color: BafColors.border),
+        boxShadow: BafShadows.subtle,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Planned Maintenance',
+            style: TextStyle(
+              color: BafColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Open assigned work and reusable templates are separate views.',
+            style: TextStyle(
+              color: BafColors.textSecondary,
+              fontSize: 12,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: BafSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<_PlannedWorkView>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment<_PlannedWorkView>(
+                  value: _PlannedWorkView.openJobs,
+                  icon: Icon(Icons.work_history_rounded),
+                  label: Text('Open jobs'),
+                ),
+                ButtonSegment<_PlannedWorkView>(
+                  value: _PlannedWorkView.templates,
+                  icon: Icon(Icons.event_note_rounded),
+                  label: Text('Templates'),
+                ),
+              ],
+              selected: <_PlannedWorkView>{selectedView},
+              onSelectionChanged: (selection) {
+                if (selection.isNotEmpty) onChanged(selection.first);
+              },
+            ),
+          ),
+          const SizedBox(height: BafSpacing.sm),
+          Wrap(
+            spacing: BafSpacing.sm,
+            runSpacing: BafSpacing.sm,
+            children: [
+              StatusBadge(
+                label:
+                    openJobCount == null
+                        ? 'Open jobs loading'
+                        : '$openJobCount open jobs',
+                color: BafColors.warning,
+                icon: Icons.pending_actions_rounded,
+              ),
+              StatusBadge(
+                label:
+                    templateCount == null
+                        ? 'Templates loading'
+                        : '$templateCount templates',
+                color: BafColors.planned,
+                icon: Icons.event_note_rounded,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TemplateList extends StatelessWidget {
   final List<JobTemplate> templates;
   final double bottomPadding;
 
-  const _TemplateList({
-    required this.templates,
-    required this.bottomPadding,
-  });
+  const _TemplateList({required this.templates, required this.bottomPadding});
 
   @override
   Widget build(BuildContext context) {
@@ -124,10 +287,13 @@ class _TemplateList extends StatelessWidget {
         const SizedBox(height: BafSpacing.lg),
         ...grouped.entries.expand((entry) {
           return [
-            _AssetSectionHeader(assetType: entry.key, count: entry.value.length),
+            _AssetSectionHeader(
+              assetType: entry.key,
+              count: entry.value.length,
+            ),
             const SizedBox(height: BafSpacing.sm),
             ...entry.value.map(
-                  (template) => Padding(
+              (template) => Padding(
                 padding: const EdgeInsets.only(bottom: BafSpacing.sm),
                 child: _TemplateCard(template: template),
               ),
@@ -213,10 +379,7 @@ class _AssetSectionHeader extends StatelessWidget {
   final AssetType assetType;
   final int count;
 
-  const _AssetSectionHeader({
-    required this.assetType,
-    required this.count,
-  });
+  const _AssetSectionHeader({required this.assetType, required this.count});
 
   @override
   Widget build(BuildContext context) {
@@ -249,9 +412,10 @@ class _TemplateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fieldCount = template.parsedFields.length;
-    final agencies = template.assignedAgencies
-        .where((agency) => agency.trim().isNotEmpty)
-        .toList();
+    final agencies =
+        template.assignedAgencies
+            .where((agency) => agency.trim().isNotEmpty)
+            .toList();
 
     return Material(
       color: BafColors.card,
@@ -337,7 +501,7 @@ class _TemplateCard extends StatelessWidget {
                             icon: Icons.account_tree_rounded,
                           ),
                         ...agencies.map(
-                              (agency) => StatusBadge(
+                          (agency) => StatusBadge(
                             label: agency.toUpperCase(),
                             color: _agencyColor(agency),
                           ),
@@ -453,14 +617,13 @@ class _ErrorState extends StatelessWidget {
 }
 
 List<JobTemplate> _sortedTemplates(List<JobTemplate> templates) {
-  return List<JobTemplate>.from(templates)
-    ..sort((a, b) {
-      final typeCompare = a.applicableAssetType.index.compareTo(
-        b.applicableAssetType.index,
-      );
-      if (typeCompare != 0) return typeCompare;
-      return a.jobName.toLowerCase().compareTo(b.jobName.toLowerCase());
-    });
+  return List<JobTemplate>.from(templates)..sort((a, b) {
+    final typeCompare = a.applicableAssetType.index.compareTo(
+      b.applicableAssetType.index,
+    );
+    if (typeCompare != 0) return typeCompare;
+    return a.jobName.toLowerCase().compareTo(b.jobName.toLowerCase());
+  });
 }
 
 String _assetLabel(AssetType type) {
