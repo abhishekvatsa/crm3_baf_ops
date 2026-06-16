@@ -33,11 +33,7 @@ DateTime? _parseTimestamp(dynamic value) {
   return null;
 }
 
-T _enumByNameOr<T extends Enum>(
-    List<T> values,
-    dynamic value,
-    T fallback,
-    ) {
+T _enumByNameOr<T extends Enum>(List<T> values, dynamic value, T fallback) {
   if (value is! String) return fallback;
   for (final item in values) {
     if (item.name == value) return item;
@@ -64,7 +60,6 @@ List<String> _cleanStringList(dynamic value) {
       .where((item) => item.isNotEmpty)
       .toList();
 }
-
 
 bool? _parseBool(dynamic value) {
   if (value is bool) return value;
@@ -158,16 +153,20 @@ _TemplateClosureReviewState _deriveClosureReviewState({
   final composer = _mapFrom(jobSnapshot['composer']);
   final modules = _decodeJsonObjectListSafely(moduleSnapshotsJson);
   final actualCriticalCount = modules.where(_moduleRequiresClosure).length;
-  final declaredCriticalCount = _parseInt(jobSnapshot['closureCriticalCount']) ?? 0;
-  final criticalCount = actualCriticalCount > declaredCriticalCount
-      ? actualCriticalCount
-      : declaredCriticalCount;
+  final declaredCriticalCount =
+      _parseInt(jobSnapshot['closureCriticalCount']) ?? 0;
+  final criticalCount =
+      actualCriticalCount > declaredCriticalCount
+          ? actualCriticalCount
+          : declaredCriticalCount;
 
   return _TemplateClosureReviewState(
     confirmed: _parseBool(composer['closureReviewConfirmed']) ?? false,
     criticalModuleCount: criticalCount,
     confirmedByUid: _cleanOptionalText(composer['closureReviewConfirmedByUid']),
-    confirmedByName: _cleanOptionalText(composer['closureReviewConfirmedByName']),
+    confirmedByName: _cleanOptionalText(
+      composer['closureReviewConfirmedByName'],
+    ),
     confirmedAt: _parseTimestamp(composer['closureReviewConfirmedAt']),
   );
 }
@@ -182,18 +181,9 @@ String stableTemplateContentHash(String payload) {
   return 'tg2-sha256:$digest';
 }
 
-enum TemplatePackageLifecycleStatus {
-  active,
-  retired,
-  archived,
-}
+enum TemplatePackageLifecycleStatus { active, retired, archived }
 
-enum TemplateVersionStatus {
-  draft,
-  published,
-  retired,
-  archived,
-}
+enum TemplateVersionStatus { draft, published, retired, archived }
 
 enum TemplatePublishAuditAction {
   created,
@@ -278,12 +268,14 @@ class TemplatePackage {
   List<String> operationalStatePreconditions = [];
   String? metadataJson;
 
-  bool get isRetired => lifecycleStatus == TemplatePackageLifecycleStatus.retired;
-  bool get isArchived => lifecycleStatus == TemplatePackageLifecycleStatus.archived;
+  bool get isRetired =>
+      lifecycleStatus == TemplatePackageLifecycleStatus.retired;
+  bool get isArchived =>
+      lifecycleStatus == TemplatePackageLifecycleStatus.archived;
   bool get isAssignable =>
       !isDeleted &&
-          lifecycleStatus == TemplatePackageLifecycleStatus.active &&
-          _cleanOptionalText(activeVersionFirestoreId) != null;
+      lifecycleStatus == TemplatePackageLifecycleStatus.active &&
+      _cleanOptionalText(activeVersionFirestoreId) != null;
 
   Map<String, dynamic> toAuditMap() => {
     'id': id,
@@ -349,10 +341,13 @@ class TemplatePackage {
         map['lifecycleStatus'],
         TemplatePackageLifecycleStatus.active,
       )
-      ..activeVersionFirestoreId = _cleanOptionalText(map['activeVersionFirestoreId'])
-      ..latestVersionNumber = map['latestVersionNumber'] is int
-          ? map['latestVersionNumber'] as int
-          : 0
+      ..activeVersionFirestoreId = _cleanOptionalText(
+        map['activeVersionFirestoreId'],
+      )
+      ..latestVersionNumber =
+          map['latestVersionNumber'] is int
+              ? map['latestVersionNumber'] as int
+              : 0
       ..createdByUid = _cleanOptionalText(map['createdByUid'])
       ..createdByName = _cleanOptionalText(map['createdByName'])
       ..updatedByUid = _cleanOptionalText(map['updatedByUid'])
@@ -367,9 +362,11 @@ class TemplatePackage {
       ..deletedByName = _cleanOptionalText(map['deletedByName'])
       ..deleteReason = _cleanOptionalText(map['deleteReason'])
       ..version = map['version'] is int ? map['version'] as int : 1
-      ..schemaVersion = map['schemaVersion'] is int ? map['schemaVersion'] as int : 1
+      ..schemaVersion =
+          map['schemaVersion'] is int ? map['schemaVersion'] as int : 1
       ..createdAt = _parseTimestamp(map['createdAt']) ?? DateTime.now()
-      ..updatedAt = _parseTimestamp(map['updatedAt']) ??
+      ..updatedAt =
+          _parseTimestamp(map['updatedAt']) ??
           _parseTimestamp(map['createdAt']) ??
           DateTime.now()
       ..targetRefs = _cleanStringList(map['targetRefs'])
@@ -377,8 +374,9 @@ class TemplatePackage {
       ..safetyClass = _cleanOptionalText(map['safetyClass'])
       ..safetyGatePolicyJson = _cleanOptionalText(map['safetyGatePolicyJson'])
       ..procedureRefs = _cleanStringList(map['procedureRefs'])
-      ..operationalStatePreconditions =
-      _cleanStringList(map['operationalStatePreconditions'])
+      ..operationalStatePreconditions = _cleanStringList(
+        map['operationalStatePreconditions'],
+      )
       ..metadataJson = _cleanOptionalText(map['metadataJson'])
       ..isSynced = true;
   }
@@ -475,6 +473,16 @@ class TemplateVersion {
   bool get isPublished => status == TemplateVersionStatus.published;
   bool get isRetired => status == TemplateVersionStatus.retired;
   bool get isArchived => status == TemplateVersionStatus.archived;
+  bool get isArchivedDraft =>
+      isArchived &&
+      !isDeleted &&
+      publishedAt == null &&
+      publishedByUid == null &&
+      publishedByName == null &&
+      retiredAt == null &&
+      retiredByUid == null &&
+      retiredByName == null &&
+      retireReason == null;
   bool get isAssignable => !isDeleted && isPublished;
 
   void refreshClosureReviewStateFromSnapshots() {
@@ -501,8 +509,12 @@ class TemplateVersion {
       'checklistJson': checklistJson,
       'closureReviewConfirmed': closureState.confirmed,
       'closureCriticalModuleCount': closureState.criticalModuleCount,
-      'closureReviewConfirmedByUid': _cleanOptionalText(closureState.confirmedByUid),
-      'closureReviewConfirmedByName': _cleanOptionalText(closureState.confirmedByName),
+      'closureReviewConfirmedByUid': _cleanOptionalText(
+        closureState.confirmedByUid,
+      ),
+      'closureReviewConfirmedByName': _cleanOptionalText(
+        closureState.confirmedByName,
+      ),
       'closureReviewConfirmedAt': closureState.confirmedAt?.toIso8601String(),
       'targetRefs': targetRefs,
       'deviceTagRefs': deviceTagRefs,
@@ -514,9 +526,8 @@ class TemplateVersion {
     });
   }
 
-  String computeContentHash() => stableTemplateContentHash(
-    buildCanonicalContentPayload(),
-  );
+  String computeContentHash() =>
+      stableTemplateContentHash(buildCanonicalContentPayload());
 
   void refreshContentHash() {
     refreshClosureReviewStateFromSnapshots();
@@ -532,8 +543,12 @@ class TemplateVersion {
     'contentHash': contentHash,
     'closureReviewConfirmed': closureReviewConfirmed,
     'closureCriticalModuleCount': closureCriticalModuleCount,
-    'closureReviewConfirmedByUid': _cleanOptionalText(closureReviewConfirmedByUid),
-    'closureReviewConfirmedByName': _cleanOptionalText(closureReviewConfirmedByName),
+    'closureReviewConfirmedByUid': _cleanOptionalText(
+      closureReviewConfirmedByUid,
+    ),
+    'closureReviewConfirmedByName': _cleanOptionalText(
+      closureReviewConfirmedByName,
+    ),
     'closureReviewConfirmedAt': closureReviewConfirmedAt?.toIso8601String(),
     'version': version,
     'updatedAt': updatedAt.toIso8601String(),
@@ -548,7 +563,10 @@ class TemplateVersion {
     'status': status.name,
     'sourceVersionFirestoreId': _cleanOptionalText(sourceVersionFirestoreId),
     'contentHash': _cleanOptionalText(contentHash),
-    'jobTemplateSnapshotJson': _cleanRequiredText(jobTemplateSnapshotJson, '{}'),
+    'jobTemplateSnapshotJson': _cleanRequiredText(
+      jobTemplateSnapshotJson,
+      '{}',
+    ),
     'moduleSnapshotsJson': _cleanRequiredText(moduleSnapshotsJson, '[]'),
     'fieldDefinitionsJson': _cleanRequiredText(fieldDefinitionsJson, '[]'),
     'checklistJson': _cleanRequiredText(checklistJson, '[]'),
@@ -556,8 +574,12 @@ class TemplateVersion {
     'changeSummary': _cleanOptionalText(changeSummary),
     'closureReviewConfirmed': closureReviewConfirmed,
     'closureCriticalModuleCount': closureCriticalModuleCount,
-    'closureReviewConfirmedByUid': _cleanOptionalText(closureReviewConfirmedByUid),
-    'closureReviewConfirmedByName': _cleanOptionalText(closureReviewConfirmedByName),
+    'closureReviewConfirmedByUid': _cleanOptionalText(
+      closureReviewConfirmedByUid,
+    ),
+    'closureReviewConfirmedByName': _cleanOptionalText(
+      closureReviewConfirmedByName,
+    ),
     'closureReviewConfirmedAt': closureReviewConfirmedAt?.toIso8601String(),
     'createdByUid': _cleanOptionalText(createdByUid),
     'createdByName': _cleanOptionalText(createdByName),
@@ -594,7 +616,10 @@ class TemplateVersion {
       map['jobTemplateSnapshotJson'],
       '{}',
     );
-    final moduleSnapshotsJson = _cleanRequiredText(map['moduleSnapshotsJson'], '[]');
+    final moduleSnapshotsJson = _cleanRequiredText(
+      map['moduleSnapshotsJson'],
+      '[]',
+    );
     final inferredClosureState = _deriveClosureReviewState(
       jobTemplateSnapshotJson: jobTemplateSnapshotJson,
       moduleSnapshotsJson: moduleSnapshotsJson,
@@ -603,35 +628,42 @@ class TemplateVersion {
     return TemplateVersion()
       ..firestoreId = documentId
       ..packageFirestoreId = _cleanOptionalText(map['packageFirestoreId'])
-      ..versionNumber = map['versionNumber'] is int ? map['versionNumber'] as int : 1
+      ..versionNumber =
+          map['versionNumber'] is int ? map['versionNumber'] as int : 1
       ..versionLabel = _cleanOptionalText(map['versionLabel'])
       ..status = _enumByNameOr(
         TemplateVersionStatus.values,
         map['status'],
         TemplateVersionStatus.draft,
       )
-      ..sourceVersionFirestoreId = _cleanOptionalText(map['sourceVersionFirestoreId'])
+      ..sourceVersionFirestoreId = _cleanOptionalText(
+        map['sourceVersionFirestoreId'],
+      )
       ..contentHash = _cleanOptionalText(map['contentHash'])
       ..jobTemplateSnapshotJson = jobTemplateSnapshotJson
       ..moduleSnapshotsJson = moduleSnapshotsJson
-      ..fieldDefinitionsJson =
-      _cleanRequiredText(map['fieldDefinitionsJson'], '[]')
+      ..fieldDefinitionsJson = _cleanRequiredText(
+        map['fieldDefinitionsJson'],
+        '[]',
+      )
       ..checklistJson = _cleanRequiredText(map['checklistJson'], '[]')
       ..releaseNotes = _cleanOptionalText(map['releaseNotes'])
       ..changeSummary = _cleanOptionalText(map['changeSummary'])
       ..closureReviewConfirmed =
-          _parseBool(map['closureReviewConfirmed']) ?? inferredClosureState.confirmed
+          _parseBool(map['closureReviewConfirmed']) ??
+          inferredClosureState.confirmed
       ..closureCriticalModuleCount =
           _parseInt(map['closureCriticalModuleCount']) ??
-              inferredClosureState.criticalModuleCount
+          inferredClosureState.criticalModuleCount
       ..closureReviewConfirmedByUid =
           _cleanOptionalText(map['closureReviewConfirmedByUid']) ??
-              inferredClosureState.confirmedByUid
+          inferredClosureState.confirmedByUid
       ..closureReviewConfirmedByName =
           _cleanOptionalText(map['closureReviewConfirmedByName']) ??
-              inferredClosureState.confirmedByName
+          inferredClosureState.confirmedByName
       ..closureReviewConfirmedAt =
-          _parseTimestamp(map['closureReviewConfirmedAt']) ?? inferredClosureState.confirmedAt
+          _parseTimestamp(map['closureReviewConfirmedAt']) ??
+          inferredClosureState.confirmedAt
       ..createdByUid = _cleanOptionalText(map['createdByUid'])
       ..createdByName = _cleanOptionalText(map['createdByName'])
       ..updatedByUid = _cleanOptionalText(map['updatedByUid'])
@@ -650,9 +682,11 @@ class TemplateVersion {
       ..deletedByName = _cleanOptionalText(map['deletedByName'])
       ..deleteReason = _cleanOptionalText(map['deleteReason'])
       ..version = map['version'] is int ? map['version'] as int : 1
-      ..schemaVersion = map['schemaVersion'] is int ? map['schemaVersion'] as int : 1
+      ..schemaVersion =
+          map['schemaVersion'] is int ? map['schemaVersion'] as int : 1
       ..createdAt = _parseTimestamp(map['createdAt']) ?? DateTime.now()
-      ..updatedAt = _parseTimestamp(map['updatedAt']) ??
+      ..updatedAt =
+          _parseTimestamp(map['updatedAt']) ??
           _parseTimestamp(map['createdAt']) ??
           DateTime.now()
       ..targetRefs = _cleanStringList(map['targetRefs'])
@@ -660,8 +694,9 @@ class TemplateVersion {
       ..safetyClass = _cleanOptionalText(map['safetyClass'])
       ..safetyGatePolicyJson = _cleanOptionalText(map['safetyGatePolicyJson'])
       ..procedureRefs = _cleanStringList(map['procedureRefs'])
-      ..operationalStatePreconditions =
-      _cleanStringList(map['operationalStatePreconditions'])
+      ..operationalStatePreconditions = _cleanStringList(
+        map['operationalStatePreconditions'],
+      )
       ..metadataJson = _cleanOptionalText(map['metadataJson'])
       ..isSynced = true;
   }
@@ -744,10 +779,11 @@ class TemplatePublishAudit {
   };
 
   factory TemplatePublishAudit.fromMap(
-      Map<String, dynamic> map,
-      String documentId,
-      ) {
-    final performedAt = _parseTimestamp(map['performedAt']) ??
+    Map<String, dynamic> map,
+    String documentId,
+  ) {
+    final performedAt =
+        _parseTimestamp(map['performedAt']) ??
         _parseTimestamp(map['updatedAt']) ??
         DateTime.now();
 
@@ -770,7 +806,8 @@ class TemplatePublishAudit {
       ..payloadSnapshotJson = _cleanOptionalText(map['payloadSnapshotJson'])
       ..metadataJson = _cleanOptionalText(map['metadataJson'])
       ..version = map['version'] is int ? map['version'] as int : 1
-      ..schemaVersion = map['schemaVersion'] is int ? map['schemaVersion'] as int : 1
+      ..schemaVersion =
+          map['schemaVersion'] is int ? map['schemaVersion'] as int : 1
       ..isDeleted = map['isDeleted'] == true
       ..isSynced = true;
   }

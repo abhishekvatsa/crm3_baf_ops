@@ -13,8 +13,10 @@ void main() {
 
       _expectOrder(syncBlock, const [
         'final remote = remoteMap[record.firestoreId];',
-        'final replayed = await _tryPushDecomposedTemplateVersion',
-        'skippedButSyncedSnapshots.add(_syncPushSnapshot(record));',
+        'final archiveReplayed =',
+        '_tryPushDecomposedTemplateVersionArchive(',
+        'final publishReplayed =',
+        '_tryPushDecomposedTemplateVersion(',
         'recordsToPush.add(record);',
       ]);
 
@@ -45,9 +47,11 @@ void main() {
       expect(plan, contains('_TemplateVersionReplayStep.publish'));
       expect(
         source,
-        contains('enum _TemplateVersionReplayStep { createDraft, publish }'),
+        contains(
+          'enum _TemplateVersionReplayStep { createDraft, updateDraft, publish, archive }',
+        ),
         reason:
-            '70A must stay limited to TemplateVersion create-draft/publish replay.',
+            'TemplateVersion replay is explicitly limited to draft create/update, publish, and governed draft archive.',
       );
     });
 
@@ -219,6 +223,128 @@ void main() {
         contains('_templateGovernanceRepo.batchUpsertVersions'),
         reason:
             'the repaired published record must be persisted locally before replay is marked synced',
+      );
+    });
+
+    test('offline draft archive replays draft create before scoped archive', () {
+      final source = _read(_syncPath);
+      final archivePlan = _blockStartingAt(
+        source,
+        'List<_TemplateVersionReplayStep> _templateVersionArchiveReplayPlan',
+      );
+      final archivePayload = _blockStartingAt(
+        source,
+        'Map<String, dynamic> _templateVersionArchiveReplayStepData',
+      );
+      final provider = _read(_providerPath);
+
+      expect(
+        archivePlan,
+        contains('local.status != TemplateVersionStatus.archived'),
+      );
+      expect(archivePlan, contains('_TemplateVersionReplayStep.createDraft'));
+      expect(archivePlan, contains('_TemplateVersionReplayStep.updateDraft'));
+      expect(archivePlan, contains('_TemplateVersionReplayStep.archive'));
+      expect(
+        archivePlan,
+        contains('predecessorVersion <= remote.version'),
+        reason:
+            'an unsynced saved edit may be replayed as draft→draft before archive only when its predecessor version is newer than remote',
+      );
+      expect(
+        source,
+        contains('_canReplayTemplateVersionArchiveForCurrentUser'),
+      );
+      expect(
+        source,
+        contains('_remoteTemplateVersionArchiveAlreadySatisfied'),
+        reason:
+            'a committed archive replay must be markable on the next sync without an illegal archived→archived write',
+      );
+
+      for (final field in <String>[
+        'status',
+        'contentHash',
+        'closureReviewConfirmed',
+        'closureCriticalModuleCount',
+        'updatedByUid',
+        'updatedAt',
+        'version',
+      ]) {
+        expect(archivePayload, contains("'$field'"));
+      }
+      for (final forbidden in <String>[
+        'jobTemplateSnapshotJson',
+        'moduleSnapshotsJson',
+        'fieldDefinitionsJson',
+        'checklistJson',
+        'createdByUid',
+        'createdAt',
+        'packageFirestoreId',
+        'versionNumber',
+        'isDeleted',
+      ]) {
+        expect(archivePayload, isNot(contains("'$forbidden'")));
+      }
+
+      expect(source, contains('_templateVersionDraftReplayUpdateData'));
+      expect(
+        provider,
+        contains('applyRemoteTemplateVersionDraftUpdateReplayStepForSync'),
+      );
+      expect(
+        provider,
+        contains('applyRemoteTemplateVersionArchiveReplayStepForSync'),
+      );
+      expect(
+        source.split('expectedDraftVersion: predecessorVersion').length - 1,
+        2,
+        reason:
+            'both draft-update and archive replay steps must carry their expected remote predecessor version',
+      );
+      expect(
+        provider,
+        contains('remote.version != expectedDraftVersion'),
+        reason:
+            'archive replay must re-read and compare the remote predecessor version before committing the lifecycle transition',
+      );
+    });
+
+    test('existing remote audit must match immutable local evidence', () {
+      final source = _read(_syncPath);
+      final matcher = _blockStartingAt(
+        source,
+        'bool _templatePublishAuditMatchesRemote',
+      );
+      final auditSync = _blockStartingAt(
+        source,
+        'Future<void> _syncTemplatePublishAudits()',
+      );
+
+      expect(matcher, contains('local.action == remote.action'));
+      expect(matcher, contains('local.payloadSnapshotJson'));
+      expect(matcher, contains('local.afterHash'));
+      expect(auditSync, contains('_templatePublishAuditMatchesRemote'));
+      expect(auditSync, contains('audit collision preserved locally'));
+    });
+
+    test('restore audit waits for the remote version to return to draft', () {
+      final source = _read(_syncPath);
+      final dependency = _blockStartingAt(
+        source,
+        'bool _templatePublishAuditRemoteDependencySatisfied',
+      );
+
+      expect(dependency, contains('case TemplatePublishAuditAction.restored:'));
+      expect(
+        dependency,
+        contains('remoteVersion.status == TemplateVersionStatus.draft'),
+      );
+      expect(
+        source,
+        contains('_templateLifecycleAuditSnapshotMatchesRemote'),
+        reason:
+            'archive/restore audits must not sync merely because the remote lifecycle status happens to match',
       );
     });
 

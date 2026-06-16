@@ -144,6 +144,30 @@ void main() {
       );
     },
   );
+  test('registry family round trips latest published hash pointers', () {
+    final family =
+        ModuleRegistryFamily.fromModule(
+            module: _module(),
+            actor: _actor(),
+            now: DateTime.utc(2026, 1, 1),
+          )
+          ..latestPublishedRevisionNumber = 3
+          ..latestPublishedRevisionId = 'revision-3'
+          ..latestPublishedContentHash =
+              'mrg1-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+    final restored = ModuleRegistryFamily.fromMap(
+      family.toMap(),
+      family.registryModuleId,
+    );
+
+    expect(restored.latestPublishedRevisionNumber, 3);
+    expect(restored.latestPublishedRevisionId, 'revision-3');
+    expect(
+      restored.latestPublishedContentHash,
+      'mrg1-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    );
+  });
 }
 
 AppUser _actor() {

@@ -167,7 +167,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
     final actor = ref.read(currentAppUserProvider).value;
     if (actor == null || !actor.canPublishTemplateVersion) {
       _showSnack(
-        'Only Admin/SI users can resume governed TemplateVersion drafts.',
+        'Only Admin/SI users can manage governed TemplateVersion drafts.',
         BafColors.danger,
       );
       return;
@@ -187,7 +187,8 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
         }
         final versions = await repository.getVersionsForPackage(packageId);
         for (final version in versions) {
-          if (!version.isDeleted && version.isDraft) {
+          if (!version.isDeleted &&
+              (version.isDraft || version.isArchivedDraft)) {
             entries.add(
               _SavedTemplateDraftEntry(package: package, version: version),
             );
@@ -196,7 +197,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       }
     } on Object catch (error) {
       if (mounted) {
-        _showSnack('Unable to load saved drafts: $error', BafColors.danger);
+        _showSnack('Unable to load governed drafts: $error', BafColors.danger);
       }
       return;
     }
@@ -206,11 +207,102 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       return;
     }
 
-    final selected = await showDialog<_SavedTemplateDraftEntry>(
+    final pickerResult = await showDialog<_SavedTemplateDraftPickerResult>(
       context: context,
       builder: (_) => _SavedTemplateDraftPickerDialog(entries: entries),
     );
-    if (!mounted || selected == null) {
+    if (!mounted || pickerResult == null) {
+      return;
+    }
+
+    final selected = pickerResult.entry;
+    if (pickerResult.action == _SavedTemplateDraftAction.restore) {
+      if (!selected.canAttemptRestore) {
+        _showSnack(selected.restoreGuidance, BafColors.warning);
+        return;
+      }
+
+      final reason = await showDialog<String>(
+        context: context,
+        builder: (_) => _RestoreTemplateDraftReasonDialog(entry: selected),
+      );
+      if (!mounted || reason == null) {
+        return;
+      }
+
+      try {
+        await repository.restoreArchivedDraftVersion(
+          selected.version,
+          actor: actor,
+          reason: reason,
+        );
+        if (!mounted) {
+          return;
+        }
+
+        _triggerTemplateGovernanceSync(
+          'template_governance_draft_restored_from_composer',
+        );
+        _showSnack(
+          selected.version.isSynced
+              ? 'Archived draft restored under the same governed identity and remotely confirmed.'
+              : 'Archived draft restored locally under the same governed identity and queued for sync. Reopen it after restore sync completes.',
+          BafColors.audit,
+        );
+      } on Object catch (error) {
+        if (mounted) {
+          _showSnack('Draft restore failed: $error', BafColors.danger);
+        }
+      }
+      return;
+    }
+
+    if (pickerResult.action == _SavedTemplateDraftAction.archive) {
+      final reason = await showDialog<String>(
+        context: context,
+        builder: (_) => _ArchiveTemplateDraftReasonDialog(entry: selected),
+      );
+      if (!mounted || reason == null) {
+        return;
+      }
+
+      final currentVersionId = _editingTemplateVersion?.firestoreId;
+      final archivedCurrentDraft =
+          currentVersionId != null &&
+          currentVersionId == selected.version.firestoreId;
+
+      try {
+        await repository.archiveDraftVersion(
+          selected.version,
+          actor: actor,
+          reason: reason,
+        );
+        if (!mounted) {
+          return;
+        }
+
+        if (archivedCurrentDraft) {
+          setState(() {
+            _editingTemplateVersion = null;
+            _editingTemplateDraftFingerprint = null;
+            _draft.localId = _stableDraftLocalId();
+          });
+        }
+
+        _triggerTemplateGovernanceSync(
+          'template_governance_draft_archived_from_composer',
+        );
+        _showSnack(
+          archivedCurrentDraft
+              ? 'Draft archived. Current Composer content is retained as an unsaved detached copy.'
+              : 'Draft archived locally and queued for governed sync.',
+          BafColors.audit,
+        );
+      } on Object catch (error) {
+        if (mounted) {
+          _showSnack('Draft archive failed: $error', BafColors.danger);
+        }
+      }
       return;
     }
 

@@ -1079,11 +1079,61 @@ service cloud.firestore {
         : false;
     }
 
+    function templateVersionHasNoPublishOrRetireHistory(data) {
+      return data.get('publishedByUid', null) == null
+        && data.get('publishedByName', null) == null
+        && data.get('publishedAt', null) == null
+        && data.get('retiredByUid', null) == null
+        && data.get('retiredByName', null) == null
+        && data.get('retiredAt', null) == null
+        && data.get('retireReason', null) == null;
+    }
+
+    function templateVersionDraftLifecycleChangedFieldsOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'status',
+        'contentHash',
+        'closureReviewConfirmed',
+        'closureCriticalModuleCount',
+        'closureReviewConfirmedByUid',
+        'closureReviewConfirmedByName',
+        'closureReviewConfirmedAt',
+        'updatedByUid',
+        'updatedByName',
+        'updatedAt',
+        'version'
+      ]);
+    }
+
     function validTemplateVersionArchiveDelta() {
-      return resource.data.get('status', null) == 'retired'
-        && request.resource.data.get('status', null) == 'archived'
-        ? templateVersionFrozenPayloadUnchanged()
-        : false;
+      return (
+          resource.data.get('status', null) == 'retired'
+          && request.resource.data.get('status', null) == 'archived'
+          && templateVersionFrozenPayloadUnchanged()
+        )
+        || (
+          resource.data.get('status', null) == 'draft'
+          && request.resource.data.get('status', null) == 'archived'
+          && resource.data.get('isDeleted', null) == false
+          && request.resource.data.get('isDeleted', null) == false
+          && templateVersionHasNoPublishOrRetireHistory(resource.data)
+          && templateVersionHasNoPublishOrRetireHistory(request.resource.data)
+          && templateVersionPayloadJsonUnchanged()
+          && templateVersionDraftLifecycleChangedFieldsOnly()
+          && templateContentHashLooksValid()
+        );
+    }
+
+    function validTemplateVersionRestoreDelta() {
+      return resource.data.get('status', null) == 'archived'
+        && request.resource.data.get('status', null) == 'draft'
+        && resource.data.get('isDeleted', null) == false
+        && request.resource.data.get('isDeleted', null) == false
+        && templateVersionHasNoPublishOrRetireHistory(resource.data)
+        && templateVersionHasNoPublishOrRetireHistory(request.resource.data)
+        && templateVersionPayloadJsonUnchanged()
+        && templateVersionDraftLifecycleChangedFieldsOnly()
+        && templateContentHashLooksValid();
     }
 
     function validTemplateVersionUpdate(docId) {
@@ -1093,6 +1143,59 @@ service cloud.firestore {
           || validTemplateVersionPublishDelta()
           || validTemplateVersionRetireDelta()
           || validTemplateVersionArchiveDelta()
+          || validTemplateVersionRestoreDelta()
+        );
+    }
+
+    function validTemplateLifecycleAuditEvidence() {
+      return request.resource.data.get('reason', null) is string
+        && request.resource.data.get('reason', '').size() >= 10
+        && request.resource.data.get('afterHash', null) is string
+        && request.resource.data.get('afterHash', null).matches('^tg2-sha256:[0-9a-f]{64}$')
+        && request.resource.data.get('payloadSnapshotJson', null) is string;
+    }
+
+    function validArchivedTemplateAudit() {
+      return request.resource.data.get('action', null) != 'archived'
+        || (
+          validTemplateLifecycleAuditEvidence()
+          && getAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          ).data.get('status', null) == 'archived'
+          && getAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          ).data.get('isDeleted', false) == false
+          && request.resource.data.get('packageFirestoreId', null) == getAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          ).data.get('packageFirestoreId', null)
+          && request.resource.data.get('afterHash', null) == getAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          ).data.get('contentHash', null)
+          && request.resource.data.get('performedByUid', null) == getAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          ).data.get('updatedByUid', null)
+        );
+    }
+
+    function validRestoredTemplateAudit() {
+      return request.resource.data.get('action', null) != 'restored'
+        || (
+          validTemplateLifecycleAuditEvidence()
+          && getAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          ).data.get('status', null) == 'draft'
+          && getAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          ).data.get('isDeleted', false) == false
+          && request.resource.data.get('packageFirestoreId', null) == getAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          ).data.get('packageFirestoreId', null)
+          && request.resource.data.get('afterHash', null) == getAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          ).data.get('contentHash', null)
+          && request.resource.data.get('performedByUid', null) == getAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          ).data.get('updatedByUid', null)
         );
     }
 
@@ -1102,6 +1205,8 @@ service cloud.firestore {
         && request.resource.data.get('packageFirestoreId', null) is string
         && request.resource.data.get('versionFirestoreId', null) is string
         && isTemplateAuditAction(request.resource.data.get('action', null))
+        && validArchivedTemplateAudit()
+        && validRestoredTemplateAudit()
         && request.resource.data.get('performedByUid', null) == request.auth.uid
         && request.resource.data.get('performedAt', null) != null
         && request.resource.data.get('updatedAt', null) != null
@@ -1181,6 +1286,8 @@ service cloud.firestore {
           'safetyClasses',
           'requiredForClosure',
           'latestPublishedRevisionNumber',
+          'latestPublishedRevisionId',
+          'latestPublishedContentHash',
           'createdByUid',
           'createdByName',
           'createdAt',
@@ -1210,6 +1317,12 @@ service cloud.firestore {
         && request.resource.data.get('requiredForClosure', null) is bool
         && request.resource.data.get('latestPublishedRevisionNumber', null) is int
         && request.resource.data.get('latestPublishedRevisionNumber', null) >= 0
+        && moduleRegistryOptionalString(request.resource.data.get('latestPublishedRevisionId', null))
+        && moduleRegistryOptionalString(request.resource.data.get('latestPublishedContentHash', null))
+        && (
+          request.resource.data.get('latestPublishedContentHash', null) == null
+          || request.resource.data.get('latestPublishedContentHash', '').matches('^mrg1-sha256:[0-9a-f]{64}$')
+        )
         && request.resource.data.get('createdByUid', null) is string
         && moduleRegistryOptionalString(request.resource.data.get('createdByName', null))
         && request.resource.data.get('updatedByUid', null) is string
@@ -1229,6 +1342,8 @@ service cloud.firestore {
         && request.resource.data.get('registryModuleId', null) == docId
         && request.resource.data.get('status', null) == 'active'
         && request.resource.data.get('latestPublishedRevisionNumber', null) == 0
+        && request.resource.data.get('latestPublishedRevisionId', null) == null
+        && request.resource.data.get('latestPublishedContentHash', null) == null
         && request.resource.data.get('createdByUid', null) == request.auth.uid
         && request.resource.data.get('updatedByUid', null) == request.auth.uid;
     }
@@ -1255,6 +1370,19 @@ service cloud.firestore {
         'safetyClasses',
         'requiredForClosure',
         'latestPublishedRevisionNumber',
+        'latestPublishedRevisionId',
+        'latestPublishedContentHash',
+        'updatedByUid',
+        'updatedByName',
+        'updatedAt',
+        'version'
+      ]);
+    }
+
+    function moduleRegistryFamilyPointerBootstrapChangedFieldsOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'latestPublishedRevisionId',
+        'latestPublishedContentHash',
         'updatedByUid',
         'updatedByName',
         'updatedAt',
@@ -1277,7 +1405,110 @@ service cloud.firestore {
     }
 
 
-    function validModuleRegistryFamilyUpdate(docId) {
+    function moduleRegistryHistoricalRevisionMatchesPointer(
+      registryModuleId,
+      revisionId,
+      publishedHash,
+      revisionNumber
+    ) {
+      let historicalRevision = getAfter(
+        /databases/$(database)/documents/module_registry/$(registryModuleId)/revisions/$(revisionId)
+      ).data;
+      return historicalRevision.get('revisionId', null) == revisionId
+        && historicalRevision.get('registryModuleId', null) == registryModuleId
+        && (
+          historicalRevision.get('revisionStatus', null) == 'published'
+          || historicalRevision.get('revisionStatus', null) == 'retired'
+        )
+        && historicalRevision.get('revisionNumber', -1) == revisionNumber
+        && historicalRevision.get('contentHash', null) == publishedHash;
+    }
+
+    function moduleRegistryPointerBootstrapMatchesHistory(registryModuleId) {
+      let revisionId = request.resource.data.get('latestPublishedRevisionId', '');
+      let publishedHash = request.resource.data.get('latestPublishedContentHash', '');
+      return revisionId is string
+        && revisionId.size() > 0
+        && publishedHash is string
+        && publishedHash.matches('^mrg1-sha256:[0-9a-f]{64}$')
+        ? moduleRegistryHistoricalRevisionMatchesPointer(
+            registryModuleId,
+            revisionId,
+            publishedHash,
+            resource.data.get('latestPublishedRevisionNumber', -1)
+          )
+        : false;
+    }
+
+    function moduleRegistryRevisionMatchesPublishPointer(
+      registryModuleId,
+      revisionId,
+      publishedHash
+    ) {
+      let publishedRevision = getAfter(
+        /databases/$(database)/documents/module_registry/$(registryModuleId)/revisions/$(revisionId)
+      ).data;
+      return publishedRevision.get('revisionId', null) == revisionId
+        && publishedRevision.get('registryModuleId', null) == registryModuleId
+        && publishedRevision.get('revisionStatus', null) == 'published'
+        && publishedRevision.get('revisionNumber', -1) ==
+          request.resource.data.get('latestPublishedRevisionNumber', -1)
+        && publishedRevision.get('contentHash', null) == publishedHash;
+    }
+
+    function moduleRegistryPublishPointerMatchesRevision(registryModuleId) {
+      let revisionId = request.resource.data.get('latestPublishedRevisionId', '');
+      let publishedHash = request.resource.data.get('latestPublishedContentHash', '');
+      return revisionId is string
+        && revisionId.size() > 0
+        && publishedHash is string
+        && publishedHash.matches('^mrg1-sha256:[0-9a-f]{64}$')
+        ? moduleRegistryRevisionMatchesPublishPointer(
+            registryModuleId,
+            revisionId,
+            publishedHash
+          )
+        : false;
+    }
+
+    // Legacy families may already have a published revision number while the
+    // revision ID/hash pointers are absent. Keep this migration path narrow so
+    // it does not consume the expression budget of the full publish validator.
+    function validModuleRegistryFamilyPointerBootstrapUpdate(docId) {
+      return isModuleRegistryGovernor()
+        && resource.data.get('registryModuleId', null) == docId
+        && request.resource.data.get('registryModuleId', null) == docId
+        && moduleRegistryFamilyIdentityUnchanged()
+        && resource.data.get('status', null) == 'active'
+        && request.resource.data.get('status', null) == 'active'
+        && moduleRegistryFamilyPointerBootstrapChangedFieldsOnly()
+        && resource.data.get('latestPublishedRevisionNumber', -1) is int
+        && resource.data.get('latestPublishedRevisionNumber', -1) > 0
+        && request.resource.data.get('latestPublishedRevisionNumber', -1) ==
+          resource.data.get('latestPublishedRevisionNumber', -1)
+        && (
+          resource.data.get('latestPublishedRevisionId', null) == null
+          || resource.data.get('latestPublishedRevisionId', null) ==
+            request.resource.data.get('latestPublishedRevisionId', null)
+        )
+        && (
+          resource.data.get('latestPublishedContentHash', null) == null
+          || resource.data.get('latestPublishedContentHash', null) ==
+            request.resource.data.get('latestPublishedContentHash', null)
+        )
+        && (
+          resource.data.get('latestPublishedRevisionId', null) == null
+          || resource.data.get('latestPublishedContentHash', null) == null
+        )
+        && request.resource.data.get('updatedByUid', null) == request.auth.uid
+        && request.resource.data.get('version', -1) is int
+        && resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) ==
+          resource.data.get('version', -1) + 1
+        && moduleRegistryPointerBootstrapMatchesHistory(docId);
+    }
+
+    function validModuleRegistryFamilyGovernedUpdate(docId) {
       return isModuleRegistryGovernor()
         && resource.data.get('registryModuleId', null) == docId
         && validModuleRegistryFamilyFields()
@@ -1286,26 +1517,51 @@ service cloud.firestore {
         && request.resource.data.get('updatedByUid', null) == request.auth.uid
         && request.resource.data.get('version', -1) is int
         && resource.data.get('version', -1) is int
-        && request.resource.data.get('version', -1) == resource.data.get('version', -1) + 1
+        && request.resource.data.get('version', -1) ==
+          resource.data.get('version', -1) + 1
         && (
           (
             resource.data.get('status', null) == 'active'
             && request.resource.data.get('status', null) == 'active'
             && moduleRegistryFamilyPublishChangedFieldsOnly()
-            && request.resource.data.get('latestPublishedRevisionNumber', null) == resource.data.get('latestPublishedRevisionNumber', null) + 1
+            && request.resource.data.get('latestPublishedRevisionNumber', null) ==
+              resource.data.get('latestPublishedRevisionNumber', null) + 1
+            && moduleRegistryPublishPointerMatchesRevision(docId)
+            && (
+              resource.data.get('latestPublishedRevisionNumber', 0) == 0
+              || (
+                resource.data.get('latestPublishedRevisionId', null) is string
+                && resource.data.get('latestPublishedRevisionId', '').size() > 0
+                && resource.data.get('latestPublishedContentHash', null) is string
+                && resource.data.get('latestPublishedContentHash', '')
+                  .matches('^mrg1-sha256:[0-9a-f]{64}$')
+                && request.resource.data.get(
+                      'latestPublishedContentHash',
+                      null
+                    ) !=
+                  resource.data.get('latestPublishedContentHash', null)
+              )
+            )
           )
           || (
             resource.data.get('status', null) == 'active'
             && request.resource.data.get('status', null) == 'retired'
             && moduleRegistryFamilyRetireChangedFieldsOnly()
-            && request.resource.data.get('latestPublishedRevisionNumber', null) == resource.data.get('latestPublishedRevisionNumber', null)
-            && request.resource.data.get('retiredByUid', null) == request.auth.uid
+            && request.resource.data.get('latestPublishedRevisionNumber', null) ==
+              resource.data.get('latestPublishedRevisionNumber', null)
+            && request.resource.data.get('retiredByUid', null) ==
+              request.auth.uid
             && request.resource.data.get('retiredAt', null) != null
             && request.resource.data.get('retireReason', null) is string
           )
         );
     }
 
+    function validModuleRegistryFamilyUpdate(docId) {
+      return moduleRegistryFamilyPointerBootstrapChangedFieldsOnly()
+        ? validModuleRegistryFamilyPointerBootstrapUpdate(docId)
+        : validModuleRegistryFamilyGovernedUpdate(docId);
+    }
     function validModuleRegistryRevisionFields() {
       return request.resource.data.keys().hasAll([
           'registryModuleId',
@@ -1428,6 +1684,17 @@ service cloud.firestore {
             && moduleRegistryRevisionContentUnchanged()
             && request.resource.data.get('revisionNumber', -1) is int
             && request.resource.data.get('revisionNumber', -1) > 0
+            && getAfter(
+              /databases/$(database)/documents/module_registry/$(registryModuleId)
+            ).data.get('latestPublishedRevisionId', null) == revisionId
+            && getAfter(
+              /databases/$(database)/documents/module_registry/$(registryModuleId)
+            ).data.get('latestPublishedRevisionNumber', -1) ==
+              request.resource.data.get('revisionNumber', -1)
+            && getAfter(
+              /databases/$(database)/documents/module_registry/$(registryModuleId)
+            ).data.get('latestPublishedContentHash', null) ==
+              request.resource.data.get('contentHash', null)
             && request.resource.data.get('publishedByUid', null) == request.auth.uid
             && request.resource.data.get('publishedAt', null) != null
           )
@@ -2121,7 +2388,7 @@ service cloud.firestore {
         ? validModuleRegistryFamilyCreate(registryModuleId)
         : false;
       allow update: if exists(/databases/$(database)/documents/module_registry/$(registryModuleId))
-        ? (isApprovedUser() ? validModuleRegistryFamilyUpdate(registryModuleId) : false)
+        ? validModuleRegistryFamilyUpdate(registryModuleId)
         : false;
       allow delete: if false;
 

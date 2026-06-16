@@ -254,6 +254,45 @@ void _normalizeVersionForUserSave(
   }
 }
 
+void _applyTemplateVersionDraftLifecycleTransition(
+  TemplateVersion record, {
+  required TemplateVersionStatus status,
+  required AppUser actor,
+  required bool markUnsynced,
+}) {
+  final now = DateTime.now();
+  record
+    ..status = status
+    ..updatedByUid = actor.uid
+    ..updatedByName = actor.name
+    ..updatedAt = now
+    ..version += 1;
+  record.refreshContentHash();
+  if (markUnsynced) {
+    record.isSynced = false;
+  }
+}
+
+void _copyTemplateVersionLifecycleState(
+  TemplateVersion target,
+  TemplateVersion source, {
+  required bool isSynced,
+}) {
+  target
+    ..status = source.status
+    ..contentHash = source.contentHash
+    ..closureReviewConfirmed = source.closureReviewConfirmed
+    ..closureCriticalModuleCount = source.closureCriticalModuleCount
+    ..closureReviewConfirmedByUid = source.closureReviewConfirmedByUid
+    ..closureReviewConfirmedByName = source.closureReviewConfirmedByName
+    ..closureReviewConfirmedAt = source.closureReviewConfirmedAt
+    ..updatedByUid = source.updatedByUid
+    ..updatedByName = source.updatedByName
+    ..updatedAt = source.updatedAt
+    ..version = source.version
+    ..isSynced = isSynced;
+}
+
 TemplatePublishAudit _newAudit({
   required TemplatePublishAuditAction action,
   required AppUser actor,
@@ -261,10 +300,11 @@ TemplatePublishAudit _newAudit({
   String? reason,
   String? beforeHash,
   String? afterHash,
+  String? firestoreId,
 }) {
   final now = DateTime.now();
   return TemplatePublishAudit()
-    ..firestoreId = _newAuditFirestoreId()
+    ..firestoreId = firestoreId ?? _newAuditFirestoreId()
     ..packageFirestoreId = version.packageFirestoreId
     ..versionFirestoreId = version.firestoreId
     ..action = action
@@ -319,6 +359,18 @@ abstract class TemplateGovernanceRepository {
   });
 
   Future<void> retireVersion(
+    TemplateVersion record, {
+    required AppUser actor,
+    required String reason,
+  });
+
+  Future<void> archiveDraftVersion(
+    TemplateVersion record, {
+    required AppUser actor,
+    required String reason,
+  });
+
+  Future<void> restoreArchivedDraftVersion(
     TemplateVersion record, {
     required AppUser actor,
     required String reason,
@@ -403,6 +455,18 @@ abstract class TemplateGovernanceRepository {
     Map<String, dynamic> draftData,
   );
 
+  /// Updates an existing remote draft to the final locally-saved draft payload
+  /// before a collapsed draft→archive lifecycle is replayed.
+  ///
+  /// This is deliberately separate from draft creation: it must never create a
+  /// missing remote document and remains subject to the normal draft→draft
+  /// Firestore transition contract.
+  Future<void> applyRemoteTemplateVersionDraftUpdateReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> draftData, {
+    required int expectedDraftVersion,
+  });
+
   /// Applies the second replay step, updating a remote draft TemplateVersion
   /// to the locally-published state using a field-scoped merge payload.
   ///
@@ -414,6 +478,14 @@ abstract class TemplateGovernanceRepository {
     Map<String, dynamic> publishData,
   );
 
+  /// Applies the second replay step for an offline draft archived before its
+  /// draft predecessor reached Firestore.
+  Future<void> applyRemoteTemplateVersionArchiveReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> archiveData, {
+    required int expectedDraftVersion,
+  });
+
   Future<List<TemplatePublishAudit>> getAuditsByFirestoreIds(List<String> ids);
   Future<void> batchUpsertAudits(List<TemplatePublishAudit> records);
 }
@@ -423,6 +495,56 @@ abstract class TemplateGovernanceRepository {
 // ─────────────────────────────────────────────────────────────
 
 class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
+  IsarTemplateGovernanceRepository({String Function()? auditFirestoreIdFactory})
+    : _auditFirestoreIdFactory =
+          auditFirestoreIdFactory ?? _newAuditFirestoreId;
+
+  final String Function() _auditFirestoreIdFactory;
+
+  Future<TemplatePublishAudit?> _latestDraftLifecycleAudit(
+    String versionFirestoreId,
+  ) async {
+    final audits =
+        await isar.templatePublishAudits
+            .filter()
+            .versionFirestoreIdEqualTo(versionFirestoreId)
+            .findAll();
+    audits.sort((a, b) => b.performedAt.compareTo(a.performedAt));
+    for (final audit in audits) {
+      if (audit.action == TemplatePublishAuditAction.archived ||
+          audit.action == TemplatePublishAuditAction.restored) {
+        return audit;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _requireRestoredDraftAuditSynced(
+    TemplateVersion record, {
+    required String actionLabel,
+  }) async {
+    final firestoreId = _cleanOptionalText(record.firestoreId);
+    if (firestoreId == null || !record.isDraft) {
+      return;
+    }
+
+    final latestLifecycleAudit = await _latestDraftLifecycleAudit(firestoreId);
+    if (latestLifecycleAudit == null) {
+      return;
+    }
+    if (latestLifecycleAudit.action == TemplatePublishAuditAction.restored &&
+        !latestLifecycleAudit.isSynced) {
+      throw StateError(
+        'Wait for the restored-draft audit to synchronize before this draft can be $actionLabel.',
+      );
+    }
+    if (latestLifecycleAudit.action == TemplatePublishAuditAction.archived) {
+      throw StateError(
+        'TemplateVersion lifecycle history is inconsistent: an archived draft cannot be $actionLabel as an active draft. Reload governance state.',
+      );
+    }
+  }
+
   @override
   Future<void> savePackage(
     TemplatePackage record, {
@@ -442,8 +564,34 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
     if (!record.isDraft) {
       throw StateError('Only draft template versions are editable.');
     }
-    _normalizeVersionForUserSave(record, actor: actor, markUnsynced: true);
-    await isar.writeTxn(() => isar.templateVersions.put(record));
+
+    await isar.writeTxn(() async {
+      final firestoreId = _cleanOptionalText(record.firestoreId);
+      if (firestoreId != null) {
+        final current =
+            await isar.templateVersions
+                .filter()
+                .firestoreIdEqualTo(firestoreId)
+                .findFirst();
+        if (current != null) {
+          if (current.version != record.version) {
+            throw StateError(
+              'TemplateVersion draft changed after it was opened. Reload before saving.',
+            );
+          }
+          if (current.isDeleted || !current.isDraft) {
+            throw StateError(
+              'Only active draft TemplateVersions can be saved. Reload governance state.',
+            );
+          }
+          await _requireRestoredDraftAuditSynced(current, actionLabel: 'saved');
+          record.id = current.id;
+        }
+      }
+
+      _normalizeVersionForUserSave(record, actor: actor, markUnsynced: true);
+      await isar.templateVersions.put(record);
+    });
   }
 
   @override
@@ -461,6 +609,7 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
         'A saved TemplateVersion draft must sync successfully before it can be published.',
       );
     }
+    await _requireRestoredDraftAuditSynced(record, actionLabel: 'published');
 
     _validateTemplateVersionSnapshotForPublish(record);
 
@@ -566,6 +715,161 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
         }
       }
     });
+  }
+
+  @override
+  Future<void> archiveDraftVersion(
+    TemplateVersion record, {
+    required AppUser actor,
+    required String reason,
+  }) async {
+    _requireTemplateGovernor(actor, 'archive template-version drafts');
+    final trimmedReason = reason.trim();
+    if (trimmedReason.length < 10) {
+      throw StateError(
+        'TemplateVersion draft archive reason must be at least 10 characters.',
+      );
+    }
+    final firestoreId = _cleanOptionalText(record.firestoreId);
+    if (firestoreId == null) {
+      throw StateError('Only saved TemplateVersion drafts can be archived.');
+    }
+
+    late TemplateVersion archived;
+    await isar.writeTxn(() async {
+      final current =
+          await isar.templateVersions
+              .filter()
+              .firestoreIdEqualTo(firestoreId)
+              .findFirst();
+      if (current == null) {
+        throw StateError('Saved TemplateVersion draft was not found locally.');
+      }
+      if (current.version != record.version) {
+        throw StateError(
+          'TemplateVersion draft changed after it was opened. Reload before archiving.',
+        );
+      }
+      if (current.isDeleted || !current.isDraft) {
+        throw StateError('Only active draft TemplateVersions can be archived.');
+      }
+      await _requireRestoredDraftAuditSynced(
+        current,
+        actionLabel: 'archived again',
+      );
+      if (!current.isSynced &&
+          _cleanOptionalText(current.createdByUid) != actor.uid) {
+        throw StateError(
+          'An unsynced draft can only be archived by its creator so the remote draft predecessor can be replayed safely.',
+        );
+      }
+
+      final beforeHash = current.contentHash;
+      _applyTemplateVersionDraftLifecycleTransition(
+        current,
+        status: TemplateVersionStatus.archived,
+        actor: actor,
+        markUnsynced: true,
+      );
+
+      final audit = _newAudit(
+        action: TemplatePublishAuditAction.archived,
+        actor: actor,
+        version: current,
+        reason: trimmedReason,
+        beforeHash: beforeHash,
+        afterHash: current.contentHash,
+        firestoreId: _auditFirestoreIdFactory(),
+      );
+
+      await isar.templateVersions.put(current);
+      await isar.templatePublishAudits.put(audit);
+      archived = current;
+    });
+
+    _copyTemplateVersionLifecycleState(record, archived, isSynced: false);
+  }
+
+  @override
+  Future<void> restoreArchivedDraftVersion(
+    TemplateVersion record, {
+    required AppUser actor,
+    required String reason,
+  }) async {
+    _requireTemplateGovernor(actor, 'restore archived template-version drafts');
+    final trimmedReason = reason.trim();
+    if (trimmedReason.length < 10) {
+      throw StateError(
+        'TemplateVersion draft restore reason must be at least 10 characters.',
+      );
+    }
+    final firestoreId = _cleanOptionalText(record.firestoreId);
+    if (firestoreId == null) {
+      throw StateError('Only saved archived drafts can be restored.');
+    }
+
+    late TemplateVersion restored;
+    await isar.writeTxn(() async {
+      final current =
+          await isar.templateVersions
+              .filter()
+              .firestoreIdEqualTo(firestoreId)
+              .findFirst();
+      if (current == null) {
+        throw StateError(
+          'Archived TemplateVersion draft was not found locally.',
+        );
+      }
+      if (current.version != record.version) {
+        throw StateError(
+          'Archived TemplateVersion changed after it was opened. Reload before restoring.',
+        );
+      }
+      if (!current.isArchivedDraft) {
+        throw StateError(
+          'Only archived draft TemplateVersions can be restored.',
+        );
+      }
+      if (!current.isSynced) {
+        throw StateError(
+          'Wait for the archived draft to synchronize before restoring it.',
+        );
+      }
+      final latestLifecycleAudit = await _latestDraftLifecycleAudit(
+        firestoreId,
+      );
+      if (latestLifecycleAudit == null ||
+          latestLifecycleAudit.action != TemplatePublishAuditAction.archived ||
+          !latestLifecycleAudit.isSynced) {
+        throw StateError(
+          'Wait for the archive audit to synchronize before restoring this draft.',
+        );
+      }
+
+      final beforeHash = current.contentHash;
+      _applyTemplateVersionDraftLifecycleTransition(
+        current,
+        status: TemplateVersionStatus.draft,
+        actor: actor,
+        markUnsynced: true,
+      );
+
+      final audit = _newAudit(
+        action: TemplatePublishAuditAction.restored,
+        actor: actor,
+        version: current,
+        reason: trimmedReason,
+        beforeHash: beforeHash,
+        afterHash: current.contentHash,
+        firestoreId: _auditFirestoreIdFactory(),
+      );
+
+      await isar.templateVersions.put(current);
+      await isar.templatePublishAudits.put(audit);
+      restored = current;
+    });
+
+    _copyTemplateVersionLifecycleState(record, restored, isSynced: false);
   }
 
   @override
@@ -1060,12 +1364,36 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   }
 
   @override
+  Future<void> applyRemoteTemplateVersionDraftUpdateReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> draftData, {
+    required int expectedDraftVersion,
+  }) {
+    throw UnsupportedError(
+      'applyRemoteTemplateVersionDraftUpdateReplayStepForSync is a remote sync primitive and is not '
+      'supported by the local Isar template-governance repository.',
+    );
+  }
+
+  @override
   Future<void> applyRemoteTemplateVersionPublishReplayStepForSync(
     String firestoreId,
     Map<String, dynamic> publishData,
   ) {
     throw UnsupportedError(
       'applyRemoteTemplateVersionPublishReplayStepForSync is a remote sync primitive and is not '
+      'supported by the local Isar template-governance repository.',
+    );
+  }
+
+  @override
+  Future<void> applyRemoteTemplateVersionArchiveReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> archiveData, {
+    required int expectedDraftVersion,
+  }) {
+    throw UnsupportedError(
+      'applyRemoteTemplateVersionArchiveReplayStepForSync is a remote sync primitive and is not '
       'supported by the local Isar template-governance repository.',
     );
   }
@@ -1087,6 +1415,25 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   Future<void> batchUpsertAudits(List<TemplatePublishAudit> records) async {
     await isar.writeTxn(() => isar.templatePublishAudits.putAll(records));
   }
+}
+
+Map<String, dynamic> _templateVersionLifecycleTransitionData(
+  TemplateVersion record,
+) {
+  return <String, dynamic>{
+    'status': record.status.name,
+    'contentHash': record.contentHash,
+    'closureReviewConfirmed': record.closureReviewConfirmed,
+    'closureCriticalModuleCount': record.closureCriticalModuleCount,
+    'closureReviewConfirmedByUid': record.closureReviewConfirmedByUid,
+    'closureReviewConfirmedByName': record.closureReviewConfirmedByName,
+    'closureReviewConfirmedAt':
+        record.closureReviewConfirmedAt?.toIso8601String(),
+    'updatedByUid': record.updatedByUid,
+    'updatedByName': record.updatedByName,
+    'updatedAt': record.updatedAt.toIso8601String(),
+    'version': record.version,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1122,10 +1469,41 @@ class FirestoreTemplateGovernanceRepository
     if (!record.isDraft) {
       throw StateError('Only draft template versions are editable.');
     }
+
+    final initialFirestoreId = _cleanOptionalText(record.firestoreId);
+    if (initialFirestoreId == null) {
+      _normalizeVersionForUserSave(record, actor: actor, markUnsynced: false);
+      await _versions.doc(record.firestoreId).set(record.toMap());
+      record.isSynced = true;
+      return;
+    }
+
+    final expectedVersion = record.version;
     _normalizeVersionForUserSave(record, actor: actor, markUnsynced: false);
-    await _versions
-        .doc(record.firestoreId)
-        .set(record.toMap(), SetOptions(merge: true));
+
+    await FirebaseFirestore.instance.runTransaction((txn) async {
+      final versionRef = _versions.doc(initialFirestoreId);
+      final snapshot = await txn.get(versionRef);
+      if (!snapshot.exists) {
+        txn.set(versionRef, record.toMap());
+        return;
+      }
+
+      final current = TemplateVersion.fromMap(snapshot.data()!, snapshot.id);
+      if (current.version != expectedVersion) {
+        throw StateError(
+          'TemplateVersion draft changed after it was opened. Reload before saving.',
+        );
+      }
+      if (current.isDeleted || !current.isDraft) {
+        throw StateError(
+          'Only active draft TemplateVersions can be saved. Reload governance state.',
+        );
+      }
+
+      txn.set(versionRef, record.toMap(), SetOptions(merge: true));
+    });
+    record.isSynced = true;
   }
 
   @override
@@ -1272,6 +1650,140 @@ class FirestoreTemplateGovernanceRepository
         }, SetOptions(merge: true));
       }
     });
+  }
+
+  @override
+  Future<void> archiveDraftVersion(
+    TemplateVersion record, {
+    required AppUser actor,
+    required String reason,
+  }) async {
+    _requireTemplateGovernor(actor, 'archive template-version drafts');
+    final trimmedReason = reason.trim();
+    if (trimmedReason.length < 10) {
+      throw StateError(
+        'TemplateVersion draft archive reason must be at least 10 characters.',
+      );
+    }
+
+    final firestoreId = _cleanOptionalText(record.firestoreId);
+    if (firestoreId == null) {
+      throw StateError('Only saved TemplateVersion drafts can be archived.');
+    }
+
+    late TemplateVersion archived;
+    await FirebaseFirestore.instance.runTransaction((txn) async {
+      final versionRef = _versions.doc(firestoreId);
+      final versionSnap = await txn.get(versionRef);
+      if (!versionSnap.exists) {
+        throw StateError('Saved TemplateVersion draft was not found remotely.');
+      }
+
+      final current = TemplateVersion.fromMap(
+        versionSnap.data()!,
+        versionSnap.id,
+      );
+      if (current.version != record.version) {
+        throw StateError(
+          'TemplateVersion draft changed after it was opened. Reload before archiving.',
+        );
+      }
+      if (current.isDeleted || !current.isDraft) {
+        throw StateError('Only active draft TemplateVersions can be archived.');
+      }
+
+      final beforeHash = current.contentHash;
+      _applyTemplateVersionDraftLifecycleTransition(
+        current,
+        status: TemplateVersionStatus.archived,
+        actor: actor,
+        markUnsynced: false,
+      );
+
+      final audit = _newAudit(
+        action: TemplatePublishAuditAction.archived,
+        actor: actor,
+        version: current,
+        reason: trimmedReason,
+        beforeHash: beforeHash,
+        afterHash: current.contentHash,
+      )..isSynced = true;
+
+      txn.update(versionRef, _templateVersionLifecycleTransitionData(current));
+      txn.set(_audits.doc(audit.firestoreId), audit.toMap());
+      archived = current;
+    });
+
+    _copyTemplateVersionLifecycleState(record, archived, isSynced: true);
+  }
+
+  @override
+  Future<void> restoreArchivedDraftVersion(
+    TemplateVersion record, {
+    required AppUser actor,
+    required String reason,
+  }) async {
+    _requireTemplateGovernor(actor, 'restore archived template-version drafts');
+    final trimmedReason = reason.trim();
+    if (trimmedReason.length < 10) {
+      throw StateError(
+        'TemplateVersion draft restore reason must be at least 10 characters.',
+      );
+    }
+
+    final firestoreId = _cleanOptionalText(record.firestoreId);
+    if (firestoreId == null) {
+      throw StateError('Only saved archived drafts can be restored.');
+    }
+
+    late TemplateVersion restored;
+    await FirebaseFirestore.instance.runTransaction((txn) async {
+      final versionRef = _versions.doc(firestoreId);
+      final versionSnap = await txn.get(versionRef);
+      if (!versionSnap.exists) {
+        throw StateError(
+          'Archived TemplateVersion draft was not found remotely.',
+        );
+      }
+
+      final current = TemplateVersion.fromMap(
+        versionSnap.data()!,
+        versionSnap.id,
+      );
+      if (current.version != record.version) {
+        throw StateError(
+          'Archived TemplateVersion changed after it was opened. Reload before restoring.',
+        );
+      }
+      if (!current.isArchivedDraft) {
+        throw StateError(
+          'Only archived draft TemplateVersions can be restored.',
+        );
+      }
+
+      final beforeHash = current.contentHash;
+      _applyTemplateVersionDraftLifecycleTransition(
+        current,
+        status: TemplateVersionStatus.draft,
+        actor: actor,
+        markUnsynced: false,
+      );
+
+      final audit = _newAudit(
+        action: TemplatePublishAuditAction.restored,
+        actor: actor,
+        version: current,
+        reason: trimmedReason,
+        beforeHash: beforeHash,
+        afterHash: current.contentHash,
+      )..isSynced = true;
+
+      txn.update(versionRef, _templateVersionLifecycleTransitionData(current));
+      txn.set(_audits.doc(audit.firestoreId), audit.toMap());
+      restored = current;
+    });
+
+    _copyTemplateVersionLifecycleState(record, restored, isSynced: true);
   }
 
   @override
@@ -1616,6 +2128,42 @@ class FirestoreTemplateGovernanceRepository
   }
 
   @override
+  Future<void> applyRemoteTemplateVersionDraftUpdateReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> draftData, {
+    required int expectedDraftVersion,
+  }) async {
+    final id = _cleanOptionalText(firestoreId);
+    if (id == null) {
+      throw ArgumentError(
+        'applyRemoteTemplateVersionDraftUpdateReplayStepForSync requires a non-empty firestoreId',
+      );
+    }
+
+    await FirebaseFirestore.instance.runTransaction((txn) async {
+      final ref = _versions.doc(id);
+      final snap = await txn.get(ref);
+      if (!snap.exists) {
+        throw StateError(
+          'TemplateVersion draft update replay requires an existing remote draft: $id',
+        );
+      }
+      final remote = TemplateVersion.fromMap(snap.data()!, snap.id);
+      if (!remote.isDraft || remote.isDeleted) {
+        throw StateError(
+          'TemplateVersion draft update replay refused a non-active remote draft: $id',
+        );
+      }
+      if (remote.version != expectedDraftVersion) {
+        throw StateError(
+          'TemplateVersion draft update replay detected a concurrent remote change. Reload and retry: $id',
+        );
+      }
+      txn.set(ref, draftData, SetOptions(merge: true));
+    });
+  }
+
+  @override
   Future<void> applyRemoteTemplateVersionPublishReplayStepForSync(
     String firestoreId,
     Map<String, dynamic> publishData,
@@ -1628,6 +2176,42 @@ class FirestoreTemplateGovernanceRepository
     }
 
     await _versions.doc(id).set(publishData, SetOptions(merge: true));
+  }
+
+  @override
+  Future<void> applyRemoteTemplateVersionArchiveReplayStepForSync(
+    String firestoreId,
+    Map<String, dynamic> archiveData, {
+    required int expectedDraftVersion,
+  }) async {
+    final id = _cleanOptionalText(firestoreId);
+    if (id == null) {
+      throw ArgumentError(
+        'applyRemoteTemplateVersionArchiveReplayStepForSync requires a non-empty firestoreId',
+      );
+    }
+
+    await FirebaseFirestore.instance.runTransaction((txn) async {
+      final ref = _versions.doc(id);
+      final snapshot = await txn.get(ref);
+      if (!snapshot.exists) {
+        throw StateError(
+          'TemplateVersion archive replay requires an existing remote draft: $id',
+        );
+      }
+      final remote = TemplateVersion.fromMap(snapshot.data()!, snapshot.id);
+      if (!remote.isDraft || remote.isDeleted) {
+        throw StateError(
+          'TemplateVersion archive replay refused a non-active remote draft: $id',
+        );
+      }
+      if (remote.version != expectedDraftVersion) {
+        throw StateError(
+          'TemplateVersion archive replay detected a concurrent remote change. Reload and retry: $id',
+        );
+      }
+      txn.set(ref, archiveData, SetOptions(merge: true));
+    });
   }
 
   @override
