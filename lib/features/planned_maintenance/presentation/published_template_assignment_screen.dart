@@ -6,16 +6,18 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../audit/models/audit_event_model.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/utils/asset_validator.dart';
 import '../data/template_governance_model.dart';
+import '../domain/template_publication_readiness.dart';
 import '../domain/template_version_assignment_builder.dart';
 import '../providers/job_module_provider.dart';
 import '../providers/planned_maintenance_provider.dart';
 import '../providers/template_governance_provider.dart';
+import '../services/published_template_assignment_idempotency_store.dart';
+import '../services/published_template_assignment_server_service.dart';
 import 'template_publisher_screen.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
@@ -42,6 +44,8 @@ class _PublishedTemplateAssignmentScreenState
   AssetType _assetType = AssetType.base;
   bool _assetTypeTouched = false;
   bool _isSubmitting = false;
+  TemplatePublicationReadinessDecision? _displayedReadiness;
+  bool _displayedPreviewValid = false;
 
   @override
   void dispose() {
@@ -85,6 +89,12 @@ class _PublishedTemplateAssignmentScreenState
   }
 
   Widget _buildWithPackages(AppUser actor, List<TemplatePackage> packages) {
+    // Disable submission by default for every rebuild. The resolved version
+    // branch below enables it only after the current package/version preview
+    // and publication readiness have both been evaluated.
+    _displayedReadiness = null;
+    _displayedPreviewValid = false;
+
     final assignablePackages =
         packages
             .where(
@@ -135,25 +145,35 @@ class _PublishedTemplateAssignmentScreenState
                       () => const Center(child: CircularProgressIndicator()),
                   error: (e, _) => _InlineError(message: 'Version error: $e'),
                   data: (versions) {
-                    final assignableVersions =
-                        versions
-                            .where(
-                              (version) =>
-                                  version.isAssignable && version.isSynced,
-                            )
-                            .toList()
-                          ..sort(
-                            (a, b) =>
-                                b.versionNumber.compareTo(a.versionNumber),
-                          );
-                    _hydrateInitialVersion(
-                      selectedPackage!,
-                      assignableVersions,
+                    final activeVersion = activeTemplateVersionForPackage(
+                      package: selectedPackage!,
+                      versions: versions,
                     );
+                    final activeVersions = <TemplateVersion>[
+                      if (activeVersion != null) activeVersion,
+                    ];
+                    _hydrateInitialVersion(selectedPackage, activeVersions);
                     final selectedVersion = _findVersion(
-                      assignableVersions,
+                      activeVersions,
                       _selectedVersionId,
                     );
+                    final readinessQuery =
+                        selectedVersion == null
+                            ? null
+                            : TemplatePublicationReadinessQuery(
+                              packageFirestoreId: selectedPackage.firestoreId!,
+                              versionFirestoreId: selectedVersion.firestoreId!,
+                            );
+                    final readinessAsync =
+                        readinessQuery == null
+                            ? null
+                            : ref.watch(
+                              templatePublicationReadinessProvider(
+                                readinessQuery,
+                              ),
+                            );
+                    final readiness = readinessAsync?.asData?.value;
+                    _displayedReadiness = readiness;
                     TemplateVersionAssignmentPreview? preview;
                     TemplateVersionAssignmentException? previewError;
                     if (selectedVersion != null) {
@@ -167,6 +187,8 @@ class _PublishedTemplateAssignmentScreenState
                       }
                     }
 
+                    _displayedPreviewValid =
+                        preview != null && previewError == null;
                     if (preview != null && !_assetTypeTouched) {
                       _assetType = preview.assetType;
                     }
@@ -201,7 +223,7 @@ class _PublishedTemplateAssignmentScreenState
                         _SectionCard(
                           title: 'Governed catalogue source',
                           subtitle:
-                              'Choose the active package/version to freeze into this job.',
+                              'Choose an active package. Its remotely confirmed active version is the only assignable source.',
                           icon: Icons.verified_rounded,
                           children: [
                             DropdownButtonFormField<String>(
@@ -231,6 +253,8 @@ class _PublishedTemplateAssignmentScreenState
                                         _selectedPackageId = value;
                                         _selectedVersionId = null;
                                         _assetTypeTouched = false;
+                                        _displayedReadiness = null;
+                                        _displayedPreviewValid = false;
                                       }),
                               validator:
                                   (value) =>
@@ -250,7 +274,7 @@ class _PublishedTemplateAssignmentScreenState
                                 icon: Icons.new_releases_rounded,
                               ),
                               items:
-                                  assignableVersions
+                                  activeVersions
                                       .map(
                                         (version) => DropdownMenuItem<String>(
                                           value: version.firestoreId,
@@ -261,20 +285,14 @@ class _PublishedTemplateAssignmentScreenState
                                         ),
                                       )
                                       .toList(),
-                              onChanged:
-                                  _isSubmitting
-                                      ? null
-                                      : (value) => setState(() {
-                                        _selectedVersionId = value;
-                                        _assetTypeTouched = false;
-                                      }),
+                              onChanged: null,
                               validator:
                                   (value) =>
                                       value == null
                                           ? 'Select a published version'
                                           : null,
                             ),
-                            if (assignableVersions.isEmpty) ...[
+                            if (activeVersions.isEmpty) ...[
                               const SizedBox(height: BafSpacing.sm),
                               _PublisherPromptCallout(
                                 message:
@@ -284,6 +302,43 @@ class _PublishedTemplateAssignmentScreenState
                                         ? _openTemplatePublisher
                                         : null,
                               ),
+                            ],
+                            if (selectedVersion != null) ...[
+                              const SizedBox(height: BafSpacing.sm),
+                              if (readinessAsync?.isLoading == true)
+                                const _GovernanceReadinessCallout(
+                                  message:
+                                      'Checking package, active version, content hash, and publication audit confirmation…',
+                                  isReady: false,
+                                )
+                              else if (readinessAsync?.hasError == true)
+                                _GovernanceReadinessCallout(
+                                  message:
+                                      'Publication readiness could not be checked: ${readinessAsync!.error}',
+                                  isReady: false,
+                                  onRecheck:
+                                      readinessQuery == null
+                                          ? null
+                                          : () => ref.invalidate(
+                                            templatePublicationReadinessProvider(
+                                              readinessQuery,
+                                            ),
+                                          ),
+                                )
+                              else if (readiness != null)
+                                _GovernanceReadinessCallout(
+                                  message: readiness.operatorMessage,
+                                  isReady: readiness.isReady,
+                                  onRecheck:
+                                      readiness.isReady ||
+                                              readinessQuery == null
+                                          ? null
+                                          : () => ref.invalidate(
+                                            templatePublicationReadinessProvider(
+                                              readinessQuery,
+                                            ),
+                                          ),
+                                ),
                             ],
                           ],
                         ),
@@ -385,7 +440,12 @@ class _PublishedTemplateAssignmentScreenState
       ),
       bottomNavigationBar: _AssignmentBottomBar(
         isSubmitting: _isSubmitting,
-        onSubmit: _isSubmitting ? null : () => _submit(actor),
+        onSubmit:
+            _isSubmitting ||
+                    _displayedReadiness?.isReady != true ||
+                    !_displayedPreviewValid
+                ? null
+                : () => _submit(actor),
       ),
     );
   }
@@ -435,7 +495,7 @@ class _PublishedTemplateAssignmentScreenState
     }
     final activeId = _clean(package.activeVersionFirestoreId);
     final active = activeId == null ? null : _findVersion(versions, activeId);
-    _selectedVersionId = (active ?? versions.first).firestoreId;
+    _selectedVersionId = active?.firestoreId;
   }
 
   TemplatePackage? _findPackage(List<TemplatePackage> packages, String? id) {
@@ -467,77 +527,220 @@ class _PublishedTemplateAssignmentScreenState
 
     if (package == null || version == null) {
       _showSnack(
-        'Select a published catalogue version first.',
+        'Select the active published catalogue version first.',
         BafColors.danger,
       );
       return;
     }
 
-    if (_isSubmitting) return;
-    setState(() => _isSubmitting = true);
-
-    try {
-      final assignment = buildAssignmentFromPublishedTemplateVersion(
-        package: package,
-        version: version,
-        actor: actor,
-        assetNumber: int.parse(_assetNumberController.text.trim()),
-        assetType: _assetType,
-        chargeNoAtEvent: _parseOptionalInt(_chargeNoController.text),
-        remarks: _clean(_remarksController.text),
-      );
-
-      final plannedRepository = ref.read(plannedRepositoryProvider);
-      final jobModuleRepository = ref.read(jobModuleRepositoryProvider);
-      final syncCoordinator = ref.read(syncCoordinatorProvider);
-
-      await plannedRepository.saveExecution(assignment.execution, actor: actor);
-
-      for (final module in assignment.modules) {
-        if (!kIsWeb) {
-          module.jobExecutionLocalId = assignment.execution.id;
-        }
-        await jobModuleRepository.saveModule(
-          module,
-          actor: actor,
-          auditContext: AuditContext(
-            performedByUid: actor.uid,
-            performedByName: actor.name,
-            summary: 'Assigned process module from published template version',
+    final repository = ref.read(templateGovernanceRepositoryProvider);
+    final audits = await repository.getAuditsForVersion(version.firestoreId!);
+    final readiness = evaluateTemplatePublicationReadiness(
+      package: package,
+      version: version,
+      audits: audits,
+    );
+    if (!readiness.isReady) {
+      if (mounted) {
+        ref.invalidate(
+          templatePublicationReadinessProvider(
+            TemplatePublicationReadinessQuery(
+              packageFirestoreId: package.firestoreId!,
+              versionFirestoreId: version.firestoreId!,
+            ),
           ),
         );
+        _showSnack(readiness.operatorMessage, BafColors.warning);
+      }
+      return;
+    }
+
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    String? requestIdUsed;
+
+    try {
+      // Re-parse the frozen snapshots locally before the network call. The
+      // server remains authoritative, but this gives the operator immediate
+      // feedback for malformed local governance payloads.
+      final preview = previewTemplateVersionAssignment(
+        package: package,
+        version: version,
+      );
+      final contentHash = version.contentHash!.trim();
+      final assetNumber = int.parse(_assetNumberController.text.trim());
+      final chargeNo = _parseOptionalInt(_chargeNoController.text);
+      final remarks = _clean(_remarksController.text);
+
+      final fingerprintProbe = PublishedTemplateAssignmentRequest(
+        requestId: '',
+        packageFirestoreId: package.firestoreId!,
+        versionFirestoreId: version.firestoreId!,
+        expectedVersionNumber: version.versionNumber,
+        expectedContentHash: contentHash,
+        assetType: _assetType,
+        assetNumber: assetNumber,
+        chargeNoAtEvent: chargeNo,
+        remarks: remarks,
+      );
+      final pendingIdentity = await ref
+          .read(publishedTemplateAssignmentIdempotencyStoreProvider)
+          .resolve(
+            actorUid: actor.uid,
+            payloadFingerprint: fingerprintProbe.payloadFingerprint,
+          );
+
+      requestIdUsed = pendingIdentity.requestId;
+      final request = PublishedTemplateAssignmentRequest(
+        requestId: pendingIdentity.requestId,
+        packageFirestoreId: package.firestoreId!,
+        versionFirestoreId: version.firestoreId!,
+        expectedVersionNumber: version.versionNumber,
+        expectedContentHash: contentHash,
+        assetType: _assetType,
+        assetNumber: assetNumber,
+        chargeNoAtEvent: chargeNo,
+        remarks: remarks,
+      );
+
+      final result = await ref
+          .read(publishedTemplateAssignmentServerServiceProvider)
+          .assign(request: request);
+
+      Object? localPersistenceError;
+      if (!kIsWeb) {
+        try {
+          await _persistCanonicalServerAssignment(result);
+        } catch (error) {
+          localPersistenceError = error;
+        }
+      }
+
+      Object? idempotencyClearError;
+      try {
+        await ref
+            .read(publishedTemplateAssignmentIdempotencyStoreProvider)
+            .clearIfMatches(actorUid: actor.uid, requestId: request.requestId);
+      } catch (error) {
+        idempotencyClearError = error;
       }
 
       unawaited(
-        syncCoordinator.runFullSync(
-          reason: 'published_template_version_assigned',
-          force: true,
-        ),
+        ref
+            .read(syncCoordinatorProvider)
+            .runFullSync(
+              reason: 'server_governed_template_assignment_confirmed',
+              force: true,
+            ),
       );
 
       if (!mounted) return;
       final messenger = ScaffoldMessenger.maybeOf(context);
       Navigator.pop(context);
+      final replayText = result.idempotentReplay ? ' (safe retry replay)' : '';
+      final localWarning =
+          localPersistenceError == null
+              ? ''
+              : ' The server assignment succeeded, but local insertion is pending pull reconciliation.';
+      final retryIdentityWarning =
+          idempotencyClearError == null
+              ? ''
+              : ' The completed request identity could not be cleared locally; do not repeat the same assignment without refreshing.';
       messenger?.showSnackBar(
         SnackBar(
           content: Text(
-            'Assigned ${assignment.execution.templateName ?? 'published job'} with ${assignment.modules.length} module(s).',
+            'Assigned ${result.execution.templateName ?? preview.templateName} '
+            'with ${result.modules.length} module(s)$replayText.$localWarning$retryIdentityWarning',
           ),
-          backgroundColor: BafColors.sync,
+          backgroundColor:
+              localPersistenceError == null && idempotencyClearError == null
+                  ? BafColors.sync
+                  : BafColors.warning,
         ),
       );
-    } on TemplateVersionAssignmentException catch (e) {
+    } on TemplateVersionAssignmentException catch (error) {
       if (!mounted) return;
       _showSnack(
-        'Cannot assign published catalogue: ${e.message}',
+        'Cannot assign published catalogue: ${error.message}',
         BafColors.danger,
       );
-    } catch (e) {
+    } on PublishedTemplateAssignmentServerException catch (error) {
+      if (!error.isRetryable && requestIdUsed != null) {
+        try {
+          await ref
+              .read(publishedTemplateAssignmentIdempotencyStoreProvider)
+              .clearIfMatches(actorUid: actor.uid, requestId: requestIdUsed);
+        } catch (_) {
+          // A non-retryable server decision remains authoritative even if the
+          // local retry marker cannot be removed. A changed form fingerprint
+          // will replace the marker on the next attempt.
+        }
+      }
       if (!mounted) return;
-      _showSnack('Failed to assign published catalogue: $e', BafColors.danger);
+      _showSnack(
+        error.operatorMessage,
+        error.isRetryable ? BafColors.warning : BafColors.danger,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack(
+        'Failed to assign published catalogue: $error',
+        BafColors.danger,
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<void> _persistCanonicalServerAssignment(
+    PublishedTemplateAssignmentServerResult result,
+  ) async {
+    final plannedRepository = ref.read(plannedRepositoryProvider);
+    final moduleRepository = ref.read(jobModuleRepositoryProvider);
+    final executionFirestoreId = result.execution.firestoreId!;
+
+    final existingExecution = await plannedRepository.getExecutionByFirestoreId(
+      executionFirestoreId,
+    );
+    if (existingExecution == null) {
+      await plannedRepository.insertExecutionFromRemote(result.execution);
+    } else {
+      result.execution.id = existingExecution.id;
+      await plannedRepository.updateExecutionFromRemote(result.execution);
+    }
+
+    final localExecution = await plannedRepository.getExecutionByFirestoreId(
+      executionFirestoreId,
+    );
+    if (localExecution == null) {
+      throw StateError(
+        'The server-created JobExecution could not be reconciled into the local store.',
+      );
+    }
+
+    final moduleFirestoreIds = result.modules
+        .map((module) => module.firestoreId!)
+        .toList(growable: false);
+    final existingModules = await moduleRepository.getModulesByFirestoreIds(
+      moduleFirestoreIds,
+    );
+    final existingModuleIds = <String, int>{
+      for (final module in existingModules)
+        if (module.firestoreId != null) module.firestoreId!: module.id,
+    };
+
+    for (final module in result.modules) {
+      final firestoreId = module.firestoreId!;
+      final existingLocalId = existingModuleIds[firestoreId];
+      if (existingLocalId != null) {
+        module.id = existingLocalId;
+      }
+      module
+        ..jobExecutionFirestoreId = executionFirestoreId
+        ..jobExecutionLocalId = localExecution.id
+        ..isSynced = true;
+    }
+    await moduleRepository.batchUpsertModules(result.modules);
   }
 
   Future<TemplatePackage?> _selectedPackage() async {
@@ -591,6 +794,62 @@ class _PublishedTemplateAssignmentScreenState
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(BafRadius.medium),
         borderSide: const BorderSide(color: BafColors.planned, width: 1.5),
+      ),
+    );
+  }
+}
+
+class _GovernanceReadinessCallout extends StatelessWidget {
+  final String message;
+  final bool isReady;
+  final VoidCallback? onRecheck;
+
+  const _GovernanceReadinessCallout({
+    required this.message,
+    required this.isReady,
+    this.onRecheck,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isReady ? BafColors.success : BafColors.warning;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(BafSpacing.md),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isReady ? Icons.verified_rounded : Icons.policy_rounded,
+            color: color,
+            size: 20,
+          ),
+          const SizedBox(width: BafSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: isReady ? BafColors.success : BafColors.textPrimary,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
+            ),
+          ),
+          if (onRecheck != null) ...[
+            const SizedBox(width: BafSpacing.sm),
+            IconButton(
+              tooltip: 'Recheck publication readiness',
+              onPressed: onRecheck,
+              icon: const Icon(Icons.refresh_rounded),
+              color: color,
+            ),
+          ],
+        ],
       ),
     );
   }

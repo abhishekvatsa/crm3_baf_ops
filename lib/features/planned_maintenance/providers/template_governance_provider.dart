@@ -12,6 +12,7 @@ import '../../../main.dart';
 import '../../auth/data/user_model.dart';
 import '../data/template_governance_model.dart';
 import '../domain/template_version_snapshot_contract.dart';
+import '../domain/template_publication_readiness.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 
@@ -2282,3 +2283,49 @@ final packageVersionsProvider =
           .watch(templateGovernanceRepositoryProvider)
           .watchVersionsForPackage(packageFirestoreId);
     });
+
+class TemplatePublicationReadinessQuery {
+  final String packageFirestoreId;
+  final String versionFirestoreId;
+
+  const TemplatePublicationReadinessQuery({
+    required this.packageFirestoreId,
+    required this.versionFirestoreId,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    return other is TemplatePublicationReadinessQuery &&
+        other.packageFirestoreId == packageFirestoreId &&
+        other.versionFirestoreId == versionFirestoreId;
+  }
+
+  @override
+  int get hashCode => Object.hash(packageFirestoreId, versionFirestoreId);
+}
+
+/// Reloads the assignment authority triad from the active repository and
+/// evaluates it through the pure domain contract.
+///
+/// This provider deliberately does not trust the package/version objects that
+/// happen to be mounted in the assignment screen. A submit-time caller should
+/// still re-read this provider/repository state immediately before invoking the
+/// server assignment callable.
+final templatePublicationReadinessProvider = FutureProvider.autoDispose.family<
+  TemplatePublicationReadinessDecision,
+  TemplatePublicationReadinessQuery
+>((ref, query) async {
+  final repository = ref.watch(templateGovernanceRepositoryProvider);
+  final package = await repository.getPackageByFirestoreId(
+    query.packageFirestoreId,
+  );
+  final version = await repository.getVersionByFirestoreId(
+    query.versionFirestoreId,
+  );
+  final audits = await repository.getAuditsForVersion(query.versionFirestoreId);
+  return evaluateTemplatePublicationReadiness(
+    package: package,
+    version: version,
+    audits: audits,
+  );
+});

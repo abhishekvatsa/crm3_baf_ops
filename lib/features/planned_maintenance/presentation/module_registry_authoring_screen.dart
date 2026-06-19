@@ -4,6 +4,7 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../auth/data/user_model.dart';
 import '../data/module_registry_model.dart';
 import '../domain/module_composer_models.dart';
+import '../domain/module_registry_concurrency.dart';
 
 class ModuleRegistryAuthoringScreen extends StatefulWidget {
   final AppUser actor;
@@ -115,6 +116,16 @@ class _ModuleRegistryAuthoringScreenState
         return false;
       }
       return true;
+    } on ModuleRegistryStaleDraftException catch (error) {
+      if (!mounted) {
+        return false;
+      }
+      await _load();
+      if (!mounted) {
+        return false;
+      }
+      _showSnack(error.operatorMessage, BafColors.warning);
+      return false;
     } catch (e) {
       if (!mounted) {
         return false;

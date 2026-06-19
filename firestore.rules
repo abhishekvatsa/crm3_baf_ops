@@ -216,6 +216,14 @@ service cloud.firestore {
       ];
     }
 
+    function referencesExistingTemplateVersion(templateSourceId) {
+      return templateSourceId is string
+        && templateSourceId.size() > 0
+        && exists(
+          /databases/$(database)/documents/template_versions/$(templateSourceId)
+        );
+    }
+
     function validJobExecutionCreate(docId) {
       return request.resource.data.keys().hasAll([
           'firestoreId',
@@ -237,6 +245,14 @@ service cloud.firestore {
           && request.resource.data.get('assetNumber', -1) is int
           && request.resource.data.get('assignedByUid', null) is string
           && request.resource.data.get('assignedByUid', null) == request.auth.uid
+          // Governed TemplatePackage/TemplateVersion assignment is created only
+          // by assignPublishedTemplateVersion through the Admin SDK.
+          && request.resource.data.get('templatePackageId', null) == null
+          && request.resource.data.get('templateVersionId', null) == null
+          && request.resource.data.get('templateContentHash', null) == null
+          && !referencesExistingTemplateVersion(
+            request.resource.data.get('templateFirestoreId', '')
+          )
           && request.resource.data.get('createdAt', null) is string
           && request.resource.data.get('updatedAt', null) is string
           && request.resource.data.get('version', -1) is int
@@ -409,13 +425,30 @@ service cloud.firestore {
         && validRuntimeModuleCreateAuthority();
     }
 
+    function isGovernedInitialJobModuleCreate() {
+      let templateSourceId =
+        request.resource.data.get('templateFirestoreId', null);
+      return request.resource.data.get('addedDuringExecution', false) == false
+        && (
+          request.resource.data.get('templatePackageId', null) != null
+          || request.resource.data.get('templateVersionId', null) != null
+          || referencesExistingTemplateVersion(templateSourceId)
+        );
+    }
+
     function validJobModuleCreate(docId) {
       // 47D.3: use a conditional expression rather than `&&` to force
       // malformed local-only/legacy payloads to deny before the expensive
       // authority and payload checks are evaluated by the emulator.
       return request.resource.data.keys().hasAny(['responses', 'isSynced'])
         ? false
-        : validJobModuleCreatePayload(docId);
+        : (
+          // Initial modules frozen from a governed TemplateVersion are created
+          // only by assignPublishedTemplateVersion. Runtime-added governed
+          // modules remain available through their existing elevated path.
+          !isGovernedInitialJobModuleCreate()
+          && validJobModuleCreatePayload(docId)
+        );
     }
 
     function validJobModuleUpdateCommon(docId, changedKeys) {
@@ -944,6 +977,34 @@ service cloud.firestore {
         && request.resource.data.get('isDeleted', null) == false;
     }
 
+    function validTemplatePackageActivePointer(docId) {
+      let activeVersionId =
+        request.resource.data.get('activeVersionFirestoreId', null);
+      return activeVersionId == null
+        || (
+          activeVersionId is string
+          && existsAfter(
+            /databases/$(database)/documents/template_versions/$(activeVersionId)
+          )
+          && getAfter(
+            /databases/$(database)/documents/template_versions/$(activeVersionId)
+          ).data.get('firestoreId', null) == activeVersionId
+          && getAfter(
+            /databases/$(database)/documents/template_versions/$(activeVersionId)
+          ).data.get('packageFirestoreId', null) == docId
+          && getAfter(
+            /databases/$(database)/documents/template_versions/$(activeVersionId)
+          ).data.get('status', null) == 'published'
+          && getAfter(
+            /databases/$(database)/documents/template_versions/$(activeVersionId)
+          ).data.get('isDeleted', false) == false
+          && request.resource.data.get('latestVersionNumber', -1) ==
+            getAfter(
+              /databases/$(database)/documents/template_versions/$(activeVersionId)
+            ).data.get('versionNumber', -2)
+        );
+    }
+
     function validTemplatePackageUpdate(docId) {
       return isTemplateGovernor()
         && resource.data.get('firestoreId', null) == docId
@@ -955,7 +1016,8 @@ service cloud.firestore {
         && request.resource.data.get('updatedByUid', null) == request.auth.uid
         && request.resource.data.get('version', -1) is int
         && resource.data.get('version', -1) is int
-        && request.resource.data.get('version', -1) > resource.data.get('version', -1);
+        && request.resource.data.get('version', -1) > resource.data.get('version', -1)
+        && validTemplatePackageActivePointer(docId);
     }
 
     function validTemplateVersionCreate(docId) {
@@ -1155,6 +1217,46 @@ service cloud.firestore {
         && request.resource.data.get('payloadSnapshotJson', null) is string;
     }
 
+    function validPublishedTemplateAudit() {
+      return request.resource.data.get('action', null) != 'published'
+        || (
+          existsAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          )
+          && existsAfter(
+            /databases/$(database)/documents/template_packages/$(request.resource.data.get('packageFirestoreId', ''))
+          )
+          && getAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          ).data.get('status', null) == 'published'
+          && getAfter(
+            /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+          ).data.get('isDeleted', false) == false
+          && request.resource.data.get('packageFirestoreId', null) ==
+            getAfter(
+              /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+            ).data.get('packageFirestoreId', null)
+          && request.resource.data.get('afterHash', null) ==
+            getAfter(
+              /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+            ).data.get('contentHash', null)
+          && request.resource.data.get('performedByUid', null) ==
+            getAfter(
+              /databases/$(database)/documents/template_versions/$(request.resource.data.get('versionFirestoreId', ''))
+            ).data.get('publishedByUid', null)
+          && getAfter(
+            /databases/$(database)/documents/template_packages/$(request.resource.data.get('packageFirestoreId', ''))
+          ).data.get('activeVersionFirestoreId', null) ==
+            request.resource.data.get('versionFirestoreId', null)
+          && getAfter(
+            /databases/$(database)/documents/template_packages/$(request.resource.data.get('packageFirestoreId', ''))
+          ).data.get('lifecycleStatus', null) == 'active'
+          && getAfter(
+            /databases/$(database)/documents/template_packages/$(request.resource.data.get('packageFirestoreId', ''))
+          ).data.get('isDeleted', false) == false
+        );
+    }
+
     function validArchivedTemplateAudit() {
       return request.resource.data.get('action', null) != 'archived'
         || (
@@ -1205,6 +1307,7 @@ service cloud.firestore {
         && request.resource.data.get('packageFirestoreId', null) is string
         && request.resource.data.get('versionFirestoreId', null) is string
         && isTemplateAuditAction(request.resource.data.get('action', null))
+        && validPublishedTemplateAudit()
         && validArchivedTemplateAudit()
         && validRestoredTemplateAudit()
         && request.resource.data.get('performedByUid', null) == request.auth.uid
@@ -2373,7 +2476,9 @@ service cloud.firestore {
     }
 
     match /template_publish_audits/{docId} {
-      allow read: if isAdmin();
+      // All approved users pull publication readiness evidence. Writes remain
+      // governor-only and immutable.
+      allow read: if isApprovedUser();
       allow create: if validTemplatePublishAuditCreate(docId);
       allow update, delete: if false;
     }
@@ -2406,7 +2511,7 @@ service cloud.firestore {
 
 
     match /module_registry_audits/{docId} {
-      allow read: if isAdmin();
+      allow read: if isAdminOrSI();
       allow create: if validModuleRegistryAuditCreate(docId);
       allow update, delete: if false;
     }
@@ -2435,6 +2540,11 @@ service cloud.firestore {
         ? (isApprovedUser() ? validJobExecutionUpdate(docId) : false)
         : false;
       allow delete: if false;
+    }
+
+    // Server-only idempotency receipts for governed assignment.
+    match /published_template_assignment_requests/{docId} {
+      allow read, create, update, delete: if false;
     }
 
     // ─────────────────────────────────────────────

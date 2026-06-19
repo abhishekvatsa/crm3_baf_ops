@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/data/user_model.dart';
 import '../data/module_registry_model.dart';
 import '../domain/module_composer_models.dart';
+import '../domain/module_registry_concurrency.dart';
 
 const JsonEncoder _prettyJson = JsonEncoder.withIndent('  ');
 
@@ -114,6 +115,7 @@ class ModuleRegistryRepository {
       ...lineage,
       'createdFromWorkshop': true,
     };
+    final expected = ModuleRegistryDraftExpectation.fromRevision(revision);
 
     await _firestore.runTransaction((txn) async {
       final familyRef = _families.doc(revision.registryModuleId);
@@ -133,6 +135,10 @@ class ModuleRegistryRepository {
       if (!current.isDraft) {
         throw StateError('Only draft registry revisions are editable.');
       }
+      requireCurrentRegistryDraftMatchesExpectation(
+        current: current,
+        expected: expected,
+      );
       final beforeHash = current.contentHash;
       current.refreshDraftFromModule(
         module: module,
@@ -591,6 +597,9 @@ class ModuleRegistryRepository {
     return drafts.take(limit).toList(growable: false);
   }
 
+  /// Returns exactly the latest published revision identified by each active
+  /// family pointer. Historical revisions are intentionally excluded from the
+  /// normal Composer source picker.
   Future<List<PublishedRegistryModuleSource>> getPublishedSources({
     int limit = 100,
   }) async {
@@ -602,38 +611,56 @@ class ModuleRegistryRepository {
 
     final sources = <PublishedRegistryModuleSource>[];
     for (final familyDoc in familySnap.docs) {
-      if (sources.length >= limit) {
-        break;
-      }
+      if (sources.length >= limit) break;
       final family = ModuleRegistryFamily.fromMap(
         familyDoc.data(),
         familyDoc.id,
       );
-      if (!family.isActive || family.isDeleted) {
+      if (!family.isActive || family.isDeleted) continue;
+      if (family.latestPublishedRevisionNumber <= 0) continue;
+
+      final revisionId = family.latestPublishedRevisionId?.trim();
+      final pinnedHash = family.latestPublishedContentHash?.trim();
+      if (revisionId == null ||
+          revisionId.isEmpty ||
+          pinnedHash == null ||
+          pinnedHash.isEmpty) {
+        throw StateError(
+          'Registry family ${family.registryModuleId} has incomplete '
+          'latest-published pointers. Repair governance metadata before '
+          'using this family as an authoring source.',
+        );
+      }
+
+      final revisionDoc =
+          await _revisions(family.registryModuleId).doc(revisionId).get();
+      if (!revisionDoc.exists) {
+        throw StateError(
+          'Registry family ${family.registryModuleId} points to a missing '
+          'published revision $revisionId.',
+        );
+      }
+      final revision = ModuleRegistryRevision.fromMap(
+        revisionDoc.data()!,
+        revisionDoc.id,
+      );
+      if (revision.isDeleted ||
+          revision.revisionNumber != family.latestPublishedRevisionNumber ||
+          revision.contentHash != pinnedHash ||
+          (!revision.isPublished && !revision.isRetired)) {
+        throw StateError(
+          'Registry family ${family.registryModuleId} latest-published '
+          'metadata is inconsistent. Repair it before cloning this source.',
+        );
+      }
+      if (revision.isRetired) {
+        // Frozen historical TemplateVersions remain reproducible, but a retired
+        // latest revision is not offered as a new authoring source.
         continue;
       }
-
-      final revisionSnap =
-          await _revisions(family.registryModuleId)
-              .where(
-                'revisionStatus',
-                isEqualTo: ModuleRegistryRevisionStatus.published.name,
-              )
-              .limit(limit - sources.length)
-              .get();
-
-      for (final revisionDoc in revisionSnap.docs) {
-        final revision = ModuleRegistryRevision.fromMap(
-          revisionDoc.data(),
-          revisionDoc.id,
-        );
-        if (revision.isDeleted || !revision.isPublished) {
-          continue;
-        }
-        sources.add(
-          PublishedRegistryModuleSource(family: family, revision: revision),
-        );
-      }
+      sources.add(
+        PublishedRegistryModuleSource(family: family, revision: revision),
+      );
     }
 
     sources.sort((a, b) {
@@ -642,12 +669,45 @@ class ModuleRegistryRepository {
           .compareTo(
             a.revision.publishedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
           );
-      if (publishedCompare != 0) {
-        return publishedCompare;
-      }
+      if (publishedCompare != 0) return publishedCompare;
       return a.module.moduleCode.compareTo(b.module.moduleCode);
     });
     return sources.take(limit).toList(growable: false);
+  }
+
+  /// Explicit history API for governance review. This is not used by the
+  /// normal Composer source picker and therefore cannot silently expose a
+  /// superseded revision as if it were current.
+  Future<List<PublishedRegistryModuleSource>> getPublishedSourceHistory({
+    required String registryModuleId,
+    int limit = 100,
+  }) async {
+    final familyDoc = await _families.doc(registryModuleId).get();
+    if (!familyDoc.exists) return const <PublishedRegistryModuleSource>[];
+    final family = ModuleRegistryFamily.fromMap(
+      familyDoc.data()!,
+      familyDoc.id,
+    );
+
+    final revisionSnap = await _revisions(registryModuleId).limit(limit).get();
+    final sources = <PublishedRegistryModuleSource>[];
+    for (final revisionDoc in revisionSnap.docs) {
+      final revision = ModuleRegistryRevision.fromMap(
+        revisionDoc.data(),
+        revisionDoc.id,
+      );
+      if (revision.isDeleted ||
+          (!revision.isPublished && !revision.isRetired)) {
+        continue;
+      }
+      sources.add(
+        PublishedRegistryModuleSource(family: family, revision: revision),
+      );
+    }
+    sources.sort(
+      (a, b) => b.revision.revisionNumber.compareTo(a.revision.revisionNumber),
+    );
+    return sources;
   }
 
   ModuleRegistryAudit _audit({

@@ -1356,20 +1356,15 @@ describe("job_executions", () => {
     await seedUser("supervisor1", ["shiftSupervisor"]);
   });
 
-  test("shift supervisor can create job execution only with assignment identity", async () => {
+  test("shift supervisor can create legacy job execution only with assignment identity", async () => {
     const db = dbAs("supervisor1");
     const now = new Date().toISOString();
 
     await assertSucceeds(
       setDoc(doc(db, "job_executions/jobCreate"), {
         firestoreId: "jobCreate",
-        templateFirestoreId: "ver1",
-        templateName: "Governed job",
-        templatePackageId: "pkg1",
-        templateVersionId: "ver1",
-        templateVersionNumber: 1,
-        templateContentHash:
-          "tg2-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        templateFirestoreId: "legacyTemplate1",
+        templateName: "Legacy job",
         assetType: "base",
         assetNumber: 101,
         isCompleted: false,
