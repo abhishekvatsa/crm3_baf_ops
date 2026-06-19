@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/sync_status_provider.dart';
+import '../../../core/release/app_build_identity.dart';
+import '../../../core/release/backend_release_identity_service.dart';
 import '../../../core/services/isar_production_recovery.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
@@ -25,6 +27,7 @@ import '../../../features/planned_maintenance/data/job_module_model.dart';
 import '../../../features/planned_maintenance/data/job_template_model.dart';
 import '../../../features/planned_maintenance/data/template_governance_model.dart';
 import '../../../features/planned_maintenance/services/planned_job_server_completion_service.dart';
+import '../../../features/planned_maintenance/services/published_template_assignment_server_service.dart';
 import '../../../firebase_options.dart';
 import '../../../main.dart' as app_main;
 
@@ -37,10 +40,15 @@ final localDiagnosticsReportProvider = FutureProvider.autoDispose<
     syncStatus: syncStatus,
     syncHealth: syncHealth,
   );
+  final releaseSnapshot = await LocalReleaseDiagnosticsSnapshot.capture(
+    ref,
+    loadBackend: !kIsWeb,
+  );
 
   if (kIsWeb) {
     return LocalDiagnosticsReport.webUnavailable(
       supportSnapshot: supportSnapshot,
+      releaseSnapshot: releaseSnapshot,
     );
   }
 
@@ -208,6 +216,7 @@ final localDiagnosticsReportProvider = FutureProvider.autoDispose<
     collectionCount: rows.length + 2,
     governanceSummary: governanceSummary,
     supportSnapshot: supportSnapshot,
+    releaseSnapshot: releaseSnapshot,
   );
 });
 
@@ -293,6 +302,7 @@ class LocalDiagnosticsReport {
   final int collectionCount;
   final LocalGovernanceDiagnosticsSummary? governanceSummary;
   final LocalDiagnosticsSupportSnapshot supportSnapshot;
+  final LocalReleaseDiagnosticsSnapshot releaseSnapshot;
   final bool isWebUnavailable;
 
   const LocalDiagnosticsReport({
@@ -304,12 +314,14 @@ class LocalDiagnosticsReport {
     required this.knowledgeMetaRows,
     required this.collectionCount,
     required this.supportSnapshot,
+    required this.releaseSnapshot,
     this.governanceSummary,
     this.isWebUnavailable = false,
   });
 
   factory LocalDiagnosticsReport.webUnavailable({
     required LocalDiagnosticsSupportSnapshot supportSnapshot,
+    required LocalReleaseDiagnosticsSnapshot releaseSnapshot,
   }) {
     return LocalDiagnosticsReport(
       generatedAt: DateTime.now(),
@@ -320,6 +332,7 @@ class LocalDiagnosticsReport {
       knowledgeMetaRows: 0,
       collectionCount: 0,
       supportSnapshot: supportSnapshot,
+      releaseSnapshot: releaseSnapshot,
       isWebUnavailable: true,
     );
   }
@@ -363,7 +376,13 @@ class LocalDiagnosticsReport {
             'syncFailureDetailOverflowCount: ${supportSnapshot.syncFailureDetailOverflowCount}',
           )
           ..writeln(
-            'callable: ${supportSnapshot.callableName} (${supportSnapshot.callableRegion})',
+            'closureCallable: ${supportSnapshot.callableName} (${supportSnapshot.callableRegion})',
+          )
+          ..writeln(
+            'assignmentCallable: ${supportSnapshot.assignmentCallableName} (${supportSnapshot.assignmentCallableRegion})',
+          )
+          ..writeln(
+            'backendIdentityCallable: ${supportSnapshot.backendIdentityCallableName} (${supportSnapshot.backendIdentityCallableRegion})',
           )
           ..writeln(
             'firebaseProjectId: ${supportSnapshot.firebaseProjectId ?? 'unavailable'}',
@@ -372,6 +391,9 @@ class LocalDiagnosticsReport {
             'firebaseStorageBucket: ${supportSnapshot.firebaseStorageBucket ?? 'unavailable'}',
           )
           ..writeln('platform: ${supportSnapshot.platformLabel}')
+          ..writeln('')
+          ..writeln('Release identity:')
+          ..writeln(releaseSnapshot.toDiagnosticsText())
           ..writeln('')
           ..writeln('Governance:')
           ..writeln(
@@ -411,6 +433,7 @@ class LocalDiagnosticsReport {
       'knowledgeMetaRows': knowledgeMetaRows,
       'collectionsReported': collectionCount,
       'support': supportSnapshot.toMap(),
+      'releaseIdentity': releaseSnapshot.toMap(),
       if (governanceSummary != null)
         'governanceSummary': governanceSummary!.toMap(),
       'rows': rows
@@ -431,6 +454,87 @@ class LocalDiagnosticsReport {
     };
     return const JsonEncoder.withIndent('  ').convert(map);
   }
+}
+
+class LocalReleaseDiagnosticsSnapshot {
+  final AppBuildIdentity build;
+  final BackendReleaseIdentity? backend;
+  final String? backendError;
+
+  const LocalReleaseDiagnosticsSnapshot({
+    required this.build,
+    this.backend,
+    this.backendError,
+  });
+
+  static Future<LocalReleaseDiagnosticsSnapshot> capture(
+    Ref ref, {
+    required bool loadBackend,
+  }) async {
+    if (!loadBackend) {
+      return const LocalReleaseDiagnosticsSnapshot(
+        build: AppBuildIdentity.current,
+        backendError: 'Backend identity is not loaded for web diagnostics.',
+      );
+    }
+    try {
+      final backend =
+          await ref.read(backendReleaseIdentityServiceProvider).fetch();
+      return LocalReleaseDiagnosticsSnapshot(
+        build: AppBuildIdentity.current,
+        backend: backend,
+      );
+    } catch (error) {
+      return LocalReleaseDiagnosticsSnapshot(
+        build: AppBuildIdentity.current,
+        backendError: error.toString(),
+      );
+    }
+  }
+
+  bool get backendParityConfirmed =>
+      backend != null &&
+      build.expectsBackendParity &&
+      backend!.releaseId == build.expectedBackendReleaseId;
+
+  String get parityLabel {
+    if (!build.expectsBackendParity) return 'not declared by build';
+    if (backend == null) return 'unavailable';
+    return backendParityConfirmed ? 'match' : 'mismatch';
+  }
+
+  String toDiagnosticsText() {
+    final lines = <String>[
+      build.toDiagnosticsText(),
+      'backendParity: $parityLabel',
+    ];
+    if (backend != null) {
+      lines.add('observedBackendReleaseId: ${backend!.releaseId}');
+      lines.add('backendEnvironment: ${backend!.environment}');
+      lines.add('backendGitCommit: ${backend!.gitCommit ?? 'unavailable'}');
+      lines.add(
+        'functionsRevision: ${backend!.functionsRevision ?? 'unavailable'}',
+      );
+      lines.add(
+        'firestoreRulesReleaseId: ${backend!.firestoreRulesReleaseId ?? 'unavailable'}',
+      );
+      lines.add(
+        'backendDeployedAt: ${backend!.deployedAt?.toIso8601String() ?? 'unavailable'}',
+      );
+    } else {
+      lines.add('observedBackendReleaseId: unavailable');
+      lines.add('backendIdentityError: ${backendError ?? 'unknown'}');
+    }
+    return lines.join('\n');
+  }
+
+  Map<String, Object?> toMap() => <String, Object?>{
+    'build': build.toMap(),
+    'backend': backend?.toMap(),
+    'backendError': backendError,
+    'backendParity': parityLabel,
+    'backendParityConfirmed': backendParityConfirmed,
+  };
 }
 
 class LocalGovernanceDiagnosticsSummary {
@@ -489,6 +593,10 @@ class LocalDiagnosticsSupportSnapshot {
   final bool syncPendingFollowUpForce;
   final String callableName;
   final String callableRegion;
+  final String assignmentCallableName;
+  final String assignmentCallableRegion;
+  final String backendIdentityCallableName;
+  final String backendIdentityCallableRegion;
   final String? firebaseProjectId;
   final String? firebaseStorageBucket;
   final String platformLabel;
@@ -506,6 +614,10 @@ class LocalDiagnosticsSupportSnapshot {
     required this.syncPendingFollowUpForce,
     required this.callableName,
     required this.callableRegion,
+    required this.assignmentCallableName,
+    required this.assignmentCallableRegion,
+    required this.backendIdentityCallableName,
+    required this.backendIdentityCallableRegion,
     required this.platformLabel,
     this.syncLastStartedAt,
     this.syncLastCompletedAt,
@@ -544,6 +656,10 @@ class LocalDiagnosticsSupportSnapshot {
       syncPendingFollowUpForce: syncHealth.pendingFollowUpForce,
       callableName: plannedJobCompletionCallableName,
       callableRegion: plannedJobCompletionCallableRegion,
+      assignmentCallableName: publishedTemplateAssignmentCallableName,
+      assignmentCallableRegion: publishedTemplateAssignmentCallableRegion,
+      backendIdentityCallableName: backendReleaseIdentityCallableName,
+      backendIdentityCallableRegion: backendReleaseIdentityCallableRegion,
       firebaseProjectId: _firebaseProjectId(),
       firebaseStorageBucket: _firebaseStorageBucket(),
       platformLabel: kIsWeb ? 'web' : defaultTargetPlatform.name,
@@ -604,6 +720,10 @@ class LocalDiagnosticsSupportSnapshot {
     'syncPendingFollowUpForce': syncPendingFollowUpForce,
     'callableName': callableName,
     'callableRegion': callableRegion,
+    'assignmentCallableName': assignmentCallableName,
+    'assignmentCallableRegion': assignmentCallableRegion,
+    'backendIdentityCallableName': backendIdentityCallableName,
+    'backendIdentityCallableRegion': backendIdentityCallableRegion,
     'firebaseProjectId': firebaseProjectId,
     'firebaseStorageBucket': firebaseStorageBucket,
     'platform': platformLabel,
@@ -809,6 +929,8 @@ class _DiagnosticsReportView extends StatelessWidget {
         _DiagnosticsSummary(report: report),
         const SizedBox(height: BafSpacing.lg),
         _DiagnosticsSupportPanel(snapshot: report.supportSnapshot),
+        const SizedBox(height: BafSpacing.lg),
+        _ReleaseIdentityDiagnosticsPanel(snapshot: report.releaseSnapshot),
         if (report.governanceSummary != null) ...[
           const SizedBox(height: BafSpacing.lg),
           _GovernanceDiagnosticsPanel(summary: report.governanceSummary!),
@@ -932,6 +1054,16 @@ class _DiagnosticsSupportPanel extends StatelessWidget {
             value: '${snapshot.callableName} (${snapshot.callableRegion})',
           ),
           _DiagnosticsInfoRow(
+            label: 'Assignment callable',
+            value:
+                '${snapshot.assignmentCallableName} (${snapshot.assignmentCallableRegion})',
+          ),
+          _DiagnosticsInfoRow(
+            label: 'Backend identity callable',
+            value:
+                '${snapshot.backendIdentityCallableName} (${snapshot.backendIdentityCallableRegion})',
+          ),
+          _DiagnosticsInfoRow(
             label: 'Sync status',
             value: snapshot.syncStatusLabel,
           ),
@@ -978,6 +1110,93 @@ class _DiagnosticsSupportPanel extends StatelessWidget {
             _DiagnosticsInfoRow(
               label: 'Last sync error',
               value: snapshot.syncLastError!,
+              isWarning: true,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReleaseIdentityDiagnosticsPanel extends StatelessWidget {
+  final LocalReleaseDiagnosticsSnapshot snapshot;
+
+  const _ReleaseIdentityDiagnosticsPanel({required this.snapshot});
+
+  @override
+  Widget build(BuildContext context) {
+    final parityWarning =
+        snapshot.build.expectsBackendParity && !snapshot.backendParityConfirmed;
+    return _DiagnosticsPanel(
+      title: 'Release and backend identity',
+      subtitle:
+          'Build-time source identity and the currently observed Firebase backend release. The final APK/AAB hash belongs in the external release manifest.',
+      icon: Icons.verified_user_rounded,
+      child: Column(
+        children: [
+          _DiagnosticsInfoRow(
+            label: 'App version / build',
+            value: snapshot.build.versionLabel,
+            isWarning: !snapshot.build.isVersioned,
+          ),
+          _DiagnosticsInfoRow(
+            label: 'Git commit',
+            value: snapshot.build.gitCommit,
+            isWarning: !snapshot.build.isSourceIdentified,
+          ),
+          _DiagnosticsInfoRow(
+            label: 'Release ID',
+            value: snapshot.build.releaseId,
+            isWarning: !snapshot.build.isSourceIdentified,
+          ),
+          _DiagnosticsInfoRow(
+            label: 'Tag / channel',
+            value:
+                '${snapshot.build.releaseTag} · ${snapshot.build.releaseChannel}',
+          ),
+          _DiagnosticsInfoRow(
+            label: 'CI run / build timestamp',
+            value:
+                '${snapshot.build.ciRunId} · ${snapshot.build.buildTimestampUtc}',
+          ),
+          _DiagnosticsInfoRow(
+            label: 'Source archive SHA-256',
+            value: snapshot.build.sourceArchiveSha256,
+          ),
+          _DiagnosticsInfoRow(
+            label: 'Expected backend release',
+            value: snapshot.build.expectedBackendReleaseId,
+          ),
+          _DiagnosticsInfoRow(
+            label: 'Observed backend release',
+            value: snapshot.backend?.releaseId ?? 'Unavailable',
+            isWarning: snapshot.backend == null,
+          ),
+          _DiagnosticsInfoRow(
+            label: 'Backend parity',
+            value: snapshot.parityLabel,
+            isWarning: parityWarning,
+          ),
+          if (snapshot.backend != null) ...[
+            _DiagnosticsInfoRow(
+              label: 'Functions revision',
+              value: snapshot.backend!.functionsRevision ?? 'Unavailable',
+            ),
+            _DiagnosticsInfoRow(
+              label: 'Firestore rules release',
+              value: snapshot.backend!.firestoreRulesReleaseId ?? 'Unavailable',
+            ),
+            _DiagnosticsInfoRow(
+              label: 'Backend deployed at',
+              value:
+                  snapshot.backend!.deployedAt == null
+                      ? 'Unavailable'
+                      : _formatDiagnosticTime(snapshot.backend!.deployedAt!),
+            ),
+          ] else if (snapshot.backendError != null)
+            _DiagnosticsInfoRow(
+              label: 'Backend identity status',
+              value: snapshot.backendError!,
               isWarning: true,
             ),
         ],

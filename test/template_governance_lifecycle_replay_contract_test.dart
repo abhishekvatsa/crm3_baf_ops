@@ -367,12 +367,53 @@ void main() {
       expect(source, contains('Holding TemplateVersion audit'));
     });
 
-    test('assignment only exposes remotely confirmed published versions', () {
+    test('assignment only exposes remotely confirmed active versions', () {
       final assignment = _read(
         'lib/features/planned_maintenance/presentation/published_template_assignment_screen.dart',
       );
+      final readiness = _read(
+        'lib/features/planned_maintenance/domain/template_publication_readiness.dart',
+      );
 
-      expect(assignment, contains('version.isAssignable && version.isSynced'));
+      expect(
+        assignment,
+        contains('activeTemplateVersionForPackage('),
+        reason:
+            'the assignment catalogue must resolve only the package active version',
+      );
+      expect(
+        assignment,
+        contains('templatePublicationReadinessProvider('),
+        reason:
+            'the visible assignment state must depend on the synchronized publication-readiness triad',
+      );
+      expect(
+        assignment,
+        contains('evaluateTemplatePublicationReadiness('),
+        reason:
+            'submit must re-evaluate readiness from the repository instead of trusting stale widget state',
+      );
+      expect(
+        readiness,
+        contains('if (!package.isSynced)'),
+        reason: 'the package active pointer must be remotely confirmed',
+      );
+      expect(
+        readiness,
+        contains('if (!version.isSynced)'),
+        reason: 'the published version must be remotely confirmed',
+      );
+      expect(
+        readiness,
+        contains('if (versionId != activeVersionId)'),
+        reason: 'historical published versions must not be normally assignable',
+      );
+      expect(
+        readiness,
+        contains('if (syncedAudit == null)'),
+        reason:
+            'a matching synchronized publish audit is required before assignment',
+      );
     });
 
     test('does not weaken rules or touch unrelated high-risk domains', () {
