@@ -11,6 +11,23 @@ import {
 } from "./plannedJobClosure";
 import type {FirestoreLike, JsonMap} from "./plannedJobClosure";
 import {
+  AssignmentValidationError,
+  assignPublishedTemplateVersionWithDb,
+} from "./publishedTemplateAssignment";
+import type {
+  AssignmentFirestoreLike,
+  AssignmentJsonMap,
+} from "./publishedTemplateAssignment";
+import {
+  BackendIdentityValidationError,
+  backendReleaseEnvironmentFromProcess,
+  getBackendReleaseIdentityWithDb,
+} from "./backendReleaseIdentity";
+import type {
+  BackendIdentityFirestoreLike,
+  BackendIdentityJsonMap,
+} from "./backendReleaseIdentity";
+import {
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
   buildTicketResolvedNotification,
@@ -65,6 +82,81 @@ export const completePlannedJobExecution = onCall(
       throw new HttpsError(
         "internal",
         "Server-side planned-job completion failed.",
+      );
+    }
+  },
+);
+
+// ─── Callable: server-governed published-template assignment ────────────────
+
+interface AssignPublishedTemplateVersionRequest {
+  requestId?: unknown;
+  packageId?: unknown;
+  versionId?: unknown;
+  expectedVersionNumber?: unknown;
+  expectedContentHash?: unknown;
+  assetType?: unknown;
+  assetNumber?: unknown;
+  chargeNoAtEvent?: unknown;
+  remarks?: unknown;
+}
+
+export const assignPublishedTemplateVersion = onCall(
+  {
+    region: CALLABLE_REGION,
+    timeoutSeconds: 60,
+    memory: "512MiB",
+    concurrency: 20,
+  },
+  async (
+    request: CallableRequest<AssignPublishedTemplateVersionRequest>,
+  ) => {
+    try {
+      return await assignPublishedTemplateVersionWithDb({
+        db: admin.firestore() as unknown as AssignmentFirestoreLike,
+        authUid: request.auth?.uid ?? null,
+        data: (request.data ?? {}) as AssignmentJsonMap,
+      });
+    } catch (error) {
+      if (error instanceof AssignmentValidationError) {
+        throw new HttpsError(error.code, error.message, error.details);
+      }
+      logger.error("assignPublishedTemplateVersion failed", error);
+      throw new HttpsError(
+        "internal",
+        "Server-governed published-template assignment failed.",
+      );
+    }
+  },
+);
+
+// ─── Callable: backend release identity ─────────────────────────────────────
+
+export const getBackendReleaseIdentity = onCall(
+  {
+    region: CALLABLE_REGION,
+    timeoutSeconds: 15,
+    memory: "256MiB",
+    concurrency: 40,
+  },
+  async (request: CallableRequest<BackendIdentityJsonMap>) => {
+    try {
+      return await getBackendReleaseIdentityWithDb({
+        db: admin.firestore() as unknown as BackendIdentityFirestoreLike,
+        authUid: request.auth?.uid ?? null,
+        environment: backendReleaseEnvironmentFromProcess(
+          process.env,
+          admin.app().options.projectId ?? null,
+        ),
+      });
+    } catch (error) {
+      if (error instanceof BackendIdentityValidationError) {
+        throw new HttpsError(error.code, error.message, error.details);
+      }
+      logger.error("getBackendReleaseIdentity failed", error);
+      throw new HttpsError(
+        "internal",
+        "Backend release identity could not be loaded.",
       );
     }
   },
