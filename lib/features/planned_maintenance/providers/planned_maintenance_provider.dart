@@ -10,6 +10,7 @@ import '../../../main.dart';
 import '../data/job_template_model.dart';
 import '../data/job_module_model.dart';
 import '../domain/planned_job_closure_guard.dart';
+import '../domain/planned_job_module_set_resolver.dart';
 import '../services/planned_job_server_completion_service.dart';
 import '../models/component_action_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
@@ -698,37 +699,70 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
   Future<List<JobModuleInstance>> _loadModulesForExecution(
     JobExecution execution,
   ) async {
-    final byKey = <String, JobModuleInstance>{};
-
-    void addModules(Iterable<JobModuleInstance> modules) {
-      for (final module in modules) {
-        final key = module.firestoreId ?? 'local:${module.id}';
-        byKey[key] = module;
-      }
-    }
-
     final executionFirestoreId = _cleanOptionalText(execution.firestoreId);
-    if (executionFirestoreId != null) {
-      addModules(
+    final firestoreLinked =
+        executionFirestoreId == null
+            ? <JobModuleInstance>[]
+            : await isar.jobModuleInstances
+                .filter()
+                .jobExecutionFirestoreIdEqualTo(executionFirestoreId)
+                .and()
+                .isDeletedEqualTo(false)
+                .findAll();
+    final localLinked =
         await isar.jobModuleInstances
             .filter()
-            .jobExecutionFirestoreIdEqualTo(executionFirestoreId)
+            .jobExecutionLocalIdEqualTo(execution.id)
             .and()
             .isDeletedEqualTo(false)
-            .findAll(),
+            .findAll();
+
+    final resolution = PlannedJobModuleSetResolver.resolve(
+      executionFirestoreId: executionFirestoreId,
+      executionLocalId: execution.id,
+      firestoreLinkedModules: firestoreLinked,
+      localLinkedModules: localLinked,
+    );
+
+    for (final collision in resolution.ignoredForeignParentCollisions) {
+      debugPrint(
+        '⚠️ Ignored foreign-parent module during planned-job completion: '
+        'module=${collision.moduleTitle}, '
+        'moduleFirestoreId=${collision.firestoreId}, '
+        'actualExecution=${collision.jobExecutionFirestoreId}, '
+        'currentExecution=$executionFirestoreId, '
+        'localExecutionId=${collision.jobExecutionLocalId}',
       );
     }
 
-    addModules(
-      await isar.jobModuleInstances
-          .filter()
-          .jobExecutionLocalIdEqualTo(execution.id)
-          .and()
-          .isDeletedEqualTo(false)
-          .findAll(),
-    );
+    if (resolution.unresolvedLocalParentModules.isNotEmpty) {
+      final ids = resolution.unresolvedLocalParentModules
+          .map((module) => module.firestoreId ?? 'local:${module.id}')
+          .join(', ');
+      throw StateError(
+        'Cannot complete planned job: '
+        '${resolution.unresolvedLocalParentModules.length} module(s) have an '
+        'unresolved local parent identity and are not visible to the canonical '
+        'server execution $executionFirestoreId. Reconcile before closure. '
+        'Modules: $ids',
+      );
+    }
 
-    return byKey.values.toList();
+    if (resolution.duplicateCanonicalModules.isNotEmpty) {
+      final ids = resolution.duplicateCanonicalModules
+          .map(
+            (module) =>
+                '${module.firestoreId ?? 'local:${module.id}'}@isar:${module.id}',
+          )
+          .join(', ');
+      throw StateError(
+        'Cannot complete planned job: distinct local rows claim the same '
+        'canonical module Firestore id. Resolve the duplicate without '
+        'discarding evidence before closure. Rows: $ids',
+      );
+    }
+
+    return resolution.modules;
   }
 
   @override

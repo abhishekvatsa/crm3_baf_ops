@@ -13,6 +13,7 @@ import '../../audit/repositories/audit_repository.dart';
 import '../../audit/providers/audit_provider.dart';
 import '../../auth/data/user_model.dart';
 import '../data/job_module_model.dart';
+import '../domain/planned_job_module_set_resolver.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
@@ -288,6 +289,10 @@ void _normaliseModuleForUserSave(
     ..metadataJson = _cleanOptionalText(module.metadataJson)
     ..updatedAt = now;
 
+  if (_cleanOptionalText(module.jobExecutionFirestoreId) != null) {
+    module.jobExecutionLocalId = null;
+  }
+
   if (module.addedDuringExecution && module.addedAt == null) {
     module.addedAt = now;
     module.addedByUid ??= auditContext?.performedByUid;
@@ -312,7 +317,7 @@ void _copyRemoteModuleIntoLocal(
     ..isSynced = true
     ..version = remote.version
     ..jobExecutionFirestoreId = remote.jobExecutionFirestoreId
-    ..jobExecutionLocalId = remote.jobExecutionLocalId
+    ..jobExecutionLocalId = null
     ..templateFirestoreId = remote.templateFirestoreId
     ..templateName = remote.templateName
     ..templatePackageId = remote.templatePackageId
@@ -609,13 +614,18 @@ class IsarJobModuleRepository implements JobModuleRepository {
     JobModuleDiscipline? discipline,
     int? limit,
   }) async {
-    final modules =
-        await _baseJobQuery(
-          jobExecutionFirestoreId: jobExecutionFirestoreId,
-          jobExecutionLocalId: jobExecutionLocalId,
-          discipline: discipline,
-        ).findAll();
+    final resolution = await _loadResolvedModulesForJob(
+      jobExecutionFirestoreId: jobExecutionFirestoreId,
+      jobExecutionLocalId: jobExecutionLocalId,
+      discipline: discipline,
+    );
 
+    _reportForeignParentCollisions(
+      resolution.ignoredForeignParentCollisions,
+      jobExecutionFirestoreId,
+    );
+    _assertNoIdentityAmbiguity(resolution, jobExecutionFirestoreId);
+    final modules = resolution.modules;
     _sortModules(modules);
     if (limit != null && modules.length > limit) {
       return modules.take(limit).toList();
@@ -630,51 +640,244 @@ class IsarJobModuleRepository implements JobModuleRepository {
     JobModuleDiscipline? discipline,
     int? limit,
   }) {
-    return _baseJobQuery(
-      jobExecutionFirestoreId: jobExecutionFirestoreId,
+    final cleanedFirestoreId = _cleanOptionalText(jobExecutionFirestoreId);
+
+    if (cleanedFirestoreId == null) {
+      return _localJobQuery(
+        jobExecutionLocalId: jobExecutionLocalId,
+        discipline: discipline,
+      ).watch(fireImmediately: true).map((localModules) {
+        final resolution = PlannedJobModuleSetResolver.resolve(
+          executionFirestoreId: null,
+          executionLocalId: jobExecutionLocalId ?? -1,
+          firestoreLinkedModules: const <JobModuleInstance>[],
+          localLinkedModules: localModules,
+        );
+        _reportForeignParentCollisions(
+          resolution.ignoredForeignParentCollisions,
+          null,
+        );
+        _assertNoIdentityAmbiguity(resolution, null);
+        final modules = resolution.modules;
+        _sortModules(modules);
+        return limit != null && modules.length > limit
+            ? modules.take(limit).toList()
+            : modules;
+      });
+    }
+
+    final remoteStream = _remoteJobQuery(
+      jobExecutionFirestoreId: cleanedFirestoreId,
+      discipline: discipline,
+    ).watch(fireImmediately: true);
+    final localStream = _localJobQuery(
       jobExecutionLocalId: jobExecutionLocalId,
       discipline: discipline,
-    ).watch(fireImmediately: true).map((modules) {
-      _sortModules(modules);
-      if (limit != null && modules.length > limit) {
-        return modules.take(limit).toList();
-      }
-      return modules;
-    });
+    ).watch(fireImmediately: true);
+
+    return _combineResolvedModuleStreams(
+      remoteStream: remoteStream,
+      localStream: localStream,
+      jobExecutionFirestoreId: cleanedFirestoreId,
+      jobExecutionLocalId: jobExecutionLocalId,
+      limit: limit,
+    );
   }
 
-  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
-  _baseJobQuery({
+  Future<PlannedJobModuleSetResolution> _loadResolvedModulesForJob({
     String? jobExecutionFirestoreId,
     int? jobExecutionLocalId,
     JobModuleDiscipline? discipline,
-  }) {
+  }) async {
     final cleanedFirestoreId = _cleanOptionalText(jobExecutionFirestoreId);
+    final localId = jobExecutionLocalId ?? -1;
 
+    if (cleanedFirestoreId == null) {
+      final localModules =
+          jobExecutionLocalId == null
+              ? <JobModuleInstance>[]
+              : await _localJobQuery(
+                jobExecutionLocalId: jobExecutionLocalId,
+                discipline: discipline,
+              ).findAll();
+      return PlannedJobModuleSetResolver.resolve(
+        executionFirestoreId: null,
+        executionLocalId: localId,
+        firestoreLinkedModules: const <JobModuleInstance>[],
+        localLinkedModules: localModules,
+      );
+    }
+
+    final remoteModules =
+        await _remoteJobQuery(
+          jobExecutionFirestoreId: cleanedFirestoreId,
+          discipline: discipline,
+        ).findAll();
+    final localModules =
+        jobExecutionLocalId == null
+            ? <JobModuleInstance>[]
+            : await _localJobQuery(
+              jobExecutionLocalId: jobExecutionLocalId,
+              discipline: discipline,
+            ).findAll();
+
+    return PlannedJobModuleSetResolver.resolve(
+      executionFirestoreId: cleanedFirestoreId,
+      executionLocalId: localId,
+      firestoreLinkedModules: remoteModules,
+      localLinkedModules: localModules,
+    );
+  }
+
+  Stream<List<JobModuleInstance>> _combineResolvedModuleStreams({
+    required Stream<List<JobModuleInstance>> remoteStream,
+    required Stream<List<JobModuleInstance>> localStream,
+    required String jobExecutionFirestoreId,
+    required int? jobExecutionLocalId,
+    int? limit,
+  }) {
+    late StreamController<List<JobModuleInstance>> controller;
+    StreamSubscription<List<JobModuleInstance>>? remoteSubscription;
+    StreamSubscription<List<JobModuleInstance>>? localSubscription;
+    List<JobModuleInstance>? remoteLatest;
+    List<JobModuleInstance>? localLatest;
+
+    void emitIfReady() {
+      final remote = remoteLatest;
+      final local = localLatest;
+      if (remote == null || local == null || controller.isClosed) return;
+
+      final resolution = PlannedJobModuleSetResolver.resolve(
+        executionFirestoreId: jobExecutionFirestoreId,
+        executionLocalId: jobExecutionLocalId ?? -1,
+        firestoreLinkedModules: remote,
+        localLinkedModules: local,
+      );
+      _reportForeignParentCollisions(
+        resolution.ignoredForeignParentCollisions,
+        jobExecutionFirestoreId,
+      );
+      try {
+        _assertNoIdentityAmbiguity(resolution, jobExecutionFirestoreId);
+      } catch (error, stackTrace) {
+        controller.addError(error, stackTrace);
+        return;
+      }
+      final modules = resolution.modules;
+      _sortModules(modules);
+      controller.add(
+        limit != null && modules.length > limit
+            ? modules.take(limit).toList()
+            : modules,
+      );
+    }
+
+    controller = StreamController<List<JobModuleInstance>>(
+      onListen: () {
+        remoteSubscription = remoteStream.listen((value) {
+          remoteLatest = value;
+          emitIfReady();
+        }, onError: controller.addError);
+        localSubscription = localStream.listen((value) {
+          localLatest = value;
+          emitIfReady();
+        }, onError: controller.addError);
+      },
+      onCancel: () async {
+        await remoteSubscription?.cancel();
+        await localSubscription?.cancel();
+      },
+    );
+
+    return controller.stream;
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  _remoteJobQuery({
+    required String jobExecutionFirestoreId,
+    JobModuleDiscipline? discipline,
+  }) {
+    var query = isar.jobModuleInstances
+        .filter()
+        .jobExecutionFirestoreIdEqualTo(jobExecutionFirestoreId)
+        .and()
+        .isDeletedEqualTo(false);
+    if (discipline != null) {
+      query = query.and().disciplineEqualTo(discipline);
+    }
+    return query;
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+  _localJobQuery({
+    required int? jobExecutionLocalId,
+    JobModuleDiscipline? discipline,
+  }) {
     var query =
-        cleanedFirestoreId != null
+        jobExecutionLocalId == null
             ? isar.jobModuleInstances
                 .filter()
-                .jobExecutionFirestoreIdEqualTo(cleanedFirestoreId)
-                .and()
-                .isDeletedEqualTo(false)
-            : jobExecutionLocalId != null
-            ? isar.jobModuleInstances
-                .filter()
-                .jobExecutionLocalIdEqualTo(jobExecutionLocalId)
+                .firestoreIdEqualTo('__no_matching_job_module__')
                 .and()
                 .isDeletedEqualTo(false)
             : isar.jobModuleInstances
                 .filter()
-                .firestoreIdEqualTo('__no_matching_job_module__')
+                .jobExecutionLocalIdEqualTo(jobExecutionLocalId)
                 .and()
                 .isDeletedEqualTo(false);
-
     if (discipline != null) {
       query = query.and().disciplineEqualTo(discipline);
     }
-
     return query;
+  }
+
+  void _reportForeignParentCollisions(
+    Iterable<JobModuleInstance> collisions,
+    String? currentExecutionFirestoreId,
+  ) {
+    for (final module in collisions) {
+      debugPrint(
+        '⚠️ Ignored foreign-parent module linked by a non-authoritative local id: '
+        'module=${module.moduleTitle}, moduleFirestoreId=${module.firestoreId}, '
+        'actualExecution=${module.jobExecutionFirestoreId}, '
+        'currentExecution=$currentExecutionFirestoreId, '
+        'localExecutionId=${module.jobExecutionLocalId}',
+      );
+    }
+  }
+
+  void _assertNoIdentityAmbiguity(
+    PlannedJobModuleSetResolution resolution,
+    String? currentExecutionFirestoreId,
+  ) {
+    final unresolved = resolution.unresolvedLocalParentModules;
+    if (unresolved.isNotEmpty) {
+      final ids = unresolved
+          .map((module) => module.firestoreId ?? 'local:${module.id}')
+          .join(', ');
+      throw StateError(
+        'Planned-job module identity is unresolved for '
+        '${unresolved.length} local module(s). The current execution has '
+        'canonical Firestore id $currentExecutionFirestoreId, but these '
+        'modules do not. Sync/reconciliation must repair the parent relation '
+        'before work or closure can continue. Modules: $ids',
+      );
+    }
+
+    final duplicates = resolution.duplicateCanonicalModules;
+    if (duplicates.isNotEmpty) {
+      final ids = duplicates
+          .map(
+            (module) =>
+                '${module.firestoreId ?? 'local:${module.id}'}@isar:${module.id}',
+          )
+          .join(', ');
+      throw StateError(
+        'Planned-job module identity is ambiguous: distinct local rows claim '
+        'the same canonical module Firestore id. Resolve the duplicate without '
+        'discarding evidence before work or closure can continue. Rows: $ids',
+      );
+    }
   }
 
   static void _sortModules(List<JobModuleInstance> modules) {
@@ -990,7 +1193,9 @@ class IsarJobModuleRepository implements JobModuleRepository {
 
   @override
   Future<void> insertModuleFromRemote(JobModuleInstance remote) async {
-    remote.isSynced = true;
+    remote
+      ..jobExecutionLocalId = null
+      ..isSynced = true;
     await isar.writeTxn(() => isar.jobModuleInstances.put(remote));
   }
 
@@ -1135,6 +1340,9 @@ class IsarJobModuleRepository implements JobModuleRepository {
     if (records.isEmpty) return;
     await isar.writeTxn(() async {
       for (final record in records) {
+        if (_cleanOptionalText(record.jobExecutionFirestoreId) != null) {
+          record.jobExecutionLocalId = null;
+        }
         await isar.jobModuleInstances.put(record);
       }
     });

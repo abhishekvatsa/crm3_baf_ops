@@ -87,6 +87,10 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
           )
           ..id = _module.id
           ..firestoreId = _module.firestoreId
+          // fromMap() is intentionally remote-safe and ignores transported
+          // Isar ids. Preserve the genuine local relation when cloning an
+          // offline/local module for editing on this device.
+          ..jobExecutionLocalId = _module.jobExecutionLocalId
           ..isSynced = _module.isSynced;
     return copy;
   }
