@@ -9,7 +9,8 @@
   },
   "scripts": {
     "test:rules": "jest --runInBand",
-    "emulator:test:rules": "firebase emulators:exec --only firestore \"npm run test:rules\""
+    "emulator:test:rules": "firebase emulators:exec --only firestore \"npm run test:rules\"",
+    "emulator:test:closure": "firebase emulators:exec --only firestore \"npm --prefix functions run test:emulator:closure\""
   },
   "keywords": [],
   "author": "",
