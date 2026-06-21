@@ -53,11 +53,7 @@ String _normaliseEnumKey(dynamic value) {
       .replaceAll(RegExp(r'[^a-z0-9]+'), '');
 }
 
-T _enumByNameOr<T extends Enum>(
-    List<T> values,
-    dynamic value,
-    T fallback,
-    ) {
+T _enumByNameOr<T extends Enum>(List<T> values, dynamic value, T fallback) {
   final key = _normaliseEnumKey(value);
   if (key.isEmpty) return fallback;
 
@@ -111,13 +107,7 @@ JobDiaryDiscipline _parseDiscipline(dynamic value) {
 ///
 /// This is deliberately separate from module completion status. A job can have
 /// many diary entries while its modules remain in draft/in-progress state.
-enum JobDiaryKind {
-  note,
-  observation,
-  handover,
-  blocker,
-  correction,
-}
+enum JobDiaryKind { note, observation, handover, blocker, correction }
 
 /// Default execution lanes for BAF maintenance, with room for shared/admin
 /// entries that do not belong to one discipline lane.
@@ -133,19 +123,9 @@ enum JobDiaryDiscipline {
   others,
 }
 
-enum JobDiarySeverity {
-  low,
-  medium,
-  high,
-  critical,
-}
+enum JobDiarySeverity { low, medium, high, critical }
 
-enum JobBlockerStatus {
-  open,
-  resolved,
-  carriedForward,
-  waived,
-}
+enum JobBlockerStatus { open, resolved, carriedForward, waived }
 
 // ─────────────────────────────────────────────────────────────
 // JOB DIARY ENTRY
@@ -172,8 +152,8 @@ class JobDiaryEntry {
   @Index()
   String? jobExecutionFirestoreId;
 
-  /// Defensive local link for mobile-only/offline repair utilities. Do not use
-  /// as the primary Firestore relation.
+  /// Defensive device-local link for mobile-only/offline repair utilities.
+  /// Never serialize this Isar integer to Firestore or import it from remote.
   @Index()
   int? jobExecutionLocalId;
 
@@ -182,6 +162,7 @@ class JobDiaryEntry {
   @Index()
   String? moduleInstanceFirestoreId;
 
+  /// Device-local companion link; never a cross-device identity.
   int? moduleInstanceLocalId;
 
   // ── Job context copied from JobExecution for cheap filtering/dossier use ──
@@ -266,7 +247,8 @@ class JobDiaryEntry {
   bool get isOpenBlocker => isBlocker && blockerStatus == JobBlockerStatus.open;
 
   @ignore
-  bool get isLinkedToModule => moduleInstanceFirestoreId != null || moduleInstanceLocalId != null;
+  bool get isLinkedToModule =>
+      moduleInstanceFirestoreId != null || moduleInstanceLocalId != null;
 
   @ignore
   String get displayTitle {
@@ -308,9 +290,7 @@ class JobDiaryEntry {
   Map<String, dynamic> toMap() => {
     'firestoreId': firestoreId,
     'jobExecutionFirestoreId': _cleanOptionalText(jobExecutionFirestoreId),
-    'jobExecutionLocalId': jobExecutionLocalId,
     'moduleInstanceFirestoreId': _cleanOptionalText(moduleInstanceFirestoreId),
-    'moduleInstanceLocalId': moduleInstanceLocalId,
     'assetType': assetType.name,
     'assetNumber': assetNumber,
     'chargeNoAtEvent': chargeNoAtEvent,
@@ -326,7 +306,8 @@ class JobDiaryEntry {
     'componentGroup': _cleanOptionalText(componentGroup),
     'targetRef': _cleanOptionalText(targetRef),
     'procedureRef': _cleanOptionalText(procedureRef),
-    'tags': tags.map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList(),
+    'tags':
+        tags.map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList(),
     'title': _cleanOptionalText(title),
     'note': note.trim(),
     'actionTaken': _cleanOptionalText(actionTaken),
@@ -364,21 +345,28 @@ class JobDiaryEntry {
 
     return JobDiaryEntry()
       ..firestoreId = documentId
-      ..jobExecutionFirestoreId = _cleanOptionalText(map['jobExecutionFirestoreId'])
-      ..jobExecutionLocalId = map['jobExecutionLocalId'] is int
-          ? map['jobExecutionLocalId'] as int
-          : int.tryParse(map['jobExecutionLocalId']?.toString() ?? '')
-      ..moduleInstanceFirestoreId = _cleanOptionalText(map['moduleInstanceFirestoreId'])
-      ..moduleInstanceLocalId = map['moduleInstanceLocalId'] is int
-          ? map['moduleInstanceLocalId'] as int
-          : int.tryParse(map['moduleInstanceLocalId']?.toString() ?? '')
-      ..assetType = _enumByNameOr(AssetType.values, map['assetType'], AssetType.base)
-      ..assetNumber = map['assetNumber'] is int
-          ? map['assetNumber'] as int
-          : int.tryParse(map['assetNumber']?.toString() ?? '') ?? 0
-      ..chargeNoAtEvent = map['chargeNoAtEvent'] is int
-          ? map['chargeNoAtEvent'] as int
-          : int.tryParse(map['chargeNoAtEvent']?.toString() ?? '')
+      ..jobExecutionFirestoreId = _cleanOptionalText(
+        map['jobExecutionFirestoreId'],
+      )
+      // Device-local Isar ids are never imported from Firestore.
+      ..jobExecutionLocalId = null
+      ..moduleInstanceFirestoreId = _cleanOptionalText(
+        map['moduleInstanceFirestoreId'],
+      )
+      ..moduleInstanceLocalId = null
+      ..assetType = _enumByNameOr(
+        AssetType.values,
+        map['assetType'],
+        AssetType.base,
+      )
+      ..assetNumber =
+          map['assetNumber'] is int
+              ? map['assetNumber'] as int
+              : int.tryParse(map['assetNumber']?.toString() ?? '') ?? 0
+      ..chargeNoAtEvent =
+          map['chargeNoAtEvent'] is int
+              ? map['chargeNoAtEvent'] as int
+              : int.tryParse(map['chargeNoAtEvent']?.toString() ?? '')
       ..templateFirestoreId = _cleanOptionalText(map['templateFirestoreId'])
       ..templateName = _cleanOptionalText(map['templateName'])
       ..kind = parsedKind
@@ -389,8 +377,10 @@ class JobDiaryEntry {
         JobDiarySeverity.medium,
       )
       ..blockerStatus = parsedBlockerStatus
-      ..isBlocker = map['isBlocker'] == true || parsedKind == JobDiaryKind.blocker
-      ..isHandover = map['isHandover'] == true || parsedKind == JobDiaryKind.handover
+      ..isBlocker =
+          map['isBlocker'] == true || parsedKind == JobDiaryKind.blocker
+      ..isHandover =
+          map['isHandover'] == true || parsedKind == JobDiaryKind.handover
       ..functionalSection = _cleanOptionalText(map['functionalSection'])
       ..componentGroup = _cleanOptionalText(map['componentGroup'])
       ..targetRef = _cleanOptionalText(map['targetRef'])
@@ -412,9 +402,10 @@ class JobDiaryEntry {
       ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
       ..deletedByName = _cleanOptionalText(map['deletedByName'])
       ..deleteReason = _cleanOptionalText(map['deleteReason'])
-      ..version = map['version'] is int
-          ? map['version'] as int
-          : int.tryParse(map['version']?.toString() ?? '') ?? 1
+      ..version =
+          map['version'] is int
+              ? map['version'] as int
+              : int.tryParse(map['version']?.toString() ?? '') ?? 1
       ..metadataJson = _cleanOptionalText(map['metadataJson'])
       ..isSynced = true;
   }

@@ -737,7 +737,7 @@ class _PublishedTemplateAssignmentScreenState
       }
       module
         ..jobExecutionFirestoreId = executionFirestoreId
-        ..jobExecutionLocalId = localExecution.id
+        ..jobExecutionLocalId = null
         ..isSynced = true;
     }
     await moduleRepository.batchUpsertModules(result.modules);

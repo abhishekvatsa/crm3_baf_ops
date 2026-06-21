@@ -40,6 +40,7 @@ import 'core/services/crash_reporting_bootstrap.dart';
 import 'core/services/isar_production_recovery.dart';
 import 'core/services/isar_schema_guard.dart';
 import 'core/services/live_remote_sync_service.dart';
+import 'core/services/planned_job_local_link_repair.dart';
 import 'core/services/sync_coordinator.dart';
 import 'core/theme/baf_design_system.dart';
 
@@ -74,7 +75,22 @@ final _isarSchemas = [
 Future<Isar> _openLocalIsar() async {
   final dir = await getApplicationDocumentsDirectory();
   await ensureIsarSchemaBeforeOpen(databaseDirectoryPath: dir.path);
-  return Isar.open(_isarSchemas, directory: dir.path);
+  final localIsar = await Isar.open(_isarSchemas, directory: dir.path);
+  try {
+    final repair = await repairPlannedJobLocalLinks(localIsar);
+    if (repair.changed) {
+      debugPrint(
+        '🧭 Repaired transported planned-job local links: '
+        'modules=${repair.repairedModules}, '
+        'diaryExecutionLinks=${repair.repairedDiaryExecutionLinks}, '
+        'diaryModuleLinks=${repair.repairedDiaryModuleLinks}',
+      );
+    }
+    return localIsar;
+  } catch (_) {
+    await localIsar.close();
+    rethrow;
+  }
 }
 
 class StartupFailure {

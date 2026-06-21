@@ -57,11 +57,7 @@ String _normaliseEnumKey(dynamic value) {
       .replaceAll(RegExp(r'[^a-z0-9]+'), '');
 }
 
-T _enumByNameOr<T extends Enum>(
-    List<T> values,
-    dynamic value,
-    T fallback,
-    ) {
+T _enumByNameOr<T extends Enum>(List<T> values, dynamic value, T fallback) {
   final key = _normaliseEnumKey(value);
   if (key.isEmpty) return fallback;
 
@@ -207,7 +203,8 @@ class JobModuleInstance {
   @Index()
   String? jobExecutionFirestoreId;
 
-  /// Defensive local link for mobile-only/offline repair utilities.
+  /// Defensive device-local link for mobile-only/offline repair utilities.
+  /// Never serialize this Isar integer to Firestore or import it from remote.
   @Index()
   int? jobExecutionLocalId;
 
@@ -374,15 +371,15 @@ class JobModuleInstance {
   @ignore
   bool get isFinalisedForNormalUsers =>
       status == JobModuleStatus.submitted ||
-          status == JobModuleStatus.accepted ||
-          status == JobModuleStatus.notApplicable;
+      status == JobModuleStatus.accepted ||
+      status == JobModuleStatus.notApplicable;
 
   @ignore
   bool get isOpenForWork =>
       !isDeleted &&
-          status != JobModuleStatus.submitted &&
-          status != JobModuleStatus.accepted &&
-          status != JobModuleStatus.notApplicable;
+      status != JobModuleStatus.submitted &&
+      status != JobModuleStatus.accepted &&
+      status != JobModuleStatus.notApplicable;
 
   @ignore
   List<FieldResponse> get responses {
@@ -391,7 +388,9 @@ class JobModuleInstance {
       if (decoded is! List) return [];
       return decoded
           .whereType<Map>()
-          .map((entry) => FieldResponse.fromMap(Map<String, dynamic>.from(entry)))
+          .map(
+            (entry) => FieldResponse.fromMap(Map<String, dynamic>.from(entry)),
+          )
           .toList();
     } catch (_) {
       return [];
@@ -399,7 +398,9 @@ class JobModuleInstance {
   }
 
   set responses(List<FieldResponse> value) {
-    responsesJson = jsonEncode(value.map((response) => response.toMap()).toList());
+    responsesJson = jsonEncode(
+      value.map((response) => response.toMap()).toList(),
+    );
   }
 
   @ignore
@@ -437,7 +438,6 @@ class JobModuleInstance {
   Map<String, dynamic> toMap() => {
     'firestoreId': firestoreId,
     'jobExecutionFirestoreId': _cleanOptionalText(jobExecutionFirestoreId),
-    'jobExecutionLocalId': jobExecutionLocalId,
     'templateFirestoreId': _cleanOptionalText(templateFirestoreId),
     'templateName': _cleanOptionalText(templateName),
     'templatePackageId': _cleanOptionalText(templatePackageId),
@@ -464,14 +464,28 @@ class JobModuleInstance {
     'componentGroup': _cleanOptionalText(componentGroup),
     'subsystem': _cleanOptionalText(subsystem),
     'targetRef': _cleanOptionalText(targetRef),
-    'targetRefs': targetRefs.map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList(),
-    'procedureRefs': procedureRefs.map((ref) => ref.trim()).where((ref) => ref.isNotEmpty).toList(),
-    'safetyConfirmations': safetyConfirmations.map((item) => item.trim()).where((item) => item.isNotEmpty).toList(),
-    'tags': tags.map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList(),
-    'operationalStatePreconditions': operationalStatePreconditions
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(),
+    'targetRefs':
+        targetRefs
+            .map((tag) => tag.trim())
+            .where((tag) => tag.isNotEmpty)
+            .toList(),
+    'procedureRefs':
+        procedureRefs
+            .map((ref) => ref.trim())
+            .where((ref) => ref.isNotEmpty)
+            .toList(),
+    'safetyConfirmations':
+        safetyConfirmations
+            .map((item) => item.trim())
+            .where((item) => item.isNotEmpty)
+            .toList(),
+    'tags':
+        tags.map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList(),
+    'operationalStatePreconditions':
+        operationalStatePreconditions
+            .map((item) => item.trim())
+            .where((item) => item.isNotEmpty)
+            .toList(),
     // responsesJson is the canonical Firestore payload.
     // Do not also write the legacy structured 'responses' array.
     'responsesJson': responsesJson,
@@ -514,110 +528,129 @@ class JobModuleInstance {
     'metadataJson': _cleanOptionalText(metadataJson),
   };
 
-  factory JobModuleInstance.fromMap(Map<String, dynamic> map, String documentId) {
+  factory JobModuleInstance.fromMap(
+    Map<String, dynamic> map,
+    String documentId,
+  ) {
     final created = _parseTimestamp(map['createdAt']) ?? DateTime.now();
     final updated = _parseTimestamp(map['updatedAt']) ?? created;
     final added = _parseTimestamp(map['addedAt']);
 
-    final instance = JobModuleInstance()
-      ..firestoreId = documentId
-      ..jobExecutionFirestoreId = _cleanOptionalText(map['jobExecutionFirestoreId'])
-      ..jobExecutionLocalId = _parseIntOrNull(map['jobExecutionLocalId'])
-      ..templateFirestoreId = _cleanOptionalText(map['templateFirestoreId'])
-      ..templateName = _cleanOptionalText(map['templateName'])
-      ..templatePackageId = _cleanOptionalText(map['templatePackageId'])
-      ..templateVersionId = _cleanOptionalText(map['templateVersionId'])
-      ..templateModuleId = _cleanOptionalText(map['templateModuleId'])
-      ..moduleCode = _cleanOptionalText(map['moduleCode'])
-      ..moduleSnapshotJson = _safeJsonObject(map['moduleSnapshotJson'])
-      ..fieldDefinitionsJson = _safeJsonList(map['fieldDefinitionsJson'])
-      ..assetType = _enumByNameOr(AssetType.values, map['assetType'], AssetType.base)
-      ..assetNumber = _parseIntOr(map['assetNumber'], 0)
-      ..chargeNoAtEvent = _parseIntOrNull(map['chargeNoAtEvent'])
-      ..pairedEquipmentJson = _cleanOptionalText(map['pairedEquipmentJson'])
-      ..moduleTitle = _cleanOptionalText(map['moduleTitle']) ?? 'Untitled module'
-      ..moduleDescription = _cleanOptionalText(map['moduleDescription'])
-      ..status = _enumByNameOr(
-        JobModuleStatus.values,
-        map['status'],
-        JobModuleStatus.notStarted,
-      )
-      ..useMode = _enumByNameOr(
-        JobModuleUseMode.values,
-        map['useMode'],
-        JobModuleUseMode.scheduledPM,
-      )
-      ..discipline = _parseDiscipline(map['discipline'])
-      ..safetyClass = _enumByNameOr(
-        JobModuleSafetyClass.values,
-        map['safetyClass'],
-        JobModuleSafetyClass.normal,
-      )
-      ..isRequired = map['isRequired'] == true
-      ..requiredForClosure = map['requiredForClosure'] == true
-      ..addedDuringExecution = map['addedDuringExecution'] == true
-      ..displayOrder = _parseIntOr(map['displayOrder'], 0)
-      ..functionalSection = _cleanOptionalText(map['functionalSection'])
-      ..componentGroup = _cleanOptionalText(map['componentGroup'])
-      ..subsystem = _cleanOptionalText(map['subsystem'])
-      ..targetRef = _cleanOptionalText(map['targetRef'])
-      ..targetRefs = _cleanStringList(map['targetRefs'])
-      ..procedureRefs = _cleanStringList(map['procedureRefs'])
-      ..safetyConfirmations = _cleanStringList(map['safetyConfirmations'])
-      ..tags = _cleanStringList(map['tags'])
-      ..operationalStatePreconditions = _cleanStringList(map['operationalStatePreconditions'])
-      ..responsesJson = _safeJsonList(map['responsesJson'])
-      ..actionsJson = _safeJsonList(map['actionsJson'])
-      ..draftNote = _cleanOptionalText(map['draftNote'])
-      ..submissionNote = _cleanOptionalText(map['submissionNote'])
-      ..acceptanceNote = _cleanOptionalText(map['acceptanceNote'])
-      ..reopenReason = _cleanOptionalText(map['reopenReason'])
-      ..notApplicableReason = _cleanOptionalText(map['notApplicableReason'])
-      ..pendingIssue = _cleanOptionalText(map['pendingIssue'])
-      ..requiresFollowUp = map['requiresFollowUp'] == true
-      ..addedByUid = _cleanOptionalText(map['addedByUid'])
-      ..addedByName = _cleanOptionalText(map['addedByName'])
-      ..addedAt = added
-      ..addReason = _cleanOptionalText(map['addReason'])
-      ..createdByUid = _cleanOptionalText(map['createdByUid'])
-      ..createdByName = _cleanOptionalText(map['createdByName'])
-      ..createdAt = created
-      ..updatedByUid = _cleanOptionalText(map['updatedByUid'])
-      ..updatedByName = _cleanOptionalText(map['updatedByName'])
-      ..updatedAt = updated
-      ..submittedByUid = _cleanOptionalText(map['submittedByUid'])
-      ..submittedByName = _cleanOptionalText(map['submittedByName'])
-      ..submittedAt = _parseTimestamp(map['submittedAt'])
-      ..acceptedByUid = _cleanOptionalText(map['acceptedByUid'])
-      ..acceptedByName = _cleanOptionalText(map['acceptedByName'])
-      ..acceptedAt = _parseTimestamp(map['acceptedAt'])
-      ..reopenedByUid = _cleanOptionalText(map['reopenedByUid'])
-      ..reopenedByName = _cleanOptionalText(map['reopenedByName'])
-      ..reopenedAt = _parseTimestamp(map['reopenedAt'])
-      ..notApplicableByUid = _cleanOptionalText(map['notApplicableByUid'])
-      ..notApplicableByName = _cleanOptionalText(map['notApplicableByName'])
-      ..notApplicableAt = _parseTimestamp(map['notApplicableAt'])
-      ..isDeleted = map['isDeleted'] == true
-      ..deletedAt = _parseTimestamp(map['deletedAt'])
-      ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
-      ..deletedByName = _cleanOptionalText(map['deletedByName'])
-      ..deleteReason = _cleanOptionalText(map['deleteReason'])
-      ..version = _parseIntOr(map['version'], 1)
-      ..metadataJson = _cleanOptionalText(map['metadataJson'])
-      ..isSynced = true;
+    final instance =
+        JobModuleInstance()
+          ..firestoreId = documentId
+          ..jobExecutionFirestoreId = _cleanOptionalText(
+            map['jobExecutionFirestoreId'],
+          )
+          // Device-local Isar ids are never imported from Firestore.
+          ..jobExecutionLocalId = null
+          ..templateFirestoreId = _cleanOptionalText(map['templateFirestoreId'])
+          ..templateName = _cleanOptionalText(map['templateName'])
+          ..templatePackageId = _cleanOptionalText(map['templatePackageId'])
+          ..templateVersionId = _cleanOptionalText(map['templateVersionId'])
+          ..templateModuleId = _cleanOptionalText(map['templateModuleId'])
+          ..moduleCode = _cleanOptionalText(map['moduleCode'])
+          ..moduleSnapshotJson = _safeJsonObject(map['moduleSnapshotJson'])
+          ..fieldDefinitionsJson = _safeJsonList(map['fieldDefinitionsJson'])
+          ..assetType = _enumByNameOr(
+            AssetType.values,
+            map['assetType'],
+            AssetType.base,
+          )
+          ..assetNumber = _parseIntOr(map['assetNumber'], 0)
+          ..chargeNoAtEvent = _parseIntOrNull(map['chargeNoAtEvent'])
+          ..pairedEquipmentJson = _cleanOptionalText(map['pairedEquipmentJson'])
+          ..moduleTitle =
+              _cleanOptionalText(map['moduleTitle']) ?? 'Untitled module'
+          ..moduleDescription = _cleanOptionalText(map['moduleDescription'])
+          ..status = _enumByNameOr(
+            JobModuleStatus.values,
+            map['status'],
+            JobModuleStatus.notStarted,
+          )
+          ..useMode = _enumByNameOr(
+            JobModuleUseMode.values,
+            map['useMode'],
+            JobModuleUseMode.scheduledPM,
+          )
+          ..discipline = _parseDiscipline(map['discipline'])
+          ..safetyClass = _enumByNameOr(
+            JobModuleSafetyClass.values,
+            map['safetyClass'],
+            JobModuleSafetyClass.normal,
+          )
+          ..isRequired = map['isRequired'] == true
+          ..requiredForClosure = map['requiredForClosure'] == true
+          ..addedDuringExecution = map['addedDuringExecution'] == true
+          ..displayOrder = _parseIntOr(map['displayOrder'], 0)
+          ..functionalSection = _cleanOptionalText(map['functionalSection'])
+          ..componentGroup = _cleanOptionalText(map['componentGroup'])
+          ..subsystem = _cleanOptionalText(map['subsystem'])
+          ..targetRef = _cleanOptionalText(map['targetRef'])
+          ..targetRefs = _cleanStringList(map['targetRefs'])
+          ..procedureRefs = _cleanStringList(map['procedureRefs'])
+          ..safetyConfirmations = _cleanStringList(map['safetyConfirmations'])
+          ..tags = _cleanStringList(map['tags'])
+          ..operationalStatePreconditions = _cleanStringList(
+            map['operationalStatePreconditions'],
+          )
+          ..responsesJson = _safeJsonList(map['responsesJson'])
+          ..actionsJson = _safeJsonList(map['actionsJson'])
+          ..draftNote = _cleanOptionalText(map['draftNote'])
+          ..submissionNote = _cleanOptionalText(map['submissionNote'])
+          ..acceptanceNote = _cleanOptionalText(map['acceptanceNote'])
+          ..reopenReason = _cleanOptionalText(map['reopenReason'])
+          ..notApplicableReason = _cleanOptionalText(map['notApplicableReason'])
+          ..pendingIssue = _cleanOptionalText(map['pendingIssue'])
+          ..requiresFollowUp = map['requiresFollowUp'] == true
+          ..addedByUid = _cleanOptionalText(map['addedByUid'])
+          ..addedByName = _cleanOptionalText(map['addedByName'])
+          ..addedAt = added
+          ..addReason = _cleanOptionalText(map['addReason'])
+          ..createdByUid = _cleanOptionalText(map['createdByUid'])
+          ..createdByName = _cleanOptionalText(map['createdByName'])
+          ..createdAt = created
+          ..updatedByUid = _cleanOptionalText(map['updatedByUid'])
+          ..updatedByName = _cleanOptionalText(map['updatedByName'])
+          ..updatedAt = updated
+          ..submittedByUid = _cleanOptionalText(map['submittedByUid'])
+          ..submittedByName = _cleanOptionalText(map['submittedByName'])
+          ..submittedAt = _parseTimestamp(map['submittedAt'])
+          ..acceptedByUid = _cleanOptionalText(map['acceptedByUid'])
+          ..acceptedByName = _cleanOptionalText(map['acceptedByName'])
+          ..acceptedAt = _parseTimestamp(map['acceptedAt'])
+          ..reopenedByUid = _cleanOptionalText(map['reopenedByUid'])
+          ..reopenedByName = _cleanOptionalText(map['reopenedByName'])
+          ..reopenedAt = _parseTimestamp(map['reopenedAt'])
+          ..notApplicableByUid = _cleanOptionalText(map['notApplicableByUid'])
+          ..notApplicableByName = _cleanOptionalText(map['notApplicableByName'])
+          ..notApplicableAt = _parseTimestamp(map['notApplicableAt'])
+          ..isDeleted = map['isDeleted'] == true
+          ..deletedAt = _parseTimestamp(map['deletedAt'])
+          ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
+          ..deletedByName = _cleanOptionalText(map['deletedByName'])
+          ..deleteReason = _cleanOptionalText(map['deleteReason'])
+          ..version = _parseIntOr(map['version'], 1)
+          ..metadataJson = _cleanOptionalText(map['metadataJson'])
+          ..isSynced = true;
 
     // responsesJson is canonical. Only fall back to the legacy structured
     // 'responses' array for old records that do not contain responsesJson.
     final rawCanonicalResponsesJson = map['responsesJson'];
-    final hasCanonicalResponsesJson = rawCanonicalResponsesJson is String &&
+    final hasCanonicalResponsesJson =
+        rawCanonicalResponsesJson is String &&
         rawCanonicalResponsesJson.trim().isNotEmpty;
     final rawResponses = map['responses'];
     if (!hasCanonicalResponsesJson && rawResponses is List) {
       try {
-        instance.responses = rawResponses
-            .whereType<Map>()
-            .map((entry) => FieldResponse.fromMap(Map<String, dynamic>.from(entry)))
-            .toList();
+        instance.responses =
+            rawResponses
+                .whereType<Map>()
+                .map(
+                  (entry) =>
+                      FieldResponse.fromMap(Map<String, dynamic>.from(entry)),
+                )
+                .toList();
       } catch (_) {
         instance.responsesJson = _safeJsonList(map['responsesJson']);
       }

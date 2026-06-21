@@ -374,9 +374,30 @@ extension _SyncServiceExecutions on SyncService {
       return false;
     }
 
-    final localModules = await _jobModuleRepo.getModulesForJob(
-      jobExecutionFirestoreId: firestoreId,
-    );
+    late final List<JobModuleInstance> localModules;
+    try {
+      localModules = await _jobModuleRepo.getModulesForJob(
+        jobExecutionFirestoreId: firestoreId,
+        jobExecutionLocalId: local.id,
+      );
+    } catch (error, stackTrace) {
+      lastFailureCount++;
+      _recordPushFailureDetail(
+        entityType: 'job_execution',
+        entityId: _syncEntityId(local),
+        firestoreId: firestoreId,
+        error:
+            'Cannot server-complete job while local module identity is '
+            'ambiguous: $error',
+      );
+      debugPrint(
+        '❌ Server-side planned-job completion preflight could not resolve '
+        'the canonical local module set for $firestoreId: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
+    }
+
     final unsyncedModules =
         localModules.where((module) => !module.isSynced).toList();
     if (unsyncedModules.isNotEmpty) {

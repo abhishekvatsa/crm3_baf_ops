@@ -175,14 +175,31 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    final isarLib = File('${Directory.current.path}/libisar.so');
+    final explicitCorePath = Platform.environment['CRM_ISAR_CORE_PATH'];
+
+    final explicitCore =
+        explicitCorePath == null || explicitCorePath.trim().isEmpty
+            ? null
+            : File(explicitCorePath);
+
+    final localLinuxLibrary = File('${Directory.current.path}/libisar.so');
+
+    if (explicitCore != null && !explicitCore.existsSync()) {
+      throw StateError(
+        'CRM_ISAR_CORE_PATH does not exist: '
+        '${explicitCore.path}',
+      );
+    }
 
     await Isar.initializeIsarCore(
       libraries: {
-        if (Abi.current() == Abi.linuxX64 && isarLib.existsSync())
-          Abi.linuxX64: isarLib.path,
+        if (explicitCore != null) Abi.current(): explicitCore.path,
+        if (explicitCore == null &&
+            Abi.current() == Abi.linuxX64 &&
+            localLinuxLibrary.existsSync())
+          Abi.linuxX64: localLinuxLibrary.path,
       },
-      download: true,
+      download: explicitCore == null,
     );
   });
 
@@ -320,6 +337,139 @@ void main() {
           expect(after.completedAt, isNull);
           expect(after.metadataJson, isNull);
           expect(after.isSynced, isTrue);
+        });
+      },
+    );
+
+    test(
+      'ignores a foreign module whose transported local parent id collides',
+      () async {
+        await _withTestIsar((isar) async {
+          final execution = await _putExecution(
+            isar,
+            _localExecution(version: 2),
+          );
+
+          final canonical =
+              _acceptedModule()..jobExecutionLocalId = execution.id;
+          final foreign =
+              _acceptedModule()
+                ..firestoreId = 'foreign_module'
+                ..jobExecutionFirestoreId = 'foreign_execution'
+                ..jobExecutionLocalId = execution.id
+                ..moduleTitle = 'Foreign Base Fan'
+                ..status = JobModuleStatus.notStarted
+                ..responsesJson = '[]';
+
+          await _putModule(isar, canonical);
+          await _putModule(isar, foreign);
+
+          final fakeServer = _FakeServerCompletion(
+            response: _remoteCompletedExecution(version: 3),
+          );
+          final repo = IsarPlannedRepository(serverCompletion: fakeServer);
+
+          await repo.completeExecution(execution.id, actor: _supervisor());
+
+          expect(fakeServer.calls, 1);
+          final after = await isar.jobExecutions.get(execution.id);
+          expect(after!.isCompleted, isTrue);
+
+          final untouchedForeign =
+              await isar.jobModuleInstances
+                  .filter()
+                  .firestoreIdEqualTo('foreign_module')
+                  .findFirst();
+          expect(untouchedForeign!.status, JobModuleStatus.notStarted);
+          expect(untouchedForeign.jobExecutionFirestoreId, 'foreign_execution');
+        });
+      },
+    );
+
+    test(
+      'fails closed when a local-linked module lacks the canonical remote parent',
+      () async {
+        await _withTestIsar((isar) async {
+          final execution = await _putExecution(
+            isar,
+            _localExecution(version: 2),
+          );
+
+          final canonical =
+              _acceptedModule()..jobExecutionLocalId = execution.id;
+          final unresolved =
+              _acceptedModule()
+                ..firestoreId = 'unresolved_module'
+                ..jobExecutionFirestoreId = null
+                ..jobExecutionLocalId = execution.id
+                ..moduleTitle = 'Unresolved local module';
+
+          await _putModule(isar, canonical);
+          await _putModule(isar, unresolved);
+
+          final fakeServer = _FakeServerCompletion(
+            response: _remoteCompletedExecution(version: 3),
+          );
+          final repo = IsarPlannedRepository(serverCompletion: fakeServer);
+
+          await expectLater(
+            repo.completeExecution(execution.id, actor: _supervisor()),
+            throwsA(
+              isA<StateError>().having(
+                (error) => error.message,
+                'message',
+                contains('unresolved local parent identity'),
+              ),
+            ),
+          );
+
+          expect(fakeServer.calls, 0);
+          final after = await isar.jobExecutions.get(execution.id);
+          expect(after!.isCompleted, isFalse);
+          expect(after.version, 2);
+        });
+      },
+    );
+
+    test(
+      'fails closed when distinct local rows claim one canonical module id',
+      () async {
+        await _withTestIsar((isar) async {
+          final execution = await _putExecution(
+            isar,
+            _localExecution(version: 2),
+          );
+
+          final first = _acceptedModule()..jobExecutionLocalId = execution.id;
+          final duplicate =
+              _acceptedModule()
+                ..jobExecutionLocalId = execution.id
+                ..version = 2
+                ..updatedAt = DateTime.utc(2026, 5, 16, 8, 50);
+
+          await _putModule(isar, first);
+          await _putModule(isar, duplicate);
+
+          final fakeServer = _FakeServerCompletion(
+            response: _remoteCompletedExecution(version: 3),
+          );
+          final repo = IsarPlannedRepository(serverCompletion: fakeServer);
+
+          await expectLater(
+            repo.completeExecution(execution.id, actor: _supervisor()),
+            throwsA(
+              isA<StateError>().having(
+                (error) => error.message,
+                'message',
+                contains('distinct local rows claim the same canonical'),
+              ),
+            ),
+          );
+
+          expect(fakeServer.calls, 0);
+          final after = await isar.jobExecutions.get(execution.id);
+          expect(after!.isCompleted, isFalse);
+          expect(after.version, 2);
         });
       },
     );

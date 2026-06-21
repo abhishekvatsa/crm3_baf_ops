@@ -112,6 +112,13 @@ void _normalizeDiaryEntryForUserSave(
     ..metadataJson = _cleanOptionalText(entry.metadataJson)
     ..updatedAt = now;
 
+  if (_cleanOptionalText(entry.jobExecutionFirestoreId) != null) {
+    entry.jobExecutionLocalId = null;
+  }
+  if (_cleanOptionalText(entry.moduleInstanceFirestoreId) != null) {
+    entry.moduleInstanceLocalId = null;
+  }
+
   if (entry.kind == JobDiaryKind.blocker) {
     entry.isBlocker = true;
     entry.blockerStatus ??= JobBlockerStatus.open;
@@ -134,9 +141,9 @@ void _copyRemoteEntryIntoLocal(JobDiaryEntry local, JobDiaryEntry remote) {
   local
     ..firestoreId = remote.firestoreId
     ..jobExecutionFirestoreId = remote.jobExecutionFirestoreId
-    ..jobExecutionLocalId = remote.jobExecutionLocalId
+    ..jobExecutionLocalId = null
     ..moduleInstanceFirestoreId = remote.moduleInstanceFirestoreId
-    ..moduleInstanceLocalId = remote.moduleInstanceLocalId
+    ..moduleInstanceLocalId = null
     ..assetType = remote.assetType
     ..assetNumber = remote.assetNumber
     ..chargeNoAtEvent = remote.chargeNoAtEvent
@@ -498,7 +505,10 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
 
   @override
   Future<void> insertEntryFromRemote(JobDiaryEntry remote) async {
-    remote.isSynced = true;
+    remote
+      ..jobExecutionLocalId = null
+      ..moduleInstanceLocalId = null
+      ..isSynced = true;
     await isar.writeTxn(() => isar.jobDiaryEntrys.put(remote));
   }
 
