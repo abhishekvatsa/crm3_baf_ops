@@ -129,6 +129,25 @@ if (
   throw 'App identity source-archive hash mismatch.'
 }
 
+$isarCoreFile =
+  [string]$manifest.nativeTestDependencies.isarCore.file
+$isarCorePath = Join-Path $releaseDir $isarCoreFile
+$isarCoreSha256 = Get-Sha256 $isarCorePath
+
+if (
+  $isarCoreSha256 -ne
+  [string]$manifest.nativeTestDependencies.isarCore.sha256
+) {
+  throw 'Isar native-core SHA-256 mismatch.'
+}
+
+if (
+  $manifest.nativeTestDependencies.isarCore.source -ne
+  'preverified-external-native-dependency'
+) {
+  throw 'Isar native-core source classification is invalid.'
+}
+
 $apkSigner = Get-ApkSignerPath
 $signerHash = Get-ApkCertificateSha256 $apkSigner $artifactPath
 if ($signerHash -ne [string]$manifest.signing.certificateSha256) {
@@ -224,6 +243,7 @@ $result = [ordered]@{
   artifactSha256 = Get-Sha256 $artifactPath
   sourceArchiveSha256 = Get-Sha256 $archivePath
   certificateSha256 = $signerHash
+  isarCoreSha256 = $isarCoreSha256
   backendReleaseId = [string]$authority.releaseId
   deployedIndexesParityStatus = [string]$authority.deployedIndexesParityStatus
 }

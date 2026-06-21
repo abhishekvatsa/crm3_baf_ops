@@ -1,8 +1,9 @@
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
+
+import '../tool/test_support/test_isar_core.dart';
 
 import 'package:crm3_baf_ops/core/services/planned_job_local_link_repair.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
@@ -13,32 +14,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    final explicitCorePath = Platform.environment['CRM_ISAR_CORE_PATH'];
-
-    final explicitCore =
-        explicitCorePath == null || explicitCorePath.trim().isEmpty
-            ? null
-            : File(explicitCorePath);
-
-    final localLinuxLibrary = File('${Directory.current.path}/libisar.so');
-
-    if (explicitCore != null && !explicitCore.existsSync()) {
-      throw StateError(
-        'CRM_ISAR_CORE_PATH does not exist: '
-        '${explicitCore.path}',
-      );
-    }
-
-    await Isar.initializeIsarCore(
-      libraries: {
-        if (explicitCore != null) Abi.current(): explicitCore.path,
-        if (explicitCore == null &&
-            Abi.current() == Abi.linuxX64 &&
-            localLinuxLibrary.existsSync())
-          Abi.linuxX64: localLinuxLibrary.path,
-      },
-      download: explicitCore == null,
-    );
+    await initializeTestIsarCore();
   });
 
   test('clears only transported local links and is idempotent', () async {

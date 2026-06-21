@@ -79,4 +79,19 @@ void main() {
     expect(source, contains("ReleaseChannel 'verification'"));
     expect(source, contains('actions/upload-artifact@v4'));
   });
+
+  test('native-core custody is explicit across builder, verifier, and CI', () {
+    final builder = read('tools/release/New-VerificationArtifact.ps1');
+    final verifier = read('tools/release/Test-ReleaseManifest.ps1');
+    final workflow = read('.github/workflows/verification-artifact.yml');
+
+    expect(builder, contains('IsarCorePath'));
+    expect(builder, contains('ExpectedIsarCoreSha256'));
+    expect(builder, contains('nativeTestDependencies'));
+    expect(builder, contains('CRM_ISAR_CORE_PATH'));
+    expect(verifier, contains('nativeTestDependencies.isarCore'));
+    expect(verifier, contains('Isar native-core SHA-256 mismatch'));
+    expect(workflow, contains('Prepare and prove Linux Isar native core'));
+    expect(workflow, contains('CRM_ISAR_CORE_SHA256'));
+  });
 }

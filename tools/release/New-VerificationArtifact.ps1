@@ -48,6 +48,9 @@ param(
   [string]$ExpectedBackendReleaseId = 'prod-4132b83-20260620_001612',
   [string]$AuthorityPath = 'release/backend-authority.prod.json',
   [string]$OutputRoot,
+  [string]$IsarCorePath = $env:CRM_ISAR_CORE_PATH,
+  [string]$ExpectedIsarCoreSha256 =
+    '5E67863F188C5F9681A37F84F2EB942EAF702509D3F994C0344D5049EBC9E48F',
   [switch]$SkipQualityGates
 )
 
@@ -204,6 +207,48 @@ New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 
 $logsDir = Join-Path $releaseDir 'logs'
 New-Item -ItemType Directory -Path $logsDir -Force | Out-Null
+
+if ([string]::IsNullOrWhiteSpace($IsarCorePath)) {
+  throw @"
+A verified Isar native core is required for the full Flutter quality gate.
+
+Supply -IsarCorePath and -ExpectedIsarCoreSha256, or set
+CRM_ISAR_CORE_PATH before invoking this governed builder.
+"@
+}
+
+$verifiedIsarCorePath = (Resolve-Path $IsarCorePath).Path
+$actualIsarCoreSha256 = Get-Sha256 $verifiedIsarCorePath
+
+if (
+  $actualIsarCoreSha256 -ne
+  $ExpectedIsarCoreSha256.ToUpperInvariant()
+) {
+  throw @"
+Isar native-core SHA-256 mismatch.
+
+Expected: $ExpectedIsarCoreSha256
+Actual:   $actualIsarCoreSha256
+Path:     $verifiedIsarCorePath
+"@
+}
+
+$nativeDir = Join-Path $releaseDir 'native'
+New-Item -ItemType Directory -Path $nativeDir -Force | Out-Null
+
+$nativeEvidenceName = Split-Path $verifiedIsarCorePath -Leaf
+$nativeEvidencePath = Join-Path $nativeDir $nativeEvidenceName
+
+Copy-Item `
+  -LiteralPath $verifiedIsarCorePath `
+  -Destination $nativeEvidencePath
+
+if ((Get-Sha256 $nativeEvidencePath) -ne $actualIsarCoreSha256) {
+  throw 'Copied Isar native-core custody verification failed.'
+}
+
+# Child-process scoped; the parent operator environment is not modified.
+$env:CRM_ISAR_CORE_PATH = $nativeEvidencePath
 
 $sourceArchiveName = "$ReleaseId-source.zip"
 $sourceArchivePath = Join-Path $releaseDir $sourceArchiveName
@@ -392,6 +437,18 @@ $manifest = [ordered]@{
     deployedIndexesParityStatus =
       [string]$authority.deployedIndexesParityStatus
     sourceCustody = $sourceCustody
+  }
+  nativeTestDependencies = [ordered]@{
+    isarCore = [ordered]@{
+      file = "native/$nativeEvidenceName"
+      sha256 = $actualIsarCoreSha256
+      platform =
+        [System.Runtime.InteropServices.RuntimeInformation]::OSDescription
+      processArchitecture =
+        [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString()
+      source = 'preverified-external-native-dependency'
+      usedForQualityGates = (-not $SkipQualityGates)
+    }
   }
   dependencies = [ordered]@{
     lockfiles = $lockfiles

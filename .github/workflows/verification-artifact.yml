@@ -70,6 +70,46 @@ jobs:
           npm --prefix functions ci
           npm install --global firebase-tools
 
+      - name: Prepare and prove Linux Isar native core
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          selected=""
+
+          while IFS= read -r candidate; do
+            if file "$candidate" | grep -Eq 'ELF 64-bit.*x86-64'; then
+              selected="$candidate"
+              break
+            fi
+          done < <(
+            find "$HOME/.pub-cache" \
+              -type f \
+              -name 'libisar.so' \
+              ! -path '*/android/*' \
+              -print
+          )
+
+          if [[ -z "$selected" ]]; then
+            echo "No Linux x86-64 Isar core was found." >&2
+            exit 1
+          fi
+
+          file "$selected"
+          ldd "$selected"
+          sudo install -m 0755 "$selected" /usr/lib/libisar.so
+
+          python3 - <<'PY'
+          import ctypes
+          ctypes.CDLL('/usr/lib/libisar.so')
+          print('Isar native-core load probe: PASS')
+          PY
+
+          isar_sha="$(sha256sum /usr/lib/libisar.so | awk '{print toupper($1)}')"
+
+          echo "CRM_ISAR_CORE_PATH=/usr/lib/libisar.so" >> "$GITHUB_ENV"
+          echo "CRM_ISAR_CORE_SHA256=$isar_sha" >> "$GITHUB_ENV"
+
       - name: Build and independently verify
         shell: pwsh
         run: |
@@ -83,6 +123,8 @@ jobs:
             -ExpectedCommit '${{ github.sha }}' `
             -ReleaseChannel 'verification' `
             -CiRunId '${{ github.run_id }}' `
+            -IsarCorePath $env:CRM_ISAR_CORE_PATH `
+            -ExpectedIsarCoreSha256 $env:CRM_ISAR_CORE_SHA256 `
             -OutputRoot $output
 
       - name: Upload governed evidence package

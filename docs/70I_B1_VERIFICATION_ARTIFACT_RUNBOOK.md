@@ -67,3 +67,24 @@ the deployed indexes.
 - App Check;
 - dependency remediation;
 - production distribution.
+## Isar native-test dependency
+
+The full Flutter suite includes native Isar tests. The governed builder must
+therefore receive a preverified platform core:
+
+```powershell
+-IsarCorePath '<path-to-verified-isar-core>' `
+-ExpectedIsarCoreSha256 '<verified-sha256>'
+```
+
+The builder:
+
+- verifies the supplied SHA-256 before testing;
+- copies the core into the evidence package;
+- sets `CRM_ISAR_CORE_PATH` only in the child build process;
+- records the dependency in `release-manifest.json`;
+- requires the independent verifier to recompute the packaged core hash.
+
+The GitHub workflow independently discovers a Linux x86-64 `libisar.so`,
+checks its architecture and linked libraries, performs a load probe, calculates
+its SHA-256, and passes both its path and digest to the governed builder.
