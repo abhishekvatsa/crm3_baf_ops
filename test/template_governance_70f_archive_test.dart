@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
@@ -9,6 +8,8 @@ import 'package:crm3_baf_ops/features/planned_maintenance/providers/template_gov
 import 'package:crm3_baf_ops/main.dart' as app;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
+
+import '../tool/test_support/test_isar_core.dart';
 
 Future<void> _withTemplateGovernanceIsar(
   Future<void> Function(Isar isar, IsarTemplateGovernanceRepository repository)
@@ -65,14 +66,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    final localLinuxLibrary = File('${Directory.current.path}/libisar.so');
-    await Isar.initializeIsarCore(
-      libraries: {
-        if (Abi.current() == Abi.linuxX64 && localLinuxLibrary.existsSync())
-          Abi.linuxX64: localLinuxLibrary.path,
-      },
-      download: true,
-    );
+    await initializeTestIsarCore();
   });
 
   group('70F governed TemplateVersion draft archive', () {

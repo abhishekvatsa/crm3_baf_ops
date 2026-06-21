@@ -4,12 +4,13 @@
 // local field evidence. These tests exercise the Isar repository methods that
 // GlobalPullService/SyncService call when Firestore returns a remote tombstone.
 
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:isar/isar.dart';
+
+import '../tool/test_support/test_isar_core.dart';
 
 // Use package imports so analyzer treats test references to lib/ as the
 // canonical package libraries. Repository-relative imports resolve to the
@@ -204,15 +205,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    final isarLib = File('${Directory.current.path}/libisar.so');
-
-    await Isar.initializeIsarCore(
-      libraries: {
-        if (Abi.current() == Abi.linuxX64 && isarLib.existsSync())
-          Abi.linuxX64: isarLib.path,
-      },
-      download: true,
-    );
+    await initializeTestIsarCore();
   });
 
   group(
