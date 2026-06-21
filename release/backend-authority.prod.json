@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "authorityClass": "verified-production-backend",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "environment": "production",
+  "releaseId": "prod-4132b83-20260620_001612",
+  "backendGitCommit": "4132b83a1bf9693b1b8f33f602091e89143250ce",
+  "deployedAtUtc": "2026-06-19T19:13:24.276Z",
+  "firestoreRulesReleaseId": "projects/crm3-baf-ops-b8638/rulesets/b8d615f5-2f18-44b4-8845-bcf4cd0e1310",
+  "firestoreRulesDigest": "C897AA6056ADD67174F0DD6E786F85709280BE3CE77D182401153C428268286F",
+  "functionsDeployedDigest": "A325AA41A25EA58558FD6D3969088667C9FB607969FABA316705EA02B2055133",
+  "firestoreIndexesSourceDigest": "D0D7120DB00D8FAB3130861776AB6E956CE6E224FB40665B3A28CB1C7B7C7D33",
+  "deployedIndexesParityStatus": "not-proven",
+  "sourceCustody": {
+    "firestore.rules": "C897AA6056ADD67174F0DD6E786F85709280BE3CE77D182401153C428268286F",
+    "firestore.indexes.json": "D0D7120DB00D8FAB3130861776AB6E956CE6E224FB40665B3A28CB1C7B7C7D33",
+    "functions/src/backendReleaseIdentity.ts": "6293F7507E49C31BB382D6E6EE259EE14BA2370483EEA302BCFBDFAE771B4264",
+    "functions/src/index.ts": "14314AEDEC8B497C21C77C77B15B11ADF53ECEB9503C05FDC4BEE846D94C942D",
+    "functions/src/notifications.ts": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A",
+    "functions/src/plannedJobClosure.ts": "2984CDD7A6F99066D3B082473A0F7CAE2E6E32073CE075F2878EBF3F9BD73722",
+    "functions/src/publishedTemplateAssignment.ts": "5A62DA31623C7A76BBF7FD85B0484A904940791608FF30486296446247D4D6DF",
+    "functions/package-lock.json": "97214865025D8ACC9F198508D6E9DA7404F8C2C6D13EAE2DA25F2B64A2B0D951",
+    "functions/tsconfig.json": "23FF223A1842E006F1EC3B5B9430F3B3DBDEFF4D3E4CF651402D8E2703C57D9D"
+  },
+  "intentionalDivergencePolicy": {
+    "backendSourceChangedBy70H": false,
+    "reason": "Application source includes client-side 70H identity-collision repair and transaction integration evidence; Firestore Rules, indexes, and Cloud Functions runtime source were unchanged."
+  },
+  "evidenceNote": "Bound to the verified 70I-A backend identity evidence. Deployed index parity remains separately open."
+}

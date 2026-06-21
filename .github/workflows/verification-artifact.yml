@@ -1,0 +1,94 @@
+name: verification-artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_version:
+        description: Verification semantic version, for example 0.70.1-verify.2
+        required: true
+        type: string
+      build_number:
+        description: Positive Android build number
+        required: true
+        type: number
+      release_tag:
+        description: Verification tag or evidence label
+        required: true
+        type: string
+      release_id:
+        description: Unique verification release ID
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verification-artifact-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Governed verification APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout exact workflow commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - name: Set up Flutter 3.44.0
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.44.0"
+          cache: true
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get
+          npm ci
+          npm --prefix functions ci
+          npm install --global firebase-tools
+
+      - name: Build and independently verify
+        shell: pwsh
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'verification-artifacts'
+          pwsh -NoProfile -ExecutionPolicy Bypass `
+            -File tools/release/New-VerificationArtifact.ps1 `
+            -AppVersion '${{ inputs.app_version }}' `
+            -BuildNumber ${{ inputs.build_number }} `
+            -ReleaseTag '${{ inputs.release_tag }}' `
+            -ReleaseId '${{ inputs.release_id }}' `
+            -ExpectedCommit '${{ github.sha }}' `
+            -ReleaseChannel 'verification' `
+            -CiRunId '${{ github.run_id }}' `
+            -OutputRoot $output
+
+      - name: Upload governed evidence package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.release_id }}
+          path: ${{ runner.temp }}/verification-artifacts/${{ inputs.release_id }}
+          if-no-files-found: error
+          retention-days: 30
