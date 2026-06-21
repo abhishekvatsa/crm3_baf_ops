@@ -12,7 +12,6 @@ param(
   [Parameter(Mandatory)]
   [string]$ManifestPath,
 
-  [Parameter(Mandatory)]
   [string]$RepositoryRoot
 )
 
@@ -27,18 +26,114 @@ function Get-Sha256 {
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToUpperInvariant()
 }
 
+
+function Get-ZipEntrySha256 {
+  param(
+    [Parameter(Mandatory)][string]$ArchivePath,
+    [Parameter(Mandatory)][string]$EntryPath
+  )
+
+  $normalized = $EntryPath.Replace('\', '/')
+  $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+
+  try {
+    $entry = $archive.Entries |
+      Where-Object FullName -eq $normalized |
+      Select-Object -First 1
+
+    if ($null -eq $entry) {
+      throw "Archive entry not found: $normalized"
+    }
+
+    $stream = $entry.Open()
+
+    try {
+      $sha = [System.Security.Cryptography.SHA256]::Create()
+
+      try {
+        $hash = $sha.ComputeHash($stream)
+      }
+      finally {
+        $sha.Dispose()
+      }
+
+      return [Convert]::ToHexString($hash)
+    }
+    finally {
+      $stream.Dispose()
+    }
+  }
+  finally {
+    $archive.Dispose()
+  }
+}
+
+function Get-ZipEntryText {
+  param(
+    [Parameter(Mandatory)][string]$ArchivePath,
+    [Parameter(Mandatory)][string]$EntryPath
+  )
+
+  $normalized = $EntryPath.Replace('\', '/')
+  $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+
+  try {
+    $entry = $archive.Entries |
+      Where-Object FullName -eq $normalized |
+      Select-Object -First 1
+
+    if ($null -eq $entry) {
+      throw "Archive entry not found: $normalized"
+    }
+
+    $stream = $entry.Open()
+
+    try {
+      $reader = [System.IO.StreamReader]::new(
+        $stream,
+        [System.Text.Encoding]::UTF8,
+        $true
+      )
+
+      try {
+        return $reader.ReadToEnd()
+      }
+      finally {
+        $reader.Dispose()
+      }
+    }
+    finally {
+      $stream.Dispose()
+    }
+  }
+  finally {
+    $archive.Dispose()
+  }
+}
+
 function Get-ApkSignerPath {
+  $roots = @(
+    $env:ANDROID_HOME
+    $env:ANDROID_SDK_ROOT
+  )
+
+  if (
+    $IsWindows -and
+    -not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)
+  ) {
+    $roots += Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+  }
+
   $candidates = @()
-  foreach ($root in @(
-    $env:ANDROID_HOME,
-    $env:ANDROID_SDK_ROOT,
-    (Join-Path $env:LOCALAPPDATA 'Android\Sdk')
-  )) {
+
+  foreach ($root in $roots) {
     if ([string]::IsNullOrWhiteSpace($root)) { continue }
+
     $buildTools = Join-Path $root 'build-tools'
     if (-not (Test-Path -LiteralPath $buildTools -PathType Container)) {
       continue
     }
+
     $candidates += Get-ChildItem -LiteralPath $buildTools -Directory |
       Sort-Object Name -Descending |
       ForEach-Object {
@@ -50,10 +145,13 @@ function Get-ApkSignerPath {
         }
       }
   }
+
   $first = $candidates | Select-Object -First 1
+
   if ([string]::IsNullOrWhiteSpace($first)) {
     throw 'Android SDK apksigner was not found.'
   }
+
   return $first
 }
 
@@ -73,11 +171,10 @@ function Get-ApkCertificateSha256 {
 }
 
 $manifestFull = (Resolve-Path $ManifestPath).Path
-$repo = (Resolve-Path $RepositoryRoot).Path
 $releaseDir = Split-Path -Parent $manifestFull
 $manifest = Get-Content -LiteralPath $manifestFull -Raw | ConvertFrom-Json
 
-if ($manifest.schemaVersion -ne 1) {
+if ($manifest.schemaVersion -ne 2) {
   throw 'Unsupported manifest schema.'
 }
 if ($manifest.artifactClass -ne 'verification') {
@@ -99,18 +196,31 @@ if ($manifest.backend.deployedIndexesParityStatus -ne 'not-proven') {
   throw 'Manifest must preserve deployed-index parity as not-proven.'
 }
 
-Set-Location $repo
-$status = @(git status --porcelain=v1 --untracked-files=all)
-if ($status.Count -gt 0) {
-  throw 'Repository is dirty during manifest verification.'
+if ($manifest.source.hashBasis -ne 'git-archive-entry-bytes') {
+  throw 'Manifest source hash basis is not canonical Git-archive bytes.'
 }
-$head = (git rev-parse HEAD).Trim()
-$tree = (git rev-parse 'HEAD^{tree}').Trim()
-if ($head -ne [string]$manifest.source.gitCommit) {
-  throw 'Manifest Git commit differs from repository HEAD.'
+if ($manifest.source.entryPathStyle -ne 'posix') {
+  throw 'Manifest source-entry path style is not posix.'
 }
-if ($tree -ne [string]$manifest.source.gitTree) {
-  throw 'Manifest Git tree differs from repository HEAD tree.'
+
+if (-not [string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+  $repo = (Resolve-Path $RepositoryRoot).Path
+  Set-Location $repo
+
+  $status = @(git status --porcelain=v1 --untracked-files=all)
+  if ($status.Count -gt 0) {
+    throw 'Repository is dirty during manifest verification.'
+  }
+
+  $head = (git rev-parse HEAD).Trim()
+  $tree = (git rev-parse 'HEAD^{tree}').Trim()
+
+  if ($head -ne [string]$manifest.source.gitCommit) {
+    throw 'Manifest Git commit differs from repository HEAD.'
+  }
+  if ($tree -ne [string]$manifest.source.gitTree) {
+    throw 'Manifest Git tree differs from repository HEAD tree.'
+  }
 }
 
 $artifactPath = Join-Path $releaseDir ([string]$manifest.artifact.file)
@@ -127,6 +237,29 @@ if (
   [string]$manifest.source.sourceArchiveSha256
 ) {
   throw 'App identity source-archive hash mismatch.'
+}
+
+$verifierFile = [string]$manifest.verificationTool.file
+$verifierPath = Join-Path $releaseDir $verifierFile
+$verifierSha256 = Get-Sha256 $verifierPath
+
+if ($verifierSha256 -ne [string]$manifest.verificationTool.sha256) {
+  throw 'Packaged verifier SHA-256 mismatch.'
+}
+
+$verifierSourceSha256 = Get-ZipEntrySha256 `
+  -ArchivePath $archivePath `
+  -EntryPath ([string]$manifest.verificationTool.sourceArchiveEntry)
+
+if (
+  $verifierSourceSha256 -ne
+  [string]$manifest.verificationTool.sourceArchiveEntrySha256
+) {
+  throw 'Verifier source-archive entry SHA-256 mismatch.'
+}
+
+if ($verifierSha256 -ne $verifierSourceSha256) {
+  throw 'Packaged verifier differs from its canonical source entry.'
 }
 
 $isarCoreFile =
@@ -154,12 +287,21 @@ if ($signerHash -ne [string]$manifest.signing.certificateSha256) {
   throw 'Signing-certificate SHA-256 mismatch.'
 }
 
-$authorityPath = Join-Path $repo ([string]$manifest.backend.authorityFile)
-$authorityHash = Get-Sha256 $authorityPath
+$authorityEntry = ([string]$manifest.backend.authorityFile).Replace('\', '/')
+$authorityHash = Get-ZipEntrySha256 `
+  -ArchivePath $archivePath `
+  -EntryPath $authorityEntry
+
 if ($authorityHash -ne [string]$manifest.backend.authorityFileSha256) {
-  throw 'Backend authority file SHA-256 mismatch.'
+  throw 'Backend authority source-entry SHA-256 mismatch.'
 }
-$authority = Get-Content -LiteralPath $authorityPath -Raw | ConvertFrom-Json
+
+$authority = (
+  Get-ZipEntryText `
+    -ArchivePath $archivePath `
+    -EntryPath $authorityEntry
+) | ConvertFrom-Json
+
 if ($authority.releaseId -ne [string]$manifest.backend.expectedReleaseId) {
   throw 'Expected backend release differs from authority.'
 }
@@ -177,30 +319,43 @@ if (
 }
 
 foreach ($property in $authority.sourceCustody.PSObject.Properties) {
-  $path = Join-Path $repo $property.Name
-  $actual = Get-Sha256 $path
+  $actual = Get-ZipEntrySha256 `
+    -ArchivePath $archivePath `
+    -EntryPath ([string]$property.Name)
+
   if ($actual -ne ([string]$property.Value).ToUpperInvariant()) {
     throw "Backend source-custody mismatch: $($property.Name)"
   }
+
   $manifestProperty = $manifest.backend.sourceCustody.PSObject.Properties |
     Where-Object Name -eq $property.Name |
     Select-Object -First 1
-  if ($null -eq $manifestProperty -or [string]$manifestProperty.Value -ne $actual) {
+
+  if (
+    $null -eq $manifestProperty -or
+    [string]$manifestProperty.Value -ne $actual
+  ) {
     throw "Manifest backend custody mismatch: $($property.Name)"
   }
 }
 
 foreach ($property in $manifest.dependencies.lockfiles.PSObject.Properties) {
-  $actual = Get-Sha256 (Join-Path $repo $property.Name)
+  $actual = Get-ZipEntrySha256 `
+    -ArchivePath $archivePath `
+    -EntryPath ([string]$property.Name)
+
   if ($actual -ne [string]$property.Value) {
-    throw "Lockfile SHA-256 mismatch: $($property.Name)"
+    throw "Lockfile source-entry SHA-256 mismatch: $($property.Name)"
   }
 }
 
 foreach ($property in $manifest.configuration.hashes.PSObject.Properties) {
-  $actual = Get-Sha256 (Join-Path $repo $property.Name)
+  $actual = Get-ZipEntrySha256 `
+    -ArchivePath $archivePath `
+    -EntryPath ([string]$property.Name)
+
   if ($actual -ne [string]$property.Value) {
-    throw "Configuration SHA-256 mismatch: $($property.Name)"
+    throw "Configuration source-entry SHA-256 mismatch: $($property.Name)"
   }
 }
 
@@ -227,7 +382,10 @@ foreach ($name in $requiredIdentity) {
     throw "Non-authoritative AppBuildIdentity field: $name"
   }
 }
-if ([string]$manifest.appIdentity.GIT_COMMIT -ne $head) {
+if (
+  [string]$manifest.appIdentity.GIT_COMMIT -ne
+  [string]$manifest.source.gitCommit
+) {
   throw 'AppBuildIdentity Git commit mismatch.'
 }
 if ([string]$manifest.appIdentity.RELEASE_ID -ne [string]$manifest.release.releaseId) {
@@ -235,15 +393,17 @@ if ([string]$manifest.appIdentity.RELEASE_ID -ne [string]$manifest.release.relea
 }
 
 $result = [ordered]@{
-  schemaVersion = 1
+  schemaVersion = 2
   verifiedAtUtc = [DateTime]::UtcNow.ToString('o')
   status = 'passed'
   manifest = (Split-Path -Leaf $manifestFull)
-  gitCommit = $head
+  gitCommit = [string]$manifest.source.gitCommit
   artifactSha256 = Get-Sha256 $artifactPath
   sourceArchiveSha256 = Get-Sha256 $archivePath
   certificateSha256 = $signerHash
   isarCoreSha256 = $isarCoreSha256
+  verifierSha256 = $verifierSha256
+  sourceHashBasis = [string]$manifest.source.hashBasis
   backendReleaseId = [string]$authority.releaseId
   deployedIndexesParityStatus = [string]$authority.deployedIndexesParityStatus
 }

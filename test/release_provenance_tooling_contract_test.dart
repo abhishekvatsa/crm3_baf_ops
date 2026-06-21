@@ -94,4 +94,26 @@ void main() {
     expect(workflow, contains('Prepare and prove Linux Isar native core'));
     expect(workflow, contains('CRM_ISAR_CORE_SHA256'));
   });
+
+  test('source custody is canonical, portable, and package-verifiable', () {
+    final builder = read('tools/release/New-VerificationArtifact.ps1');
+    final verifier = read('tools/release/Test-ReleaseManifest.ps1');
+
+    expect(builder, contains("schemaVersion = 2"));
+    expect(builder, contains('Get-ZipEntrySha256'));
+    expect(builder, contains("hashBasis = 'git-archive-entry-bytes'"));
+    expect(builder, contains("entryPathStyle = 'posix'"));
+    expect(builder, contains("authorityFile = \$authorityEntryPath"));
+    expect(builder, contains("verify-release-package.ps1"));
+    expect(builder, contains("Join-Path \$PSScriptRoot '../..'"));
+    expect(builder, contains("build/app/outputs/flutter-apk/app-debug.apk"));
+    expect(builder, contains(r'$IsWindows'));
+
+    expect(verifier, contains("schemaVersion -ne 2"));
+    expect(verifier, contains('Get-ZipEntrySha256'));
+    expect(verifier, contains('Get-ZipEntryText'));
+    expect(verifier, contains('Packaged verifier SHA-256 mismatch'));
+    expect(verifier, contains('source-entry SHA-256 mismatch'));
+    expect(verifier, contains(r'$IsWindows'));
+  });
 }

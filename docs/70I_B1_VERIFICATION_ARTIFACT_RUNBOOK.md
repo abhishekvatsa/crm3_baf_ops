@@ -88,3 +88,27 @@ The builder:
 The GitHub workflow independently discovers a Linux x86-64 `libisar.so`,
 checks its architecture and linked libraries, performs a load probe, calculates
 its SHA-256, and passes both its path and digest to the governed builder.
+
+## Canonical and portable source custody
+
+Manifest hashes for lockfiles, configuration, backend authority, and governed
+backend source are calculated from the exact bytes inside the deterministic
+Git source archive. They are not calculated from a platform-specific working
+tree, so CRLF/LF checkout differences cannot alter the recorded source
+identity.
+
+The manifest uses POSIX archive-entry paths. The evidence package contains a
+canonical copy of `verify-release-package.ps1`, byte-identical to its source
+archive entry.
+
+Package-only verification can therefore be run without the original checkout:
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass `
+  -File .\verify-release-package.ps1 `
+  -ManifestPath .\release-manifest.json
+```
+
+A repository root may still be supplied as an optional additional check of the
+clean Git commit and tree, but source-file custody is always recomputed from
+the packaged source archive.

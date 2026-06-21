@@ -65,6 +65,131 @@ function Get-Sha256 {
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToUpperInvariant()
 }
 
+
+function Get-ZipEntrySha256 {
+  param(
+    [Parameter(Mandatory)][string]$ArchivePath,
+    [Parameter(Mandatory)][string]$EntryPath
+  )
+
+  $normalized = $EntryPath.Replace('\', '/')
+  $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+
+  try {
+    $entry = $archive.Entries |
+      Where-Object FullName -eq $normalized |
+      Select-Object -First 1
+
+    if ($null -eq $entry) {
+      throw "Archive entry not found: $normalized"
+    }
+
+    $stream = $entry.Open()
+
+    try {
+      $sha = [System.Security.Cryptography.SHA256]::Create()
+
+      try {
+        $hash = $sha.ComputeHash($stream)
+      }
+      finally {
+        $sha.Dispose()
+      }
+
+      return [Convert]::ToHexString($hash)
+    }
+    finally {
+      $stream.Dispose()
+    }
+  }
+  finally {
+    $archive.Dispose()
+  }
+}
+
+function Get-ZipEntryText {
+  param(
+    [Parameter(Mandatory)][string]$ArchivePath,
+    [Parameter(Mandatory)][string]$EntryPath
+  )
+
+  $normalized = $EntryPath.Replace('\', '/')
+  $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+
+  try {
+    $entry = $archive.Entries |
+      Where-Object FullName -eq $normalized |
+      Select-Object -First 1
+
+    if ($null -eq $entry) {
+      throw "Archive entry not found: $normalized"
+    }
+
+    $stream = $entry.Open()
+
+    try {
+      $reader = [System.IO.StreamReader]::new(
+        $stream,
+        [System.Text.Encoding]::UTF8,
+        $true
+      )
+
+      try {
+        return $reader.ReadToEnd()
+      }
+      finally {
+        $reader.Dispose()
+      }
+    }
+    finally {
+      $stream.Dispose()
+    }
+  }
+  finally {
+    $archive.Dispose()
+  }
+}
+
+function Export-ZipEntry {
+  param(
+    [Parameter(Mandatory)][string]$ArchivePath,
+    [Parameter(Mandatory)][string]$EntryPath,
+    [Parameter(Mandatory)][string]$DestinationPath
+  )
+
+  $normalized = $EntryPath.Replace('\', '/')
+  $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+
+  try {
+    $entry = $archive.Entries |
+      Where-Object FullName -eq $normalized |
+      Select-Object -First 1
+
+    if ($null -eq $entry) {
+      throw "Archive entry not found: $normalized"
+    }
+
+    $input = $entry.Open()
+
+    try {
+      $output = [System.IO.File]::Create($DestinationPath)
+
+      try {
+        $input.CopyTo($output)
+      }
+      finally {
+        $output.Dispose()
+      }
+    }
+    finally {
+      $input.Dispose()
+    }
+  }
+  finally {
+    $archive.Dispose()
+  }
+}
+
 function Get-RequiredCommand {
   param([Parameter(Mandatory)][string]$Name)
   $command = Get-Command $Name -ErrorAction SilentlyContinue
@@ -75,18 +200,28 @@ function Get-RequiredCommand {
 }
 
 function Get-ApkSignerPath {
+  $roots = @(
+    $env:ANDROID_HOME
+    $env:ANDROID_SDK_ROOT
+  )
+
+  if (
+    $IsWindows -and
+    -not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)
+  ) {
+    $roots += Join-Path $env:LOCALAPPDATA 'Android\Sdk'
+  }
+
   $candidates = @()
 
-  foreach ($root in @(
-    $env:ANDROID_HOME,
-    $env:ANDROID_SDK_ROOT,
-    (Join-Path $env:LOCALAPPDATA 'Android\Sdk')
-  )) {
+  foreach ($root in $roots) {
     if ([string]::IsNullOrWhiteSpace($root)) { continue }
+
     $buildTools = Join-Path $root 'build-tools'
     if (-not (Test-Path -LiteralPath $buildTools -PathType Container)) {
       continue
     }
+
     $candidates += Get-ChildItem -LiteralPath $buildTools -Directory |
       Sort-Object Name -Descending |
       ForEach-Object {
@@ -100,9 +235,11 @@ function Get-ApkSignerPath {
   }
 
   $first = $candidates | Select-Object -First 1
+
   if ([string]::IsNullOrWhiteSpace($first)) {
     throw 'Android SDK apksigner was not found.'
   }
+
   return $first
 }
 
@@ -139,7 +276,7 @@ function Get-TextOutput {
   return ((& $Command 2>&1) | Out-String).Trim()
 }
 
-$repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 Set-Location $repo
 
 foreach ($name in @('git', 'flutter', 'dart', 'node', 'npm', 'java', 'pwsh')) {
@@ -165,32 +302,23 @@ if ($commitObject -ne 'commit') {
   throw 'ExpectedCommit does not resolve to a Git commit.'
 }
 
+$authorityEntryPath = 'release/backend-authority.prod.json'
 $authorityFullPath = (Resolve-Path $AuthorityPath).Path
-$authority = Get-Content -LiteralPath $authorityFullPath -Raw | ConvertFrom-Json
-$authorityHash = Get-Sha256 $authorityFullPath
+$workingTreeAuthority =
+  Get-Content -LiteralPath $authorityFullPath -Raw |
+  ConvertFrom-Json
 
-if ($authority.authorityClass -ne 'verified-production-backend') {
+if ($workingTreeAuthority.authorityClass -ne 'verified-production-backend') {
   throw 'Backend authority class is not verified-production-backend.'
 }
-if ($authority.firebaseProjectId -ne 'crm3-baf-ops-b8638') {
+if ($workingTreeAuthority.firebaseProjectId -ne 'crm3-baf-ops-b8638') {
   throw 'Backend authority points to an unexpected Firebase project.'
 }
-if ($authority.releaseId -ne $ExpectedBackendReleaseId) {
+if ($workingTreeAuthority.releaseId -ne $ExpectedBackendReleaseId) {
   throw "Expected backend release does not match authority: $ExpectedBackendReleaseId"
 }
-if ($authority.deployedIndexesParityStatus -ne 'not-proven') {
+if ($workingTreeAuthority.deployedIndexesParityStatus -ne 'not-proven') {
   throw 'B1 authority must preserve deployed-index parity as not-proven.'
-}
-
-$sourceCustody = [ordered]@{}
-foreach ($property in $authority.sourceCustody.PSObject.Properties) {
-  $relativePath = $property.Name
-  $expectedHash = [string]$property.Value
-  $actualHash = Get-Sha256 (Join-Path $repo $relativePath)
-  if ($actualHash -ne $expectedHash.ToUpperInvariant()) {
-    throw "Backend source-custody mismatch for $relativePath"
-  }
-  $sourceCustody[$relativePath] = $actualHash
 }
 
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
@@ -259,6 +387,36 @@ if ($LASTEXITCODE -ne 0) {
 }
 $sourceArchiveSha256 = Get-Sha256 $sourceArchivePath
 
+$authorityHash = Get-ZipEntrySha256 `
+  -ArchivePath $sourceArchivePath `
+  -EntryPath $authorityEntryPath
+
+$authority = (
+  Get-ZipEntryText `
+    -ArchivePath $sourceArchivePath `
+    -EntryPath $authorityEntryPath
+) | ConvertFrom-Json
+
+if ($authority.releaseId -ne $workingTreeAuthority.releaseId) {
+  throw 'Git-archive authority differs from the working-tree authority.'
+}
+
+$sourceCustody = [ordered]@{}
+foreach ($property in $authority.sourceCustody.PSObject.Properties) {
+  $relativePath = [string]$property.Name
+  $expectedHash = ([string]$property.Value).ToUpperInvariant()
+  $actualHash = Get-ZipEntrySha256 `
+    -ArchivePath $sourceArchivePath `
+    -EntryPath $relativePath
+
+  if ($actualHash -ne $expectedHash) {
+    throw "Canonical source-custody mismatch for $relativePath"
+  }
+
+  $sourceCustody[$relativePath] = $actualHash
+}
+
+
 $buildTimestampUtc = [DateTime]::UtcNow.ToString('o')
 
 $identity = [ordered]@{
@@ -324,7 +482,7 @@ if ($buildExit -ne 0) {
   throw 'Flutter debug APK build failed.'
 }
 
-$builtApk = Join-Path $repo 'build\app\outputs\flutter-apk\app-debug.apk'
+$builtApk = Join-Path $repo 'build/app/outputs/flutter-apk/app-debug.apk'
 if (-not (Test-Path -LiteralPath $builtApk -PathType Leaf)) {
   throw 'Expected debug APK was not produced.'
 }
@@ -367,24 +525,51 @@ $namespace = if (
 $flutterMachine = Get-TextOutput { flutter --version --machine }
 $flutterInfo = $flutterMachine | ConvertFrom-Json
 
-$lockfiles = [ordered]@{
-  'pubspec.lock' = Get-Sha256 'pubspec.lock'
-  'package-lock.json' = Get-Sha256 'package-lock.json'
-  'functions/package-lock.json' = Get-Sha256 'functions/package-lock.json'
+$lockfiles = [ordered]@{}
+foreach ($path in @(
+  'pubspec.lock'
+  'package-lock.json'
+  'functions/package-lock.json'
+)) {
+  $lockfiles[$path] = Get-ZipEntrySha256 `
+    -ArchivePath $sourceArchivePath `
+    -EntryPath $path
 }
 
-$configHashes = [ordered]@{
-  'firestore.rules' = Get-Sha256 'firestore.rules'
-  'firestore.indexes.json' = Get-Sha256 'firestore.indexes.json'
-  'android/app/build.gradle.kts' = Get-Sha256 'android/app/build.gradle.kts'
-  'android/settings.gradle.kts' = Get-Sha256 'android/settings.gradle.kts'
-  'android/gradle/wrapper/gradle-wrapper.properties' =
-    Get-Sha256 'android/gradle/wrapper/gradle-wrapper.properties'
-  'pubspec.yaml' = Get-Sha256 'pubspec.yaml'
+$configHashes = [ordered]@{}
+foreach ($path in @(
+  'firestore.rules'
+  'firestore.indexes.json'
+  'android/app/build.gradle.kts'
+  'android/settings.gradle.kts'
+  'android/gradle/wrapper/gradle-wrapper.properties'
+  'pubspec.yaml'
+)) {
+  $configHashes[$path] = Get-ZipEntrySha256 `
+    -ArchivePath $sourceArchivePath `
+    -EntryPath $path
+}
+
+$verifierSourceEntry = 'tools/release/Test-ReleaseManifest.ps1'
+$verifierName = 'verify-release-package.ps1'
+$verifierPath = Join-Path $releaseDir $verifierName
+
+Export-ZipEntry `
+  -ArchivePath $sourceArchivePath `
+  -EntryPath $verifierSourceEntry `
+  -DestinationPath $verifierPath
+
+$verifierSha256 = Get-Sha256 $verifierPath
+$verifierSourceSha256 = Get-ZipEntrySha256 `
+  -ArchivePath $sourceArchivePath `
+  -EntryPath $verifierSourceEntry
+
+if ($verifierSha256 -ne $verifierSourceSha256) {
+  throw 'Packaged verifier differs from its canonical source-archive entry.'
 }
 
 $manifest = [ordered]@{
-  schemaVersion = 1
+  schemaVersion = 2
   generatedAtUtc = $buildTimestampUtc
   artifactClass = 'verification'
   distributionAuthority = 'not-approved-for-production'
@@ -404,6 +589,8 @@ $manifest = [ordered]@{
     repositoryClean = $true
     sourceArchiveFile = $sourceArchiveName
     sourceArchiveSha256 = $sourceArchiveSha256
+    hashBasis = 'git-archive-entry-bytes'
+    entryPathStyle = 'posix'
   }
   artifact = [ordered]@{
     file = $artifactName
@@ -424,7 +611,7 @@ $manifest = [ordered]@{
   }
   backend = [ordered]@{
     expectedReleaseId = $ExpectedBackendReleaseId
-    authorityFile = (Resolve-Path -Relative $authorityFullPath)
+    authorityFile = $authorityEntryPath
     authorityFileSha256 = $authorityHash
     authority = $authority
     expectedMatchesAuthority = $true
@@ -437,6 +624,14 @@ $manifest = [ordered]@{
     deployedIndexesParityStatus =
       [string]$authority.deployedIndexesParityStatus
     sourceCustody = $sourceCustody
+  }
+  verificationTool = [ordered]@{
+    file = $verifierName
+    sha256 = $verifierSha256
+    sourceArchiveEntry = $verifierSourceEntry
+    sourceArchiveEntrySha256 = $verifierSourceSha256
+    packageOnlyInvocation =
+      'pwsh ./verify-release-package.ps1 -ManifestPath ./release-manifest.json'
   }
   nativeTestDependencies = [ordered]@{
     isarCore = [ordered]@{
@@ -532,12 +727,11 @@ distribution.
 "@
 $ledger | Set-Content -LiteralPath $ledgerPath -Encoding UTF8
 
-$verifier = Join-Path $PSScriptRoot 'Test-ReleaseManifest.ps1'
-& pwsh -NoProfile -ExecutionPolicy Bypass -File $verifier `
-  -ManifestPath $manifestPath `
-  -RepositoryRoot $repo
+& pwsh -NoProfile -ExecutionPolicy Bypass -File $verifierPath `
+  -ManifestPath $manifestPath
+
 if ($LASTEXITCODE -ne 0) {
-  throw 'Independent release-manifest verification failed.'
+  throw 'Package-only release-manifest verification failed.'
 }
 
 $manifestSha256 = Get-Sha256 $manifestPath
@@ -550,6 +744,7 @@ $ledgerSha256 = Get-Sha256 $ledgerPath
   artifactSha256 = $artifactSha256
   sourceArchiveSha256 = $sourceArchiveSha256
   certificateSha256 = $certificateSha256
+  verifierSha256 = $verifierSha256
 } |
   ConvertTo-Json -Depth 20 |
   Set-Content `
