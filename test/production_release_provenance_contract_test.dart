@@ -90,7 +90,7 @@ void main() {
       expect(text, contains('Upload governed package and mandatory sidecar'));
       expect(text, contains('/*-GOVERNED-PACKAGE.zip'));
       expect(text, contains('/*-GOVERNED-PACKAGE.zip.sha256.txt'));
-      expect(text, isNot(contains('path: ${{env.CRM_PRODUCTION_OUTPUT}}/')));
+      expect(text, isNot(contains(r'path: ${{env.CRM_PRODUCTION_OUTPUT}}/')));
       expect(text, isNot(matches(RegExp(r'uses:\s+[^\s]+@v\d'))));
     });
 

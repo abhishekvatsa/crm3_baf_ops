@@ -311,6 +311,13 @@ if ([string]$migrationReceipt.receiptType -ne
   throw 'Android identity migration-plan boundary is incomplete.'
 }
 
+$firebaseLockfileEol = @(
+  git check-attr eol -- $policy.toolchain.firebaseToolsLockfile
+)
+if ($LASTEXITCODE -ne 0 -or
+    ($firebaseLockfileEol -join "`n") -notmatch ': eol: lf$') {
+  throw 'Firebase CLI tooling lockfile must use checkout-stable LF custody.'
+}
 if ((Get-Sha256 $policy.toolchain.firebaseToolsLockfile) -ne
     ([string]$policy.toolchain.firebaseToolsLockfileSha256).ToUpperInvariant()) {
   throw 'Firebase CLI tooling lockfile hash mismatch.'
