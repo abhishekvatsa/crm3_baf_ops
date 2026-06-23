@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 3,
+  "policyId": "crm3-baf-ops-o1-o5-v4-904fda1-b1",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "permanentApplicationId": "in.co.sail.bsl.crm3.bafops",
+  "namespace": "in.co.sail.bsl.crm3.bafops",
+  "displayName": "CRM-III BAF Ops",
+  "permanentIdentityApproved": true,
+  "github": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "workflowPath": ".github/workflows/production-artifact.yml",
+    "environmentName": "crm3-baf-ops-production-signing"
+  },
+  "identityApproval": {
+    "receiptFile": "release/approvals/permanent-identity-approval.json",
+    "reference": "BAF-REF-002",
+    "sourceDocumentSha256": "184C8F17CC464829660F2B710C9AA17C6FF9CE728B687E2291FC3EF3012F42DD"
+  },
+  "migrationPlan": {
+    "receiptFile": "release/approvals/android-identity-migration-plan.json",
+    "reference": "BAF-REF-001",
+    "sourceDocumentSha256": "6AA0A15D1399734DEF5BF0074F864F149F95F021B3CA8430080CF8533CF5D0FF",
+    "operationalCutoverBoundary": "Source identity/configuration closes in O-02; device-by-device cutover, placeholder-app retirement, and no-loss field proof remain under O-10/70J."
+  },
+  "versionPolicy": {
+    "approved": true,
+    "scheme": "semver2",
+    "versionName": "1.0.0-rc.1",
+    "buildNumber": 1,
+    "buildNumberPolicy": "positive-int32-strictly-monotonic-never-reuse",
+    "reservationId": "crm3-baf-ops-o1-o5-v4-904fda1-b1-1",
+    "ledgerFile": "release/build-number-ledger.json",
+    "approvalReceiptFile": "release/approvals/version-policy-approval.json",
+    "sourceDocumentSha256": "A0635C5E1BF3F1981D61D23A95A864896017AE0030D356633849E877AE400468",
+    "remoteReservationTag": "crm3-build-reserved/1",
+    "remoteBuiltTag": "crm3-build-built/1",
+    "failedOrWithdrawnBuildConsumesNumber": true
+  },
+  "signing": {
+    "mode": "release",
+    "productionSigningApproved": true,
+    "keystoreType": "PKCS12",
+    "keyAlias": "crm3-baf-ops-release",
+    "keystoreSha256": "4D5727DB14A82FB25A16DC9B063B94462E66FD36D006B97E888465E2DD730471",
+    "certificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "primaryCustodianName": "Abhishek Vatsa",
+    "backupCustodianName": "Priya",
+    "custodyReference": "BAF-REF-004",
+    "approvalReceiptFile": "release/approvals/signing-custody-approval.json",
+    "sourceDocumentSha256": "EEE50D1E3D1858913BB86817F4BB29CA93B1AF82A3A83EC4E151A395FBA19CB6",
+    "backupProofSha256": "B17C476F17E7CE11F03669F09556C71A9904665BD10C7335F177EAAB4FD22B3B",
+    "recoveryProofSha256": "B24F302D5BF27D2132363D316D1D17FBE87AF54A0BF5B48BDD465D1FEA8FC54B"
+  },
+  "firebaseAndroidApp": {
+    "projectId": "crm3-baf-ops-b8638",
+    "packageName": "in.co.sail.bsl.crm3.bafops",
+    "firebaseAppId": "1:894346496105:android:fba14febfbbee102e63af8",
+    "androidOauthClientId": "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com",
+    "googleServicesSha256": "730A044FF0A698C2FBCCF3B993EE6964EE5431CA8C6435DDC02AA98A9848646A",
+    "signingCertificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+    "signingCertificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "registrationReference": "BAF-REF-005",
+    "registrationReceiptFile": "release/approvals/firebase-registration-receipt.json",
+    "registrationSourceDocumentSha256": "81ECA29EC696F41B27786761573578E11881E5C69C056D7AC67B68827C5475FC"
+  },
+  "release": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b1",
+    "releaseTag": "crm3-baf-ops-v1.0.0-rc.1",
+    "releaseChannel": "production-candidate",
+    "versionName": "1.0.0-rc.1",
+    "buildNumber": 1
+  },
+  "distribution": {
+    "authority": "production-signed-pre-release-candidate",
+    "approved": false,
+    "scope": "Artifact construction, verification and custody only; no distribution approval is created by this campaign.",
+    "restrictions": [
+      "Unrestricted plant release is not approved",
+      "Controlled-pilot distribution requires a separate post-build promotion record bound to the exact governed package hash",
+      "O-06 App Check remains open",
+      "O-07 dependency remediation remains open",
+      "O-08 closure concurrency remains open",
+      "O-09 assignment emulator and continuous PR coverage remain partial",
+      "O-10 physical-device, weak-network and package-ID cutover proof remains open",
+      "O-11 recovery drill remains partial",
+      "O-12 operator acceptance remains open",
+      "Do not uninstall or clear the placeholder app until device-specific no-loss cutover is signed off"
+    ],
+    "unrestrictedPlantReleaseApproved": false,
+    "postBuildPromotionRequiredForAnyDistribution": true
+  },
+  "toolchain": {
+    "bundletoolUrl": "https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar",
+    "bundletoolSha256": "A099CFA1543F55593BC2ED16A70A7C67FE54B1747BB7301F37FDFD6D91028E29",
+    "firebaseToolsVersion": "15.17.0",
+    "firebaseToolsLockfile": "tooling/firebase-cli/package-lock.json",
+    "firebaseToolsLockfileSha256": "7E738C479BA2C799229B9361A109A42E9AE7E01D193AD919F3B77348D281E74C",
+    "linuxIsarCoreSha256": "7DC70DF7A2FBF63CD552ECA36708B6DEEB68CBD2AA270C1E201215E0BFC38EF1",
+    "linuxIsarCoreAuthorityReceipt": "release/approvals/linux-isar-core-authority.json",
+    "githubActionPinsFile": "release/github-actions-pins.json",
+    "runnerImage": "ubuntu-24.04",
+    "javaVersion": "21.0.11+10",
+    "nodeVersion": "22.15.0",
+    "npmVersion": "10.9.2",
+    "flutterVersion": "3.44.0",
+    "dartVersion": "3.12.0"
+  },
+  "knownOpenGates": [
+    "O-06 Firebase App Check",
+    "O-07 high-severity dependencies",
+    "O-08 closure concurrency",
+    "O-09 assignment emulator and continuous CI",
+    "O-10 physical-device, weak-network and package-ID cutover",
+    "O-11 migration/recovery drill",
+    "O-12 operator acceptance"
+  ]
+}

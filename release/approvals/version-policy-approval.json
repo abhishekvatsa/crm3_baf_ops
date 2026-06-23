@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "version-and-build-policy",
+  "reference": "BAF-REF-003",
+  "sourceDocumentSha256": "A0635C5E1BF3F1981D61D23A95A864896017AE0030D356633849E877AE400468",
+  "recordedAtUtc": "2026-06-23T16:04:58.8995725Z",
+  "sourceDocumentNotCommitted": true,
+  "remoteReservationTag": "crm3-build-reserved/1",
+  "buildNumber": 1,
+  "remoteBuiltTag": "crm3-build-built/1",
+  "reservationId": "crm3-baf-ops-o1-o5-v4-904fda1-b1-1",
+  "policy": "strictly-monotonic-never-reuse",
+  "versionName": "1.0.0-rc.1"
+}

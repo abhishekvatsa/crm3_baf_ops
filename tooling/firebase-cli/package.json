@@ -1,0 +1,8 @@
+{
+  "name": "crm3-baf-ops-governed-firebase-cli",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "firebase-tools": "15.17.0"
+  }
+}

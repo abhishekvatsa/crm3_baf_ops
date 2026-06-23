@@ -43,3 +43,8 @@ release_evidence/
 
 release_evidence/
 release_gate_*.log
+
+*.p12
+*.pfx
+release_output/
+production_artifacts/

@@ -48,6 +48,50 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:894346496105:android:fba14febfbbee102e63af8",
+        "android_client_info": {
+          "package_name": "in.co.sail.bsl.crm3.bafops"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.co.sail.bsl.crm3.bafops",
+            "certificate_hash": "41c2b828c71683a50ec346d19e1d44048758438d"
+          }
+        },
+        {
+          "client_id": "894346496105-unm5h7dlpbldpltdeo59gc091o4snskq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCL43OaEkn4VfsPd6-JVqme9BSxs5AdjKk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "894346496105-unm5h7dlpbldpltdeo59gc091o4snskq.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "894346496105-vu2ak2tnumo896h7qum5eid6eld2dgok.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.crm3BafOps"
+              }
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

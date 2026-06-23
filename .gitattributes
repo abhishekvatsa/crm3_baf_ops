@@ -9,3 +9,5 @@
 *.jks binary
 *.aab binary
 *.apk binary
+# Production tooling lockfile hash custody must be OS-stable.
+tooling/firebase-cli/package-lock.json text eol=lf

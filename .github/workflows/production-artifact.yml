@@ -1,0 +1,387 @@
+name: Production signed artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact merged remote-main commit to build
+        required: true
+        type: string
+      release_id:
+        description: Exact release ID in production policy
+        required: true
+        type: string
+      reservation_id:
+        description: Exact source reservation ID
+        required: true
+        type: string
+      build_number:
+        description: Exact positive Android build number
+        required: true
+        type: number
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: crm3-production-build-number-${{ inputs.build_number }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Governed production-signed pre-release artifact
+    runs-on: ubuntu-24.04
+    environment: crm3-baf-ops-production-signing
+    timeout-minutes: 90
+
+    steps:
+      - name: Validate dispatch inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ '${{ inputs.commit_sha }}' =~ ^[0-9a-fA-F]{40}$ ]]
+          [[ '${{ inputs.build_number }}' =~ ^[1-9][0-9]*$ ]]
+          test -n '${{ inputs.release_id }}'
+          test -n '${{ inputs.reservation_id }}'
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$GITHUB_REF_NAME" = 'main'
+          test "$GITHUB_SHA" = '${{ inputs.commit_sha }}'
+
+      - name: Checkout exact commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Prove exact live remote main and policy inputs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $head = (git rev-parse HEAD).Trim().ToLowerInvariant()
+          if ($head -ne '${{ inputs.commit_sha }}'.ToLowerInvariant()) {
+            throw 'Checkout HEAD differs from dispatch commit.'
+          }
+
+          git fetch origin main --no-tags
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to refresh origin/main.' }
+
+          $originMain = (git rev-parse origin/main).Trim().ToLowerInvariant()
+          if ($originMain -ne $head) {
+            throw 'Dispatch commit is not exact refreshed origin/main.'
+          }
+
+          $live = @(git ls-remote origin refs/heads/main)
+          if ($LASTEXITCODE -ne 0 -or $live.Count -ne 1) {
+            throw 'Unable to query live remote main.'
+          }
+          $liveMain = (($live[0] -split '\s+')[0]).Trim().ToLowerInvariant()
+          if ($liveMain -ne $head) {
+            throw 'Dispatch commit is not exact live remote main.'
+          }
+
+          $policy = Get-Content release/production-release-policy.json -Raw |
+            ConvertFrom-Json
+
+          if ([string]$policy.release.releaseId -ne '${{ inputs.release_id }}') {
+            throw 'Release ID differs from policy.'
+          }
+          if ([string]$policy.versionPolicy.reservationId -ne
+            '${{ inputs.reservation_id }}') {
+            throw 'Reservation ID differs from policy.'
+          }
+          if ([int]$policy.release.buildNumber -ne
+            [int]'${{ inputs.build_number }}') {
+            throw 'Build number differs from policy.'
+          }
+          if ([string]$policy.distribution.authority -ne
+            'production-signed-pre-release-candidate' -or
+            $policy.distribution.approved -ne $false) {
+            throw 'Policy improperly claims distribution approval.'
+          }
+
+          "CRM_RELEASE_ID=$($policy.release.releaseId)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_RESERVATION_ID=$($policy.versionPolicy.reservationId)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_BUILD_NUMBER=$($policy.release.buildNumber)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_RESERVATION_TAG=$($policy.versionPolicy.remoteReservationTag)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_BUILT_TAG=$($policy.versionPolicy.remoteBuiltTag)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_EXPECTED_ISAR_CORE_SHA256=$($policy.toolchain.linuxIsarCoreSha256)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_FIREBASE_TOOLS_VERSION=$($policy.toolchain.firebaseToolsVersion)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_PRODUCTION_ENVIRONMENT=$($policy.github.environmentName)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_EXPECTED_JAVA_VERSION=$($policy.toolchain.javaVersion)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_EXPECTED_NODE_VERSION=$($policy.toolchain.nodeVersion)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_EXPECTED_NPM_VERSION=$($policy.toolchain.npmVersion)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_EXPECTED_FLUTTER_VERSION=$($policy.toolchain.flutterVersion)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_EXPECTED_DART_VERSION=$($policy.toolchain.dartVersion)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Atomically consume the build number
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          reserved_ref="refs/tags/${CRM_RESERVATION_TAG}"
+          built_ref="refs/tags/${CRM_BUILT_TAG}"
+
+          if git ls-remote --exit-code origin "$built_ref" >/dev/null 2>&1; then
+            echo "::error::Build number already has a built tag: ${CRM_BUILT_TAG}"
+            exit 1
+          fi
+
+          if git ls-remote --exit-code origin "$reserved_ref" >/dev/null 2>&1; then
+            echo "::error::Build number was already reserved/consumed: ${CRM_RESERVATION_TAG}"
+            exit 1
+          fi
+
+          git config user.name "crm3-baf-ops-release-bot"
+          git config user.email "crm3-baf-ops-release-bot@users.noreply.github.com"
+
+          message_file="${RUNNER_TEMP}/crm3-build-reservation.txt"
+          cat > "$message_file" <<EOF
+          CRM-III BAF Ops governed build-number reservation
+
+          Build number: ${CRM_BUILD_NUMBER}
+          Release ID: ${CRM_RELEASE_ID}
+          Reservation ID: ${CRM_RESERVATION_ID}
+          Commit: ${{ inputs.commit_sha }}
+          GitHub run: ${{ github.run_id }}
+          GitHub run attempt: ${{ github.run_attempt }}
+
+          This number is consumed even if the build fails or is withdrawn.
+          EOF
+
+          git tag -a "${CRM_RESERVATION_TAG}" \
+            "${{ inputs.commit_sha }}" \
+            -F "$message_file"
+
+          git push origin \
+            "refs/tags/${CRM_RESERVATION_TAG}:refs/tags/${CRM_RESERVATION_TAG}"
+
+          remote_commit="$(
+            git ls-remote origin "$reserved_ref" "${reserved_ref}^{}" |
+            awk '$2 ~ /\^\{\}$/ {print $1; found=1} END {if (!found) exit 1}'
+          )"
+
+          test "$remote_commit" = "${{ inputs.commit_sha }}"
+
+      - name: Set up Java 21
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+        with:
+          distribution: temurin
+          java-version: '21.0.11+10'
+
+      - name: Set up Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.15.0'
+
+      - name: Set up Flutter 3.44.0
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: false
+
+      - name: Prove exact Java, Node, npm, Flutter and Dart toolchain
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $nodeVersion = (& node --version).Trim().TrimStart('v')
+          $npmVersion = (& npm --version).Trim()
+          $flutter = ((& flutter --version --machine) -join "`n") |
+            ConvertFrom-Json
+          $dartText = ((& dart --version 2>&1) -join "`n")
+          $javaText = ((& java -version 2>&1) -join "`n")
+
+          if ($nodeVersion -ne $env:CRM_EXPECTED_NODE_VERSION) {
+            throw "Node version mismatch: $nodeVersion"
+          }
+          if ($npmVersion -ne $env:CRM_EXPECTED_NPM_VERSION) {
+            throw "npm version mismatch: $npmVersion"
+          }
+          if ([string]$flutter.frameworkVersion -ne
+              $env:CRM_EXPECTED_FLUTTER_VERSION) {
+            throw "Flutter version mismatch: $($flutter.frameworkVersion)"
+          }
+          if ($dartText -notmatch
+              [regex]::Escape($env:CRM_EXPECTED_DART_VERSION)) {
+            throw "Dart version mismatch: $dartText"
+          }
+          $javaBase = $env:CRM_EXPECTED_JAVA_VERSION.Split('+')[0]
+          $javaBuild = $env:CRM_EXPECTED_JAVA_VERSION.Split('+')[-1]
+          if ($javaText -notmatch [regex]::Escape($javaBase) -or
+              $javaText -notmatch [regex]::Escape("+$javaBuild")) {
+            throw "Java version mismatch: $javaText"
+          }
+
+      - name: Restore locked dependencies and Firebase CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f tooling/firebase-cli/package-lock.json
+          npm ci
+          npm --prefix functions ci
+          npm --prefix tooling/firebase-cli ci --ignore-scripts
+          flutter pub get
+
+          firebase_bin="$PWD/tooling/firebase-cli/node_modules/.bin"
+          echo "$firebase_bin" >> "$GITHUB_PATH"
+          export PATH="$firebase_bin:$PATH"
+
+          actual_firebase_version="$(firebase --version)"
+          test "$actual_firebase_version" = "$CRM_FIREBASE_TOOLS_VERSION"
+
+      - name: Restore approved production keystore
+        shell: pwsh
+        env:
+          KEYSTORE_B64: ${{ secrets.CRM_ANDROID_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:KEYSTORE_B64)) {
+            throw 'Keystore secret is empty.'
+          }
+
+          $path = Join-Path $env:RUNNER_TEMP 'crm3-baf-ops-production.p12'
+          [IO.File]::WriteAllBytes(
+            $path,
+            [Convert]::FromBase64String($env:KEYSTORE_B64)
+          )
+          "CRM_ANDROID_RELEASE_STORE_FILE=$path" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Download and verify approved bundletool
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $policy = Get-Content release/production-release-policy.json -Raw |
+            ConvertFrom-Json
+          $jar = Join-Path $env:RUNNER_TEMP 'bundletool.jar'
+          Invoke-WebRequest -Uri $policy.toolchain.bundletoolUrl -OutFile $jar
+
+          $actual = (
+            Get-FileHash -LiteralPath $jar -Algorithm SHA256
+          ).Hash.ToUpperInvariant()
+
+          if ($actual -ne
+            ([string]$policy.toolchain.bundletoolSha256).ToUpperInvariant()) {
+            throw "bundletool hash mismatch: $actual"
+          }
+
+          "CRM_BUNDLETOOL_PATH=$jar" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_BUNDLETOOL_SHA256=$actual" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Provision and prove approved Linux Isar core
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p .dart_tool/ci
+          cat > .dart_tool/ci/prepare_isar.dart <<'DART'
+          import 'package:isar/isar.dart';
+
+          Future<void> main() async {
+            await Isar.initializeIsarCore(download: true);
+          }
+          DART
+
+          dart run .dart_tool/ci/prepare_isar.dart
+
+          candidate_list="${RUNNER_TEMP}/crm3-isar-candidates.txt"
+          matching_list="${RUNNER_TEMP}/crm3-isar-approved-matches.txt"
+          : > "$candidate_list"
+          : > "$matching_list"
+
+          find "$HOME/.pub-cache" "$PWD" "${RUNNER_TEMP:-/tmp}" \
+            -type f -name libisar.so 2>/dev/null |
+          sort -u |
+          while IFS= read -r candidate; do
+            case "$candidate" in
+              *jniLibs*|*android*|*Android*) continue ;;
+            esac
+            if file "$candidate" | grep -Eqi 'ELF 64-bit.*x86-64'; then
+              actual="$(sha256sum "$candidate" | awk '{print toupper($1)}')"
+              printf '%s  %s\n' "$actual" "$candidate" >> "$candidate_list"
+              if [ "$actual" = "$CRM_EXPECTED_ISAR_CORE_SHA256" ]; then
+                printf '%s\n' "$candidate" >> "$matching_list"
+              fi
+            fi
+          done
+
+          match_count="$(wc -l < "$matching_list" | tr -d ' ')"
+          if [ "$match_count" -lt 1 ]; then
+            echo "::error::No Linux x86-64 Isar core matched the independent authority."
+            echo "Expected: $CRM_EXPECTED_ISAR_CORE_SHA256"
+            cat "$candidate_list" || true
+            exit 1
+          fi
+
+          selected="$(head -n 1 "$matching_list")"
+          actual_sha="$(sha256sum "$selected" | awk '{print toupper($1)}')"
+          test "$actual_sha" = "$CRM_EXPECTED_ISAR_CORE_SHA256"
+
+          sudo install -m 0755 "$selected" /usr/lib/libisar.so
+          file /usr/lib/libisar.so
+          ldd /usr/lib/libisar.so
+
+          python3 - <<'PY'
+          import ctypes
+          ctypes.CDLL('/usr/lib/libisar.so')
+          print('Isar native-core load probe: PASS')
+          PY
+
+          echo "CRM_ISAR_CORE_PATH=/usr/lib/libisar.so" >> "$GITHUB_ENV"
+          echo "CRM_ISAR_CORE_SHA256=$actual_sha" >> "$GITHUB_ENV"
+
+      - name: Build once and independently verify
+        shell: pwsh
+        env:
+          CRM_ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.CRM_ANDROID_RELEASE_STORE_PASSWORD }}
+          CRM_ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.CRM_ANDROID_RELEASE_KEY_ALIAS }}
+          CRM_ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.CRM_ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $output = Join-Path $env:RUNNER_TEMP 'governed-production-artifacts'
+
+          pwsh -NoProfile -ExecutionPolicy Bypass `
+            -File tools/release/New-ProductionArtifact.ps1 `
+            -ExpectedCommit '${{ inputs.commit_sha }}' `
+            -ExpectedReleaseId '${{ inputs.release_id }}' `
+            -ExpectedReservationId '${{ inputs.reservation_id }}' `
+            -ExpectedBuildNumber ${{ inputs.build_number }} `
+            -BundletoolJarPath $env:CRM_BUNDLETOOL_PATH `
+            -ExpectedBundletoolSha256 $env:CRM_BUNDLETOOL_SHA256 `
+            -IsarCorePath $env:CRM_ISAR_CORE_PATH `
+            -ExpectedIsarCoreSha256 $env:CRM_ISAR_CORE_SHA256 `
+            -OutputRoot $output
+
+          "CRM_PRODUCTION_OUTPUT=$output" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_ARTIFACT_NAME=crm3-baf-ops-$($env:CRM_RELEASE_ID)-${{ inputs.commit_sha }}-run-${{ github.run_id }}" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Upload governed package and mandatory sidecar
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ${{ env.CRM_ARTIFACT_NAME }}
+          path: |
+            ${{ env.CRM_PRODUCTION_OUTPUT }}/*-GOVERNED-PACKAGE.zip
+            ${{ env.CRM_PRODUCTION_OUTPUT }}/*-GOVERNED-PACKAGE.zip.sha256.txt
+          if-no-files-found: error
+          retention-days: 90

@@ -317,8 +317,11 @@ if ($workingTreeAuthority.firebaseProjectId -ne 'crm3-baf-ops-b8638') {
 if ($workingTreeAuthority.releaseId -ne $ExpectedBackendReleaseId) {
   throw "Expected backend release does not match authority: $ExpectedBackendReleaseId"
 }
-if ($workingTreeAuthority.deployedIndexesParityStatus -ne 'not-proven') {
-  throw 'B1 authority must preserve deployed-index parity as not-proven.'
+if ($workingTreeAuthority.deployedIndexesParityStatus -ne 'proven') {
+  throw 'Backend authority must encode corrected 70I-C parity as proven.'
+}
+if ([string]$workingTreeAuthority.deployedIndexesParityEvidence.evidenceSha256 -ne 'E21C7E71611FBF84A42DBBD6C6E44CF3FD353AFDDB298A855D03DACA6A254CB8') {
+  throw 'Corrected 70I-C evidence hash mismatch.'
 }
 
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
@@ -623,6 +626,8 @@ $manifest = [ordered]@{
       [string]$authority.intentionalDivergencePolicy.reason
     deployedIndexesParityStatus =
       [string]$authority.deployedIndexesParityStatus
+    deployedIndexesParityEvidence =
+      $authority.deployedIndexesParityEvidence
     sourceCustody = $sourceCustody
   }
   verificationTool = [ordered]@{
