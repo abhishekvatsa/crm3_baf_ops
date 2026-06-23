@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "linux-x64-isar-core-authority",
+  "reference": "CRM_III_BAF_Ops_Linux_Isar_Core_Authority_20260621_190931",
+  "sourceDocumentSha256": "C49BFA09358DC89645929C614F3977E413202767BB67B6EDDA45C097CE8C1ADA",
+  "recordedAtUtc": "2026-06-23T16:04:59.6520088Z",
+  "sourceDocumentNotCommitted": true,
+  "expectedHashNotDerivedFromProductionCandidate": true,
+  "expectedSha256": "7DC70DF7A2FBF63CD552ECA36708B6DEEB68CBD2AA270C1E201215E0BFC38EF1",
+  "architecture": "linux-x64"
+}
