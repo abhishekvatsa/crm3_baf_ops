@@ -53,7 +53,9 @@ void main() {
       expect(text, contains('reservationTagMessageSha256'));
       expect(text, contains('firebaseToolsLockfileSha256'));
       expect(text, contains('linuxIsarCoreSha256'));
-      expect(text, contains('temporary-truststore'));
+      expect(text, contains("'crm3-aab-trust-'"));
+      expect(text, contains('RandomNumberGenerator]::GetBytes(24)'));
+      expect(text, contains(r'Remove-Item -LiteralPath $trustStore'));
       expect(text, contains('sourceArchiveSha256'));
       expect(text, contains('exactly one unique signer certificate'));
       expect(text, contains('backupProofSha256'));
