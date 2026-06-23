@@ -358,21 +358,36 @@ foreach ($required in @(
   "flutter-version: '$($policy.toolchain.flutterVersion)'"
   'CRM_EXPECTED_NPM_VERSION'
   'CRM_EXPECTED_DART_VERSION'
-  'crm3-build-reserved/'
+  'CRM_RESERVATION_TAG=$($policy.versionPolicy.remoteReservationTag)'
+  'CRM_BUILT_TAG=$($policy.versionPolicy.remoteBuiltTag)'
+  'reserved_ref="refs/tags/${CRM_RESERVATION_TAG}"'
+  'built_ref="refs/tags/${CRM_BUILT_TAG}"'
   'tooling/firebase-cli/node_modules/.bin'
-  'GITHUB_ACTIONS'
   'New-ProductionArtifact.ps1'
 )) {
   if (-not $workflow.Contains($required)) {
     throw "Production workflow contract is missing: $required"
   }
 }
+$builder = Get-Content `
+  -LiteralPath 'tools/release/New-ProductionArtifact.ps1' `
+  -Raw
+if (-not $builder.Contains('$env:GITHUB_ACTIONS -ne ''true''')) {
+  throw 'Production builder is missing its fail-closed GitHub Actions guard.'
+}
 if ($workflow -match
   'uses:\s+[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@v[0-9]') {
   throw 'Production workflow contains a mutable action tag.'
 }
-if ($workflow -match '(?m)^\s+cache:\s*') {
-  throw 'Production workflow may not enable dependency caches.'
+$cacheLines = @(
+  $workflow -split '\r?\n' |
+    Where-Object { $_ -match '^[ \t]+cache:' }
+)
+foreach ($cacheLine in $cacheLines) {
+  if ($cacheLine -notmatch
+      '^[ \t]+cache:[ \t]*false[ \t]*(?:#.*)?$') {
+    throw 'Production workflow may not enable dependency caches.'
+  }
 }
 
 Write-Host ''
