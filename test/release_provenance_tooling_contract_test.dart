@@ -18,7 +18,11 @@ void main() {
       authority['backendGitCommit'],
       '4132b83a1bf9693b1b8f33f602091e89143250ce',
     );
-    expect(authority['deployedIndexesParityStatus'], 'not-proven');
+    expect(authority['deployedIndexesParityStatus'], 'proven');
+    expect(
+      authority['deployedIndexesParityEvidence']['evidenceSha256'],
+      'E21C7E71611FBF84A42DBBD6C6E44CF3FD353AFDDB298A855D03DACA6A254CB8',
+    );
     expect(
       authority['intentionalDivergencePolicy']['backendSourceChangedBy70H'],
       isFalse,

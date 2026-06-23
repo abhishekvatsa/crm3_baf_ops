@@ -192,8 +192,11 @@ if ($manifest.signing.productionSigningApproved -ne $false) {
 if ($manifest.packageIdentity.permanentIdentityApproved -ne $false) {
   throw '70I-B1 cannot approve permanent package identity.'
 }
-if ($manifest.backend.deployedIndexesParityStatus -ne 'not-proven') {
-  throw 'Manifest must preserve deployed-index parity as not-proven.'
+if ($manifest.backend.deployedIndexesParityStatus -ne 'proven') {
+  throw 'Manifest must encode corrected deployed-index parity as proven.'
+}
+if ([string]$manifest.backend.deployedIndexesParityEvidence.evidenceSha256 -ne 'E21C7E71611FBF84A42DBBD6C6E44CF3FD353AFDDB298A855D03DACA6A254CB8') {
+  throw 'Manifest corrected 70I-C evidence hash mismatch.'
 }
 
 if ($manifest.source.hashBasis -ne 'git-archive-entry-bytes') {
@@ -406,6 +409,7 @@ $result = [ordered]@{
   sourceHashBasis = [string]$manifest.source.hashBasis
   backendReleaseId = [string]$authority.releaseId
   deployedIndexesParityStatus = [string]$authority.deployedIndexesParityStatus
+  deployedIndexesParityEvidence = $authority.deployedIndexesParityEvidence
 }
 
 $resultPath = Join-Path $releaseDir 'verification-result.json'

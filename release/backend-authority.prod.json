@@ -10,7 +10,7 @@
   "firestoreRulesDigest": "C897AA6056ADD67174F0DD6E786F85709280BE3CE77D182401153C428268286F",
   "functionsDeployedDigest": "A325AA41A25EA58558FD6D3969088667C9FB607969FABA316705EA02B2055133",
   "firestoreIndexesSourceDigest": "D0D7120DB00D8FAB3130861776AB6E956CE6E224FB40665B3A28CB1C7B7C7D33",
-  "deployedIndexesParityStatus": "not-proven",
+  "deployedIndexesParityStatus": "proven",
   "sourceCustody": {
     "firestore.rules": "C897AA6056ADD67174F0DD6E786F85709280BE3CE77D182401153C428268286F",
     "firestore.indexes.json": "D0D7120DB00D8FAB3130861776AB6E956CE6E224FB40665B3A28CB1C7B7C7D33",
@@ -20,11 +20,30 @@
     "functions/src/plannedJobClosure.ts": "2984CDD7A6F99066D3B082473A0F7CAE2E6E32073CE075F2878EBF3F9BD73722",
     "functions/src/publishedTemplateAssignment.ts": "5A62DA31623C7A76BBF7FD85B0484A904940791608FF30486296446247D4D6DF",
     "functions/package-lock.json": "97214865025D8ACC9F198508D6E9DA7404F8C2C6D13EAE2DA25F2B64A2B0D951",
-    "functions/tsconfig.json": "23FF223A1842E006F1EC3B5B9430F3B3DBDEFF4D3E4CF651402D8E2703C57D9D"
+    "functions/tsconfig.json": "23FF223A1842E006F1EC3B5B9430F3B3DBDEFF4D3E4CF651402D8E2703C57D9D",
+    "release/evidence/70I_C_INDEX_PARITY_DECISION.json": "C48C46F18BDAC5B3537E7EB110ED9E2E87B862B5C13584BD81D81ADF603D8456"
   },
   "intentionalDivergencePolicy": {
     "backendSourceChangedBy70H": false,
     "reason": "Application source includes client-side 70H identity-collision repair and transaction integration evidence; Firestore Rules, indexes, and Cloud Functions runtime source were unchanged."
   },
-  "evidenceNote": "Bound to the verified 70I-A backend identity evidence. Deployed index parity remains separately open."
+  "evidenceNote": "Bound to verified 70I-A backend identity and corrected 70I-C deployed-index parity evidence.",
+  "deployedIndexesParityEvidence": {
+    "schemaVersion": 1,
+    "decision": "PROVEN",
+    "sourceCommit": "904fda17858b2ef3d6089982a7b538c1a12d20d2",
+    "evidenceFile": "CRM_III_BAF_Ops_70I_C_Index_Parity_CORRECTED_20260621_142611.zip",
+    "evidenceSha256": "E21C7E71611FBF84A42DBBD6C6E44CF3FD353AFDDB298A855D03DACA6A254CB8",
+    "sourceCompositeIndexes": 28,
+    "deployedCompositeIndexes": 28,
+    "missing": 0,
+    "extra": 0,
+    "nonReady": 0,
+    "duplicates": 0,
+    "actualFieldOverrides": 0,
+    "databaseWideDefaultFieldResourceExcluded": true,
+    "priorDecisionDisposition": "superseded-retained",
+    "firebaseDeploymentPerformed": false,
+    "sourceModificationPerformedByParityGate": false
+  }
 }

@@ -52,9 +52,10 @@ code and test evidence only. The reason is recorded in the manifest.
 
 ## Deployed indexes
 
-The manifest records deployed-index parity as `not-proven`. Hashing
-`firestore.indexes.json` proves source custody only; it is not a readback of
-the deployed indexes.
+The manifest records deployed-index parity as `proven` and binds the corrected
+70I-C decision-package SHA-256. The source/deployed comparison established 28 =
+28, all READY, with zero actual field overrides. The prior divergent decision is
+retained as superseded historical evidence. This source-only update deploys no Firebase resource.
 
 ## Production exclusions
 

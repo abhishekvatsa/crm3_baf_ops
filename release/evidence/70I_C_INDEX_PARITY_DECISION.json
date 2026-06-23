@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "decision": "PROVEN",
+  "sourceCommit": "904fda17858b2ef3d6089982a7b538c1a12d20d2",
+  "evidenceFile": "CRM_III_BAF_Ops_70I_C_Index_Parity_CORRECTED_20260621_142611.zip",
+  "evidenceSha256": "E21C7E71611FBF84A42DBBD6C6E44CF3FD353AFDDB298A855D03DACA6A254CB8",
+  "sourceCompositeIndexes": 28,
+  "deployedCompositeIndexes": 28,
+  "missing": 0,
+  "extra": 0,
+  "nonReady": 0,
+  "duplicates": 0,
+  "actualFieldOverrides": 0,
+  "databaseWideDefaultFieldResourceExcluded": true,
+  "priorDecisionDisposition": "superseded-retained",
+  "firebaseDeploymentPerformed": false,
+  "sourceModificationPerformedByParityGate": false
+}
