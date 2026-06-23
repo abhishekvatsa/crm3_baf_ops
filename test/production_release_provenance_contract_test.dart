@@ -8,9 +8,9 @@ String read(String path) => File(path).readAsStringSync();
 void main() {
   group('O-01 to O-05 governed production-release contracts', () {
     test('O-01 authority binds corrected 70I-C parity evidence', () {
-      final authority = jsonDecode(
-        read('release/backend-authority.prod.json'),
-      ) as Map<String, dynamic>;
+      final authority =
+          jsonDecode(read('release/backend-authority.prod.json'))
+              as Map<String, dynamic>;
 
       expect(authority['deployedIndexesParityStatus'], 'proven');
       final evidence =
@@ -90,8 +90,8 @@ void main() {
       expect(text, contains('Upload governed package and mandatory sidecar'));
       expect(text, contains('/*-GOVERNED-PACKAGE.zip'));
       expect(text, contains('/*-GOVERNED-PACKAGE.zip.sha256.txt'));
-      expect(text, isNot(contains('path: ${{ env.CRM_PRODUCTION_OUTPUT }}/')));
-      expect(text, isNot(matches(RegExp(r'uses:\s+[^\s]+@v\d')));
+      expect(text, isNot(contains('path: ${{env.CRM_PRODUCTION_OUTPUT}}/')));
+      expect(text, isNot(matches(RegExp(r'uses:\s+[^\s]+@v\d'))));
     });
 
     test('release signing fails closed and never falls back to debug', () {
@@ -115,7 +115,10 @@ void main() {
 
       expect(gradle, isNot(contains('com.example.crm3_baf_ops')));
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
-      expect(pubspec, contains(RegExp(r'^version:\s+\S+\+\d+', multiLine: true)));
+      expect(
+        pubspec,
+        contains(RegExp(r'^version:\s+\S+\+\d+', multiLine: true)),
+      );
       expect(policy, contains('"approved": false'));
       expect(policy, contains('"unrestrictedPlantReleaseApproved": false'));
     });
