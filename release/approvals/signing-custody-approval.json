@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "production-signing-and-custody",
+  "reference": "BAF-REF-004",
+  "sourceDocumentSha256": "EEE50D1E3D1858913BB86817F4BB29CA93B1AF82A3A83EC4E151A395FBA19CB6",
+  "recordedAtUtc": "2026-06-23T16:04:59.2907772Z",
+  "sourceDocumentNotCommitted": true,
+  "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+  "backupCustodian": "Priya",
+  "custodyReference": "BAF-REF-004",
+  "recoveryProofSha256": "B24F302D5BF27D2132363D316D1D17FBE87AF54A0BF5B48BDD465D1FEA8FC54B",
+  "primaryCustodian": "Abhishek Vatsa",
+  "backupProofSha256": "B17C476F17E7CE11F03669F09556C71A9904665BD10C7335F177EAAB4FD22B3B",
+  "certificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+  "keystoreSha256": "4D5727DB14A82FB25A16DC9B063B94462E66FD36D006B97E888465E2DD730471",
+  "keyAlias": "crm3-baf-ops-release"
+}
