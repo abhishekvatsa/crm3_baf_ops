@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "policy": "positive-int32-strictly-monotonic-never-reuse",
+  "remoteAuthority": "atomic crm3-build-reserved/<number> and crm3-build-built/<number> tags",
+  "entries": [
+    {
+      "reservationId": "crm3-baf-ops-o1-o5-v4-904fda1-b1-1",
+      "buildNumber": 1,
+      "versionName": "1.0.0-rc.1",
+      "releaseId": "crm3-baf-ops-1.0.0-rc.1-b1",
+      "releaseTag": "crm3-baf-ops-v1.0.0-rc.1",
+      "releaseChannel": "production-candidate",
+      "campaignId": "crm3-baf-ops-o1-o5-v4-904fda1-b1",
+      "baselineCommit": "904fda17858b2ef3d6089982a7b538c1a12d20d2",
+      "reservedForBranch": "feat/70i-b2-o1-o5-governed-campaign-v4",
+      "status": "source-reserved-awaiting-remote-consumption",
+      "remoteReservationTag": "crm3-build-reserved/1",
+      "remoteBuiltTag": "crm3-build-built/1",
+      "failedOrWithdrawnBuildConsumesNumber": true,
+      "reservedAtUtc": "2026-06-23T16:04:58.8919175Z",
+      "versionApprovalReference": "BAF-REF-003",
+      "versionApprovalDocumentSha256": "A0635C5E1BF3F1981D61D23A95A864896017AE0030D356633849E877AE400468"
+    }
+  ]
+}

@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCL43OaEkn4VfsPd6-JVqme9BSxs5AdjKk',
-    appId: '1:894346496105:android:c320c57f2393dceee63af8',
+    appId: '1:894346496105:android:fba14febfbbee102e63af8',
     messagingSenderId: '894346496105',
     projectId: 'crm3-baf-ops-b8638',
     storageBucket: 'crm3-baf-ops-b8638.firebasestorage.app',

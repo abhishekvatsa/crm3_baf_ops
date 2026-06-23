@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "permanent-android-identity",
+  "reference": "BAF-REF-002",
+  "sourceDocumentSha256": "184C8F17CC464829660F2B710C9AA17C6FF9CE728B687E2291FC3EF3012F42DD",
+  "recordedAtUtc": "2026-06-23T16:04:58.8968902Z",
+  "sourceDocumentNotCommitted": true,
+  "displayName": "CRM-III BAF Ops",
+  "applicationId": "in.co.sail.bsl.crm3.bafops",
+  "namespace": "in.co.sail.bsl.crm3.bafops"
+}

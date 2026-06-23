@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "android-identity-migration-plan",
+  "reference": "BAF-REF-001",
+  "sourceDocumentSha256": "6AA0A15D1399734DEF5BF0074F864F149F95F021B3CA8430080CF8533CF5D0FF",
+  "recordedAtUtc": "2026-06-23T16:04:58.9023274Z",
+  "sourceDocumentNotCommitted": true,
+  "collectionCount": 16,
+  "planApproved": true,
+  "sourceCommit": "904fda17858b2ef3d6089982a7b538c1a12d20d2",
+  "operationalCutoverBoundary": "Source identity/configuration closes in O-02; device-by-device cutover, placeholder-app retirement, and no-loss field proof remain under O-10/70J."
+}

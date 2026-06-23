@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "firebase-android-registration",
+  "reference": "BAF-REF-005",
+  "sourceDocumentSha256": "81ECA29EC696F41B27786761573578E11881E5C69C056D7AC67B68827C5475FC",
+  "recordedAtUtc": "2026-06-23T16:04:58.9015156Z",
+  "sourceDocumentNotCommitted": true,
+  "applicationId": "in.co.sail.bsl.crm3.bafops",
+  "firebaseAppId": "1:894346496105:android:fba14febfbbee102e63af8",
+  "googleServicesSha256": "730A044FF0A698C2FBCCF3B993EE6964EE5431CA8C6435DDC02AA98A9848646A",
+  "certificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+  "oauthClientId": "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com",
+  "projectId": "crm3-baf-ops-b8638"
+}
