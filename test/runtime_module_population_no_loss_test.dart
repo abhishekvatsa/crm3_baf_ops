@@ -13,7 +13,7 @@ import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
 import 'package:crm3_baf_ops/features/directives/providers/operational_directive_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
-import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/baf_knowledge_repository.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_diary_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_module_provider.dart';
@@ -22,20 +22,84 @@ import 'package:crm3_baf_ops/features/planned_maintenance/providers/template_gov
 import 'package:crm3_baf_ops/features/planned_maintenance/services/planned_job_server_completion_service.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/services/runtime_job_module_population_service.dart';
 
-class _UnusedRepositories
-    implements
-        MaintenanceRepository,
-        PlannedMaintenanceRepository,
-        JobDiaryRepository,
-        TemplateGovernanceRepository,
-        DirectiveRepository,
-        AbnormalityRepository,
-        BafKnowledgeRepository,
-        PlannedJobServerCompletionService,
-        AuditRepository {
+class _UnusedMaintenanceRepository implements MaintenanceRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError(invocation.memberName.toString());
+}
+
+class _UnusedPlannedMaintenanceRepository
+    implements PlannedMaintenanceRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
+}
+
+class _UnusedJobDiaryRepository implements JobDiaryRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
+}
+
+class _UnusedTemplateGovernanceRepository
+    implements TemplateGovernanceRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
+}
+
+class _UnusedDirectiveRepository implements DirectiveRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
+}
+
+class _UnusedAbnormalityRepository implements AbnormalityRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
+}
+
+class _UnusedBafKnowledgeRepository implements BafKnowledgeRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
+}
+
+class _UnusedServerCompletionService
+    implements PlannedJobServerCompletionService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
+}
+
+class _UnusedAuditRepository implements AuditRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
+}
+
+class _UnusedRepositories {
+  final MaintenanceRepository maintenance = _UnusedMaintenanceRepository();
+
+  final PlannedMaintenanceRepository planned =
+      _UnusedPlannedMaintenanceRepository();
+
+  final JobDiaryRepository jobDiary = _UnusedJobDiaryRepository();
+
+  final TemplateGovernanceRepository templateGovernance =
+      _UnusedTemplateGovernanceRepository();
+
+  final DirectiveRepository directive = _UnusedDirectiveRepository();
+
+  final AbnormalityRepository abnormality = _UnusedAbnormalityRepository();
+
+  final BafKnowledgeRepository knowledge = _UnusedBafKnowledgeRepository();
+
+  final PlannedJobServerCompletionService serverCompletion =
+      _UnusedServerCompletionService();
+
+  final AuditRepository audit = _UnusedAuditRepository();
 }
 
 class _RejectingRemoteModules implements JobModuleRepository {
@@ -149,8 +213,6 @@ Future<void> _withIsar(Future<void> Function(Isar isar) body) async {
 }
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
   setUpAll(() async {
     await initializeTestIsarCore();
   });
@@ -166,23 +228,23 @@ void main() {
         final remoteModules = _RejectingRemoteModules();
         final unused = _UnusedRepositories();
         final sync = SyncService(
-          maintenanceRepo: unused,
-          firestoreMaintenance: unused,
-          plannedRepo: unused,
-          firestorePlanned: unused,
-          serverCompletion: unused,
-          jobDiaryRepo: unused,
-          firestoreJobDiary: unused,
+          maintenanceRepo: unused.maintenance,
+          firestoreMaintenance: unused.maintenance,
+          plannedRepo: unused.planned,
+          firestorePlanned: unused.planned,
+          serverCompletion: unused.serverCompletion,
+          jobDiaryRepo: unused.jobDiary,
+          firestoreJobDiary: unused.jobDiary,
           jobModuleRepo: localModules,
           firestoreJobModule: remoteModules,
-          templateGovernanceRepo: unused,
-          firestoreTemplateGovernance: unused,
-          directiveRepo: unused,
-          firestoreDirective: unused,
-          abnormalityRepo: unused,
-          firestoreAbnormality: unused,
-          knowledgeRepo: unused,
-          auditRepository: unused,
+          templateGovernanceRepo: unused.templateGovernance,
+          firestoreTemplateGovernance: unused.templateGovernance,
+          directiveRepo: unused.directive,
+          firestoreDirective: unused.directive,
+          abnormalityRepo: unused.abnormality,
+          firestoreAbnormality: unused.abnormality,
+          knowledgeRepo: unused.knowledge,
+          auditRepository: unused.audit,
         );
 
         await sync.syncJobModulesForTest();
@@ -237,23 +299,23 @@ void main() {
         );
         final unused = _UnusedRepositories();
         final sync = SyncService(
-          maintenanceRepo: unused,
-          firestoreMaintenance: unused,
-          plannedRepo: unused,
-          firestorePlanned: unused,
-          serverCompletion: unused,
-          jobDiaryRepo: unused,
-          firestoreJobDiary: unused,
+          maintenanceRepo: unused.maintenance,
+          firestoreMaintenance: unused.maintenance,
+          plannedRepo: unused.planned,
+          firestorePlanned: unused.planned,
+          serverCompletion: unused.serverCompletion,
+          jobDiaryRepo: unused.jobDiary,
+          firestoreJobDiary: unused.jobDiary,
           jobModuleRepo: localModules,
           firestoreJobModule: remoteModules,
-          templateGovernanceRepo: unused,
-          firestoreTemplateGovernance: unused,
-          directiveRepo: unused,
-          firestoreDirective: unused,
-          abnormalityRepo: unused,
-          firestoreAbnormality: unused,
-          knowledgeRepo: unused,
-          auditRepository: unused,
+          templateGovernanceRepo: unused.templateGovernance,
+          firestoreTemplateGovernance: unused.templateGovernance,
+          directiveRepo: unused.directive,
+          firestoreDirective: unused.directive,
+          abnormalityRepo: unused.abnormality,
+          firestoreAbnormality: unused.abnormality,
+          knowledgeRepo: unused.knowledge,
+          auditRepository: unused.audit,
         );
 
         await sync.syncJobModulesForTest();

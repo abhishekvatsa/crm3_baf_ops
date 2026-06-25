@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_module_provider.dart';
 
 JobModuleInstance _module() {
