@@ -4,6 +4,7 @@ extension _SyncServicePushInfrastructure on SyncService {
   Future<void> _retry(
     Future<void> Function() task, {
     int maxAttempts = 3,
+    bool Function(Object error)? shouldRetry,
   }) async {
     int attempt = 0;
     final rand = Random();
@@ -15,6 +16,7 @@ extension _SyncServicePushInfrastructure on SyncService {
       } catch (e) {
         attempt++;
 
+        if (shouldRetry != null && !shouldRetry(e)) rethrow;
         if (attempt >= maxAttempts) rethrow;
 
         final baseDelay = Duration(seconds: 2 * attempt);
@@ -67,49 +69,93 @@ extension _SyncServicePushInfrastructure on SyncService {
         .toList(growable: false);
   }
 
+  SyncFailureDetail _buildPushFailureDetail({
+    required String entityType,
+    required String entityId,
+    required Object error,
+    String? firestoreId,
+  }) {
+    final populationError =
+        error is RuntimeJobModulePopulationException ? error : null;
+    final firebaseError = error is FirebaseException ? error : null;
+    final message =
+        populationError?.operatorMessage ??
+        (firebaseError?.message?.trim().isNotEmpty == true
+            ? firebaseError!.message!.trim()
+            : error.toString());
+    final errorCode = populationError?.code ?? firebaseError?.code;
+    final isLikelyPermanent =
+        populationError?.isDurableRejection ??
+        (firebaseError != null &&
+            (firebaseError.code == 'permission-denied' ||
+                firebaseError.code == 'failed-precondition' ||
+                firebaseError.code == 'invalid-argument'));
+    return SyncFailureDetail(
+      entityType: entityType,
+      entityId: entityId,
+      message: message,
+      errorCode: errorCode,
+      firestoreId: firestoreId,
+      isLikelyPermanent: isLikelyPermanent,
+      occurredAt: DateTime.now(),
+    );
+  }
+
+  void _appendPushFailureDetail(SyncFailureDetail detail) {
+    if (lastFailureDetails.length >= SyncService._maxFailureDetails) {
+      lastFailureDetailOverflowCount++;
+      return;
+    }
+    lastFailureDetails.add(detail);
+  }
+
   void _recordPushFailureDetail({
     required String entityType,
     required String entityId,
     required Object error,
     String? firestoreId,
   }) {
-    final firebaseError = error is FirebaseException ? error : null;
-    final message =
-        firebaseError?.message?.trim().isNotEmpty == true
-            ? firebaseError!.message!.trim()
-            : error.toString();
-    final isLikelyPermanent =
-        firebaseError != null &&
-        (firebaseError.code == 'permission-denied' ||
-            firebaseError.code == 'failed-precondition' ||
-            firebaseError.code == 'invalid-argument');
-    final occurredAt = DateTime.now();
-    final detail = SyncFailureDetail(
+    final detail = _buildPushFailureDetail(
       entityType: entityType,
       entityId: entityId,
-      message: message,
-      errorCode: firebaseError?.code,
+      error: error,
       firestoreId: firestoreId,
-      isLikelyPermanent: isLikelyPermanent,
-      occurredAt: occurredAt,
     );
-
     unawaited(_upsertSyncRejection(detail));
-
-    if (lastFailureDetails.length >= SyncService._maxFailureDetails) {
-      lastFailureDetailOverflowCount++;
-      return;
-    }
-
-    lastFailureDetails.add(detail);
+    _appendPushFailureDetail(detail);
   }
 
-  Future<void> _upsertSyncRejection(SyncFailureDetail detail) async {
+  /// Population-fence rejections are awaited so a sync pass cannot return
+  /// before the durable local rejection record is safely written.
+  Future<void> _recordJobModulePopulationFailure({
+    required JobModuleInstance record,
+    required Object error,
+  }) async {
+    final detail = _buildPushFailureDetail(
+      entityType: 'job_module',
+      entityId: _syncEntityId(record),
+      firestoreId: _syncFirestoreId(record),
+      error: error,
+    );
+    await _upsertSyncRejection(detail, failClosed: true);
+    _appendPushFailureDetail(detail);
+  }
+
+  Future<void> _upsertSyncRejection(
+    SyncFailureDetail detail, {
+    bool failClosed = false,
+  }) async {
     if (kIsWeb) {
       return;
     }
     final localIsar = Isar.getInstance();
     if (localIsar == null) {
+      if (failClosed) {
+        throw StateError(
+          'A durable population rejection could not be persisted because the '
+          'local Isar database is unavailable.',
+        );
+      }
       return;
     }
 
@@ -156,6 +202,7 @@ extension _SyncServicePushInfrastructure on SyncService {
         '⚠️ Failed to persist sync rejection for ${detail.shortLabel}: $e',
       );
       debugPrint('$st');
+      if (failClosed) rethrow;
     }
   }
 

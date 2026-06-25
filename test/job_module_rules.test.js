@@ -9,6 +9,7 @@ const {
 
 const {
   doc,
+  deleteDoc,
   setDoc,
   updateDoc,
   setLogLevel,
@@ -112,6 +113,25 @@ function baseModule(overrides = {}) {
   };
 }
 
+
+function baseExecution(overrides = {}) {
+  const now = '2026-01-01T00:00:00.000Z';
+  return {
+    firestoreId: 'job_1',
+    templateFirestoreId: 'legacy_template_1',
+    assetType: 'base',
+    assetNumber: 1,
+    assignedByUid: 'admin',
+    assignedByName: 'Admin',
+    isCompleted: false,
+    isDeleted: false,
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
+}
+
 async function seedCommonData() {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
@@ -120,6 +140,7 @@ async function seedCommonData() {
     await setDoc(doc(db, 'users/supervisor'), userDoc(['shiftSupervisor']));
     await setDoc(doc(db, 'users/senior_mech'), userDoc(['seniorMechanical']));
     await setDoc(doc(db, 'users/operations'), userDoc(['operations']));
+    await setDoc(doc(db, 'job_executions/job_1'), baseExecution());
 
     await setDoc(
       doc(db, 'job_modules/module_mech_1'),
@@ -425,9 +446,118 @@ describe('job_modules update transition rules', () => {
     );
   });
 
-  test('allows supervisor to soft-delete a module', async () => {
+  test('rejects normal module work update after the parent execution is completed', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), 'job_executions/job_1'), {
+        isCompleted: true,
+      });
+    });
+
+    const db = userDb('senior_mech');
+    await assertFails(
+      updateDoc(doc(db, 'job_modules/module_mech_1'), {
+        status: 'inProgress',
+        responsesJson: '[{"fieldId":"f1","value":"late"}]',
+        updatedByUid: 'senior_mech',
+        updatedByName: 'Senior Mechanical',
+        updatedAt: '2026-01-01T07:00:00.000Z',
+        version: 2,
+      }),
+    );
+  });
+
+  test('rejects updates when the parent execution is missing', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await deleteDoc(doc(context.firestore(), 'job_executions/job_1'));
+    });
+    const db = userDb('senior_mech');
+    await assertFails(updateDoc(doc(db, 'job_modules/module_mech_1'), {
+      status: 'inProgress',
+      updatedByUid: 'senior_mech',
+      updatedAt: '2026-01-01T08:00:00.000Z',
+      version: 2,
+    }));
+  });
+
+  test('rejects updates when the parent execution is deleted', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), 'job_executions/job_1'), {
+        isDeleted: true,
+      });
+    });
+    const db = userDb('senior_mech');
+    await assertFails(updateDoc(doc(db, 'job_modules/module_mech_1'), {
+      status: 'inProgress',
+      updatedByUid: 'senior_mech',
+      updatedAt: '2026-01-01T08:00:00.000Z',
+      version: 2,
+    }));
+  });
+
+  test('rejects reopen after the parent execution is completed', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), 'job_executions/job_1'), {
+        isCompleted: true,
+      });
+    });
     const db = userDb('supervisor');
-    await assertSucceeds(
+    await assertFails(updateDoc(doc(db, 'job_modules/module_accepted_1'), {
+      status: 'reopened',
+      reopenedByUid: 'supervisor',
+      reopenedAt: '2026-01-01T08:00:00.000Z',
+      reopenReason: 'Late reopen must be denied',
+      updatedByUid: 'supervisor',
+      updatedAt: '2026-01-01T08:00:00.000Z',
+      version: 2,
+    }));
+  });
+
+  test('rejects submit, accept, and not-applicable transitions after completion', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), 'job_executions/job_1'), {
+        isCompleted: true,
+      });
+    });
+    const senior = userDb('senior_mech');
+    const supervisor = userDb('supervisor');
+    await assertFails(updateDoc(doc(senior, 'job_modules/module_mech_1'), {
+      status: 'submitted',
+      submittedByUid: 'senior_mech',
+      submittedAt: '2026-01-01T08:00:00.000Z',
+      updatedAt: '2026-01-01T08:00:00.000Z',
+      version: 2,
+    }));
+    await assertFails(updateDoc(doc(supervisor, 'job_modules/module_submitted_1'), {
+      status: 'accepted',
+      acceptedByUid: 'supervisor',
+      acceptedAt: '2026-01-01T08:00:00.000Z',
+      updatedAt: '2026-01-01T08:00:00.000Z',
+      version: 2,
+    }));
+    await assertFails(updateDoc(doc(supervisor, 'job_modules/module_mech_1'), {
+      status: 'notApplicable',
+      notApplicableByUid: 'supervisor',
+      notApplicableAt: '2026-01-01T08:00:00.000Z',
+      notApplicableReason: 'Late N/A must be denied',
+      updatedByUid: 'supervisor',
+      updatedAt: '2026-01-01T08:00:00.000Z',
+      version: 2,
+    }));
+  });
+
+  test('rejects ordinary client mutation of requiredForClosure membership semantics', async () => {
+    const db = userDb('supervisor');
+    await assertFails(updateDoc(doc(db, 'job_modules/module_mech_1'), {
+      requiredForClosure: true,
+      updatedByUid: 'supervisor',
+      updatedAt: '2026-01-01T08:00:00.000Z',
+      version: 2,
+    }));
+  });
+
+  test('rejects direct supervisor soft-delete because population changes use the callable', async () => {
+    const db = userDb('supervisor');
+    await assertFails(
       updateDoc(doc(db, 'job_modules/module_mech_1'), {
         isDeleted: true,
         deletedByUid: 'supervisor',
@@ -441,9 +571,70 @@ describe('job_modules update transition rules', () => {
       }),
     );
   });
+
+  test('rejects ordinary updates to an already soft-deleted child', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), 'job_modules/module_mech_1'), {
+        isDeleted: true,
+        deletedByUid: 'supervisor',
+        deletedAt: '2026-01-01T07:00:00.000Z',
+        updatedByUid: 'supervisor',
+        updatedAt: '2026-01-01T07:00:00.000Z',
+        version: 2,
+      });
+    });
+
+    const db = userDb('senior_mech');
+    await assertFails(
+      updateDoc(doc(db, 'job_modules/module_mech_1'), {
+        status: 'inProgress',
+        responsesJson: '[{"fieldId":"f1","value":"must-not-change"}]',
+        updatedByUid: 'senior_mech',
+        updatedAt: '2026-01-01T08:00:00.000Z',
+        version: 3,
+      }),
+    );
+  });
+
+  test('rejects mutation of parent identity and server population evidence', async () => {
+    const db = userDb('supervisor');
+    await assertFails(
+      updateDoc(doc(db, 'job_modules/module_mech_1'), {
+        jobExecutionFirestoreId: 'job_other',
+        updatedByUid: 'supervisor',
+        updatedAt: '2026-01-01T08:00:00.000Z',
+        version: 2,
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(db, 'job_modules/module_mech_1'), {
+        parentPopulationVersionAtAcceptance: 999,
+        updatedByUid: 'supervisor',
+        updatedAt: '2026-01-01T08:00:00.000Z',
+        version: 2,
+      }),
+    );
+  });
 });
 
 describe('job_modules elevated runtime module create rules', () => {
+  test.each(['admin', 'si', 'supervisor', 'senior_mech', 'operations'])(
+    'rejects direct client create for %s because population creates are server-only',
+    async (uid) => {
+      const db = userDb(uid);
+      await assertFails(setDoc(
+        doc(db, `job_modules/direct_create_${uid}`),
+        baseModule({
+          firestoreId: `direct_create_${uid}`,
+          addedDuringExecution: true,
+          createdByUid: uid,
+          updatedByUid: uid,
+          addedByUid: uid,
+        }),
+      ));
+    },
+  );
+
   test('rejects senior discipline direct create of closure-critical runtime module', async () => {
     const db = userDb('senior_mech');
     await assertFails(
@@ -460,9 +651,9 @@ describe('job_modules elevated runtime module create rules', () => {
     );
   });
 
-  test('allows supervisor create of closure-critical runtime module', async () => {
+  test('rejects direct supervisor create of closure-critical runtime module', async () => {
     const db = userDb('supervisor');
-    await assertSucceeds(
+    await assertFails(
       setDoc(
         doc(db, 'job_modules/elevated_by_supervisor'),
         baseModule({
@@ -490,6 +681,43 @@ describe('job_modules elevated runtime module create rules', () => {
           responses: [{ fieldId: 'f1', value: 'legacy duplicate' }],
         }),
       ),
+    );
+  });
+});
+
+describe('server population audit identity reservation', () => {
+  test('rejects client pre-creation of a deterministic server population audit id', async () => {
+    const db = userDb('supervisor');
+    await assertFails(
+      setDoc(
+        doc(db, 'audit_logs/server_module_population_create_module_mech_1'),
+        {
+          entityType: 'planned_job_module',
+          entityId: 'module_mech_1',
+          action: 'create',
+          performedByUid: 'supervisor',
+          performedByName: 'Shift Supervisor',
+          timestamp: new Date('2026-01-01T08:00:00.000Z'),
+          summary: 'Attempted reserved audit',
+          severity: 'medium',
+        },
+      ),
+    );
+  });
+
+  test('continues to allow an ordinary valid client audit id', async () => {
+    const db = userDb('supervisor');
+    await assertSucceeds(
+      setDoc(doc(db, 'audit_logs/client_audit_module_mech_1'), {
+        entityType: 'planned_job_module',
+        entityId: 'module_mech_1',
+        action: 'update',
+        performedByUid: 'supervisor',
+        performedByName: 'Shift Supervisor',
+        timestamp: new Date('2026-01-01T08:00:00.000Z'),
+        summary: 'Normal client audit remains permitted',
+        severity: 'medium',
+      }),
     );
   });
 });

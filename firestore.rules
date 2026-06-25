@@ -370,100 +370,59 @@ service cloud.firestore {
         );
     }
 
-    function isElevatedRuntimeModuleCreate() {
-      return request.resource.data.get('addedDuringExecution', false) == true
-        && (
-          request.resource.data.get('requiredForClosure', false) == true
-          || request.resource.data.get('discipline', '') == 'shared'
-          || request.resource.data.get('safetyClass', 'normal') != 'normal'
-        );
-    }
-
-    function validRuntimeModuleCreateAuthority() {
-      return !isElevatedRuntimeModuleCreate()
-        || isModuleLifecycleModerator();
-    }
-
-    function validJobModuleCreatePayload(docId) {
-      return request.resource.data.get('firestoreId', null) == docId
-        && request.resource.data.keys().hasAll([
-          'firestoreId',
-          'moduleTitle',
-          'assetType',
-          'assetNumber',
-          'status',
-          'discipline',
-          'safetyClass',
-          'requiredForClosure',
-          'addedDuringExecution',
-          'moduleSnapshotJson',
-          'fieldDefinitionsJson',
-          'createdByUid',
-          'updatedByUid',
-          'createdAt',
-          'updatedAt',
-          'version',
-          'isDeleted'
-        ])
-        && request.resource.data.get('moduleTitle', null) is string
-        && request.resource.data.get('assetType', null) is string
-        && request.resource.data.get('assetNumber', -1) is int
-        && request.resource.data.get('status', null) is string
-        && request.resource.data.get('discipline', null) is string
-        && request.resource.data.get('safetyClass', null) is string
-        && request.resource.data.get('requiredForClosure', null) is bool
-        && request.resource.data.get('addedDuringExecution', null) is bool
-        && request.resource.data.get('moduleSnapshotJson', null) is string
-        && request.resource.data.get('fieldDefinitionsJson', null) is string
-        && request.resource.data.get('createdByUid', null) == request.auth.uid
-        && request.resource.data.get('updatedByUid', null) == request.auth.uid
-        && request.resource.data.get('version', -1) is int
-        && request.resource.data.get('version', -1) >= 1
-        && request.resource.data.get('isDeleted', null) == false
-        && isApprovedUser()
-        && canAddJobModuleDuringExecution()
-        && validRuntimeModuleCreateAuthority();
-    }
-
-    function isGovernedInitialJobModuleCreate() {
-      let templateSourceId =
-        request.resource.data.get('templateFirestoreId', null);
-      return request.resource.data.get('addedDuringExecution', false) == false
-        && (
-          request.resource.data.get('templatePackageId', null) != null
-          || request.resource.data.get('templateVersionId', null) != null
-          || referencesExistingTemplateVersion(templateSourceId)
-        );
-    }
-
-    function validJobModuleCreate(docId) {
-      // 47D.3: use a conditional expression rather than `&&` to force
-      // malformed local-only/legacy payloads to deny before the expensive
-      // authority and payload checks are evaluated by the emulator.
-      return request.resource.data.keys().hasAny(['responses', 'isSynced'])
-        ? false
-        : (
-          // Initial modules frozen from a governed TemplateVersion are created
-          // only by assignPublishedTemplateVersion. Runtime-added governed
-          // modules remain available through their existing elevated path.
-          !isGovernedInitialJobModuleCreate()
-          && validJobModuleCreatePayload(docId)
-        );
+    function jobModuleParentExistsAndIsOpen() {
+      let executionId = resource.data.get('jobExecutionFirestoreId', '');
+      return executionId is string
+        && executionId.size() > 0
+        && exists(/databases/$(database)/documents/job_executions/$(executionId))
+        && get(
+          /databases/$(database)/documents/job_executions/$(executionId)
+        ).data.get('isDeleted', false) == false
+        && get(
+          /databases/$(database)/documents/job_executions/$(executionId)
+        ).data.get('isCompleted', false) == false;
     }
 
     function validJobModuleUpdateCommon(docId, changedKeys) {
       return !changedKeys.hasAny([
           'firestoreId',
+          'jobExecutionFirestoreId',
           'createdByUid',
+          'createdByName',
           'createdAt',
+          'addedByUid',
+          'addedByName',
+          'addedAt',
+          'addReason',
           'moduleSnapshotJson',
           'fieldDefinitionsJson',
           'assetType',
           'assetNumber',
+          'chargeNoAtEvent',
           'discipline',
+          'isRequired',
+          'requiredForClosure',
+          'addedDuringExecution',
+          'templateFirestoreId',
+          'templatePackageId',
+          'templateVersionId',
+          'templateModuleId',
           'responses',
-          'isSynced'
+          'isSynced',
+          'populationCreateFingerprint',
+          'populationAcceptedAt',
+          'populationAcceptedByUid',
+          'populationMutationSchemaVersion',
+          'populationPreservationReason',
+          'populationOriginalActorClaims',
+          'parentPopulationVersionAtAcceptance',
+          'populationSoftDeleteFingerprint',
+          'populationDeletedAt',
+          'populationDeletedByUid',
+          'parentPopulationVersionAtMutation'
         ])
+        && resource.data.get('isDeleted', false) == false
+        && request.resource.data.get('isDeleted', false) == false
         && isApprovedUser()
         && resource.data.get('firestoreId', null) == docId
         && request.resource.data.get('version', -1) is int
@@ -636,15 +595,14 @@ service cloud.firestore {
     }
 
     function validJobModuleSoftDelete(changedKeys, roles) {
-      return resource.data.get('isDeleted', false) == false
-        && request.resource.data.get('isDeleted', false) == true
-        && jobModuleSoftDeleteChangedFieldsOnly(changedKeys)
-        && request.resource.data.get('deletedByUid', null) == request.auth.uid
-        && rolesAreModuleLifecycleModerator(roles);
+      // Population-removing soft deletes must use the same server-governed
+      // parent fence as module creation. Direct client tombstones are denied.
+      return false;
     }
 
     function validJobModuleUpdatePayload(docId, changedKeys, roles) {
-      return validJobModuleUpdateCommon(docId, changedKeys)
+      return jobModuleParentExistsAndIsOpen()
+        && validJobModuleUpdateCommon(docId, changedKeys)
         && (
           validJobModuleSoftDelete(changedKeys, roles)
           || validJobModuleSubmit(changedKeys, roles)
@@ -2566,9 +2524,9 @@ service cloud.firestore {
 
     match /job_modules/{docId} {
       allow read: if isApprovedUser();
-      allow create: if isApprovedUser()
-        ? validJobModuleCreate(docId)
-        : false;
+      // All client-originated population creates are server-only. Governed
+      // published-template assignment uses the Admin SDK and bypasses rules.
+      allow create: if false;
       allow update: if exists(/databases/$(database)/documents/job_modules/$(docId))
         ? (isApprovedUser() ? validJobModuleUpdate(docId) : false)
         : false;
@@ -2628,7 +2586,10 @@ service cloud.firestore {
 
     match /audit_logs/{docId} {
       allow read: if isAdmin();
-      allow create: if validAuditCreate();
+      // Deterministic server-population audit identities are reserved for the
+      // Admin-SDK transaction and cannot be pre-created by a client.
+      allow create: if !docId.matches('^server_module_population_.*')
+        && validAuditCreate();
       allow update, delete: if false;
     }
 

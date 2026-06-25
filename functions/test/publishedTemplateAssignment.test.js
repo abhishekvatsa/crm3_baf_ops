@@ -237,6 +237,11 @@ describe("published TemplateVersion server assignment", () => {
       versionFixture().contentHash,
     );
     expect(result.execution.assignedByUid).toBe("supervisor1");
+    expect(result.execution.modulePopulationVersion).toBe(1);
+    expect(result.execution.modulePopulationSchemaVersion).toBe(1);
+    expect(result.execution.modulePopulationLastModuleId).toBe(
+      result.modules[0].firestoreId,
+    );
     expect(result.modules).toHaveLength(1);
     expect(result.modules[0].jobExecutionFirestoreId).toBe(
       result.executionId,
@@ -509,6 +514,38 @@ describe("published TemplateVersion server assignment", () => {
       details: {reasonCode: "too-many-modules"},
     });
     expect(oversizedDb.writes).toHaveLength(0);
+  });
+
+  test("forced failure before multi-module writes leaves no execution, child, or receipt residue", async () => {
+    const multiVersion = versionFixture({
+      moduleSnapshotsJson: JSON.stringify([
+        {moduleCode: "M-01", moduleTitle: "Inspect fan", requiredForClosure: true, discipline: "mechanical"},
+        {moduleCode: "M-02", moduleTitle: "Inspect base seal", requiredForClosure: false, discipline: "mechanical"},
+      ]),
+      fieldDefinitionsJson: JSON.stringify([
+        {key: "vibration", label: "Vibration", moduleCode: "M-01", type: "number", isRequired: true},
+        {key: "seal", label: "Seal", moduleCode: "M-02", type: "text", isRequired: false},
+      ]),
+    });
+    multiVersion.contentHash = computeTemplateVersionContentHash(multiVersion);
+    const fixture = fakeAssignmentDb({
+      versionData: multiVersion,
+      audits: [auditFixture({afterHash: multiVersion.contentHash})],
+    });
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture({expectedContentHash: multiVersion.contentHash}),
+      beforeAssignmentWritesForTest: async () => {
+        throw new Error("forced-multi-module-failure");
+      },
+    })).rejects.toThrow("forced-multi-module-failure");
+
+    expect(fixture.writes).toHaveLength(0);
+    expect([...fixture.store.keys()].some((path) => path.startsWith("job_executions/"))).toBe(false);
+    expect([...fixture.store.keys()].some((path) => path.startsWith("job_modules/"))).toBe(false);
+    expect([...fixture.store.keys()].some((path) => path.startsWith("published_template_assignment_requests/"))).toBe(false);
   });
 
   test("idempotency receipt cannot be replayed by another actor or after evidence loss", async () => {

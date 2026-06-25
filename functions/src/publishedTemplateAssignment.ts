@@ -88,6 +88,7 @@ const REQUEST_ID_PATTERN =
 const CONTENT_HASH_PATTERN = /^tg2-sha256:[0-9a-f]{64}$/;
 const MAX_MODULES_PER_ASSIGNMENT = 100;
 const MAX_REMARKS_LENGTH = 2000;
+const MODULE_POPULATION_SCHEMA_VERSION = 1;
 
 export class AssignmentValidationError extends Error {
   readonly code: AssignmentHttpsErrorCode;
@@ -1130,6 +1131,23 @@ function selectPublicationAudit(
       },
     );
   }
+  const selectedTime = dateSortValue(selected.data.performedAt);
+  const equallyAuthoritative = candidates.filter(
+    (candidate) => dateSortValue(candidate.data.performedAt) === selectedTime,
+  );
+  if (equallyAuthoritative.length > 1) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "Multiple equally authoritative publication audits exist.",
+      {
+        reasonCode: "publication-audit-ambiguous",
+        packageId,
+        versionId,
+        contentHash,
+        auditIds: equallyAuthoritative.map((candidate) => candidate.id).sort(),
+      },
+    );
+  }
   return selected;
 }
 
@@ -1208,6 +1226,12 @@ function buildCanonicalAssignment(args: {
     responsesJson: "[]",
     actionsJson: "[]",
     version: 1,
+    modulePopulationVersion: 1,
+    modulePopulationSchemaVersion: MODULE_POPULATION_SCHEMA_VERSION,
+    modulePopulationUpdatedAt: assignedAt,
+    modulePopulationUpdatedByUid: actorUid,
+    modulePopulationLastMutation: "governedAssignment",
+    modulePopulationLastModuleId: null,
     metadataJson: JSON.stringify({
       source: "server_governed_published_template_assignment",
       requestId: request.requestId,
@@ -1393,6 +1417,9 @@ function buildCanonicalAssignment(args: {
     return {id: moduleId, data};
   });
 
+  execution.modulePopulationLastModuleId =
+    modules.length > 0 ? modules[modules.length - 1].id : null;
+
   return {executionId, execution, modules};
 }
 
@@ -1501,6 +1528,7 @@ export async function assignPublishedTemplateVersionWithDb(args: {
   authUid: string | null;
   data: AssignmentJsonMap;
   now?: () => Date;
+  beforeAssignmentWritesForTest?: () => Promise<void>;
 }): Promise<PublishedTemplateAssignmentResult> {
   const {db, authUid, data} = args;
   if (authUid == null || authUid.trim().length === 0) {
@@ -1738,6 +1766,10 @@ export async function assignPublishedTemplateVersionWithDb(args: {
     const executionRef = db
       .collection("job_executions")
       .doc(canonical.executionId);
+    if (args.beforeAssignmentWritesForTest != null) {
+      await args.beforeAssignmentWritesForTest();
+    }
+
     transaction.set(executionRef, canonical.execution);
     for (const module of canonical.modules) {
       transaction.set(

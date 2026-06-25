@@ -11,6 +11,7 @@ import '../providers/sync_status_provider.dart';
 import 'app_logger.dart';
 import 'sync_push_snapshot.dart';
 import 'sync_remote_freshness_policy.dart';
+import 'remote_tombstone_apply_result.dart';
 
 import '../../features/maintenance/data/maintenance_model.dart';
 import '../../features/maintenance/providers/maintenance_provider.dart';
@@ -20,6 +21,7 @@ import '../../features/planned_maintenance/data/job_module_model.dart';
 import '../../features/planned_maintenance/data/template_governance_model.dart';
 import '../../features/planned_maintenance/providers/planned_maintenance_provider.dart';
 import '../../features/planned_maintenance/services/planned_job_server_completion_service.dart';
+import '../../features/planned_maintenance/services/runtime_job_module_population_service.dart';
 import '../../features/planned_maintenance/providers/job_diary_provider.dart';
 import '../../features/planned_maintenance/providers/job_module_provider.dart';
 import '../../features/planned_maintenance/providers/template_governance_provider.dart';
@@ -191,6 +193,9 @@ class SyncService {
        _firestoreAbnormality = firestoreAbnormality,
        _knowledgeRepo = knowledgeRepo,
        _auditRepo = auditRepository;
+
+  @visibleForTesting
+  Future<void> syncJobModulesForTest() => _syncJobModules();
 
   Future<SyncPendingCounts> countPendingLocalWrites() async {
     final results = await Future.wait<int>([
