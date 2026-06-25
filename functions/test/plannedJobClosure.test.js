@@ -34,7 +34,7 @@ function baseModule(overrides = {}) {
 
 describe('planned job server closure validation', () => {
 
-  test('matches Dart golden attestation hash fixture', () => {
+  test('matches governed schema-2 closure attestation golden fixture', () => {
     const moduleData = {
       id: 42,
       firestoreId: 'module_gold_1',
@@ -69,11 +69,12 @@ describe('planned job server closure validation', () => {
       completedByName: 'Shift Supervisor',
       completedAt: '2026-05-15T08:30:00.000Z',
       executionVersionAtCompletion: 5,
+      modulePopulationVersionAtCompletion: 0,
       guardIssueCounts: assertClosureReady([moduleData]),
     });
 
     expect(attestation.hash).toBe(
-      '1c19c2b037f2e3fa944b7765a6d8d7fbf6c692567987ee49ba899c3cc4f577ae',
+      '8a78dc8f9ce6c6bfc0a5d5eddf74f026efb68702aeff0b2608d72b08f7194296',
     );
     expect(attestation.canonicalJson).toContain(
       '"moduleKey":"firestore:module_gold_1"',
@@ -143,6 +144,7 @@ describe('planned job server closure validation', () => {
       completedByName: 'Supervisor',
       completedAt: '2026-05-15T00:00:00.000Z',
       executionVersionAtCompletion: 2,
+      modulePopulationVersionAtCompletion: 0,
       guardIssueCounts: assertClosureReady([a, b]),
     });
 
@@ -153,6 +155,7 @@ describe('planned job server closure validation', () => {
       completedByName: 'Supervisor',
       completedAt: '2026-05-15T00:00:00.000Z',
       executionVersionAtCompletion: 2,
+      modulePopulationVersionAtCompletion: 0,
       guardIssueCounts: assertClosureReady([b, a]),
     });
 
@@ -174,6 +177,7 @@ describe('planned job server closure validation', () => {
       completedByName: 'Supervisor',
       completedAt: '2026-05-15T00:00:00.000Z',
       executionVersionAtCompletion: 2,
+      modulePopulationVersionAtCompletion: 0,
       guardIssueCounts: assertClosureReady([firstModule]),
     });
 
@@ -184,6 +188,7 @@ describe('planned job server closure validation', () => {
       completedByName: 'Supervisor',
       completedAt: '2026-05-15T00:00:00.000Z',
       executionVersionAtCompletion: 2,
+      modulePopulationVersionAtCompletion: 0,
       guardIssueCounts: assertClosureReady([secondModule]),
     });
 
@@ -198,6 +203,7 @@ describe('planned job server closure validation', () => {
       completedByName: 'Supervisor',
       completedAt: '2026-05-15T00:00:00.000Z',
       executionVersionAtCompletion: 2,
+      modulePopulationVersionAtCompletion: 0,
       guardIssueCounts: assertClosureReady([baseModule()]),
     });
 
@@ -431,6 +437,70 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
     })).rejects.toMatchObject({code: 'permission-denied'});
 
     expect(writes.transactionRuns).toBe(0);
+    expect(writes.updates).toHaveLength(0);
+    expect(writes.sets).toHaveLength(0);
+  });
+
+  test('malformed module-population version rejects without module query or writes', async () => {
+    const {db, writes} = fakeCompletionDb({
+      userData: {
+        isApproved: true,
+        roles: ['shiftSupervisor'],
+        name: 'Supervisor',
+      },
+      executionData: baseExecution({
+        version: 6,
+        modulePopulationVersion: 'corrupt',
+        modulePopulationSchemaVersion: 1,
+      }),
+      modules: [baseModule()],
+    });
+
+    await expect(
+      completePlannedJobWithDb({
+        db,
+        authUid: 'supervisor1',
+        data: {executionId: 'job_1', expectedCompletionVersion: 7},
+      }),
+    ).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'module-population-version-invalid'},
+    });
+
+    expect(writes.transactionRuns).toBe(1);
+    expect(writes.moduleQueryReads).toBe(0);
+    expect(writes.updates).toHaveLength(0);
+    expect(writes.sets).toHaveLength(0);
+  });
+
+  test('malformed module-population schema rejects without module query or writes', async () => {
+    const {db, writes} = fakeCompletionDb({
+      userData: {
+        isApproved: true,
+        roles: ['shiftSupervisor'],
+        name: 'Supervisor',
+      },
+      executionData: baseExecution({
+        version: 6,
+        modulePopulationVersion: 1,
+        modulePopulationSchemaVersion: 99,
+      }),
+      modules: [baseModule()],
+    });
+
+    await expect(
+      completePlannedJobWithDb({
+        db,
+        authUid: 'supervisor1',
+        data: {executionId: 'job_1', expectedCompletionVersion: 7},
+      }),
+    ).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'module-population-schema-version-invalid'},
+    });
+
+    expect(writes.transactionRuns).toBe(1);
+    expect(writes.moduleQueryReads).toBe(0);
     expect(writes.updates).toHaveLength(0);
     expect(writes.sets).toHaveLength(0);
   });

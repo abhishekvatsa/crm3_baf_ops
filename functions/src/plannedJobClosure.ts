@@ -68,7 +68,8 @@ const ISSUE_TYPES = [
 ] as const;
 
 const CLOSURE_ATTESTATION_METADATA_KEY = "closureAttestation";
-const CLOSURE_ATTESTATION_SCHEMA_VERSION = 1;
+const CLOSURE_ATTESTATION_SCHEMA_VERSION = 2;
+const MODULE_POPULATION_SCHEMA_VERSION = 1;
 
 export class ClosureValidationError extends Error {
   readonly code: HttpsErrorCode;
@@ -122,6 +123,43 @@ export function parseExpectedCompletionVersion(value: unknown): number | null {
   throw new ClosureValidationError(
     "invalid-argument",
     "expectedCompletionVersion must be a non-negative integer when provided.",
+  );
+}
+
+export function modulePopulationVersionFromExecution(
+  execution: JsonMap,
+): number {
+  const value = execution.modulePopulationVersion;
+  const schemaVersion = execution.modulePopulationSchemaVersion;
+  if (value == null && schemaVersion == null) return 0;
+
+  if (
+    typeof schemaVersion !== "number" ||
+    !Number.isSafeInteger(schemaVersion) ||
+    schemaVersion !== MODULE_POPULATION_SCHEMA_VERSION
+  ) {
+    throw new ClosureValidationError(
+      "failed-precondition",
+      "The planned-job module-population schema version is invalid.",
+      {
+        reasonCode: "module-population-schema-version-invalid",
+        schemaVersion,
+        expectedSchemaVersion: MODULE_POPULATION_SCHEMA_VERSION,
+      },
+    );
+  }
+
+  if (
+    typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= 0
+  ) {
+    return value;
+  }
+  throw new ClosureValidationError(
+    "failed-precondition",
+    "The planned-job module-population revision is invalid.",
+    {reasonCode: "module-population-version-invalid", value},
   );
 }
 
@@ -509,6 +547,7 @@ export function buildClosureAttestation(params: {
   completedByName: string | null;
   completedAt: string;
   executionVersionAtCompletion: number;
+  modulePopulationVersionAtCompletion: number;
   guardIssueCounts: JsonMap;
 }): {payload: JsonMap; canonicalJson: string; hash: string; toMetadataEnvelope: () => JsonMap} {
   const activeModules = params.modules.filter((moduleData) => moduleData.isDeleted !== true);
@@ -526,6 +565,10 @@ export function buildClosureAttestation(params: {
     completedByName: cleanOptionalText(params.completedByName),
     completedAt: params.completedAt,
     executionVersionAtCompletion: params.executionVersionAtCompletion,
+    modulePopulationVersionAtCompletion:
+      params.modulePopulationVersionAtCompletion,
+    modulePopulationSchemaVersionAtCompletion:
+      MODULE_POPULATION_SCHEMA_VERSION,
     moduleCounts: {
       total: params.modules.length,
       active: activeModules.length,
@@ -582,6 +625,9 @@ function executionAuditMap(data: JsonMap, docId: string, closureAttestationHash:
     completedByName: data.completedByName ?? null,
     completedAt: data.completedAt ?? null,
     version: data.version ?? null,
+    modulePopulationVersion: data.modulePopulationVersion ?? 0,
+    modulePopulationSchemaVersion:
+      data.modulePopulationSchemaVersion ?? MODULE_POPULATION_SCHEMA_VERSION,
     metadataHasClosureAttestation:
       closureAttestationHash != null ||
       (typeof data.metadataJson === "string" &&
@@ -622,6 +668,7 @@ export async function completePlannedJobWithDb(params: {
    * existing in-memory test harness working without an admin dependency.
    */
   timestampFromDate?: AuditTimestampFactory;
+  beforeClosureWriteForTest?: () => Promise<void>;
 }): Promise<JsonMap> {
   const {db, authUid, data} = params;
   const auditTimestampFromDate: AuditTimestampFactory =
@@ -680,6 +727,8 @@ export async function completePlannedJobWithDb(params: {
       ? beforeData.version as number
       : 0;
     const nextVersion = currentVersion + 1;
+    const modulePopulationVersion =
+      modulePopulationVersionFromExecution(beforeData);
 
     if (beforeData.isCompleted === true) {
       const metadata = parseJsonObject(beforeData.metadataJson);
@@ -738,6 +787,7 @@ export async function completePlannedJobWithDb(params: {
       completedByName,
       completedAt,
       executionVersionAtCompletion: nextVersion,
+      modulePopulationVersionAtCompletion: modulePopulationVersion,
       guardIssueCounts,
     });
 
@@ -745,6 +795,10 @@ export async function completePlannedJobWithDb(params: {
       beforeData.metadataJson,
       attestation,
     );
+
+    if (params.beforeClosureWriteForTest != null) {
+      await params.beforeClosureWriteForTest();
+    }
 
     const updateData: JsonMap = {
       isCompleted: true,
@@ -754,6 +808,8 @@ export async function completePlannedJobWithDb(params: {
       metadataJson,
       updatedAt: completedAt,
       version: nextVersion,
+      modulePopulationVersion,
+      modulePopulationSchemaVersion: MODULE_POPULATION_SCHEMA_VERSION,
     };
 
     if (remarks != null) updateData.remarks = remarks;

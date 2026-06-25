@@ -1,6 +1,7 @@
 // FILE: lib/features/planned_maintenance/providers/job_module_provider.dart
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
@@ -14,6 +15,7 @@ import '../../audit/providers/audit_provider.dart';
 import '../../auth/data/user_model.dart';
 import '../data/job_module_model.dart';
 import '../domain/planned_job_module_set_resolver.dart';
+import '../services/runtime_job_module_population_service.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
@@ -26,6 +28,18 @@ bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
     remoteUpdatedAt: remote.updatedAt as DateTime,
   );
 }
+
+/// Compares only the canonical client-owned Firestore payload.
+///
+/// This is the lost-response/idempotent-replay boundary for first remote
+/// acceptance: if the callable committed but the response was lost, the next
+/// sync sees an existing remote document whose client payload is already exact.
+/// Treating that state as satisfied avoids a same-version direct update that
+/// Firestore rules would correctly reject.
+bool jobModuleClientSnapshotsEquivalentForSync(
+  JobModuleInstance local,
+  JobModuleInstance remote,
+) => jsonEncode(local.toMap()) == jsonEncode(remote.toMap());
 
 // ─────────────────────────────────────────────────────────────
 // NORMALIZATION HELPERS
@@ -1372,9 +1386,14 @@ class _RemoteModuleTransitionResult {
 
 class FirestoreJobModuleRepository implements JobModuleRepository {
   final AuditRepository _auditRepo;
+  final RuntimeJobModulePopulationService _populationService;
 
-  FirestoreJobModuleRepository({AuditRepository? auditRepository})
-    : _auditRepo = auditRepository ?? AuditRepository();
+  FirestoreJobModuleRepository({
+    AuditRepository? auditRepository,
+    RuntimeJobModulePopulationService? populationService,
+  }) : _auditRepo = auditRepository ?? AuditRepository(),
+       _populationService =
+           populationService ?? RuntimeJobModulePopulationService();
 
   final _modules = FirebaseFirestore.instance.collection('job_modules');
 
@@ -1411,28 +1430,33 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
       incrementVersion: before != null,
     );
 
+    if (before == null) {
+      final accepted = await _populationService.acceptModule(module);
+      _copyRemoteModuleIntoLocal(module, accepted.module);
+    } else {
+      await _modules
+          .doc(module.firestoreId)
+          .set(module.toMap(), SetOptions(merge: true));
+    }
     module.isSynced = true;
-    await _modules
-        .doc(module.firestoreId)
-        .set(module.toMap(), SetOptions(merge: true));
 
-    if (auditContext != null) {
-      final action = before == null ? AuditAction.create : AuditAction.update;
+    if (auditContext != null && before != null) {
+      // First remote acceptance already writes the authoritative immutable
+      // create audit in the same server transaction as the child and parent
+      // population-fence update. Emit a client audit only for later ordinary
+      // lifecycle/work updates, never a duplicate create record.
       final auditRepo = _auditRepo;
       unawaited(
         auditRepo.log(
           AuditEvent.fromContext(
             entityType: 'planned_job_module',
             entityId: module.firestoreId!,
-            action: action,
+            action: AuditAction.update,
             context: auditContext.copyWith(
-              before: before?.toAuditMap(),
+              before: before.toAuditMap(),
               after: module.toAuditMap(),
               summary:
-                  auditContext.summary ??
-                  (action == AuditAction.create
-                      ? 'Added planned-maintenance module'
-                      : 'Updated planned-maintenance module'),
+                  auditContext.summary ?? 'Updated planned-maintenance module',
             ),
           ),
         ),
@@ -1506,29 +1530,34 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     required AppUser actor,
     AuditContext? auditContext,
   }) async {
-    await _transitionRemoteModule(
-      id as String,
-      auditAction: AuditAction.delete,
-      auditSummary: 'Deleted planned-maintenance module',
-      auditContext: auditContext,
-      validate: (_) {
-        _requireCanModerateModule(actor, ModuleModerationAction.softDelete);
-      },
-      buildUpdate:
-          (now) => {
-            'isDeleted': true,
-            'deletedAt': now.toIso8601String(),
-            'deletedByUid': actor.uid,
-            'deletedByName': _cleanOptionalText(actor.name),
-            'deleteReason':
-                auditContext?.reason?.name ?? auditContext?.reasonNotes,
-            'updatedByUid':
-                _cleanOptionalText(auditContext?.performedByUid) ?? actor.uid,
-            'updatedByName':
-                _cleanOptionalText(auditContext?.performedByName) ??
-                _cleanOptionalText(actor.name),
-          },
-    );
+    final docId = id as String;
+    _requireCanModerateModule(actor, ModuleModerationAction.softDelete);
+
+    final doc = await _modules.doc(docId).get();
+    if (!doc.exists || doc.data() == null) return;
+    final before = JobModuleInstance.fromMap(doc.data()!, doc.id);
+    if (before.isDeleted) return;
+
+    final now = DateTime.now();
+    final tombstone =
+        JobModuleInstance.fromMap(before.toMap(), doc.id)
+          ..isDeleted = true
+          ..deletedAt = now
+          ..deletedByUid = actor.uid
+          ..deletedByName = _cleanOptionalText(actor.name)
+          ..deleteReason =
+              auditContext?.reason?.name ?? auditContext?.reasonNotes
+          ..updatedAt = now
+          ..updatedByUid = actor.uid
+          ..updatedByName = _cleanOptionalText(actor.name)
+          ..version = before.version + 1;
+
+    final after = await _populationService.softDeleteModule(tombstone);
+    _copyRemoteModuleIntoLocal(tombstone, after.module);
+
+    // The server callable writes the only authoritative delete audit in the
+    // same transaction as the tombstone and parent population increment.
+    // Do not create a second client-side audit for the same mutation.
   }
 
   @override
@@ -1798,23 +1827,63 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
   Future<void> batchUpsertModules(List<JobModuleInstance> records) async {
     if (records.isEmpty) return;
 
+    final recordsWithIds = records
+        .where((record) => _cleanOptionalText(record.firestoreId) != null)
+        .toList(growable: false);
+    if (recordsWithIds.isEmpty) return;
+
+    final remote = await getModulesByFirestoreIds(
+      recordsWithIds.map((record) => record.firestoreId!).toList(),
+    );
+    final remoteById = <String, JobModuleInstance>{
+      for (final record in remote)
+        if (record.firestoreId != null) record.firestoreId!: record,
+    };
+
+    final directUpdates = <JobModuleInstance>[];
+    for (final record in recordsWithIds) {
+      final firestoreId = record.firestoreId!;
+      final existing = remoteById[firestoreId];
+
+      if (record.isDeleted) {
+        // Deleting a never-synchronized local module is already remotely
+        // satisfied: there is no child document to remove from the population.
+        if (existing == null || existing.isDeleted) continue;
+        await _populationService.softDeleteModule(record);
+        continue;
+      }
+
+      if (existing == null) {
+        await _populationService.acceptModule(record);
+        continue;
+      }
+
+      // A first acceptance may have committed even when the client lost the
+      // callable response. If the canonical client payload already matches,
+      // remote acceptance is satisfied and the sync layer may safely mark the
+      // unchanged local snapshot synchronized without issuing a stale
+      // same-version direct update.
+      if (jobModuleClientSnapshotsEquivalentForSync(record, existing)) {
+        continue;
+      }
+
+      directUpdates.add(record);
+    }
+
     final firestore = FirebaseFirestore.instance;
-    for (var i = 0; i < records.length; i += 500) {
-      final chunk = records.sublist(
+    for (var i = 0; i < directUpdates.length; i += 500) {
+      final chunk = directUpdates.sublist(
         i,
-        i + 500 > records.length ? records.length : i + 500,
+        i + 500 > directUpdates.length ? directUpdates.length : i + 500,
       );
       final batch = firestore.batch();
-
       for (final record in chunk) {
-        if (_cleanOptionalText(record.firestoreId) == null) continue;
         batch.set(
           _modules.doc(record.firestoreId),
           record.toMap(),
           SetOptions(merge: true),
         );
       }
-
       await batch.commit();
     }
   }

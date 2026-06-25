@@ -18,6 +18,13 @@ import type {
   AssignmentFirestoreLike,
   AssignmentJsonMap,
 } from "./publishedTemplateAssignment";
+import type {
+  RuntimePopulationFirestoreLike,
+  RuntimePopulationJsonMap,
+} from "./runtimeJobModulePopulation";
+import {
+  invokeRuntimeJobModulePopulationCallable,
+} from "./runtimeJobModulePopulationCallable";
 import {
   BackendIdentityValidationError,
   backendReleaseEnvironmentFromProcess,
@@ -126,6 +133,39 @@ export const assignPublishedTemplateVersion = onCall(
         "internal",
         "Server-governed published-template assignment failed.",
       );
+    }
+  },
+);
+
+
+// ─── Callable: runtime job-module population mutation ───────────────────────
+
+interface MutateRuntimeJobModulePopulationRequest {
+  operation?: unknown;
+  module?: unknown;
+  preservationReason?: unknown;
+}
+
+export const mutateRuntimeJobModulePopulation = onCall(
+  {
+    region: CALLABLE_REGION,
+    timeoutSeconds: 60,
+    memory: "512MiB",
+    concurrency: 20,
+  },
+  async (
+    request: CallableRequest<MutateRuntimeJobModulePopulationRequest>,
+  ) => {
+    try {
+      return await invokeRuntimeJobModulePopulationCallable({
+        db: admin.firestore() as unknown as RuntimePopulationFirestoreLike,
+        authUid: request.auth?.uid ?? null,
+        data: (request.data ?? {}) as RuntimePopulationJsonMap,
+        timestampFromDate: admin.firestore.Timestamp.fromDate,
+      });
+    } catch (error) {
+      logger.error("mutateRuntimeJobModulePopulation failed", error);
+      throw error;
     }
   },
 );

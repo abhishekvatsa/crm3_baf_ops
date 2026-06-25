@@ -54,8 +54,42 @@ extension _SyncServiceJobModules on SyncService {
 
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {
-            skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
-            lastSuccessCount++;
+            if (jobModuleClientSnapshotsEquivalentForSync(record, remote)) {
+              // Lost-response replay of the same governed tombstone. The
+              // canonical remote client payload is already identical.
+              skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+              lastSuccessCount++;
+              continue;
+            }
+
+            // A different authoritative remote tombstone already won. Preserve
+            // the local deletion intent in conflict audit before rebasing to
+            // the remote canonical tombstone; never mark divergent local
+            // provenance synchronized as though it matched.
+            await _recordPushConflict(
+              entityType: 'planned_job_module',
+              entityId: record.firestoreId!,
+              localSnapshot: record.toAuditMap(),
+              remoteSnapshot: remote.toAuditMap(),
+            );
+            final result = await _jobModuleRepo.applyTombstoneFromRemote(
+              remote,
+            );
+            if (result.outcome ==
+                RemoteTombstoneApplyOutcome.localDirtyPreserved) {
+              lastFailureCount++;
+              await _recordJobModulePopulationFailure(
+                record: record,
+                error: const RuntimeJobModulePopulationException(
+                  code: 'failed-precondition',
+                  message:
+                      'A different remote tombstone exists while fresher local deletion evidence remains unsynchronized.',
+                  reasonCode: 'remote-tombstone-divergence',
+                ),
+              );
+            } else {
+              lastSuccessCount++;
+            }
             continue;
           }
 
@@ -119,9 +153,15 @@ extension _SyncServiceJobModules on SyncService {
 
       if (recordsToPush.isNotEmpty) {
         try {
-          await _retry(() async {
-            await _firestoreJobModule.batchUpsertModules(recordsToPush);
-          });
+          await _retry(
+            () async {
+              await _firestoreJobModule.batchUpsertModules(recordsToPush);
+            },
+            shouldRetry:
+                (error) =>
+                    error is! RuntimeJobModulePopulationException ||
+                    error.shouldRetryImmediately,
+          );
 
           lastSuccessCount += recordsToPush.length;
           snapshotsToMark.addAll(_syncPushSnapshots(recordsToPush));
@@ -133,9 +173,15 @@ extension _SyncServiceJobModules on SyncService {
 
           for (final record in recordsToPush) {
             try {
-              await _retry(() async {
-                await _firestoreJobModule.batchUpsertModules([record]);
-              });
+              await _retry(
+                () async {
+                  await _firestoreJobModule.batchUpsertModules([record]);
+                },
+                shouldRetry:
+                    (error) =>
+                        error is! RuntimeJobModulePopulationException ||
+                        error.shouldRetryImmediately,
+              );
 
               lastSuccessCount++;
               snapshotsToMark.add(_syncPushSnapshot(record));
@@ -174,11 +220,19 @@ extension _SyncServiceJobModules on SyncService {
               }
 
               lastFailureCount++;
-              _recordPushFailureDetail(
-                entityType: 'job_module',
-                entityId: _syncEntityId(record),
-                error: singleError,
-              );
+              if (singleError is RuntimeJobModulePopulationException) {
+                await _recordJobModulePopulationFailure(
+                  record: record,
+                  error: singleError,
+                );
+              } else {
+                _recordPushFailureDetail(
+                  entityType: 'job_module',
+                  entityId: _syncEntityId(record),
+                  firestoreId: _syncFirestoreId(record),
+                  error: singleError,
+                );
+              }
               debugPrint(
                 '❌ Job module sync rejected after single-record retry:\n'
                 '${_describeJobModuleForSync(record, remote)}\n'
@@ -229,7 +283,12 @@ extension _SyncServiceJobModules on SyncService {
     JobModuleInstance local,
     JobModuleInstance? remote,
   ) {
-    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? 'null';
+    String currentUid;
+    try {
+      currentUid = FirebaseAuth.instance.currentUser?.uid ?? 'null';
+    } catch (_) {
+      currentUid = 'firebase-auth-unavailable';
+    }
     final buffer =
         StringBuffer()
           ..writeln('  currentAuthUid: $currentUid')

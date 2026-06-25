@@ -294,8 +294,8 @@ describe("70GHI direct governed assignment denial", () => {
     );
   });
 
-  test("existing governed runtime-added module path remains available", async () => {
-    await assertSucceeds(
+  test("direct runtime-added module path is denied and must use the population callable", async () => {
+    await assertFails(
       setDoc(
         doc(dbAs("supervisor1"), "job_modules/moduleRuntime"),
         modulePayload({

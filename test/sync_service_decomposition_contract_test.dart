@@ -486,7 +486,7 @@ bool _containsDeclaration(String source, String methodName) =>
 
 RegExp _declarationRegExp(String methodName) => RegExp(
   r'^\s*'
-  r'(?:Future(?:<[^\n]+>)?|List<[^\n]+>|Set<[^\n]+>|Map<[^\n]+>|'
+  r'(?:Future(?:<[^=\n]+>)?|List<[^=\n]+>|Set<[^=\n]+>|Map<[^=\n]+>|'
   r'SyncPushSnapshot|void|bool|String\?|String|DateTime\?|int)'
   r'\s+'
   '${RegExp.escape(methodName)}'

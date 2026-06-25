@@ -1498,10 +1498,16 @@ describe("job_modules", () => {
     await seedUser("seniorMech", ["seniorMechanical"]);
     await seedUser("supervisor1", ["shiftSupervisor"]);
     await seedUser("ops1", ["operations"]);
+    await seedDoc("job_executions/modExec", {
+      firestoreId: "modExec",
+      isCompleted: false,
+      isDeleted: false,
+    });
   });
 
   const moduleBase = {
     firestoreId: "mod1",
+    jobExecutionFirestoreId: "modExec",
     moduleTitle: "Base fan inspection",
     assetType: "base",
     assetNumber: 1,
