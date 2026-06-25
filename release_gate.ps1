@@ -27,7 +27,7 @@ $ErrorActionPreference = 'Stop'
 $script:step = 0
 $startedAt = Get-Date
 $stamp = $startedAt.ToString('yyyyMMdd_HHmmss')
-$EvidenceDir = Join-Path $EvidenceRoot $stamp
+$EvidenceDir = [System.IO.Path]::GetFullPath((Join-Path $EvidenceRoot $stamp))
 New-Item -ItemType Directory -Force -Path $EvidenceDir | Out-Null
 
 function Run-Gate {
@@ -90,13 +90,17 @@ Run-Gate "no-loss regression spine" {
     test/maintenance_lifecycle_replay_contract_test.dart `
     test/release_startup_hygiene_contract_test.dart `
     test/firestore_deployment_readiness_contract_test.dart `
+    test/runtime_module_population_fence_contract_test.dart `
+    test/runtime_module_population_no_loss_test.dart `
+    test/runtime_job_module_population_exception_test.dart `
+    test/job_module_population_replay_equivalence_test.dart `
     2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_test_no_loss_spine.log")
 }
 
 if (-not $SkipRules) {
-  Run-Gate "firestore rules (emulator + jest)" {
+  Run-Gate "firestore rules + governed assignment/closure/population emulator" {
     if (Test-Path ".\firestore-debug.log") { Remove-Item ".\firestore-debug.log" -Force }
-    npm run emulator:test:rules 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "release_gate_rules.log")
+    npm run emulator:test:governed 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "release_gate_governed_firestore.log")
   }
 
   Run-Gate "rules expression-limit check (must be ABSENT)" {
@@ -122,9 +126,9 @@ if (-not $SkipFunctions) {
   Run-Gate "functions build + test" {
     Push-Location functions
     try {
-      npm run build 2>&1 | Tee-Object -FilePath (Join-Path ".." $EvidenceDir "functions_build.log")
+      npm run build 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "functions_build.log")
       if ($LASTEXITCODE -ne 0) { return }
-      npm test 2>&1 | Tee-Object -FilePath (Join-Path ".." $EvidenceDir "functions_test.log")
+      npm test 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "functions_test.log")
     } finally {
       Pop-Location
     }

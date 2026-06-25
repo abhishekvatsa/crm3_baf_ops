@@ -9,8 +9,9 @@
   },
   "scripts": {
     "test:rules": "jest --runInBand",
-    "emulator:test:rules": "firebase emulators:exec --only firestore \"npm run test:rules\"",
-    "emulator:test:closure": "firebase emulators:exec --only firestore \"npm --prefix functions run test:emulator:closure\""
+    "emulator:test:rules": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules\"",
+    "emulator:test:closure": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:closure\"",
+    "emulator:test:governed": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules && npm --prefix functions run test:emulator:governed\""
   },
   "keywords": [],
   "author": "",

@@ -28,6 +28,8 @@ function baseExecution(executionId, overrides = {}) {
     isDeleted: false,
     isCompleted: false,
     version: 6,
+    modulePopulationVersion: 1,
+    modulePopulationSchemaVersion: 1,
     metadataJson: '{}',
     createdAt: '2026-06-21T00:00:00.000Z',
     updatedAt: '2026-06-21T00:00:00.000Z',
@@ -262,6 +264,51 @@ describeWithEmulator(
 
         const after = await captureState(executionId);
         expect(after).toEqual(before);
+      },
+    );
+
+    test(
+      'successful closure binds attestation to the current module-population version',
+      async () => {
+        const executionId = 'integration_population_attestation';
+        const uid = 'supervisor_population';
+
+        await seedUser(uid);
+        await seedExecution(executionId, {
+          version: 6,
+          modulePopulationVersion: 4,
+        });
+        await seedModule(executionId);
+
+        const result = await completePlannedJobWithDb({
+          db,
+          authUid: uid,
+          data: {
+            executionId,
+            expectedCompletionVersion: 7,
+          },
+          timestampFromDate: admin.firestore.Timestamp.fromDate,
+        });
+
+        expect(result).toMatchObject({
+          ok: true,
+          alreadyCompleted: false,
+          executionId,
+          version: 7,
+        });
+
+        const after = await captureState(executionId);
+        expect(after.execution.isCompleted).toBe(true);
+        expect(after.execution.modulePopulationVersion).toBe(4);
+        expect(after.execution.modulePopulationSchemaVersion).toBe(1);
+
+        const metadata = JSON.parse(after.execution.metadataJson);
+        expect(metadata.closureAttestation.schemaVersion).toBe(2);
+        const canonical = JSON.parse(
+          metadata.closureAttestation.canonicalJson,
+        );
+        expect(canonical.modulePopulationVersionAtCompletion).toBe(4);
+        expect(after.audits).toHaveLength(1);
       },
     );
 

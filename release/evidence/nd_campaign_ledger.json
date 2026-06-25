@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 3,
+  "campaignId": "CRM3-ND1-ND2-20260625-V3",
+  "baseline": {
+    "commit": "5cf140656b07edd49ad182a6be9ce70cd8858e69",
+    "tree": "e477ed5bb3f638d046b40a26464d1d9518202fdb",
+    "baselineZipSha256": "97DB0C955FD2AA1A471B477E8035DB9A96424A0DA700E13708E9DE31F032801E",
+    "preFixProofZipSha256": "CA722DD7FEB2319F1782D67EB0F45BEF591CFDF9DA6D1C9BC4484500EBD7F65F"
+  },
+  "supersededDesignEvidence": [
+    {
+      "name": "CRM_III_BAF_Ops_O08_O09_Parent_Fence_Apply_Verify_Bundle_v1.zip",
+      "sha256": "F5A0815DBEA77487C779E6AA5159A79E33A6C7E47B8A991C345AD0A71373BD17",
+      "reason": "Create-only fence; ordinary updates and soft deletion were not completely governed."
+    },
+    {
+      "name": "CRM_III_BAF_Ops_ND1_ND2_Integrated_Campaign_v1.zip",
+      "sha256": "0E9DF838BA0F644FAE34991F423C374870931400640073EA950937B1EEC4C8AE",
+      "reason": "Useful create/delete donor; attestation, provenance, audit and validation runner required hardening."
+    },
+    {
+      "name": "CRM_III_BAF_Ops_ND1_ND2_Ultimate_Integrated_Campaign_v2.zip",
+      "sha256": "7BF69E29D4CF6A3CCF2D81A816836059285C6E945B15CFF9BDD1D49964C59711",
+      "reason": "Executable donor with active-child immutability and audit singularity; superseded by stronger replay, lifecycle, tombstone and runner controls."
+    },
+    {
+      "name": "CRM_III_BAF_Ops_ND1_ND2_Complete_Population_Fence_Bundle_v2.zip",
+      "sha256": "652804F2E14A06809593378366BEE6DC492AE85CC11FFDB5CB462B3B607C619B",
+      "reason": "Architectural donor; superseded because its supplied tests, checkout pin, deleted-child immutability and audit singularity were defective."
+    },
+    {
+      "name": "0003-Fence-planned-job-module-UPDATES-against-parent-comp.patch",
+      "sha256": "C48CDECFA67F0C7E730DD69A8C60808AD883648033789C996ABB307CB765FE43",
+      "reason": "Parent-open update guard and fixture correction adopted; standalone patch authority superseded."
+    }
+  ],
+  "phases": [
+    {
+      "id": "ND-0",
+      "status": "banked",
+      "decision": "Exact read-only architecture, dependency and remote-governance baseline accepted."
+    },
+    {
+      "id": "ND-1A",
+      "status": "banked",
+      "decision": "O-08 parent-child invariant gap and O-09 real-emulator feasibility proven without source mutation."
+    },
+    {
+      "id": "ND-1B-ND-2",
+      "status": "prepared-not-executed",
+      "architecture": "ultimate-complete-parent-population-fence-v3",
+      "decision": "Dedicated server-only population revision; governed create and soft delete; active-parent and active-child ordinary updates; schema-2 server attestation; audit-bound replay; durable local rejection; governed emulator CI.",
+      "packagingValidation": {
+        "functionsTypeScriptBuild": "pass",
+        "functionsJest": "115 passed, 27 emulator-only skipped, 0 failed",
+        "gitDiffCheck": "pass",
+        "jsonAndJavaScriptSyntax": "pass",
+        "flutterAndFirestoreEmulator": "not available in packaging environment; blocking in apply runner"
+      },
+      "validatedTree": null,
+      "resultingCommits": [],
+      "evidencePackage": null,
+      "evidenceSha256": null,
+      "deployment": "none during source preparation"
+    }
+  ],
+  "statusBoundary": {
+    "sourceResult": "SOURCE REMEDIATION VERIFIED only after apply runner and remote clean-install CI pass",
+    "operationalResult": "DEPLOYED ENFORCEMENT AND CLIENT CUTOVER OPEN",
+    "productionArtifact": "must remain last after all non-device source campaigns"
+  },
+  "boundaries": {
+    "crossActorPreservation": "server capability prepared; no operator UI claim; ordinary sync safely quarantines unresolved cross-actor evidence",
+    "appCheck": "O-06A later non-device source preparation; O-06B signed-device enforcement later",
+    "dependencyRemediation": "ND-3 follows green governed emulator CI",
+    "recovery": "ND-4 later dirty-fixture recovery/interruption campaign",
+    "physicalDevice": "not claimed",
+    "operatorAcceptance": "not claimed",
+    "productionDistribution": "not approved"
+  }
+}
