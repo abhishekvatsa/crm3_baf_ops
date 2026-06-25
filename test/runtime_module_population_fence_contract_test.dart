@@ -60,7 +60,7 @@ void main() {
         );
         expect(
           provider,
-          contains('lost the callable response'),
+          contains('callable committed but the response was lost'),
           reason:
               'first-create lost-response replay must be an explicit no-op boundary',
         );
