@@ -94,6 +94,7 @@ Run-Gate "no-loss regression spine" {
     test/runtime_module_population_no_loss_test.dart `
     test/runtime_job_module_population_exception_test.dart `
     test/job_module_population_replay_equivalence_test.dart `
+    test/release_gate_action_pin_contract_test.dart `
     2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_test_no_loss_spine.log")
 }
 
