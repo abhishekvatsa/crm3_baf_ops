@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 3,
-  "campaignId": "CRM3-ND1-ND2-20260625-V3",
+  "schemaVersion": 7,
+  "campaignId": "CRM3-ND1-ND2-20260625-V3_3_3",
   "baseline": {
     "commit": "5cf140656b07edd49ad182a6be9ce70cd8858e69",
     "tree": "e477ed5bb3f638d046b40a26464d1d9518202fdb",
@@ -32,6 +32,36 @@
       "name": "0003-Fence-planned-job-module-UPDATES-against-parent-comp.patch",
       "sha256": "C48CDECFA67F0C7E730DD69A8C60808AD883648033789C996ABB307CB765FE43",
       "reason": "Parent-open update guard and fixture correction adopted; standalone patch authority superseded."
+    },
+    {
+      "name": "CRM_III_BAF_Ops_ND1_ND2_Reconciled_Population_Fence_Bundle_v2_1.zip",
+      "sha256": "724F61887C21AE7DCB20B0E0B38C5C86028EF8BC38BEF5ADD2A8798A59D9C296",
+      "reason": "Governance donor only; supplied Functions suite retained three failing expectations and its runtime branch was not executable through its own gate."
+    },
+    {
+      "name": "CRM_III_BAF_Ops_ND1_ND2_Ultimate_Complete_Campaign_v3.zip",
+      "sha256": "D4B59F9CFF978FEA8F2181F0E84F8B8E79F41C44873C5883FFA9624D233D9CAA",
+      "reason": "Passing runtime source donor; superseded by registry parity, build-ledger custody, parser preflight and final reconciliation controls."
+    },
+    {
+      "name": "CRM_III_BAF_Ops_ND1_ND2_Ultimate_Complete_Campaign_v3_1.zip",
+      "sha256": "1633FA50F11B85F391ED8B804A28011D56964041CF29F718A65E88F26E828751",
+      "reason": "Superseded for execution because its orchestration script contained parse-risk variable-colon interpolation and lacked the independent comprehensive preflight."
+    },
+    {
+      "name": "CRM_III_BAF_Ops_ND1_ND2_Comprehensive_Best_of_Both_v3_1.zip",
+      "sha256": "9AAD174E3DCE8C5123EBCC28BA04E7CDE62154AEE466B232FE6716F5BCDC3E7B",
+      "reason": "Immediate predecessor; runtime source retained while final v3.2 adds bidirectional action-registry parity, duplicate-registry rejection and current evidence-ledger authority."
+    },
+    {
+      "name": "CRM_III_BAF_Ops_ND1_ND2_Final_Best_Campaign_v3_2.zip",
+      "sha256": "84699B43EEAB4713439947651139EB8DAF9D6415A3F741A4E7D74A46D99F0839",
+      "reason": "Governance donor for bidirectional workflow/registry parity, duplicate-registry rejection, exact intermediate/final tree authorities and captured packaging evidence; rejected as executable authority because both supplied PowerShell scripts used an invalid lone-backslash regular-expression path normalizer."
+    },
+    {
+      "name": "CRM_III_BAF_Ops_ND1_ND2_Comprehensive_Best_of_Both_v3_2.zip",
+      "sha256": "C85D0786FCE03FE8E30260D37ADF99C9C36EA605A70284441B559F638D5228D7",
+      "reason": "Executable orchestration and independent-preflight donor. Its valid escaped-backslash path normalization, parser-first verification and current v3 runtime source are retained; superseded only by the additive v3.3 parity, tree-authority and evidence-custody controls."
     }
   ],
   "phases": [
@@ -48,14 +78,16 @@
     {
       "id": "ND-1B-ND-2",
       "status": "prepared-not-executed",
-      "architecture": "ultimate-complete-parent-population-fence-v3",
-      "decision": "Dedicated server-only population revision; governed create and soft delete; active-parent and active-child ordinary updates; schema-2 server attestation; audit-bound replay; durable local rejection; governed emulator CI.",
+      "architecture": "ultimate-comprehensive-final-population-fence-v3.3.3",
+      "decision": "Dedicated server-only population revision; governed create and soft delete; active-parent and active-child ordinary updates; schema-2 server attestation; audit-bound replay; durable local rejection; governed emulator CI; exact bidirectional workflow/registry parity; exact intermediate and final tree authority; full 64-character ND-0 evidence custody.",
       "packagingValidation": {
-        "functionsTypeScriptBuild": "pass",
-        "functionsJest": "115 passed, 27 emulator-only skipped, 0 failed",
+        "functionsTypeScriptBuild": "pass — independently rerun on the final v3.3 source tree",
+        "functionsJest": "115 passed, 27 emulator-only skipped, 0 failed — independently rerun on the final v3.3 source tree",
         "gitDiffCheck": "pass",
-        "jsonAndJavaScriptSyntax": "pass",
-        "flutterAndFirestoreEmulator": "not available in packaging environment; blocking in apply runner"
+        "jsonJavaScriptAndWorkflowSyntax": "pass",
+        "actionRegistryParity": "5 unique registered repositories; workflow and registry sets equal in both directions; all references exact lowercase 40-character SHAs",
+        "flutterAndFirestoreEmulator": "not available in packaging environment; blocking in apply runner",
+        "capturedPackagingEvidence": "Functions and static-verification command outputs retained in the external v3.3 campaign bundle and hash-bound by its manifest"
       },
       "validatedTree": null,
       "resultingCommits": [],
@@ -65,7 +97,7 @@
     }
   ],
   "statusBoundary": {
-    "sourceResult": "SOURCE REMEDIATION VERIFIED only after apply runner and remote clean-install CI pass",
+    "sourceResult": "SOURCE REMEDIATION VERIFIED only after the v3.3.3 apply runner, full Windows release gate and remote clean-install CI pass",
     "operationalResult": "DEPLOYED ENFORCEMENT AND CLIENT CUTOVER OPEN",
     "productionArtifact": "must remain last after all non-device source campaigns"
   },
@@ -76,6 +108,24 @@
     "recovery": "ND-4 later dirty-fixture recovery/interruption campaign",
     "physicalDevice": "not claimed",
     "operatorAcceptance": "not claimed",
-    "productionDistribution": "not approved"
-  }
+    "productionDistribution": "not approved",
+    "evidenceLedger": "This source ledger records donor and supersession hashes. The final v3.3 bundle SHA-256 and generated execution-evidence SHA-256 remain external custody records created after packaging/execution."
+  },
+  "supersededInputs": [
+    {
+      "name": "CRM_III_BAF_Ops_ND1_ND2_Ultimate_Comprehensive_Final_Campaign_v3_3.zip",
+      "sha256": "AF8976594F34795108611C2880F37F8967DFA72A4189633B8F69BC74FC54D4A3",
+      "reason": "Superseded: standalone verifier falsely required a literal zero-failed Jest field."
+    },
+    {
+      "name": "CRM_III_BAF_Ops_ND1_ND2_Ultimate_Comprehensive_Final_Campaign_v3_3_1.zip",
+      "sha256": "7357A0F9059F6C418EAF26685228E9EDAED6895CC29E8429D231F5BF31BC5CD9",
+      "reason": "Superseded: runner and manifest package identities differed."
+    },
+    {
+      "name": "CRM_III_BAF_Ops_ND1_ND2_Ultimate_Comprehensive_Final_Campaign_v3_3_2.zip",
+      "sha256": "4C965994814E0D9E712309F2DAC69035A89D3A6F7CF6D5AF8D1368D2BFC891D1",
+      "reason": "Superseded: ND-0 baseline SHA-256 was truncated to 63 hexadecimal characters in the runner and source ledger."
+    }
+  ]
 }

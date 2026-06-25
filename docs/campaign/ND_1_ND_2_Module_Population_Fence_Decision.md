@@ -1,10 +1,11 @@
-# ND-1 / ND-2 Architecture Decision — Ultimate Complete Planned-Job Module Population Fence v3
+# ND-1 / ND-2 Architecture Decision — Ultimate Comprehensive Final Population Fence v3.3.3
 
 **Baseline authority:** `main @ 5cf140656b07edd49ad182a6be9ce70cd8858e69`
 **Baseline tree:** `e477ed5bb3f638d046b40a26464d1d9518202fdb`
 **Accepted red-state proof:** `CRM_III_BAF_Ops_O08_O09_Tailored_PreFix_Proof_20260624_213242.zip`
 **Proof SHA-256:** `CA722DD7FEB2319F1782D67EB0F45BEF591CFDF9DA6D1C9BC4484500EBD7F65F`
 **Scope:** O-08 source remediation and O-09 real-emulator/ordinary-CI promotion.
+**Final reconciliation authority:** Ultimate Comprehensive Final v3.3.3. The ND-0 evidence SHA-256 is corrected and bound at its full 64 hexadecimal characters in source, runner and package authority. The execution-green v3 runtime/Functions implementation is retained unchanged; the working Comprehensive v3.2 orchestrator is retained; bidirectional workflow/registry parity, duplicate-registry rejection, exact intermediate/final tree authorities, build-number custody, parser-first preflight, current donor custody and captured packaging evidence are additive controls.
 **Excluded:** dependency upgrades, App Check enforcement, production artifact issuance, Firebase deployment, physical-device proof, operator acceptance, Isar schema change and broad refactoring.
 
 ## 1. Proven defect
