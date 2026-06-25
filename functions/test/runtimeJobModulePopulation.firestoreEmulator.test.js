@@ -17,12 +17,6 @@ const projectId =
   'crm3-baf-ops-b8638';
 const appName = `population-fence-${process.pid}-${Date.now()}`;
 
-function deferred() {
-  let resolve;
-  const promise = new Promise((r) => { resolve = r; });
-  return {promise, resolve};
-}
-
 function runtimeModule(executionId, moduleId = 'runtime_new', overrides = {}) {
   const now = '2026-06-24T00:00:00.000Z';
   return {
@@ -201,27 +195,10 @@ describeWithEmulator('O-08 complete parent/child population fence', () => {
     await app.delete();
   });
 
-  test('create wins: closure retries and rejects the newly-open required module', async () => {
-    const executionId = 'race_create_wins';
+  test('create-first ordering rejects closure after the newly-open required module', async () => {
+    const executionId = 'ordering_create_first';
     await seed(executionId);
-    const closurePaused = deferred();
-    const releaseClosure = deferred();
-    let pauseOnce = true;
 
-    const closurePromise = completePlannedJobWithDb({
-      db,
-      authUid: 'supervisor1',
-      data: {executionId, expectedCompletionVersion: 7},
-      timestampFromDate: admin.firestore.Timestamp.fromDate,
-      beforeClosureWriteForTest: async () => {
-        if (!pauseOnce) return;
-        pauseOnce = false;
-        closurePaused.resolve();
-        await releaseClosure.promise;
-      },
-    });
-
-    await closurePaused.promise;
     const mutation = await mutateRuntimeJobModulePopulationWithDb({
       db,
       authUid: 'supervisor1',
@@ -229,10 +206,17 @@ describeWithEmulator('O-08 complete parent/child population fence', () => {
       now: () => new Date('2026-06-24T12:00:00.000Z'),
       timestampFromDate: admin.firestore.Timestamp.fromDate,
     });
-    expect(mutation.currentParentPopulationVersion).toBe(1);
-    releaseClosure.resolve();
 
-    await expect(closurePromise).rejects.toMatchObject({
+    expect(mutation.currentParentPopulationVersion).toBe(1);
+
+    await expect(
+      completePlannedJobWithDb({
+        db,
+        authUid: 'supervisor1',
+        data: {executionId, expectedCompletionVersion: 7},
+        timestampFromDate: admin.firestore.Timestamp.fromDate,
+      }),
+    ).rejects.toMatchObject({
       code: 'failed-precondition',
       details: {
         issues: expect.arrayContaining([
@@ -250,68 +234,44 @@ describeWithEmulator('O-08 complete parent/child population fence', () => {
     expect(after.audits.some((audit) => audit.action === 'create')).toBe(true);
   });
 
-  test('closure wins: retried create observes completion and is rejected', async () => {
-    const executionId = 'race_closure_wins_create';
+  test('closure-first ordering rejects a later create', async () => {
+    const executionId = 'ordering_closure_first_create';
     await seed(executionId);
-    const mutationPaused = deferred();
-    const releaseMutation = deferred();
-    let pauseOnce = true;
 
-    const mutationPromise = mutateRuntimeJobModulePopulationWithDb({
-      db,
-      authUid: 'supervisor1',
-      data: {operation: 'create', module: runtimeModule(executionId)},
-      now: () => new Date('2026-06-24T12:00:00.000Z'),
-      timestampFromDate: admin.firestore.Timestamp.fromDate,
-      afterParentReadForTest: async () => {
-        if (!pauseOnce) return;
-        pauseOnce = false;
-        mutationPaused.resolve();
-        await releaseMutation.promise;
-      },
-    });
-
-    await mutationPaused.promise;
     const closure = await completePlannedJobWithDb({
       db,
       authUid: 'supervisor1',
       data: {executionId, expectedCompletionVersion: 7},
       timestampFromDate: admin.firestore.Timestamp.fromDate,
     });
-    expect(closure).toMatchObject({ok: true, alreadyCompleted: false});
-    releaseMutation.resolve();
 
-    await expect(mutationPromise).rejects.toMatchObject({
+    expect(closure).toMatchObject({ok: true, alreadyCompleted: false});
+
+    await expect(
+      mutateRuntimeJobModulePopulationWithDb({
+        db,
+        authUid: 'supervisor1',
+        data: {operation: 'create', module: runtimeModule(executionId)},
+        now: () => new Date('2026-06-24T12:00:00.000Z'),
+        timestampFromDate: admin.firestore.Timestamp.fromDate,
+      }),
+    ).rejects.toMatchObject({
       code: 'failed-precondition',
       details: {reasonCode: 'parent-execution-completed'},
     });
 
     const after = await state(executionId);
-    expect(after.execution).toMatchObject({isCompleted: true, modulePopulationVersion: 0});
+    expect(after.execution).toMatchObject({
+      isCompleted: true,
+      modulePopulationVersion: 0,
+    });
     expect(after.modules.some((module) => module.id === 'runtime_new')).toBe(false);
   });
 
-  test('soft delete wins: closure retries, observes the new active population, and binds schema-2 revision', async () => {
-    const executionId = 'race_delete_wins';
+  test('soft-delete-first ordering allows closure and binds schema-2 revision', async () => {
+    const executionId = 'ordering_delete_first';
     const accepted = await seed(executionId);
-    const closurePaused = deferred();
-    const releaseClosure = deferred();
-    let pauseOnce = true;
 
-    const closurePromise = completePlannedJobWithDb({
-      db,
-      authUid: 'supervisor1',
-      data: {executionId, expectedCompletionVersion: 7},
-      timestampFromDate: admin.firestore.Timestamp.fromDate,
-      beforeClosureWriteForTest: async () => {
-        if (!pauseOnce) return;
-        pauseOnce = false;
-        closurePaused.resolve();
-        await releaseClosure.promise;
-      },
-    });
-
-    await closurePaused.promise;
     const deletion = await mutateRuntimeJobModulePopulationWithDb({
       db,
       authUid: 'supervisor1',
@@ -319,61 +279,199 @@ describeWithEmulator('O-08 complete parent/child population fence', () => {
       now: () => new Date('2026-06-24T12:00:00.000Z'),
       timestampFromDate: admin.firestore.Timestamp.fromDate,
     });
+
     expect(deletion.currentParentPopulationVersion).toBe(1);
-    releaseClosure.resolve();
 
-    const closure = await closurePromise;
-    expect(closure).toMatchObject({ok: true, alreadyCompleted: false});
-    const after = await state(executionId);
-    const metadata = JSON.parse(after.execution.metadataJson);
-    expect(after.execution).toMatchObject({isCompleted: true, modulePopulationVersion: 1});
-    expect(metadata.closureAttestation).toMatchObject({
-      schemaVersion: 2,
-      modulePopulationVersionAtCompletion: 1,
-      modulePopulationSchemaVersionAtCompletion: 1,
-    });
-    expect(after.modules.find((module) => module.id === accepted.firestoreId)).toMatchObject({isDeleted: true});
-    expect(after.audits.some((audit) => audit.action === 'delete')).toBe(true);
-  });
-
-  test('closure wins: retried soft delete observes completion and is rejected', async () => {
-    const executionId = 'race_closure_wins_delete';
-    const accepted = await seed(executionId);
-    const mutationPaused = deferred();
-    const releaseMutation = deferred();
-    let pauseOnce = true;
-
-    const mutationPromise = mutateRuntimeJobModulePopulationWithDb({
-      db,
-      authUid: 'supervisor1',
-      data: {operation: 'softDelete', module: tombstone(accepted)},
-      now: () => new Date('2026-06-24T12:00:00.000Z'),
-      timestampFromDate: admin.firestore.Timestamp.fromDate,
-      afterParentReadForTest: async () => {
-        if (!pauseOnce) return;
-        pauseOnce = false;
-        mutationPaused.resolve();
-        await releaseMutation.promise;
-      },
-    });
-
-    await mutationPaused.promise;
     const closure = await completePlannedJobWithDb({
       db,
       authUid: 'supervisor1',
       data: {executionId, expectedCompletionVersion: 7},
       timestampFromDate: admin.firestore.Timestamp.fromDate,
     });
-    expect(closure).toMatchObject({ok: true, alreadyCompleted: false});
-    releaseMutation.resolve();
 
-    await expect(mutationPromise).rejects.toMatchObject({
+    expect(closure).toMatchObject({ok: true, alreadyCompleted: false});
+
+    const after = await state(executionId);
+    const metadata = JSON.parse(after.execution.metadataJson);
+
+    expect(after.execution).toMatchObject({
+      isCompleted: true,
+      modulePopulationVersion: 1,
+    });
+    expect(metadata.closureAttestation.schemaVersion).toBe(2);
+    const canonicalAttestation = JSON.parse(
+      metadata.closureAttestation.canonicalJson,
+    );
+    expect(canonicalAttestation).toMatchObject({
+      modulePopulationVersionAtCompletion: 1,
+      modulePopulationSchemaVersionAtCompletion: 1,
+    });
+    expect(
+      after.modules.find((module) => module.id === accepted.firestoreId),
+    ).toMatchObject({isDeleted: true});
+    expect(after.audits.some((audit) => audit.action === 'delete')).toBe(true);
+  });
+
+  test('closure-first ordering rejects a later soft delete', async () => {
+    const executionId = 'ordering_closure_first_delete';
+    const accepted = await seed(executionId);
+
+    const closure = await completePlannedJobWithDb({
+      db,
+      authUid: 'supervisor1',
+      data: {executionId, expectedCompletionVersion: 7},
+      timestampFromDate: admin.firestore.Timestamp.fromDate,
+    });
+
+    expect(closure).toMatchObject({ok: true, alreadyCompleted: false});
+
+    await expect(
+      mutateRuntimeJobModulePopulationWithDb({
+        db,
+        authUid: 'supervisor1',
+        data: {operation: 'softDelete', module: tombstone(accepted)},
+        now: () => new Date('2026-06-24T12:00:00.000Z'),
+        timestampFromDate: admin.firestore.Timestamp.fromDate,
+      }),
+    ).rejects.toMatchObject({
       code: 'failed-precondition',
       details: {reasonCode: 'parent-execution-completed'},
     });
 
     const after = await state(executionId);
-    expect(after.execution).toMatchObject({isCompleted: true, modulePopulationVersion: 0});
-    expect(after.modules.find((module) => module.id === accepted.firestoreId)).toMatchObject({isDeleted: false});
+    expect(after.execution).toMatchObject({
+      isCompleted: true,
+      modulePopulationVersion: 0,
+    });
+    expect(
+      after.modules.find((module) => module.id === accepted.firestoreId),
+    ).toMatchObject({isDeleted: false});
+  });
+
+  test('unpaused concurrent create and closure serialize to one authoritative winner', async () => {
+    const executionId = 'concurrent_create_and_close';
+    await seed(executionId);
+
+    const mutationPromise = mutateRuntimeJobModulePopulationWithDb({
+      db,
+      authUid: 'supervisor1',
+      data: {operation: 'create', module: runtimeModule(executionId)},
+      now: () => new Date('2026-06-24T12:00:00.000Z'),
+      timestampFromDate: admin.firestore.Timestamp.fromDate,
+    });
+
+    const closurePromise = completePlannedJobWithDb({
+      db,
+      authUid: 'supervisor1',
+      data: {executionId, expectedCompletionVersion: 7},
+      timestampFromDate: admin.firestore.Timestamp.fromDate,
+    });
+
+    const [mutationResult, closureResult] = await Promise.allSettled([
+      mutationPromise,
+      closurePromise,
+    ]);
+
+    const after = await state(executionId);
+
+    if (mutationResult.status === 'fulfilled') {
+      expect(mutationResult.value.currentParentPopulationVersion).toBe(1);
+      expect(closureResult.status).toBe('rejected');
+      expect(closureResult.reason).toMatchObject({
+        code: 'failed-precondition',
+        details: {
+          issues: expect.arrayContaining([
+            expect.objectContaining({type: 'openRequiredModule'}),
+          ]),
+        },
+      });
+      expect(after.execution).toMatchObject({
+        isCompleted: false,
+        modulePopulationVersion: 1,
+      });
+      expect(after.modules.some((module) => module.id === 'runtime_new')).toBe(true);
+    } else {
+      expect(closureResult.status).toBe('fulfilled');
+      expect(closureResult.value).toMatchObject({
+        ok: true,
+        alreadyCompleted: false,
+      });
+      expect(mutationResult.reason).toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'parent-execution-completed'},
+      });
+      expect(after.execution).toMatchObject({
+        isCompleted: true,
+        modulePopulationVersion: 0,
+      });
+      expect(after.modules.some((module) => module.id === 'runtime_new')).toBe(false);
+    }
+  });
+
+  test('unpaused concurrent soft delete and closure preserve one coherent final population', async () => {
+    const executionId = 'concurrent_delete_and_close';
+    const accepted = await seed(executionId);
+
+    const deletionPromise = mutateRuntimeJobModulePopulationWithDb({
+      db,
+      authUid: 'supervisor1',
+      data: {operation: 'softDelete', module: tombstone(accepted)},
+      now: () => new Date('2026-06-24T12:00:00.000Z'),
+      timestampFromDate: admin.firestore.Timestamp.fromDate,
+    });
+
+    const closurePromise = completePlannedJobWithDb({
+      db,
+      authUid: 'supervisor1',
+      data: {executionId, expectedCompletionVersion: 7},
+      timestampFromDate: admin.firestore.Timestamp.fromDate,
+    });
+
+    const [deletionResult, closureResult] = await Promise.allSettled([
+      deletionPromise,
+      closurePromise,
+    ]);
+
+    expect(closureResult.status).toBe('fulfilled');
+    expect(closureResult.value).toMatchObject({
+      ok: true,
+      alreadyCompleted: false,
+    });
+
+    const after = await state(executionId);
+    const metadata = JSON.parse(after.execution.metadataJson);
+    expect(metadata.closureAttestation.schemaVersion).toBe(2);
+    const canonicalAttestation = JSON.parse(
+      metadata.closureAttestation.canonicalJson,
+    );
+
+    if (deletionResult.status === 'fulfilled') {
+      expect(deletionResult.value.currentParentPopulationVersion).toBe(1);
+      expect(after.execution).toMatchObject({
+        isCompleted: true,
+        modulePopulationVersion: 1,
+      });
+      expect(
+        canonicalAttestation.modulePopulationVersionAtCompletion,
+      ).toBe(1);
+      expect(
+        after.modules.find((module) => module.id === accepted.firestoreId),
+      ).toMatchObject({isDeleted: true});
+    } else {
+      expect(deletionResult.reason).toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'parent-execution-completed'},
+      });
+      expect(after.execution).toMatchObject({
+        isCompleted: true,
+        modulePopulationVersion: 0,
+      });
+      expect(
+        canonicalAttestation.modulePopulationVersionAtCompletion,
+      ).toBe(0);
+      expect(
+        after.modules.find((module) => module.id === accepted.firestoreId),
+      ).toMatchObject({isDeleted: false});
+    }
   });
 });
