@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
+    id("com.android.built-in-kotlin")
     id("com.google.gms.google-services")
-    id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -43,8 +43,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
-
     defaultConfig {
         applicationId = "in.co.sail.bsl.crm3.bafops"
         minSdk = flutter.minSdkVersion
@@ -71,6 +69,12 @@ android {
             isMinifyEnabled = false
             isShrinkResources = false
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
