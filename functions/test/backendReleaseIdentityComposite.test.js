@@ -1,93 +1,165 @@
+const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
+
 const {
   COMPOSITE_BACKEND_IDENTITY_V2,
   buildCompositeBackendReleaseIdentity,
+  evaluateIdentityDeploymentBinding,
 } = require("../lib/backendReleaseIdentityComposite");
 
-describe("backendReleaseIdentityComposite schema v2", () => {
-  test("records the approved composite authority identity", () => {
-    expect(COMPOSITE_BACKEND_IDENTITY_V2.schemaVersion).toBe(2);
-    expect(COMPOSITE_BACKEND_IDENTITY_V2.authorityClass)
-      .toBe("verified-production-backend-composite");
-    expect(COMPOSITE_BACKEND_IDENTITY_V2.authorityStatus)
-      .toBe("CURRENT_LIVE_STATE_RECORDED");
-    expect(COMPOSITE_BACKEND_IDENTITY_V2.authorityDigest)
-      .toBe("8F369ADB7BE04AC64B39E199E668C6841D1B5C0048CBCDA1827D411192AD0CF6");
-    expect(COMPOSITE_BACKEND_IDENTITY_V2.releaseModel.identityProjectionStatus)
-      .toBe("SCHEMA_V2_SOURCE_ADOPTED_PENDING_DEPLOYMENT");
+const authorityPath = path.resolve(
+  __dirname,
+  "../../release/backend-authority.prod.json",
+);
+const authority = JSON.parse(fs.readFileSync(authorityPath, "utf8"));
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) =>
+      `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function recomputeAuthorityDigest(document) {
+  const clone = JSON.parse(JSON.stringify(document));
+  delete clone.authorityDigest;
+  return crypto
+    .createHash("sha256")
+    .update(canonicalJson(clone), "utf8")
+    .digest("hex")
+    .toUpperCase();
+}
+
+describe("backendReleaseIdentityComposite strict schema v2", () => {
+  test("binds release identity to both Rules and the mixed Function fleet", () => {
+    expect(COMPOSITE_BACKEND_IDENTITY_V2.releaseId)
+      .toBe("prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd");
+    expect(COMPOSITE_BACKEND_IDENTITY_V2.releaseId)
+      .toContain("rules-0b3868bf-fleet-d57d11bd");
+    expect(COMPOSITE_BACKEND_IDENTITY_V2.mixedFleetDigest)
+      .toBe("D57D11BDC6AE304AA90107EE6C4A6196AD55C35EDA2ECDCBC8E53EF998BCF4D1");
   });
 
-  test("honestly represents a mixed deployment fleet", () => {
-    const fleet = COMPOSITE_BACKEND_IDENTITY_V2.functionFleet;
-    expect(fleet.status).toBe("MIXED_DEPLOYMENT_FLEET");
-    expect(fleet.singleHomogeneousDeployment).toBe(false);
-    expect(fleet.expectedExports).toBe(7);
-    expect(fleet.liveExports).toBe(7);
-    expect(fleet.entries).toHaveLength(7);
-    expect(fleet.entries.filter((entry) =>
-      entry.strictBundleComparison === "EXACT")).toHaveLength(3);
-    expect(fleet.entries.filter((entry) =>
-      entry.strictBundleComparison === "DIFFERENT")).toHaveLength(4);
-    expect(fleet.entries.every((entry) =>
-      entry.entryImplementationStatus === "EXACT")).toBe(true);
+  test("authority digest is independently reproducible", () => {
+    expect(authority.authorityDigest).toBe("171FEFD8D2DE1C2F500FA164C2C9E4617E46A7BD773CD7A620973296444922DE");
+    expect(recomputeAuthorityDigest(authority)).toBe(authority.authorityDigest);
   });
 
-  test("projects the exact current Rules and index authority", () => {
-    const firestore = COMPOSITE_BACKEND_IDENTITY_V2.firestore;
-    expect(firestore.rules.status).toBe("EXACT");
-    expect(firestore.rules.deployedRawSha256)
-      .toBe("DE05BE5BE8255351E7482E3D7693FB869DF2436F7A44F57A60D20CA107B3121C");
-    expect(firestore.rules.rulesetName)
-      .toContain("0b3868bf-d7bb-405b-9a32-eef175b61af7");
-    expect(firestore.indexes.status).toBe("EXACT");
-    expect(firestore.indexes.sourceCompositeIndexes).toBe(28);
-    expect(firestore.indexes.deployedCompositeIndexes).toBe(28);
-    expect(firestore.indexes.fieldOverrideCount).toBe(0);
-  });
-
-  test("contains no stale scalar Rules identity", () => {
-    const serialized = JSON.stringify(COMPOSITE_BACKEND_IDENTITY_V2);
-    expect(serialized).not.toContain(
-      "C897AA6056ADD67174F0DD6E786F85709280BE3CE77D182401153C428268286F",
+  test("records all seven deployed archive identities", () => {
+    const archives = new Map(
+      authority.functions.entries.map((entry) => [
+        entry.name,
+        entry.deployedArchiveSha256,
+      ]),
     );
-    expect(serialized).not.toContain(
-      "b8d615f5-2f18-44b4-8845-bcf4cd0e1310",
-    );
-    expect(serialized).not.toContain(
-      "prod-4132b83-20260620_001612",
-    );
+    expect(archives.size).toBe(7);
+    expect(archives.get("assignPublishedTemplateVersion"))
+      .toBe("B7E773CB5C5BDE8E050C3F02EBC3AAA523710562CC91D8B87B37B44FB40689FD");
+    expect(archives.get("completePlannedJobExecution"))
+      .toBe("B7E773CB5C5BDE8E050C3F02EBC3AAA523710562CC91D8B87B37B44FB40689FD");
+    expect(archives.get("mutateRuntimeJobModulePopulation"))
+      .toBe("B7E773CB5C5BDE8E050C3F02EBC3AAA523710562CC91D8B87B37B44FB40689FD");
+    expect(archives.get("onJobAssigned")).toBe("818BBA58521A18DE07113802C7C533181DA3760EF1CDBCB490A461650C7FAC5F");
+    expect(archives.get("onTicketCreated")).toBe("818BBA58521A18DE07113802C7C533181DA3760EF1CDBCB490A461650C7FAC5F");
+    expect(archives.get("onTicketResolved")).toBe("818BBA58521A18DE07113802C7C533181DA3760EF1CDBCB490A461650C7FAC5F");
+    expect(archives.get("getBackendReleaseIdentity"))
+      .toBe("121FD191C5324B5857B494C774134C0C7F5CA51624AA3DA83797730E26E2965F");
   });
 
-  test("overrides ambiguous legacy scalars while preserving unrelated metadata", () => {
+  test("records explicit backend source custody", () => {
+    const custody = new Map(
+      authority.sourceCustody.files.map((entry) => [entry.path, entry.sha256]),
+    );
+    for (const requiredPath of [
+      "functions/src/index.ts",
+      "functions/package.json",
+      "functions/package-lock.json",
+      "functions/tsconfig.json",
+      "functions/src/runtimeJobModulePopulation.ts",
+      "firestore.rules",
+      "firestore.indexes.json",
+    ]) {
+      expect(custody.has(requiredPath)).toBe(true);
+    }
+  });
+
+  test("records the current over-privileged runtime IAM posture", () => {
+    expect(authority.runtimeIam.serviceAccountEmail)
+      .toBe("894346496105-compute@developer.gserviceaccount.com");
+    expect(authority.runtimeIam.posture)
+      .toBe("OVER_PRIVILEGED_DEFAULT_COMPUTE_SERVICE_ACCOUNT");
+    expect(authority.runtimeIam.appliesToFunctions).toHaveLength(7);
+    expect(authority.runtimeIam.observedRoleBindings.map((binding) =>
+      binding.role).sort()).toEqual([
+        "roles/editor",
+        "roles/eventarc.eventReceiver",
+        "roles/run.invoker",
+      ].sort());
+    expect(authority.runtimeIam.leastPrivilegeRemediationAuthorized)
+      .toBe(false);
+  });
+
+  test("reports pending when deployment bindings are wholly absent", () => {
+    const binding = evaluateIdentityDeploymentBinding({});
+    expect(binding.status).toBe("SOURCE_DEFINED_PENDING_DEPLOYMENT");
+    expect(binding.identityFunctionDeployedSourceCommit).toBeNull();
+
     const projected = buildCompositeBackendReleaseIdentity({
-      releaseId: "legacy-release",
-      backendGitCommit: "legacy-commit",
-      firestoreRulesDigest: "legacy-rules",
-      functionsDeployedDigest: "legacy-functions",
       callerRole: "admin",
-    });
-
+      backendGitCommit: "legacy-ambiguous-commit",
+    }, {});
     expect(projected.callerRole).toBe("admin");
-    expect(projected.schemaVersion).toBe(2);
-    expect(projected.releaseId)
-      .toBe("prod-composite-20260628T171115Z-rules-0b3868bf");
-    expect(projected.backendGitCommit)
+    expect(projected.backendGitCommit).toBeNull();
+    expect(projected.productionReconstructionSourceCommit)
       .toBe("17f433b93b596e7730b58b337a42733a05f297a3");
-    expect(projected.firestoreRulesDigest)
-      .toBe("DE05BE5BE8255351E7482E3D7693FB869DF2436F7A44F57A60D20CA107B3121C");
-    expect(projected.functionsDeployedDigest)
-      .toBe(COMPOSITE_BACKEND_IDENTITY_V2.functionFleet.fleetDigest);
-    expect(projected.legacyScalarProjectionStatus)
-      .toBe("SUPERSEDED_BY_SCHEMA_V2");
+    expect(projected.mixedFleetDigest).toBe("D57D11BDC6AE304AA90107EE6C4A6196AD55C35EDA2ECDCBC8E53EF998BCF4D1");
   });
 
-  test("keeps evidence custody and digest semantics explicit", () => {
-    const projected = buildCompositeBackendReleaseIdentity({});
-    expect(projected.evidenceChain).toHaveLength(3);
-    expect(projected.functionsDigestSemantics)
-      .toBe("CANONICAL_COMPOSITE_PER_FUNCTION_DEPLOYMENT_IDENTITY_DIGEST");
-    expect(projected.backendGitCommitSemantics)
-      .toBe("CURRENT_GOVERNED_SOURCE_TARGET_NOT_HOMOGENEOUS_DEPLOYMENT_CLAIM");
-    expect(projected.sourceCustody.functionFleetDigest)
-      .toBe(COMPOSITE_BACKEND_IDENTITY_V2.functionFleet.fleetDigest);
+  test("reports exact only when every runtime binding is exact", () => {
+    const commit = "0123456789abcdef0123456789abcdef01234567";
+    const environment = {
+      BACKEND_AUTHORITY_SCHEMA_VERSION: "2",
+      BACKEND_AUTHORITY_DIGEST: "171FEFD8D2DE1C2F500FA164C2C9E4617E46A7BD773CD7A620973296444922DE",
+      BACKEND_AUTHORITY_RELEASE_ID: "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd",
+      BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT: commit,
+    };
+    const binding = evaluateIdentityDeploymentBinding(environment);
+    expect(binding.status).toBe("SCHEMA_V2_DEPLOYED_EXACT");
+    expect(binding.mismatches).toEqual([]);
+
+    const projected = buildCompositeBackendReleaseIdentity({}, environment);
+    expect(projected.identityProjectionStatus)
+      .toBe("SCHEMA_V2_DEPLOYED_EXACT");
+    expect(projected.backendGitCommit).toBe(commit);
+    expect(projected.backendGitCommitScope)
+      .toBe("IDENTITY_FUNCTION_DEPLOYED_SOURCE_COMMIT_ONLY");
+  });
+
+  test("reports mismatch for partial or incorrect deployment configuration", () => {
+    const binding = evaluateIdentityDeploymentBinding({
+      BACKEND_AUTHORITY_SCHEMA_VERSION: "2",
+      BACKEND_AUTHORITY_DIGEST: "WRONG",
+    });
+    expect(binding.status).toBe("DEPLOYMENT_CONFIGURATION_MISMATCH");
+    expect(binding.mismatches).toContain("BACKEND_AUTHORITY_DIGEST");
+    expect(binding.mismatches)
+      .toContain("BACKEND_AUTHORITY_RELEASE_ID");
+    expect(binding.mismatches)
+      .toContain("BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT");
+  });
+
+  test("does not imply one Git commit for the mixed fleet", () => {
+    expect(authority.repositoryAuthority.productionReconstructionSourceCommit)
+      .toBe("17f433b93b596e7730b58b337a42733a05f297a3");
+    expect(authority.repositoryAuthority.identityFunctionDeployedSourceCommit)
+      .toBeNull();
+    expect(authority.repositoryAuthority.mixedFleetDigest)
+      .toBe("D57D11BDC6AE304AA90107EE6C4A6196AD55C35EDA2ECDCBC8E53EF998BCF4D1");
+    expect(authority.functions.singleHomogeneousDeployment).toBe(false);
   });
 });

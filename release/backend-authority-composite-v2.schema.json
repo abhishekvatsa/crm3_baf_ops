@@ -1,7 +1,7 @@
 {
   "$id": "https://crm3-baf-ops.local/schemas/backend-authority-composite-v2.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "additionalProperties": true,
+  "additionalProperties": false,
   "properties": {
     "authorityClass": {
       "const": "verified-production-backend-composite"
@@ -10,63 +10,965 @@
       "pattern": "^[A-F0-9]{64}$",
       "type": "string"
     },
+    "authorityDigestAlgorithm": {
+      "const": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level authorityDigest"
+    },
+    "authorityGeneratedAtUtc": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T",
+      "type": "string"
+    },
     "authorityStatus": {
       "const": "CURRENT_LIVE_STATE_RECORDED"
+    },
+    "effectiveFromUtc": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T",
+      "type": "string"
     },
     "environment": {
       "const": "production"
     },
     "evidenceChain": {
-      "minItems": 3,
-      "type": "array"
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "filename": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "role": {
+            "pattern": "^[A-Z0-9_]+$",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[A-F0-9]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename",
+          "role",
+          "sha256"
+        ],
+        "type": "object"
+      },
+      "maxItems": 6,
+      "minItems": 6,
+      "type": "array",
+      "uniqueItems": true
     },
     "firebaseProjectId": {
-      "minLength": 1,
-      "type": "string"
+      "const": "crm3-baf-ops-b8638"
     },
     "firestore": {
+      "additionalProperties": false,
+      "properties": {
+        "databaseId": {
+          "const": "(default)"
+        },
+        "indexes": {
+          "additionalProperties": false,
+          "properties": {
+            "allReady": {
+              "const": true
+            },
+            "deployedCompositeIndexes": {
+              "const": 28
+            },
+            "fieldOverrideCount": {
+              "const": 0
+            },
+            "fieldOverrideFingerprint": {
+              "pattern": "^[A-F0-9]{64}$",
+              "type": "string"
+            },
+            "indexIdentityFingerprint": {
+              "pattern": "^[A-F0-9]{64}$",
+              "type": "string"
+            },
+            "sourceCompositeIndexes": {
+              "const": 28
+            },
+            "sourceSha256": {
+              "const": "D0D7120DB00D8FAB3130861776AB6E956CE6E224FB40665B3A28CB1C7B7C7D33"
+            },
+            "status": {
+              "const": "EXACT"
+            }
+          },
+          "required": [
+            "status",
+            "sourceSha256",
+            "sourceCompositeIndexes",
+            "deployedCompositeIndexes",
+            "allReady",
+            "fieldOverrideCount",
+            "fieldOverrideFingerprint",
+            "indexIdentityFingerprint"
+          ],
+          "type": "object"
+        },
+        "rules": {
+          "additionalProperties": false,
+          "properties": {
+            "deployedCanonicalSha256": {
+              "const": "DE05BE5BE8255351E7482E3D7693FB869DF2436F7A44F57A60D20CA107B3121C"
+            },
+            "deployedRawSha256": {
+              "const": "DE05BE5BE8255351E7482E3D7693FB869DF2436F7A44F57A60D20CA107B3121C"
+            },
+            "releaseName": {
+              "const": "projects/crm3-baf-ops-b8638/releases/cloud.firestore"
+            },
+            "releaseUpdateTime": {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T",
+              "type": "string"
+            },
+            "rulesetCreateTime": {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T",
+              "type": "string"
+            },
+            "rulesetName": {
+              "const": "projects/crm3-baf-ops-b8638/rulesets/0b3868bf-d7bb-405b-9a32-eef175b61af7"
+            },
+            "sourceSha256": {
+              "const": "DE05BE5BE8255351E7482E3D7693FB869DF2436F7A44F57A60D20CA107B3121C"
+            },
+            "status": {
+              "const": "EXACT"
+            }
+          },
+          "required": [
+            "status",
+            "sourceSha256",
+            "deployedRawSha256",
+            "deployedCanonicalSha256",
+            "releaseName",
+            "rulesetName",
+            "rulesetCreateTime",
+            "releaseUpdateTime"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "databaseId",
+        "rules",
+        "indexes"
+      ],
       "type": "object"
     },
     "functions": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "allOf": [
+            {
+              "contains": {
+                "additionalProperties": true,
+                "properties": {
+                  "name": {
+                    "const": "assignPublishedTemplateVersion"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
+              "maxContains": 1,
+              "minContains": 1
+            },
+            {
+              "contains": {
+                "additionalProperties": true,
+                "properties": {
+                  "name": {
+                    "const": "completePlannedJobExecution"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
+              "maxContains": 1,
+              "minContains": 1
+            },
+            {
+              "contains": {
+                "additionalProperties": true,
+                "properties": {
+                  "name": {
+                    "const": "getBackendReleaseIdentity"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
+              "maxContains": 1,
+              "minContains": 1
+            },
+            {
+              "contains": {
+                "additionalProperties": true,
+                "properties": {
+                  "name": {
+                    "const": "mutateRuntimeJobModulePopulation"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
+              "maxContains": 1,
+              "minContains": 1
+            },
+            {
+              "contains": {
+                "additionalProperties": true,
+                "properties": {
+                  "name": {
+                    "const": "onJobAssigned"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
+              "maxContains": 1,
+              "minContains": 1
+            },
+            {
+              "contains": {
+                "additionalProperties": true,
+                "properties": {
+                  "name": {
+                    "const": "onTicketCreated"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
+              "maxContains": 1,
+              "minContains": 1
+            },
+            {
+              "contains": {
+                "additionalProperties": true,
+                "properties": {
+                  "name": {
+                    "const": "onTicketResolved"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "type": "object"
+              },
+              "maxContains": 1,
+              "minContains": 1
+            }
+          ],
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "archiveCustodyEvidence": {
+                "additionalProperties": false,
+                "properties": {
+                  "filename": {
+                    "const": "CRM3_Live_Backend_Rules_Parity_Hardened_Hybrid_v7_2_COMPLETE_WITH_FINDINGS_20260628_214116.zip"
+                  },
+                  "role": {
+                    "const": "DEPLOYED_FUNCTION_ARCHIVE_SHA256"
+                  },
+                  "sha256": {
+                    "const": "035EF7B582EE6EAF99C64DC74D7C414FDA4ACA25A986A8E6F6189DE5C506B700"
+                  }
+                },
+                "required": [
+                  "filename",
+                  "sha256",
+                  "role"
+                ],
+                "type": "object"
+              },
+              "archiveReadStatus": {
+                "const": "SUCCESS"
+              },
+              "bundleFamily": {
+                "enum": [
+                  "GOVERNED_CURRENT_BUNDLE",
+                  "NOTIFICATION_BUNDLE",
+                  "IDENTITY_FUNCTION_BUNDLE"
+                ]
+              },
+              "cloudRunRevision": {
+                "minLength": 3,
+                "type": "string"
+              },
+              "deployedArchiveSha256": {
+                "pattern": "^[A-F0-9]{64}$",
+                "type": "string"
+              },
+              "entryImplementationComparison": {
+                "additionalProperties": false,
+                "properties": {
+                  "deployedPath": {
+                    "pattern": "^src/.+\\.ts$",
+                    "type": "string"
+                  },
+                  "deployedSha256": {
+                    "pattern": "^[A-F0-9]{64}$",
+                    "type": "string"
+                  },
+                  "sourcePath": {
+                    "pattern": "^functions/src/.+\\.ts$",
+                    "type": "string"
+                  },
+                  "sourceSha256": {
+                    "pattern": "^[A-F0-9]{64}$",
+                    "type": "string"
+                  },
+                  "status": {
+                    "const": "EXACT"
+                  }
+                },
+                "required": [
+                  "deployedPath",
+                  "deployedSha256",
+                  "sourcePath",
+                  "sourceSha256",
+                  "status"
+                ],
+                "type": "object"
+              },
+              "functionUpdateTime": {
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T",
+                "type": "string"
+              },
+              "name": {
+                "enum": [
+                  "assignPublishedTemplateVersion",
+                  "completePlannedJobExecution",
+                  "getBackendReleaseIdentity",
+                  "mutateRuntimeJobModulePopulation",
+                  "onJobAssigned",
+                  "onTicketCreated",
+                  "onTicketResolved"
+                ]
+              },
+              "region": {
+                "const": "asia-south1"
+              },
+              "runtime": {
+                "const": "nodejs22"
+              },
+              "serviceAccountEmail": {
+                "const": "894346496105-compute@developer.gserviceaccount.com"
+              },
+              "storageSource": {
+                "additionalProperties": false,
+                "properties": {
+                  "bucket": {
+                    "const": "gcf-v2-sources-894346496105-asia-south1"
+                  },
+                  "generation": {
+                    "pattern": "^\\d+$",
+                    "type": "string"
+                  },
+                  "object": {
+                    "pattern": "^[A-Za-z0-9]+/function-source\\.zip$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "bucket",
+                  "object",
+                  "generation"
+                ],
+                "type": "object"
+              },
+              "strictBundleComparison": {
+                "enum": [
+                  "EXACT",
+                  "DIFFERENT"
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "region",
+              "runtime",
+              "cloudRunRevision",
+              "functionUpdateTime",
+              "serviceAccountEmail",
+              "archiveReadStatus",
+              "deployedArchiveSha256",
+              "bundleFamily",
+              "archiveCustodyEvidence",
+              "storageSource",
+              "strictBundleComparison",
+              "entryImplementationComparison"
+            ],
+            "type": "object"
+          },
+          "maxItems": 7,
+          "minItems": 7,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "expectedExports": {
+          "const": 7
+        },
+        "fleetDigest": {
+          "const": "D57D11BDC6AE304AA90107EE6C4A6196AD55C35EDA2ECDCBC8E53EF998BCF4D1"
+        },
+        "fleetDigestAlgorithm": {
+          "minLength": 20,
+          "type": "string"
+        },
+        "inventoryFingerprint": {
+          "pattern": "^[A-F0-9]{64}$",
+          "type": "string"
+        },
+        "liveExports": {
+          "const": 7
+        },
+        "singleHomogeneousDeployment": {
+          "const": false
+        },
+        "sourceTargetCompositeDigest": {
+          "pattern": "^[A-F0-9]{64}$",
+          "type": "string"
+        },
+        "status": {
+          "const": "MIXED_DEPLOYMENT_FLEET"
+        }
+      },
+      "required": [
+        "status",
+        "singleHomogeneousDeployment",
+        "expectedExports",
+        "liveExports",
+        "fleetDigest",
+        "fleetDigestAlgorithm",
+        "inventoryFingerprint",
+        "sourceTargetCompositeDigest",
+        "entries"
+      ],
       "type": "object"
     },
     "identityProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "compatibilityFieldSemantics": {
+          "additionalProperties": false,
+          "properties": {
+            "backendGitCommit": {
+              "minLength": 20,
+              "type": "string"
+            },
+            "functionsDeployedDigest": {
+              "minLength": 20,
+              "type": "string"
+            },
+            "releaseId": {
+              "minLength": 20,
+              "type": "string"
+            }
+          },
+          "required": [
+            "backendGitCommit",
+            "functionsDeployedDigest",
+            "releaseId"
+          ],
+          "type": "object"
+        },
+        "currentLiveReportedSourceCommit": {
+          "pattern": "^[a-f0-9]{40}$",
+          "type": "string"
+        },
+        "currentLiveRevision": {
+          "const": "getbackendreleaseidentity-00001-dos"
+        },
+        "deploymentAuthorizedByStage2B": {
+          "const": false
+        },
+        "functionName": {
+          "const": "getBackendReleaseIdentity"
+        },
+        "requiredRuntimeEnvironment": {
+          "additionalProperties": false,
+          "properties": {
+            "BACKEND_AUTHORITY_DIGEST": {
+              "additionalProperties": false,
+              "properties": {
+                "mustEqualTopLevelAuthorityDigest": {
+                  "const": true
+                }
+              },
+              "required": [
+                "mustEqualTopLevelAuthorityDigest"
+              ],
+              "type": "object"
+            },
+            "BACKEND_AUTHORITY_RELEASE_ID": {
+              "additionalProperties": false,
+              "properties": {
+                "requiredValue": {
+                  "const": "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd"
+                }
+              },
+              "required": [
+                "requiredValue"
+              ],
+              "type": "object"
+            },
+            "BACKEND_AUTHORITY_SCHEMA_VERSION": {
+              "additionalProperties": false,
+              "properties": {
+                "requiredValue": {
+                  "const": "2"
+                }
+              },
+              "required": [
+                "requiredValue"
+              ],
+              "type": "object"
+            },
+            "BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT": {
+              "additionalProperties": false,
+              "properties": {
+                "requiredPattern": {
+                  "const": "^[a-f0-9]{40}$"
+                }
+              },
+              "required": [
+                "requiredPattern"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "BACKEND_AUTHORITY_SCHEMA_VERSION",
+            "BACKEND_AUTHORITY_DIGEST",
+            "BACKEND_AUTHORITY_RELEASE_ID",
+            "BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT"
+          ],
+          "type": "object"
+        },
+        "runtimeStateMachine": {
+          "additionalProperties": false,
+          "properties": {
+            "allBindingsAbsent": {
+              "const": "SOURCE_DEFINED_PENDING_DEPLOYMENT"
+            },
+            "allBindingsExact": {
+              "const": "SCHEMA_V2_DEPLOYED_EXACT"
+            },
+            "partialOrMismatchedBindings": {
+              "const": "DEPLOYMENT_CONFIGURATION_MISMATCH"
+            }
+          },
+          "required": [
+            "allBindingsAbsent",
+            "allBindingsExact",
+            "partialOrMismatchedBindings"
+          ],
+          "type": "object"
+        },
+        "sourceDefinitionStatus": {
+          "const": "SOURCE_DEFINED_PENDING_DEPLOYMENT"
+        }
+      },
+      "required": [
+        "functionName",
+        "currentLiveRevision",
+        "currentLiveReportedSourceCommit",
+        "sourceDefinitionStatus",
+        "deploymentAuthorizedByStage2B",
+        "requiredRuntimeEnvironment",
+        "runtimeStateMachine",
+        "compatibilityFieldSemantics"
+      ],
       "type": "object"
     },
+    "legacyAuthorityDisposition": {
+      "additionalProperties": false,
+      "properties": {
+        "doNotUseAsCurrentReleaseGate": {
+          "const": true
+        },
+        "path": {
+          "const": "release/backend-authority.prod.json"
+        },
+        "priorReleaseId": {
+          "const": "prod-4132b83-20260620_001612"
+        },
+        "priorSchemaVersion": {
+          "const": 1
+        },
+        "status": {
+          "const": "SUPERSEDED_BY_STRICT_SCHEMA_V2"
+        }
+      },
+      "required": [
+        "path",
+        "priorSchemaVersion",
+        "priorReleaseId",
+        "status",
+        "doNotUseAsCurrentReleaseGate"
+      ],
+      "type": "object"
+    },
+    "openIndependentGates": {
+      "items": {
+        "minLength": 5,
+        "type": "string"
+      },
+      "maxItems": 6,
+      "minItems": 6,
+      "type": "array",
+      "uniqueItems": true
+    },
     "releaseId": {
-      "minLength": 1,
-      "type": "string"
+      "const": "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd"
     },
     "releaseModel": {
+      "additionalProperties": false,
+      "properties": {
+        "functionFleetStatus": {
+          "const": "MIXED_DEPLOYMENT_FLEET"
+        },
+        "identityProjectionSourceStatus": {
+          "const": "SOURCE_DEFINED_PENDING_DEPLOYMENT"
+        },
+        "singleHomogeneousDeployment": {
+          "const": false
+        },
+        "type": {
+          "const": "COMPOSITE_LIVE_STATE"
+        }
+      },
       "required": [
         "type",
         "singleHomogeneousDeployment",
-        "functionFleetStatus"
+        "functionFleetStatus",
+        "identityProjectionSourceStatus"
       ],
       "type": "object"
     },
     "repositoryAuthority": {
+      "additionalProperties": false,
+      "properties": {
+        "identityFunctionCurrentLiveReportedSourceCommit": {
+          "pattern": "^[a-f0-9]{40}$",
+          "type": "string"
+        },
+        "identityFunctionDeployedSourceCommit": {
+          "pattern": "^[a-f0-9]{40}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mixedFleetDigest": {
+          "const": "D57D11BDC6AE304AA90107EE6C4A6196AD55C35EDA2ECDCBC8E53EF998BCF4D1"
+        },
+        "productionReconstructionBranch": {
+          "const": "main"
+        },
+        "productionReconstructionSourceCommit": {
+          "const": "17f433b93b596e7730b58b337a42733a05f297a3"
+        },
+        "productionReconstructionSourceTree": {
+          "const": "0496b940a20e04ca9789f2ba11b840dca6aeb56c"
+        },
+        "purpose": {
+          "minLength": 20,
+          "type": "string"
+        },
+        "repository": {
+          "const": "abhishekvatsa/crm3_baf_ops"
+        }
+      },
+      "required": [
+        "repository",
+        "productionReconstructionSourceCommit",
+        "productionReconstructionSourceTree",
+        "productionReconstructionBranch",
+        "identityFunctionCurrentLiveReportedSourceCommit",
+        "identityFunctionDeployedSourceCommit",
+        "mixedFleetDigest",
+        "purpose"
+      ],
+      "type": "object"
+    },
+    "runtimeIam": {
+      "additionalProperties": false,
+      "properties": {
+        "appliesToFunctions": {
+          "items": {
+            "enum": [
+              "assignPublishedTemplateVersion",
+              "completePlannedJobExecution",
+              "getBackendReleaseIdentity",
+              "mutateRuntimeJobModulePopulation",
+              "onJobAssigned",
+              "onTicketCreated",
+              "onTicketResolved"
+            ]
+          },
+          "maxItems": 7,
+          "minItems": 7,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "leastPrivilegeRemediationAuthorized": {
+          "const": false
+        },
+        "observedRoleBindings": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "role": {
+                "enum": [
+                  "roles/editor",
+                  "roles/eventarc.eventReceiver",
+                  "roles/run.invoker"
+                ]
+              },
+              "scope": {
+                "enum": [
+                  "PROJECT",
+                  "PROJECT_OR_FUNCTION_SERVICE"
+                ]
+              },
+              "status": {
+                "const": "PRESENT"
+              }
+            },
+            "required": [
+              "role",
+              "scope",
+              "status"
+            ],
+            "type": "object"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "posture": {
+          "const": "OVER_PRIVILEGED_DEFAULT_COMPUTE_SERVICE_ACCOUNT"
+        },
+        "serviceAccountEmail": {
+          "const": "894346496105-compute@developer.gserviceaccount.com"
+        },
+        "statement": {
+          "minLength": 20,
+          "type": "string"
+        }
+      },
+      "required": [
+        "serviceAccountEmail",
+        "appliesToFunctions",
+        "observedRoleBindings",
+        "posture",
+        "leastPrivilegeRemediationAuthorized",
+        "statement"
+      ],
       "type": "object"
     },
     "schemaVersion": {
       "const": 2
+    },
+    "sourceAdoption": {
+      "additionalProperties": false,
+      "properties": {
+        "branch": {
+          "const": "feat/stage2b-backend-authority-schema-v2"
+        },
+        "correctionBaseCommit": {
+          "const": "8b0503d12d39b39fd949bc9f121494c4b0aeea92"
+        },
+        "correctionBaseTree": {
+          "const": "0b4e11dd0a68b3c379f1d992b2a79e56c9db506a"
+        },
+        "draftPrNumber": {
+          "const": 26
+        },
+        "iamMutationPerformed": {
+          "const": false
+        },
+        "priorProposalDisposition": {
+          "const": "SUPERSEDED_DO_NOT_MERGE_AT_V1_1_HEAD"
+        },
+        "productionDeploymentPerformed": {
+          "const": false
+        },
+        "stage": {
+          "const": "Stage2B-v2"
+        },
+        "status": {
+          "const": "SOURCE_DEFINED_PENDING_DRAFT_PR_REVIEW_MERGE_AND_DEPLOYMENT"
+        }
+      },
+      "required": [
+        "stage",
+        "branch",
+        "correctionBaseCommit",
+        "correctionBaseTree",
+        "priorProposalDisposition",
+        "status",
+        "productionDeploymentPerformed",
+        "iamMutationPerformed",
+        "draftPrNumber"
+      ],
+      "type": "object"
+    },
+    "sourceCustody": {
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "role": {
+                "pattern": "^[A-Z0-9_]+$",
+                "type": "string"
+              },
+              "sha256": {
+                "pattern": "^[A-F0-9]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "sha256",
+              "role"
+            ],
+            "type": "object"
+          },
+          "maxItems": 15,
+          "minItems": 15,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "pendingProjectionFiles": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "custody": {
+                "const": "BOUND_BY_STAGE2B_V2_GIT_COMMIT_TREE_AND_EVIDENCE_MANIFEST"
+              },
+              "path": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "reason": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "custody",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "reconstructionCommit": {
+          "const": "17f433b93b596e7730b58b337a42733a05f297a3"
+        }
+      },
+      "required": [
+        "reconstructionCommit",
+        "files",
+        "pendingProjectionFiles"
+      ],
+      "type": "object"
+    },
+    "topology": {
+      "additionalProperties": false,
+      "properties": {
+        "eventarcStableIdentityFingerprint": {
+          "pattern": "^[A-F0-9]{64}$",
+          "type": "string"
+        },
+        "eventarcStatus": {
+          "const": "EXACT"
+        },
+        "eventarcTriggerCount": {
+          "const": 3
+        },
+        "functionIamFingerprint": {
+          "pattern": "^[A-F0-9]{64}$",
+          "type": "string"
+        },
+        "functionIamStatus": {
+          "const": "EXACT"
+        },
+        "projectIamFingerprint": {
+          "pattern": "^[A-F0-9]{64}$",
+          "type": "string"
+        },
+        "projectIamStatus": {
+          "const": "EXACT"
+        }
+      },
+      "required": [
+        "functionIamStatus",
+        "functionIamFingerprint",
+        "projectIamStatus",
+        "projectIamFingerprint",
+        "eventarcStatus",
+        "eventarcTriggerCount",
+        "eventarcStableIdentityFingerprint"
+      ],
+      "type": "object"
     }
   },
   "required": [
     "schemaVersion",
     "authorityClass",
     "authorityStatus",
+    "authorityDigest",
+    "authorityDigestAlgorithm",
+    "authorityGeneratedAtUtc",
+    "effectiveFromUtc",
     "environment",
     "firebaseProjectId",
     "releaseId",
     "releaseModel",
     "repositoryAuthority",
+    "sourceCustody",
     "firestore",
     "functions",
+    "runtimeIam",
     "identityProjection",
+    "topology",
     "evidenceChain",
-    "authorityDigest"
+    "legacyAuthorityDisposition",
+    "sourceAdoption",
+    "openIndependentGates"
   ],
-  "title": "CRM3 Composite Production Backend Authority",
+  "title": "CRM3 Strict Composite Production Backend Authority",
   "type": "object"
 }
