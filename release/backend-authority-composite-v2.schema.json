@@ -1,0 +1,72 @@
+{
+  "$id": "https://crm3-baf-ops.local/schemas/backend-authority-composite-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "authorityClass": {
+      "const": "verified-production-backend-composite"
+    },
+    "authorityDigest": {
+      "pattern": "^[A-F0-9]{64}$",
+      "type": "string"
+    },
+    "authorityStatus": {
+      "const": "CURRENT_LIVE_STATE_RECORDED"
+    },
+    "environment": {
+      "const": "production"
+    },
+    "evidenceChain": {
+      "minItems": 3,
+      "type": "array"
+    },
+    "firebaseProjectId": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "firestore": {
+      "type": "object"
+    },
+    "functions": {
+      "type": "object"
+    },
+    "identityProjection": {
+      "type": "object"
+    },
+    "releaseId": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "releaseModel": {
+      "required": [
+        "type",
+        "singleHomogeneousDeployment",
+        "functionFleetStatus"
+      ],
+      "type": "object"
+    },
+    "repositoryAuthority": {
+      "type": "object"
+    },
+    "schemaVersion": {
+      "const": 2
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "authorityClass",
+    "authorityStatus",
+    "environment",
+    "firebaseProjectId",
+    "releaseId",
+    "releaseModel",
+    "repositoryAuthority",
+    "firestore",
+    "functions",
+    "identityProjection",
+    "evidenceChain",
+    "authorityDigest"
+  ],
+  "title": "CRM3 Composite Production Backend Authority",
+  "type": "object"
+}
