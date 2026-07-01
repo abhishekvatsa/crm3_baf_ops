@@ -11,22 +11,78 @@ void main() {
         jsonDecode(read('release/backend-authority.prod.json'))
             as Map<String, dynamic>;
 
-    expect(authority['authorityClass'], 'verified-production-backend');
-    expect(authority['firebaseProjectId'], 'crm3-baf-ops-b8638');
-    expect(authority['releaseId'], 'prod-4132b83-20260620_001612');
+    expect(authority['schemaVersion'], 2);
     expect(
-      authority['backendGitCommit'],
+      authority['authorityClass'],
+      'verified-production-backend-composite',
+    );
+    expect(authority['firebaseProjectId'], 'crm3-baf-ops-b8638');
+    expect(
+      authority['authorityDigest'],
+      '171FEFD8D2DE1C2F500FA164C2C9E4617E46A7BD773CD7A620973296444922DE',
+    );
+    expect(
+      authority['releaseId'],
+      'prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd',
+    );
+
+    expect(authority.containsKey('backendGitCommit'), isFalse);
+    expect(authority.containsKey('deployedIndexesParityStatus'), isFalse);
+    expect(authority.containsKey('deployedIndexesParityEvidence'), isFalse);
+    expect(authority.containsKey('intentionalDivergencePolicy'), isFalse);
+
+    final releaseModel = authority['releaseModel'] as Map<String, dynamic>;
+    expect(releaseModel['type'], 'COMPOSITE_LIVE_STATE');
+    expect(releaseModel['singleHomogeneousDeployment'], isFalse);
+    expect(releaseModel['functionFleetStatus'], 'MIXED_DEPLOYMENT_FLEET');
+    expect(
+      releaseModel['identityProjectionSourceStatus'],
+      'SOURCE_DEFINED_PENDING_DEPLOYMENT',
+    );
+
+    final repositoryAuthority =
+        authority['repositoryAuthority'] as Map<String, dynamic>;
+    expect(
+      repositoryAuthority['productionReconstructionSourceCommit'],
+      '17f433b93b596e7730b58b337a42733a05f297a3',
+    );
+    expect(
+      repositoryAuthority['productionReconstructionSourceTree'],
+      '0496b940a20e04ca9789f2ba11b840dca6aeb56c',
+    );
+    expect(
+      repositoryAuthority['identityFunctionCurrentLiveReportedSourceCommit'],
       '4132b83a1bf9693b1b8f33f602091e89143250ce',
     );
-    expect(authority['deployedIndexesParityStatus'], 'proven');
+    expect(repositoryAuthority['identityFunctionDeployedSourceCommit'], isNull);
     expect(
-      authority['deployedIndexesParityEvidence']['evidenceSha256'],
-      'E21C7E71611FBF84A42DBBD6C6E44CF3FD353AFDDB298A855D03DACA6A254CB8',
+      repositoryAuthority['mixedFleetDigest'],
+      'D57D11BDC6AE304AA90107EE6C4A6196AD55C35EDA2ECDCBC8E53EF998BCF4D1',
     );
+
+    final functions = authority['functions'] as Map<String, dynamic>;
+    expect(functions['status'], 'MIXED_DEPLOYMENT_FLEET');
+    expect(functions['singleHomogeneousDeployment'], isFalse);
+    expect(functions['expectedExports'], 7);
+    expect(functions['liveExports'], 7);
     expect(
-      authority['intentionalDivergencePolicy']['backendSourceChangedBy70H'],
-      isFalse,
+      functions['fleetDigest'],
+      'D57D11BDC6AE304AA90107EE6C4A6196AD55C35EDA2ECDCBC8E53EF998BCF4D1',
     );
+
+    final legacyDisposition =
+        authority['legacyAuthorityDisposition'] as Map<String, dynamic>;
+    expect(legacyDisposition['priorReleaseId'], 'prod-4132b83-20260620_001612');
+    expect(legacyDisposition['status'], 'SUPERSEDED_BY_STRICT_SCHEMA_V2');
+    expect(legacyDisposition['doNotUseAsCurrentReleaseGate'], isTrue);
+
+    final sourceAdoption = authority['sourceAdoption'] as Map<String, dynamic>;
+    expect(
+      sourceAdoption['status'],
+      'SOURCE_DEFINED_PENDING_DRAFT_PR_REVIEW_MERGE_AND_DEPLOYMENT',
+    );
+    expect(sourceAdoption['productionDeploymentPerformed'], isFalse);
+    expect(sourceAdoption['iamMutationPerformed'], isFalse);
   });
 
   test(

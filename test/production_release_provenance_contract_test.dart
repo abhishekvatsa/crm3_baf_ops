@@ -12,19 +12,56 @@ void main() {
           jsonDecode(read('release/backend-authority.prod.json'))
               as Map<String, dynamic>;
 
-      expect(authority['deployedIndexesParityStatus'], 'proven');
-      final evidence =
-          authority['deployedIndexesParityEvidence'] as Map<String, dynamic>;
-      expect(evidence['decision'], 'PROVEN');
-      expect(evidence['sourceCompositeIndexes'], 28);
-      expect(evidence['deployedCompositeIndexes'], 28);
-      expect(evidence['missing'], 0);
-      expect(evidence['extra'], 0);
-      expect(evidence['nonReady'], 0);
-      expect(evidence['actualFieldOverrides'], 0);
+      expect(authority['schemaVersion'], 2);
       expect(
-        evidence['evidenceSha256'],
-        'E21C7E71611FBF84A42DBBD6C6E44CF3FD353AFDDB298A855D03DACA6A254CB8',
+        authority['authorityClass'],
+        'verified-production-backend-composite',
+      );
+      expect(
+        authority['authorityDigest'],
+        '171FEFD8D2DE1C2F500FA164C2C9E4617E46A7BD773CD7A620973296444922DE',
+      );
+      expect(authority.containsKey('deployedIndexesParityStatus'), isFalse);
+      expect(authority.containsKey('deployedIndexesParityEvidence'), isFalse);
+
+      final firestore = authority['firestore'] as Map<String, dynamic>;
+      final indexes = firestore['indexes'] as Map<String, dynamic>;
+
+      expect(indexes['status'], 'EXACT');
+      expect(indexes['sourceCompositeIndexes'], 28);
+      expect(indexes['deployedCompositeIndexes'], 28);
+      expect(indexes['allReady'], isTrue);
+      expect(indexes['fieldOverrideCount'], 0);
+      expect(
+        indexes['sourceSha256'],
+        'D0D7120DB00D8FAB3130861776AB6E956CE6E224FB40665B3A28CB1C7B7C7D33',
+      );
+      expect(
+        indexes['fieldOverrideFingerprint'],
+        '4F53CDA18C2BAA0C0354BB5F9A3ECBE5ED12AB4D8E11BA873C2F11161202B945',
+      );
+      expect(
+        indexes['indexIdentityFingerprint'],
+        'AFAB9E0C800AD37F9E90011648C0D322E3DF9CD26C8D9FEC05CAE66A654E8134',
+      );
+
+      final evidenceChain = authority['evidenceChain'] as List<dynamic>;
+      final parityEvidence = evidenceChain
+          .whereType<Map<String, dynamic>>()
+          .singleWhere(
+            (entry) =>
+                entry['role'] ==
+                'LIVE_PARITY_FUNCTION_ARCHIVES_IAM_AND_TOPOLOGY',
+          );
+
+      expect(
+        parityEvidence['filename'],
+        'CRM3_Live_Backend_Rules_Parity_Hardened_Hybrid_v7_2_'
+        'COMPLETE_WITH_FINDINGS_20260628_214116.zip',
+      );
+      expect(
+        parityEvidence['sha256'],
+        '035EF7B582EE6EAF99C64DC74D7C414FDA4ACA25A986A8E6F6189DE5C506B700',
       );
     });
 
