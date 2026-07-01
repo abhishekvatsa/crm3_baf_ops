@@ -21,7 +21,7 @@ export interface IdentityDeploymentBinding {
 
 const EXPECTED_SCHEMA_VERSION = "2";
 const EXPECTED_AUTHORITY_DIGEST =
-  "171FEFD8D2DE1C2F500FA164C2C9E4617E46A7BD773CD7A620973296444922DE";
+  "59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525";
 const EXPECTED_RELEASE_ID =
   "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd";
 const SOURCE_COMMIT_PATTERN = /^[a-f0-9]{40}$/;
@@ -30,7 +30,7 @@ export const COMPOSITE_BACKEND_IDENTITY_V2 = Object.freeze(
 {
   "schemaVersion": 2,
   "authorityClass": "verified-production-backend-composite",
-  "authorityDigest": "171FEFD8D2DE1C2F500FA164C2C9E4617E46A7BD773CD7A620973296444922DE",
+  "authorityDigest": "59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525",
   "releaseId": "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd",
   "environment": "production",
   "firebaseProjectId": "crm3-baf-ops-b8638",

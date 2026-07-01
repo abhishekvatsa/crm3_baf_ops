@@ -19,7 +19,7 @@ void main() {
     expect(authority['firebaseProjectId'], 'crm3-baf-ops-b8638');
     expect(
       authority['authorityDigest'],
-      '171FEFD8D2DE1C2F500FA164C2C9E4617E46A7BD773CD7A620973296444922DE',
+      '59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525',
     );
     expect(
       authority['releaseId'],
@@ -77,12 +77,45 @@ void main() {
     expect(legacyDisposition['doNotUseAsCurrentReleaseGate'], isTrue);
 
     final sourceAdoption = authority['sourceAdoption'] as Map<String, dynamic>;
+    expect(sourceAdoption['status'], 'SOURCE_MERGED_PENDING_DEPLOYMENT');
     expect(
-      sourceAdoption['status'],
-      'SOURCE_DEFINED_PENDING_DRAFT_PR_REVIEW_MERGE_AND_DEPLOYMENT',
+      sourceAdoption['sourceProposalHeadCommit'],
+      '527fbd9c135bc6ed57493defeba2c877baa13021',
     );
+    expect(
+      sourceAdoption['mergeCommit'],
+      '096d8e5644b0be3dc6cda625648aa31522a49ce5',
+    );
+    expect(
+      sourceAdoption['mergeTree'],
+      '6e2427b0855ae896a8e89b849246adc9d78d2266',
+    );
+    expect(sourceAdoption['mergeMethod'], 'MERGE_COMMIT');
+    expect(sourceAdoption['mergedPrNumber'], 26);
+    expect(sourceAdoption['postmergeCiRunId'], 28530946482);
+    expect(sourceAdoption['postmergeCiStatus'], 'PASS');
     expect(sourceAdoption['productionDeploymentPerformed'], isFalse);
     expect(sourceAdoption['iamMutationPerformed'], isFalse);
+
+    final evidenceChain = authority['evidenceChain'] as List<dynamic>;
+    final mergeEvidence = evidenceChain
+        .whereType<Map<String, dynamic>>()
+        .singleWhere(
+          (entry) =>
+              entry['role'] == 'STAGE2B_V2_MERGE_AND_POSTMERGE_CI_CUSTODY',
+        );
+    expect(
+      mergeEvidence['sha256'],
+      '096AED1DA366E3698008C579DE6B3875039DE76A95D8D97360AE6D583B12C529',
+    );
+
+    expect(authority['openIndependentGates'], <String>[
+      'identity Function deployment preflight with exact runtime '
+          'environment bindings',
+      'runtime service-account least-privilege hardening',
+      'Firebase App Check staged rollout',
+      'dependency, device, recovery and operator-acceptance gates',
+    ]);
   });
 
   test(

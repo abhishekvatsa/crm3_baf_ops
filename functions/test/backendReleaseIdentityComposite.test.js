@@ -46,7 +46,7 @@ describe("backendReleaseIdentityComposite strict schema v2", () => {
   });
 
   test("authority digest is independently reproducible", () => {
-    expect(authority.authorityDigest).toBe("171FEFD8D2DE1C2F500FA164C2C9E4617E46A7BD773CD7A620973296444922DE");
+    expect(authority.authorityDigest).toBe("59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525");
     expect(recomputeAuthorityDigest(authority)).toBe(authority.authorityDigest);
   });
 
@@ -124,7 +124,7 @@ describe("backendReleaseIdentityComposite strict schema v2", () => {
     const commit = "0123456789abcdef0123456789abcdef01234567";
     const environment = {
       BACKEND_AUTHORITY_SCHEMA_VERSION: "2",
-      BACKEND_AUTHORITY_DIGEST: "171FEFD8D2DE1C2F500FA164C2C9E4617E46A7BD773CD7A620973296444922DE",
+      BACKEND_AUTHORITY_DIGEST: "59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525",
       BACKEND_AUTHORITY_RELEASE_ID: "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd",
       BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT: commit,
     };
@@ -151,6 +151,39 @@ describe("backendReleaseIdentityComposite strict schema v2", () => {
       .toContain("BACKEND_AUTHORITY_RELEASE_ID");
     expect(binding.mismatches)
       .toContain("BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT");
+  });
+
+  test("records merged source adoption without implying deployment", () => {
+    expect(authority.sourceAdoption.status)
+      .toBe("SOURCE_MERGED_PENDING_DEPLOYMENT");
+    expect(authority.sourceAdoption.sourceProposalHeadCommit)
+      .toBe("527fbd9c135bc6ed57493defeba2c877baa13021");
+    expect(authority.sourceAdoption.mergeCommit)
+      .toBe("096d8e5644b0be3dc6cda625648aa31522a49ce5");
+    expect(authority.sourceAdoption.mergeTree)
+      .toBe("6e2427b0855ae896a8e89b849246adc9d78d2266");
+    expect(authority.sourceAdoption.mergeMethod).toBe("MERGE_COMMIT");
+    expect(authority.sourceAdoption.mergedPrNumber).toBe(26);
+    expect(authority.sourceAdoption.postmergeCiRunId).toBe(28530946482);
+    expect(authority.sourceAdoption.postmergeCiStatus).toBe("PASS");
+    expect(authority.sourceAdoption.productionDeploymentPerformed).toBe(false);
+    expect(authority.sourceAdoption.iamMutationPerformed).toBe(false);
+    expect(authority.releaseModel.identityProjectionSourceStatus)
+      .toBe("SOURCE_DEFINED_PENDING_DEPLOYMENT");
+    expect(authority.repositoryAuthority.identityFunctionDeployedSourceCommit)
+      .toBeNull();
+
+    const evidenceByRole = new Map(
+      authority.evidenceChain.map((entry) => [entry.role, entry.sha256]),
+    );
+    expect(evidenceByRole.get("STAGE2B_V2_MERGE_AND_POSTMERGE_CI_CUSTODY"))
+      .toBe("096AED1DA366E3698008C579DE6B3875039DE76A95D8D97360AE6D583B12C529");
+    expect(authority.openIndependentGates).toEqual([
+      "identity Function deployment preflight with exact runtime environment bindings",
+      "runtime service-account least-privilege hardening",
+      "Firebase App Check staged rollout",
+      "dependency, device, recovery and operator-acceptance gates",
+    ]);
   });
 
   test("does not imply one Git commit for the mixed fleet", () => {
