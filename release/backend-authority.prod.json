@@ -1,49 +1,498 @@
 {
-  "schemaVersion": 1,
-  "authorityClass": "verified-production-backend",
-  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "authorityClass": "verified-production-backend-composite",
+  "authorityDigest": "171FEFD8D2DE1C2F500FA164C2C9E4617E46A7BD773CD7A620973296444922DE",
+  "authorityDigestAlgorithm": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level authorityDigest",
+  "authorityGeneratedAtUtc": "2026-06-28T17:40:14.412521+00:00",
+  "authorityStatus": "CURRENT_LIVE_STATE_RECORDED",
+  "effectiveFromUtc": "2026-06-28T17:11:15.918470Z",
   "environment": "production",
-  "releaseId": "prod-4132b83-20260620_001612",
-  "backendGitCommit": "4132b83a1bf9693b1b8f33f602091e89143250ce",
-  "deployedAtUtc": "2026-06-19T19:13:24.276Z",
-  "firestoreRulesReleaseId": "projects/crm3-baf-ops-b8638/rulesets/b8d615f5-2f18-44b4-8845-bcf4cd0e1310",
-  "firestoreRulesDigest": "C897AA6056ADD67174F0DD6E786F85709280BE3CE77D182401153C428268286F",
-  "functionsDeployedDigest": "A325AA41A25EA58558FD6D3969088667C9FB607969FABA316705EA02B2055133",
-  "firestoreIndexesSourceDigest": "D0D7120DB00D8FAB3130861776AB6E956CE6E224FB40665B3A28CB1C7B7C7D33",
-  "deployedIndexesParityStatus": "proven",
+  "evidenceChain": [
+    {
+      "filename": "CRM3_Live_Backend_Rules_Parity_Hardened_Hybrid_v7_2_COMPLETE_WITH_FINDINGS_20260628_214116.zip",
+      "role": "LIVE_PARITY_FUNCTION_ARCHIVES_IAM_AND_TOPOLOGY",
+      "sha256": "035EF7B582EE6EAF99C64DC74D7C414FDA4ACA25A986A8E6F6189DE5C506B700"
+    },
+    {
+      "filename": "CRM3_Stage1_Firestore_Rules_Only_Correction_v1_3_PASS_20260628_224300.zip",
+      "role": "RULES_ONLY_MUTATION_AND_POST_VERIFICATION",
+      "sha256": "8F2F87AD268E528ACE7C2DAD38E618CE0147EDDF4A8746C3637BF7203377B4B2"
+    },
+    {
+      "filename": "CRM3_StageB_Firestore_Rules_Only_Deployment_Governed_v2_PASS_ALREADY_EXACT_NO_MUTATION_20260628_224407.zip",
+      "role": "INDEPENDENT_RULES_EXACT_NO_MUTATION_CONFIRMATION",
+      "sha256": "151B7437B6235EFE189BCE34B3C4DF83730A84AE52A71284BE312B24FDFE7D1D"
+    },
+    {
+      "filename": "CRM3_Stage2A_Backend_Authority_Reconstruction_ReadOnly_v1_1_PASS_CANDIDATE_AUTHORITY_GENERATED_20260628_231022.zip",
+      "role": "READ_ONLY_COMPOSITE_AUTHORITY_RECONSTRUCTION",
+      "sha256": "52F450A6EAC101E356FCEA556681D29683BA12AEDEBFA06F67A04770DCFBDFF7"
+    },
+    {
+      "filename": "CRM3_StageC_Runtime_Module_Concurrency_Proof_v1_1_PASS_STAGEC_CONCURRENCY_IDEMPOTENCY_PROVED_20260628_231554.zip",
+      "role": "RUNTIME_POPULATION_CONCURRENCY_AND_IDEMPOTENCY",
+      "sha256": "857595A7D7B3DFB707BF46677EC95CBC435AE628D1883E381F9C4C3A2D48441D"
+    },
+    {
+      "filename": "CRM3_Stage2B_Backend_Authority_SchemaV2_Source_Amendment_v1_1_PASS_STAGE2B_SOURCE_PATCH_PUSHED_DRAFT_PR_CREATED_20260628_233548.zip",
+      "role": "SUPERSEDED_STAGE2B_V1_1_SOURCE_PROPOSAL_CUSTODY",
+      "sha256": "30EAC9800A4CE8C08C2FD1C66CFCD4921C1443BD2BCDCD271266B85CA4961854"
+    }
+  ],
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "firestore": {
+    "databaseId": "(default)",
+    "indexes": {
+      "allReady": true,
+      "deployedCompositeIndexes": 28,
+      "fieldOverrideCount": 0,
+      "fieldOverrideFingerprint": "4F53CDA18C2BAA0C0354BB5F9A3ECBE5ED12AB4D8E11BA873C2F11161202B945",
+      "indexIdentityFingerprint": "AFAB9E0C800AD37F9E90011648C0D322E3DF9CD26C8D9FEC05CAE66A654E8134",
+      "sourceCompositeIndexes": 28,
+      "sourceSha256": "D0D7120DB00D8FAB3130861776AB6E956CE6E224FB40665B3A28CB1C7B7C7D33",
+      "status": "EXACT"
+    },
+    "rules": {
+      "deployedCanonicalSha256": "DE05BE5BE8255351E7482E3D7693FB869DF2436F7A44F57A60D20CA107B3121C",
+      "deployedRawSha256": "DE05BE5BE8255351E7482E3D7693FB869DF2436F7A44F57A60D20CA107B3121C",
+      "releaseName": "projects/crm3-baf-ops-b8638/releases/cloud.firestore",
+      "releaseUpdateTime": "2026-06-28T17:11:15.918470Z",
+      "rulesetCreateTime": "2026-06-28T17:11:12.239487Z",
+      "rulesetName": "projects/crm3-baf-ops-b8638/rulesets/0b3868bf-d7bb-405b-9a32-eef175b61af7",
+      "sourceSha256": "DE05BE5BE8255351E7482E3D7693FB869DF2436F7A44F57A60D20CA107B3121C",
+      "status": "EXACT"
+    }
+  },
+  "functions": {
+    "entries": [
+      {
+        "archiveCustodyEvidence": {
+          "filename": "CRM3_Live_Backend_Rules_Parity_Hardened_Hybrid_v7_2_COMPLETE_WITH_FINDINGS_20260628_214116.zip",
+          "role": "DEPLOYED_FUNCTION_ARCHIVE_SHA256",
+          "sha256": "035EF7B582EE6EAF99C64DC74D7C414FDA4ACA25A986A8E6F6189DE5C506B700"
+        },
+        "archiveReadStatus": "SUCCESS",
+        "bundleFamily": "GOVERNED_CURRENT_BUNDLE",
+        "cloudRunRevision": "assignpublishedtemplateversion-00002-xew",
+        "deployedArchiveSha256": "B7E773CB5C5BDE8E050C3F02EBC3AAA523710562CC91D8B87B37B44FB40689FD",
+        "entryImplementationComparison": {
+          "deployedPath": "src/publishedTemplateAssignment.ts",
+          "deployedSha256": "6AF4338D2E37EA71916190414F3CCAA0A3340C97D32FA311BAEFD4876AE0B5C1",
+          "sourcePath": "functions/src/publishedTemplateAssignment.ts",
+          "sourceSha256": "6AF4338D2E37EA71916190414F3CCAA0A3340C97D32FA311BAEFD4876AE0B5C1",
+          "status": "EXACT"
+        },
+        "functionUpdateTime": "2026-06-26T18:42:30.091517185Z",
+        "name": "assignPublishedTemplateVersion",
+        "region": "asia-south1",
+        "runtime": "nodejs22",
+        "serviceAccountEmail": "894346496105-compute@developer.gserviceaccount.com",
+        "storageSource": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "generation": "1782499342838226",
+          "object": "assignPublishedTemplateVersion/function-source.zip"
+        },
+        "strictBundleComparison": "EXACT"
+      },
+      {
+        "archiveCustodyEvidence": {
+          "filename": "CRM3_Live_Backend_Rules_Parity_Hardened_Hybrid_v7_2_COMPLETE_WITH_FINDINGS_20260628_214116.zip",
+          "role": "DEPLOYED_FUNCTION_ARCHIVE_SHA256",
+          "sha256": "035EF7B582EE6EAF99C64DC74D7C414FDA4ACA25A986A8E6F6189DE5C506B700"
+        },
+        "archiveReadStatus": "SUCCESS",
+        "bundleFamily": "GOVERNED_CURRENT_BUNDLE",
+        "cloudRunRevision": "completeplannedjobexecution-00002-laf",
+        "deployedArchiveSha256": "B7E773CB5C5BDE8E050C3F02EBC3AAA523710562CC91D8B87B37B44FB40689FD",
+        "entryImplementationComparison": {
+          "deployedPath": "src/plannedJobClosure.ts",
+          "deployedSha256": "13E130181353E7293DF3096CA6C52EF6DF801D3A7C5BDA55C74AB00D7C8D8F3C",
+          "sourcePath": "functions/src/plannedJobClosure.ts",
+          "sourceSha256": "13E130181353E7293DF3096CA6C52EF6DF801D3A7C5BDA55C74AB00D7C8D8F3C",
+          "status": "EXACT"
+        },
+        "functionUpdateTime": "2026-06-26T18:42:29.640713164Z",
+        "name": "completePlannedJobExecution",
+        "region": "asia-south1",
+        "runtime": "nodejs22",
+        "serviceAccountEmail": "894346496105-compute@developer.gserviceaccount.com",
+        "storageSource": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "generation": "1782499342619238",
+          "object": "completePlannedJobExecution/function-source.zip"
+        },
+        "strictBundleComparison": "EXACT"
+      },
+      {
+        "archiveCustodyEvidence": {
+          "filename": "CRM3_Live_Backend_Rules_Parity_Hardened_Hybrid_v7_2_COMPLETE_WITH_FINDINGS_20260628_214116.zip",
+          "role": "DEPLOYED_FUNCTION_ARCHIVE_SHA256",
+          "sha256": "035EF7B582EE6EAF99C64DC74D7C414FDA4ACA25A986A8E6F6189DE5C506B700"
+        },
+        "archiveReadStatus": "SUCCESS",
+        "bundleFamily": "IDENTITY_FUNCTION_BUNDLE",
+        "cloudRunRevision": "getbackendreleaseidentity-00001-dos",
+        "deployedArchiveSha256": "121FD191C5324B5857B494C774134C0C7F5CA51624AA3DA83797730E26E2965F",
+        "entryImplementationComparison": {
+          "deployedPath": "src/backendReleaseIdentity.ts",
+          "deployedSha256": "6293F7507E49C31BB382D6E6EE259EE14BA2370483EEA302BCFBDFAE771B4264",
+          "sourcePath": "functions/src/backendReleaseIdentity.ts",
+          "sourceSha256": "6293F7507E49C31BB382D6E6EE259EE14BA2370483EEA302BCFBDFAE771B4264",
+          "status": "EXACT"
+        },
+        "functionUpdateTime": "2026-06-19T19:14:45.246337100Z",
+        "name": "getBackendReleaseIdentity",
+        "region": "asia-south1",
+        "runtime": "nodejs22",
+        "serviceAccountEmail": "894346496105-compute@developer.gserviceaccount.com",
+        "storageSource": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "generation": "1781896431141186",
+          "object": "getBackendReleaseIdentity/function-source.zip"
+        },
+        "strictBundleComparison": "DIFFERENT"
+      },
+      {
+        "archiveCustodyEvidence": {
+          "filename": "CRM3_Live_Backend_Rules_Parity_Hardened_Hybrid_v7_2_COMPLETE_WITH_FINDINGS_20260628_214116.zip",
+          "role": "DEPLOYED_FUNCTION_ARCHIVE_SHA256",
+          "sha256": "035EF7B582EE6EAF99C64DC74D7C414FDA4ACA25A986A8E6F6189DE5C506B700"
+        },
+        "archiveReadStatus": "SUCCESS",
+        "bundleFamily": "GOVERNED_CURRENT_BUNDLE",
+        "cloudRunRevision": "mutateruntimejobmodulepopulation-00001-voj",
+        "deployedArchiveSha256": "B7E773CB5C5BDE8E050C3F02EBC3AAA523710562CC91D8B87B37B44FB40689FD",
+        "entryImplementationComparison": {
+          "deployedPath": "src/runtimeJobModulePopulationCallable.ts",
+          "deployedSha256": "A53C937CFE89B6BB46F2CD22CDDDF0CFAE6A21C458D2AF01BA57255425126AA9",
+          "sourcePath": "functions/src/runtimeJobModulePopulationCallable.ts",
+          "sourceSha256": "A53C937CFE89B6BB46F2CD22CDDDF0CFAE6A21C458D2AF01BA57255425126AA9",
+          "status": "EXACT"
+        },
+        "functionUpdateTime": "2026-06-26T18:42:25.037518122Z",
+        "name": "mutateRuntimeJobModulePopulation",
+        "region": "asia-south1",
+        "runtime": "nodejs22",
+        "serviceAccountEmail": "894346496105-compute@developer.gserviceaccount.com",
+        "storageSource": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "generation": "1782499288348901",
+          "object": "mutateRuntimeJobModulePopulation/function-source.zip"
+        },
+        "strictBundleComparison": "EXACT"
+      },
+      {
+        "archiveCustodyEvidence": {
+          "filename": "CRM3_Live_Backend_Rules_Parity_Hardened_Hybrid_v7_2_COMPLETE_WITH_FINDINGS_20260628_214116.zip",
+          "role": "DEPLOYED_FUNCTION_ARCHIVE_SHA256",
+          "sha256": "035EF7B582EE6EAF99C64DC74D7C414FDA4ACA25A986A8E6F6189DE5C506B700"
+        },
+        "archiveReadStatus": "SUCCESS",
+        "bundleFamily": "NOTIFICATION_BUNDLE",
+        "cloudRunRevision": "onjobassigned-00002-yef",
+        "deployedArchiveSha256": "818BBA58521A18DE07113802C7C533181DA3760EF1CDBCB490A461650C7FAC5F",
+        "entryImplementationComparison": {
+          "deployedPath": "src/notifications.ts",
+          "deployedSha256": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A",
+          "sourcePath": "functions/src/notifications.ts",
+          "sourceSha256": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A",
+          "status": "EXACT"
+        },
+        "functionUpdateTime": "2026-05-16T14:08:37.448337696Z",
+        "name": "onJobAssigned",
+        "region": "asia-south1",
+        "runtime": "nodejs22",
+        "serviceAccountEmail": "894346496105-compute@developer.gserviceaccount.com",
+        "storageSource": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "generation": "1778940510044766",
+          "object": "onJobAssigned/function-source.zip"
+        },
+        "strictBundleComparison": "DIFFERENT"
+      },
+      {
+        "archiveCustodyEvidence": {
+          "filename": "CRM3_Live_Backend_Rules_Parity_Hardened_Hybrid_v7_2_COMPLETE_WITH_FINDINGS_20260628_214116.zip",
+          "role": "DEPLOYED_FUNCTION_ARCHIVE_SHA256",
+          "sha256": "035EF7B582EE6EAF99C64DC74D7C414FDA4ACA25A986A8E6F6189DE5C506B700"
+        },
+        "archiveReadStatus": "SUCCESS",
+        "bundleFamily": "NOTIFICATION_BUNDLE",
+        "cloudRunRevision": "onticketcreated-00002-lux",
+        "deployedArchiveSha256": "818BBA58521A18DE07113802C7C533181DA3760EF1CDBCB490A461650C7FAC5F",
+        "entryImplementationComparison": {
+          "deployedPath": "src/notifications.ts",
+          "deployedSha256": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A",
+          "sourcePath": "functions/src/notifications.ts",
+          "sourceSha256": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A",
+          "status": "EXACT"
+        },
+        "functionUpdateTime": "2026-05-16T14:08:37.875767149Z",
+        "name": "onTicketCreated",
+        "region": "asia-south1",
+        "runtime": "nodejs22",
+        "serviceAccountEmail": "894346496105-compute@developer.gserviceaccount.com",
+        "storageSource": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "generation": "1778940455866620",
+          "object": "onTicketCreated/function-source.zip"
+        },
+        "strictBundleComparison": "DIFFERENT"
+      },
+      {
+        "archiveCustodyEvidence": {
+          "filename": "CRM3_Live_Backend_Rules_Parity_Hardened_Hybrid_v7_2_COMPLETE_WITH_FINDINGS_20260628_214116.zip",
+          "role": "DEPLOYED_FUNCTION_ARCHIVE_SHA256",
+          "sha256": "035EF7B582EE6EAF99C64DC74D7C414FDA4ACA25A986A8E6F6189DE5C506B700"
+        },
+        "archiveReadStatus": "SUCCESS",
+        "bundleFamily": "NOTIFICATION_BUNDLE",
+        "cloudRunRevision": "onticketresolved-00002-bab",
+        "deployedArchiveSha256": "818BBA58521A18DE07113802C7C533181DA3760EF1CDBCB490A461650C7FAC5F",
+        "entryImplementationComparison": {
+          "deployedPath": "src/notifications.ts",
+          "deployedSha256": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A",
+          "sourcePath": "functions/src/notifications.ts",
+          "sourceSha256": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A",
+          "status": "EXACT"
+        },
+        "functionUpdateTime": "2026-05-16T14:08:37.082900468Z",
+        "name": "onTicketResolved",
+        "region": "asia-south1",
+        "runtime": "nodejs22",
+        "serviceAccountEmail": "894346496105-compute@developer.gserviceaccount.com",
+        "storageSource": {
+          "bucket": "gcf-v2-sources-894346496105-asia-south1",
+          "generation": "1778940509736544",
+          "object": "onTicketResolved/function-source.zip"
+        },
+        "strictBundleComparison": "DIFFERENT"
+      }
+    ],
+    "expectedExports": 7,
+    "fleetDigest": "D57D11BDC6AE304AA90107EE6C4A6196AD55C35EDA2ECDCBC8E53EF998BCF4D1",
+    "fleetDigestAlgorithm": "SHA-256 of canonical JSON per-function deployment identity, deployed archive SHA-256, runtime identity, and source-comparison status",
+    "inventoryFingerprint": "7B036E213817CF668F10CA4FF4992311906BE34295964594EB097AD4AA1CDFC2",
+    "liveExports": 7,
+    "singleHomogeneousDeployment": false,
+    "sourceTargetCompositeDigest": "DA7D78CC6C5D5D77F5B9E97C3789BBCC999C1A51313D62C436BDBB93245A6F29",
+    "status": "MIXED_DEPLOYMENT_FLEET"
+  },
+  "identityProjection": {
+    "compatibilityFieldSemantics": {
+      "backendGitCommit": "IDENTITY_FUNCTION_DEPLOYED_SOURCE_COMMIT_ONLY; null until exact runtime binding",
+      "functionsDeployedDigest": "MIXED_FUNCTION_FLEET_DIGEST",
+      "releaseId": "COMPOSITE_RULES_AND_FUNCTION_FLEET_RELEASE_ID"
+    },
+    "currentLiveReportedSourceCommit": "4132b83a1bf9693b1b8f33f602091e89143250ce",
+    "currentLiveRevision": "getbackendreleaseidentity-00001-dos",
+    "deploymentAuthorizedByStage2B": false,
+    "functionName": "getBackendReleaseIdentity",
+    "requiredRuntimeEnvironment": {
+      "BACKEND_AUTHORITY_DIGEST": {
+        "mustEqualTopLevelAuthorityDigest": true
+      },
+      "BACKEND_AUTHORITY_RELEASE_ID": {
+        "requiredValue": "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd"
+      },
+      "BACKEND_AUTHORITY_SCHEMA_VERSION": {
+        "requiredValue": "2"
+      },
+      "BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT": {
+        "requiredPattern": "^[a-f0-9]{40}$"
+      }
+    },
+    "runtimeStateMachine": {
+      "allBindingsAbsent": "SOURCE_DEFINED_PENDING_DEPLOYMENT",
+      "allBindingsExact": "SCHEMA_V2_DEPLOYED_EXACT",
+      "partialOrMismatchedBindings": "DEPLOYMENT_CONFIGURATION_MISMATCH"
+    },
+    "sourceDefinitionStatus": "SOURCE_DEFINED_PENDING_DEPLOYMENT"
+  },
+  "legacyAuthorityDisposition": {
+    "doNotUseAsCurrentReleaseGate": true,
+    "path": "release/backend-authority.prod.json",
+    "priorReleaseId": "prod-4132b83-20260620_001612",
+    "priorSchemaVersion": 1,
+    "status": "SUPERSEDED_BY_STRICT_SCHEMA_V2"
+  },
+  "openIndependentGates": [
+    "Stage2B v2 draft-PR review and protected merge",
+    "post-merge exact-main authority audit",
+    "identity Function deployment preflight with exact runtime environment bindings",
+    "runtime service-account least-privilege hardening",
+    "Firebase App Check staged rollout",
+    "dependency, device, recovery and operator-acceptance gates"
+  ],
+  "releaseId": "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd",
+  "releaseModel": {
+    "functionFleetStatus": "MIXED_DEPLOYMENT_FLEET",
+    "identityProjectionSourceStatus": "SOURCE_DEFINED_PENDING_DEPLOYMENT",
+    "singleHomogeneousDeployment": false,
+    "type": "COMPOSITE_LIVE_STATE"
+  },
+  "repositoryAuthority": {
+    "identityFunctionCurrentLiveReportedSourceCommit": "4132b83a1bf9693b1b8f33f602091e89143250ce",
+    "identityFunctionDeployedSourceCommit": null,
+    "mixedFleetDigest": "D57D11BDC6AE304AA90107EE6C4A6196AD55C35EDA2ECDCBC8E53EF998BCF4D1",
+    "productionReconstructionBranch": "main",
+    "productionReconstructionSourceCommit": "17f433b93b596e7730b58b337a42733a05f297a3",
+    "productionReconstructionSourceTree": "0496b940a20e04ca9789f2ba11b840dca6aeb56c",
+    "purpose": "Separates the reconstruction anchor, current live identity-function report, future identity-function deployment commit, and mixed-fleet digest. No single commit is asserted for all seven live Functions.",
+    "repository": "abhishekvatsa/crm3_baf_ops"
+  },
+  "runtimeIam": {
+    "appliesToFunctions": [
+      "assignPublishedTemplateVersion",
+      "completePlannedJobExecution",
+      "getBackendReleaseIdentity",
+      "mutateRuntimeJobModulePopulation",
+      "onJobAssigned",
+      "onTicketCreated",
+      "onTicketResolved"
+    ],
+    "leastPrivilegeRemediationAuthorized": false,
+    "observedRoleBindings": [
+      {
+        "role": "roles/editor",
+        "scope": "PROJECT",
+        "status": "PRESENT"
+      },
+      {
+        "role": "roles/eventarc.eventReceiver",
+        "scope": "PROJECT",
+        "status": "PRESENT"
+      },
+      {
+        "role": "roles/run.invoker",
+        "scope": "PROJECT_OR_FUNCTION_SERVICE",
+        "status": "PRESENT"
+      }
+    ],
+    "posture": "OVER_PRIVILEGED_DEFAULT_COMPUTE_SERVICE_ACCOUNT",
+    "serviceAccountEmail": "894346496105-compute@developer.gserviceaccount.com",
+    "statement": "Records current runtime IAM reality only; this authority does not authorize IAM mutation."
+  },
+  "schemaVersion": 2,
+  "sourceAdoption": {
+    "branch": "feat/stage2b-backend-authority-schema-v2",
+    "correctionBaseCommit": "8b0503d12d39b39fd949bc9f121494c4b0aeea92",
+    "correctionBaseTree": "0b4e11dd0a68b3c379f1d992b2a79e56c9db506a",
+    "draftPrNumber": 26,
+    "iamMutationPerformed": false,
+    "priorProposalDisposition": "SUPERSEDED_DO_NOT_MERGE_AT_V1_1_HEAD",
+    "productionDeploymentPerformed": false,
+    "stage": "Stage2B-v2",
+    "status": "SOURCE_DEFINED_PENDING_DRAFT_PR_REVIEW_MERGE_AND_DEPLOYMENT"
+  },
   "sourceCustody": {
-    "firestore.rules": "C897AA6056ADD67174F0DD6E786F85709280BE3CE77D182401153C428268286F",
-    "firestore.indexes.json": "D0D7120DB00D8FAB3130861776AB6E956CE6E224FB40665B3A28CB1C7B7C7D33",
-    "functions/src/backendReleaseIdentity.ts": "6293F7507E49C31BB382D6E6EE259EE14BA2370483EEA302BCFBDFAE771B4264",
-    "functions/src/index.ts": "14314AEDEC8B497C21C77C77B15B11ADF53ECEB9503C05FDC4BEE846D94C942D",
-    "functions/src/notifications.ts": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A",
-    "functions/src/plannedJobClosure.ts": "2984CDD7A6F99066D3B082473A0F7CAE2E6E32073CE075F2878EBF3F9BD73722",
-    "functions/src/publishedTemplateAssignment.ts": "5A62DA31623C7A76BBF7FD85B0484A904940791608FF30486296446247D4D6DF",
-    "functions/package-lock.json": "97214865025D8ACC9F198508D6E9DA7404F8C2C6D13EAE2DA25F2B64A2B0D951",
-    "functions/tsconfig.json": "23FF223A1842E006F1EC3B5B9430F3B3DBDEFF4D3E4CF651402D8E2703C57D9D",
-    "release/evidence/70I_C_INDEX_PARITY_DECISION.json": "C48C46F18BDAC5B3537E7EB110ED9E2E87B862B5C13584BD81D81ADF603D8456"
+    "files": [
+      {
+        "path": "firebase.json",
+        "role": "FIREBASE_TARGET_CONFIGURATION",
+        "sha256": "23D0A674E538E6332D87E625E1126B0C47B4CBB52EE5A9CDC6C34E6C41B8AC81"
+      },
+      {
+        "path": "package.json",
+        "role": "ROOT_TEST_AND_EMULATOR_CONFIGURATION",
+        "sha256": "2A63883EC1AB3BFE5D7D0E02FBA0BB1ADBA8B3ACDFFB0089B674658B6B1C19BF"
+      },
+      {
+        "path": "package-lock.json",
+        "role": "ROOT_DEPENDENCY_LOCK",
+        "sha256": "DBE1EFDD1F17347B737E1435205FCFD5EFF1F8A6A9027D18F199BC45DB3C22C0"
+      },
+      {
+        "path": "firestore.rules",
+        "role": "FIRESTORE_RULES_SOURCE",
+        "sha256": "DE05BE5BE8255351E7482E3D7693FB869DF2436F7A44F57A60D20CA107B3121C"
+      },
+      {
+        "path": "firestore.indexes.json",
+        "role": "FIRESTORE_INDEX_SOURCE",
+        "sha256": "D0D7120DB00D8FAB3130861776AB6E956CE6E224FB40665B3A28CB1C7B7C7D33"
+      },
+      {
+        "path": "functions/package.json",
+        "role": "FUNCTION_BUILD_CONFIGURATION",
+        "sha256": "B0A0CAD2A2F76012579544631D37DA260261FFA6F33BC3AF24F91F4C039EF1AC"
+      },
+      {
+        "path": "functions/package-lock.json",
+        "role": "FUNCTION_DEPENDENCY_LOCK",
+        "sha256": "97214865025D8ACC9F198508D6E9DA7404F8C2C6D13EAE2DA25F2B64A2B0D951"
+      },
+      {
+        "path": "functions/tsconfig.json",
+        "role": "FUNCTION_TYPESCRIPT_CONFIGURATION",
+        "sha256": "23FF223A1842E006F1EC3B5B9430F3B3DBDEFF4D3E4CF651402D8E2703C57D9D"
+      },
+      {
+        "path": "functions/src/index.ts",
+        "role": "FUNCTION_EXPORT_SURFACE_AFTER_STAGE2B_V1_1",
+        "sha256": "0F2FC552B9B4C049493404A1A09B7299FD6423C699F584C8D9098EADD21C76B1"
+      },
+      {
+        "path": "functions/src/backendReleaseIdentity.ts",
+        "role": "LEGACY_AUTHORIZATION_AND_VALIDATION_GATE",
+        "sha256": "6293F7507E49C31BB382D6E6EE259EE14BA2370483EEA302BCFBDFAE771B4264"
+      },
+      {
+        "path": "functions/src/notifications.ts",
+        "role": "NOTIFICATION_IMPLEMENTATION",
+        "sha256": "7905A190E56EB345BC50798D094FBD783BAD9A727B8E2E8774BB99767950A25A"
+      },
+      {
+        "path": "functions/src/plannedJobClosure.ts",
+        "role": "PLANNED_JOB_CLOSURE_IMPLEMENTATION",
+        "sha256": "13E130181353E7293DF3096CA6C52EF6DF801D3A7C5BDA55C74AB00D7C8D8F3C"
+      },
+      {
+        "path": "functions/src/publishedTemplateAssignment.ts",
+        "role": "PUBLISHED_TEMPLATE_ASSIGNMENT_IMPLEMENTATION",
+        "sha256": "6AF4338D2E37EA71916190414F3CCAA0A3340C97D32FA311BAEFD4876AE0B5C1"
+      },
+      {
+        "path": "functions/src/runtimeJobModulePopulation.ts",
+        "role": "RUNTIME_POPULATION_TRANSACTION_IMPLEMENTATION",
+        "sha256": "50844312827F112F49FA7E6406358BFCA2E617F81D81AC4EE4134E57A3A0E1F8"
+      },
+      {
+        "path": "functions/src/runtimeJobModulePopulationCallable.ts",
+        "role": "RUNTIME_POPULATION_CALLABLE_ADAPTER",
+        "sha256": "A53C937CFE89B6BB46F2CD22CDDDF0CFAE6A21C458D2AF01BA57255425126AA9"
+      }
+    ],
+    "pendingProjectionFiles": [
+      {
+        "custody": "BOUND_BY_STAGE2B_V2_GIT_COMMIT_TREE_AND_EVIDENCE_MANIFEST",
+        "path": "functions/src/backendReleaseIdentityComposite.ts",
+        "reason": "Pending source-adoption file; not part of the reconstructed live deployment target."
+      },
+      {
+        "custody": "BOUND_BY_STAGE2B_V2_GIT_COMMIT_TREE_AND_EVIDENCE_MANIFEST",
+        "path": "functions/test/backendReleaseIdentityComposite.test.js",
+        "reason": "Pending source-adoption regression file; not a deployed runtime source."
+      },
+      {
+        "custody": "BOUND_BY_STAGE2B_V2_GIT_COMMIT_TREE_AND_EVIDENCE_MANIFEST",
+        "path": "release/backend-authority-composite-v2.schema.json",
+        "reason": "Canonical schema source introduced by Stage 2B."
+      },
+      {
+        "custody": "BOUND_BY_STAGE2B_V2_GIT_COMMIT_TREE_AND_EVIDENCE_MANIFEST",
+        "path": "release/backend-authority.prod.json",
+        "reason": "Canonical authority document introduced by Stage 2B."
+      }
+    ],
+    "reconstructionCommit": "17f433b93b596e7730b58b337a42733a05f297a3"
   },
-  "intentionalDivergencePolicy": {
-    "backendSourceChangedBy70H": false,
-    "reason": "Application source includes client-side 70H identity-collision repair and transaction integration evidence; Firestore Rules, indexes, and Cloud Functions runtime source were unchanged."
-  },
-  "evidenceNote": "Bound to verified 70I-A backend identity and corrected 70I-C deployed-index parity evidence.",
-  "deployedIndexesParityEvidence": {
-    "schemaVersion": 1,
-    "decision": "PROVEN",
-    "sourceCommit": "904fda17858b2ef3d6089982a7b538c1a12d20d2",
-    "evidenceFile": "CRM_III_BAF_Ops_70I_C_Index_Parity_CORRECTED_20260621_142611.zip",
-    "evidenceSha256": "E21C7E71611FBF84A42DBBD6C6E44CF3FD353AFDDB298A855D03DACA6A254CB8",
-    "sourceCompositeIndexes": 28,
-    "deployedCompositeIndexes": 28,
-    "missing": 0,
-    "extra": 0,
-    "nonReady": 0,
-    "duplicates": 0,
-    "actualFieldOverrides": 0,
-    "databaseWideDefaultFieldResourceExcluded": true,
-    "priorDecisionDisposition": "superseded-retained",
-    "firebaseDeploymentPerformed": false,
-    "sourceModificationPerformedByParityGate": false
+  "topology": {
+    "eventarcStableIdentityFingerprint": "39A69B23408616CF8299F069401C51D7EE3CBABDA2A4A278A632F7C425F66093",
+    "eventarcStatus": "EXACT",
+    "eventarcTriggerCount": 3,
+    "functionIamFingerprint": "0AE4AEE9E3F1B20AAE441E22FA5A76AA9664A38F95D9AE8E849AACFD55144CA7",
+    "functionIamStatus": "EXACT",
+    "projectIamFingerprint": "215B6D939C6FBFFA5BE7E0F2EDCCF3EC42BFD693D24DC8B8EC5E8FFEC8937367",
+    "projectIamStatus": "EXACT"
   }
 }

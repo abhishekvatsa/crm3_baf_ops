@@ -28,8 +28,10 @@ import {
 import {
   BackendIdentityValidationError,
   backendReleaseEnvironmentFromProcess,
-  getBackendReleaseIdentityWithDb,
 } from "./backendReleaseIdentity";
+import {
+  getCompositeBackendReleaseIdentityWithDb,
+} from "./backendReleaseIdentityComposite";
 import type {
   BackendIdentityFirestoreLike,
   BackendIdentityJsonMap,
@@ -181,7 +183,7 @@ export const getBackendReleaseIdentity = onCall(
   },
   async (request: CallableRequest<BackendIdentityJsonMap>) => {
     try {
-      return await getBackendReleaseIdentityWithDb({
+      return await getCompositeBackendReleaseIdentityWithDb({
         db: admin.firestore() as unknown as BackendIdentityFirestoreLike,
         authUid: request.auth?.uid ?? null,
         environment: backendReleaseEnvironmentFromProcess(
