@@ -1,8 +1,8 @@
 {
   "authorityClass": "verified-production-backend-composite",
-  "authorityDigest": "171FEFD8D2DE1C2F500FA164C2C9E4617E46A7BD773CD7A620973296444922DE",
+  "authorityDigest": "59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525",
   "authorityDigestAlgorithm": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level authorityDigest",
-  "authorityGeneratedAtUtc": "2026-06-28T17:40:14.412521+00:00",
+  "authorityGeneratedAtUtc": "2026-07-01T16:06:40.214062Z",
   "authorityStatus": "CURRENT_LIVE_STATE_RECORDED",
   "effectiveFromUtc": "2026-06-28T17:11:15.918470Z",
   "environment": "production",
@@ -36,6 +36,26 @@
       "filename": "CRM3_Stage2B_Backend_Authority_SchemaV2_Source_Amendment_v1_1_PASS_STAGE2B_SOURCE_PATCH_PUSHED_DRAFT_PR_CREATED_20260628_233548.zip",
       "role": "SUPERSEDED_STAGE2B_V1_1_SOURCE_PROPOSAL_CUSTODY",
       "sha256": "30EAC9800A4CE8C08C2FD1C66CFCD4921C1443BD2BCDCD271266B85CA4961854"
+    },
+    {
+      "filename": "CRM3_Stage2B_Backend_Authority_SchemaV2_Source_Amendment_v2_PASS_STAGE2B_V2_BRANCH_CORRECTED_PUSHED_DRAFT_PR_UPDATED_20260628_235156.zip",
+      "role": "STAGE2B_V2_STRICT_SOURCE_PROPOSAL_AND_DRAFT_PR_CUSTODY",
+      "sha256": "9CBC84EF42DBDD01B58F2A7CCE132E66C622904C5033A79B7678409298C3734D"
+    },
+    {
+      "filename": "CRM3_Stage2B_V2_Flutter_Contract_Reconciliation_v2_2_PASS_STAGE2B_V2_EXACT_SOURCE_FLUTTER_CONTRACTS_RECONCILED_PUSHED_DRAFT_PR_UPDATED_20260701_211216.zip",
+      "role": "STAGE2B_V2_EXACT_SOURCE_CONTRACT_RECONCILIATION",
+      "sha256": "DF6C070A39338E05E2FA8D2669AA4245A795C93AC04A5803338F82B72F17BCF7"
+    },
+    {
+      "filename": "CRM3_Stage2B_V2_PR26_Metadata_Repair_and_Readiness_v1_PASS_STAGE2B_V2_PR_READY_FOR_GUARDED_MERGE_20260701_212704.zip",
+      "role": "STAGE2B_V2_EXACT_HEAD_MERGE_READINESS",
+      "sha256": "0D9DFFE9C2067155897108D6CE94147970CCC2C09664BA24A0D871980616689D"
+    },
+    {
+      "filename": "CRM3_Stage2B_V2_PR26_Guarded_Merge_Postmerge_Audit_v1_PASS_STAGE2B_V2_PR26_MERGED_POSTMERGE_CI_PASS_SOURCE_AUTHORITY_RECONCILIATION_REQUIRED_20260701_213640.zip",
+      "role": "STAGE2B_V2_MERGE_AND_POSTMERGE_CI_CUSTODY",
+      "sha256": "096AED1DA366E3698008C579DE6B3875039DE76A95D8D97360AE6D583B12C529"
     }
   ],
   "firebaseProjectId": "crm3-baf-ops-b8638",
@@ -316,8 +336,6 @@
     "status": "SUPERSEDED_BY_STRICT_SCHEMA_V2"
   },
   "openIndependentGates": [
-    "Stage2B v2 draft-PR review and protected merge",
-    "post-merge exact-main authority audit",
     "identity Function deployment preflight with exact runtime environment bindings",
     "runtime service-account least-privilege hardening",
     "Firebase App Check staged rollout",
@@ -374,15 +392,23 @@
   },
   "schemaVersion": 2,
   "sourceAdoption": {
-    "branch": "feat/stage2b-backend-authority-schema-v2",
     "correctionBaseCommit": "8b0503d12d39b39fd949bc9f121494c4b0aeea92",
     "correctionBaseTree": "0b4e11dd0a68b3c379f1d992b2a79e56c9db506a",
-    "draftPrNumber": 26,
     "iamMutationPerformed": false,
+    "mergeCommit": "096d8e5644b0be3dc6cda625648aa31522a49ce5",
+    "mergeMethod": "MERGE_COMMIT",
+    "mergeTree": "6e2427b0855ae896a8e89b849246adc9d78d2266",
+    "mergedAtUtc": "2026-07-01T16:03:24Z",
+    "mergedPrNumber": 26,
+    "postmergeCiRunId": 28530946482,
+    "postmergeCiStatus": "PASS",
     "priorProposalDisposition": "SUPERSEDED_DO_NOT_MERGE_AT_V1_1_HEAD",
     "productionDeploymentPerformed": false,
+    "sourceProposalBranch": "feat/stage2b-backend-authority-schema-v2",
+    "sourceProposalHeadCommit": "527fbd9c135bc6ed57493defeba2c877baa13021",
+    "sourceProposalHeadTree": "6e2427b0855ae896a8e89b849246adc9d78d2266",
     "stage": "Stage2B-v2",
-    "status": "SOURCE_DEFINED_PENDING_DRAFT_PR_REVIEW_MERGE_AND_DEPLOYMENT"
+    "status": "SOURCE_MERGED_PENDING_DEPLOYMENT"
   },
   "sourceCustody": {
     "files": [

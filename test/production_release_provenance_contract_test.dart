@@ -19,7 +19,7 @@ void main() {
       );
       expect(
         authority['authorityDigest'],
-        '171FEFD8D2DE1C2F500FA164C2C9E4617E46A7BD773CD7A620973296444922DE',
+        '59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525',
       );
       expect(authority.containsKey('deployedIndexesParityStatus'), isFalse);
       expect(authority.containsKey('deployedIndexesParityEvidence'), isFalse);
@@ -62,6 +62,17 @@ void main() {
       expect(
         parityEvidence['sha256'],
         '035EF7B582EE6EAF99C64DC74D7C414FDA4ACA25A986A8E6F6189DE5C506B700',
+      );
+
+      final mergeEvidence = evidenceChain
+          .whereType<Map<String, dynamic>>()
+          .singleWhere(
+            (entry) =>
+                entry['role'] == 'STAGE2B_V2_MERGE_AND_POSTMERGE_CI_CUSTODY',
+          );
+      expect(
+        mergeEvidence['sha256'],
+        '096AED1DA366E3698008C579DE6B3875039DE76A95D8D97360AE6D583B12C529',
       );
     });
 

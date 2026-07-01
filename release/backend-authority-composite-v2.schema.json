@@ -51,8 +51,8 @@
         ],
         "type": "object"
       },
-      "maxItems": 6,
-      "minItems": 6,
+      "maxItems": 10,
+      "minItems": 10,
       "type": "array",
       "uniqueItems": true
     },
@@ -632,8 +632,8 @@
         "minLength": 5,
         "type": "string"
       },
-      "maxItems": 6,
-      "minItems": 6,
+      "maxItems": 4,
+      "minItems": 4,
       "type": "array",
       "uniqueItems": true
     },
@@ -793,20 +793,35 @@
     "sourceAdoption": {
       "additionalProperties": false,
       "properties": {
-        "branch": {
-          "const": "feat/stage2b-backend-authority-schema-v2"
-        },
         "correctionBaseCommit": {
           "const": "8b0503d12d39b39fd949bc9f121494c4b0aeea92"
         },
         "correctionBaseTree": {
           "const": "0b4e11dd0a68b3c379f1d992b2a79e56c9db506a"
         },
-        "draftPrNumber": {
-          "const": 26
-        },
         "iamMutationPerformed": {
           "const": false
+        },
+        "mergeCommit": {
+          "const": "096d8e5644b0be3dc6cda625648aa31522a49ce5"
+        },
+        "mergeMethod": {
+          "const": "MERGE_COMMIT"
+        },
+        "mergeTree": {
+          "const": "6e2427b0855ae896a8e89b849246adc9d78d2266"
+        },
+        "mergedAtUtc": {
+          "const": "2026-07-01T16:03:24Z"
+        },
+        "mergedPrNumber": {
+          "const": 26
+        },
+        "postmergeCiRunId": {
+          "const": 28530946482
+        },
+        "postmergeCiStatus": {
+          "const": "PASS"
         },
         "priorProposalDisposition": {
           "const": "SUPERSEDED_DO_NOT_MERGE_AT_V1_1_HEAD"
@@ -814,23 +829,40 @@
         "productionDeploymentPerformed": {
           "const": false
         },
+        "sourceProposalBranch": {
+          "const": "feat/stage2b-backend-authority-schema-v2"
+        },
+        "sourceProposalHeadCommit": {
+          "const": "527fbd9c135bc6ed57493defeba2c877baa13021"
+        },
+        "sourceProposalHeadTree": {
+          "const": "6e2427b0855ae896a8e89b849246adc9d78d2266"
+        },
         "stage": {
           "const": "Stage2B-v2"
         },
         "status": {
-          "const": "SOURCE_DEFINED_PENDING_DRAFT_PR_REVIEW_MERGE_AND_DEPLOYMENT"
+          "const": "SOURCE_MERGED_PENDING_DEPLOYMENT"
         }
       },
       "required": [
         "stage",
-        "branch",
+        "status",
+        "sourceProposalBranch",
+        "sourceProposalHeadCommit",
+        "sourceProposalHeadTree",
+        "mergeCommit",
+        "mergeTree",
+        "mergeMethod",
+        "mergedPrNumber",
+        "mergedAtUtc",
+        "postmergeCiRunId",
+        "postmergeCiStatus",
         "correctionBaseCommit",
         "correctionBaseTree",
         "priorProposalDisposition",
-        "status",
         "productionDeploymentPerformed",
-        "iamMutationPerformed",
-        "draftPrNumber"
+        "iamMutationPerformed"
       ],
       "type": "object"
     },
