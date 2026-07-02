@@ -22,7 +22,7 @@
     "jest": "^30.4.2"
   },
   "overrides": {
-    "protobufjs": "7.5.8",
+    "protobufjs": "7.6.4",
     "@grpc/grpc-js": "1.9.16"
   }
 }

@@ -32,6 +32,9 @@ import {
 import {
   getCompositeBackendReleaseIdentityWithDb,
 } from "./backendReleaseIdentityComposite";
+import {
+  BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS,
+} from "./stage2dSecurityConfig";
 import type {
   BackendIdentityFirestoreLike,
   BackendIdentityJsonMap,
@@ -180,6 +183,7 @@ export const getBackendReleaseIdentity = onCall(
     timeoutSeconds: 15,
     memory: "256MiB",
     concurrency: 40,
+    ...BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS,
   },
   async (request: CallableRequest<BackendIdentityJsonMap>) => {
     try {

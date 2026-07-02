@@ -1,0 +1,163 @@
+{
+  "candidateStatus": "SOURCE_IMPLEMENTED_PENDING_LOCAL_AND_CI_PROOF_MERGE_CLIENT_RELEASE_CONTROL_PLANE_AND_DEPLOYMENT",
+  "controls": [
+    {
+      "id": "runtime-service-account-least-privilege",
+      "productionStatus": "OPEN_BLOCKER",
+      "remainingGate": "CREATE_DEDICATED_ACCOUNT_GRANT_MINIMUM_ROLES_DEPLOY_AND_PROVE_CUTOVER_BEFORE_REASSESSING_DEFAULT_COMPUTE_EDITOR",
+      "sourceStatus": "PARTIAL_IDENTITY_FUNCTION_SOURCE_READY"
+    },
+    {
+      "accountPresentAtCollectedBaseline": false,
+      "id": "dedicated-runtime-identity-source-binding",
+      "productionStatus": "OPEN_BLOCKER",
+      "remainingGate": "SEPARATE_SERVICE_ACCOUNT_CREATION_IAM_AND_EXACT_DEPLOYMENT_CAMPAIGN",
+      "serviceAccountEmail": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+      "sourceStatus": "IMPLEMENTED",
+      "targetFunction": "getBackendReleaseIdentity"
+    },
+    {
+      "activationDefine": "CRM3_APP_CHECK_ENABLED",
+      "activationDefineDefault": false,
+      "debugTokenDefine": "CRM3_APP_CHECK_DEBUG_TOKEN",
+      "id": "app-check-client-activation",
+      "productionStatus": "OPEN_BLOCKER",
+      "releaseProviders": {
+        "android": "PLAY_INTEGRITY",
+        "ios": "APP_ATTEST_WITH_DEVICE_CHECK_FALLBACK",
+        "macos": "APP_ATTEST_WITH_DEVICE_CHECK_FALLBACK",
+        "web": "RECAPTCHA_V3"
+      },
+      "releaseUnsupportedPlatforms": [
+        "windows",
+        "linux",
+        "fuchsia"
+      ],
+      "remainingGate": "REGISTER_PROVIDERS_BUILD_AND_DISTRIBUTE_ENABLED_CLIENTS_MONITOR_METRICS",
+      "sourceStatus": "IMPLEMENTED_STAGED_DISABLED_BY_DEFAULT",
+      "webSiteKeyDefine": "CRM3_APP_CHECK_WEB_RECAPTCHA_V3_SITE_KEY"
+    },
+    {
+      "consumeAppCheckToken": false,
+      "enforceAppCheck": true,
+      "id": "callable-app-check-enforcement",
+      "productionStatus": "OPEN_BLOCKER",
+      "remainingGate": "DEPLOY_ONLY_AFTER_REGISTERED_ENABLED_CLIENT_COVERAGE_IS_PROVEN",
+      "sourceStatus": "IMPLEMENTED",
+      "targetFunction": "getBackendReleaseIdentity"
+    },
+    {
+      "baselineAudit": {
+        "critical": 0,
+        "high": 2,
+        "highPackages": [
+          "form-data",
+          "protobufjs"
+        ],
+        "low": 1,
+        "moderate": 1,
+        "total": 4
+      },
+      "candidateAudit": {
+        "critical": 0,
+        "high": 0,
+        "highPackages": [],
+        "low": 0,
+        "moderate": 0,
+        "total": 0
+      },
+      "functionsPackageJsonChanged": false,
+      "functionsPackageLockChanged": true,
+      "id": "high-severity-node-dependency-advisories",
+      "productionStatus": "OPEN_BLOCKER",
+      "remainingGate": "CI_MERGE_AND_EXACT_FUNCTION_DEPLOYMENT; ROOT_LOW_AND_MODERATE_TOOLING_FINDINGS_REMAIN_SEPARATE",
+      "resolvedVersions": {
+        "form-data": "2.5.6",
+        "protobufjs": "7.6.4",
+        "root-protobufjs": "7.6.4"
+      },
+      "rootBaselineAudit": {
+        "critical": 0,
+        "high": 1,
+        "highPackages": [
+          "protobufjs"
+        ],
+        "low": 1,
+        "moderate": 1,
+        "total": 3
+      },
+      "rootCandidateAudit": {
+        "critical": 0,
+        "high": 0,
+        "highPackages": [],
+        "low": 1,
+        "moderate": 1,
+        "remainingPackages": [
+          "@babel/core",
+          "js-yaml"
+        ],
+        "total": 2
+      },
+      "rootPackageJsonChanged": true,
+      "rootPackageLockChanged": true,
+      "sourceStatus": "REMEDIATED_IN_FUNCTIONS_AND_ROOT_CANDIDATE_LOCKFILES"
+    }
+  ],
+  "currentProductionStateChanged": false,
+  "environment": "production-source-candidate",
+  "evidence": {
+    "collectorDecision": "PASS_STAGE2D_COMPREHENSIVE_SOURCE_SECURITY_BASELINE_COLLECTED_CANDIDATES_EVALUATED_IMPLEMENTATION_DESIGN_REQUIRED",
+    "stage2dCollectorFilename": "CRM3_Stage2D_Comprehensive_Source_Security_Baseline_Collector_v1_PASS_STAGE2D_COMPREHENSIVE_SOURCE_SECURITY_BASELINE_COLLECTED_CANDIDATES_EVALUATED_IMPLEMENTATION_DESIGN_REQUIRED_20260702_230630.zip",
+    "stage2dCollectorSha256": "8BE2C48E52625DB0070023A06979D442B364D35E945B05DA5BE6380F7917B7CE"
+  },
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "mutationAuthorization": {
+    "appCheckControlPlaneMutationAuthorized": false,
+    "firebaseDeploymentAuthorized": false,
+    "firestoreWriteAuthorized": false,
+    "iamMutationAuthorized": false,
+    "productionFunctionInvocationAuthorized": false,
+    "sourceBranchCommitPushDraftPrAuthorizedByCampaign": true
+  },
+  "publicTransport": {
+    "applicationLayerControls": [
+      "FIREBASE_AUTHENTICATION",
+      "APPROVED_USER_AUTHORIZATION",
+      "APP_CHECK_AFTER_STAGED_DEPLOYMENT"
+    ],
+    "classification": "INTENTIONAL_FIREBASE_CALLABLE_TRANSPORT",
+    "cloudRunInvokerMember": "allUsers",
+    "removalAuthorized": false
+  },
+  "recordClass": "stage2d-source-security-readiness-candidate",
+  "schemaVersion": 1,
+  "securityReady": false,
+  "sequencing": [
+    "MERGE_SOURCE_ONLY_AFTER_EXACT_HEAD_CI",
+    "CREATE_DEDICATED_SERVICE_ACCOUNT_AND_GRANT_DERIVED_MINIMUM_ROLES",
+    "REGISTER_APP_CHECK_PROVIDERS_FOR_SUPPORTED_RELEASE_CLIENTS",
+    "DISTRIBUTE_APP_CHECK_ENABLED_CLIENTS_AND_MONITOR_METRICS",
+    "DEPLOY_ONLY_GETBACKENDRELEASEIDENTITY_WITH_EXACT_SOURCE_AND_RUNTIME_BINDING",
+    "PROVE_VALID_CLIENT_SUCCESS_AND_MISSING_OR_INVALID_TOKEN_REJECTION",
+    "REASSESS_DEFAULT_COMPUTE_EDITOR_ONLY_AFTER_ALL_REMAINING_FUNCTIONS_ARE_SAFE"
+  ],
+  "sourceBase": {
+    "branch": "main",
+    "commit": "af254039b8a02937bce1bbedbdf9b95777e26ae8",
+    "tree": "c07f365e05cd81cc863d2e9bc7d6e81e6a3d4f4c"
+  },
+  "sourceFiles": {
+    "appCheckBootstrap": "lib/core/security/app_check_bootstrap.dart",
+    "callableExport": "functions/src/index.ts",
+    "callableSecurityConfig": "functions/src/stage2dSecurityConfig.ts",
+    "clientStartup": "lib/main.dart",
+    "flutterLockfile": "pubspec.lock",
+    "flutterManifest": "pubspec.yaml",
+    "nodeLockfile": "functions/package-lock.json",
+    "rootLockfile": "package-lock.json",
+    "rootManifest": "package.json"
+  },
+  "sourceImplementationComplete": true,
+  "sourceReadinessDigest": "5AB77DD5FF479064CC11AE7D1165682ACE00503F601D9B11C5B19F43C820F547",
+  "sourceReadinessDigestAlgorithm": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level sourceReadinessDigest"
+}
