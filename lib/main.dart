@@ -36,6 +36,7 @@ import 'features/auth/providers/auth_provider.dart';
 import 'core/providers/sync_providers.dart';
 import 'core/services/auto_sync_service.dart';
 import 'core/services/app_logger.dart';
+import 'core/security/app_check_bootstrap.dart';
 import 'core/services/crash_reporting_bootstrap.dart';
 import 'core/services/isar_production_recovery.dart';
 import 'core/services/isar_schema_guard.dart';
@@ -240,10 +241,25 @@ Future<StartupFailure?> _initializeFirebaseAndCrashReporting() async {
     );
   }
 
+  late final Crm3AppCheckPlan appCheckPlan;
+  try {
+    appCheckPlan = await activateCrm3AppCheck();
+  } catch (e, st) {
+    debugPrint('❌ Firebase App Check activation failed before app startup: $e');
+    debugPrint('$st');
+    return _captureStartupFailure(
+      stage: 'app_check_activate',
+      error: e,
+      stackTrace: st,
+    );
+  }
+
   try {
     await AppLogger.init(throwOnFailure: true);
-    await AppLogger.setCustomKeys(const {
+    await AppLogger.setCustomKeys({
       'startup_stage': 'firebase_initialized',
+      'app_check_enabled': appCheckPlan.enabled,
+      'app_check_provider': appCheckPlan.provider.name,
     });
     installGlobalCrashReportingHandlers();
   } catch (e, st) {

@@ -28,11 +28,41 @@ void main() {
 
         _expectOrder(firebaseBlock, const [
           'await Firebase.initializeApp(',
+          'appCheckPlan = await activateCrm3AppCheck();',
           'await AppLogger.init(throwOnFailure: true);',
           'installGlobalCrashReportingHandlers();',
         ]);
         expect(firebaseBlock, contains("stage: 'firebase_initialize'"));
+        expect(firebaseBlock, contains("stage: 'app_check_activate'"));
         expect(firebaseBlock, contains("stage: 'app_logger_init'"));
+        expect(firebaseBlock, contains("'app_check_enabled'"));
+        expect(firebaseBlock, contains("'app_check_provider'"));
+      },
+    );
+
+    test(
+      'App Check source is gated, fail-closed, and before Firebase services',
+      () {
+        final source = _readText('lib/core/security/app_check_bootstrap.dart');
+
+        expect(
+          source,
+          contains("const bool crm3AppCheckEnabled = bool.fromEnvironment("),
+        );
+        expect(source, contains("'CRM3_APP_CHECK_ENABLED'"));
+        expect(source, contains('defaultValue: false'));
+        expect(source, contains("'CRM3_APP_CHECK_WEB_RECAPTCHA_V3_SITE_KEY'"));
+        expect(source, contains('AndroidPlayIntegrityProvider'));
+        expect(
+          source,
+          contains('AppleAppAttestWithDeviceCheckFallbackProvider'),
+        );
+        expect(source, contains('WindowsDebugProvider'));
+        expect(
+          source,
+          contains('CRM3 release builds must not use a debug provider'),
+        );
+        expect(source, isNot(contains('consumeAppCheckToken')));
       },
     );
 
