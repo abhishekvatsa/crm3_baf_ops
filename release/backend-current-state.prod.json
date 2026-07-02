@@ -1,0 +1,47 @@
+{
+  "asOfUtc": "2026-07-01T17:49:09.266204Z",
+  "authorityDefinition": {
+    "digest": "59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525",
+    "file": "release/backend-authority.prod.json",
+    "status": "IMMUTABLE_DEPLOYMENT_BOUND_DEFINITION"
+  },
+  "deploymentAttestation": {
+    "digest": "39B0F678C4AED3092511CCE34382CB1B0D6D973C312FB1FC63EA540B5E949F7D",
+    "file": "release/backend-identity-deployment-attestation.prod.json",
+    "status": "VALID"
+  },
+  "derivedState": {
+    "identityFunctionDeployedSourceCommit": "08afc4f3020359fcdfeed472d7f4ba6b01084d44",
+    "identityFunctionDeploymentStatus": "SCHEMA_V2_DEPLOYED_EXACT",
+    "overallStatus": "DEPLOYED_EXACT_SECURITY_GATES_OPEN",
+    "runtimeAuthorityDefinitionDigest": "59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525",
+    "securityStatus": "NOT_SECURITY_READY",
+    "sourceAuthorityReconciliationStatus": "SATISFIED_BY_THIS_INDEX_WHEN_MERGED_TO_MAIN",
+    "stage2dRebuildPermittedOnlyAfterThisIndexMerges": true
+  },
+  "environment": "production",
+  "evidence": {
+    "deploymentEvidenceFilename": "CRM3_Stage2B_V2_Identity_Function_Exact_Deployment_Postdeploy_Audit_v1_3_PASS_STAGE2B_V2_IDENTITY_FUNCTION_DEPLOYED_POSTDEPLOY_AUDIT_PASS_SOURCE_AUTHORITY_RECONCILIATION_REQUIRED_20260701_231659.zip",
+    "deploymentEvidenceSha256": "A802FA912576FB0FC6B4856C38567F71FFEB5CBA6AD32C06E7562AC36E686CB7",
+    "sourceMergeEvidenceFilename": "CRM3_Stage2B_V2_PR27_Guarded_Merge_Postmerge_Audit_v1_PASS_STAGE2B_V2_PR27_MERGED_POSTMERGE_CI_PASS_DEPLOYMENT_PREFLIGHT_REQUIRED_20260701_222714.zip",
+    "sourceMergeEvidenceSha256": "57E0898649D70519B13C479AF536CF0476D17332C0EE8C8092CE8C604940C1DB"
+  },
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "indexClass": "backend-production-current-state-index",
+  "indexDigest": "CAD8D4D2573994421FCC427C309CEA9E51388CDD92290A56B56FF56FAD898202",
+  "indexDigestAlgorithm": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level indexDigest",
+  "interpretationRule": "Do not interpret release/backend-authority.prod.json alone as the current production state. Join the immutable authority definition with the deployment attestation and security-readiness ledger through this index.",
+  "openSecurityControlIds": [
+    "runtime-service-account-least-privilege",
+    "dedicated-runtime-identity-source-binding",
+    "app-check-client-activation",
+    "callable-app-check-enforcement",
+    "high-severity-node-dependency-advisories"
+  ],
+  "schemaVersion": 1,
+  "securityReadiness": {
+    "digest": "36320EBA5F71AC6C75B68AF2855AA5ECCF044610D5E946F411674E3EE553F816",
+    "file": "release/backend-security-readiness.prod.json",
+    "status": "NOT_SECURITY_READY"
+  }
+}

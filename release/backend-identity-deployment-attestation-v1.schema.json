@@ -1,0 +1,509 @@
+{
+  "$id": "https://crm3-baf-ops.local/schemas/backend-identity-deployment-attestation-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Closed exact schema for the immutable production identity deployment attestation. Every nested object is closed and every production fact is fully custodied.",
+  "properties": {
+    "attestationClass": {
+      "const": "verified-production-identity-function-deployment",
+      "type": "string"
+    },
+    "attestationDigest": {
+      "const": "39B0F678C4AED3092511CCE34382CB1B0D6D973C312FB1FC63EA540B5E949F7D",
+      "type": "string"
+    },
+    "attestationDigestAlgorithm": {
+      "const": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level attestationDigest",
+      "type": "string"
+    },
+    "attestedAtUtc": {
+      "const": "2026-07-01T17:49:09.266204Z",
+      "type": "string"
+    },
+    "authorityDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "authorityDigest": {
+          "const": "59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525",
+          "type": "string"
+        },
+        "file": {
+          "const": "release/backend-authority.prod.json",
+          "type": "string"
+        },
+        "immutableDeploymentBoundDefinition": {
+          "const": true,
+          "type": "boolean"
+        },
+        "interpretation": {
+          "const": "The definition digest remains immutable because the live Function is bound to it. Current deployment and security state are supplied by separate attestation and readiness records.",
+          "type": "string"
+        },
+        "releaseId": {
+          "const": "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd",
+          "type": "string"
+        },
+        "runtimeBindingStatus": {
+          "const": "SCHEMA_V2_DEPLOYED_EXACT",
+          "type": "string"
+        },
+        "schemaVersion": {
+          "const": 2,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "authorityDigest",
+        "file",
+        "immutableDeploymentBoundDefinition",
+        "interpretation",
+        "releaseId",
+        "runtimeBindingStatus",
+        "schemaVersion"
+      ],
+      "type": "object"
+    },
+    "deployment": {
+      "additionalProperties": false,
+      "properties": {
+        "availableCpu": {
+          "const": "1",
+          "type": "string"
+        },
+        "availableMemory": {
+          "const": "256Mi",
+          "type": "string"
+        },
+        "buildServiceAccountResource": {
+          "const": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+          "type": "string"
+        },
+        "callableDeploymentLabel": {
+          "const": true,
+          "type": "boolean"
+        },
+        "currentRevision": {
+          "const": "getbackendreleaseidentity-00002-wud",
+          "type": "string"
+        },
+        "currentSourceGeneration": {
+          "const": "1782928076881189",
+          "type": "string"
+        },
+        "deployedArchiveEntryCount": {
+          "const": 41,
+          "type": "integer"
+        },
+        "deployedArchiveSha256": {
+          "const": "692E41AAD6755B362D391736947434FD0BAFBE4F78F57C0D49056BE452FE158D",
+          "type": "string"
+        },
+        "functionName": {
+          "const": "getBackendReleaseIdentity",
+          "type": "string"
+        },
+        "functionUpdateTimeUtc": {
+          "const": "2026-07-01T17:48:43.938588044Z",
+          "type": "string"
+        },
+        "ingressSettings": {
+          "const": "ALLOW_ALL",
+          "type": "string"
+        },
+        "maxInstanceCount": {
+          "const": 20,
+          "type": "integer"
+        },
+        "maxInstanceRequestConcurrency": {
+          "const": 40,
+          "type": "integer"
+        },
+        "previousRevision": {
+          "const": "getbackendreleaseidentity-00001-dos",
+          "type": "string"
+        },
+        "previousSourceGeneration": {
+          "const": "1781896431141186",
+          "type": "string"
+        },
+        "region": {
+          "const": "asia-south1",
+          "type": "string"
+        },
+        "runtime": {
+          "const": "nodejs22",
+          "type": "string"
+        },
+        "runtimeServiceAccountEmail": {
+          "const": "894346496105-compute@developer.gserviceaccount.com",
+          "type": "string"
+        },
+        "sourceCommit": {
+          "const": "08afc4f3020359fcdfeed472d7f4ba6b01084d44",
+          "type": "string"
+        },
+        "sourceTree": {
+          "const": "e831d1ac4c78c787430fa712a0f053aea7c7bc73",
+          "type": "string"
+        },
+        "state": {
+          "const": "ACTIVE",
+          "type": "string"
+        },
+        "timeoutSeconds": {
+          "const": 15,
+          "type": "integer"
+        },
+        "trafficPercentToCurrentRevision": {
+          "const": 100,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "availableCpu",
+        "availableMemory",
+        "buildServiceAccountResource",
+        "callableDeploymentLabel",
+        "currentRevision",
+        "currentSourceGeneration",
+        "deployedArchiveEntryCount",
+        "deployedArchiveSha256",
+        "functionName",
+        "functionUpdateTimeUtc",
+        "ingressSettings",
+        "maxInstanceCount",
+        "maxInstanceRequestConcurrency",
+        "previousRevision",
+        "previousSourceGeneration",
+        "region",
+        "runtime",
+        "runtimeServiceAccountEmail",
+        "sourceCommit",
+        "sourceTree",
+        "state",
+        "timeoutSeconds",
+        "trafficPercentToCurrentRevision"
+      ],
+      "type": "object"
+    },
+    "environment": {
+      "const": "production",
+      "type": "string"
+    },
+    "environmentBindingCustody": {
+      "additionalProperties": false,
+      "properties": {
+        "deployedEnvironmentNames": {
+          "const": [
+            "BACKEND_AUTHORITY_DIGEST",
+            "BACKEND_AUTHORITY_RELEASE_ID",
+            "BACKEND_AUTHORITY_SCHEMA_VERSION",
+            "BACKEND_DEPLOYED_AT",
+            "BACKEND_ENVIRONMENT",
+            "BACKEND_GIT_COMMIT",
+            "BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT",
+            "BACKEND_RELEASE_ID",
+            "FIRESTORE_INDEXES_DIGEST",
+            "FIRESTORE_RULES_DIGEST",
+            "FIRESTORE_RULES_RELEASE_ID",
+            "FUNCTIONS_DIGEST"
+          ],
+          "type": "array"
+        },
+        "deployedEnvironmentValueHashes": {
+          "additionalProperties": false,
+          "properties": {
+            "BACKEND_AUTHORITY_DIGEST": {
+              "const": "7337BAA408F32BA1D592BD3F185850F03DD15A34376A5830C83E5780C17DE289",
+              "type": "string"
+            },
+            "BACKEND_AUTHORITY_RELEASE_ID": {
+              "const": "0CFF7698ADF94EEE1E56D25AC82A2C69831A35D57B6D5B759D14395861EAD37E",
+              "type": "string"
+            },
+            "BACKEND_AUTHORITY_SCHEMA_VERSION": {
+              "const": "D4735E3A265E16EEE03F59718B9B5D03019C07D8B6C51F90DA3A666EEC13AB35",
+              "type": "string"
+            },
+            "BACKEND_DEPLOYED_AT": {
+              "const": "DB9CB0B6C8D4FA4BB20006B63C2686777A4BC948EEA9EC9E7C7C7814D7F17EB4",
+              "type": "string"
+            },
+            "BACKEND_ENVIRONMENT": {
+              "const": "AB8E18EF4EBEBEDDC0B3152CE9C9006E14FC05242E3FC9CE32246EA6A9543074",
+              "type": "string"
+            },
+            "BACKEND_GIT_COMMIT": {
+              "const": "0E947C66A9D17E49F5C3E5D9ED093FF7854E19922D9EBB3DF83624A7A5A44E29",
+              "type": "string"
+            },
+            "BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT": {
+              "const": "01B406741F31C1FA310C9A23B780ADC447F3A742426FAD41F367FB1DB4BDDB57",
+              "type": "string"
+            },
+            "BACKEND_RELEASE_ID": {
+              "const": "FB6CEFDC3121F10A507F9E89E09E1C55DF115586BA8F6EFA86C4AB3528D384C3",
+              "type": "string"
+            },
+            "FIRESTORE_INDEXES_DIGEST": {
+              "const": "D09185EF8DC540B4C15EB4DEFC543ACA12ED33FF926021BE663D0001CF2F37DA",
+              "type": "string"
+            },
+            "FIRESTORE_RULES_DIGEST": {
+              "const": "1F1E0E47672D55AF7901B9FE1E0D7BEA33E759C58750BBE745CE64F80518C808",
+              "type": "string"
+            },
+            "FIRESTORE_RULES_RELEASE_ID": {
+              "const": "D917CD6C22DCB68BEB3860A950154FC837ACC9CC544E94CBCD09AD7F8479FA25",
+              "type": "string"
+            },
+            "FUNCTIONS_DIGEST": {
+              "const": "4C11FD6C266B960E30E47BF4D957DFC0A97350C7F8E9068A30F58156D83BF83D",
+              "type": "string"
+            }
+          },
+          "required": [
+            "BACKEND_AUTHORITY_DIGEST",
+            "BACKEND_AUTHORITY_RELEASE_ID",
+            "BACKEND_AUTHORITY_SCHEMA_VERSION",
+            "BACKEND_DEPLOYED_AT",
+            "BACKEND_ENVIRONMENT",
+            "BACKEND_GIT_COMMIT",
+            "BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT",
+            "BACKEND_RELEASE_ID",
+            "FIRESTORE_INDEXES_DIGEST",
+            "FIRESTORE_RULES_DIGEST",
+            "FIRESTORE_RULES_RELEASE_ID",
+            "FUNCTIONS_DIGEST"
+          ],
+          "type": "object"
+        },
+        "requiredCandidateBindings": {
+          "additionalProperties": false,
+          "properties": {
+            "BACKEND_AUTHORITY_DIGEST": {
+              "const": "59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525",
+              "type": "string"
+            },
+            "BACKEND_AUTHORITY_RELEASE_ID": {
+              "const": "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd",
+              "type": "string"
+            },
+            "BACKEND_AUTHORITY_SCHEMA_VERSION": {
+              "const": "2",
+              "type": "string"
+            },
+            "BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT": {
+              "const": "08afc4f3020359fcdfeed472d7f4ba6b01084d44",
+              "type": "string"
+            }
+          },
+          "required": [
+            "BACKEND_AUTHORITY_DIGEST",
+            "BACKEND_AUTHORITY_RELEASE_ID",
+            "BACKEND_AUTHORITY_SCHEMA_VERSION",
+            "BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "deployedEnvironmentNames",
+        "deployedEnvironmentValueHashes",
+        "requiredCandidateBindings"
+      ],
+      "type": "object"
+    },
+    "evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "deployment": {
+          "additionalProperties": false,
+          "properties": {
+            "decision": {
+              "const": "PASS_STAGE2B_V2_IDENTITY_FUNCTION_DEPLOYED_POSTDEPLOY_AUDIT_PASS_SOURCE_AUTHORITY_RECONCILIATION_REQUIRED",
+              "type": "string"
+            },
+            "filename": {
+              "const": "CRM3_Stage2B_V2_Identity_Function_Exact_Deployment_Postdeploy_Audit_v1_3_PASS_STAGE2B_V2_IDENTITY_FUNCTION_DEPLOYED_POSTDEPLOY_AUDIT_PASS_SOURCE_AUTHORITY_RECONCILIATION_REQUIRED_20260701_231659.zip",
+              "type": "string"
+            },
+            "sha256": {
+              "const": "A802FA912576FB0FC6B4856C38567F71FFEB5CBA6AD32C06E7562AC36E686CB7",
+              "type": "string"
+            }
+          },
+          "required": [
+            "decision",
+            "filename",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "privateArchiveCustody": {
+          "additionalProperties": false,
+          "properties": {
+            "archiveIncludedInSafeEvidence": {
+              "const": false,
+              "type": "boolean"
+            },
+            "archiveSha256": {
+              "const": "692E41AAD6755B362D391736947434FD0BAFBE4F78F57C0D49056BE452FE158D",
+              "type": "string"
+            },
+            "containsProjectEnvironmentFile": {
+              "const": true,
+              "type": "boolean"
+            },
+            "handlingRequirement": {
+              "const": "KEEP_PRIVATE_DO_NOT_UPLOAD",
+              "type": "string"
+            },
+            "projectEnvironmentFilename": {
+              "const": ".env.crm3-baf-ops-b8638",
+              "type": "string"
+            }
+          },
+          "required": [
+            "archiveIncludedInSafeEvidence",
+            "archiveSha256",
+            "containsProjectEnvironmentFile",
+            "handlingRequirement",
+            "projectEnvironmentFilename"
+          ],
+          "type": "object"
+        },
+        "readOnlyNegativeSmoke": {
+          "additionalProperties": false,
+          "properties": {
+            "httpStatus": {
+              "const": 401,
+              "type": "integer"
+            },
+            "productionWritePerformed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "responseStatus": {
+              "const": "UNAUTHENTICATED",
+              "type": "string"
+            },
+            "type": {
+              "const": "READ_ONLY_NEGATIVE_UNAUTHENTICATED_CALLABLE_SMOKE",
+              "type": "string"
+            }
+          },
+          "required": [
+            "httpStatus",
+            "productionWritePerformed",
+            "responseStatus",
+            "type"
+          ],
+          "type": "object"
+        },
+        "sourceMerge": {
+          "additionalProperties": false,
+          "properties": {
+            "decision": {
+              "const": "PASS_STAGE2B_V2_PR27_MERGED_POSTMERGE_CI_PASS_DEPLOYMENT_PREFLIGHT_REQUIRED",
+              "type": "string"
+            },
+            "filename": {
+              "const": "CRM3_Stage2B_V2_PR27_Guarded_Merge_Postmerge_Audit_v1_PASS_STAGE2B_V2_PR27_MERGED_POSTMERGE_CI_PASS_DEPLOYMENT_PREFLIGHT_REQUIRED_20260701_222714.zip",
+              "type": "string"
+            },
+            "sha256": {
+              "const": "57E0898649D70519B13C479AF536CF0476D17332C0EE8C8092CE8C604940C1DB",
+              "type": "string"
+            }
+          },
+          "required": [
+            "decision",
+            "filename",
+            "sha256"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "deployment",
+        "privateArchiveCustody",
+        "readOnlyNegativeSmoke",
+        "sourceMerge"
+      ],
+      "type": "object"
+    },
+    "firebaseProjectId": {
+      "const": "crm3-baf-ops-b8638",
+      "type": "string"
+    },
+    "mutationFence": {
+      "additionalProperties": false,
+      "properties": {
+        "appCheckMutationPerformed": {
+          "const": false,
+          "type": "boolean"
+        },
+        "automaticRollbackPerformed": {
+          "const": false,
+          "type": "boolean"
+        },
+        "firestoreWritePerformed": {
+          "const": false,
+          "type": "boolean"
+        },
+        "gitMutationPerformedByDeploymentCampaign": {
+          "const": false,
+          "type": "boolean"
+        },
+        "iamMutationPerformed": {
+          "const": false,
+          "type": "boolean"
+        },
+        "otherFunctionsChanged": {
+          "const": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "appCheckMutationPerformed",
+        "automaticRollbackPerformed",
+        "firestoreWritePerformed",
+        "gitMutationPerformedByDeploymentCampaign",
+        "iamMutationPerformed",
+        "otherFunctionsChanged"
+      ],
+      "type": "object"
+    },
+    "nextSourceActionAfterMerge": {
+      "const": "REBUILD_STAGE2D_FROM_RECONCILED_MAIN",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "integer"
+    },
+    "status": {
+      "const": "IDENTITY_FUNCTION_DEPLOYED_EXACT",
+      "type": "string"
+    }
+  },
+  "required": [
+    "attestationClass",
+    "attestationDigest",
+    "attestationDigestAlgorithm",
+    "attestedAtUtc",
+    "authorityDefinition",
+    "deployment",
+    "environment",
+    "environmentBindingCustody",
+    "evidence",
+    "firebaseProjectId",
+    "mutationFence",
+    "nextSourceActionAfterMerge",
+    "schemaVersion",
+    "status"
+  ],
+  "title": "CRM3 backend identity deployment attestation v1",
+  "type": "object"
+}

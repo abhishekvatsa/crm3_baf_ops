@@ -1,0 +1,136 @@
+{
+  "asOfUtc": "2026-07-01T17:49:09.266204Z",
+  "controls": [
+    {
+      "futureDeploymentOrClientReleaseRequired": true,
+      "id": "runtime-service-account-least-privilege",
+      "observedState": "DEFAULT_COMPUTE_SERVICE_ACCOUNT_WITH_PROJECT_ROLES_EDITOR",
+      "separateCloudControlPlaneCampaignRequired": true,
+      "sourceRemediationTarget": "Stage2D dedicated runtime identity source binding",
+      "stage2dSourceChangeRequired": true,
+      "status": "OPEN_BLOCKER"
+    },
+    {
+      "futureDeploymentOrClientReleaseRequired": true,
+      "id": "dedicated-runtime-identity-source-binding",
+      "observedState": "ABSENT",
+      "separateCloudControlPlaneCampaignRequired": true,
+      "sourceRemediationTarget": "Stage2D callable deployment options",
+      "stage2dSourceChangeRequired": true,
+      "status": "OPEN_BLOCKER"
+    },
+    {
+      "futureDeploymentOrClientReleaseRequired": true,
+      "id": "app-check-client-activation",
+      "observedState": "ABSENT",
+      "separateCloudControlPlaneCampaignRequired": true,
+      "sourceRemediationTarget": "Stage2D Flutter client integration",
+      "stage2dSourceChangeRequired": true,
+      "status": "OPEN_BLOCKER"
+    },
+    {
+      "futureDeploymentOrClientReleaseRequired": true,
+      "id": "callable-app-check-enforcement",
+      "observedState": "ABSENT",
+      "separateCloudControlPlaneCampaignRequired": false,
+      "sourceRemediationTarget": "Stage2D getBackendReleaseIdentity callable options",
+      "stage2dSourceChangeRequired": true,
+      "status": "OPEN_BLOCKER"
+    },
+    {
+      "futureDeploymentOrClientReleaseRequired": true,
+      "id": "high-severity-node-dependency-advisories",
+      "observedState": "TWO_HIGH_ADVISORIES_IN_DEPLOYED_LOCKFILE",
+      "separateCloudControlPlaneCampaignRequired": false,
+      "sourceRemediationTarget": "Stage2D lockfile and dependency remediation",
+      "stage2dSourceChangeRequired": true,
+      "status": "OPEN_BLOCKER"
+    }
+  ],
+  "dependencyAudit": {
+    "critical": 0,
+    "expectedHighSeverityPackages": [
+      "form-data",
+      "protobufjs"
+    ],
+    "high": 2,
+    "low": 1,
+    "moderate": 1,
+    "packageManager": "npm",
+    "remediationStage": "Stage2D",
+    "status": "OPEN",
+    "totalVulnerabilities": 4
+  },
+  "environment": "production",
+  "evidenceChain": [
+    {
+      "filename": "CRM3_Stage2B_V2_Identity_Function_Deployment_Preflight_Collector_v1_EVIDENCE_20260701_225512_COMPREHENSIVE_PICTURE_COLLECTED_WITH_READ_ONLY_QUERY_GAPS.zip",
+      "role": "READ_ONLY_SECURITY_AND_DEPLOYMENT_PREFLIGHT",
+      "sha256": "B1246930A3C57C42EF33F4BF4E7F1D27D10DC4D942D004745E3CFF96C451AB53"
+    },
+    {
+      "filename": "CRM3_Stage2B_V2_Identity_Function_Exact_Deployment_Postdeploy_Audit_v1_3_PASS_STAGE2B_V2_IDENTITY_FUNCTION_DEPLOYED_POSTDEPLOY_AUDIT_PASS_SOURCE_AUTHORITY_RECONCILIATION_REQUIRED_20260701_231659.zip",
+      "role": "EXACT_DEPLOYMENT_AND_POSTDEPLOYMENT_AUDIT",
+      "sha256": "A802FA912576FB0FC6B4856C38567F71FFEB5CBA6AD32C06E7562AC36E686CB7"
+    }
+  ],
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "mutationAuthorization": {
+    "futureSecurityStageMutationsAuthorizedByThisRecord": false,
+    "thisRecordCampaignAppCheckControlPlaneMutationAuthorized": false,
+    "thisRecordCampaignDeploymentAuthorized": false,
+    "thisRecordCampaignIamMutationAuthorized": false,
+    "thisRecordCampaignSourceOnly": true
+  },
+  "openBlockerCount": 5,
+  "overallStatus": "NOT_SECURITY_READY",
+  "privateArchiveCustody": {
+    "archiveContainsProjectEnvironmentFile": true,
+    "handlingRequirement": "KEEP_BOTH_PREDEPLOY_AND_POSTDEPLOY_ARCHIVES_PRIVATE",
+    "projectEnvironmentFilename": ".env.crm3-baf-ops-b8638",
+    "safeEvidenceContainsArchiveBytes": false
+  },
+  "recordClass": "backend-identity-security-readiness",
+  "schemaVersion": 1,
+  "securityDigest": "36320EBA5F71AC6C75B68AF2855AA5ECCF044610D5E946F411674E3EE553F816",
+  "securityDigestAlgorithm": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level securityDigest",
+  "securityReady": false,
+  "sequencing": {
+    "nextSourceStageAfterActivation": "REBUILD_STAGE2D_FROM_RECONCILED_MAIN",
+    "recordActivationGate": "MERGE_THIS_POSTDEPLOYMENT_BASELINE_TO_MAIN",
+    "separateCloudControlPlaneCampaigns": [
+      "DEDICATED_SERVICE_ACCOUNT_CREATION_AND_IAM_BINDING",
+      "DEFAULT_COMPUTE_ROLES_EDITOR_REMOVAL_AFTER_CUTOVER",
+      "FIREBASE_APP_CHECK_PROVIDER_REGISTRATION_AND_STAGED_ENFORCEMENT"
+    ],
+    "sourceMergeDoesNotAuthorizeCloudMutation": true,
+    "stage2dSourceMergeDoesNotActivateProductionControls": true,
+    "stage2dSourceScope": [
+      "APP_CHECK_CLIENT_SOURCE",
+      "CALLABLE_ENFORCE_APP_CHECK",
+      "DEDICATED_RUNTIME_SERVICE_ACCOUNT_SOURCE_BINDING",
+      "FORM_DATA_AND_PROTOBUFJS_ADVISORY_REMEDIATION"
+    ]
+  },
+  "target": {
+    "functionName": "getBackendReleaseIdentity",
+    "region": "asia-south1",
+    "revision": "getbackendreleaseidentity-00002-wud",
+    "sourceCommit": "08afc4f3020359fcdfeed472d7f4ba6b01084d44",
+    "sourceGeneration": "1782928076881189"
+  },
+  "transportExposure": {
+    "classification": "INTENTIONAL_PUBLIC_TRANSPORT_FOR_FIREBASE_CALLABLE",
+    "cloudRunInvokerMembers": [
+      "allUsers"
+    ],
+    "currentCompensatingControls": [
+      "CALLABLE_AUTHENTICATION_REQUIRED",
+      "ROLE_AND_FIRESTORE_AUTHORIZATION_GATE",
+      "UNAUTHENTICATED_REQUESTS_REJECTED"
+    ],
+    "futureCompensatingControl": "FIREBASE_APP_CHECK_ENFORCEMENT",
+    "reason": "Firebase callable transport remains publicly reachable while authentication and authorization are enforced in the callable protocol. App Check is the planned additional abuse-control layer.",
+    "removalRequired": false
+  }
+}

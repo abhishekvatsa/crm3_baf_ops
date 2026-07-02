@@ -1,0 +1,114 @@
+{
+  "attestationClass": "verified-production-identity-function-deployment",
+  "attestationDigest": "39B0F678C4AED3092511CCE34382CB1B0D6D973C312FB1FC63EA540B5E949F7D",
+  "attestationDigestAlgorithm": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level attestationDigest",
+  "attestedAtUtc": "2026-07-01T17:49:09.266204Z",
+  "authorityDefinition": {
+    "authorityDigest": "59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525",
+    "file": "release/backend-authority.prod.json",
+    "immutableDeploymentBoundDefinition": true,
+    "interpretation": "The definition digest remains immutable because the live Function is bound to it. Current deployment and security state are supplied by separate attestation and readiness records.",
+    "releaseId": "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd",
+    "runtimeBindingStatus": "SCHEMA_V2_DEPLOYED_EXACT",
+    "schemaVersion": 2
+  },
+  "deployment": {
+    "availableCpu": "1",
+    "availableMemory": "256Mi",
+    "buildServiceAccountResource": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+    "callableDeploymentLabel": true,
+    "currentRevision": "getbackendreleaseidentity-00002-wud",
+    "currentSourceGeneration": "1782928076881189",
+    "deployedArchiveEntryCount": 41,
+    "deployedArchiveSha256": "692E41AAD6755B362D391736947434FD0BAFBE4F78F57C0D49056BE452FE158D",
+    "functionName": "getBackendReleaseIdentity",
+    "functionUpdateTimeUtc": "2026-07-01T17:48:43.938588044Z",
+    "ingressSettings": "ALLOW_ALL",
+    "maxInstanceCount": 20,
+    "maxInstanceRequestConcurrency": 40,
+    "previousRevision": "getbackendreleaseidentity-00001-dos",
+    "previousSourceGeneration": "1781896431141186",
+    "region": "asia-south1",
+    "runtime": "nodejs22",
+    "runtimeServiceAccountEmail": "894346496105-compute@developer.gserviceaccount.com",
+    "sourceCommit": "08afc4f3020359fcdfeed472d7f4ba6b01084d44",
+    "sourceTree": "e831d1ac4c78c787430fa712a0f053aea7c7bc73",
+    "state": "ACTIVE",
+    "timeoutSeconds": 15,
+    "trafficPercentToCurrentRevision": 100
+  },
+  "environment": "production",
+  "environmentBindingCustody": {
+    "deployedEnvironmentNames": [
+      "BACKEND_AUTHORITY_DIGEST",
+      "BACKEND_AUTHORITY_RELEASE_ID",
+      "BACKEND_AUTHORITY_SCHEMA_VERSION",
+      "BACKEND_DEPLOYED_AT",
+      "BACKEND_ENVIRONMENT",
+      "BACKEND_GIT_COMMIT",
+      "BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT",
+      "BACKEND_RELEASE_ID",
+      "FIRESTORE_INDEXES_DIGEST",
+      "FIRESTORE_RULES_DIGEST",
+      "FIRESTORE_RULES_RELEASE_ID",
+      "FUNCTIONS_DIGEST"
+    ],
+    "deployedEnvironmentValueHashes": {
+      "BACKEND_AUTHORITY_DIGEST": "7337BAA408F32BA1D592BD3F185850F03DD15A34376A5830C83E5780C17DE289",
+      "BACKEND_AUTHORITY_RELEASE_ID": "0CFF7698ADF94EEE1E56D25AC82A2C69831A35D57B6D5B759D14395861EAD37E",
+      "BACKEND_AUTHORITY_SCHEMA_VERSION": "D4735E3A265E16EEE03F59718B9B5D03019C07D8B6C51F90DA3A666EEC13AB35",
+      "BACKEND_DEPLOYED_AT": "DB9CB0B6C8D4FA4BB20006B63C2686777A4BC948EEA9EC9E7C7C7814D7F17EB4",
+      "BACKEND_ENVIRONMENT": "AB8E18EF4EBEBEDDC0B3152CE9C9006E14FC05242E3FC9CE32246EA6A9543074",
+      "BACKEND_GIT_COMMIT": "0E947C66A9D17E49F5C3E5D9ED093FF7854E19922D9EBB3DF83624A7A5A44E29",
+      "BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT": "01B406741F31C1FA310C9A23B780ADC447F3A742426FAD41F367FB1DB4BDDB57",
+      "BACKEND_RELEASE_ID": "FB6CEFDC3121F10A507F9E89E09E1C55DF115586BA8F6EFA86C4AB3528D384C3",
+      "FIRESTORE_INDEXES_DIGEST": "D09185EF8DC540B4C15EB4DEFC543ACA12ED33FF926021BE663D0001CF2F37DA",
+      "FIRESTORE_RULES_DIGEST": "1F1E0E47672D55AF7901B9FE1E0D7BEA33E759C58750BBE745CE64F80518C808",
+      "FIRESTORE_RULES_RELEASE_ID": "D917CD6C22DCB68BEB3860A950154FC837ACC9CC544E94CBCD09AD7F8479FA25",
+      "FUNCTIONS_DIGEST": "4C11FD6C266B960E30E47BF4D957DFC0A97350C7F8E9068A30F58156D83BF83D"
+    },
+    "requiredCandidateBindings": {
+      "BACKEND_AUTHORITY_DIGEST": "59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525",
+      "BACKEND_AUTHORITY_RELEASE_ID": "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd",
+      "BACKEND_AUTHORITY_SCHEMA_VERSION": "2",
+      "BACKEND_IDENTITY_DEPLOYED_SOURCE_COMMIT": "08afc4f3020359fcdfeed472d7f4ba6b01084d44"
+    }
+  },
+  "evidence": {
+    "deployment": {
+      "decision": "PASS_STAGE2B_V2_IDENTITY_FUNCTION_DEPLOYED_POSTDEPLOY_AUDIT_PASS_SOURCE_AUTHORITY_RECONCILIATION_REQUIRED",
+      "filename": "CRM3_Stage2B_V2_Identity_Function_Exact_Deployment_Postdeploy_Audit_v1_3_PASS_STAGE2B_V2_IDENTITY_FUNCTION_DEPLOYED_POSTDEPLOY_AUDIT_PASS_SOURCE_AUTHORITY_RECONCILIATION_REQUIRED_20260701_231659.zip",
+      "sha256": "A802FA912576FB0FC6B4856C38567F71FFEB5CBA6AD32C06E7562AC36E686CB7"
+    },
+    "privateArchiveCustody": {
+      "archiveIncludedInSafeEvidence": false,
+      "archiveSha256": "692E41AAD6755B362D391736947434FD0BAFBE4F78F57C0D49056BE452FE158D",
+      "containsProjectEnvironmentFile": true,
+      "handlingRequirement": "KEEP_PRIVATE_DO_NOT_UPLOAD",
+      "projectEnvironmentFilename": ".env.crm3-baf-ops-b8638"
+    },
+    "readOnlyNegativeSmoke": {
+      "httpStatus": 401,
+      "productionWritePerformed": false,
+      "responseStatus": "UNAUTHENTICATED",
+      "type": "READ_ONLY_NEGATIVE_UNAUTHENTICATED_CALLABLE_SMOKE"
+    },
+    "sourceMerge": {
+      "decision": "PASS_STAGE2B_V2_PR27_MERGED_POSTMERGE_CI_PASS_DEPLOYMENT_PREFLIGHT_REQUIRED",
+      "filename": "CRM3_Stage2B_V2_PR27_Guarded_Merge_Postmerge_Audit_v1_PASS_STAGE2B_V2_PR27_MERGED_POSTMERGE_CI_PASS_DEPLOYMENT_PREFLIGHT_REQUIRED_20260701_222714.zip",
+      "sha256": "57E0898649D70519B13C479AF536CF0476D17332C0EE8C8092CE8C604940C1DB"
+    }
+  },
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "mutationFence": {
+    "appCheckMutationPerformed": false,
+    "automaticRollbackPerformed": false,
+    "firestoreWritePerformed": false,
+    "gitMutationPerformedByDeploymentCampaign": false,
+    "iamMutationPerformed": false,
+    "otherFunctionsChanged": false
+  },
+  "nextSourceActionAfterMerge": "REBUILD_STAGE2D_FROM_RECONCILED_MAIN",
+  "schemaVersion": 1,
+  "status": "IDENTITY_FUNCTION_DEPLOYED_EXACT"
+}

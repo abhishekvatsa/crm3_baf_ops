@@ -1,0 +1,208 @@
+{
+  "$id": "https://crm3-baf-ops.local/schemas/backend-current-state-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Closed exact schema for the non-recursive production current-state join over authority definition, deployment attestation and security ledger.",
+  "properties": {
+    "asOfUtc": {
+      "const": "2026-07-01T17:49:09.266204Z",
+      "type": "string"
+    },
+    "authorityDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "const": "59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525",
+          "type": "string"
+        },
+        "file": {
+          "const": "release/backend-authority.prod.json",
+          "type": "string"
+        },
+        "status": {
+          "const": "IMMUTABLE_DEPLOYMENT_BOUND_DEFINITION",
+          "type": "string"
+        }
+      },
+      "required": [
+        "digest",
+        "file",
+        "status"
+      ],
+      "type": "object"
+    },
+    "deploymentAttestation": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "const": "39B0F678C4AED3092511CCE34382CB1B0D6D973C312FB1FC63EA540B5E949F7D",
+          "type": "string"
+        },
+        "file": {
+          "const": "release/backend-identity-deployment-attestation.prod.json",
+          "type": "string"
+        },
+        "status": {
+          "const": "VALID",
+          "type": "string"
+        }
+      },
+      "required": [
+        "digest",
+        "file",
+        "status"
+      ],
+      "type": "object"
+    },
+    "derivedState": {
+      "additionalProperties": false,
+      "properties": {
+        "identityFunctionDeployedSourceCommit": {
+          "const": "08afc4f3020359fcdfeed472d7f4ba6b01084d44",
+          "type": "string"
+        },
+        "identityFunctionDeploymentStatus": {
+          "const": "SCHEMA_V2_DEPLOYED_EXACT",
+          "type": "string"
+        },
+        "overallStatus": {
+          "const": "DEPLOYED_EXACT_SECURITY_GATES_OPEN",
+          "type": "string"
+        },
+        "runtimeAuthorityDefinitionDigest": {
+          "const": "59474B02385322F948B8EFB26361F293F1F2A4E9841B7005DAC43BE5664FC525",
+          "type": "string"
+        },
+        "securityStatus": {
+          "const": "NOT_SECURITY_READY",
+          "type": "string"
+        },
+        "sourceAuthorityReconciliationStatus": {
+          "const": "SATISFIED_BY_THIS_INDEX_WHEN_MERGED_TO_MAIN",
+          "type": "string"
+        },
+        "stage2dRebuildPermittedOnlyAfterThisIndexMerges": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "identityFunctionDeployedSourceCommit",
+        "identityFunctionDeploymentStatus",
+        "overallStatus",
+        "runtimeAuthorityDefinitionDigest",
+        "securityStatus",
+        "sourceAuthorityReconciliationStatus",
+        "stage2dRebuildPermittedOnlyAfterThisIndexMerges"
+      ],
+      "type": "object"
+    },
+    "environment": {
+      "const": "production",
+      "type": "string"
+    },
+    "evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "deploymentEvidenceFilename": {
+          "const": "CRM3_Stage2B_V2_Identity_Function_Exact_Deployment_Postdeploy_Audit_v1_3_PASS_STAGE2B_V2_IDENTITY_FUNCTION_DEPLOYED_POSTDEPLOY_AUDIT_PASS_SOURCE_AUTHORITY_RECONCILIATION_REQUIRED_20260701_231659.zip",
+          "type": "string"
+        },
+        "deploymentEvidenceSha256": {
+          "const": "A802FA912576FB0FC6B4856C38567F71FFEB5CBA6AD32C06E7562AC36E686CB7",
+          "type": "string"
+        },
+        "sourceMergeEvidenceFilename": {
+          "const": "CRM3_Stage2B_V2_PR27_Guarded_Merge_Postmerge_Audit_v1_PASS_STAGE2B_V2_PR27_MERGED_POSTMERGE_CI_PASS_DEPLOYMENT_PREFLIGHT_REQUIRED_20260701_222714.zip",
+          "type": "string"
+        },
+        "sourceMergeEvidenceSha256": {
+          "const": "57E0898649D70519B13C479AF536CF0476D17332C0EE8C8092CE8C604940C1DB",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deploymentEvidenceFilename",
+        "deploymentEvidenceSha256",
+        "sourceMergeEvidenceFilename",
+        "sourceMergeEvidenceSha256"
+      ],
+      "type": "object"
+    },
+    "firebaseProjectId": {
+      "const": "crm3-baf-ops-b8638",
+      "type": "string"
+    },
+    "indexClass": {
+      "const": "backend-production-current-state-index",
+      "type": "string"
+    },
+    "indexDigest": {
+      "const": "CAD8D4D2573994421FCC427C309CEA9E51388CDD92290A56B56FF56FAD898202",
+      "type": "string"
+    },
+    "indexDigestAlgorithm": {
+      "const": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level indexDigest",
+      "type": "string"
+    },
+    "interpretationRule": {
+      "const": "Do not interpret release/backend-authority.prod.json alone as the current production state. Join the immutable authority definition with the deployment attestation and security-readiness ledger through this index.",
+      "type": "string"
+    },
+    "openSecurityControlIds": {
+      "const": [
+        "runtime-service-account-least-privilege",
+        "dedicated-runtime-identity-source-binding",
+        "app-check-client-activation",
+        "callable-app-check-enforcement",
+        "high-severity-node-dependency-advisories"
+      ],
+      "type": "array"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "integer"
+    },
+    "securityReadiness": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "const": "36320EBA5F71AC6C75B68AF2855AA5ECCF044610D5E946F411674E3EE553F816",
+          "type": "string"
+        },
+        "file": {
+          "const": "release/backend-security-readiness.prod.json",
+          "type": "string"
+        },
+        "status": {
+          "const": "NOT_SECURITY_READY",
+          "type": "string"
+        }
+      },
+      "required": [
+        "digest",
+        "file",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "asOfUtc",
+    "authorityDefinition",
+    "deploymentAttestation",
+    "derivedState",
+    "environment",
+    "evidence",
+    "firebaseProjectId",
+    "indexClass",
+    "indexDigest",
+    "indexDigestAlgorithm",
+    "interpretationRule",
+    "openSecurityControlIds",
+    "schemaVersion",
+    "securityReadiness"
+  ],
+  "title": "CRM3 backend production current-state index v1",
+  "type": "object"
+}
