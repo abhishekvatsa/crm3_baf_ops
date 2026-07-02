@@ -2,43 +2,48 @@
   "asOfUtc": "2026-07-01T17:49:09.266204Z",
   "controls": [
     {
-      "cloudMutationRequired": true,
+      "futureDeploymentOrClientReleaseRequired": true,
       "id": "runtime-service-account-least-privilege",
       "observedState": "DEFAULT_COMPUTE_SERVICE_ACCOUNT_WITH_PROJECT_ROLES_EDITOR",
-      "separateGovernedCloudCampaignRequired": true,
+      "separateCloudControlPlaneCampaignRequired": true,
       "sourceRemediationTarget": "Stage2D dedicated runtime identity source binding",
+      "stage2dSourceChangeRequired": true,
       "status": "OPEN_BLOCKER"
     },
     {
-      "cloudMutationRequired": true,
+      "futureDeploymentOrClientReleaseRequired": true,
       "id": "dedicated-runtime-identity-source-binding",
       "observedState": "ABSENT",
-      "separateGovernedCloudCampaignRequired": true,
+      "separateCloudControlPlaneCampaignRequired": true,
       "sourceRemediationTarget": "Stage2D callable deployment options",
+      "stage2dSourceChangeRequired": true,
       "status": "OPEN_BLOCKER"
     },
     {
-      "cloudMutationRequired": true,
+      "futureDeploymentOrClientReleaseRequired": true,
       "id": "app-check-client-activation",
       "observedState": "ABSENT",
-      "separateGovernedCloudCampaignRequired": true,
+      "separateCloudControlPlaneCampaignRequired": true,
       "sourceRemediationTarget": "Stage2D Flutter client integration",
+      "stage2dSourceChangeRequired": true,
       "status": "OPEN_BLOCKER"
     },
     {
-      "cloudMutationRequired": false,
+      "futureDeploymentOrClientReleaseRequired": true,
       "id": "callable-app-check-enforcement",
       "observedState": "ABSENT",
-      "separateGovernedCloudCampaignRequired": false,
+      "separateCloudControlPlaneCampaignRequired": false,
       "sourceRemediationTarget": "Stage2D getBackendReleaseIdentity callable options",
+      "stage2dSourceChangeRequired": true,
       "status": "OPEN_BLOCKER"
     },
     {
-      "cloudMutationRequired": false,
+      "futureDeploymentOrClientReleaseRequired": true,
       "id": "high-severity-node-dependency-advisories",
       "observedState": "TWO_HIGH_ADVISORIES_IN_DEPLOYED_LOCKFILE",
-      "separateGovernedCloudCampaignRequired": false,
+      "separateCloudControlPlaneCampaignRequired": false,
       "sourceRemediationTarget": "Stage2D lockfile and dependency remediation",
+      "stage2dSourceChangeRequired": true,
       "status": "OPEN_BLOCKER"
     }
   ],
@@ -71,10 +76,11 @@
   ],
   "firebaseProjectId": "crm3-baf-ops-b8638",
   "mutationAuthorization": {
-    "appCheckControlPlaneMutationAuthorized": false,
-    "deploymentAuthorized": false,
-    "iamMutationAuthorized": false,
-    "sourceRecordOnly": true
+    "futureSecurityStageMutationsAuthorizedByThisRecord": false,
+    "thisRecordCampaignAppCheckControlPlaneMutationAuthorized": false,
+    "thisRecordCampaignDeploymentAuthorized": false,
+    "thisRecordCampaignIamMutationAuthorized": false,
+    "thisRecordCampaignSourceOnly": true
   },
   "openBlockerCount": 5,
   "overallStatus": "NOT_SECURITY_READY",
@@ -86,17 +92,19 @@
   },
   "recordClass": "backend-identity-security-readiness",
   "schemaVersion": 1,
-  "securityDigest": "B2155500A81C1FF6C2D090949AB6E9BAD2DD527BA1BBF1AA99C785F2EFF59FCC",
+  "securityDigest": "36320EBA5F71AC6C75B68AF2855AA5ECCF044610D5E946F411674E3EE553F816",
   "securityDigestAlgorithm": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level securityDigest",
   "securityReady": false,
   "sequencing": {
     "nextSourceStageAfterActivation": "REBUILD_STAGE2D_FROM_RECONCILED_MAIN",
     "recordActivationGate": "MERGE_THIS_POSTDEPLOYMENT_BASELINE_TO_MAIN",
-    "separateCloudCampaigns": [
+    "separateCloudControlPlaneCampaigns": [
       "DEDICATED_SERVICE_ACCOUNT_CREATION_AND_IAM_BINDING",
       "DEFAULT_COMPUTE_ROLES_EDITOR_REMOVAL_AFTER_CUTOVER",
       "FIREBASE_APP_CHECK_PROVIDER_REGISTRATION_AND_STAGED_ENFORCEMENT"
     ],
+    "sourceMergeDoesNotAuthorizeCloudMutation": true,
+    "stage2dSourceMergeDoesNotActivateProductionControls": true,
     "stage2dSourceScope": [
       "APP_CHECK_CLIENT_SOURCE",
       "CALLABLE_ENFORCE_APP_CHECK",

@@ -2,52 +2,61 @@
   "$id": "https://crm3-baf-ops.local/schemas/backend-security-readiness-v1.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
+  "description": "Closed exact schema for the production security-readiness ledger. The five blockers remain open and source, control-plane and activation requirements are explicitly separated.",
   "properties": {
     "asOfUtc": {
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}T.*Z$",
+      "const": "2026-07-01T17:49:09.266204Z",
       "type": "string"
     },
     "controls": {
-      "items": {
-        "additionalProperties": false,
-        "properties": {
-          "cloudMutationRequired": {
-            "type": "boolean"
-          },
-          "id": {
-            "minLength": 3,
-            "type": "string"
-          },
-          "observedState": {
-            "minLength": 3,
-            "type": "string"
-          },
-          "separateGovernedCloudCampaignRequired": {
-            "type": "boolean"
-          },
-          "sourceRemediationTarget": {
-            "minLength": 3,
-            "type": "string"
-          },
-          "status": {
-            "const": "OPEN_BLOCKER",
-            "type": "string"
-          }
+      "const": [
+        {
+          "futureDeploymentOrClientReleaseRequired": true,
+          "id": "runtime-service-account-least-privilege",
+          "observedState": "DEFAULT_COMPUTE_SERVICE_ACCOUNT_WITH_PROJECT_ROLES_EDITOR",
+          "separateCloudControlPlaneCampaignRequired": true,
+          "sourceRemediationTarget": "Stage2D dedicated runtime identity source binding",
+          "stage2dSourceChangeRequired": true,
+          "status": "OPEN_BLOCKER"
         },
-        "required": [
-          "id",
-          "status",
-          "observedState",
-          "sourceRemediationTarget",
-          "cloudMutationRequired",
-          "separateGovernedCloudCampaignRequired"
-        ],
-        "type": "object"
-      },
-      "maxItems": 5,
-      "minItems": 5,
-      "type": "array",
-      "uniqueItems": true
+        {
+          "futureDeploymentOrClientReleaseRequired": true,
+          "id": "dedicated-runtime-identity-source-binding",
+          "observedState": "ABSENT",
+          "separateCloudControlPlaneCampaignRequired": true,
+          "sourceRemediationTarget": "Stage2D callable deployment options",
+          "stage2dSourceChangeRequired": true,
+          "status": "OPEN_BLOCKER"
+        },
+        {
+          "futureDeploymentOrClientReleaseRequired": true,
+          "id": "app-check-client-activation",
+          "observedState": "ABSENT",
+          "separateCloudControlPlaneCampaignRequired": true,
+          "sourceRemediationTarget": "Stage2D Flutter client integration",
+          "stage2dSourceChangeRequired": true,
+          "status": "OPEN_BLOCKER"
+        },
+        {
+          "futureDeploymentOrClientReleaseRequired": true,
+          "id": "callable-app-check-enforcement",
+          "observedState": "ABSENT",
+          "separateCloudControlPlaneCampaignRequired": false,
+          "sourceRemediationTarget": "Stage2D getBackendReleaseIdentity callable options",
+          "stage2dSourceChangeRequired": true,
+          "status": "OPEN_BLOCKER"
+        },
+        {
+          "futureDeploymentOrClientReleaseRequired": true,
+          "id": "high-severity-node-dependency-advisories",
+          "observedState": "TWO_HIGH_ADVISORIES_IN_DEPLOYED_LOCKFILE",
+          "separateCloudControlPlaneCampaignRequired": false,
+          "sourceRemediationTarget": "Stage2D lockfile and dependency remediation",
+          "stage2dSourceChangeRequired": true,
+          "status": "OPEN_BLOCKER"
+        }
+      ],
+      "type": "array"
     },
     "dependencyAudit": {
       "additionalProperties": false,
@@ -57,13 +66,11 @@
           "type": "integer"
         },
         "expectedHighSeverityPackages": {
-          "items": {
-            "type": "string"
-          },
-          "maxItems": 2,
-          "minItems": 2,
-          "type": "array",
-          "uniqueItems": true
+          "const": [
+            "form-data",
+            "protobufjs"
+          ],
+          "type": "array"
         },
         "high": {
           "const": 2,
@@ -95,15 +102,15 @@
         }
       },
       "required": [
-        "packageManager",
-        "totalVulnerabilities",
-        "low",
-        "moderate",
-        "high",
         "critical",
         "expectedHighSeverityPackages",
+        "high",
+        "low",
+        "moderate",
+        "packageManager",
+        "remediationStage",
         "status",
-        "remediationStage"
+        "totalVulnerabilities"
       ],
       "type": "object"
     },
@@ -112,11 +119,18 @@
       "type": "string"
     },
     "evidenceChain": {
-      "items": {
-        "type": "object"
-      },
-      "maxItems": 2,
-      "minItems": 2,
+      "const": [
+        {
+          "filename": "CRM3_Stage2B_V2_Identity_Function_Deployment_Preflight_Collector_v1_EVIDENCE_20260701_225512_COMPREHENSIVE_PICTURE_COLLECTED_WITH_READ_ONLY_QUERY_GAPS.zip",
+          "role": "READ_ONLY_SECURITY_AND_DEPLOYMENT_PREFLIGHT",
+          "sha256": "B1246930A3C57C42EF33F4BF4E7F1D27D10DC4D942D004745E3CFF96C451AB53"
+        },
+        {
+          "filename": "CRM3_Stage2B_V2_Identity_Function_Exact_Deployment_Postdeploy_Audit_v1_3_PASS_STAGE2B_V2_IDENTITY_FUNCTION_DEPLOYED_POSTDEPLOY_AUDIT_PASS_SOURCE_AUTHORITY_RECONCILIATION_REQUIRED_20260701_231659.zip",
+          "role": "EXACT_DEPLOYMENT_AND_POSTDEPLOYMENT_AUDIT",
+          "sha256": "A802FA912576FB0FC6B4856C38567F71FFEB5CBA6AD32C06E7562AC36E686CB7"
+        }
+      ],
       "type": "array"
     },
     "firebaseProjectId": {
@@ -124,6 +138,36 @@
       "type": "string"
     },
     "mutationAuthorization": {
+      "additionalProperties": false,
+      "properties": {
+        "futureSecurityStageMutationsAuthorizedByThisRecord": {
+          "const": false,
+          "type": "boolean"
+        },
+        "thisRecordCampaignAppCheckControlPlaneMutationAuthorized": {
+          "const": false,
+          "type": "boolean"
+        },
+        "thisRecordCampaignDeploymentAuthorized": {
+          "const": false,
+          "type": "boolean"
+        },
+        "thisRecordCampaignIamMutationAuthorized": {
+          "const": false,
+          "type": "boolean"
+        },
+        "thisRecordCampaignSourceOnly": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "thisRecordCampaignSourceOnly",
+        "thisRecordCampaignDeploymentAuthorized",
+        "thisRecordCampaignIamMutationAuthorized",
+        "thisRecordCampaignAppCheckControlPlaneMutationAuthorized",
+        "futureSecurityStageMutationsAuthorizedByThisRecord"
+      ],
       "type": "object"
     },
     "openBlockerCount": {
@@ -135,6 +179,31 @@
       "type": "string"
     },
     "privateArchiveCustody": {
+      "additionalProperties": false,
+      "properties": {
+        "archiveContainsProjectEnvironmentFile": {
+          "const": true,
+          "type": "boolean"
+        },
+        "handlingRequirement": {
+          "const": "KEEP_BOTH_PREDEPLOY_AND_POSTDEPLOY_ARCHIVES_PRIVATE",
+          "type": "string"
+        },
+        "projectEnvironmentFilename": {
+          "const": ".env.crm3-baf-ops-b8638",
+          "type": "string"
+        },
+        "safeEvidenceContainsArchiveBytes": {
+          "const": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "archiveContainsProjectEnvironmentFile",
+        "handlingRequirement",
+        "projectEnvironmentFilename",
+        "safeEvidenceContainsArchiveBytes"
+      ],
       "type": "object"
     },
     "recordClass": {
@@ -146,7 +215,7 @@
       "type": "integer"
     },
     "securityDigest": {
-      "pattern": "^[A-F0-9]{64}$",
+      "const": "36320EBA5F71AC6C75B68AF2855AA5ECCF044610D5E946F411674E3EE553F816",
       "type": "string"
     },
     "securityDigestAlgorithm": {
@@ -158,6 +227,50 @@
       "type": "boolean"
     },
     "sequencing": {
+      "additionalProperties": false,
+      "properties": {
+        "nextSourceStageAfterActivation": {
+          "const": "REBUILD_STAGE2D_FROM_RECONCILED_MAIN",
+          "type": "string"
+        },
+        "recordActivationGate": {
+          "const": "MERGE_THIS_POSTDEPLOYMENT_BASELINE_TO_MAIN",
+          "type": "string"
+        },
+        "separateCloudControlPlaneCampaigns": {
+          "const": [
+            "DEDICATED_SERVICE_ACCOUNT_CREATION_AND_IAM_BINDING",
+            "DEFAULT_COMPUTE_ROLES_EDITOR_REMOVAL_AFTER_CUTOVER",
+            "FIREBASE_APP_CHECK_PROVIDER_REGISTRATION_AND_STAGED_ENFORCEMENT"
+          ],
+          "type": "array"
+        },
+        "sourceMergeDoesNotAuthorizeCloudMutation": {
+          "const": true,
+          "type": "boolean"
+        },
+        "stage2dSourceMergeDoesNotActivateProductionControls": {
+          "const": true,
+          "type": "boolean"
+        },
+        "stage2dSourceScope": {
+          "const": [
+            "APP_CHECK_CLIENT_SOURCE",
+            "CALLABLE_ENFORCE_APP_CHECK",
+            "DEDICATED_RUNTIME_SERVICE_ACCOUNT_SOURCE_BINDING",
+            "FORM_DATA_AND_PROTOBUFJS_ADVISORY_REMEDIATION"
+          ],
+          "type": "array"
+        }
+      },
+      "required": [
+        "recordActivationGate",
+        "nextSourceStageAfterActivation",
+        "stage2dSourceScope",
+        "separateCloudControlPlaneCampaigns",
+        "sourceMergeDoesNotAuthorizeCloudMutation",
+        "stage2dSourceMergeDoesNotActivateProductionControls"
+      ],
       "type": "object"
     },
     "target": {
@@ -176,7 +289,7 @@
           "type": "string"
         },
         "sourceCommit": {
-          "pattern": "^[a-f0-9]{40}$",
+          "const": "08afc4f3020359fcdfeed472d7f4ba6b01084d44",
           "type": "string"
         },
         "sourceGeneration": {
@@ -194,29 +307,70 @@
       "type": "object"
     },
     "transportExposure": {
+      "additionalProperties": false,
+      "properties": {
+        "classification": {
+          "const": "INTENTIONAL_PUBLIC_TRANSPORT_FOR_FIREBASE_CALLABLE",
+          "type": "string"
+        },
+        "cloudRunInvokerMembers": {
+          "const": [
+            "allUsers"
+          ],
+          "type": "array"
+        },
+        "currentCompensatingControls": {
+          "const": [
+            "CALLABLE_AUTHENTICATION_REQUIRED",
+            "ROLE_AND_FIRESTORE_AUTHORIZATION_GATE",
+            "UNAUTHENTICATED_REQUESTS_REJECTED"
+          ],
+          "type": "array"
+        },
+        "futureCompensatingControl": {
+          "const": "FIREBASE_APP_CHECK_ENFORCEMENT",
+          "type": "string"
+        },
+        "reason": {
+          "const": "Firebase callable transport remains publicly reachable while authentication and authorization are enforced in the callable protocol. App Check is the planned additional abuse-control layer.",
+          "type": "string"
+        },
+        "removalRequired": {
+          "const": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "classification",
+        "cloudRunInvokerMembers",
+        "currentCompensatingControls",
+        "futureCompensatingControl",
+        "reason",
+        "removalRequired"
+      ],
       "type": "object"
     }
   },
   "required": [
-    "schemaVersion",
-    "recordClass",
-    "securityDigestAlgorithm",
     "asOfUtc",
-    "environment",
-    "firebaseProjectId",
-    "target",
-    "overallStatus",
-    "securityReady",
-    "openBlockerCount",
     "controls",
-    "transportExposure",
     "dependencyAudit",
-    "privateArchiveCustody",
+    "environment",
     "evidenceChain",
-    "sequencing",
+    "firebaseProjectId",
     "mutationAuthorization",
-    "securityDigest"
+    "openBlockerCount",
+    "overallStatus",
+    "privateArchiveCustody",
+    "recordClass",
+    "schemaVersion",
+    "securityDigest",
+    "securityDigestAlgorithm",
+    "securityReady",
+    "sequencing",
+    "target",
+    "transportExposure"
   ],
-  "title": "CRM3 backend security readiness v1",
+  "title": "CRM3 backend identity security-readiness record v1",
   "type": "object"
 }

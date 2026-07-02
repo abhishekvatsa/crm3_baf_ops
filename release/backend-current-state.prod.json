@@ -28,7 +28,7 @@
   },
   "firebaseProjectId": "crm3-baf-ops-b8638",
   "indexClass": "backend-production-current-state-index",
-  "indexDigest": "BC38C664D85AB8FF1882E4262BCEAA1619E7AC335324F4F717296996C5249BFB",
+  "indexDigest": "CAD8D4D2573994421FCC427C309CEA9E51388CDD92290A56B56FF56FAD898202",
   "indexDigestAlgorithm": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level indexDigest",
   "interpretationRule": "Do not interpret release/backend-authority.prod.json alone as the current production state. Join the immutable authority definition with the deployment attestation and security-readiness ledger through this index.",
   "openSecurityControlIds": [
@@ -40,7 +40,7 @@
   ],
   "schemaVersion": 1,
   "securityReadiness": {
-    "digest": "B2155500A81C1FF6C2D090949AB6E9BAD2DD527BA1BBF1AA99C785F2EFF59FCC",
+    "digest": "36320EBA5F71AC6C75B68AF2855AA5ECCF044610D5E946F411674E3EE553F816",
     "file": "release/backend-security-readiness.prod.json",
     "status": "NOT_SECURITY_READY"
   }
