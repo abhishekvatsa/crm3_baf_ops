@@ -1,0 +1,81 @@
+{
+  "$id": "https://crm3-baf-ops.local/schemas/backend-current-state-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "asOfUtc": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T.*Z$",
+      "type": "string"
+    },
+    "authorityDefinition": {
+      "type": "object"
+    },
+    "deploymentAttestation": {
+      "type": "object"
+    },
+    "derivedState": {
+      "type": "object"
+    },
+    "environment": {
+      "const": "production",
+      "type": "string"
+    },
+    "evidence": {
+      "type": "object"
+    },
+    "firebaseProjectId": {
+      "const": "crm3-baf-ops-b8638",
+      "type": "string"
+    },
+    "indexClass": {
+      "const": "backend-production-current-state-index",
+      "type": "string"
+    },
+    "indexDigest": {
+      "pattern": "^[A-F0-9]{64}$",
+      "type": "string"
+    },
+    "indexDigestAlgorithm": {
+      "const": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level indexDigest",
+      "type": "string"
+    },
+    "interpretationRule": {
+      "minLength": 40,
+      "type": "string"
+    },
+    "openSecurityControlIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 5,
+      "minItems": 5,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "integer"
+    },
+    "securityReadiness": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "indexClass",
+    "indexDigestAlgorithm",
+    "asOfUtc",
+    "environment",
+    "firebaseProjectId",
+    "authorityDefinition",
+    "deploymentAttestation",
+    "securityReadiness",
+    "derivedState",
+    "interpretationRule",
+    "openSecurityControlIds",
+    "evidence",
+    "indexDigest"
+  ],
+  "title": "CRM3 backend production current-state index v1",
+  "type": "object"
+}

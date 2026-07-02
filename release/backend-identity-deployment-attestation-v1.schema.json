@@ -1,0 +1,236 @@
+{
+  "$id": "https://crm3-baf-ops.local/schemas/backend-identity-deployment-attestation-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "attestationClass": {
+      "const": "verified-production-identity-function-deployment",
+      "type": "string"
+    },
+    "attestationDigest": {
+      "pattern": "^[A-F0-9]{64}$",
+      "type": "string"
+    },
+    "attestationDigestAlgorithm": {
+      "const": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level attestationDigest",
+      "type": "string"
+    },
+    "attestedAtUtc": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T.*Z$",
+      "type": "string"
+    },
+    "authorityDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "authorityDigest": {
+          "pattern": "^[A-F0-9]{64}$",
+          "type": "string"
+        },
+        "file": {
+          "const": "release/backend-authority.prod.json",
+          "type": "string"
+        },
+        "immutableDeploymentBoundDefinition": {
+          "const": true,
+          "type": "boolean"
+        },
+        "interpretation": {
+          "minLength": 20,
+          "type": "string"
+        },
+        "releaseId": {
+          "const": "prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd",
+          "type": "string"
+        },
+        "runtimeBindingStatus": {
+          "const": "SCHEMA_V2_DEPLOYED_EXACT",
+          "type": "string"
+        },
+        "schemaVersion": {
+          "const": 2,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "file",
+        "schemaVersion",
+        "authorityDigest",
+        "releaseId",
+        "immutableDeploymentBoundDefinition",
+        "runtimeBindingStatus",
+        "interpretation"
+      ],
+      "type": "object"
+    },
+    "deployment": {
+      "additionalProperties": false,
+      "properties": {
+        "availableCpu": {
+          "const": "1",
+          "type": "string"
+        },
+        "availableMemory": {
+          "const": "256Mi",
+          "type": "string"
+        },
+        "buildServiceAccountResource": {
+          "minLength": 20,
+          "type": "string"
+        },
+        "callableDeploymentLabel": {
+          "const": true,
+          "type": "boolean"
+        },
+        "currentRevision": {
+          "const": "getbackendreleaseidentity-00002-wud",
+          "type": "string"
+        },
+        "currentSourceGeneration": {
+          "const": "1782928076881189",
+          "type": "string"
+        },
+        "deployedArchiveEntryCount": {
+          "const": 41,
+          "type": "integer"
+        },
+        "deployedArchiveSha256": {
+          "pattern": "^[A-F0-9]{64}$",
+          "type": "string"
+        },
+        "functionName": {
+          "const": "getBackendReleaseIdentity",
+          "type": "string"
+        },
+        "functionUpdateTimeUtc": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T.*Z$",
+          "type": "string"
+        },
+        "ingressSettings": {
+          "const": "ALLOW_ALL",
+          "type": "string"
+        },
+        "maxInstanceCount": {
+          "const": 20,
+          "type": "integer"
+        },
+        "maxInstanceRequestConcurrency": {
+          "const": 40,
+          "type": "integer"
+        },
+        "previousRevision": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "previousSourceGeneration": {
+          "pattern": "^\\d+$",
+          "type": "string"
+        },
+        "region": {
+          "const": "asia-south1",
+          "type": "string"
+        },
+        "runtime": {
+          "const": "nodejs22",
+          "type": "string"
+        },
+        "runtimeServiceAccountEmail": {
+          "const": "894346496105-compute@developer.gserviceaccount.com",
+          "type": "string"
+        },
+        "sourceCommit": {
+          "pattern": "^[a-f0-9]{40}$",
+          "type": "string"
+        },
+        "sourceTree": {
+          "pattern": "^[a-f0-9]{40}$",
+          "type": "string"
+        },
+        "state": {
+          "const": "ACTIVE",
+          "type": "string"
+        },
+        "timeoutSeconds": {
+          "const": 15,
+          "type": "integer"
+        },
+        "trafficPercentToCurrentRevision": {
+          "const": 100,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "functionName",
+        "region",
+        "runtime",
+        "state",
+        "sourceCommit",
+        "sourceTree",
+        "previousRevision",
+        "currentRevision",
+        "previousSourceGeneration",
+        "currentSourceGeneration",
+        "deployedArchiveSha256",
+        "deployedArchiveEntryCount",
+        "functionUpdateTimeUtc",
+        "trafficPercentToCurrentRevision",
+        "runtimeServiceAccountEmail",
+        "buildServiceAccountResource",
+        "ingressSettings",
+        "maxInstanceCount",
+        "maxInstanceRequestConcurrency",
+        "availableMemory",
+        "availableCpu",
+        "timeoutSeconds",
+        "callableDeploymentLabel"
+      ],
+      "type": "object"
+    },
+    "environment": {
+      "const": "production",
+      "type": "string"
+    },
+    "environmentBindingCustody": {
+      "type": "object"
+    },
+    "evidence": {
+      "type": "object"
+    },
+    "firebaseProjectId": {
+      "const": "crm3-baf-ops-b8638",
+      "type": "string"
+    },
+    "mutationFence": {
+      "type": "object"
+    },
+    "nextSourceActionAfterMerge": {
+      "const": "REBUILD_STAGE2D_FROM_RECONCILED_MAIN",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "integer"
+    },
+    "status": {
+      "const": "IDENTITY_FUNCTION_DEPLOYED_EXACT",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "attestationClass",
+    "attestationDigestAlgorithm",
+    "attestedAtUtc",
+    "environment",
+    "firebaseProjectId",
+    "status",
+    "authorityDefinition",
+    "deployment",
+    "environmentBindingCustody",
+    "evidence",
+    "mutationFence",
+    "nextSourceActionAfterMerge",
+    "attestationDigest"
+  ],
+  "title": "CRM3 backend identity deployment attestation v1",
+  "type": "object"
+}

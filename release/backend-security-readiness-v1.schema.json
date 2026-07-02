@@ -1,0 +1,222 @@
+{
+  "$id": "https://crm3-baf-ops.local/schemas/backend-security-readiness-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "asOfUtc": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T.*Z$",
+      "type": "string"
+    },
+    "controls": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "cloudMutationRequired": {
+            "type": "boolean"
+          },
+          "id": {
+            "minLength": 3,
+            "type": "string"
+          },
+          "observedState": {
+            "minLength": 3,
+            "type": "string"
+          },
+          "separateGovernedCloudCampaignRequired": {
+            "type": "boolean"
+          },
+          "sourceRemediationTarget": {
+            "minLength": 3,
+            "type": "string"
+          },
+          "status": {
+            "const": "OPEN_BLOCKER",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "observedState",
+          "sourceRemediationTarget",
+          "cloudMutationRequired",
+          "separateGovernedCloudCampaignRequired"
+        ],
+        "type": "object"
+      },
+      "maxItems": 5,
+      "minItems": 5,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "dependencyAudit": {
+      "additionalProperties": false,
+      "properties": {
+        "critical": {
+          "const": 0,
+          "type": "integer"
+        },
+        "expectedHighSeverityPackages": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "high": {
+          "const": 2,
+          "type": "integer"
+        },
+        "low": {
+          "const": 1,
+          "type": "integer"
+        },
+        "moderate": {
+          "const": 1,
+          "type": "integer"
+        },
+        "packageManager": {
+          "const": "npm",
+          "type": "string"
+        },
+        "remediationStage": {
+          "const": "Stage2D",
+          "type": "string"
+        },
+        "status": {
+          "const": "OPEN",
+          "type": "string"
+        },
+        "totalVulnerabilities": {
+          "const": 4,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "packageManager",
+        "totalVulnerabilities",
+        "low",
+        "moderate",
+        "high",
+        "critical",
+        "expectedHighSeverityPackages",
+        "status",
+        "remediationStage"
+      ],
+      "type": "object"
+    },
+    "environment": {
+      "const": "production",
+      "type": "string"
+    },
+    "evidenceChain": {
+      "items": {
+        "type": "object"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "firebaseProjectId": {
+      "const": "crm3-baf-ops-b8638",
+      "type": "string"
+    },
+    "mutationAuthorization": {
+      "type": "object"
+    },
+    "openBlockerCount": {
+      "const": 5,
+      "type": "integer"
+    },
+    "overallStatus": {
+      "const": "NOT_SECURITY_READY",
+      "type": "string"
+    },
+    "privateArchiveCustody": {
+      "type": "object"
+    },
+    "recordClass": {
+      "const": "backend-identity-security-readiness",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "integer"
+    },
+    "securityDigest": {
+      "pattern": "^[A-F0-9]{64}$",
+      "type": "string"
+    },
+    "securityDigestAlgorithm": {
+      "const": "CRM3-CANONICAL-JSON-V1: SHA-256 of UTF-8 JSON with sorted keys and compact separators after omitting top-level securityDigest",
+      "type": "string"
+    },
+    "securityReady": {
+      "const": false,
+      "type": "boolean"
+    },
+    "sequencing": {
+      "type": "object"
+    },
+    "target": {
+      "additionalProperties": false,
+      "properties": {
+        "functionName": {
+          "const": "getBackendReleaseIdentity",
+          "type": "string"
+        },
+        "region": {
+          "const": "asia-south1",
+          "type": "string"
+        },
+        "revision": {
+          "const": "getbackendreleaseidentity-00002-wud",
+          "type": "string"
+        },
+        "sourceCommit": {
+          "pattern": "^[a-f0-9]{40}$",
+          "type": "string"
+        },
+        "sourceGeneration": {
+          "const": "1782928076881189",
+          "type": "string"
+        }
+      },
+      "required": [
+        "functionName",
+        "region",
+        "revision",
+        "sourceCommit",
+        "sourceGeneration"
+      ],
+      "type": "object"
+    },
+    "transportExposure": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "recordClass",
+    "securityDigestAlgorithm",
+    "asOfUtc",
+    "environment",
+    "firebaseProjectId",
+    "target",
+    "overallStatus",
+    "securityReady",
+    "openBlockerCount",
+    "controls",
+    "transportExposure",
+    "dependencyAudit",
+    "privateArchiveCustody",
+    "evidenceChain",
+    "sequencing",
+    "mutationAuthorization",
+    "securityDigest"
+  ],
+  "title": "CRM3 backend security readiness v1",
+  "type": "object"
+}
