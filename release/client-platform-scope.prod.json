@@ -1,0 +1,96 @@
+{
+  "appCheckCurrentEnforcementEligiblePlatforms": [
+    "android"
+  ],
+  "boundEvidence": {
+    "mainShaBeforeDeclaration": "6ef97fad5b2ae38bb50d3d18ea7acb22d2edb454",
+    "mainTreeBeforeDeclaration": "aeddcfd63b887b4241ddda5869b06bb24bc6064f",
+    "stage2dCReleaseScopeAdjudicationV14Sha256": "002E700A71D3037DC20F222E6037EC0B3E515989F4BE63B8B2D848E5C4FC76CA"
+  },
+  "currentReleasePlatforms": [
+    "android"
+  ],
+  "declarationStatus": "GOVERNED_PRODUCTION_RELEASE_SCOPE",
+  "effectiveStage": "STAGE2D_C",
+  "excludedPlatforms": [
+    "ios",
+    "macos",
+    "windows",
+    "linux",
+    "fuchsia"
+  ],
+  "futurePlatforms": [
+    "web"
+  ],
+  "governanceRules": [
+    "Configuration presence in firebase_options.dart does not establish production release authority",
+    "A platform may move into currentReleasePlatforms only through a separate governed source gate",
+    "Provider credentials and enforcement may be changed only for current and explicitly authorized platforms",
+    "Provider registration, client distribution, metrics review and enforcement remain separately gated"
+  ],
+  "platformDecisions": {
+    "android": {
+      "appCheckDisposition": "IN_SCOPE",
+      "basis": [
+        "Governed APK/AAB production build tooling exists",
+        "Android package identity is permanently approved",
+        "Physical Android, weak-network and recovery gates are the established release path"
+      ],
+      "classification": "CURRENT_RELEASE"
+    },
+    "fuchsia": {
+      "appCheckDisposition": "UNSUPPORTED",
+      "basis": [
+        "No governed Fuchsia release workflow exists and the Stage 2D source fails closed"
+      ],
+      "classification": "EXCLUDED_FROM_CURRENT_RELEASE"
+    },
+    "ios": {
+      "appCheckDisposition": "NO_CURRENT_PROVIDER_MUTATION",
+      "basis": [
+        "No governed IPA, App Store, TestFlight, signing or Apple release workflow was proven"
+      ],
+      "classification": "EXCLUDED_FROM_CURRENT_RELEASE"
+    },
+    "linux": {
+      "appCheckDisposition": "UNSUPPORTED",
+      "basis": [
+        "No governed Linux release workflow exists and the Stage 2D source fails closed"
+      ],
+      "classification": "EXCLUDED_FROM_CURRENT_RELEASE"
+    },
+    "macos": {
+      "appCheckDisposition": "NO_CURRENT_PROVIDER_MUTATION",
+      "basis": [
+        "No governed macOS production build, signing or distribution workflow was proven"
+      ],
+      "classification": "EXCLUDED_FROM_CURRENT_RELEASE"
+    },
+    "web": {
+      "appCheckDisposition": "DEFER_PROVIDER_REGISTRATION",
+      "basis": [
+        "Source supports fail-closed web App Check but no current governed web build or Hosting deployment authority was proven"
+      ],
+      "classification": "FUTURE_PLATFORM"
+    },
+    "windows": {
+      "appCheckDisposition": "OUTSIDE_APP_CHECK_ENFORCEMENT_POPULATION",
+      "basis": [
+        "Stage 2D source explicitly refuses App Check-enabled non-debug Windows startup",
+        "Historical Windows release-gate wording is not current client-release authority",
+        "The Firebase WebApp named windows is retained as configuration inventory only"
+      ],
+      "classification": "EXCLUDED_FROM_CURRENT_RELEASE"
+    }
+  },
+  "projectId": "crm3-baf-ops-b8638",
+  "providerPlanningAuthorizedPlatforms": [
+    "android"
+  ],
+  "providerReadinessDeferredUntilPlatformPromotion": [
+    "web",
+    "ios",
+    "macos"
+  ],
+  "schemaVersion": 2
+}
