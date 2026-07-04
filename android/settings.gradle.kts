@@ -24,7 +24,7 @@ plugins {
     // Modernized for 2026 compatibility
     id("com.google.gms.google-services") version "4.4.2" apply false
     // Required for AGP 8.9.1 support
-    id("org.jetbrains.kotlin.android") version "2.2.10" apply false
+    id("org.jetbrains.kotlin.android") version "2.4.0" apply false
 }
 
 include(":app")
