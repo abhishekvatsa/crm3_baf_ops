@@ -1,0 +1,210 @@
+{
+  "schemaVersion": 1,
+  "gateId": "STAGE2D-F1B",
+  "declarationStatus": "GOVERNED_INTERNAL_CONTROLLED_DEPLOYMENT_SCOPE",
+  "effectiveTrack": "INTERNAL_CONTROLLED_PILOT",
+  "projectId": "crm3-baf-ops-b8638",
+  "application": {
+    "packageId": "in.co.sail.bsl.crm3.bafops",
+    "platform": "android",
+    "releaseVersionAtDeclaration": "1.0.0-rc.1+1"
+  },
+  "authority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "baselineBranch": "main",
+    "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+    "baselineTree": "6c38f5a42ccdf73e994ea7febb00e81fadf8103a",
+    "f1aDecisionCustody": {
+      "fileName": "CRM3_Stage2D_F1A_Internal_Controlled_Deployment_Decision_Custody_v1_16A_20260713_202138.zip",
+      "sha256": "5BE4A11E097DB1628BA18A20C3423539BADFA793FA7839D9E0D0CDFC8E2D0AFD",
+      "decision": "PASS_STAGE2D_F1A_INTERNAL_CONTROLLED_DEPLOYMENT_DECISION_CUSTODY"
+    },
+    "sourceAuditPackage": {
+      "fileName": "CRM3_PROJECT_AUDIT_SOURCE_PACKAGE_v1_2_20260712_220303.zip",
+      "sha256": "1C6AAF80D62ED6FC193F8F77BD637A897662018D720AC131D6F8B2AF1E2B20DC"
+    },
+    "deepDartReaudit": {
+      "fileName": "CRM3_BAF_Ops_Deep_Dart_by_Dart_Reaudit_2026-07-13.pdf",
+      "sha256": "370D9272ADC2AF846E0E4C37842C10FB3C3A312A30357F09282F08C047A14850",
+      "role": "CURRENT_SOURCE_LEVEL_TECHNICAL_AUTHORITY"
+    },
+    "governanceAudit": {
+      "fileName": "CRM3_Project_Audit_Report_v4_Adjudicated_Governance_20260713.pdf",
+      "role": "STAGE2D_F_GOVERNANCE_AND_F1A_F1B_AUTHORITY",
+      "sha256": "8A128BEA2CE4AAEDFF407EAF76EBB2A7EE623C10513009107B710852F369B403"
+    }
+  },
+  "pilotCeiling": {
+    "maxApprovedUsers": 40,
+    "rosterAuthority": "Firestore users collection isApproved under named administrator approval and custody receipt",
+    "rosterAndRolesFrozenAtHandout": true,
+    "liveCountEvidenceRequired": "LR-01"
+  },
+  "distribution": {
+    "authorizedPlanningModes": [
+      "internal-release-signed-apk",
+      "firebase-app-distribution"
+    ],
+    "playConsole": "NOT_USED",
+    "playStore": "NOT_USED",
+    "webDistribution": "NOT_AUTHORIZED",
+    "externalOrPublicDistribution": "NOT_AUTHORIZED",
+    "unrestrictedDistribution": "NO_GO"
+  },
+  "attestation": {
+    "playIntegrity": "DEFERRED",
+    "appCheckClientActivation": "OFF_BY_GOVERNED_DEFERRAL",
+    "appCheckCallableEnforcement": "OFF_FOR_MUTATING_CALLABLES_BY_GOVERNED_DEFERRAL",
+    "trackASeverity": "DEFERRED_MEDIUM",
+    "trackBSeverity": "BLOCKER",
+    "reArmFindingId": "S-02",
+    "severityVocabularyAuthority": "governance/programme-ledger.json#severityVocabulary"
+  },
+  "primaryControls": [
+    "firebase-auth",
+    "admin-approval-gate",
+    "sealed-user-roster",
+    "role-governed-firestore-rules",
+    "server-side-user-and-role-recheck",
+    "append-only-audit",
+    "immediate-approval-revocation",
+    "sync-rejection-hold-and-review"
+  ],
+  "administrativeMutationPolicy": {
+    "atHandout": "ROSTER_AND_ROLES_FROZEN",
+    "existingClientPathPermittedDuringPilot": [
+      "isApproved true-to-false revocation only"
+    ],
+    "existingClientPathProhibitedDuringPilot": [
+      "isApproved false-to-true approval grant",
+      "role addition",
+      "role removal",
+      "admin-role change",
+      "last-approved-admin quorum change"
+    ],
+    "revocationCompensatingControls": [
+      "named administrator",
+      "single-field true-to-false mutation",
+      "separate custody receipt",
+      "next-privileged-operation denial verification",
+      "no simultaneous role mutation"
+    ],
+    "requiredPermanentCorrectionFindingId": "S-05"
+  },
+  "dataCompatibilityPolicy": {
+    "unknownRoleWriteSemantics": "REJECT_OUTSIDE_CANONICAL_ROLE_VOCABULARY",
+    "unknownRoleReadSemantics": "PRESERVE_QUARANTINE_GRANT_NOTHING_EMIT_DIAGNOSTIC",
+    "malformedTimestampReadSemantics": "PRESERVE_PARSE_FAILURE_DO_NOT_MANUFACTURE_NOW",
+    "relatedFindings": [
+      "S-04",
+      "A-04",
+      "A-05"
+    ]
+  },
+  "deviceProvenancePolicy": {
+    "freshOrSecurelyWipedDevice": "ELIGIBLE_FOR_PILOT_PROVENANCE_GATE",
+    "previouslyUsedDevice": "BLOCKED_UNTIL_WIPED_OR_STRUCTURALLY_PROBED",
+    "beforeAnySchemaVersionIncrease": "P-06_ABSOLUTE_BLOCKER",
+    "relatedFindingId": "P-06",
+    "requiredEvidence": [
+      "device inventory",
+      "provenance classification",
+      "wipe receipt or structural-probe evidence"
+    ]
+  },
+  "recordedAcceptances": [
+    {
+      "id": "M3-R8",
+      "decision": "RELEASE_BUILD_WITHOUT_R8_ACCEPTED_FOR_BOUNDED_PILOT_ONLY",
+      "reconsiderBeforeTrackB": true
+    },
+    {
+      "id": "I1-READ-MODEL",
+      "decision": "COARSE_APPROVED_USER_READ_MODEL_ACCEPTED_FOR_SEALED_PLANT_ROSTER_ONLY",
+      "reconsiderBeforeTrackB": true
+    }
+  ],
+  "independentActiveTracks": [
+    {
+      "id": "S-01",
+      "name": "Least-privilege runtime identity and default Compute service-account role reduction",
+      "status": "OPEN",
+      "notDeferredByRosterSize": true
+    },
+    {
+      "id": "P-06",
+      "name": "Unmarked-existing-store correction and 70K recovery proof",
+      "status": "OPEN"
+    },
+    {
+      "id": "LR-01-LR-07",
+      "name": "Live readback and distribution evidence programme",
+      "status": "OPEN"
+    }
+  ],
+  "reArmTriggers": [
+    {
+      "id": "RA-01",
+      "condition": "approved roster exceeds pilotCeiling.maxApprovedUsers",
+      "sourceDetectable": false,
+      "evidenceProbe": "LR-01"
+    },
+    {
+      "id": "RA-02",
+      "condition": "artifact or credentials are distributed beyond the sealed roster",
+      "sourceDetectable": false,
+      "evidenceProbe": "LR-07"
+    },
+    {
+      "id": "RA-03",
+      "condition": "Play Store or Play Console distribution is introduced",
+      "sourceDetectable": true,
+      "sourceField": "distribution.playConsole or distribution.playStore"
+    },
+    {
+      "id": "RA-04",
+      "condition": "web or another client platform is promoted to current release scope",
+      "sourceDetectable": true,
+      "sourceField": "release/client-platform-scope.prod.json"
+    },
+    {
+      "id": "RA-05",
+      "condition": "external contractor or public distribution exceeds the sealed trust model",
+      "sourceDetectable": false,
+      "evidenceProbe": "LR-01 and LR-07"
+    },
+    {
+      "id": "RA-06",
+      "condition": "security incident, credential replay, abuse signal or unsupported-client event is detected",
+      "sourceDetectable": false,
+      "evidenceProbe": "incident evidence"
+    }
+  ],
+  "onReArm": {
+    "ledgerTransition": [
+      "DEFERRED",
+      "RE_ARMED",
+      "OPEN"
+    ],
+    "historyRule": "APPEND_ONLY_DO_NOT_REWRITE_PRIOR_DEFERRAL",
+    "track": "UNRESTRICTED_DISTRIBUTION",
+    "requiredControls": [
+      "activate App Check client coverage",
+      "enforce App Check on every mutating callable",
+      "register and prove Play Integrity for the promoted signing identity",
+      "add appropriate per-user and per-operation abuse controls"
+    ]
+  },
+  "programmeLedger": {
+    "path": "governance/programme-ledger.json",
+    "statusOwner": true,
+    "reportsMayNotInventIndependentStatus": true
+  },
+  "nonClaims": [
+    "This declaration does not authorize pilot handout.",
+    "This declaration does not prove a signed pilot artifact.",
+    "This declaration does not prove live Firebase, IAM, Auth, backup or GitHub state.",
+    "This declaration does not close F2 through F6.",
+    "This declaration does not authorize unrestricted distribution."
+  ]
+}

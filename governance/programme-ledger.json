@@ -1,0 +1,1716 @@
+{
+  "schemaVersion": 1,
+  "declarationStatus": "CANONICAL_SUPERSESSION_AWARE_PROGRAMME_LEDGER",
+  "ledgerId": "CRM3-BAF-OPS-PROGRAMME-LEDGER",
+  "authority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "baselineBranch": "main",
+    "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+    "scopeDeclarationPath": "release/stage2d-f-internal-controlled-deployment-scope.json",
+    "authorityStack": [
+      "sealed evidence packages own exact Git, PR, CI, build and captured-runtime facts",
+      "deep Dart-by-Dart re-audit owns current source-level technical findings and sequencing",
+      "Audit v4 owns Stage 2D-F governance terminology and F1A/F1B framing",
+      "live-readback packages own deployed state",
+      "this ledger owns current status, supersession, deferral and re-arm history"
+    ]
+  },
+  "programmeDecision": {
+    "controlledEngineering": "GO",
+    "technicalReaudit": "CURRENT_TECHNICAL_AUTHORITY",
+    "internalControlledPilot": "GO_WITH_GATES",
+    "pilotHandout": "NOT_AUTHORIZED",
+    "playIntegrityAndAppCheck": "GOVERNED_DEFERRAL",
+    "leastPrivilegeIam": "ACTIVE_INDEPENDENT_TRACK",
+    "broadFeatureExpansion": "HOLD",
+    "section71Implementation": "HOLD_CONCEPT_PRESERVED",
+    "unrestrictedDistribution": "NO_GO",
+    "nextMutation": "STAGE2D-F1B_G01_GOVERNANCE_PR"
+  },
+  "statusVocabulary": [
+    "OPEN",
+    "SOURCE_IMPLEMENTED",
+    "MERGED",
+    "DEPLOYED",
+    "LIVE_READBACK_PROVED",
+    "DEVICE_PROVED",
+    "PILOT_AUTHORIZED",
+    "DEFERRED",
+    "RE_ARMED",
+    "SUPERSEDED",
+    "CLOSED"
+  ],
+  "transitionPolicy": {
+    "historyMode": "APPEND_ONLY",
+    "profileMode": "PER_RECORD",
+    "currentStatusMustEqualLastHistoryEntry": true,
+    "transitionProfiles": {
+      "DECISION_CUSTODY": {
+        "allowedTransitions": {
+          "OPEN": [
+            "CLOSED",
+            "SUPERSEDED"
+          ],
+          "CLOSED": [
+            "OPEN",
+            "SUPERSEDED"
+          ],
+          "SUPERSEDED": []
+        }
+      },
+      "SOURCE_AND_CI": {
+        "allowedTransitions": {
+          "OPEN": [
+            "SOURCE_IMPLEMENTED",
+            "SUPERSEDED",
+            "CLOSED"
+          ],
+          "SOURCE_IMPLEMENTED": [
+            "MERGED",
+            "OPEN",
+            "SUPERSEDED"
+          ],
+          "MERGED": [
+            "CLOSED",
+            "OPEN",
+            "SUPERSEDED"
+          ],
+          "CLOSED": [
+            "OPEN",
+            "SUPERSEDED"
+          ],
+          "SUPERSEDED": []
+        }
+      },
+      "DEPLOYED_CONTROL": {
+        "allowedTransitions": {
+          "OPEN": [
+            "SOURCE_IMPLEMENTED",
+            "SUPERSEDED",
+            "CLOSED"
+          ],
+          "SOURCE_IMPLEMENTED": [
+            "MERGED",
+            "OPEN",
+            "SUPERSEDED"
+          ],
+          "MERGED": [
+            "DEPLOYED",
+            "OPEN",
+            "SUPERSEDED",
+            "CLOSED"
+          ],
+          "DEPLOYED": [
+            "LIVE_READBACK_PROVED",
+            "DEVICE_PROVED",
+            "OPEN",
+            "SUPERSEDED",
+            "CLOSED"
+          ],
+          "LIVE_READBACK_PROVED": [
+            "DEVICE_PROVED",
+            "OPEN",
+            "SUPERSEDED",
+            "CLOSED"
+          ],
+          "DEVICE_PROVED": [
+            "OPEN",
+            "SUPERSEDED",
+            "CLOSED"
+          ],
+          "CLOSED": [
+            "OPEN",
+            "SUPERSEDED"
+          ],
+          "SUPERSEDED": []
+        }
+      },
+      "LIVE_READBACK": {
+        "allowedTransitions": {
+          "OPEN": [
+            "LIVE_READBACK_PROVED",
+            "SUPERSEDED",
+            "CLOSED"
+          ],
+          "LIVE_READBACK_PROVED": [
+            "CLOSED",
+            "OPEN",
+            "SUPERSEDED"
+          ],
+          "CLOSED": [
+            "OPEN",
+            "SUPERSEDED"
+          ],
+          "SUPERSEDED": []
+        }
+      },
+      "DEVICE_EVIDENCE": {
+        "allowedTransitions": {
+          "OPEN": [
+            "DEVICE_PROVED",
+            "SUPERSEDED",
+            "CLOSED"
+          ],
+          "DEVICE_PROVED": [
+            "CLOSED",
+            "OPEN",
+            "SUPERSEDED"
+          ],
+          "CLOSED": [
+            "OPEN",
+            "SUPERSEDED"
+          ],
+          "SUPERSEDED": []
+        }
+      },
+      "PILOT_AUTHORIZATION": {
+        "allowedTransitions": {
+          "OPEN": [
+            "PILOT_AUTHORIZED",
+            "SUPERSEDED"
+          ],
+          "PILOT_AUTHORIZED": [
+            "CLOSED",
+            "OPEN",
+            "SUPERSEDED"
+          ],
+          "CLOSED": [
+            "OPEN",
+            "SUPERSEDED"
+          ],
+          "SUPERSEDED": []
+        }
+      }
+    },
+    "reArmOverlay": {
+      "entryAllowedFrom": [
+        "OPEN",
+        "SOURCE_IMPLEMENTED",
+        "MERGED",
+        "DEPLOYED",
+        "LIVE_READBACK_PROVED",
+        "DEVICE_PROVED",
+        "PILOT_AUTHORIZED"
+      ],
+      "allowedTransitions": {
+        "DEFERRED": [
+          "RE_ARMED",
+          "SUPERSEDED",
+          "CLOSED"
+        ],
+        "RE_ARMED": [
+          "OPEN"
+        ]
+      }
+    },
+    "reArmRule": {
+      "requiredSequence": [
+        "DEFERRED",
+        "RE_ARMED",
+        "OPEN"
+      ],
+      "priorDeferralMustRemainInHistory": true,
+      "reArmEntryRequires": [
+        "triggerId",
+        "detectedAt",
+        "evidenceReference"
+      ],
+      "reArmedMayTransitionOnlyTo": [
+        "OPEN"
+      ]
+    },
+    "terminalStatuses": [
+      "SUPERSEDED"
+    ]
+  },
+  "supersessionPolicy": {
+    "statusOwner": "governance/programme-ledger.json",
+    "reportsMayDescribeButMustNotInventStatus": true,
+    "technicalFindingIds": "P/S/R/A/C/D/G register supersedes earlier severity labels where issue identity overlaps",
+    "governanceGateIds": "STAGE2D-F1A/F1B/F2/F3/F4/F5/F6 are canonical",
+    "legacyReferencesArePreserved": true,
+    "recordReferenceFormat": "GATE:<gateId> or FINDING:<findingId>",
+    "recordLevelFieldsRequired": true,
+    "emptySupersedesAndNullSupersededByAreValid": true,
+    "selfSupersessionForbidden": true,
+    "circularSupersessionForbidden": true,
+    "referencedRecordsMustExist": true
+  },
+  "programmeGates": [
+    {
+      "recordId": "GATE:STAGE2D-F1A",
+      "gateId": "STAGE2D-F1A",
+      "canonicalName": "Internal controlled deployment decision custody",
+      "track": "INTERNAL_PILOT",
+      "authorityType": "DECISION_CUSTODY",
+      "transitionProfile": "DECISION_CUSTODY",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [
+        {
+          "fileName": "CRM3_Stage2D_F1A_Internal_Controlled_Deployment_Decision_Custody_v1_16A_20260713_202138.zip",
+          "sha256": "5BE4A11E097DB1628BA18A20C3423539BADFA793FA7839D9E0D0CDFC8E2D0AFD",
+          "decision": "PASS_STAGE2D_F1A_INTERNAL_CONTROLLED_DEPLOYMENT_DECISION_CUSTODY"
+        }
+      ],
+      "requiredExitEvidence": [
+        "F1A decision-custody ZIP and sidecar"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-13",
+          "basis": "F1A evidence accepted"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:STAGE2D-F1B",
+      "gateId": "STAGE2D-F1B",
+      "canonicalName": "Governed internal-pilot scope declaration",
+      "track": "INTERNAL_PILOT",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "SOURCE_IMPLEMENTED",
+      "authorization": "NOT_YET_MERGED",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "scope JSON",
+        "scope contract test",
+        "full CI",
+        "merged PR",
+        "postmerge closure"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-13",
+          "basis": "This source campaign adds the declaration and contract test"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:G-01",
+      "gateId": "G-01",
+      "canonicalName": "Canonical supersession-aware programme ledger",
+      "track": "BOTH_TRACKS",
+      "authorityType": "GOVERNANCE_LEDGER",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "SOURCE_IMPLEMENTED",
+      "authorization": "NOT_YET_MERGED",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "programme ledger JSON",
+        "ledger contract test",
+        "full CI",
+        "merged PR",
+        "postmerge closure"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-13",
+          "basis": "This source campaign adds the canonical ledger and contract test"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:STAGE2D-F2",
+      "gateId": "STAGE2D-F2",
+      "canonicalName": "Pilot signing, OAuth, identity and roster seal",
+      "track": "INTERNAL_PILOT",
+      "authorityType": "DEPLOYED_RUNTIME",
+      "transitionProfile": "DEPLOYED_CONTROL",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "BLOCKS_PILOT_HANDOUT",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "exact signing certificate SHA-1 and SHA-256",
+        "Firebase registration",
+        "physical-device Google Sign-In",
+        "P-02 closure",
+        "roster authority receipt"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Required after F1B/G-01"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:STAGE2D-F3",
+      "gateId": "STAGE2D-F3",
+      "canonicalName": "Controlled internal artifact and custody proof",
+      "track": "INTERNAL_PILOT",
+      "authorityType": "DEPLOYED_RUNTIME",
+      "transitionProfile": "DEPLOYED_CONTROL",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "BLOCKS_PILOT_HANDOUT",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "signed APK hash",
+        "package/version/source/certificate binding",
+        "controlled distribution channel"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Required after F2"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:STAGE2D-F4",
+      "gateId": "STAGE2D-F4",
+      "canonicalName": "Physical-device signed-in sync and revocation proof",
+      "track": "INTERNAL_PILOT",
+      "authorityType": "DEVICE_EVIDENCE",
+      "transitionProfile": "DEVICE_EVIDENCE",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "BLOCKS_PILOT_HANDOUT",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "approved sign-in",
+        "sync marker",
+        "offline/reconnect",
+        "weak-network",
+        "revocation next-operation denial",
+        "wrong-role denials"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Required after F3"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:STAGE2D-F5",
+      "gateId": "STAGE2D-F5",
+      "canonicalName": "Pilot Rules, allowlist and callable matrix",
+      "track": "INTERNAL_PILOT",
+      "authorityType": "LIVE_READBACK",
+      "transitionProfile": "LIVE_READBACK",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "BLOCKS_PILOT_HANDOUT",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "positive and negative role matrix",
+        "unapproved and revoked denial",
+        "server-owned write denial",
+        "audit visibility"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Required after F4"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:STAGE2D-F6",
+      "gateId": "STAGE2D-F6",
+      "canonicalName": "Small-group pilot readiness and recoverability",
+      "track": "INTERNAL_PILOT",
+      "authorityType": "PILOT_AUTHORIZATION",
+      "transitionProfile": "PILOT_AUTHORIZATION",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "BLOCKS_PILOT_HANDOUT",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "support owner",
+        "stop conditions",
+        "device inventory",
+        "backup and restore proof",
+        "privacy note",
+        "incident and rollback paths",
+        "pilot acceptance script"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Final pilot authorization gate"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:H2-IAM",
+      "gateId": "H2-IAM",
+      "canonicalName": "Least-privilege runtime identity campaign",
+      "track": "INDEPENDENT_SECURITY",
+      "authorityType": "DEPLOYED_RUNTIME",
+      "transitionProfile": "DEPLOYED_CONTROL",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "ACTIVE_INDEPENDENT_TRACK",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "LR-03",
+        "per-function runtime identities",
+        "default Compute Editor removal after safe cutover"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Not deferred by roster size"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:70K-RECOVERY",
+      "gateId": "70K-RECOVERY",
+      "canonicalName": "Local database provenance, migration and recovery campaign",
+      "track": "RECOVERABILITY",
+      "authorityType": "DEVICE_EVIDENCE",
+      "transitionProfile": "DEVICE_EVIDENCE",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "CONDITIONAL_PILOT_BLOCKER_AND_PRE_SCHEMA_BUMP_BLOCKER",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "device provenance",
+        "unmarked-store correction",
+        "populated migration fixture",
+        "interrupt/restart/reconcile proof"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "P-06 adjudication"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:LR-01",
+      "gateId": "LR-01",
+      "canonicalName": "Firebase Auth and roster live readback",
+      "track": "LIVE_READBACK",
+      "authorityType": "LIVE_READBACK",
+      "transitionProfile": "LIVE_READBACK",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep re-audit live-readback appendix"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:LR-02",
+      "gateId": "LR-02",
+      "canonicalName": "Firestore Rules and indexes live readback",
+      "track": "LIVE_READBACK",
+      "authorityType": "LIVE_READBACK",
+      "transitionProfile": "LIVE_READBACK",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep re-audit live-readback appendix"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:LR-03",
+      "gateId": "LR-03",
+      "canonicalName": "IAM and Functions identity live readback",
+      "track": "LIVE_READBACK",
+      "authorityType": "LIVE_READBACK",
+      "transitionProfile": "LIVE_READBACK",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep re-audit live-readback appendix"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:LR-04",
+      "gateId": "LR-04",
+      "canonicalName": "Backup, PITR and restore live readback",
+      "track": "LIVE_READBACK",
+      "authorityType": "LIVE_READBACK",
+      "transitionProfile": "LIVE_READBACK",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep re-audit live-readback appendix"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:LR-05",
+      "gateId": "LR-05",
+      "canonicalName": "GitHub signing-environment live readback",
+      "track": "LIVE_READBACK",
+      "authorityType": "LIVE_READBACK",
+      "transitionProfile": "LIVE_READBACK",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep re-audit live-readback appendix"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:LR-06",
+      "gateId": "LR-06",
+      "canonicalName": "Deployed runtime dependency readback",
+      "track": "LIVE_READBACK",
+      "authorityType": "LIVE_READBACK",
+      "transitionProfile": "LIVE_READBACK",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep re-audit live-readback appendix"
+        }
+      ]
+    },
+    {
+      "recordId": "GATE:LR-07",
+      "gateId": "LR-07",
+      "canonicalName": "Distribution and installation receipt readback",
+      "track": "LIVE_READBACK",
+      "authorityType": "LIVE_READBACK",
+      "transitionProfile": "LIVE_READBACK",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [
+        "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
+      ],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep re-audit live-readback appendix"
+        }
+      ]
+    }
+  ],
+  "technicalFindings": [
+    {
+      "recordId": "FINDING:P-01",
+      "findingId": "P-01",
+      "title": "Internal signing and OAuth certificate not yet sealed",
+      "track": "BOTH_TRACKS",
+      "authorityType": "DEPLOYED_RUNTIME",
+      "transitionProfile": "DEPLOYED_CONTROL",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "BLOCKER",
+      "unrestrictedSeverity": "BLOCKER",
+      "legacyReferences": [
+        "F1/M4a",
+        "M4"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:P-02",
+      "findingId": "P-02",
+      "title": "Pending user email is not bound to Firebase token identity",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "BLOCKER",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [
+        "L6"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:P-03",
+      "findingId": "P-03",
+      "title": "Internal-deployment and App Check deferral scope is not yet machine-governed",
+      "track": "INTERNAL_PILOT",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "SOURCE_IMPLEMENTED",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "BLOCKER",
+      "unrestrictedSeverity": "MEDIUM",
+      "legacyReferences": [
+        "F1B",
+        "v3 section 13"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-13",
+          "basis": "Stage 2D-F1B/G-01 governance source campaign"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:P-04",
+      "findingId": "P-04",
+      "title": "Fresh live Rules and indexes readback is not in the current package",
+      "track": "LIVE_READBACK",
+      "authorityType": "LIVE_READBACK",
+      "transitionProfile": "LIVE_READBACK",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "HIGH",
+      "unrestrictedSeverity": "BLOCKER",
+      "legacyReferences": [
+        "LR-02"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:P-05",
+      "findingId": "P-05",
+      "title": "Firestore backup, PITR and restore status is unproved",
+      "track": "RECOVERABILITY",
+      "authorityType": "LIVE_READBACK",
+      "transitionProfile": "LIVE_READBACK",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "HIGH",
+      "unrestrictedSeverity": "BLOCKER",
+      "legacyReferences": [
+        "M7",
+        "F5"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:P-06",
+      "findingId": "P-06",
+      "title": "Existing unmarked Isar store can be stamped current without validation",
+      "track": "RECOVERABILITY",
+      "authorityType": "DEPLOYED_RUNTIME",
+      "transitionProfile": "DEPLOYED_CONTROL",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "CONDITIONAL_BLOCKER",
+      "unrestrictedSeverity": "BLOCKER",
+      "legacyReferences": [
+        "F6/70K"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:P-07",
+      "findingId": "P-07",
+      "title": "Physical-device signed-in sync, revocation and role-negative matrix remains open",
+      "track": "INTERNAL_PILOT",
+      "authorityType": "DEVICE_EVIDENCE",
+      "transitionProfile": "DEVICE_EVIDENCE",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "BLOCKER",
+      "unrestrictedSeverity": "BLOCKER",
+      "legacyReferences": [
+        "F3",
+        "F4"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:S-01",
+      "findingId": "S-01",
+      "title": "Default Compute service-account and Editor blast radius remains",
+      "track": "INDEPENDENT_SECURITY",
+      "authorityType": "DEPLOYED_RUNTIME",
+      "transitionProfile": "DEPLOYED_CONTROL",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "HIGH",
+      "unrestrictedSeverity": "BLOCKER",
+      "legacyReferences": [
+        "H2"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:S-02",
+      "findingId": "S-02",
+      "title": "App Check and Play Integrity are not enforced on mutating callables",
+      "track": "BOTH_TRACKS",
+      "authorityType": "DEPLOYED_RUNTIME",
+      "transitionProfile": "DEPLOYED_CONTROL",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "DEFERRED",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "DEFERRED_MEDIUM",
+      "unrestrictedSeverity": "BLOCKER",
+      "legacyReferences": [
+        "H1"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [
+        "RA-01",
+        "RA-02",
+        "RA-03",
+        "RA-04",
+        "RA-05",
+        "RA-06"
+      ],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "DEFERRED",
+          "effectiveDate": "2026-07-13",
+          "basis": "Governed internal controlled pilot, maximum 40 approved users"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:S-03",
+      "findingId": "S-03",
+      "title": "Application-level rate limits and anomaly quotas are absent",
+      "track": "INDEPENDENT_SECURITY",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:S-04",
+      "findingId": "S-04",
+      "title": "Admin role values and user-document keys are under-constrained",
+      "track": "INDEPENDENT_SECURITY",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "HIGH",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [
+        "L5"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:S-05",
+      "findingId": "S-05",
+      "title": "Privilege mutation, audit evidence and last-admin quorum are non-atomic",
+      "track": "INDEPENDENT_SECURITY",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "HIGH",
+      "unrestrictedSeverity": "BLOCKER",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:S-06",
+      "findingId": "S-06",
+      "title": "Closure authorization read occurs outside the business transaction",
+      "track": "INDEPENDENT_SECURITY",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:S-07",
+      "findingId": "S-07",
+      "title": "Admin charge-abnormality update lacks invariants and audit coupling",
+      "track": "INDEPENDENT_SECURITY",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:S-08",
+      "findingId": "S-08",
+      "title": "Raw exception objects and stacks may reach Crashlytics",
+      "track": "INDEPENDENT_SECURITY",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:R-01",
+      "findingId": "R-01",
+      "title": "Client-time delta cursor can permanently miss slow-clock writes",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Reliability/data",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "BLOCKER",
+      "legacyReferences": [
+        "M6"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:R-02",
+      "findingId": "R-02",
+      "title": "One global cursor is not partitioned by domain, user or database generation",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Reliability/data",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:R-03",
+      "findingId": "R-03",
+      "title": "Queued or throttled sync is reported as failure",
+      "track": "INTERNAL_PILOT",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Reliability/data",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "MEDIUM",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:R-04",
+      "findingId": "R-04",
+      "title": "Single FCM token per user and no token-refresh installation registry",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Reliability/data",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "MEDIUM",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:R-05",
+      "findingId": "R-05",
+      "title": "Notification triggers lack event-idempotency receipts",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Reliability/data",
+      "pilotSeverity": "LOW_MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:A-01",
+      "findingId": "A-01",
+      "title": "A 62-file SCC and global Isar back-import remain",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Architecture",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:A-02",
+      "findingId": "A-02",
+      "title": "Large mixed-responsibility providers and screens remain",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Architecture",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:A-03",
+      "findingId": "A-03",
+      "title": "Direct Firestore and Isar access bypasses consistent repositories",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Architecture",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:A-04",
+      "findingId": "A-04",
+      "title": "Dynamic maps, JSON strings and parser fallbacks hide schema drift",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Architecture",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:A-05",
+      "findingId": "A-05",
+      "title": "Empty catches and DateTime.now fallbacks manufacture or suppress state",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Architecture",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "MEDIUM",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:C-01",
+      "findingId": "C-01",
+      "title": "workflow_dispatch inputs are interpolated into privileged scripts",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "CI/release",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [
+        "M1"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:C-02",
+      "findingId": "C-02",
+      "title": "Audit package omits key governance and test lockfiles",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "CI/release",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "MEDIUM",
+      "legacyReferences": [
+        "M8"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:C-03",
+      "findingId": "C-03",
+      "title": "Normal CI does not prove Android packaging on every PR",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "CI/release",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:C-04",
+      "findingId": "C-04",
+      "title": "Test headline mixes static contracts with runtime evidence",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "CI/release",
+      "pilotSeverity": "LOW_MEDIUM",
+      "unrestrictedSeverity": "MEDIUM",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:C-05",
+      "findingId": "C-05",
+      "title": "Legacy functions/index.js duplicates notification trigger names",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "CI/release",
+      "pilotSeverity": "LOW",
+      "unrestrictedSeverity": "MEDIUM",
+      "legacyReferences": [
+        "M2"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:C-06",
+      "findingId": "C-06",
+      "title": "R8 and resource shrinking are disabled without a recorded general decision",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "CI/release",
+      "pilotSeverity": "LOW",
+      "unrestrictedSeverity": "MEDIUM",
+      "legacyReferences": [
+        "M3"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:D-01",
+      "findingId": "D-01",
+      "title": "Repository dependency remediation may not be deployed live",
+      "track": "LIVE_READBACK",
+      "authorityType": "LIVE_READBACK",
+      "transitionProfile": "LIVE_READBACK",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "OPEN",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [
+        "LR-06"
+      ],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-13",
+          "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:G-01",
+      "findingId": "G-01",
+      "title": "No single current supersession-aware programme ledger exists",
+      "track": "BOTH_TRACKS",
+      "authorityType": "GOVERNANCE_LEDGER",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
+      "currentStatus": "SOURCE_IMPLEMENTED",
+      "ownerClass": "Governance",
+      "pilotSeverity": "BLOCKER",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [],
+      "requiredExitEvidence": [],
+      "reArmTriggers": [],
+      "notes": [],
+      "statusHistory": [
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-13",
+          "basis": "Stage 2D-F1B/G-01 governance source campaign"
+        }
+      ]
+    }
+  ],
+  "severityVocabulary": [
+    "BLOCKER",
+    "CONDITIONAL_BLOCKER",
+    "HIGH",
+    "MEDIUM",
+    "LOW_MEDIUM",
+    "LOW",
+    "DEFERRED_MEDIUM"
+  ],
+  "trackVocabulary": [
+    "INTERNAL_PILOT",
+    "UNRESTRICTED_DISTRIBUTION",
+    "BOTH_TRACKS",
+    "INDEPENDENT_SECURITY",
+    "RECOVERABILITY",
+    "LIVE_READBACK"
+  ],
+  "authorityTypeVocabulary": [
+    "DECISION_CUSTODY",
+    "SOURCE_AND_CI",
+    "DEPLOYED_RUNTIME",
+    "LIVE_READBACK",
+    "DEVICE_EVIDENCE",
+    "PILOT_AUTHORIZATION",
+    "GOVERNANCE_LEDGER"
+  ],
+  "transitionProfileVocabulary": [
+    "DECISION_CUSTODY",
+    "SOURCE_AND_CI",
+    "DEPLOYED_CONTROL",
+    "LIVE_READBACK",
+    "DEVICE_EVIDENCE",
+    "PILOT_AUTHORIZATION"
+  ],
+  "authorityTypeDefaultTransitionProfile": {
+    "DECISION_CUSTODY": "DECISION_CUSTODY",
+    "SOURCE_AND_CI": "SOURCE_AND_CI",
+    "DEPLOYED_RUNTIME": "DEPLOYED_CONTROL",
+    "LIVE_READBACK": "LIVE_READBACK",
+    "DEVICE_EVIDENCE": "DEVICE_EVIDENCE",
+    "PILOT_AUTHORIZATION": "PILOT_AUTHORIZATION",
+    "GOVERNANCE_LEDGER": "SOURCE_AND_CI"
+  },
+  "mandatoryRecordFields": [
+    "recordId",
+    "track",
+    "authorityType",
+    "transitionProfile",
+    "baselineCommit",
+    "currentStatus",
+    "supersedes",
+    "supersededBy",
+    "evidence",
+    "requiredExitEvidence",
+    "reArmTriggers",
+    "notes",
+    "statusHistory"
+  ]
+}
