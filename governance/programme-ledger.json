@@ -25,7 +25,7 @@
     "broadFeatureExpansion": "HOLD",
     "section71Implementation": "HOLD_CONCEPT_PRESERVED",
     "unrestrictedDistribution": "NO_GO",
-    "nextMutation": "STAGE2D-F1B_G01_GOVERNANCE_PR"
+    "nextMutation": "STAGE2D-F2"
   },
   "statusVocabulary": [
     "OPEN",
@@ -277,11 +277,54 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
-      "authorization": "NOT_YET_MERGED",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_Final_Ledger_Schema_Transition_Amend_v1_16G_20260713_222503.zip",
+          "sha256": "434058165721B1B5CF681AC90149C6D59F96D693A8ED7CE526D43EC4B636EC52",
+          "decision": "PASS_STAGE2D_F1B_G01_FINAL_LEDGER_SCHEMA_TRANSITION_AMENDED_LOCAL_COMMIT_CREATED",
+          "authority": "FINAL_SOURCE_AND_CONTRACT"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_Governance_Draft_PR_v1_16H_20260713_223858.zip",
+          "sha256": "EBA70C8EB004DB9301D09B75615F6B36E9B1CAA84A18CE2DACCA4FA784BF67A8",
+          "decision": "PASS_STAGE2D_F1B_G01_GOVERNANCE_DRAFT_PR_OPENED",
+          "authority": "REMOTE_BRANCH_AND_DRAFT_PR"
+        },
+        {
+          "fileName": "29269300034.zip",
+          "sha256": "1894D0E64E1EAAF146B047066AF2CB75F0301A15AF6EE708FCAFBC7707787304",
+          "decision": "PASS_STAGE2D_F1B_G01_DRAFT_PR_CI_VERIFIED",
+          "authority": "CI_AND_WORKFLOW_RUN_READBACK"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_PR_Mark_Ready_v1_16K_20260713_230042.zip",
+          "sha256": "53EB2500D19EBAB18317991F96F5D7BD813B7E3127BA98751C98381F1CF0DD32",
+          "decision": "PASS_STAGE2D_F1B_G01_PR_MARKED_READY_FOR_REVIEW",
+          "authority": "READY_FOR_REVIEW_TRANSITION"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_PR_Merge_Preflight_ReadOnly_v1_16L_20260713_230742.zip",
+          "sha256": "7C92D944DFECFDFAED5BDC3EBFE548CE2AA2FF05B009FCE8E97361C75B165530",
+          "decision": "PASS_STAGE2D_F1B_G01_PR_MERGE_PREFLIGHT_VERIFIED",
+          "authority": "EXACT_HEAD_MERGE_PREFLIGHT"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_PR_Merge_v1_16M_20260713_231413.zip",
+          "sha256": "7BF206D198105EA3984AAD6564B8A26F26880A6BAC7D23FE74AE3D2C59D64DB4",
+          "decision": "PASS_STAGE2D_F1B_G01_PR_MERGED_EXACT_HEAD",
+          "authority": "MERGE_AND_MAIN_ADVANCEMENT"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_Postmerge_Closure_v1_16N_20260715_181847.zip",
+          "sha256": "5BCC68A4E560CD73AF1CE02C20C62525A48AD8E5CFCFAA2D25B3750C577EDD44",
+          "decision": "PASS_STAGE2D_F1B_G01_POSTMERGE_CLOSURE_MAIN_SYNCED_BRANCHES_DELETED",
+          "authority": "POSTMERGE_MAIN_SYNC_AND_BRANCH_CLOSURE"
+        }
+      ],
       "requiredExitEvidence": [
         "scope JSON",
         "scope contract test",
@@ -290,12 +333,25 @@
         "postmerge closure"
       ],
       "reArmTriggers": [],
-      "notes": [],
+      "notes": [
+        "Closed only after exact-head PR #33 merge, successful CI, postmerge main synchronization, governed-source hash verification, and local/remote feature-branch deletion.",
+        "Pilot handout remains NOT_AUTHORIZED; the next governed programme gate is STAGE2D-F2."
+      ],
       "statusHistory": [
         {
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-13",
           "basis": "This source campaign adds the declaration and contract test"
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-13",
+          "basis": "PR #33 merged exact head 970ad1a786cda1b5715ddb61a8ad3e91a99b866c as merge commit afd621fe1c7bda412281adf122957f65bbd79471; merge evidence SHA-256 7BF206D198105EA3984AAD6564B8A26F26880A6BAC7D23FE74AE3D2C59D64DB4"
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-15",
+          "basis": "Postmerge closure synchronized local and live main to afd621fe1c7bda412281adf122957f65bbd79471, preserved the admitted tree, and deleted the merged local and remote feature branches; evidence SHA-256 5BCC68A4E560CD73AF1CE02C20C62525A48AD8E5CFCFAA2D25B3750C577EDD44"
         }
       ]
     },
@@ -307,11 +363,54 @@
       "authorityType": "GOVERNANCE_LEDGER",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
-      "authorization": "NOT_YET_MERGED",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_Final_Ledger_Schema_Transition_Amend_v1_16G_20260713_222503.zip",
+          "sha256": "434058165721B1B5CF681AC90149C6D59F96D693A8ED7CE526D43EC4B636EC52",
+          "decision": "PASS_STAGE2D_F1B_G01_FINAL_LEDGER_SCHEMA_TRANSITION_AMENDED_LOCAL_COMMIT_CREATED",
+          "authority": "FINAL_SOURCE_AND_CONTRACT"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_Governance_Draft_PR_v1_16H_20260713_223858.zip",
+          "sha256": "EBA70C8EB004DB9301D09B75615F6B36E9B1CAA84A18CE2DACCA4FA784BF67A8",
+          "decision": "PASS_STAGE2D_F1B_G01_GOVERNANCE_DRAFT_PR_OPENED",
+          "authority": "REMOTE_BRANCH_AND_DRAFT_PR"
+        },
+        {
+          "fileName": "29269300034.zip",
+          "sha256": "1894D0E64E1EAAF146B047066AF2CB75F0301A15AF6EE708FCAFBC7707787304",
+          "decision": "PASS_STAGE2D_F1B_G01_DRAFT_PR_CI_VERIFIED",
+          "authority": "CI_AND_WORKFLOW_RUN_READBACK"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_PR_Mark_Ready_v1_16K_20260713_230042.zip",
+          "sha256": "53EB2500D19EBAB18317991F96F5D7BD813B7E3127BA98751C98381F1CF0DD32",
+          "decision": "PASS_STAGE2D_F1B_G01_PR_MARKED_READY_FOR_REVIEW",
+          "authority": "READY_FOR_REVIEW_TRANSITION"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_PR_Merge_Preflight_ReadOnly_v1_16L_20260713_230742.zip",
+          "sha256": "7C92D944DFECFDFAED5BDC3EBFE548CE2AA2FF05B009FCE8E97361C75B165530",
+          "decision": "PASS_STAGE2D_F1B_G01_PR_MERGE_PREFLIGHT_VERIFIED",
+          "authority": "EXACT_HEAD_MERGE_PREFLIGHT"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_PR_Merge_v1_16M_20260713_231413.zip",
+          "sha256": "7BF206D198105EA3984AAD6564B8A26F26880A6BAC7D23FE74AE3D2C59D64DB4",
+          "decision": "PASS_STAGE2D_F1B_G01_PR_MERGED_EXACT_HEAD",
+          "authority": "MERGE_AND_MAIN_ADVANCEMENT"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_Postmerge_Closure_v1_16N_20260715_181847.zip",
+          "sha256": "5BCC68A4E560CD73AF1CE02C20C62525A48AD8E5CFCFAA2D25B3750C577EDD44",
+          "decision": "PASS_STAGE2D_F1B_G01_POSTMERGE_CLOSURE_MAIN_SYNCED_BRANCHES_DELETED",
+          "authority": "POSTMERGE_MAIN_SYNC_AND_BRANCH_CLOSURE"
+        }
+      ],
       "requiredExitEvidence": [
         "programme ledger JSON",
         "ledger contract test",
@@ -320,12 +419,25 @@
         "postmerge closure"
       ],
       "reArmTriggers": [],
-      "notes": [],
+      "notes": [
+        "Closed only after exact-head PR #33 merge, successful CI, postmerge main synchronization, governed-source hash verification, and local/remote feature-branch deletion.",
+        "Pilot handout remains NOT_AUTHORIZED; the next governed programme gate is STAGE2D-F2."
+      ],
       "statusHistory": [
         {
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-13",
           "basis": "This source campaign adds the canonical ledger and contract test"
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-13",
+          "basis": "PR #33 merged exact head 970ad1a786cda1b5715ddb61a8ad3e91a99b866c as merge commit afd621fe1c7bda412281adf122957f65bbd79471; merge evidence SHA-256 7BF206D198105EA3984AAD6564B8A26F26880A6BAC7D23FE74AE3D2C59D64DB4"
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-15",
+          "basis": "Postmerge closure synchronized local and live main to afd621fe1c7bda412281adf122957f65bbd79471, preserved the admitted tree, and deleted the merged local and remote feature branches; evidence SHA-256 5BCC68A4E560CD73AF1CE02C20C62525A48AD8E5CFCFAA2D25B3750C577EDD44"
         }
       ]
     },
@@ -787,7 +899,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "BLOCKER",
       "unrestrictedSeverity": "MEDIUM",
@@ -797,15 +909,77 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
+      "evidence": [
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_Final_Ledger_Schema_Transition_Amend_v1_16G_20260713_222503.zip",
+          "sha256": "434058165721B1B5CF681AC90149C6D59F96D693A8ED7CE526D43EC4B636EC52",
+          "decision": "PASS_STAGE2D_F1B_G01_FINAL_LEDGER_SCHEMA_TRANSITION_AMENDED_LOCAL_COMMIT_CREATED",
+          "authority": "FINAL_SOURCE_AND_CONTRACT"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_Governance_Draft_PR_v1_16H_20260713_223858.zip",
+          "sha256": "EBA70C8EB004DB9301D09B75615F6B36E9B1CAA84A18CE2DACCA4FA784BF67A8",
+          "decision": "PASS_STAGE2D_F1B_G01_GOVERNANCE_DRAFT_PR_OPENED",
+          "authority": "REMOTE_BRANCH_AND_DRAFT_PR"
+        },
+        {
+          "fileName": "29269300034.zip",
+          "sha256": "1894D0E64E1EAAF146B047066AF2CB75F0301A15AF6EE708FCAFBC7707787304",
+          "decision": "PASS_STAGE2D_F1B_G01_DRAFT_PR_CI_VERIFIED",
+          "authority": "CI_AND_WORKFLOW_RUN_READBACK"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_PR_Mark_Ready_v1_16K_20260713_230042.zip",
+          "sha256": "53EB2500D19EBAB18317991F96F5D7BD813B7E3127BA98751C98381F1CF0DD32",
+          "decision": "PASS_STAGE2D_F1B_G01_PR_MARKED_READY_FOR_REVIEW",
+          "authority": "READY_FOR_REVIEW_TRANSITION"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_PR_Merge_Preflight_ReadOnly_v1_16L_20260713_230742.zip",
+          "sha256": "7C92D944DFECFDFAED5BDC3EBFE548CE2AA2FF05B009FCE8E97361C75B165530",
+          "decision": "PASS_STAGE2D_F1B_G01_PR_MERGE_PREFLIGHT_VERIFIED",
+          "authority": "EXACT_HEAD_MERGE_PREFLIGHT"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_PR_Merge_v1_16M_20260713_231413.zip",
+          "sha256": "7BF206D198105EA3984AAD6564B8A26F26880A6BAC7D23FE74AE3D2C59D64DB4",
+          "decision": "PASS_STAGE2D_F1B_G01_PR_MERGED_EXACT_HEAD",
+          "authority": "MERGE_AND_MAIN_ADVANCEMENT"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_Postmerge_Closure_v1_16N_20260715_181847.zip",
+          "sha256": "5BCC68A4E560CD73AF1CE02C20C62525A48AD8E5CFCFAA2D25B3750C577EDD44",
+          "decision": "PASS_STAGE2D_F1B_G01_POSTMERGE_CLOSURE_MAIN_SYNCED_BRANCHES_DELETED",
+          "authority": "POSTMERGE_MAIN_SYNC_AND_BRANCH_CLOSURE"
+        }
+      ],
+      "requiredExitEvidence": [
+        "scope JSON",
+        "scope contract test",
+        "successful release-gate CI",
+        "merged exact-head PR",
+        "postmerge main synchronization and branch closure"
+      ],
       "reArmTriggers": [],
-      "notes": [],
+      "notes": [
+        "Closed only after exact-head PR #33 merge, successful CI, postmerge main synchronization, governed-source hash verification, and local/remote feature-branch deletion.",
+        "Pilot handout remains NOT_AUTHORIZED; the next governed programme gate is STAGE2D-F2."
+      ],
       "statusHistory": [
         {
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-13",
           "basis": "Stage 2D-F1B/G-01 governance source campaign"
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-13",
+          "basis": "PR #33 merged exact head 970ad1a786cda1b5715ddb61a8ad3e91a99b866c as merge commit afd621fe1c7bda412281adf122957f65bbd79471; merge evidence SHA-256 7BF206D198105EA3984AAD6564B8A26F26880A6BAC7D23FE74AE3D2C59D64DB4"
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-15",
+          "basis": "Postmerge closure synchronized local and live main to afd621fe1c7bda412281adf122957f65bbd79471, preserved the admitted tree, and deleted the merged local and remote feature branches; evidence SHA-256 5BCC68A4E560CD73AF1CE02C20C62525A48AD8E5CFCFAA2D25B3750C577EDD44"
         }
       ]
     },
@@ -1635,22 +1809,84 @@
       "authorityType": "GOVERNANCE_LEDGER",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Governance",
       "pilotSeverity": "BLOCKER",
       "unrestrictedSeverity": "HIGH",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
+      "evidence": [
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_Final_Ledger_Schema_Transition_Amend_v1_16G_20260713_222503.zip",
+          "sha256": "434058165721B1B5CF681AC90149C6D59F96D693A8ED7CE526D43EC4B636EC52",
+          "decision": "PASS_STAGE2D_F1B_G01_FINAL_LEDGER_SCHEMA_TRANSITION_AMENDED_LOCAL_COMMIT_CREATED",
+          "authority": "FINAL_SOURCE_AND_CONTRACT"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_Governance_Draft_PR_v1_16H_20260713_223858.zip",
+          "sha256": "EBA70C8EB004DB9301D09B75615F6B36E9B1CAA84A18CE2DACCA4FA784BF67A8",
+          "decision": "PASS_STAGE2D_F1B_G01_GOVERNANCE_DRAFT_PR_OPENED",
+          "authority": "REMOTE_BRANCH_AND_DRAFT_PR"
+        },
+        {
+          "fileName": "29269300034.zip",
+          "sha256": "1894D0E64E1EAAF146B047066AF2CB75F0301A15AF6EE708FCAFBC7707787304",
+          "decision": "PASS_STAGE2D_F1B_G01_DRAFT_PR_CI_VERIFIED",
+          "authority": "CI_AND_WORKFLOW_RUN_READBACK"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_PR_Mark_Ready_v1_16K_20260713_230042.zip",
+          "sha256": "53EB2500D19EBAB18317991F96F5D7BD813B7E3127BA98751C98381F1CF0DD32",
+          "decision": "PASS_STAGE2D_F1B_G01_PR_MARKED_READY_FOR_REVIEW",
+          "authority": "READY_FOR_REVIEW_TRANSITION"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_PR_Merge_Preflight_ReadOnly_v1_16L_20260713_230742.zip",
+          "sha256": "7C92D944DFECFDFAED5BDC3EBFE548CE2AA2FF05B009FCE8E97361C75B165530",
+          "decision": "PASS_STAGE2D_F1B_G01_PR_MERGE_PREFLIGHT_VERIFIED",
+          "authority": "EXACT_HEAD_MERGE_PREFLIGHT"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_PR_Merge_v1_16M_20260713_231413.zip",
+          "sha256": "7BF206D198105EA3984AAD6564B8A26F26880A6BAC7D23FE74AE3D2C59D64DB4",
+          "decision": "PASS_STAGE2D_F1B_G01_PR_MERGED_EXACT_HEAD",
+          "authority": "MERGE_AND_MAIN_ADVANCEMENT"
+        },
+        {
+          "fileName": "CRM3_Stage2D_F1B_G01_Postmerge_Closure_v1_16N_20260715_181847.zip",
+          "sha256": "5BCC68A4E560CD73AF1CE02C20C62525A48AD8E5CFCFAA2D25B3750C577EDD44",
+          "decision": "PASS_STAGE2D_F1B_G01_POSTMERGE_CLOSURE_MAIN_SYNCED_BRANCHES_DELETED",
+          "authority": "POSTMERGE_MAIN_SYNC_AND_BRANCH_CLOSURE"
+        }
+      ],
+      "requiredExitEvidence": [
+        "canonical programme ledger JSON",
+        "ledger contract test",
+        "successful release-gate CI",
+        "merged exact-head PR",
+        "postmerge main synchronization and branch closure"
+      ],
       "reArmTriggers": [],
-      "notes": [],
+      "notes": [
+        "Closed only after exact-head PR #33 merge, successful CI, postmerge main synchronization, governed-source hash verification, and local/remote feature-branch deletion.",
+        "Pilot handout remains NOT_AUTHORIZED; the next governed programme gate is STAGE2D-F2."
+      ],
       "statusHistory": [
         {
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-13",
           "basis": "Stage 2D-F1B/G-01 governance source campaign"
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-13",
+          "basis": "PR #33 merged exact head 970ad1a786cda1b5715ddb61a8ad3e91a99b866c as merge commit afd621fe1c7bda412281adf122957f65bbd79471; merge evidence SHA-256 7BF206D198105EA3984AAD6564B8A26F26880A6BAC7D23FE74AE3D2C59D64DB4"
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-15",
+          "basis": "Postmerge closure synchronized local and live main to afd621fe1c7bda412281adf122957f65bbd79471, preserved the admitted tree, and deleted the merged local and remote feature branches; evidence SHA-256 5BCC68A4E560CD73AF1CE02C20C62525A48AD8E5CFCFAA2D25B3750C577EDD44"
         }
       ]
     }
