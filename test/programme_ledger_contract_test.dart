@@ -262,7 +262,7 @@ void main() {
     expect(decision['leastPrivilegeIam'], 'ACTIVE_INDEPENDENT_TRACK');
     expect(decision['broadFeatureExpansion'], 'HOLD');
     expect(decision['unrestrictedDistribution'], 'NO_GO');
-    expect(decision['nextMutation'], 'STAGE2D-F1B_G01_GOVERNANCE_PR');
+    expect(decision['nextMutation'], 'STAGE2D-F2');
 
     expect(_strings(payload['severityVocabulary']).toSet(), <String>{
       'BLOCKER',
@@ -455,9 +455,31 @@ void main() {
       '5BE4A11E097DB1628BA18A20C3423539BADFA793FA7839D9E0D0CDFC8E2D0AFD',
     );
 
+    const closureEvidenceSha =
+        '5BCC68A4E560CD73AF1CE02C20C62525A48AD8E5CFCFAA2D25B3750C577EDD44';
+    const mergeEvidenceSha =
+        '7BF206D198105EA3984AAD6564B8A26F26880A6BAC7D23FE74AE3D2C59D64DB4';
+
     for (final id in <String>['STAGE2D-F1B', 'G-01']) {
       final gate = gates.singleWhere((item) => item['gateId'] == id);
-      expect(gate['currentStatus'], 'SOURCE_IMPLEMENTED');
+      expect(gate['currentStatus'], 'CLOSED');
+      expect(gate['authorization'], 'CLOSED_PASS');
+
+      final statuses = _objects(
+        gate['statusHistory'],
+      ).map((entry) => entry['status'] as String).toList(growable: false);
+      expect(statuses.sublist(statuses.length - 3), <String>[
+        'SOURCE_IMPLEMENTED',
+        'MERGED',
+        'CLOSED',
+      ]);
+
+      final evidenceShas =
+          _objects(
+            gate['evidence'],
+          ).map((entry) => entry['sha256'] as String).toSet();
+      expect(evidenceShas, contains(mergeEvidenceSha));
+      expect(evidenceShas, contains(closureEvidenceSha));
     }
 
     final findingIds =
@@ -507,6 +529,24 @@ void main() {
     for (final id in <String>['P-03', 'G-01']) {
       final finding = findings.singleWhere((item) => item['findingId'] == id);
       expect(finding['pilotSeverity'], 'BLOCKER');
+      expect(finding['currentStatus'], 'CLOSED');
+      expect(_strings(finding['requiredExitEvidence']), isNotEmpty);
+
+      final statuses = _objects(
+        finding['statusHistory'],
+      ).map((entry) => entry['status'] as String).toList(growable: false);
+      expect(statuses.sublist(statuses.length - 3), <String>[
+        'SOURCE_IMPLEMENTED',
+        'MERGED',
+        'CLOSED',
+      ]);
+
+      final evidenceShas =
+          _objects(
+            finding['evidence'],
+          ).map((entry) => entry['sha256'] as String).toSet();
+      expect(evidenceShas, contains(mergeEvidenceSha));
+      expect(evidenceShas, contains(closureEvidenceSha));
     }
   });
 
