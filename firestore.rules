@@ -97,8 +97,20 @@ service cloud.firestore {
         : false;
     }
 
+    function hasVerifiedTokenEmail() {
+      return isSignedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true;
+    }
+
+    function requestEmailMatchesToken() {
+      return hasVerifiedTokenEmail()
+        && request.resource.data.email == request.auth.token.email;
+    }
+
     function validPendingUserCreate(userId) {
       return isSelf(userId)
+        && requestEmailMatchesToken()
         ? (request.resource.data.keys().hasAll([
             'name',
             'email',
@@ -128,6 +140,7 @@ service cloud.firestore {
 
     function validSelfUserUpdate(userId) {
       return isSelf(userId)
+        && requestEmailMatchesToken()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name',
           'email',
