@@ -34,6 +34,16 @@ function userDoc(uid, roles, isApproved = true) {
   };
 }
 
+function pendingUserPayload(email) {
+  return {
+    name: "Pending User",
+    email,
+    roles: ["operations"],
+    isApproved: false,
+    createdAt: Timestamp.now(),
+  };
+}
+
 async function seedUser(uid, roles, isApproved = true) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(
@@ -49,8 +59,8 @@ async function seedDoc(path, data) {
   });
 }
 
-function dbAs(uid) {
-  return testEnv.authenticatedContext(uid).firestore();
+function dbAs(uid, token = {}) {
+  return testEnv.authenticatedContext(uid, token).firestore();
 }
 
 beforeAll(async () => {
@@ -78,7 +88,10 @@ afterAll(async () => {
 
 describe("users", () => {
   test("pending user can create only self as unapproved operations", async () => {
-    const db = dbAs("newUser");
+    const db = dbAs("newUser", {
+      email: "new@test.local",
+      email_verified: true,
+    });
 
     await assertSucceeds(
       setDoc(doc(db, "users/newUser"), {
@@ -92,7 +105,10 @@ describe("users", () => {
   });
 
   test("pending user cannot self-approve", async () => {
-    const db = dbAs("newUser");
+    const db = dbAs("newUser", {
+      email: "new@test.local",
+      email_verified: true,
+    });
 
     await assertFails(
       setDoc(doc(db, "users/newUser"), {
@@ -2611,6 +2627,116 @@ describe("module_registry", () => {
       setDoc(doc(db, "module_registry/baf.module.base_fan_vibration"), {
         ...registryFamily(),
         unexpectedField: true,
+      })
+    );
+  });
+});
+
+describe("P-02 pending-user Firebase token identity binding", () => {
+  test("verified matching token email may create the pending self profile", async () => {
+    const db = dbAs("newUser", {
+      email: "new@test.local",
+      email_verified: true,
+    });
+
+    await assertSucceeds(
+      setDoc(
+        doc(db, "users/newUser"),
+        pendingUserPayload("new@test.local")
+      )
+    );
+  });
+
+  test("mismatched client-asserted email is rejected", async () => {
+    const db = dbAs("newUser", {
+      email: "token@test.local",
+      email_verified: true,
+    });
+
+    await assertFails(
+      setDoc(
+        doc(db, "users/newUser"),
+        pendingUserPayload("spoofed@test.local")
+      )
+    );
+  });
+
+  test("missing token email is rejected", async () => {
+    const db = dbAs("newUser", { email_verified: true });
+
+    await assertFails(
+      setDoc(
+        doc(db, "users/newUser"),
+        pendingUserPayload("new@test.local")
+      )
+    );
+  });
+
+  test("unverified token email is rejected", async () => {
+    const db = dbAs("newUser", {
+      email: "new@test.local",
+      email_verified: false,
+    });
+
+    await assertFails(
+      setDoc(
+        doc(db, "users/newUser"),
+        pendingUserPayload("new@test.local")
+      )
+    );
+  });
+
+  test("verified user may correct a legacy pending email to the token email", async () => {
+    await seedDoc(
+      "users/legacyUser",
+      pendingUserPayload("legacy-client-asserted@test.local")
+    );
+
+    const db = dbAs("legacyUser", {
+      email: "canonical@test.local",
+      email_verified: true,
+    });
+
+    await assertSucceeds(
+      updateDoc(doc(db, "users/legacyUser"), {
+        email: "canonical@test.local",
+      })
+    );
+  });
+
+  test("self update cannot replace email with a value different from the token", async () => {
+    await seedDoc(
+      "users/existingUser",
+      pendingUserPayload("existing@test.local")
+    );
+
+    const db = dbAs("existingUser", {
+      email: "existing@test.local",
+      email_verified: true,
+    });
+
+    await assertFails(
+      updateDoc(doc(db, "users/existingUser"), {
+        email: "spoofed@test.local",
+      })
+    );
+  });
+
+  test("admin correction path remains available and is not bound to admin email", async () => {
+    await seedUser("admin1", ["admin"]);
+    await seedDoc(
+      "users/pending1",
+      pendingUserPayload("incorrect@test.local")
+    );
+
+    const adminDb = dbAs("admin1", {
+      email: "admin@test.local",
+      email_verified: true,
+    });
+
+    await assertSucceeds(
+      updateDoc(doc(adminDb, "users/pending1"), {
+        email: "corrected@test.local",
       })
     );
   });
