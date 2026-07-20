@@ -262,7 +262,7 @@ void main() {
     expect(decision['leastPrivilegeIam'], 'ACTIVE_INDEPENDENT_TRACK');
     expect(decision['broadFeatureExpansion'], 'HOLD');
     expect(decision['unrestrictedDistribution'], 'NO_GO');
-    expect(decision['nextMutation'], 'STAGE2D-F2');
+    expect(decision['nextMutation'], 'STAGE2D-F3');
 
     expect(_strings(payload['severityVocabulary']).toSet(), <String>{
       'BLOCKER',
