@@ -25,7 +25,7 @@
     "broadFeatureExpansion": "HOLD",
     "section71Implementation": "HOLD_CONCEPT_PRESERVED",
     "unrestrictedDistribution": "NO_GO",
-    "nextMutation": "STAGE2D-F2"
+    "nextMutation": "STAGE2D-F3"
   },
   "statusVocabulary": [
     "OPEN",
@@ -449,8 +449,8 @@
       "authorityType": "DEPLOYED_RUNTIME",
       "transitionProfile": "DEPLOYED_CONTROL",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "BLOCKS_PILOT_HANDOUT",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
       "evidence": [
@@ -465,6 +465,30 @@
           "sha256": "BFC83D4B84EB999AA830443EB8202E70372F8AC5E1EACF21EC85CE8CFC225FF3",
           "decision": "PASS_STAGE2D_F2B_P02_AUTHENTICATED_PRODUCTION_BEHAVIOUR_MATRIX_PROVED_CLAIM_MAP_ALIGNED_TOKEN_SUBJECT_VERIFIED_IAM_AND_FIREBASE_RESIDUE_FREE",
           "authority": "P02_AUTHENTICATED_BEHAVIOUR_CLOSURE_COMPONENT_ONLY"
+        },
+        {
+          "fileName": "CRM3_STAGE2D_F2_INTERNAL_PILOT_DEBUG_SIGNING_FIREBASE_OAUTH_SEAL_DEVICE_PREFLIGHT_v1_20B_20260720_145013.zip",
+          "sha256": "B2F6F0146ABE496C9F30BC8B6E7FEE30BD28BE0C60B978C29D611586ED104310",
+          "decision": "PASS_STAGE2D_F2_INTERNAL_PILOT_DEBUG_SIGNING_FIREBASE_OAUTH_SEALED_DEVICE_NOT_READY",
+          "authority": "SIGNING_FIREBASE_OAUTH_EXIT_DIMENSION"
+        },
+        {
+          "fileName": "CRM3_STAGE2D_F2_PHYSICAL_DEVICE_NATIVE_SESSION_INSTRUMENTATION_RESULT_ACCEPTANCE_RECOVERY_v1_20J_20260720_164937.zip",
+          "sha256": "DDD9B2DA8580F618CEBB0CB221BC541288165DB475764472F4263C330F18394A",
+          "decision": "PASS_STAGE2D_F2_PHYSICAL_DEVICE_GOOGLE_SIGNIN_LIVE_PROVED_INSTRUMENTATION_RESULT_ACCEPTANCE_RECOVERY",
+          "authority": "PHYSICAL_DEVICE_GOOGLE_SIGNIN_AND_LIVE_BACKEND_EXIT_DIMENSION"
+        },
+        {
+          "fileName": "CRM3_STAGE2D_F2_ROSTER_AUTHORITY_RECEIPT_READINESS_AND_HASH_SEAL_v1_20K_20260720_170509.zip",
+          "sha256": "B805CDABF7AA585CCEED38E02B32189A96588FAE3C03FA6A4FB0DE92B9969CF0",
+          "decision": "PASS_STAGE2D_F2_ROSTER_AUTHORITY_RECEIPT_HASH_SEALED_READINESS",
+          "authority": "NAMED_ROSTER_AUTHORITY_AND_LIVE_ROSTER_EXIT_DIMENSION"
+        },
+        {
+          "fileName": "CRM3_STAGE2D_F2_CLOSURE_PREFLIGHT_READ_ONLY_v1_20L_20260720_171403.zip",
+          "sha256": "5BC608F190E0675C9238F63ED8457388B378ABD412D50C5613678C3062DBCFA2",
+          "decision": "PASS_STAGE2D_F2_CLOSURE_PREFLIGHT_READY_FOR_SEPARATE_LEDGER_MUTATION_AUTHORITY",
+          "authority": "READ_ONLY_F2_CLOSURE_PREFLIGHT"
         }
       ],
       "requiredExitEvidence": [
@@ -476,16 +500,24 @@
       ],
       "reArmTriggers": [],
       "notes": [
-        "P-02 is CLOSED.",
-        "P-02 source, deployment, live parity, authenticated production behaviour and residue-free cleanup are proved.",
-        "STAGE2D-F2 remains OPEN and continues to block pilot handout.",
-        "Remaining F2 exit evidence includes signing-certificate custody, Firebase registration, physical-device Google Sign-In and roster authority receipt."
+        "All STAGE2D-F2 required exit evidence is proved.",
+        "Exact debug signing certificate, Firebase Android registration and OAuth client binding are sealed.",
+        "Physical-device Google Sign-In, live Firebase Auth identity and the approved own-user Firestore record are proved.",
+        "P-02 is CLOSED by authenticated production behaviour and residue-free cleanup evidence.",
+        "The named roster-authority receipt is bound to a sanitized live roster snapshot of three approved users within the forty-user ceiling.",
+        "STAGE2D-F2 is CLOSED with authorization CLOSED_PASS.",
+        "Pilot handout remains NOT_AUTHORIZED; STAGE2D-F3 is the next governed mutation."
       ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Required after F1B/G-01"
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-20",
+          "basis": "All required F2 exit dimensions passed and were bound by the read-only closure preflight 5BC608F190E0675C9238F63ED8457388B378ABD412D50C5613678C3062DBCFA2."
         }
       ]
     },

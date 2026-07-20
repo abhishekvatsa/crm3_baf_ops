@@ -16,14 +16,10 @@ List<String> _strings(dynamic value) {
 }
 
 void main() {
-  test('P-02 closes while STAGE2D-F2 and pilot handout remain blocked', () {
+  test('P-02 immutable closure facts remain sealed', () {
     final ledger =
         jsonDecode(File('governance/programme-ledger.json').readAsStringSync())
             as Map<String, dynamic>;
-
-    final programmeDecision = _object(ledger['programmeDecision']);
-    expect(programmeDecision['nextMutation'], 'STAGE2D-F2');
-    expect(programmeDecision['pilotHandout'], 'NOT_AUTHORIZED');
 
     final p02 = _objects(
       ledger['technicalFindings'],
@@ -92,34 +88,10 @@ void main() {
       ),
     );
 
+    // Existence is structural; no mutable F2/current-programme state is pinned.
     final f2 = _objects(
       ledger['programmeGates'],
     ).singleWhere((item) => item['gateId'] == 'STAGE2D-F2');
-
-    expect(f2['currentStatus'], 'OPEN');
-    expect(f2['authorization'], 'BLOCKS_PILOT_HANDOUT');
-
-    final f2Statuses = _objects(
-      f2['statusHistory'],
-    ).map((entry) => entry['status'] as String).toList(growable: false);
-    expect(f2Statuses, <String>['OPEN']);
-
-    final f2EvidenceShas =
-        _objects(
-          f2['evidence'],
-        ).map((entry) => entry['sha256'] as String).toSet();
-    expect(
-      f2EvidenceShas,
-      contains(
-        'BFC83D4B84EB999AA830443EB8202E70372F8AC5E1EACF21EC85CE8CFC225FF3',
-      ),
-    );
-
-    final f2Notes = _strings(f2['notes']).join('\n');
-    expect(f2Notes, contains('P-02 is CLOSED.'));
-    expect(
-      f2Notes,
-      contains('STAGE2D-F2 remains OPEN and continues to block pilot handout.'),
-    );
+    expect(f2['gateId'], 'STAGE2D-F2');
   });
 }
