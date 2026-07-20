@@ -16,7 +16,7 @@ List<String> _strings(dynamic value) {
 }
 
 void main() {
-  test('P-02 remains at live readback pending authenticated behaviour', () {
+  test('P-02 closes while STAGE2D-F2 and pilot handout remain blocked', () {
     final ledger =
         jsonDecode(File('governance/programme-ledger.json').readAsStringSync())
             as Map<String, dynamic>;
@@ -31,7 +31,7 @@ void main() {
 
     expect(p02['authorityType'], 'DEPLOYED_RUNTIME');
     expect(p02['transitionProfile'], 'DEPLOYED_CONTROL');
-    expect(p02['currentStatus'], 'LIVE_READBACK_PROVED');
+    expect(p02['currentStatus'], 'CLOSED');
 
     final statuses = _objects(
       p02['statusHistory'],
@@ -43,31 +43,25 @@ void main() {
       'MERGED',
       'DEPLOYED',
       'LIVE_READBACK_PROVED',
+      'CLOSED',
     ]);
-    expect(statuses, isNot(contains('CLOSED')));
 
-    final evidenceShas =
-        _objects(
-          p02['evidence'],
-        ).map((entry) => entry['sha256'] as String).toSet();
+    final evidence = _objects(p02['evidence']);
+    final matrixEvidence = evidence.singleWhere(
+      (entry) =>
+          entry['sha256'] ==
+          'BFC83D4B84EB999AA830443EB8202E70372F8AC5E1EACF21EC85CE8CFC225FF3',
+    );
 
     expect(
-      evidenceShas,
-      contains(
-        'BA95EE61032BC19FF2D44288CA6C033FCDE5DBA31BAFB689FC7DB45FF97A6372',
-      ),
+      matrixEvidence['decision'],
+      'PASS_STAGE2D_F2B_P02_AUTHENTICATED_PRODUCTION_BEHAVIOUR_MATRIX_'
+      'PROVED_CLAIM_MAP_ALIGNED_TOKEN_SUBJECT_VERIFIED_IAM_AND_FIREBASE_'
+      'RESIDUE_FREE',
     );
     expect(
-      evidenceShas,
-      contains(
-        '7DBF7B6052CED29F1BC140050DF6FD58FA8FBC78C51E5A09B1CAD5DC082FCB02',
-      ),
-    );
-    expect(
-      evidenceShas,
-      contains(
-        'F05C0C520C2671DE68249ED4AE55099C7C8C7512309A180ED2FC47D98260D36A',
-      ),
+      matrixEvidence['authority'],
+      'AUTHENTICATED_PRODUCTION_BEHAVIOUR_AND_RESIDUE_FREE_CLEANUP',
     );
 
     final exitEvidence = _strings(p02['requiredExitEvidence']);
@@ -86,12 +80,15 @@ void main() {
     final notes = _strings(p02['notes']).join('\n');
     expect(
       notes,
-      contains('P-02 source, deployment and live parity are proved.'),
+      contains(
+        'P-02 is CLOSED by authenticated production behaviour evidence.',
+      ),
     );
     expect(
       notes,
       contains(
-        'P-02 closure remains pending authenticated live behaviour proof.',
+        'The temporary IAM authority and all synthetic Firebase state were '
+        'removed with zero residue.',
       ),
     );
 
@@ -102,17 +99,27 @@ void main() {
     expect(f2['currentStatus'], 'OPEN');
     expect(f2['authorization'], 'BLOCKS_PILOT_HANDOUT');
 
-    final f2Notes = _strings(f2['notes']).join('\n');
+    final f2Statuses = _objects(
+      f2['statusHistory'],
+    ).map((entry) => entry['status'] as String).toList(growable: false);
+    expect(f2Statuses, <String>['OPEN']);
+
+    final f2EvidenceShas =
+        _objects(
+          f2['evidence'],
+        ).map((entry) => entry['sha256'] as String).toSet();
     expect(
-      f2Notes,
-      contains('P-02 source, deployment and live parity are proved.'),
-    );
-    expect(
-      f2Notes,
+      f2EvidenceShas,
       contains(
-        'P-02 closure remains pending authenticated live behaviour proof.',
+        'BFC83D4B84EB999AA830443EB8202E70372F8AC5E1EACF21EC85CE8CFC225FF3',
       ),
     );
-    expect(f2Notes, contains('STAGE2D-F2 remains OPEN.'));
+
+    final f2Notes = _strings(f2['notes']).join('\n');
+    expect(f2Notes, contains('P-02 is CLOSED.'));
+    expect(
+      f2Notes,
+      contains('STAGE2D-F2 remains OPEN and continues to block pilot handout.'),
+    );
   });
 }

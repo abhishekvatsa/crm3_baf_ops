@@ -459,6 +459,12 @@
           "sha256": "F05C0C520C2671DE68249ED4AE55099C7C8C7512309A180ED2FC47D98260D36A",
           "decision": "PASS_STAGE2D_F2B_P02_RULES_DEPLOYED_POSTDEPLOYMENT_RECONCILIATION_VERIFIED",
           "authority": "P02_DEPLOYMENT_AND_LIVE_READBACK_COMPONENT_ONLY"
+        },
+        {
+          "fileName": "CRM3_STAGE2D_F2B_P02_CLAIM_MAP_ALIGNED_AUTHENTICATED_LIVE_BEHAVIOUR_MATRIX_v1_19Q_20260720_041918.zip",
+          "sha256": "BFC83D4B84EB999AA830443EB8202E70372F8AC5E1EACF21EC85CE8CFC225FF3",
+          "decision": "PASS_STAGE2D_F2B_P02_AUTHENTICATED_PRODUCTION_BEHAVIOUR_MATRIX_PROVED_CLAIM_MAP_ALIGNED_TOKEN_SUBJECT_VERIFIED_IAM_AND_FIREBASE_RESIDUE_FREE",
+          "authority": "P02_AUTHENTICATED_BEHAVIOUR_CLOSURE_COMPONENT_ONLY"
         }
       ],
       "requiredExitEvidence": [
@@ -470,9 +476,10 @@
       ],
       "reArmTriggers": [],
       "notes": [
-        "P-02 source, deployment and live parity are proved.",
-        "P-02 closure remains pending authenticated live behaviour proof.",
-        "STAGE2D-F2 remains OPEN."
+        "P-02 is CLOSED.",
+        "P-02 source, deployment, live parity, authenticated production behaviour and residue-free cleanup are proved.",
+        "STAGE2D-F2 remains OPEN and continues to block pilot handout.",
+        "Remaining F2 exit evidence includes signing-certificate custody, Firebase registration, physical-device Google Sign-In and roster authority receipt."
       ],
       "statusHistory": [
         {
@@ -881,7 +888,7 @@
       "authorityType": "DEPLOYED_RUNTIME",
       "transitionProfile": "DEPLOYED_CONTROL",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "LIVE_READBACK_PROVED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "BLOCKER",
       "unrestrictedSeverity": "HIGH",
@@ -908,6 +915,12 @@
           "sha256": "F05C0C520C2671DE68249ED4AE55099C7C8C7512309A180ED2FC47D98260D36A",
           "decision": "PASS_STAGE2D_F2B_P02_RULES_DEPLOYED_POSTDEPLOYMENT_RECONCILIATION_VERIFIED",
           "authority": "LIVE_RULES_PARITY_AND_COLLATERAL_NON_MUTATION"
+        },
+        {
+          "fileName": "CRM3_STAGE2D_F2B_P02_CLAIM_MAP_ALIGNED_AUTHENTICATED_LIVE_BEHAVIOUR_MATRIX_v1_19Q_20260720_041918.zip",
+          "sha256": "BFC83D4B84EB999AA830443EB8202E70372F8AC5E1EACF21EC85CE8CFC225FF3",
+          "decision": "PASS_STAGE2D_F2B_P02_AUTHENTICATED_PRODUCTION_BEHAVIOUR_MATRIX_PROVED_CLAIM_MAP_ALIGNED_TOKEN_SUBJECT_VERIFIED_IAM_AND_FIREBASE_RESIDUE_FREE",
+          "authority": "AUTHENTICATED_PRODUCTION_BEHAVIOUR_AND_RESIDUE_FREE_CLEANUP"
         }
       ],
       "requiredExitEvidence": [
@@ -924,9 +937,10 @@
       ],
       "reArmTriggers": [],
       "notes": [
-        "P-02 source, deployment and live parity are proved.",
-        "P-02 closure remains pending authenticated live behaviour proof.",
-        "The authenticated production allow/deny matrix remains mandatory before transition from LIVE_READBACK_PROVED to CLOSED."
+        "P-02 source, deployment, live parity and authenticated production behaviour are proved.",
+        "P-02 is CLOSED by authenticated production behaviour evidence.",
+        "The temporary IAM authority and all synthetic Firebase state were removed with zero residue.",
+        "STAGE2D-F2 remains OPEN; this P-02 closure does not authorize pilot handout."
       ],
       "statusHistory": [
         {
@@ -953,6 +967,11 @@
           "status": "LIVE_READBACK_PROVED",
           "effectiveDate": "2026-07-19",
           "basis": "Authoritative readback proved approved Rules hash 2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0 live with Functions and indexes unchanged; reconciliation evidence SHA-256 F05C0C520C2671DE68249ED4AE55099C7C8C7512309A180ED2FC47D98260D36A."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-20",
+          "basis": "Authenticated production behaviour passed all six required allow/deny cases, proved token identity, restored IAM authority, and left zero Firebase residue; evidence SHA-256 BFC83D4B84EB999AA830443EB8202E70372F8AC5E1EACF21EC85CE8CFC225FF3."
         }
       ]
     },
