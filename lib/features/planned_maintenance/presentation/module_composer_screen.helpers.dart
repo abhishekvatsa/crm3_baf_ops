@@ -105,6 +105,10 @@ String _ownerFromDiscipline(JobModuleDiscipline discipline) {
       return 'instrumentation';
     case JobModuleDiscipline.operations:
       return 'operations';
+    case JobModuleDiscipline.emd:
+      return 'emd';
+    case JobModuleDiscipline.refractory:
+      return 'refractory';
     case JobModuleDiscipline.shared:
       return 'shared';
     default:

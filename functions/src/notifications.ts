@@ -1,3 +1,5 @@
+import {canonicalApprovedUserAuthority} from "./userAuthority";
+
 /**
  * Pure notifications logic for breakdown tickets and planned job assignments.
  *
@@ -63,12 +65,13 @@ export interface FcmBatchResponse {
 }
 
 export interface MessagingLike {
-  sendEach(messages: ReadonlyArray<FcmMessage>): Promise<FcmBatchResponse>;
+  sendEach(messages: FcmMessage[]): Promise<FcmBatchResponse>;
 }
 
 export interface FcmMessage {
   token: string;
   notification: {title: string; body: string};
+  data?: Readonly<Record<string, string>>;
   android?: {
     priority?: "high" | "normal";
     notification?: {sound?: string; channelId?: string};
@@ -167,13 +170,13 @@ export async function getTokenLookupsForRoles(
   const out: UserTokenLookup[] = [];
   snapshot.forEach((doc) => {
     const data = doc.data();
-    if (data == null) return;
-    const userRoles = Array.isArray(data.roles) ? data.roles : [];
-    const hasRole = userRoles.some(
-      (r: unknown) => typeof r === "string" && roles.includes(r),
-    );
+    const authority = canonicalApprovedUserAuthority(data);
+    if (authority == null) return;
+    const hasRole = [...authority.roles].some((role) => roles.includes(role));
     if (!hasRole) return;
-    const token = typeof data.fcmToken === "string" ? data.fcmToken : null;
+    const token = typeof authority.data.fcmToken === "string" ?
+      authority.data.fcmToken :
+      null;
     if (token == null || token.length === 0) return;
     out.push({uid: doc.id, fcmToken: token});
   });
@@ -186,9 +189,11 @@ export async function getTokenLookupForUser(
 ): Promise<UserTokenLookup | null> {
   const result = await db.collection("users").doc(uid).get();
   if (!result.exists) return null;
-  const data = result.data();
-  if (data == null) return null;
-  const token = typeof data.fcmToken === "string" ? data.fcmToken : null;
+  const authority = canonicalApprovedUserAuthority(result.data());
+  if (authority == null) return null;
+  const token = typeof authority.data.fcmToken === "string" ?
+    authority.data.fcmToken :
+    null;
   if (token == null || token.length === 0) return null;
   return {uid, fcmToken: token};
 }
@@ -231,6 +236,7 @@ export async function sendNotification(args: {
   body: string;
   unknownAgencies?: ReadonlyArray<string>;
   androidChannelId?: string;
+  data?: Readonly<Record<string, string>>;
 }): Promise<SendOutcome> {
   const {
     db,
@@ -240,6 +246,7 @@ export async function sendNotification(args: {
     body,
     unknownAgencies = [],
     androidChannelId = "crm3_baf_ops",
+    data,
   } = args;
 
   // Deduplicate by token (a shared device should only buzz once), but
@@ -276,6 +283,7 @@ export async function sendNotification(args: {
     const messages: FcmMessage[] = batch.map((token) => ({
       token,
       notification: {title, body},
+      ...(data == null ? {} : {data}),
       android: {
         priority: "high",
         notification: {sound: "default", channelId: androidChannelId},

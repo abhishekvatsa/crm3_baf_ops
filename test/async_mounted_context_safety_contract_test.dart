@@ -9,14 +9,14 @@ void main() {
         'lib/features/planned_maintenance/presentation/job_module_detail_screen.dart',
       );
 
-      for (final marker in <String>[
-        'saveModule(\n              updated,',
-        'submitModule(\n              _transitionId(),',
-        'acceptModule(\n              _transitionId(),',
-        'markModuleNotApplicable(\n              _transitionId(),',
-        'reopenModule(\n              _transitionId(),',
+      for (final marker in <RegExp>[
+        RegExp(r'saveModule\(\s*updated,'),
+        RegExp(r'submitModule\(\s*_transitionId\(\),'),
+        RegExp(r'acceptModule\(\s*_transitionId\(\),'),
+        RegExp(r'markModuleNotApplicable\(\s*_transitionId\(\),'),
+        RegExp(r'reopenModule\(\s*_transitionId\(\),'),
       ]) {
-        final section = _windowAfter(source, marker, 700);
+        final section = _windowAfterPattern(source, marker, 700);
         expect(
           section,
           contains('if (!mounted) return;'),
@@ -413,13 +413,7 @@ void main() {
     test(
       'legacy template and ticket async surfaces capture sync or nullable messenger safely',
       () {
-        _expectCapturedSyncBeforeAwait(
-          path:
-              'lib/features/planned_maintenance/presentation/assign_job_screen.dart',
-          methodMarker: 'Future<void> _submit',
-          awaitMarker: 'await repository.saveExecution(',
-          syncReason: 'job_assigned',
-        );
+        _expectWorkflowCommandAssignmentContract();
         _expectCapturedSyncBeforeAwait(
           path:
               'lib/features/planned_maintenance/presentation/create_template_screen.dart',
@@ -551,11 +545,36 @@ const _templatePublisherLibraryFiles = <String>[
   'lib/features/planned_maintenance/presentation/template_publisher_models.dart',
 ];
 
-String _windowAfter(String source, String marker, int length) {
-  final start = source.indexOf(marker);
-  expect(start, isNonNegative, reason: 'Missing marker: $marker');
+String _windowAfterPattern(String source, RegExp marker, int length) {
+  final match = marker.firstMatch(source);
+  expect(match, isNotNull, reason: 'Missing marker pattern: $marker');
+  final start = match!.start;
   final end = (start + length).clamp(0, source.length);
   return source.substring(start, end);
+}
+
+void _expectWorkflowCommandAssignmentContract() {
+  final body = _bodyStartingAt(
+    _read(
+      'lib/features/planned_maintenance/presentation/assign_job_screen.dart',
+    ),
+    'Future<void> _submit',
+  );
+  const commandAwait =
+      'await ref.read(workflowCommandControllerProvider.notifier).execute(';
+  const syncCapture =
+      'final syncCoordinator = ref.read(syncCoordinatorProvider);';
+
+  expect(body, contains(commandAwait));
+  expect(body, contains('WorkflowCommandType.createLegacyWorkflowJob'));
+  expect(body, isNot(contains('repository.saveExecution(')));
+  _expectBefore(body, syncCapture, commandAwait);
+  expect(
+    body,
+    contains(
+      "syncCoordinator.runFullSync(reason: 'workflow_job_assigned', force: true)",
+    ),
+  );
 }
 
 String _bodyStartingAt(String source, String marker) {

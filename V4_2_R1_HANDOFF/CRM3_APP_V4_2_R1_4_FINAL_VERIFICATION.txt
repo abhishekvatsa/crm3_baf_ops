@@ -1,0 +1,35 @@
+CRM3 APP v4.2_R1.4 — FINAL PRE-ZIP VERIFICATION
+
+Scope:
+  Bounded Firebase CLI tooling dependency correction over v4.2_R1.3.
+  No Flutter, Functions, Rules, Isar, Android, governance, programme-ledger,
+  or release-authority product source changed.
+
+Canonical authority:
+  main commit 633c58bb0d936011e391b42627f8b8f02c510e95
+  tree        2f547a79e79076c70dd15ae8b85a7ad70c9fa018
+
+Tooling policy:
+  firebase-tools       15.22.4
+  @hono/node-server     1.19.14
+  fast-uri              3.1.4
+  private registry URLs 0
+
+Static validation:
+  v4.2_R1 canonical audit              25/25 PASS
+  v4.2 ultimate audit                  17/17 PASS
+  v4.1 due-diligence audit              9/9 PASS
+  whole-app reconciliation audit       21/21 PASS
+  inherited full-tree audit            18/18 PASS
+  inherited expanded audit             15/15 PASS
+  Dart structural audit                PASS (369 files)
+  integrity-sweep unit tests             3/3 PASS
+  generated workflow policy check      PASS
+  canonical captured paths             410/410 present and pinned
+  patch reconstruction                 exact PASS
+  PowerShell structural scan           PASS
+  destructive/deployment command scan  PASS
+
+Authoritative limitations:
+  PowerShell runtime, public-registry npm ci/audit, Flutter, authentic Isar
+  codegen, APK, and emulator gates are reserved for the Windows R1.4 lab.

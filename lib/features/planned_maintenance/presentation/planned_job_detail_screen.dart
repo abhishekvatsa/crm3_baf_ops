@@ -13,6 +13,7 @@ import '../../audit/models/audit_event_model.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import '../../maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart';
 import '../data/baf_module_catalogue_seed.dart';
 import '../data/job_diary_model.dart';
 import '../data/job_module_model.dart';
@@ -540,6 +541,14 @@ class _PlannedJobDetailScreenState
             template: _template,
             statusColor: statusColor,
           ),
+          if (execution.workflowSchemaVersion == 1 &&
+              _hasText(execution.firestoreId)) ...[
+            const SizedBox(height: BafSpacing.lg),
+            PlannedJobWorkflowPanel(
+              workflowId: execution.firestoreId!.trim(),
+              jobCompleted: execution.isCompleted,
+            ),
+          ],
           if (execution.isCompleted) ...[
             const SizedBox(height: BafSpacing.lg),
             _ClosedDossierStatusCard(execution: execution),

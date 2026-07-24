@@ -218,6 +218,36 @@ void _requireCanSoftDeleteMaintenanceTicket(AppUser actor) {
   }
 }
 
+void _requireMaintenanceWorkflowAllowsAction(
+  MaintenanceRecord record,
+  String action,
+) {
+  if (!record.workflowDeferred) return;
+  final lane = record.workflowTargetLaneKey?.trim();
+  final suffix = lane == null || lane.isEmpty
+      ? ''
+      : ' for ${lane.toUpperCase()}';
+  throw StateError(
+    'Cannot $action while this ticket is deferred by maintenance workflow$suffix. '
+    'Use the linked compliance request to reactivate or release it.',
+  );
+}
+
+void _requireMaintenanceWorkflowMapAllowsAction(
+  Map<String, dynamic> data,
+  String action,
+) {
+  if (data['workflowDeferred'] != true) return;
+  final lane = data['workflowTargetLaneKey']?.toString().trim();
+  final suffix = lane == null || lane.isEmpty
+      ? ''
+      : ' for ${lane.toUpperCase()}';
+  throw StateError(
+    'Cannot $action while this ticket is deferred by maintenance workflow$suffix. '
+    'Use the linked compliance request to reactivate or release it.',
+  );
+}
+
 // ─────────────────────────────────────────────────────────────
 // ISAR IMPLEMENTATION
 // ─────────────────────────────────────────────────────────────
@@ -479,6 +509,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
     required AppUser actor,
   }) async {
     _requireCanAdminEditMaintenanceTicket(actor);
+    _requireMaintenanceWorkflowAllowsAction(record, 'edit this ticket');
     final now = DateTime.now();
     _normalizeManualMaintenanceUpdate(record, now);
     record.updatedAt = now;
@@ -505,6 +536,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
     await isar.writeTxn(() async {
       final t = await isar.maintenanceRecords.get(ticketId);
       if (t != null && !t.isDeleted) {
+        _requireMaintenanceWorkflowAllowsAction(t, 'delete this ticket');
         beforeSnapshot = t.toAuditMap();
 
         t.isDeleted = true;
@@ -620,6 +652,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
     await isar.writeTxn(() async {
       final t = await isar.maintenanceRecords.get(ticketId);
       if (t != null && !t.isResolved && !t.isDeleted) {
+        _requireMaintenanceWorkflowAllowsAction(t, 'resolve this ticket');
         t.isResolved = true;
         t.status = TicketStatus.resolved;
         t.endDate = endDate ?? DateTime.now();
@@ -651,6 +684,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
     await isar.writeTxn(() async {
       final t = await isar.maintenanceRecords.get(ticketId);
       if (t != null && t.isResolved && t.endDate != null && !t.isDeleted) {
+        _requireMaintenanceWorkflowAllowsAction(t, 'reopen this ticket');
         final hoursSinceClosure = DateTime.now().difference(t.endDate!).inHours;
         if (hoursSinceClosure > 4) {
           throw Exception('Cannot reopen: closed more than 4 hours ago');
@@ -814,6 +848,25 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
         ..otherDepartment = remote.otherDepartment
         ..status = remote.status
         ..isResolved = remote.isResolved
+        ..workflowDeferred = remote.workflowDeferred
+        ..workflowQueueState = remote.workflowQueueState
+        ..workflowAggregateId = remote.workflowAggregateId
+        ..workflowComplianceId = remote.workflowComplianceId
+        ..workflowOriginLaneKey = remote.workflowOriginLaneKey
+        ..workflowTargetLaneKey = remote.workflowTargetLaneKey
+        ..workflowConditionTypeKey = remote.workflowConditionTypeKey
+        ..workflowConditionRef = remote.workflowConditionRef
+        ..workflowDeferredAt = remote.workflowDeferredAt
+        ..workflowDeferredByUid = remote.workflowDeferredByUid
+        ..workflowDeferredByName = remote.workflowDeferredByName
+        ..workflowReactivatedAt = remote.workflowReactivatedAt
+        ..workflowReactivatedByUid = remote.workflowReactivatedByUid
+        ..workflowReactivatedByName = remote.workflowReactivatedByName
+        ..workflowReleasedAt = remote.workflowReleasedAt
+        ..workflowReleasedByUid = remote.workflowReleasedByUid
+        ..workflowReleasedByName = remote.workflowReleasedByName
+        ..workflowCorrectionReason = remote.workflowCorrectionReason
+        ..workflowUpdatedAt = remote.workflowUpdatedAt
         ..isCritical = remote.isCritical
         ..loggedByUid = remote.loggedByUid
         ..loggedByName = remote.loggedByName
@@ -1161,6 +1214,12 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
   }) async {
     _requireCanAdminEditMaintenanceTicket(actor);
     if (record.firestoreId == null) return;
+    final current = await _collection.doc(record.firestoreId!).get();
+    if (!current.exists || current.data() == null) return;
+    _requireMaintenanceWorkflowMapAllowsAction(
+      current.data()!,
+      'edit this ticket',
+    );
     final now = DateTime.now();
     _normalizeManualMaintenanceUpdate(record, now);
 
@@ -1218,7 +1277,11 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     _requireCanSoftDeleteMaintenanceTicket(actor);
     final docId = id as String;
     final doc = await _collection.doc(docId).get();
-    if (!doc.exists) return;
+    if (!doc.exists || doc.data() == null) return;
+    _requireMaintenanceWorkflowMapAllowsAction(
+      doc.data()!,
+      'delete this ticket',
+    );
 
     final beforeSnapshot = _sanitizeForAudit(doc.data());
     final currentVersion = (beforeSnapshot?['version'] as int?) ?? 0;
@@ -1289,6 +1352,15 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     List<ComponentAction>? actions,
   }) async {
     _requireCanCloseMaintenanceTicket(actor);
+    final docId = id as String;
+    final current = await _collection.doc(docId).get();
+    if (!current.exists || current.data() == null) {
+      throw StateError('Ticket not found.');
+    }
+    _requireMaintenanceWorkflowMapAllowsAction(
+      current.data()!,
+      'resolve this ticket',
+    );
     final now = (endDate ?? DateTime.now()).toIso8601String();
     final updateData = <String, dynamic>{
       'isResolved': true,
@@ -1305,7 +1377,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     if (actions != null && actions.isNotEmpty) {
       updateData['actionsJson'] = ComponentAction.encode(actions);
     }
-    await _collection.doc(id as String).update(updateData);
+    await _collection.doc(docId).update(updateData);
   }
 
   @override
@@ -1319,8 +1391,9 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     _requireCanReopenMaintenanceTicket(actor);
     final docId = id as String;
     final doc = await _collection.doc(docId).get();
-    if (!doc.exists) throw Exception('Ticket not found');
+    if (!doc.exists || doc.data() == null) throw Exception('Ticket not found');
     final data = doc.data()!;
+    _requireMaintenanceWorkflowMapAllowsAction(data, 'reopen this ticket');
     final isResolved = data['isResolved'] ?? false;
     final endDateStr = data['endDate'];
     if (!isResolved || endDateStr == null) {
@@ -1554,6 +1627,25 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       )
       ..status = _parseEnum(d['status'], TicketStatus.values, TicketStatus.open)
       ..isResolved = d['isResolved'] ?? false
+      ..workflowDeferred = d['workflowDeferred'] == true
+      ..workflowQueueState = d['workflowQueueState']?.toString() ?? 'independent'
+      ..workflowAggregateId = _cleanOptionalMaintenanceText(d['workflowAggregateId']?.toString())
+      ..workflowComplianceId = _cleanOptionalMaintenanceText(d['workflowComplianceId']?.toString())
+      ..workflowOriginLaneKey = _cleanOptionalMaintenanceText(d['workflowOriginLaneKey']?.toString())
+      ..workflowTargetLaneKey = _cleanOptionalMaintenanceText(d['workflowTargetLaneKey']?.toString())
+      ..workflowConditionTypeKey = _cleanOptionalMaintenanceText(d['workflowConditionTypeKey']?.toString())
+      ..workflowConditionRef = _cleanOptionalMaintenanceText(d['workflowConditionRef']?.toString())
+      ..workflowDeferredAt = _parseTimestamp(d['workflowDeferredAt'])
+      ..workflowDeferredByUid = _cleanOptionalMaintenanceText(d['workflowDeferredByUid']?.toString())
+      ..workflowDeferredByName = _cleanOptionalMaintenanceText(d['workflowDeferredByName']?.toString())
+      ..workflowReactivatedAt = _parseTimestamp(d['workflowReactivatedAt'])
+      ..workflowReactivatedByUid = _cleanOptionalMaintenanceText(d['workflowReactivatedByUid']?.toString())
+      ..workflowReactivatedByName = _cleanOptionalMaintenanceText(d['workflowReactivatedByName']?.toString())
+      ..workflowReleasedAt = _parseTimestamp(d['workflowReleasedAt'])
+      ..workflowReleasedByUid = _cleanOptionalMaintenanceText(d['workflowReleasedByUid']?.toString())
+      ..workflowReleasedByName = _cleanOptionalMaintenanceText(d['workflowReleasedByName']?.toString())
+      ..workflowCorrectionReason = _cleanOptionalMaintenanceText(d['workflowCorrectionReason']?.toString())
+      ..workflowUpdatedAt = _parseTimestamp(d['workflowUpdatedAt'])
       ..isCritical = d['isCritical'] == true
       ..loggedByUid = d['loggedByUid']
       ..loggedByName = d['loggedByName']

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "documents": [
+    {
+      "id": "furnace_placeOnStand",
+      "assetTypeKey": "furnace",
+      "promptKey": "placeOnStand",
+      "promptTypeKey": "question",
+      "question": "Does the furnace need to be placed on the maintenance stand?",
+      "appliesWhenLaneKey": "red",
+      "complianceTargetLaneKey": "oprn",
+      "complianceTitleTemplate": "Place Furnace {assetNumber} on maintenance stand",
+      "conditionTypeKey": "manual",
+      "redSuccessorTemplateCode": "RED-FURNACE-V1",
+      "active": true,
+      "version": 1
+    },
+    {
+      "id": "base_redApplicableMarker",
+      "assetTypeKey": "base",
+      "promptKey": "redApplicableMarker",
+      "promptTypeKey": "applicabilityMarker",
+      "question": null,
+      "appliesWhenLaneKey": "red",
+      "complianceTargetLaneKey": null,
+      "complianceTitleTemplate": null,
+      "conditionTypeKey": "manual",
+      "redSuccessorTemplateCode": "RED-BASE-V1",
+      "active": true,
+      "version": 1
+    }
+  ]
+}

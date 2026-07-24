@@ -1,0 +1,2019 @@
+diff --git a/README.md b/README.md
+index 0b1107e8a7a5af03c95af275e1d4c44e1855b4b4..62dbe8ffd38d48abed39b9ca64e690f9817be99f 100644
+--- a/README.md
++++ b/README.md
+@@ -162,3 +162,7 @@ R1.11 made all Python text-file reads and writes explicit UTF-8 so Windows local
+ ## R1.12 Flutter analyzer correction
+ 
+ R1.12 addresses all 18 diagnostics produced by the authenticated R1.11 Windows `flutter analyze` run: seven errors, three warnings and eight infos. The analyzer remains strict and must pass before Flutter tests, APK construction or emulator authority.
++
++## R1.13 Flutter-test and replay-integrity correction
++
++R1.13 corrects the R1.12 Flutter-test findings without treating them as analyzer regressions. It explicitly clears `isOpenForWork` during offline submit/accept replay, moves five dialog controllers into State ownership, repairs six stale or structurally brittle contracts, and makes Isar test-core custody hermetic and fail-closed. R1.13 remains a local-laboratory candidate until the complete authoritative Windows run passes from pristine packaged bytes.
+diff --git a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
+index acdfe285a932f840f4baf2fb2b8469fd1e5553e8..0d2fae233b91a5ab2def9c6f8db3e288d075a4a3 100644
+--- a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
++++ b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
+@@ -55,9 +55,9 @@
+     {
+       "path": "README.md",
+       "canonicalSha256": "1DE7D30CC85FDB88E103349EFF9E8875F71C4BB872D6636CB5AF33A2B4E96FF3",
+-      "candidateSha256": "48E3CFE185AAA31AD7A1497EA1D8E7BE9A26853B6096106A720810532024D390",
++      "candidateSha256": "335D746FF4A1D8FDB5583B7B32F14558CF1719627ED6EA3BD771BA84C7254FBA",
+       "canonicalBytes": 564,
+-      "candidateBytes": 8009,
++      "candidateBytes": 8522,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+@@ -943,9 +943,9 @@
+     {
+       "path": "lib/core/services/sync_service.job_modules.dart",
+       "canonicalSha256": "F054EC00FCB45450E31F22506F282C071C73A306B91A39E774ED766B8986460C",
+-      "candidateSha256": "F054EC00FCB45450E31F22506F282C071C73A306B91A39E774ED766B8986460C",
++      "candidateSha256": "ABA41B1DC63703BCE3C0D4A276F1E7F427EEF908DC96E55BC4A93809192DBCF6",
+       "canonicalBytes": 22248,
+-      "candidateBytes": 22248,
++      "candidateBytes": 22308,
+       "disposition": "BYTE_IDENTICAL"
+     },
+     {
+@@ -2527,9 +2527,9 @@
+     {
+       "path": "test/async_mounted_context_safety_contract_test.dart",
+       "canonicalSha256": "24EAB910BCFE8CA0AAE39691BBDEDCA1671C856BEFA1ADE7EB0E6D32159348FC",
+-      "candidateSha256": "24EAB910BCFE8CA0AAE39691BBDEDCA1671C856BEFA1ADE7EB0E6D32159348FC",
++      "candidateSha256": "35B433CFC5BF728F32A41F13FDC3A0CECB8234518531BC9492E9C2B82219CAE5",
+       "canonicalBytes": 27121,
+-      "candidateBytes": 27121,
++      "candidateBytes": 27679,
+       "disposition": "BYTE_IDENTICAL"
+     },
+     {
+@@ -2663,9 +2663,9 @@
+     {
+       "path": "test/job_module_lifecycle_replay_contract_test.dart",
+       "canonicalSha256": "EB260608BA77F0A90FE2CD8500636ADC87B938899D12DD613A362213451C4035",
+-      "candidateSha256": "EB260608BA77F0A90FE2CD8500636ADC87B938899D12DD613A362213451C4035",
++      "candidateSha256": "E8F63190490033CD427A2335EC075930688747AEFD6451CB668D1DD5D6A6A14F",
+       "canonicalBytes": 12500,
+-      "candidateBytes": 12500,
++      "candidateBytes": 12895,
+       "disposition": "BYTE_IDENTICAL"
+     },
+     {
+@@ -2687,9 +2687,9 @@
+     {
+       "path": "test/lifecycle_static_guardrail_contract_test.dart",
+       "canonicalSha256": "9F1171DCD647295C309D233D0B4E90A1CBD345225A999F0B63B620027FF60E6B",
+-      "candidateSha256": "9F1171DCD647295C309D233D0B4E90A1CBD345225A999F0B63B620027FF60E6B",
++      "candidateSha256": "7405F655982665C840AD3A8AED0BF1253638E86EDED3F61F6327118D725B782C",
+       "canonicalBytes": 31220,
+-      "candidateBytes": 31220,
++      "candidateBytes": 31694,
+       "disposition": "BYTE_IDENTICAL"
+     },
+     {
+@@ -3103,7 +3103,7 @@
+     {
+       "path": "test/stage2d_source_security_contract_test.dart",
+       "canonicalSha256": "C037DF79AE2D182593612E01B80E5CC5BE7E26216A22D4780DCF824D83AF07C0",
+-      "candidateSha256": "C037DF79AE2D182593612E01B80E5CC5BE7E26216A22D4780DCF824D83AF07C0",
++      "candidateSha256": "740F05AD50A7D81A01EE423D619F280D79A1278D1CB1B36120C3382A5CD9F349",
+       "canonicalBytes": 8193,
+       "candidateBytes": 8193,
+       "disposition": "BYTE_IDENTICAL"
+@@ -3207,9 +3207,9 @@
+     {
+       "path": "tool/test_support/test_isar_core.dart",
+       "canonicalSha256": "5CFE807EEDAA1200C4CB7AA9978C4CBB96898413D2187CE3542A4FE1ED923D4B",
+-      "candidateSha256": "5CFE807EEDAA1200C4CB7AA9978C4CBB96898413D2187CE3542A4FE1ED923D4B",
++      "candidateSha256": "3D5556D2E66507B18F7722524D462B313A33B6649DBFBE58011258A2089DAC04",
+       "canonicalBytes": 1259,
+-      "candidateBytes": 1259,
++      "candidateBytes": 1523,
+       "disposition": "BYTE_IDENTICAL"
+     },
+     {
+@@ -3217,7 +3217,7 @@
+       "canonicalSha256": "6236AA3B73AD28A2DAC89C7ECF91D0FC27E325F4480A1BEDADFFF669AEBAFF87",
+       "candidateSha256": "273C33CE9E5DADF0B78FF98F912E848296A3FF36694015AE787ADA83EB3C7EAB",
+       "canonicalBytes": 285299,
+-      "candidateBytes": 288124,
++      "candidateBytes": 288159,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+@@ -3225,7 +3225,7 @@
+       "canonicalSha256": "1B809592105E36C133713CBD50D548A542CCBABB496E654A7B4A94562FAEC64F",
+       "candidateSha256": "8646CF8F9B9784A5B764F69D40124B4CA7E9D374A5CC2665E2145E9249F2C404",
+       "canonicalBytes": 273,
+-      "candidateBytes": 488,
++      "candidateBytes": 489,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+diff --git a/docs/v4_2_r1/R1_12_FLUTTER_TEST_FAILURE_ADJUDICATION.md b/docs/v4_2_r1/R1_12_FLUTTER_TEST_FAILURE_ADJUDICATION.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..00a07eb9ad2e9089df2533d92667fa8863c6b402
+--- /dev/null
++++ b/docs/v4_2_r1/R1_12_FLUTTER_TEST_FAILURE_ADJUDICATION.md
+@@ -0,0 +1,61 @@
++# R1.12 Flutter-Test Failure Adjudication
++
++## Authority reviewed
++
++This adjudication uses the authenticated R1.12 Windows laboratory evidence and the package-owned patch
++`V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_11_TO_R1_12_FLUTTER_ANALYZER_CORRECTION.patch`.
++
++The R1.12 laboratory reached `flutter test` only after stages 01–29 passed. The suite reported 441 passing and 12 failing tests.
++
++## R1.11 → R1.12 regression question
++
++The package-owned patch changes 16 paths. It is the bounded analyzer-correction set described by R1.12. In particular:
++
++- it does not change `lib/core/services/sync_service.job_modules.dart`;
++- it does not change `tool/test_support/test_isar_core.dart`;
++- it does not change `compliance_detail_screen.dart`;
++- it does not change the failing replay, lifecycle, lane, Rules or Stage-2D security contract tests;
++- its changes to `planned_job_workflow_panel.dart` and `raise_compliance_dialog.dart` are analyzer corrections outside the controller-ownership debt identified by the test;
++- its laboratory-script delta only changes the R1.11 run name/banner to R1.12.
++
++Therefore the 12 failures are not attributable to the R1.12 analyzer correction. They are pre-existing product, test-contract and laboratory debt exposed when the analyzer gate finally passed.
++
++One external assessment phrase is corrected: R1.12 did **not add** the Flutter-test stage. The stage already existed; R1.12 made it reachable by clearing the analyzer gate.
++
++## Failure classification
++
++### A. Confirmed product defect — two failures
++
++`_jobModuleSubmitReplayStepData` and `_jobModuleAcceptReplayStepData` omit `isOpenForWork`, although:
++
++1. Firestore Rules permit that field in both lifecycle transitions and require it to become `false`.
++2. The remote replay primitive is merge-scoped, so an omitted field retains its prior remote value.
++3. Canonical closure treats any module with `isOpenForWork == true` as open.
++
++An offline lifecycle replay can therefore materialize a submitted or accepted module whose persisted open flag remains true. This can produce phantom-open closure behaviour. R1.13 adds `isOpenForWork: false` to both replay maps and strengthens the replay contract tests.
++
++### B. Non-hermetic native-test environment — three failures
++
++Three `setUpAll` failures attempted to download IsarCore because `CRM_ISAR_CORE_PATH` was unset. The existing helper already recognized a governed path, but the authoritative harness did not stage one or prohibit fallback download.
++
++R1.13 stages exactly one Windows AMD64 `isar.dll` from the `isar_flutter_libs` package selected by `.dart_tool/package_config.json`, verifies the exact lockfile version and archive SHA-256, records DLL custody, sets `CRM_ISAR_CORE_PATH`, sets `CRM_ISAR_CORE_REQUIRED=1`, and disables network fallback.
++
++### C. Valid guardrail exposing old ownership debt — one failure covering five sites
++
++Five dialog controllers were created as caller-owned locals. Although the former code disposed them after dialog completion, it violated the repository's explicit State/private-owner lifecycle rule.
++
++R1.13 converts the three affected dialog surfaces to `StatefulWidget` owners with private controller fields and deterministic `dispose()`.
++
++### D. Stale or structurally brittle tests — six failures
++
++R1.13 corrects the tests without weakening governed intent:
++
++- async marker matching is whitespace-tolerant and recognizes the current command-controller assignment architecture;
++- the `ref.listen` scanner handles arrow-bodied `build` methods instead of crashing on them;
++- the Rules test accepts only semantically equivalent explicit fail-closed write denial forms;
++- the lane test recognizes all seven governed lanes and explicitly proves `shared` is generated and delegated;
++- the Stage-2D security test agrees with the lockfile and v4.2 audit authority at `protobufjs 7.6.5`.
++
++## Release disposition
++
++R1.12 remains `FAIL_LOCAL_LAB`. R1.13 is a bounded correction candidate only. It cannot claim Flutter-test, APK, emulator or device authority until the complete authoritative Windows laboratory is rerun from a pristine R1.13 archive.
+diff --git a/docs/v4_2_r1/R1_13_FLUTTER_TEST_AND_REPLAY_CORRECTION.md b/docs/v4_2_r1/R1_13_FLUTTER_TEST_AND_REPLAY_CORRECTION.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a2769d4ced787d125bd56e1248890c710fd7da2e
+--- /dev/null
++++ b/docs/v4_2_r1/R1_13_FLUTTER_TEST_AND_REPLAY_CORRECTION.md
+@@ -0,0 +1,64 @@
++# R1.13 Flutter-Test, Replay-Integrity and Hermetic-Isar Correction
++
++## Purpose
++
++R1.13 addresses the complete, evidence-backed set of 12 failures exposed by the R1.12 Flutter-test gate. It does not broaden application scope or alter backend deployment state.
++
++## Product correction
++
++Both offline job-module lifecycle replay builders now write:
++
++```dart
++'isOpenForWork': false,
++```
++
++This is required for exact parity with the submit/accept Rules whitelist and transition invariants. Because replay uses Firestore merge semantics, explicit clearing is necessary to prevent a previously open remote module from remaining logically open after submit or accept replay.
++
++## Dialog lifecycle correction
++
++The following surfaces now use private State-owned `TextEditingController` instances with deterministic disposal:
++
++- compliance-detail text prompt;
++- planned-job workflow text prompt;
++- raise-compliance dialog title, description and condition-reference inputs.
++
++No lifecycle guard was removed or weakened.
++
++## Contract-test correction
++
++R1.13 updates six stale or brittle contracts to test current governed behaviour rather than historical formatting or superseded architecture:
++
++- async/mounted marker matching and assignment-command contract;
++- arrow-bodied `Widget build` support in the static scanner;
++- semantic explicit deny for direct workflow writes;
++- seven accountable maintenance lanes, including governed `shared` coordination;
++- `protobufjs 7.6.5` security authority.
++
++The replay contract also now asserts that both transitions explicitly clear `isOpenForWork`.
++
++## Hermetic Isar test-core custody
++
++The authoritative laboratory now adds `30_isar_test_core_custody` before Flutter tests. The staging helper:
++
++1. requires `isar_flutter_libs 3.1.0+1` in `pubspec.lock`;
++2. verifies archive SHA-256 `BC6768CC4B9C61AABFF77152E7F33B4B17D2FC93134F7AF1C3DD51500FE8D5E8`;
++3. resolves the selected package through `.dart_tool/package_config.json`;
++4. requires exactly one PE AMD64 `isar.dll`;
++5. copies it to `.governed-native/isar.dll`;
++6. verifies source and staged DLL hashes;
++7. writes evidence custody; and
++8. prohibits network download during Flutter tests.
++
++If that custody cannot be proven, the laboratory fails before the test suite rather than misclassifying three product tests as failures.
++
++## Boundaries
++
++R1.13 does not claim:
++
++- authoritative `flutter analyze` success;
++- authoritative Flutter-test success;
++- debug APK success;
++- emulator or device success;
++- Git integration, backend deployment, signing or production release authority.
++
++Those gates require the complete Windows laboratory against the packaged R1.13 bytes.
+diff --git a/lib/core/services/sync_service.job_modules.dart b/lib/core/services/sync_service.job_modules.dart
+index a90d92c86247dad0bd208257e3961d3a923d1010..73e9a323e3ad6de4b9dfe3bb9de68e4c0646f4ba 100644
+--- a/lib/core/services/sync_service.job_modules.dart
++++ b/lib/core/services/sync_service.job_modules.dart
+@@ -548,6 +548,7 @@ extension _SyncServiceJobModules on SyncService {
+     final full = local.toMap();
+     return <String, dynamic>{
+       'status': JobModuleStatus.submitted.name,
++      'isOpenForWork': false,
+       'responsesJson': full['responsesJson'],
+       'actionsJson': full['actionsJson'],
+       'draftNote': full['draftNote'],
+@@ -569,6 +570,7 @@ extension _SyncServiceJobModules on SyncService {
+     final full = local.toMap();
+     return <String, dynamic>{
+       'status': JobModuleStatus.accepted.name,
++      'isOpenForWork': false,
+       'acceptedByUid': full['acceptedByUid'],
+       'acceptedByName': full['acceptedByName'],
+       'acceptedAt': full['acceptedAt'],
+diff --git a/lib/features/maintenance_workflow/presentation/screens/compliance_detail_screen.dart b/lib/features/maintenance_workflow/presentation/screens/compliance_detail_screen.dart
+index 799092670a7ce8fea44d5f4c8b03d240e7e8b960..8bd97c7aa3169a0087794a523c34e233b826549b 100644
+--- a/lib/features/maintenance_workflow/presentation/screens/compliance_detail_screen.dart
++++ b/lib/features/maintenance_workflow/presentation/screens/compliance_detail_screen.dart
+@@ -301,35 +301,77 @@ class ComplianceDetailScreen extends ConsumerWidget {
+     required String label,
+     String initialValue = '',
+     bool required = true,
+-  }) async {
+-    final controller = TextEditingController(text: initialValue);
+-    final result = await showDialog<String>(
++  }) {
++    return showDialog<String>(
+       context: context,
+-      builder: (dialogContext) => AlertDialog(
+-        title: Text(title),
+-        content: TextField(
+-          controller: controller,
+-          autofocus: true,
+-          maxLines: 4,
+-          decoration: InputDecoration(labelText: label),
+-        ),
+-        actions: [
+-          TextButton(
+-            onPressed: () => Navigator.pop(dialogContext),
+-            child: const Text('Cancel'),
+-          ),
+-          FilledButton(
+-            onPressed: () {
+-              final value = controller.text.trim();
+-              if (required && value.isEmpty) return;
+-              Navigator.pop(dialogContext, value);
+-            },
+-            child: const Text('Continue'),
+-          ),
+-        ],
++      builder: (_) => _ComplianceTextPromptDialog(
++        title: title,
++        label: label,
++        initialValue: initialValue,
++        isRequired: required,
+       ),
+     );
+-    controller.dispose();
+-    return result;
++  }
++}
++
++class _ComplianceTextPromptDialog extends StatefulWidget {
++  final String title;
++  final String label;
++  final String initialValue;
++  final bool isRequired;
++
++  const _ComplianceTextPromptDialog({
++    required this.title,
++    required this.label,
++    required this.initialValue,
++    required this.isRequired,
++  });
++
++  @override
++  State<_ComplianceTextPromptDialog> createState() =>
++      _ComplianceTextPromptDialogState();
++}
++
++class _ComplianceTextPromptDialogState
++    extends State<_ComplianceTextPromptDialog> {
++  late final TextEditingController _controller;
++
++  @override
++  void initState() {
++    super.initState();
++    _controller = TextEditingController(text: widget.initialValue);
++  }
++
++  @override
++  void dispose() {
++    _controller.dispose();
++    super.dispose();
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    return AlertDialog(
++      title: Text(widget.title),
++      content: TextField(
++        controller: _controller,
++        autofocus: true,
++        maxLines: 4,
++        decoration: InputDecoration(labelText: widget.label),
++      ),
++      actions: [
++        TextButton(
++          onPressed: () => Navigator.pop(context),
++          child: const Text('Cancel'),
++        ),
++        FilledButton(
++          onPressed: () {
++            final value = _controller.text.trim();
++            if (widget.isRequired && value.isEmpty) return;
++            Navigator.pop(context, value);
++          },
++          child: const Text('Continue'),
++        ),
++      ],
++    );
+   }
+ }
+diff --git a/lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart b/lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart
+index 8893a3a7bad6d76e35451909c770d5624ccb1221..01613c54ec4f7b729a588e0089be846bbc3761dd 100644
+--- a/lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart
++++ b/lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart
+@@ -718,36 +718,15 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
+     required String title,
+     required String label,
+     required bool required,
+-  }) async {
+-    final controller = TextEditingController();
+-    final result = await showDialog<String>(
++  }) {
++    return showDialog<String>(
+       context: context,
+-      builder: (dialogContext) => AlertDialog(
+-        title: Text(title),
+-        content: TextField(
+-          controller: controller,
+-          autofocus: true,
+-          maxLines: 3,
+-          decoration: InputDecoration(labelText: label),
+-        ),
+-        actions: [
+-          TextButton(
+-            onPressed: () => Navigator.pop(dialogContext),
+-            child: const Text('Cancel'),
+-          ),
+-          FilledButton(
+-            onPressed: () {
+-              final value = controller.text.trim();
+-              if (required && value.isEmpty) return;
+-              Navigator.pop(dialogContext, value);
+-            },
+-            child: const Text('Continue'),
+-          ),
+-        ],
++      builder: (_) => _WorkflowTextPromptDialog(
++        title: title,
++        label: label,
++        isRequired: required,
+       ),
+     );
+-    controller.dispose();
+-    return result;
+   }
+ 
+   void _showTimeline(
+@@ -811,6 +790,61 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
+   }
+ }
+ 
++
++class _WorkflowTextPromptDialog extends StatefulWidget {
++  final String title;
++  final String label;
++  final bool isRequired;
++
++  const _WorkflowTextPromptDialog({
++    required this.title,
++    required this.label,
++    required this.isRequired,
++  });
++
++  @override
++  State<_WorkflowTextPromptDialog> createState() =>
++      _WorkflowTextPromptDialogState();
++}
++
++class _WorkflowTextPromptDialogState
++    extends State<_WorkflowTextPromptDialog> {
++  final TextEditingController _controller = TextEditingController();
++
++  @override
++  void dispose() {
++    _controller.dispose();
++    super.dispose();
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    return AlertDialog(
++      title: Text(widget.title),
++      content: TextField(
++        controller: _controller,
++        autofocus: true,
++        maxLines: 3,
++        decoration: InputDecoration(labelText: widget.label),
++      ),
++      actions: [
++        TextButton(
++          onPressed: () => Navigator.pop(context),
++          child: const Text('Cancel'),
++        ),
++        FilledButton(
++          onPressed: () {
++            final value = _controller.text.trim();
++            if (widget.isRequired && value.isEmpty) return;
++            Navigator.pop(context, value);
++          },
++          child: const Text('Continue'),
++        ),
++      ],
++    );
++  }
++}
++
+ enum _LaneAction { acknowledge, close, remove, terminate }
+ 
+ class _PanelLoading extends StatelessWidget {
+diff --git a/lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart b/lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart
+index 9b8fb4345e2d244b3e2c86dd9eb927e10b3a0f5f..5ebf470659ee0a38298e6b8e00af69a7398c9458 100644
+--- a/lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart
++++ b/lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart
+@@ -33,247 +33,288 @@ Future<RaiseComplianceDraft?> showRaiseComplianceDialog(
+   required List<JobLaneRecord> originLanes,
+   required List<JobLaneRecord> activeLanes,
+   required List<MaintenanceRecord> maintenanceTickets,
+-}) async {
+-  if (originLanes.isEmpty) return null;
+-  final titleController = TextEditingController();
+-  final descriptionController = TextEditingController();
+-  final conditionRefController = TextEditingController();
+-  var originLaneKey = originLanes.first.laneKey;
+-  var targetLaneKey = MaintenanceLaneId.operations.value;
+-  var conditionTypeKey = 'manual';
+-  var priorityKey = 'medium';
+-  var linkedMaintenanceId = '';
+-  var gatingLaneId = '';
+-  String? validationMessage;
+-
+-  final result = await showDialog<RaiseComplianceDraft>(
++}) {
++  if (originLanes.isEmpty) return Future<RaiseComplianceDraft?>.value();
++  return showDialog<RaiseComplianceDraft>(
+     context: context,
+-    builder: (dialogContext) => StatefulBuilder(
+-      builder: (context, setState) => AlertDialog(
+-        title: const Text('Raise compliance request'),
+-        content: SizedBox(
+-          width: 560,
+-          child: SingleChildScrollView(
+-            child: Column(
+-              mainAxisSize: MainAxisSize.min,
+-              children: [
+-                DropdownButtonFormField<String>(
+-                  initialValue: originLaneKey,
+-                  decoration: const InputDecoration(
+-                    labelText: 'Raised from accountable lane',
+-                  ),
+-                  items: originLanes
+-                      .map(
+-                        (lane) => DropdownMenuItem<String>(
+-                          value: lane.laneKey,
+-                          child: Text(lane.laneKey.toUpperCase()),
+-                        ),
+-                      )
+-                      .toList(growable: false),
+-                  onChanged: (value) {
+-                    if (value != null) setState(() => originLaneKey = value);
+-                  },
+-                ),
+-                const SizedBox(height: 12),
+-                DropdownButtonFormField<String>(
+-                  initialValue: targetLaneKey,
+-                  decoration: const InputDecoration(labelText: 'Target lane'),
+-                  items: MaintenanceLaneCatalog.crm3.definitions
+-                      .map(
+-                        (lane) => DropdownMenuItem<String>(
+-                          value: lane.id.value,
+-                          child: Text('${lane.code} — ${lane.displayName}'),
+-                        ),
+-                      )
+-                      .toList(growable: false),
+-                  onChanged: (value) {
+-                    if (value != null) setState(() => targetLaneKey = value);
+-                  },
++    builder: (_) => _RaiseComplianceDialog(
++      originLanes: originLanes,
++      activeLanes: activeLanes,
++      maintenanceTickets: maintenanceTickets,
++    ),
++  );
++}
++
++class _RaiseComplianceDialog extends StatefulWidget {
++  final List<JobLaneRecord> originLanes;
++  final List<JobLaneRecord> activeLanes;
++  final List<MaintenanceRecord> maintenanceTickets;
++
++  const _RaiseComplianceDialog({
++    required this.originLanes,
++    required this.activeLanes,
++    required this.maintenanceTickets,
++  });
++
++  @override
++  State<_RaiseComplianceDialog> createState() =>
++      _RaiseComplianceDialogState();
++}
++
++class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
++  final TextEditingController _titleController = TextEditingController();
++  final TextEditingController _descriptionController = TextEditingController();
++  final TextEditingController _conditionRefController = TextEditingController();
++
++  late String _originLaneKey;
++  String _targetLaneKey = MaintenanceLaneId.operations.value;
++  String _conditionTypeKey = 'manual';
++  String _priorityKey = 'medium';
++  String _linkedMaintenanceId = '';
++  String _gatingLaneId = '';
++  String? _validationMessage;
++
++  @override
++  void initState() {
++    super.initState();
++    _originLaneKey = widget.originLanes.first.laneKey;
++  }
++
++  @override
++  void dispose() {
++    _titleController.dispose();
++    _descriptionController.dispose();
++    _conditionRefController.dispose();
++    super.dispose();
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    return AlertDialog(
++      title: const Text('Raise compliance request'),
++      content: SizedBox(
++        width: 560,
++        child: SingleChildScrollView(
++          child: Column(
++            mainAxisSize: MainAxisSize.min,
++            children: [
++              DropdownButtonFormField<String>(
++                initialValue: _originLaneKey,
++                decoration: const InputDecoration(
++                  labelText: 'Raised from accountable lane',
+                 ),
+-                const SizedBox(height: 12),
+-                TextField(
+-                  controller: titleController,
+-                  decoration: const InputDecoration(labelText: 'Request title'),
++                items: widget.originLanes
++                    .map(
++                      (lane) => DropdownMenuItem<String>(
++                        value: lane.laneKey,
++                        child: Text(lane.laneKey.toUpperCase()),
++                      ),
++                    )
++                    .toList(growable: false),
++                onChanged: (value) {
++                  if (value != null) setState(() => _originLaneKey = value);
++                },
++              ),
++              const SizedBox(height: 12),
++              DropdownButtonFormField<String>(
++                initialValue: _targetLaneKey,
++                decoration: const InputDecoration(labelText: 'Target lane'),
++                items: MaintenanceLaneCatalog.crm3.definitions
++                    .map(
++                      (lane) => DropdownMenuItem<String>(
++                        value: lane.id.value,
++                        child: Text('${lane.code} — ${lane.displayName}'),
++                      ),
++                    )
++                    .toList(growable: false),
++                onChanged: (value) {
++                  if (value != null) setState(() => _targetLaneKey = value);
++                },
++              ),
++              const SizedBox(height: 12),
++              TextField(
++                controller: _titleController,
++                decoration: const InputDecoration(labelText: 'Request title'),
++              ),
++              const SizedBox(height: 12),
++              TextField(
++                controller: _descriptionController,
++                maxLines: 3,
++                decoration: const InputDecoration(
++                  labelText: 'Required action or confirmation',
+                 ),
+-                const SizedBox(height: 12),
+-                TextField(
+-                  controller: descriptionController,
+-                  maxLines: 3,
+-                  decoration: const InputDecoration(
+-                    labelText: 'Required action or confirmation',
++              ),
++              const SizedBox(height: 12),
++              DropdownButtonFormField<String>(
++                initialValue: _conditionTypeKey,
++                decoration: const InputDecoration(labelText: 'When due'),
++                items: const [
++                  DropdownMenuItem(value: 'manual', child: Text('Immediately')),
++                  DropdownMenuItem(
++                    value: 'chargeComplete',
++                    child: Text('After current cycle / charge'),
+                   ),
+-                ),
+-                const SizedBox(height: 12),
+-                DropdownButtonFormField<String>(
+-                  initialValue: conditionTypeKey,
+-                  decoration: const InputDecoration(labelText: 'When due'),
+-                  items: const [
+-                    DropdownMenuItem(value: 'manual', child: Text('Immediately')),
+-                    DropdownMenuItem(
+-                      value: 'chargeComplete',
+-                      child: Text('After current cycle / charge'),
+-                    ),
+-                    DropdownMenuItem(
+-                      value: 'activityRef',
+-                      child: Text('After a named activity'),
+-                    ),
+-                  ],
+-                  onChanged: (value) {
+-                    if (value != null) setState(() => conditionTypeKey = value);
+-                  },
+-                ),
+-                if (conditionTypeKey != 'manual') ...[
+-                  const SizedBox(height: 12),
+-                  TextField(
+-                    controller: conditionRefController,
+-                    decoration: InputDecoration(
+-                      labelText: conditionTypeKey == 'chargeComplete'
+-                          ? 'Charge / cycle reference'
+-                          : 'Activity reference',
+-                    ),
++                  DropdownMenuItem(
++                    value: 'activityRef',
++                    child: Text('After a named activity'),
+                   ),
+                 ],
++                onChanged: (value) {
++                  if (value != null) setState(() => _conditionTypeKey = value);
++                },
++              ),
++              if (_conditionTypeKey != 'manual') ...[
+                 const SizedBox(height: 12),
+-                DropdownButtonFormField<String>(
+-                  initialValue: linkedMaintenanceId,
++                TextField(
++                  controller: _conditionRefController,
+                   decoration: InputDecoration(
+-                    labelText: conditionTypeKey == 'manual'
+-                        ? 'Linked maintenance ticket (optional)'
+-                        : 'Linked maintenance ticket (required)',
+-                    helperText: conditionTypeKey == 'manual'
+-                        ? 'Link when the request governs an existing ticket.'
+-                        : 'Deferred work must bind to a real open ticket on this asset.',
++                    labelText: _conditionTypeKey == 'chargeComplete'
++                        ? 'Charge / cycle reference'
++                        : 'Activity reference',
+                   ),
+-                  items: <DropdownMenuItem<String>>[
+-                    const DropdownMenuItem<String>(
+-                      value: '',
+-                      child: Text('No linked maintenance ticket'),
+-                    ),
+-                    ...maintenanceTickets.map(
+-                      (ticket) => DropdownMenuItem<String>(
+-                        value: ticket.firestoreId,
+-                        child: Text(
+-                          '${ticket.firestoreId ?? ticket.id} — ${ticket.description}',
+-                          overflow: TextOverflow.ellipsis,
+-                        ),
+-                      ),
+-                    ),
+-                  ],
+-                  onChanged: (value) => setState(() {
+-                    linkedMaintenanceId = value ?? '';
+-                  }),
+                 ),
+-                const SizedBox(height: 12),
+-                DropdownButtonFormField<String>(
+-                  initialValue: priorityKey,
+-                  decoration: const InputDecoration(labelText: 'Priority'),
+-                  items: const [
+-                    DropdownMenuItem(value: 'low', child: Text('Low')),
+-                    DropdownMenuItem(value: 'medium', child: Text('Medium')),
+-                    DropdownMenuItem(value: 'high', child: Text('High')),
+-                    DropdownMenuItem(value: 'critical', child: Text('Critical')),
+-                  ],
+-                  onChanged: (value) {
+-                    if (value != null) setState(() => priorityKey = value);
+-                  },
++              ],
++              const SizedBox(height: 12),
++              DropdownButtonFormField<String>(
++                initialValue: _linkedMaintenanceId,
++                decoration: InputDecoration(
++                  labelText: _conditionTypeKey == 'manual'
++                      ? 'Linked maintenance ticket (optional)'
++                      : 'Linked maintenance ticket (required)',
++                  helperText: _conditionTypeKey == 'manual'
++                      ? 'Link when the request governs an existing ticket.'
++                      : 'Deferred work must bind to a real open ticket on this asset.',
+                 ),
+-                const SizedBox(height: 12),
+-                DropdownButtonFormField<String>(
+-                  initialValue: gatingLaneId,
+-                  decoration: const InputDecoration(
+-                    labelText: 'Block a lane until confirmed (optional)',
++                items: <DropdownMenuItem<String>>[
++                  const DropdownMenuItem<String>(
++                    value: '',
++                    child: Text('No linked maintenance ticket'),
+                   ),
+-                  items: <DropdownMenuItem<String>>[
+-                    const DropdownMenuItem<String>(
+-                      value: '',
+-                      child: Text('Informational / non-blocking'),
+-                    ),
+-                    ...activeLanes.map(
+-                      (lane) => DropdownMenuItem<String>(
+-                        value: lane.firestoreId,
+-                        child: Text('Block ${lane.laneKey.toUpperCase()} lane'),
++                  ...widget.maintenanceTickets.map(
++                    (ticket) => DropdownMenuItem<String>(
++                      value: ticket.firestoreId,
++                      child: Text(
++                        '${ticket.firestoreId ?? ticket.id} — ${ticket.description}',
++                        overflow: TextOverflow.ellipsis,
+                       ),
+                     ),
+-                  ],
+-                  onChanged: (value) => setState(() => gatingLaneId = value ?? ''),
++                  ),
++                ],
++                onChanged: (value) => setState(() {
++                  _linkedMaintenanceId = value ?? '';
++                }),
++              ),
++              const SizedBox(height: 12),
++              DropdownButtonFormField<String>(
++                initialValue: _priorityKey,
++                decoration: const InputDecoration(labelText: 'Priority'),
++                items: const [
++                  DropdownMenuItem(value: 'low', child: Text('Low')),
++                  DropdownMenuItem(value: 'medium', child: Text('Medium')),
++                  DropdownMenuItem(value: 'high', child: Text('High')),
++                  DropdownMenuItem(value: 'critical', child: Text('Critical')),
++                ],
++                onChanged: (value) {
++                  if (value != null) setState(() => _priorityKey = value);
++                },
++              ),
++              const SizedBox(height: 12),
++              DropdownButtonFormField<String>(
++                initialValue: _gatingLaneId,
++                decoration: const InputDecoration(
++                  labelText: 'Block a lane until confirmed (optional)',
+                 ),
+-                if (validationMessage != null) ...[
+-                  const SizedBox(height: 12),
+-                  Align(
+-                    alignment: Alignment.centerLeft,
+-                    child: Text(
+-                      validationMessage!,
+-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
++                items: <DropdownMenuItem<String>>[
++                  const DropdownMenuItem<String>(
++                    value: '',
++                    child: Text('Informational / non-blocking'),
++                  ),
++                  ...widget.activeLanes.map(
++                    (lane) => DropdownMenuItem<String>(
++                      value: lane.firestoreId,
++                      child: Text('Block ${lane.laneKey.toUpperCase()} lane'),
+                     ),
+                   ),
+                 ],
++                onChanged: (value) => setState(() {
++                  _gatingLaneId = value ?? '';
++                }),
++              ),
++              if (_validationMessage != null) ...[
++                const SizedBox(height: 12),
++                Align(
++                  alignment: Alignment.centerLeft,
++                  child: Text(
++                    _validationMessage!,
++                    style: TextStyle(color: Theme.of(context).colorScheme.error),
++                  ),
++                ),
+               ],
+-            ),
++            ],
+           ),
+         ),
+-        actions: [
+-          TextButton(
+-            onPressed: () => Navigator.pop(dialogContext),
+-            child: const Text('Cancel'),
+-          ),
+-          FilledButton(
+-            onPressed: () {
+-              final title = titleController.text.trim();
+-              final description = descriptionController.text.trim();
+-              final conditionRef = conditionRefController.text.trim();
+-              if (title.isEmpty || description.isEmpty) {
+-                setState(() {
+-                  validationMessage = 'Title and required action are mandatory.';
+-                });
+-                return;
+-              }
+-              if (conditionTypeKey != 'manual' && conditionRef.isEmpty) {
+-                setState(() {
+-                  validationMessage = 'A due-condition reference is mandatory.';
+-                });
+-                return;
+-              }
+-              if (conditionTypeKey != 'manual' && linkedMaintenanceId.isEmpty) {
+-                setState(() {
+-                  validationMessage =
+-                      'Deferred compliance must be linked to an open maintenance ticket.';
+-                });
+-                return;
+-              }
+-              JobLaneRecord? gatingLane;
+-              if (gatingLaneId.isNotEmpty) {
+-                for (final lane in activeLanes) {
+-                  if (lane.firestoreId == gatingLaneId) {
+-                    gatingLane = lane;
+-                    break;
+-                  }
+-                }
+-              }
+-              Navigator.pop(
+-                dialogContext,
+-                RaiseComplianceDraft(
+-                  originLaneKey: originLaneKey,
+-                  targetLaneKey: targetLaneKey,
+-                  title: title,
+-                  description: description,
+-                  conditionTypeKey: conditionTypeKey,
+-                  conditionRef: conditionRef.isEmpty ? null : conditionRef,
+-                  priorityKey: priorityKey,
+-                  linkedMaintenanceId:
+-                      linkedMaintenanceId.isEmpty ? null : linkedMaintenanceId,
+-                  gatingLane: gatingLane,
+-                ),
+-              );
+-            },
+-            child: const Text('Raise request'),
+-          ),
+-        ],
+       ),
+-    ),
+-  );
++      actions: [
++        TextButton(
++          onPressed: () => Navigator.pop(context),
++          child: const Text('Cancel'),
++        ),
++        FilledButton(
++          onPressed: _submit,
++          child: const Text('Raise request'),
++        ),
++      ],
++    );
++  }
+ 
+-  titleController.dispose();
+-  descriptionController.dispose();
+-  conditionRefController.dispose();
+-  return result;
++  void _submit() {
++    final title = _titleController.text.trim();
++    final description = _descriptionController.text.trim();
++    final conditionRef = _conditionRefController.text.trim();
++    if (title.isEmpty || description.isEmpty) {
++      setState(() {
++        _validationMessage = 'Title and required action are mandatory.';
++      });
++      return;
++    }
++    if (_conditionTypeKey != 'manual' && conditionRef.isEmpty) {
++      setState(() {
++        _validationMessage = 'A due-condition reference is mandatory.';
++      });
++      return;
++    }
++    if (_conditionTypeKey != 'manual' && _linkedMaintenanceId.isEmpty) {
++      setState(() {
++        _validationMessage =
++            'Deferred compliance must be linked to an open maintenance ticket.';
++      });
++      return;
++    }
++
++    JobLaneRecord? gatingLane;
++    if (_gatingLaneId.isNotEmpty) {
++      for (final lane in widget.activeLanes) {
++        if (lane.firestoreId == _gatingLaneId) {
++          gatingLane = lane;
++          break;
++        }
++      }
++    }
++
++    Navigator.pop(
++      context,
++      RaiseComplianceDraft(
++        originLaneKey: _originLaneKey,
++        targetLaneKey: _targetLaneKey,
++        title: title,
++        description: description,
++        conditionTypeKey: _conditionTypeKey,
++        conditionRef: conditionRef.isEmpty ? null : conditionRef,
++        priorityKey: _priorityKey,
++        linkedMaintenanceId:
++            _linkedMaintenanceId.isEmpty ? null : _linkedMaintenanceId,
++        gatingLane: gatingLane,
++      ),
++    );
++  }
+ }
+diff --git a/test/async_mounted_context_safety_contract_test.dart b/test/async_mounted_context_safety_contract_test.dart
+index 58d0ad904ced1d6064a3f888def44746accbae0e..71e35b0e0108541282ca37c33a4ff9b8bc56c35d 100644
+--- a/test/async_mounted_context_safety_contract_test.dart
++++ b/test/async_mounted_context_safety_contract_test.dart
+@@ -9,14 +9,14 @@ void main() {
+         'lib/features/planned_maintenance/presentation/job_module_detail_screen.dart',
+       );
+ 
+-      for (final marker in <String>[
+-        'saveModule(\n              updated,',
+-        'submitModule(\n              _transitionId(),',
+-        'acceptModule(\n              _transitionId(),',
+-        'markModuleNotApplicable(\n              _transitionId(),',
+-        'reopenModule(\n              _transitionId(),',
++      for (final marker in <RegExp>[
++        RegExp(r'saveModule\(\s*updated,'),
++        RegExp(r'submitModule\(\s*_transitionId\(\),'),
++        RegExp(r'acceptModule\(\s*_transitionId\(\),'),
++        RegExp(r'markModuleNotApplicable\(\s*_transitionId\(\),'),
++        RegExp(r'reopenModule\(\s*_transitionId\(\),'),
+       ]) {
+-        final section = _windowAfter(source, marker, 700);
++        final section = _windowAfterPattern(source, marker, 700);
+         expect(
+           section,
+           contains('if (!mounted) return;'),
+@@ -413,13 +413,7 @@ void main() {
+     test(
+       'legacy template and ticket async surfaces capture sync or nullable messenger safely',
+       () {
+-        _expectCapturedSyncBeforeAwait(
+-          path:
+-              'lib/features/planned_maintenance/presentation/assign_job_screen.dart',
+-          methodMarker: 'Future<void> _submit',
+-          awaitMarker: 'await repository.saveExecution(',
+-          syncReason: 'job_assigned',
+-        );
++        _expectWorkflowCommandAssignmentContract();
+         _expectCapturedSyncBeforeAwait(
+           path:
+               'lib/features/planned_maintenance/presentation/create_template_screen.dart',
+@@ -551,13 +545,38 @@ const _templatePublisherLibraryFiles = <String>[
+   'lib/features/planned_maintenance/presentation/template_publisher_models.dart',
+ ];
+ 
+-String _windowAfter(String source, String marker, int length) {
+-  final start = source.indexOf(marker);
+-  expect(start, isNonNegative, reason: 'Missing marker: $marker');
++String _windowAfterPattern(String source, RegExp marker, int length) {
++  final match = marker.firstMatch(source);
++  expect(match, isNotNull, reason: 'Missing marker pattern: $marker');
++  final start = match!.start;
+   final end = (start + length).clamp(0, source.length);
+   return source.substring(start, end);
+ }
+ 
++void _expectWorkflowCommandAssignmentContract() {
++  final body = _bodyStartingAt(
++    _read(
++      'lib/features/planned_maintenance/presentation/assign_job_screen.dart',
++    ),
++    'Future<void> _submit',
++  );
++  const commandAwait =
++      'await ref.read(workflowCommandControllerProvider.notifier).execute(';
++  const syncCapture =
++      'final syncCoordinator = ref.read(syncCoordinatorProvider);';
++
++  expect(body, contains(commandAwait));
++  expect(body, contains('WorkflowCommandType.createLegacyWorkflowJob'));
++  expect(body, isNot(contains('repository.saveExecution(')));
++  _expectBefore(body, syncCapture, commandAwait);
++  expect(
++    body,
++    contains(
++      "syncCoordinator.runFullSync(reason: 'workflow_job_assigned', force: true)",
++    ),
++  );
++}
++
+ String _bodyStartingAt(String source, String marker) {
+   final markerIndex = source.indexOf(marker);
+   expect(markerIndex, isNonNegative, reason: 'Missing marker: $marker');
+diff --git a/test/job_module_lifecycle_replay_contract_test.dart b/test/job_module_lifecycle_replay_contract_test.dart
+index b4ff7e2342978ae3a28508505fc10508f7594100..bd45bfe137313e862c846eb183b4f6a5a9aced1d 100644
+--- a/test/job_module_lifecycle_replay_contract_test.dart
++++ b/test/job_module_lifecycle_replay_contract_test.dart
+@@ -104,6 +104,12 @@ void main() {
+         payloadBlock,
+         contains("'status': JobModuleStatus.submitted.name"),
+       );
++      expect(
++        payloadBlock,
++        contains("'isOpenForWork': false"),
++        reason:
++            'field-scoped submit replay must clear a previously persisted open flag',
++      );
+       expect(
+         payloadBlock,
+         contains("'updatedAt': full['submittedAt'] ?? full['updatedAt']"),
+@@ -149,6 +155,12 @@ void main() {
+           payloadBlock,
+           contains("'status': JobModuleStatus.accepted.name"),
+         );
++        expect(
++          payloadBlock,
++          contains("'isOpenForWork': false"),
++          reason:
++              'field-scoped accept replay must preserve the closed lifecycle invariant',
++        );
+         expect(
+           payloadBlock,
+           contains("'updatedAt': full['acceptedAt'] ?? full['updatedAt']"),
+diff --git a/test/lifecycle_static_guardrail_contract_test.dart b/test/lifecycle_static_guardrail_contract_test.dart
+index 9291c60f14b6c9c1214dcaa08f2128dee525000b..136e19cbc6e18ca2d6e9d997eb07882ccb4ddb34 100644
+--- a/test/lifecycle_static_guardrail_contract_test.dart
++++ b/test/lifecycle_static_guardrail_contract_test.dart
+@@ -118,7 +118,7 @@ void main() {
+         for (final match in RegExp(
+           r'\bWidget\s+build\s*\(',
+         ).allMatches(source)) {
+-          final body = _blockStartingAtIndex(source, match.start);
++          final body = _functionBodyStartingAtIndex(source, match.start);
+           if (body.contains('ref.listen(') || body.contains('ref.listen<')) {
+             violations.add('$path:${_lineFor(source, match.start)}');
+           }
+@@ -685,6 +685,21 @@ String _blockStartingAt(String source, String marker) {
+   return _blockStartingAtIndex(source, start);
+ }
+ 
++String _functionBodyStartingAtIndex(String source, int start) {
++  final open = _bodyBraceIndex(source, start);
++  final arrow = source.indexOf('=>', start);
++  if (arrow >= 0 && (open < 0 || arrow < open)) {
++    final end = source.indexOf(';', arrow + 2);
++    expect(
++      end,
++      isNonNegative,
++      reason: 'Missing expression terminator at index $start',
++    );
++    return source.substring(arrow, end + 1);
++  }
++  return _blockStartingAtIndex(source, start);
++}
++
+ String _blockStartingAtIndex(String source, int start) {
+   final open = _bodyBraceIndex(source, start);
+   expect(open, isNonNegative, reason: 'Missing opening brace at index $start');
+diff --git a/test/maintenance_workflow/firestore_rules_online_only_contract_test.dart b/test/maintenance_workflow/firestore_rules_online_only_contract_test.dart
+index ca36042dd12da3fef788145936ca45eba68c7f7b..a2df132550d62578bd5099e4232df1830ab09b21 100644
+--- a/test/maintenance_workflow/firestore_rules_online_only_contract_test.dart
++++ b/test/maintenance_workflow/firestore_rules_online_only_contract_test.dart
+@@ -20,10 +20,17 @@ void main() {
+         r'match\s+/' + RegExp.escape(collection) + r'/\{[^}]+\}\s*\{([\s\S]*?)\n\s*\}',
+       ).firstMatch(rules);
+       expect(block, isNotNull, reason: 'Missing Rules block for $collection');
++      final body = block!.group(1)!;
++      final deniesDirectWrites =
++          body.contains('allow write: if false') ||
++          RegExp(
++            r'allow\s+(?:read,\s*)?create,\s*update,\s*delete\s*:\s*if\s+false\s*;',
++          ).hasMatch(body);
+       expect(
+-        block!.group(1),
+-        contains('allow write: if false'),
+-        reason: '$collection must reject direct client lifecycle writes',
++        deniesDirectWrites,
++        isTrue,
++        reason:
++            '$collection must reject create, update and delete through an explicit fail-closed rule',
+       );
+     }
+   });
+diff --git a/test/maintenance_workflow/maintenance_lane_policy_test.dart b/test/maintenance_workflow/maintenance_lane_policy_test.dart
+index 06305cf982eb4cac215d62379d854233f6682f0b..251abbc6ace763d209e8d9d9e5d17d2484f8cc3a 100644
+--- a/test/maintenance_workflow/maintenance_lane_policy_test.dart
++++ b/test/maintenance_workflow/maintenance_lane_policy_test.dart
+@@ -3,15 +3,47 @@ import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_actor
+ import 'package:flutter_test/flutter_test.dart';
+ 
+ void main() {
+-  test('six accountable lanes are configured', () {
+-    expect(MaintenanceLaneCatalog.crm3.definitions.length, 6);
++  test('seven accountable lanes include governed shared work', () {
++    expect(MaintenanceLaneCatalog.crm3.definitions.length, 7);
++    expect(
++      MaintenanceLaneCatalog.crm3.definitions.map((lane) => lane.id),
++      contains(MaintenanceLaneId.shared),
++    );
++  });
++
++  test('shared lane is delegated under the generated plant policy', () {
++    final definition =
++        MaintenanceLaneCatalog.crm3.definition(MaintenanceLaneId.shared);
++    expect(definition.code, 'SHARED');
++    expect(definition.displayName, 'Shared / Safety / Administration');
++    expect(definition.delegated, isTrue);
++    expect(definition.delegationBasis, 'plant-v2-shared-coordination');
+   });
+ 
+   test('EMD is a first-class lane coordinated by Admin/SI', () {
+-    final definition = MaintenanceLaneCatalog.crm3.definition(MaintenanceLaneId.emd);
++    final definition =
++        MaintenanceLaneCatalog.crm3.definition(MaintenanceLaneId.emd);
+     expect(definition.delegated, isTrue);
+     expect(definition.delegationBasis, 'plant-v1-emd-admin-si-coordination');
+-    expect(definition.mayAcknowledge(WorkflowActorContext(uid: 'a', displayName: 'A', roleKeys: const ['admin'])), isTrue);
+-    expect(definition.mayAcknowledge(WorkflowActorContext(uid: 'c', displayName: 'C', roleKeys: const ['contractSupervisor'])), isFalse);
++    expect(
++      definition.mayAcknowledge(
++        WorkflowActorContext(
++          uid: 'a',
++          displayName: 'A',
++          roleKeys: const ['admin'],
++        ),
++      ),
++      isTrue,
++    );
++    expect(
++      definition.mayAcknowledge(
++        WorkflowActorContext(
++          uid: 'c',
++          displayName: 'C',
++          roleKeys: const ['contractSupervisor'],
++        ),
++      ),
++      isFalse,
++    );
+   });
+ }
+diff --git a/test/stage2d_source_security_contract_test.dart b/test/stage2d_source_security_contract_test.dart
+index 439b332788c0210b41f20db6a16bb274b29c60b6..6c661480f7f490085795ec947dda0d0ab6d8c2b8 100644
+--- a/test/stage2d_source_security_contract_test.dart
++++ b/test/stage2d_source_security_contract_test.dart
+@@ -178,11 +178,11 @@ void main() {
+         final overrides = rootPackage['overrides'] as Map<String, dynamic>;
+         final packages = rootLock['packages'] as Map<String, dynamic>;
+ 
+-        expect(overrides['protobufjs'], '7.6.4');
++        expect(overrides['protobufjs'], '7.6.5');
+         expect(
+           (packages['node_modules/protobufjs']
+               as Map<String, dynamic>)['version'],
+-          '7.6.4',
++          '7.6.5',
+         );
+         expect(
+           packages.containsKey('node_modules/@protobufjs/inquire'),
+diff --git a/tool/test_support/test_isar_core.dart b/tool/test_support/test_isar_core.dart
+index 0807639472f7eb9e25ef268ba2bfd9a72488e05f..94e2b365a5e0711b052b20cad657cc37ea5c0654 100644
+--- a/tool/test_support/test_isar_core.dart
++++ b/tool/test_support/test_isar_core.dart
+@@ -11,6 +11,8 @@ import 'package:isar/isar.dart';
+ /// download fallback behavior.
+ Future<void> initializeTestIsarCore() async {
+   final configuredPath = Platform.environment['CRM_ISAR_CORE_PATH']?.trim();
++  final configuredCoreRequired =
++      Platform.environment['CRM_ISAR_CORE_REQUIRED'] == '1';
+ 
+   final libraries = <Abi, String>{};
+ 
+@@ -25,6 +27,10 @@ Future<void> initializeTestIsarCore() async {
+     }
+ 
+     libraries[Abi.current()] = configuredLibrary.path;
++  } else if (configuredCoreRequired) {
++    throw StateError(
++      'CRM_ISAR_CORE_REQUIRED=1 but CRM_ISAR_CORE_PATH was not provided.',
++    );
+   } else if (Abi.current() == Abi.linuxX64) {
+     final localLinuxLibrary =
+         File('${Directory.current.path}/libisar.so').absolute;
+@@ -36,6 +42,6 @@ Future<void> initializeTestIsarCore() async {
+ 
+   await Isar.initializeIsarCore(
+     libraries: libraries,
+-    download: libraries.isEmpty,
++    download: libraries.isEmpty && !configuredCoreRequired,
+   );
+ }
+diff --git a/tools/isar/stage_governed_test_isar_core.py b/tools/isar/stage_governed_test_isar_core.py
+new file mode 100755
+index 0000000000000000000000000000000000000000..8bb72fa8112e2d49b5c61a16cb93e1f3e655f9d5
+--- /dev/null
++++ b/tools/isar/stage_governed_test_isar_core.py
+@@ -0,0 +1,286 @@
++#!/usr/bin/env python3
++"""Stage the exact locked Windows Isar core for hermetic Flutter tests.
++
++The script trusts only the package selected by Dart's generated
++`.dart_tool/package_config.json`, verifies that `pubspec.lock` pins the expected
++`isar_flutter_libs` version and archive SHA-256, selects exactly one AMD64
++`isar.dll` from that package, copies it into the disposable laboratory
++workspace, and writes a custody record for the evidence bundle.
++"""
++
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import shutil
++import struct
++import sys
++from pathlib import Path
++from typing import Any
++from urllib.parse import unquote, urlparse
++from urllib.request import url2pathname
++
++PACKAGE_NAME = "isar_flutter_libs"
++DLL_NAME = "isar.dll"
++PE_MACHINE_AMD64 = 0x8664
++
++
++class CustodyError(RuntimeError):
++    """Raised when the governed native-core custody cannot be proven."""
++
++
++def _sha256(path: Path) -> str:
++    digest = hashlib.sha256()
++    with path.open("rb") as handle:
++        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
++            digest.update(chunk)
++    return digest.hexdigest().upper()
++
++
++def _locked_package(text: str, package_name: str) -> dict[str, str]:
++    lines = text.splitlines()
++    start = None
++    marker = f"  {package_name}:"
++    for index, line in enumerate(lines):
++        if line == marker:
++            start = index + 1
++            break
++    if start is None:
++        raise CustodyError(f"pubspec.lock has no {package_name} entry")
++
++    body: list[str] = []
++    for line in lines[start:]:
++        if line.startswith("  ") and not line.startswith("    ") and line.endswith(":"):
++            break
++        body.append(line)
++
++    values: dict[str, str] = {}
++    for line in body:
++        stripped = line.strip()
++        if stripped.startswith("sha256:"):
++            values["sha256"] = stripped.split(":", 1)[1].strip().strip('"')
++        elif stripped.startswith("version:"):
++            values["version"] = stripped.split(":", 1)[1].strip().strip('"')
++    if "version" not in values or "sha256" not in values:
++        raise CustodyError(f"Incomplete {package_name} lock entry")
++    return values
++
++
++def _package_root(project_root: Path) -> Path:
++    config_path = project_root / ".dart_tool" / "package_config.json"
++    if not config_path.is_file():
++        raise CustodyError(
++            ".dart_tool/package_config.json is missing; run flutter pub get first"
++        )
++    try:
++        config = json.loads(config_path.read_text(encoding="utf-8"))
++    except (OSError, json.JSONDecodeError) as exc:
++        raise CustodyError(f"Cannot read package_config.json: {exc}") from exc
++
++    matches = [
++        row
++        for row in config.get("packages", [])
++        if isinstance(row, dict) and row.get("name") == PACKAGE_NAME
++    ]
++    if len(matches) != 1:
++        raise CustodyError(
++            f"Expected one {PACKAGE_NAME} package-config entry; found {len(matches)}"
++        )
++
++    raw_uri = str(matches[0].get("rootUri", "")).strip()
++    if not raw_uri:
++        raise CustodyError(f"{PACKAGE_NAME} rootUri is empty")
++
++    parsed = urlparse(raw_uri)
++    if parsed.scheme:
++        if parsed.scheme.lower() != "file":
++            raise CustodyError(
++                f"{PACKAGE_NAME} rootUri is not a local file URI: {raw_uri}"
++            )
++        uri_path = url2pathname(unquote(parsed.path))
++        if parsed.netloc:
++            uri_path = f"//{parsed.netloc}{uri_path}"
++        package_root = Path(uri_path)
++    else:
++        package_root = config_path.parent / unquote(raw_uri)
++
++    package_root = package_root.resolve()
++    if not package_root.is_dir():
++        raise CustodyError(f"Resolved package root does not exist: {package_root}")
++    return package_root
++
++
++def _package_pubspec_identity(package_root: Path) -> dict[str, str]:
++    pubspec = package_root / "pubspec.yaml"
++    if not pubspec.is_file():
++        raise CustodyError(f"Resolved package has no pubspec.yaml: {package_root}")
++
++    values: dict[str, str] = {}
++    for raw_line in pubspec.read_text(encoding="utf-8").splitlines():
++        line = raw_line.strip()
++        if not line or line.startswith("#") or ":" not in line:
++            continue
++        key, value = line.split(":", 1)
++        key = key.strip()
++        if key in {"name", "version"} and key not in values:
++            values[key] = value.strip().strip("\"'")
++    if values.get("name") != PACKAGE_NAME or not values.get("version"):
++        raise CustodyError(
++            "Resolved package pubspec identity is invalid: "
++            f"name={values.get('name')!r}; version={values.get('version')!r}"
++        )
++    return values
++
++
++def _pe_machine(path: Path) -> int:
++    with path.open("rb") as handle:
++        if handle.read(2) != b"MZ":
++            raise CustodyError(f"Not a PE DLL (missing MZ header): {path.name}")
++        handle.seek(0x3C)
++        offset_bytes = handle.read(4)
++        if len(offset_bytes) != 4:
++            raise CustodyError(f"Truncated DOS header: {path.name}")
++        pe_offset = struct.unpack("<I", offset_bytes)[0]
++        handle.seek(pe_offset)
++        if handle.read(4) != b"PE\x00\x00":
++            raise CustodyError(f"Invalid PE signature: {path.name}")
++        machine_bytes = handle.read(2)
++        if len(machine_bytes) != 2:
++            raise CustodyError(f"Truncated PE file header: {path.name}")
++        return struct.unpack("<H", machine_bytes)[0]
++
++
++def _select_amd64_dll(package_root: Path) -> tuple[Path, int]:
++    candidates = sorted(
++        path for path in package_root.rglob("*") if path.is_file() and path.name.lower() == DLL_NAME
++    )
++    amd64: list[tuple[Path, int]] = []
++    rejected: list[str] = []
++    for candidate in candidates:
++        try:
++            machine = _pe_machine(candidate)
++        except CustodyError as exc:
++            rejected.append(f"{candidate.relative_to(package_root)}: {exc}")
++            continue
++        if machine == PE_MACHINE_AMD64:
++            amd64.append((candidate, machine))
++        else:
++            rejected.append(
++                f"{candidate.relative_to(package_root)}: machine=0x{machine:04X}"
++            )
++
++    if len(amd64) != 1:
++        details = "; ".join(rejected) if rejected else "no isar.dll candidates"
++        raise CustodyError(
++            "Expected exactly one AMD64 isar.dll in the locked package; "
++            f"found {len(amd64)}. {details}"
++        )
++    return amd64[0]
++
++
++def stage_core(
++    *,
++    project_root: Path,
++    output: Path,
++    evidence: Path,
++    expected_version: str,
++    expected_archive_sha256: str,
++) -> dict[str, Any]:
++    project_root = project_root.resolve()
++    lock_path = project_root / "pubspec.lock"
++    if not lock_path.is_file():
++        raise CustodyError(f"Missing pubspec.lock: {lock_path}")
++
++    locked = _locked_package(lock_path.read_text(encoding="utf-8"), PACKAGE_NAME)
++    actual_archive_sha = locked["sha256"].upper()
++    expected_archive_sha = expected_archive_sha256.upper()
++    if locked["version"] != expected_version:
++        raise CustodyError(
++            f"{PACKAGE_NAME} version mismatch: expected {expected_version}; "
++            f"got {locked['version']}"
++        )
++    if actual_archive_sha != expected_archive_sha:
++        raise CustodyError(
++            f"{PACKAGE_NAME} archive SHA-256 mismatch: expected "
++            f"{expected_archive_sha}; got {actual_archive_sha}"
++        )
++
++    package_root = _package_root(project_root)
++    package_identity = _package_pubspec_identity(package_root)
++    if package_identity["version"] != expected_version:
++        raise CustodyError(
++            f"Resolved {PACKAGE_NAME} package version mismatch: expected "
++            f"{expected_version}; got {package_identity['version']}"
++        )
++    source, machine = _select_amd64_dll(package_root)
++    source_sha = _sha256(source)
++
++    output = output.resolve()
++    evidence = evidence.resolve()
++    output.parent.mkdir(parents=True, exist_ok=True)
++    evidence.parent.mkdir(parents=True, exist_ok=True)
++    shutil.copyfile(source, output)
++    staged_sha = _sha256(output)
++    if staged_sha != source_sha:
++        raise CustodyError(
++            f"Staged Isar core hash mismatch: source={source_sha}; staged={staged_sha}"
++        )
++
++    record: dict[str, Any] = {
++        "schemaVersion": 1,
++        "package": PACKAGE_NAME,
++        "packageVersion": locked["version"],
++        "resolvedPackageVersion": package_identity["version"],
++        "packageArchiveSha256": actual_archive_sha,
++        "sourceRelativePath": source.relative_to(package_root).as_posix(),
++        "peMachine": f"0x{machine:04X}",
++        "architecture": "windows-amd64",
++        "dllSha256": source_sha,
++        "bytes": source.stat().st_size,
++        "stagedRelativePath": output.relative_to(project_root).as_posix(),
++        "networkDownloadPermittedDuringFlutterTests": False,
++    }
++    evidence.write_text(
++        json.dumps(record, indent=2, sort_keys=True) + "\n",
++        encoding="utf-8",
++        newline="\n",
++    )
++    return record
++
++
++def _parser() -> argparse.ArgumentParser:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--project-root", required=True, type=Path)
++    parser.add_argument("--output", required=True, type=Path)
++    parser.add_argument("--evidence", required=True, type=Path)
++    parser.add_argument("--expected-version", required=True)
++    parser.add_argument("--expected-archive-sha256", required=True)
++    return parser
++
++
++def main() -> int:
++    args = _parser().parse_args()
++    try:
++        record = stage_core(
++            project_root=args.project_root,
++            output=args.output,
++            evidence=args.evidence,
++            expected_version=args.expected_version,
++            expected_archive_sha256=args.expected_archive_sha256,
++        )
++    except CustodyError as exc:
++        print(f"FAIL_GOVERNED_ISAR_CORE_CUSTODY: {exc}", file=sys.stderr)
++        return 1
++
++    print(
++        "PASS_GOVERNED_ISAR_CORE_CUSTODY: "
++        f"version={record['packageVersion']} "
++        f"dllSha256={record['dllSha256']} "
++        f"bytes={record['bytes']}"
++    )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1 b/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+index 3adcc389de01c1a3e5132ab29a2a210d03fcf1bd..5da330ffd283ff2b65dfe90b039f226ddf428489 100644
+--- a/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
++++ b/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+@@ -35,12 +35,14 @@ $expected = [ordered]@{
+   firebaseTools = '15.22.4'
+   honoNodeServer = '2.0.10'
+   fastUri = '3.1.4'
++  isarFlutterLibs = '3.1.0+1'
++  isarFlutterLibsArchiveSha256 = 'BC6768CC4B9C61AABFF77152E7F33B4B17D2FC93134F7AF1C3DD51500FE8D5E8'
+ }
+ 
+ $CandidatePath = (Resolve-Path $CandidatePath).Path
+ $EvidenceRoot = [IO.Path]::GetFullPath($EvidenceRoot)
+ $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+-$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_12_CANONICAL_LOCAL_LAB_$stamp"
++$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_13_CANONICAL_LOCAL_LAB_$stamp"
+ $evidenceDir = Join-Path $runRoot 'evidence'
+ $workspace = Join-Path $runRoot 'workspace'
+ New-Item -ItemType Directory -Force -Path $evidenceDir, $workspace | Out-Null
+@@ -51,6 +53,7 @@ $startedAt = (Get-Date).ToUniversalTime().ToString('o')
+ $failureStatus = 'FAIL_LOCAL_LAB'
+ $diagnosticReasons = [System.Collections.Generic.List[string]]::new()
+ $recordedHolds = [System.Collections.Generic.List[object]]::new()
++$isarCoreCustody = $null
+ 
+ function Get-Sha256 {
+   param([Parameter(Mandatory)][string]$Path)
+@@ -383,7 +386,7 @@ function Seal-Evidence {
+ try {
+   Start-Transcript -Path $transcriptPath -Force | Out-Null
+   $transcriptActive = $true
+-  Write-Host 'CRM3 v4.2_R1.12 canonical-main local laboratory' -ForegroundColor Green
++  Write-Host 'CRM3 v4.2_R1.13 canonical-main local laboratory' -ForegroundColor Green
+   Write-Host "Pristine candidate: $CandidatePath"
+   Write-Host "Disposable workspace: $workspace"
+   Write-Host "Mode: $Mode"
+@@ -404,7 +407,8 @@ try {
+     'docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json',
+     'docs/v4_2_r1/CANONICAL_ISAR_SCHEMA_BASELINE.json',
+     'tools/v4/trial_workspace_custody.py',
+-    'tools/isar/verify_canonical_main_isar_continuity.py'
++    'tools/isar/verify_canonical_main_isar_continuity.py',
++    'tools/isar/stage_governed_test_isar_core.py'
+   )) {
+     if (-not (Test-Path -LiteralPath (Join-Path $CandidatePath $required) -PathType Leaf)) {
+       $failureStatus = 'HOLD_CANDIDATE_INCOMPLETE'
+@@ -560,9 +564,35 @@ try {
+   Invoke-CheckedStep -Name '28_functions_tests' -WorkingDirectory (Join-Path $workspace 'functions') -Action { npm test }
+   Invoke-CheckedStep -Name '29_flutter_analyze' -Action { flutter analyze }
+   if (-not $SkipFlutterTests) {
+-    Invoke-CheckedStep -Name '30_flutter_tests' -Action { flutter test }
++    $isarCorePath = Join-Path $workspace '.governed-native/isar.dll'
++    $isarCoreEvidencePath = Join-Path $evidenceDir 'isar-test-core-custody.json'
++    $failureStatus = 'HOLD_ISAR_CORE_CUSTODY'
++    Invoke-CheckedStep -Name '30_isar_test_core_custody' -Action {
++      & $pythonExe @pythonPrefix 'tools/isar/stage_governed_test_isar_core.py' `
++        '--project-root' $workspace `
++        '--output' $isarCorePath `
++        '--evidence' $isarCoreEvidencePath `
++        '--expected-version' $expected.isarFlutterLibs `
++        '--expected-archive-sha256' $expected.isarFlutterLibsArchiveSha256
++    }
++    $isarCoreCustody = Get-Content -LiteralPath $isarCoreEvidencePath -Raw | ConvertFrom-Json
++
++    $previousIsarCorePath = [Environment]::GetEnvironmentVariable('CRM_ISAR_CORE_PATH', 'Process')
++    $previousIsarCoreRequired = [Environment]::GetEnvironmentVariable('CRM_ISAR_CORE_REQUIRED', 'Process')
++    [Environment]::SetEnvironmentVariable('CRM_ISAR_CORE_PATH', $isarCorePath, 'Process')
++    [Environment]::SetEnvironmentVariable('CRM_ISAR_CORE_REQUIRED', '1', 'Process')
++    try {
++      $failureStatus = 'FAIL_LOCAL_LAB'
++      Invoke-CheckedStep -Name '31_flutter_tests' -Action {
++        flutter test --concurrency=1
++      }
++    }
++    finally {
++      [Environment]::SetEnvironmentVariable('CRM_ISAR_CORE_PATH', $previousIsarCorePath, 'Process')
++      [Environment]::SetEnvironmentVariable('CRM_ISAR_CORE_REQUIRED', $previousIsarCoreRequired, 'Process')
++    }
+   }
+-  Invoke-CheckedStep -Name '31_android_debug_apk' -Action { flutter build apk --debug }
++  Invoke-CheckedStep -Name '32_android_debug_apk' -Action { flutter build apk --debug }
+   Assert-LockfilesStable -Before $lockfiles
+ 
+   $emulatorPassed = $false
+@@ -575,7 +605,7 @@ try {
+     $config | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $emulatorConfig -Encoding utf8
+     try {
+       $firebaseCli = Join-Path $workspace 'tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js'
+-      Invoke-CheckedStep -Name '32_rules_and_functions_emulators' -Action {
++      Invoke-CheckedStep -Name '33_rules_and_functions_emulators' -Action {
+         node $firebaseCli emulators:exec --config $emulatorConfig --only firestore "npm run test:rules && npm --prefix functions run test:emulator:governed"
+       }
+       $emulatorPassed = $true
+@@ -640,7 +670,7 @@ try {
+       $failureStatus = 'HOLD_DEVICE_NOT_CLEAN'
+       throw 'Target device already contains the package. This harness proves fresh install only and will not uninstall or clear it.'
+     }
+-    Invoke-CheckedStep -Name '33_clean_device_fresh_install' -Action { adb -s $DeviceId install -t $apkCopy }
++    Invoke-CheckedStep -Name '34_clean_device_fresh_install' -Action { adb -s $DeviceId install -t $apkCopy }
+     & adb -s $DeviceId shell dumpsys package $expected.packageName 2>&1 |
+       Set-Content -LiteralPath (Join-Path $evidenceDir 'device-package-dump.txt') -Encoding utf8
+     $freshInstallPassed = $true
+@@ -684,6 +714,7 @@ try {
+     deviceUninstallOrClearPerformed = $false
+     emulatorPassed = $emulatorPassed
+     freshInstallPassed = $freshInstallPassed
++    isarTestCoreCustody = $isarCoreCustody
+     apkSha256 = $apkSha
+     deviceId = if ($freshInstallPassed) {$DeviceId} else {$null}
+     steps = $steps
+@@ -711,6 +742,7 @@ catch {
+     firebaseDeploymentPerformed = $false
+     productionDataMutationPerformed = $false
+     deviceUninstallOrClearPerformed = $false
++    isarTestCoreCustody = $isarCoreCustody
+     steps = $steps
+   }
+   $failure | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $evidenceDir 'trial-result.json') -Encoding utf8
+diff --git a/tools/v4/r1_13_targeted_static_validation.py b/tools/v4/r1_13_targeted_static_validation.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..1188c8841a9dd7cf0aa29bedd7f6a2b7b4b8d77d
+--- /dev/null
++++ b/tools/v4/r1_13_targeted_static_validation.py
+@@ -0,0 +1,239 @@
++#!/usr/bin/env python3
++"""Targeted source checks for the bounded R1.13 correction."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import re
++import sys
++from pathlib import Path
++
++
++def _block(text: str, marker: str) -> str:
++    start = text.index(marker)
++    opening = text.index("{", start)
++    depth = 0
++    for index in range(opening, len(text)):
++        if text[index] == "{":
++            depth += 1
++        elif text[index] == "}":
++            depth -= 1
++            if depth == 0:
++                return text[opening : index + 1]
++    raise ValueError(f"Unbalanced block: {marker}")
++
++
++def _quoted(text: str) -> set[str]:
++    return set(re.findall(r"'([^']+)'", text))
++
++
++def validate(root: Path) -> list[tuple[str, bool, str]]:
++    checks: list[tuple[str, bool, str]] = []
++
++    def check(name: str, condition: bool, detail: str = "") -> None:
++        checks.append((name, bool(condition), detail))
++
++    sync = (root / "lib/core/services/sync_service.job_modules.dart").read_text(
++        encoding="utf-8"
++    )
++    rules = (root / "firestore.rules").read_text(encoding="utf-8")
++    for kind in ("Submit", "Accept"):
++        payload = _block(sync, f"Map<String, dynamic> _jobModule{kind}ReplayStepData")
++        whitelist = _block(rules, f"function jobModule{kind}ChangedFieldsOnly")
++        payload_fields = _quoted(payload)
++        rule_fields = _quoted(whitelist)
++        check(
++            f"{kind.lower()} replay payload exactly mirrors Rules whitelist",
++            payload_fields == rule_fields,
++            f"payload-only={sorted(payload_fields-rule_fields)}; "
++            f"rules-only={sorted(rule_fields-payload_fields)}",
++        )
++        check(
++            f"{kind.lower()} replay explicitly clears isOpenForWork",
++            "'isOpenForWork': false" in payload,
++        )
++
++    violations: list[str] = []
++    banned = (
++        "controller ?? TextEditingController",
++        "final controller = TextEditingController",
++        "final reasonController = TextEditingController",
++        "final remarksController = TextEditingController",
++        "final notesController = TextEditingController",
++        "Intentionally no immediate controller.dispose",
++        "Intentionally no immediate reasonController.dispose",
++    )
++    local_controller = re.compile(
++        r"\b(?:final|var)\s+(?!_)[A-Za-z0-9]*Controller\s*=\s*"
++        r"TextEditingController\s*\("
++    )
++    for path in (root / "lib").rglob("*.dart"):
++        source = path.read_text(encoding="utf-8")
++        for marker in banned:
++            if marker in source:
++                violations.append(f"{path.relative_to(root)}: {marker}")
++        for match in local_controller.finditer(source):
++            violations.append(f"{path.relative_to(root)}: {match.group(0)}")
++    check("controller ownership guard has zero violations", not violations, "; ".join(violations))
++
++    owned_controllers = {
++        "lib/features/maintenance_workflow/presentation/screens/compliance_detail_screen.dart": (
++            "class _ComplianceTextPromptDialogState",
++            "_controller.dispose();",
++        ),
++        "lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart": (
++            "class _WorkflowTextPromptDialogState",
++            "_controller.dispose();",
++        ),
++        "lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart": (
++            "class _RaiseComplianceDialogState",
++            "_titleController.dispose();",
++            "_descriptionController.dispose();",
++            "_conditionRefController.dispose();",
++        ),
++    }
++    for relative, markers in owned_controllers.items():
++        source = (root / relative).read_text(encoding="utf-8")
++        check(
++            f"{relative} uses State-owned disposed controllers",
++            all(marker in source for marker in markers),
++        )
++
++    assignment = (
++        root / "lib/features/planned_maintenance/presentation/assign_job_screen.dart"
++    ).read_text(encoding="utf-8")
++    command = "await ref.read(workflowCommandControllerProvider.notifier).execute("
++    sync_capture = "final syncCoordinator = ref.read(syncCoordinatorProvider);"
++    check(
++        "assignment uses current command-controller contract",
++        command in assignment
++        and sync_capture in assignment
++        and assignment.index(sync_capture) < assignment.index(command)
++        and "repository.saveExecution(" not in assignment
++        and "workflow_job_assigned" in assignment,
++    )
++
++    collections = (
++        "maintenance_workflows",
++        "job_lanes",
++        "compliance_requests",
++        "compliance_attempts",
++        "equipment_status",
++        "equipment_prompt_master",
++        "maintenance_workflow_events",
++        "maintenance_workflow_command_receipts",
++        "workflow_notification_receipts",
++    )
++    for collection in collections:
++        match = re.search(
++            r"match\s+/" + re.escape(collection) + r"/\{[^}]+\}\s*\{([\s\S]*?)\n\s*\}",
++            rules,
++        )
++        body = match.group(1) if match else ""
++        explicit_deny = "allow write: if false" in body or bool(
++            re.search(
++                r"allow\s+(?:read,\s*)?create,\s*update,\s*delete\s*:\s*if\s+false\s*;",
++                body,
++            )
++        )
++        check(f"{collection} explicitly denies direct writes", explicit_deny)
++
++    lane = (
++        root / "lib/features/maintenance_workflow/domain/maintenance_lane.dart"
++    ).read_text(encoding="utf-8")
++    generated = (
++        root / "lib/features/maintenance_workflow/domain/workflow_policy_generated.dart"
++    ).read_text(encoding="utf-8")
++    values_match = re.search(
++        r"static const values = <MaintenanceLaneId>\[([\s\S]*?)\];", lane
++    )
++    lane_count = (
++        len(re.findall(r"^\s{4}[A-Za-z]+,$", values_match.group(1), re.MULTILINE))
++        if values_match
++        else -1
++    )
++    check("seven governed maintenance lanes are present", lane_count == 7, str(lane_count))
++    check(
++        "shared lane is generated with explicit delegation basis",
++        "'shared': WorkflowLanePolicyGenerated(" in generated
++        and "delegationBasis: 'plant-v2-shared-coordination'" in generated,
++    )
++
++    package = json.loads((root / "package.json").read_text(encoding="utf-8"))
++    package_lock = json.loads((root / "package-lock.json").read_text(encoding="utf-8"))
++    security_test = (root / "test/stage2d_source_security_contract_test.dart").read_text(
++        encoding="utf-8"
++    )
++    check("protobufjs override is 7.6.5", package["overrides"]["protobufjs"] == "7.6.5")
++    check(
++        "protobufjs lock entry is 7.6.5",
++        package_lock["packages"]["node_modules/protobufjs"]["version"] == "7.6.5",
++    )
++    check(
++        "Stage-2D security contract expects 7.6.5",
++        "expect(overrides['protobufjs'], '7.6.5')" in security_test
++        and "'7.6.4'" not in security_test,
++    )
++
++    lock_text = (root / "pubspec.lock").read_text(encoding="utf-8")
++    locked_isar_archive_sha = "BC6768CC4B9C61AABFF77152E7F33B4B17D2FC93134F7AF1C3DD51500FE8D5E8"
++
++    isar_helper = (root / "tool/test_support/test_isar_core.dart").read_text(
++        encoding="utf-8"
++    )
++    isar_stager = (root / "tools/isar/stage_governed_test_isar_core.py").read_text(
++        encoding="utf-8"
++    )
++    lab = (root / "tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1").read_text(
++        encoding="utf-8"
++    )
++    check(
++        "Isar helper supports fail-closed governed mode",
++        "CRM_ISAR_CORE_REQUIRED" in isar_helper
++        and "download: libraries.isEmpty && !configuredCoreRequired" in isar_helper,
++    )
++    check(
++        "laboratory stages and requires governed Isar DLL",
++        all(
++            marker in lab
++            for marker in (
++                "30_isar_test_core_custody",
++                "stage_governed_test_isar_core.py",
++                "CRM_ISAR_CORE_PATH",
++                "CRM_ISAR_CORE_REQUIRED",
++                "flutter test --concurrency=1",
++            )
++        ),
++    )
++    check(
++        "Isar archive SHA is exact and consistent across lock and harness",
++        locked_isar_archive_sha.lower() in lock_text.lower()
++        and locked_isar_archive_sha in lab,
++    )
++    check(
++        "Isar stager verifies resolved package identity and architecture",
++        "_package_pubspec_identity" in isar_stager
++        and "PE_MACHINE_AMD64 = 0x8664" in isar_stager
++        and 'package_identity["version"] != expected_version' in isar_stager,
++    )
++    return checks
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--root", type=Path, default=Path.cwd())
++    args = parser.parse_args()
++    root = args.root.resolve()
++    checks = validate(root)
++    for name, passed, detail in checks:
++        suffix = f" | {detail}" if detail else ""
++        print(f"{'PASS' if passed else 'FAIL'} | {name}{suffix}")
++    passed = sum(result for _, result, _ in checks)
++    failed = len(checks) - passed
++    print(f"SUMMARY passed={passed} failed={failed} total={len(checks)}")
++    return 0 if failed == 0 else 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tools/v4/v4_2_r1_canonical_audit.py b/tools/v4/v4_2_r1_canonical_audit.py
+index e56cdf09dd1856f64c1021f841b4101f12535f1a..ce3e664145514a8f022a8a5c3ce5f8b092b26051 100644
+--- a/tools/v4/v4_2_r1_canonical_audit.py
++++ b/tools/v4/v4_2_r1_canonical_audit.py
+@@ -446,7 +446,7 @@ check(
+     "static const IsarSchemaMigrationPlan defaultPlan" in isar_migration
+     and "workflow.jobExecutionFirestoreId" in workflow_panel
+     and compliance_dialog.count("initialValue:") >= 6
+-    and "gatingLaneId = value ?? ''" in compliance_dialog
++    and "_gatingLaneId = value ?? ''" in compliance_dialog
+     and "..isOpenForWork = true" not in module_provider
+     and "..isDeleted = false" in module_provider
+     and "policy.classify(" in retry_test
+@@ -456,6 +456,66 @@ check(
+     and "if (!mounted) return;\n          redAnswers = await showRedExitDialog" in complete_screen,
+ )
+ 
++
++sync_job_modules = text("lib/core/services/sync_service.job_modules.dart")
++compliance_detail = text(
++    "lib/features/maintenance_workflow/presentation/screens/compliance_detail_screen.dart"
++)
++lifecycle_guard = text("test/lifecycle_static_guardrail_contract_test.dart")
++async_guard = text("test/async_mounted_context_safety_contract_test.dart")
++rules_guard = text(
++    "test/maintenance_workflow/firestore_rules_online_only_contract_test.dart"
++)
++lane_guard = text("test/maintenance_workflow/maintenance_lane_policy_test.dart")
++security_guard = text("test/stage2d_source_security_contract_test.dart")
++isar_test_helper = text("tool/test_support/test_isar_core.dart")
++isar_stage_helper = text("tools/isar/stage_governed_test_isar_core.py")
++check(
++    "R1.13 offline replay closes the persisted open-work invariant",
++    sync_job_modules.count("'isOpenForWork': false") >= 2
++    and "Map<String, dynamic> _jobModuleSubmitReplayStepData" in sync_job_modules
++    and "Map<String, dynamic> _jobModuleAcceptReplayStepData" in sync_job_modules
++    and "'isOpenForWork': false" in text(
++        "test/job_module_lifecycle_replay_contract_test.dart"
++    ),
++)
++check(
++    "R1.13 dialog controllers are State-owned without weakening the guard",
++    "class _ComplianceTextPromptDialog extends StatefulWidget" in compliance_detail
++    and "_controller.dispose();" in compliance_detail
++    and "class _WorkflowTextPromptDialog extends StatefulWidget" in workflow_panel
++    and "_controller.dispose();" in workflow_panel
++    and "class _RaiseComplianceDialog extends StatefulWidget" in compliance_dialog
++    and compliance_dialog.count("Controller.dispose();") >= 3
++    and "final controller = TextEditingController" not in compliance_detail
++    and "final controller = TextEditingController" not in workflow_panel
++    and "final titleController = TextEditingController" not in compliance_dialog,
++)
++check(
++    "R1.13 contract tests follow current governed semantics",
++    r"RegExp(r'reopenModule\(\s*_transitionId\(\),')" in async_guard
++    and "_expectWorkflowCommandAssignmentContract" in async_guard
++    and "_functionBodyStartingAtIndex" in lifecycle_guard
++    and "(?:read,\\s*)?create" in rules_guard
++    and "seven accountable lanes include governed shared work" in lane_guard
++    and security_guard.count("'7.6.5'") >= 2
++    and "'7.6.4'" not in security_guard,
++)
++check(
++    "R1.13 Flutter tests use a locked, staged, no-download Isar core",
++    "CRM_ISAR_CORE_REQUIRED" in isar_test_helper
++    and "download: libraries.isEmpty && !configuredCoreRequired" in isar_test_helper
++    and "PE_MACHINE_AMD64 = 0x8664" in isar_stage_helper
++    and "_package_pubspec_identity" in isar_stage_helper
++    and "packageArchiveSha256" in isar_stage_helper
++    and "30_isar_test_core_custody" in harness
++    and "flutter test --concurrency=1" in harness
++    and "CRM_ISAR_CORE_PATH" in harness
++    and "CRM_ISAR_CORE_REQUIRED" in harness
++    and "BC6768CC4B9C61AABFF77152E7F33B4B17D2FC93134F7AF1C3DD51500FE8D5E8" in harness
++    and "bc6768cc4b9c61aabff77152e7f33b4b17d2fc93134f7af1c3dd51500fe8d5e8" in text("pubspec.lock").lower(),
++)
++
+ print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
+ if FAIL:
+     for name, detail in FAIL:

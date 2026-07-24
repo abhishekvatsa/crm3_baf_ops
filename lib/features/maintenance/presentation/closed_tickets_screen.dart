@@ -187,6 +187,13 @@ class _ClosedTicketsScreenState extends ConsumerState<ClosedTicketsScreen> {
   }
 
   Future<void> _reopenTicket(MaintenanceRecord ticket) async {
+    if (ticket.workflowDeferred) {
+      _showSnack(
+        message: 'This ticket is held by workflow compliance and cannot be reopened here.',
+        color: BafColors.warning,
+      );
+      return;
+    }
     final remarks = await showDialog<String>(
       context: context,
       builder:
@@ -554,7 +561,8 @@ class _ClosedTicketCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final closedAt = ticket.endDate ?? ticket.updatedAt;
     final hoursSince = DateTime.now().difference(closedAt).inHours;
-    final canReopen = canReopenTicket && hoursSince <= 4;
+    final canReopen =
+        canReopenTicket && hoursSince <= 4 && !ticket.workflowDeferred;
     final agencyColor = _agencyColor(ticket.routedTo);
 
     return Container(
@@ -648,6 +656,16 @@ class _ClosedTicketCard extends StatelessWidget {
                                     ? Icons.refresh_rounded
                                     : Icons.lock_clock_rounded,
                           ),
+                          if (ticket.isWorkflowLinked)
+                            StatusBadge(
+                              label: ticket.workflowStateLabel,
+                              color: ticket.workflowDeferred
+                                  ? BafColors.warning
+                                  : BafColors.audit,
+                              icon: ticket.workflowDeferred
+                                  ? Icons.pause_circle_outline_rounded
+                                  : Icons.account_tree_outlined,
+                            ),
                         ],
                       ),
                       const SizedBox(height: BafSpacing.md),

@@ -21,17 +21,81 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
+    function validUserRoleList(roles) {
+      return roles is list
+        && roles.size() > 0
+        && roles.size() <= 10
+        && roles.hasOnly([
+          'admin',
+          'si',
+          'contractSupervisor',
+          'shiftSupervisor',
+          'seniorElectrical',
+          'seniorMechanical',
+          'seniorInstrumentation',
+          'seniorRefractory',
+          'refractory',
+          'operations'
+        ]);
+    }
+
+    function validOptionalUserString(value, maxLength) {
+      return value == null
+        || (value is string && value.size() <= maxLength);
+    }
+
+    function validUserDocumentShape(data) {
+      return data.keys().hasAll([
+          'name',
+          'email',
+          'roles',
+          'isApproved',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'name',
+          'email',
+          'photoUrl',
+          'roles',
+          'isApproved',
+          'fcmToken',
+          'createdAt'
+        ])
+        && data.get('name', null) is string
+        && data.get('name', '').size() > 0
+        && data.get('name', '').size() <= 160
+        && data.get('email', null) is string
+        && data.get('email', '').size() > 0
+        && data.get('email', '').size() <= 320
+        && validOptionalUserString(data.get('photoUrl', null), 2048)
+        && validOptionalUserString(data.get('fcmToken', null), 4096)
+        && validUserRoleList(data.get('roles', null))
+        && data.get('isApproved', null) is bool
+        && data.get('createdAt', null) is timestamp;
+    }
+
+    // Preserve the original fail-closed user-document contract. Complex
+    // transition validators snapshot this fully validated profile once and
+    // reuse its roles instead of repeatedly calling role helpers across ORs.
+    function validApprovedUserAuthority(data) {
+      return validUserDocumentShape(data)
+        && data.get('isApproved', false) == true;
+    }
+
+    function approvedUserHasAnyRole(data, roles) {
+      return validApprovedUserAuthority(data)
+        && data.get('roles', []).hasAny(roles);
+    }
+
     function isApprovedUser() {
       return hasUserDoc()
-        ? (userDoc().data.keys().hasAll(['isApproved', 'roles'])
-          && userDoc().data.get('isApproved', false) == true
-          && userDoc().data.get('roles', null) is list)
+        ? validApprovedUserAuthority(userDoc().data)
         : false;
     }
 
     function hasAnyRole(roles) {
-      return isApprovedUser()
-        ? userDoc().data.get('roles', []).hasAny(roles)
+      return hasUserDoc()
+        ? approvedUserHasAnyRole(userDoc().data, roles)
         : false;
     }
 
@@ -111,36 +175,16 @@ service cloud.firestore {
     function validPendingUserCreate(userId) {
       return isSelf(userId)
         && requestEmailMatchesToken()
-        ? (request.resource.data.keys().hasAll([
-            'name',
-            'email',
-            'roles',
-            'isApproved',
-            'createdAt'
-          ])
-          ? (request.resource.data.keys().hasOnly([
-              'name',
-              'email',
-              'photoUrl',
-              'roles',
-              'isApproved',
-              'fcmToken',
-              'createdAt'
-            ])
-            && request.resource.data.get('name', null) is string
-            && request.resource.data.get('email', null) is string
-            && request.resource.data.get('roles', []) is list
-            && request.resource.data.get('roles', []).hasAll(['operations'])
-            && request.resource.data.get('roles', []).hasOnly(['operations'])
-            && request.resource.data.get('isApproved', null) == false
-            && request.resource.data.get('createdAt', null) is timestamp)
-          : false)
-        : false;
+        && validUserDocumentShape(request.resource.data)
+        && request.resource.data.get('roles', []).hasAll(['operations'])
+        && request.resource.data.get('roles', []).hasOnly(['operations'])
+        && request.resource.data.get('isApproved', null) == false;
     }
 
     function validSelfUserUpdate(userId) {
       return isSelf(userId)
         && requestEmailMatchesToken()
+        && validUserDocumentShape(request.resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name',
           'email',
@@ -154,16 +198,49 @@ service cloud.firestore {
 
     function validAdminUserWrite(userId) {
       return isAdmin()
-        ? (request.resource.data.keys().hasAll(['roles', 'isApproved'])
-          ? (request.resource.data.get('roles', []) is list
-            && request.resource.data.get('roles', []).size() > 0
-            && request.resource.data.get('isApproved', null) is bool
-            && (
-              request.auth.uid != userId
-              || request.resource.data.get('roles', []).hasAny(['admin'])
-            ))
-          : false)
-        : false;
+        && validUserDocumentShape(request.resource.data)
+        && (
+          request.auth.uid != userId
+          || request.resource.data.get('roles', []).hasAny(['admin'])
+        );
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔀 MAINTENANCE WORKFLOW CONTROL-PLANE HELPERS
+    // ─────────────────────────────────────────────
+
+    function workflowServerOwnedExecutionFieldsUnchanged() {
+      return request.resource.data.get('workflowSchemaVersion', 0) == resource.data.get('workflowSchemaVersion', 0)
+        && request.resource.data.get('laneSetVersion', 0) == resource.data.get('laneSetVersion', 0)
+        && request.resource.data.get('laneSetFinalizedAt', null) == resource.data.get('laneSetFinalizedAt', null)
+        && request.resource.data.get('laneSetFinalizedByUid', null) == resource.data.get('laneSetFinalizedByUid', null)
+        && request.resource.data.get('laneSetFinalizedByName', null) == resource.data.get('laneSetFinalizedByName', null)
+        && request.resource.data.get('laneMappingReview', false) == resource.data.get('laneMappingReview', false)
+        && request.resource.data.get('parentExecutionFirestoreId', null) == resource.data.get('parentExecutionFirestoreId', null)
+        && request.resource.data.get('spawnedRedExecutionFirestoreId', null) == resource.data.get('spawnedRedExecutionFirestoreId', null)
+        && request.resource.data.get('redAnswerJson', null) == resource.data.get('redAnswerJson', null)
+        && request.resource.data.get('isCancelled', false) == resource.data.get('isCancelled', false)
+        && request.resource.data.get('cancelledAt', null) == resource.data.get('cancelledAt', null)
+        && request.resource.data.get('cancelledByUid', null) == resource.data.get('cancelledByUid', null)
+        && request.resource.data.get('cancelledByName', null) == resource.data.get('cancelledByName', null)
+        && request.resource.data.get('cancellationReason', null) == resource.data.get('cancellationReason', null);
+    }
+
+    function validWorkflowExecutionCreateDefaults() {
+      return request.resource.data.get('workflowSchemaVersion', 0) == 0
+        && request.resource.data.get('laneSetVersion', 0) == 0
+        && request.resource.data.get('laneSetFinalizedAt', null) == null
+        && request.resource.data.get('laneSetFinalizedByUid', null) == null
+        && request.resource.data.get('laneSetFinalizedByName', null) == null
+        && request.resource.data.get('laneMappingReview', false) == false
+        && request.resource.data.get('parentExecutionFirestoreId', null) == null
+        && request.resource.data.get('spawnedRedExecutionFirestoreId', null) == null
+        && request.resource.data.get('redAnswerJson', null) == null
+        && request.resource.data.get('isCancelled', false) == false
+        && request.resource.data.get('cancelledAt', null) == null
+        && request.resource.data.get('cancelledByUid', null) == null
+        && request.resource.data.get('cancelledByName', null) == null
+        && request.resource.data.get('cancellationReason', null) == null;
     }
 
     // ─────────────────────────────────────────────
@@ -206,9 +283,23 @@ service cloud.firestore {
         'assetType',
         'assetNumber',
         'isCompleted',
+        'isCancelled',
+        'cancelledAt',
+        'cancelledByUid',
+        'cancelledByName',
+        'cancellationReason',
         'assignedByUid',
         'assignedByName',
         'assignedAgencies',
+        'workflowSchemaVersion',
+        'laneSetVersion',
+        'laneSetFinalizedAt',
+        'laneSetFinalizedByUid',
+        'laneSetFinalizedByName',
+        'laneMappingReview',
+        'parentExecutionFirestoreId',
+        'spawnedRedExecutionFirestoreId',
+        'redAnswerJson',
         'completedByUid',
         'completedByName',
         'remarks',
@@ -258,6 +349,7 @@ service cloud.firestore {
           && request.resource.data.get('assetNumber', -1) is int
           && request.resource.data.get('assignedByUid', null) is string
           && request.resource.data.get('assignedByUid', null) == request.auth.uid
+          && validWorkflowExecutionCreateDefaults()
           // Governed TemplatePackage/TemplateVersion assignment is created only
           // by assignPublishedTemplateVersion through the Admin SDK.
           && request.resource.data.get('templatePackageId', null) == null
@@ -277,6 +369,7 @@ service cloud.firestore {
 
     function validJobExecutionBaseUpdate(docId) {
       return isApprovedUser()
+        && workflowServerOwnedExecutionFieldsUnchanged()
         && resource.data.get('firestoreId', null) == docId
         && request.resource.data.get('firestoreId', null) == resource.data.get('firestoreId', null)
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
@@ -312,6 +405,8 @@ service cloud.firestore {
       return isJobExecutionAssigner()
         && resource.data.get('isCompleted', null) == false
         && request.resource.data.get('isCompleted', null) == false
+        && resource.data.get('isCancelled', false) == false
+        && request.resource.data.get('isCancelled', false) == false
         && jobExecutionWorkChangedFieldsOnly();
     }
 
@@ -338,50 +433,40 @@ service cloud.firestore {
     // 🧱 JOB MODULE HELPERS
     // ─────────────────────────────────────────────
 
-    function rolesCanSaveJobModuleWork(roles) {
-      return roles.hasAny([
-        'admin',
-        'si',
-        'contractSupervisor',
-        'shiftSupervisor',
-        'seniorMechanical',
-        'seniorElectrical',
-        'seniorInstrumentation',
-        'seniorRefractory'
-      ]);
+    // BEGIN GENERATED WORKFLOW MODULE AUTHORITY
+    // Source: governance/maintenance_workflow_policy_v1.json
+    function rolesCanSaveJobModuleWork(roles, discipline) {
+      return (discipline == 'electrical' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorElectrical']))
+          || (discipline == 'mechanical' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorMechanical']))
+          || (discipline in ['instrumentation', 'instrument', 'ia', 'iAndA', 'instrumentationAndAutomation', 'instrumentationAutomation'] && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorInstrumentation']))
+          || (discipline == 'operations' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'operations']))
+          || (discipline == 'shiftInCharge' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']))
+          || (discipline == 'emd' && roles.hasAny(['admin', 'si']))
+          || (discipline == 'refractory' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'refractory', 'seniorRefractory']))
+          || (discipline == 'safety' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']))
+          || (discipline == 'admin' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']))
+          || (discipline == 'shared' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']))
+          || (discipline == 'others' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorRefractory']));
     }
 
     function rolesAreModuleLifecycleModerator(roles) {
-      return roles.hasAny([
-        'admin',
-        'si',
-        'contractSupervisor',
-        'shiftSupervisor'
-      ]);
+      return roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']);
     }
 
     function rolesCanSubmitJobModuleDiscipline(roles, discipline) {
-      return rolesAreModuleLifecycleModerator(roles)
-        || (
-          (discipline == 'mechanical' && roles.hasAny(['seniorMechanical']))
-          || (discipline == 'electrical' && roles.hasAny(['seniorElectrical']))
-          || (
-            (
-              discipline == 'instrumentation'
-              || discipline == 'instrument'
-              || discipline == 'ia'
-              || discipline == 'iAndA'
-              || discipline == 'instrumentationAndAutomation'
-              || discipline == 'instrumentationAutomation'
-            )
-            && roles.hasAny(['seniorInstrumentation'])
-          )
-          || (
-            (discipline == 'refractory' || discipline == 'others')
-            && roles.hasAny(['seniorRefractory'])
-          )
-        );
+      return (discipline == 'electrical' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorElectrical']))
+          || (discipline == 'mechanical' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorMechanical']))
+          || (discipline in ['instrumentation', 'instrument', 'ia', 'iAndA', 'instrumentationAndAutomation', 'instrumentationAutomation'] && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorInstrumentation']))
+          || (discipline == 'operations' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'operations']))
+          || (discipline == 'shiftInCharge' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']))
+          || (discipline == 'emd' && roles.hasAny(['admin', 'si']))
+          || (discipline == 'refractory' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'refractory', 'seniorRefractory']))
+          || (discipline == 'safety' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']))
+          || (discipline == 'admin' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']))
+          || (discipline == 'shared' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']))
+          || (discipline == 'others' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorRefractory']));
     }
+    // END GENERATED WORKFLOW MODULE AUTHORITY
 
     function jobModuleParentExistsAndIsOpen() {
       let executionId = resource.data.get('jobExecutionFirestoreId', '');
@@ -393,7 +478,28 @@ service cloud.firestore {
         ).data.get('isDeleted', false) == false
         && get(
           /databases/$(database)/documents/job_executions/$(executionId)
-        ).data.get('isCompleted', false) == false;
+        ).data.get('isCompleted', false) == false
+        && get(
+          /databases/$(database)/documents/job_executions/$(executionId)
+        ).data.get('isCancelled', false) == false;
+    }
+
+    function jobModuleLaneAllowsWork() {
+      let executionId = resource.data.get('jobExecutionFirestoreId', '');
+      let laneDocId = resource.data.get('workflowLaneFirestoreId', '');
+      return executionId is string
+        && executionId.size() > 0
+        && exists(/databases/$(database)/documents/job_executions/$(executionId))
+        && (
+          get(/databases/$(database)/documents/job_executions/$(executionId)).data.get('workflowSchemaVersion', 0) != 1
+          || (
+            laneDocId is string
+            && laneDocId.size() > 0
+            && exists(/databases/$(database)/documents/job_lanes/$(laneDocId))
+            && get(/databases/$(database)/documents/job_lanes/$(laneDocId)).data.get('jobExecutionId', '') == executionId
+            && get(/databases/$(database)/documents/job_lanes/$(laneDocId)).data.get('status', '') == 'acknowledged'
+          )
+        );
     }
 
     function validJobModuleUpdateCommon(docId, changedKeys) {
@@ -413,6 +519,9 @@ service cloud.firestore {
           'assetNumber',
           'chargeNoAtEvent',
           'discipline',
+          'laneKey',
+          'laneActivationGeneration',
+          'workflowLaneFirestoreId',
           'isRequired',
           'requiredForClosure',
           'addedDuringExecution',
@@ -436,7 +545,6 @@ service cloud.firestore {
         ])
         && resource.data.get('isDeleted', false) == false
         && request.resource.data.get('isDeleted', false) == false
-        && isApprovedUser()
         && resource.data.get('firestoreId', null) == docId
         && request.resource.data.get('version', -1) is int
         && resource.data.get('version', -1) is int
@@ -457,6 +565,7 @@ service cloud.firestore {
     function jobModuleCoreWorkChangedFieldsOnly(changedKeys) {
       return jobModuleChangedFieldsOnly(changedKeys, [
         'status',
+        'isOpenForWork',
         'responsesJson',
         'actionsJson',
         'draftNote',
@@ -475,6 +584,7 @@ service cloud.firestore {
       // so submit allows the normal mutable work fields plus submit lifecycle fields.
       return jobModuleChangedFieldsOnly(changedKeys, [
         'status',
+        'isOpenForWork',
         'responsesJson',
         'actionsJson',
         'draftNote',
@@ -495,6 +605,7 @@ service cloud.firestore {
     function jobModuleAcceptChangedFieldsOnly(changedKeys) {
       return jobModuleChangedFieldsOnly(changedKeys, [
         'status',
+        'isOpenForWork',
         'acceptedByUid',
         'acceptedByName',
         'acceptedAt',
@@ -510,6 +621,7 @@ service cloud.firestore {
     function jobModuleReopenChangedFieldsOnly(changedKeys) {
       return jobModuleChangedFieldsOnly(changedKeys, [
         'status',
+        'isOpenForWork',
         'reopenedByUid',
         'reopenedByName',
         'reopenedAt',
@@ -527,6 +639,7 @@ service cloud.firestore {
       // before the next push, so allow the core mutable work fields too.
       return jobModuleChangedFieldsOnly(changedKeys, [
         'status',
+        'isOpenForWork',
         'responsesJson',
         'actionsJson',
         'draftNote',
@@ -547,6 +660,7 @@ service cloud.firestore {
     function jobModuleSoftDeleteChangedFieldsOnly(changedKeys) {
       return jobModuleChangedFieldsOnly(changedKeys, [
         'isDeleted',
+        'isOpenForWork',
         'deletedByUid',
         'deletedByName',
         'deletedAt',
@@ -561,15 +675,19 @@ service cloud.firestore {
 
     function validJobModuleWorkUpdate(changedKeys, roles) {
       return isOpenModuleStatus(request.resource.data.get('status', null))
+        && request.resource.data.get('isOpenForWork', null) == true
+        && jobModuleLaneAllowsWork()
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
         && jobModuleCoreWorkChangedFieldsOnly(changedKeys)
         && request.resource.data.get('updatedByUid', null) is string
         && request.resource.data.get('updatedByUid', null) == request.auth.uid
-        && rolesCanSaveJobModuleWork(roles);
+        && rolesCanSaveJobModuleWork(roles, resource.data.get('discipline', null));
     }
 
     function validJobModuleSubmit(changedKeys, roles) {
       return request.resource.data.get('status', null) == 'submitted'
+        && request.resource.data.get('isOpenForWork', null) == false
+        && jobModuleLaneAllowsWork()
         && isOpenModuleStatus(resource.data.get('status', null))
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
         && jobModuleSubmitChangedFieldsOnly(changedKeys)
@@ -579,6 +697,8 @@ service cloud.firestore {
 
     function validJobModuleAccept(changedKeys, roles) {
       return request.resource.data.get('status', null) == 'accepted'
+        && request.resource.data.get('isOpenForWork', null) == false
+        && jobModuleLaneAllowsWork()
         && resource.data.get('status', null) == 'submitted'
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
         && jobModuleAcceptChangedFieldsOnly(changedKeys)
@@ -588,6 +708,8 @@ service cloud.firestore {
 
     function validJobModuleReopen(changedKeys, roles) {
       return request.resource.data.get('status', null) == 'reopened'
+        && request.resource.data.get('isOpenForWork', null) == true
+        && jobModuleLaneAllowsWork()
         && (
           resource.data.get('status', null) == 'submitted'
           || resource.data.get('status', null) == 'accepted'
@@ -601,6 +723,8 @@ service cloud.firestore {
 
     function validJobModuleNotApplicable(changedKeys, roles) {
       return request.resource.data.get('status', null) == 'notApplicable'
+        && request.resource.data.get('isOpenForWork', null) == false
+        && jobModuleLaneAllowsWork()
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
         && jobModuleNotApplicableChangedFieldsOnly(changedKeys)
         && request.resource.data.get('notApplicableByUid', null) == request.auth.uid
@@ -614,37 +738,41 @@ service cloud.firestore {
     }
 
     function validJobModuleUpdatePayload(docId, changedKeys, roles) {
+      let targetStatus = request.resource.data.get('status', null);
       return jobModuleParentExistsAndIsOpen()
         && validJobModuleUpdateCommon(docId, changedKeys)
-        && (
-          validJobModuleSoftDelete(changedKeys, roles)
-          || validJobModuleSubmit(changedKeys, roles)
-          || validJobModuleAccept(changedKeys, roles)
-          || validJobModuleReopen(changedKeys, roles)
-          || validJobModuleNotApplicable(changedKeys, roles)
-          || validJobModuleWorkUpdate(changedKeys, roles)
-        );
+        && (request.resource.data.get('isDeleted', false) !=
+            resource.data.get('isDeleted', false)
+          ? validJobModuleSoftDelete(changedKeys, roles)
+          : (targetStatus == 'submitted'
+            ? validJobModuleSubmit(changedKeys, roles)
+            : (targetStatus == 'accepted'
+              ? validJobModuleAccept(changedKeys, roles)
+              : (targetStatus == 'reopened'
+                ? validJobModuleReopen(changedKeys, roles)
+                : (targetStatus == 'notApplicable'
+                  ? validJobModuleNotApplicable(changedKeys, roles)
+                  : (isOpenModuleStatus(targetStatus)
+                    ? validJobModuleWorkUpdate(changedKeys, roles)
+                    : false))))));
     }
 
     function validJobModuleUpdate(docId) {
-      // 47D.3: use the conditional operator as a true fast-deny boundary.
-      // The previous `&&` match-gate still allowed the emulator to evaluate
-      // the expensive update OR-chain on malformed `isSynced` / `responses`
-      // writes. The selected branch of this conditional should prevent that
-      // chain from being evaluated for known local-only/legacy payloads.
-      //
-      // 47D.4: Guard userDoc().data.get('roles', []) with isApprovedUser() — without
-      // this, a signed-in user with no user doc (deletion in flight, fresh
-      // signup before doc creation, admin-removed doc) makes this rule
-      // ERROR instead of cleanly deny. Behavior is still deny in the end,
-      // but errors-as-deny is a smell and pollutes the rules emulator log
-      // with 20+ warnings per negative test run.
+      // Fast-deny local-only/legacy fields before any document lookup. Then
+      // validate the complete approved-user profile once, snapshot its roles,
+      // and evaluate only the transition selected by the target status.
       let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
       return changedKeys.hasAny(['responses', 'isSynced'])
         ? false
-        : (isApprovedUser()
-            ? validJobModuleUpdatePayload(docId, changedKeys, userDoc().data.get('roles', []))
-            : false);
+        : (hasUserDoc()
+          ? (validApprovedUserAuthority(userDoc().data)
+            ? validJobModuleUpdatePayload(
+                docId,
+                changedKeys,
+                userDoc().data.get('roles', [])
+              )
+            : false)
+          : false);
     }
 
     // ─────────────────────────────────────────────
@@ -703,22 +831,21 @@ service cloud.firestore {
     // 📢 DIRECTIVE HELPERS
     // ─────────────────────────────────────────────
 
-    function canCloseAnyDirective() {
-      return isModuleLifecycleModerator();
+    function directiveRolesCanCloseAny(roles) {
+      return roles.hasAny([
+        'admin',
+        'si',
+        'contractSupervisor',
+        'shiftSupervisor'
+      ]);
     }
 
-    function hasRequesterDirectiveTargetRole(role) {
-      return isApprovedUser()
-        ? (role is string && userDoc().data.get('roles', []).hasAny([role]))
-        : false;
-    }
-
-    function canDirectiveCreatorTarget(role) {
+    function directiveRolesCanTarget(roles, role) {
       return role is string
         && (
-          (isAdmin() && role != 'admin')
+          (roles.hasAny(['admin']) && role != 'admin')
           || (
-            hasAnyRole(['si'])
+            roles.hasAny(['si'])
             && [
               'contractSupervisor',
               'shiftSupervisor',
@@ -730,7 +857,7 @@ service cloud.firestore {
             ].hasAny([role])
           )
           || (
-            hasAnyRole(['contractSupervisor'])
+            roles.hasAny(['contractSupervisor'])
             && [
               'shiftSupervisor',
               'operations',
@@ -741,7 +868,7 @@ service cloud.firestore {
             ].hasAny([role])
           )
           || (
-            hasAnyRole(['shiftSupervisor'])
+            roles.hasAny(['shiftSupervisor'])
             && [
               'operations',
               'seniorElectrical',
@@ -751,7 +878,7 @@ service cloud.firestore {
             ].hasAny([role])
           )
           || (
-            hasAnyRole(['operations'])
+            roles.hasAny(['operations'])
             && [
               'contractSupervisor',
               'shiftSupervisor',
@@ -811,7 +938,7 @@ service cloud.firestore {
       ];
     }
 
-    function validDirectiveCreate(docId) {
+    function validDirectiveCreateForRoles(docId, roles) {
       return request.resource.data.keys().hasAll([
           'firestoreId',
           'title',
@@ -841,13 +968,26 @@ service cloud.firestore {
           && request.resource.data.get('updatedAt', null) is string
           && request.resource.data.get('version', -1) is int
           && request.resource.data.get('version', -1) >= 1
-          && canDirectiveCreatorTarget(request.resource.data.get('directedTo', null)))
+          && directiveRolesCanTarget(
+            roles,
+            request.resource.data.get('directedTo', null)
+          ))
+        : false;
+    }
+
+    function validDirectiveCreate(docId) {
+      return hasUserDoc()
+        ? (validApprovedUserAuthority(userDoc().data)
+          ? validDirectiveCreateForRoles(
+              docId,
+              userDoc().data.get('roles', [])
+            )
+          : false)
         : false;
     }
 
     function validDirectiveBaseUpdate() {
-      return isApprovedUser()
-        && resource.data.get('isDeleted', false) == false
+      return resource.data.get('isDeleted', false) == false
         && request.resource.data.get('isDeleted', false) == false
         && request.resource.data.get('createdByUid', null) == resource.data.get('createdByUid', null)
         && request.resource.data.get('issuedByUid', null) == resource.data.get('issuedByUid', null)
@@ -858,36 +998,38 @@ service cloud.firestore {
         && request.resource.data.get('version', -1) > resource.data.get('version', -1);
     }
 
-    function validDirectiveAcknowledge() {
+    function validDirectiveAcknowledgeForRoles(roles) {
       return validDirectiveBaseUpdate()
         && resource.data.get('status', null) == 'open'
         && request.resource.data.get('status', null) == 'acknowledged'
         && request.resource.data.get('acknowledgedByUid', null) == request.auth.uid
         && request.resource.data.get('acknowledgedAt', null) != null
-        && hasRequesterDirectiveTargetRole(resource.data.get('directedTo', null))
+        && resource.data.get('directedTo', null) is string
+        && roles.hasAny([resource.data.get('directedTo', null)])
         && request.resource.data.get('closedByUid', null) == null
         && request.resource.data.get('closedAt', null) == null;
     }
 
-    function validDirectiveClose() {
+    function validDirectiveCloseForRoles(roles) {
       return validDirectiveBaseUpdate()
         && (resource.data.get('status', null) == 'open' || resource.data.get('status', null) == 'acknowledged')
         && request.resource.data.get('status', null) == 'closed'
         && request.resource.data.get('closedByUid', null) == request.auth.uid
         && request.resource.data.get('closedAt', null) != null
         && (
-          canCloseAnyDirective()
+          directiveRolesCanCloseAny(roles)
           || directiveIssuedByRequester(resource.data)
           || (
             resource.data.get('status', null) == 'acknowledged'
             && resource.data.get('acknowledgedByUid', null) == request.auth.uid
-            && hasRequesterDirectiveTargetRole(resource.data.get('directedTo', null))
+            && resource.data.get('directedTo', null) is string
+            && roles.hasAny([resource.data.get('directedTo', null)])
           )
         );
     }
 
-    function validDirectiveAdminEdit() {
-      return isAdmin()
+    function validDirectiveAdminEditForRoles(roles) {
+      return roles.hasAny(['admin'])
         && request.resource.data.get('isDeleted', false) ==
           resource.data.get('isDeleted', false)
         && request.resource.data.get('version', -1) is int
@@ -895,18 +1037,32 @@ service cloud.firestore {
         && request.resource.data.get('version', -1) > resource.data.get('version', -1);
     }
 
-    function validDirectiveAdminDelete() {
-      return isAdmin()
+    function validDirectiveAdminDeleteForRoles(roles) {
+      return roles.hasAny(['admin'])
         && resource.data.get('isDeleted', false) == false
         && request.resource.data.get('isDeleted', false) == true
         && request.resource.data.get('deletedByUid', '') == request.auth.uid;
     }
 
+    function validDirectiveUpdateForRoles(roles) {
+      return roles.hasAny(['admin'])
+        ? (request.resource.data.get('isDeleted', false) == true
+          && resource.data.get('isDeleted', false) == false
+          ? validDirectiveAdminDeleteForRoles(roles)
+          : validDirectiveAdminEditForRoles(roles))
+        : (request.resource.data.get('status', null) == 'acknowledged'
+          ? validDirectiveAcknowledgeForRoles(roles)
+          : (request.resource.data.get('status', null) == 'closed'
+            ? validDirectiveCloseForRoles(roles)
+            : false));
+    }
+
     function validDirectiveUpdate() {
-      return validDirectiveAcknowledge()
-        || validDirectiveClose()
-        || validDirectiveAdminEdit()
-        || validDirectiveAdminDelete();
+      return hasUserDoc()
+        ? (validApprovedUserAuthority(userDoc().data)
+          ? validDirectiveUpdateForRoles(userDoc().data.get('roles', []))
+          : false)
+        : false;
     }
 
     // ─────────────────────────────────────────────
@@ -1138,23 +1294,22 @@ service cloud.firestore {
       ]);
     }
 
-    function validTemplateVersionArchiveDelta() {
-      return (
-          resource.data.get('status', null) == 'retired'
-          && request.resource.data.get('status', null) == 'archived'
-          && templateVersionFrozenPayloadUnchanged()
-        )
-        || (
-          resource.data.get('status', null) == 'draft'
-          && request.resource.data.get('status', null) == 'archived'
-          && resource.data.get('isDeleted', null) == false
-          && request.resource.data.get('isDeleted', null) == false
-          && templateVersionHasNoPublishOrRetireHistory(resource.data)
-          && templateVersionHasNoPublishOrRetireHistory(request.resource.data)
-          && templateVersionPayloadJsonUnchanged()
-          && templateVersionDraftLifecycleChangedFieldsOnly()
-          && templateContentHashLooksValid()
-        );
+    function validRetiredTemplateVersionArchiveDelta() {
+      return resource.data.get('status', null) == 'retired'
+        && request.resource.data.get('status', null) == 'archived'
+        && templateVersionFrozenPayloadUnchanged();
+    }
+
+    function validDraftTemplateVersionArchiveDelta() {
+      return resource.data.get('status', null) == 'draft'
+        && request.resource.data.get('status', null) == 'archived'
+        && resource.data.get('isDeleted', null) == false
+        && request.resource.data.get('isDeleted', null) == false
+        && templateVersionHasNoPublishOrRetireHistory(resource.data)
+        && templateVersionHasNoPublishOrRetireHistory(request.resource.data)
+        && templateVersionPayloadJsonUnchanged()
+        && templateVersionDraftLifecycleChangedFieldsOnly()
+        && templateContentHashLooksValid();
     }
 
     function validTemplateVersionRestoreDelta() {
@@ -1169,15 +1324,35 @@ service cloud.firestore {
         && templateContentHashLooksValid();
     }
 
+    function validTemplateVersionUpdateDelta() {
+      let sourceStatus = resource.data.get('status', null);
+      let targetStatus = request.resource.data.get('status', null);
+      return sourceStatus == 'draft'
+        ? (targetStatus == 'draft'
+          ? validDraftTemplateVersionUpdateDelta()
+          : (targetStatus == 'published'
+            ? validTemplateVersionPublishDelta()
+            : (targetStatus == 'archived'
+              ? validDraftTemplateVersionArchiveDelta()
+              : false)))
+        : (sourceStatus == 'published'
+          ? (targetStatus == 'retired'
+            ? validTemplateVersionRetireDelta()
+            : false)
+          : (sourceStatus == 'retired'
+            ? (targetStatus == 'archived'
+              ? validRetiredTemplateVersionArchiveDelta()
+              : false)
+            : (sourceStatus == 'archived'
+              ? (targetStatus == 'draft'
+                ? validTemplateVersionRestoreDelta()
+                : false)
+              : false)));
+    }
+
     function validTemplateVersionUpdate(docId) {
       return validTemplateVersionUpdateCommon(docId)
-        && (
-          validDraftTemplateVersionUpdateDelta()
-          || validTemplateVersionPublishDelta()
-          || validTemplateVersionRetireDelta()
-          || validTemplateVersionArchiveDelta()
-          || validTemplateVersionRestoreDelta()
-        );
+        && validTemplateVersionUpdateDelta();
     }
 
     function validTemplateLifecycleAuditEvidence() {
@@ -1582,6 +1757,41 @@ service cloud.firestore {
         && moduleRegistryPointerBootstrapMatchesHistory(docId);
     }
 
+    function validModuleRegistryFamilyPublishDelta(docId) {
+      return resource.data.get('status', null) == 'active'
+        && request.resource.data.get('status', null) == 'active'
+        && moduleRegistryFamilyPublishChangedFieldsOnly()
+        && request.resource.data.get('latestPublishedRevisionNumber', null) ==
+          resource.data.get('latestPublishedRevisionNumber', null) + 1
+        && moduleRegistryPublishPointerMatchesRevision(docId)
+        && (
+          resource.data.get('latestPublishedRevisionNumber', 0) == 0
+          || (
+            resource.data.get('latestPublishedRevisionId', null) is string
+            && resource.data.get('latestPublishedRevisionId', '').size() > 0
+            && resource.data.get('latestPublishedContentHash', null) is string
+            && resource.data.get('latestPublishedContentHash', '')
+              .matches('^mrg1-sha256:[0-9a-f]{64}$')
+            && request.resource.data.get(
+                  'latestPublishedContentHash',
+                  null
+                ) !=
+              resource.data.get('latestPublishedContentHash', null)
+          )
+        );
+    }
+
+    function validModuleRegistryFamilyRetireDelta() {
+      return resource.data.get('status', null) == 'active'
+        && request.resource.data.get('status', null) == 'retired'
+        && moduleRegistryFamilyRetireChangedFieldsOnly()
+        && request.resource.data.get('latestPublishedRevisionNumber', null) ==
+          resource.data.get('latestPublishedRevisionNumber', null)
+        && request.resource.data.get('retiredByUid', null) == request.auth.uid
+        && request.resource.data.get('retiredAt', null) != null
+        && request.resource.data.get('retireReason', null) is string;
+    }
+
     function validModuleRegistryFamilyGovernedUpdate(docId) {
       return isModuleRegistryGovernor()
         && resource.data.get('registryModuleId', null) == docId
@@ -1593,42 +1803,11 @@ service cloud.firestore {
         && resource.data.get('version', -1) is int
         && request.resource.data.get('version', -1) ==
           resource.data.get('version', -1) + 1
-        && (
-          (
-            resource.data.get('status', null) == 'active'
-            && request.resource.data.get('status', null) == 'active'
-            && moduleRegistryFamilyPublishChangedFieldsOnly()
-            && request.resource.data.get('latestPublishedRevisionNumber', null) ==
-              resource.data.get('latestPublishedRevisionNumber', null) + 1
-            && moduleRegistryPublishPointerMatchesRevision(docId)
-            && (
-              resource.data.get('latestPublishedRevisionNumber', 0) == 0
-              || (
-                resource.data.get('latestPublishedRevisionId', null) is string
-                && resource.data.get('latestPublishedRevisionId', '').size() > 0
-                && resource.data.get('latestPublishedContentHash', null) is string
-                && resource.data.get('latestPublishedContentHash', '')
-                  .matches('^mrg1-sha256:[0-9a-f]{64}$')
-                && request.resource.data.get(
-                      'latestPublishedContentHash',
-                      null
-                    ) !=
-                  resource.data.get('latestPublishedContentHash', null)
-              )
-            )
-          )
-          || (
-            resource.data.get('status', null) == 'active'
-            && request.resource.data.get('status', null) == 'retired'
-            && moduleRegistryFamilyRetireChangedFieldsOnly()
-            && request.resource.data.get('latestPublishedRevisionNumber', null) ==
-              resource.data.get('latestPublishedRevisionNumber', null)
-            && request.resource.data.get('retiredByUid', null) ==
-              request.auth.uid
-            && request.resource.data.get('retiredAt', null) != null
-            && request.resource.data.get('retireReason', null) is string
-          )
-        );
+        && (request.resource.data.get('status', null) == 'active'
+          ? validModuleRegistryFamilyPublishDelta(docId)
+          : (request.resource.data.get('status', null) == 'retired'
+            ? validModuleRegistryFamilyRetireDelta()
+            : false));
     }
 
     function validModuleRegistryFamilyUpdate(docId) {
@@ -1734,6 +1913,75 @@ service cloud.firestore {
         && request.resource.data.get('lineageJson', null) == resource.data.get('lineageJson', null);
     }
 
+    function moduleRegistryRevisionPublishMatchesFamily(
+      registryModuleId,
+      revisionId
+    ) {
+      let family = getAfter(
+        /databases/$(database)/documents/module_registry/$(registryModuleId)
+      ).data;
+      return family.get('latestPublishedRevisionId', null) == revisionId
+        && family.get('latestPublishedRevisionNumber', -1) ==
+          request.resource.data.get('revisionNumber', -1)
+        && family.get('latestPublishedContentHash', null) ==
+          request.resource.data.get('contentHash', null);
+    }
+
+    function validModuleRegistryRevisionDraftEditDelta() {
+      return resource.data.get('revisionStatus', null) == 'draft'
+        && request.resource.data.get('revisionStatus', null) == 'draft'
+        && request.resource.data.get('revisionNumber', -1) ==
+          resource.data.get('revisionNumber', -1);
+    }
+
+    function validModuleRegistryRevisionPublishDelta(
+      registryModuleId,
+      revisionId
+    ) {
+      return resource.data.get('revisionStatus', null) == 'draft'
+        && request.resource.data.get('revisionStatus', null) == 'published'
+        && moduleRegistryRevisionContentUnchanged()
+        && request.resource.data.get('revisionNumber', -1) is int
+        && request.resource.data.get('revisionNumber', -1) > 0
+        && moduleRegistryRevisionPublishMatchesFamily(
+          registryModuleId,
+          revisionId
+        )
+        && request.resource.data.get('publishedByUid', null) == request.auth.uid
+        && request.resource.data.get('publishedAt', null) != null;
+    }
+
+    function validModuleRegistryRevisionRetireDelta() {
+      return resource.data.get('revisionStatus', null) == 'published'
+        && request.resource.data.get('revisionStatus', null) == 'retired'
+        && moduleRegistryRevisionContentUnchanged()
+        && request.resource.data.get('revisionNumber', -1) ==
+          resource.data.get('revisionNumber', -1)
+        && request.resource.data.get('retiredByUid', null) == request.auth.uid
+        && request.resource.data.get('retiredAt', null) != null
+        && request.resource.data.get('retireReason', null) is string;
+    }
+
+    function validModuleRegistryRevisionUpdateDelta(
+      registryModuleId,
+      revisionId
+    ) {
+      let sourceStatus = resource.data.get('revisionStatus', null);
+      let targetStatus = request.resource.data.get('revisionStatus', null);
+      return sourceStatus == 'draft'
+        ? (targetStatus == 'draft'
+          ? validModuleRegistryRevisionDraftEditDelta()
+          : (targetStatus == 'published'
+            ? validModuleRegistryRevisionPublishDelta(
+                registryModuleId,
+                revisionId
+              )
+            : false))
+        : (sourceStatus == 'published' && targetStatus == 'retired'
+          ? validModuleRegistryRevisionRetireDelta()
+          : false);
+    }
+
     function validModuleRegistryRevisionUpdate(registryModuleId, revisionId) {
       return isModuleRegistryGovernor()
         && validModuleRegistryRevisionFields()
@@ -1745,42 +1993,11 @@ service cloud.firestore {
         && request.resource.data.get('updatedByUid', null) == request.auth.uid
         && request.resource.data.get('version', -1) is int
         && resource.data.get('version', -1) is int
-        && request.resource.data.get('version', -1) == resource.data.get('version', -1) + 1
-        && (
-          (
-            resource.data.get('revisionStatus', null) == 'draft'
-            && request.resource.data.get('revisionStatus', null) == 'draft'
-            && request.resource.data.get('revisionNumber', -1) == resource.data.get('revisionNumber', -1)
-          )
-          || (
-            resource.data.get('revisionStatus', null) == 'draft'
-            && request.resource.data.get('revisionStatus', null) == 'published'
-            && moduleRegistryRevisionContentUnchanged()
-            && request.resource.data.get('revisionNumber', -1) is int
-            && request.resource.data.get('revisionNumber', -1) > 0
-            && getAfter(
-              /databases/$(database)/documents/module_registry/$(registryModuleId)
-            ).data.get('latestPublishedRevisionId', null) == revisionId
-            && getAfter(
-              /databases/$(database)/documents/module_registry/$(registryModuleId)
-            ).data.get('latestPublishedRevisionNumber', -1) ==
-              request.resource.data.get('revisionNumber', -1)
-            && getAfter(
-              /databases/$(database)/documents/module_registry/$(registryModuleId)
-            ).data.get('latestPublishedContentHash', null) ==
-              request.resource.data.get('contentHash', null)
-            && request.resource.data.get('publishedByUid', null) == request.auth.uid
-            && request.resource.data.get('publishedAt', null) != null
-          )
-          || (
-            resource.data.get('revisionStatus', null) == 'published'
-            && request.resource.data.get('revisionStatus', null) == 'retired'
-            && moduleRegistryRevisionContentUnchanged()
-            && request.resource.data.get('revisionNumber', -1) == resource.data.get('revisionNumber', -1)
-            && request.resource.data.get('retiredByUid', null) == request.auth.uid
-            && request.resource.data.get('retiredAt', null) != null
-            && request.resource.data.get('retireReason', null) is string
-          )
+        && request.resource.data.get('version', -1) ==
+          resource.data.get('version', -1) + 1
+        && validModuleRegistryRevisionUpdateDelta(
+          registryModuleId,
+          revisionId
         );
     }
 
@@ -1933,8 +2150,61 @@ service cloud.firestore {
     // 🔧 MAINTENANCE HELPERS
     // ─────────────────────────────────────────────
 
+    function maintenanceWorkflowFields() {
+      return [
+          'workflowDeferred',
+          'workflowQueueState',
+          'workflowAggregateId',
+          'workflowComplianceId',
+          'workflowOriginLaneKey',
+          'workflowTargetLaneKey',
+          'workflowConditionTypeKey',
+          'workflowConditionRef',
+          'workflowDeferredAt',
+          'workflowDeferredByUid',
+          'workflowDeferredByName',
+          'workflowReactivatedAt',
+          'workflowReactivatedByUid',
+          'workflowReactivatedByName',
+          'workflowReleasedAt',
+          'workflowReleasedByUid',
+          'workflowReleasedByName',
+          'workflowCorrectionReason',
+          'workflowUpdatedAt'
+        ];
+    }
+
+    function maintenanceWorkflowFieldsUnchanged() {
+      return request.resource.data.get('workflowDeferred', false) == resource.data.get('workflowDeferred', false)
+        && request.resource.data.get('workflowQueueState', 'independent') == resource.data.get('workflowQueueState', 'independent')
+        && request.resource.data.get('workflowAggregateId', null) == resource.data.get('workflowAggregateId', null)
+        && request.resource.data.get('workflowComplianceId', null) == resource.data.get('workflowComplianceId', null)
+        && request.resource.data.get('workflowOriginLaneKey', null) == resource.data.get('workflowOriginLaneKey', null)
+        && request.resource.data.get('workflowTargetLaneKey', null) == resource.data.get('workflowTargetLaneKey', null)
+        && request.resource.data.get('workflowConditionTypeKey', null) == resource.data.get('workflowConditionTypeKey', null)
+        && request.resource.data.get('workflowConditionRef', null) == resource.data.get('workflowConditionRef', null)
+        && request.resource.data.get('workflowDeferredAt', null) == resource.data.get('workflowDeferredAt', null)
+        && request.resource.data.get('workflowDeferredByUid', null) == resource.data.get('workflowDeferredByUid', null)
+        && request.resource.data.get('workflowDeferredByName', null) == resource.data.get('workflowDeferredByName', null)
+        && request.resource.data.get('workflowReactivatedAt', null) == resource.data.get('workflowReactivatedAt', null)
+        && request.resource.data.get('workflowReactivatedByUid', null) == resource.data.get('workflowReactivatedByUid', null)
+        && request.resource.data.get('workflowReactivatedByName', null) == resource.data.get('workflowReactivatedByName', null)
+        && request.resource.data.get('workflowReleasedAt', null) == resource.data.get('workflowReleasedAt', null)
+        && request.resource.data.get('workflowReleasedByUid', null) == resource.data.get('workflowReleasedByUid', null)
+        && request.resource.data.get('workflowReleasedByName', null) == resource.data.get('workflowReleasedByName', null)
+        && request.resource.data.get('workflowCorrectionReason', null) == resource.data.get('workflowCorrectionReason', null)
+        && request.resource.data.get('workflowUpdatedAt', null) == resource.data.get('workflowUpdatedAt', null);
+    }
+
+    function maintenanceWorkflowAllowsClientLifecycle() {
+      return resource.data.get('workflowDeferred', false) == false
+        && request.resource.data.get('workflowDeferred', false) == false
+        && maintenanceWorkflowFieldsUnchanged();
+    }
+
     function validMaintenanceCreate(docId) {
       return isApprovedUser()
+        && !request.resource.data.keys().hasAny(maintenanceWorkflowFields())
         && request.resource.data.keys().hasAll([
           'firestoreId',
           'version',
@@ -2119,6 +2389,7 @@ service cloud.firestore {
           && request.resource.data.get('endDate', '') is string
           && request.resource.data.get('teamsInvolved', []) is list
           && request.resource.data.get('actionsJson', '[]') is string
+          && maintenanceWorkflowAllowsClientLifecycle()
           && maintenanceVersionAdvances())
         : false;
     }
@@ -2134,6 +2405,7 @@ service cloud.firestore {
           && request.resource.data.get('status', null) == 'open'
           && (maintenanceMobileCloseFieldsClearedOnReopen()
             || maintenanceLegacyResolutionFieldsFrozenOnReopen(affected))
+          && maintenanceWorkflowAllowsClientLifecycle()
           && maintenanceVersionAdvances())
         : false;
     }
@@ -2146,6 +2418,7 @@ service cloud.firestore {
           && resource.data.get('isDeleted', false) == false
           && request.resource.data.get('isDeleted', false) == true
           && request.resource.data.get('deletedByUid', '') == request.auth.uid
+          && maintenanceWorkflowAllowsClientLifecycle()
           && maintenanceVersionAdvances())
         : false;
     }
@@ -2154,7 +2427,22 @@ service cloud.firestore {
       let affected = request.resource.data.diff(resource.data).affectedKeys();
       return isAdmin()
         && maintenanceAdminEditShape(affected)
+        && maintenanceWorkflowAllowsClientLifecycle()
         && maintenanceVersionAdvances();
+    }
+
+    function validMaintenanceUpdate() {
+      let sourceDeleted = resource.data.get('isDeleted', false);
+      let targetDeleted = request.resource.data.get('isDeleted', false);
+      let sourceResolved = resource.data.get('isResolved', false);
+      let targetResolved = request.resource.data.get('isResolved', false);
+      return targetDeleted != sourceDeleted
+        ? validMaintenanceSoftDeleteUpdate()
+        : (targetResolved != sourceResolved
+          ? (targetResolved
+            ? validMaintenanceCloseUpdate()
+            : validMaintenanceReopenUpdate())
+          : validMaintenanceAdminEditUpdate());
     }
 
     function maintenanceAdminEditChangedFieldsOnly(affected) {
@@ -2409,18 +2697,9 @@ service cloud.firestore {
     match /maintenance_records/{docId} {
       allow read: if isApprovedUser();
       allow create: if validMaintenanceCreate(docId);
-      allow update: if exists(/databases/$(database)/documents/maintenance_records/$(docId))
-        ? (isApprovedUser() ? validMaintenanceCloseUpdate() : false)
-        : false;
-      allow update: if exists(/databases/$(database)/documents/maintenance_records/$(docId))
-        ? (isApprovedUser() ? validMaintenanceReopenUpdate() : false)
-        : false;
-      allow update: if exists(/databases/$(database)/documents/maintenance_records/$(docId))
-        ? (isApprovedUser() ? validMaintenanceSoftDeleteUpdate() : false)
-        : false;
-      allow update: if exists(/databases/$(database)/documents/maintenance_records/$(docId))
-        ? (isApprovedUser() ? validMaintenanceAdminEditUpdate() : false)
-        : false;
+      // A single transition router prevents Firestore from evaluating four
+      // independent update allow expressions for the same request.
+      allow update: if validMaintenanceUpdate();
       allow delete: if false;
     }
 
@@ -2440,9 +2719,7 @@ service cloud.firestore {
       allow create: if isApprovedUser()
         ? validTemplateVersionCreate(docId)
         : false;
-      allow update: if exists(/databases/$(database)/documents/template_versions/$(docId))
-        ? (isApprovedUser() ? validTemplateVersionUpdate(docId) : false)
-        : false;
+      allow update: if validTemplateVersionUpdate(docId);
       allow delete: if false;
     }
 
@@ -2463,9 +2740,7 @@ service cloud.firestore {
       allow create: if isApprovedUser()
         ? validModuleRegistryFamilyCreate(registryModuleId)
         : false;
-      allow update: if exists(/databases/$(database)/documents/module_registry/$(registryModuleId))
-        ? validModuleRegistryFamilyUpdate(registryModuleId)
-        : false;
+      allow update: if validModuleRegistryFamilyUpdate(registryModuleId);
       allow delete: if false;
 
       match /revisions/{revisionId} {
@@ -2473,9 +2748,7 @@ service cloud.firestore {
         allow create: if isApprovedUser()
           ? validModuleRegistryRevisionCreate(registryModuleId, revisionId)
           : false;
-        allow update: if exists(/databases/$(database)/documents/module_registry/$(registryModuleId)/revisions/$(revisionId))
-          ? (isApprovedUser() ? validModuleRegistryRevisionUpdate(registryModuleId, revisionId) : false)
-          : false;
+        allow update: if validModuleRegistryRevisionUpdate(registryModuleId, revisionId);
         allow delete: if false;
       }
     }
@@ -2540,9 +2813,7 @@ service cloud.firestore {
       // All client-originated population creates are server-only. Governed
       // published-template assignment uses the Admin SDK and bypasses rules.
       allow create: if false;
-      allow update: if exists(/databases/$(database)/documents/job_modules/$(docId))
-        ? (isApprovedUser() ? validJobModuleUpdate(docId) : false)
-        : false;
+      allow update: if validJobModuleUpdate(docId);
       allow delete: if false;
     }
 
@@ -2552,12 +2823,8 @@ service cloud.firestore {
 
     match /directives/{docId} {
       allow read: if isApprovedUser();
-      allow create: if isApprovedUser()
-        ? validDirectiveCreate(docId)
-        : false;
-      allow update: if exists(/databases/$(database)/documents/directives/$(docId))
-        ? (isApprovedUser() ? validDirectiveUpdate() : false)
-        : false;
+      allow create: if validDirectiveCreate(docId);
+      allow update: if validDirectiveUpdate();
       allow delete: if false;
     }
 
@@ -2591,6 +2858,53 @@ service cloud.firestore {
       allow create: if validChargeAbnormalityCreate(docId);
       allow update: if isAdmin();
       allow delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔀 MAINTENANCE WORKFLOW — ONLINE COMMAND AUTHORITY
+    // ─────────────────────────────────────────────
+
+    match /maintenance_workflows/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /job_lanes/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /compliance_requests/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /compliance_attempts/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /equipment_status/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /equipment_prompt_master/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /maintenance_workflow_events/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /maintenance_workflow_command_receipts/{docId} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /workflow_notification_receipts/{docId} {
+      allow read, create, update, delete: if false;
     }
 
     // ─────────────────────────────────────────────

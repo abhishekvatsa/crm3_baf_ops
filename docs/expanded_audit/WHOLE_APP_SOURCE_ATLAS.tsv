@@ -1,0 +1,321 @@
+risk_score	file	lines	incoming	outgoing	direct_writes	serializers	broad_catches	empty_catches	test_refs	tags	sample_tests
+42	lib/features/auth/providers/auth_provider.dart	232	36	4	3	0	1	1	5	authority,persistence,sync,lifecycle,notification,security_identity,empty_catch	test/complete_job_screen_server_gate_test.dart | test/module_composer_title_rehydration_widget_test.dart | test/planned_work_open_job_visibility_test.dart | test/publish_metadata_dialog_integration_test.dart
+41	lib/main.dart	1374	11	35	0	0	1	0	16	authority,persistence,sync,lifecycle,notification,security_identity,platform_root,large	test/issue_1_tombstone_conflict_regression_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/maintenance_lifecycle_replay_contract_test.dart | test/planned_job_local_identity_architecture_contract_test.dart
+40	lib/features/planned_maintenance/domain/module_composer_models.dart	1730	24	2	22	13	3	2	12	authority,persistence,lifecycle,large,empty_catch,many_remote_writes,serialization_hub	test/module_composer_70e_responsive_widget_test.dart | test/module_composer_70e_semantic_evidence_test.dart | test/module_composer_alias_rehydration_test.dart | test/module_editor_screen_test.dart
+39	lib/features/planned_maintenance/data/job_template_model.dart	697	30	3	0	22	7	1	12	authority,persistence,sync,lifecycle,medium_large,empty_catch,serialization_hub	test/complete_job_screen_server_gate_test.dart | test/issue_1_tombstone_conflict_regression_test.dart | test/issue_41_response_payload_contract_test.dart | test/planned_job_closure_attestation_test.dart
+39	lib/features/planned_maintenance/providers/planned_maintenance_provider.dart	1894	17	15	10	19	0	0	6	authority,persistence,sync,lifecycle,large,many_remote_writes,serialization_hub	test/complete_job_screen_server_gate_test.dart | test/issue_1_tombstone_conflict_regression_test.dart | test/planned_job_local_identity_architecture_contract_test.dart | test/planned_job_server_completion_no_loss_test.dart
+38	lib/features/auth/data/user_model.dart	567	32	1	1	0	0	0	17	authority,persistence,sync,lifecycle,notification,security_identity,medium_large	test/complete_job_screen_server_gate_test.dart | test/input_validation_test.dart | test/module_composer_title_rehydration_widget_test.dart | test/module_registry_authoring_screen_test.dart
+34	lib/features/planned_maintenance/data/template_governance_model.dart	814	15	1	0	6	3	0	12	persistence,sync,lifecycle,security_identity,medium_large,serialization_hub	test/module_composer_70e_save_sync_refresh_test.dart | test/module_composer_title_rehydration_widget_test.dart | test/module_workshop_published_sources_test.dart | test/publish_metadata_dialog_test.dart
+34	lib/features/planned_maintenance/providers/template_governance_provider.dart	2331	6	7	28	36	6	0	6	authority,persistence,sync,lifecycle,security_identity,large,many_remote_writes,serialization_hub	test/module_composer_title_rehydration_widget_test.dart | test/runtime_module_population_no_loss_test.dart | test/template_governance_70f1_restore_ui_test.dart | test/template_governance_70f_archive_test.dart
+33	lib/features/maintenance/data/maintenance_model.dart	247	59	2	0	4	1	0	34	authority,persistence,sync,lifecycle,serialization_hub	test/baf_tag_resolver_v2_adapter_test.dart | test/complete_job_screen_server_gate_test.dart | test/input_validation_test.dart | test/issue_1_tombstone_conflict_regression_test.dart
+33	lib/features/maintenance/providers/maintenance_provider.dart	1708	11	10	20	0	3	1	7	persistence,sync,lifecycle,large,empty_catch,many_remote_writes	test/complete_job_screen_server_gate_test.dart | test/issue_1_tombstone_conflict_regression_test.dart | test/maintenance_lifecycle_replay_contract_test.dart | test/planned_job_local_identity_architecture_contract_test.dart
+30	lib/features/planned_maintenance/data/job_module_model.dart	726	30	4	0	5	3	0	25	persistence,sync,lifecycle,medium_large,serialization_hub	test/complete_job_screen_server_gate_test.dart | test/issue_1_tombstone_conflict_regression_test.dart | test/issue_41_response_payload_contract_test.dart | test/job_module_population_replay_equivalence_test.dart
+30	lib/features/planned_maintenance/providers/job_module_provider.dart	1947	6	11	7	15	4	0	8	authority,persistence,sync,lifecycle,large,many_remote_writes,serialization_hub	test/complete_job_screen_server_gate_test.dart | test/issue_1_tombstone_conflict_regression_test.dart | test/job_module_lifecycle_replay_contract_test.dart | test/job_module_population_replay_equivalence_test.dart
+30	firestore.rules	2743	0	0	0	0	0	0	12	authority,persistence,sync,lifecycle,notification,security_identity,platform_root,large	test/firestore_deployment_readiness_contract_test.dart | test/job_module_lifecycle_replay_contract_test.dart | test/maintenance_lifecycle_replay_contract_test.dart | test/p02_pending_user_email_binding_contract_test.dart
+29	lib/features/directives/providers/operational_directive_provider.dart	1559	8	10	8	0	4	0	1	authority,persistence,sync,lifecycle,large,many_remote_writes	test/runtime_module_population_no_loss_test.dart
+29	lib/features/planned_maintenance/domain/knowledge_governance_models.dart	504	7	3	9	7	0	0	1	authority,persistence,sync,lifecycle,medium_large,many_remote_writes,serialization_hub	test/field_hardening_contract_test.dart
+28	lib/core/theme/baf_design_system.dart	141	58	0	0	0	0	0	0	authority,sync,lifecycle,no_direct_test_reference	-
+28	lib/features/planned_maintenance/data/baf_knowledge_model.dart	434	11	3	0	2	3	0	0	authority,persistence,sync,lifecycle,no_direct_test_reference	-
+28	lib/features/planned_maintenance/domain/baf_knowledge_repository.dart	760	6	5	5	6	4	0	4	authority,persistence,sync,lifecycle,medium_large,many_remote_writes,serialization_hub	test/module_composer_title_rehydration_widget_test.dart | test/publish_metadata_dialog_integration_test.dart | test/runtime_module_population_no_loss_test.dart | test/template_governance_70f1_restore_ui_test.dart
+28	functions/src/maintenanceWorkflow/workflowNotificationTrigger.ts	148	1	2	5	0	1	0	0	authority,persistence,sync,lifecycle,notification,security_identity,many_remote_writes,no_direct_test_reference	-
+27	lib/features/directives/data/operational_directive_model.dart	155	10	2	0	0	0	0	0	authority,persistence,sync,lifecycle,no_direct_test_reference	-
+26	lib/features/audit/models/audit_event_model.dart	294	26	1	0	0	4	0	1	persistence,sync,lifecycle	test/runtime_module_population_no_loss_test.dart
+26	lib/features/abnormalities/providers/abnormality_provider.dart	2193	6	10	13	20	11	0	1	persistence,sync,lifecycle,large,many_remote_writes,serialization_hub	test/runtime_module_population_no_loss_test.dart
+26	lib/features/planned_maintenance/providers/knowledge_governance_provider.dart	667	5	11	7	1	3	0	0	authority,persistence,sync,lifecycle,medium_large,many_remote_writes,no_direct_test_reference	-
+26	lib/features/admin/presentation/local_diagnostics_screen.dart	1518	2	21	8	8	5	0	2	persistence,sync,lifecycle,security_identity,large,many_remote_writes,serialization_hub	test/local_diagnostics_visibility_contract_test.dart | test/sync_coordinator_queue_contract_test.dart
+26	functions/src/publishedTemplateAssignment.ts	1905	1	0	17	0	3	0	3	authority,persistence,sync,lifecycle,security_identity,large,many_remote_writes	test/runtime_module_population_fence_contract_test.dart | functions/test/publishedTemplateAssignment.firestoreEmulator.test.js | functions/test/publishedTemplateAssignment.test.js
+25	lib/features/abnormalities/data/abnormality_model.dart	893	8	2	2	11	2	0	0	persistence,sync,lifecycle,medium_large,serialization_hub,no_direct_test_reference	-
+25	lib/features/planned_maintenance/services/planned_job_server_completion_service.dart	260	4	2	5	5	1	0	5	authority,persistence,sync,lifecycle,many_remote_writes,serialization_hub	test/complete_job_screen_server_gate_test.dart | test/firestore_deployment_readiness_contract_test.dart | test/planned_job_server_completion_no_loss_test.dart | test/planned_job_server_completion_service_test.dart
+24	functions/src/maintenanceWorkflow/types.ts	104	21	0	0	0	0	0	0	authority,lifecycle,no_direct_test_reference	-
+24	functions/src/maintenanceWorkflow/errors.ts	33	15	1	0	0	0	0	0	authority,lifecycle,no_direct_test_reference	-
+24	lib/features/maintenance_workflow/data/job_lane_record.dart	91	11	0	0	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+24	lib/features/maintenance_workflow/data/workflow_event_record.dart	25	7	0	0	0	0	0	0	authority,persistence,sync,lifecycle,no_direct_test_reference	-
+24	lib/features/planned_maintenance/data/baf_module_catalogue_seed.dart	1412	3	2	0	5	0	0	1	persistence,sync,lifecycle,security_identity,large,serialization_hub	test/module_workshop_screen_test.dart
+24	functions/src/notifications.ts	437	2	0	3	0	1	0	1	authority,persistence,sync,lifecycle,notification,security_identity	functions/test/notifications.test.js
+23	lib/core/services/sync_coordinator.dart	617	26	6	0	0	0	0	2	sync,lifecycle,medium_large	test/composer_publish_sync_contract_test.dart | test/sync_coordinator_queue_contract_test.dart
+23	lib/features/maintenance_workflow/domain/workflow_error.dart	42	14	0	0	0	0	0	0	authority,lifecycle,no_direct_test_reference	-
+23	lib/features/planned_maintenance/presentation/complete_job_screen.dart	1931	2	19	10	1	7	0	2	authority,persistence,sync,lifecycle,large,many_remote_writes	test/async_mounted_context_safety_contract_test.dart | test/complete_job_screen_server_gate_test.dart
+23	functions/src/runtimeJobModulePopulation.ts	1844	2	0	7	1	2	0	5	authority,persistence,sync,lifecycle,large,many_remote_writes	test/runtime_module_population_fence_contract_test.dart | functions/test/backendReleaseIdentityComposite.test.js | functions/test/runtimeJobModulePopulation.firestoreEmulator.test.js | functions/test/runtimeJobModulePopulation.test.js
+23	lib/core/services/live_remote_sync_service.dart	862	2	4	12	0	0	0	0	authority,persistence,sync,lifecycle,medium_large,many_remote_writes,no_direct_test_reference	-
+23	lib/features/planned_maintenance/presentation/template_publisher_sections.dart	1231	1	0	0	0	0	0	3	authority,persistence,sync,lifecycle,security_identity,large	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/template_version_lifecycle_contract_test.dart
+23	lib/home_screen.dart	1207	1	26	1	0	1	0	2	authority,sync,lifecycle,notification,platform_root,large	test/async_mounted_context_safety_contract_test.dart | test/local_diagnostics_visibility_contract_test.dart
+23	lib/core/services/sync_service.executions.dart	600	1	0	13	4	0	0	2	authority,persistence,sync,lifecycle,medium_large,many_remote_writes,serialization_hub	test/planned_job_local_identity_architecture_contract_test.dart | test/sync_service_decomposition_contract_test.dart
+22	lib/features/audit/repositories/audit_repository.dart	600	10	3	2	0	6	0	1	persistence,sync,lifecycle,medium_large	test/runtime_module_population_no_loss_test.dart
+22	lib/features/maintenance_workflow/data/compliance_request_record.dart	99	9	0	0	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+22	lib/features/planned_maintenance/services/published_template_assignment_server_service.dart	296	3	3	1	2	2	0	1	authority,persistence,sync,lifecycle,security_identity	test/published_template_assignment_server_contract_test.dart
+22	lib/features/planned_maintenance/presentation/module_composer_screen.actions.dart	1219	1	0	16	0	7	0	4	authority,persistence,sync,lifecycle,large,many_remote_writes	test/composer_publish_sync_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/module_composer_hardening_contract_test.dart | test/template_version_lifecycle_contract_test.dart
+22	functions/src/maintenanceWorkflow/callable.ts	111	1	4	1	0	1	0	0	authority,persistence,sync,lifecycle,security_identity,no_direct_test_reference	-
+22	functions/src/index.ts	327	0	9	0	0	4	0	6	authority,persistence,sync,lifecycle,notification,security_identity	test/firestore_deployment_readiness_contract_test.dart | test/runtime_module_population_fence_contract_test.dart | test/stage2d_f_internal_controlled_deployment_scope_contract_test.dart | functions/test/backendReleaseIdentityComposite.test.js
+22	tools/maintenance_workflow/full_tree_source_audit.py	306	0	0	0	2	0	0	0	authority,persistence,sync,lifecycle,notification,security_identity	-
+21	lib/features/planned_maintenance/models/component_action_model.dart	233	11	0	0	4	1	0	2	persistence,lifecycle,serialization_hub	test/complete_job_screen_server_gate_test.dart | test/planned_job_server_completion_no_loss_test.dart
+21	lib/features/maintenance_workflow/providers/workflow_providers.dart	127	10	16	0	0	1	0	1	persistence,sync,lifecycle	test/maintenance_workflow/online_only_contract_test.dart
+21	functions/src/backendReleaseIdentity.ts	166	2	0	0	0	0	0	2	authority,persistence,sync,lifecycle,security_identity	functions/test/backendReleaseIdentity.test.js | functions/test/backendReleaseIdentityComposite.test.js
+21	functions/src/plannedJobClosure.ts	861	1	0	3	0	2	0	3	authority,persistence,sync,lifecycle,security_identity,medium_large	test/runtime_module_population_fence_contract_test.dart | functions/test/plannedJobClosure.firestoreEmulator.test.js | functions/test/plannedJobClosure.test.js
+21	functions/src/maintenanceWorkflow/complianceHandlers.ts	454	1	9	25	0	0	0	0	authority,sync,lifecycle,security_identity,many_remote_writes,no_direct_test_reference	-
+21	functions/src/maintenanceWorkflow/laneHandlers.ts	292	1	10	11	0	0	0	0	authority,sync,lifecycle,security_identity,many_remote_writes,no_direct_test_reference	-
+20	lib/features/audit/providers/audit_provider.dart	15	11	1	0	0	0	0	0	sync,lifecycle,no_direct_test_reference	-
+20	lib/features/planned_maintenance/domain/baf_knowledge_layer.dart	113	9	1	2	1	0	0	4	persistence,sync,lifecycle	test/module_composer_title_rehydration_widget_test.dart | test/module_workshop_screen_test.dart | test/publish_metadata_dialog_integration_test.dart | test/template_governance_70f1_restore_ui_test.dart
+20	lib/core/services/app_logger.dart	326	8	0	0	0	0	0	1	authority,sync,security_identity	test/release_startup_hygiene_contract_test.dart
+20	lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart	770	2	15	0	0	1	0	0	authority,persistence,sync,lifecycle,medium_large,no_direct_test_reference	-
+20	lib/core/services/sync_service.template_governance.dart	966	1	0	27	3	0	0	2	persistence,sync,lifecycle,security_identity,medium_large,many_remote_writes	test/sync_service_decomposition_contract_test.dart | test/template_governance_lifecycle_replay_contract_test.dart
+20	functions/src/backendReleaseIdentityComposite.ts	249	1	1	0	0	0	0	1	authority,persistence,sync,lifecycle,security_identity	functions/test/backendReleaseIdentityComposite.test.js
+20	lib/core/release/backend_release_identity_service.dart	169	1	0	0	1	2	0	1	authority,persistence,sync,lifecycle,security_identity	test/backend_release_identity_service_test.dart
+20	tools/release/Test-ProductionReleaseManifest.ps1	829	0	0	0	0	0	0	1	authority,persistence,sync,lifecycle,security_identity,medium_large	test/production_release_provenance_contract_test.dart
+19	lib/features/maintenance_workflow/domain/maintenance_lane.dart	119	12	3	0	0	0	0	5	authority,lifecycle	test/maintenance_workflow/compliance_decision_policy_test.dart | test/maintenance_workflow/maintenance_lane_policy_test.dart | test/maintenance_workflow/red_exit_gate_test.dart | test/maintenance_workflow/workflow_aggregate_test.dart
+19	lib/features/planned_maintenance/data/job_diary_model.dart	439	8	2	0	2	1	0	4	persistence,sync,lifecycle	test/issue_1_tombstone_conflict_regression_test.dart | test/planned_job_local_identity_architecture_contract_test.dart | test/planned_job_local_identity_serialization_test.dart | test/planned_job_local_link_repair_test.dart
+19	lib/features/maintenance_workflow/data/equipment_status_record.dart	36	6	0	0	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+19	lib/features/maintenance_workflow/services/workflow_command_gateway.dart	75	2	2	0	2	1	0	0	authority,persistence,sync,lifecycle,no_direct_test_reference	-
+19	lib/features/planned_maintenance/presentation/job_module_detail_screen.dart	1869	1	11	0	3	4	0	4	authority,persistence,sync,lifecycle,large	test/async_mounted_context_safety_contract_test.dart | test/operator_runtime_ux_polish_contract_test.dart | test/planned_job_local_identity_architecture_contract_test.dart | test/runtime_module_lineage_visibility_contract_test.dart
+19	lib/features/planned_maintenance/presentation/published_template_assignment_screen.dart	1394	1	17	0	0	7	0	2	persistence,sync,lifecycle,security_identity,large	test/async_mounted_context_safety_contract_test.dart | test/template_governance_lifecycle_replay_contract_test.dart
+19	lib/core/widgets/sync_status_indicator.dart	1313	1	10	0	0	2	0	2	authority,persistence,sync,lifecycle,large	test/lifecycle_static_guardrail_contract_test.dart | test/sync_status_indicator_hardening_contract_test.dart
+19	lib/features/planned_maintenance/presentation/module_composer_dialogs.dart	1090	1	0	0	0	0	0	4	authority,persistence,sync,lifecycle,large	test/composer_publish_sync_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/module_composer_hardening_contract_test.dart | test/template_version_lifecycle_contract_test.dart
+19	lib/features/admin/presentation/user_management_screen.dart	873	1	8	3	0	4	0	0	authority,persistence,sync,lifecycle,medium_large,no_direct_test_reference	-
+19	lib/features/planned_maintenance/providers/module_registry_provider.dart	756	1	4	16	31	0	0	1	persistence,sync,lifecycle,medium_large,many_remote_writes,serialization_hub	test/module_registry_lifecycle_contract_test.dart
+19	lib/core/services/sync_service.job_modules.dart	592	1	0	39	4	1	0	3	persistence,sync,lifecycle,medium_large,many_remote_writes,serialization_hub	test/job_module_lifecycle_replay_contract_test.dart | test/runtime_module_population_fence_contract_test.dart | test/sync_service_decomposition_contract_test.dart
+19	lib/core/services/sync_service.push_infrastructure.dart	439	1	0	7	0	4	0	2	authority,persistence,sync,lifecycle,many_remote_writes	test/runtime_module_population_fence_contract_test.dart | test/sync_service_decomposition_contract_test.dart
+19	.github/workflows/production-artifact.yml	387	0	0	0	0	0	0	1	authority,persistence,sync,lifecycle,security_identity	test/production_release_provenance_contract_test.dart
+19	.github/workflows/release-gate.yml	258	0	0	0	0	0	0	2	authority,persistence,sync,lifecycle,security_identity	test/release_gate_action_pin_contract_test.dart | test/runtime_module_population_fence_contract_test.dart
+18	lib/features/maintenance_workflow/domain/workflow_types.dart	63	19	0	0	0	0	0	4	lifecycle	test/maintenance_workflow/compliance_decision_policy_test.dart | test/maintenance_workflow/equipment_projection_test.dart | test/maintenance_workflow/workflow_aggregate_test.dart | test/maintenance_workflow/workflow_command_contract_test.dart
+18	lib/features/maintenance_workflow/data/workflow_command_record.dart	36	5	0	0	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+18	lib/features/planned_maintenance/providers/job_diary_provider.dart	930	3	9	4	9	2	0	2	persistence,sync,lifecycle,medium_large,serialization_hub	test/issue_1_tombstone_conflict_regression_test.dart | test/runtime_module_population_no_loss_test.dart
+18	functions/src/maintenanceWorkflow/finalizeJobHandler.ts	373	1	10	3	0	1	0	0	authority,persistence,sync,lifecycle,no_direct_test_reference	-
+18	functions/src/maintenanceWorkflow/escalationSweep.ts	175	1	3	2	0	0	0	0	authority,persistence,sync,lifecycle,no_direct_test_reference	-
+18	functions/src/maintenanceWorkflow/jobCreationHandler.ts	121	1	7	1	0	0	0	0	authority,persistence,sync,lifecycle,no_direct_test_reference	-
+18	tools/release/New-ProductionArtifact.ps1	1232	0	0	0	0	0	0	2	authority,persistence,lifecycle,security_identity,large	test/production_release_provenance_contract_test.dart | test/stage2d_f_internal_controlled_deployment_scope_contract_test.dart
+17	lib/core/widgets/dashboard/status_badge.dart	62	36	0	0	0	0	0	0	no_direct_test_reference	-
+17	lib/core/services/remote_tombstone_apply_result.dart	37	9	0	0	0	0	0	1	persistence,sync	test/issue_1_tombstone_conflict_regression_test.dart
+17	lib/core/services/sync_remote_freshness_policy.dart	32	9	0	0	0	0	0	1	authority,sync	test/sync_remote_freshness_policy_test.dart
+17	functions/src/maintenanceWorkflow/authority.ts	44	8	2	0	0	0	0	0	authority,lifecycle,no_direct_test_reference	-
+17	lib/features/maintenance_workflow/data/workflow_aggregate_record.dart	37	8	0	0	0	0	0	0	persistence,lifecycle,no_direct_test_reference	-
+17	lib/features/admin/utils/admin_ticket_helpers.dart	105	4	1	1	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+17	lib/features/maintenance_workflow/data/equipment_prompt_record.dart	31	4	0	0	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+17	lib/features/maintenance_workflow/data/compliance_attempt_record.dart	29	4	0	0	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+17	lib/features/planned_maintenance/services/runtime_job_module_population_service.dart	369	2	1	0	2	2	0	3	authority,persistence,sync,lifecycle	test/runtime_job_module_population_exception_test.dart | test/runtime_module_population_fence_contract_test.dart | test/runtime_module_population_no_loss_test.dart
+17	lib/core/services/isar_schema_migration.dart	293	2	0	0	0	0	0	1	persistence,sync,lifecycle,security_identity	test/isar_schema_migrator_test.dart
+17	lib/features/planned_maintenance/presentation/job_history_screen.dart	1236	1	7	0	0	0	0	0	persistence,sync,lifecycle,large,no_direct_test_reference	-
+17	lib/features/planned_maintenance/presentation/widgets/publish_metadata_dialog.dart	926	1	7	2	0	1	0	4	persistence,sync,lifecycle,security_identity,medium_large	test/async_mounted_context_safety_contract_test.dart | test/publish_metadata_dialog_integration_test.dart | test/publish_metadata_dialog_test.dart | test/template_version_lifecycle_contract_test.dart
+17	lib/features/planned_maintenance/presentation/module_registry_authoring_screen.dart	914	1	5	0	0	3	0	3	authority,persistence,sync,lifecycle,medium_large	test/lifecycle_static_guardrail_contract_test.dart | test/module_registry_authoring_hardening_contract_test.dart | test/module_registry_authoring_screen_test.dart
+17	lib/features/directives/presentation/directives_screen.dart	897	1	9	0	0	2	0	3	authority,persistence,sync,lifecycle,medium_large	test/async_mounted_context_safety_contract_test.dart | test/field_hardening_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart
+17	lib/features/directives/presentation/create_directive_screen.dart	768	1	8	0	0	1	0	1	authority,persistence,sync,lifecycle,medium_large	test/async_mounted_context_safety_contract_test.dart
+17	lib/features/planned_maintenance/presentation/assign_job_screen.dart	562	1	12	0	0	1	0	1	persistence,sync,lifecycle,security_identity,medium_large	test/async_mounted_context_safety_contract_test.dart
+17	lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart	556	1	10	0	0	2	0	3	authority,persistence,sync,lifecycle,medium_large	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/master_data_field_hardening_contract_test.dart
+16	lib/features/planned_maintenance/data/module_registry_model.dart	764	5	6	0	7	4	0	4	persistence,lifecycle,medium_large,serialization_hub	test/module_registry_authoring_screen_test.dart | test/module_registry_concurrency_test.dart | test/module_registry_model_test.dart | test/module_workshop_screen_test.dart
+16	lib/features/abnormalities/presentation/abnormality_types_screen.dart	1253	2	10	1	0	3	0	3	persistence,sync,lifecycle,large	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/master_data_field_hardening_contract_test.dart
+16	lib/core/services/sync_service.tickets_templates.dart	634	1	0	7	0	0	0	2	persistence,sync,lifecycle,medium_large,many_remote_writes	test/maintenance_lifecycle_replay_contract_test.dart | test/sync_service_decomposition_contract_test.dart
+16	lib/features/planned_maintenance/presentation/template_publisher_screen.actions.dart	428	1	0	0	0	5	0	3	persistence,sync,lifecycle,security_identity	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/template_version_lifecycle_contract_test.dart
+16	lib/features/admin/presentation/admin_data_browser/admin_directives_browser.dart	427	1	11	0	0	2	0	3	authority,persistence,sync,lifecycle	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/master_data_field_hardening_contract_test.dart
+16	lib/features/planned_maintenance/presentation/module_composer_screen.support.dart	398	1	0	0	1	3	0	3	persistence,sync,lifecycle,security_identity	test/composer_publish_sync_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/module_composer_hardening_contract_test.dart
+16	lib/features/admin/presentation/admin_data_browser/admin_executions_browser.dart	294	1	10	0	0	1	0	3	authority,persistence,sync,lifecycle	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/master_data_field_hardening_contract_test.dart
+16	lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart	292	1	10	0	0	1	0	3	authority,persistence,sync,lifecycle	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/master_data_field_hardening_contract_test.dart
+16	lib/features/planned_maintenance/presentation/template_publisher_screen.support.dart	281	1	0	4	0	0	0	3	persistence,sync,lifecycle,security_identity	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/template_version_lifecycle_contract_test.dart
+16	lib/core/services/global_pull_service.dart	206	1	31	0	0	0	0	1	persistence,sync,lifecycle,security_identity	test/global_pull_service_decomposition_contract_test.dart
+16	tools/release/New-VerificationArtifact.ps1	774	0	0	0	0	0	0	1	authority,persistence,lifecycle,security_identity,medium_large	test/release_provenance_tooling_contract_test.dart
+16	lib/core/services/isar_production_recovery_io.dart	334	0	0	7	0	2	0	0	persistence,sync,lifecycle,many_remote_writes,no_direct_test_reference	-
+15	lib/core/services/sync_push_snapshot.dart	19	9	0	0	0	0	0	0	sync,no_direct_test_reference	-
+15	lib/core/widgets/dashboard/dashboard_widgets.dart	728	5	2	0	0	0	0	0	sync,lifecycle,medium_large,no_direct_test_reference	-
+15	lib/features/maintenance_workflow/presentation/screens/compliance_detail_screen.dart	300	2	5	2	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+15	lib/features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart	280	2	7	0	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+15	lib/features/maintenance_workflow/presentation/screens/compliance_inbox_screen.dart	234	2	4	0	0	0	0	0	authority,sync,lifecycle,no_direct_test_reference	-
+15	lib/features/charges/data/charge_model.dart	63	2	1	0	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+15	lib/features/abnormalities/presentation/charge_abnormalities_screen.dart	1669	1	9	1	0	2	0	1	persistence,sync,lifecycle,large	test/async_mounted_context_safety_contract_test.dart
+15	lib/features/planned_maintenance/presentation/module_editor_screen.dart	1577	1	6	4	0	0	0	1	authority,sync,lifecycle,large	test/module_editor_screen_test.dart
+15	lib/features/maintenance/presentation/maintenance_form.dart	1050	1	9	0	0	1	0	1	persistence,sync,lifecycle,large	test/async_mounted_context_safety_contract_test.dart
+15	lib/features/planned_maintenance/presentation/widgets/job_module_response_form.dart	785	1	3	2	2	0	0	0	persistence,sync,lifecycle,medium_large,no_direct_test_reference	-
+15	lib/features/planned_maintenance/domain/template_version_assignment_builder.dart	602	1	6	1	0	1	0	0	persistence,sync,lifecycle,medium_large,no_direct_test_reference	-
+15	lib/core/services/sync_service.directives_abnormalities.dart	396	1	0	9	0	0	0	1	persistence,sync,lifecycle,many_remote_writes	test/sync_service_decomposition_contract_test.dart
+15	lib/features/planned_maintenance/domain/publish_metadata_builder.dart	263	1	7	6	0	2	0	2	persistence,lifecycle,security_identity,many_remote_writes	test/publish_metadata_dialog_test.dart | test/template_version_lifecycle_contract_test.dart
+15	lib/core/services/global_pull_service.template_governance.dart	224	1	0	6	0	3	0	1	persistence,sync,lifecycle,many_remote_writes	test/global_pull_service_decomposition_contract_test.dart
+15	lib/core/services/global_pull_service.planned.dart	191	1	0	6	0	2	0	1	persistence,sync,lifecycle,many_remote_writes	test/global_pull_service_decomposition_contract_test.dart
+15	lib/core/services/global_pull_service.abnormalities.dart	187	1	0	6	0	2	0	1	persistence,sync,lifecycle,many_remote_writes	test/global_pull_service_decomposition_contract_test.dart
+15	lib/features/planned_maintenance/services/published_template_assignment_idempotency_store.dart	137	1	1	0	4	1	0	1	persistence,sync,lifecycle,serialization_hub	test/published_template_assignment_idempotency_store_test.dart
+15	tools/release/Test-ReleaseManifest.ps1	427	0	0	0	0	0	0	1	authority,persistence,lifecycle,security_identity	test/release_provenance_tooling_contract_test.dart
+15	tools/release/Test-ProductionReleasePolicy.ps1	407	0	0	0	0	0	0	1	authority,persistence,lifecycle,security_identity	test/production_release_provenance_contract_test.dart
+15	pubspec.yaml	47	0	0	0	0	0	0	2	persistence,lifecycle,notification,platform_root	test/production_release_provenance_contract_test.dart | test/release_startup_hygiene_contract_test.dart
+14	functions/src/maintenanceWorkflow/equipmentFacts.ts	80	5	3	0	0	0	0	0	sync,lifecycle,no_direct_test_reference	-
+14	functions/src/maintenanceWorkflow/documents.ts	34	5	4	0	0	0	0	0	sync,lifecycle,no_direct_test_reference	-
+14	lib/features/planned_maintenance/presentation/template_publisher_screen.dart	152	3	19	0	0	0	0	2	sync,lifecycle,security_identity	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart
+14	lib/features/abnormalities/presentation/abnormality_reports_screen.dart	1061	2	6	0	0	0	0	0	sync,lifecycle,large,no_direct_test_reference	-
+14	lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart	792	2	26	0	0	6	0	2	persistence,sync,lifecycle,medium_large	test/operator_runtime_ux_polish_contract_test.dart | test/runtime_add_module_governance_contract_test.dart
+14	lib/features/planned_maintenance/presentation/open_executions_view.dart	358	1	5	0	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+14	functions/src/maintenanceWorkflow/redSuccessorTemplateResolver.ts	326	1	3	2	0	2	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+14	lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart	235	1	2	0	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+14	lib/features/maintenance_workflow/repositories/isar_workflow_repository.dart	186	1	10	1	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+14	lib/features/maintenance_workflow/services/workflow_pull_service.dart	167	1	2	0	0	1	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+14	functions/src/maintenanceWorkflow/redHandlers.ts	121	1	8	3	0	0	0	0	authority,sync,lifecycle,no_direct_test_reference	-
+14	lib/features/maintenance_workflow/presentation/screens/workflow_hub_screen.dart	90	1	3	0	0	0	0	0	authority,sync,lifecycle,no_direct_test_reference	-
+14	functions/src/maintenanceWorkflow/memoryStore.ts	79	1	2	4	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+14	functions/src/maintenanceWorkflow/firebaseStore.ts	66	1	2	2	0	0	0	0	persistence,sync,lifecycle,no_direct_test_reference	-
+14	functions/src/maintenanceWorkflow/workflowNotificationPolicy.ts	57	1	0	5	0	0	0	1	authority,lifecycle,notification,many_remote_writes	functions/test/workflowNotificationPolicy.test.js
+13	functions/src/maintenanceWorkflow/events.ts	39	7	3	0	0	0	0	0	authority,no_direct_test_reference	-
+13	lib/features/maintenance_workflow/domain/workflow_policy.dart	32	6	3	0	0	0	0	1	authority,lifecycle	test/maintenance_workflow/workflow_policy_parity_test.dart
+13	lib/core/services/sync_service.dart	364	2	33	0	0	0	0	2	persistence,sync,lifecycle	test/runtime_module_population_no_loss_test.dart | test/sync_service_decomposition_contract_test.dart
+13	lib/features/planned_maintenance/domain/template_publication_readiness.dart	258	2	1	0	0	0	0	2	persistence,sync,lifecycle	test/template_governance_lifecycle_replay_contract_test.dart | test/template_publication_readiness_test.dart
+13	lib/features/planned_maintenance/presentation/module_composer_screen.dart	206	2	29	0	0	0	0	9	persistence,sync,lifecycle	test/composer_publish_sync_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/module_composer_70e_responsive_widget_test.dart | test/module_composer_70e_save_sync_refresh_test.dart
+13	lib/features/planned_maintenance/domain/module_workshop_published_sources.dart	198	2	3	0	0	1	0	2	persistence,sync,lifecycle	test/module_workshop_published_sources_test.dart | test/module_workshop_screen_test.dart
+13	lib/features/maintenance/presentation/closed_tickets_screen.dart	953	1	7	1	0	3	0	2	persistence,sync,lifecycle,medium_large	test/field_hardening_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart
+13	lib/features/maintenance/presentation/resolve_form.dart	928	1	11	2	0	1	0	1	persistence,sync,lifecycle,medium_large	test/async_mounted_context_safety_contract_test.dart
+13	lib/features/planned_maintenance/presentation/module_composer_widgets.dart	898	1	0	0	0	0	0	3	authority,sync,lifecycle,medium_large	test/composer_publish_sync_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/module_composer_hardening_contract_test.dart
+13	lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart	796	1	9	0	0	2	0	2	authority,sync,lifecycle,medium_large	test/lifecycle_static_guardrail_contract_test.dart | test/master_data_field_hardening_contract_test.dart
+13	lib/features/maintenance/presentation/ticket_screen.dart	679	1	9	0	0	1	0	1	authority,sync,lifecycle,medium_large	test/async_mounted_context_safety_contract_test.dart
+13	lib/features/planned_maintenance/presentation/template_detail_screen.dart	671	1	10	0	0	1	0	3	persistence,sync,lifecycle,medium_large	test/async_mounted_context_safety_contract_test.dart | test/field_hardening_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart
+13	lib/features/planned_maintenance/domain/published_runtime_module_catalogue.dart	575	1	6	1	0	0	0	5	persistence,sync,lifecycle,medium_large	test/published_runtime_module_catalogue_test.dart | test/published_template_runtime_contract_test.dart | test/runtime_add_module_governance_contract_test.dart | test/runtime_add_module_governed_catalogue_contract_test.dart
+13	lib/features/planned_maintenance/presentation/create_template_screen.dart	541	1	7	1	0	1	0	1	persistence,sync,lifecycle,medium_large	test/async_mounted_context_safety_contract_test.dart
+13	lib/features/reports/providers/fleet_status_provider.dart	221	1	5	5	0	0	0	0	sync,lifecycle,many_remote_writes,no_direct_test_reference	-
+12	lib/features/maintenance_workflow/domain/workflow_command_contract.dart	62	8	2	0	2	0	0	1	persistence	test/maintenance_workflow/workflow_command_contract_test.dart
+12	lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart	448	6	0	17	0	2	0	2	lifecycle,many_remote_writes	test/published_template_runtime_contract_test.dart | test/template_version_snapshot_contract_test.dart
+12	lib/features/maintenance_workflow/repositories/workflow_repository.dart	40	6	9	0	0	0	0	0	sync,no_direct_test_reference	-
+12	lib/core/providers/sync_status_provider.dart	37	6	0	0	0	0	0	0	sync,no_direct_test_reference	-
+12	lib/features/planned_maintenance/domain/module_workshop_actions.dart	286	5	1	1	0	0	0	1	sync,lifecycle	test/module_workshop_actions_test.dart
+12	lib/core/services/auto_sync_service.dart	255	3	1	3	0	0	0	0	sync,lifecycle,no_direct_test_reference	-
+12	lib/features/assets/presentation/asset_timeline_screen.dart	570	2	5	0	0	0	0	0	sync,lifecycle,medium_large,no_direct_test_reference	-
+12	lib/features/planned_maintenance/domain/module_composer_validator.dart	127	2	2	17	0	0	0	2	authority,lifecycle,many_remote_writes	test/module_composer_70e_semantic_evidence_test.dart | test/module_workshop_merge_test.dart
+12	lib/features/planned_maintenance/presentation/template_designer_screen.dart	942	1	6	6	0	1	0	1	sync,lifecycle,medium_large,many_remote_writes	test/async_mounted_context_safety_contract_test.dart
+12	lib/features/planned_maintenance/presentation/widgets/knowledge_correction_promoter_panel.dart	433	1	8	2	0	1	0	2	persistence,sync,lifecycle	test/field_hardening_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart
+12	lib/features/admin/presentation/admin_data_browser.dart	245	1	12	0	0	0	0	3	authority,sync,lifecycle	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/master_data_field_hardening_contract_test.dart
+12	lib/core/services/global_pull_service.conflicts.dart	235	1	0	3	0	6	0	1	persistence,sync,lifecycle	test/global_pull_service_decomposition_contract_test.dart
+12	lib/core/services/sync_service.job_diary.dart	133	1	0	3	0	0	0	1	persistence,sync,lifecycle	test/sync_service_decomposition_contract_test.dart
+12	lib/features/planned_maintenance/presentation/template_publisher_screen.builders.dart	128	1	0	0	0	0	0	3	persistence,lifecycle,security_identity	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/template_version_lifecycle_contract_test.dart
+12	lib/core/release/app_build_identity.dart	110	1	0	0	1	0	0	1	persistence,lifecycle,security_identity	test/app_build_identity_test.dart
+12	lib/core/services/planned_job_local_link_repair.dart	104	1	2	2	0	0	0	1	persistence,sync,lifecycle	test/planned_job_local_link_repair_test.dart
+12	lib/core/services/global_pull_service.directives.dart	95	1	0	3	0	1	0	1	persistence,sync,lifecycle	test/global_pull_service_decomposition_contract_test.dart
+12	lib/core/services/global_pull_service.maintenance.dart	94	1	0	3	0	1	0	1	persistence,sync,lifecycle	test/global_pull_service_decomposition_contract_test.dart
+12	lib/core/services/global_pull_service.job_diary.dart	93	1	0	3	0	1	0	1	persistence,sync,lifecycle	test/global_pull_service_decomposition_contract_test.dart
+12	lib/core/services/global_pull_service.job_modules.dart	93	1	0	3	0	1	0	1	persistence,sync,lifecycle	test/global_pull_service_decomposition_contract_test.dart
+12	lib/features/maintenance_workflow/services/workflow_outbox_policy.dart	46	1	1	0	0	0	0	1	authority,sync,lifecycle	test/maintenance_workflow/workflow_retry_policy_test.dart
+12	.github/workflows/verification-artifact.yml	136	0	0	0	0	0	0	1	authority,persistence,security_identity	test/release_provenance_tooling_contract_test.dart
+11	functions/src/maintenanceWorkflow/utils.ts	60	9	2	0	0	0	0	0	no_direct_test_reference	-
+11	lib/features/planned_maintenance/domain/knowledge_governance_export.dart	509	2	3	10	0	1	0	0	lifecycle,medium_large,many_remote_writes,no_direct_test_reference	-
+11	lib/features/planned_maintenance/presentation/widgets/job_module_response_summary.dart	415	2	3	0	0	1	0	0	sync,lifecycle,no_direct_test_reference	-
+11	lib/features/maintenance_workflow/services/workflow_online_executor.dart	102	2	7	1	0	1	0	0	sync,lifecycle,no_direct_test_reference	-
+11	functions/src/maintenanceWorkflow/dispatcher.ts	64	2	12	0	0	0	0	0	sync,lifecycle,no_direct_test_reference	-
+11	functions/src/maintenanceWorkflow/laneProgress.ts	52	2	1	0	0	0	0	0	sync,lifecycle,no_direct_test_reference	-
+11	lib/features/planned_maintenance/presentation/dossier/planned_job_module_dossier.dart	1929	1	0	0	0	0	0	3	sync,lifecycle,large	test/operator_runtime_ux_polish_contract_test.dart | test/runtime_add_module_governance_contract_test.dart | test/runtime_module_lineage_visibility_contract_test.dart
+11	lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart	1685	1	0	1	0	1	0	2	sync,lifecycle,large	test/operator_runtime_ux_polish_contract_test.dart | test/runtime_module_lineage_visibility_contract_test.dart
+11	lib/features/planned_maintenance/presentation/module_composer_screen.builders.dart	1123	1	0	0	0	0	0	4	sync,lifecycle,large	test/composer_publish_sync_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/module_composer_hardening_contract_test.dart | test/template_version_lifecycle_contract_test.dart
+11	lib/features/reports/presentation/fleet_status_screen.dart	663	1	6	0	0	0	0	0	sync,lifecycle,medium_large,no_direct_test_reference	-
+11	lib/features/auth/presentation/login_screen.dart	179	1	2	0	0	1	0	0	sync,security_identity,no_direct_test_reference	-
+11	lib/features/planned_maintenance/presentation/widgets/knowledge_version_dashboard.dart	127	1	3	0	0	0	0	0	persistence,sync,no_direct_test_reference	-
+11	lib/core/services/isar_production_recovery_stub.dart	97	1	0	0	0	0	0	0	persistence,sync,no_direct_test_reference	-
+11	functions/src/maintenanceWorkflow/equipmentHandlers.ts	66	1	8	2	0	0	0	0	authority,sync,no_direct_test_reference	-
+11	lib/core/services/isar_schema_guard_stub.dart	13	1	1	0	0	0	0	0	persistence,sync,no_direct_test_reference	-
+11	tools/maintenance_workflow/generate_policy.mjs	96	0	0	0	0	0	0	0	authority,sync,lifecycle	-
+10	functions/src/maintenanceWorkflow/store.ts	25	10	1	0	0	0	0	7		test/firestore_deployment_readiness_contract_test.dart | test/published_template_assignment_idempotency_store_test.dart | test/template_governance_70f1_restore_ui_test.dart | test/maintenance_workflow/firestore_rules_online_only_contract_test.dart
+10	lib/features/maintenance_workflow/domain/workflow_models.dart	85	7	2	0	0	0	0	1	lifecycle	test/maintenance_workflow/workflow_aggregate_test.dart
+10	lib/features/maintenance_workflow/data/workflow_command_receipt_record.dart	19	4	0	0	0	0	0	0	persistence,no_direct_test_reference	-
+10	lib/features/planned_maintenance/domain/knowledge_governance_diff.dart	295	2	2	6	0	0	0	0	lifecycle,many_remote_writes,no_direct_test_reference	-
+10	lib/features/planned_maintenance/presentation/widgets/knowledge_audit_timeline.dart	167	1	4	0	0	0	0	0	sync,lifecycle,no_direct_test_reference	-
+10	lib/features/planned_maintenance/presentation/widgets/knowledge_filters_panel.dart	112	1	4	3	0	0	0	0	sync,lifecycle,no_direct_test_reference	-
+10	lib/features/maintenance_workflow/data/workflow_record_mappers.dart	106	1	7	0	0	0	0	0	persistence,lifecycle,no_direct_test_reference	-
+10	lib/features/maintenance_workflow/presentation/screens/lane_classification_screen.dart	85	1	5	1	0	1	0	0	sync,lifecycle,no_direct_test_reference	-
+10	lib/features/maintenance_workflow/services/workflow_aggregate_service.dart	30	1	3	0	0	0	0	0	sync,lifecycle,no_direct_test_reference	-
+10	lib/core/services/isar_schema_guard_io.dart	45	0	1	0	0	0	0	0	persistence,sync,no_direct_test_reference	-
+9	functions/src/maintenanceWorkflow/handlerTypes.ts	16	7	2	0	0	0	0	0	no_direct_test_reference	-
+9	functions/src/maintenanceWorkflow/paths.ts	10	7	0	0	0	0	0	0	no_direct_test_reference	-
+9	lib/features/maintenance_workflow/domain/workflow_actor.dart	26	5	1	0	0	0	0	2	authority	test/maintenance_workflow/maintenance_lane_policy_test.dart | test/maintenance_workflow/workflow_preview_engine_test.dart
+9	lib/features/planned_maintenance/domain/module_workshop_merge.dart	482	3	4	12	0	0	0	2	lifecycle,many_remote_writes	test/module_workshop_merge_test.dart | test/publish_metadata_dialog_test.dart
+9	lib/features/planned_maintenance/domain/module_composer_json_builder.dart	165	2	2	3	4	0	0	5	persistence,serialization_hub	test/module_composer_70e_semantic_evidence_test.dart | test/module_composer_alias_rehydration_test.dart | test/publish_metadata_dialog_test.dart | test/published_template_runtime_contract_test.dart
+9	lib/features/planned_maintenance/domain/planned_job_module_set_resolver.dart	156	2	1	0	0	0	0	1	persistence,lifecycle	test/planned_job_module_set_resolver_test.dart
+9	lib/features/maintenance_workflow/domain/workflow_policy_generated.dart	77	2	0	0	0	0	0	1	authority,lifecycle	test/maintenance_workflow/workflow_policy_parity_test.dart
+9	lib/features/planned_maintenance/presentation/knowledge_governance_screen.dart	976	1	13	0	0	2	0	2	sync,lifecycle,medium_large	test/field_hardening_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart
+9	lib/features/planned_maintenance/presentation/module_workshop_screen.dart	920	1	5	0	0	0	0	1	sync,lifecycle,medium_large	test/module_workshop_screen_test.dart
+9	lib/features/planned_maintenance/presentation/widgets/job_module_card.dart	692	1	4	0	0	0	0	2	sync,lifecycle,medium_large	test/operator_runtime_ux_polish_contract_test.dart | test/runtime_module_lineage_visibility_contract_test.dart
+9	lib/features/planned_maintenance/presentation/templates_screen.dart	676	1	10	1	0	0	0	1	sync,lifecycle,medium_large	test/planned_work_open_job_visibility_test.dart
+9	lib/core/security/app_check_bootstrap.dart	206	1	0	0	0	0	0	4	sync,security_identity	test/app_check_bootstrap_test.dart | test/release_startup_hygiene_contract_test.dart | test/stage2d_f_internal_controlled_deployment_scope_contract_test.dart | test/stage2d_source_security_contract_test.dart
+9	lib/core/services/sync_service.knowledge_base.dart	58	1	0	0	0	0	0	1	persistence,sync	test/sync_service_decomposition_contract_test.dart
+9	lib/core/services/global_pull_service.watermark.dart	45	1	0	0	0	1	0	1	sync,security_identity	test/global_pull_service_decomposition_contract_test.dart
+9	firestore.indexes.json	857	0	0	0	0	0	0	3	lifecycle,platform_root,medium_large	test/firestore_deployment_readiness_contract_test.dart | functions/test/backendReleaseIdentityComposite.test.js | functions/test/maintenanceWorkflowRulesSource.test.js
+9	android/app/build.gradle.kts	81	0	0	0	0	0	0	1	security_identity,platform_root	test/production_release_provenance_contract_test.dart
+9	lib/features/maintenance_workflow/services/workflow_error_translator.dart	31	0	1	0	0	0	0	0	authority,lifecycle,no_direct_test_reference	-
+9	functions/src/maintenanceWorkflow/policy.generated.ts	11	0	0	0	0	0	0	0	authority,lifecycle,no_direct_test_reference	-
+8	lib/features/maintenance_workflow/services/workflow_command_factory.dart	33	6	2	0	0	0	0	0	no_direct_test_reference	-
+8	lib/features/planned_maintenance/domain/baf_tag_resolver_v2.dart	414	5	5	9	0	0	0	1	many_remote_writes	test/baf_tag_resolver_v2_adapter_test.dart
+8	lib/features/maintenance_workflow/domain/compliance_models.dart	56	5	2	0	0	0	0	1	lifecycle	test/maintenance_workflow/compliance_decision_policy_test.dart
+8	lib/features/planned_maintenance/widgets/action_bottom_sheet.dart	448	2	4	0	0	0	0	0	sync,no_direct_test_reference	-
+8	lib/features/planned_maintenance/widgets/action_mini_card.dart	187	2	3	0	0	0	0	0	sync,no_direct_test_reference	-
+8	functions/src/maintenanceWorkflow/equipmentProjection.ts	41	2	2	0	0	0	0	0	sync,no_direct_test_reference	-
+8	lib/core/providers/sync_conflict_provider.dart	6	2	0	0	0	0	0	0	sync,no_direct_test_reference	-
+8	lib/core/providers/sync_providers.dart	6	2	0	0	0	0	0	0	sync,no_direct_test_reference	-
+8	lib/features/planned_maintenance/presentation/dossier/planned_job_diary_dossier.dart	607	1	0	0	0	0	0	0	sync,medium_large,no_direct_test_reference	-
+8	lib/features/planned_maintenance/domain/planned_job_closure_attestation.dart	284	1	1	0	0	2	0	2	persistence,lifecycle	test/planned_job_closure_attestation_test.dart | test/runtime_module_population_fence_contract_test.dart
+8	lib/features/planned_maintenance/domain/planned_job_closure_guard.dart	246	1	2	0	0	1	0	3	persistence,lifecycle	test/planned_job_closure_attestation_test.dart | test/planned_job_closure_guard_test.dart | test/published_template_runtime_contract_test.dart
+8	lib/features/auth/validation/user_input_validator.dart	108	1	4	3	0	0	0	1	authority,lifecycle	test/input_validation_test.dart
+8	functions/src/runtimeJobModulePopulationCallable.ts	42	1	1	0	0	1	0	2	sync,lifecycle	test/runtime_module_population_fence_contract_test.dart | functions/test/runtimeJobModulePopulationCallable.test.js
+7	lib/features/maintenance/utils/asset_validator.dart	36	5	1	0	0	0	0	0	no_direct_test_reference	-
+7	lib/core/validation/field_validators.dart	223	2	1	7	0	0	0	0	many_remote_writes,no_direct_test_reference	-
+7	lib/features/planned_maintenance/domain/knowledge_correction_promoter.dart	216	2	5	1	0	1	0	0	lifecycle,no_direct_test_reference	-
+7	lib/features/admin/utils/admin_search_sort_helpers.dart	70	2	2	0	0	0	0	0	lifecycle,no_direct_test_reference	-
+7	lib/features/assets/models/timeline_entry.dart	63	2	2	0	0	0	0	0	lifecycle,no_direct_test_reference	-
+7	functions/src/maintenanceWorkflow/redPolicy.ts	34	2	1	0	0	0	0	0	lifecycle,no_direct_test_reference	-
+7	lib/features/reports/models/asset_fleet_status.dart	27	2	2	0	0	0	0	0	lifecycle,no_direct_test_reference	-
+7	lib/core/providers/refresh_providers.dart	7	2	0	0	0	0	0	0	lifecycle,no_direct_test_reference	-
+7	lib/features/audit/presentation/audit_timeline_screen.dart	408	1	3	0	0	0	0	0	sync,no_direct_test_reference	-
+7	lib/features/planned_maintenance/presentation/template_publisher_screen.validation.dart	323	1	0	12	0	3	0	2	lifecycle,many_remote_writes	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart
+7	lib/features/maintenance_workflow/presentation/screens/equipment_status_board.dart	162	1	5	0	0	1	0	0	sync,no_direct_test_reference	-
+7	lib/features/assets/providers/asset_timeline_provider.dart	143	1	5	0	0	0	0	0	sync,no_direct_test_reference	-
+7	lib/features/maintenance_workflow/services/workflow_uncertain_retry_service.dart	63	1	5	0	0	1	0	0	sync,no_direct_test_reference	-
+7	lib/features/maintenance_workflow/presentation/widgets/red_exit_dialog.dart	58	1	0	0	0	0	0	0	sync,no_direct_test_reference	-
+7	lib/features/admin/presentation/local_diagnostics_exporter_stub.dart	17	1	0	0	0	0	0	0	sync,no_direct_test_reference	-
+7	functions/src/stage2dSecurityConfig.ts	8	1	0	0	0	0	0	0	security_identity,no_direct_test_reference	-
+7	lib/features/maintenance_workflow/domain/maintenance_workflow_engine.dart	129	0	8	0	0	0	0	1	authority,lifecycle	test/maintenance_workflow/workflow_preview_engine_test.dart
+7	firebase.json	52	0	0	0	0	0	0	2	persistence,lifecycle	test/firestore_deployment_readiness_contract_test.dart | test/release_startup_hygiene_contract_test.dart
+7	analysis_options.yaml	38	0	0	0	0	0	0	0	persistence,lifecycle	-
+6	lib/features/admin/providers/admin_stream_providers.dart	27	4	6	0	0	0	0	0	no_direct_test_reference	-
+6	lib/features/planned_maintenance/domain/runtime_module_lineage.dart	323	3	1	0	0	1	0	2	lifecycle	test/operator_runtime_ux_polish_contract_test.dart | test/runtime_module_lineage_visibility_contract_test.dart
+6	lib/features/abnormalities/presentation/abnormalities_home_screen.dart	682	1	9	0	0	1	0	1	sync,medium_large	test/async_mounted_context_safety_contract_test.dart
+6	lib/features/maintenance_workflow/presentation/widgets/lane_strip.dart	54	1	2	0	0	0	0	0	lifecycle,no_direct_test_reference	-
+6	functions/src/maintenanceWorkflow/firebaseExports.ts	3	1	3	0	0	0	0	0	notification,no_direct_test_reference	-
+6	lib/features/admin/presentation/local_diagnostics_exporter_io.dart	41	0	0	0	0	0	0	0	sync,no_direct_test_reference	-
+6	lib/features/admin/presentation/local_diagnostics_exporter_web.dart	17	0	0	0	0	0	0	0	sync,no_direct_test_reference	-
+5	lib/core/validation/validation_result.dart	63	3	0	0	0	0	0	0	no_direct_test_reference	-
+5	lib/features/maintenance_workflow/domain/workflow_aggregate.dart	24	2	2	0	0	0	0	1	lifecycle	test/maintenance_workflow/workflow_aggregate_test.dart
+5	lib/features/planned_maintenance/presentation/module_composer_screen.helpers.dart	272	1	0	1	0	1	0	3	sync	test/composer_publish_sync_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart | test/module_composer_hardening_contract_test.dart
+5	lib/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart	240	1	6	0	0	0	0	2	authority	test/lifecycle_static_guardrail_contract_test.dart | test/master_data_field_hardening_contract_test.dart
+5	lib/features/admin/presentation/admin_data_browser/admin_abnormalities_tab.dart	235	1	3	0	0	0	0	2	sync	test/lifecycle_static_guardrail_contract_test.dart | test/master_data_field_hardening_contract_test.dart
+5	lib/features/auth/presentation/pending_approval_screen.dart	193	1	2	0	0	1	0	1	sync	test/async_mounted_context_safety_contract_test.dart
+5	lib/core/services/crash_reporting_bootstrap.dart	24	1	1	0	0	0	0	1	sync	test/release_startup_hygiene_contract_test.dart
+5	lib/core/services/global_pull_service.knowledge_base.dart	21	1	0	0	0	0	0	1	sync	test/global_pull_service_decomposition_contract_test.dart
+5	functions/src/maintenanceWorkflow/idempotency.ts	19	1	4	0	0	0	0	1	sync	test/published_template_assignment_idempotency_store_test.dart
+5	android/settings.gradle.kts	30	0	0	0	0	0	0	0	platform_root	-
+5	lib/features/maintenance_workflow/providers/lane_inbox_provider.dart	25	0	2	0	0	0	0	0	lifecycle,no_direct_test_reference	-
+5	android/build.gradle.kts	21	0	0	0	0	0	0	1	platform_root	test/production_release_provenance_contract_test.dart
+4	lib/features/admin/presentation/admin_data_browser/admin_delete_reason_dialog.dart	107	4	3	0	0	0	0	2		test/lifecycle_static_guardrail_contract_test.dart | test/master_data_field_hardening_contract_test.dart
+4	lib/features/admin/presentation/admin_data_browser/admin_data_browser_shared.dart	72	4	1	0	0	0	0	2		test/lifecycle_static_guardrail_contract_test.dart | test/master_data_field_hardening_contract_test.dart
+4	lib/features/maintenance_workflow/presentation/widgets/workflow_action_guard.dart	32	2	0	0	0	0	0	0	no_direct_test_reference	-
+4	lib/core/services/isar_production_recovery.dart	4	2	1	0	0	0	0	0	no_direct_test_reference	-
+4	lib/features/planned_maintenance/presentation/template_publisher_widgets.dart	272	1	0	0	0	0	0	2	lifecycle	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart
+4	lib/features/planned_maintenance/domain/module_registry_content_hash.dart	243	1	2	0	2	4	0	1	lifecycle	test/module_registry_content_hash_test.dart
+4	lib/features/planned_maintenance/presentation/template_publisher_json_panel.dart	181	1	0	0	0	0	0	2	lifecycle	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart
+4	lib/features/maintenance_workflow/domain/red_exit_gate.dart	109	1	3	0	0	0	0	1	lifecycle	test/maintenance_workflow/red_exit_gate_test.dart
+4	lib/features/planned_maintenance/presentation/template_publisher_models.dart	76	1	0	0	0	0	0	2	lifecycle	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart
+4	functions/src/maintenanceWorkflow/aggregate.ts	21	1	1	0	0	0	0	1	lifecycle	test/maintenance_workflow/workflow_aggregate_test.dart
+4	lib/features/planned_maintenance/presentation/template_publisher_screen.helpers.dart	18	1	0	0	0	0	0	2	lifecycle	test/async_mounted_context_safety_contract_test.dart | test/lifecycle_static_guardrail_contract_test.dart
+4	functions/src/maintenanceWorkflow/index.ts	10	0	9	0	0	0	0	6	authority	test/firestore_deployment_readiness_contract_test.dart | test/runtime_module_population_fence_contract_test.dart | test/stage2d_f_internal_controlled_deployment_scope_contract_test.dart | functions/test/backendReleaseIdentityComposite.test.js
+4	android/app/src/debug/AndroidManifest.xml	7	0	0	0	0	0	0	1	authority	test/production_release_provenance_contract_test.dart
+4	android/app/src/profile/AndroidManifest.xml	7	0	0	0	0	0	0	1	authority	test/production_release_provenance_contract_test.dart
+3	lib/features/planned_maintenance/domain/domain_registry.dart	347	1	0	0	0	0	0	0	no_direct_test_reference	-
+3	lib/features/maintenance_workflow/presentation/widgets/workflow_timeline.dart	43	1	1	0	0	1	0	0	no_direct_test_reference	-
+3	functions/src/maintenanceWorkflow/escalationPolicy.ts	39	1	0	0	0	0	0	0	no_direct_test_reference	-
+3	lib/features/admin/presentation/local_diagnostics_exporter.dart	5	1	1	0	0	0	0	0	no_direct_test_reference	-
+3	lib/core/services/isar_schema_guard.dart	4	1	1	0	0	0	0	0	no_direct_test_reference	-
+2	lib/features/maintenance/validation/maintenance_input_validator.dart	248	2	4	1	0	0	0	1		test/input_validation_test.dart
+2	lib/features/planned_maintenance/domain/module_registry_concurrency.dart	65	2	1	0	0	0	0	1		test/module_registry_concurrency_test.dart
+2	lib/features/maintenance_workflow/domain/equipment_projection_policy.dart	59	2	1	2	0	0	0	1		test/maintenance_workflow/equipment_projection_test.dart
+2	lib/features/maintenance_workflow/domain/compliance_decision_policy.dart	44	2	3	0	0	0	0	1		test/maintenance_workflow/compliance_decision_policy_test.dart
+2	lib/features/maintenance_workflow/domain/lane_progress_evidence.dart	36	2	0	0	0	0	0	2		test/maintenance_workflow/lane_progress_evidence_test.dart | test/maintenance_workflow/workflow_preview_engine_test.dart
+2	lib/features/maintenance_workflow/domain/legacy_lane_adapter.dart	54	0	4	0	0	0	0	0	no_direct_test_reference	-
+2	lib/features/maintenance_workflow/domain/compliance_engine.dart	46	0	4	0	0	0	0	0	no_direct_test_reference	-
+2	lib/core/theme/app_colors.dart	29	0	0	0	0	0	0	0	no_direct_test_reference	-
+2	lib/features/maintenance_workflow/domain/maintenance_workflow_domain.dart	13	0	13	0	0	0	0	0	no_direct_test_reference	-
+2	lib/features/maintenance_workflow/domain/maintenance_workflow_models.dart	5	0	5	0	0	0	0	0	no_direct_test_reference	-
+2	lib/features/maintenance_workflow/domain/equipment_state_deriver.dart	1	0	1	0	0	0	0	0	no_direct_test_reference	-
+2	lib/features/maintenance_workflow/domain/frozen_workflow_policy.dart	1	0	1	0	0	0	0	0	no_direct_test_reference	-
+2	lib/features/maintenance_workflow/domain/maintenance_workflow_command.dart	1	0	1	0	0	0	0	0	no_direct_test_reference	-
+1	lib/features/planned_maintenance/domain/tag_resolver.dart	165	1	1	0	0	0	0	1		test/baf_tag_resolver_v2_adapter_test.dart
+0	android/app/src/main/AndroidManifest.xml	45	0	0	0	0	0	0	1		test/production_release_provenance_contract_test.dart
+0	android/gradle.properties	20	0	0	0	0	0	0	0		-
+0	android/app/src/main/res/values-night/styles.xml	18	0	0	0	0	0	0	0		-
+0	android/app/src/main/res/values/styles.xml	18	0	0	0	0	0	0	0		-
+0	android/app/src/main/res/drawable-v21/launch_background.xml	12	0	0	0	0	0	0	0		-
+0	android/app/src/main/res/drawable/launch_background.xml	12	0	0	0	0	0	0	0		-
+0	android/gradle/wrapper/gradle-wrapper.properties	8	0	0	0	0	0	0	0		-
+0	android/app/src/main/kotlin/in/co/sail/bsl/crm3/bafops/MainActivity.kt	5	0	0	0	0	0	0	0		-

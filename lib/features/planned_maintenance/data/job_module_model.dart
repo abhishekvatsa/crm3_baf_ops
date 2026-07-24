@@ -92,6 +92,29 @@ JobModuleDiscipline _parseDiscipline(dynamic value) {
   );
 }
 
+String? _laneKeyForModuleDiscipline(JobModuleDiscipline discipline) {
+  switch (discipline) {
+    case JobModuleDiscipline.electrical:
+      return 'elec';
+    case JobModuleDiscipline.mechanical:
+      return 'mech';
+    case JobModuleDiscipline.instrumentation:
+      return 'inst';
+    case JobModuleDiscipline.operations:
+    case JobModuleDiscipline.shiftInCharge:
+      return 'oprn';
+    case JobModuleDiscipline.emd:
+      return 'emd';
+    case JobModuleDiscipline.refractory:
+      return 'red';
+    case JobModuleDiscipline.safety:
+    case JobModuleDiscipline.admin:
+    case JobModuleDiscipline.shared:
+    case JobModuleDiscipline.others:
+      return 'shared';
+  }
+}
+
 int? _parseIntOrNull(dynamic value) {
   if (value == null) return null;
   if (value is int) return value;
@@ -158,6 +181,8 @@ enum JobModuleDiscipline {
   electrical,
   instrumentation,
   operations,
+  emd,
+  refractory,
   shiftInCharge,
   safety,
   admin,
@@ -207,6 +232,16 @@ class JobModuleInstance {
   /// Never serialize this Isar integer to Firestore or import it from remote.
   @Index()
   int? jobExecutionLocalId;
+
+  /// Canonical accountable lane used by the workflow server. For ordinary
+  /// jobs the workflow id equals jobExecutionFirestoreId.
+  @Index()
+  String? laneKey;
+
+  int laneActivationGeneration = 1;
+
+  /// Exact active lane document used by Firestore Rules to gate work.
+  String? workflowLaneFirestoreId;
 
   // ── Template/module source linkage ─────────────────────────
   /// Current legacy JobTemplate id, if this module originated from a legacy
@@ -361,6 +396,20 @@ class JobModuleInstance {
   /// query fields only here.
   String? metadataJson;
 
+  @ignore
+  String? get effectiveLaneKey =>
+      _cleanOptionalText(laneKey) ?? _laneKeyForModuleDiscipline(discipline);
+
+  @ignore
+  String? get effectiveWorkflowLaneFirestoreId {
+    final explicit = _cleanOptionalText(workflowLaneFirestoreId);
+    if (explicit != null) return explicit;
+    final executionId = _cleanOptionalText(jobExecutionFirestoreId);
+    final lane = effectiveLaneKey;
+    if (executionId == null || lane == null) return null;
+    return '${executionId}_${lane}_$laneActivationGeneration';
+  }
+
   // ─── Convenience getters ───────────────────────────────────
   @ignore
   bool get hasResponses => responses.isNotEmpty;
@@ -424,7 +473,11 @@ class JobModuleInstance {
     'assetType': assetType.name,
     'assetNumber': assetNumber,
     'discipline': discipline.name,
+    'laneKey': effectiveLaneKey,
+    'laneActivationGeneration': laneActivationGeneration,
+    'workflowLaneFirestoreId': effectiveWorkflowLaneFirestoreId,
     'status': status.name,
+    'isOpenForWork': isOpenForWork,
     'useMode': useMode.name,
     'safetyClass': safetyClass.name,
     'isRequired': isRequired,
@@ -455,6 +508,10 @@ class JobModuleInstance {
     'status': status.name,
     'useMode': useMode.name,
     'discipline': discipline.name,
+    'laneKey': effectiveLaneKey,
+    'laneActivationGeneration': laneActivationGeneration,
+    'workflowLaneFirestoreId': effectiveWorkflowLaneFirestoreId,
+    'isOpenForWork': isOpenForWork,
     'safetyClass': safetyClass.name,
     'isRequired': isRequired,
     'requiredForClosure': requiredForClosure,
@@ -544,6 +601,14 @@ class JobModuleInstance {
           )
           // Device-local Isar ids are never imported from Firestore.
           ..jobExecutionLocalId = null
+          ..laneKey = _cleanOptionalText(map['laneKey'])
+          ..laneActivationGeneration = _parseIntOr(
+            map['laneActivationGeneration'],
+            1,
+          )
+          ..workflowLaneFirestoreId = _cleanOptionalText(
+            map['workflowLaneFirestoreId'],
+          )
           ..templateFirestoreId = _cleanOptionalText(map['templateFirestoreId'])
           ..templateName = _cleanOptionalText(map['templateName'])
           ..templatePackageId = _cleanOptionalText(map['templatePackageId'])

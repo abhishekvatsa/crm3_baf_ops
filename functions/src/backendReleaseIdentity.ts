@@ -1,3 +1,5 @@
+import {canonicalApprovedUserAuthority} from "./userAuthority";
+
 export type BackendIdentityJsonMap = {[key: string]: unknown};
 
 export type BackendIdentityFirestoreLike = {
@@ -154,11 +156,11 @@ export async function getBackendReleaseIdentityWithDb(args: {
     );
   }
   const userData = userSnapshot.data() ?? {};
-  if (userData.isApproved !== true || !Array.isArray(userData.roles)) {
+  if (canonicalApprovedUserAuthority(userData) == null) {
     throw new BackendIdentityValidationError(
       "permission-denied",
-      "Backend release identity is visible only to approved users.",
-      {reasonCode: "user-not-approved"},
+      "Backend release identity is visible only to canonically approved users.",
+      {reasonCode: "user-not-approved-or-malformed"},
     );
   }
 

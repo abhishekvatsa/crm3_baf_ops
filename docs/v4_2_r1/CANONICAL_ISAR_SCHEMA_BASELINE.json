@@ -1,0 +1,3551 @@
+{
+  "schemaVersion": 1,
+  "canonicalMainCommit": "633c58bb0d936011e391b42627f8b8f02c510e95",
+  "canonicalMainTree": "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
+  "collections": {
+    "OperationalDirective": {
+      "sourcePath": "lib/features/directives/data/operational_directive_model.g.dart",
+      "collectionId": 8926677232068899510,
+      "properties": {
+        "acknowledgedAt": {
+          "id": 0,
+          "type": "dateTime"
+        },
+        "acknowledgedByName": {
+          "id": 1,
+          "type": "string"
+        },
+        "acknowledgedByUid": {
+          "id": 2,
+          "type": "string"
+        },
+        "assetNumber": {
+          "id": 3,
+          "type": "long"
+        },
+        "assetType": {
+          "id": 4,
+          "type": "string"
+        },
+        "closedAt": {
+          "id": 5,
+          "type": "dateTime"
+        },
+        "closedByName": {
+          "id": 6,
+          "type": "string"
+        },
+        "closedByUid": {
+          "id": 7,
+          "type": "string"
+        },
+        "closedWithoutAcknowledgement": {
+          "id": 8,
+          "type": "bool"
+        },
+        "component": {
+          "id": 9,
+          "type": "string"
+        },
+        "createdAt": {
+          "id": 10,
+          "type": "dateTime"
+        },
+        "createdByName": {
+          "id": 11,
+          "type": "string"
+        },
+        "createdByUid": {
+          "id": 12,
+          "type": "string"
+        },
+        "debugLabel": {
+          "id": 13,
+          "type": "string"
+        },
+        "deleteReason": {
+          "id": 14,
+          "type": "string"
+        },
+        "deletedAt": {
+          "id": 15,
+          "type": "dateTime"
+        },
+        "deletedByName": {
+          "id": 16,
+          "type": "string"
+        },
+        "deletedByUid": {
+          "id": 17,
+          "type": "string"
+        },
+        "description": {
+          "id": 18,
+          "type": "string"
+        },
+        "directedTo": {
+          "id": 19,
+          "type": "string"
+        },
+        "firestoreId": {
+          "id": 20,
+          "type": "string"
+        },
+        "hasAssetContext": {
+          "id": 21,
+          "type": "bool"
+        },
+        "hasComponentContext": {
+          "id": 22,
+          "type": "bool"
+        },
+        "hierarchyPath": {
+          "id": 23,
+          "type": "stringList"
+        },
+        "isAcknowledged": {
+          "id": 24,
+          "type": "bool"
+        },
+        "isActive": {
+          "id": 25,
+          "type": "bool"
+        },
+        "isClosed": {
+          "id": 26,
+          "type": "bool"
+        },
+        "isDeleted": {
+          "id": 27,
+          "type": "bool"
+        },
+        "isOpen": {
+          "id": 28,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 29,
+          "type": "bool"
+        },
+        "issuedAt": {
+          "id": 30,
+          "type": "dateTime"
+        },
+        "issuedByName": {
+          "id": 31,
+          "type": "string"
+        },
+        "issuedByUid": {
+          "id": 32,
+          "type": "string"
+        },
+        "linkedExecutionFirestoreId": {
+          "id": 33,
+          "type": "string"
+        },
+        "linkedMaintenanceFirestoreId": {
+          "id": 34,
+          "type": "string"
+        },
+        "metadataJson": {
+          "id": 35,
+          "type": "string"
+        },
+        "priority": {
+          "id": 36,
+          "type": "string"
+        },
+        "remarks": {
+          "id": 37,
+          "type": "string"
+        },
+        "status": {
+          "id": 38,
+          "type": "string"
+        },
+        "subsystem": {
+          "id": 39,
+          "type": "string"
+        },
+        "tag": {
+          "id": 40,
+          "type": "string"
+        },
+        "title": {
+          "id": 41,
+          "type": "string"
+        },
+        "updatedAt": {
+          "id": 42,
+          "type": "dateTime"
+        },
+        "version": {
+          "id": 43,
+          "type": "long"
+        }
+      },
+      "indexes": {
+        "firestoreId": {
+          "id": 1863077355534729001,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "firestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "isSynced": {
+          "id": -39763503327887510,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isSynced",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "directedTo": {
+          "id": -7192304199582410464,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "directedTo",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "status": {
+          "id": -107785170620420283,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "status",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "createdAt": {
+          "id": -3433535483987302584,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "createdAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "updatedAt": {
+          "id": -6238191080293565125,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "updatedAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "JobTemplate": {
+      "sourcePath": "lib/features/planned_maintenance/data/job_template_model.g.dart",
+      "collectionId": 7389994387465344115,
+      "properties": {
+        "applicableAssetType": {
+          "id": 0,
+          "type": "string"
+        },
+        "assignedAgencies": {
+          "id": 1,
+          "type": "stringList"
+        },
+        "component": {
+          "id": 2,
+          "type": "string"
+        },
+        "createdAt": {
+          "id": 3,
+          "type": "dateTime"
+        },
+        "createdByName": {
+          "id": 4,
+          "type": "string"
+        },
+        "createdByUid": {
+          "id": 5,
+          "type": "string"
+        },
+        "debugLabel": {
+          "id": 6,
+          "type": "string"
+        },
+        "deleteReason": {
+          "id": 7,
+          "type": "string"
+        },
+        "deletedAt": {
+          "id": 8,
+          "type": "dateTime"
+        },
+        "deletedByName": {
+          "id": 9,
+          "type": "string"
+        },
+        "deletedByUid": {
+          "id": 10,
+          "type": "string"
+        },
+        "description": {
+          "id": 11,
+          "type": "string"
+        },
+        "fieldsJson": {
+          "id": 12,
+          "type": "string"
+        },
+        "firestoreId": {
+          "id": 13,
+          "type": "string"
+        },
+        "hasComponentScope": {
+          "id": 14,
+          "type": "bool"
+        },
+        "hierarchyPath": {
+          "id": 15,
+          "type": "stringList"
+        },
+        "isActive": {
+          "id": 16,
+          "type": "bool"
+        },
+        "isDeleted": {
+          "id": 17,
+          "type": "bool"
+        },
+        "isDeprecated": {
+          "id": 18,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 19,
+          "type": "bool"
+        },
+        "jobName": {
+          "id": 20,
+          "type": "string"
+        },
+        "metadataJson": {
+          "id": 21,
+          "type": "string"
+        },
+        "subsystem": {
+          "id": 22,
+          "type": "string"
+        },
+        "updatedAt": {
+          "id": 23,
+          "type": "dateTime"
+        },
+        "version": {
+          "id": 24,
+          "type": "long"
+        }
+      },
+      "indexes": {
+        "firestoreId": {
+          "id": 1863077355534729001,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "firestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "isSynced": {
+          "id": -39763503327887510,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isSynced",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "createdAt": {
+          "id": -3433535483987302584,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "createdAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "updatedAt": {
+          "id": -6238191080293565125,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "updatedAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "JobExecution": {
+      "sourcePath": "lib/features/planned_maintenance/data/job_template_model.g.dart",
+      "collectionId": 8749547484972275668,
+      "properties": {
+        "actionsJson": {
+          "id": 0,
+          "type": "string"
+        },
+        "assetNumber": {
+          "id": 1,
+          "type": "long"
+        },
+        "assetType": {
+          "id": 2,
+          "type": "string"
+        },
+        "assignedAgencies": {
+          "id": 3,
+          "type": "stringList"
+        },
+        "assignedByName": {
+          "id": 4,
+          "type": "string"
+        },
+        "assignedByUid": {
+          "id": 5,
+          "type": "string"
+        },
+        "chargeNoAtEvent": {
+          "id": 6,
+          "type": "long"
+        },
+        "completedAt": {
+          "id": 7,
+          "type": "dateTime"
+        },
+        "completedByName": {
+          "id": 8,
+          "type": "string"
+        },
+        "completedByUid": {
+          "id": 9,
+          "type": "string"
+        },
+        "createdAt": {
+          "id": 10,
+          "type": "dateTime"
+        },
+        "deleteReason": {
+          "id": 11,
+          "type": "string"
+        },
+        "deletedAt": {
+          "id": 12,
+          "type": "dateTime"
+        },
+        "deletedByName": {
+          "id": 13,
+          "type": "string"
+        },
+        "deletedByUid": {
+          "id": 14,
+          "type": "string"
+        },
+        "firestoreId": {
+          "id": 15,
+          "type": "string"
+        },
+        "isCompleted": {
+          "id": 16,
+          "type": "bool"
+        },
+        "isDeleted": {
+          "id": 17,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 18,
+          "type": "bool"
+        },
+        "metadataJson": {
+          "id": 19,
+          "type": "string"
+        },
+        "remarks": {
+          "id": 20,
+          "type": "string"
+        },
+        "responsesJson": {
+          "id": 21,
+          "type": "string"
+        },
+        "teamsInvolved": {
+          "id": 22,
+          "type": "stringList"
+        },
+        "templateContentHash": {
+          "id": 23,
+          "type": "string"
+        },
+        "templateFirestoreId": {
+          "id": 24,
+          "type": "string"
+        },
+        "templateName": {
+          "id": 25,
+          "type": "string"
+        },
+        "templatePackageCode": {
+          "id": 26,
+          "type": "string"
+        },
+        "templatePackageId": {
+          "id": 27,
+          "type": "string"
+        },
+        "templateVersionId": {
+          "id": 28,
+          "type": "string"
+        },
+        "templateVersionLabel": {
+          "id": 29,
+          "type": "string"
+        },
+        "templateVersionNumber": {
+          "id": 30,
+          "type": "long"
+        },
+        "updatedAt": {
+          "id": 31,
+          "type": "dateTime"
+        },
+        "version": {
+          "id": 32,
+          "type": "long"
+        }
+      },
+      "indexes": {
+        "firestoreId": {
+          "id": 1863077355534729001,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "firestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "templateFirestoreId": {
+          "id": -3638035790332400624,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "templateFirestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "templatePackageId": {
+          "id": -2198428456183362458,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "templatePackageId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "templateVersionId": {
+          "id": 8336924092931839295,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "templateVersionId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "assetNumber": {
+          "id": 1893107624136954704,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "assetNumber",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "isCompleted": {
+          "id": -7936144632215868537,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isCompleted",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "createdAt": {
+          "id": -3433535483987302584,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "createdAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "isSynced": {
+          "id": -39763503327887510,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isSynced",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "TemplatePackage": {
+      "sourcePath": "lib/features/planned_maintenance/data/template_governance_model.g.dart",
+      "collectionId": 7246776624816934243,
+      "properties": {
+        "activeVersionFirestoreId": {
+          "id": 0,
+          "type": "string"
+        },
+        "assetNumberScope": {
+          "id": 1,
+          "type": "string"
+        },
+        "assetType": {
+          "id": 2,
+          "type": "string"
+        },
+        "createdAt": {
+          "id": 3,
+          "type": "dateTime"
+        },
+        "createdByName": {
+          "id": 4,
+          "type": "string"
+        },
+        "createdByUid": {
+          "id": 5,
+          "type": "string"
+        },
+        "deleteReason": {
+          "id": 6,
+          "type": "string"
+        },
+        "deletedAt": {
+          "id": 7,
+          "type": "dateTime"
+        },
+        "deletedByName": {
+          "id": 8,
+          "type": "string"
+        },
+        "deletedByUid": {
+          "id": 9,
+          "type": "string"
+        },
+        "description": {
+          "id": 10,
+          "type": "string"
+        },
+        "deviceTagRefs": {
+          "id": 11,
+          "type": "stringList"
+        },
+        "disciplineScope": {
+          "id": 12,
+          "type": "string"
+        },
+        "firestoreId": {
+          "id": 13,
+          "type": "string"
+        },
+        "isArchived": {
+          "id": 14,
+          "type": "bool"
+        },
+        "isAssignable": {
+          "id": 15,
+          "type": "bool"
+        },
+        "isDeleted": {
+          "id": 16,
+          "type": "bool"
+        },
+        "isRetired": {
+          "id": 17,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 18,
+          "type": "bool"
+        },
+        "latestVersionNumber": {
+          "id": 19,
+          "type": "long"
+        },
+        "lifecycleStatus": {
+          "id": 20,
+          "type": "string"
+        },
+        "metadataJson": {
+          "id": 21,
+          "type": "string"
+        },
+        "operationalStatePreconditions": {
+          "id": 22,
+          "type": "stringList"
+        },
+        "packageCode": {
+          "id": 23,
+          "type": "string"
+        },
+        "procedureRefs": {
+          "id": 24,
+          "type": "stringList"
+        },
+        "retireReason": {
+          "id": 25,
+          "type": "string"
+        },
+        "retiredAt": {
+          "id": 26,
+          "type": "dateTime"
+        },
+        "retiredByName": {
+          "id": 27,
+          "type": "string"
+        },
+        "retiredByUid": {
+          "id": 28,
+          "type": "string"
+        },
+        "safetyClass": {
+          "id": 29,
+          "type": "string"
+        },
+        "safetyGatePolicyJson": {
+          "id": 30,
+          "type": "string"
+        },
+        "schemaVersion": {
+          "id": 31,
+          "type": "long"
+        },
+        "targetRefs": {
+          "id": 32,
+          "type": "stringList"
+        },
+        "title": {
+          "id": 33,
+          "type": "string"
+        },
+        "updatedAt": {
+          "id": 34,
+          "type": "dateTime"
+        },
+        "updatedByName": {
+          "id": 35,
+          "type": "string"
+        },
+        "updatedByUid": {
+          "id": 36,
+          "type": "string"
+        },
+        "version": {
+          "id": 37,
+          "type": "long"
+        }
+      },
+      "indexes": {
+        "firestoreId": {
+          "id": 1863077355534729001,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "firestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "isSynced": {
+          "id": -39763503327887510,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isSynced",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "packageCode": {
+          "id": -300968621434063,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "packageCode",
+              "type": "hash",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "title": {
+          "id": -7636685945352118059,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "title",
+              "type": "hash",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "lifecycleStatus": {
+          "id": 6855500425116276936,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "lifecycleStatus",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "activeVersionFirestoreId": {
+          "id": 3461938748568725766,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "activeVersionFirestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "createdAt": {
+          "id": -3433535483987302584,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "createdAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "updatedAt": {
+          "id": -6238191080293565125,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "updatedAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "TemplateVersion": {
+      "sourcePath": "lib/features/planned_maintenance/data/template_governance_model.g.dart",
+      "collectionId": 3679262402733643249,
+      "properties": {
+        "changeSummary": {
+          "id": 0,
+          "type": "string"
+        },
+        "checklistJson": {
+          "id": 1,
+          "type": "string"
+        },
+        "closureCriticalModuleCount": {
+          "id": 2,
+          "type": "long"
+        },
+        "closureReviewConfirmed": {
+          "id": 3,
+          "type": "bool"
+        },
+        "closureReviewConfirmedAt": {
+          "id": 4,
+          "type": "dateTime"
+        },
+        "closureReviewConfirmedByName": {
+          "id": 5,
+          "type": "string"
+        },
+        "closureReviewConfirmedByUid": {
+          "id": 6,
+          "type": "string"
+        },
+        "contentHash": {
+          "id": 7,
+          "type": "string"
+        },
+        "createdAt": {
+          "id": 8,
+          "type": "dateTime"
+        },
+        "createdByName": {
+          "id": 9,
+          "type": "string"
+        },
+        "createdByUid": {
+          "id": 10,
+          "type": "string"
+        },
+        "deleteReason": {
+          "id": 11,
+          "type": "string"
+        },
+        "deletedAt": {
+          "id": 12,
+          "type": "dateTime"
+        },
+        "deletedByName": {
+          "id": 13,
+          "type": "string"
+        },
+        "deletedByUid": {
+          "id": 14,
+          "type": "string"
+        },
+        "deviceTagRefs": {
+          "id": 15,
+          "type": "stringList"
+        },
+        "fieldDefinitionsJson": {
+          "id": 16,
+          "type": "string"
+        },
+        "firestoreId": {
+          "id": 17,
+          "type": "string"
+        },
+        "isArchived": {
+          "id": 18,
+          "type": "bool"
+        },
+        "isAssignable": {
+          "id": 19,
+          "type": "bool"
+        },
+        "isDeleted": {
+          "id": 20,
+          "type": "bool"
+        },
+        "isDraft": {
+          "id": 21,
+          "type": "bool"
+        },
+        "isPublished": {
+          "id": 22,
+          "type": "bool"
+        },
+        "isRetired": {
+          "id": 23,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 24,
+          "type": "bool"
+        },
+        "jobTemplateSnapshotJson": {
+          "id": 25,
+          "type": "string"
+        },
+        "metadataJson": {
+          "id": 26,
+          "type": "string"
+        },
+        "minAppVersion": {
+          "id": 27,
+          "type": "string"
+        },
+        "moduleSnapshotsJson": {
+          "id": 28,
+          "type": "string"
+        },
+        "operationalStatePreconditions": {
+          "id": 29,
+          "type": "stringList"
+        },
+        "packageFirestoreId": {
+          "id": 30,
+          "type": "string"
+        },
+        "procedureRefs": {
+          "id": 31,
+          "type": "stringList"
+        },
+        "publishedAt": {
+          "id": 32,
+          "type": "dateTime"
+        },
+        "publishedByName": {
+          "id": 33,
+          "type": "string"
+        },
+        "publishedByUid": {
+          "id": 34,
+          "type": "string"
+        },
+        "releaseNotes": {
+          "id": 35,
+          "type": "string"
+        },
+        "retireReason": {
+          "id": 36,
+          "type": "string"
+        },
+        "retiredAt": {
+          "id": 37,
+          "type": "dateTime"
+        },
+        "retiredByName": {
+          "id": 38,
+          "type": "string"
+        },
+        "retiredByUid": {
+          "id": 39,
+          "type": "string"
+        },
+        "safetyClass": {
+          "id": 40,
+          "type": "string"
+        },
+        "safetyGatePolicyJson": {
+          "id": 41,
+          "type": "string"
+        },
+        "schemaVersion": {
+          "id": 42,
+          "type": "long"
+        },
+        "sourceVersionFirestoreId": {
+          "id": 43,
+          "type": "string"
+        },
+        "status": {
+          "id": 44,
+          "type": "string"
+        },
+        "targetRefs": {
+          "id": 45,
+          "type": "stringList"
+        },
+        "updatedAt": {
+          "id": 46,
+          "type": "dateTime"
+        },
+        "updatedByName": {
+          "id": 47,
+          "type": "string"
+        },
+        "updatedByUid": {
+          "id": 48,
+          "type": "string"
+        },
+        "version": {
+          "id": 49,
+          "type": "long"
+        },
+        "versionLabel": {
+          "id": 50,
+          "type": "string"
+        },
+        "versionNumber": {
+          "id": 51,
+          "type": "long"
+        }
+      },
+      "indexes": {
+        "firestoreId": {
+          "id": 1863077355534729001,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "firestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "packageFirestoreId": {
+          "id": 3473170085998252525,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "packageFirestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "isSynced": {
+          "id": -39763503327887510,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isSynced",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "versionNumber": {
+          "id": -8543034583656610946,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "versionNumber",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "status": {
+          "id": -107785170620420283,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "status",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "createdAt": {
+          "id": -3433535483987302584,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "createdAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "updatedAt": {
+          "id": -6238191080293565125,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "updatedAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "TemplatePublishAudit": {
+      "sourcePath": "lib/features/planned_maintenance/data/template_governance_model.g.dart",
+      "collectionId": -236492924270429194,
+      "properties": {
+        "action": {
+          "id": 0,
+          "type": "string"
+        },
+        "afterHash": {
+          "id": 1,
+          "type": "string"
+        },
+        "beforeHash": {
+          "id": 2,
+          "type": "string"
+        },
+        "firestoreId": {
+          "id": 3,
+          "type": "string"
+        },
+        "isDeleted": {
+          "id": 4,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 5,
+          "type": "bool"
+        },
+        "metadataJson": {
+          "id": 6,
+          "type": "string"
+        },
+        "packageFirestoreId": {
+          "id": 7,
+          "type": "string"
+        },
+        "payloadSnapshotJson": {
+          "id": 8,
+          "type": "string"
+        },
+        "performedAt": {
+          "id": 9,
+          "type": "dateTime"
+        },
+        "performedByName": {
+          "id": 10,
+          "type": "string"
+        },
+        "performedByUid": {
+          "id": 11,
+          "type": "string"
+        },
+        "reason": {
+          "id": 12,
+          "type": "string"
+        },
+        "schemaVersion": {
+          "id": 13,
+          "type": "long"
+        },
+        "updatedAt": {
+          "id": 14,
+          "type": "dateTime"
+        },
+        "version": {
+          "id": 15,
+          "type": "long"
+        },
+        "versionFirestoreId": {
+          "id": 16,
+          "type": "string"
+        }
+      },
+      "indexes": {
+        "firestoreId": {
+          "id": 1863077355534729001,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "firestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "packageFirestoreId": {
+          "id": 3473170085998252525,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "packageFirestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "versionFirestoreId": {
+          "id": -5750171890140352656,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "versionFirestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "isSynced": {
+          "id": -39763503327887510,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isSynced",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "action": {
+          "id": -2948318935682215514,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "action",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "performedAt": {
+          "id": 261083574192956769,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "performedAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "updatedAt": {
+          "id": -6238191080293565125,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "updatedAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "BafKnowledgeRow": {
+      "sourcePath": "lib/features/planned_maintenance/data/baf_knowledge_model.g.dart",
+      "collectionId": 6184583526286388735,
+      "properties": {
+        "assetFamily": {
+          "id": 0,
+          "type": "string"
+        },
+        "changeSummary": {
+          "id": 1,
+          "type": "string"
+        },
+        "componentGroup": {
+          "id": 2,
+          "type": "string"
+        },
+        "composerReadiness": {
+          "id": 3,
+          "type": "string"
+        },
+        "confidence": {
+          "id": 4,
+          "type": "string"
+        },
+        "consultQuestion": {
+          "id": 5,
+          "type": "string"
+        },
+        "createdAt": {
+          "id": 6,
+          "type": "dateTime"
+        },
+        "createdByName": {
+          "id": 7,
+          "type": "string"
+        },
+        "createdByUid": {
+          "id": 8,
+          "type": "string"
+        },
+        "deviceTags": {
+          "id": 9,
+          "type": "stringList"
+        },
+        "discipline": {
+          "id": 10,
+          "type": "string"
+        },
+        "frequency": {
+          "id": 11,
+          "type": "string"
+        },
+        "functionalSection": {
+          "id": 12,
+          "type": "string"
+        },
+        "isDeleted": {
+          "id": 13,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 14,
+          "type": "bool"
+        },
+        "lifecycleStatus": {
+          "id": 15,
+          "type": "string"
+        },
+        "matrixVersion": {
+          "id": 16,
+          "type": "string"
+        },
+        "moduleCandidateCode": {
+          "id": 17,
+          "type": "string"
+        },
+        "ownerDisciplines": {
+          "id": 18,
+          "type": "stringList"
+        },
+        "partRefs": {
+          "id": 19,
+          "type": "stringList"
+        },
+        "procedureRefs": {
+          "id": 20,
+          "type": "stringList"
+        },
+        "rawJson": {
+          "id": 21,
+          "type": "string"
+        },
+        "requiredForClosure": {
+          "id": 22,
+          "type": "string"
+        },
+        "resolverImpact": {
+          "id": 23,
+          "type": "string"
+        },
+        "rowCode": {
+          "id": 24,
+          "type": "string"
+        },
+        "safetyClasses": {
+          "id": 25,
+          "type": "stringList"
+        },
+        "schemaVersion": {
+          "id": 26,
+          "type": "long"
+        },
+        "sourceManual": {
+          "id": 27,
+          "type": "string"
+        },
+        "sourcePage": {
+          "id": 28,
+          "type": "string"
+        },
+        "sourceType": {
+          "id": 29,
+          "type": "string"
+        },
+        "suggestedFields": {
+          "id": 30,
+          "type": "stringList"
+        },
+        "targetRefs": {
+          "id": 31,
+          "type": "stringList"
+        },
+        "taskText": {
+          "id": 32,
+          "type": "string"
+        },
+        "taskType": {
+          "id": 33,
+          "type": "string"
+        },
+        "updatedAt": {
+          "id": 34,
+          "type": "dateTime"
+        },
+        "updatedByName": {
+          "id": 35,
+          "type": "string"
+        },
+        "updatedByUid": {
+          "id": 36,
+          "type": "string"
+        },
+        "version": {
+          "id": 37,
+          "type": "long"
+        }
+      },
+      "indexes": {
+        "rowCode": {
+          "id": -4818142532862160590,
+          "unique": true,
+          "replace": true,
+          "properties": [
+            {
+              "name": "rowCode",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        }
+      }
+    },
+    "BafKnowledgeMatrixMetaStore": {
+      "sourcePath": "lib/features/planned_maintenance/data/baf_knowledge_model.g.dart",
+      "collectionId": -4597930498197848453,
+      "properties": {
+        "changeSummary": {
+          "id": 0,
+          "type": "string"
+        },
+        "cloudUpdatedAt": {
+          "id": 1,
+          "type": "dateTime"
+        },
+        "isDeleted": {
+          "id": 2,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 3,
+          "type": "bool"
+        },
+        "knowledgeRowCount": {
+          "id": 4,
+          "type": "long"
+        },
+        "localCachedAt": {
+          "id": 5,
+          "type": "dateTime"
+        },
+        "maintenanceManualRef": {
+          "id": 6,
+          "type": "string"
+        },
+        "matrixVersion": {
+          "id": 7,
+          "type": "string"
+        },
+        "metaKey": {
+          "id": 8,
+          "type": "string"
+        },
+        "note": {
+          "id": 9,
+          "type": "string"
+        },
+        "safetyOperationsManualRef": {
+          "id": 10,
+          "type": "string"
+        },
+        "schemaVersion": {
+          "id": 11,
+          "type": "long"
+        },
+        "source": {
+          "id": 12,
+          "type": "string"
+        },
+        "sourceLabel": {
+          "id": 13,
+          "type": "string"
+        },
+        "tagRowCount": {
+          "id": 14,
+          "type": "long"
+        },
+        "updatedAt": {
+          "id": 15,
+          "type": "dateTime"
+        },
+        "updatedByName": {
+          "id": 16,
+          "type": "string"
+        },
+        "updatedByUid": {
+          "id": 17,
+          "type": "string"
+        },
+        "version": {
+          "id": 18,
+          "type": "long"
+        }
+      },
+      "indexes": {
+        "metaKey": {
+          "id": 3075079648484274111,
+          "unique": true,
+          "replace": true,
+          "properties": [
+            {
+              "name": "metaKey",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        }
+      }
+    },
+    "JobDiaryEntry": {
+      "sourcePath": "lib/features/planned_maintenance/data/job_diary_model.g.dart",
+      "collectionId": 3610953931278188100,
+      "properties": {
+        "actionTaken": {
+          "id": 0,
+          "type": "string"
+        },
+        "assetNumber": {
+          "id": 1,
+          "type": "long"
+        },
+        "assetType": {
+          "id": 2,
+          "type": "string"
+        },
+        "blockerStatus": {
+          "id": 3,
+          "type": "string"
+        },
+        "chargeNoAtEvent": {
+          "id": 4,
+          "type": "long"
+        },
+        "componentGroup": {
+          "id": 5,
+          "type": "string"
+        },
+        "createdAt": {
+          "id": 6,
+          "type": "dateTime"
+        },
+        "createdByName": {
+          "id": 7,
+          "type": "string"
+        },
+        "createdByUid": {
+          "id": 8,
+          "type": "string"
+        },
+        "deleteReason": {
+          "id": 9,
+          "type": "string"
+        },
+        "deletedAt": {
+          "id": 10,
+          "type": "dateTime"
+        },
+        "deletedByName": {
+          "id": 11,
+          "type": "string"
+        },
+        "deletedByUid": {
+          "id": 12,
+          "type": "string"
+        },
+        "discipline": {
+          "id": 13,
+          "type": "string"
+        },
+        "firestoreId": {
+          "id": 14,
+          "type": "string"
+        },
+        "functionalSection": {
+          "id": 15,
+          "type": "string"
+        },
+        "isBlocker": {
+          "id": 16,
+          "type": "bool"
+        },
+        "isDeleted": {
+          "id": 17,
+          "type": "bool"
+        },
+        "isHandover": {
+          "id": 18,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 19,
+          "type": "bool"
+        },
+        "jobExecutionFirestoreId": {
+          "id": 20,
+          "type": "string"
+        },
+        "jobExecutionLocalId": {
+          "id": 21,
+          "type": "long"
+        },
+        "kind": {
+          "id": 22,
+          "type": "string"
+        },
+        "metadataJson": {
+          "id": 23,
+          "type": "string"
+        },
+        "moduleInstanceFirestoreId": {
+          "id": 24,
+          "type": "string"
+        },
+        "moduleInstanceLocalId": {
+          "id": 25,
+          "type": "long"
+        },
+        "note": {
+          "id": 26,
+          "type": "string"
+        },
+        "pendingIssue": {
+          "id": 27,
+          "type": "string"
+        },
+        "procedureRef": {
+          "id": 28,
+          "type": "string"
+        },
+        "requiresFollowUp": {
+          "id": 29,
+          "type": "bool"
+        },
+        "severity": {
+          "id": 30,
+          "type": "string"
+        },
+        "tags": {
+          "id": 31,
+          "type": "stringList"
+        },
+        "targetRef": {
+          "id": 32,
+          "type": "string"
+        },
+        "templateFirestoreId": {
+          "id": 33,
+          "type": "string"
+        },
+        "templateName": {
+          "id": 34,
+          "type": "string"
+        },
+        "title": {
+          "id": 35,
+          "type": "string"
+        },
+        "updatedAt": {
+          "id": 36,
+          "type": "dateTime"
+        },
+        "updatedByName": {
+          "id": 37,
+          "type": "string"
+        },
+        "updatedByUid": {
+          "id": 38,
+          "type": "string"
+        },
+        "version": {
+          "id": 39,
+          "type": "long"
+        }
+      },
+      "indexes": {
+        "firestoreId": {
+          "id": 1863077355534729001,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "firestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "isSynced": {
+          "id": -39763503327887510,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isSynced",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "jobExecutionFirestoreId": {
+          "id": -4274754955259152555,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "jobExecutionFirestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "jobExecutionLocalId": {
+          "id": 3804470798990043825,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "jobExecutionLocalId",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "moduleInstanceFirestoreId": {
+          "id": -5087769240638589523,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "moduleInstanceFirestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "assetType": {
+          "id": 2557228192997929194,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "assetType",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "assetNumber": {
+          "id": 1893107624136954704,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "assetNumber",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "kind": {
+          "id": 1484550194077596484,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "kind",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "discipline": {
+          "id": 582421567173886972,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "discipline",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "isBlocker": {
+          "id": 5021214143609183933,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isBlocker",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "isHandover": {
+          "id": 8680833970749107532,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isHandover",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "createdAt": {
+          "id": -3433535483987302584,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "createdAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "isDeleted": {
+          "id": -786475870904832312,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isDeleted",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "JobModuleInstance": {
+      "sourcePath": "lib/features/planned_maintenance/data/job_module_model.g.dart",
+      "collectionId": 1431400483870693323,
+      "properties": {
+        "acceptanceNote": {
+          "id": 0,
+          "type": "string"
+        },
+        "acceptedAt": {
+          "id": 1,
+          "type": "dateTime"
+        },
+        "acceptedByName": {
+          "id": 2,
+          "type": "string"
+        },
+        "acceptedByUid": {
+          "id": 3,
+          "type": "string"
+        },
+        "actionsJson": {
+          "id": 4,
+          "type": "string"
+        },
+        "addReason": {
+          "id": 5,
+          "type": "string"
+        },
+        "addedAt": {
+          "id": 6,
+          "type": "dateTime"
+        },
+        "addedByName": {
+          "id": 7,
+          "type": "string"
+        },
+        "addedByUid": {
+          "id": 8,
+          "type": "string"
+        },
+        "addedDuringExecution": {
+          "id": 9,
+          "type": "bool"
+        },
+        "assetNumber": {
+          "id": 10,
+          "type": "long"
+        },
+        "assetType": {
+          "id": 11,
+          "type": "string"
+        },
+        "chargeNoAtEvent": {
+          "id": 12,
+          "type": "long"
+        },
+        "componentGroup": {
+          "id": 13,
+          "type": "string"
+        },
+        "createdAt": {
+          "id": 14,
+          "type": "dateTime"
+        },
+        "createdByName": {
+          "id": 15,
+          "type": "string"
+        },
+        "createdByUid": {
+          "id": 16,
+          "type": "string"
+        },
+        "deleteReason": {
+          "id": 17,
+          "type": "string"
+        },
+        "deletedAt": {
+          "id": 18,
+          "type": "dateTime"
+        },
+        "deletedByName": {
+          "id": 19,
+          "type": "string"
+        },
+        "deletedByUid": {
+          "id": 20,
+          "type": "string"
+        },
+        "discipline": {
+          "id": 21,
+          "type": "string"
+        },
+        "displayOrder": {
+          "id": 22,
+          "type": "long"
+        },
+        "draftNote": {
+          "id": 23,
+          "type": "string"
+        },
+        "fieldDefinitionsJson": {
+          "id": 24,
+          "type": "string"
+        },
+        "firestoreId": {
+          "id": 25,
+          "type": "string"
+        },
+        "functionalSection": {
+          "id": 26,
+          "type": "string"
+        },
+        "isDeleted": {
+          "id": 27,
+          "type": "bool"
+        },
+        "isRequired": {
+          "id": 28,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 29,
+          "type": "bool"
+        },
+        "jobExecutionFirestoreId": {
+          "id": 30,
+          "type": "string"
+        },
+        "jobExecutionLocalId": {
+          "id": 31,
+          "type": "long"
+        },
+        "metadataJson": {
+          "id": 32,
+          "type": "string"
+        },
+        "moduleCode": {
+          "id": 33,
+          "type": "string"
+        },
+        "moduleDescription": {
+          "id": 34,
+          "type": "string"
+        },
+        "moduleSnapshotJson": {
+          "id": 35,
+          "type": "string"
+        },
+        "moduleTitle": {
+          "id": 36,
+          "type": "string"
+        },
+        "notApplicableAt": {
+          "id": 37,
+          "type": "dateTime"
+        },
+        "notApplicableByName": {
+          "id": 38,
+          "type": "string"
+        },
+        "notApplicableByUid": {
+          "id": 39,
+          "type": "string"
+        },
+        "notApplicableReason": {
+          "id": 40,
+          "type": "string"
+        },
+        "operationalStatePreconditions": {
+          "id": 41,
+          "type": "stringList"
+        },
+        "pairedEquipmentJson": {
+          "id": 42,
+          "type": "string"
+        },
+        "pendingIssue": {
+          "id": 43,
+          "type": "string"
+        },
+        "procedureRefs": {
+          "id": 44,
+          "type": "stringList"
+        },
+        "reopenReason": {
+          "id": 45,
+          "type": "string"
+        },
+        "reopenedAt": {
+          "id": 46,
+          "type": "dateTime"
+        },
+        "reopenedByName": {
+          "id": 47,
+          "type": "string"
+        },
+        "reopenedByUid": {
+          "id": 48,
+          "type": "string"
+        },
+        "requiredForClosure": {
+          "id": 49,
+          "type": "bool"
+        },
+        "requiresFollowUp": {
+          "id": 50,
+          "type": "bool"
+        },
+        "responsesJson": {
+          "id": 51,
+          "type": "string"
+        },
+        "safetyClass": {
+          "id": 52,
+          "type": "string"
+        },
+        "safetyConfirmations": {
+          "id": 53,
+          "type": "stringList"
+        },
+        "status": {
+          "id": 54,
+          "type": "string"
+        },
+        "submissionNote": {
+          "id": 55,
+          "type": "string"
+        },
+        "submittedAt": {
+          "id": 56,
+          "type": "dateTime"
+        },
+        "submittedByName": {
+          "id": 57,
+          "type": "string"
+        },
+        "submittedByUid": {
+          "id": 58,
+          "type": "string"
+        },
+        "subsystem": {
+          "id": 59,
+          "type": "string"
+        },
+        "tags": {
+          "id": 60,
+          "type": "stringList"
+        },
+        "targetRef": {
+          "id": 61,
+          "type": "string"
+        },
+        "targetRefs": {
+          "id": 62,
+          "type": "stringList"
+        },
+        "templateFirestoreId": {
+          "id": 63,
+          "type": "string"
+        },
+        "templateModuleId": {
+          "id": 64,
+          "type": "string"
+        },
+        "templateName": {
+          "id": 65,
+          "type": "string"
+        },
+        "templatePackageId": {
+          "id": 66,
+          "type": "string"
+        },
+        "templateVersionId": {
+          "id": 67,
+          "type": "string"
+        },
+        "updatedAt": {
+          "id": 68,
+          "type": "dateTime"
+        },
+        "updatedByName": {
+          "id": 69,
+          "type": "string"
+        },
+        "updatedByUid": {
+          "id": 70,
+          "type": "string"
+        },
+        "useMode": {
+          "id": 71,
+          "type": "string"
+        },
+        "version": {
+          "id": 72,
+          "type": "long"
+        }
+      },
+      "indexes": {
+        "firestoreId": {
+          "id": 1863077355534729001,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "firestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "isSynced": {
+          "id": -39763503327887510,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isSynced",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "jobExecutionFirestoreId": {
+          "id": -4274754955259152555,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "jobExecutionFirestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "jobExecutionLocalId": {
+          "id": 3804470798990043825,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "jobExecutionLocalId",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "templateFirestoreId": {
+          "id": -3638035790332400624,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "templateFirestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "templatePackageId": {
+          "id": -2198428456183362458,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "templatePackageId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "templateVersionId": {
+          "id": 8336924092931839295,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "templateVersionId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "templateModuleId": {
+          "id": -5100970077828613932,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "templateModuleId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "moduleCode": {
+          "id": -4649366853241320215,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "moduleCode",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "assetType": {
+          "id": 2557228192997929194,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "assetType",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "assetNumber": {
+          "id": 1893107624136954704,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "assetNumber",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "moduleTitle": {
+          "id": -1063635279856964618,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "moduleTitle",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "status": {
+          "id": -107785170620420283,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "status",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "useMode": {
+          "id": 3774057609099801257,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "useMode",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "discipline": {
+          "id": 582421567173886972,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "discipline",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "safetyClass": {
+          "id": -426818609662233417,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "safetyClass",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "isRequired": {
+          "id": 7011696025255520328,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isRequired",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "requiredForClosure": {
+          "id": 7451253338938818867,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "requiredForClosure",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "addedDuringExecution": {
+          "id": -5817527723139811079,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "addedDuringExecution",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "createdAt": {
+          "id": -3433535483987302584,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "createdAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "isDeleted": {
+          "id": -786475870904832312,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isDeleted",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "MaintenanceRecord": {
+      "sourcePath": "lib/features/maintenance/data/maintenance_model.g.dart",
+      "collectionId": 8394037719530270343,
+      "properties": {
+        "acknowledgedAt": {
+          "id": 0,
+          "type": "dateTime"
+        },
+        "acknowledgedByName": {
+          "id": 1,
+          "type": "string"
+        },
+        "acknowledgedByUid": {
+          "id": 2,
+          "type": "string"
+        },
+        "actionsJson": {
+          "id": 3,
+          "type": "string"
+        },
+        "assetNumber": {
+          "id": 4,
+          "type": "long"
+        },
+        "assetType": {
+          "id": 5,
+          "type": "string"
+        },
+        "chargeNoAtEvent": {
+          "id": 6,
+          "type": "long"
+        },
+        "classification": {
+          "id": 7,
+          "type": "string"
+        },
+        "closedByName": {
+          "id": 8,
+          "type": "string"
+        },
+        "closedByUid": {
+          "id": 9,
+          "type": "string"
+        },
+        "component": {
+          "id": 10,
+          "type": "string"
+        },
+        "createdAt": {
+          "id": 11,
+          "type": "dateTime"
+        },
+        "debugLabel": {
+          "id": 12,
+          "type": "string"
+        },
+        "deleteReason": {
+          "id": 13,
+          "type": "string"
+        },
+        "deletedAt": {
+          "id": 14,
+          "type": "dateTime"
+        },
+        "deletedByName": {
+          "id": 15,
+          "type": "string"
+        },
+        "deletedByUid": {
+          "id": 16,
+          "type": "string"
+        },
+        "description": {
+          "id": 17,
+          "type": "string"
+        },
+        "downtimeHours": {
+          "id": 18,
+          "type": "double"
+        },
+        "endDate": {
+          "id": 19,
+          "type": "dateTime"
+        },
+        "firestoreId": {
+          "id": 20,
+          "type": "string"
+        },
+        "hasComponentContext": {
+          "id": 21,
+          "type": "bool"
+        },
+        "hierarchyPath": {
+          "id": 22,
+          "type": "stringList"
+        },
+        "isClosed": {
+          "id": 23,
+          "type": "bool"
+        },
+        "isCritical": {
+          "id": 24,
+          "type": "bool"
+        },
+        "isDeleted": {
+          "id": 25,
+          "type": "bool"
+        },
+        "isOpen": {
+          "id": 26,
+          "type": "bool"
+        },
+        "isResolved": {
+          "id": 27,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 28,
+          "type": "bool"
+        },
+        "loggedByName": {
+          "id": 29,
+          "type": "string"
+        },
+        "loggedByUid": {
+          "id": 30,
+          "type": "string"
+        },
+        "maintenanceType": {
+          "id": 31,
+          "type": "string"
+        },
+        "metadataJson": {
+          "id": 32,
+          "type": "string"
+        },
+        "otherDepartment": {
+          "id": 33,
+          "type": "string"
+        },
+        "performedBy": {
+          "id": 34,
+          "type": "string"
+        },
+        "remarks": {
+          "id": 35,
+          "type": "string"
+        },
+        "reportedBy": {
+          "id": 36,
+          "type": "string"
+        },
+        "resolutionHistoryJson": {
+          "id": 37,
+          "type": "string"
+        },
+        "routedTo": {
+          "id": 38,
+          "type": "string"
+        },
+        "startDate": {
+          "id": 39,
+          "type": "dateTime"
+        },
+        "status": {
+          "id": 40,
+          "type": "string"
+        },
+        "subsystem": {
+          "id": 41,
+          "type": "string"
+        },
+        "tag": {
+          "id": 42,
+          "type": "string"
+        },
+        "teamsInvolved": {
+          "id": 43,
+          "type": "stringList"
+        },
+        "updatedAt": {
+          "id": 44,
+          "type": "dateTime"
+        },
+        "version": {
+          "id": 45,
+          "type": "long"
+        }
+      },
+      "indexes": {
+        "firestoreId": {
+          "id": 1863077355534729001,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "firestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "isSynced": {
+          "id": -39763503327887510,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isSynced",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "isCritical": {
+          "id": -4049092732655300237,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isCritical",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "isResolved": {
+          "id": 2669446589477246375,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isResolved",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "loggedByUid": {
+          "id": 2935914899007439258,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "loggedByUid",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "createdAt": {
+          "id": -3433535483987302584,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "createdAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "updatedAt": {
+          "id": -6238191080293565125,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "updatedAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "AbnormalityType": {
+      "sourcePath": "lib/features/abnormalities/data/abnormality_model.g.dart",
+      "collectionId": 8484628406258702188,
+      "properties": {
+        "applicableAssetTypeIndexes": {
+          "id": 0,
+          "type": "longList"
+        },
+        "category": {
+          "id": 1,
+          "type": "byte"
+        },
+        "code": {
+          "id": 2,
+          "type": "string"
+        },
+        "createdAt": {
+          "id": 3,
+          "type": "dateTime"
+        },
+        "createdByName": {
+          "id": 4,
+          "type": "string"
+        },
+        "createdByUid": {
+          "id": 5,
+          "type": "string"
+        },
+        "deleteReason": {
+          "id": 6,
+          "type": "string"
+        },
+        "deletedAt": {
+          "id": 7,
+          "type": "dateTime"
+        },
+        "deletedByName": {
+          "id": 8,
+          "type": "string"
+        },
+        "deletedByUid": {
+          "id": 9,
+          "type": "string"
+        },
+        "description": {
+          "id": 10,
+          "type": "string"
+        },
+        "firestoreId": {
+          "id": 11,
+          "type": "string"
+        },
+        "isActive": {
+          "id": 12,
+          "type": "bool"
+        },
+        "isDeleted": {
+          "id": 13,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 14,
+          "type": "bool"
+        },
+        "lastEditedByName": {
+          "id": 15,
+          "type": "string"
+        },
+        "lastEditedByUid": {
+          "id": 16,
+          "type": "string"
+        },
+        "severity": {
+          "id": 17,
+          "type": "byte"
+        },
+        "suggestsReannealing": {
+          "id": 18,
+          "type": "bool"
+        },
+        "title": {
+          "id": 19,
+          "type": "string"
+        },
+        "updatedAt": {
+          "id": 20,
+          "type": "dateTime"
+        },
+        "version": {
+          "id": 21,
+          "type": "long"
+        }
+      },
+      "indexes": {
+        "firestoreId": {
+          "id": 1863077355534729001,
+          "unique": true,
+          "replace": false,
+          "properties": [
+            {
+              "name": "firestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "code": {
+          "id": 329780482934683790,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "code",
+              "type": "hash",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "title": {
+          "id": -7636685945352118059,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "title",
+              "type": "hash",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "isActive": {
+          "id": 8092228061260947457,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isActive",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "isDeleted": {
+          "id": -786475870904832312,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isDeleted",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "updatedAt": {
+          "id": -6238191080293565125,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "updatedAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "ChargeAbnormality": {
+      "sourcePath": "lib/features/abnormalities/data/abnormality_model.g.dart",
+      "collectionId": 4068838871833800476,
+      "properties": {
+        "abnormalityTypeCode": {
+          "id": 0,
+          "type": "string"
+        },
+        "abnormalityTypeId": {
+          "id": 1,
+          "type": "string"
+        },
+        "abnormalityTypeTitle": {
+          "id": 2,
+          "type": "string"
+        },
+        "affectedAssetsJson": {
+          "id": 3,
+          "type": "string"
+        },
+        "category": {
+          "id": 4,
+          "type": "byte"
+        },
+        "component": {
+          "id": 5,
+          "type": "string"
+        },
+        "deleteReason": {
+          "id": 6,
+          "type": "string"
+        },
+        "deletedAt": {
+          "id": 7,
+          "type": "dateTime"
+        },
+        "deletedByName": {
+          "id": 8,
+          "type": "string"
+        },
+        "deletedByUid": {
+          "id": 9,
+          "type": "string"
+        },
+        "description": {
+          "id": 10,
+          "type": "string"
+        },
+        "firestoreId": {
+          "id": 11,
+          "type": "string"
+        },
+        "isDeleted": {
+          "id": 12,
+          "type": "bool"
+        },
+        "isSynced": {
+          "id": 13,
+          "type": "bool"
+        },
+        "linkedExecutionFirestoreId": {
+          "id": 14,
+          "type": "string"
+        },
+        "linkedTicketFirestoreId": {
+          "id": 15,
+          "type": "string"
+        },
+        "loggedAt": {
+          "id": 16,
+          "type": "dateTime"
+        },
+        "loggedByName": {
+          "id": 17,
+          "type": "string"
+        },
+        "loggedByUid": {
+          "id": 18,
+          "type": "string"
+        },
+        "observedReason": {
+          "id": 19,
+          "type": "string"
+        },
+        "possibleRootReasonCategory": {
+          "id": 20,
+          "type": "byte"
+        },
+        "possibleRootReasonNotes": {
+          "id": 21,
+          "type": "string"
+        },
+        "reannealedToChargeNo": {
+          "id": 22,
+          "type": "long"
+        },
+        "reannealingStatus": {
+          "id": 23,
+          "type": "byte"
+        },
+        "severity": {
+          "id": 24,
+          "type": "byte"
+        },
+        "sourceChargeNo": {
+          "id": 25,
+          "type": "long"
+        },
+        "updatedAt": {
+          "id": 26,
+          "type": "dateTime"
+        },
+        "updatedByName": {
+          "id": 27,
+          "type": "string"
+        },
+        "updatedByUid": {
+          "id": 28,
+          "type": "string"
+        },
+        "version": {
+          "id": 29,
+          "type": "long"
+        }
+      },
+      "indexes": {
+        "firestoreId": {
+          "id": 1863077355534729001,
+          "unique": true,
+          "replace": false,
+          "properties": [
+            {
+              "name": "firestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "sourceChargeNo": {
+          "id": 161475910542428913,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "sourceChargeNo",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "abnormalityTypeId": {
+          "id": 7121084067232296849,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "abnormalityTypeId",
+              "type": "hash",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "reannealedToChargeNo": {
+          "id": 8640027478758008908,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "reannealedToChargeNo",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "loggedAt": {
+          "id": 1838198766103160564,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "loggedAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "isDeleted": {
+          "id": -786475870904832312,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isDeleted",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "AuditEvent": {
+      "sourcePath": "lib/features/audit/models/audit_event_model.g.dart",
+      "collectionId": -228283108298215510,
+      "properties": {
+        "action": {
+          "id": 0,
+          "type": "string"
+        },
+        "afterJson": {
+          "id": 1,
+          "type": "string"
+        },
+        "beforeJson": {
+          "id": 2,
+          "type": "string"
+        },
+        "entityId": {
+          "id": 3,
+          "type": "string"
+        },
+        "entityType": {
+          "id": 4,
+          "type": "string"
+        },
+        "isSynced": {
+          "id": 5,
+          "type": "bool"
+        },
+        "performedByName": {
+          "id": 6,
+          "type": "string"
+        },
+        "performedByUid": {
+          "id": 7,
+          "type": "string"
+        },
+        "reason": {
+          "id": 8,
+          "type": "string"
+        },
+        "reasonNotes": {
+          "id": 9,
+          "type": "string"
+        },
+        "severity": {
+          "id": 10,
+          "type": "string"
+        },
+        "summary": {
+          "id": 11,
+          "type": "string"
+        },
+        "timestamp": {
+          "id": 12,
+          "type": "dateTime"
+        }
+      },
+      "indexes": {
+        "entityType": {
+          "id": -5109706325448941117,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "entityType",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "entityId": {
+          "id": 745355021660786263,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "entityId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "performedByUid": {
+          "id": 8878460126732729237,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "performedByUid",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "timestamp": {
+          "id": 1852253767416892198,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "timestamp",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "SyncRejection": {
+      "sourcePath": "lib/features/audit/models/audit_event_model.g.dart",
+      "collectionId": -7653774813178690174,
+      "properties": {
+        "attemptCount": {
+          "id": 0,
+          "type": "long"
+        },
+        "entityId": {
+          "id": 1,
+          "type": "string"
+        },
+        "entityType": {
+          "id": 2,
+          "type": "string"
+        },
+        "errorCode": {
+          "id": 3,
+          "type": "string"
+        },
+        "firestoreId": {
+          "id": 4,
+          "type": "string"
+        },
+        "firstSeenAt": {
+          "id": 5,
+          "type": "dateTime"
+        },
+        "isLikelyPermanent": {
+          "id": 6,
+          "type": "bool"
+        },
+        "isResolved": {
+          "id": 7,
+          "type": "bool"
+        },
+        "lastSeenAt": {
+          "id": 8,
+          "type": "dateTime"
+        },
+        "message": {
+          "id": 9,
+          "type": "string"
+        },
+        "resolutionNotes": {
+          "id": 10,
+          "type": "string"
+        },
+        "resolvedAt": {
+          "id": 11,
+          "type": "dateTime"
+        },
+        "resolvedByName": {
+          "id": 12,
+          "type": "string"
+        },
+        "resolvedByUid": {
+          "id": 13,
+          "type": "string"
+        }
+      },
+      "indexes": {
+        "entityType": {
+          "id": -5109706325448941117,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "entityType",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "entityId": {
+          "id": 745355021660786263,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "entityId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "firstSeenAt": {
+          "id": -786460824994226473,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "firstSeenAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "lastSeenAt": {
+          "id": 2370550265182114383,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "lastSeenAt",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        },
+        "isResolved": {
+          "id": 2669446589477246375,
+          "unique": false,
+          "replace": false,
+          "properties": [
+            {
+              "name": "isResolved",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    },
+    "Charge": {
+      "sourcePath": "lib/features/charges/data/charge_model.g.dart",
+      "collectionId": 1755725158846388127,
+      "properties": {
+        "baseNo": {
+          "id": 0,
+          "type": "long"
+        },
+        "buildMode": {
+          "id": 1,
+          "type": "string"
+        },
+        "builtDate": {
+          "id": 2,
+          "type": "dateTime"
+        },
+        "chargeNo": {
+          "id": 3,
+          "type": "long"
+        },
+        "coilsInBase": {
+          "id": 4,
+          "type": "long"
+        },
+        "coldDate": {
+          "id": 5,
+          "type": "dateTime"
+        },
+        "coolDate": {
+          "id": 6,
+          "type": "dateTime"
+        },
+        "createdAt": {
+          "id": 7,
+          "type": "dateTime"
+        },
+        "cycleType": {
+          "id": 8,
+          "type": "string"
+        },
+        "fireDate": {
+          "id": 9,
+          "type": "dateTime"
+        },
+        "firestoreId": {
+          "id": 10,
+          "type": "string"
+        },
+        "forceCoolerNo": {
+          "id": 11,
+          "type": "long"
+        },
+        "furnaceNo": {
+          "id": 12,
+          "type": "long"
+        },
+        "hasAbnormal": {
+          "id": 13,
+          "type": "bool"
+        },
+        "heatNo": {
+          "id": 14,
+          "type": "long"
+        },
+        "innerCoverNo": {
+          "id": 15,
+          "type": "long"
+        },
+        "isSynced": {
+          "id": 16,
+          "type": "bool"
+        },
+        "loadedDate": {
+          "id": 17,
+          "type": "dateTime"
+        },
+        "numberOfCoils": {
+          "id": 18,
+          "type": "long"
+        },
+        "offDate": {
+          "id": 19,
+          "type": "dateTime"
+        },
+        "predCoolTime": {
+          "id": 20,
+          "type": "long"
+        },
+        "predHeatTime": {
+          "id": 21,
+          "type": "long"
+        },
+        "purgeDate": {
+          "id": 22,
+          "type": "dateTime"
+        },
+        "rawTelemetry": {
+          "id": 23,
+          "type": "string"
+        },
+        "revCoolTime": {
+          "id": 24,
+          "type": "long"
+        },
+        "revHeatTime": {
+          "id": 25,
+          "type": "long"
+        },
+        "standbyDate": {
+          "id": 26,
+          "type": "dateTime"
+        },
+        "status": {
+          "id": 27,
+          "type": "string"
+        },
+        "unloadedDate": {
+          "id": 28,
+          "type": "dateTime"
+        },
+        "updatedAt": {
+          "id": 29,
+          "type": "dateTime"
+        },
+        "updatedBy": {
+          "id": 30,
+          "type": "string"
+        },
+        "updatedDate": {
+          "id": 31,
+          "type": "dateTime"
+        }
+      },
+      "indexes": {
+        "firestoreId": {
+          "id": 1863077355534729001,
+          "unique": true,
+          "replace": true,
+          "properties": [
+            {
+              "name": "firestoreId",
+              "type": "hash",
+              "caseSensitive": true
+            }
+          ]
+        },
+        "chargeNo": {
+          "id": 5518030252574082299,
+          "unique": true,
+          "replace": false,
+          "properties": [
+            {
+              "name": "chargeNo",
+              "type": "value",
+              "caseSensitive": false
+            }
+          ]
+        }
+      }
+    }
+  }
+}

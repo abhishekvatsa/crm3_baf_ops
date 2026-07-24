@@ -1,4 +1,5 @@
 import {createHash} from "crypto";
+import {canonicalUserHasAnyRole} from "./userAuthority";
 
 export type HttpsErrorCode =
   | "ok"
@@ -601,15 +602,10 @@ export function mergeAttestationIntoMetadata(existingMetadataJson: unknown, atte
 }
 
 export function userCanComplete(userData: JsonMap | null | undefined): boolean {
-  return (
-    userData != null &&
-    userData.isApproved === true &&
-    Array.isArray(userData.roles) &&
-    userData.roles.some((role) => typeof role === "string" && COMPLETER_ROLES.has(role))
-  );
+  return canonicalUserHasAnyRole(userData, COMPLETER_ROLES);
 }
 
-function executionAuditMap(data: JsonMap, docId: string, closureAttestationHash: string | null = null): JsonMap {
+export function executionAuditMap(data: JsonMap, docId: string, closureAttestationHash: string | null = null): JsonMap {
   const snapshot: JsonMap = {
     firestoreId: docId,
     templateName: data.templateName ?? null,
@@ -720,6 +716,14 @@ export async function completePlannedJobWithDb(params: {
       throw new ClosureValidationError(
         "failed-precondition",
         "Deleted planned job execution cannot be completed.",
+      );
+    }
+
+    if (beforeData.workflowSchemaVersion === 1) {
+      throw new ClosureValidationError(
+        "failed-precondition",
+        "Workflow-governed jobs must be completed through the maintenance workflow finalizer.",
+        {reasonCode: "workflow-finalizer-required", executionId},
       );
     }
 

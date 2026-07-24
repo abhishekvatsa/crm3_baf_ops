@@ -257,7 +257,7 @@ void main() {
         expect(androidDefault['projectId'], 'crm3-baf-ops-b8638');
         expect(
           androidDefault['appId'],
-          '1:894346496105:android:c320c57f2393dceee63af8',
+          '1:894346496105:android:fba14febfbbee102e63af8',
         );
         expect(
           androidDefault['fileOutput'],

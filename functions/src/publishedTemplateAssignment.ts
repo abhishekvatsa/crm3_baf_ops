@@ -1,5 +1,7 @@
 import {createHash} from "crypto";
 
+import {canonicalModuleDiscipline, laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
+import {canonicalUserHasAnyRole} from "./userAuthority";
 export type AssignmentHttpsErrorCode =
   | "invalid-argument"
   | "not-found"
@@ -955,38 +957,11 @@ function parseUseMode(value: unknown): string {
 }
 
 function parseDiscipline(value: unknown): string {
-  switch (normalizeKey(stringValue(value))) {
-    case "mechanical":
-      return "mechanical";
-    case "electrical":
-      return "electrical";
-    case "instrumentation":
-    case "instrument":
-    case "ia":
-    case "ianda":
-    case "instrumentationautomation":
-    case "instrumentationandautomation":
-      return "instrumentation";
-    case "operations":
-    case "operation":
-      return "operations";
-    case "shiftincharge":
-    case "shift":
-      return "shiftInCharge";
-    case "safety":
-      return "safety";
-    case "admin":
-      return "admin";
-    case "refractory":
-    case "others":
-    case "other":
-      return "others";
-    case "shared":
-    case "multi":
-    case "multidiscipline":
-    default:
-      return "shared";
-  }
+  return canonicalModuleDiscipline(value);
+}
+
+function laneKeyForDiscipline(value: string): string {
+  return laneForModuleDiscipline(value);
 }
 
 function parseSafetyClass(value: unknown): string {
@@ -1036,12 +1011,7 @@ function moduleTags(
 }
 
 function actorCanAssign(userData: AssignmentJsonMap): boolean {
-  if (userData.isApproved !== true || !Array.isArray(userData.roles)) {
-    return false;
-  }
-  return userData.roles.some(
-    (role) => typeof role === "string" && ASSIGNER_ROLES.has(role),
-  );
+  return canonicalUserHasAnyRole(userData, ASSIGNER_ROLES);
 }
 
 function snapshotData(
@@ -1218,6 +1188,15 @@ function buildCanonicalAssignment(args: {
     assignedByUid: actorUid,
     assignedByName: actorName,
     assignedAgencies: agencies,
+    workflowSchemaVersion: 1,
+    laneSetVersion: 0,
+    laneSetFinalizedAt: null,
+    laneSetFinalizedByUid: null,
+    laneSetFinalizedByName: null,
+    laneMappingReview: agencies.length > 0,
+    parentExecutionFirestoreId: null,
+    spawnedRedExecutionFirestoreId: null,
+    redAnswerJson: null,
     completedByUid: null,
     completedByName: null,
     remarks: request.remarks,
@@ -1263,6 +1242,14 @@ function buildCanonicalAssignment(args: {
     );
     const code = moduleCode(snapshot);
     const fields = fieldsForModule(bundle, snapshot);
+    const discipline = parseDiscipline(
+      stringFrom(snapshot, [
+        "discipline",
+        "defaultDiscipline",
+        "assignedDiscipline",
+        "ownerDiscipline",
+      ]),
+    );
     const data: AssignmentJsonMap = {
       firestoreId: moduleId,
       jobExecutionFirestoreId: executionId,
@@ -1296,14 +1283,11 @@ function buildCanonicalAssignment(args: {
       useMode: parseUseMode(
         stringFrom(snapshot, ["useMode", "defaultUseMode"]),
       ),
-      discipline: parseDiscipline(
-        stringFrom(snapshot, [
-          "discipline",
-          "defaultDiscipline",
-          "assignedDiscipline",
-          "ownerDiscipline",
-        ]),
-      ),
+      discipline,
+      laneKey: laneKeyForDiscipline(discipline),
+      laneActivationGeneration: 1,
+      workflowLaneFirestoreId: `${executionId}_${laneKeyForDiscipline(discipline)}_1`,
+      isOpenForWork: true,
       safetyClass: parseSafetyClass(
         stringFrom(snapshot, [
           "safetyClass",
@@ -1766,11 +1750,79 @@ export async function assignPublishedTemplateVersionWithDb(args: {
     const executionRef = db
       .collection("job_executions")
       .doc(canonical.executionId);
+    const workflowRef = db
+      .collection("maintenance_workflows")
+      .doc(canonical.executionId);
+    const equipmentRef = db
+      .collection("equipment_status")
+      .doc(`${request.assetType}_${request.assetNumber}`);
+    const openWorkflowQuery = db
+      .collection("maintenance_workflows")
+      .where("assetTypeKey", "==", request.assetType)
+      .where("assetNumber", "==", request.assetNumber);
+    const equipmentSnapshot = await transaction.get(equipmentRef);
+    const openWorkflowSnapshot = await transaction.get(openWorkflowQuery);
+    if ("docs" in equipmentSnapshot) {
+      throw new AssignmentValidationError("internal", "Equipment lookup returned an invalid response.");
+    }
+    const openWorkflowDocs = queryDocs(openWorkflowSnapshot);
+    let activeNonRedMaintenanceCount = 1;
+    let activeRedWorkCount = 0;
+    let awaitingPreparationCount = 0;
+    for (const row of openWorkflowDocs) {
+      const data = row.data() ?? {};
+      if (data.status === "completed" || data.status === "cancelled") continue;
+      if (data.activeRedWork === true) activeRedWorkCount += 1;
+      else if (data.awaitingPreparation === true) awaitingPreparationCount += 1;
+      else activeNonRedMaintenanceCount += 1;
+    }
+    const equipmentState = activeRedWorkCount > 0
+      ? "underRED"
+      : awaitingPreparationCount > 0
+        ? "awaitingPreparation"
+        : "underMaintenance";
+    const equipmentData = equipmentSnapshot.exists
+      ? equipmentSnapshot.data() ?? {}
+      : {};
     if (args.beforeAssignmentWritesForTest != null) {
       await args.beforeAssignmentWritesForTest();
     }
 
     transaction.set(executionRef, canonical.execution);
+    transaction.set(workflowRef, {
+      jobExecutionId: canonical.executionId,
+      assetTypeKey: request.assetType,
+      assetNumber: request.assetNumber,
+      status: "pendingLaneClassification",
+      version: 1,
+      workflowSchemaVersion: 1,
+      laneSetVersion: 0,
+      laneSetFinalizedAt: null,
+      activeRedWork: false,
+      awaitingPreparation: false,
+      cancelled: false,
+      createdByUid: actorUid,
+      createdByName: actorName,
+      createdAt: assignedAt,
+      updatedAt: assignedAt,
+    });
+    transaction.set(equipmentRef, {
+      assetTypeKey: request.assetType,
+      assetNumber: request.assetNumber,
+      previousState: equipmentData.state ?? "inService",
+      state: equipmentState,
+      activeNonRedMaintenanceCount,
+      activeRedWorkCount,
+      awaitingPreparationCount,
+      transitionTrigger: `governedAssignment:${canonical.executionId}`,
+      lastTransitionAt: assignedAt,
+      lastTransitionByUid: actorUid,
+      lastTransitionByName: actorName,
+      availableSince: null,
+      inServiceSince: null,
+      version: (typeof equipmentData.version === "number" ? equipmentData.version : 0) + 1,
+      updatedAt: assignedAt,
+    }, {merge: true});
     for (const module of canonical.modules) {
       transaction.set(
         db.collection("job_modules").doc(module.id),

@@ -118,7 +118,7 @@ void main() {
         for (final match in RegExp(
           r'\bWidget\s+build\s*\(',
         ).allMatches(source)) {
-          final body = _blockStartingAtIndex(source, match.start);
+          final body = _functionBodyStartingAtIndex(source, match.start);
           if (body.contains('ref.listen(') || body.contains('ref.listen<')) {
             violations.add('$path:${_lineFor(source, match.start)}');
           }
@@ -682,6 +682,21 @@ int _lineFor(String source, int index) {
 String _blockStartingAt(String source, String marker) {
   final start = source.indexOf(marker);
   expect(start, isNonNegative, reason: 'Missing marker: $marker');
+  return _blockStartingAtIndex(source, start);
+}
+
+String _functionBodyStartingAtIndex(String source, int start) {
+  final open = _bodyBraceIndex(source, start);
+  final arrow = source.indexOf('=>', start);
+  if (arrow >= 0 && (open < 0 || arrow < open)) {
+    final end = source.indexOf(';', arrow + 2);
+    expect(
+      end,
+      isNonNegative,
+      reason: 'Missing expression terminator at index $start',
+    );
+    return source.substring(arrow, end + 1);
+  }
   return _blockStartingAtIndex(source, start);
 }
 

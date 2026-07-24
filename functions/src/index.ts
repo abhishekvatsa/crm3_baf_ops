@@ -318,3 +318,10 @@ export const onJobAssigned = onDocumentCreated(
     logOutcome("onJobAssigned", outcome);
   },
 );
+
+// ─── Maintenance workflow control plane ───────────────────────────────
+export {
+  executeMaintenanceWorkflowCommand,
+  maintenanceWorkflowEscalationSweep,
+  onMaintenanceWorkflowEventCreated,
+} from "./maintenanceWorkflow/firebaseExports";

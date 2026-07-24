@@ -1,0 +1,31 @@
+CRM3 APP v4.2_R1.10 INTERNAL VERIFICATION
+
+Scope:
+- stage-20 post-codegen canonical audit alignment
+- exact 19-binding post-codegen hash authority
+- no product/runtime source expansion
+
+Validated:
+- canonical R1 audit pristine phase: 32/32 PASS
+- v4.2 ultimate audit: 17/17 PASS
+- v4.1 due-diligence audit: 9/9 PASS
+- whole-app reconciliation: 21/21 PASS
+- inherited full-tree audit: 18/18 PASS
+- inherited expanded audit: 15/15 PASS
+- Dart structural audit: PASS, 369 files
+- Firestore integrity-sweep unit tests: 3/3 PASS
+- workflow policy generation check: PASS
+- authoritative R1.9 post-codegen binding register: 19/19 exact
+- prior stage-20 failure reproduced: exactly five generated canonical bindings
+- R1.10 policy against authenticated R1.9 post-codegen manifest: drift=0
+- non-generated tamper synthetic test: fail-closed PASS
+- generated-binding tamper synthetic test: fail-closed PASS
+
+Not claimed in packaging environment:
+- PowerShell execution
+- new Flutter code generation
+- flutter analyze/tests
+- APK construction
+- emulator execution
+
+The Windows R1.10 laboratory remains the execution authority.

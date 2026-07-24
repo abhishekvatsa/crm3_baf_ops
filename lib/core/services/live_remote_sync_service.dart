@@ -710,6 +710,25 @@ class LiveRemoteSyncService {
       ..isCritical = remote.isCritical
       ..status = remote.status
       ..isResolved = remote.isResolved
+      ..workflowDeferred = remote.workflowDeferred
+      ..workflowQueueState = remote.workflowQueueState
+      ..workflowAggregateId = remote.workflowAggregateId
+      ..workflowComplianceId = remote.workflowComplianceId
+      ..workflowOriginLaneKey = remote.workflowOriginLaneKey
+      ..workflowTargetLaneKey = remote.workflowTargetLaneKey
+      ..workflowConditionTypeKey = remote.workflowConditionTypeKey
+      ..workflowConditionRef = remote.workflowConditionRef
+      ..workflowDeferredAt = remote.workflowDeferredAt
+      ..workflowDeferredByUid = remote.workflowDeferredByUid
+      ..workflowDeferredByName = remote.workflowDeferredByName
+      ..workflowReactivatedAt = remote.workflowReactivatedAt
+      ..workflowReactivatedByUid = remote.workflowReactivatedByUid
+      ..workflowReactivatedByName = remote.workflowReactivatedByName
+      ..workflowReleasedAt = remote.workflowReleasedAt
+      ..workflowReleasedByUid = remote.workflowReleasedByUid
+      ..workflowReleasedByName = remote.workflowReleasedByName
+      ..workflowCorrectionReason = remote.workflowCorrectionReason
+      ..workflowUpdatedAt = remote.workflowUpdatedAt
       ..loggedByUid = remote.loggedByUid
       ..loggedByName = remote.loggedByName
       ..reportedBy = remote.reportedBy
@@ -767,6 +786,25 @@ class LiveRemoteSyncService {
       ..isCritical = d['isCritical'] == true
       ..status = _parseEnum(d['status'], TicketStatus.values, TicketStatus.open)
       ..isResolved = d['isResolved'] == true
+      ..workflowDeferred = d['workflowDeferred'] == true
+      ..workflowQueueState = d['workflowQueueState']?.toString() ?? 'independent'
+      ..workflowAggregateId = _cleanOptionalText(d['workflowAggregateId']?.toString())
+      ..workflowComplianceId = _cleanOptionalText(d['workflowComplianceId']?.toString())
+      ..workflowOriginLaneKey = _cleanOptionalText(d['workflowOriginLaneKey']?.toString())
+      ..workflowTargetLaneKey = _cleanOptionalText(d['workflowTargetLaneKey']?.toString())
+      ..workflowConditionTypeKey = _cleanOptionalText(d['workflowConditionTypeKey']?.toString())
+      ..workflowConditionRef = _cleanOptionalText(d['workflowConditionRef']?.toString())
+      ..workflowDeferredAt = _parseTimestamp(d['workflowDeferredAt'])
+      ..workflowDeferredByUid = _cleanOptionalText(d['workflowDeferredByUid']?.toString())
+      ..workflowDeferredByName = _cleanOptionalText(d['workflowDeferredByName']?.toString())
+      ..workflowReactivatedAt = _parseTimestamp(d['workflowReactivatedAt'])
+      ..workflowReactivatedByUid = _cleanOptionalText(d['workflowReactivatedByUid']?.toString())
+      ..workflowReactivatedByName = _cleanOptionalText(d['workflowReactivatedByName']?.toString())
+      ..workflowReleasedAt = _parseTimestamp(d['workflowReleasedAt'])
+      ..workflowReleasedByUid = _cleanOptionalText(d['workflowReleasedByUid']?.toString())
+      ..workflowReleasedByName = _cleanOptionalText(d['workflowReleasedByName']?.toString())
+      ..workflowCorrectionReason = _cleanOptionalText(d['workflowCorrectionReason']?.toString())
+      ..workflowUpdatedAt = _parseTimestamp(d['workflowUpdatedAt'])
       ..loggedByUid = _cleanOptionalText(d['loggedByUid']?.toString())
       ..loggedByName = _cleanOptionalText(d['loggedByName']?.toString())
       ..reportedBy = _cleanOptionalText(d['reportedBy']?.toString())

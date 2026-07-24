@@ -25,6 +25,15 @@ import 'features/planned_maintenance/data/baf_knowledge_model.dart';
 import 'features/directives/data/operational_directive_model.dart';
 import 'features/audit/models/audit_event_model.dart';
 import 'features/abnormalities/data/abnormality_model.dart';
+import 'features/maintenance_workflow/data/compliance_attempt_record.dart';
+import 'features/maintenance_workflow/data/compliance_request_record.dart';
+import 'features/maintenance_workflow/data/equipment_prompt_record.dart';
+import 'features/maintenance_workflow/data/equipment_status_record.dart';
+import 'features/maintenance_workflow/data/job_lane_record.dart';
+import 'features/maintenance_workflow/data/workflow_aggregate_record.dart';
+import 'features/maintenance_workflow/data/workflow_command_receipt_record.dart';
+import 'features/maintenance_workflow/data/workflow_command_record.dart';
+import 'features/maintenance_workflow/data/workflow_event_record.dart';
 
 // ── AUTH ─────────────────────────────────────────────────────
 import 'features/auth/data/user_model.dart';
@@ -71,6 +80,17 @@ final _isarSchemas = [
   // Abnormalities module schemas.
   AbnormalityTypeSchema,
   ChargeAbnormalitySchema,
+
+  // Maintenance workflow control-plane schemas.
+  WorkflowAggregateRecordSchema,
+  JobLaneRecordSchema,
+  ComplianceRequestRecordSchema,
+  ComplianceAttemptRecordSchema,
+  EquipmentStatusRecordSchema,
+  EquipmentPromptRecordSchema,
+  WorkflowEventRecordSchema,
+  WorkflowCommandRecordSchema,
+  WorkflowCommandReceiptRecordSchema,
 ];
 
 Future<Isar> _openLocalIsar() async {

@@ -171,6 +171,12 @@ void main() {
       );
       expect(policy, contains('"approved": false'));
       expect(policy, contains('"unrestrictedPlantReleaseApproved": false'));
+      expect(policy, contains('"restorationReference": "CRM3-FB-RESTORE-001-C1"'));
+      expect(policy, contains('"googleServicesSha256": "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B"'));
+      expect(
+        read('tools/release/New-ProductionArtifact.ps1'),
+        contains('firebase-production-signing-restoration-receipt.json'),
+      );
     });
   });
 }

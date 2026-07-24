@@ -7693,169 +7693,174 @@ const TemplateVersionSchema = CollectionSchema(
       name: r'isArchived',
       type: IsarType.bool,
     ),
-    r'isAssignable': PropertySchema(
+    r'isArchivedDraft': PropertySchema(
       id: 19,
+      name: r'isArchivedDraft',
+      type: IsarType.bool,
+    ),
+    r'isAssignable': PropertySchema(
+      id: 20,
       name: r'isAssignable',
       type: IsarType.bool,
     ),
     r'isDeleted': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'isDeleted',
       type: IsarType.bool,
     ),
     r'isDraft': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'isDraft',
       type: IsarType.bool,
     ),
     r'isPublished': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'isPublished',
       type: IsarType.bool,
     ),
     r'isRetired': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'isRetired',
       type: IsarType.bool,
     ),
     r'isSynced': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'isSynced',
       type: IsarType.bool,
     ),
     r'jobTemplateSnapshotJson': PropertySchema(
-      id: 25,
+      id: 26,
       name: r'jobTemplateSnapshotJson',
       type: IsarType.string,
     ),
     r'metadataJson': PropertySchema(
-      id: 26,
+      id: 27,
       name: r'metadataJson',
       type: IsarType.string,
     ),
     r'minAppVersion': PropertySchema(
-      id: 27,
+      id: 28,
       name: r'minAppVersion',
       type: IsarType.string,
     ),
     r'moduleSnapshotsJson': PropertySchema(
-      id: 28,
+      id: 29,
       name: r'moduleSnapshotsJson',
       type: IsarType.string,
     ),
     r'operationalStatePreconditions': PropertySchema(
-      id: 29,
+      id: 30,
       name: r'operationalStatePreconditions',
       type: IsarType.stringList,
     ),
     r'packageFirestoreId': PropertySchema(
-      id: 30,
+      id: 31,
       name: r'packageFirestoreId',
       type: IsarType.string,
     ),
     r'procedureRefs': PropertySchema(
-      id: 31,
+      id: 32,
       name: r'procedureRefs',
       type: IsarType.stringList,
     ),
     r'publishedAt': PropertySchema(
-      id: 32,
+      id: 33,
       name: r'publishedAt',
       type: IsarType.dateTime,
     ),
     r'publishedByName': PropertySchema(
-      id: 33,
+      id: 34,
       name: r'publishedByName',
       type: IsarType.string,
     ),
     r'publishedByUid': PropertySchema(
-      id: 34,
+      id: 35,
       name: r'publishedByUid',
       type: IsarType.string,
     ),
     r'releaseNotes': PropertySchema(
-      id: 35,
+      id: 36,
       name: r'releaseNotes',
       type: IsarType.string,
     ),
     r'retireReason': PropertySchema(
-      id: 36,
+      id: 37,
       name: r'retireReason',
       type: IsarType.string,
     ),
     r'retiredAt': PropertySchema(
-      id: 37,
+      id: 38,
       name: r'retiredAt',
       type: IsarType.dateTime,
     ),
     r'retiredByName': PropertySchema(
-      id: 38,
+      id: 39,
       name: r'retiredByName',
       type: IsarType.string,
     ),
     r'retiredByUid': PropertySchema(
-      id: 39,
+      id: 40,
       name: r'retiredByUid',
       type: IsarType.string,
     ),
     r'safetyClass': PropertySchema(
-      id: 40,
+      id: 41,
       name: r'safetyClass',
       type: IsarType.string,
     ),
     r'safetyGatePolicyJson': PropertySchema(
-      id: 41,
+      id: 42,
       name: r'safetyGatePolicyJson',
       type: IsarType.string,
     ),
     r'schemaVersion': PropertySchema(
-      id: 42,
+      id: 43,
       name: r'schemaVersion',
       type: IsarType.long,
     ),
     r'sourceVersionFirestoreId': PropertySchema(
-      id: 43,
+      id: 44,
       name: r'sourceVersionFirestoreId',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 44,
+      id: 45,
       name: r'status',
       type: IsarType.string,
       enumMap: _TemplateVersionstatusEnumValueMap,
     ),
     r'targetRefs': PropertySchema(
-      id: 45,
+      id: 46,
       name: r'targetRefs',
       type: IsarType.stringList,
     ),
     r'updatedAt': PropertySchema(
-      id: 46,
+      id: 47,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'updatedByName': PropertySchema(
-      id: 47,
+      id: 48,
       name: r'updatedByName',
       type: IsarType.string,
     ),
     r'updatedByUid': PropertySchema(
-      id: 48,
+      id: 49,
       name: r'updatedByUid',
       type: IsarType.string,
     ),
     r'version': PropertySchema(
-      id: 49,
+      id: 50,
       name: r'version',
       type: IsarType.long,
     ),
     r'versionLabel': PropertySchema(
-      id: 50,
+      id: 51,
       name: r'versionLabel',
       type: IsarType.string,
     ),
     r'versionNumber': PropertySchema(
-      id: 51,
+      id: 52,
       name: r'versionNumber',
       type: IsarType.long,
     )
@@ -8183,39 +8188,40 @@ void _templateVersionSerialize(
   writer.writeString(offsets[16], object.fieldDefinitionsJson);
   writer.writeString(offsets[17], object.firestoreId);
   writer.writeBool(offsets[18], object.isArchived);
-  writer.writeBool(offsets[19], object.isAssignable);
-  writer.writeBool(offsets[20], object.isDeleted);
-  writer.writeBool(offsets[21], object.isDraft);
-  writer.writeBool(offsets[22], object.isPublished);
-  writer.writeBool(offsets[23], object.isRetired);
-  writer.writeBool(offsets[24], object.isSynced);
-  writer.writeString(offsets[25], object.jobTemplateSnapshotJson);
-  writer.writeString(offsets[26], object.metadataJson);
-  writer.writeString(offsets[27], object.minAppVersion);
-  writer.writeString(offsets[28], object.moduleSnapshotsJson);
-  writer.writeStringList(offsets[29], object.operationalStatePreconditions);
-  writer.writeString(offsets[30], object.packageFirestoreId);
-  writer.writeStringList(offsets[31], object.procedureRefs);
-  writer.writeDateTime(offsets[32], object.publishedAt);
-  writer.writeString(offsets[33], object.publishedByName);
-  writer.writeString(offsets[34], object.publishedByUid);
-  writer.writeString(offsets[35], object.releaseNotes);
-  writer.writeString(offsets[36], object.retireReason);
-  writer.writeDateTime(offsets[37], object.retiredAt);
-  writer.writeString(offsets[38], object.retiredByName);
-  writer.writeString(offsets[39], object.retiredByUid);
-  writer.writeString(offsets[40], object.safetyClass);
-  writer.writeString(offsets[41], object.safetyGatePolicyJson);
-  writer.writeLong(offsets[42], object.schemaVersion);
-  writer.writeString(offsets[43], object.sourceVersionFirestoreId);
-  writer.writeString(offsets[44], object.status.name);
-  writer.writeStringList(offsets[45], object.targetRefs);
-  writer.writeDateTime(offsets[46], object.updatedAt);
-  writer.writeString(offsets[47], object.updatedByName);
-  writer.writeString(offsets[48], object.updatedByUid);
-  writer.writeLong(offsets[49], object.version);
-  writer.writeString(offsets[50], object.versionLabel);
-  writer.writeLong(offsets[51], object.versionNumber);
+  writer.writeBool(offsets[19], object.isArchivedDraft);
+  writer.writeBool(offsets[20], object.isAssignable);
+  writer.writeBool(offsets[21], object.isDeleted);
+  writer.writeBool(offsets[22], object.isDraft);
+  writer.writeBool(offsets[23], object.isPublished);
+  writer.writeBool(offsets[24], object.isRetired);
+  writer.writeBool(offsets[25], object.isSynced);
+  writer.writeString(offsets[26], object.jobTemplateSnapshotJson);
+  writer.writeString(offsets[27], object.metadataJson);
+  writer.writeString(offsets[28], object.minAppVersion);
+  writer.writeString(offsets[29], object.moduleSnapshotsJson);
+  writer.writeStringList(offsets[30], object.operationalStatePreconditions);
+  writer.writeString(offsets[31], object.packageFirestoreId);
+  writer.writeStringList(offsets[32], object.procedureRefs);
+  writer.writeDateTime(offsets[33], object.publishedAt);
+  writer.writeString(offsets[34], object.publishedByName);
+  writer.writeString(offsets[35], object.publishedByUid);
+  writer.writeString(offsets[36], object.releaseNotes);
+  writer.writeString(offsets[37], object.retireReason);
+  writer.writeDateTime(offsets[38], object.retiredAt);
+  writer.writeString(offsets[39], object.retiredByName);
+  writer.writeString(offsets[40], object.retiredByUid);
+  writer.writeString(offsets[41], object.safetyClass);
+  writer.writeString(offsets[42], object.safetyGatePolicyJson);
+  writer.writeLong(offsets[43], object.schemaVersion);
+  writer.writeString(offsets[44], object.sourceVersionFirestoreId);
+  writer.writeString(offsets[45], object.status.name);
+  writer.writeStringList(offsets[46], object.targetRefs);
+  writer.writeDateTime(offsets[47], object.updatedAt);
+  writer.writeString(offsets[48], object.updatedByName);
+  writer.writeString(offsets[49], object.updatedByUid);
+  writer.writeLong(offsets[50], object.version);
+  writer.writeString(offsets[51], object.versionLabel);
+  writer.writeLong(offsets[52], object.versionNumber);
 }
 
 TemplateVersion _templateVersionDeserialize(
@@ -8244,38 +8250,38 @@ TemplateVersion _templateVersionDeserialize(
   object.fieldDefinitionsJson = reader.readString(offsets[16]);
   object.firestoreId = reader.readStringOrNull(offsets[17]);
   object.id = id;
-  object.isDeleted = reader.readBool(offsets[20]);
-  object.isSynced = reader.readBool(offsets[24]);
-  object.jobTemplateSnapshotJson = reader.readString(offsets[25]);
-  object.metadataJson = reader.readStringOrNull(offsets[26]);
-  object.minAppVersion = reader.readStringOrNull(offsets[27]);
-  object.moduleSnapshotsJson = reader.readString(offsets[28]);
+  object.isDeleted = reader.readBool(offsets[21]);
+  object.isSynced = reader.readBool(offsets[25]);
+  object.jobTemplateSnapshotJson = reader.readString(offsets[26]);
+  object.metadataJson = reader.readStringOrNull(offsets[27]);
+  object.minAppVersion = reader.readStringOrNull(offsets[28]);
+  object.moduleSnapshotsJson = reader.readString(offsets[29]);
   object.operationalStatePreconditions =
-      reader.readStringList(offsets[29]) ?? [];
-  object.packageFirestoreId = reader.readStringOrNull(offsets[30]);
-  object.procedureRefs = reader.readStringList(offsets[31]) ?? [];
-  object.publishedAt = reader.readDateTimeOrNull(offsets[32]);
-  object.publishedByName = reader.readStringOrNull(offsets[33]);
-  object.publishedByUid = reader.readStringOrNull(offsets[34]);
-  object.releaseNotes = reader.readStringOrNull(offsets[35]);
-  object.retireReason = reader.readStringOrNull(offsets[36]);
-  object.retiredAt = reader.readDateTimeOrNull(offsets[37]);
-  object.retiredByName = reader.readStringOrNull(offsets[38]);
-  object.retiredByUid = reader.readStringOrNull(offsets[39]);
-  object.safetyClass = reader.readStringOrNull(offsets[40]);
-  object.safetyGatePolicyJson = reader.readStringOrNull(offsets[41]);
-  object.schemaVersion = reader.readLong(offsets[42]);
-  object.sourceVersionFirestoreId = reader.readStringOrNull(offsets[43]);
+      reader.readStringList(offsets[30]) ?? [];
+  object.packageFirestoreId = reader.readStringOrNull(offsets[31]);
+  object.procedureRefs = reader.readStringList(offsets[32]) ?? [];
+  object.publishedAt = reader.readDateTimeOrNull(offsets[33]);
+  object.publishedByName = reader.readStringOrNull(offsets[34]);
+  object.publishedByUid = reader.readStringOrNull(offsets[35]);
+  object.releaseNotes = reader.readStringOrNull(offsets[36]);
+  object.retireReason = reader.readStringOrNull(offsets[37]);
+  object.retiredAt = reader.readDateTimeOrNull(offsets[38]);
+  object.retiredByName = reader.readStringOrNull(offsets[39]);
+  object.retiredByUid = reader.readStringOrNull(offsets[40]);
+  object.safetyClass = reader.readStringOrNull(offsets[41]);
+  object.safetyGatePolicyJson = reader.readStringOrNull(offsets[42]);
+  object.schemaVersion = reader.readLong(offsets[43]);
+  object.sourceVersionFirestoreId = reader.readStringOrNull(offsets[44]);
   object.status = _TemplateVersionstatusValueEnumMap[
-          reader.readStringOrNull(offsets[44])] ??
+          reader.readStringOrNull(offsets[45])] ??
       TemplateVersionStatus.draft;
-  object.targetRefs = reader.readStringList(offsets[45]) ?? [];
-  object.updatedAt = reader.readDateTime(offsets[46]);
-  object.updatedByName = reader.readStringOrNull(offsets[47]);
-  object.updatedByUid = reader.readStringOrNull(offsets[48]);
-  object.version = reader.readLong(offsets[49]);
-  object.versionLabel = reader.readStringOrNull(offsets[50]);
-  object.versionNumber = reader.readLong(offsets[51]);
+  object.targetRefs = reader.readStringList(offsets[46]) ?? [];
+  object.updatedAt = reader.readDateTime(offsets[47]);
+  object.updatedByName = reader.readStringOrNull(offsets[48]);
+  object.updatedByUid = reader.readStringOrNull(offsets[49]);
+  object.version = reader.readLong(offsets[50]);
+  object.versionLabel = reader.readStringOrNull(offsets[51]);
+  object.versionNumber = reader.readLong(offsets[52]);
   return object;
 }
 
@@ -8337,23 +8343,23 @@ P _templateVersionDeserializeProp<P>(
     case 24:
       return (reader.readBool(offset)) as P;
     case 25:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 26:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 27:
       return (reader.readStringOrNull(offset)) as P;
     case 28:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 29:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readString(offset)) as P;
     case 30:
-      return (reader.readStringOrNull(offset)) as P;
-    case 31:
       return (reader.readStringList(offset) ?? []) as P;
-    case 32:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 33:
+    case 31:
       return (reader.readStringOrNull(offset)) as P;
+    case 32:
+      return (reader.readStringList(offset) ?? []) as P;
+    case 33:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 34:
       return (reader.readStringOrNull(offset)) as P;
     case 35:
@@ -8361,9 +8367,9 @@ P _templateVersionDeserializeProp<P>(
     case 36:
       return (reader.readStringOrNull(offset)) as P;
     case 37:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 38:
       return (reader.readStringOrNull(offset)) as P;
+    case 38:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 39:
       return (reader.readStringOrNull(offset)) as P;
     case 40:
@@ -8371,26 +8377,28 @@ P _templateVersionDeserializeProp<P>(
     case 41:
       return (reader.readStringOrNull(offset)) as P;
     case 42:
-      return (reader.readLong(offset)) as P;
-    case 43:
       return (reader.readStringOrNull(offset)) as P;
+    case 43:
+      return (reader.readLong(offset)) as P;
     case 44:
+      return (reader.readStringOrNull(offset)) as P;
+    case 45:
       return (_TemplateVersionstatusValueEnumMap[
               reader.readStringOrNull(offset)] ??
           TemplateVersionStatus.draft) as P;
-    case 45:
-      return (reader.readStringList(offset) ?? []) as P;
     case 46:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 47:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 48:
       return (reader.readStringOrNull(offset)) as P;
     case 49:
-      return (reader.readLong(offset)) as P;
-    case 50:
       return (reader.readStringOrNull(offset)) as P;
+    case 50:
+      return (reader.readLong(offset)) as P;
     case 51:
+      return (reader.readStringOrNull(offset)) as P;
+    case 52:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -11413,6 +11421,16 @@ extension TemplateVersionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'isArchived',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TemplateVersion, TemplateVersion, QAfterFilterCondition>
+      isArchivedDraftEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isArchivedDraft',
         value: value,
       ));
     });
@@ -15511,6 +15529,20 @@ extension TemplateVersionQuerySortBy
   }
 
   QueryBuilder<TemplateVersion, TemplateVersion, QAfterSortBy>
+      sortByIsArchivedDraft() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isArchivedDraft', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TemplateVersion, TemplateVersion, QAfterSortBy>
+      sortByIsArchivedDraftDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isArchivedDraft', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TemplateVersion, TemplateVersion, QAfterSortBy>
       sortByIsAssignable() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isAssignable', Sort.asc);
@@ -16195,6 +16227,20 @@ extension TemplateVersionQuerySortThenBy
   }
 
   QueryBuilder<TemplateVersion, TemplateVersion, QAfterSortBy>
+      thenByIsArchivedDraft() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isArchivedDraft', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TemplateVersion, TemplateVersion, QAfterSortBy>
+      thenByIsArchivedDraftDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isArchivedDraft', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TemplateVersion, TemplateVersion, QAfterSortBy>
       thenByIsAssignable() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isAssignable', Sort.asc);
@@ -16755,6 +16801,13 @@ extension TemplateVersionQueryWhereDistinct
   }
 
   QueryBuilder<TemplateVersion, TemplateVersion, QDistinct>
+      distinctByIsArchivedDraft() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isArchivedDraft');
+    });
+  }
+
+  QueryBuilder<TemplateVersion, TemplateVersion, QDistinct>
       distinctByIsAssignable() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isAssignable');
@@ -17133,6 +17186,13 @@ extension TemplateVersionQueryProperty
   QueryBuilder<TemplateVersion, bool, QQueryOperations> isArchivedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isArchived');
+    });
+  }
+
+  QueryBuilder<TemplateVersion, bool, QQueryOperations>
+      isArchivedDraftProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isArchivedDraft');
     });
   }
 

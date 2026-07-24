@@ -1,0 +1,65 @@
+CRM3 APP v4.2_R1.14 — PRE-ARCHIVE FINAL VERIFICATION
+
+EVIDENCE AUTHORITY
+- R1.13 emulator evidence SHA-256:
+  9BD708BB5E2EDD7AE8EF4671637311FC8BC629FE4CA807733BD4FD307F617C20
+- Sidecar match: PASS
+- ZIP compressed-data integrity: PASS
+- R1.13 decision: FAIL_LOCAL_LAB
+- Failed stage: 33_rules_and_functions_emulators
+- Rules result: 103 passed, 19 failed, 122 total
+- Governed Functions emulator suites: NOT RUN because Rules failed first
+
+FAILURE ADJUDICATION
+- Firestore expression-budget failures: 10
+- Job-module persisted open-state failures: 9
+- Separate Firestore Rules upload required: NO; candidate Rules were loaded by emulator
+
+R1.14 CORRECTIONS
+- Maintenance updates use one selected transition router.
+- Template, directive, module-registry and job-module lifecycle validation is status-routed.
+- Full approved-user document-shape validation is retained.
+- Module-registry revision publication performs one family getAfter read.
+- Direct online job-module submit/accept/not-applicable persist isOpenForWork=false.
+- Direct online job-module reopen persists isOpenForWork=true.
+- Rules fixtures materialize and transition the persisted open-state field.
+- Firebase CLI smoke output is captured in its individual evidence log.
+
+STATIC VERIFICATION
+- R1.14 targeted checks:                 24/24 PASS
+- Canonical R1 pristine audit:           42/42 PASS
+- v4.2 ultimate audit:                   17/17 PASS
+- v4.1 due-diligence audit:               9/9 PASS
+- Whole-app reconciliation audit:        21/21 PASS
+- Inherited full-tree audit:             18/18 PASS
+- Inherited expanded audit:              15/15 PASS
+- Dart structural audit:                  PASS (370 files)
+- Integrity-sweep unit tests:              3/3 PASS
+- Workflow-policy generation:             PASS
+- Isar semantic continuity:               PASS
+- Pristine provisional Isar release gate: EXPECTED FAIL-CLOSED
+- Substantive-delta whitespace check:      PASS
+- Generated/dependency directories:        0
+
+RECONSTRUCTION
+- Patch SHA-256:
+  43FFBF97B159CA5EBCE3C2D6C6E5CD6A58B584016AFAC3BADD283832592F2AA7
+- Patch paths: 17
+- Patch check/apply: PASS
+- Missing reconstructed paths: 0
+- Byte mismatches: 0
+
+MANIFEST SCOPE
+- Manifest entries: 711
+- Manifest file is excluded from its own hash list.
+
+UNCLAIMED IN THIS ENVIRONMENT
+- Firebase Rules compilation by the emulator
+- 122/122 Rules tests
+- Governed Functions emulator suites
+- flutter analyze
+- Complete Flutter tests
+- Android debug APK
+
+Only a fresh authoritative Windows run with -RunEmulators can establish
+PASS_AUTHORITATIVE_BUILD_AND_EMULATOR for R1.14.

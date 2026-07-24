@@ -1,0 +1,484 @@
+diff --git a/README.md b/README.md
+index e3fbceba32117f006bf8e986b356fd5c0576b8e2..0b1107e8a7a5af03c95af275e1d4c44e1855b4b4 100644
+--- a/README.md
++++ b/README.md
+@@ -154,3 +154,11 @@ R1.6 pins `@hono/node-server` 2.0.10, load-smokes the pinned Firebase CLI, and r
+ ## R1.10 post-codegen audit alignment
+ 
+ R1.10 retains the R1.9 application tree and exact-binds all 19 authentic generated Isar bindings to the authenticated R1.9 Windows code-generation evidence. Stage 20 now runs explicitly in `post-codegen` mode after custody, semantic continuity and release-authority gates. Non-generated canonical paths remain byte-pinned; generated outputs are not broadly excluded.
++
++## R1.11 UTF-8 audit correction
++
++R1.11 made all Python text-file reads and writes explicit UTF-8 so Windows locale defaults cannot crash source audits.
++
++## R1.12 Flutter analyzer correction
++
++R1.12 addresses all 18 diagnostics produced by the authenticated R1.11 Windows `flutter analyze` run: seven errors, three warnings and eight infos. The analyzer remains strict and must pass before Flutter tests, APK construction or emulator authority.
+diff --git a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
+index 0ab8a3042e823eaf1dd1281f6d7e6fa8332f9c1d..acdfe285a932f840f4baf2fb2b8469fd1e5553e8 100644
+--- a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
++++ b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
+@@ -55,9 +55,9 @@
+     {
+       "path": "README.md",
+       "canonicalSha256": "1DE7D30CC85FDB88E103349EFF9E8875F71C4BB872D6636CB5AF33A2B4E96FF3",
+-      "candidateSha256": "9FE19B7D847AE2EBC129090BA48E9ADD203E347901ABA99736AFC9AA66DEF735",
++      "candidateSha256": "48E3CFE185AAA31AD7A1497EA1D8E7BE9A26853B6096106A720810532024D390",
+       "canonicalBytes": 564,
+-      "candidateBytes": 6900,
++      "candidateBytes": 8009,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+@@ -855,7 +855,7 @@
+     {
+       "path": "lib/core/services/isar_schema_migration.dart",
+       "canonicalSha256": "D744B0534E1104A5B3BAADF352711C29B4D31095373B4D9AD722A6B7BC6435C3",
+-      "candidateSha256": "8C5950BD020FF4E4199DC82EC40FE9774459D4E0D117D4CD6434871F2DDFB054",
++      "candidateSha256": "D9FBAC36BF8398D72D867203600594E043F253FB6AE6FFF68114BB7D0FBB0A9C",
+       "canonicalBytes": 8792,
+       "candidateBytes": 10369,
+       "disposition": "SUCCESSOR_MODIFIED"
+@@ -1783,17 +1783,17 @@
+     {
+       "path": "lib/features/planned_maintenance/presentation/assign_job_screen.dart",
+       "canonicalSha256": "E7581FFB860B1A1E8810B3C5BD81A929BB54F935396D065A752DD55D1C151451",
+-      "candidateSha256": "3218D9F8E0ABC9BB662D28F1078CC0D109303D81DFA3932F6D54DFEB6AAB55C4",
++      "candidateSha256": "68A4EA395D7C1C1B53F12ECA094397AA157751FFF7F0B2D055E8305FCFE34F66",
+       "canonicalBytes": 15556,
+-      "candidateBytes": 18356,
++      "candidateBytes": 18299,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+       "path": "lib/features/planned_maintenance/presentation/complete_job_screen.dart",
+       "canonicalSha256": "F73CBD7E9879A7830768692ABFAA90C99442124FD7B7EB7227822C4A53ED58D6",
+-      "candidateSha256": "D83078D78E217FD46EDFCD85CD1ECBC4D29206425E0F78CDF976C31ABD91395F",
++      "candidateSha256": "574309CA4CA2CB9184ADA9C7071DF83451988AB68CC6CE05D5F158AE08D5C831",
+       "canonicalBytes": 56983,
+-      "candidateBytes": 63542,
++      "candidateBytes": 63574,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+@@ -2143,9 +2143,9 @@
+     {
+       "path": "lib/features/planned_maintenance/providers/job_module_provider.dart",
+       "canonicalSha256": "63416A789E4EC07F88448ADB718D1B5A48413FEFBFA0920C13BC9EF7133F216E",
+-      "candidateSha256": "C4A1F0CC0FF0E4832E96F1685C19A008275F40CC3C9AAABF766013F671153596",
++      "candidateSha256": "4B2D9BAA49F95E154F174CE5BD8AAF055C42CDF5BB6048DD39A2C355E6FC6926",
+       "canonicalBytes": 65503,
+-      "candidateBytes": 67017,
++      "candidateBytes": 67014,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+@@ -2247,9 +2247,9 @@
+     {
+       "path": "lib/features/reports/providers/fleet_status_provider.dart",
+       "canonicalSha256": "7B7E3AC811C5846C1131628110B57173C17BDF37AF458F2C2218A12B42697E0A",
+-      "candidateSha256": "341D744D90DBADC58FDEA5FD6E352C6CC8874D9F5A5405094E0CB96D7F52118B",
++      "candidateSha256": "2A674DC5C4B8B6302B59C66BDFE6E7C6FD3D389F85C277B90CC7FD88104DD2CC",
+       "canonicalBytes": 6307,
+-      "candidateBytes": 8825,
++      "candidateBytes": 7447,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+diff --git a/docs/v4_2_r1/R1_11_EVIDENCE_ADJUDICATION.md b/docs/v4_2_r1/R1_11_EVIDENCE_ADJUDICATION.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..cfbceaf96f21eb8ac79e9a79b61519ff72450b18
+--- /dev/null
++++ b/docs/v4_2_r1/R1_11_EVIDENCE_ADJUDICATION.md
+@@ -0,0 +1,22 @@
++# CRM3 App v4.2_R1.11 — Evidence Adjudication
++
++The submitted evidence ZIP SHA-256 is:
++
++`67DA45E9A013F31D96928EEF5D65515692F339F97D705F6E993A9BF11AFC0962`
++
++The evidence records PASS for stages 01–28, including:
++
++- all candidate/workspace custody checks;
++- three npm installations and zero-vulnerability audits;
++- Functions TypeScript compilation;
++- Firebase CLI policy, installed-version and load-smoke checks;
++- Flutter dependency resolution;
++- authentic Isar generation;
++- post-codegen custody;
++- semantic Isar continuity and release authority;
++- all inherited/static audits;
++- Functions tests: 237 passed, 29 emulator-dependent skipped.
++
++The sole failed stage was `29_flutter_analyze`, which reported 18 source diagnostics. These findings are accepted. They comprise seven compile/analyzer errors, three warnings and eight infos. R1.12 addresses all 18 without weakening analyzer severity or bypassing the gate.
++
++No remote Git mutation, Firebase deployment, production-data mutation, device uninstall, or device-data clear occurred.
+diff --git a/docs/v4_2_r1/R1_12_ANALYZER_CORRECTION.md b/docs/v4_2_r1/R1_12_ANALYZER_CORRECTION.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..95194078fd59aa5ee31cde0d0475e90ead8d1547
+--- /dev/null
++++ b/docs/v4_2_r1/R1_12_ANALYZER_CORRECTION.md
+@@ -0,0 +1,51 @@
++# CRM3 App v4.2_R1.12 — Flutter Analyzer Correction
++
++## Evidence basis
++
++R1.11 Windows laboratory evidence:
++
++- ZIP: `CRM3_V42_R1_11_CANONICAL_LOCAL_LAB_20260722_235257.zip`
++- SHA-256: `67DA45E9A013F31D96928EEF5D65515692F339F97D705F6E993A9BF11AFC0962`
++- Stages 01–28: PASS
++- Stage 29 (`flutter analyze`): FAIL with 18 diagnostics
++  - 7 errors
++  - 3 warnings
++  - 8 infos
++
++The analyzer was executed by Flutter 3.44.0 / Dart 3.12.0 in the authoritative Windows laboratory. The diagnostics are therefore accepted as runtime-toolchain findings rather than inferred source concerns.
++
++## Corrections
++
++### Errors
++
++1. `IsarSchemaMigrator.defaultPlan` is now `static const`, making it valid as an optional-parameter default.
++2. The second workflow timeline invocation now supplies `workflow.jobExecutionFirestoreId`.
++3. The compliance dialog normalises its nullable gating-lane selection with `value ?? ''`.
++4. The illegal assignment to the derived `isOpenForWork` getter is replaced with `isDeleted = false`; together with `status = reopened`, this restores the intended open-for-work state.
++5. The RED exit-gate test no longer creates a const set containing `MaintenanceLaneId`, whose equality is non-primitive.
++6. The retry-policy test now invokes the real `classify(WorkflowException)` API using typed `WorkflowErrorCode` values.
++
++### Warnings
++
++1. Removed unused `_epoch` from `workflow_record_mappers.dart`.
++2. Removed the unused planned-maintenance provider import from `assign_job_screen.dart`.
++3. Removed unused `_combineLatest2` from `fleet_status_provider.dart`.
++
++### Infos
++
++1. The six deprecated `DropdownButtonFormField.value` arguments are replaced with `initialValue`.
++2. `complete_job_screen.dart` now checks `mounted` before passing `context` to `showRedExitDialog` after earlier awaits.
++3. The `prefer_const_constructors` diagnostic is resolved by the `static const` migration-plan correction.
++
++## Scope
++
++No changes were made to:
++
++- Firestore Rules or indexes;
++- Functions source, tests, dependencies, or lockfiles;
++- Isar collection models or generated bindings;
++- Android package identity or Firebase identity;
++- programme ledger, release authority, or remote Git state;
++- production Firebase or device data.
++
++R1.12 is a bounded Dart/analyzer correction candidate. The next Windows run remains authoritative for `flutter analyze`, Flutter tests, APK construction, and emulator suites.
+diff --git a/lib/core/services/isar_schema_migration.dart b/lib/core/services/isar_schema_migration.dart
+index e9566bd3c24cfe7208531a591b1955193f66f52f..a1252041f43d456fe080428b2886773fc551f953 100644
+--- a/lib/core/services/isar_schema_migration.dart
++++ b/lib/core/services/isar_schema_migration.dart
+@@ -178,7 +178,7 @@ class IsarSchemaMigrator {
+       'ComplianceAttemptRecord,EquipmentStatusRecord,EquipmentPromptRecord,'
+       'WorkflowEventRecord,WorkflowCommandRecord,WorkflowCommandReceiptRecord';
+ 
+-  static final IsarSchemaMigrationPlan defaultPlan = IsarSchemaMigrationPlan(
++  static const IsarSchemaMigrationPlan defaultPlan = IsarSchemaMigrationPlan(
+     currentVersion: currentSchemaVersion,
+     schemaFingerprint: currentSchemaFingerprint,
+     stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
+diff --git a/lib/features/maintenance_workflow/data/workflow_record_mappers.dart b/lib/features/maintenance_workflow/data/workflow_record_mappers.dart
+index 98d36fb2f5d374084151e60d04387f44534116af..afb79579c03796c1c6ae14ff44a21f0a29ec7f3a 100644
+--- a/lib/features/maintenance_workflow/data/workflow_record_mappers.dart
++++ b/lib/features/maintenance_workflow/data/workflow_record_mappers.dart
+@@ -6,8 +6,6 @@ import 'compliance_request_record.dart';
+ import 'job_lane_record.dart';
+ import 'workflow_aggregate_record.dart';
+ 
+-DateTime _epoch() => DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+-
+ WorkflowLaneStatus _laneStatus(String key) {
+   switch (key) {
+     case 'pending': return WorkflowLaneStatus.pending;
+diff --git a/lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart b/lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart
+index e5051ad81ee3484ba9da9515f70a3f6348d9b4ee..8893a3a7bad6d76e35451909c770d5624ccb1221 100644
+--- a/lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart
++++ b/lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart
+@@ -251,6 +251,7 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
+                         onPressed: () => _showTimeline(
+                           context,
+                           eventsAsync.value ?? const [],
++                          workflow.jobExecutionFirestoreId,
+                         ),
+                         icon: const Icon(Icons.history),
+                         label: Text(
+diff --git a/lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart b/lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart
+index df138e30926d25a4704f1d580cdcb283fcfe5965..9b8fb4345e2d244b3e2c86dd9eb927e10b3a0f5f 100644
+--- a/lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart
++++ b/lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart
+@@ -58,7 +58,7 @@ Future<RaiseComplianceDraft?> showRaiseComplianceDialog(
+               mainAxisSize: MainAxisSize.min,
+               children: [
+                 DropdownButtonFormField<String>(
+-                  value: originLaneKey,
++                  initialValue: originLaneKey,
+                   decoration: const InputDecoration(
+                     labelText: 'Raised from accountable lane',
+                   ),
+@@ -76,7 +76,7 @@ Future<RaiseComplianceDraft?> showRaiseComplianceDialog(
+                 ),
+                 const SizedBox(height: 12),
+                 DropdownButtonFormField<String>(
+-                  value: targetLaneKey,
++                  initialValue: targetLaneKey,
+                   decoration: const InputDecoration(labelText: 'Target lane'),
+                   items: MaintenanceLaneCatalog.crm3.definitions
+                       .map(
+@@ -105,7 +105,7 @@ Future<RaiseComplianceDraft?> showRaiseComplianceDialog(
+                 ),
+                 const SizedBox(height: 12),
+                 DropdownButtonFormField<String>(
+-                  value: conditionTypeKey,
++                  initialValue: conditionTypeKey,
+                   decoration: const InputDecoration(labelText: 'When due'),
+                   items: const [
+                     DropdownMenuItem(value: 'manual', child: Text('Immediately')),
+@@ -135,7 +135,7 @@ Future<RaiseComplianceDraft?> showRaiseComplianceDialog(
+                 ],
+                 const SizedBox(height: 12),
+                 DropdownButtonFormField<String>(
+-                  value: linkedMaintenanceId,
++                  initialValue: linkedMaintenanceId,
+                   decoration: InputDecoration(
+                     labelText: conditionTypeKey == 'manual'
+                         ? 'Linked maintenance ticket (optional)'
+@@ -165,7 +165,7 @@ Future<RaiseComplianceDraft?> showRaiseComplianceDialog(
+                 ),
+                 const SizedBox(height: 12),
+                 DropdownButtonFormField<String>(
+-                  value: priorityKey,
++                  initialValue: priorityKey,
+                   decoration: const InputDecoration(labelText: 'Priority'),
+                   items: const [
+                     DropdownMenuItem(value: 'low', child: Text('Low')),
+@@ -179,7 +179,7 @@ Future<RaiseComplianceDraft?> showRaiseComplianceDialog(
+                 ),
+                 const SizedBox(height: 12),
+                 DropdownButtonFormField<String>(
+-                  value: gatingLaneId,
++                  initialValue: gatingLaneId,
+                   decoration: const InputDecoration(
+                     labelText: 'Block a lane until confirmed (optional)',
+                   ),
+@@ -195,7 +195,7 @@ Future<RaiseComplianceDraft?> showRaiseComplianceDialog(
+                       ),
+                     ),
+                   ],
+-                  onChanged: (value) => setState(() => gatingLaneId = value),
++                  onChanged: (value) => setState(() => gatingLaneId = value ?? ''),
+                 ),
+                 if (validationMessage != null) ...[
+                   const SizedBox(height: 12),
+diff --git a/lib/features/planned_maintenance/presentation/assign_job_screen.dart b/lib/features/planned_maintenance/presentation/assign_job_screen.dart
+index e878223cbd42c67c880a9ff453750deabf7ce770..aaf7dbbb1eba7dd7b5d1947740820edaf9268b30 100644
+--- a/lib/features/planned_maintenance/presentation/assign_job_screen.dart
++++ b/lib/features/planned_maintenance/presentation/assign_job_screen.dart
+@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import 'package:uuid/uuid.dart';
+ 
+ import '../data/job_template_model.dart';
+-import '../providers/planned_maintenance_provider.dart';
+ import '../../auth/providers/auth_provider.dart';
+ import '../../maintenance/utils/asset_validator.dart';
+ import '../../../core/services/sync_coordinator.dart';
+diff --git a/lib/features/planned_maintenance/presentation/complete_job_screen.dart b/lib/features/planned_maintenance/presentation/complete_job_screen.dart
+index 9dcb3b6c9a030e95cc538d1c20c4da67eb1282f4..ec35cc1297fcf176380b5907b5a20e24df671aeb 100644
+--- a/lib/features/planned_maintenance/presentation/complete_job_screen.dart
++++ b/lib/features/planned_maintenance/presentation/complete_job_screen.dart
+@@ -204,6 +204,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
+         final assetTypeKey = widget.execution.assetType.name;
+         if (WorkflowPolicy.isRedApplicable(assetTypeKey) &&
+             !redAlreadySelected) {
++          if (!mounted) return;
+           redAnswers = await showRedExitDialog(
+             context,
+             askPreparation:
+diff --git a/lib/features/planned_maintenance/providers/job_module_provider.dart b/lib/features/planned_maintenance/providers/job_module_provider.dart
+index 7c903e2ea62f42dfc1cce8cd8349eeec59ec24e4..52fa415ff5971bcc3ed36ee020313caeff3fe38d 100644
+--- a/lib/features/planned_maintenance/providers/job_module_provider.dart
++++ b/lib/features/planned_maintenance/providers/job_module_provider.dart
+@@ -1060,7 +1060,7 @@ class IsarJobModuleRepository implements JobModuleRepository {
+     await isar.writeTxn(() async {
+       module
+         ..status = JobModuleStatus.reopened
+-        ..isOpenForWork = true
++        ..isDeleted = false
+         ..reopenedByUid = actor.uid
+         ..reopenedByName = _cleanOptionalText(actor.name)
+         ..reopenedAt = appliedAt
+diff --git a/lib/features/reports/providers/fleet_status_provider.dart b/lib/features/reports/providers/fleet_status_provider.dart
+index 29bfcde5b0698f0b2df738c81357aafe7ad04933..a266d99c242a7a0ae79e0102fbb4063163b2685c 100644
+--- a/lib/features/reports/providers/fleet_status_provider.dart
++++ b/lib/features/reports/providers/fleet_status_provider.dart
+@@ -238,68 +238,3 @@ Stream<R> _combineLatest3<A, B, C, R>(
+   );
+   return controller.stream;
+ }
+-
+-Stream<R> _combineLatest2<A, B, R>(
+-    Stream<A> streamA,
+-    Stream<B> streamB,
+-    R Function(A latestA, B latestB) combine,
+-    ) {
+-  late final StreamController<R> controller;
+-  StreamSubscription<A>? subscriptionA;
+-  StreamSubscription<B>? subscriptionB;
+-
+-  A? latestA;
+-  B? latestB;
+-  var hasA = false;
+-  var hasB = false;
+-  var doneA = false;
+-  var doneB = false;
+-
+-  void emitIfReady() {
+-    if (hasA && hasB && !controller.isClosed) {
+-      controller.add(combine(latestA as A, latestB as B));
+-    }
+-  }
+-
+-  void closeIfDone() {
+-    if (doneA && doneB && !controller.isClosed) {
+-      controller.close();
+-    }
+-  }
+-
+-  controller = StreamController<R>(
+-    onListen: () {
+-      subscriptionA = streamA.listen(
+-            (value) {
+-          latestA = value;
+-          hasA = true;
+-          emitIfReady();
+-        },
+-        onError: controller.addError,
+-        onDone: () {
+-          doneA = true;
+-          closeIfDone();
+-        },
+-      );
+-
+-      subscriptionB = streamB.listen(
+-            (value) {
+-          latestB = value;
+-          hasB = true;
+-          emitIfReady();
+-        },
+-        onError: controller.addError,
+-        onDone: () {
+-          doneB = true;
+-          closeIfDone();
+-        },
+-      );
+-    },
+-    onCancel: () async {
+-      await subscriptionA?.cancel();
+-      await subscriptionB?.cancel();
+-    },
+-  );
+-
+-  return controller.stream;
+-}
+diff --git a/test/maintenance_workflow/red_exit_gate_test.dart b/test/maintenance_workflow/red_exit_gate_test.dart
+index ff466db2cecc196de3623e4306cc16bf45c344f8..da34073de4fd9da63a8c9fdb11531d76571e4a01 100644
+--- a/test/maintenance_workflow/red_exit_gate_test.dart
++++ b/test/maintenance_workflow/red_exit_gate_test.dart
+@@ -7,7 +7,7 @@ void main() {
+ 
+   RedExitGateInput input(String asset, {bool? red, bool? prep}) => RedExitGateInput(
+     isSubmissionThatWouldCompleteParent: true,
+-    activeLaneIds: const <MaintenanceLaneId>{MaintenanceLaneId.electrical},
++    activeLaneIds: <MaintenanceLaneId>{MaintenanceLaneId.electrical},
+     equipmentTypeKey: asset,
+     redWorkRequired: red,
+     preparationRequired: prep,
+diff --git a/test/maintenance_workflow/workflow_retry_policy_test.dart b/test/maintenance_workflow/workflow_retry_policy_test.dart
+index f4d6bb6f52c8b605121baf556b431b129c38c451..551b0dc7ad8597bcb1f7377169fdf59138c51dfd 100644
+--- a/test/maintenance_workflow/workflow_retry_policy_test.dart
++++ b/test/maintenance_workflow/workflow_retry_policy_test.dart
+@@ -1,3 +1,4 @@
++import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_error.dart';
+ import 'package:crm3_baf_ops/features/maintenance_workflow/services/workflow_outbox_policy.dart';
+ import 'package:flutter_test/flutter_test.dart';
+ 
+@@ -5,7 +6,17 @@ void main() {
+   const policy = WorkflowRetryPolicy();
+ 
+   test('only uncertain online failures are retried', () {
+-    expect(policy.classifyError('unavailable'), WorkflowRetryDisposition.retryUncertain);
+-    expect(policy.classifyError('permission-denied'), WorkflowRetryDisposition.reject);
++    expect(
++      policy.classify(
++        const WorkflowException(WorkflowErrorCode.unavailable, 'x'),
++      ),
++      WorkflowRetryDisposition.retryUncertain,
++    );
++    expect(
++      policy.classify(
++        const WorkflowException(WorkflowErrorCode.permissionDenied, 'x'),
++      ),
++      WorkflowRetryDisposition.reject,
++    );
+   });
+ }
+diff --git a/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1 b/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+index 563218b75f803de64f66bfaa233f4f381e3df503..3adcc389de01c1a3e5132ab29a2a210d03fcf1bd 100644
+--- a/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
++++ b/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+@@ -40,7 +40,7 @@ $expected = [ordered]@{
+ $CandidatePath = (Resolve-Path $CandidatePath).Path
+ $EvidenceRoot = [IO.Path]::GetFullPath($EvidenceRoot)
+ $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+-$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_11_CANONICAL_LOCAL_LAB_$stamp"
++$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_12_CANONICAL_LOCAL_LAB_$stamp"
+ $evidenceDir = Join-Path $runRoot 'evidence'
+ $workspace = Join-Path $runRoot 'workspace'
+ New-Item -ItemType Directory -Force -Path $evidenceDir, $workspace | Out-Null
+@@ -383,7 +383,7 @@ function Seal-Evidence {
+ try {
+   Start-Transcript -Path $transcriptPath -Force | Out-Null
+   $transcriptActive = $true
+-  Write-Host 'CRM3 v4.2_R1.11 canonical-main local laboratory' -ForegroundColor Green
++  Write-Host 'CRM3 v4.2_R1.12 canonical-main local laboratory' -ForegroundColor Green
+   Write-Host "Pristine candidate: $CandidatePath"
+   Write-Host "Disposable workspace: $workspace"
+   Write-Host "Mode: $Mode"
+diff --git a/tools/v4/v4_2_r1_canonical_audit.py b/tools/v4/v4_2_r1_canonical_audit.py
+index e422bb14609e7dd702dbf1aca112a1e2888b9b91..e56cdf09dd1856f64c1021f841b4101f12535f1a 100644
+--- a/tools/v4/v4_2_r1_canonical_audit.py
++++ b/tools/v4/v4_2_r1_canonical_audit.py
+@@ -434,6 +434,28 @@ check(
+     "Do not merge or transplant this branch wholesale" in text("docs/v4_2_r1/LOCAL_ONLY_57BE731_ADJUDICATION.md"),
+ )
+ 
++isar_migration = text("lib/core/services/isar_schema_migration.dart")
++workflow_panel = text("lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart")
++compliance_dialog = text("lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart")
++module_provider = text("lib/features/planned_maintenance/providers/job_module_provider.dart")
++retry_test = text("test/maintenance_workflow/workflow_retry_policy_test.dart")
++red_gate_test = text("test/maintenance_workflow/red_exit_gate_test.dart")
++complete_screen = text("lib/features/planned_maintenance/presentation/complete_job_screen.dart")
++check(
++    "R1.12 analyzer corrections preserve intended workflow semantics",
++    "static const IsarSchemaMigrationPlan defaultPlan" in isar_migration
++    and "workflow.jobExecutionFirestoreId" in workflow_panel
++    and compliance_dialog.count("initialValue:") >= 6
++    and "gatingLaneId = value ?? ''" in compliance_dialog
++    and "..isOpenForWork = true" not in module_provider
++    and "..isDeleted = false" in module_provider
++    and "policy.classify(" in retry_test
++    and "WorkflowException(WorkflowErrorCode.unavailable" in retry_test
++    and "classifyError(" not in retry_test
++    and "activeLaneIds: <MaintenanceLaneId>" in red_gate_test
++    and "if (!mounted) return;\n          redAnswers = await showRedExitDialog" in complete_screen,
++)
++
+ print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
+ if FAIL:
+     for name, detail in FAIL:

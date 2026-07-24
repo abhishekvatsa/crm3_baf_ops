@@ -41,6 +41,25 @@ void main() {
       },
     );
 
+    test('default plan explicitly migrates a v2 marker to v3', () async {
+      final store = InMemoryIsarSchemaVersionStore(
+        version: 2,
+        fingerprint: 'v2:legacy-workflow-persistence',
+      );
+
+      final result = await IsarSchemaMigrator.ensureBeforeOpen(
+        store: store,
+        databaseDirectoryPath: '/tmp/v4-migration',
+        hasExistingLocalStore: true,
+      );
+
+      expect(result.outcome, IsarSchemaMigrationOutcome.migrated);
+      expect(result.fromVersion, 2);
+      expect(result.toVersion, 3);
+      expect(store.version, IsarSchemaMigrator.currentSchemaVersion);
+      expect(store.fingerprint, IsarSchemaMigrator.currentSchemaFingerprint);
+    });
+
     test('does nothing when the marker is already current', () async {
       final store = InMemoryIsarSchemaVersionStore(
         version: IsarSchemaMigrator.currentSchemaVersion,

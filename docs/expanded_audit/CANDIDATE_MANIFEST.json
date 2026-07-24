@@ -1,0 +1,31 @@
+{
+  "candidate": "CRM3_APP_EXPANDED_IMPLEMENTATION_v3_3",
+  "basis": "CRM3 maintenance workflow v3.2 full-tree audit proposed repository",
+  "baseline_commit": "c719b63bda5b950baadcf5675509f8696b54d4d7",
+  "baseline_tree": "117164bbaea2b1b5f35a2af40aa1cae836e34249",
+  "created_on": "2026-07-21",
+  "authority": {
+    "online_only_lifecycle_preserved": true,
+    "reviewer_findings_are_advisory": true,
+    "live_repository_reconciled": false,
+    "git_or_production_mutation_performed": false
+  },
+  "validation": {
+    "expanded_source_audit": "15/15 PASS",
+    "v3_2_full_tree_regression_audit": "18/18 PASS",
+    "functions_executed_tests": "179 PASS",
+    "functions_emulator_dependent_tests": "29 SKIPPED",
+    "typescript_strict_build": "PASS",
+    "policy_generation_parity": "PASS",
+    "flutter_analyze": "NOT RUN - SDK unavailable",
+    "isar_codegen": "NOT RUN - SDK unavailable",
+    "android_build": "NOT RUN - runtime gate",
+    "firestore_emulator": "NOT RUN - runtime gate"
+  },
+  "toolchain_used": {
+    "node": "v22.16.0",
+    "npm": "10.9.2",
+    "python": "3.13.5",
+    "java": "OpenJDK 21.0.10"
+  }
+}

@@ -28,7 +28,7 @@ $ExpectedToolchain = [ordered]@{
   npmVersion = '10.9.2'
   flutterVersion = '3.44.0'
   dartVersion = '3.12.0'
-  firebaseToolsVersion = '15.17.0'
+  firebaseToolsVersion = '15.22.4'
 }
 
 function Get-Sha256 {
@@ -42,6 +42,16 @@ function Get-Sha256 {
 }
 
 Set-Location (Resolve-Path -LiteralPath $RepositoryRoot)
+$provisionalIsarBindings = @(
+  Get-ChildItem -LiteralPath 'lib' -Recurse -Filter '*.g.dart' -File |
+    Select-String -SimpleMatch 'PROVISIONAL_V4_ISAR_CODEGEN'
+)
+if ($provisionalIsarBindings.Count -gt 0) {
+  $paths = $provisionalIsarBindings |
+    ForEach-Object { $_.Path } |
+    Sort-Object -Unique
+  throw "Pinned Isar code generation has not replaced provisional v4 bindings: $($paths -join ', ')"
+}
 $policy = Get-Content -LiteralPath $PolicyPath -Raw | ConvertFrom-Json
 
 if ($policy.schemaVersion -ne 3) {
@@ -106,6 +116,7 @@ $requiredFiles = @(
   [string]$policy.versionPolicy.approvalReceiptFile
   [string]$policy.signing.approvalReceiptFile
   [string]$policy.firebaseAndroidApp.registrationReceiptFile
+  [string]$policy.firebaseAndroidApp.restorationReceiptFile
   [string]$policy.migrationPlan.receiptFile
   [string]$policy.versionPolicy.ledgerFile
   [string]$policy.toolchain.githubActionPinsFile
@@ -293,6 +304,63 @@ if ($null -eq $oauthClient -or
     [string]$oauthClient.client_id -ne
       [string]$policy.firebaseAndroidApp.androidOauthClientId) {
   throw 'Firebase OAuth package/certificate registration mismatch.'
+}
+
+$debugOauthClient = $firebaseClient.oauth_client |
+  Where-Object {
+    [int]$_.client_type -eq 1 -and
+    [string]$_.android_info.package_name -eq
+      [string]$policy.permanentApplicationId -and
+    ([string]$_.android_info.certificate_hash).
+      Replace(':', '').
+      ToUpperInvariant() -eq
+      ([string]$policy.firebaseAndroidApp.debugSigningCertificateSha1).ToUpperInvariant()
+  } |
+  Select-Object -First 1
+
+if ($null -eq $debugOauthClient -or
+    [string]$debugOauthClient.client_id -ne
+      [string]$policy.firebaseAndroidApp.debugAndroidOauthClientId) {
+  throw 'Firebase debug OAuth continuity mismatch.'
+}
+
+$androidOauthClients = @($firebaseClient.oauth_client | Where-Object {
+  [int]$_.client_type -eq 1 -and
+  [string]$_.android_info.package_name -eq [string]$policy.permanentApplicationId
+})
+if ($androidOauthClients.Count -ne 2) {
+  throw 'Combined Firebase configuration must contain exactly two Android OAuth clients for the permanent package.'
+}
+
+$restorationReceipt = Get-Content -LiteralPath $policy.firebaseAndroidApp.restorationReceiptFile -Raw | ConvertFrom-Json
+if ([string]$restorationReceipt.receiptType -ne 'firebase-android-production-signing-additive-restoration' -or
+    [string]$restorationReceipt.operationReference -ne [string]$policy.firebaseAndroidApp.restorationReference -or
+    [string]$restorationReceipt.historicalRegistrationReference -ne [string]$policy.firebaseAndroidApp.registrationReference -or
+    [string]$restorationReceipt.finalStatus -ne 'PASS_FIREBASE_PRODUCTION_SIGNING_RESTORED_HISTORICAL_AUTHORITY' -or
+    [string]$restorationReceipt.combinedGoogleServicesSha256 -ne [string]$policy.firebaseAndroidApp.googleServicesSha256 -or
+    [string]$restorationReceipt.combinedGoogleServicesSemanticSha256 -ne [string]$policy.firebaseAndroidApp.googleServicesSemanticSha256 -or
+    [string]$restorationReceipt.debugAuthorityPreserved.sha1 -ne [string]$policy.firebaseAndroidApp.debugSigningCertificateSha1 -or
+    [string]$restorationReceipt.debugAuthorityPreserved.sha256 -ne [string]$policy.firebaseAndroidApp.debugSigningCertificateSha256 -or
+    [string]$restorationReceipt.debugAuthorityPreserved.oauthClientId -ne [string]$policy.firebaseAndroidApp.debugAndroidOauthClientId -or
+    [string]$restorationReceipt.productionAuthorityRestored.sha1 -ne [string]$policy.firebaseAndroidApp.signingCertificateSha1 -or
+    [string]$restorationReceipt.productionAuthorityRestored.sha256 -ne [string]$policy.firebaseAndroidApp.signingCertificateSha256 -or
+    [string]$restorationReceipt.productionAuthorityRestored.historicalOauthClientId -ne [string]$policy.firebaseAndroidApp.androidOauthClientId -or
+    -not @($restorationReceipt.productionAuthorityRestored.oauthClientIds).Contains([string]$policy.firebaseAndroidApp.androidOauthClientId) -or
+    @($restorationReceipt.mutations).Count -ne 2 -or
+    @($restorationReceipt.mutations | Where-Object {
+      [string]$_.action -ne 'create' -or
+      $_.createdByThisRun -ne $true -or
+      $_.postconditionPresent -ne $true -or
+      [int]$_.commandExitCode -ne 0
+    }).Count -ne 0 -or
+    $restorationReceipt.repositoryModified -ne $false -or
+    $restorationReceipt.firebaseDeletionPerformed -ne $false -or
+    $restorationReceipt.adjacentFirebaseMutationPerformed -ne $false) {
+  throw 'Firebase production-signing restoration receipt mismatch.'
+}
+if ((Get-Sha256 $policy.firebaseAndroidApp.restorationReceiptFile) -ne
+    ([string]$policy.firebaseAndroidApp.restorationReceiptSha256).ToUpperInvariant()) {
+  throw 'Firebase restoration receipt hash mismatch.'
 }
 
 if ((Get-Sha256 'android/app/google-services.json') -ne

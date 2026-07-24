@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "authority": "AUTHENTIC_WINDOWS_ISAR_CODEGEN",
+  "purpose": "Exact post-codegen binding hashes for the pinned R1 laboratory toolchain. These hashes distinguish expected generator output from handwritten or governed-source drift.",
+  "sourceEvidence": {
+    "file": "CRM3_V42_R1_9_CANONICAL_LOCAL_LAB_20260722_230652.zip",
+    "sha256": "E2A0F3D38C9A0950922A0B5933A435159E5FA950F361BC8C2B8D6ADB3FEB470A",
+    "codegenStage": "16_authentic_isar_codegen",
+    "custodyStage": "17_post_codegen_custody",
+    "codegenResult": "PASS",
+    "custodyResult": "PASS"
+  },
+  "canonicalMain": {
+    "commit": "633c58bb0d936011e391b42627f8b8f02c510e95",
+    "tree": "2f547a79e79076c70dd15ae8b85a7ad70c9fa018"
+  },
+  "toolchain": {
+    "flutter": "3.44.0",
+    "dart": "3.12.0",
+    "node": "22.15.0",
+    "npm": "10.9.2",
+    "java": "21.0.11"
+  },
+  "generatorInputs": {
+    "pubspecLockSha256": "F0BD5F4CB0C5EE8C5C5D3E4142DD72D8C5DE57443F97BDB864DE4D8ABEAD74C5"
+  },
+  "bindings": {
+    "lib/features/abnormalities/data/abnormality_model.g.dart": {
+      "sha256": "F857404C5C4B8C18D520C69635917D1AFEADF1166D6033D31D1BB850B7CAB3C0",
+      "bytes": 298565
+    },
+    "lib/features/audit/models/audit_event_model.g.dart": {
+      "sha256": "1875909C1CDE21D218BE3CA23BC2FB3785D2BE24AE9FB7406CB612D7B3A4F735",
+      "bytes": 165450
+    },
+    "lib/features/charges/data/charge_model.g.dart": {
+      "sha256": "BF96533798BDA50E02F8B19F59139150EDF6F0BC0FEB05F7238AAEA329F035B2",
+      "bytes": 130089
+    },
+    "lib/features/directives/data/operational_directive_model.g.dart": {
+      "sha256": "9D6CD67194F38FAEA40D2ECCC70E58D84BF9BBBA83AD0E5FF7D85FC76EE646D7",
+      "bytes": 240257
+    },
+    "lib/features/maintenance/data/maintenance_model.g.dart": {
+      "sha256": "25FFB8183E3BD7954611302CF0A126849C7CACD4D7D921703144432000F33C4B",
+      "bytes": 405519
+    },
+    "lib/features/maintenance_workflow/data/compliance_attempt_record.g.dart": {
+      "sha256": "62AEC2A023995203E020FEB596A5E9E2802BCEF964426C43F8816767A5144A0F",
+      "bytes": 95026
+    },
+    "lib/features/maintenance_workflow/data/compliance_request_record.g.dart": {
+      "sha256": "1C47E418471D6AC5D8636B6058E45025A732FBEE48B8BC2123A7C9C163A6B7C2",
+      "bytes": 413642
+    },
+    "lib/features/maintenance_workflow/data/equipment_prompt_record.g.dart": {
+      "sha256": "54D79ACE327F2CD0AD949E49ABB9B2B7B9C5C9177A00C431D9C1C4BFD9B31585",
+      "bytes": 108958
+    },
+    "lib/features/maintenance_workflow/data/equipment_status_record.g.dart": {
+      "sha256": "3F34BC309D2C5239FF238F1F9C721E7A7A57ECDB6DC0BF75C76FBE46DBF04B81",
+      "bytes": 111165
+    },
+    "lib/features/maintenance_workflow/data/job_lane_record.g.dart": {
+      "sha256": "55BD52BB19D762CA57756F066221831C0FAD36A13F6C313D66101FC6D36D5BC2",
+      "bytes": 289917
+    },
+    "lib/features/maintenance_workflow/data/workflow_aggregate_record.g.dart": {
+      "sha256": "889AD8396D04DE81AA919C3F76678106DEA9A0F795D3BD987123CA74296A94FB",
+      "bytes": 97813
+    },
+    "lib/features/maintenance_workflow/data/workflow_command_receipt_record.g.dart": {
+      "sha256": "292A9C0140FD394D0BEB5F132A1485B2045DA4392BD9E793D6FFFB0824934B5C",
+      "bytes": 44498
+    },
+    "lib/features/maintenance_workflow/data/workflow_command_record.g.dart": {
+      "sha256": "7D79639092A8AD02DFC1607ACB8CBE3292AC58D987D9495C652FF9A73878C61A",
+      "bytes": 82367
+    },
+    "lib/features/maintenance_workflow/data/workflow_event_record.g.dart": {
+      "sha256": "7285F22F74A153F32D4DE48417279CA9D5C881021E05CB42058F20880F04CE3C",
+      "bytes": 85165
+    },
+    "lib/features/planned_maintenance/data/baf_knowledge_model.g.dart": {
+      "sha256": "EC1C4EBB55BA410EBA426722FDD456B0FBADB4BA79056A19DC2758544AF830A1",
+      "bytes": 314293
+    },
+    "lib/features/planned_maintenance/data/job_diary_model.g.dart": {
+      "sha256": "D241DC94765F16CECE024A63DDB359E1178A03B8D264FDC0ECA64889847FD1A0",
+      "bytes": 240442
+    },
+    "lib/features/planned_maintenance/data/job_module_model.g.dart": {
+      "sha256": "61B69E674C199B732E84ECD7FA80286294539C63B4F63BB69B42FE9C5D955F92",
+      "bytes": 475804
+    },
+    "lib/features/planned_maintenance/data/job_template_model.g.dart": {
+      "sha256": "EA4C927BE8E81A96457AE423D4E1152719CB5E19E3D84A3EAB02FC14109D5511",
+      "bytes": 403610
+    },
+    "lib/features/planned_maintenance/data/template_governance_model.g.dart": {
+      "sha256": "064CFB3A379E537DA382C22BAC2C8E82BD72AE5C674ADA64CF1B0143342285FB",
+      "bytes": 625182
+    }
+  }
+}

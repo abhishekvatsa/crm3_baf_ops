@@ -179,213 +179,228 @@ const JobModuleInstanceSchema = CollectionSchema(
       name: r'jobExecutionLocalId',
       type: IsarType.long,
     ),
-    r'metadataJson': PropertySchema(
+    r'laneActivationGeneration': PropertySchema(
       id: 32,
+      name: r'laneActivationGeneration',
+      type: IsarType.long,
+    ),
+    r'laneKey': PropertySchema(
+      id: 33,
+      name: r'laneKey',
+      type: IsarType.string,
+    ),
+    r'metadataJson': PropertySchema(
+      id: 34,
       name: r'metadataJson',
       type: IsarType.string,
     ),
     r'moduleCode': PropertySchema(
-      id: 33,
+      id: 35,
       name: r'moduleCode',
       type: IsarType.string,
     ),
     r'moduleDescription': PropertySchema(
-      id: 34,
+      id: 36,
       name: r'moduleDescription',
       type: IsarType.string,
     ),
     r'moduleSnapshotJson': PropertySchema(
-      id: 35,
+      id: 37,
       name: r'moduleSnapshotJson',
       type: IsarType.string,
     ),
     r'moduleTitle': PropertySchema(
-      id: 36,
+      id: 38,
       name: r'moduleTitle',
       type: IsarType.string,
     ),
     r'notApplicableAt': PropertySchema(
-      id: 37,
+      id: 39,
       name: r'notApplicableAt',
       type: IsarType.dateTime,
     ),
     r'notApplicableByName': PropertySchema(
-      id: 38,
+      id: 40,
       name: r'notApplicableByName',
       type: IsarType.string,
     ),
     r'notApplicableByUid': PropertySchema(
-      id: 39,
+      id: 41,
       name: r'notApplicableByUid',
       type: IsarType.string,
     ),
     r'notApplicableReason': PropertySchema(
-      id: 40,
+      id: 42,
       name: r'notApplicableReason',
       type: IsarType.string,
     ),
     r'operationalStatePreconditions': PropertySchema(
-      id: 41,
+      id: 43,
       name: r'operationalStatePreconditions',
       type: IsarType.stringList,
     ),
     r'pairedEquipmentJson': PropertySchema(
-      id: 42,
+      id: 44,
       name: r'pairedEquipmentJson',
       type: IsarType.string,
     ),
     r'pendingIssue': PropertySchema(
-      id: 43,
+      id: 45,
       name: r'pendingIssue',
       type: IsarType.string,
     ),
     r'procedureRefs': PropertySchema(
-      id: 44,
+      id: 46,
       name: r'procedureRefs',
       type: IsarType.stringList,
     ),
     r'reopenReason': PropertySchema(
-      id: 45,
+      id: 47,
       name: r'reopenReason',
       type: IsarType.string,
     ),
     r'reopenedAt': PropertySchema(
-      id: 46,
+      id: 48,
       name: r'reopenedAt',
       type: IsarType.dateTime,
     ),
     r'reopenedByName': PropertySchema(
-      id: 47,
+      id: 49,
       name: r'reopenedByName',
       type: IsarType.string,
     ),
     r'reopenedByUid': PropertySchema(
-      id: 48,
+      id: 50,
       name: r'reopenedByUid',
       type: IsarType.string,
     ),
     r'requiredForClosure': PropertySchema(
-      id: 49,
+      id: 51,
       name: r'requiredForClosure',
       type: IsarType.bool,
     ),
     r'requiresFollowUp': PropertySchema(
-      id: 50,
+      id: 52,
       name: r'requiresFollowUp',
       type: IsarType.bool,
     ),
     r'responsesJson': PropertySchema(
-      id: 51,
+      id: 53,
       name: r'responsesJson',
       type: IsarType.string,
     ),
     r'safetyClass': PropertySchema(
-      id: 52,
+      id: 54,
       name: r'safetyClass',
       type: IsarType.string,
       enumMap: _JobModuleInstancesafetyClassEnumValueMap,
     ),
     r'safetyConfirmations': PropertySchema(
-      id: 53,
+      id: 55,
       name: r'safetyConfirmations',
       type: IsarType.stringList,
     ),
     r'status': PropertySchema(
-      id: 54,
+      id: 56,
       name: r'status',
       type: IsarType.string,
       enumMap: _JobModuleInstancestatusEnumValueMap,
     ),
     r'submissionNote': PropertySchema(
-      id: 55,
+      id: 57,
       name: r'submissionNote',
       type: IsarType.string,
     ),
     r'submittedAt': PropertySchema(
-      id: 56,
+      id: 58,
       name: r'submittedAt',
       type: IsarType.dateTime,
     ),
     r'submittedByName': PropertySchema(
-      id: 57,
+      id: 59,
       name: r'submittedByName',
       type: IsarType.string,
     ),
     r'submittedByUid': PropertySchema(
-      id: 58,
+      id: 60,
       name: r'submittedByUid',
       type: IsarType.string,
     ),
     r'subsystem': PropertySchema(
-      id: 59,
+      id: 61,
       name: r'subsystem',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 60,
+      id: 62,
       name: r'tags',
       type: IsarType.stringList,
     ),
     r'targetRef': PropertySchema(
-      id: 61,
+      id: 63,
       name: r'targetRef',
       type: IsarType.string,
     ),
     r'targetRefs': PropertySchema(
-      id: 62,
+      id: 64,
       name: r'targetRefs',
       type: IsarType.stringList,
     ),
     r'templateFirestoreId': PropertySchema(
-      id: 63,
+      id: 65,
       name: r'templateFirestoreId',
       type: IsarType.string,
     ),
     r'templateModuleId': PropertySchema(
-      id: 64,
+      id: 66,
       name: r'templateModuleId',
       type: IsarType.string,
     ),
     r'templateName': PropertySchema(
-      id: 65,
+      id: 67,
       name: r'templateName',
       type: IsarType.string,
     ),
     r'templatePackageId': PropertySchema(
-      id: 66,
+      id: 68,
       name: r'templatePackageId',
       type: IsarType.string,
     ),
     r'templateVersionId': PropertySchema(
-      id: 67,
+      id: 69,
       name: r'templateVersionId',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 68,
+      id: 70,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'updatedByName': PropertySchema(
-      id: 69,
+      id: 71,
       name: r'updatedByName',
       type: IsarType.string,
     ),
     r'updatedByUid': PropertySchema(
-      id: 70,
+      id: 72,
       name: r'updatedByUid',
       type: IsarType.string,
     ),
     r'useMode': PropertySchema(
-      id: 71,
+      id: 73,
       name: r'useMode',
       type: IsarType.string,
       enumMap: _JobModuleInstanceuseModeEnumValueMap,
     ),
     r'version': PropertySchema(
-      id: 72,
+      id: 74,
       name: r'version',
       type: IsarType.long,
+    ),
+    r'workflowLaneFirestoreId': PropertySchema(
+      id: 75,
+      name: r'workflowLaneFirestoreId',
+      type: IsarType.string,
     )
   },
   estimateSize: _jobModuleInstanceEstimateSize,
@@ -443,6 +458,19 @@ const JobModuleInstanceSchema = CollectionSchema(
           name: r'jobExecutionLocalId',
           type: IndexType.value,
           caseSensitive: false,
+        )
+      ],
+    ),
+    r'laneKey': IndexSchema(
+      id: 8565663870941351272,
+      name: r'laneKey',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'laneKey',
+          type: IndexType.hash,
+          caseSensitive: true,
         )
       ],
     ),
@@ -783,6 +811,12 @@ int _jobModuleInstanceEstimateSize(
     }
   }
   {
+    final value = object.laneKey;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.metadataJson;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -961,6 +995,12 @@ int _jobModuleInstanceEstimateSize(
     }
   }
   bytesCount += 3 + object.useMode.name.length * 3;
+  {
+    final value = object.workflowLaneFirestoreId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -1002,47 +1042,50 @@ void _jobModuleInstanceSerialize(
   writer.writeBool(offsets[29], object.isSynced);
   writer.writeString(offsets[30], object.jobExecutionFirestoreId);
   writer.writeLong(offsets[31], object.jobExecutionLocalId);
-  writer.writeString(offsets[32], object.metadataJson);
-  writer.writeString(offsets[33], object.moduleCode);
-  writer.writeString(offsets[34], object.moduleDescription);
-  writer.writeString(offsets[35], object.moduleSnapshotJson);
-  writer.writeString(offsets[36], object.moduleTitle);
-  writer.writeDateTime(offsets[37], object.notApplicableAt);
-  writer.writeString(offsets[38], object.notApplicableByName);
-  writer.writeString(offsets[39], object.notApplicableByUid);
-  writer.writeString(offsets[40], object.notApplicableReason);
-  writer.writeStringList(offsets[41], object.operationalStatePreconditions);
-  writer.writeString(offsets[42], object.pairedEquipmentJson);
-  writer.writeString(offsets[43], object.pendingIssue);
-  writer.writeStringList(offsets[44], object.procedureRefs);
-  writer.writeString(offsets[45], object.reopenReason);
-  writer.writeDateTime(offsets[46], object.reopenedAt);
-  writer.writeString(offsets[47], object.reopenedByName);
-  writer.writeString(offsets[48], object.reopenedByUid);
-  writer.writeBool(offsets[49], object.requiredForClosure);
-  writer.writeBool(offsets[50], object.requiresFollowUp);
-  writer.writeString(offsets[51], object.responsesJson);
-  writer.writeString(offsets[52], object.safetyClass.name);
-  writer.writeStringList(offsets[53], object.safetyConfirmations);
-  writer.writeString(offsets[54], object.status.name);
-  writer.writeString(offsets[55], object.submissionNote);
-  writer.writeDateTime(offsets[56], object.submittedAt);
-  writer.writeString(offsets[57], object.submittedByName);
-  writer.writeString(offsets[58], object.submittedByUid);
-  writer.writeString(offsets[59], object.subsystem);
-  writer.writeStringList(offsets[60], object.tags);
-  writer.writeString(offsets[61], object.targetRef);
-  writer.writeStringList(offsets[62], object.targetRefs);
-  writer.writeString(offsets[63], object.templateFirestoreId);
-  writer.writeString(offsets[64], object.templateModuleId);
-  writer.writeString(offsets[65], object.templateName);
-  writer.writeString(offsets[66], object.templatePackageId);
-  writer.writeString(offsets[67], object.templateVersionId);
-  writer.writeDateTime(offsets[68], object.updatedAt);
-  writer.writeString(offsets[69], object.updatedByName);
-  writer.writeString(offsets[70], object.updatedByUid);
-  writer.writeString(offsets[71], object.useMode.name);
-  writer.writeLong(offsets[72], object.version);
+  writer.writeLong(offsets[32], object.laneActivationGeneration);
+  writer.writeString(offsets[33], object.laneKey);
+  writer.writeString(offsets[34], object.metadataJson);
+  writer.writeString(offsets[35], object.moduleCode);
+  writer.writeString(offsets[36], object.moduleDescription);
+  writer.writeString(offsets[37], object.moduleSnapshotJson);
+  writer.writeString(offsets[38], object.moduleTitle);
+  writer.writeDateTime(offsets[39], object.notApplicableAt);
+  writer.writeString(offsets[40], object.notApplicableByName);
+  writer.writeString(offsets[41], object.notApplicableByUid);
+  writer.writeString(offsets[42], object.notApplicableReason);
+  writer.writeStringList(offsets[43], object.operationalStatePreconditions);
+  writer.writeString(offsets[44], object.pairedEquipmentJson);
+  writer.writeString(offsets[45], object.pendingIssue);
+  writer.writeStringList(offsets[46], object.procedureRefs);
+  writer.writeString(offsets[47], object.reopenReason);
+  writer.writeDateTime(offsets[48], object.reopenedAt);
+  writer.writeString(offsets[49], object.reopenedByName);
+  writer.writeString(offsets[50], object.reopenedByUid);
+  writer.writeBool(offsets[51], object.requiredForClosure);
+  writer.writeBool(offsets[52], object.requiresFollowUp);
+  writer.writeString(offsets[53], object.responsesJson);
+  writer.writeString(offsets[54], object.safetyClass.name);
+  writer.writeStringList(offsets[55], object.safetyConfirmations);
+  writer.writeString(offsets[56], object.status.name);
+  writer.writeString(offsets[57], object.submissionNote);
+  writer.writeDateTime(offsets[58], object.submittedAt);
+  writer.writeString(offsets[59], object.submittedByName);
+  writer.writeString(offsets[60], object.submittedByUid);
+  writer.writeString(offsets[61], object.subsystem);
+  writer.writeStringList(offsets[62], object.tags);
+  writer.writeString(offsets[63], object.targetRef);
+  writer.writeStringList(offsets[64], object.targetRefs);
+  writer.writeString(offsets[65], object.templateFirestoreId);
+  writer.writeString(offsets[66], object.templateModuleId);
+  writer.writeString(offsets[67], object.templateName);
+  writer.writeString(offsets[68], object.templatePackageId);
+  writer.writeString(offsets[69], object.templateVersionId);
+  writer.writeDateTime(offsets[70], object.updatedAt);
+  writer.writeString(offsets[71], object.updatedByName);
+  writer.writeString(offsets[72], object.updatedByUid);
+  writer.writeString(offsets[73], object.useMode.name);
+  writer.writeLong(offsets[74], object.version);
+  writer.writeString(offsets[75], object.workflowLaneFirestoreId);
 }
 
 JobModuleInstance _jobModuleInstanceDeserialize(
@@ -1089,54 +1132,57 @@ JobModuleInstance _jobModuleInstanceDeserialize(
   object.isSynced = reader.readBool(offsets[29]);
   object.jobExecutionFirestoreId = reader.readStringOrNull(offsets[30]);
   object.jobExecutionLocalId = reader.readLongOrNull(offsets[31]);
-  object.metadataJson = reader.readStringOrNull(offsets[32]);
-  object.moduleCode = reader.readStringOrNull(offsets[33]);
-  object.moduleDescription = reader.readStringOrNull(offsets[34]);
-  object.moduleSnapshotJson = reader.readString(offsets[35]);
-  object.moduleTitle = reader.readString(offsets[36]);
-  object.notApplicableAt = reader.readDateTimeOrNull(offsets[37]);
-  object.notApplicableByName = reader.readStringOrNull(offsets[38]);
-  object.notApplicableByUid = reader.readStringOrNull(offsets[39]);
-  object.notApplicableReason = reader.readStringOrNull(offsets[40]);
+  object.laneActivationGeneration = reader.readLong(offsets[32]);
+  object.laneKey = reader.readStringOrNull(offsets[33]);
+  object.metadataJson = reader.readStringOrNull(offsets[34]);
+  object.moduleCode = reader.readStringOrNull(offsets[35]);
+  object.moduleDescription = reader.readStringOrNull(offsets[36]);
+  object.moduleSnapshotJson = reader.readString(offsets[37]);
+  object.moduleTitle = reader.readString(offsets[38]);
+  object.notApplicableAt = reader.readDateTimeOrNull(offsets[39]);
+  object.notApplicableByName = reader.readStringOrNull(offsets[40]);
+  object.notApplicableByUid = reader.readStringOrNull(offsets[41]);
+  object.notApplicableReason = reader.readStringOrNull(offsets[42]);
   object.operationalStatePreconditions =
-      reader.readStringList(offsets[41]) ?? [];
-  object.pairedEquipmentJson = reader.readStringOrNull(offsets[42]);
-  object.pendingIssue = reader.readStringOrNull(offsets[43]);
-  object.procedureRefs = reader.readStringList(offsets[44]) ?? [];
-  object.reopenReason = reader.readStringOrNull(offsets[45]);
-  object.reopenedAt = reader.readDateTimeOrNull(offsets[46]);
-  object.reopenedByName = reader.readStringOrNull(offsets[47]);
-  object.reopenedByUid = reader.readStringOrNull(offsets[48]);
-  object.requiredForClosure = reader.readBool(offsets[49]);
-  object.requiresFollowUp = reader.readBool(offsets[50]);
-  object.responsesJson = reader.readString(offsets[51]);
+      reader.readStringList(offsets[43]) ?? [];
+  object.pairedEquipmentJson = reader.readStringOrNull(offsets[44]);
+  object.pendingIssue = reader.readStringOrNull(offsets[45]);
+  object.procedureRefs = reader.readStringList(offsets[46]) ?? [];
+  object.reopenReason = reader.readStringOrNull(offsets[47]);
+  object.reopenedAt = reader.readDateTimeOrNull(offsets[48]);
+  object.reopenedByName = reader.readStringOrNull(offsets[49]);
+  object.reopenedByUid = reader.readStringOrNull(offsets[50]);
+  object.requiredForClosure = reader.readBool(offsets[51]);
+  object.requiresFollowUp = reader.readBool(offsets[52]);
+  object.responsesJson = reader.readString(offsets[53]);
   object.safetyClass = _JobModuleInstancesafetyClassValueEnumMap[
-          reader.readStringOrNull(offsets[52])] ??
-      JobModuleSafetyClass.normal;
-  object.safetyConfirmations = reader.readStringList(offsets[53]) ?? [];
-  object.status = _JobModuleInstancestatusValueEnumMap[
           reader.readStringOrNull(offsets[54])] ??
+      JobModuleSafetyClass.normal;
+  object.safetyConfirmations = reader.readStringList(offsets[55]) ?? [];
+  object.status = _JobModuleInstancestatusValueEnumMap[
+          reader.readStringOrNull(offsets[56])] ??
       JobModuleStatus.notStarted;
-  object.submissionNote = reader.readStringOrNull(offsets[55]);
-  object.submittedAt = reader.readDateTimeOrNull(offsets[56]);
-  object.submittedByName = reader.readStringOrNull(offsets[57]);
-  object.submittedByUid = reader.readStringOrNull(offsets[58]);
-  object.subsystem = reader.readStringOrNull(offsets[59]);
-  object.tags = reader.readStringList(offsets[60]) ?? [];
-  object.targetRef = reader.readStringOrNull(offsets[61]);
-  object.targetRefs = reader.readStringList(offsets[62]) ?? [];
-  object.templateFirestoreId = reader.readStringOrNull(offsets[63]);
-  object.templateModuleId = reader.readStringOrNull(offsets[64]);
-  object.templateName = reader.readStringOrNull(offsets[65]);
-  object.templatePackageId = reader.readStringOrNull(offsets[66]);
-  object.templateVersionId = reader.readStringOrNull(offsets[67]);
-  object.updatedAt = reader.readDateTime(offsets[68]);
-  object.updatedByName = reader.readStringOrNull(offsets[69]);
-  object.updatedByUid = reader.readStringOrNull(offsets[70]);
+  object.submissionNote = reader.readStringOrNull(offsets[57]);
+  object.submittedAt = reader.readDateTimeOrNull(offsets[58]);
+  object.submittedByName = reader.readStringOrNull(offsets[59]);
+  object.submittedByUid = reader.readStringOrNull(offsets[60]);
+  object.subsystem = reader.readStringOrNull(offsets[61]);
+  object.tags = reader.readStringList(offsets[62]) ?? [];
+  object.targetRef = reader.readStringOrNull(offsets[63]);
+  object.targetRefs = reader.readStringList(offsets[64]) ?? [];
+  object.templateFirestoreId = reader.readStringOrNull(offsets[65]);
+  object.templateModuleId = reader.readStringOrNull(offsets[66]);
+  object.templateName = reader.readStringOrNull(offsets[67]);
+  object.templatePackageId = reader.readStringOrNull(offsets[68]);
+  object.templateVersionId = reader.readStringOrNull(offsets[69]);
+  object.updatedAt = reader.readDateTime(offsets[70]);
+  object.updatedByName = reader.readStringOrNull(offsets[71]);
+  object.updatedByUid = reader.readStringOrNull(offsets[72]);
   object.useMode = _JobModuleInstanceuseModeValueEnumMap[
-          reader.readStringOrNull(offsets[71])] ??
+          reader.readStringOrNull(offsets[73])] ??
       JobModuleUseMode.scheduledPM;
-  object.version = reader.readLong(offsets[72]);
+  object.version = reader.readLong(offsets[74]);
+  object.workflowLaneFirestoreId = reader.readStringOrNull(offsets[75]);
   return object;
 }
 
@@ -1216,67 +1262,67 @@ P _jobModuleInstanceDeserializeProp<P>(
     case 31:
       return (reader.readLongOrNull(offset)) as P;
     case 32:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 33:
       return (reader.readStringOrNull(offset)) as P;
     case 34:
       return (reader.readStringOrNull(offset)) as P;
     case 35:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 36:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 37:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 38:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 39:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 40:
       return (reader.readStringOrNull(offset)) as P;
     case 41:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 42:
       return (reader.readStringOrNull(offset)) as P;
     case 43:
-      return (reader.readStringOrNull(offset)) as P;
-    case 44:
       return (reader.readStringList(offset) ?? []) as P;
+    case 44:
+      return (reader.readStringOrNull(offset)) as P;
     case 45:
       return (reader.readStringOrNull(offset)) as P;
     case 46:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 47:
       return (reader.readStringOrNull(offset)) as P;
     case 48:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 49:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 50:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 51:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 52:
+      return (reader.readBool(offset)) as P;
+    case 53:
+      return (reader.readString(offset)) as P;
+    case 54:
       return (_JobModuleInstancesafetyClassValueEnumMap[
               reader.readStringOrNull(offset)] ??
           JobModuleSafetyClass.normal) as P;
-    case 53:
+    case 55:
       return (reader.readStringList(offset) ?? []) as P;
-    case 54:
+    case 56:
       return (_JobModuleInstancestatusValueEnumMap[
               reader.readStringOrNull(offset)] ??
           JobModuleStatus.notStarted) as P;
-    case 55:
-      return (reader.readStringOrNull(offset)) as P;
-    case 56:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 57:
       return (reader.readStringOrNull(offset)) as P;
     case 58:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 59:
       return (reader.readStringOrNull(offset)) as P;
     case 60:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 61:
       return (reader.readStringOrNull(offset)) as P;
     case 62:
@@ -1284,7 +1330,7 @@ P _jobModuleInstanceDeserializeProp<P>(
     case 63:
       return (reader.readStringOrNull(offset)) as P;
     case 64:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 65:
       return (reader.readStringOrNull(offset)) as P;
     case 66:
@@ -1292,17 +1338,23 @@ P _jobModuleInstanceDeserializeProp<P>(
     case 67:
       return (reader.readStringOrNull(offset)) as P;
     case 68:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 69:
       return (reader.readStringOrNull(offset)) as P;
     case 70:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 71:
+      return (reader.readStringOrNull(offset)) as P;
+    case 72:
+      return (reader.readStringOrNull(offset)) as P;
+    case 73:
       return (_JobModuleInstanceuseModeValueEnumMap[
               reader.readStringOrNull(offset)] ??
           JobModuleUseMode.scheduledPM) as P;
-    case 72:
+    case 74:
       return (reader.readLong(offset)) as P;
+    case 75:
+      return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -1325,6 +1377,8 @@ const _JobModuleInstancedisciplineEnumValueMap = {
   r'electrical': r'electrical',
   r'instrumentation': r'instrumentation',
   r'operations': r'operations',
+  r'emd': r'emd',
+  r'refractory': r'refractory',
   r'shiftInCharge': r'shiftInCharge',
   r'safety': r'safety',
   r'admin': r'admin',
@@ -1336,6 +1390,8 @@ const _JobModuleInstancedisciplineValueEnumMap = {
   r'electrical': JobModuleDiscipline.electrical,
   r'instrumentation': JobModuleDiscipline.instrumentation,
   r'operations': JobModuleDiscipline.operations,
+  r'emd': JobModuleDiscipline.emd,
+  r'refractory': JobModuleDiscipline.refractory,
   r'shiftInCharge': JobModuleDiscipline.shiftInCharge,
   r'safety': JobModuleDiscipline.safety,
   r'admin': JobModuleDiscipline.admin,
@@ -1859,6 +1915,73 @@ extension JobModuleInstanceQueryWhere
         upper: [upperJobExecutionLocalId],
         includeUpper: includeUpper,
       ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
+      laneKeyIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'laneKey',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
+      laneKeyIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'laneKey',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
+      laneKeyEqualTo(String? laneKey) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'laneKey',
+        value: [laneKey],
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterWhereClause>
+      laneKeyNotEqualTo(String? laneKey) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'laneKey',
+              lower: [],
+              upper: [laneKey],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'laneKey',
+              lower: [laneKey],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'laneKey',
+              lower: [laneKey],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'laneKey',
+              lower: [],
+              upper: [laneKey],
+              includeUpper: false,
+            ));
+      }
     });
   }
 
@@ -6476,6 +6599,216 @@ extension JobModuleInstanceQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneActivationGenerationEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'laneActivationGeneration',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneActivationGenerationGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'laneActivationGeneration',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneActivationGenerationLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'laneActivationGeneration',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneActivationGenerationBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'laneActivationGeneration',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneKeyIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'laneKey',
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneKeyIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'laneKey',
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneKeyEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'laneKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneKeyGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'laneKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneKeyLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'laneKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneKeyBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'laneKey',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneKeyStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'laneKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneKeyEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'laneKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneKeyContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'laneKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneKeyMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'laneKey',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneKeyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'laneKey',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      laneKeyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'laneKey',
+        value: '',
       ));
     });
   }
@@ -12320,6 +12653,162 @@ extension JobModuleInstanceQueryFilter
       ));
     });
   }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      workflowLaneFirestoreIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'workflowLaneFirestoreId',
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      workflowLaneFirestoreIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'workflowLaneFirestoreId',
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      workflowLaneFirestoreIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'workflowLaneFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      workflowLaneFirestoreIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'workflowLaneFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      workflowLaneFirestoreIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'workflowLaneFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      workflowLaneFirestoreIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'workflowLaneFirestoreId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      workflowLaneFirestoreIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'workflowLaneFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      workflowLaneFirestoreIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'workflowLaneFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      workflowLaneFirestoreIdContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'workflowLaneFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      workflowLaneFirestoreIdMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'workflowLaneFirestoreId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      workflowLaneFirestoreIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'workflowLaneFirestoreId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterFilterCondition>
+      workflowLaneFirestoreIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'workflowLaneFirestoreId',
+        value: '',
+      ));
+    });
+  }
 }
 
 extension JobModuleInstanceQueryObject
@@ -12775,6 +13264,34 @@ extension JobModuleInstanceQuerySortBy
       sortByJobExecutionLocalIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'jobExecutionLocalId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
+      sortByLaneActivationGeneration() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneActivationGeneration', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
+      sortByLaneActivationGenerationDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneActivationGeneration', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
+      sortByLaneKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
+      sortByLaneKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneKey', Sort.desc);
     });
   }
 
@@ -13281,6 +13798,20 @@ extension JobModuleInstanceQuerySortBy
       return query.addSortBy(r'version', Sort.desc);
     });
   }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
+      sortByWorkflowLaneFirestoreId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'workflowLaneFirestoreId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
+      sortByWorkflowLaneFirestoreIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'workflowLaneFirestoreId', Sort.desc);
+    });
+  }
 }
 
 extension JobModuleInstanceQuerySortThenBy
@@ -13743,6 +14274,34 @@ extension JobModuleInstanceQuerySortThenBy
       thenByJobExecutionLocalIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'jobExecutionLocalId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
+      thenByLaneActivationGeneration() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneActivationGeneration', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
+      thenByLaneActivationGenerationDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneActivationGeneration', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
+      thenByLaneKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
+      thenByLaneKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneKey', Sort.desc);
     });
   }
 
@@ -14249,6 +14808,20 @@ extension JobModuleInstanceQuerySortThenBy
       return query.addSortBy(r'version', Sort.desc);
     });
   }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
+      thenByWorkflowLaneFirestoreId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'workflowLaneFirestoreId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QAfterSortBy>
+      thenByWorkflowLaneFirestoreIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'workflowLaneFirestoreId', Sort.desc);
+    });
+  }
 }
 
 extension JobModuleInstanceQueryWhereDistinct
@@ -14483,6 +15056,20 @@ extension JobModuleInstanceQueryWhereDistinct
       distinctByJobExecutionLocalId() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'jobExecutionLocalId');
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
+      distinctByLaneActivationGeneration() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'laneActivationGeneration');
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
+      distinctByLaneKey({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'laneKey', caseSensitive: caseSensitive);
     });
   }
 
@@ -14789,6 +15376,14 @@ extension JobModuleInstanceQueryWhereDistinct
       return query.addDistinctBy(r'version');
     });
   }
+
+  QueryBuilder<JobModuleInstance, JobModuleInstance, QDistinct>
+      distinctByWorkflowLaneFirestoreId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'workflowLaneFirestoreId',
+          caseSensitive: caseSensitive);
+    });
+  }
 }
 
 extension JobModuleInstanceQueryProperty
@@ -15016,6 +15611,19 @@ extension JobModuleInstanceQueryProperty
       jobExecutionLocalIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'jobExecutionLocalId');
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, int, QQueryOperations>
+      laneActivationGenerationProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'laneActivationGeneration');
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, String?, QQueryOperations> laneKeyProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'laneKey');
     });
   }
 
@@ -15302,6 +15910,13 @@ extension JobModuleInstanceQueryProperty
   QueryBuilder<JobModuleInstance, int, QQueryOperations> versionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'version');
+    });
+  }
+
+  QueryBuilder<JobModuleInstance, String?, QQueryOperations>
+      workflowLaneFirestoreIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'workflowLaneFirestoreId');
     });
   }
 }

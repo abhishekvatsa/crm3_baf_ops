@@ -340,12 +340,23 @@ class _TimelineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMaintenance = entry.type == TimelineEventType.maintenance;
-    final color = isMaintenance ? BafColors.maintenance : BafColors.planned;
-    final icon = isMaintenance
-        ? Icons.report_problem_rounded
-        : Icons.assignment_turned_in_rounded;
-    final typeLabel = isMaintenance ? 'MAINTENANCE' : 'PLANNED JOB';
+    final (color, icon, typeLabel) = switch (entry.type) {
+      TimelineEventType.maintenance => (
+          BafColors.maintenance,
+          Icons.report_problem_rounded,
+          'MAINTENANCE',
+        ),
+      TimelineEventType.plannedJob => (
+          BafColors.planned,
+          Icons.assignment_turned_in_rounded,
+          'PLANNED JOB',
+        ),
+      TimelineEventType.equipmentProjection => (
+          BafColors.assets,
+          Icons.precision_manufacturing_rounded,
+          'EQUIPMENT STATE',
+        ),
+    };
 
     return Container(
       decoration: BoxDecoration(

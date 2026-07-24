@@ -398,43 +398,48 @@ void main() {
           adminEditUpdate,
           contains('maintenanceAdminEditShape(affected)'),
         );
-        expect(
+        final maintenanceMatch = _blockStartingAt(
           rules,
-          contains(
-            'allow update: if exists(/databases/\$(database)/documents/maintenance_records/\$(docId))\n'
-            '        ? (isApprovedUser() ? validMaintenanceCloseUpdate() : false)\n'
-            '        : false;',
-          ),
+          'match /maintenance_records/{docId}',
         );
         expect(
-          rules,
-          contains(
-            'allow update: if exists(/databases/\$(database)/documents/maintenance_records/\$(docId))\n'
-            '        ? (isApprovedUser() ? validMaintenanceReopenUpdate() : false)\n'
-            '        : false;',
-          ),
-        );
-        expect(
-          rules,
-          contains(
-            'allow update: if exists(/databases/\$(database)/documents/maintenance_records/\$(docId))\n'
-            '        ? (isApprovedUser() ? validMaintenanceSoftDeleteUpdate() : false)\n'
-            '        : false;',
-          ),
-        );
-        expect(
-          rules,
-          contains(
-            'allow update: if exists(/databases/\$(database)/documents/maintenance_records/\$(docId))\n'
-            '        ? (isApprovedUser() ? validMaintenanceAdminEditUpdate() : false)\n'
-            '        : false;',
-          ),
-        );
-        expect(
-          rules,
-          isNot(contains('allow update: if validMaintenanceUpdate();')),
+          RegExp(r'allow\s+update\s*:')
+              .allMatches(maintenanceMatch)
+              .length,
+          1,
           reason:
-              'Maintenance updates are intentionally split into small branch rules so denied paths do not exhaust the Firestore expression budget.',
+              'Maintenance writes must evaluate exactly one routed update rule so denied branches do not consume the Firestore expression budget.',
+        );
+        expect(
+          maintenanceMatch,
+          contains('allow update: if validMaintenanceUpdate();'),
+        );
+
+        final maintenanceRouter = _blockStartingAt(
+          rules,
+          'function validMaintenanceUpdate',
+        );
+        expect(
+          maintenanceRouter,
+          contains('targetDeleted != sourceDeleted'),
+        );
+        expect(
+          maintenanceRouter,
+          contains('targetResolved != sourceResolved'),
+        );
+        for (final validator in <String>[
+          'validMaintenanceSoftDeleteUpdate()',
+          'validMaintenanceCloseUpdate()',
+          'validMaintenanceReopenUpdate()',
+          'validMaintenanceAdminEditUpdate()',
+        ]) {
+          expect(maintenanceRouter, contains(validator));
+        }
+        expect(
+          maintenanceRouter,
+          isNot(contains('||')),
+          reason:
+              'The router must select one lifecycle validator instead of evaluating parallel alternatives.',
         );
 
         final adminShape = _blockStartingAt(
@@ -618,7 +623,7 @@ String _blockStartingAt(String source, String marker) {
   final markerIndex = source.indexOf(marker);
   expect(markerIndex, isNot(-1), reason: 'Missing marker: $marker');
 
-  final openBrace = source.indexOf('{', markerIndex);
+  final openBrace = source.indexOf('{', markerIndex + marker.length);
   expect(openBrace, isNot(-1), reason: 'Missing opening brace after $marker');
 
   var depth = 0;

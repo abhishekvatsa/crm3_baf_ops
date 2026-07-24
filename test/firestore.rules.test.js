@@ -120,6 +120,33 @@ describe("users", () => {
       })
     );
   });
+
+
+  test("admin may update approved user fields within the exact schema", async () => {
+    await seedUser("admin1", ["admin"]);
+    await seedUser("target1", ["operations"], false);
+    const db = dbAs("admin1");
+
+    await assertSucceeds(
+      updateDoc(doc(db, "users/target1"), {
+        isApproved: true,
+        roles: ["operations"],
+      })
+    );
+  });
+
+  test("admin cannot add ungoverned top-level user fields", async () => {
+    await seedUser("admin1", ["admin"]);
+    await seedUser("target1", ["operations"], false);
+    const db = dbAs("admin1");
+
+    await assertFails(
+      updateDoc(doc(db, "users/target1"), {
+        isApproved: true,
+        shadowAuthority: "admin",
+      })
+    );
+  });
 });
 
 describe("maintenance_records", () => {
@@ -1528,6 +1555,7 @@ describe("job_modules", () => {
     assetType: "base",
     assetNumber: 1,
     status: "draftSaved",
+    isOpenForWork: true,
     discipline: "mechanical",
     safetyClass: "normal",
     requiredForClosure: false,
@@ -1550,6 +1578,7 @@ describe("job_modules", () => {
     await assertSucceeds(
       updateDoc(doc(db, "job_modules/mod1"), {
         status: "submitted",
+        isOpenForWork: false,
         submittedByUid: "seniorMech",
         submittedAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -1569,6 +1598,7 @@ describe("job_modules", () => {
     await assertFails(
       updateDoc(doc(db, "job_modules/mod2"), {
         status: "submitted",
+        isOpenForWork: false,
         submittedByUid: "ops1",
         submittedAt: Timestamp.now(),
         updatedAt: Timestamp.now(),

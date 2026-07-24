@@ -1,0 +1,224 @@
+{
+  "path_count": 31,
+  "mismatch_count": 0,
+  "mismatches": [],
+  "paths": [
+    {
+      "path": "V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_IMPLEMENTATION_REPORT.md",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "7083a6ddd9dee94f7ca5088567a39cebe94445224b0ab56668ad15e4cfde4f4f"
+    },
+    {
+      "path": "V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_RESIDUAL_GATES.md",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "22481c72fcf33c2dc904f5245614f1cd8c8763f0b72068a6fe931c05f6de3b52"
+    },
+    {
+      "path": "docs/v4_2/CURRENT_PRE_V4_SOURCE_AUTHORITY_RECONCILIATION.md",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "6c4811ce785a63516af76ee8f618bf7e1f26edda22c9d8aaeb3721b212946152"
+    },
+    {
+      "path": "docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "a39d608d6235a9fb17a5930f79d269130d30628ad6f414fab488d93d16750bbc"
+    },
+    {
+      "path": "docs/v4_2_r1/CANONICAL_ISAR_SCHEMA_BASELINE.json",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "d44ac7cd5b99a30cdd900a2d970454edfa9ce86e72a8fce1744b2e7735304cfa"
+    },
+    {
+      "path": "docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "a76d600b1d1e62623fbc6fc0856ec485107418ddc63b4c3e62bdcc6c34a4a97f"
+    },
+    {
+      "path": "docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.md",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "048009d146bb338b9d4d0f3a477161d389787412d97c4dd065999e69588c16c5"
+    },
+    {
+      "path": "docs/v4_2_r1/CANONICAL_MAIN_SOURCE_MANIFEST.json",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "5e7fdb62c47d678b545ef02a1783f9bb57b871922f2ab5ec59d30910894c5bd6"
+    },
+    {
+      "path": "docs/v4_2_r1/CLEAN_CUTOVER_AND_ROLLBACK_POLICY.md",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "b5719196441ab7d024cadefe8b1126329752791bafa85b7dd865249409b8e11b"
+    },
+    {
+      "path": "docs/v4_2_r1/LOCAL_ONLY_57BE731_ADJUDICATION.md",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "93ef544a26926987b09648301b55b617754cbfcb8a7ad8114e387e7b9a6fbb3e"
+    },
+    {
+      "path": "docs/v4_2_r1/STAGING_AND_LIVE_ROLLBACK_PLAN.md",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "a8d46981cd36436d3e8321c6806f409488e8a3c784f2402d0315d94d27e2596c"
+    },
+    {
+      "path": "functions/src/backendReleaseIdentity.ts",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "9c7eece613acd94df47a63afe399dbc3b5ca4331fb6fd0d87f7fb492e94e2c19"
+    },
+    {
+      "path": "functions/src/maintenanceWorkflow/callable.ts",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "5b8aa49726b6fb1393621f92ccef08c1fa375a0a4efe35c22ca503a55b105dd8"
+    },
+    {
+      "path": "functions/src/notifications.ts",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "e3f2824239e3fd544b8b60777c6d1fec312665aa432d3090b5bad0f5f09d0796"
+    },
+    {
+      "path": "functions/src/plannedJobClosure.ts",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "9b2f7c65b1f4875fb7f59e9e096972a897642a57df92f47b146ac744bf5166cc"
+    },
+    {
+      "path": "functions/src/publishedTemplateAssignment.ts",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "69f664e5e76e163924c0a05c9715f931d74206da9f93c08e674ce3c71b19888b"
+    },
+    {
+      "path": "functions/src/runtimeJobModulePopulation.ts",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "d9bf5a54c61c9cb7f4db4c34505dbe18d319e8b25218824e2cc49009aca2d865"
+    },
+    {
+      "path": "functions/src/userAuthority.ts",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "a70beb622350f61871245026f8eecf3afc39333d0717c46d8b6f31ada4875c22"
+    },
+    {
+      "path": "functions/test/backendReleaseIdentity.test.js",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "3fd8eb0077e757659653564c587e79184a215561053ad1fd294520c83e523fe9"
+    },
+    {
+      "path": "functions/test/notifications.test.js",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "2ac76550f035e832a1a8aa86cba51c4f68dca6185d4642e1d4208d87d71ff3fd"
+    },
+    {
+      "path": "functions/test/plannedJobClosure.test.js",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "92e3f9970f4f0d33eb9d9b489b86a2dd6d60cfbfd9997e6e08779637c8df00a3"
+    },
+    {
+      "path": "functions/test/userAuthority.test.js",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "daf94bf47a348353244133ffc81cbe80ad88dc748a56b28cb2a3e3d9ed41efe2"
+    },
+    {
+      "path": "governance/v4_successor_programme_authority_v1.json",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "2e3ac5d21240c528c2bf64826ed0e0b2d13761260cc5c9c09d6ec585606dfa41"
+    },
+    {
+      "path": "tools/isar/verify_canonical_main_isar_continuity.py",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "d5221d3d0e0684c75a4d7cf20b3a13f49175bc1cf7f47318c835012e9bb6316a"
+    },
+    {
+      "path": "tools/maintenance_workflow/full_tree_source_audit.py",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "c5ef18b414453db88672fa4f01e39880f73f70239b7bd6e7a3a52e16513939c2"
+    },
+    {
+      "path": "tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "982b0dde56668b323e6fce9de061676e3ad243088640d0f1114e1adbb487f26e"
+    },
+    {
+      "path": "tools/v4/firestore_integrity_sweep.mjs",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "e498df8964394060aaa92b47748d16231d9d228d2dbaa9c8048422f332b6c538"
+    },
+    {
+      "path": "tools/v4/firestore_integrity_sweep.test.mjs",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "993e77a6dc7076f6434845eed242f9ed1435f89e18ce62101a6071df2d4ec43f"
+    },
+    {
+      "path": "tools/v4/trial_workspace_custody.py",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "6465d078fc981926068e299db41e694297e97014375b2e2806dfb3382bca1f5c"
+    },
+    {
+      "path": "tools/v4/v4_2_r1_canonical_audit.py",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "ffe43826d477db3b94c0447bf10dac63557b9e46d7008c7d9425b536220b28ad"
+    },
+    {
+      "path": "tools/v4/v4_2_ultimate_audit.py",
+      "active_exists": true,
+      "recon_exists": true,
+      "byte_identical": true,
+      "sha256": "cdbfc5e2aa950876a71adcb792e7c6bc1532065d36544f8d2d8879e72d61cf28"
+    }
+  ]
+}

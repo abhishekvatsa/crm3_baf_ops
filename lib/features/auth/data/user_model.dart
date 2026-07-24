@@ -3,24 +3,29 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../maintenance/data/maintenance_model.dart';
+import '../../maintenance_workflow/domain/workflow_policy_generated.dart';
 
-AppRole _parseAppRole(dynamic value) {
-  if (value is! String) return AppRole.operations;
+AppRole? _parseAppRole(dynamic value) {
+  if (value is! String) return null;
   for (final role in AppRole.values) {
     if (role.name == value) return role;
   }
-  return AppRole.operations;
+  return null;
 }
 
 List<AppRole> _parseRoles(dynamic value) {
-  if (value is! List) return [AppRole.operations];
+  if (value is! List || value.isEmpty) return const <AppRole>[];
 
   final roles = <AppRole>{};
   for (final raw in value) {
-    roles.add(_parseAppRole(raw));
+    final parsed = _parseAppRole(raw);
+    // Authority data fails closed. Unknown/non-string roles must never be
+    // reinterpreted as Operations or any other valid permission.
+    if (parsed == null) return const <AppRole>[];
+    roles.add(parsed);
   }
 
-  return roles.isEmpty ? [AppRole.operations] : roles.toList();
+  return List<AppRole>.unmodifiable(roles);
 }
 
 String _cleanText(dynamic value) {
@@ -41,6 +46,47 @@ String _normalisePermissionKey(String? value) {
       .replaceAll('&', 'and')
       .replaceAll(RegExp(r'[^a-z0-9]+'), '') ??
       '';
+}
+
+String _canonicalModuleDisciplinePermissionKey(String? value) {
+  switch (_normalisePermissionKey(value)) {
+    case 'mechanical':
+      return 'mechanical';
+    case 'electrical':
+      return 'electrical';
+    case 'instrumentation':
+    case 'instrument':
+    case 'ia':
+    case 'ianda':
+    case 'instrumentationandautomation':
+    case 'instrumentationautomation':
+      return 'instrumentation';
+    case 'operations':
+    case 'operation':
+      return 'operations';
+    case 'shiftincharge':
+    case 'shift':
+    case 'shiftcharge':
+    case 'shiftlead':
+      return 'shiftInCharge';
+    case 'emd':
+      return 'emd';
+    case 'refractory':
+      return 'refractory';
+    case 'safety':
+      return 'safety';
+    case 'admin':
+    case 'administration':
+      return 'admin';
+    case 'others':
+    case 'other':
+      return 'others';
+    case 'shared':
+    case 'multi':
+    case 'multidiscipline':
+    default:
+      return 'shared';
+  }
 }
 
 
@@ -307,6 +353,15 @@ class AppUser {
   }
 
 
+
+  Set<String> get _workflowRoleNames =>
+      roles.map((role) => role.name).toSet();
+
+  bool _hasAnyWorkflowRole(Iterable<String> allowedRoles) {
+    final current = _workflowRoleNames;
+    return allowedRoles.any(current.contains);
+  }
+
   // ───────────────────────────────────────────────────────────
   // PLANNED-MAINTENANCE MODULE PERMISSIONS
   // ───────────────────────────────────────────────────────────
@@ -316,7 +371,10 @@ class AppUser {
   /// submit/accept/reopen/not-applicable decisions remain auditable authority
   /// events rather than casual edits.
   bool get isModuleLifecycleSupervisor =>
-      isApproved && (isAdmin || isSI || isContractSupervisor || isShiftSupervisor);
+      isApproved &&
+      _hasAnyWorkflowRole(
+        WorkflowPolicyGenerated.moduleLifecycleModeratorRoles,
+      );
 
   bool get canAcceptJobModule => isModuleLifecycleSupervisor;
   bool get canReopenJobModule => isModuleLifecycleSupervisor;
@@ -327,43 +385,80 @@ class AppUser {
   /// planned work, but cannot mutate planned-maintenance module responses.
   bool get canSaveJobModuleWork =>
       isApproved &&
-          (isAdmin ||
-              isSI ||
-              isContractSupervisor ||
-              isShiftSupervisor ||
-              isSeniorRole);
+      WorkflowPolicyGenerated.moduleDisciplineWorkRoles.values
+          .any(_hasAnyWorkflowRole);
 
   /// Supervisors/Admin/SI can submit any module. Senior discipline users can
   /// submit only their own discipline lane. Operations users cannot submit
   /// planned-maintenance modules, including operations-discipline modules.
   bool canSubmitJobModule(String? moduleDisciplineName) {
     if (!isApproved) return false;
-    if (isModuleLifecycleSupervisor) return true;
+    final discipline =
+        _canonicalModuleDisciplinePermissionKey(moduleDisciplineName);
+    final allowed =
+        WorkflowPolicyGenerated.moduleDisciplineSubmitRoles[discipline];
+    return allowed != null && _hasAnyWorkflowRole(allowed);
+  }
 
-    final discipline = _normalisePermissionKey(moduleDisciplineName);
-    switch (discipline) {
-      case 'mechanical':
-        return isMechanical;
-      case 'electrical':
-        return isElectrical;
-      case 'instrumentation':
-      case 'instrument':
-      case 'ia':
-      case 'ianda':
-      case 'instrumentationandautomation':
-      case 'instrumentationautomation':
-        return isInstrumentation;
-      case 'refractory':
-      case 'others':
-        return roles.contains(AppRole.seniorRefractory);
-      case 'operations':
-      case 'shiftincharge':
-      case 'safety':
-      case 'admin':
-      case 'shared':
-      default:
-        return false;
-    }
+
+  bool _canExecuteWorkflowCommand(String command) {
+    if (!isApproved) return false;
+    final allowed = WorkflowPolicyGenerated.commandAuthorityRoles[command];
+    return allowed != null && _hasAnyWorkflowRole(allowed);
+  }
+
+  bool get canFinalizeMaintenanceLaneSet =>
+      _canExecuteWorkflowCommand('finalizeLaneSet');
+
+  bool get canCancelMaintenanceWorkflow =>
+      _canExecuteWorkflowCommand('cancelWorkflow');
+
+  bool get canPrepareMaintenanceRedLane =>
+      _canExecuteWorkflowCommand('prepareRedLane');
+
+  bool get canReconcileMaintenanceEquipment =>
+      _canExecuteWorkflowCommand('reconcileEquipment');
+
+  bool get canMarkMaintenanceWorkflowConditionDue =>
+      _canExecuteWorkflowCommand('markConditionDue');
+
+  bool canAcknowledgeOrWorkMaintenanceLane(String? laneName) {
+    if (!isApproved) return false;
+    final laneKey = switch (_normalisePermissionKey(laneName)) {
+      'electrical' => 'elec',
+      'mechanical' => 'mech',
+      'instrumentation' => 'inst',
+      'operations' || 'shiftincharge' => 'oprn',
+      'refractory' => 'red',
+      'safety' || 'admin' || 'others' => 'shared',
+      final value => value,
+    };
+    final policy = WorkflowPolicyGenerated.lanes[laneKey];
+    return policy != null && _hasAnyWorkflowRole(policy.workRoles);
+  }
+
+  bool canCloseMaintenanceLane(String? laneName) {
+    if (!isApproved) return false;
+    final laneKey = switch (_normalisePermissionKey(laneName)) {
+      'electrical' => 'elec',
+      'mechanical' => 'mech',
+      'instrumentation' => 'inst',
+      'operations' || 'shiftincharge' => 'oprn',
+      'refractory' => 'red',
+      'safety' || 'admin' || 'others' => 'shared',
+      final value => value,
+    };
+    final policy = WorkflowPolicyGenerated.lanes[laneKey];
+    return policy != null && _hasAnyWorkflowRole(policy.closureRoles);
+  }
+
+  bool canSaveJobModuleWorkFor(String? moduleDisciplineName) {
+    if (!isApproved) return false;
+    final discipline =
+        _canonicalModuleDisciplinePermissionKey(moduleDisciplineName);
+    final allowed =
+        WorkflowPolicyGenerated.moduleDisciplineWorkRoles[discipline];
+    return allowed != null && _hasAnyWorkflowRole(allowed);
   }
 
 
@@ -414,6 +509,9 @@ class AppUser {
   /// and closed-job dossier flows remain separately governed.
   bool get canManageTemplateGovernance => isApproved && (isAdmin || isSI);
 
+  bool get canViewMaintenanceWorkflowDiagnostics =>
+      isApproved && (isAdmin || isSI);
+
   bool get canPublishTemplateVersion => canManageTemplateGovernance;
   bool get canRetireTemplateVersion => canManageTemplateGovernance;
 
@@ -431,13 +529,15 @@ class AppUser {
   // ───────────────────────────────────────────────────────────
 
   factory AppUser.fromFirestore(Map<String, dynamic> data, String uid) {
+    final parsedRoles = _parseRoles(data['roles']);
     return AppUser(
       uid: uid,
       name: _cleanText(data['name']),
       email: _cleanText(data['email']),
       photoUrl: _cleanOptionalText(data['photoUrl']),
-      roles: _parseRoles(data['roles']),
-      isApproved: data['isApproved'] == true,
+      roles: parsedRoles,
+      // A malformed role payload cannot remain an approved local authority.
+      isApproved: data['isApproved'] == true && parsedRoles.isNotEmpty,
       fcmToken: _cleanOptionalText(data['fcmToken']),
       createdAt: _parseDateTime(data['createdAt']),
     );

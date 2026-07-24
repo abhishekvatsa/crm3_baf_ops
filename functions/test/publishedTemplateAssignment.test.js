@@ -260,7 +260,28 @@ describe("published TemplateVersion server assignment", () => {
         `published_template_assignment_requests/${REQUEST_ID}`,
       ),
     ).toBe(true);
-    expect(writes).toHaveLength(3);
+    expect(
+      store.has(`maintenance_workflows/${result.executionId}`),
+    ).toBe(true);
+    expect(
+      store.has("equipment_status/base_101"),
+    ).toBe(true);
+    expect(
+      store.get(`maintenance_workflows/${result.executionId}`),
+    ).toMatchObject({
+      jobExecutionId: result.executionId,
+      status: "pendingLaneClassification",
+      workflowSchemaVersion: 1,
+      laneSetVersion: 0,
+    });
+    expect(
+      store.get("equipment_status/base_101"),
+    ).toMatchObject({
+      assetTypeKey: "base",
+      assetNumber: 101,
+      state: "underMaintenance",
+    });
+    expect(writes).toHaveLength(5);
   });
 
   test("safe retry returns the same execution and modules without duplicate writes", async () => {

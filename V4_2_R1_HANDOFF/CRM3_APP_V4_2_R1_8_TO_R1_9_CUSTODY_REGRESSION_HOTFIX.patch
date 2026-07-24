@@ -1,0 +1,95 @@
+--- a/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
++++ b/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+@@ -111,3 +111,8 @@
+ ## R1.6 parallel-verdict rule
+ 
+ The Firebase CLI dependency audit remains mandatory for an authoritative PASS. Its advisory result is recorded as a nonblocking HOLD so that local Flutter, Isar, Functions, APK and emulator evidence can still be collected. If that audit is not clean, the final status remains `HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT` even when downstream execution succeeds. This continuation never authorizes deployment or production mutation.
++
++
++## R1.9 custody-regression correction
++
++R1.9 restores the exact ten-path Flutter platform-registrant classification that was present in R1.7 but accidentally omitted while R1.8 introduced the semantic Isar-continuity verifier. The registrants remain visible in the post-codegen delta as `flutter-platform-registrant-added`; no broad directory or wildcard exclusion is used. The R1.8 semantic continuity gate remains unchanged.
+--- a/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
++++ b/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+@@ -40,7 +40,7 @@
+ $CandidatePath = (Resolve-Path $CandidatePath).Path
+ $EvidenceRoot = [IO.Path]::GetFullPath($EvidenceRoot)
+ $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+-$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_8_CANONICAL_LOCAL_LAB_$stamp"
++$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_9_CANONICAL_LOCAL_LAB_$stamp"
+ $evidenceDir = Join-Path $runRoot 'evidence'
+ $workspace = Join-Path $runRoot 'workspace'
+ New-Item -ItemType Directory -Force -Path $evidenceDir, $workspace | Out-Null
+@@ -383,7 +383,7 @@
+ try {
+   Start-Transcript -Path $transcriptPath -Force | Out-Null
+   $transcriptActive = $true
+-  Write-Host 'CRM3 v4.2_R1.8 canonical-main local laboratory' -ForegroundColor Green
++  Write-Host 'CRM3 v4.2_R1.9 canonical-main local laboratory' -ForegroundColor Green
+   Write-Host "Pristine candidate: $CandidatePath"
+   Write-Host "Disposable workspace: $workspace"
+   Write-Host "Mode: $Mode"
+--- a/tools/v4/trial_workspace_custody.py
++++ b/tools/v4/trial_workspace_custody.py
+@@ -21,6 +21,18 @@
+     ".flutter-plugins", ".flutter-plugins-dependencies", ".packages",
+     "android/local.properties", "ios/Flutter/Generated.xcconfig",
+     "ios/Flutter/flutter_export_environment.sh",
++}
++FLUTTER_PLATFORM_REGISTRANTS = {
++    "android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java",
++    "ios/Runner/GeneratedPluginRegistrant.h",
++    "ios/Runner/GeneratedPluginRegistrant.m",
++    "linux/flutter/generated_plugin_registrant.cc",
++    "linux/flutter/generated_plugin_registrant.h",
++    "linux/flutter/generated_plugins.cmake",
++    "macos/Flutter/GeneratedPluginRegistrant.swift",
++    "windows/flutter/generated_plugin_registrant.cc",
++    "windows/flutter/generated_plugin_registrant.h",
++    "windows/flutter/generated_plugins.cmake",
+ }
+ LOCKFILES = {
+     "pubspec.lock", "package-lock.json", "functions/package-lock.json",
+@@ -103,6 +115,14 @@
+             continue
+         if rel in CONTROLLED_ADDITIONS:
+             allowed.append({"path": rel, "change": "governed-firebase-input-added"})
++        elif rel in FLUTTER_PLATFORM_REGISTRANTS:
++            allowed.append(
++                {
++                    "path": rel,
++                    "change": "flutter-platform-registrant-added",
++                    "sha256": found["sha256"],
++                }
++            )
+         elif rel.endswith(".g.dart") and rel.startswith("lib/"):
+             allowed.append({"path": rel, "change": "generated-binding-added"})
+         else:
+--- a/tools/v4/v4_2_r1_canonical_audit.py
++++ b/tools/v4/v4_2_r1_canonical_audit.py
+@@ -273,6 +273,25 @@
+     and "handwritten-or-governed-file-modified" in custody
+     and "lockfile-changed" in custody,
+ )
++expected_registrants = {
++    "android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java",
++    "ios/Runner/GeneratedPluginRegistrant.h",
++    "ios/Runner/GeneratedPluginRegistrant.m",
++    "linux/flutter/generated_plugin_registrant.cc",
++    "linux/flutter/generated_plugin_registrant.h",
++    "linux/flutter/generated_plugins.cmake",
++    "macos/Flutter/GeneratedPluginRegistrant.swift",
++    "windows/flutter/generated_plugin_registrant.cc",
++    "windows/flutter/generated_plugin_registrant.h",
++    "windows/flutter/generated_plugins.cmake",
++}
++check(
++    "Post-codegen custody explicitly classifies only the ten Flutter platform registrants",
++    "FLUTTER_PLATFORM_REGISTRANTS" in custody
++    and "flutter-platform-registrant-added" in custody
++    and all(f'"{path}"' in custody for path in expected_registrants)
++    and "elif rel in FLUTTER_PLATFORM_REGISTRANTS:" in custody,
++)
+ continuity = data("docs/v4_2_r1/CANONICAL_ISAR_SCHEMA_BASELINE.json")
+ check(
+     "Exact canonical-main Isar baseline contains all inherited collections",

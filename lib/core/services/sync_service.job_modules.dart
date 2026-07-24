@@ -548,6 +548,7 @@ extension _SyncServiceJobModules on SyncService {
     final full = local.toMap();
     return <String, dynamic>{
       'status': JobModuleStatus.submitted.name,
+      'isOpenForWork': false,
       'responsesJson': full['responsesJson'],
       'actionsJson': full['actionsJson'],
       'draftNote': full['draftNote'],
@@ -569,6 +570,7 @@ extension _SyncServiceJobModules on SyncService {
     final full = local.toMap();
     return <String, dynamic>{
       'status': JobModuleStatus.accepted.name,
+      'isOpenForWork': false,
       'acceptedByUid': full['acceptedByUid'],
       'acceptedByName': full['acceptedByName'],
       'acceptedAt': full['acceptedAt'],

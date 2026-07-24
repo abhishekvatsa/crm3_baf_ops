@@ -1378,12 +1378,14 @@ JobModuleDiscipline _parseDiscipline(
       return JobModuleDiscipline.instrumentation;
     case 'operations':
       return JobModuleDiscipline.operations;
+    case 'emd':
+      return JobModuleDiscipline.emd;
     case 'safety':
       return JobModuleDiscipline.safety;
     case 'admin':
       return JobModuleDiscipline.admin;
     case 'refractory':
-      return JobModuleDiscipline.others;
+      return JobModuleDiscipline.refractory;
   }
   return _isSafetyCritical(safetyClasses)
       ? JobModuleDiscipline.shared
@@ -1439,6 +1441,7 @@ List<String> _ownerDisciplines(
   addIf('i&a', 'instrumentation');
   addIf('ia', 'instrumentation');
   addIf('operation', 'operations');
+  addIf('emd', 'emd');
   addIf('refractory', 'refractory');
   final safety = safetyClasses.join(' ').toLowerCase();
   final comp = component.toLowerCase();
@@ -1468,8 +1471,14 @@ List<String> _ownerDisciplines(
       case JobModuleDiscipline.operations:
         owners.add('operations');
         break;
-      case JobModuleDiscipline.others:
+      case JobModuleDiscipline.emd:
+        owners.add('emd');
+        break;
+      case JobModuleDiscipline.refractory:
         owners.add('refractory');
+        break;
+      case JobModuleDiscipline.others:
+        owners.add('others');
         break;
       case JobModuleDiscipline.shared:
       case JobModuleDiscipline.shiftInCharge:

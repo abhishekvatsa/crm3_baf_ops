@@ -145,6 +145,38 @@ class MaintenanceRecord {
   @Index()
   bool isResolved = false;
 
+  // ── Workflow bridge (server-authoritative projection) ───────────────────
+  // These fields mirror maintenance-workflow compliance state into the
+  // original ticket system. Client Firestore serializers deliberately omit
+  // them; Cloud Functions is the only remote author.
+  @Index()
+  bool workflowDeferred = false;
+
+  @Index()
+  String workflowQueueState = 'independent';
+
+  @Index()
+  String? workflowAggregateId;
+
+  @Index()
+  String? workflowComplianceId;
+
+  String? workflowOriginLaneKey;
+  String? workflowTargetLaneKey;
+  String? workflowConditionTypeKey;
+  String? workflowConditionRef;
+  DateTime? workflowDeferredAt;
+  String? workflowDeferredByUid;
+  String? workflowDeferredByName;
+  DateTime? workflowReactivatedAt;
+  String? workflowReactivatedByUid;
+  String? workflowReactivatedByName;
+  DateTime? workflowReleasedAt;
+  String? workflowReleasedByUid;
+  String? workflowReleasedByName;
+  String? workflowCorrectionReason;
+  DateTime? workflowUpdatedAt;
+
   // ── Personnel & Accountability ────────────────────────────────────────────
   @Index()
   String? loggedByUid;
@@ -218,6 +250,31 @@ class MaintenanceRecord {
   bool get isClosed => isResolved;
 
   @ignore
+  bool get isWorkflowLinked =>
+      workflowAggregateId != null && workflowAggregateId!.trim().isNotEmpty;
+
+  @ignore
+  bool get isWorkflowActionBlocked => workflowDeferred;
+
+  @ignore
+  String get workflowStateLabel {
+    switch (workflowQueueState) {
+      case 'deferred':
+        return 'Workflow deferred';
+      case 'correctionRequired':
+        return 'Correction required';
+      case 'actionable':
+        return 'Workflow actionable';
+      case 'awaitingConfirmation':
+        return 'Awaiting workflow confirmation';
+      case 'released':
+        return 'Released from workflow';
+      default:
+        return 'Independent';
+    }
+  }
+
+  @ignore
   Duration? get totalDowntime {
     if (endDate == null) return null;
     return endDate!.difference(startDate);
@@ -240,6 +297,11 @@ class MaintenanceRecord {
     'status': status.name,
     'isResolved': isResolved,
     'isCritical': isCritical,
+    'workflowDeferred': workflowDeferred,
+    'workflowQueueState': workflowQueueState,
+    'workflowAggregateId': workflowAggregateId,
+    'workflowComplianceId': workflowComplianceId,
+    'workflowTargetLaneKey': workflowTargetLaneKey,
     'isDeleted': isDeleted,
     'component': component,
     'tag': tag,

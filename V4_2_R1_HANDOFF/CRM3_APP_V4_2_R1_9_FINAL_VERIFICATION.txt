@@ -1,0 +1,38 @@
+CRM3 APP v4.2_R1.9 FINAL PACKAGE VERIFICATION
+
+Base candidate:
+  v4.2_R1.8 canonical-main local-lab candidate
+
+Evidence cause:
+  R1.8 stage 17 failed because the R1.7 exact ten-path Flutter platform
+  registrant classification was accidentally omitted.
+
+R1.9 correction:
+  - restored exact ten-path registrant classification
+  - retained R1.8 semantic Isar-continuity verifier unchanged
+  - added static regression guard against future omission
+  - advanced local-lab evidence naming to R1.9
+
+Static validation:
+  canonical R1 audit                    29/29 PASS
+  v4.2 ultimate audit                   17/17 PASS
+  v4.1 due-diligence audit               9/9 PASS
+  whole-app reconciliation              21/21 PASS
+  inherited full-tree audit             18/18 PASS
+  inherited expanded audit              15/15 PASS
+  Dart structural audit                 PASS (369 files)
+  integrity-sweep unit tests             3/3 PASS
+  semantic Isar verifier                PASS on packaged tree
+
+Synthetic custody validation:
+  exact ten registrants                 PASS
+  unrelated arbitrary addition          FAIL-CLOSED
+
+Excluded claims:
+  PowerShell execution                  NOT RUN HERE
+  flutter analyze                       NOT RUN HERE
+  Flutter tests                         NOT RUN HERE
+  APK build                             NOT RUN HERE
+  emulator campaign                     NOT RUN HERE
+
+No product-source or backend-authority expansion is introduced.

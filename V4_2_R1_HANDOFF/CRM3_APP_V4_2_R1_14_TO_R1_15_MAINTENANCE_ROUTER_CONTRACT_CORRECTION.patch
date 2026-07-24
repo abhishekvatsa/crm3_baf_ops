@@ -1,0 +1,686 @@
+diff --git a/README.md b/README.md
+index 22e9d70401d07c43cadc9d39fc23d60b6183555d..b5604b2709a6f5e672df3bf120a69919b7ece72d 100644
+--- a/README.md
++++ b/README.md
+@@ -170,3 +170,7 @@ R1.13 corrects the R1.12 Flutter-test findings without treating them as analyzer
+ ## R1.14 Rules-emulator and online-lifecycle correction
+ 
+ R1.14 adjudicates the authenticated R1.13 emulator run: 103 of 122 Rules tests passed, ten permitted operations exhausted Firestore's 1,000-expression evaluation budget, and nine job-module positives exposed an omitted persisted `isOpenForWork` field. The correction preserves full user-document and role validation, routes one lifecycle branch per write, caches the module-family publication read, and writes the open-state field in all direct online module transitions. The next authority is a pristine `-RunEmulators` laboratory yielding `PASS_AUTHORITATIVE_BUILD_AND_EMULATOR`; this archive is not deployment authority.
++
++## R1.15 maintenance-router Flutter contract correction
++
++R1.15 adjudicates the authenticated R1.14 build run, where 472 Flutter tests completed with one stale structural assertion and the emulator gate was not reached. The R1.14 product source and Firestore Rules are preserved byte-for-byte. The single corrected contract now requires exactly one maintenance update `allow`, proves that it invokes `validMaintenanceUpdate()`, and verifies that the router retains close, reopen, soft-delete and Admin-edit validators without a parallel OR chain. The next authority remains a pristine `-RunEmulators` laboratory yielding `PASS_AUTHORITATIVE_BUILD_AND_EMULATOR`.
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_15_AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_15_AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..1a5a320d67430c444c93ca8af49fb99cd0c691f3
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_15_AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+@@ -0,0 +1,66 @@
++# CRM3 App v4.2_R1.15 — Authoritative Local-Laboratory Runbook
++
++## Purpose
++
++R1.15 is the bounded test-contract correction for the authenticated R1.14 build failure. It preserves the R1.14 application and Firestore Rules and aligns one stale Flutter structural assertion with the single maintenance transition router.
++
++The required next run remains the emulator-enabled authoritative tier. Do not add clean-device installation yet.
++
++## Expected candidate ZIP
++
++`CRM3_APP_V4_2_R1_15_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip`
++
++Verify its SHA-256 against the supplied sidecar before extraction.
++
++## Authoritative command
++
++```powershell
++Set-Location "$HOME\Downloads"
++
++Get-FileHash `
++  ".\CRM3_APP_V4_2_R1_15_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip" `
++  -Algorithm SHA256
++
++Remove-Item `
++  ".\CRM3_APP_V4_2_R1_15_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE" `
++  -Recurse -Force `
++  -ErrorAction SilentlyContinue
++
++Expand-Archive `
++  -LiteralPath ".\CRM3_APP_V4_2_R1_15_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip" `
++  -DestinationPath "." `
++  -Force
++
++Set-Location `
++  ".\CRM3_APP_V4_2_R1_15_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE"
++
++pwsh -NoProfile -ExecutionPolicy Bypass -File `
++  ".\tools\v4\Invoke-Crm3V42R1CanonicalLocalLab.ps1" `
++  -CandidatePath (Get-Location).Path `
++  -CurrentAppRoot "C:\Users\abhis\AndroidStudioProjects\crm3_baf_ops" `
++  -Mode Authoritative `
++  -RunEmulators
++```
++
++Use `-EmulatorPort <free-port>` only when the default port is occupied.
++
++## Required successful tier
++
++The required result is:
++
++`PASS_AUTHORITATIVE_BUILD_AND_EMULATOR`
++
++A build-only result is insufficient because the R1.13 Rules failure still requires a fresh proof against the unchanged R1.14 Rules correction. Fresh-install authority is not required yet.
++
++## Evidence expected
++
++The harness writes:
++
++- `CRM3_V42_R1_15_CANONICAL_LOCAL_LAB_<timestamp>.zip`;
++- the matching SHA-256 sidecar.
++
++Upload both. The evidence must show the complete Flutter suite passing, the Rules suite passing, the governed Functions emulator suites passing, and `trial-result.json` with `emulatorPassed: true`.
++
++## Mutation boundary
++
++This run must not perform a Git push, merge or tag; Firebase deployment; production-data write; app uninstall; or device-data clear.
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_15_CHANGED_FILES.md b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_15_CHANGED_FILES.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..7c5a6ae2696b49c1a85e365206f4e745767c4f0f
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_15_CHANGED_FILES.md
+@@ -0,0 +1,29 @@
++# CRM3 App v4.2_R1.15 — Changed Files
++
++## Test-contract correction
++
++- `test/maintenance_lifecycle_replay_contract_test.dart`
++  - removes the superseded four-allow expectation;
++  - requires exactly one maintenance update allow;
++  - proves routing through `validMaintenanceUpdate()`;
++  - proves all four governed lifecycle validators remain reachable without a parallel OR chain.
++
++## Laboratory and audit identity
++
++- `tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1`
++- `tools/v4/r1_15_targeted_static_audit.py` — new
++- `tools/v4/v4_2_r1_canonical_audit.py`
++- `docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json`
++- `docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.md`
++- `docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md`
++- `docs/v4_2_r1/R1_14_FLUTTER_CONTRACT_FAILURE_ADJUDICATION.md` — new
++- `docs/v4_2_r1/R1_15_MAINTENANCE_ROUTER_CONTRACT_CORRECTION.md` — new
++- `README.md`
++
++## Product-source boundary
++
++`firestore.rules`, `lib/`, `functions/`, dependency locks, Firebase configuration and Android/release authority are unchanged from R1.14.
++
++## Sealing records
++
++The R1.15 patch, static-validation log, reconstruction proof, final-verification record and manifest are generated after source checks.
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_15_VALIDATION.md b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_15_VALIDATION.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..80c109b56697c951f53d7cf6e26db512aa7ccb24
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_15_VALIDATION.md
+@@ -0,0 +1,26 @@
++# CRM3 App v4.2_R1.15 — Validation Boundary
++
++## Proven in the packaging environment
++
++- R1.14 evidence ZIP and sidecar hash match.
++- R1.14 evidence candidate manifest exactly matches the supplied R1.14 candidate.
++- The sole Flutter failure is the obsolete four-allow maintenance Rules expectation.
++- R1.14 product source and Firestore Rules remain unchanged.
++- The replacement contract requires one routed update and all four governed validators.
++- Python source audits, structural audits, policy generation, reconstruction and package-manifest checks execute successfully.
++
++## Not proven in the packaging environment
++
++The packaging environment has no Flutter SDK or Firebase emulator. It cannot claim:
++
++- the complete Flutter suite passes after R1.15;
++- Firestore Rules compile in the emulator;
++- 122/122 Rules tests pass;
++- governed Functions emulator suites pass;
++- APK construction passes.
++
++These claims require the fresh Windows authoritative run with `-RunEmulators`.
++
++## Release boundary
++
++R1.15 is a local-laboratory candidate only. It creates no Git integration, Firebase deployment, signing, device installation or production authority.
+diff --git a/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md b/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+index 0b3a8d668d77d9f0aa992158cce686e2da8bf053..1a5a320d67430c444c93ca8af49fb99cd0c691f3 100644
+--- a/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
++++ b/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+@@ -1,20 +1,14 @@
+-# CRM3 App v4.2_R1.14 — Authoritative Local-Laboratory Runbook
++# CRM3 App v4.2_R1.15 — Authoritative Local-Laboratory Runbook
+ 
+ ## Purpose
+ 
+-R1.14 is the bounded correction for the authenticated R1.13 emulator failure. It:
++R1.15 is the bounded test-contract correction for the authenticated R1.14 build failure. It preserves the R1.14 application and Firestore Rules and aligns one stale Flutter structural assertion with the single maintenance transition router.
+ 
+-- routes expensive Firestore lifecycle checks through one selected transition;
+-- preserves full approved-user document-shape validation;
+-- persists `isOpenForWork` in every direct online job-module lifecycle transition;
+-- corrects Rules fixtures to represent the persisted field;
+-- captures the Firebase CLI load-smoke output in its individual evidence log.
+-
+-The required next run is the emulator-enabled authoritative tier. Do not add clean-device installation yet.
++The required next run remains the emulator-enabled authoritative tier. Do not add clean-device installation yet.
+ 
+ ## Expected candidate ZIP
+ 
+-`CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip`
++`CRM3_APP_V4_2_R1_15_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip`
+ 
+ Verify its SHA-256 against the supplied sidecar before extraction.
+ 
+@@ -24,21 +18,21 @@ Verify its SHA-256 against the supplied sidecar before extraction.
+ Set-Location "$HOME\Downloads"
+ 
+ Get-FileHash `
+-  ".\CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip" `
++  ".\CRM3_APP_V4_2_R1_15_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip" `
+   -Algorithm SHA256
+ 
+ Remove-Item `
+-  ".\CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE" `
++  ".\CRM3_APP_V4_2_R1_15_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE" `
+   -Recurse -Force `
+   -ErrorAction SilentlyContinue
+ 
+ Expand-Archive `
+-  -LiteralPath ".\CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip" `
++  -LiteralPath ".\CRM3_APP_V4_2_R1_15_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip" `
+   -DestinationPath "." `
+   -Force
+ 
+ Set-Location `
+-  ".\CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE"
++  ".\CRM3_APP_V4_2_R1_15_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE"
+ 
+ pwsh -NoProfile -ExecutionPolicy Bypass -File `
+   ".\tools\v4\Invoke-Crm3V42R1CanonicalLocalLab.ps1" `
+@@ -48,25 +42,25 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File `
+   -RunEmulators
+ ```
+ 
+-Use `-EmulatorPort <free-port>` only if the default port is occupied.
++Use `-EmulatorPort <free-port>` only when the default port is occupied.
+ 
+ ## Required successful tier
+ 
+-The expected authoritative result is:
++The required result is:
+ 
+ `PASS_AUTHORITATIVE_BUILD_AND_EMULATOR`
+ 
+-A `PASS_AUTHORITATIVE_BUILD_ONLY` result is insufficient because it does not rerun the failed Rules and governed Functions emulator gates. `PASS_AUTHORITATIVE_FRESH_INSTALL` is not required at this stage.
++A build-only result is insufficient because the R1.13 Rules failure still requires a fresh proof against the unchanged R1.14 Rules correction. Fresh-install authority is not required yet.
+ 
+ ## Evidence expected
+ 
+ The harness writes:
+ 
+-- `CRM3_V42_R1_14_CANONICAL_LOCAL_LAB_<timestamp>.zip`;
+-- the matching `.sha256.txt` sidecar.
++- `CRM3_V42_R1_15_CANONICAL_LOCAL_LAB_<timestamp>.zip`;
++- the matching SHA-256 sidecar.
+ 
+-Upload both. The evidence must contain an individual `13_firebase_cli_load_smoke.log`, a passing Rules result, a passing governed Functions emulator result, and `trial-result.json` with `emulatorPassed: true`.
++Upload both. The evidence must show the complete Flutter suite passing, the Rules suite passing, the governed Functions emulator suites passing, and `trial-result.json` with `emulatorPassed: true`.
+ 
+ ## Mutation boundary
+ 
+-This run must not perform a Git push/merge/tag, Firebase deployment, production-data write, app uninstall or device-data clear.
++This run must not perform a Git push, merge or tag; Firebase deployment; production-data write; app uninstall; or device-data clear.
+diff --git a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
+index 7f3586111fc47229c91304f2604d5607431c6b68..f58644cac79da38ab7b40c9395d8bb058f464459 100644
+--- a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
++++ b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
+@@ -16,8 +16,8 @@
+     "scope": "maintenance-workflow current-source audit collector; raw Firebase configuration and evidence artifacts excluded"
+   },
+   "counts": {
+-    "BYTE_IDENTICAL": 345,
+-    "SUCCESSOR_MODIFIED": 65
++    "BYTE_IDENTICAL": 344,
++    "SUCCESSOR_MODIFIED": 66
+   },
+   "paths": [
+     {
+@@ -55,9 +55,9 @@
+     {
+       "path": "README.md",
+       "canonicalSha256": "1DE7D30CC85FDB88E103349EFF9E8875F71C4BB872D6636CB5AF33A2B4E96FF3",
+-      "candidateSha256": "7B7DA97A97EA20DAD657D0EE6336AE35A9A6A685AEC9D6BF84B718D2300C04BC",
++      "candidateSha256": "1219961CC4927CEF7662A18ED14414133093E9F7CE4D46C17CD5A119BE4EB51A",
+       "canonicalBytes": 564,
+-      "candidateBytes": 9204,
++      "candidateBytes": 9866,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+@@ -2703,10 +2703,10 @@
+     {
+       "path": "test/maintenance_lifecycle_replay_contract_test.dart",
+       "canonicalSha256": "F0E6B4CD5FA4B519998FA947242F926D61C5F9524BC8E0641AB40DF0199DB970",
+-      "candidateSha256": "F0E6B4CD5FA4B519998FA947242F926D61C5F9524BC8E0641AB40DF0199DB970",
++      "candidateSha256": "C1721E9C1E669FE16A1D9E8CC990E38F990B5F902FEA02A5542D4D540901CC6A",
+       "canonicalBytes": 21051,
+-      "candidateBytes": 21051,
+-      "disposition": "BYTE_IDENTICAL"
++      "candidateBytes": 20991,
++      "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+       "path": "test/master_data_field_hardening_contract_test.dart",
+diff --git a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.md b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.md
+index 821f0064ebfa35ce291e9567ca4c36ef8e3e1fc9..27af49e9f3428a828af36baed7c0970b3ceb08db 100644
+--- a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.md
++++ b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.md
+@@ -20,8 +20,8 @@ The exact post-PR38/post-PR39 maintenance-workflow source collector was used as
+ 
+ Within its 410 included source/configuration paths, v4.2_R1 contains:
+ 
+-- 345 byte-identical canonical paths;
+-- 65 intentional successor modifications;
++- 344 byte-identical canonical paths;
++- 66 intentional successor modifications;
+ - 0 missing canonical paths.
+ 
+ The machine-readable path and hash record is `CANONICAL_MAIN_RECONCILIATION.json`.
+@@ -49,6 +49,7 @@ The 65 modified canonical paths fall into these classes:
+ 4. **Operational projections** — timeline, reports, tickets and planned-maintenance provider changes needed to surface the new model.
+ 5. **Dependency and toolchain hardening** — root, Functions and governed Firebase CLI lockfiles.
+ 6. **Documentation/release assertions** — corrected Firebase identity and explicit successor/release gates.
++7. **Authenticated test-contract alignment** — the maintenance replay contract now follows the R1.14 single-router Rules architecture instead of requiring the superseded four-allow structure.
+ 
+ These modifications are not compatibility concessions. They express the migration-first successor architecture while preserving the proven business, security and governance guarantees of canonical main.
+ 
+diff --git a/docs/v4_2_r1/R1_14_FLUTTER_CONTRACT_FAILURE_ADJUDICATION.md b/docs/v4_2_r1/R1_14_FLUTTER_CONTRACT_FAILURE_ADJUDICATION.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..3c67b7ac2cf4244c1497f26476d1a48c6c7d3ebb
+--- /dev/null
++++ b/docs/v4_2_r1/R1_14_FLUTTER_CONTRACT_FAILURE_ADJUDICATION.md
+@@ -0,0 +1,71 @@
++# R1.14 Flutter Contract Failure Adjudication
++
++## Evidence authority
++
++The authoritative R1.14 emulator-requested laboratory evidence is:
++
++- archive: `CRM3_V42_R1_14_CANONICAL_LOCAL_LAB_20260723_020341.zip`;
++- archive SHA-256: `1410C13D866367D116EA8C638E2A868EF42749FA899405C1A32290CAD6C65B4E`;
++- final result: `FAIL_LOCAL_LAB`;
++- failed stage: `31_flutter_tests`;
++- remote Git mutation: none;
++- Firebase deployment: none;
++- production-data mutation: none;
++- device uninstall/clear: none.
++
++The evidence candidate manifest contains 712 entries and matches the sealed R1.14 candidate with zero missing, extra, size-mismatched or SHA-256-mismatched files.
++
++## Exact result
++
++Stages 01–30 passed, including dependency custody, authentic Isar generation, all source audits, Functions compilation and ordinary tests, `flutter analyze`, and governed no-download Isar native-core custody.
++
++The complete Flutter suite reached:
++
++- 472 passing tests;
++- 1 failing test;
++- no additional failing test.
++
++The failed contract was:
++
++`test/maintenance_lifecycle_replay_contract_test.dart`
++
++Test name:
++
++`rules accept mobile close/reopen field surfaces without allowing identity edits`
++
++The emulator stage was not reached because the harness correctly stops after a failed Flutter suite.
++
++## Root cause
++
++R1.14 deliberately changed maintenance-record Rules from four independent `allow update` expressions to one routed expression:
++
++```text
++allow update: if validMaintenanceUpdate();
++```
++
++This was the bounded correction for the authenticated R1.13 Firestore 1,000-expression failures. The router selects exactly one of:
++
++- `validMaintenanceCloseUpdate()`;
++- `validMaintenanceReopenUpdate()`;
++- `validMaintenanceSoftDeleteUpdate()`;
++- `validMaintenanceAdminEditUpdate()`.
++
++The failed Flutter contract still required all four deleted pre-R1.14 `allow update` clauses and explicitly asserted that the new router must be absent. Its own explanatory reason described the superseded architecture.
++
++The failure is therefore a stale structural assertion. It is not evidence that close/reopen payload fields, authorization, immutable identity fields or the R1.14 Rules router are defective.
++
++## R1.15 correction
++
++R1.15 changes the contract to prove the governed R1.14 architecture:
++
++- exactly one maintenance `allow update` exists;
++- that rule invokes `validMaintenanceUpdate()`;
++- the router distinguishes deleted-state and resolved-state transitions;
++- all four transition validators remain reachable;
++- the router contains no parallel `||` chain.
++
++R1.15 does not change `firestore.rules`, application product code, Functions code, dependency locks, Firebase configuration or release policy.
++
++## Scope and non-claims
++
++Static validation can prove that the stale assertion is removed and the replacement contract follows the current Rules structure. Only a fresh authoritative Windows run can prove the complete Flutter suite and the subsequently reached Rules and governed Functions emulator gates.
+diff --git a/docs/v4_2_r1/R1_15_MAINTENANCE_ROUTER_CONTRACT_CORRECTION.md b/docs/v4_2_r1/R1_15_MAINTENANCE_ROUTER_CONTRACT_CORRECTION.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..edf5d80d63dc9a4cce3ae25bc727470b60ec5666
+--- /dev/null
++++ b/docs/v4_2_r1/R1_15_MAINTENANCE_ROUTER_CONTRACT_CORRECTION.md
+@@ -0,0 +1,31 @@
++# R1.15 Maintenance-Router Contract Correction
++
++R1.15 is a test-contract correction over the sealed R1.14 candidate.
++
++## Preserved bytes
++
++The following authority-bearing areas are unchanged from R1.14:
++
++- `firestore.rules`;
++- all `lib/` product source;
++- all `functions/` source and tests;
++- root and Functions dependency lockfiles;
++- Firebase configuration;
++- Android build identity;
++- release policy and workflows.
++
++## Corrected contract
++
++`test/maintenance_lifecycle_replay_contract_test.dart` now verifies the R1.14 single-router maintenance update design rather than the removed four-parallel-allow design.
++
++The replacement assertion is behavioural-structural:
++
++1. isolate the `maintenance_records` Rules match block;
++2. prove exactly one `allow update`;
++3. prove that update calls `validMaintenanceUpdate()`;
++4. isolate the router;
++5. prove deleted/resolved state selection;
++6. prove all four governed validators remain present;
++7. reject a parallel OR chain.
++
++This closes the only failure in the authenticated R1.14 Flutter run without weakening the Rules or deleting lifecycle coverage.
+diff --git a/test/maintenance_lifecycle_replay_contract_test.dart b/test/maintenance_lifecycle_replay_contract_test.dart
+index 5fea2e5fe75febf15385db5b0e74f9697d03fec1..104496c1f5941bb5015e0231dfd6996189ad90e0 100644
+--- a/test/maintenance_lifecycle_replay_contract_test.dart
++++ b/test/maintenance_lifecycle_replay_contract_test.dart
+@@ -398,43 +398,48 @@ void main() {
+           adminEditUpdate,
+           contains('maintenanceAdminEditShape(affected)'),
+         );
+-        expect(
++        final maintenanceMatch = _blockStartingAt(
+           rules,
+-          contains(
+-            'allow update: if exists(/databases/\$(database)/documents/maintenance_records/\$(docId))\n'
+-            '        ? (isApprovedUser() ? validMaintenanceCloseUpdate() : false)\n'
+-            '        : false;',
+-          ),
++          'match /maintenance_records/{docId}',
+         );
+         expect(
+-          rules,
+-          contains(
+-            'allow update: if exists(/databases/\$(database)/documents/maintenance_records/\$(docId))\n'
+-            '        ? (isApprovedUser() ? validMaintenanceReopenUpdate() : false)\n'
+-            '        : false;',
+-          ),
++          RegExp(r'allow\s+update\s*:')
++              .allMatches(maintenanceMatch)
++              .length,
++          1,
++          reason:
++              'Maintenance writes must evaluate exactly one routed update rule so denied branches do not consume the Firestore expression budget.',
+         );
+         expect(
++          maintenanceMatch,
++          contains('allow update: if validMaintenanceUpdate();'),
++        );
++
++        final maintenanceRouter = _blockStartingAt(
+           rules,
+-          contains(
+-            'allow update: if exists(/databases/\$(database)/documents/maintenance_records/\$(docId))\n'
+-            '        ? (isApprovedUser() ? validMaintenanceSoftDeleteUpdate() : false)\n'
+-            '        : false;',
+-          ),
++          'function validMaintenanceUpdate',
+         );
+         expect(
+-          rules,
+-          contains(
+-            'allow update: if exists(/databases/\$(database)/documents/maintenance_records/\$(docId))\n'
+-            '        ? (isApprovedUser() ? validMaintenanceAdminEditUpdate() : false)\n'
+-            '        : false;',
+-          ),
++          maintenanceRouter,
++          contains('targetDeleted != sourceDeleted'),
+         );
+         expect(
+-          rules,
+-          isNot(contains('allow update: if validMaintenanceUpdate();')),
++          maintenanceRouter,
++          contains('targetResolved != sourceResolved'),
++        );
++        for (final validator in <String>[
++          'validMaintenanceSoftDeleteUpdate()',
++          'validMaintenanceCloseUpdate()',
++          'validMaintenanceReopenUpdate()',
++          'validMaintenanceAdminEditUpdate()',
++        ]) {
++          expect(maintenanceRouter, contains(validator));
++        }
++        expect(
++          maintenanceRouter,
++          isNot(contains('||')),
+           reason:
+-              'Maintenance updates are intentionally split into small branch rules so denied paths do not exhaust the Firestore expression budget.',
++              'The router must select one lifecycle validator instead of evaluating parallel alternatives.',
+         );
+ 
+         final adminShape = _blockStartingAt(
+diff --git a/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1 b/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+index e9ea02a26437322170286033b53a294a57ccb001..af13cea068bdcfd06639119c6a96bc93c1de7a86 100644
+--- a/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
++++ b/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+@@ -42,7 +42,7 @@ $expected = [ordered]@{
+ $CandidatePath = (Resolve-Path $CandidatePath).Path
+ $EvidenceRoot = [IO.Path]::GetFullPath($EvidenceRoot)
+ $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+-$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_14_CANONICAL_LOCAL_LAB_$stamp"
++$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_15_CANONICAL_LOCAL_LAB_$stamp"
+ $evidenceDir = Join-Path $runRoot 'evidence'
+ $workspace = Join-Path $runRoot 'workspace'
+ New-Item -ItemType Directory -Force -Path $evidenceDir, $workspace | Out-Null
+@@ -386,7 +386,7 @@ function Seal-Evidence {
+ try {
+   Start-Transcript -Path $transcriptPath -Force | Out-Null
+   $transcriptActive = $true
+-  Write-Host 'CRM3 v4.2_R1.14 canonical-main local laboratory' -ForegroundColor Green
++  Write-Host 'CRM3 v4.2_R1.15 canonical-main local laboratory' -ForegroundColor Green
+   Write-Host "Pristine candidate: $CandidatePath"
+   Write-Host "Disposable workspace: $workspace"
+   Write-Host "Mode: $Mode"
+diff --git a/tools/v4/r1_15_targeted_static_audit.py b/tools/v4/r1_15_targeted_static_audit.py
+new file mode 100755
+index 0000000000000000000000000000000000000000..8316f30b0870e1d12dcd1012eeb319d82eb6d459
+--- /dev/null
++++ b/tools/v4/r1_15_targeted_static_audit.py
+@@ -0,0 +1,123 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import re
++import sys
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[2]
++passed: list[str] = []
++failed: list[str] = []
++
++
++def text(rel: str) -> str:
++    return (ROOT / rel).read_text(encoding="utf-8")
++
++
++def check(name: str, condition: bool, detail: str = "") -> None:
++    line = f"{name}" + (f" | {detail}" if detail else "")
++    if condition:
++        passed.append(name)
++        print(f"PASS | {line}")
++    else:
++        failed.append(name)
++        print(f"FAIL | {line}", file=sys.stderr)
++
++
++def block(source: str, marker: str) -> str:
++    start = source.find(marker)
++    if start < 0:
++        return ""
++    open_brace = source.find("{", start + len(marker))
++    if open_brace < 0:
++        return ""
++    depth = 0
++    quote: str | None = None
++    escaped = False
++    for i in range(open_brace, len(source)):
++        ch = source[i]
++        if quote:
++            if escaped:
++                escaped = False
++            elif ch == "\\":
++                escaped = True
++            elif ch == quote:
++                quote = None
++            continue
++        if ch in ("'", '"'):
++            quote = ch
++        elif ch == "{":
++            depth += 1
++        elif ch == "}":
++            depth -= 1
++            if depth == 0:
++                return source[start : i + 1]
++    return ""
++
++
++rules = text("firestore.rules")
++contract = text("test/maintenance_lifecycle_replay_contract_test.dart")
++harness = text("tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1")
++
++maintenance_match = block(rules, "match /maintenance_records/{docId}")
++maintenance_router = block(rules, "function validMaintenanceUpdate()")
++
++check(
++    "R1.14 Rules still expose exactly one maintenance update allow",
++    maintenance_match.count("allow update:") == 1
++    and "allow update: if validMaintenanceUpdate();" in maintenance_match,
++)
++check(
++    "maintenance router still selects all four governed transition validators",
++    all(
++        marker in maintenance_router
++        for marker in (
++            "validMaintenanceSoftDeleteUpdate()",
++            "validMaintenanceCloseUpdate()",
++            "validMaintenanceReopenUpdate()",
++            "validMaintenanceAdminEditUpdate()",
++        )
++    )
++    and "targetDeleted != sourceDeleted" in maintenance_router
++    and "targetResolved != sourceResolved" in maintenance_router
++    and "||" not in maintenance_router,
++)
++check(
++    "Flutter contract now asserts the single routed maintenance rule",
++    "'match /maintenance_records/{docId}'" in contract
++    and "contains('allow update: if validMaintenanceUpdate();')" in contract
++    and r"RegExp(r'allow\s+update\s*:')" in contract,
++)
++check(
++    "Flutter contract proves router branch coverage",
++    "'function validMaintenanceUpdate'" in contract
++    and "targetDeleted != sourceDeleted" in contract
++    and "targetResolved != sourceResolved" in contract
++    and all(
++        marker in contract
++        for marker in (
++            "validMaintenanceSoftDeleteUpdate()",
++            "validMaintenanceCloseUpdate()",
++            "validMaintenanceReopenUpdate()",
++            "validMaintenanceAdminEditUpdate()",
++        )
++    ),
++)
++check(
++    "obsolete four-allow maintenance expectation is absent",
++    "Maintenance updates are intentionally split into small branch rules" not in contract
++    and "isNot(contains('allow update: if validMaintenanceUpdate();'))" not in contract
++    and "validMaintenanceCloseUpdate() : false" not in contract,
++)
++check(
++    "R1.15 harness emits distinct evidence identity",
++    "CRM3_V42_R1_15_CANONICAL_LOCAL_LAB_$stamp" in harness
++    and "CRM3 v4.2_R1.15 canonical-main local laboratory" in harness,
++)
++check(
++    "R1.15 correction is test-only with respect to product and Rules source",
++    "R1.15 maintenance-router Flutter contract correction" in text("README.md"),
++)
++
++print(f"SUMMARY | pass={len(passed)} fail={len(failed)} total={len(passed)+len(failed)}")
++raise SystemExit(1 if failed else 0)
+diff --git a/tools/v4/v4_2_r1_canonical_audit.py b/tools/v4/v4_2_r1_canonical_audit.py
+index 3193a71bfb00436662ad4d2027739101e111ba89..4dbc234be8ec46c4fdd02830c16fa79d8da082c7 100644
+--- a/tools/v4/v4_2_r1_canonical_audit.py
++++ b/tools/v4/v4_2_r1_canonical_audit.py
+@@ -154,8 +154,8 @@ check(
+ )
+ check(
+     "Canonical reconciliation is no-loss with explicit successor delta",
+-    counts.get("BYTE_IDENTICAL") == 345
+-    and counts.get("SUCCESSOR_MODIFIED") == 65
++    counts.get("BYTE_IDENTICAL") == 344
++    and counts.get("SUCCESSOR_MODIFIED") == 66
+     and counts.get("MISSING", 0) == 0,
+     str(counts),
+ )
+@@ -555,9 +555,21 @@ check(
+     and "isOpenForWork: true" in firestore_rules_test
+     and "isOpenForWork: false" in firestore_rules_test,
+ )
++maintenance_replay_guard = text("test/maintenance_lifecycle_replay_contract_test.dart")
+ check(
+-    "R1.14 laboratory captures Firebase CLI smoke evidence and exact tier names",
+-    'CRM3_V42_R1_14_CANONICAL_LOCAL_LAB_$stamp' in harness
++    "R1.15 maintenance replay contract follows the single Rules router",
++    "'match /maintenance_records/{docId}'" in maintenance_replay_guard
++    and "contains('allow update: if validMaintenanceUpdate();')" in maintenance_replay_guard
++    and r"RegExp(r'allow\s+update\s*:')" in maintenance_replay_guard
++    and "Maintenance updates are intentionally split into small branch rules"
++        not in maintenance_replay_guard
++    and "isNot(contains('allow update: if validMaintenanceUpdate();'))"
++        not in maintenance_replay_guard,
++)
++
++check(
++    "R1.15 laboratory captures Firebase CLI smoke evidence and exact tier names",
++    'CRM3_V42_R1_15_CANONICAL_LOCAL_LAB_$stamp' in harness
+     and 'Write-Output "PASS_FIREBASE_CLI_LOAD_SMOKE' in harness
+     and "PASS_AUTHORITATIVE_BUILD_ONLY" in harness
+     and "PASS_AUTHORITATIVE_BUILD_AND_EMULATOR" in harness

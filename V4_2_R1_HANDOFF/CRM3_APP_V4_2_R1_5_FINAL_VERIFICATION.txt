@@ -1,0 +1,39 @@
+CRM3 APP v4.2_R1.5 — FINAL PRE-ZIP VERIFICATION
+
+Scope:
+  Correct the PowerShell JSON parser used by the R1.4 Firebase CLI lock-policy gate.
+  No application, Functions, Rules, Isar, Android, dependency, Firebase config,
+  workflow-policy, programme-ledger or release-authority source changed.
+
+Canonical authority:
+  main commit 633c58bb0d936011e391b42627f8b8f02c510e95
+  tree        2f547a79e79076c70dd15ae8b85a7ad70c9fa018
+
+Accepted execution evidence:
+  R1.4 ZIP/sidecar custody: PASS
+  R1.4 steps 01-09: PASS
+  R1.4 step 10: HOLD_FIREBASE_CLI_LOCK_POLICY
+  exact failure: npm lockfile empty-string root key required -AsHashTable
+
+R1.5 parser policy:
+  lockfile parse uses ConvertFrom-Json -AsHashTable
+  JSON accessor supports IDictionary and PSCustomObject
+  lock packages map is explicit and fail-closed
+  direct $lock.packages access is absent
+
+Static validation:
+  lock policy equivalent checks           11/11 PASS
+  v4.2_R1 canonical audit                 26/26 PASS
+  v4.2 ultimate audit                     17/17 PASS
+  v4.1 due-diligence audit                 9/9 PASS
+  whole-app reconciliation                21/21 PASS
+  inherited full-tree                     18/18 PASS
+  inherited expanded                      15/15 PASS
+  Dart structural audit                    PASS
+  integrity-sweep tests                     3/3 PASS
+  generated policy check                   PASS
+  R1.4 -> R1.5 reconstruction              exact PASS
+
+Authoritative limitations:
+  PowerShell runtime and all post-step-10 execution remain reserved for the
+  Windows R1.5 laboratory. No authoritative build/emulator/device PASS is claimed.

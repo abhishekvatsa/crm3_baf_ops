@@ -430,10 +430,34 @@ class JobExecution {
   @Index()
   bool isCompleted = false;
 
+  /// Server-owned terminal cancellation state. Cancelled executions remain
+  /// visible for history but are excluded from open-work views.
+  @Index()
+  bool isCancelled = false;
+  DateTime? cancelledAt;
+  String? cancelledByUid;
+  String? cancelledByName;
+  String? cancellationReason;
+
   String? assignedByUid;
   String? assignedByName;
 
   List<String> assignedAgencies = [];
+
+  // ── Maintenance workflow control-plane identity ──────────
+  // Zero means legacy/no proven workflow aggregate. Governed creation paths
+  // set this server-owned field to 1 only when the aggregate is created.
+  int workflowSchemaVersion = 0;
+  int laneSetVersion = 0;
+  DateTime? laneSetFinalizedAt;
+  String? laneSetFinalizedByUid;
+  String? laneSetFinalizedByName;
+  @Index()
+  bool laneMappingReview = false;
+  @Index()
+  String? parentExecutionFirestoreId;
+  String? spawnedRedExecutionFirestoreId;
+  String? redAnswerJson;
 
   @ignore
   RoutedTo get assignedAgency => assignedAgencies.isNotEmpty
@@ -524,6 +548,12 @@ class JobExecution {
     'assetType': assetType.name,
     'assetNumber': assetNumber,
     'isCompleted': isCompleted,
+    'isCancelled': isCancelled,
+    'workflowSchemaVersion': workflowSchemaVersion,
+    'laneSetVersion': laneSetVersion,
+    'laneMappingReview': laneMappingReview,
+    'parentExecutionFirestoreId': parentExecutionFirestoreId,
+    'spawnedRedExecutionFirestoreId': spawnedRedExecutionFirestoreId,
     'isDeleted': isDeleted,
   };
 
@@ -546,9 +576,23 @@ class JobExecution {
       'assetType': assetType.name,
       'assetNumber': assetNumber,
       'isCompleted': isCompleted,
+      'isCancelled': isCancelled,
+      'cancelledAt': cancelledAt?.toIso8601String(),
+      'cancelledByUid': cancelledByUid,
+      'cancelledByName': cancelledByName,
+      'cancellationReason': cancellationReason,
       'assignedByUid': assignedByUid,
       'assignedByName': assignedByName,
       'assignedAgencies': assignedAgencies,
+      'workflowSchemaVersion': workflowSchemaVersion,
+      'laneSetVersion': laneSetVersion,
+      'laneSetFinalizedAt': laneSetFinalizedAt?.toIso8601String(),
+      'laneSetFinalizedByUid': laneSetFinalizedByUid,
+      'laneSetFinalizedByName': laneSetFinalizedByName,
+      'laneMappingReview': laneMappingReview,
+      'parentExecutionFirestoreId': parentExecutionFirestoreId,
+      'spawnedRedExecutionFirestoreId': spawnedRedExecutionFirestoreId,
+      'redAnswerJson': redAnswerJson,
       'completedByUid': completedByUid,
       'completedByName': completedByName,
       'remarks': remarks,
@@ -567,6 +611,28 @@ class JobExecution {
       'completedAt': completedAt?.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
+  }
+
+  /// Client-originated Firestore shape. Server-owned workflow fields are
+  /// deliberately omitted so merge writes cannot overwrite lane, RED or
+  /// completion authority established by Cloud Functions.
+  Map<String, dynamic> toClientWritableMap() {
+    final map = Map<String, dynamic>.from(toMap());
+    map.remove('laneSetVersion');
+    map.remove('laneSetFinalizedAt');
+    map.remove('laneSetFinalizedByUid');
+    map.remove('laneSetFinalizedByName');
+    map.remove('laneMappingReview');
+    map.remove('parentExecutionFirestoreId');
+    map.remove('spawnedRedExecutionFirestoreId');
+    map.remove('redAnswerJson');
+    map.remove('workflowSchemaVersion');
+    map.remove('isCancelled');
+    map.remove('cancelledAt');
+    map.remove('cancelledByUid');
+    map.remove('cancelledByName');
+    map.remove('cancellationReason');
+    return map;
   }
 
   // 🔥 fromMap factory.
@@ -589,9 +655,27 @@ class JobExecution {
       ..assetType = _enumByNameOr(AssetType.values, map['assetType'], AssetType.base)
       ..assetNumber = map['assetNumber'] ?? 0
       ..isCompleted = map['isCompleted'] ?? false
+      ..isCancelled = map['isCancelled'] == true
+      ..cancelledAt = _parseTimestamp(map['cancelledAt'])
+      ..cancelledByUid = _cleanOptionalText(map['cancelledByUid'])
+      ..cancelledByName = _cleanOptionalText(map['cancelledByName'])
+      ..cancellationReason = _cleanOptionalText(map['cancellationReason'])
       ..assignedByUid = map['assignedByUid']
       ..assignedByName = map['assignedByName']
       ..assignedAgencies = List<String>.from(map['assignedAgencies'] ?? [])
+      ..workflowSchemaVersion = map['workflowSchemaVersion'] is int
+          ? map['workflowSchemaVersion'] as int
+          : 0
+      ..laneSetVersion = map['laneSetVersion'] is int
+          ? map['laneSetVersion'] as int
+          : 0
+      ..laneSetFinalizedAt = _parseTimestamp(map['laneSetFinalizedAt'])
+      ..laneSetFinalizedByUid = _cleanOptionalText(map['laneSetFinalizedByUid'])
+      ..laneSetFinalizedByName = _cleanOptionalText(map['laneSetFinalizedByName'])
+      ..laneMappingReview = map['laneMappingReview'] == true
+      ..parentExecutionFirestoreId = _cleanOptionalText(map['parentExecutionFirestoreId'])
+      ..spawnedRedExecutionFirestoreId = _cleanOptionalText(map['spawnedRedExecutionFirestoreId'])
+      ..redAnswerJson = _cleanOptionalText(map['redAnswerJson'])
       ..completedByUid = map['completedByUid']
       ..completedByName = map['completedByName']
       ..remarks = map['remarks']

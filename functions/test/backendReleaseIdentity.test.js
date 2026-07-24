@@ -123,6 +123,30 @@ describe("backend release identity", () => {
         },
       }),
     ).rejects.toMatchObject({code: "permission-denied"});
+
+    await expect(
+      getBackendReleaseIdentityWithDb({
+        db: fakeDb({approved: true, roles: ["operations"]}),
+        authUid: "legacy-approved",
+        environment: {
+          releaseId: "release-1",
+          firebaseProjectId: "crm3-baf-ops-b8638",
+          environment: "production",
+        },
+      }),
+    ).rejects.toMatchObject({code: "permission-denied"});
+
+    await expect(
+      getBackendReleaseIdentityWithDb({
+        db: fakeDb({isApproved: true, roles: ["operations", "bogus"]}),
+        authUid: "malformed-role",
+        environment: {
+          releaseId: "release-1",
+          firebaseProjectId: "crm3-baf-ops-b8638",
+          environment: "production",
+        },
+      }),
+    ).rejects.toMatchObject({code: "permission-denied"});
   });
 
   test("maps process environment with project fallback", () => {

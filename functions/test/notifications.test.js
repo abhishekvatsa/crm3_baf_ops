@@ -263,6 +263,16 @@ describe('getTokenLookupsForRoles', () => {
     expect(result.map((r) => r.uid).sort()).toEqual(['u1', 'u2']);
   });
 
+  test('fails closed for legacy or malformed authority records', async () => {
+    const {db} = buildFirestoreDouble({
+      valid: {isApproved: true, roles: ['admin'], fcmToken: 'valid-token'},
+      legacy: {approved: true, roles: ['admin'], fcmToken: 'legacy-token'},
+      malformed: {isApproved: true, roles: ['admin', 'bogus'], fcmToken: 'bad-token'},
+    });
+    const result = await getTokenLookupsForRoles(db, ['admin']);
+    expect(result).toEqual([{uid: 'valid', fcmToken: 'valid-token'}]);
+  });
+
   test('skips users without a token', async () => {
     const {db} = buildFirestoreDouble({
       u1: {isApproved: true, roles: ['admin'], fcmToken: null},
@@ -420,6 +430,28 @@ describe('sendNotification', () => {
       title: 'T', body: 'B',
     });
     expect(messagesSent).toHaveLength(2);
+  });
+
+  test('passes workflow deep-link data through to every FCM message', async () => {
+    const {db} = buildFirestoreDouble({});
+    let messagesSent = null;
+    const messaging = {
+      sendEach: async (msgs) => {
+        messagesSent = msgs;
+        return {
+          successCount: msgs.length, failureCount: 0,
+          responses: msgs.map(() => ({success: true})),
+        };
+      },
+    };
+    const data = {aggregateId: 'wf-1', eventId: 'event-1'};
+    await sendNotification({
+      db, messaging,
+      recipients: [{uid: 'u1', fcmToken: 'token-1'}],
+      title: 'T', body: 'B', data,
+    });
+    expect(messagesSent).toHaveLength(1);
+    expect(messagesSent[0].data).toEqual(data);
   });
 
   test('empty recipients short-circuits without calling FCM', async () => {

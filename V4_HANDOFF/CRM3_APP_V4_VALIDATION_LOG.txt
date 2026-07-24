@@ -1,0 +1,119 @@
+# CRM3 App v4 — Validation Log
+
+## Summary
+- v4 whole-app audit: 21/21 PASS
+- v3.2 inherited audit: 18/18 PASS
+- v3.3 inherited audit: 15/15 PASS
+- Dart structural audit: PASS across 367 files
+- Isar source verifier: PASS
+- Isar release verifier: expected fail-closed (13 provisional bindings)
+- TypeScript compile: PASS
+- Functions: 207 passed / 29 skipped
+
+## Independently reconstructed source audits
+===== V4 whole-app reconciliation audit =====
+CRM3 v4 — WHOLE-APP RECONCILIATION SOURCE AUDIT
+root=/mnt/data/CRM3_APP_V4_PATCH_RECONSTRUCTION
+PASS | workflow finalizer absorbs canonical module/evidence attestation | one workflow finalizer retains original remote-module and audit guarantees
+PASS | legacy completion is fenced from workflow-schema executions | old callable remains only for legacy jobs
+PASS | module reopen reactivates lane and writes correlated audit | module/lane states cannot diverge on reopen
+PASS | every module discipline has one canonical accountable lane | mapped=11 expected=11
+PASS | lane finalisation derives mandatory lanes from module population | classification cannot omit lanes already required by work
+PASS | lane mutation remaps dependent modules atomically or refuses | module identity is never stranded by lane removal
+PASS | workflow cancellation projects across old and new data planes | execution, lanes, compliance, maintenance, modules, equipment and audit move together
+PASS | compliance commands are workflow-bound and terminal guarded | continuations cannot trust foreign or historical references blindly
+PASS | maintenance bridge validates asset/binding and persists queue states | original ticket and compliance request form one contract
+PASS | client and Rules block deferred-ticket legacy mutation | server and local UI agree on deferred ticket authority
+PASS | original asset/report surfaces consume canonical equipment projection | workflow board is not a third isolated truth
+PASS | malformed remote records are quarantined per document | one poison projection cannot abort valid sibling records
+PASS | workflow diagnostics expose quarantine and manual-review commands read-only | supportability does not add an unsafe mutation bypass
+PASS | escalation is paged and transactionally revalidated | closed work cannot be escalated from a stale scheduler snapshot
+PASS | escalation indexes match v4 queries | present=2/2
+PASS | App Check is deploy-time gated rather than silently assumed | signed-client readiness remains an explicit production gate
+PASS | production release rejects provisional Isar authority | source completeness cannot be mistaken for pinned codegen proof
+PASS | policy is single-sourced across TypeScript and Dart | v4 lane/module/role policy remains generated
+PASS | Isar migration version explicitly advances to v3 | same-version schema drift is not hidden
+PASS | v4 Isar source schema verifier passes | PASS: v4 Isar schema structure verified; provisional_bindings=13; release_authority=NO
+PASS | release authority remains fail-closed until pinned build_runner | expected release block is active
+SUMMARY | pass=21 fail=0 total=21
+===== V3.2 inherited full-tree audit =====
+CRM3 MAINTENANCE WORKFLOW — FULL-TREE SOURCE AUDIT
+root=/mnt/data/CRM3_APP_V4_PATCH_RECONSTRUCTION
+PASS | client execution serializer excludes every server-owned workflow field | all 9 fields excluded
+PASS | new unproven JobExecution defaults to legacy/no-aggregate schema | default is 0; server creation elevates to 1
+PASS | all live batch execution writes use the client-safe serializer | FirestorePlannedRepository.batchUpsertExecutions inspected
+PASS | full lib tree handles both newly added discipline enum values | every discipline switch is explicit
+PASS | untouched composer owner bridge preserves EMD and Refractory identities | new disciplines no longer collapse into the legacy 'others' bucket
+PASS | untouched published-template parsers preserve EMD and Refractory | newly published modules no longer collapse into shared/others
+PASS | agreed Operations module authority is retained | authority is generated from the governing policy
+PASS | legacy 'others' modules remain operable by Senior Refractory | historical refractory-as-others compatibility is policy-generated
+PASS | workflow retry/pull failures are isolated from mature sync status | supplemental control plane has independent logging/catches
+PASS | one workflow collection failure does not abort later collections | per-collection watermark advances remain independent and post-upsert
+PASS | workflow notifications reuse shared token cleanup and data payload support | parallel sendEachForMulticast path removed
+PASS | workflow notification routing derives from generated lane policy | no parallel per-lane hardcode
+PASS | workflow notification receipt uses a retryable lease | concurrent/retried event delivery is guarded
+PASS | notification tap and terminated-app launch resolve to workflow UI | imperative navigation remains compatible with the existing app shell
+PASS | callable supported roles are generated from the policy role universe | hand-maintained fourth role list removed
+PASS | ratified online-only lifecycle decision is consumed by field UX | review criticism is adjudicated, not blindly implemented
+PASS | workflow timestamp parser accepts native Firestore Timestamp | review concern O-Deep-1 is closed as already-correct
+PASS | workflow joins do not rely on transported device-local execution ids | all workflow consumers join on Firestore/workflow identity
+SUMMARY | pass=18 fail=0 total=18
+===== V3.3 inherited expanded audit =====
+CRM3 APP — EXPANDED IMPLEMENTATION SOURCE AUDIT
+root=/mnt/data/CRM3_APP_V4_PATCH_RECONSTRUCTION
+PASS | all authoritative workflow commands have a client entry point | commands=21 missing=[]
+PASS | Dart and TypeScript command vocabularies remain exact | dart=21 typescript=21
+PASS | compliance creation requires accountable origin-lane authority | origin lane can no longer be omitted by a handcrafted client
+PASS | RED preparation is reachable from the planned-job workflow panel | prepareRedLane
+PASS | compliance creation is reachable from the planned-job workflow panel | raiseCompliance
+PASS | workflow cancellation is reachable from the planned-job workflow panel | cancelWorkflow
+PASS | equipment reconciliation is reachable and authority-gated | Admin/SI control; server derives state from facts
+PASS | compliance inbox exposes role-aware operational views and due state | target, origin, supervisory, dormant/due and tier surfaces present
+PASS | escalation sweep is paged, transactionally revalidated and emits events | stale scheduler snapshots cannot escalate closed work
+PASS | escalation policy stops at Tier 3 and absorbs scheduler jitter | no repeated terminal-tier churn
+PASS | notification routing follows the ratified escalation ladder | Tier 1 lane senior; Tier 2 Shift Supervisor/SI; Tier 3 Admin
+PASS | all escalation query indexes are declared | required=2 present=2
+PASS | client affordances mirror server command authority | new controls are hidden from actors who cannot execute them
+PASS | home surfaces workflow attention and routes compliance notifications | pending lane acknowledgements plus due compliance are visible before opening the hub
+PASS | ratified online-only lifecycle model remains unchanged | expanded implementation does not reintroduce the superseded hybrid model
+SUMMARY | pass=15 fail=0 total=15
+===== V4 Isar source verifier =====
+PASS: v4 Isar schema structure verified; provisional_bindings=13; release_authority=NO
+===== Dart structural audit =====
+CRM3 v4 — DART STRUCTURAL AUDIT
+PASS | lexical delimiter balance across 367 Dart files
+PASS | every declared part file exists
+PASS | generated Isar property/index ids contain no duplicates
+PASS | git diff --check
+SUMMARY | files=367 fail=0 provisional_isar=13 flutter_analyze=NOT_RUN
+===== V4 Isar release verifier — EXPECTED FAIL-CLOSED =====
+FAIL: Pinned build_runner output required before release; provisional files: lib/features/planned_maintenance/data/job_diary_model.g.dart, lib/features/planned_maintenance/data/job_module_model.g.dart, lib/features/planned_maintenance/data/job_template_model.g.dart, lib/features/maintenance_workflow/data/compliance_attempt_record.g.dart, lib/features/maintenance_workflow/data/compliance_request_record.g.dart, lib/features/maintenance_workflow/data/equipment_prompt_record.g.dart, lib/features/maintenance_workflow/data/equipment_status_record.g.dart, lib/features/maintenance_workflow/data/job_lane_record.g.dart, lib/features/maintenance_workflow/data/workflow_aggregate_record.g.dart, lib/features/maintenance_workflow/data/workflow_command_receipt_record.g.dart, lib/features/maintenance_workflow/data/workflow_command_record.g.dart, lib/features/maintenance_workflow/data/workflow_event_record.g.dart, lib/features/maintenance/data/maintenance_model.g.dart
+release_rc=1 (expected non-zero)
+
+## Independently reconstructed Functions build/tests
+
+> build
+> tsc
+
+PASS test/runtimeJobModulePopulationCallable.test.js
+PASS test/maintenanceWorkflow.test.js
+PASS test/runtimeJobModulePopulation.test.js
+PASS test/publishedTemplateAssignment.test.js
+PASS test/backendPostdeploymentAttestation.test.js
+PASS test/plannedJobClosure.test.js
+PASS test/stage2dSecuritySource.test.js
+PASS test/newBehavior.test.js
+PASS test/notifications.test.js
+PASS test/workflowNotificationPolicy.test.js
+PASS test/wholeAppMaintenanceBridgeSource.test.js
+PASS test/backendReleaseIdentity.test.js
+PASS test/workflowOperationalResilienceSource.test.js
+PASS test/backendReleaseIdentityComposite.test.js
+PASS test/maintenanceWorkflowRulesSource.test.js
+PASS test/maintenanceWorkflowEscalationPolicy.test.js
+
+Test Suites: 3 skipped, 16 passed, 16 of 19 total
+Tests:       29 skipped, 207 passed, 236 total
+Snapshots:   0 total
+Time:        4.767 s
+Ran all test suites.

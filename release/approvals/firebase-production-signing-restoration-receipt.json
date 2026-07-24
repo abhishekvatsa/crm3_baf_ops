@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "firebase-android-production-signing-additive-restoration",
+  "operationReference": "CRM3-FB-RESTORE-001-C1",
+  "historicalRegistrationReference": "BAF-REF-005",
+  "capturedAtUtc": "2026-07-24T02:41:07.713365Z",
+  "projectId": "crm3-baf-ops-b8638",
+  "firebaseAppId": "1:894346496105:android:fba14febfbbee102e63af8",
+  "packageName": "in.co.sail.bsl.crm3.bafops",
+  "finalStatus": "PASS_FIREBASE_PRODUCTION_SIGNING_RESTORED_HISTORICAL_AUTHORITY",
+  "debugAuthorityPreserved": {
+    "sha1": "30B58F0F39E1BA3CA69FD9032D7CF6FB41EC8F31",
+    "sha256": "B0B0EF9B348F5D474356AEB79182483B98829012FC25EB3EDCD517D11563C6D5",
+    "oauthClientId": "894346496105-hmk7941e55ph206e6nr6ifvvqqqf7ee6.apps.googleusercontent.com"
+  },
+  "productionAuthorityRestored": {
+    "sha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+    "sha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "oauthClientIds": [
+      "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com"
+    ],
+    "historicalOauthClientId": "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com"
+  },
+  "mutations": [
+    {
+      "shaHash": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+      "action": "create",
+      "createdByThisRun": true,
+      "attribution": "created-by-this-run",
+      "commandExitCode": 0,
+      "commandJson": {
+        "status": "success",
+        "result": {
+          "name": "projects/crm3-baf-ops-b8638/androidApps/1:894346496105:android:fba14febfbbee102e63af8/sha/50754039b013774e",
+          "shaHash": "6e005fdeffa62b03fc83177cc8699c4905b7a22b08b2eadc1b69df0c25f0b47c",
+          "certType": "SHA_256"
+        }
+      },
+      "postconditionPresent": true,
+      "postconditionAttempts": [
+        {
+          "attempt": 1,
+          "capturedAtUtc": "2026-07-24T02:40:56.695148Z",
+          "present": true
+        }
+      ]
+    },
+    {
+      "shaHash": "41C2B828C71683A50EC346D19E1D44048758438D",
+      "action": "create",
+      "createdByThisRun": true,
+      "attribution": "created-by-this-run",
+      "commandExitCode": 0,
+      "commandJson": {
+        "status": "success",
+        "result": {
+          "name": "projects/crm3-baf-ops-b8638/androidApps/1:894346496105:android:fba14febfbbee102e63af8/sha/204db3510b4f7ed2",
+          "shaHash": "41c2b828c71683a50ec346d19e1d44048758438d",
+          "certType": "SHA_1"
+        }
+      },
+      "postconditionPresent": true,
+      "postconditionAttempts": [
+        {
+          "attempt": 1,
+          "capturedAtUtc": "2026-07-24T02:41:03.227986Z",
+          "present": true
+        }
+      ]
+    }
+  ],
+  "combinedGoogleServicesSha256": "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B",
+  "combinedGoogleServicesSemanticSha256": "A9FEE3B4E0770F9643C3929F41FDF69FFA8D638A5BE55EF81B34B893C4258FE2",
+  "repositoryModified": false,
+  "firebaseDeletionPerformed": false,
+  "adjacentFirebaseMutationPerformed": false
+}
