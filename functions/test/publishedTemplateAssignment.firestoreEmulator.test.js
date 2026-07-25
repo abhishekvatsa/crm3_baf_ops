@@ -164,7 +164,9 @@ describeWithEmulator('O-09 governed assignment real Firestore matrix', () => {
       'template_publish_audits',
       'published_template_assignment_requests',
       'job_executions',
+      'maintenance_workflows',
       'job_modules',
+      'equipment_status',
     ];
     const state = {};
     for (const name of names) state[name] = await collectionState(name);
@@ -228,19 +230,134 @@ describeWithEmulator('O-09 governed assignment real Firestore matrix', () => {
     });
   });
 
-  test('two concurrent identical requests converge to one logical assignment', async () => {
+  test('burst-identical requests converge through bounded transaction retry', async () => {
     await seedBase();
-    const results = await Promise.all([invoke(), invoke()]);
+    const results = await Promise.all(
+      Array.from({length: 12}, () => invoke()),
+    );
     const state = await captureState();
 
     expect(new Set(results.map((item) => item.executionId)).size).toBe(1);
-    expect(results.map((item) => item.idempotentReplay).sort()).toEqual([
+    expect(results.filter((item) => item.idempotentReplay === false)).toHaveLength(1);
+    expect(results.filter((item) => item.idempotentReplay === true)).toHaveLength(11);
+    expect(state.job_executions).toHaveLength(1);
+    expect(state.maintenance_workflows).toHaveLength(1);
+    expect(state.job_modules).toHaveLength(1);
+    expect(state.published_template_assignment_requests).toHaveLength(1);
+    expect(state.equipment_status).toHaveLength(1);
+    expect(state.equipment_status[0].data).toMatchObject({
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 1,
+      version: 1,
+    });
+  });
+
+  test('concurrent requests serialize through one equipment projection without rejection', async () => {
+    await seedBase();
+    const identicalResults = await Promise.all([invoke(), invoke()]);
+    let state = await captureState();
+
+    expect(new Set(identicalResults.map((item) => item.executionId)).size).toBe(1);
+    expect(identicalResults.map((item) => item.idempotentReplay).sort()).toEqual([
       false,
       true,
     ]);
     expect(state.job_executions).toHaveLength(1);
+    expect(state.maintenance_workflows).toHaveLength(1);
     expect(state.job_modules).toHaveLength(1);
     expect(state.published_template_assignment_requests).toHaveLength(1);
+    expect(state.equipment_status).toHaveLength(1);
+    expect(state.equipment_status[0].data).toMatchObject({
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 1,
+    });
+
+    await clearFirestore();
+    await seedBase();
+    const distinctResults = await Promise.all([
+      invoke(requestFixture({
+        requestId: '22222222-2222-4222-8222-222222222222',
+      })),
+      invoke(requestFixture({
+        requestId: '33333333-3333-4333-8333-333333333333',
+      })),
+    ]);
+    state = await captureState();
+
+    expect(new Set(distinctResults.map((item) => item.executionId)).size).toBe(2);
+    expect(distinctResults.every((item) => item.idempotentReplay === false)).toBe(true);
+    expect(state.job_executions).toHaveLength(2);
+    expect(state.maintenance_workflows).toHaveLength(2);
+    expect(state.job_modules).toHaveLength(2);
+    expect(state.published_template_assignment_requests).toHaveLength(2);
+    expect(state.equipment_status).toHaveLength(1);
+    expect(state.equipment_status[0].data).toMatchObject({
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 2,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 2,
+    });
+
+    await clearFirestore();
+    await seedBase();
+    await db.collection('job_executions').doc('existing_execution').set({
+      firestoreId: 'existing_execution',
+      assetType: 'base',
+      assetNumber: 101,
+      isCompleted: false,
+      isDeleted: false,
+    });
+    await db.collection('maintenance_workflows').doc('existing_execution').set({
+      jobExecutionId: 'existing_execution',
+      assetTypeKey: 'base',
+      assetNumber: 101,
+      status: 'pendingLaneClassification',
+      activeRedWork: false,
+      awaitingPreparation: false,
+      cancelled: false,
+    });
+    await db.collection('job_modules').doc('existing_module').set({
+      firestoreId: 'existing_module',
+      jobExecutionFirestoreId: 'existing_execution',
+      assetType: 'base',
+      assetNumber: 101,
+      status: 'notStarted',
+    });
+    await db.collection('equipment_status').doc('base_101').set({
+      assetTypeKey: 'base',
+      assetNumber: 101,
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 1,
+    });
+    await Promise.all([
+      invoke(requestFixture({
+        requestId: '44444444-4444-4444-8444-444444444444',
+      })),
+      invoke(requestFixture({
+        requestId: '55555555-5555-4555-8555-555555555555',
+      })),
+    ]);
+    state = await captureState();
+
+    expect(state.job_executions).toHaveLength(3);
+    expect(state.maintenance_workflows).toHaveLength(3);
+    expect(state.job_modules).toHaveLength(3);
+    expect(state.published_template_assignment_requests).toHaveLength(2);
+    expect(state.equipment_status).toHaveLength(1);
+    expect(state.equipment_status[0].data).toMatchObject({
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 3,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 3,
+    });
   });
 
   test('same request id with changed payload rejects with whole-state no mutation', async () => {

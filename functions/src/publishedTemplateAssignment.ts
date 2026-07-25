@@ -37,6 +37,7 @@ type AssignmentQueryLike = {
     op: string,
     value: unknown,
   ) => AssignmentQueryLike;
+  get: () => Promise<AssignmentQuerySnapshotLike>;
 };
 
 type AssignmentDocumentRefLike = {
@@ -91,6 +92,7 @@ const CONTENT_HASH_PATTERN = /^tg2-sha256:[0-9a-f]{64}$/;
 const MAX_MODULES_PER_ASSIGNMENT = 100;
 const MAX_REMARKS_LENGTH = 2000;
 const MODULE_POPULATION_SCHEMA_VERSION = 1;
+const MAX_ASSIGNMENT_TRANSACTION_ATTEMPTS = 8;
 
 export class AssignmentValidationError extends Error {
   readonly code: AssignmentHttpsErrorCode;
@@ -1036,6 +1038,269 @@ function queryDocs(
   return "docs" in snapshot ? snapshot.docs : [];
 }
 
+type AssignmentEquipmentFacts = {
+  activeNonRedMaintenanceCount: number;
+  activeRedWorkCount: number;
+  awaitingPreparationCount: number;
+};
+
+type AssignmentEquipmentProjection = AssignmentEquipmentFacts & {
+  data: AssignmentJsonMap;
+  version: number;
+};
+
+const MAX_EQUIPMENT_PROJECTION_RECONCILIATION_ATTEMPTS = 5;
+
+function equipmentProjectionCounter(
+  data: AssignmentJsonMap,
+  field: string,
+  options: {allowMissing?: boolean} = {},
+): number | null {
+  const value = data[field];
+  if (value == null && options.allowMissing === true) return null;
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value < 0
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      `The equipment projection has an invalid ${field} counter.`,
+      {
+        reasonCode: "equipment-projection-counter-invalid",
+        field,
+        value,
+      },
+    );
+  }
+  return value;
+}
+
+function equipmentStateFromFacts(
+  facts: AssignmentEquipmentFacts,
+): "underRED" | "awaitingPreparation" | "underMaintenance" | null {
+  if (facts.activeRedWorkCount > 0) return "underRED";
+  if (facts.awaitingPreparationCount > 0) return "awaitingPreparation";
+  if (facts.activeNonRedMaintenanceCount > 0) return "underMaintenance";
+  return null;
+}
+
+function workflowFactsFromSnapshot(
+  snapshot: AssignmentQuerySnapshotLike,
+): AssignmentEquipmentFacts {
+  let activeNonRedMaintenanceCount = 0;
+  let activeRedWorkCount = 0;
+  let awaitingPreparationCount = 0;
+  for (const row of queryDocs(snapshot)) {
+    const data = row.data() ?? {};
+    if (
+      data.status === "completed" ||
+      data.status === "cancelled" ||
+      data.cancelled === true
+    ) {
+      continue;
+    }
+    if (data.activeRedWork === true) activeRedWorkCount += 1;
+    else if (data.awaitingPreparation === true) awaitingPreparationCount += 1;
+    else activeNonRedMaintenanceCount += 1;
+  }
+  return {
+    activeNonRedMaintenanceCount,
+    activeRedWorkCount,
+    awaitingPreparationCount,
+  };
+}
+
+async function loadOpenWorkflowFacts(
+  db: AssignmentFirestoreLike,
+  request: ParsedAssignmentRequest,
+): Promise<AssignmentEquipmentFacts> {
+  const snapshot = await db
+    .collection("maintenance_workflows")
+    .where("assetTypeKey", "==", request.assetType)
+    .where("assetNumber", "==", request.assetNumber)
+    .get();
+  return workflowFactsFromSnapshot(snapshot);
+}
+
+function factsEqual(
+  left: AssignmentEquipmentFacts,
+  right: AssignmentEquipmentFacts,
+): boolean {
+  return left.activeNonRedMaintenanceCount ===
+      right.activeNonRedMaintenanceCount &&
+    left.activeRedWorkCount === right.activeRedWorkCount &&
+    left.awaitingPreparationCount === right.awaitingPreparationCount;
+}
+
+function equipmentProjectionRefreshRequired(
+  data: AssignmentJsonMap,
+  facts: AssignmentEquipmentFacts,
+): never {
+  throw new AssignmentValidationError(
+    "aborted",
+    "The equipment projection changed while workflow facts were being reconciled.",
+    {
+      reasonCode: "equipment-projection-refresh-required",
+      projection: {
+        activeNonRedMaintenanceCount:
+          data.activeNonRedMaintenanceCount ?? null,
+        activeRedWorkCount: data.activeRedWorkCount ?? null,
+        awaitingPreparationCount: data.awaitingPreparationCount ?? null,
+        version: data.version ?? null,
+        state: data.state ?? null,
+      },
+      workflowFacts: facts,
+    },
+  );
+}
+
+function serializedEquipmentProjection(
+  snapshot: AssignmentDocumentSnapshotLike,
+  request: ParsedAssignmentRequest,
+  workflowFacts: AssignmentEquipmentFacts,
+): AssignmentEquipmentProjection {
+  if (!snapshot.exists) {
+    return {
+      data: {},
+      ...workflowFacts,
+      version: 0,
+    };
+  }
+
+  const data = snapshot.data() ?? {};
+  const actualAssetTypeKey = cleanOptionalText(data.assetTypeKey);
+  const actualAssetNumber = data.assetNumber;
+  if (
+    (actualAssetTypeKey != null && actualAssetTypeKey !== request.assetType) ||
+    (actualAssetNumber != null && actualAssetNumber !== request.assetNumber)
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The equipment projection identity does not match the assignment target.",
+      {
+        reasonCode: "equipment-projection-identity-mismatch",
+        expectedAssetTypeKey: request.assetType,
+        expectedAssetNumber: request.assetNumber,
+        actualAssetTypeKey: actualAssetTypeKey ?? null,
+        actualAssetNumber: actualAssetNumber ?? null,
+      },
+    );
+  }
+
+  const rawCounters = {
+    activeNonRedMaintenanceCount: equipmentProjectionCounter(
+      data,
+      "activeNonRedMaintenanceCount",
+      {allowMissing: true},
+    ),
+    activeRedWorkCount: equipmentProjectionCounter(
+      data,
+      "activeRedWorkCount",
+      {allowMissing: true},
+    ),
+    awaitingPreparationCount: equipmentProjectionCounter(
+      data,
+      "awaitingPreparationCount",
+      {allowMissing: true},
+    ),
+  };
+  const presentCounterCount = Object.values(rawCounters)
+    .filter((value) => value != null).length;
+  if (presentCounterCount !== 0 && presentCounterCount !== 3) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The equipment projection has an incomplete workflow-counter set.",
+      {
+        reasonCode: "equipment-projection-counter-set-incomplete",
+        counters: rawCounters,
+      },
+    );
+  }
+
+  const projectionFacts: AssignmentEquipmentFacts = presentCounterCount === 0
+    ? workflowFacts
+    : {
+      activeNonRedMaintenanceCount:
+        rawCounters.activeNonRedMaintenanceCount as number,
+      activeRedWorkCount: rawCounters.activeRedWorkCount as number,
+      awaitingPreparationCount: rawCounters.awaitingPreparationCount as number,
+    };
+  if (presentCounterCount === 3 && !factsEqual(projectionFacts, workflowFacts)) {
+    equipmentProjectionRefreshRequired(data, workflowFacts);
+  }
+
+  const expectedState = equipmentStateFromFacts(workflowFacts);
+  const actualState = cleanOptionalText(data.state);
+  const zeroCountStateValid =
+    expectedState == null &&
+    (actualState === "available" || actualState === "inService");
+  if (actualState !== expectedState && !zeroCountStateValid) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The equipment projection state does not match the current workflow facts.",
+      {
+        reasonCode: "equipment-projection-state-mismatch",
+        expectedState: expectedState ?? "available-or-inService",
+        actualState,
+        workflowFacts,
+      },
+    );
+  }
+
+  const version = equipmentProjectionCounter(
+    data,
+    "version",
+    {allowMissing: true},
+  ) ?? 0;
+  if (workflowFacts.activeNonRedMaintenanceCount === Number.MAX_SAFE_INTEGER) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The equipment projection maintenance counter cannot be incremented safely.",
+      {reasonCode: "equipment-projection-counter-overflow"},
+    );
+  }
+
+  return {
+    data,
+    ...workflowFacts,
+    version,
+  };
+}
+
+function assignmentReasonCode(error: unknown): string | null {
+  if (!(error instanceof AssignmentValidationError)) return null;
+  if (error.details == null || typeof error.details !== "object") return null;
+  const reasonCode = (error.details as AssignmentJsonMap).reasonCode;
+  return typeof reasonCode === "string" ? reasonCode : null;
+}
+
+function isRetryableClosedTransactionError(error: unknown): boolean {
+  if (error == null || typeof error !== "object") return false;
+  const candidate = error as {
+    code?: unknown;
+    message?: unknown;
+    details?: unknown;
+  };
+  const numericCode =
+    candidate.code === 3 ||
+    candidate.code === "3";
+  const namedCode =
+    typeof candidate.code === "string" &&
+    candidate.code.trim().toLowerCase() === "invalid-argument";
+  if (!numericCode && !namedCode) return false;
+
+  const message = typeof candidate.message === "string"
+    ? candidate.message
+    : "";
+  const details = typeof candidate.details === "string"
+    ? candidate.details
+    : "";
+  return `${message}\n${details}`
+    .toLowerCase()
+    .includes("transaction is invalid or closed");
+}
+
 function dateSortValue(value: unknown): number {
   if (typeof value === "string") {
     const parsed = Date.parse(value);
@@ -1512,6 +1777,7 @@ export async function assignPublishedTemplateVersionWithDb(args: {
   authUid: string | null;
   data: AssignmentJsonMap;
   now?: () => Date;
+  beforeAssignmentTransactionForTest?: () => Promise<void>;
   beforeAssignmentWritesForTest?: () => Promise<void>;
 }): Promise<PublishedTemplateAssignmentResult> {
   const {db, authUid, data} = args;
@@ -1530,7 +1796,20 @@ export async function assignPublishedTemplateVersionWithDb(args: {
     .collection("published_template_assignment_requests")
     .doc(request.requestId);
 
-  return db.runTransaction(async (transaction) => {
+  let lastRefreshDetails: unknown = null;
+  let lastTransientTransactionDetails: unknown = null;
+  let equipmentRefreshAttempts = 0;
+  let transientTransactionAttempts = 0;
+  let totalAttempts = 0;
+  while (true) {
+    totalAttempts += 1;
+    const workflowFacts = await loadOpenWorkflowFacts(db, request);
+    if (totalAttempts === 1 && args.beforeAssignmentTransactionForTest != null) {
+      await args.beforeAssignmentTransactionForTest();
+    }
+
+    try {
+      return await db.runTransaction(async (transaction) => {
     const userSnapshot = await transaction.get(userRef);
     if ("docs" in userSnapshot) {
       throw new AssignmentValidationError(
@@ -1756,34 +2035,30 @@ export async function assignPublishedTemplateVersionWithDb(args: {
     const equipmentRef = db
       .collection("equipment_status")
       .doc(`${request.assetType}_${request.assetNumber}`);
-    const openWorkflowQuery = db
-      .collection("maintenance_workflows")
-      .where("assetTypeKey", "==", request.assetType)
-      .where("assetNumber", "==", request.assetNumber);
     const equipmentSnapshot = await transaction.get(equipmentRef);
-    const openWorkflowSnapshot = await transaction.get(openWorkflowQuery);
     if ("docs" in equipmentSnapshot) {
       throw new AssignmentValidationError("internal", "Equipment lookup returned an invalid response.");
     }
-    const openWorkflowDocs = queryDocs(openWorkflowSnapshot);
-    let activeNonRedMaintenanceCount = 1;
-    let activeRedWorkCount = 0;
-    let awaitingPreparationCount = 0;
-    for (const row of openWorkflowDocs) {
-      const data = row.data() ?? {};
-      if (data.status === "completed" || data.status === "cancelled") continue;
-      if (data.activeRedWork === true) activeRedWorkCount += 1;
-      else if (data.awaitingPreparation === true) awaitingPreparationCount += 1;
-      else activeNonRedMaintenanceCount += 1;
-    }
+    const equipmentProjection = serializedEquipmentProjection(
+      equipmentSnapshot,
+      request,
+      workflowFacts,
+    );
+    const activeNonRedMaintenanceCount =
+      equipmentProjection.activeNonRedMaintenanceCount + 1;
+    const activeRedWorkCount = equipmentProjection.activeRedWorkCount;
+    const awaitingPreparationCount =
+      equipmentProjection.awaitingPreparationCount;
     const equipmentState = activeRedWorkCount > 0
       ? "underRED"
       : awaitingPreparationCount > 0
         ? "awaitingPreparation"
         : "underMaintenance";
-    const equipmentData = equipmentSnapshot.exists
-      ? equipmentSnapshot.data() ?? {}
-      : {};
+    const equipmentData = equipmentProjection.data;
+    const previousEquipmentState =
+      cleanOptionalText(equipmentData.state) ??
+      equipmentStateFromFacts(workflowFacts) ??
+      "inService";
     if (args.beforeAssignmentWritesForTest != null) {
       await args.beforeAssignmentWritesForTest();
     }
@@ -1809,7 +2084,7 @@ export async function assignPublishedTemplateVersionWithDb(args: {
     transaction.set(equipmentRef, {
       assetTypeKey: request.assetType,
       assetNumber: request.assetNumber,
-      previousState: equipmentData.state ?? "inService",
+      previousState: previousEquipmentState,
       state: equipmentState,
       activeNonRedMaintenanceCount,
       activeRedWorkCount,
@@ -1820,7 +2095,7 @@ export async function assignPublishedTemplateVersionWithDb(args: {
       lastTransitionByName: actorName,
       availableSince: null,
       inServiceSince: null,
-      version: (typeof equipmentData.version === "number" ? equipmentData.version : 0) + 1,
+      version: equipmentProjection.version + 1,
       updatedAt: assignedAt,
     }, {merge: true});
     for (const module of canonical.modules) {
@@ -1856,5 +2131,57 @@ export async function assignPublishedTemplateVersionWithDb(args: {
       execution: canonical.execution,
       modules: canonical.modules.map((module) => module.data),
     };
-  });
+      });
+    } catch (error) {
+      const reasonCode = assignmentReasonCode(error);
+      if (reasonCode === "equipment-projection-refresh-required") {
+        equipmentRefreshAttempts += 1;
+        lastRefreshDetails = error instanceof AssignmentValidationError
+          ? error.details
+          : null;
+        if (
+          equipmentRefreshAttempts >=
+          MAX_EQUIPMENT_PROJECTION_RECONCILIATION_ATTEMPTS
+        ) {
+          throw new AssignmentValidationError(
+            "failed-precondition",
+            "The equipment projection and workflow facts did not converge after bounded reconciliation.",
+            {
+              reasonCode: "equipment-projection-reconciliation-exhausted",
+              maximumAttempts:
+                MAX_EQUIPMENT_PROJECTION_RECONCILIATION_ATTEMPTS,
+              lastRefreshDetails,
+            },
+          );
+        }
+        continue;
+      }
+      if (isRetryableClosedTransactionError(error)) {
+        transientTransactionAttempts += 1;
+        lastTransientTransactionDetails = {
+          attempt: totalAttempts,
+          transientAttempt: transientTransactionAttempts,
+          code: (error as {code?: unknown}).code ?? null,
+          message: error instanceof Error ? error.message : String(error),
+          details: (error as {details?: unknown}).details ?? null,
+        };
+        if (
+          transientTransactionAttempts >=
+          MAX_ASSIGNMENT_TRANSACTION_ATTEMPTS
+        ) {
+          throw new AssignmentValidationError(
+            "aborted",
+            "The assignment transaction did not stabilize after bounded retry.",
+            {
+              reasonCode: "assignment-transaction-retry-exhausted",
+              maximumAttempts: MAX_ASSIGNMENT_TRANSACTION_ATTEMPTS,
+              lastTransientTransactionDetails,
+            },
+          );
+        }
+        continue;
+      }
+      throw error;
+    }
+  }
 }
