@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 
 import {
@@ -17,6 +18,7 @@ import {
   listAllAuthUsers,
   parseArgs,
   pseudonymizeSubject,
+  readGitSourceAuthority,
   validateContractDocument,
   validateUserDocument,
 } from './firestore_integrity_sweep.mjs';
@@ -365,6 +367,32 @@ test('production reads require exact source, project, coverage, and custody', ()
     ),
     /HEAD must equal the fetched origin\/main commit/,
   );
+});
+
+test('non-production source capture tolerates an absent origin/main ref', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'crm3-gate1b-git-'));
+  const git = (...args) => execFileSync(
+    'git',
+    ['-C', directory, ...args],
+    {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']},
+  );
+  try {
+    git('init', '-b', 'main');
+    git('config', 'user.name', 'Gate 1B Test');
+    git('config', 'user.email', 'gate1b@example.invalid');
+    fs.writeFileSync(path.join(directory, 'source.txt'), 'source\n', 'utf8');
+    git('add', 'source.txt');
+    git('commit', '-m', 'test source');
+
+    const source = readGitSourceAuthority(directory);
+    assert.equal(source.branch, 'main');
+    assert.equal(source.originMainCommit, null);
+    assert.equal(source.cleanWorktree, true);
+    assert.match(source.commit, /^[0-9a-f]{40}$/);
+    assert.match(source.tree, /^[0-9a-f]{40}$/);
+  } finally {
+    fs.rmSync(directory, {recursive: true, force: true});
+  }
 });
 
 test('CLI rejects mutation-like and unknown arguments', () => {

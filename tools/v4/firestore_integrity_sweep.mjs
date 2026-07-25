@@ -846,17 +846,29 @@ async function scanOperationalContracts(db, hmacKey) {
 }
 
 export function readGitSourceAuthority(root = ROOT) {
-  const git = (...args) => execFileSync(
-    'git',
-    ['-C', root, ...args],
-    {encoding: 'utf8'},
-  ).trim();
+  const git = (...args) => execFileSync('git', ['-C', root, ...args], {
+    encoding: 'utf8',
+  }).trim();
+  const optionalGit = (...args) => {
+    try {
+      return execFileSync('git', ['-C', root, ...args], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    } catch {
+      return null;
+    }
+  };
   const status = git('status', '--porcelain', '--untracked-files=all');
   return {
     commit: git('rev-parse', 'HEAD'),
     tree: git('rev-parse', 'HEAD^{tree}'),
     branch: git('branch', '--show-current'),
-    originMainCommit: git('rev-parse', 'refs/remotes/origin/main'),
+    originMainCommit: optionalGit(
+      'rev-parse',
+      '--verify',
+      'refs/remotes/origin/main',
+    ),
     cleanWorktree: status.length === 0,
   };
 }
