@@ -10,14 +10,15 @@ void main() {
       rules = File('firestore.rules').readAsStringSync();
     });
 
-    test('authorization reads stay minimal while user writes remain full-shape', () {
+    test('authorization reads require a canonical security capsule', () {
       final authority = _blockStartingAt(
         rules,
         'function validApprovedUserAuthority(data)',
       );
       expect(authority, contains("data.keys().hasAll(['isApproved', 'roles'])"));
       expect(authority, contains("data.get('isApproved', false) == true"));
-      expect(authority, contains("data.get('roles', null) is list"));
+      expect(authority, contains("validUserRoleList(data.get('roles', null))"));
+      expect(authority, isNot(contains('validUserDocumentShape')));
       expect(
         _blockStartingAt(rules, 'function validPendingUserCreate(userId)'),
         contains('validUserDocumentShape(request.resource.data)'),

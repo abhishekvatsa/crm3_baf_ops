@@ -74,12 +74,12 @@ service cloud.firestore {
         && data.get('createdAt', null) is timestamp;
     }
 
-    // Authorization reads need only the canonical approval fields. Full user
-    // document shape remains enforced on every client create/update below.
+    // Authorization reads validate only the canonical security capsule. Full
+    // user document shape remains enforced on every client create/update below.
     function validApprovedUserAuthority(data) {
       return data.keys().hasAll(['isApproved', 'roles'])
         && data.get('isApproved', false) == true
-        && data.get('roles', null) is list;
+        && validUserRoleList(data.get('roles', null));
     }
 
     function approvedUserHasAnyRole(data, roles) {
@@ -758,7 +758,7 @@ service cloud.firestore {
 
     function validJobModuleUpdate(docId) {
       // Fast-deny local-only/legacy fields before any document lookup. Then
-      // validate the complete approved-user profile once, snapshot its roles,
+      // validate the canonical authority capsule once, snapshot its roles,
       // and evaluate only the transition selected by the target status.
       let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
       return changedKeys.hasAny(['responses', 'isSynced'])

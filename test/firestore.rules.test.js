@@ -149,6 +149,48 @@ describe("users", () => {
   });
 });
 
+describe("server-written authority capsule", () => {
+  beforeEach(async () => {
+    await seedUser("authorityTarget", ["operations"]);
+  });
+
+  test("canonical authority remains independent of non-authority profile shape", async () => {
+    await seedDoc("users/minimalAdmin", {
+      isApproved: true,
+      roles: ["admin"],
+    });
+
+    await assertSucceeds(
+      getDoc(doc(dbAs("minimalAdmin"), "users/authorityTarget"))
+    );
+  });
+
+  test.each([
+    [
+      "unknown role mixed with an allowed role",
+      { isApproved: true, roles: ["admin", "unknownRole"] },
+    ],
+    [
+      "non-string role mixed with an allowed role",
+      { isApproved: true, roles: ["admin", 7] },
+    ],
+    ["empty role list", { isApproved: true, roles: [] }],
+    [
+      "oversized role list",
+      { isApproved: true, roles: Array(11).fill("admin") },
+    ],
+    ["non-list roles", { isApproved: true, roles: "admin" }],
+    ["non-boolean approval", { isApproved: "true", roles: ["admin"] }],
+    ["missing approval", { roles: ["admin"] }],
+  ])("rejects %s from a privileged writer", async (_label, authority) => {
+    await seedDoc("users/malformedAdmin", authority);
+
+    await assertFails(
+      getDoc(doc(dbAs("malformedAdmin"), "users/authorityTarget"))
+    );
+  });
+});
+
 describe("maintenance_records", () => {
   beforeEach(async () => {
     await seedUser("admin1", ["admin"]);
