@@ -122,16 +122,45 @@ describe("users", () => {
   });
 
 
-  test("admin may update approved user fields within the exact schema", async () => {
+  test("admin may correct profile fields without changing authority", async () => {
     await seedUser("admin1", ["admin"]);
     await seedUser("target1", ["operations"], false);
     const db = dbAs("admin1");
 
     await assertSucceeds(
       updateDoc(doc(db, "users/target1"), {
-        isApproved: true,
-        roles: ["operations"],
+        name: "Corrected Target",
+        email: "corrected@test.local",
       })
+    );
+  });
+
+  test.each([
+    ["approval", false, {isApproved: true}],
+    ["revocation", true, {isApproved: false}],
+    ["role replacement", false, {roles: ["admin"]}],
+    ["combined authority", false, {isApproved: true, roles: ["admin"]}],
+  ])("admin client cannot perform direct %s mutation", async (
+    _label,
+    initialApproval,
+    patch,
+  ) => {
+    await seedUser("admin1", ["admin"]);
+    await seedUser("target1", ["operations"], initialApproval);
+
+    await assertFails(
+      updateDoc(doc(dbAs("admin1"), "users/target1"), patch)
+    );
+  });
+
+  test("admin client cannot create another user authority document", async () => {
+    await seedUser("admin1", ["admin"]);
+
+    await assertFails(
+      setDoc(
+        doc(dbAs("admin1"), "users/createdByAdmin"),
+        userDoc("createdByAdmin", ["operations"], false)
+      )
     );
   });
 
@@ -144,6 +173,30 @@ describe("users", () => {
       updateDoc(doc(db, "users/target1"), {
         isApproved: true,
         shadowAuthority: "admin",
+      })
+    );
+  });
+
+  test("authority receipts and deterministic authority audits are server-only", async () => {
+    await seedUser("admin1", ["admin"]);
+    const db = dbAs("admin1");
+
+    await assertFails(
+      setDoc(doc(db, "user_authority_mutation_receipts/request1"), {
+        requestId: "request1",
+      })
+    );
+    await assertFails(
+      getDoc(doc(db, "user_authority_mutation_receipts/request1"))
+    );
+    await assertFails(
+      setDoc(doc(db, "audit_logs/server_authority_request1"), {
+        entityType: "user",
+        entityId: "target1",
+        action: "update",
+        performedByUid: "admin1",
+        timestamp: Timestamp.now(),
+        severity: "high",
       })
     );
   });

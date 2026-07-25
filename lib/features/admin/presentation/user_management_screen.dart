@@ -10,8 +10,8 @@ import '../../auth/validation/user_input_validator.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
-import '../../audit/models/audit_event_model.dart';
-import '../../audit/providers/audit_provider.dart';
+import '../providers/user_authority_command_provider.dart';
+import '../services/user_authority_command_service.dart';
 
 // ─────────────────────────────────────────────────────────────
 // Providers
@@ -28,6 +28,9 @@ final allUsersProvider = StreamProvider<List<AppUser>>((ref) {
                 .toList(),
       );
 });
+
+final _authorityMutationBusyProvider = StateProvider.autoDispose
+    .family<bool, String>((ref, uid) => false);
 
 // ─────────────────────────────────────────────────────────────
 // Screen
@@ -285,6 +288,7 @@ class _UserCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isMutating = ref.watch(_authorityMutationBusyProvider(user.uid));
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -331,7 +335,10 @@ class _UserCard extends ConsumerWidget {
               const SizedBox(width: 8),
               if (isPending)
                 FilledButton(
-                  onPressed: () => _approveUser(context, ref, user),
+                  onPressed:
+                      isMutating
+                          ? null
+                          : () => _approveUser(context, ref, user),
                   style: FilledButton.styleFrom(
                     backgroundColor: BafColors.sync,
                     foregroundColor: Colors.white,
@@ -349,6 +356,15 @@ class _UserCard extends ConsumerWidget {
                     'APPROVE',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
                   ),
+                )
+              else
+                IconButton(
+                  onPressed:
+                      isMutating ? null : () => _revokeUser(context, ref, user),
+                  tooltip: 'Revoke access',
+                  icon: const Icon(Icons.person_off_rounded),
+                  color: BafColors.danger,
+                  visualDensity: VisualDensity.compact,
                 ),
             ],
           ),
@@ -369,7 +385,10 @@ class _UserCard extends ConsumerWidget {
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                 ),
                 avatar: const Icon(Icons.edit_rounded, size: 16),
-                onPressed: () => _showRoleDialog(context, ref, user),
+                onPressed:
+                    isMutating
+                        ? null
+                        : () => _showRoleDialog(context, ref, user),
                 backgroundColor: BafColors.background,
                 side: const BorderSide(color: BafColors.border),
                 visualDensity: VisualDensity.compact,
@@ -387,8 +406,7 @@ class _UserCard extends ConsumerWidget {
     WidgetRef ref,
     AppUser user,
   ) async {
-    final currentUser = _currentAdmin(ref);
-    if (currentUser == null) {
+    if (_currentAdmin(ref) == null) {
       _showAccessDeniedSnackBar(context);
       return;
     }
@@ -399,55 +417,67 @@ class _UserCard extends ConsumerWidget {
       return;
     }
 
-    final before = _userAuditMap(user);
-    final after = <String, dynamic>{...before, 'isApproved': true};
+    final reason = await _requestMutationReason(
+      context,
+      title: 'Approve ${user.name}',
+      actionLabel: 'APPROVE',
+    );
+    if (reason == null || !context.mounted) return;
 
+    _setMutationBusy(context, ref, user.uid, true);
     try {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
-        {'isApproved': true},
-      );
-    } catch (e) {
+      await ref
+          .read(userAuthorityCommandServiceProvider)
+          .approve(user, reason: reason);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not approve ${user.name}: $e'),
-          backgroundColor: BafColors.danger,
+          content: Text('${user.name} approved'),
+          backgroundColor: BafColors.sync,
         ),
       );
+    } catch (e) {
+      if (!context.mounted) return;
+      _showMutationError(context, user.name, e);
+    } finally {
+      _setMutationBusy(context, ref, user.uid, false);
+    }
+  }
+
+  Future<void> _revokeUser(
+    BuildContext context,
+    WidgetRef ref,
+    AppUser user,
+  ) async {
+    if (_currentAdmin(ref) == null) {
+      _showAccessDeniedSnackBar(context);
       return;
     }
+    final reason = await _requestMutationReason(
+      context,
+      title: 'Revoke ${user.name}',
+      actionLabel: 'REVOKE',
+    );
+    if (reason == null || !context.mounted) return;
 
+    _setMutationBusy(context, ref, user.uid, true);
     try {
-      await _logUserAudit(
-        ref: ref,
-        action: AuditAction.update,
-        currentUser: currentUser,
-        targetUser: user,
-        before: before,
-        after: after,
-        summary: 'Approved user ${user.name}',
-        reasonNotes: 'Admin approved user access.',
+      await ref
+          .read(userAuthorityCommandServiceProvider)
+          .revoke(user, reason: reason);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${user.name} access revoked'),
+          backgroundColor: BafColors.warning,
+        ),
       );
     } catch (e) {
-      debugPrint('⚠️ Failed to audit user approval for ${user.uid}: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User approved, but audit log could not be saved.'),
-            backgroundColor: BafColors.warning,
-          ),
-        );
-      }
+      if (!context.mounted) return;
+      _showMutationError(context, user.name, e);
+    } finally {
+      _setMutationBusy(context, ref, user.uid, false);
     }
-
-    if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${user.name} approved'),
-        backgroundColor: BafColors.sync,
-      ),
-    );
   }
 
   Future<void> _showRoleDialog(
@@ -460,188 +490,48 @@ class _UserCard extends ConsumerWidget {
       return;
     }
 
-    final selectedRoles = Set<AppRole>.from(user.roles);
-
-    await showDialog<void>(
+    final input = await showDialog<_RoleAssignmentInput>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text('Roles — ${user.name}'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children:
-                      AppRole.values.map((role) {
-                        return CheckboxListTile(
-                          title: Text(_roleLabel(role)),
-                          subtitle: Text(role.name),
-                          value: selectedRoles.contains(role),
-                          onChanged: (checked) {
-                            setDialogState(() {
-                              if (checked == true) {
-                                selectedRoles.add(role);
-                              } else {
-                                selectedRoles.remove(role);
-                              }
-                            });
-                          },
-                          dense: true,
-                          controlAffinity: ListTileControlAffinity.leading,
-                        );
-                      }).toList(),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('CANCEL'),
-                ),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: BafColors.navySoft,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () async {
-                    final currentUser = _currentAdmin(ref);
-                    if (currentUser == null) {
-                      if (dialogContext.mounted) {
-                        Navigator.pop(dialogContext);
-                      }
-                      if (context.mounted) {
-                        _showAccessDeniedSnackBar(context);
-                      }
-                      return;
-                    }
-
-                    if (selectedRoles.isEmpty) {
-                      if (context.mounted) {
-                        _showValidationSnackBar(
-                          context,
-                          'Select at least one role for ${user.name}.',
-                        );
-                      }
-                      return;
-                    }
-
-                    final isSelf = currentUser.uid == user.uid;
-                    if (isSelf &&
-                        user.roles.contains(AppRole.admin) &&
-                        !selectedRoles.contains(AppRole.admin)) {
-                      if (context.mounted) {
-                        _showValidationSnackBar(
-                          context,
-                          'You cannot remove your own Admin role.',
-                        );
-                      }
-                      return;
-                    }
-
-                    final normalizedRoles =
-                        selectedRoles.toList()
-                          ..sort((a, b) => a.index.compareTo(b.index));
-
-                    final lastApprovedAdminWouldBeRemoved =
-                        user.roles.contains(AppRole.admin) &&
-                        !normalizedRoles.contains(AppRole.admin) &&
-                        await _isLastApprovedAdmin(user.uid);
-                    if (lastApprovedAdminWouldBeRemoved) {
-                      if (context.mounted) {
-                        _showValidationSnackBar(
-                          context,
-                          'At least one approved Admin must remain.',
-                        );
-                      }
-                      return;
-                    }
-
-                    final roleValidation =
-                        UserInputValidator.validateRoleAssignment(
-                          currentUser: currentUser,
-                          targetUser: user,
-                          selectedRoles: normalizedRoles,
-                          lastApprovedAdminWouldBeRemoved:
-                              lastApprovedAdminWouldBeRemoved,
-                        );
-                    if (roleValidation.isInvalid) {
-                      if (context.mounted) {
-                        _showValidationSnackBar(
-                          context,
-                          roleValidation.summary,
-                        );
-                      }
-                      return;
-                    }
-
-                    final before = _userAuditMap(user);
-                    final after = <String, dynamic>{
-                      ...before,
-                      'roles':
-                          normalizedRoles.map((role) => role.name).toList(),
-                    };
-
-                    try {
-                      await FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(user.uid)
-                          .update({
-                            'roles':
-                                normalizedRoles
-                                    .map((role) => role.name)
-                                    .toList(),
-                          });
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Could not update ${user.name}: $e'),
-                            backgroundColor: BafColors.danger,
-                          ),
-                        );
-                      }
-                      return;
-                    }
-
-                    try {
-                      await _logUserAudit(
-                        ref: ref,
-                        action: AuditAction.update,
-                        currentUser: currentUser,
-                        targetUser: user,
-                        before: before,
-                        after: after,
-                        summary: 'Updated roles for ${user.name}',
-                        reasonNotes: 'Admin updated user roles.',
-                      );
-                    } catch (e) {
-                      debugPrint(
-                        '⚠️ Failed to audit role update for ${user.uid}: $e',
-                      );
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Roles updated, but audit log could not be saved.',
-                            ),
-                            backgroundColor: BafColors.warning,
-                          ),
-                        );
-                      }
-                    }
-
-                    if (dialogContext.mounted) {
-                      Navigator.pop(dialogContext);
-                    }
-                  },
-                  child: const Text('SAVE'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (_) => _RoleAssignmentDialog(user: user),
     );
+    if (input == null || !context.mounted) return;
+
+    final currentUser = _currentAdmin(ref);
+    if (currentUser == null) {
+      _showAccessDeniedSnackBar(context);
+      return;
+    }
+    final validation = UserInputValidator.validateRoleAssignment(
+      currentUser: currentUser,
+      targetUser: user,
+      selectedRoles: input.roles,
+    );
+    if (validation.isInvalid) {
+      _showValidationSnackBar(context, validation.summary);
+      return;
+    }
+
+    _setMutationBusy(context, ref, user.uid, true);
+    try {
+      await ref
+          .read(userAuthorityCommandServiceProvider)
+          .replaceRoles(user, roles: input.roles, reason: input.reason);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Updated roles for ${user.name}'),
+          backgroundColor: BafColors.sync,
+        ),
+      );
+    } catch (error) {
+      if (context.mounted) {
+        _showMutationError(context, user.name, error);
+      }
+    } finally {
+      if (context.mounted) {
+        _setMutationBusy(context, ref, user.uid, false);
+      }
+    }
   }
 
   AppUser? _currentAdmin(WidgetRef ref) {
@@ -654,61 +544,49 @@ class _UserCard extends ConsumerWidget {
     return _currentAdmin(ref) != null;
   }
 
-  Future<bool> _isLastApprovedAdmin(String targetUid) async {
-    final snap =
-        await FirebaseFirestore.instance
-            .collection('users')
-            .where('roles', arrayContains: AppRole.admin.name)
-            .get();
-
-    final adminIds =
-        snap.docs
-            .where((doc) => doc.data()['isApproved'] == true)
-            .map((doc) => doc.id)
-            .toSet();
-    return adminIds.length == 1 && adminIds.contains(targetUid);
+  void _setMutationBusy(
+    BuildContext context,
+    WidgetRef ref,
+    String uid,
+    bool value,
+  ) {
+    if (!context.mounted) return;
+    ref.read(_authorityMutationBusyProvider(uid).notifier).state = value;
   }
 
-  Map<String, dynamic> _userAuditMap(AppUser user) {
-    return {
-      'uid': user.uid,
-      'name': user.name,
-      'email': user.email,
-      'roles': user.roles.map((role) => role.name).toList(),
-      'isApproved': user.isApproved,
-      'createdAt': user.createdAt.toIso8601String(),
-    };
-  }
-
-  Future<void> _logUserAudit({
-    required WidgetRef ref,
-    required AuditAction action,
-    required AppUser currentUser,
-    required AppUser targetUser,
-    required Map<String, dynamic> before,
-    required Map<String, dynamic> after,
-    required String summary,
-    required String reasonNotes,
+  Future<String?> _requestMutationReason(
+    BuildContext context, {
+    required String title,
+    required String actionLabel,
   }) async {
-    await ref
-        .read(auditRepositoryProvider)
-        .log(
-          AuditEvent.fromContext(
-            entityType: 'user',
-            entityId: targetUser.uid,
-            action: action,
-            context: AuditContext(
-              performedByUid: currentUser.uid,
-              performedByName: currentUser.name,
-              reason: AuditReason.manualOverride,
-              reasonNotes: reasonNotes,
-              before: before,
-              after: after,
-              summary: summary,
-              severity: AuditSeverity.high,
-            ),
-          ),
-        );
+    return showDialog<String>(
+      context: context,
+      builder:
+          (_) => _AuthorityReasonDialog(title: title, actionLabel: actionLabel),
+    );
+  }
+
+  void _showMutationError(
+    BuildContext context,
+    String targetName,
+    Object error,
+  ) {
+    if (!context.mounted) return;
+    final message =
+        error is UserAuthorityMutationException
+            ? switch (error.reasonCode) {
+              'last-approved-admin-required' =>
+                'At least one approved Admin must remain.',
+              'authority-preimage-mismatch' =>
+                'Authority for $targetName changed. Review the latest record and try again.',
+              'approved-admin-required' =>
+                'Your approved Admin authority changed. Re-open User Management.',
+              _ => error.message,
+            }
+            : 'Could not update $targetName: $error';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: BafColors.danger),
+    );
   }
 
   void _showAccessDeniedSnackBar(BuildContext context) {
@@ -731,28 +609,7 @@ class _UserCard extends ConsumerWidget {
   }
 
   String _roleLabel(AppRole role) {
-    switch (role) {
-      case AppRole.si:
-        return 'SI';
-      case AppRole.contractSupervisor:
-        return 'Contract Supervisor';
-      case AppRole.shiftSupervisor:
-        return 'Shift Supervisor';
-      case AppRole.seniorElectrical:
-        return 'Sr. Electrical';
-      case AppRole.seniorMechanical:
-        return 'Sr. Mechanical';
-      case AppRole.seniorInstrumentation:
-        return 'Sr. I&A';
-      case AppRole.seniorRefractory:
-        return 'Sr. Refractory';
-      case AppRole.refractory:
-        return 'Refractory';
-      case AppRole.operations:
-        return 'Operations';
-      case AppRole.admin:
-        return 'Admin';
-    }
+    return _authorityRoleLabel(role);
   }
 
   Color _roleColor(AppRole role) {
@@ -777,6 +634,212 @@ class _UserCard extends ConsumerWidget {
       case AppRole.operations:
         return BafColors.sync;
     }
+  }
+}
+
+class _RoleAssignmentInput {
+  final List<AppRole> roles;
+  final String reason;
+
+  const _RoleAssignmentInput({required this.roles, required this.reason});
+}
+
+class _RoleAssignmentDialog extends StatefulWidget {
+  final AppUser user;
+
+  const _RoleAssignmentDialog({required this.user});
+
+  @override
+  State<_RoleAssignmentDialog> createState() => _RoleAssignmentDialogState();
+}
+
+class _RoleAssignmentDialogState extends State<_RoleAssignmentDialog> {
+  late final TextEditingController _reasonController;
+  late final Set<AppRole> _selectedRoles;
+  String? _validationMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _reasonController = TextEditingController();
+    _selectedRoles = Set<AppRole>.from(widget.user.roles);
+  }
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Roles — ${widget.user.name}'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...AppRole.values.map((role) {
+              return CheckboxListTile(
+                title: Text(_authorityRoleLabel(role)),
+                subtitle: Text(role.name),
+                value: _selectedRoles.contains(role),
+                onChanged: (checked) {
+                  setState(() {
+                    _validationMessage = null;
+                    if (checked == true) {
+                      _selectedRoles.add(role);
+                    } else {
+                      _selectedRoles.remove(role);
+                    }
+                  });
+                },
+                dense: true,
+                controlAffinity: ListTileControlAffinity.leading,
+              );
+            }),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _reasonController,
+              minLines: 2,
+              maxLines: 4,
+              maxLength: 500,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                labelText: 'Reason',
+                errorText: _validationMessage,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('CANCEL'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: BafColors.navySoft,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: _submit,
+          child: const Text('SAVE'),
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    final reason = _reasonController.text.trim();
+    if (_selectedRoles.isEmpty || reason.length < 8) {
+      setState(() {
+        _validationMessage =
+            _selectedRoles.isEmpty
+                ? 'Select at least one role.'
+                : 'Enter a reason of at least 8 characters.';
+      });
+      return;
+    }
+    Navigator.pop(
+      context,
+      _RoleAssignmentInput(
+        roles: normalizeAuthorityRoles(_selectedRoles),
+        reason: reason,
+      ),
+    );
+  }
+}
+
+class _AuthorityReasonDialog extends StatefulWidget {
+  final String title;
+  final String actionLabel;
+
+  const _AuthorityReasonDialog({
+    required this.title,
+    required this.actionLabel,
+  });
+
+  @override
+  State<_AuthorityReasonDialog> createState() => _AuthorityReasonDialogState();
+}
+
+class _AuthorityReasonDialogState extends State<_AuthorityReasonDialog> {
+  late final TextEditingController _controller;
+  String? _validationMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        minLines: 2,
+        maxLines: 4,
+        maxLength: 500,
+        decoration: InputDecoration(
+          border: const OutlineInputBorder(),
+          labelText: 'Reason',
+          errorText: _validationMessage,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('CANCEL'),
+        ),
+        FilledButton(onPressed: _submit, child: Text(widget.actionLabel)),
+      ],
+    );
+  }
+
+  void _submit() {
+    final reason = _controller.text.trim();
+    if (reason.length < 8) {
+      setState(() {
+        _validationMessage = 'Enter a reason of at least 8 characters.';
+      });
+      return;
+    }
+    Navigator.pop(context, reason);
+  }
+}
+
+String _authorityRoleLabel(AppRole role) {
+  switch (role) {
+    case AppRole.si:
+      return 'SI';
+    case AppRole.contractSupervisor:
+      return 'Contract Supervisor';
+    case AppRole.shiftSupervisor:
+      return 'Shift Supervisor';
+    case AppRole.seniorElectrical:
+      return 'Sr. Electrical';
+    case AppRole.seniorMechanical:
+      return 'Sr. Mechanical';
+    case AppRole.seniorInstrumentation:
+      return 'Sr. I&A';
+    case AppRole.seniorRefractory:
+      return 'Sr. Refractory';
+    case AppRole.refractory:
+      return 'Refractory';
+    case AppRole.operations:
+      return 'Operations';
+    case AppRole.admin:
+      return 'Admin';
   }
 }
 
