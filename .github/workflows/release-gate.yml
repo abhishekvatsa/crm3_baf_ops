@@ -205,7 +205,13 @@ jobs:
           npm --prefix functions ci
           npm --prefix tooling/firebase-cli ci --ignore-scripts
 
-      - name: Run rules and governed assignment/closure/population suites
+      - name: Gate 1B read-only authority classifier contracts
+        run: npm run test:gate1b
+
+      - name: Gate 1B Firestore and Auth emulator proof
+        run: npm run emulator:test:gate1b
+
+      - name: Run rules and governed transaction suites
         shell: bash
         run: |
           set -o pipefail

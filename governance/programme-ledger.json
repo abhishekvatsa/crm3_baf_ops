@@ -1346,22 +1346,61 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "HIGH",
       "unrestrictedSeverity": "BLOCKER",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 41,
+          "headCommit": "eb8bc9e505f559bc0e9267f56dd23ec4b6180ca2",
+          "mergeCommit": "96385151d73c04904184b0bfd9c057c23b9f6e84",
+          "decision": "PASS_GATE_1A_S05_ATOMIC_AUTHORITY_MUTATION",
+          "authority": "EXACT_HEAD_MERGE_GREEN_CI_AND_SOURCE_TESTS"
+        }
+      ],
+      "requiredExitEvidence": [
+        "direct client authority mutation denied",
+        "authority mutation, immutable audit and receipt committed atomically",
+        "last-approved-admin concurrency invariant proved",
+        "idempotent replay and conflicting replay behavior proved",
+        "exact-head pull request merged with green CI"
+      ],
+      "reArmTriggers": [
+        "a direct client roles or isApproved mutation path is reintroduced",
+        "authority mutation and audit evidence cease to be atomic",
+        "last-approved-admin quorum is moved outside the server transaction",
+        "receipt replay ceases to validate target and audit evidence"
+      ],
+      "notes": [
+        "S-05 tracked-source closure is proved by PR #41 and merge commit 96385151d73c04904184b0bfd9c057c23b9f6e84.",
+        "This closes the source finding only; Functions and Rules deployment remain separately governed.",
+        "Read-only Gate 1B production authority classification remains required before pilot or cutover."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-26",
+          "basis": "S-05 atomic authority callable, Rules denial, Flutter command path and concurrency/replay/integrity tests validated at commit eb8bc9e505f559bc0e9267f56dd23ec4b6180ca2."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PR #41 exact green head eb8bc9e505f559bc0e9267f56dd23ec4b6180ca2 merged to main as 96385151d73c04904184b0bfd9c057c23b9f6e84."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PASS_GATE_1A_S05_ATOMIC_AUTHORITY_MUTATION closes the tracked source-and-CI finding; deployment and production-data gates remain independent."
         }
       ]
     },

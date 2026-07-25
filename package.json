@@ -9,8 +9,11 @@
   },
   "scripts": {
     "test:rules": "jest --runInBand",
+    "test:gate1b": "node --test tools/v4/firestore_integrity_sweep.test.mjs",
+    "test:gate1b:emulator": "node --test tools/v4/firestore_integrity_sweep.emulator.test.mjs",
     "emulator:test:rules": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules\"",
     "emulator:test:authority": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:authority\"",
+    "emulator:test:gate1b": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore,auth --project demo-gate1b \"npm run test:gate1b:emulator\"",
     "emulator:test:closure": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:closure\"",
     "emulator:test:governed": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules && npm --prefix functions run test:emulator:governed\"",
     "workflow:policy:generate": "node tools/maintenance_workflow/generate_policy.mjs",

@@ -467,6 +467,52 @@ check(
     "legacy and malformed user fields are reported" in text("tools/v4/firestore_integrity_sweep.test.mjs")
     and "missing ordered fields without orderBy" in text("tools/v4/firestore_integrity_sweep.test.mjs"),
 )
+check(
+    "Gate 1B authority classifier is privacy-safe, Auth-aware and mutation-free",
+    all(marker in sweep for marker in (
+        "PASS_GATE_1B_READ_ONLY_AUTHORITY_INTEGRITY",
+        "HOLD_AUTHORITY_FINDINGS_REQUIRE_ADJUDICATION",
+        "HOLD_INCOMPLETE_AUTH_OR_FIRESTORE_COVERAGE",
+        "HOLD_PRIVACY_OR_CUSTODY_FAILURE",
+        "createHmac('sha256'",
+        "auth.listUsers(1000, pageToken)",
+        "customClaimsPolicy: 'ABSENCE_ASSERTION_NO_TRACKED_WRITER'",
+        "cloudMutationCapability: 'NONE'",
+    ))
+    and all(marker not in sweep for marker in (
+        ".doc(",
+        "writeBatch(",
+        "bulkWriter(",
+        "setCustomUserClaims(",
+        "runTransaction(",
+        "updateUser(",
+        "deleteUser(",
+        "createUser(",
+        "importUsers(",
+    )),
+)
+check(
+    "Gate 1B tests prove role parity, privacy, custody and all authority classes",
+    all(marker in text("tools/v4/firestore_integrity_sweep.test.mjs") for marker in (
+        "role catalogue is identical across policy, Rules, Functions, and Dart",
+        "HMAC pseudonyms are stable, namespaced, and omit raw identity data",
+        "production reads require exact source, project, coverage, and custody",
+        "classifier source contains no Firebase or Firestore mutation API",
+        "Auth population, disabled approval, and custom claims fail closed",
+        "duplicate canonical roles are a non-blocking data-quality warning",
+    )),
+)
+check(
+    "Gate 1B complete Firestore and Auth read path has disposable emulator proof",
+    '"auth": {' in text("firebase.json")
+    and "firestore_integrity_sweep.emulator.test.mjs" in text("package.json")
+    and all(marker in text("tools/v4/firestore_integrity_sweep.emulator.test.mjs") for marker in (
+        "actual CLI joins Firestore and Auth into a privacy-safe pass",
+        "PASS_GATE_1B_READ_ONLY_AUTHORITY_INTEGRITY",
+        "reportText.includes(ADMIN_UID), false",
+        "reportText.includes(HMAC_KEY), false",
+    )),
+)
 
 source_reconciliation = text("docs/v4_2/CURRENT_PRE_V4_SOURCE_AUTHORITY_RECONCILIATION.md")
 check(
