@@ -40,6 +40,13 @@ import type {
   BackendIdentityJsonMap,
 } from "./backendReleaseIdentity";
 import {
+  mutateUserAuthorityWithDb,
+  UserAuthorityMutationError,
+} from "./userAuthorityMutation";
+import type {
+  UserAuthorityMutationFirestoreLike,
+} from "./userAuthorityMutation";
+import {
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
   buildTicketResolvedNotification,
@@ -203,6 +210,46 @@ export const getBackendReleaseIdentity = onCall(
       throw new HttpsError(
         "internal",
         "Backend release identity could not be loaded.",
+      );
+    }
+  },
+);
+
+// ─── Callable: atomic user-authority mutation ────────────────────────────────
+
+interface MutateUserAuthorityRequest {
+  [key: string]: unknown;
+  requestId?: unknown;
+  targetUid?: unknown;
+  operation?: unknown;
+  expectedAuthorityDigest?: unknown;
+  roles?: unknown;
+  reason?: unknown;
+}
+
+export const mutateUserAuthority = onCall(
+  {
+    region: CALLABLE_REGION,
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    concurrency: 20,
+  },
+  async (request: CallableRequest<MutateUserAuthorityRequest>) => {
+    try {
+      return await mutateUserAuthorityWithDb({
+        db: admin.firestore() as unknown as UserAuthorityMutationFirestoreLike,
+        authUid: request.auth?.uid ?? null,
+        data: request.data ?? {},
+        timestampFromDate: admin.firestore.Timestamp.fromDate,
+      });
+    } catch (error) {
+      if (error instanceof UserAuthorityMutationError) {
+        throw new HttpsError(error.code, error.message, error.details);
+      }
+      logger.error("mutateUserAuthority failed", error);
+      throw new HttpsError(
+        "internal",
+        "Server-governed user-authority mutation failed.",
       );
     }
   },

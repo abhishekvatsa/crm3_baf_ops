@@ -49,7 +49,6 @@ class UserInputValidator {
     required AppUser currentUser,
     required AppUser targetUser,
     required Iterable<AppRole> selectedRoles,
-    required bool lastApprovedAdminWouldBeRemoved,
   }) {
     final roles = selectedRoles.toSet();
     final issues = <ValidationIssue>[];
@@ -62,26 +61,6 @@ class UserInputValidator {
         const ValidationIssue(
           field: 'currentUser',
           message: 'Admin access is required to manage user roles.',
-        ),
-      );
-    }
-
-    if (currentUser.uid == targetUser.uid &&
-        targetUser.roles.contains(AppRole.admin) &&
-        !roles.contains(AppRole.admin)) {
-      issues.add(
-        const ValidationIssue(
-          field: 'roles',
-          message: 'You cannot remove your own Admin role.',
-        ),
-      );
-    }
-
-    if (lastApprovedAdminWouldBeRemoved) {
-      issues.add(
-        const ValidationIssue(
-          field: 'roles',
-          message: 'At least one approved Admin must remain.',
         ),
       );
     }

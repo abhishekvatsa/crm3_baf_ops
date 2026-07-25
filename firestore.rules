@@ -196,13 +196,18 @@ service cloud.firestore {
         && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null);
     }
 
-    function validAdminUserWrite(userId) {
+    function validAdminUserProfileUpdate(userId) {
       return isAdmin()
         && validUserDocumentShape(request.resource.data)
-        && (
-          request.auth.uid != userId
-          || request.resource.data.get('roles', []).hasAny(['admin'])
-        );
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name',
+          'email',
+          'photoUrl',
+          'fcmToken'
+        ])
+        && request.resource.data.get('roles', []) == resource.data.get('roles', [])
+        && request.resource.data.get('isApproved', null) == resource.data.get('isApproved', null)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null);
     }
 
     // ─────────────────────────────────────────────
@@ -2657,12 +2662,11 @@ service cloud.firestore {
       allow get: if isSelf(userId) || isAdmin();
       allow list: if isAdmin();
 
-      allow create: if validPendingUserCreate(userId)
-        || validAdminUserWrite(userId);
+      allow create: if validPendingUserCreate(userId);
 
       allow update: if exists(/databases/$(database)/documents/users/$(userId))
         ? (validSelfUserUpdate(userId)
-          || validAdminUserWrite(userId))
+          || validAdminUserProfileUpdate(userId))
         : false;
 
       allow delete: if false;
@@ -2902,6 +2906,10 @@ service cloud.firestore {
       allow read, create, update, delete: if false;
     }
 
+    match /user_authority_mutation_receipts/{docId} {
+      allow read, create, update, delete: if false;
+    }
+
     match /workflow_notification_receipts/{docId} {
       allow read, create, update, delete: if false;
     }
@@ -2915,6 +2923,7 @@ service cloud.firestore {
       // Deterministic server-population audit identities are reserved for the
       // Admin-SDK transaction and cannot be pre-created by a client.
       allow create: if !docId.matches('^server_module_population_.*')
+        && !docId.matches('^server_authority_.*')
         && validAuditCreate();
       allow update, delete: if false;
     }

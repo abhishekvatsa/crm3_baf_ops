@@ -10,6 +10,7 @@
   "scripts": {
     "test:rules": "jest --runInBand",
     "emulator:test:rules": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules\"",
+    "emulator:test:authority": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:authority\"",
     "emulator:test:closure": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:closure\"",
     "emulator:test:governed": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules && npm --prefix functions run test:emulator:governed\"",
     "workflow:policy:generate": "node tools/maintenance_workflow/generate_policy.mjs",

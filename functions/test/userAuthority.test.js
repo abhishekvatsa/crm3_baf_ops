@@ -1,7 +1,10 @@
 const {
   canonicalApprovedUserAuthority,
   canonicalRoleUniverseForTest,
+  canonicalUserAuthorityCapsule,
+  canonicalUserAuthorityDigest,
   canonicalUserHasAnyRole,
+  normalizeCanonicalUserRoles,
 } = require('../lib/userAuthority');
 
 describe('canonical backend user authority', () => {
@@ -37,6 +40,41 @@ describe('canonical backend user authority', () => {
     expect(canonicalUserHasAnyRole({isApproved: true, roles: ['admin']}, allowed)).toBe(true);
     expect(canonicalUserHasAnyRole({approved: true, roles: ['admin']}, allowed)).toBe(false);
     expect(canonicalUserHasAnyRole({isApproved: true, roles: ['admin', 'bogus']}, allowed)).toBe(false);
+  });
+
+  test('unapproved intended roles remain a canonical non-authorizing capsule', () => {
+    const capsule = canonicalUserAuthorityCapsule({
+      isApproved: false,
+      roles: ['operations'],
+    });
+    expect(capsule).not.toBeNull();
+    expect(capsule.isApproved).toBe(false);
+    expect([...capsule.roles]).toEqual(['operations']);
+    expect(canonicalApprovedUserAuthority({
+      isApproved: false,
+      roles: ['operations'],
+    })).toBeNull();
+  });
+
+  test('authority digest is semantic across role order and duplicates', () => {
+    const first = canonicalUserAuthorityCapsule({
+      isApproved: true,
+      roles: ['operations', 'admin', 'admin'],
+    });
+    const second = canonicalUserAuthorityCapsule({
+      isApproved: true,
+      roles: ['admin', 'operations'],
+    });
+    expect(canonicalUserAuthorityDigest(first)).toBe(
+      canonicalUserAuthorityDigest(second),
+    );
+    expect(canonicalUserAuthorityDigest(first)).toMatch(
+      /^auth1-sha256:[0-9a-f]{64}$/,
+    );
+    expect(normalizeCanonicalUserRoles(first.roles)).toEqual([
+      'admin',
+      'operations',
+    ]);
   });
 
   test('role universe is generated-policy aligned and contains all operational roles', () => {

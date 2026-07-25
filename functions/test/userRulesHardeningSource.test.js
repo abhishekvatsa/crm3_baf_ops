@@ -28,10 +28,39 @@ describe('user document schema perimeter', () => {
     }
     expect(functionBlock('validPendingUserCreate', 'function validSelfUserUpdate'))
       .toContain('validUserDocumentShape(request.resource.data)');
-    expect(functionBlock('validSelfUserUpdate', 'function validAdminUserWrite'))
+    expect(functionBlock('validSelfUserUpdate', 'function validAdminUserProfileUpdate'))
       .toContain('validUserDocumentShape(request.resource.data)');
-    expect(functionBlock('validAdminUserWrite', '// ─────────────────────────────────────────────'))
+    expect(functionBlock('validAdminUserProfileUpdate', '// ─────────────────────────────────────────────'))
       .toContain('validUserDocumentShape(request.resource.data)');
+  });
+
+  test('client authority mutations are denied while profile corrections remain scoped', () => {
+    const block = functionBlock(
+      'validAdminUserProfileUpdate',
+      '// ─────────────────────────────────────────────',
+    );
+    expect(block).toContain("affectedKeys().hasOnly([");
+    for (const field of ['name', 'email', 'photoUrl', 'fcmToken']) {
+      expect(block).toContain(`'${field}'`);
+    }
+    expect(block).toContain(
+      "request.resource.data.get('roles', []) == resource.data.get('roles', [])",
+    );
+    expect(block).toContain(
+      "request.resource.data.get('isApproved', null) == resource.data.get('isApproved', null)",
+    );
+
+    const usersMatch = rules.slice(
+      rules.indexOf('match /users/{userId}'),
+      rules.indexOf('match /knowledge_base/{docId}'),
+    );
+    expect(usersMatch).toContain('allow create: if validPendingUserCreate(userId);');
+    expect(usersMatch).not.toContain('validAdminUserWrite');
+  });
+
+  test('server authority receipts and deterministic audits are client-inaccessible', () => {
+    expect(rules).toContain('match /user_authority_mutation_receipts/{docId}');
+    expect(rules).toContain("!docId.matches('^server_authority_.*')");
   });
 
   test('roles are restricted to the canonical vocabulary and non-empty list', () => {

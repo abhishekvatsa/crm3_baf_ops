@@ -166,19 +166,31 @@ void main() {
       expect(result.messageFor('roles'), isNotNull);
     });
 
-    test('blocks self admin removal and last-admin removal', () {
+    test('leaves quorum decisions to the server transaction', () {
       final admin = _user(uid: 'admin_1', roles: const [AppRole.admin]);
 
       final result = UserInputValidator.validateRoleAssignment(
         currentUser: admin,
         targetUser: admin,
         selectedRoles: const [AppRole.operations],
-        lastApprovedAdminWouldBeRemoved: true,
+      );
+
+      expect(result.isValid, isTrue);
+    });
+
+    test('still rejects empty roles and non-admin actors', () {
+      final target = _user(uid: 'target_1');
+      final nonAdmin = _user(uid: 'ops_1', roles: const [AppRole.operations]);
+
+      final result = UserInputValidator.validateRoleAssignment(
+        currentUser: nonAdmin,
+        targetUser: target,
+        selectedRoles: const [],
       );
 
       expect(result.isInvalid, isTrue);
-      expect(result.summary, contains('own Admin role'));
-      expect(result.summary, contains('At least one approved Admin'));
+      expect(result.messageFor('currentUser'), isNotNull);
+      expect(result.messageFor('roles'), isNotNull);
     });
   });
 }
