@@ -8,29 +8,62 @@ const workflowIdFromPath = (path: string): string => path.split("/").pop() ?? pa
 export interface LoadedEquipmentFacts extends Omit<EquipmentFacts, "operationsDeployed"> {}
 export type WorkflowContribution = "none" | "nonRed" | "red" | "awaitingPreparation";
 
+const equipmentProjectionCounterFields: readonly (keyof LoadedEquipmentFacts)[] = [
+  "activeNonRedMaintenanceCount",
+  "activeRedWorkCount",
+  "awaitingPreparationCount",
+];
+
 const projectionCounter = (
-  current: JsonMap | null,
+  current: JsonMap,
   field: keyof LoadedEquipmentFacts,
 ): number => {
-  const value = current?.[field];
-  if (value == null) return 0;
+  const value = current[field];
   if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) {
     return value;
   }
   throw new WorkflowError(
     "equipment-state-conflict",
     `Equipment projection counter ${field} is invalid.`,
-    {field, value},
+    {reasonCode: "equipment-projection-counter-invalid", field, value},
   );
 };
 
 export const equipmentFactsFromProjection = (
   current: JsonMap | null,
-): LoadedEquipmentFacts => ({
-  activeNonRedMaintenanceCount: projectionCounter(current, "activeNonRedMaintenanceCount"),
-  activeRedWorkCount: projectionCounter(current, "activeRedWorkCount"),
-  awaitingPreparationCount: projectionCounter(current, "awaitingPreparationCount"),
-});
+): LoadedEquipmentFacts => {
+  if (current == null) {
+    throw new WorkflowError(
+      "equipment-state-conflict",
+      "Equipment projection is missing. Reconcile it before mutating workflows.",
+      {reasonCode: "equipment-projection-missing"},
+    );
+  }
+  const missingFields = equipmentProjectionCounterFields.filter(
+    (field) => !Object.prototype.hasOwnProperty.call(current, field),
+  );
+  if (missingFields.length > 0) {
+    throw new WorkflowError(
+      "equipment-state-conflict",
+      "Equipment projection counter set is incomplete. Reconcile it before mutating workflows.",
+      {
+        reasonCode: "equipment-projection-counter-set-incomplete",
+        missingFields,
+      },
+    );
+  }
+  return {
+    activeNonRedMaintenanceCount: projectionCounter(
+      current,
+      "activeNonRedMaintenanceCount",
+    ),
+    activeRedWorkCount: projectionCounter(current, "activeRedWorkCount"),
+    awaitingPreparationCount: projectionCounter(
+      current,
+      "awaitingPreparationCount",
+    ),
+  };
+};
 
 export const workflowContribution = (
   workflow: JsonMap,

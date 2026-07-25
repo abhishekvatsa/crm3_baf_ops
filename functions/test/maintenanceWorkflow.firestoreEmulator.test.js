@@ -72,6 +72,16 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
   });
 
   test('concurrent same-equipment creates preserve both workflow contributions', async () => {
+    await db.collection('equipment_status').doc('base_101').set({
+      assetTypeKey: 'base',
+      assetNumber: 101,
+      state: 'available',
+      activeNonRedMaintenanceCount: 0,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 0,
+    });
+
     await Promise.all([
       service.execute(
         createCommand('workflow-a'),

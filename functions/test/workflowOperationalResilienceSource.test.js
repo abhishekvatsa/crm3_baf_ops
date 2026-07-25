@@ -40,12 +40,27 @@ describe('workflow operational resilience source contract', () => {
 
     expect(facts).toContain('equipmentFactsFromProjection');
     expect(facts).toContain('withoutWorkflowContribution');
+    expect(facts).toContain('equipmentProjectionCounterFields');
+    expect(facts).toContain('Object.prototype.hasOwnProperty.call');
+    expect(facts).toContain('equipment-projection-missing');
+    expect(facts).toContain('equipment-projection-counter-set-incomplete');
+    expect(facts).not.toContain('if (value == null) return 0');
     expect(equipment).toContain('loadEquipmentFacts');
     for (const file of mutators) {
       const source = read(`functions/src/maintenanceWorkflow/${file}`);
       expect(source).toContain('equipmentFactsFromProjection');
       expect(source).not.toContain('loadEquipmentFacts');
     }
+  });
+
+  test('R1.16 cutover requires governed equipment projection reconciliation', () => {
+    const authority = read('docs/v4_2_r1/FIREBASE_COMBINED_AUTHORITY_RECONCILIATION.md');
+    expect(authority).toContain('Equipment projection pilot/cutover prerequisite');
+    expect(authority).toContain('Workflow mutations must remain disabled');
+    expect(authority).toContain('run the Admin/SI `reconcileEquipment` command');
+    expect(authority).toContain('contains all three non-negative safe-integer counters');
+    expect(authority).toContain('zero unresolved exceptions');
+    expect(authority).toContain('ordinary job creation cannot initialize an unknown projection');
   });
 
   test('Admin/SI workflow diagnostics exposes quarantine and uncertain commands read-only', () => {

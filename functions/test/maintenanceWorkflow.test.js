@@ -45,6 +45,13 @@ const seedRedSuccessorTemplate = (store, assetTypeKey = 'furnace') => {
 describe('maintenance workflow command integration', () => {
   test('legacy assignment creates execution, workflow and equipment projection atomically', async () => {
     const store = new MemoryWorkflowStore();
+    store.seed('equipment_status/base_101', {
+      state: 'available',
+      activeNonRedMaintenanceCount: 0,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 0,
+    });
     const service = new MaintenanceWorkflowCommandService(store);
     const receipt = await service.execute({
       commandId: 'legacy-create-1',
@@ -82,6 +89,87 @@ describe('maintenance workflow command integration', () => {
     expect(store.read('maintenance_workflow_events/legacy-create-1')).toMatchObject({
       eventType: 'workflow.jobCreatedPendingClassification',
       aggregateId: 'legacy-exec-1',
+    });
+  });
+
+  test('legacy assignment rejects an unreconciled missing equipment projection', async () => {
+    const store = new MemoryWorkflowStore();
+    const service = new MaintenanceWorkflowCommandService(store);
+
+    await expect(service.execute({
+      commandId: 'legacy-create-missing-equipment',
+      commandType: 'createLegacyWorkflowJob',
+      aggregateId: 'legacy-exec-missing-equipment',
+      expectedVersion: 0,
+      payload: {
+        executionId: 'legacy-exec-missing-equipment',
+        templateFirestoreId: 'template-1',
+        templateName: 'Base planned maintenance',
+        assetTypeKey: 'base',
+        assetNumber: 101,
+        assignedAgencies: [],
+      },
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T00:45:00Z'),
+    })).rejects.toMatchObject({
+      code: 'equipment-state-conflict',
+      details: {reasonCode: 'equipment-projection-missing'},
+    });
+
+    expect(store.read('job_executions/legacy-exec-missing-equipment')).toBeNull();
+    expect(store.read('maintenance_workflows/legacy-exec-missing-equipment')).toBeNull();
+  });
+
+  test('Admin reconciliation initializes a new equipment projection before its first workflow', async () => {
+    const store = new MemoryWorkflowStore();
+    const service = new MaintenanceWorkflowCommandService(store);
+
+    await service.execute({
+      commandId: 'reconcile-new-equipment',
+      commandType: 'reconcileEquipment',
+      aggregateId: 'equipment_base_102',
+      expectedVersion: 0,
+      payload: {
+        assetTypeKey: 'base',
+        assetNumber: 102,
+      },
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T00:50:00Z'),
+    });
+
+    expect(store.read('equipment_status/base_102')).toMatchObject({
+      activeNonRedMaintenanceCount: 0,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 1,
+    });
+
+    await service.execute({
+      commandId: 'legacy-create-after-reconcile',
+      commandType: 'createLegacyWorkflowJob',
+      aggregateId: 'legacy-exec-after-reconcile',
+      expectedVersion: 0,
+      payload: {
+        executionId: 'legacy-exec-after-reconcile',
+        templateFirestoreId: 'template-1',
+        templateName: 'Base planned maintenance',
+        assetTypeKey: 'base',
+        assetNumber: 102,
+        assignedAgencies: [],
+      },
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T00:51:00Z'),
+    });
+
+    expect(store.read('equipment_status/base_102')).toMatchObject({
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 2,
     });
   });
 
@@ -275,6 +363,65 @@ describe('maintenance workflow command integration', () => {
       version: 4,
     });
     expect(store.read('job_executions/exec-counter-conflict')).toMatchObject({
+      isCompleted: false,
+      version: 1,
+    });
+  });
+
+  test('workflow mutation fails closed when the equipment counter set is partial', async () => {
+    const store = new MemoryWorkflowStore();
+    store.seed('maintenance_workflows/wf-partial-counters', {
+      jobExecutionId: 'exec-partial-counters',
+      status: 'readyForClosure',
+      version: 4,
+      assetTypeKey: 'furnace',
+      assetNumber: 13,
+      laneSetFinalizedAt: '2026-07-20T00:00:00Z',
+      activeRedWork: false,
+      awaitingPreparation: false,
+    });
+    store.seed('job_lanes/wf-partial-counters_mech_1', {
+      workflowId: 'wf-partial-counters',
+      jobExecutionId: 'exec-partial-counters',
+      laneKey: 'mech',
+      status: 'closed',
+      activationGeneration: 1,
+      version: 2,
+    });
+    store.seed('job_executions/exec-partial-counters', {
+      version: 1,
+      isCompleted: false,
+    });
+    store.seed('equipment_status/furnace_13', {
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 1,
+      awaitingPreparationCount: 0,
+      version: 3,
+    });
+    const service = new MaintenanceWorkflowCommandService(store);
+
+    await expect(service.execute({
+      commandId: 'final-partial-counters',
+      commandType: 'finalizeJob',
+      aggregateId: 'wf-partial-counters',
+      expectedVersion: 4,
+      payload: {redRequired: false},
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T07:45:00Z'),
+    })).rejects.toMatchObject({
+      code: 'equipment-state-conflict',
+      details: {
+        reasonCode: 'equipment-projection-counter-set-incomplete',
+        missingFields: ['activeRedWorkCount'],
+      },
+    });
+
+    expect(store.read('maintenance_workflows/wf-partial-counters')).toMatchObject({
+      status: 'readyForClosure',
+      version: 4,
+    });
+    expect(store.read('job_executions/exec-partial-counters')).toMatchObject({
       isCompleted: false,
       version: 1,
     });

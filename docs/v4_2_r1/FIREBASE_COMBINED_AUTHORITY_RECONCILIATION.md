@@ -33,3 +33,17 @@ This is a custody correction only. It does not add source changes beyond those a
 ## Integration boundary
 
 This record accompanies the R1.16 source integration. It permits a feature branch, one reviewed commit, push and draft pull request only after the full authoritative laboratory passes. It does not permit merge, tag, Firebase deployment, App Check enforcement, production artifact signing, distribution, or production-data mutation.
+
+## Equipment projection pilot/cutover prerequisite
+
+Workflow mutations must remain disabled for pilot and cutover until the equipment projection is reconciled. An absent `equipment_status` document does not prove that an equipment item has no historical workflows, and a missing individual counter must not be interpreted as zero.
+
+Before enabling workflow mutations, the governed cutover procedure must:
+
+1. enumerate every equipment item referenced by an existing maintenance workflow;
+2. run the Admin/SI `reconcileEquipment` command, or an equivalently governed backfill using the same authoritative workflow facts, for every enumerated item;
+3. verify that every resulting `equipment_status` document contains all three non-negative safe-integer counters: `activeNonRedMaintenanceCount`, `activeRedWorkCount`, and `awaitingPreparationCount`;
+4. compare those counters with the authoritative non-terminal workflow population and resolve every mismatch;
+5. retain read-back evidence showing complete coverage and zero unresolved exceptions before the mutation capability is enabled.
+
+The application source enforces this prerequisite at the mutation boundary: missing projections, partial counter sets, malformed counters, and negative counters fail closed. A wholly new equipment item must therefore receive a governed zero-count reconciliation before its first workflow mutation; ordinary job creation cannot initialize an unknown projection.
