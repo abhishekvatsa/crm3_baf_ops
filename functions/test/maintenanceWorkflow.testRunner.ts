@@ -139,7 +139,7 @@ void (async () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, "wf1", "readyForClosure", 7);
     store.seed("maintenance_workflows/wf1", {jobExecutionId: "wf1-exec", status: "readyForClosure", version: 7, assetTypeKey: "forceCooler", assetNumber: 2, laneSetFinalizedAt: "2026-07-20T00:00:00Z", cancelled: false});
     store.seed("job_lanes/wf1_mech_1", {workflowId: "wf1", jobExecutionId: "wf1-exec", laneKey: "mech", status: "closed", activationGeneration: 1, version: 2});
-    store.seed("equipment_status/forceCooler_2", {state: "underMaintenance", version: 1});
+    store.seed("equipment_status/forceCooler_2", {state: "underMaintenance", activeNonRedMaintenanceCount: 1, activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 1});
     const service = new MaintenanceWorkflowCommandService(store);
     const receipt = await service.execute({commandId: "final-fc", commandType: "finalizeJob", aggregateId: "wf1", expectedVersion: 7, payload: {}}, {actor: admin, serverNow: new Date("2026-07-20T06:00:00Z")});
     equal(receipt.resultKey, "workflow-finalized", "finalise result mismatch");
@@ -150,7 +150,7 @@ void (async () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, "wf1", "readyForClosure", 8);
     store.seed("maintenance_workflows/wf1", {jobExecutionId: "wf1-exec", status: "readyForClosure", version: 8, assetTypeKey: "furnace", assetNumber: 7, laneSetFinalizedAt: "2026-07-20T00:00:00Z", cancelled: false});
     store.seed("job_lanes/wf1_mech_1", {workflowId: "wf1", jobExecutionId: "wf1-exec", laneKey: "mech", status: "closed", activationGeneration: 1, version: 2});
-    store.seed("equipment_status/furnace_7", {state: "underMaintenance", version: 2});
+    store.seed("equipment_status/furnace_7", {state: "underMaintenance", activeNonRedMaintenanceCount: 1, activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 2});
     const service = new MaintenanceWorkflowCommandService(store);
     const receipt = await service.execute({commandId: "final-red", commandType: "finalizeJob", aggregateId: "wf1", expectedVersion: 8, payload: {redRequired: true, preparationRequired: true, redSuccessorWorkflowId: "wf-red", redSuccessorExecutionId: "exec-red", redTemplatePackageId: "pkg-red", redTemplateVersionId: "ver-red", redTemplateContentHash: "hash-red"}}, {actor: admin, serverNow: new Date("2026-07-20T07:00:00Z")});
     equal(receipt.resultKey, "workflow-finalized", "RED finalise result mismatch");
@@ -173,7 +173,7 @@ void (async () => {
     store.seed("maintenance_workflows/wf-base", {jobExecutionId: "exec-base", status: "inProgress", version: 3, assetTypeKey: "base", assetNumber: 4, laneSetFinalizedAt: "2026-07-20T00:00:00Z", activeRedWork: false, awaitingPreparation: false});
     store.seed("job_lanes/wf-base_mech_1", {workflowId: "wf-base", jobExecutionId: "exec-base", laneKey: "mech", status: "closed", activationGeneration: 1, version: 2});
     store.seed("job_lanes/wf-base_red_1", {workflowId: "wf-base", jobExecutionId: "exec-base", laneKey: "red", status: "pending", activationGeneration: 1, version: 1});
-    store.seed("equipment_status/base_4", {state: "underMaintenance", version: 1});
+    store.seed("equipment_status/base_4", {state: "underMaintenance", activeNonRedMaintenanceCount: 1, activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 1});
     const service = new MaintenanceWorkflowCommandService(store);
     const prepared = await service.execute({commandId: "prepare-base", commandType: "prepareRedLane", aggregateId: "wf-base", expectedVersion: 3, payload: {}}, {actor: admin, serverNow: new Date("2026-07-20T09:00:00Z")});
     equal(prepared.resultKey, "red-ready-for-work", "base RED should be released in situ");
@@ -187,7 +187,7 @@ void (async () => {
     store.seed("maintenance_workflows/wf-pre-red", {jobExecutionId: "exec-pre-red", status: "inProgress", version: 3, assetTypeKey: "furnace", assetNumber: 8, laneSetFinalizedAt: "2026-07-20T00:00:00Z", activeRedWork: false, awaitingPreparation: false});
     store.seed("job_lanes/wf-pre-red_mech_1", {workflowId: "wf-pre-red", jobExecutionId: "exec-pre-red", laneKey: "mech", status: "closed", activationGeneration: 1, version: 2});
     store.seed("job_lanes/wf-pre-red_red_1", {workflowId: "wf-pre-red", jobExecutionId: "exec-pre-red", laneKey: "red", status: "pending", activationGeneration: 1, version: 1});
-    store.seed("equipment_status/furnace_8", {state: "underMaintenance", version: 1});
+    store.seed("equipment_status/furnace_8", {state: "underMaintenance", activeNonRedMaintenanceCount: 1, activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 1});
     const service = new MaintenanceWorkflowCommandService(store);
     await service.execute({commandId: "prepare-furnace", commandType: "prepareRedLane", aggregateId: "wf-pre-red", expectedVersion: 3, payload: {preparationRequired: true}}, {actor: admin, serverNow: new Date("2026-07-20T10:00:00Z")});
     equal(store.read("equipment_status/furnace_8")?.state, "awaitingPreparation", "furnace should await preparation");
@@ -214,7 +214,7 @@ void (async () => {
     store.seed("job_lanes/wf-final_mech_1", {workflowId: "wf-final", jobExecutionId: "exec-final", laneKey: "mech", status: "closed", activationGeneration: 1, version: 2});
     store.seed("job_executions/exec-final", {version: 1, isCompleted: false});
     store.seed("maintenance_workflows/wf-other", {jobExecutionId: "exec-other", status: "inProgress", version: 2, assetTypeKey: "furnace", assetNumber: 11, activeRedWork: false, awaitingPreparation: false});
-    store.seed("equipment_status/furnace_11", {state: "underMaintenance", version: 3, activeNonRedMaintenanceCount: 2});
+    store.seed("equipment_status/furnace_11", {state: "underMaintenance", activeNonRedMaintenanceCount: 2, activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 3});
     const service = new MaintenanceWorkflowCommandService(store);
     const receipt = await service.execute({commandId: "final-multi", commandType: "finalizeJob", aggregateId: "wf-final", expectedVersion: 4, payload: {redRequired: false}}, {actor: admin, serverNow: new Date("2026-07-20T11:00:00Z")});
     equal(receipt.resultKey, "workflow-finalized", "finalization result mismatch");

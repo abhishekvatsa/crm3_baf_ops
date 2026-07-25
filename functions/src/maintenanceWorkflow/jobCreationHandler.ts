@@ -1,5 +1,5 @@
 import {mayFinalizeLaneSet} from "./authority";
-import {equipmentProjectionWrite, loadEquipmentFacts, projectEquipment, withWorkflowContribution} from "./equipmentFacts";
+import {equipmentFactsFromProjection, equipmentProjectionWrite, projectEquipment, withWorkflowContribution} from "./equipmentFacts";
 import {WorkflowError} from "./errors";
 import {eventPlan} from "./events";
 import {CommandHandler} from "./handlerTypes";
@@ -46,7 +46,7 @@ export const createLegacyWorkflowJob: CommandHandler = async ({tx, command, cont
   const existingExecution = await tx.get(executionRef);
   const existingWorkflow = await tx.get(aggregateRef);
   const currentEquipment = await tx.get(equipmentRef);
-  const existingFacts = await loadEquipmentFacts(tx, assetTypeKey, assetNumber);
+  const existingFacts = equipmentFactsFromProjection(currentEquipment.data);
   if (existingExecution.exists || existingWorkflow.exists) {
     throw new WorkflowError("already-exists", "A job or workflow already uses this identity.");
   }

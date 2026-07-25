@@ -10,7 +10,14 @@ import {
 import {WorkflowError} from "./errors";
 import {eventPlan} from "./events";
 import {ESCALATION_SUPPRESSION_MINUTES, MAX_ESCALATION_TIER} from "./escalationPolicy";
-import {equipmentProjectionWrite, loadEquipmentFacts, projectEquipment, withWorkflowContribution} from "./equipmentFacts";
+import {
+  equipmentFactsFromProjection,
+  equipmentProjectionWrite,
+  projectEquipment,
+  withWorkflowContribution,
+  withoutWorkflowContribution,
+  workflowContribution,
+} from "./equipmentFacts";
 import {CommandHandler} from "./handlerTypes";
 import {
   assertMaintenanceBoundToCompliance,
@@ -504,7 +511,10 @@ export const confirmComplianceClosed: CommandHandler = async ({tx, command, cont
   const equipmentId = assetTypeKey != null && assetNumber != null ? equipmentPath(assetTypeKey, assetNumber) : null;
   const equipment = equipmentId == null ? null : await tx.get(equipmentId);
   const otherFacts = assetTypeKey != null && assetNumber != null
-    ? await loadEquipmentFacts(tx, assetTypeKey, assetNumber, [command.aggregateId])
+    ? withoutWorkflowContribution(
+      equipmentFactsFromProjection(equipment?.data ?? null),
+      workflowContribution(workflow),
+    )
     : null;
   const linkedMaintenanceId = typeof compliance.linkedMaintenanceFirestoreId === "string" &&
       compliance.linkedMaintenanceFirestoreId.length > 0

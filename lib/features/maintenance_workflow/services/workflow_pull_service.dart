@@ -23,13 +23,13 @@ class WorkflowPullQuarantineRecord {
   });
 
   Map<String, Object?> toJson() => <String, Object?>{
-        'collection': collection,
-        'documentId': documentId,
-        'stage': stage,
-        'error': error,
-        'observedAt': observedAt?.toUtc().toIso8601String(),
-        'quarantinedAt': quarantinedAt.toUtc().toIso8601String(),
-      };
+    'collection': collection,
+    'documentId': documentId,
+    'stage': stage,
+    'error': error,
+    'observedAt': observedAt?.toUtc().toIso8601String(),
+    'quarantinedAt': quarantinedAt.toUtc().toIso8601String(),
+  };
 
   factory WorkflowPullQuarantineRecord.fromJson(Map<String, dynamic> json) {
     return WorkflowPullQuarantineRecord(
@@ -37,8 +37,10 @@ class WorkflowPullQuarantineRecord {
       documentId: json['documentId']?.toString() ?? 'unknown',
       stage: json['stage']?.toString() ?? 'unknown',
       error: json['error']?.toString() ?? 'Unknown workflow pull failure',
-      observedAt: DateTime.tryParse(json['observedAt']?.toString() ?? '')?.toUtc(),
-      quarantinedAt: DateTime.tryParse(json['quarantinedAt']?.toString() ?? '')?.toUtc() ??
+      observedAt:
+          DateTime.tryParse(json['observedAt']?.toString() ?? '')?.toUtc(),
+      quarantinedAt:
+          DateTime.tryParse(json['quarantinedAt']?.toString() ?? '')?.toUtc() ??
           DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }
@@ -82,7 +84,7 @@ class WorkflowPullService {
   static const _quarantineKey = '${_prefix}_quarantine';
   static const _maxQuarantineRecords = 100;
 
-  final FirestoreWorkflowReadRepository remote;
+  final WorkflowRemoteReadRepository remote;
   final WorkflowRepository local;
 
   const WorkflowPullService({required this.remote, required this.local});
@@ -90,9 +92,9 @@ class WorkflowPullService {
   /// Pulls each projection independently and quarantines malformed records.
   ///
   /// A bad document must not block valid siblings. Mapping and local-upsert
-  /// failures are retained as capped local diagnostics. A failed document with
-  /// a valid server timestamp is skipped by the current watermark but will be
-  /// fetched again if corrected because its `updatedAt`/event timestamp changes.
+  /// failures are retained as capped local diagnostics. Remote mapping failures
+  /// with a valid timestamp are retried after the server document changes. Any
+  /// local-upsert failure holds the watermark so the unchanged record is retried.
   Future<WorkflowPullSummary> pull() async {
     final prefs = await SharedPreferences.getInstance();
     final failures = <String, String>{};
@@ -186,7 +188,9 @@ class WorkflowPullService {
       prompts: prompts,
       events: events,
       failures: Map<String, String>.unmodifiable(failures),
-      quarantinedRecords: List<WorkflowPullQuarantineRecord>.unmodifiable(quarantined),
+      quarantinedRecords: List<WorkflowPullQuarantineRecord>.unmodifiable(
+        quarantined,
+      ),
     );
   }
 
@@ -229,8 +233,10 @@ class WorkflowPullService {
 
       var saved = 0;
       final observed = <DateTime>[...batch.observedTimestamps];
-      final unknownFailureTimestamp =
-          batch.failures.any((failure) => failure.observedAt == null);
+      final unknownFailureTimestamp = batch.failures.any(
+        (failure) => failure.observedAt == null,
+      );
+      var localUpsertFailed = false;
       for (final record in batch.records) {
         final recordTimestamp = timestamp(record).toUtc();
         if (!observed.contains(recordTimestamp)) observed.add(recordTimestamp);
@@ -238,6 +244,7 @@ class WorkflowPullService {
           await upsert(record);
           saved += 1;
         } catch (error) {
+          localUpsertFailed = true;
           quarantined.add(
             WorkflowPullQuarantineRecord(
               collection: name,
@@ -251,14 +258,21 @@ class WorkflowPullService {
         }
       }
 
-      final collectionQuarantine = quarantined.where((record) => record.collection == name).length;
+      final collectionQuarantine =
+          quarantined.where((record) => record.collection == name).length;
       if (collectionQuarantine > 0) {
         failures[name] = '$collectionQuarantine record(s) quarantined';
       }
-      if (!unknownFailureTimestamp) {
+      if (!unknownFailureTimestamp && !localUpsertFailed) {
         await _advance(prefs, key, observed);
       } else {
-        failures[name] = '${failures[name] ?? 'Record quarantine'}; watermark held because a failed record had no valid server timestamp';
+        final reasons = <String>[
+          if (unknownFailureTimestamp)
+            'a failed record had no valid server timestamp',
+          if (localUpsertFailed) 'a local upsert failed',
+        ];
+        failures[name] =
+            '${failures[name] ?? 'Record quarantine'}; watermark held because ${reasons.join(' and ')}';
       }
       return saved;
     } catch (error) {
@@ -275,7 +289,9 @@ class WorkflowPullService {
     String key,
     Iterable<DateTime> timestamps,
   ) async {
-    final values = timestamps.map((value) => value.toUtc()).toList(growable: false);
+    final values = timestamps
+        .map((value) => value.toUtc())
+        .toList(growable: false);
     if (values.isEmpty) return;
     values.sort();
     await prefs.setString(key, values.last.toIso8601String());
@@ -289,23 +305,32 @@ class WorkflowPullService {
     final existing = _decodeQuarantine(prefs.getString(_quarantineKey));
     final combined = <WorkflowPullQuarantineRecord>[...existing, ...newRecords]
       ..sort((a, b) => a.quarantinedAt.compareTo(b.quarantinedAt));
-    final retained = combined.length <= _maxQuarantineRecords
-        ? combined
-        : combined.sublist(combined.length - _maxQuarantineRecords);
+    final retained =
+        combined.length <= _maxQuarantineRecords
+            ? combined
+            : combined.sublist(combined.length - _maxQuarantineRecords);
     await prefs.setString(
       _quarantineKey,
-      jsonEncode(retained.map((record) => record.toJson()).toList(growable: false)),
+      jsonEncode(
+        retained.map((record) => record.toJson()).toList(growable: false),
+      ),
     );
   }
 
   static List<WorkflowPullQuarantineRecord> _decodeQuarantine(String? raw) {
-    if (raw == null || raw.isEmpty) return const <WorkflowPullQuarantineRecord>[];
+    if (raw == null || raw.isEmpty) {
+      return const <WorkflowPullQuarantineRecord>[];
+    }
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! List) return const <WorkflowPullQuarantineRecord>[];
       return decoded
           .whereType<Map>()
-          .map((entry) => WorkflowPullQuarantineRecord.fromJson(Map<String, dynamic>.from(entry)))
+          .map(
+            (entry) => WorkflowPullQuarantineRecord.fromJson(
+              Map<String, dynamic>.from(entry),
+            ),
+          )
           .toList(growable: false);
     } catch (_) {
       return const <WorkflowPullQuarantineRecord>[];

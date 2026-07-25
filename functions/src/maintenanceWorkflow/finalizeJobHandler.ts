@@ -1,7 +1,14 @@
 import {mayFinalizeJob} from "./authority";
 import {buildCanonicalClosurePlan} from "./canonicalClosure";
 import {activeLanes, assertExpectedVersion, openBlockingCompliance, requireWorkflow} from "./documents";
-import {equipmentProjectionWrite, loadEquipmentFacts, projectEquipment, withWorkflowContribution} from "./equipmentFacts";
+import {
+  equipmentFactsFromProjection,
+  equipmentProjectionWrite,
+  projectEquipment,
+  withWorkflowContribution,
+  withoutWorkflowContribution,
+  workflowContribution,
+} from "./equipmentFacts";
 import {WorkflowError} from "./errors";
 import {eventPlan} from "./events";
 import {CommandHandler} from "./handlerTypes";
@@ -117,7 +124,10 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
 
   const equipmentId = equipmentPath(assetTypeKey, assetNumber);
   const equipment = await tx.get(equipmentId);
-  const otherFacts = await loadEquipmentFacts(tx, assetTypeKey, assetNumber, [command.aggregateId]);
+  const otherFacts = withoutWorkflowContribution(
+    equipmentFactsFromProjection(equipment.data),
+    workflowContribution(workflow),
+  );
   const now = iso(context.serverNow);
   const nextVersion = version + 1;
   const currentExecution = parentExecution.data;

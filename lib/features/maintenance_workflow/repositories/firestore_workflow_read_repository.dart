@@ -11,36 +11,60 @@ import '../data/workflow_aggregate_record.dart';
 import '../data/workflow_event_record.dart';
 
 const Set<String> _assetTypeKeys = <String>{
-  'base', 'furnace', 'forceCooler', 'innerCover',
+  'base',
+  'furnace',
+  'forceCooler',
+  'innerCover',
 };
 const Set<String> _workflowStatusKeys = <String>{
-  'pendingLaneClassification', 'assigned', 'partiallyAcknowledged',
-  'fullyAcknowledged', 'inProgress', 'awaitingCompliance',
-  'readyForClosure', 'completed', 'cancelled',
+  'pendingLaneClassification',
+  'assigned',
+  'partiallyAcknowledged',
+  'fullyAcknowledged',
+  'inProgress',
+  'awaitingCompliance',
+  'readyForClosure',
+  'completed',
+  'cancelled',
 };
 const Set<String> _laneKeys = <String>{
-  'elec', 'mech', 'inst', 'oprn', 'emd', 'red', 'shared',
+  'elec',
+  'mech',
+  'inst',
+  'oprn',
+  'emd',
+  'red',
+  'shared',
 };
 const Set<String> _laneStatusKeys = <String>{
-  'pending', 'acknowledged', 'closed', 'removed', 'terminated',
+  'pending',
+  'acknowledged',
+  'closed',
+  'removed',
+  'terminated',
 };
 const Set<String> _complianceStatusKeys = <String>{
-  'raised', 'acknowledged', 'complied', 'confirmedClosed',
-  'superseded', 'cancelled',
+  'raised',
+  'acknowledged',
+  'complied',
+  'confirmedClosed',
+  'superseded',
+  'cancelled',
 };
 const Set<String> _conditionTypeKeys = <String>{
-  'manual', 'chargeComplete', 'activityRef',
+  'manual',
+  'chargeComplete',
+  'activityRef',
 };
-const Set<String> _priorityKeys = <String>{
-  'low', 'medium', 'high', 'critical',
-};
+const Set<String> _priorityKeys = <String>{'low', 'medium', 'high', 'critical'};
 const Set<String> _equipmentStateKeys = <String>{
-  'available', 'inService', 'underMaintenance', 'underRED',
+  'available',
+  'inService',
+  'underMaintenance',
+  'underRED',
   'awaitingPreparation',
 };
-const Set<String> _promptTypeKeys = <String>{
-  'question', 'applicabilityMarker',
-};
+const Set<String> _promptTypeKeys = <String>{'question', 'applicabilityMarker'};
 
 Never _projectionError(String field, dynamic value, [String? detail]) {
   final suffix = detail == null ? '' : ' ($detail)';
@@ -62,7 +86,9 @@ DateTime _date(dynamic value, [String field = 'date']) {
 
 String? _string(dynamic value, [String field = 'string']) {
   if (value == null) return null;
-  if (value is! String) return _projectionError(field, value, 'expected string');
+  if (value is! String) {
+    return _projectionError(field, value, 'expected string');
+  }
   final result = value.trim();
   return result.isEmpty ? null : result;
 }
@@ -73,24 +99,24 @@ String _requiredString(
   Set<String>? allowed,
 }) {
   final result = _string(data[field], field);
-  if (result == null) return _projectionError(field, data[field], 'required non-empty string');
+  if (result == null) {
+    return _projectionError(field, data[field], 'required non-empty string');
+  }
   if (allowed != null && !allowed.contains(result)) {
     return _projectionError(field, data[field], 'unsupported value');
   }
   return result;
 }
 
-int _requiredInt(
-  Map<String, dynamic> data,
-  String field, {
-  int minimum = 0,
-}) {
+int _requiredInt(Map<String, dynamic> data, String field, {int minimum = 0}) {
   final value = data[field];
   if (value is! num || !value.isFinite || value.toInt() != value) {
     return _projectionError(field, value, 'required integer');
   }
   final result = value.toInt();
-  if (result < minimum) return _projectionError(field, value, 'minimum $minimum');
+  if (result < minimum) {
+    return _projectionError(field, value, 'minimum $minimum');
+  }
   return result;
 }
 
@@ -139,12 +165,14 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
   required String documentId,
   required Map<String, dynamic> data,
 }) {
-  final counterProposal = data['counterProposal'] is Map
-      ? Map<String, dynamic>.from(data['counterProposal'] as Map)
-      : null;
-  final counterDecision = data['counterDecision'] is Map
-      ? Map<String, dynamic>.from(data['counterDecision'] as Map)
-      : null;
+  final counterProposal =
+      data['counterProposal'] is Map
+          ? Map<String, dynamic>.from(data['counterProposal'] as Map)
+          : null;
+  final counterDecision =
+      data['counterDecision'] is Map
+          ? Map<String, dynamic>.from(data['counterDecision'] as Map)
+          : null;
   final metadata = data['metadata'];
 
   return ComplianceRequestRecord()
@@ -155,8 +183,16 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
     ..description = _requiredString(data, 'description')
     ..originLaneKey = _string(data['originLaneKey'])
     ..targetLaneKey = _requiredString(data, 'targetLaneKey', allowed: _laneKeys)
-    ..statusKey = _requiredString(data, 'status', allowed: _complianceStatusKeys)
-    ..conditionTypeKey = _requiredString(data, 'conditionTypeKey', allowed: _conditionTypeKeys)
+    ..statusKey = _requiredString(
+      data,
+      'status',
+      allowed: _complianceStatusKeys,
+    )
+    ..conditionTypeKey = _requiredString(
+      data,
+      'conditionTypeKey',
+      allowed: _conditionTypeKeys,
+    )
     ..conditionRef = _string(data['conditionRef'])
     ..priorityKey = _requiredString(data, 'priorityKey', allowed: _priorityKeys)
     ..raisedByUid = _string(data['raisedByUid'])
@@ -185,7 +221,9 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
     ..counterProposedByUid = _string(counterProposal?['proposedByUid'])
     ..counterProposedByName = _string(counterProposal?['proposedByName'])
     ..counterProposedAt = _optionalDate(counterProposal?['proposedAt'])
-    ..counterRevisedDescription = _string(counterProposal?['revisedDescription'])
+    ..counterRevisedDescription = _string(
+      counterProposal?['revisedDescription'],
+    )
     ..counterDecisionByUid = _string(counterDecision?['decidedByUid'])
     ..counterDecisionByName = _string(counterDecision?['decidedByName'])
     ..counterDecisionAt = _optionalDate(counterDecision?['decidedAt'])
@@ -196,12 +234,18 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
     ..lastCorrectionAt = _optionalDate(data['lastCorrectionAt'])
     ..lastCorrectionReason = _string(data['lastCorrectionReason'])
     ..linkedWorkflowId = _requiredString(data, 'linkedWorkflowId')
-    ..linkedMaintenanceFirestoreId = _string(data['linkedMaintenanceFirestoreId'])
+    ..linkedMaintenanceFirestoreId = _string(
+      data['linkedMaintenanceFirestoreId'],
+    )
     ..linkedExecutionFirestoreId = _string(data['linkedExecutionFirestoreId'])
     ..linkedLaneFirestoreId = _string(data['linkedLaneFirestoreId'])
     ..linkedModuleFirestoreId = _string(data['linkedModuleFirestoreId'])
     ..gatesLaneFirestoreId = _string(data['gatesLaneFirestoreId'])
-    ..assetTypeKey = _requiredString(data, 'assetTypeKey', allowed: _assetTypeKeys)
+    ..assetTypeKey = _requiredString(
+      data,
+      'assetTypeKey',
+      allowed: _assetTypeKeys,
+    )
     ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
     ..chargeNoAtEvent = (data['chargeNoAtEvent'] as num?)?.toInt()
     ..escalationTier = _optionalInt(data, 'escalationTier', fallback: 0)
@@ -218,7 +262,29 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
     ..metadataJson = metadata == null ? null : jsonEncode(metadata);
 }
 
-class FirestoreWorkflowReadRepository {
+abstract interface class WorkflowRemoteReadRepository {
+  Future<WorkflowRemoteBatch<WorkflowAggregateRecord>>
+  fetchWorkflowsUpdatedSince(DateTime? since);
+  Future<WorkflowRemoteBatch<JobLaneRecord>> fetchLanesUpdatedSince(
+    DateTime? since,
+  );
+  Future<WorkflowRemoteBatch<ComplianceRequestRecord>>
+  fetchComplianceUpdatedSince(DateTime? since);
+  Future<WorkflowRemoteBatch<EquipmentStatusRecord>> fetchEquipmentUpdatedSince(
+    DateTime? since,
+  );
+  Future<WorkflowRemoteBatch<EquipmentPromptRecord>> fetchPromptsUpdatedSince(
+    DateTime? since,
+  );
+  Future<WorkflowRemoteBatch<WorkflowEventRecord>> fetchEventsAfter(
+    DateTime? since,
+  );
+  Future<WorkflowRemoteBatch<ComplianceAttemptRecord>> fetchAttemptsAfter(
+    DateTime? since,
+  );
+}
+
+class FirestoreWorkflowReadRepository implements WorkflowRemoteReadRepository {
   static const int _pageSize = 250;
   final FirebaseFirestore firestore;
   const FirestoreWorkflowReadRepository(this.firestore);
@@ -279,74 +345,103 @@ class FirestoreWorkflowReadRepository {
     );
   }
 
-  Future<WorkflowRemoteBatch<WorkflowAggregateRecord>> fetchWorkflowsUpdatedSince(DateTime? since) =>
-      _fetchAll(
-        collection: 'maintenance_workflows',
-        timestampField: 'updatedAt',
-        since: since,
-        map: _workflow,
-      );
+  @override
+  Future<WorkflowRemoteBatch<WorkflowAggregateRecord>>
+  fetchWorkflowsUpdatedSince(DateTime? since) => _fetchAll(
+    collection: 'maintenance_workflows',
+    timestampField: 'updatedAt',
+    since: since,
+    map: _workflow,
+  );
 
-  Future<WorkflowRemoteBatch<JobLaneRecord>> fetchLanesUpdatedSince(DateTime? since) =>
-      _fetchAll(
-        collection: 'job_lanes',
-        timestampField: 'updatedAt',
-        since: since,
-        map: _lane,
-      );
+  @override
+  Future<WorkflowRemoteBatch<JobLaneRecord>> fetchLanesUpdatedSince(
+    DateTime? since,
+  ) => _fetchAll(
+    collection: 'job_lanes',
+    timestampField: 'updatedAt',
+    since: since,
+    map: _lane,
+  );
 
-  Future<WorkflowRemoteBatch<ComplianceRequestRecord>> fetchComplianceUpdatedSince(DateTime? since) =>
-      _fetchAll(
-        collection: 'compliance_requests',
-        timestampField: 'updatedAt',
-        since: since,
-        map: _compliance,
-      );
+  @override
+  Future<WorkflowRemoteBatch<ComplianceRequestRecord>>
+  fetchComplianceUpdatedSince(DateTime? since) => _fetchAll(
+    collection: 'compliance_requests',
+    timestampField: 'updatedAt',
+    since: since,
+    map: _compliance,
+  );
 
-  Future<WorkflowRemoteBatch<EquipmentStatusRecord>> fetchEquipmentUpdatedSince(DateTime? since) =>
-      _fetchAll(
-        collection: 'equipment_status',
-        timestampField: 'updatedAt',
-        since: since,
-        map: _equipment,
-      );
+  @override
+  Future<WorkflowRemoteBatch<EquipmentStatusRecord>> fetchEquipmentUpdatedSince(
+    DateTime? since,
+  ) => _fetchAll(
+    collection: 'equipment_status',
+    timestampField: 'updatedAt',
+    since: since,
+    map: _equipment,
+  );
 
-  Future<WorkflowRemoteBatch<EquipmentPromptRecord>> fetchPromptsUpdatedSince(DateTime? since) =>
-      _fetchAll(
-        collection: 'equipment_prompt_master',
-        timestampField: 'updatedAt',
-        since: since,
-        map: _prompt,
-      );
+  @override
+  Future<WorkflowRemoteBatch<EquipmentPromptRecord>> fetchPromptsUpdatedSince(
+    DateTime? since,
+  ) => _fetchAll(
+    collection: 'equipment_prompt_master',
+    timestampField: 'updatedAt',
+    since: since,
+    map: _prompt,
+  );
 
-  Future<WorkflowRemoteBatch<WorkflowEventRecord>> fetchEventsAfter(DateTime? since) =>
-      _fetchAll(
-        collection: 'maintenance_workflow_events',
-        timestampField: 'occurredAt',
-        since: since,
-        map: _event,
-      );
+  @override
+  Future<WorkflowRemoteBatch<WorkflowEventRecord>> fetchEventsAfter(
+    DateTime? since,
+  ) => _fetchAll(
+    collection: 'maintenance_workflow_events',
+    timestampField: 'occurredAt',
+    since: since,
+    map: _event,
+  );
 
-  Future<WorkflowRemoteBatch<ComplianceAttemptRecord>> fetchAttemptsAfter(DateTime? since) =>
-      _fetchAll(
-        collection: 'compliance_attempts',
-        timestampField: 'attemptedAt',
-        since: since,
-        map: _attempt,
-      );
+  @override
+  Future<WorkflowRemoteBatch<ComplianceAttemptRecord>> fetchAttemptsAfter(
+    DateTime? since,
+  ) => _fetchAll(
+    collection: 'compliance_attempts',
+    timestampField: 'attemptedAt',
+    since: since,
+    map: _attempt,
+  );
 
-  WorkflowAggregateRecord _workflow(DocumentSnapshot<Map<String, dynamic>> doc) {
+  WorkflowAggregateRecord _workflow(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data() ?? const <String, dynamic>{};
     return WorkflowAggregateRecord()
       ..firestoreId = doc.id
       ..jobExecutionFirestoreId = _requiredString(data, 'jobExecutionId')
-      ..assetTypeKey = _requiredString(data, 'assetTypeKey', allowed: _assetTypeKeys)
+      ..assetTypeKey = _requiredString(
+        data,
+        'assetTypeKey',
+        allowed: _assetTypeKeys,
+      )
       ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
-      ..statusKey = _requiredString(data, 'status', allowed: _workflowStatusKeys)
-      ..workflowSchemaVersion = _requiredInt(data, 'workflowSchemaVersion', minimum: 1)
+      ..statusKey = _requiredString(
+        data,
+        'status',
+        allowed: _workflowStatusKeys,
+      )
+      ..workflowSchemaVersion = _requiredInt(
+        data,
+        'workflowSchemaVersion',
+        minimum: 1,
+      )
       ..version = _requiredInt(data, 'version')
       ..laneSetVersion = _requiredInt(data, 'laneSetVersion')
-      ..laneSetFinalizedAt = _optionalDate(data['laneSetFinalizedAt'], 'laneSetFinalizedAt')
+      ..laneSetFinalizedAt = _optionalDate(
+        data['laneSetFinalizedAt'],
+        'laneSetFinalizedAt',
+      )
       ..laneSetFinalizedByUid = _string(data['laneSetFinalizedByUid'])
       ..laneSetFinalizedByName = _string(data['laneSetFinalizedByName'])
       ..activeRedWork = data['activeRedWork'] == true
@@ -365,7 +460,11 @@ class FirestoreWorkflowReadRepository {
       ..jobExecutionFirestoreId = _requiredString(data, 'jobExecutionId')
       ..laneKey = _requiredString(data, 'laneKey', allowed: _laneKeys)
       ..statusKey = _requiredString(data, 'status', allowed: _laneStatusKeys)
-      ..activationGeneration = _requiredInt(data, 'activationGeneration', minimum: 1)
+      ..activationGeneration = _requiredInt(
+        data,
+        'activationGeneration',
+        minimum: 1,
+      )
       ..version = _requiredInt(data, 'version', minimum: 1)
       ..progressRevision = _optionalInt(data, 'progressRevision', fallback: 0)
       ..isSynced = true
@@ -375,15 +474,24 @@ class FirestoreWorkflowReadRepository {
       ..representedLaneKey = _string(data['representedLaneKey'])
       ..delegationBasis = _string(data['delegationBasis'])
       ..gatingComplianceRequestId = _string(data['gatingComplianceRequestId'])
-      ..assetTypeKey = _requiredString(data, 'assetTypeKey', allowed: _assetTypeKeys)
+      ..assetTypeKey = _requiredString(
+        data,
+        'assetTypeKey',
+        allowed: _assetTypeKeys,
+      )
       ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
       ..displayOrder = _optionalInt(data, 'displayOrder', fallback: 0)
-      ..acknowledgementDueAt = _optionalDate(data['acknowledgementDueAt'], 'acknowledgementDueAt')
+      ..acknowledgementDueAt = _optionalDate(
+        data['acknowledgementDueAt'],
+        'acknowledgementDueAt',
+      )
       ..createdAt = _date(data['createdAt'], 'createdAt')
       ..updatedAt = _date(data['updatedAt'], 'updatedAt');
   }
 
-  ComplianceRequestRecord _compliance(DocumentSnapshot<Map<String, dynamic>> doc) {
+  ComplianceRequestRecord _compliance(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     return complianceRequestRecordFromFirestoreData(
       documentId: doc.id,
       data: doc.data() ?? const <String, dynamic>{},
@@ -396,15 +504,32 @@ class FirestoreWorkflowReadRepository {
       ..firestoreId = doc.id
       ..isSynced = true
       ..version = _requiredInt(data, 'version', minimum: 1)
-      ..assetTypeKey = _requiredString(data, 'assetTypeKey', allowed: _assetTypeKeys)
+      ..assetTypeKey = _requiredString(
+        data,
+        'assetTypeKey',
+        allowed: _assetTypeKeys,
+      )
       ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
       ..stateKey = _requiredString(data, 'state', allowed: _equipmentStateKeys)
-      ..openMaintenanceCount = _requiredInt(data, 'activeNonRedMaintenanceCount')
+      ..openMaintenanceCount = _requiredInt(
+        data,
+        'activeNonRedMaintenanceCount',
+      )
       ..openRedCount = _requiredInt(data, 'activeRedWorkCount')
-      ..awaitingPreparationCount = _requiredInt(data, 'awaitingPreparationCount')
-      ..previousStateKey = _requiredString(data, 'previousState', allowed: _equipmentStateKeys)
+      ..awaitingPreparationCount = _requiredInt(
+        data,
+        'awaitingPreparationCount',
+      )
+      ..previousStateKey = _requiredString(
+        data,
+        'previousState',
+        allowed: _equipmentStateKeys,
+      )
       ..transitionTrigger = _string(data['transitionTrigger'])
-      ..lastTransitionAt = _optionalDate(data['lastTransitionAt'], 'lastTransitionAt')
+      ..lastTransitionAt = _optionalDate(
+        data['lastTransitionAt'],
+        'lastTransitionAt',
+      )
       ..lastTransitionByUid = _string(data['lastTransitionByUid'])
       ..lastTransitionByName = _string(data['lastTransitionByName'])
       ..updatedAt = _date(data['updatedAt'], 'updatedAt');
@@ -416,16 +541,26 @@ class FirestoreWorkflowReadRepository {
       ..firestoreId = doc.id
       ..isSynced = true
       ..version = _requiredInt(data, 'version', minimum: 1)
-      ..assetTypeKey = _requiredString(data, 'assetTypeKey', allowed: _assetTypeKeys)
+      ..assetTypeKey = _requiredString(
+        data,
+        'assetTypeKey',
+        allowed: _assetTypeKeys,
+      )
       ..promptKey = _requiredString(data, 'promptKey')
-      ..promptTypeKey = _requiredString(data, 'promptTypeKey', allowed: _promptTypeKeys)
+      ..promptTypeKey = _requiredString(
+        data,
+        'promptTypeKey',
+        allowed: _promptTypeKeys,
+      )
       ..question = _string(data['question'])
       ..appliesWhenLaneKey = _string(data['appliesWhenLaneKey'])
       ..complianceTargetLaneKey = _string(data['complianceTargetLaneKey'])
       ..complianceTitleTemplate = _string(data['complianceTitleTemplate'])
       ..successorTemplatePackageId = _string(data['successorTemplatePackageId'])
       ..successorTemplateVersionId = _string(data['successorTemplateVersionId'])
-      ..successorTemplateContentHash = _string(data['successorTemplateContentHash'])
+      ..successorTemplateContentHash = _string(
+        data['successorTemplateContentHash'],
+      )
       ..active = data['active'] != false
       ..createdAt = _date(data['createdAt'], 'createdAt')
       ..updatedAt = _date(data['updatedAt'], 'updatedAt');
@@ -451,7 +586,10 @@ class FirestoreWorkflowReadRepository {
     final data = doc.data() ?? const <String, dynamic>{};
     return ComplianceAttemptRecord()
       ..firestoreId = doc.id
-      ..complianceRequestFirestoreId = _requiredString(data, 'complianceRequestId')
+      ..complianceRequestFirestoreId = _requiredString(
+        data,
+        'complianceRequestId',
+      )
       ..attemptNumber = _requiredInt(data, 'attemptNumber', minimum: 1)
       ..attemptedByUid = _requiredString(data, 'attemptedByUid')
       ..attemptedByName = _string(data['attemptedByName'])

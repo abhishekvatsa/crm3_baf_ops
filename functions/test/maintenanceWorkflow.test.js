@@ -116,7 +116,13 @@ describe('maintenance workflow command integration', () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf1', 'readyForClosure', 7, 'forceCooler', 2);
     store.seed('maintenance_workflows/wf1', {jobExecutionId: 'wf1-exec', status: 'readyForClosure', version: 7, assetTypeKey: 'forceCooler', assetNumber: 2, laneSetFinalizedAt: '2026-07-20T00:00:00Z'});
     store.seed('job_lanes/wf1_mech_1', {workflowId: 'wf1', jobExecutionId: 'wf1-exec', laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2});
-    store.seed('equipment_status/forceCooler_2', {state: 'underMaintenance', version: 1});
+    store.seed('equipment_status/forceCooler_2', {
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 1,
+    });
     const service = new MaintenanceWorkflowCommandService(store);
     const receipt = await service.execute({commandId: 'final-force-cooler', commandType: 'finalizeJob', aggregateId: 'wf1', expectedVersion: 7, payload: {}}, {actor: admin, serverNow: at('2026-07-20T04:00:00Z')});
     expect(receipt.result).toMatchObject({redAction: 'notApplicable', equipmentState: 'available'});
@@ -126,7 +132,13 @@ describe('maintenance workflow command integration', () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf1', 'readyForClosure', 8);
     store.seed('maintenance_workflows/wf1', {jobExecutionId: 'wf1-exec', status: 'readyForClosure', version: 8, assetTypeKey: 'furnace', assetNumber: 7, laneSetFinalizedAt: '2026-07-20T00:00:00Z'});
     store.seed('job_lanes/wf1_mech_1', {workflowId: 'wf1', jobExecutionId: 'wf1-exec', laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2});
-    store.seed('equipment_status/furnace_7', {state: 'underMaintenance', version: 2});
+    store.seed('equipment_status/furnace_7', {
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 2,
+    });
     seedRedSuccessorTemplate(store, 'furnace');
     const service = new MaintenanceWorkflowCommandService(store);
     const receipt = await service.execute({commandId: 'final-red', commandType: 'finalizeJob', aggregateId: 'wf1', expectedVersion: 8, payload: {redRequired: true, preparationRequired: true, remarks: 'Mechanical work complete', teamsInvolved: ['mechanical'], responsesJson: '[{"key":"final","value":"ok"}]', actionsJson: '[{"component":"burner","action":"checked"}]'}}, {actor: admin, serverNow: at('2026-07-20T05:00:00Z')});
@@ -148,7 +160,13 @@ describe('maintenance workflow command integration', () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf-base', 'readyForClosure', 2, 'base', 101);
     store.seed('maintenance_workflows/wf-base', {jobExecutionId: 'wf-base-exec', status: 'readyForClosure', version: 2, assetTypeKey: 'base', assetNumber: 101, laneSetFinalizedAt: '2026-07-20T00:00:00Z'});
     store.seed('job_lanes/wf-base_mech_1', {workflowId: 'wf-base', jobExecutionId: 'wf-base-exec', laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2});
-    store.seed('equipment_status/base_101', {state: 'underMaintenance', version: 1});
+    store.seed('equipment_status/base_101', {
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 1,
+    });
     seedRedSuccessorTemplate(store, 'base');
     const service = new MaintenanceWorkflowCommandService(store);
     const receipt = await service.execute({commandId: 'final-base-red', commandType: 'finalizeJob', aggregateId: 'wf-base', expectedVersion: 2, payload: {redRequired: true}}, {actor: admin, serverNow: at('2026-07-20T05:30:00Z')});
@@ -172,7 +190,13 @@ describe('maintenance workflow command integration', () => {
     store.seed('maintenance_workflows/wf-pre', {jobExecutionId: 'exec-pre', status: 'inProgress', version: 3, assetTypeKey: 'furnace', assetNumber: 8, laneSetFinalizedAt: '2026-07-20T00:00:00Z', activeRedWork: false, awaitingPreparation: false});
     store.seed('job_lanes/wf-pre_mech_1', {workflowId: 'wf-pre', jobExecutionId: 'exec-pre', laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2});
     store.seed('job_lanes/wf-pre_red_1', {workflowId: 'wf-pre', jobExecutionId: 'exec-pre', laneKey: 'red', status: 'pending', activationGeneration: 1, version: 1});
-    store.seed('equipment_status/furnace_8', {state: 'underMaintenance', version: 1});
+    store.seed('equipment_status/furnace_8', {
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 1,
+    });
     const service = new MaintenanceWorkflowCommandService(store);
     await service.execute({commandId: 'prepare-red', commandType: 'prepareRedLane', aggregateId: 'wf-pre', expectedVersion: 3, payload: {preparationRequired: true}}, {actor: admin, serverNow: at('2026-07-20T06:00:00Z')});
     await expect(service.execute({commandId: 'early-red-ack', commandType: 'acknowledgeLane', aggregateId: 'wf-pre', expectedVersion: 4, payload: {laneKey: 'red'}}, {actor: refractory, serverNow: at('2026-07-20T06:01:00Z')})).rejects.toMatchObject({code: 'red-preparation-incomplete'});
@@ -190,10 +214,70 @@ describe('maintenance workflow command integration', () => {
     store.seed('job_lanes/wf-final_mech_1', {workflowId: 'wf-final', jobExecutionId: 'exec-final', laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2});
     store.seed('job_executions/exec-final', {version: 1, isCompleted: false});
     store.seed('maintenance_workflows/wf-other', {jobExecutionId: 'exec-other', status: 'inProgress', version: 2, assetTypeKey: 'furnace', assetNumber: 11, activeRedWork: false, awaitingPreparation: false});
-    store.seed('equipment_status/furnace_11', {state: 'underMaintenance', version: 3, activeNonRedMaintenanceCount: 2});
+    store.seed('equipment_status/furnace_11', {
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 2,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 3,
+    });
     const service = new MaintenanceWorkflowCommandService(store);
     await service.execute({commandId: 'final-multi', commandType: 'finalizeJob', aggregateId: 'wf-final', expectedVersion: 4, payload: {redRequired: false}}, {actor: admin, serverNow: at('2026-07-20T07:00:00Z')});
     expect(store.read('equipment_status/furnace_11')).toMatchObject({state: 'underMaintenance', activeNonRedMaintenanceCount: 1});
+  });
+
+  test('workflow mutation fails closed when serialized equipment counters omit the current workflow', async () => {
+    const store = new MemoryWorkflowStore();
+    store.seed('maintenance_workflows/wf-counter-conflict', {
+      jobExecutionId: 'exec-counter-conflict',
+      status: 'readyForClosure',
+      version: 4,
+      assetTypeKey: 'furnace',
+      assetNumber: 12,
+      laneSetFinalizedAt: '2026-07-20T00:00:00Z',
+      activeRedWork: false,
+      awaitingPreparation: false,
+    });
+    store.seed('job_lanes/wf-counter-conflict_mech_1', {
+      workflowId: 'wf-counter-conflict',
+      jobExecutionId: 'exec-counter-conflict',
+      laneKey: 'mech',
+      status: 'closed',
+      activationGeneration: 1,
+      version: 2,
+    });
+    store.seed('job_executions/exec-counter-conflict', {
+      version: 1,
+      isCompleted: false,
+    });
+    store.seed('equipment_status/furnace_12', {
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 0,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 3,
+    });
+    const service = new MaintenanceWorkflowCommandService(store);
+
+    await expect(service.execute({
+      commandId: 'final-counter-conflict',
+      commandType: 'finalizeJob',
+      aggregateId: 'wf-counter-conflict',
+      expectedVersion: 4,
+      payload: {redRequired: false},
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T07:30:00Z'),
+    })).rejects.toMatchObject({code: 'equipment-state-conflict'});
+
+    expect(store.read('maintenance_workflows/wf-counter-conflict')).toMatchObject({
+      status: 'readyForClosure',
+      version: 4,
+    });
+    expect(store.read('job_executions/exec-counter-conflict')).toMatchObject({
+      isCompleted: false,
+      version: 1,
+    });
   });
 
   test('same command id replays the original receipt without reapplying writes', async () => {
@@ -577,7 +661,13 @@ describe('maintenance workflow command integration', () => {
       responsesJson: JSON.stringify([{key: 'condition', value: 'Acceptable'}]),
       requiresFollowUp: false, pendingIssue: null, version: 2,
     });
-    store.seed('equipment_status/forceCooler_6', {state: 'underMaintenance', version: 1});
+    store.seed('equipment_status/forceCooler_6', {
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 1,
+    });
     const service = new MaintenanceWorkflowCommandService(store);
     const receipt = await service.execute({
       commandId: 'canonical-close', commandType: 'finalizeJob',
@@ -612,7 +702,13 @@ describe('maintenance workflow command integration', () => {
       requiredForClosure: true, isDeleted: false,
       fieldDefinitionsJson: '[]', responsesJson: '[]', version: 2,
     });
-    store.seed('equipment_status/forceCooler_8', {state: 'underMaintenance', version: 1});
+    store.seed('equipment_status/forceCooler_8', {
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 1,
+    });
     const service = new MaintenanceWorkflowCommandService(store);
     await expect(service.execute({
       commandId: 'guard-finalize', commandType: 'finalizeJob',
@@ -820,7 +916,11 @@ describe('maintenance workflow command integration', () => {
       workflowQueueState: 'deferred', workflowDeferred: true, version: 2,
     });
     store.seed('equipment_status/furnace_24', {
-      state: 'underMaintenance', activeNonRedMaintenanceCount: 1, version: 4,
+      state: 'underMaintenance',
+      activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 4,
     });
     const service = new MaintenanceWorkflowCommandService(store);
     const receipt = await service.execute({

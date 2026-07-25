@@ -1,10 +1,71 @@
 import {EquipmentFacts, EquipmentProjection, assertEquipmentProjectionConsistent, deriveEquipmentState} from "./equipmentProjection";
+import {WorkflowError} from "./errors";
 import {JsonMap} from "./types";
 import {WorkflowTransaction} from "./store";
 
 const workflowIdFromPath = (path: string): string => path.split("/").pop() ?? path;
 
 export interface LoadedEquipmentFacts extends Omit<EquipmentFacts, "operationsDeployed"> {}
+export type WorkflowContribution = "none" | "nonRed" | "red" | "awaitingPreparation";
+
+const projectionCounter = (
+  current: JsonMap | null,
+  field: keyof LoadedEquipmentFacts,
+): number => {
+  const value = current?.[field];
+  if (value == null) return 0;
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) {
+    return value;
+  }
+  throw new WorkflowError(
+    "equipment-state-conflict",
+    `Equipment projection counter ${field} is invalid.`,
+    {field, value},
+  );
+};
+
+export const equipmentFactsFromProjection = (
+  current: JsonMap | null,
+): LoadedEquipmentFacts => ({
+  activeNonRedMaintenanceCount: projectionCounter(current, "activeNonRedMaintenanceCount"),
+  activeRedWorkCount: projectionCounter(current, "activeRedWorkCount"),
+  awaitingPreparationCount: projectionCounter(current, "awaitingPreparationCount"),
+});
+
+export const workflowContribution = (
+  workflow: JsonMap,
+): WorkflowContribution => {
+  if (
+    workflow.status === "completed" ||
+    workflow.status === "cancelled" ||
+    workflow.cancelled === true
+  ) {
+    return "none";
+  }
+  if (workflow.activeRedWork === true) return "red";
+  if (workflow.awaitingPreparation === true) return "awaitingPreparation";
+  return "nonRed";
+};
+
+export const withoutWorkflowContribution = (
+  facts: LoadedEquipmentFacts,
+  contribution: WorkflowContribution,
+): LoadedEquipmentFacts => {
+  if (contribution === "none") return facts;
+  const field: keyof LoadedEquipmentFacts = contribution === "nonRed"
+    ? "activeNonRedMaintenanceCount"
+    : contribution === "red"
+      ? "activeRedWorkCount"
+      : "awaitingPreparationCount";
+  if (facts[field] <= 0) {
+    throw new WorkflowError(
+      "equipment-state-conflict",
+      "Equipment workflow counters are out of sync. Reconcile the equipment projection before retrying.",
+      {field, facts},
+    );
+  }
+  return {...facts, [field]: facts[field] - 1};
+};
 
 export const loadEquipmentFacts = async (
   tx: WorkflowTransaction,
@@ -33,7 +94,7 @@ export const loadEquipmentFacts = async (
 
 export const withWorkflowContribution = (
   facts: LoadedEquipmentFacts,
-  contribution: "none" | "nonRed" | "red" | "awaitingPreparation",
+  contribution: WorkflowContribution,
 ): LoadedEquipmentFacts => ({
   activeNonRedMaintenanceCount: facts.activeNonRedMaintenanceCount + (contribution === "nonRed" ? 1 : 0),
   activeRedWorkCount: facts.activeRedWorkCount + (contribution === "red" ? 1 : 0),

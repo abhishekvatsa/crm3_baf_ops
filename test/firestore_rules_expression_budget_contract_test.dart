@@ -10,17 +10,32 @@ void main() {
       rules = File('firestore.rules').readAsStringSync();
     });
 
-    test('authorization remains full-shape fail-closed and reusable', () {
+    test('authorization reads stay minimal while user writes remain full-shape', () {
       final authority = _blockStartingAt(
         rules,
         'function validApprovedUserAuthority(data)',
       );
-      expect(authority, contains('validUserDocumentShape(data)'));
+      expect(authority, contains("data.keys().hasAll(['isApproved', 'roles'])"));
       expect(authority, contains("data.get('isApproved', false) == true"));
+      expect(authority, contains("data.get('roles', null) is list"));
       expect(
-        rules,
-        contains('snapshot this fully validated profile once'),
+        _blockStartingAt(rules, 'function validPendingUserCreate(userId)'),
+        contains('validUserDocumentShape(request.resource.data)'),
       );
+      expect(
+        _blockStartingAt(rules, 'function validSelfUserUpdate(userId)'),
+        contains('validUserDocumentShape(request.resource.data)'),
+      );
+    });
+
+    test('job execution completion is rejected before expensive work validation', () {
+      final update = _blockStartingAt(
+        rules,
+        'function validJobExecutionUpdate(docId)',
+      );
+      expect(update, contains("request.resource.data.get('isCompleted', false) !="));
+      expect(update, contains('? false'));
+      expect(update, contains('isJobExecutionAssigner()'));
     });
 
     test('maintenance has one update allow and a transition router', () {

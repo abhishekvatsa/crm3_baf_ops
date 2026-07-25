@@ -74,12 +74,12 @@ service cloud.firestore {
         && data.get('createdAt', null) is timestamp;
     }
 
-    // Preserve the original fail-closed user-document contract. Complex
-    // transition validators snapshot this fully validated profile once and
-    // reuse its roles instead of repeatedly calling role helpers across ORs.
+    // Authorization reads need only the canonical approval fields. Full user
+    // document shape remains enforced on every client create/update below.
     function validApprovedUserAuthority(data) {
-      return validUserDocumentShape(data)
-        && data.get('isApproved', false) == true;
+      return data.keys().hasAll(['isApproved', 'roles'])
+        && data.get('isApproved', false) == true
+        && data.get('roles', null) is list;
     }
 
     function approvedUserHasAnyRole(data, roles) {
@@ -368,8 +368,7 @@ service cloud.firestore {
     }
 
     function validJobExecutionBaseUpdate(docId) {
-      return isApprovedUser()
-        && workflowServerOwnedExecutionFieldsUnchanged()
+      return workflowServerOwnedExecutionFieldsUnchanged()
         && resource.data.get('firestoreId', null) == docId
         && request.resource.data.get('firestoreId', null) == resource.data.get('firestoreId', null)
         && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
@@ -402,8 +401,7 @@ service cloud.firestore {
     }
 
     function validJobExecutionWorkUpdate() {
-      return isJobExecutionAssigner()
-        && resource.data.get('isCompleted', null) == false
+      return resource.data.get('isCompleted', null) == false
         && request.resource.data.get('isCompleted', null) == false
         && resource.data.get('isCancelled', false) == false
         && request.resource.data.get('isCancelled', false) == false
@@ -422,11 +420,12 @@ service cloud.firestore {
     }
 
     function validJobExecutionUpdate(docId) {
-      return validJobExecutionBaseUpdate(docId)
-        && (
-          validJobExecutionWorkUpdate()
-          || validJobExecutionComplete()
-        );
+      return request.resource.data.get('isCompleted', false) !=
+          resource.data.get('isCompleted', false)
+        ? false
+        : (isJobExecutionAssigner()
+          && validJobExecutionBaseUpdate(docId)
+          && validJobExecutionWorkUpdate());
     }
 
     // ─────────────────────────────────────────────

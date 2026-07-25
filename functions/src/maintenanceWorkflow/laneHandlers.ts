@@ -1,6 +1,12 @@
 import {assertLaneAuthority, mayCancelWorkflow, mayFinalizeLaneSet, mayManageLanePopulation} from "./authority";
 import {assertCanonicalLaneClosureReady} from "./canonicalClosure";
-import {equipmentProjectionWrite, loadEquipmentFacts, projectEquipment} from "./equipmentFacts";
+import {
+  equipmentFactsFromProjection,
+  equipmentProjectionWrite,
+  projectEquipment,
+  withoutWorkflowContribution,
+  workflowContribution,
+} from "./equipmentFacts";
 import {deriveWorkflowStatus} from "./aggregate";
 import {assertExpectedVersion, activeLanes, openBlockingCompliance, requireMutableWorkflow, requireWorkflow} from "./documents";
 import {WorkflowError} from "./errors";
@@ -781,7 +787,10 @@ export const cancelWorkflow: CommandHandler = async ({tx, command, context}) => 
   }
   const equipmentId = equipmentPath(assetTypeKey, assetNumber);
   const equipment = await tx.get(equipmentId);
-  const remainingFacts = await loadEquipmentFacts(tx, assetTypeKey, assetNumber, [command.aggregateId]);
+  const remainingFacts = withoutWorkflowContribution(
+    equipmentFactsFromProjection(equipment.data),
+    workflowContribution(workflow),
+  );
   const projection = projectEquipment(remainingFacts, false);
   const now = iso(context.serverNow);
   const nextVersion = version + 1;

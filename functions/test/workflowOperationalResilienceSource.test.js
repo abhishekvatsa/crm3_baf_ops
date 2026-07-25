@@ -22,7 +22,30 @@ describe('workflow operational resilience source contract', () => {
     expect(pull).toContain('_maxQuarantineRecords = 100');
     expect(pull).toContain('readQuarantine()');
     expect(pull).toContain('clearQuarantine()');
-    expect(pull).toContain('watermark held because a failed record had no valid server timestamp');
+    expect(pull).toContain("'a failed record had no valid server timestamp'");
+    expect(pull).toContain("if (localUpsertFailed) 'a local upsert failed'");
+    expect(pull).toContain('if (!unknownFailureTimestamp && !localUpsertFailed)');
+  });
+
+  test('workflow mutations use serialized equipment counters instead of query-then-write', () => {
+    const facts = read('functions/src/maintenanceWorkflow/equipmentFacts.ts');
+    const equipment = read('functions/src/maintenanceWorkflow/equipmentHandlers.ts');
+    const mutators = [
+      'jobCreationHandler.ts',
+      'finalizeJobHandler.ts',
+      'redHandlers.ts',
+      'laneHandlers.ts',
+      'complianceHandlers.ts',
+    ];
+
+    expect(facts).toContain('equipmentFactsFromProjection');
+    expect(facts).toContain('withoutWorkflowContribution');
+    expect(equipment).toContain('loadEquipmentFacts');
+    for (const file of mutators) {
+      const source = read(`functions/src/maintenanceWorkflow/${file}`);
+      expect(source).toContain('equipmentFactsFromProjection');
+      expect(source).not.toContain('loadEquipmentFacts');
+    }
   });
 
   test('Admin/SI workflow diagnostics exposes quarantine and uncertain commands read-only', () => {

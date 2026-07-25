@@ -120,6 +120,7 @@ function fakeAssignmentDb({
   const writes = [];
   const queuedTransactionFailures = [];
   let transactionAttempts = 0;
+  let queryReads = 0;
   let idCounter = 0;
 
   function seed(path, data) {
@@ -144,9 +145,18 @@ function fakeAssignmentDb({
 
   function docRef(collectionName, id) {
     const resolvedId = id ?? `${collectionName.replaceAll("_", "")}_${++idCounter}`;
+    const path = `${collectionName}/${resolvedId}`;
     return {
       id: resolvedId,
-      path: `${collectionName}/${resolvedId}`,
+      path,
+      async get() {
+        const data = store.get(path);
+        return {
+          exists: data != null,
+          id: resolvedId,
+          data: () => (data == null ? undefined : structuredClone(data)),
+        };
+      },
     };
   }
 
@@ -177,6 +187,7 @@ function fakeAssignmentDb({
         return queryRef(collectionName, [...clauses, [field, op, value]]);
       },
       async get() {
+        queryReads += 1;
         return querySnapshot(query);
       },
     };
@@ -234,6 +245,9 @@ function fakeAssignmentDb({
     },
     get transactionAttempts() {
       return transactionAttempts;
+    },
+    get queryReads() {
+      return queryReads;
     },
   };
 }
@@ -630,17 +644,19 @@ describe("published TemplateVersion server assignment", () => {
   });
 
   test("rejects unauthorized and unapproved users before writes", async () => {
-    const {db, writes} = fakeAssignmentDb({
+    const fixture = fakeAssignmentDb({
       user: {isApproved: true, roles: ["operations"], name: "Operations"},
     });
     await expect(
       assignPublishedTemplateVersionWithDb({
-        db,
+        db: fixture.db,
         authUid: "supervisor1",
         data: requestFixture(),
       }),
     ).rejects.toMatchObject({code: "permission-denied"});
-    expect(writes).toHaveLength(0);
+    expect(fixture.queryReads).toBe(0);
+    expect(fixture.transactionAttempts).toBe(0);
+    expect(fixture.writes).toHaveLength(0);
   });
 
   test("rejects historical, unpublished, or hash-divergent governance without partial writes", async () => {

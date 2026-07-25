@@ -1,6 +1,13 @@
 import {mayPrepareRedLane} from "./authority";
 import {activeLanes, assertExpectedVersion, requireMutableWorkflow} from "./documents";
-import {equipmentProjectionWrite, loadEquipmentFacts, projectEquipment, withWorkflowContribution} from "./equipmentFacts";
+import {
+  equipmentFactsFromProjection,
+  equipmentProjectionWrite,
+  projectEquipment,
+  withWorkflowContribution,
+  withoutWorkflowContribution,
+  workflowContribution,
+} from "./equipmentFacts";
 import {WorkflowError} from "./errors";
 import {eventPlan} from "./events";
 import {CommandHandler} from "./handlerTypes";
@@ -47,7 +54,10 @@ export const prepareRedLane: CommandHandler = async ({tx, command, context}) => 
   const laneId = lanePath(command.aggregateId, "red", redLane.activationGeneration ?? 1);
   const equipmentId = equipmentPath(assetTypeKey, assetNumber);
   const equipment = await tx.get(equipmentId);
-  const otherFacts = await loadEquipmentFacts(tx, assetTypeKey, assetNumber, [command.aggregateId]);
+  const otherFacts = withoutWorkflowContribution(
+    equipmentFactsFromProjection(equipment.data),
+    workflowContribution(workflow),
+  );
   const awaitingPreparation = preparationRequired === true;
   const contribution = awaitingPreparation ? "awaitingPreparation" : "red";
   const facts = withWorkflowContribution(otherFacts, contribution);

@@ -43,6 +43,7 @@ type AssignmentQueryLike = {
 type AssignmentDocumentRefLike = {
   id?: string;
   path?: string;
+  get: () => Promise<AssignmentDocumentSnapshotLike>;
 };
 
 type AssignmentDocumentSnapshotLike = {
@@ -1030,6 +1031,26 @@ function snapshotData(
   return snapshot.data() ?? {};
 }
 
+function authorizedAssignmentActorData(
+  snapshot: AssignmentDocumentSnapshotLike | AssignmentQuerySnapshotLike,
+): AssignmentJsonMap {
+  if ("docs" in snapshot) {
+    throw new AssignmentValidationError(
+      "internal",
+      "User lookup returned an invalid response.",
+    );
+  }
+  const userData = snapshotData(snapshot, "User");
+  if (!actorCanAssign(userData)) {
+    throw new AssignmentValidationError(
+      "permission-denied",
+      "This account is not authorized to assign governed jobs.",
+      {reasonCode: "assignment-role-denied"},
+    );
+  }
+  return userData;
+}
+
 function queryDocs(
   snapshot:
     | AssignmentDocumentSnapshotLike
@@ -1796,6 +1817,8 @@ export async function assignPublishedTemplateVersionWithDb(args: {
     .collection("published_template_assignment_requests")
     .doc(request.requestId);
 
+  authorizedAssignmentActorData(await userRef.get());
+
   let lastRefreshDetails: unknown = null;
   let lastTransientTransactionDetails: unknown = null;
   let equipmentRefreshAttempts = 0;
@@ -1810,21 +1833,9 @@ export async function assignPublishedTemplateVersionWithDb(args: {
 
     try {
       return await db.runTransaction(async (transaction) => {
-    const userSnapshot = await transaction.get(userRef);
-    if ("docs" in userSnapshot) {
-      throw new AssignmentValidationError(
-        "internal",
-        "User lookup returned an invalid response.",
-      );
-    }
-    const userData = snapshotData(userSnapshot, "User");
-    if (!actorCanAssign(userData)) {
-      throw new AssignmentValidationError(
-        "permission-denied",
-        "This account is not authorized to assign governed jobs.",
-        {reasonCode: "assignment-role-denied"},
-      );
-    }
+    const userData = authorizedAssignmentActorData(
+      await transaction.get(userRef),
+    );
 
     const existingRequestSnapshot = await transaction.get(requestRef);
     if ("docs" in existingRequestSnapshot) {
