@@ -152,9 +152,43 @@ If findings exist, the next step is human adjudication and a
 finding-specific, separately authorized repair design. This tranche contains
 no repair executor.
 
-## Current authorization
+## Production execution record
 
-This source tranche authorizes:
+A separately authorized production read-only inventory completed on
+2026-07-25 from `22:04:14.603Z` through `22:04:19.739Z`.
+
+```text
+project:                    crm3-baf-ops-b8638
+source commit:              4e735615c9aca86916a4382d86009bf9ad07413d
+source tree:                f6de5a98461e4a74971caecd4ecd67f68dc2c470
+branch / origin parity:     main / exact
+worktree:                   clean
+Firestore users:            3 / COMPLETE
+Firebase Auth users:        3 / COMPLETE
+custom claims:              COMPLETE
+joined subjects:            3
+canonical approved:         3
+enabled approved admins:    2
+blocking findings:          0
+decision:                   PASS_GATE_1B_READ_ONLY_AUTHORITY_INTEGRITY
+evidence SHA-256:           ABAB502C1C830336DC3EE72A576162652D801CF35692DA0877E8F46D2AEE9BA1
+```
+
+The retained evidence files are `PRODUCTION_AUTHORITY_INVENTORY.json` and its
+`.sha256` sidecar. They are held outside the repository. The report contains
+only namespaced HMAC-SHA256 subject pseudonyms; the HMAC key is protected
+separately with Windows current-user DPAPI and is not present in the report.
+Independent readback reproduced the sidecar digest, confirmed complete
+Firestore/Auth/custom-claims coverage, and found no raw-identifier fields or
+protected-key material.
+
+This pass satisfies the S-05 note requiring a read-only Gate 1B production
+authority classification. It does not authorize deployment, data repair,
+equipment reconciliation, pilot use, or cutover.
+
+## Source-tranche authorization boundary
+
+The source tranche that introduced the classifier authorized:
 
 ```text
 implementation
@@ -164,11 +198,11 @@ feature-branch commit
 draft pull request
 ```
 
-It does not authorize:
+Production Firestore and Firebase Auth reads were performed only under a
+separate explicit operator authorization for the execution recorded above.
+Neither that authorization nor the Gate 1B pass authorizes:
 
 ```text
-production Firestore read
-production Firebase Auth read
 production mutation
 Firebase deployment
 IAM change

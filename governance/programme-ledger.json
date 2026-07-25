@@ -1361,6 +1361,19 @@
           "mergeCommit": "96385151d73c04904184b0bfd9c057c23b9f6e84",
           "decision": "PASS_GATE_1A_S05_ATOMIC_AUTHORITY_MUTATION",
           "authority": "EXACT_HEAD_MERGE_GREEN_CI_AND_SOURCE_TESTS"
+        },
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 42,
+          "headCommit": "5b4ede2cd0275d60a90ca44f642aa6b055f223c0",
+          "mergeCommit": "4e735615c9aca86916a4382d86009bf9ad07413d",
+          "sourceTree": "f6de5a98461e4a74971caecd4ecd67f68dc2c470",
+          "evidenceFile": "PRODUCTION_AUTHORITY_INVENTORY.json",
+          "evidenceSha256": "ABAB502C1C830336DC3EE72A576162652D801CF35692DA0877E8F46D2AEE9BA1",
+          "decision": "PASS_GATE_1B_READ_ONLY_AUTHORITY_INTEGRITY",
+          "authority": "SEPARATELY_AUTHORIZED_PRODUCTION_READ_ONLY_COMPLETE_FIRESTORE_AUTH_CUSTOM_CLAIMS",
+          "joinedSubjectCount": 3,
+          "blockingFindingCount": 0
         }
       ],
       "requiredExitEvidence": [
@@ -1379,7 +1392,7 @@
       "notes": [
         "S-05 tracked-source closure is proved by PR #41 and merge commit 96385151d73c04904184b0bfd9c057c23b9f6e84.",
         "This closes the source finding only; Functions and Rules deployment remain separately governed.",
-        "Read-only Gate 1B production authority classification remains required before pilot or cutover."
+        "Read-only Gate 1B production authority classification passed with complete Firestore, Firebase Auth and custom-claims coverage at merge commit 4e735615c9aca86916a4382d86009bf9ad07413d; this does not authorize deployment, repair, pilot or cutover."
       ],
       "statusHistory": [
         {
