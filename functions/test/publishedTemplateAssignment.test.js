@@ -121,6 +121,7 @@ function fakeAssignmentDb({
   const queuedTransactionFailures = [];
   let transactionAttempts = 0;
   let queryReads = 0;
+  const directReadsByPath = new Map();
   let idCounter = 0;
 
   function seed(path, data) {
@@ -150,6 +151,7 @@ function fakeAssignmentDb({
       id: resolvedId,
       path,
       async get() {
+        directReadsByPath.set(path, (directReadsByPath.get(path) ?? 0) + 1);
         const data = store.get(path);
         return {
           exists: data != null,
@@ -248,6 +250,9 @@ function fakeAssignmentDb({
     },
     get queryReads() {
       return queryReads;
+    },
+    directReadCount(path) {
+      return directReadsByPath.get(path) ?? 0;
     },
   };
 }
@@ -597,17 +602,22 @@ describe("published TemplateVersion server assignment", () => {
   });
 
   test("safe retry returns the same execution and modules without duplicate writes", async () => {
-    const {db, writes} = fakeAssignmentDb();
+    const fixture = fakeAssignmentDb();
+    const receiptPath =
+      `published_template_assignment_requests/${REQUEST_ID}`;
     const first = await assignPublishedTemplateVersionWithDb({
-      db,
+      db: fixture.db,
       authUid: "supervisor1",
       data: requestFixture(),
       now: () => new Date("2026-06-19T11:00:00.000Z"),
     });
-    const writeCount = writes.length;
+    const writeCount = fixture.writes.length;
+    const queryReadCount = fixture.queryReads;
+    const transactionAttemptCount = fixture.transactionAttempts;
+    const receiptReadCount = fixture.directReadCount(receiptPath);
 
     const replay = await assignPublishedTemplateVersionWithDb({
-      db,
+      db: fixture.db,
       authUid: "supervisor1",
       data: requestFixture(),
       now: () => new Date("2026-06-19T12:00:00.000Z"),
@@ -618,21 +628,25 @@ describe("published TemplateVersion server assignment", () => {
     expect(replay.modules.map((module) => module.firestoreId)).toEqual(
       first.modules.map((module) => module.firestoreId),
     );
-    expect(writes).toHaveLength(writeCount);
+    expect(fixture.directReadCount(receiptPath)).toBe(receiptReadCount + 1);
+    expect(fixture.queryReads).toBe(queryReadCount);
+    expect(fixture.transactionAttempts).toBe(transactionAttemptCount + 1);
+    expect(fixture.writes).toHaveLength(writeCount);
   });
 
   test("same request ID with changed assignment meaning is rejected without writes", async () => {
-    const {db, writes} = fakeAssignmentDb();
+    const fixture = fakeAssignmentDb();
     await assignPublishedTemplateVersionWithDb({
-      db,
+      db: fixture.db,
       authUid: "supervisor1",
       data: requestFixture(),
     });
-    const writeCount = writes.length;
+    const writeCount = fixture.writes.length;
+    const queryReadCount = fixture.queryReads;
 
     await expect(
       assignPublishedTemplateVersionWithDb({
-        db,
+        db: fixture.db,
         authUid: "supervisor1",
         data: requestFixture({assetNumber: 102}),
       }),
@@ -640,7 +654,79 @@ describe("published TemplateVersion server assignment", () => {
       code: "already-exists",
       details: {reasonCode: "request-payload-mismatch"},
     });
-    expect(writes).toHaveLength(writeCount);
+    expect(fixture.queryReads).toBe(queryReadCount);
+    expect(fixture.writes).toHaveLength(writeCount);
+  });
+
+  test("receipt created after an absent preflight replays without duplicate writes", async () => {
+    const fixture = fakeAssignmentDb();
+    let concurrentResult = null;
+
+    const replay = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+      beforeAssignmentTransactionForTest: async () => {
+        concurrentResult = await assignPublishedTemplateVersionWithDb({
+          db: fixture.db,
+          authUid: "supervisor1",
+          data: requestFixture(),
+        });
+      },
+    });
+
+    expect(concurrentResult).toMatchObject({
+      ok: true,
+      idempotentReplay: false,
+    });
+    expect(replay).toMatchObject({
+      ok: true,
+      idempotentReplay: true,
+      executionId: concurrentResult.executionId,
+    });
+    expect(
+      [...fixture.store.keys()].filter((path) =>
+        path.startsWith("job_executions/"),
+      ),
+    ).toHaveLength(1);
+    expect(
+      [...fixture.store.keys()].filter((path) =>
+        path.startsWith("job_modules/"),
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("receipt observed during preflight fails closed if it disappears", async () => {
+    const fixture = fakeAssignmentDb();
+    const receiptPath =
+      `published_template_assignment_requests/${REQUEST_ID}`;
+    await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+    });
+    const queryReadCount = fixture.queryReads;
+    const writeCount = fixture.writes.length;
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+      beforeAssignmentTransactionForTest: async () => {
+        fixture.store.delete(receiptPath);
+      },
+    })).rejects.toMatchObject({
+      code: "aborted",
+      details: {reasonCode: "request-receipt-disappeared"},
+    });
+
+    expect(fixture.queryReads).toBe(queryReadCount);
+    expect(fixture.writes).toHaveLength(writeCount);
+    expect(
+      [...fixture.store.keys()].filter((path) =>
+        path.startsWith("job_executions/"),
+      ),
+    ).toHaveLength(1);
   });
 
   test("rejects unauthorized and unapproved users before writes", async () => {
@@ -654,6 +740,11 @@ describe("published TemplateVersion server assignment", () => {
         data: requestFixture(),
       }),
     ).rejects.toMatchObject({code: "permission-denied"});
+    expect(
+      fixture.directReadCount(
+        `published_template_assignment_requests/${REQUEST_ID}`,
+      ),
+    ).toBe(0);
     expect(fixture.queryReads).toBe(0);
     expect(fixture.transactionAttempts).toBe(0);
     expect(fixture.writes).toHaveLength(0);

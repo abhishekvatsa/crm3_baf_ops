@@ -230,6 +230,25 @@ describeWithEmulator('O-09 governed assignment real Firestore matrix', () => {
     });
   });
 
+  test('completed sequential replay returns the same evidence without duplicate writes', async () => {
+    await seedBase();
+    const first = await invoke();
+    const beforeReplay = await captureState();
+
+    const replay = await invoke();
+    const afterReplay = await captureState();
+
+    expect(replay).toMatchObject({
+      ok: true,
+      idempotentReplay: true,
+      executionId: first.executionId,
+    });
+    expect(replay.modules.map((module) => module.firestoreId)).toEqual(
+      first.modules.map((module) => module.firestoreId),
+    );
+    expect(afterReplay).toEqual(beforeReplay);
+  });
+
   test('burst-identical requests converge through bounded transaction retry', async () => {
     await seedBase();
     const results = await Promise.all(

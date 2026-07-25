@@ -1826,7 +1826,12 @@ export async function assignPublishedTemplateVersionWithDb(args: {
   let totalAttempts = 0;
   while (true) {
     totalAttempts += 1;
-    const workflowFacts = await loadOpenWorkflowFacts(db, request);
+    const requestReceiptPreflight = await requestRef.get();
+    const receiptObservedBeforeTransaction =
+      requestReceiptPreflight.exists;
+    const workflowFacts = receiptObservedBeforeTransaction
+      ? null
+      : await loadOpenWorkflowFacts(db, request);
     if (totalAttempts === 1 && args.beforeAssignmentTransactionForTest != null) {
       await args.beforeAssignmentTransactionForTest();
     }
@@ -1852,6 +1857,19 @@ export async function assignPublishedTemplateVersionWithDb(args: {
         actorUid,
         requestData: existingRequestSnapshot.data() ?? {},
       });
+    }
+    if (receiptObservedBeforeTransaction) {
+      throw new AssignmentValidationError(
+        "aborted",
+        "The assignment request receipt disappeared before transactional replay.",
+        {reasonCode: "request-receipt-disappeared"},
+      );
+    }
+    if (workflowFacts == null) {
+      throw new AssignmentValidationError(
+        "internal",
+        "Workflow facts were not loaded for a new assignment.",
+      );
     }
 
     const packageRef = db

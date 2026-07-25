@@ -46,3 +46,11 @@ Because the assignment request identity is protected by an atomically written id
 ## Unit-suite proof interpretation
 
 The v3 source-only execution returned process exit code 0 with 249 passed, 30 skipped and 279 total tests. The additional skipped item belongs to the emulator-only population and is not a functional failure. The source gate therefore requires zero failures, internally consistent Jest totals and no regression below 249 passed tests; skipped/total categories are retained as evidence rather than frozen as correctness predicates.
+
+## Receipt-first replay routing
+
+Authorization remains the first datastore gate. After an actor is read and approved, each assignment attempt performs one point read of its immutable request receipt. A receipt observed at preflight routes directly to the existing transaction, which revalidates the actor, rereads the receipt, validates ownership and payload fingerprint, and verifies the execution and module evidence. The asset workflow-history query is therefore skipped for completed authorized replays.
+
+The preflight read is only a routing hint. An absent receipt still takes the normal workflow-facts path, and the transaction rereads the receipt before any assignment work so a concurrent completion replays safely. If a receipt observed during preflight is absent in the transaction, assignment fails closed with `aborted` and reason code `request-receipt-disappeared`; it never falls through to new-assignment creation.
+
+This correction trades one fixed document read on a genuinely new assignment for avoiding a potentially history-sized workflow query on every completed replay. Unit coverage pins zero workflow-query reads for completed replay and payload mismatch, zero receipt reads for unauthorized actors, safe concurrent receipt creation, and fail-closed receipt disappearance. Emulator coverage confirms that sequential replay returns the original execution and modules without additional writes.
