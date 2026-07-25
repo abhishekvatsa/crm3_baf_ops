@@ -20,6 +20,13 @@ import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../maintenance_workflow/data/job_lane_record.dart';
+import '../../maintenance_workflow/data/workflow_aggregate_record.dart';
+import '../../maintenance_workflow/domain/workflow_types.dart';
+import '../../maintenance_workflow/domain/workflow_policy.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
+import '../../maintenance_workflow/services/workflow_command_factory.dart';
+import '../../maintenance_workflow/presentation/widgets/red_exit_dialog.dart';
 
 class CompleteJobScreen extends ConsumerStatefulWidget {
   final JobExecution execution;
@@ -167,14 +174,76 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
       if (!mounted) return;
       setState(() => _completionPhase = _CompletionPhase.completing);
 
-      await repository.completeExecution(
-        id,
-        actor: appUser,
-        remarks: remarks,
-        teamsInvolved: _teamsInvolved.toList(),
-        responses: fieldResponses,
-        actions: _actions.isEmpty ? null : _actions,
-      );
+      if (widget.execution.workflowSchemaVersion == 1) {
+        final workflowId = widget.execution.firestoreId?.trim();
+        if (workflowId == null || workflowId.isEmpty) {
+          throw StateError('Workflow execution identity is missing.');
+        }
+        final workflowRepository = ref.read(workflowRepositoryProvider);
+        final workflow = await workflowRepository.getWorkflow(workflowId);
+        if (workflow == null) {
+          throw StateError(
+            'Maintenance workflow is not available locally. Synchronize and try again.',
+          );
+        }
+        final lanes = await workflowRepository.getLanes(workflowId);
+        final activeLanes = lanes.where(
+          (lane) => lane.statusKey != 'removed' && lane.statusKey != 'terminated',
+        );
+        if (activeLanes.isEmpty ||
+            activeLanes.any((lane) => lane.statusKey != 'closed')) {
+          throw StateError(
+            'Every active maintenance lane must be closed before final job closure.',
+          );
+        }
+
+        final redAlreadySelected = activeLanes.any(
+          (lane) => lane.laneKey == 'red',
+        );
+        RedExitAnswers? redAnswers;
+        final assetTypeKey = widget.execution.assetType.name;
+        if (WorkflowPolicy.isRedApplicable(assetTypeKey) &&
+            !redAlreadySelected) {
+          if (!mounted) return;
+          redAnswers = await showRedExitDialog(
+            context,
+            askPreparation:
+                WorkflowPolicy.requiresStandPreparationQuestion(assetTypeKey),
+          );
+          if (!mounted || redAnswers == null) return;
+        }
+
+        final command = WorkflowCommandFactory.create(
+          type: WorkflowCommandType.finalizeJob,
+          aggregateId: workflowId,
+          expectedVersion: workflow.version,
+          payload: <String, Object?>{
+            'remarks': remarks,
+            'teamsInvolved': _teamsInvolved.toList(growable: false),
+            'responsesJson': jsonEncode(
+              (fieldResponses ?? const <FieldResponse>[])
+                  .map((response) => response.toMap())
+                  .toList(growable: false),
+            ),
+            'actionsJson': ComponentAction.encode(_actions),
+            if (redAnswers != null) 'redRequired': redAnswers.redRequired,
+            if (redAnswers?.preparationRequired != null)
+              'preparationRequired': redAnswers!.preparationRequired,
+          },
+        );
+        await ref
+            .read(workflowCommandControllerProvider.notifier)
+            .execute(command);
+      } else {
+        await repository.completeExecution(
+          id,
+          actor: appUser,
+          remarks: remarks,
+          teamsInvolved: _teamsInvolved.toList(),
+          responses: fieldResponses,
+          actions: _actions.isEmpty ? null : _actions,
+        );
+      }
 
       if (syncCoordinator != null) {
         unawaited(
@@ -522,6 +591,17 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
     final moduleGate = _ModuleClosureGateResult.fromAsyncValue(modulesAsync);
     final appUser = ref.watch(currentAppUserProvider).value;
     final hasCompletionAuthority = appUser?.canCompleteJobExecution ?? false;
+    final workflowId = widget.execution.firestoreId?.trim();
+    final workflowAsync = widget.execution.workflowSchemaVersion == 1 &&
+            workflowId != null &&
+            workflowId.isNotEmpty
+        ? ref.watch(workflowRecordProvider(workflowId))
+        : null;
+    final workflowLanesAsync = widget.execution.workflowSchemaVersion == 1 &&
+            workflowId != null &&
+            workflowId.isNotEmpty
+        ? ref.watch(workflowLanesProvider(workflowId))
+        : null;
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -551,6 +631,13 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
             _CompletionAuthorityCard(hasAuthority: hasCompletionAuthority),
             const SizedBox(height: BafSpacing.lg),
             _ModuleClosureGateCard(gate: moduleGate),
+            if (workflowAsync != null && workflowLanesAsync != null) ...[
+              const SizedBox(height: BafSpacing.lg),
+              _WorkflowClosureGateCard(
+                workflowAsync: workflowAsync,
+                lanesAsync: workflowLanesAsync,
+              ),
+            ],
             const SizedBox(height: BafSpacing.lg),
             _SectionCard(
               title: 'Checklist responses',
@@ -1760,6 +1847,82 @@ class _EmptyInlineState extends StatelessWidget {
                 color: BafColors.textSecondary,
                 fontSize: 13,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowClosureGateCard extends StatelessWidget {
+  final AsyncValue<WorkflowAggregateRecord?> workflowAsync;
+  final AsyncValue<List<JobLaneRecord>> lanesAsync;
+
+  const _WorkflowClosureGateCard({
+    required this.workflowAsync,
+    required this.lanesAsync,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final workflow = workflowAsync.value;
+    final lanes = lanesAsync.value ?? const <JobLaneRecord>[];
+    final active = lanes.where(
+      (lane) => lane.statusKey != 'removed' && lane.statusKey != 'terminated',
+    );
+    final ready = workflow != null &&
+        active.isNotEmpty &&
+        active.every((lane) => lane.statusKey == 'closed');
+    final loading = workflowAsync.isLoading || lanesAsync.isLoading;
+    final color = ready ? BafColors.sync : BafColors.warning;
+
+    return Container(
+      padding: const EdgeInsets.all(BafSpacing.lg),
+      decoration: BoxDecoration(
+        color: BafColors.card,
+        borderRadius: BorderRadius.circular(BafRadius.large),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+        boxShadow: BafShadows.subtle,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            ready ? Icons.account_tree_rounded : Icons.hub_outlined,
+            color: color,
+          ),
+          const SizedBox(width: BafSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  loading
+                      ? 'Checking workflow lanes…'
+                      : ready
+                          ? 'All workflow lanes are closed'
+                          : 'Workflow lane closure is incomplete',
+                  style: const TextStyle(
+                    color: BafColors.textPrimary,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  loading
+                      ? 'The current lane and compliance state is loading.'
+                      : ready
+                          ? 'The server will still recheck lane versions, blocking compliance, RED applicability and equipment state.'
+                          : 'Return to the job dossier and close or formally resolve every active lane before final submission.',
+                  style: const TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.3,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

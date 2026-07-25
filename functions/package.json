@@ -12,7 +12,7 @@
     "serve": "npm run build && firebase emulators:start --only functions,firestore",
     "deploy": "npm run build && firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test:emulator:governed": "npm run build && jest --runInBand --detectOpenHandles test/plannedJobClosure.firestoreEmulator.test.js test/runtimeJobModulePopulation.firestoreEmulator.test.js test/publishedTemplateAssignment.firestoreEmulator.test.js"
+    "test:emulator:governed": "npm run build && jest --runInBand --detectOpenHandles test/plannedJobClosure.firestoreEmulator.test.js test/runtimeJobModulePopulation.firestoreEmulator.test.js test/publishedTemplateAssignment.firestoreEmulator.test.js test/maintenanceWorkflow.firestoreEmulator.test.js"
   },
   "dependencies": {
     "firebase-admin": "^13.10.0",

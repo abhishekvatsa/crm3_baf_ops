@@ -1,0 +1,38 @@
+CRM3 APP v4.2 — CLEAN ZIP VERIFICATION RECORD
+
+Candidate class:
+  Ultimate successor local-trial candidate
+
+Pre-final extracted-package verification:
+  Internal manifest                     PASS (593/593)
+  v4.2 ultimate audit                  PASS (17/17)
+  v4.1 due-diligence audit             PASS (9/9)
+  v4 whole-app reconciliation audit    PASS (21/21)
+  inherited full-tree audit            PASS (18/18)
+  inherited expanded audit             PASS (15/15)
+  Dart structural audit                PASS (369 Dart files)
+  policy generation check              PASS
+  Isar source verifier                 PASS
+  Isar release verifier                EXPECTED FAIL (13 provisional bindings)
+  root npm audit                       PASS (0 vulnerabilities)
+  Functions npm audit                  PASS (0 vulnerabilities)
+  governed Firebase CLI npm audit      PASS (0 vulnerabilities)
+  TypeScript/Functions tests           PASS (224 passed / 29 emulator-skipped)
+  ZIP path traversal                   NONE
+  duplicate ZIP paths                  NONE
+  external symlinks                    NONE
+  .git/node_modules/build/.dart_tool    EXCLUDED
+  governed Firebase outputs            EXCLUDED
+
+Emulator note:
+  The governed CLI reached Firestore-emulator startup on an isolated port, but
+  the packaging sandbox could not download cloud-firestore-emulator-v1.21.0.jar.
+  No emulator PASS is claimed. The local-trial harness retries this gate tomorrow.
+
+Flutter note:
+  Flutter/Dart were unavailable in the packaging sandbox. Authentic codegen,
+  analysis, Flutter tests and Android debug build remain tomorrow trial gates.
+
+Mutation statement:
+  No connected repository, Firebase backend, production data or field device
+  was mutated during source construction or package verification.

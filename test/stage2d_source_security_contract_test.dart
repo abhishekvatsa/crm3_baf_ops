@@ -178,11 +178,11 @@ void main() {
         final overrides = rootPackage['overrides'] as Map<String, dynamic>;
         final packages = rootLock['packages'] as Map<String, dynamic>;
 
-        expect(overrides['protobufjs'], '7.6.4');
+        expect(overrides['protobufjs'], '7.6.5');
         expect(
           (packages['node_modules/protobufjs']
               as Map<String, dynamic>)['version'],
-          '7.6.4',
+          '7.6.5',
         );
         expect(
           packages.containsKey('node_modules/@protobufjs/inquire'),

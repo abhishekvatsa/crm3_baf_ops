@@ -222,6 +222,8 @@ describe('planned job server closure validation', () => {
     expect(userCanComplete({isApproved: true, roles: ['shiftSupervisor']})).toBe(true);
     expect(userCanComplete({isApproved: true, roles: ['operations']})).toBe(false);
     expect(userCanComplete({isApproved: false, roles: ['admin']})).toBe(false);
+    expect(userCanComplete({approved: true, roles: ['admin']})).toBe(false);
+    expect(userCanComplete({isApproved: true, roles: ['admin', 'bogus']})).toBe(false);
   });
 
   test('execution response converts timestamp-like values to ISO strings', () => {

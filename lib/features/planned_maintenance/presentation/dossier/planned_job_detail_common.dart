@@ -1338,6 +1338,10 @@ String _jobModuleDisciplineLabel(JobModuleDiscipline discipline) {
       return 'I&A';
     case JobModuleDiscipline.operations:
       return 'Operations';
+    case JobModuleDiscipline.emd:
+      return 'EMD';
+    case JobModuleDiscipline.refractory:
+      return 'Refractory';
     case JobModuleDiscipline.shiftInCharge:
       return 'Shift in-charge';
     case JobModuleDiscipline.safety:
@@ -1417,6 +1421,7 @@ JobDiaryDiscipline _disciplineForUser(AppUser user) {
   if (user.isMechanical) return JobDiaryDiscipline.mechanical;
   if (user.isElectrical) return JobDiaryDiscipline.electrical;
   if (user.isInstrumentation) return JobDiaryDiscipline.instrumentation;
+  if (user.isRefractory) return JobDiaryDiscipline.refractory;
   if (user.isShiftSupervisor || user.isContractSupervisor) {
     return JobDiaryDiscipline.shiftInCharge;
   }
@@ -1494,6 +1499,10 @@ String _disciplineLabel(JobDiaryDiscipline discipline) {
       return 'I&A';
     case JobDiaryDiscipline.operations:
       return 'OPERATIONS';
+    case JobDiaryDiscipline.emd:
+      return 'EMD';
+    case JobDiaryDiscipline.refractory:
+      return 'REFRACTORY';
     case JobDiaryDiscipline.shiftInCharge:
       return 'SHIFT IN-CHARGE';
     case JobDiaryDiscipline.safety:
@@ -1517,6 +1526,10 @@ Color _disciplineColor(JobDiaryDiscipline discipline) {
       return BafColors.audit;
     case JobDiaryDiscipline.operations:
       return BafColors.sync;
+    case JobDiaryDiscipline.emd:
+      return BafColors.admin;
+    case JobDiaryDiscipline.refractory:
+      return BafColors.warning;
     case JobDiaryDiscipline.shiftInCharge:
       return BafColors.charges;
     case JobDiaryDiscipline.safety:

@@ -1,0 +1,703 @@
+diff --git a/README.md b/README.md
+index cd92a48..e3fbceb 100644
+--- a/README.md
++++ b/README.md
+@@ -150,3 +150,7 @@ It performs authentic code generation, source audits, three dependency audits, F
+ ## R1.6 bounded laboratory correction
+ 
+ R1.6 pins `@hono/node-server` 2.0.10, load-smokes the pinned Firebase CLI, and records a tooling-audit hold without suppressing downstream application evidence. Any recorded hold still prohibits an authoritative PASS.
++
++## R1.10 post-codegen audit alignment
++
++R1.10 retains the R1.9 application tree and exact-binds all 19 authentic generated Isar bindings to the authenticated R1.9 Windows code-generation evidence. Stage 20 now runs explicitly in `post-codegen` mode after custody, semantic continuity and release-authority gates. Non-generated canonical paths remain byte-pinned; generated outputs are not broadly excluded.
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+new file mode 100644
+index 0000000..9bb0b28
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+@@ -0,0 +1,30 @@
++# CRM3 v4.2_R1.10 authoritative local-laboratory runbook
++
++## Boundaries
++
++The laboratory operates only in a disposable copy. It performs no Git push, merge, tag, Firebase deployment, production write, application uninstall or device-data clear.
++
++## Purpose of R1.10
++
++R1.10 preserves every R1.9 application byte and aligns stage 20 with the authentic code-generation sequence. The post-codegen canonical audit now exact-binds all 19 generated Isar bindings to hashes captured in the authenticated R1.9 Windows run. It does not silently exclude generated files.
++
++## Invocation
++
++Run the packaged `tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1` with:
++
++```powershell
++& $Script.FullName `
++  -CandidatePath $Candidate.FullName `
++  -CurrentAppRoot "C:\Users\abhis\AndroidStudioProjects\crm3_baf_ops" `
++  -EvidenceRoot "$HOME\Downloads" `
++  -RunEmulators `
++  -EmulatorPort 8180
++```
++
++Expected evidence prefix:
++
++`CRM3_V42_R1_10_CANONICAL_LOCAL_LAB_`
++
++## Next unknown gates
++
++R1.9 proved stages 01–19. R1.10 must still prove stage 20 onward, including the inherited audits, Functions tests, `flutter analyze`, Flutter tests, APK construction and emulator campaign. No result is presumed before execution.
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_CHANGED_FILES.md b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_CHANGED_FILES.md
+new file mode 100644
+index 0000000..b71d51e
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_CHANGED_FILES.md
+@@ -0,0 +1,21 @@
++# CRM3 v4.2_R1.10 changed-file register
++
++Product/runtime source changes: **none**.
++
++Changed or added laboratory/handoff files:
++
++1. `tools/v4/v4_2_r1_canonical_audit.py`
++   - adds explicit pristine and post-codegen phases;
++   - exact-binds all generated outputs in post-codegen phase;
++   - continues exact pinning of all non-generated canonical paths.
++2. `tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1`
++   - invokes stage 20 with `--phase post-codegen`;
++   - advances evidence naming to R1.10.
++3. `docs/v4_2_r1/AUTHORITATIVE_POST_CODEGEN_BINDINGS.json`
++   - exact 19-binding register from authenticated R1.9 execution evidence.
++4. `README.md`
++   - records the bounded R1.10 audit correction.
++5. `V4_2_R1_HANDOFF/*R1_10*` and R1.9 evidence adjudication
++   - records scope, validation, runbook and custody.
++6. `V4_2_R1_HANDOFF/FILE_SHA256SUMS.txt`
++   - regenerated package manifest.
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_FINAL_VERIFICATION.txt b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_FINAL_VERIFICATION.txt
+new file mode 100644
+index 0000000..367b1cd
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_FINAL_VERIFICATION.txt
+@@ -0,0 +1,31 @@
++CRM3 APP v4.2_R1.10 INTERNAL VERIFICATION
++
++Scope:
++- stage-20 post-codegen canonical audit alignment
++- exact 19-binding post-codegen hash authority
++- no product/runtime source expansion
++
++Validated:
++- canonical R1 audit pristine phase: 32/32 PASS
++- v4.2 ultimate audit: 17/17 PASS
++- v4.1 due-diligence audit: 9/9 PASS
++- whole-app reconciliation: 21/21 PASS
++- inherited full-tree audit: 18/18 PASS
++- inherited expanded audit: 15/15 PASS
++- Dart structural audit: PASS, 369 files
++- Firestore integrity-sweep unit tests: 3/3 PASS
++- workflow policy generation check: PASS
++- authoritative R1.9 post-codegen binding register: 19/19 exact
++- prior stage-20 failure reproduced: exactly five generated canonical bindings
++- R1.10 policy against authenticated R1.9 post-codegen manifest: drift=0
++- non-generated tamper synthetic test: fail-closed PASS
++- generated-binding tamper synthetic test: fail-closed PASS
++
++Not claimed in packaging environment:
++- PowerShell execution
++- new Flutter code generation
++- flutter analyze/tests
++- APK construction
++- emulator execution
++
++The Windows R1.10 laboratory remains the execution authority.
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_POST_CODEGEN_AUDIT_ALIGNMENT.md b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_POST_CODEGEN_AUDIT_ALIGNMENT.md
+new file mode 100644
+index 0000000..3577bcd
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_POST_CODEGEN_AUDIT_ALIGNMENT.md
+@@ -0,0 +1,32 @@
++# CRM3 v4.2_R1.10 post-codegen audit alignment
++
++## Scope
++
++R1.10 changes laboratory custody/audit authority only. It does not change Flutter product logic, Functions, Firestore Rules, Isar models, Android configuration, Firebase identity, dependency versions, programme policy or deployment authority.
++
++## Correction
++
++The canonical R1 audit now supports two explicit phases:
++
++- `pristine`: all 410 captured canonical-main paths must match their packaged `candidateSha256` values;
++- `post-codegen`: non-generated canonical paths remain pinned to `candidateSha256`, while generated Isar bindings must match the exact authoritative hashes captured after authentic R1.9 Windows code generation.
++
++The new register is:
++
++`docs/v4_2_r1/AUTHORITATIVE_POST_CODEGEN_BINDINGS.json`
++
++It contains all 19 `lib/**/*.g.dart` outputs and is bound to the R1.9 evidence ZIP SHA-256:
++
++`E2A0F3D38C9A0950922A0B5933A435159E5FA950F361BC8C2B8D6ADB3FEB470A`
++
++## Fail-closed properties
++
++R1.10 fails if:
++
++- any non-generated canonical path differs from its intended candidate hash;
++- any expected generated binding is absent;
++- any generated binding differs from the exact authenticated post-codegen hash;
++- the post-codegen register is malformed, incomplete or loses evidence provenance;
++- stage 20 is not invoked explicitly after stages 17, 18 and 19 with `--phase post-codegen`.
++
++This is stricter than excluding `.g.dart` files from custody. Regenerated outputs remain exact evidence-bound artifacts.
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_STATIC_VALIDATION.log b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_STATIC_VALIDATION.log
+new file mode 100644
+index 0000000..1211edc
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_STATIC_VALIDATION.log
+@@ -0,0 +1,197 @@
++CRM3 v4.2_R1.10 STATIC VALIDATION
++root=/mnt/data/CRM3_APP_V4_2_R1_10_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE_WORK
++
++===== R1 pristine audit =====
++PASS | Canonical repository authority is exact current main
++PASS | Authoritative post-codegen binding register is exact and evidence-bound | phase=pristine bindings=19
++PASS | All 410 captured canonical-main paths are present and phase-pinned | phase=pristine generated=0 missing=0 drift=0
++PASS | Authentic generated bindings are exact in post-codegen phase | phase=pristine expected=19 missing=0 drift=0
++PASS | Canonical reconciliation is no-loss with explicit successor delta | {'BYTE_IDENTICAL': 347, 'SUCCESSOR_MODIFIED': 63, 'MISSING': 0}
++PASS | Stage 2D-F2, Android and workflow/release authorities remain byte-identical
++PASS | PR39 websocket-driver closure remains present in package-lock.json
++PASS | PR39 websocket-driver closure remains present in functions/package-lock.json
++PASS | Backend approval authority is singular and generated-policy aligned | consumers=6
++PASS | Canonical authority unit tests cover legacy aliases and malformed roles
++PASS | Canonical authority returns its validated map and consumers use that narrowed result
++PASS | Trial harness uses a disposable workspace and tiered outcomes
++PASS | Trial harness exact-binds both canonical Firebase build inputs
++PASS | Trial harness enforces full pinned toolchain and lockfile stability
++PASS | Functions compiler is an early no-emit gate immediately after dependency installation
++PASS | Canonical audit runs in explicit post-codegen phase after custody and Isar release authority
++PASS | Trial harness contains no remote/deploy/destructive command and is structurally balanced
++PASS | Firebase CLI tooling pins only the bounded patched dependency versions
++PASS | Firebase CLI tooling contains no private registry resolution
++PASS | Firebase CLI lock-policy parser supports npm's empty root-package key
++PASS | Laboratory verifies Firebase CLI lock policy, installed versions and strict audit
++PASS | Firebase CLI major override is load-smoked before its advisory verdict
++PASS | Tooling advisory verdict is nonblocking for evidence but still prohibits final PASS
++PASS | Post-codegen custody permits generated bindings but rejects handwritten drift
++PASS | Post-codegen custody explicitly classifies only the ten Flutter platform registrants
++PASS | Exact canonical-main Isar baseline contains all inherited collections
++PASS | Post-codegen Isar verifier enforces semantic continuity and reports generated position drift
++PASS | Read-only full-collection integrity sweep catches orderBy blind spots
++PASS | Integrity sweep pure tests pass-source cover users and missing ordered fields
++PASS | Erroneous v4.1-only path count is corrected to file-level count
++PASS | Clean-cutover policy does not constrain the new architecture to disposable data
++PASS | Local-only 57be731 delta is classified, not merged wholesale
++SUMMARY | pass=32 fail=0 total=32
++
++===== v4.2 audit =====
++PASS | Successor programme explicitly prioritises migration to the new architecture
++PASS | Non-negotiable v4 workflow capabilities remain ratified | capabilities=12
++PASS | Workflow Firestore adapter preserves native special values before object recursion
++PASS | Native-value and command-path persistence regressions are directly tested
++PASS | Workflow callable uses the singular canonical backend approval validator
++PASS | Firestore Rules enforce exact user shape, optional types and canonical role vocabulary
++PASS | Dart user parsing fails closed instead of mapping unknown roles to Operations
++PASS | Authority-critical workflow projections use strict required-field validators
++PASS | Malformed documents, including malformed watermarks, are quarantined individually
++PASS | Projection mapper has positive parity and negative malformed-data test sources
++PASS | Application and Functions lockfiles contain remediated dependency versions | root={'protobufjs': '7.6.5', 'brace-expansion': '2.1.2'}; functions={'protobufjs': '7.6.5', 'body-parser': '1.20.6', 'brace-expansion': '1.1.16'}
++PASS | Governed Firebase CLI lockfile is separately remediated | {'firebase-tools': '15.22.4', 'protobufjs': '7.6.5', 'body-parser': '1.20.6', 'tar': '7.5.20', '@hono/node-server': '2.0.10', 'fast-uri': '3.1.4'}
++PASS | Historical v4.2 handoff retains all 16 inherited Isar collections, properties and indexes | collections=16
++PASS | User-supplied pre-v4 source is retained as no-loss and migration evidence
++PASS | Tomorrow local trial harness is present and contains no remote/deploy/destructive command
++PASS | Tomorrow trial runbook preserves production NO-GO boundaries
++PASS | Authentic pinned Isar generation remains a mandatory release boundary | provisional=13; mode=SOURCE_HANDOFF
++SUMMARY | pass=17 fail=0 total=17
++
++===== v4.1 audit =====
++PASS | Firebase Android app identity is single-valued | appId=1:894346496105:android:fba14febfbbee102e63af8
++PASS | Admin user writes use exact top-level whitelist
++PASS | Compliance Firestore mapper covers complete lifecycle projection | fields=36
++PASS | Workflow persistence adapter converts ISO lifecycle deadlines to Timestamp
++PASS | Admin whitelist regression guard exists
++PASS | Compliance projection test source exists
++PASS | Root operational documentation replaces Flutter boilerplate
++PASS | Firebase configuration custody boundary is explicit
++PASS | Review adjudication preserves successor-programme authority
++SUMMARY | pass=9 fail=0 total=9
++
++===== whole app =====
++CRM3 v4 — WHOLE-APP RECONCILIATION SOURCE AUDIT
++root=/mnt/data/CRM3_APP_V4_2_R1_10_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE_WORK
++PASS | workflow finalizer absorbs canonical module/evidence attestation | one workflow finalizer retains original remote-module and audit guarantees
++PASS | legacy completion is fenced from workflow-schema executions | old callable remains only for legacy jobs
++PASS | module reopen reactivates lane and writes correlated audit | module/lane states cannot diverge on reopen
++PASS | every module discipline has one canonical accountable lane | mapped=11 expected=11
++PASS | lane finalisation derives mandatory lanes from module population | classification cannot omit lanes already required by work
++PASS | lane mutation remaps dependent modules atomically or refuses | module identity is never stranded by lane removal
++PASS | workflow cancellation projects across old and new data planes | execution, lanes, compliance, maintenance, modules, equipment and audit move together
++PASS | compliance commands are workflow-bound and terminal guarded | continuations cannot trust foreign or historical references blindly
++PASS | maintenance bridge validates asset/binding and persists queue states | original ticket and compliance request form one contract
++PASS | client and Rules block deferred-ticket legacy mutation | server and local UI agree on deferred ticket authority
++PASS | original asset/report surfaces consume canonical equipment projection | workflow board is not a third isolated truth
++PASS | malformed remote records are quarantined per document | one poison projection cannot abort valid sibling records
++PASS | workflow diagnostics expose quarantine and manual-review commands read-only | supportability does not add an unsafe mutation bypass
++PASS | escalation is paged and transactionally revalidated | closed work cannot be escalated from a stale scheduler snapshot
++PASS | escalation indexes match v4 queries | present=2/2
++PASS | App Check is deploy-time gated rather than silently assumed | signed-client readiness remains an explicit production gate
++PASS | production release rejects provisional Isar authority | source completeness cannot be mistaken for pinned codegen proof
++PASS | policy is single-sourced across TypeScript and Dart | v4 lane/module/role policy remains generated
++PASS | Isar migration version explicitly advances to v3 | same-version schema drift is not hidden
++PASS | v4 Isar source schema verifier passes | PASS: v4 Isar schema structure verified; provisional_bindings=13; release_authority=NO
++PASS | release authority follows pinned-codegen state | provisional=13; verifier_rc=1
++SUMMARY | pass=21 fail=0 total=21
++
++===== full tree =====
++CRM3 MAINTENANCE WORKFLOW — FULL-TREE SOURCE AUDIT
++root=/mnt/data/CRM3_APP_V4_2_R1_10_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE_WORK
++PASS | client execution serializer excludes every server-owned workflow field | all 9 fields excluded
++PASS | new unproven JobExecution defaults to legacy/no-aggregate schema | default is 0; server creation elevates to 1
++PASS | all live batch execution writes use the client-safe serializer | FirestorePlannedRepository.batchUpsertExecutions inspected
++PASS | full lib tree handles both newly added discipline enum values | every discipline switch is explicit
++PASS | untouched composer owner bridge preserves EMD and Refractory identities | new disciplines no longer collapse into the legacy 'others' bucket
++PASS | untouched published-template parsers preserve EMD and Refractory | newly published modules no longer collapse into shared/others
++PASS | agreed Operations module authority is retained | authority is generated from the governing policy
++PASS | legacy 'others' modules remain operable by Senior Refractory | historical refractory-as-others compatibility is policy-generated
++PASS | workflow retry/pull failures are isolated from mature sync status | supplemental control plane has independent logging/catches
++PASS | one workflow collection failure does not abort later collections | per-collection watermark advances remain independent and post-upsert
++PASS | workflow notifications reuse shared token cleanup and data payload support | parallel sendEachForMulticast path removed
++PASS | workflow notification routing derives from generated lane policy | no parallel per-lane hardcode
++PASS | workflow notification receipt uses a retryable lease | concurrent/retried event delivery is guarded
++PASS | notification tap and terminated-app launch resolve to workflow UI | imperative navigation remains compatible with the existing app shell
++PASS | callable supported roles are generated from the policy role universe | hand-maintained fourth role list removed
++PASS | ratified online-only lifecycle decision is consumed by field UX | review criticism is adjudicated, not blindly implemented
++PASS | workflow timestamp parser accepts native Firestore Timestamp | review concern O-Deep-1 is closed as already-correct
++PASS | workflow joins do not rely on transported device-local execution ids | all workflow consumers join on Firestore/workflow identity
++SUMMARY | pass=18 fail=0 total=18
++
++===== expanded =====
++CRM3 APP — EXPANDED IMPLEMENTATION SOURCE AUDIT
++root=/mnt/data/CRM3_APP_V4_2_R1_10_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE_WORK
++PASS | all authoritative workflow commands have a client entry point | commands=21 missing=[]
++PASS | Dart and TypeScript command vocabularies remain exact | dart=21 typescript=21
++PASS | compliance creation requires accountable origin-lane authority | origin lane can no longer be omitted by a handcrafted client
++PASS | RED preparation is reachable from the planned-job workflow panel | prepareRedLane
++PASS | compliance creation is reachable from the planned-job workflow panel | raiseCompliance
++PASS | workflow cancellation is reachable from the planned-job workflow panel | cancelWorkflow
++PASS | equipment reconciliation is reachable and authority-gated | Admin/SI control; server derives state from facts
++PASS | compliance inbox exposes role-aware operational views and due state | target, origin, supervisory, dormant/due and tier surfaces present
++PASS | escalation sweep is paged, transactionally revalidated and emits events | stale scheduler snapshots cannot escalate closed work
++PASS | escalation policy stops at Tier 3 and absorbs scheduler jitter | no repeated terminal-tier churn
++PASS | notification routing follows the ratified escalation ladder | Tier 1 lane senior; Tier 2 Shift Supervisor/SI; Tier 3 Admin
++PASS | all escalation query indexes are declared | required=2 present=2
++PASS | client affordances mirror server command authority | new controls are hidden from actors who cannot execute them
++PASS | home surfaces workflow attention and routes compliance notifications | pending lane acknowledgements plus due compliance are visible before opening the hub
++PASS | ratified online-only lifecycle model remains unchanged | expanded implementation does not reintroduce the superseded hybrid model
++SUMMARY | pass=15 fail=0 total=15
++
++===== Dart structural =====
++CRM3 v4 — DART STRUCTURAL AUDIT
++PASS | lexical delimiter balance across 369 Dart files
++PASS | every declared part file exists
++PASS | generated Isar property/index ids contain no duplicates
++SKIP | git diff --check (not a Git worktree)
++SUMMARY | files=369 fail=0 provisional_isar=13 flutter_analyze=NOT_RUN
++
++===== integrity sweep tests =====
++TAP version 13
++# Subtest: canonical user document passes
++ok 1 - canonical user document passes
++  ---
++  duration_ms: 1.019603
++  type: 'test'
++  ...
++# Subtest: legacy and malformed user fields are reported
++ok 2 - legacy and malformed user fields are reported
++  ---
++  duration_ms: 0.26309
++  type: 'test'
++  ...
++# Subtest: collection contract catches missing ordered fields without orderBy
++ok 3 - collection contract catches missing ordered fields without orderBy
++  ---
++  duration_ms: 0.190062
++  type: 'test'
++  ...
++1..3
++# tests 3
++# suites 0
++# pass 3
++# fail 0
++# cancelled 0
++# skipped 0
++# todo 0
++# duration_ms 54.721763
++
++===== policy generation =====
++
++> crm3_baf_ops@1.0.0 workflow:policy:check
++> node tools/maintenance_workflow/generate_policy.mjs --check
++
++PASS functions/src/maintenanceWorkflow/policy.generated.ts
++PASS lib/features/maintenance_workflow/domain/workflow_policy_generated.dart
++PASS firestore.rules
++
++===== authenticated R1.9 post-codegen register verification =====
++POST_CODEGEN_REGISTER_EXACT: expected=19 mismatches=0
++R1_9_OLD_STAGE20_GENERATED_REPRODUCTION: drift=5
++  lib/features/maintenance/data/maintenance_model.g.dart
++  lib/features/planned_maintenance/data/job_diary_model.g.dart
++  lib/features/planned_maintenance/data/job_module_model.g.dart
++  lib/features/planned_maintenance/data/job_template_model.g.dart
++  lib/features/planned_maintenance/data/template_governance_model.g.dart
++R1_10_POST_CODEGEN_POLICY_AGAINST_R1_9_EVIDENCE: drift=0
++FAIL_CLOSED_NON-GENERATED: detected=.firebaserc
++FAIL_CLOSED_GENERATED: detected=lib/features/abnormalities/data/abnormality_model.g.dart
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_VALIDATION.md b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_VALIDATION.md
+new file mode 100644
+index 0000000..9ce671e
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_10_VALIDATION.md
+@@ -0,0 +1,20 @@
++# CRM3 v4.2_R1.10 validation
++
++## Source/static validation completed in packaging environment
++
++- R1 canonical audit, pristine phase: PASS
++- v4.2 ultimate audit: 17/17 PASS
++- v4.1 due-diligence audit: 9/9 PASS
++- whole-app reconciliation audit: 21/21 PASS
++- inherited full-tree audit: 18/18 PASS
++- inherited expanded audit: 15/15 PASS
++- Dart structural audit: PASS across 369 Dart files
++- Firestore integrity-sweep unit tests: 3/3 PASS
++- generated workflow policy check: PASS
++- post-codegen register vs authenticated R1.9 workspace manifest: 19/19 exact
++- R1.9 stage-20 drift reproduction: exactly five generated canonical paths
++- non-generated canonical drift under post-codegen policy: zero in authenticated R1.9 manifest
++
++## Intentionally not claimed here
++
++The packaging environment did not execute PowerShell, Flutter code generation, Flutter analysis/tests, APK construction or Firebase emulators. The next Windows laboratory is authoritative for those gates.
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_9_EVIDENCE_ADJUDICATION.md b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_9_EVIDENCE_ADJUDICATION.md
+new file mode 100644
+index 0000000..4871094
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_9_EVIDENCE_ADJUDICATION.md
+@@ -0,0 +1,43 @@
++# CRM3 v4.2_R1.9 execution-evidence adjudication
++
++## Custody
++
++Submitted evidence package:
++
++`CRM3_V42_R1_9_CANONICAL_LOCAL_LAB_20260722_230652.zip`
++
++SHA-256:
++
++`E2A0F3D38C9A0950922A0B5933A435159E5FA950F361BC8C2B8D6ADB3FEB470A`
++
++The external sidecar matched the submitted ZIP.
++
++## Proven execution
++
++Stages 01 through 19 passed on the pinned Windows toolchain. This proves, among other gates:
++
++- Functions dependencies installed and TypeScript compiled;
++- Firebase CLI lock policy, installation, load smoke and strict audit passed;
++- Flutter dependency resolution passed;
++- authentic Isar `build_runner` generation passed;
++- post-codegen custody passed with no handwritten or governed-source drift;
++- semantic Isar continuity passed with 101 generated property-position changes reported and zero semantic failures;
++- Isar release verification passed with zero provisional bindings.
++
++## Exact stage-20 failure
++
++`20_v42_r1_audit` reported `missing=0 drift=5` because it compared the post-codegen workspace against pre-codegen `candidateSha256` values in `CANONICAL_MAIN_RECONCILIATION.json`.
++
++The five paths were generated bindings:
++
++- `lib/features/maintenance/data/maintenance_model.g.dart`
++- `lib/features/planned_maintenance/data/job_diary_model.g.dart`
++- `lib/features/planned_maintenance/data/job_module_model.g.dart`
++- `lib/features/planned_maintenance/data/job_template_model.g.dart`
++- `lib/features/planned_maintenance/data/template_governance_model.g.dart`
++
++The pristine R1.9 package matched all 410 intended candidate hashes. The mismatches appeared only after successful authentic generation. Stage 17 had already classified generated binding changes and rejected handwritten drift.
++
++## Ruling
++
++This was an audit-phase baseline defect, not application-source drift. The correct fix is not a broad exemption. R1.10 binds post-codegen audit authority to exact generated hashes captured from this authenticated run while continuing to byte-pin every non-generated canonical path.
+diff --git a/docs/v4_2_r1/AUTHORITATIVE_POST_CODEGEN_BINDINGS.json b/docs/v4_2_r1/AUTHORITATIVE_POST_CODEGEN_BINDINGS.json
+new file mode 100644
+index 0000000..a79b080
+--- /dev/null
++++ b/docs/v4_2_r1/AUTHORITATIVE_POST_CODEGEN_BINDINGS.json
+@@ -0,0 +1,105 @@
++{
++  "schemaVersion": 1,
++  "authority": "AUTHENTIC_WINDOWS_ISAR_CODEGEN",
++  "purpose": "Exact post-codegen binding hashes for the pinned R1 laboratory toolchain. These hashes distinguish expected generator output from handwritten or governed-source drift.",
++  "sourceEvidence": {
++    "file": "CRM3_V42_R1_9_CANONICAL_LOCAL_LAB_20260722_230652.zip",
++    "sha256": "E2A0F3D38C9A0950922A0B5933A435159E5FA950F361BC8C2B8D6ADB3FEB470A",
++    "codegenStage": "16_authentic_isar_codegen",
++    "custodyStage": "17_post_codegen_custody",
++    "codegenResult": "PASS",
++    "custodyResult": "PASS"
++  },
++  "canonicalMain": {
++    "commit": "633c58bb0d936011e391b42627f8b8f02c510e95",
++    "tree": "2f547a79e79076c70dd15ae8b85a7ad70c9fa018"
++  },
++  "toolchain": {
++    "flutter": "3.44.0",
++    "dart": "3.12.0",
++    "node": "22.15.0",
++    "npm": "10.9.2",
++    "java": "21.0.11"
++  },
++  "generatorInputs": {
++    "pubspecLockSha256": "F0BD5F4CB0C5EE8C5C5D3E4142DD72D8C5DE57443F97BDB864DE4D8ABEAD74C5"
++  },
++  "bindings": {
++    "lib/features/abnormalities/data/abnormality_model.g.dart": {
++      "sha256": "F857404C5C4B8C18D520C69635917D1AFEADF1166D6033D31D1BB850B7CAB3C0",
++      "bytes": 298565
++    },
++    "lib/features/audit/models/audit_event_model.g.dart": {
++      "sha256": "1875909C1CDE21D218BE3CA23BC2FB3785D2BE24AE9FB7406CB612D7B3A4F735",
++      "bytes": 165450
++    },
++    "lib/features/charges/data/charge_model.g.dart": {
++      "sha256": "BF96533798BDA50E02F8B19F59139150EDF6F0BC0FEB05F7238AAEA329F035B2",
++      "bytes": 130089
++    },
++    "lib/features/directives/data/operational_directive_model.g.dart": {
++      "sha256": "9D6CD67194F38FAEA40D2ECCC70E58D84BF9BBBA83AD0E5FF7D85FC76EE646D7",
++      "bytes": 240257
++    },
++    "lib/features/maintenance/data/maintenance_model.g.dart": {
++      "sha256": "25FFB8183E3BD7954611302CF0A126849C7CACD4D7D921703144432000F33C4B",
++      "bytes": 405519
++    },
++    "lib/features/maintenance_workflow/data/compliance_attempt_record.g.dart": {
++      "sha256": "62AEC2A023995203E020FEB596A5E9E2802BCEF964426C43F8816767A5144A0F",
++      "bytes": 95026
++    },
++    "lib/features/maintenance_workflow/data/compliance_request_record.g.dart": {
++      "sha256": "1C47E418471D6AC5D8636B6058E45025A732FBEE48B8BC2123A7C9C163A6B7C2",
++      "bytes": 413642
++    },
++    "lib/features/maintenance_workflow/data/equipment_prompt_record.g.dart": {
++      "sha256": "54D79ACE327F2CD0AD949E49ABB9B2B7B9C5C9177A00C431D9C1C4BFD9B31585",
++      "bytes": 108958
++    },
++    "lib/features/maintenance_workflow/data/equipment_status_record.g.dart": {
++      "sha256": "3F34BC309D2C5239FF238F1F9C721E7A7A57ECDB6DC0BF75C76FBE46DBF04B81",
++      "bytes": 111165
++    },
++    "lib/features/maintenance_workflow/data/job_lane_record.g.dart": {
++      "sha256": "55BD52BB19D762CA57756F066221831C0FAD36A13F6C313D66101FC6D36D5BC2",
++      "bytes": 289917
++    },
++    "lib/features/maintenance_workflow/data/workflow_aggregate_record.g.dart": {
++      "sha256": "889AD8396D04DE81AA919C3F76678106DEA9A0F795D3BD987123CA74296A94FB",
++      "bytes": 97813
++    },
++    "lib/features/maintenance_workflow/data/workflow_command_receipt_record.g.dart": {
++      "sha256": "292A9C0140FD394D0BEB5F132A1485B2045DA4392BD9E793D6FFFB0824934B5C",
++      "bytes": 44498
++    },
++    "lib/features/maintenance_workflow/data/workflow_command_record.g.dart": {
++      "sha256": "7D79639092A8AD02DFC1607ACB8CBE3292AC58D987D9495C652FF9A73878C61A",
++      "bytes": 82367
++    },
++    "lib/features/maintenance_workflow/data/workflow_event_record.g.dart": {
++      "sha256": "7285F22F74A153F32D4DE48417279CA9D5C881021E05CB42058F20880F04CE3C",
++      "bytes": 85165
++    },
++    "lib/features/planned_maintenance/data/baf_knowledge_model.g.dart": {
++      "sha256": "EC1C4EBB55BA410EBA426722FDD456B0FBADB4BA79056A19DC2758544AF830A1",
++      "bytes": 314293
++    },
++    "lib/features/planned_maintenance/data/job_diary_model.g.dart": {
++      "sha256": "D241DC94765F16CECE024A63DDB359E1178A03B8D264FDC0ECA64889847FD1A0",
++      "bytes": 240442
++    },
++    "lib/features/planned_maintenance/data/job_module_model.g.dart": {
++      "sha256": "61B69E674C199B732E84ECD7FA80286294539C63B4F63BB69B42FE9C5D955F92",
++      "bytes": 475804
++    },
++    "lib/features/planned_maintenance/data/job_template_model.g.dart": {
++      "sha256": "EA4C927BE8E81A96457AE423D4E1152719CB5E19E3D84A3EAB02FC14109D5511",
++      "bytes": 403610
++    },
++    "lib/features/planned_maintenance/data/template_governance_model.g.dart": {
++      "sha256": "064CFB3A379E537DA382C22BAC2C8E82BD72AE5C674ADA64CF1B0143342285FB",
++      "bytes": 625182
++    }
++  }
++}
+diff --git a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
+index 04415de..0ab8a30 100644
+--- a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
++++ b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
+@@ -55,7 +55,7 @@
+     {
+       "path": "README.md",
+       "canonicalSha256": "1DE7D30CC85FDB88E103349EFF9E8875F71C4BB872D6636CB5AF33A2B4E96FF3",
+-      "candidateSha256": "8DF27CE33CCAFD3366AC9236DAC60557907C1E8159706425954C0CADBFAFBA55",
++      "candidateSha256": "9FE19B7D847AE2EBC129090BA48E9ADD203E347901ABA99736AFC9AA66DEF735",
+       "canonicalBytes": 564,
+       "candidateBytes": 6900,
+       "disposition": "SUCCESSOR_MODIFIED"
+diff --git a/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1 b/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+index 58c1c54..e2a1536 100644
+--- a/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
++++ b/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+@@ -40,7 +40,7 @@ $expected = [ordered]@{
+ $CandidatePath = (Resolve-Path $CandidatePath).Path
+ $EvidenceRoot = [IO.Path]::GetFullPath($EvidenceRoot)
+ $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+-$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_9_CANONICAL_LOCAL_LAB_$stamp"
++$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_10_CANONICAL_LOCAL_LAB_$stamp"
+ $evidenceDir = Join-Path $runRoot 'evidence'
+ $workspace = Join-Path $runRoot 'workspace'
+ New-Item -ItemType Directory -Force -Path $evidenceDir, $workspace | Out-Null
+@@ -383,7 +383,7 @@ function Seal-Evidence {
+ try {
+   Start-Transcript -Path $transcriptPath -Force | Out-Null
+   $transcriptActive = $true
+-  Write-Host 'CRM3 v4.2_R1.9 canonical-main local laboratory' -ForegroundColor Green
++  Write-Host 'CRM3 v4.2_R1.10 canonical-main local laboratory' -ForegroundColor Green
+   Write-Host "Pristine candidate: $CandidatePath"
+   Write-Host "Disposable workspace: $workspace"
+   Write-Host "Mode: $Mode"
+@@ -549,7 +549,7 @@ try {
+     & $pythonExe @pythonPrefix 'tools/isar/verify_v4_isar_schema.py' '--release'
+   }
+ 
+-  Invoke-CheckedStep -Name '20_v42_r1_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_2_r1_canonical_audit.py' }
++  Invoke-CheckedStep -Name '20_v42_r1_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_2_r1_canonical_audit.py' '--phase' 'post-codegen' }
+   Invoke-CheckedStep -Name '21_v42_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_2_ultimate_audit.py' }
+   Invoke-CheckedStep -Name '22_v41_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_1_due_diligence_audit.py' }
+   Invoke-CheckedStep -Name '23_whole_app_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/whole_app_reconciliation_audit.py' }
+diff --git a/tools/v4/v4_2_r1_canonical_audit.py b/tools/v4/v4_2_r1_canonical_audit.py
+index 44c3748..8eaa0d3 100644
+--- a/tools/v4/v4_2_r1_canonical_audit.py
++++ b/tools/v4/v4_2_r1_canonical_audit.py
+@@ -2,6 +2,7 @@
+ """Fail-closed canonical-main and local-laboratory audit for v4.2_R1."""
+ from __future__ import annotations
+ 
++import argparse
+ import hashlib
+ import json
+ import re
+@@ -9,6 +10,15 @@ import sys
+ from pathlib import Path
+ 
+ ROOT = Path(__file__).resolve().parents[2]
++PARSER = argparse.ArgumentParser()
++PARSER.add_argument(
++    "--phase",
++    choices=("pristine", "post-codegen"),
++    default="pristine",
++    help="Select whether canonical hashes are checked before or after authentic generated binding regeneration.",
++)
++ARGS = PARSER.parse_args()
++PHASE = ARGS.phase
+ PASS: list[tuple[str, str]] = []
+ FAIL: list[tuple[str, str]] = []
+ 
+@@ -78,21 +88,68 @@ check(
+     and main["commit"] == "633c58bb0d936011e391b42627f8b8f02c510e95"
+     and main["tree"] == "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
+ )
+-missing = []
+-hash_drift = []
++post_codegen_register = data("docs/v4_2_r1/AUTHORITATIVE_POST_CODEGEN_BINDINGS.json")
++post_codegen_bindings = post_codegen_register.get("bindings", {})
++post_codegen_source = post_codegen_register.get("sourceEvidence", {})
++post_codegen_register_valid = (
++    post_codegen_register.get("schemaVersion") == 1
++    and post_codegen_register.get("authority") == "AUTHENTIC_WINDOWS_ISAR_CODEGEN"
++    and post_codegen_source.get("sha256")
++    == "E2A0F3D38C9A0950922A0B5933A435159E5FA950F361BC8C2B8D6ADB3FEB470A"
++    and post_codegen_source.get("codegenResult") == "PASS"
++    and post_codegen_source.get("custodyResult") == "PASS"
++    and len(post_codegen_bindings) == 19
++    and all(
++        path.startswith("lib/")
++        and path.endswith(".g.dart")
++        and isinstance(entry, dict)
++        and re.fullmatch(r"[0-9A-F]{64}", str(entry.get("sha256", "")))
++        for path, entry in post_codegen_bindings.items()
++    )
++)
++check(
++    "Authoritative post-codegen binding register is exact and evidence-bound",
++    post_codegen_register_valid,
++    f"phase={PHASE} bindings={len(post_codegen_bindings)}",
++)
++
++missing: list[str] = []
++hash_drift: list[str] = []
++generated_phase_paths: list[str] = []
+ for row in rows:
+-    path = ROOT / row["path"]
++    rel = row["path"]
++    path = ROOT / rel
++    expected_sha = row["candidateSha256"]
++    if PHASE == "post-codegen" and rel in post_codegen_bindings:
++        expected_sha = post_codegen_bindings[rel]["sha256"]
++        generated_phase_paths.append(rel)
+     if not path.is_file():
+-        missing.append(row["path"])
+-    elif sha(path) != row["candidateSha256"]:
+-        hash_drift.append(row["path"])
++        missing.append(rel)
++    elif sha(path) != expected_sha:
++        hash_drift.append(rel)
++
++post_codegen_missing: list[str] = []
++post_codegen_drift: list[str] = []
++if PHASE == "post-codegen":
++    for rel, entry in post_codegen_bindings.items():
++        path = ROOT / rel
++        if not path.is_file():
++            post_codegen_missing.append(rel)
++        elif sha(path) != entry["sha256"]:
++            post_codegen_drift.append(rel)
++
+ counts = {key: 0 for key in ("BYTE_IDENTICAL", "SUCCESSOR_MODIFIED", "MISSING")}
+ for row in rows:
+     counts[row["disposition"]] = counts.get(row["disposition"], 0) + 1
+ check(
+-    "All 410 captured canonical-main paths are present and package-pinned",
++    "All 410 captured canonical-main paths are present and phase-pinned",
+     len(rows) == 410 and not missing and not hash_drift,
+-    f"missing={len(missing)} drift={len(hash_drift)}",
++    f"phase={PHASE} generated={len(generated_phase_paths)} missing={len(missing)} drift={len(hash_drift)}",
++)
++check(
++    "Authentic generated bindings are exact in post-codegen phase",
++    PHASE != "post-codegen" or (not post_codegen_missing and not post_codegen_drift),
++    f"phase={PHASE} expected={len(post_codegen_bindings)} missing={len(post_codegen_missing)} drift={len(post_codegen_drift)}",
+ )
+ check(
+     "Canonical reconciliation is no-loss with explicit successor delta",
+@@ -187,6 +244,14 @@ check(
+     and "npm run build -- --noEmit --pretty false" in harness
+     and harness.index("07_functions_npm_ci") < harness.index("08_functions_typecheck") < harness.index("11_firebase_cli_npm_ci"),
+ )
++check(
++    "Canonical audit runs in explicit post-codegen phase after custody and Isar release authority",
++    "'tools/v4/v4_2_r1_canonical_audit.py' '--phase' 'post-codegen'" in harness
++    and harness.index("17_post_codegen_custody")
++    < harness.index("18_canonical_isar_semantic_continuity")
++    < harness.index("19_isar_release_authority")
++    < harness.index("20_v42_r1_audit"),
++)
+ check(
+     "Trial harness contains no remote/deploy/destructive command and is structurally balanced",
+     all(item not in harness.lower() for item in forbidden)

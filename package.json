@@ -11,7 +11,9 @@
     "test:rules": "jest --runInBand",
     "emulator:test:rules": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules\"",
     "emulator:test:closure": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:closure\"",
-    "emulator:test:governed": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules && npm --prefix functions run test:emulator:governed\""
+    "emulator:test:governed": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules && npm --prefix functions run test:emulator:governed\"",
+    "workflow:policy:generate": "node tools/maintenance_workflow/generate_policy.mjs",
+    "workflow:policy:check": "node tools/maintenance_workflow/generate_policy.mjs --check"
   },
   "keywords": [],
   "author": "",
@@ -22,7 +24,7 @@
     "jest": "^30.4.2"
   },
   "overrides": {
-    "protobufjs": "7.6.4",
+    "protobufjs": "7.6.5",
     "@grpc/grpc-js": "1.9.16",
     "@babel/core": "7.29.6",
     "js-yaml": "3.15.0"

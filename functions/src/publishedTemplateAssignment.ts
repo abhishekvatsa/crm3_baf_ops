@@ -1,5 +1,7 @@
 import {createHash} from "crypto";
 
+import {canonicalModuleDiscipline, laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
+import {canonicalUserHasAnyRole} from "./userAuthority";
 export type AssignmentHttpsErrorCode =
   | "invalid-argument"
   | "not-found"
@@ -35,11 +37,13 @@ type AssignmentQueryLike = {
     op: string,
     value: unknown,
   ) => AssignmentQueryLike;
+  get: () => Promise<AssignmentQuerySnapshotLike>;
 };
 
 type AssignmentDocumentRefLike = {
   id?: string;
   path?: string;
+  get: () => Promise<AssignmentDocumentSnapshotLike>;
 };
 
 type AssignmentDocumentSnapshotLike = {
@@ -89,6 +93,7 @@ const CONTENT_HASH_PATTERN = /^tg2-sha256:[0-9a-f]{64}$/;
 const MAX_MODULES_PER_ASSIGNMENT = 100;
 const MAX_REMARKS_LENGTH = 2000;
 const MODULE_POPULATION_SCHEMA_VERSION = 1;
+const MAX_ASSIGNMENT_TRANSACTION_ATTEMPTS = 8;
 
 export class AssignmentValidationError extends Error {
   readonly code: AssignmentHttpsErrorCode;
@@ -955,38 +960,11 @@ function parseUseMode(value: unknown): string {
 }
 
 function parseDiscipline(value: unknown): string {
-  switch (normalizeKey(stringValue(value))) {
-    case "mechanical":
-      return "mechanical";
-    case "electrical":
-      return "electrical";
-    case "instrumentation":
-    case "instrument":
-    case "ia":
-    case "ianda":
-    case "instrumentationautomation":
-    case "instrumentationandautomation":
-      return "instrumentation";
-    case "operations":
-    case "operation":
-      return "operations";
-    case "shiftincharge":
-    case "shift":
-      return "shiftInCharge";
-    case "safety":
-      return "safety";
-    case "admin":
-      return "admin";
-    case "refractory":
-    case "others":
-    case "other":
-      return "others";
-    case "shared":
-    case "multi":
-    case "multidiscipline":
-    default:
-      return "shared";
-  }
+  return canonicalModuleDiscipline(value);
+}
+
+function laneKeyForDiscipline(value: string): string {
+  return laneForModuleDiscipline(value);
 }
 
 function parseSafetyClass(value: unknown): string {
@@ -1036,12 +1014,7 @@ function moduleTags(
 }
 
 function actorCanAssign(userData: AssignmentJsonMap): boolean {
-  if (userData.isApproved !== true || !Array.isArray(userData.roles)) {
-    return false;
-  }
-  return userData.roles.some(
-    (role) => typeof role === "string" && ASSIGNER_ROLES.has(role),
-  );
+  return canonicalUserHasAnyRole(userData, ASSIGNER_ROLES);
 }
 
 function snapshotData(
@@ -1058,12 +1031,295 @@ function snapshotData(
   return snapshot.data() ?? {};
 }
 
+function authorizedAssignmentActorData(
+  snapshot: AssignmentDocumentSnapshotLike | AssignmentQuerySnapshotLike,
+): AssignmentJsonMap {
+  if ("docs" in snapshot) {
+    throw new AssignmentValidationError(
+      "internal",
+      "User lookup returned an invalid response.",
+    );
+  }
+  const userData = snapshotData(snapshot, "User");
+  if (!actorCanAssign(userData)) {
+    throw new AssignmentValidationError(
+      "permission-denied",
+      "This account is not authorized to assign governed jobs.",
+      {reasonCode: "assignment-role-denied"},
+    );
+  }
+  return userData;
+}
+
 function queryDocs(
   snapshot:
     | AssignmentDocumentSnapshotLike
     | AssignmentQuerySnapshotLike,
 ): AssignmentDocumentSnapshotLike[] {
   return "docs" in snapshot ? snapshot.docs : [];
+}
+
+type AssignmentEquipmentFacts = {
+  activeNonRedMaintenanceCount: number;
+  activeRedWorkCount: number;
+  awaitingPreparationCount: number;
+};
+
+type AssignmentEquipmentProjection = AssignmentEquipmentFacts & {
+  data: AssignmentJsonMap;
+  version: number;
+};
+
+const MAX_EQUIPMENT_PROJECTION_RECONCILIATION_ATTEMPTS = 5;
+
+function equipmentProjectionCounter(
+  data: AssignmentJsonMap,
+  field: string,
+  options: {allowMissing?: boolean} = {},
+): number | null {
+  const value = data[field];
+  if (value == null && options.allowMissing === true) return null;
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value < 0
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      `The equipment projection has an invalid ${field} counter.`,
+      {
+        reasonCode: "equipment-projection-counter-invalid",
+        field,
+        value,
+      },
+    );
+  }
+  return value;
+}
+
+function equipmentStateFromFacts(
+  facts: AssignmentEquipmentFacts,
+): "underRED" | "awaitingPreparation" | "underMaintenance" | null {
+  if (facts.activeRedWorkCount > 0) return "underRED";
+  if (facts.awaitingPreparationCount > 0) return "awaitingPreparation";
+  if (facts.activeNonRedMaintenanceCount > 0) return "underMaintenance";
+  return null;
+}
+
+function workflowFactsFromSnapshot(
+  snapshot: AssignmentQuerySnapshotLike,
+): AssignmentEquipmentFacts {
+  let activeNonRedMaintenanceCount = 0;
+  let activeRedWorkCount = 0;
+  let awaitingPreparationCount = 0;
+  for (const row of queryDocs(snapshot)) {
+    const data = row.data() ?? {};
+    if (
+      data.status === "completed" ||
+      data.status === "cancelled" ||
+      data.cancelled === true
+    ) {
+      continue;
+    }
+    if (data.activeRedWork === true) activeRedWorkCount += 1;
+    else if (data.awaitingPreparation === true) awaitingPreparationCount += 1;
+    else activeNonRedMaintenanceCount += 1;
+  }
+  return {
+    activeNonRedMaintenanceCount,
+    activeRedWorkCount,
+    awaitingPreparationCount,
+  };
+}
+
+async function loadOpenWorkflowFacts(
+  db: AssignmentFirestoreLike,
+  request: ParsedAssignmentRequest,
+): Promise<AssignmentEquipmentFacts> {
+  const snapshot = await db
+    .collection("maintenance_workflows")
+    .where("assetTypeKey", "==", request.assetType)
+    .where("assetNumber", "==", request.assetNumber)
+    .get();
+  return workflowFactsFromSnapshot(snapshot);
+}
+
+function factsEqual(
+  left: AssignmentEquipmentFacts,
+  right: AssignmentEquipmentFacts,
+): boolean {
+  return left.activeNonRedMaintenanceCount ===
+      right.activeNonRedMaintenanceCount &&
+    left.activeRedWorkCount === right.activeRedWorkCount &&
+    left.awaitingPreparationCount === right.awaitingPreparationCount;
+}
+
+function equipmentProjectionRefreshRequired(
+  data: AssignmentJsonMap,
+  facts: AssignmentEquipmentFacts,
+): never {
+  throw new AssignmentValidationError(
+    "aborted",
+    "The equipment projection changed while workflow facts were being reconciled.",
+    {
+      reasonCode: "equipment-projection-refresh-required",
+      projection: {
+        activeNonRedMaintenanceCount:
+          data.activeNonRedMaintenanceCount ?? null,
+        activeRedWorkCount: data.activeRedWorkCount ?? null,
+        awaitingPreparationCount: data.awaitingPreparationCount ?? null,
+        version: data.version ?? null,
+        state: data.state ?? null,
+      },
+      workflowFacts: facts,
+    },
+  );
+}
+
+function serializedEquipmentProjection(
+  snapshot: AssignmentDocumentSnapshotLike,
+  request: ParsedAssignmentRequest,
+  workflowFacts: AssignmentEquipmentFacts,
+): AssignmentEquipmentProjection {
+  if (!snapshot.exists) {
+    return {
+      data: {},
+      ...workflowFacts,
+      version: 0,
+    };
+  }
+
+  const data = snapshot.data() ?? {};
+  const actualAssetTypeKey = cleanOptionalText(data.assetTypeKey);
+  const actualAssetNumber = data.assetNumber;
+  if (
+    (actualAssetTypeKey != null && actualAssetTypeKey !== request.assetType) ||
+    (actualAssetNumber != null && actualAssetNumber !== request.assetNumber)
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The equipment projection identity does not match the assignment target.",
+      {
+        reasonCode: "equipment-projection-identity-mismatch",
+        expectedAssetTypeKey: request.assetType,
+        expectedAssetNumber: request.assetNumber,
+        actualAssetTypeKey: actualAssetTypeKey ?? null,
+        actualAssetNumber: actualAssetNumber ?? null,
+      },
+    );
+  }
+
+  const rawCounters = {
+    activeNonRedMaintenanceCount: equipmentProjectionCounter(
+      data,
+      "activeNonRedMaintenanceCount",
+      {allowMissing: true},
+    ),
+    activeRedWorkCount: equipmentProjectionCounter(
+      data,
+      "activeRedWorkCount",
+      {allowMissing: true},
+    ),
+    awaitingPreparationCount: equipmentProjectionCounter(
+      data,
+      "awaitingPreparationCount",
+      {allowMissing: true},
+    ),
+  };
+  const presentCounterCount = Object.values(rawCounters)
+    .filter((value) => value != null).length;
+  if (presentCounterCount !== 0 && presentCounterCount !== 3) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The equipment projection has an incomplete workflow-counter set.",
+      {
+        reasonCode: "equipment-projection-counter-set-incomplete",
+        counters: rawCounters,
+      },
+    );
+  }
+
+  const projectionFacts: AssignmentEquipmentFacts = presentCounterCount === 0
+    ? workflowFacts
+    : {
+      activeNonRedMaintenanceCount:
+        rawCounters.activeNonRedMaintenanceCount as number,
+      activeRedWorkCount: rawCounters.activeRedWorkCount as number,
+      awaitingPreparationCount: rawCounters.awaitingPreparationCount as number,
+    };
+  if (presentCounterCount === 3 && !factsEqual(projectionFacts, workflowFacts)) {
+    equipmentProjectionRefreshRequired(data, workflowFacts);
+  }
+
+  const expectedState = equipmentStateFromFacts(workflowFacts);
+  const actualState = cleanOptionalText(data.state);
+  const zeroCountStateValid =
+    expectedState == null &&
+    (actualState === "available" || actualState === "inService");
+  if (actualState !== expectedState && !zeroCountStateValid) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The equipment projection state does not match the current workflow facts.",
+      {
+        reasonCode: "equipment-projection-state-mismatch",
+        expectedState: expectedState ?? "available-or-inService",
+        actualState,
+        workflowFacts,
+      },
+    );
+  }
+
+  const version = equipmentProjectionCounter(
+    data,
+    "version",
+    {allowMissing: true},
+  ) ?? 0;
+  if (workflowFacts.activeNonRedMaintenanceCount === Number.MAX_SAFE_INTEGER) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The equipment projection maintenance counter cannot be incremented safely.",
+      {reasonCode: "equipment-projection-counter-overflow"},
+    );
+  }
+
+  return {
+    data,
+    ...workflowFacts,
+    version,
+  };
+}
+
+function assignmentReasonCode(error: unknown): string | null {
+  if (!(error instanceof AssignmentValidationError)) return null;
+  if (error.details == null || typeof error.details !== "object") return null;
+  const reasonCode = (error.details as AssignmentJsonMap).reasonCode;
+  return typeof reasonCode === "string" ? reasonCode : null;
+}
+
+function isRetryableClosedTransactionError(error: unknown): boolean {
+  if (error == null || typeof error !== "object") return false;
+  const candidate = error as {
+    code?: unknown;
+    message?: unknown;
+    details?: unknown;
+  };
+  const numericCode =
+    candidate.code === 3 ||
+    candidate.code === "3";
+  const namedCode =
+    typeof candidate.code === "string" &&
+    candidate.code.trim().toLowerCase() === "invalid-argument";
+  if (!numericCode && !namedCode) return false;
+
+  const message = typeof candidate.message === "string"
+    ? candidate.message
+    : "";
+  const details = typeof candidate.details === "string"
+    ? candidate.details
+    : "";
+  return `${message}\n${details}`
+    .toLowerCase()
+    .includes("transaction is invalid or closed");
 }
 
 function dateSortValue(value: unknown): number {
@@ -1218,6 +1474,15 @@ function buildCanonicalAssignment(args: {
     assignedByUid: actorUid,
     assignedByName: actorName,
     assignedAgencies: agencies,
+    workflowSchemaVersion: 1,
+    laneSetVersion: 0,
+    laneSetFinalizedAt: null,
+    laneSetFinalizedByUid: null,
+    laneSetFinalizedByName: null,
+    laneMappingReview: agencies.length > 0,
+    parentExecutionFirestoreId: null,
+    spawnedRedExecutionFirestoreId: null,
+    redAnswerJson: null,
     completedByUid: null,
     completedByName: null,
     remarks: request.remarks,
@@ -1263,6 +1528,14 @@ function buildCanonicalAssignment(args: {
     );
     const code = moduleCode(snapshot);
     const fields = fieldsForModule(bundle, snapshot);
+    const discipline = parseDiscipline(
+      stringFrom(snapshot, [
+        "discipline",
+        "defaultDiscipline",
+        "assignedDiscipline",
+        "ownerDiscipline",
+      ]),
+    );
     const data: AssignmentJsonMap = {
       firestoreId: moduleId,
       jobExecutionFirestoreId: executionId,
@@ -1296,14 +1569,11 @@ function buildCanonicalAssignment(args: {
       useMode: parseUseMode(
         stringFrom(snapshot, ["useMode", "defaultUseMode"]),
       ),
-      discipline: parseDiscipline(
-        stringFrom(snapshot, [
-          "discipline",
-          "defaultDiscipline",
-          "assignedDiscipline",
-          "ownerDiscipline",
-        ]),
-      ),
+      discipline,
+      laneKey: laneKeyForDiscipline(discipline),
+      laneActivationGeneration: 1,
+      workflowLaneFirestoreId: `${executionId}_${laneKeyForDiscipline(discipline)}_1`,
+      isOpenForWork: true,
       safetyClass: parseSafetyClass(
         stringFrom(snapshot, [
           "safetyClass",
@@ -1528,6 +1798,7 @@ export async function assignPublishedTemplateVersionWithDb(args: {
   authUid: string | null;
   data: AssignmentJsonMap;
   now?: () => Date;
+  beforeAssignmentTransactionForTest?: () => Promise<void>;
   beforeAssignmentWritesForTest?: () => Promise<void>;
 }): Promise<PublishedTemplateAssignmentResult> {
   const {db, authUid, data} = args;
@@ -1546,22 +1817,30 @@ export async function assignPublishedTemplateVersionWithDb(args: {
     .collection("published_template_assignment_requests")
     .doc(request.requestId);
 
-  return db.runTransaction(async (transaction) => {
-    const userSnapshot = await transaction.get(userRef);
-    if ("docs" in userSnapshot) {
-      throw new AssignmentValidationError(
-        "internal",
-        "User lookup returned an invalid response.",
-      );
+  authorizedAssignmentActorData(await userRef.get());
+
+  let lastRefreshDetails: unknown = null;
+  let lastTransientTransactionDetails: unknown = null;
+  let equipmentRefreshAttempts = 0;
+  let transientTransactionAttempts = 0;
+  let totalAttempts = 0;
+  while (true) {
+    totalAttempts += 1;
+    const requestReceiptPreflight = await requestRef.get();
+    const receiptObservedBeforeTransaction =
+      requestReceiptPreflight.exists;
+    const workflowFacts = receiptObservedBeforeTransaction
+      ? null
+      : await loadOpenWorkflowFacts(db, request);
+    if (totalAttempts === 1 && args.beforeAssignmentTransactionForTest != null) {
+      await args.beforeAssignmentTransactionForTest();
     }
-    const userData = snapshotData(userSnapshot, "User");
-    if (!actorCanAssign(userData)) {
-      throw new AssignmentValidationError(
-        "permission-denied",
-        "This account is not authorized to assign governed jobs.",
-        {reasonCode: "assignment-role-denied"},
-      );
-    }
+
+    try {
+      return await db.runTransaction(async (transaction) => {
+    const userData = authorizedAssignmentActorData(
+      await transaction.get(userRef),
+    );
 
     const existingRequestSnapshot = await transaction.get(requestRef);
     if ("docs" in existingRequestSnapshot) {
@@ -1578,6 +1857,19 @@ export async function assignPublishedTemplateVersionWithDb(args: {
         actorUid,
         requestData: existingRequestSnapshot.data() ?? {},
       });
+    }
+    if (receiptObservedBeforeTransaction) {
+      throw new AssignmentValidationError(
+        "aborted",
+        "The assignment request receipt disappeared before transactional replay.",
+        {reasonCode: "request-receipt-disappeared"},
+      );
+    }
+    if (workflowFacts == null) {
+      throw new AssignmentValidationError(
+        "internal",
+        "Workflow facts were not loaded for a new assignment.",
+      );
     }
 
     const packageRef = db
@@ -1766,11 +2058,75 @@ export async function assignPublishedTemplateVersionWithDb(args: {
     const executionRef = db
       .collection("job_executions")
       .doc(canonical.executionId);
+    const workflowRef = db
+      .collection("maintenance_workflows")
+      .doc(canonical.executionId);
+    const equipmentRef = db
+      .collection("equipment_status")
+      .doc(`${request.assetType}_${request.assetNumber}`);
+    const equipmentSnapshot = await transaction.get(equipmentRef);
+    if ("docs" in equipmentSnapshot) {
+      throw new AssignmentValidationError("internal", "Equipment lookup returned an invalid response.");
+    }
+    const equipmentProjection = serializedEquipmentProjection(
+      equipmentSnapshot,
+      request,
+      workflowFacts,
+    );
+    const activeNonRedMaintenanceCount =
+      equipmentProjection.activeNonRedMaintenanceCount + 1;
+    const activeRedWorkCount = equipmentProjection.activeRedWorkCount;
+    const awaitingPreparationCount =
+      equipmentProjection.awaitingPreparationCount;
+    const equipmentState = activeRedWorkCount > 0
+      ? "underRED"
+      : awaitingPreparationCount > 0
+        ? "awaitingPreparation"
+        : "underMaintenance";
+    const equipmentData = equipmentProjection.data;
+    const previousEquipmentState =
+      cleanOptionalText(equipmentData.state) ??
+      equipmentStateFromFacts(workflowFacts) ??
+      "inService";
     if (args.beforeAssignmentWritesForTest != null) {
       await args.beforeAssignmentWritesForTest();
     }
 
     transaction.set(executionRef, canonical.execution);
+    transaction.set(workflowRef, {
+      jobExecutionId: canonical.executionId,
+      assetTypeKey: request.assetType,
+      assetNumber: request.assetNumber,
+      status: "pendingLaneClassification",
+      version: 1,
+      workflowSchemaVersion: 1,
+      laneSetVersion: 0,
+      laneSetFinalizedAt: null,
+      activeRedWork: false,
+      awaitingPreparation: false,
+      cancelled: false,
+      createdByUid: actorUid,
+      createdByName: actorName,
+      createdAt: assignedAt,
+      updatedAt: assignedAt,
+    });
+    transaction.set(equipmentRef, {
+      assetTypeKey: request.assetType,
+      assetNumber: request.assetNumber,
+      previousState: previousEquipmentState,
+      state: equipmentState,
+      activeNonRedMaintenanceCount,
+      activeRedWorkCount,
+      awaitingPreparationCount,
+      transitionTrigger: `governedAssignment:${canonical.executionId}`,
+      lastTransitionAt: assignedAt,
+      lastTransitionByUid: actorUid,
+      lastTransitionByName: actorName,
+      availableSince: null,
+      inServiceSince: null,
+      version: equipmentProjection.version + 1,
+      updatedAt: assignedAt,
+    }, {merge: true});
     for (const module of canonical.modules) {
       transaction.set(
         db.collection("job_modules").doc(module.id),
@@ -1804,5 +2160,57 @@ export async function assignPublishedTemplateVersionWithDb(args: {
       execution: canonical.execution,
       modules: canonical.modules.map((module) => module.data),
     };
-  });
+      });
+    } catch (error) {
+      const reasonCode = assignmentReasonCode(error);
+      if (reasonCode === "equipment-projection-refresh-required") {
+        equipmentRefreshAttempts += 1;
+        lastRefreshDetails = error instanceof AssignmentValidationError
+          ? error.details
+          : null;
+        if (
+          equipmentRefreshAttempts >=
+          MAX_EQUIPMENT_PROJECTION_RECONCILIATION_ATTEMPTS
+        ) {
+          throw new AssignmentValidationError(
+            "failed-precondition",
+            "The equipment projection and workflow facts did not converge after bounded reconciliation.",
+            {
+              reasonCode: "equipment-projection-reconciliation-exhausted",
+              maximumAttempts:
+                MAX_EQUIPMENT_PROJECTION_RECONCILIATION_ATTEMPTS,
+              lastRefreshDetails,
+            },
+          );
+        }
+        continue;
+      }
+      if (isRetryableClosedTransactionError(error)) {
+        transientTransactionAttempts += 1;
+        lastTransientTransactionDetails = {
+          attempt: totalAttempts,
+          transientAttempt: transientTransactionAttempts,
+          code: (error as {code?: unknown}).code ?? null,
+          message: error instanceof Error ? error.message : String(error),
+          details: (error as {details?: unknown}).details ?? null,
+        };
+        if (
+          transientTransactionAttempts >=
+          MAX_ASSIGNMENT_TRANSACTION_ATTEMPTS
+        ) {
+          throw new AssignmentValidationError(
+            "aborted",
+            "The assignment transaction did not stabilize after bounded retry.",
+            {
+              reasonCode: "assignment-transaction-retry-exhausted",
+              maximumAttempts: MAX_ASSIGNMENT_TRANSACTION_ATTEMPTS,
+              lastTransientTransactionDetails,
+            },
+          );
+        }
+        continue;
+      }
+      throw error;
+    }
+  }
 }

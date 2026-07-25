@@ -1,0 +1,427 @@
+{
+  "schemaVersion": 2,
+  "policyId": "crm3-maintenance-workflow-v2",
+  "effectiveDate": "2026-07-21",
+  "onlineOnlyLifecycleCommands": true,
+  "laneSetFinalizerRoles": [
+    "admin",
+    "si",
+    "contractSupervisor"
+  ],
+  "lanes": [
+    {
+      "key": "elec",
+      "code": "ELEC",
+      "name": "Electrical",
+      "ackRoles": [
+        "admin",
+        "si",
+        "seniorElectrical"
+      ],
+      "workRoles": [
+        "admin",
+        "si",
+        "seniorElectrical"
+      ],
+      "closeRoles": [
+        "admin",
+        "si",
+        "seniorElectrical"
+      ]
+    },
+    {
+      "key": "mech",
+      "code": "MECH",
+      "name": "Mechanical",
+      "ackRoles": [
+        "admin",
+        "si",
+        "seniorMechanical"
+      ],
+      "workRoles": [
+        "admin",
+        "si",
+        "seniorMechanical"
+      ],
+      "closeRoles": [
+        "admin",
+        "si",
+        "seniorMechanical"
+      ]
+    },
+    {
+      "key": "inst",
+      "code": "I&A",
+      "name": "Instrumentation & Automation",
+      "ackRoles": [
+        "admin",
+        "si",
+        "seniorInstrumentation"
+      ],
+      "workRoles": [
+        "admin",
+        "si",
+        "seniorInstrumentation"
+      ],
+      "closeRoles": [
+        "admin",
+        "si",
+        "seniorInstrumentation"
+      ]
+    },
+    {
+      "key": "oprn",
+      "code": "OPRN",
+      "name": "Operations",
+      "ackRoles": [
+        "admin",
+        "si",
+        "operations",
+        "shiftSupervisor"
+      ],
+      "workRoles": [
+        "admin",
+        "si",
+        "operations",
+        "shiftSupervisor"
+      ],
+      "closeRoles": [
+        "admin",
+        "si",
+        "shiftSupervisor"
+      ]
+    },
+    {
+      "key": "emd",
+      "code": "EMD",
+      "name": "EMD",
+      "ackRoles": [
+        "admin",
+        "si"
+      ],
+      "workRoles": [
+        "admin",
+        "si"
+      ],
+      "closeRoles": [
+        "admin",
+        "si"
+      ],
+      "delegated": true,
+      "delegationBasis": "plant-v1-emd-admin-si-coordination"
+    },
+    {
+      "key": "red",
+      "code": "RED",
+      "name": "Refractory Engineering Department",
+      "ackRoles": [
+        "admin",
+        "si",
+        "refractory",
+        "seniorRefractory"
+      ],
+      "workRoles": [
+        "admin",
+        "si",
+        "refractory",
+        "seniorRefractory"
+      ],
+      "closeRoles": [
+        "admin",
+        "si",
+        "seniorRefractory"
+      ]
+    },
+    {
+      "key": "shared",
+      "code": "SHARED",
+      "name": "Shared / Safety / Administration",
+      "ackRoles": [
+        "admin",
+        "si",
+        "contractSupervisor",
+        "shiftSupervisor"
+      ],
+      "workRoles": [
+        "admin",
+        "si",
+        "contractSupervisor",
+        "shiftSupervisor"
+      ],
+      "closeRoles": [
+        "admin",
+        "si",
+        "contractSupervisor",
+        "shiftSupervisor"
+      ],
+      "delegated": true,
+      "delegationBasis": "plant-v2-shared-coordination"
+    }
+  ],
+  "clocksMinutes": {
+    "criticalAcknowledgement": 30,
+    "normalAcknowledgement": 240,
+    "complianceAcknowledgement": 240,
+    "complianceAfterCondition": 480
+  },
+  "redApplicableAssetTypes": [
+    "base",
+    "furnace"
+  ],
+  "standPreparationAssetTypes": [
+    "furnace"
+  ],
+  "equipmentStates": [
+    "inService",
+    "underMaintenance",
+    "awaitingPreparation",
+    "underRED",
+    "available"
+  ],
+  "complianceStatuses": [
+    "raised",
+    "acknowledged",
+    "complied",
+    "confirmedClosed",
+    "superseded",
+    "cancelled"
+  ],
+  "laneStatuses": [
+    "pending",
+    "acknowledged",
+    "closed",
+    "removed",
+    "terminated"
+  ],
+  "workflowStatuses": [
+    "pendingLaneClassification",
+    "assigned",
+    "partiallyAcknowledged",
+    "fullyAcknowledged",
+    "inProgress",
+    "awaitingCompliance",
+    "readyForClosure",
+    "completed",
+    "cancelled"
+  ],
+  "moduleDisciplineLaneMap": {
+    "electrical": "elec",
+    "mechanical": "mech",
+    "instrumentation": "inst",
+    "operations": "oprn",
+    "shiftInCharge": "oprn",
+    "emd": "emd",
+    "refractory": "red",
+    "safety": "shared",
+    "admin": "shared",
+    "shared": "shared",
+    "others": "shared"
+  },
+  "moduleDisciplineWorkRoles": {
+    "electrical": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "seniorElectrical"
+    ],
+    "mechanical": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "seniorMechanical"
+    ],
+    "instrumentation": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "seniorInstrumentation"
+    ],
+    "operations": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "operations"
+    ],
+    "shiftInCharge": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor"
+    ],
+    "emd": [
+      "admin",
+      "si"
+    ],
+    "refractory": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "refractory",
+      "seniorRefractory"
+    ],
+    "safety": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor"
+    ],
+    "admin": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor"
+    ],
+    "shared": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor"
+    ],
+    "others": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "seniorRefractory"
+    ]
+  },
+  "moduleDisciplineSubmitRoles": {
+    "electrical": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "seniorElectrical"
+    ],
+    "mechanical": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "seniorMechanical"
+    ],
+    "instrumentation": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "seniorInstrumentation"
+    ],
+    "operations": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "operations"
+    ],
+    "shiftInCharge": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor"
+    ],
+    "emd": [
+      "admin",
+      "si"
+    ],
+    "refractory": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "refractory",
+      "seniorRefractory"
+    ],
+    "safety": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor"
+    ],
+    "admin": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor"
+    ],
+    "shared": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor"
+    ],
+    "others": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "seniorRefractory"
+    ]
+  },
+  "moduleLifecycleModeratorRoles": [
+    "admin",
+    "si",
+    "contractSupervisor",
+    "shiftSupervisor"
+  ],
+  "commandAuthorityRoles": {
+    "finalizeLaneSet": [
+      "admin",
+      "si",
+      "contractSupervisor"
+    ],
+    "manageLanePopulation": [
+      "admin",
+      "si",
+      "contractSupervisor"
+    ],
+    "cancelWorkflow": [
+      "admin",
+      "si",
+      "contractSupervisor"
+    ],
+    "finalizeJob": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor"
+    ],
+    "markConditionDue": [
+      "admin",
+      "si",
+      "operations",
+      "shiftSupervisor"
+    ],
+    "deployEquipment": [
+      "admin",
+      "si",
+      "operations",
+      "shiftSupervisor"
+    ],
+    "reconcileEquipment": [
+      "admin",
+      "si"
+    ],
+    "prepareRedLane": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor",
+      "seniorElectrical",
+      "seniorMechanical",
+      "seniorInstrumentation",
+      "seniorRefractory"
+    ],
+    "reopenWorkflowModule": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor"
+    ]
+  }
+}

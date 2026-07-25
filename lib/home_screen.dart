@@ -1,5 +1,8 @@
 // FILE: lib/home_screen.dart
 
+import 'dart:async';
+
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,6 +19,10 @@ import 'features/directives/presentation/directives_screen.dart';
 import 'features/maintenance/presentation/closed_tickets_screen.dart';
 import 'features/reports/presentation/fleet_status_screen.dart';
 import 'features/abnormalities/presentation/abnormalities_home_screen.dart';
+import 'features/maintenance_workflow/presentation/screens/compliance_inbox_screen.dart';
+import 'features/maintenance_workflow/presentation/screens/equipment_status_board.dart';
+import 'features/maintenance_workflow/presentation/screens/workflow_hub_screen.dart';
+import 'features/maintenance_workflow/providers/workflow_providers.dart';
 
 import 'features/auth/data/user_model.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -38,10 +45,56 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
+  StreamSubscription<RemoteMessage>? _notificationTapSubscription;
+  bool _initialNotificationHandled = false;
 
   /// Null means: derive the initial mode from the user's role.
   /// Once the user manually switches, preserve their runtime choice.
   bool? _attendMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationTapSubscription =
+        FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_openInitialNotification());
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationTapSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _openInitialNotification() async {
+    if (_initialNotificationHandled) return;
+    _initialNotificationHandled = true;
+    final message = await FirebaseMessaging.instance.getInitialMessage();
+    if (message != null) _handleNotificationTap(message);
+  }
+
+  void _handleNotificationTap(RemoteMessage message) {
+    final workflowId = message.data['aggregateId']?.trim();
+    if (!mounted || workflowId == null || workflowId.isEmpty) return;
+    final laneKey = message.data['laneKey']?.trim();
+    final sourceCollection = message.data['sourceCollection']?.trim();
+    final destinationType = message.data['destinationType']?.trim();
+    final Widget destination;
+    if (destinationType == 'equipment') {
+      destination = const EquipmentStatusBoard();
+    } else if (sourceCollection == 'compliance_requests' &&
+        laneKey != null &&
+        laneKey.isNotEmpty) {
+      destination = ComplianceInboxScreen(laneKey: laneKey);
+    } else {
+      destination = WorkflowHubScreen(initialWorkflowId: workflowId);
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => destination),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,10 +120,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final directiveCountAsync = ref.watch(
           visibleOpenDirectiveCountProvider(appUser),
         );
+        final workflowLanesAsync = appUser.canViewPlannedMaintenance
+            ? ref.watch(workflowAllLanesProvider)
+            : null;
+        final workflowComplianceAsync = appUser.canViewPlannedMaintenance
+            ? ref.watch(workflowAllComplianceProvider)
+            : null;
 
         final ticketCount = ticketCountAsync.value ?? 0;
         final executionCount = executionCountAsync?.value ?? 0;
         final directiveCount = directiveCountAsync.value ?? 0;
+        final pendingLaneAcknowledgements =
+            workflowLanesAsync?.value
+                    ?.where(
+                      (lane) =>
+                          lane.statusKey == 'pending' &&
+                          appUser.canAcknowledgeOrWorkMaintenanceLane(
+                            lane.laneKey,
+                          ),
+                    )
+                    .length ??
+                0;
+        final dueCompliance =
+            workflowComplianceAsync?.value
+                    ?.where(
+                      (request) =>
+                          request.becameDueAt != null &&
+                          request.statusKey != 'confirmedClosed' &&
+                          request.statusKey != 'superseded' &&
+                          request.statusKey != 'cancelled' &&
+                          appUser.canAcknowledgeOrWorkMaintenanceLane(
+                            request.targetLaneKey,
+                          ),
+                    )
+                    .length ??
+                0;
+        final workflowAttentionCount =
+            pendingLaneAcknowledgements + dueCompliance;
 
         final attendMode = _attendMode ?? _defaultAttendMode(appUser);
 
@@ -79,6 +165,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ticketCount: ticketCount,
           executionCount: executionCount,
           directiveCount: directiveCount,
+          workflowAttentionCount: workflowAttentionCount,
           attendMode: attendMode,
         );
 
@@ -115,6 +202,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required int ticketCount,
     required int executionCount,
     required int directiveCount,
+    required int workflowAttentionCount,
     required bool attendMode,
   }) {
     return [
@@ -210,6 +298,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         screenBuilder:
             (_) => _MoreScreen(
               appUser: appUser,
+              workflowAttentionCount: workflowAttentionCount,
               onAssets: () => _push(context, const AssetTimelineScreen()),
               onClosed: () => _push(context, const ClosedTicketsScreen()),
               onReports: () => _push(context, const FleetStatusScreen()),
@@ -224,6 +313,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const KnowledgeGovernanceScreen()),
               onLocalDiagnostics:
                   () => _push(context, const LocalDiagnosticsScreen()),
+              onMaintenanceWorkflow:
+                  () => _push(context, const WorkflowHubScreen()),
             ),
         destination: const NavigationDestination(
           icon: Icon(Icons.more_horiz_rounded),
@@ -570,6 +661,7 @@ class _DashboardHome extends StatelessWidget {
 
 class _MoreScreen extends StatelessWidget {
   final AppUser appUser;
+  final int workflowAttentionCount;
   final VoidCallback onAssets;
   final VoidCallback onClosed;
   final VoidCallback onReports;
@@ -580,9 +672,11 @@ class _MoreScreen extends StatelessWidget {
   final VoidCallback onTemplatePublisher;
   final VoidCallback onKnowledgeGovernance;
   final VoidCallback onLocalDiagnostics;
+  final VoidCallback onMaintenanceWorkflow;
 
   const _MoreScreen({
     required this.appUser,
+    required this.workflowAttentionCount,
     required this.onAssets,
     required this.onClosed,
     required this.onReports,
@@ -593,6 +687,7 @@ class _MoreScreen extends StatelessWidget {
     required this.onTemplatePublisher,
     required this.onKnowledgeGovernance,
     required this.onLocalDiagnostics,
+    required this.onMaintenanceWorkflow,
   });
 
   @override
@@ -695,10 +790,28 @@ class _MoreScreen extends StatelessWidget {
             onTap: onAdmin,
             enabled: appUser.canOpenAdminDataBrowser,
           ),
+          const SizedBox(height: BafSpacing.sm),
+          ModuleListTile(
+            number: 8,
+            module: const ModuleVisual(
+              title: 'Maintenance Workflow',
+              description: 'Lane acknowledgement, compliance and equipment availability',
+              icon: Icons.account_tree_outlined,
+              color: BafColors.planned,
+            ),
+            status: !appUser.canViewPlannedMaintenance
+                ? 'Limited'
+                : workflowAttentionCount > 0
+                    ? '$workflowAttentionCount pending'
+                    : 'Open',
+            statusColor: BafColors.planned,
+            onTap: onMaintenanceWorkflow,
+            enabled: appUser.canViewPlannedMaintenance,
+          ),
           if (appUser.canManageTemplateGovernance) ...[
             const SizedBox(height: BafSpacing.sm),
             ModuleListTile(
-              number: 8,
+              number: 9,
               module: const ModuleVisual(
                 title: 'Template Authoring',
                 description:
@@ -712,7 +825,7 @@ class _MoreScreen extends StatelessWidget {
             ),
             const SizedBox(height: BafSpacing.sm),
             ModuleListTile(
-              number: 9,
+              number: 10,
               module: const ModuleVisual(
                 title: 'Template Publisher',
                 description:
@@ -727,7 +840,7 @@ class _MoreScreen extends StatelessWidget {
             ),
             const SizedBox(height: BafSpacing.sm),
             ModuleListTile(
-              number: 10,
+              number: 11,
               module: const ModuleVisual(
                 title: 'Knowledge Governance',
                 description:
@@ -741,7 +854,7 @@ class _MoreScreen extends StatelessWidget {
             ),
             const SizedBox(height: BafSpacing.sm),
             ModuleListTile(
-              number: 11,
+              number: 12,
               module: const ModuleVisual(
                 title: 'Support Diagnostics',
                 description:

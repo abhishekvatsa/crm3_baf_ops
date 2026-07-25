@@ -106,6 +106,12 @@ void main() {
       );
       expect(
         payloadBlock,
+        contains("'isOpenForWork': false"),
+        reason:
+            'field-scoped submit replay must clear a previously persisted open flag',
+      );
+      expect(
+        payloadBlock,
         contains("'updatedAt': full['submittedAt'] ?? full['updatedAt']"),
         reason:
             'submit replay must use submit-time chronology, not accept-time updatedAt',
@@ -148,6 +154,12 @@ void main() {
         expect(
           payloadBlock,
           contains("'status': JobModuleStatus.accepted.name"),
+        );
+        expect(
+          payloadBlock,
+          contains("'isOpenForWork': false"),
+          reason:
+              'field-scoped accept replay must preserve the closed lifecycle invariant',
         );
         expect(
           payloadBlock,
@@ -255,6 +267,47 @@ void main() {
       }
     });
 
+    test('direct Firestore lifecycle transitions persist the open-state invariant', () {
+      final provider = _read(_providerPath);
+      final remoteRepository = provider.substring(
+        provider.indexOf('class FirestoreJobModuleRepository'),
+      );
+
+      final expectedTransitions = <(String, String, String)>[
+        (
+          'Future<void> submitModule(',
+          "'status': JobModuleStatus.submitted.name",
+          "'isOpenForWork': false",
+        ),
+        (
+          'Future<void> reopenModule(',
+          "'status': JobModuleStatus.reopened.name",
+          "'isOpenForWork': true",
+        ),
+        (
+          'Future<void> markModuleNotApplicable(',
+          "'status': JobModuleStatus.notApplicable.name",
+          "'isOpenForWork': false",
+        ),
+        (
+          'Future<void> acceptModule(',
+          "'status': JobModuleStatus.accepted.name",
+          "'isOpenForWork': false",
+        ),
+      ];
+
+      for (final (method, status, openState) in expectedTransitions) {
+        final block = _methodBlockStartingAt(remoteRepository, method);
+        expect(block, contains(status), reason: 'Missing lifecycle status in $method');
+        expect(
+          block,
+          contains(openState),
+          reason:
+              '$method must persist the derived open-state field used by Rules and canonical closure',
+        );
+      }
+    });
+
     test('remote-only repository primitive is explicit and merge-scoped', () {
       final provider = _read(_providerPath);
 
@@ -344,6 +397,88 @@ void _expectOrder(String source, List<String> fragments) {
     );
     cursor = index;
   }
+}
+
+String _methodBlockStartingAt(String source, String marker) {
+  final markerIndex = source.indexOf(marker);
+  expect(markerIndex, isNot(-1), reason: 'Missing marker: $marker');
+
+  final openParen = source.indexOf('(', markerIndex);
+  expect(openParen, isNot(-1), reason: 'Missing parameter list after $marker');
+
+  var parenDepth = 0;
+  var inSingleQuote = false;
+  var inDoubleQuote = false;
+  var escaped = false;
+  var closeParen = -1;
+
+  for (var i = openParen; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == '\\') {
+      escaped = true;
+      continue;
+    }
+    if (!inDoubleQuote && char == "'") {
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+    if (!inSingleQuote && char == '"') {
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+    if (inSingleQuote || inDoubleQuote) continue;
+
+    if (char == '(') parenDepth++;
+    if (char == ')') {
+      parenDepth--;
+      if (parenDepth == 0) {
+        closeParen = i;
+        break;
+      }
+    }
+  }
+
+  expect(closeParen, isNot(-1), reason: 'Missing closing parenthesis for $marker');
+  final openBrace = source.indexOf('{', closeParen + 1);
+  expect(openBrace, isNot(-1), reason: 'Missing method body after $marker');
+
+  var braceDepth = 0;
+  inSingleQuote = false;
+  inDoubleQuote = false;
+  escaped = false;
+
+  for (var i = openBrace; i < source.length; i++) {
+    final char = source[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char == '\\') {
+      escaped = true;
+      continue;
+    }
+    if (!inDoubleQuote && char == "'") {
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+    if (!inSingleQuote && char == '"') {
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+    if (inSingleQuote || inDoubleQuote) continue;
+
+    if (char == '{') braceDepth++;
+    if (char == '}') {
+      braceDepth--;
+      if (braceDepth == 0) return source.substring(markerIndex, i + 1);
+    }
+  }
+
+  fail('Could not find method body closing brace for $marker');
 }
 
 String _blockStartingAt(String source, String marker) {

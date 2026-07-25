@@ -1,0 +1,184 @@
+CRM3 v4.2_R1.11 STATIC VALIDATION
+root=/mnt/data/CRM3_APP_V4_2_R1_11_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE_WORK
+
+===== PYTHON COMPILE =====
+PASS_PYTHON_COMPILEALL
+
+===== LOCALE-INDEPENDENT V4.1 AUDIT =====
+PASS | Firebase Android app identity is single-valued | appId=1:894346496105:android:fba14febfbbee102e63af8
+PASS | Admin user writes use exact top-level whitelist
+PASS | Compliance Firestore mapper covers complete lifecycle projection | fields=36
+PASS | Workflow persistence adapter converts ISO lifecycle deadlines to Timestamp
+PASS | Admin whitelist regression guard exists
+PASS | Compliance projection test source exists
+PASS | Root operational documentation replaces Flutter boilerplate
+PASS | Firebase configuration custody boundary is explicit
+PASS | Review adjudication preserves successor-programme authority
+SUMMARY | pass=9 fail=0 total=9
+
+===== R1 CANONICAL AUDIT PRISTINE =====
+PASS | Canonical repository authority is exact current main
+PASS | Authoritative post-codegen binding register is exact and evidence-bound | phase=pristine bindings=19
+PASS | All 410 captured canonical-main paths are present and phase-pinned | phase=pristine generated=0 missing=0 drift=0
+PASS | Authentic generated bindings are exact in post-codegen phase | phase=pristine expected=19 missing=0 drift=0
+PASS | Canonical reconciliation is no-loss with explicit successor delta | {'BYTE_IDENTICAL': 347, 'SUCCESSOR_MODIFIED': 63, 'MISSING': 0}
+PASS | Stage 2D-F2, Android and workflow/release authorities remain byte-identical
+PASS | PR39 websocket-driver closure remains present in package-lock.json
+PASS | PR39 websocket-driver closure remains present in functions/package-lock.json
+PASS | Backend approval authority is singular and generated-policy aligned | consumers=6
+PASS | Canonical authority unit tests cover legacy aliases and malformed roles
+PASS | Canonical authority returns its validated map and consumers use that narrowed result
+PASS | Trial harness uses a disposable workspace and tiered outcomes
+PASS | Trial harness exact-binds both canonical Firebase build inputs
+PASS | Trial harness enforces full pinned toolchain and lockfile stability
+PASS | Functions compiler is an early no-emit gate immediately after dependency installation
+PASS | Canonical audit runs in explicit post-codegen phase after custody and Isar release authority
+PASS | Trial harness contains no remote/deploy/destructive command and is structurally balanced
+PASS | Python text-file tooling is locale-independent UTF-8 | implicit=0
+PASS | Firebase CLI tooling pins only the bounded patched dependency versions
+PASS | Firebase CLI tooling contains no private registry resolution
+PASS | Firebase CLI lock-policy parser supports npm's empty root-package key
+PASS | Laboratory verifies Firebase CLI lock policy, installed versions and strict audit
+PASS | Firebase CLI major override is load-smoked before its advisory verdict
+PASS | Tooling advisory verdict is nonblocking for evidence but still prohibits final PASS
+PASS | Post-codegen custody permits generated bindings but rejects handwritten drift
+PASS | Post-codegen custody explicitly classifies only the ten Flutter platform registrants
+PASS | Exact canonical-main Isar baseline contains all inherited collections
+PASS | Post-codegen Isar verifier enforces semantic continuity and reports generated position drift
+PASS | Read-only full-collection integrity sweep catches orderBy blind spots
+PASS | Integrity sweep pure tests pass-source cover users and missing ordered fields
+PASS | Erroneous v4.1-only path count is corrected to file-level count
+PASS | Clean-cutover policy does not constrain the new architecture to disposable data
+PASS | Local-only 57be731 delta is classified, not merged wholesale
+SUMMARY | pass=33 fail=0 total=33
+
+===== V4.2 AUDIT =====
+PASS | Successor programme explicitly prioritises migration to the new architecture
+PASS | Non-negotiable v4 workflow capabilities remain ratified | capabilities=12
+PASS | Workflow Firestore adapter preserves native special values before object recursion
+PASS | Native-value and command-path persistence regressions are directly tested
+PASS | Workflow callable uses the singular canonical backend approval validator
+PASS | Firestore Rules enforce exact user shape, optional types and canonical role vocabulary
+PASS | Dart user parsing fails closed instead of mapping unknown roles to Operations
+PASS | Authority-critical workflow projections use strict required-field validators
+PASS | Malformed documents, including malformed watermarks, are quarantined individually
+PASS | Projection mapper has positive parity and negative malformed-data test sources
+PASS | Application and Functions lockfiles contain remediated dependency versions | root={'protobufjs': '7.6.5', 'brace-expansion': '2.1.2'}; functions={'protobufjs': '7.6.5', 'body-parser': '1.20.6', 'brace-expansion': '1.1.16'}
+PASS | Governed Firebase CLI lockfile is separately remediated | {'firebase-tools': '15.22.4', 'protobufjs': '7.6.5', 'body-parser': '1.20.6', 'tar': '7.5.20', '@hono/node-server': '2.0.10', 'fast-uri': '3.1.4'}
+PASS | Historical v4.2 handoff retains all 16 inherited Isar collections, properties and indexes | collections=16
+PASS | User-supplied pre-v4 source is retained as no-loss and migration evidence
+PASS | Tomorrow local trial harness is present and contains no remote/deploy/destructive command
+PASS | Tomorrow trial runbook preserves production NO-GO boundaries
+PASS | Authentic pinned Isar generation remains a mandatory release boundary | provisional=13; mode=SOURCE_HANDOFF
+SUMMARY | pass=17 fail=0 total=17
+
+===== WHOLE APP AUDIT =====
+CRM3 v4 — WHOLE-APP RECONCILIATION SOURCE AUDIT
+root=/mnt/data/CRM3_APP_V4_2_R1_11_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE_WORK
+PASS | workflow finalizer absorbs canonical module/evidence attestation | one workflow finalizer retains original remote-module and audit guarantees
+PASS | legacy completion is fenced from workflow-schema executions | old callable remains only for legacy jobs
+PASS | module reopen reactivates lane and writes correlated audit | module/lane states cannot diverge on reopen
+PASS | every module discipline has one canonical accountable lane | mapped=11 expected=11
+PASS | lane finalisation derives mandatory lanes from module population | classification cannot omit lanes already required by work
+PASS | lane mutation remaps dependent modules atomically or refuses | module identity is never stranded by lane removal
+PASS | workflow cancellation projects across old and new data planes | execution, lanes, compliance, maintenance, modules, equipment and audit move together
+PASS | compliance commands are workflow-bound and terminal guarded | continuations cannot trust foreign or historical references blindly
+PASS | maintenance bridge validates asset/binding and persists queue states | original ticket and compliance request form one contract
+PASS | client and Rules block deferred-ticket legacy mutation | server and local UI agree on deferred ticket authority
+PASS | original asset/report surfaces consume canonical equipment projection | workflow board is not a third isolated truth
+PASS | malformed remote records are quarantined per document | one poison projection cannot abort valid sibling records
+PASS | workflow diagnostics expose quarantine and manual-review commands read-only | supportability does not add an unsafe mutation bypass
+PASS | escalation is paged and transactionally revalidated | closed work cannot be escalated from a stale scheduler snapshot
+PASS | escalation indexes match v4 queries | present=2/2
+PASS | App Check is deploy-time gated rather than silently assumed | signed-client readiness remains an explicit production gate
+PASS | production release rejects provisional Isar authority | source completeness cannot be mistaken for pinned codegen proof
+PASS | policy is single-sourced across TypeScript and Dart | v4 lane/module/role policy remains generated
+PASS | Isar migration version explicitly advances to v3 | same-version schema drift is not hidden
+PASS | v4 Isar source schema verifier passes | PASS: v4 Isar schema structure verified; provisional_bindings=13; release_authority=NO
+PASS | release authority follows pinned-codegen state | provisional=13; verifier_rc=1
+SUMMARY | pass=21 fail=0 total=21
+
+===== FULL TREE AUDIT =====
+CRM3 MAINTENANCE WORKFLOW — FULL-TREE SOURCE AUDIT
+root=/mnt/data/CRM3_APP_V4_2_R1_11_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE_WORK
+PASS | client execution serializer excludes every server-owned workflow field | all 9 fields excluded
+PASS | new unproven JobExecution defaults to legacy/no-aggregate schema | default is 0; server creation elevates to 1
+PASS | all live batch execution writes use the client-safe serializer | FirestorePlannedRepository.batchUpsertExecutions inspected
+PASS | full lib tree handles both newly added discipline enum values | every discipline switch is explicit
+PASS | untouched composer owner bridge preserves EMD and Refractory identities | new disciplines no longer collapse into the legacy 'others' bucket
+PASS | untouched published-template parsers preserve EMD and Refractory | newly published modules no longer collapse into shared/others
+PASS | agreed Operations module authority is retained | authority is generated from the governing policy
+PASS | legacy 'others' modules remain operable by Senior Refractory | historical refractory-as-others compatibility is policy-generated
+PASS | workflow retry/pull failures are isolated from mature sync status | supplemental control plane has independent logging/catches
+PASS | one workflow collection failure does not abort later collections | per-collection watermark advances remain independent and post-upsert
+PASS | workflow notifications reuse shared token cleanup and data payload support | parallel sendEachForMulticast path removed
+PASS | workflow notification routing derives from generated lane policy | no parallel per-lane hardcode
+PASS | workflow notification receipt uses a retryable lease | concurrent/retried event delivery is guarded
+PASS | notification tap and terminated-app launch resolve to workflow UI | imperative navigation remains compatible with the existing app shell
+PASS | callable supported roles are generated from the policy role universe | hand-maintained fourth role list removed
+PASS | ratified online-only lifecycle decision is consumed by field UX | review criticism is adjudicated, not blindly implemented
+PASS | workflow timestamp parser accepts native Firestore Timestamp | review concern O-Deep-1 is closed as already-correct
+PASS | workflow joins do not rely on transported device-local execution ids | all workflow consumers join on Firestore/workflow identity
+SUMMARY | pass=18 fail=0 total=18
+
+===== EXPANDED AUDIT =====
+CRM3 APP — EXPANDED IMPLEMENTATION SOURCE AUDIT
+root=/mnt/data/CRM3_APP_V4_2_R1_11_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE_WORK
+PASS | all authoritative workflow commands have a client entry point | commands=21 missing=[]
+PASS | Dart and TypeScript command vocabularies remain exact | dart=21 typescript=21
+PASS | compliance creation requires accountable origin-lane authority | origin lane can no longer be omitted by a handcrafted client
+PASS | RED preparation is reachable from the planned-job workflow panel | prepareRedLane
+PASS | compliance creation is reachable from the planned-job workflow panel | raiseCompliance
+PASS | workflow cancellation is reachable from the planned-job workflow panel | cancelWorkflow
+PASS | equipment reconciliation is reachable and authority-gated | Admin/SI control; server derives state from facts
+PASS | compliance inbox exposes role-aware operational views and due state | target, origin, supervisory, dormant/due and tier surfaces present
+PASS | escalation sweep is paged, transactionally revalidated and emits events | stale scheduler snapshots cannot escalate closed work
+PASS | escalation policy stops at Tier 3 and absorbs scheduler jitter | no repeated terminal-tier churn
+PASS | notification routing follows the ratified escalation ladder | Tier 1 lane senior; Tier 2 Shift Supervisor/SI; Tier 3 Admin
+PASS | all escalation query indexes are declared | required=2 present=2
+PASS | client affordances mirror server command authority | new controls are hidden from actors who cannot execute them
+PASS | home surfaces workflow attention and routes compliance notifications | pending lane acknowledgements plus due compliance are visible before opening the hub
+PASS | ratified online-only lifecycle model remains unchanged | expanded implementation does not reintroduce the superseded hybrid model
+SUMMARY | pass=15 fail=0 total=15
+
+===== DART STRUCTURAL AUDIT =====
+CRM3 v4 — DART STRUCTURAL AUDIT
+PASS | lexical delimiter balance across 369 Dart files
+PASS | every declared part file exists
+PASS | generated Isar property/index ids contain no duplicates
+SKIP | git diff --check (not a Git worktree)
+SUMMARY | files=369 fail=0 provisional_isar=13 flutter_analyze=NOT_RUN
+
+===== INTEGRITY SWEEP UNIT TESTS =====
+TAP version 13
+# Subtest: canonical user document passes
+ok 1 - canonical user document passes
+  ---
+  duration_ms: 1.005252
+  type: 'test'
+  ...
+# Subtest: legacy and malformed user fields are reported
+ok 2 - legacy and malformed user fields are reported
+  ---
+  duration_ms: 0.193658
+  type: 'test'
+  ...
+# Subtest: collection contract catches missing ordered fields without orderBy
+ok 3 - collection contract catches missing ordered fields without orderBy
+  ---
+  duration_ms: 0.181589
+  type: 'test'
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 3
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 45.654638
+
+===== TEXT I/O AST REGRESSION =====
+PYTHON_TEXT_IO_CALLS=50
+IMPLICIT_ENCODING_CALLS=0

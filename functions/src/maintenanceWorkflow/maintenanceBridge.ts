@@ -1,0 +1,267 @@
+import {WorkflowError} from "./errors";
+import {DocSnapshot} from "./store";
+import {JsonMap} from "./types";
+import {iso} from "./utils";
+
+const text = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const cleaned = value.trim();
+  return cleaned.length === 0 ? null : cleaned;
+};
+
+const number = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
+
+export const maintenanceVersion = (data: JsonMap | null): number =>
+  data != null && typeof data.version === "number" ? data.version : 0;
+
+export const assertMaintenanceBoundToCompliance = (args: {
+  readonly maintenance: DocSnapshot;
+  readonly workflowId: string;
+  readonly complianceId: string;
+}): JsonMap => {
+  const {maintenance, workflowId, complianceId} = args;
+  if (!maintenance.exists || maintenance.data == null) {
+    throw new WorkflowError("not-found", "Linked maintenance item was not found.", {
+      maintenancePath: maintenance.path,
+    });
+  }
+  const data = maintenance.data;
+  const boundWorkflowId = text(data.workflowAggregateId);
+  const boundComplianceId = text(data.workflowComplianceId);
+  if (boundWorkflowId !== workflowId || boundComplianceId !== complianceId) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Linked maintenance work is not bound to this workflow compliance request.",
+      {
+        maintenancePath: maintenance.path,
+        workflowId,
+        complianceId,
+        boundWorkflowId,
+        boundComplianceId,
+      },
+    );
+  }
+  if (data.isDeleted === true) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Deleted maintenance work cannot continue through workflow compliance.",
+      {maintenancePath: maintenance.path},
+    );
+  }
+  return data;
+};
+
+export const assertMaintenanceCanBind = (args: {
+  readonly maintenance: DocSnapshot;
+  readonly workflowId: string;
+  readonly complianceId: string;
+  readonly assetTypeKey: string;
+  readonly assetNumber: number;
+}): JsonMap => {
+  const {maintenance, workflowId, complianceId, assetTypeKey, assetNumber} = args;
+  if (!maintenance.exists || maintenance.data == null) {
+    throw new WorkflowError("not-found", "Linked maintenance item was not found.", {
+      maintenancePath: maintenance.path,
+    });
+  }
+  const data = maintenance.data;
+  if (data.isDeleted === true) {
+    throw new WorkflowError("failed-precondition", "Deleted maintenance work cannot be linked to compliance.");
+  }
+  if (data.isResolved === true || data.status === "resolved") {
+    throw new WorkflowError("failed-precondition", "Resolved maintenance work cannot be newly linked to compliance.");
+  }
+  if (data.assetType !== assetTypeKey || number(data.assetNumber) !== assetNumber) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Linked maintenance work belongs to another asset.",
+      {
+        expectedAssetTypeKey: assetTypeKey,
+        expectedAssetNumber: assetNumber,
+        actualAssetTypeKey: data.assetType ?? null,
+        actualAssetNumber: data.assetNumber ?? null,
+      },
+    );
+  }
+  const boundWorkflowId = text(data.workflowAggregateId);
+  const boundComplianceId = text(data.workflowComplianceId);
+  const state = text(data.workflowQueueState) ?? "independent";
+  const released = state === "released" || state === "independent";
+  if (!released && (boundWorkflowId !== workflowId || boundComplianceId !== complianceId)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance work is already controlled by another active workflow compliance request.",
+      {boundWorkflowId, boundComplianceId, state},
+    );
+  }
+  return data;
+};
+
+const commonProjection = (args: {
+  readonly maintenance: JsonMap;
+  readonly workflowId: string;
+  readonly complianceId: string;
+  readonly originLaneKey: string;
+  readonly targetLaneKey: string;
+  readonly conditionTypeKey: string;
+  readonly conditionRef: string | null;
+  readonly actorUid: string;
+  readonly actorName: string;
+  readonly at: Date;
+  readonly queueState: string;
+  readonly deferred: boolean;
+}): JsonMap => ({
+  workflowDeferred: args.deferred,
+  workflowQueueState: args.queueState,
+  workflowAggregateId: args.workflowId,
+  workflowComplianceId: args.complianceId,
+  workflowOriginLaneKey: args.originLaneKey,
+  workflowTargetLaneKey: args.targetLaneKey,
+  workflowConditionTypeKey: args.conditionTypeKey,
+  workflowConditionRef: args.conditionRef,
+  workflowUpdatedAt: iso(args.at),
+  updatedAt: iso(args.at),
+  version: maintenanceVersion(args.maintenance) + 1,
+});
+
+export const maintenanceProjectionForRaise = (args: {
+  readonly maintenance: JsonMap;
+  readonly workflowId: string;
+  readonly complianceId: string;
+  readonly originLaneKey: string;
+  readonly targetLaneKey: string;
+  readonly conditionTypeKey: string;
+  readonly conditionRef: string | null;
+  readonly actorUid: string;
+  readonly actorName: string;
+  readonly at: Date;
+}): JsonMap => {
+  const deferred = args.conditionTypeKey !== "manual";
+  return {
+    ...commonProjection({
+      ...args,
+      queueState: deferred ? "deferred" : "actionable",
+      deferred,
+    }),
+    workflowDeferredAt: deferred ? iso(args.at) : null,
+    workflowDeferredByUid: deferred ? args.actorUid : null,
+    workflowDeferredByName: deferred ? args.actorName : null,
+    workflowReactivatedAt: deferred ? null : iso(args.at),
+    workflowReactivatedByUid: deferred ? null : args.actorUid,
+    workflowReactivatedByName: deferred ? null : args.actorName,
+    workflowReleasedAt: null,
+    workflowReleasedByUid: null,
+    workflowReleasedByName: null,
+    workflowCorrectionReason: null,
+  };
+};
+
+export const maintenanceProjectionForActionable = (args: {
+  readonly maintenance: JsonMap;
+  readonly targetLaneKey: string;
+  readonly actorUid: string;
+  readonly actorName: string;
+  readonly at: Date;
+}): JsonMap => ({
+  workflowDeferred: false,
+  workflowQueueState: "actionable",
+  workflowTargetLaneKey: args.targetLaneKey,
+  workflowReactivatedAt: iso(args.at),
+  workflowReactivatedByUid: args.actorUid,
+  workflowReactivatedByName: args.actorName,
+  workflowCorrectionReason: null,
+  workflowUpdatedAt: iso(args.at),
+  updatedAt: iso(args.at),
+  version: maintenanceVersion(args.maintenance) + 1,
+});
+
+export const maintenanceProjectionForAwaitingConfirmation = (args: {
+  readonly maintenance: JsonMap;
+  readonly actorUid: string;
+  readonly actorName: string;
+  readonly at: Date;
+}): JsonMap => ({
+  workflowDeferred: false,
+  workflowQueueState: "awaitingConfirmation",
+  workflowReactivatedAt: args.maintenance.workflowReactivatedAt ?? iso(args.at),
+  workflowReactivatedByUid: args.maintenance.workflowReactivatedByUid ?? args.actorUid,
+  workflowReactivatedByName: args.maintenance.workflowReactivatedByName ?? args.actorName,
+  workflowCorrectionReason: null,
+  workflowUpdatedAt: iso(args.at),
+  updatedAt: iso(args.at),
+  version: maintenanceVersion(args.maintenance) + 1,
+});
+
+const resolutionHistoryWithCurrentClosure = (maintenance: JsonMap): string => {
+  let history: unknown[] = [];
+  if (typeof maintenance.resolutionHistoryJson === "string" && maintenance.resolutionHistoryJson.length > 0) {
+    try {
+      const parsed = JSON.parse(maintenance.resolutionHistoryJson);
+      if (Array.isArray(parsed)) history = parsed;
+    } catch (_) {
+      history = [];
+    }
+  }
+  if (maintenance.isResolved === true) {
+    history.push({
+      resolvedByUid: maintenance.closedByUid ?? null,
+      resolvedByName: maintenance.closedByName ?? null,
+      resolvedAt: maintenance.endDate ?? null,
+      actionsJson: maintenance.actionsJson ?? "[]",
+      remarks: maintenance.remarks ?? null,
+      downtimeHours: maintenance.downtimeHours ?? null,
+      teamsInvolved: Array.isArray(maintenance.teamsInvolved) ? maintenance.teamsInvolved : [],
+      reopenedByWorkflow: true,
+    });
+  }
+  return JSON.stringify(history);
+};
+
+export const maintenanceProjectionForCorrection = (args: {
+  readonly maintenance: JsonMap;
+  readonly reason: string;
+  readonly actorUid: string;
+  readonly actorName: string;
+  readonly at: Date;
+}): JsonMap => ({
+  workflowDeferred: true,
+  workflowQueueState: "correctionRequired",
+  workflowDeferredAt: iso(args.at),
+  workflowDeferredByUid: args.actorUid,
+  workflowDeferredByName: args.actorName,
+  workflowCorrectionReason: args.reason,
+  workflowUpdatedAt: iso(args.at),
+  ...(args.maintenance.isResolved === true ? {
+    isResolved: false,
+    status: "open",
+    endDate: null,
+    closedByUid: null,
+    closedByName: null,
+    downtimeHours: null,
+    teamsInvolved: [],
+    actionsJson: "[]",
+    remarks: args.reason,
+    resolutionHistoryJson: resolutionHistoryWithCurrentClosure(args.maintenance),
+  } : {}),
+  updatedAt: iso(args.at),
+  version: maintenanceVersion(args.maintenance) + 1,
+});
+
+export const maintenanceProjectionForRelease = (args: {
+  readonly maintenance: JsonMap;
+  readonly actorUid: string;
+  readonly actorName: string;
+  readonly at: Date;
+  readonly reason?: string;
+}): JsonMap => ({
+  workflowDeferred: false,
+  workflowQueueState: "released",
+  workflowReleasedAt: iso(args.at),
+  workflowReleasedByUid: args.actorUid,
+  workflowReleasedByName: args.actorName,
+  workflowCorrectionReason: args.reason ?? null,
+  workflowUpdatedAt: iso(args.at),
+  updatedAt: iso(args.at),
+  version: maintenanceVersion(args.maintenance) + 1,
+});

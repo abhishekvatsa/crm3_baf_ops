@@ -1,0 +1,29 @@
+PASS | default migration plan is compile-time constant
+PASS | both timeline calls carry workflow execution identity
+PASS | six dropdown form fields use initialValue | count=6
+PASS | nullable gating selection is normalised
+PASS | reopen projection uses persisted state rather than derived getter setter
+PASS | RED gate test uses non-const custom-equality set
+PASS | retry test uses typed public API
+PASS | unused epoch helper removed
+PASS | unused planned-maintenance import removed from assignment screen
+PASS | unused two-stream combiner removed
+PASS | BuildContext is mounted-guarded before RED dialog after awaits
+PASS | unchanged custody: package-lock.json | 4A718617CC28A28466DC18BF5F4999F739178A79F6EC7BFFC8E3F580A6CC219C
+PASS | unchanged custody: functions/package-lock.json | 22389C4228A1696D28EC669B276C050BE40DE87C28BD3635A03C6A8F6EAC30FA
+PASS | unchanged custody: tooling/firebase-cli/package-lock.json | 273C33CE9E5DADF0B78FF98F912E848296A3FF36694015AE787ADA83EB3C7EAB
+PASS | unchanged custody: pubspec.lock | F0BD5F4CB0C5EE8C5C5D3E4142DD72D8C5DE57443F97BDB864DE4D8ABEAD74C5
+PASS | unchanged custody: firestore.rules | 243BD3F539F4195ADE793B7627A18FB27F47373776806233AE93D98A951DBD35
+PASS | unchanged custody: firestore.indexes.json | A0D032CCB2D9A9229AF9142CC69A6A66C2F6FB796F37A597C2B591F07B11AD52
+PASS | unchanged custody: firebase.json | 742C1DB262EFDB2A6763C4D4C69AB8786736E8C04908DB8F0A81CF1EAEFB8BC3
+PASS | unchanged custody: android/app/build.gradle.kts | 5B04387D1042C0770E38315702F2A86B7DDA8C09D06987C98218A4B37A5A1A19
+PASS | unchanged custody: governance/programme-ledger.json | 30FC5520D44172C2F6E0AD3E954AC7482C350292464AA972CE929D2740B02C56
+PASS | canonical reconciliation repinned: README.md | expected=48E3CFE185AAA31AD7A1497EA1D8E7BE9A26853B6096106A720810532024D390 actual=48E3CFE185AAA31AD7A1497EA1D8E7BE9A26853B6096106A720810532024D390
+PASS | canonical reconciliation repinned: lib/core/services/isar_schema_migration.dart | expected=D9FBAC36BF8398D72D867203600594E043F253FB6AE6FFF68114BB7D0FBB0A9C actual=D9FBAC36BF8398D72D867203600594E043F253FB6AE6FFF68114BB7D0FBB0A9C
+PASS | canonical reconciliation repinned: lib/features/planned_maintenance/presentation/assign_job_screen.dart | expected=68A4EA395D7C1C1B53F12ECA094397AA157751FFF7F0B2D055E8305FCFE34F66 actual=68A4EA395D7C1C1B53F12ECA094397AA157751FFF7F0B2D055E8305FCFE34F66
+PASS | canonical reconciliation repinned: lib/features/planned_maintenance/presentation/complete_job_screen.dart | expected=574309CA4CA2CB9184ADA9C7071DF83451988AB68CC6CE05D5F158AE08D5C831 actual=574309CA4CA2CB9184ADA9C7071DF83451988AB68CC6CE05D5F158AE08D5C831
+PASS | canonical reconciliation repinned: lib/features/planned_maintenance/providers/job_module_provider.dart | expected=4B2D9BAA49F95E154F174CE5BD8AAF055C42CDF5BB6048DD39A2C355E6FC6926 actual=4B2D9BAA49F95E154F174CE5BD8AAF055C42CDF5BB6048DD39A2C355E6FC6926
+PASS | canonical reconciliation repinned: lib/features/reports/providers/fleet_status_provider.dart | expected=2A674DC5C4B8B6302B59C66BDFE6E7C6FD3D389F85C277B90CC7FD88104DD2CC actual=2A674DC5C4B8B6302B59C66BDFE6E7C6FD3D389F85C277B90CC7FD88104DD2CC
+PASS | laboratory evidence name advances to R1.12
+PASS | laboratory still runs strict flutter analyze before tests
+SUMMARY | pass=28 fail=0 total=28

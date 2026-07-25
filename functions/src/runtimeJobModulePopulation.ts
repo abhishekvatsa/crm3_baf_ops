@@ -1,4 +1,6 @@
 import {createHash} from "crypto";
+import {laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
+import {canonicalApprovedUserAuthority} from "./userAuthority";
 
 export type RuntimePopulationHttpsErrorCode =
   | "invalid-argument"
@@ -104,6 +106,7 @@ const MODULE_DISCIPLINES = new Set([
   "instrumentationAndAutomation",
   "instrumentationAutomation",
   "refractory",
+  "emd",
   "operations",
   "shiftInCharge",
   "safety",
@@ -146,6 +149,10 @@ const CLIENT_MODULE_FIELDS = [
   "status",
   "useMode",
   "discipline",
+  "laneKey",
+  "laneActivationGeneration",
+  "workflowLaneFirestoreId",
+  "isOpenForWork",
   "safetyClass",
   "isRequired",
   "requiredForClosure",
@@ -536,17 +543,6 @@ function sanitizeClientModule(rawModule: unknown): RuntimePopulationJsonMap {
   return sanitized;
 }
 
-function rolesFrom(userData: RuntimePopulationJsonMap): Set<string> {
-  const raw = userData.roles;
-  if (!Array.isArray(raw)) return new Set();
-  return new Set(
-    raw
-      .filter((value): value is string => typeof value === "string")
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0),
-  );
-}
-
 function hasAnyRole(roles: Set<string>, allowed: Set<string>): boolean {
   for (const role of roles) {
     if (allowed.has(role)) return true;
@@ -558,14 +554,15 @@ function validateApprovedUser(
   userSnapshot: RuntimePopulationDocumentSnapshotLike,
 ): {userData: RuntimePopulationJsonMap; roles: Set<string>} {
   const userData = userSnapshot.exists ? userSnapshot.data() ?? {} : null;
-  if (userData == null || userData.isApproved !== true) {
+  const authority = canonicalApprovedUserAuthority(userData);
+  if (authority == null) {
     throw new RuntimePopulationValidationError(
       "permission-denied",
-      "Only approved users may change planned-job module population.",
-      {reasonCode: "user-not-approved"},
+      "Only canonically approved users may change planned-job module population.",
+      {reasonCode: "user-not-approved-or-malformed"},
     );
   }
-  const roles = rolesFrom(userData);
+  const roles = new Set<string>(authority.roles);
   if (!hasAnyRole(roles, ASSIGNER_ROLES)) {
     throw new RuntimePopulationValidationError(
       "permission-denied",
@@ -573,7 +570,7 @@ function validateApprovedUser(
       {reasonCode: "role-not-authorized"},
     );
   }
-  return {userData, roles};
+  return {userData: authority.data, roles};
 }
 
 export function modulePopulationVersionFromExecution(
@@ -652,6 +649,7 @@ function userCanSubmitDiscipline(
   roles: Set<string>,
   discipline: unknown,
 ): boolean {
+  if (discipline === "emd") return roles.has("admin") || roles.has("si");
   if (hasAnyRole(roles, MODERATOR_ROLES)) return true;
   if (discipline === "mechanical") return roles.has("seniorMechanical");
   if (discipline === "electrical") return roles.has("seniorElectrical");
@@ -669,6 +667,117 @@ function userCanSubmitDiscipline(
     return roles.has("seniorRefractory");
   }
   return false;
+}
+
+function laneKeyForDiscipline(discipline: unknown): string {
+  return laneForModuleDiscipline(discipline);
+}
+
+function moduleStatusIsOpenForWork(status: unknown): boolean {
+  return status === "notStarted" ||
+    status === "inProgress" ||
+    status === "draftSaved" ||
+    status === "reopened";
+}
+
+type RuntimeWorkflowLaneIdentity = {
+  laneKey: string;
+  laneActivationGeneration: number;
+  workflowLaneFirestoreId: string;
+};
+
+function workflowLaneIdentityForCreate(args: {
+  parent: RuntimePopulationJsonMap;
+  module: RuntimePopulationJsonMap;
+  executionId: string;
+}): RuntimeWorkflowLaneIdentity | null {
+  if (args.parent.workflowSchemaVersion !== 1) return null;
+
+  const laneKey = laneKeyForDiscipline(args.module.discipline);
+
+  const suppliedLaneKey = cleanOptionalText(args.module.laneKey);
+  if (suppliedLaneKey != null && suppliedLaneKey !== laneKey) {
+    throw new RuntimePopulationValidationError(
+      "failed-precondition",
+      "The supplied module lane does not match its discipline.",
+      {
+        reasonCode: "workflow-module-lane-mismatch",
+        suppliedLaneKey,
+        expectedLaneKey: laneKey,
+      },
+    );
+  }
+
+  const laneActivationGeneration = assertInteger(
+    args.module.laneActivationGeneration ?? 1,
+    "module.laneActivationGeneration",
+    1,
+  );
+  const expectedId = `${args.executionId}_${laneKey}_${laneActivationGeneration}`;
+  const suppliedId = assertOptionalDocumentId(
+    args.module.workflowLaneFirestoreId,
+    "module.workflowLaneFirestoreId",
+  );
+  if (suppliedId != null && suppliedId !== expectedId) {
+    throw new RuntimePopulationValidationError(
+      "failed-precondition",
+      "The supplied workflow-lane identity is stale or belongs to another lane generation.",
+      {
+        reasonCode: "workflow-module-lane-identity-mismatch",
+        suppliedWorkflowLaneFirestoreId: suppliedId,
+        expectedWorkflowLaneFirestoreId: expectedId,
+      },
+    );
+  }
+
+  return {
+    laneKey,
+    laneActivationGeneration,
+    workflowLaneFirestoreId: expectedId,
+  };
+}
+
+function validateWorkflowLaneForModuleCreate(args: {
+  snapshot: RuntimePopulationDocumentSnapshotLike;
+  identity: RuntimeWorkflowLaneIdentity;
+  executionId: string;
+}): void {
+  if (!args.snapshot.exists) {
+    throw new RuntimePopulationValidationError(
+      "failed-precondition",
+      "The accountable workflow lane does not exist.",
+      {
+        reasonCode: "workflow-module-lane-missing",
+        workflowLaneFirestoreId: args.identity.workflowLaneFirestoreId,
+      },
+    );
+  }
+  const lane = args.snapshot.data() ?? {};
+  if (
+    cleanOptionalText(lane.workflowId) !== args.executionId ||
+    cleanOptionalText(lane.laneKey) !== args.identity.laneKey ||
+    lane.activationGeneration !== args.identity.laneActivationGeneration
+  ) {
+    throw new RuntimePopulationValidationError(
+      "data-loss",
+      "The accountable workflow lane identity is internally inconsistent.",
+      {
+        reasonCode: "workflow-module-lane-corrupt",
+        workflowLaneFirestoreId: args.identity.workflowLaneFirestoreId,
+      },
+    );
+  }
+  if (lane.statusKey !== "acknowledged") {
+    throw new RuntimePopulationValidationError(
+      "failed-precondition",
+      "Runtime module population requires an active acknowledged lane.",
+      {
+        reasonCode: "workflow-module-lane-not-acknowledged",
+        workflowLaneFirestoreId: args.identity.workflowLaneFirestoreId,
+        statusKey: lane.statusKey ?? null,
+      },
+    );
+  }
 }
 
 function isElevatedRuntimeModule(module: RuntimePopulationJsonMap): boolean {
@@ -1452,6 +1561,25 @@ export async function mutateRuntimeJobModulePopulationWithDb(args: {
     }
 
     const parent = validateOpenParent(parentSnapshot, parsed.executionId);
+    const workflowLaneIdentity = parsed.operation === "create"
+      ? workflowLaneIdentityForCreate({
+          parent,
+          module: parsed.module,
+          executionId: parsed.executionId,
+        })
+      : null;
+    if (workflowLaneIdentity != null) {
+      const laneRef = db
+        .collection("job_lanes")
+        .doc(workflowLaneIdentity.workflowLaneFirestoreId);
+      const laneSnapshot = await transaction.get(laneRef);
+      validateWorkflowLaneForModuleCreate({
+        snapshot: laneSnapshot,
+        identity: workflowLaneIdentity,
+        executionId: parsed.executionId,
+      });
+    }
+
     const previousPopulationVersion = modulePopulationVersionFromExecution(parent);
     const nextPopulationVersion = previousPopulationVersion + 1;
     const mutationAtDate = now();
@@ -1474,6 +1602,17 @@ export async function mutateRuntimeJobModulePopulationWithDb(args: {
         ...parsed.module,
         firestoreId: parsed.moduleId,
         jobExecutionFirestoreId: parsed.executionId,
+        laneKey:
+          workflowLaneIdentity?.laneKey ?? parsed.module.laneKey ?? null,
+        laneActivationGeneration:
+          workflowLaneIdentity?.laneActivationGeneration ??
+          parsed.module.laneActivationGeneration ??
+          1,
+        workflowLaneFirestoreId:
+          workflowLaneIdentity?.workflowLaneFirestoreId ??
+          parsed.module.workflowLaneFirestoreId ??
+          null,
+        isOpenForWork: moduleStatusIsOpenForWork(parsed.module.status),
         populationCreateFingerprint: parsed.requestFingerprint,
         populationAcceptedAt: mutationAt,
         populationAcceptedByUid: actorUid,

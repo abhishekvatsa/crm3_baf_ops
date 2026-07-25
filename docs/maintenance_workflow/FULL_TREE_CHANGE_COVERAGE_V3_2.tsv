@@ -1,0 +1,27 @@
+classification	file	audit_reason
+reopened-v3.1-touched-file	functions/src/maintenanceWorkflow/callable.ts	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	functions/src/maintenanceWorkflow/policy.generated.ts	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	functions/src/maintenanceWorkflow/workflowNotificationTrigger.ts	full-tree cascade or deeper call-path correction
+previously-untouched-preexisting-file	functions/src/notifications.ts	full-tree cascade or deeper call-path correction
+previously-untouched-preexisting-file	functions/test/notifications.test.js	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	lib/core/services/sync_coordinator.dart	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	lib/features/auth/data/user_model.dart	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	lib/features/maintenance_workflow/domain/workflow_policy_generated.dart	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	lib/features/maintenance_workflow/presentation/screens/workflow_hub_screen.dart	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	lib/features/maintenance_workflow/services/workflow_pull_service.dart	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	lib/features/planned_maintenance/data/job_template_model.dart	full-tree cascade or deeper call-path correction
+previously-untouched-preexisting-file	lib/features/planned_maintenance/domain/published_runtime_module_catalogue.dart	full-tree cascade or deeper call-path correction
+previously-untouched-preexisting-file	lib/features/planned_maintenance/domain/template_version_assignment_builder.dart	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	lib/features/planned_maintenance/presentation/assign_job_screen.dart	full-tree cascade or deeper call-path correction
+previously-untouched-preexisting-file	lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart	full-tree cascade or deeper call-path correction
+previously-untouched-preexisting-file	lib/features/planned_maintenance/presentation/job_module_detail_screen.dart	full-tree cascade or deeper call-path correction
+previously-untouched-preexisting-file	lib/features/planned_maintenance/presentation/module_composer_screen.helpers.dart	full-tree cascade or deeper call-path correction
+previously-untouched-preexisting-file	lib/features/planned_maintenance/presentation/published_template_assignment_screen.dart	full-tree cascade or deeper call-path correction
+previously-untouched-preexisting-file	lib/features/planned_maintenance/presentation/widgets/job_module_card.dart	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	lib/features/planned_maintenance/providers/planned_maintenance_provider.dart	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	lib/home_screen.dart	full-tree cascade or deeper call-path correction
+reopened-v3.1-touched-file	tools/maintenance_workflow/generate_policy.mjs	full-tree cascade or deeper call-path correction
+new-audit-or-hardening-file	functions/src/maintenanceWorkflow/workflowNotificationPolicy.ts	full-tree cascade or deeper call-path correction
+new-audit-or-hardening-file	functions/test/workflowNotificationPolicy.test.js	full-tree cascade or deeper call-path correction
+new-audit-or-hardening-file	tools/maintenance_workflow/full_tree_source_audit.py	full-tree cascade or deeper call-path correction

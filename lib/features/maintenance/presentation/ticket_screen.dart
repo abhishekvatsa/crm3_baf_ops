@@ -215,7 +215,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
 
         return _TicketCard(
           ticket: ticket,
-          canResolve: canResolveThis,
+          canResolve: canResolveThis && !ticket.workflowDeferred,
           onResolve: () => _openResolve(ticket),
         );
       },
@@ -467,6 +467,16 @@ class _TicketCard extends StatelessWidget {
                               color: BafColors.maintenance,
                               icon: Icons.timer_outlined,
                             ),
+                            if (ticket.isWorkflowLinked)
+                              StatusBadge(
+                                label: ticket.workflowStateLabel,
+                                color: ticket.workflowDeferred
+                                    ? BafColors.warning
+                                    : BafColors.audit,
+                                icon: ticket.workflowDeferred
+                                    ? Icons.pause_circle_outline_rounded
+                                    : Icons.account_tree_outlined,
+                              ),
                           ],
                         ),
                       ],
@@ -507,6 +517,30 @@ class _TicketCard extends StatelessWidget {
                 _MetaRow(
                   icon: Icons.account_tree_outlined,
                   text: 'Component: $component',
+                ),
+              ],
+              if (ticket.workflowDeferred) ...[
+                const SizedBox(height: BafSpacing.lg),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(BafSpacing.md),
+                  decoration: BoxDecoration(
+                    color: BafColors.warning.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(BafRadius.medium),
+                    border: Border.all(
+                      color: BafColors.warning.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Text(
+                    ticket.workflowCorrectionReason?.trim().isNotEmpty == true
+                        ? 'Held by workflow: ${ticket.workflowCorrectionReason}'
+                        : 'Held by workflow compliance. Reactivate or release the linked request before resolving this ticket.',
+                    style: const TextStyle(
+                      color: BafColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
                 ),
               ],
               if (canResolve) ...[

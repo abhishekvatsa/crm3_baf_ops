@@ -1,0 +1,273 @@
+--- a/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
++++ b/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+@@ -40,7 +40,7 @@
+ $CandidatePath = (Resolve-Path $CandidatePath).Path
+ $EvidenceRoot = [IO.Path]::GetFullPath($EvidenceRoot)
+ $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+-$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_4_CANONICAL_LOCAL_LAB_$stamp"
++$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_5_CANONICAL_LOCAL_LAB_$stamp"
+ $evidenceDir = Join-Path $runRoot 'evidence'
+ $workspace = Join-Path $runRoot 'workspace'
+ New-Item -ItemType Directory -Force -Path $evidenceDir, $workspace | Out-Null
+@@ -168,9 +168,14 @@
+ 
+ function Get-JsonPropertyValue {
+   param(
+-    [Parameter(Mandatory)]$Object,
++    [AllowNull()]$Object,
+     [Parameter(Mandatory)][string]$Name
+   )
++  if ($null -eq $Object) { return $null }
++  if ($Object -is [System.Collections.IDictionary]) {
++    if ($Object.Contains($Name)) { return $Object[$Name] }
++    return $null
++  }
+   $property = $Object.PSObject.Properties[$Name]
+   if ($null -eq $property) { return $null }
+   return $property.Value
+@@ -180,31 +185,36 @@
+   $packagePath = Join-Path $workspace 'tooling/firebase-cli/package.json'
+   $lockPath = Join-Path $workspace 'tooling/firebase-cli/package-lock.json'
+   $package = Get-Content -LiteralPath $packagePath -Raw | ConvertFrom-Json
+-  $lock = Get-Content -LiteralPath $lockPath -Raw | ConvertFrom-Json
++  $lock = Get-Content -LiteralPath $lockPath -Raw | ConvertFrom-Json -AsHashTable
+ 
+   $firebaseToolsDeclared = [string](Get-JsonPropertyValue -Object $package.dependencies -Name 'firebase-tools')
+   $honoOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name '@hono/node-server')
+   $fastUriOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'fast-uri')
+-  $honoLock = Get-JsonPropertyValue -Object $lock.packages -Name 'node_modules/@hono/node-server'
+-  $fastUriLock = Get-JsonPropertyValue -Object $lock.packages -Name 'node_modules/fast-uri'
+-  $firebaseToolsLock = Get-JsonPropertyValue -Object $lock.packages -Name 'node_modules/firebase-tools'
+-  $mcpLock = Get-JsonPropertyValue -Object $lock.packages -Name 'node_modules/@modelcontextprotocol/sdk'
++  $lockPackages = Get-JsonPropertyValue -Object $lock -Name 'packages'
++  if ($null -eq $lockPackages) {
++    $script:failureStatus = 'HOLD_FIREBASE_CLI_LOCK_POLICY'
++    throw 'Firebase CLI package-lock.json does not contain a packages map.'
++  }
++  $honoLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/@hono/node-server'
++  $fastUriLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/fast-uri'
++  $firebaseToolsLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/firebase-tools'
++  $mcpLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/@modelcontextprotocol/sdk'
+   $mcpHonoRange = if ($null -ne $mcpLock) {
+     [string](Get-JsonPropertyValue -Object $mcpLock.dependencies -Name '@hono/node-server')
+   } else { '' }
+ 
+   $checks = [ordered]@{
+     firebaseToolsDeclared = ($firebaseToolsDeclared -eq $expected.firebaseTools)
+-    firebaseToolsLocked = ($null -ne $firebaseToolsLock -and [string]$firebaseToolsLock.version -eq $expected.firebaseTools)
++    firebaseToolsLocked = ($null -ne $firebaseToolsLock -and [string](Get-JsonPropertyValue -Object $firebaseToolsLock -Name 'version') -eq $expected.firebaseTools)
+     honoOverride = ($honoOverride -eq $expected.honoNodeServer)
+-    honoLocked = ($null -ne $honoLock -and [string]$honoLock.version -eq $expected.honoNodeServer)
+-    honoResolved = ($null -ne $honoLock -and [string]$honoLock.resolved -eq 'https://registry.npmjs.org/@hono/node-server/-/node-server-1.19.14.tgz')
+-    honoIntegrity = ($null -ne $honoLock -and [string]$honoLock.integrity -eq 'sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==')
++    honoLocked = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'version') -eq $expected.honoNodeServer)
++    honoResolved = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'resolved') -eq 'https://registry.npmjs.org/@hono/node-server/-/node-server-1.19.14.tgz')
++    honoIntegrity = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'integrity') -eq 'sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==')
+     honoNaturalRange = ($mcpHonoRange -eq '^1.19.9')
+     fastUriOverride = ($fastUriOverride -eq $expected.fastUri)
+-    fastUriLocked = ($null -ne $fastUriLock -and [string]$fastUriLock.version -eq $expected.fastUri)
+-    fastUriResolved = ($null -ne $fastUriLock -and [string]$fastUriLock.resolved -eq 'https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.4.tgz')
+-    fastUriIntegrity = ($null -ne $fastUriLock -and [string]$fastUriLock.integrity -eq 'sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw==')
++    fastUriLocked = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version') -eq $expected.fastUri)
++    fastUriResolved = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'resolved') -eq 'https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.4.tgz')
++    fastUriIntegrity = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'integrity') -eq 'sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw==')
+   }
+   $failed = @($checks.GetEnumerator() | Where-Object {-not $_.Value} | ForEach-Object {$_.Key})
+   $report = [ordered]@{
+@@ -220,9 +230,9 @@
+       mcpHonoRange = $mcpHonoRange
+     }
+     locked = [ordered]@{
+-      firebaseTools = if ($null -ne $firebaseToolsLock) {[string]$firebaseToolsLock.version} else {$null}
+-      honoNodeServer = if ($null -ne $honoLock) {[string]$honoLock.version} else {$null}
+-      fastUri = if ($null -ne $fastUriLock) {[string]$fastUriLock.version} else {$null}
++      firebaseTools = if ($null -ne $firebaseToolsLock) {[string](Get-JsonPropertyValue -Object $firebaseToolsLock -Name 'version')} else {$null}
++      honoNodeServer = if ($null -ne $honoLock) {[string](Get-JsonPropertyValue -Object $honoLock -Name 'version')} else {$null}
++      fastUri = if ($null -ne $fastUriLock) {[string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version')} else {$null}
+     }
+     checks = $checks
+     failed = $failed
+@@ -335,7 +345,7 @@
+ try {
+   Start-Transcript -Path $transcriptPath -Force | Out-Null
+   $transcriptActive = $true
+-  Write-Host 'CRM3 v4.2_R1.4 canonical-main local laboratory' -ForegroundColor Green
++  Write-Host 'CRM3 v4.2_R1.5 canonical-main local laboratory' -ForegroundColor Green
+   Write-Host "Pristine candidate: $CandidatePath"
+   Write-Host "Disposable workspace: $workspace"
+   Write-Host "Mode: $Mode"
+--- a/tools/v4/v4_2_r1_canonical_audit.py
++++ b/tools/v4/v4_2_r1_canonical_audit.py
+@@ -226,6 +226,14 @@
+     ),
+ )
+ check(
++    "Firebase CLI lock-policy parser supports npm's empty root-package key",
++    "ConvertFrom-Json -AsHashTable" in harness
++    and "[System.Collections.IDictionary]" in harness
++    and "Get-JsonPropertyValue -Object $lock -Name 'packages'" in harness
++    and "$lock.packages" not in harness,
++)
++
++check(
+     "Laboratory verifies Firebase CLI lock policy, installed versions and strict audit",
+     all(marker in harness for marker in (
+         "10_firebase_cli_lock_policy",
+--- a/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
++++ b/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+@@ -1,10 +1,10 @@
+-# v4.2_R1.4 Authoritative Local Laboratory Runbook
++# v4.2_R1.5 Authoritative Local Laboratory Runbook
+ 
+ ## Purpose
+ 
+ This laboratory proves the canonical-main-reconciled successor source without changing the real repository, any Firebase backend, or an existing app installation.
+ 
+-R1.4 preserves the R1.3 product source and adds a bounded Firebase CLI tooling correction. Before the CLI can be used, the harness now proves:
++R1.5 preserves the R1.4 product and dependency tree and corrects only the PowerShell parser used by the Firebase CLI lock-policy gate. The lockfile is parsed with `ConvertFrom-Json -AsHashTable`, because npm lockfile v2/v3 contains the required empty-string root package key. Before the CLI can be used, the harness proves:
+ 
+ - `firebase-tools` is exactly `15.22.4`;
+ - `@hono/node-server` is exactly `1.19.14`;
+@@ -30,7 +30,7 @@
+ 
+ ## Required inputs
+ 
+-- extracted v4.2_R1.4 candidate;
++- extracted v4.2_R1.5 candidate;
+ - clean canonical repository at `C:\Users\abhis\AndroidStudioProjects\crm3_baf_ops` containing the canonical Firebase inputs;
+ - Flutter `3.44.0`, Dart `3.12.0`, Node `22.15.0`, npm `10.9.2`, Java `21.0.11`.
+ 
+@@ -46,16 +46,16 @@
+ 
+ $Zip = Get-ChildItem "$HOME\Downloads" -File |
+   Where-Object Name -Like `
+-    "CRM3_APP_V4_2_R1_4_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE*.zip" |
++    "CRM3_APP_V4_2_R1_5_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE*.zip" |
+   Sort-Object LastWriteTime -Descending |
+   Select-Object -First 1
+ 
+ if (-not $Zip) {
+-    throw "v4.2_R1.4 candidate ZIP not found."
++    throw "v4.2_R1.5 candidate ZIP not found."
+ }
+ 
+ $CandidateRoot = `
+-  "$HOME\Downloads\CRM3_APP_V4_2_R1_4_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE"
++  "$HOME\Downloads\CRM3_APP_V4_2_R1_5_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE"
+ 
+ Remove-Item $CandidateRoot -Recurse -Force -ErrorAction SilentlyContinue
+ Expand-Archive -LiteralPath $Zip.FullName -DestinationPath $CandidateRoot -Force
+@@ -68,7 +68,7 @@
+   Select-Object -First 1
+ 
+ if (-not $Script) {
+-    throw "R1.4 local-laboratory script not found."
++    throw "R1.5 local-laboratory script not found."
+ }
+ 
+ & $Script.FullName `
+@@ -102,7 +102,7 @@
+ 
+ The run writes:
+ 
+-- `CRM3_V42_R1_4_CANONICAL_LOCAL_LAB_<timestamp>.zip`
++- `CRM3_V42_R1_5_CANONICAL_LOCAL_LAB_<timestamp>.zip`
+ - its `.sha256.txt` sidecar.
+ 
+ Upload both files.
+--- a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_FIREBASE_CLI_LOCK_POLICY_PARSER_HOTFIX.md
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_FIREBASE_CLI_LOCK_POLICY_PARSER_HOTFIX.md
+@@ -0,0 +1,30 @@
++# v4.2_R1.5 Firebase CLI Lock-Policy Parser Hotfix
++
++## Evidence accepted
++
++The authoritative R1.4 Windows run passed candidate/workspace custody, integrity tests, root dependency installation and audit, Functions dependency installation, real TypeScript compilation, and Functions audit. It stopped at `10_firebase_cli_lock_policy` before evaluating any policy check.
++
++The exact error was:
++
++```text
++The provided JSON includes a property whose name is an empty string, this is only supported using the -AsHashTable switch.
++```
++
++npm package-lock v2/v3 represents the root package under `packages[""]`. PowerShell `ConvertFrom-Json` cannot materialize that key as a PSCustomObject property; `-AsHashTable` is required.
++
++## Bounded correction
++
++Only laboratory/audit/runbook source changes:
++
++- parse `tooling/firebase-cli/package-lock.json` using `ConvertFrom-Json -AsHashTable`;
++- make `Get-JsonPropertyValue` support both `IDictionary` and PSCustomObject values;
++- retrieve the lockfile `packages` map and all package fields through the shared accessor;
++- fail closed if the lockfile lacks a `packages` map;
++- add a packaging-time regression assertion for the empty-key-safe parser;
++- advance laboratory evidence naming to R1.5.
++
++No Flutter, Functions, Rules, Isar, Android, dependency, lockfile, workflow-policy, programme-ledger, Firebase configuration, or release-authority source changed from R1.4.
++
++## Authority boundary
++
++The packaging environment has no PowerShell runtime and therefore does not claim a PowerShell execution pass. The corrected Windows R1.5 laboratory must execute the gate and continue into dependency, Flutter, Isar, APK and emulator stages.
+--- a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_CHANGED_FILES.md
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_CHANGED_FILES.md
+@@ -0,0 +1,29 @@
++# v4.2_R1.5 Changed Files
++
++## Executable laboratory source
++
++- `tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1`
++  - uses `ConvertFrom-Json -AsHashTable` for npm lockfile parsing;
++  - supports both dictionary and object JSON access;
++  - removes direct `$lock.packages` access;
++  - fails closed on a missing `packages` map;
++  - advances evidence naming and banner to R1.5.
++
++## Regression audit and runbook
++
++- `tools/v4/v4_2_r1_canonical_audit.py`
++  - requires the empty-key-safe lockfile parser and rejects regression to `$lock.packages`.
++- `docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md`
++  - advances the run command/evidence naming and records the parser boundary.
++
++## Handoff evidence
++
++- `V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_FIREBASE_CLI_LOCK_POLICY_PARSER_HOTFIX.md`
++- `V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_VALIDATION.md`
++- `V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_CHANGED_FILES.md`
++- `V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_FINAL_VERIFICATION.txt`
++- `V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_4_TO_R1_5_LOCK_POLICY_PARSER_HOTFIX.patch`
++
++## Explicitly unchanged
++
++All product source and all dependency declarations/lockfiles are byte-identical to R1.4.
+--- a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_VALIDATION.md
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_VALIDATION.md
+@@ -0,0 +1,28 @@
++# v4.2_R1.5 Validation Record
++
++## R1.4 execution adjudication
++
++The submitted evidence ZIP and sidecar matched exactly. The trial status was `HOLD_FIREBASE_CLI_LOCK_POLICY`. Steps 01–09 passed, including real Functions TypeScript compilation and zero-advisory root/Functions audits. Step 10 failed while parsing the npm lockfile and did not evaluate its eleven dependency-policy checks.
++
++## Accepted root cause
++
++The critic's parser diagnosis is accepted because it is directly confirmed by both the R1.4 transcript and source:
++
++- `package-lock.json` contains `packages[""]`;
++- R1.4 used `ConvertFrom-Json` without `-AsHashTable`;
++- PowerShell 7.6.4 reported the exact empty-property-name error.
++
++## Static validation completed for R1.5
++
++- JSON-equivalent evaluation of all eleven Firebase CLI lock-policy checks: PASS;
++- package lock contains the empty-string root key: confirmed;
++- harness uses `ConvertFrom-Json -AsHashTable`: confirmed;
++- dictionary/object accessor regression check: PASS;
++- direct `$lock.packages` access: absent;
++- all product and dependency files compared with R1.4: byte-identical;
++- canonical R1 audit, inherited audits and structural scans: PASS;
++- internal SHA-256 manifest and ZIP integrity: PASS.
++
++## Unclaimed gates
++
++PowerShell runtime execution, Firebase CLI installation/version/audit, Flutter dependency resolution, authentic Isar generation, Flutter analysis/tests, APK construction and emulators remain unclaimed until the Windows R1.5 run completes.

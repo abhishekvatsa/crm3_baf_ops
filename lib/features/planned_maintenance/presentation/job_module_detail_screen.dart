@@ -12,6 +12,9 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../maintenance_workflow/domain/workflow_types.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
+import '../../maintenance_workflow/services/workflow_command_factory.dart';
 import '../data/job_module_model.dart';
 import '../data/job_template_model.dart';
 import '../domain/runtime_module_lineage.dart';
@@ -99,7 +102,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     final actor = await _readActor();
     if (!mounted) return;
 
-    if (actor == null || !actor.canSaveJobModuleWork) {
+    if (actor == null || !actor.canSaveJobModuleWorkFor(_module.discipline.name)) {
       _showSnack(
         'You are not authorized to save module responses.',
         isError: true,
@@ -149,7 +152,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     final actor = await _readActor();
     if (!mounted) return;
 
-    if (actor == null || !actor.canSaveJobModuleWork) {
+    if (actor == null || !actor.canSaveJobModuleWorkFor(_module.discipline.name)) {
       _showSnack(
         'You are not authorized to save module progress.',
         isError: true,
@@ -394,25 +397,63 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     await _runBusyAction(
       successMessage: 'Module reopened',
       action: () async {
-        await ref
-            .read(jobModuleRepositoryProvider)
-            .reopenModule(
-              _transitionId(),
-              actor: actor,
-              reopenReason: reason,
-              auditContext: AuditContext(
-                performedByUid: actor.uid,
-                performedByName: actor.name,
-                summary: 'Reopened process module',
-              ),
+        final appliedAt = DateTime.now().toUtc();
+        final executionId = _cleanOptionalString(widget.execution.firestoreId);
+        final moduleId = _cleanOptionalString(_module.firestoreId);
+        if (widget.execution.workflowSchemaVersion == 1) {
+          if (executionId == null || moduleId == null) {
+            throw StateError(
+              'Workflow identity is incomplete. Sync this job before reopening.',
             );
+          }
+          final repository = ref.read(workflowRepositoryProvider);
+          final workflow = await repository.getWorkflow(executionId);
+          if (workflow == null) {
+            throw StateError(
+              'Maintenance workflow is not available locally. Sync and retry.',
+            );
+          }
+          final command = WorkflowCommandFactory.create(
+            type: WorkflowCommandType.reopenWorkflowModule,
+            aggregateId: executionId,
+            expectedVersion: workflow.version,
+            payload: <String, Object?>{
+              'moduleFirestoreId': moduleId,
+              'reason': reason,
+            },
+          );
+          await ref
+              .read(workflowCommandControllerProvider.notifier)
+              .execute(command);
+          await ref
+              .read(jobModuleRepositoryProvider)
+              .applyWorkflowModuleReopenProjection(
+                moduleId,
+                actor: actor,
+                reason: reason,
+                appliedAt: appliedAt,
+              );
+        } else {
+          await ref
+              .read(jobModuleRepositoryProvider)
+              .reopenModule(
+                _transitionId(),
+                actor: actor,
+                reopenReason: reason,
+                auditContext: AuditContext(
+                  performedByUid: actor.uid,
+                  performedByName: actor.name,
+                  summary: 'Reopened process module',
+                ),
+              );
+        }
         if (!mounted) return;
         setState(() {
           _module
             ..status = JobModuleStatus.reopened
             ..reopenedByUid = actor.uid
             ..reopenedByName = actor.name
-            ..reopenedAt = DateTime.now()
+            ..reopenedAt = appliedAt
             ..reopenReason = reason
             ..updatedByUid = actor.uid
             ..updatedByName = actor.name
@@ -489,7 +530,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     final canSaveWork =
         !widget.execution.isCompleted &&
         module.isOpenForWork &&
-        (actor?.canSaveJobModuleWork ?? false);
+        (actor?.canSaveJobModuleWorkFor(module.discipline.name) ?? false);
     final canSubmitModule =
         canSaveWork &&
         (actor?.canSubmitJobModule(module.discipline.name) ?? false);
@@ -1751,6 +1792,10 @@ String _disciplineLabel(JobModuleDiscipline discipline) {
       return 'I&A';
     case JobModuleDiscipline.operations:
       return 'Operations';
+    case JobModuleDiscipline.emd:
+      return 'EMD';
+    case JobModuleDiscipline.refractory:
+      return 'Refractory';
     case JobModuleDiscipline.shiftInCharge:
       return 'Shift in-charge';
     case JobModuleDiscipline.safety:
@@ -1774,6 +1819,10 @@ Color _disciplineColor(JobModuleDiscipline discipline) {
       return BafColors.planned;
     case JobModuleDiscipline.operations:
       return BafColors.sync;
+    case JobModuleDiscipline.emd:
+      return BafColors.admin;
+    case JobModuleDiscipline.refractory:
+      return BafColors.warning;
     case JobModuleDiscipline.shiftInCharge:
       return BafColors.charges;
     case JobModuleDiscipline.safety:

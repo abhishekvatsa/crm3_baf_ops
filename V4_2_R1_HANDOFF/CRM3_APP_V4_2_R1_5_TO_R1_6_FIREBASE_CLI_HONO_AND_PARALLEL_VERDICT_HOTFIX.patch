@@ -1,0 +1,1196 @@
+diff --git aa/README.md bb/README.md
+index b17532a..cd92a48 100644
+--- aa/README.md
++++ bb/README.md
+@@ -146,3 +146,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\v4\Invoke-Crm3V42LocalTria
+ ```
+ 
+ It performs authentic code generation, source audits, three dependency audits, Functions tests, Flutter analysis/tests and a debug APK build. It contains no remote repository, backend deployment or production-data action. See `docs/v4_2/TOMORROW_LOCAL_TRIAL_RUNBOOK.md`.
++
++## R1.6 bounded laboratory correction
++
++R1.6 pins `@hono/node-server` 2.0.10, load-smokes the pinned Firebase CLI, and records a tooling-audit hold without suppressing downstream application evidence. Any recorded hold still prohibits an authoritative PASS.
+diff --git ab/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_TO_R1_6_FIREBASE_CLI_HONO_AND_PARALLEL_VERDICT_HOTFIX.patch bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_TO_R1_6_FIREBASE_CLI_HONO_AND_PARALLEL_VERDICT_HOTFIX.patch
+new file mode 100644
+index 0000000..b3573c6
+--- /dev/null
++++ bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_5_TO_R1_6_FIREBASE_CLI_HONO_AND_PARALLEL_VERDICT_HOTFIX.patch
+@@ -0,0 +1,471 @@
++diff --git aa/README.md bb/README.md
++index b17532a..cd92a48 100644
++--- aa/README.md
+++++ bb/README.md
++@@ -146,3 +146,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\v4\Invoke-Crm3V42LocalTria
++ ```
++ 
++ It performs authentic code generation, source audits, three dependency audits, Functions tests, Flutter analysis/tests and a debug APK build. It contains no remote repository, backend deployment or production-data action. See `docs/v4_2/TOMORROW_LOCAL_TRIAL_RUNBOOK.md`.
+++
+++## R1.6 bounded laboratory correction
+++
+++R1.6 pins `@hono/node-server` 2.0.10, load-smokes the pinned Firebase CLI, and records a tooling-audit hold without suppressing downstream application evidence. Any recorded hold still prohibits an authoritative PASS.
++diff --git ab/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_CHANGED_FILES.md bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_CHANGED_FILES.md
++new file mode 100644
++index 0000000..3a8e485
++--- /dev/null
+++++ bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_CHANGED_FILES.md
++@@ -0,0 +1,13 @@
+++# v4.2_R1.5 → v4.2_R1.6 changed files
+++
+++Product/runtime dependency source is unchanged except for the isolated Firebase CLI tooling tree.
+++
+++1. `tooling/firebase-cli/package.json`
+++2. `tooling/firebase-cli/package-lock.json`
+++3. `tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1`
+++4. `tools/v4/v4_2_r1_canonical_audit.py`
+++5. `docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md`
+++6. `README.md`
+++7. R1.6 handoff evidence documents and manifest
+++
+++The product application, deployed Functions source, Firestore Rules, indexes, Isar model files, Android build files, governance policy and programme ledger are unchanged.
++diff --git ab/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_FIREBASE_CLI_HONO_AND_PARALLEL_VERDICT_HOTFIX.md bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_FIREBASE_CLI_HONO_AND_PARALLEL_VERDICT_HOTFIX.md
++new file mode 100644
++index 0000000..9364157
++--- /dev/null
+++++ bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_FIREBASE_CLI_HONO_AND_PARALLEL_VERDICT_HOTFIX.md
++@@ -0,0 +1,28 @@
+++# CRM3 App v4.2_R1.6 — Firebase CLI Hono and Parallel Verdict Hotfix
+++
+++## Evidence basis
+++
+++The R1.5 Windows evidence passed steps 01–12 and stopped at the strict Firebase CLI audit. The audit identified `@hono/node-server <2.0.5` through `@modelcontextprotocol/sdk`. R1.3 had separately shown the WebSocket-handshake advisory affecting `2.0.0` through `2.0.9`. The common patched floor is therefore `2.0.10`.
+++
+++## Bounded source correction
+++
+++- `firebase-tools` remains `15.22.4`.
+++- `fast-uri` remains `3.1.4`.
+++- `@hono/node-server` override changes from `1.19.14` to `2.0.10`.
+++- The tooling lock entry is pinned to the public npm tarball and exact SHA-512 integrity.
+++- The MCP SDK declared range `^1.19.9` is still recorded; the forced major override is therefore explicitly load-smoked before emulator use.
+++
+++## Laboratory structure correction
+++
+++The Firebase CLI audit remains a mandatory authoritative gate, but its verdict is recorded without stopping downstream application evidence. A recorded advisory hold:
+++
+++- does not become PASS;
+++- remains in `trial-result.json` under `recordedHolds`;
+++- makes the final status HOLD even if Flutter, Isar, APK and emulator gates pass;
+++- never authorizes Firebase deployment or production writes.
+++
+++This prevents external advisory churn from suppressing information about the application while retaining strict release governance.
+++
+++## No product expansion
+++
+++No Flutter, Functions, Rules, Isar, Android, Firebase identity, workflow-policy, programme-ledger or release-authority behaviour changed.
++diff --git ab/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_VALIDATION.md bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_VALIDATION.md
++new file mode 100644
++index 0000000..3a12010
++--- /dev/null
+++++ bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_VALIDATION.md
++@@ -0,0 +1,25 @@
+++# v4.2_R1.6 validation record
+++
+++## Proven from the submitted R1.5 Windows evidence
+++
+++- Candidate and workspace custody passed.
+++- Root and Functions installs/audits passed.
+++- Functions TypeScript compilation passed.
+++- Firebase CLI lock-policy parsing and all eleven checks passed.
+++- Firebase CLI installation and exact installed-version assertion passed.
+++- The strict CLI audit correctly held on `@hono/node-server 1.19.14`.
+++
+++## R1.6 package-level validation performed here
+++
+++- bounded package manifest and lock entry agree on `2.0.10`;
+++- public npm URL and supplied SHA-512 integrity are exact;
+++- `firebase-tools` remains `15.22.4` and `fast-uri` remains `3.1.4`;
+++- PowerShell structural scanner passes;
+++- canonical R1 audit passes;
+++- inherited audit families pass;
+++- internal SHA-256 manifest verifies;
+++- ZIP extraction is byte-identical to the source tree.
+++
+++## Deliberately not claimed here
+++
+++This environment did not execute `npm ci`, `npm audit`, the Firebase CLI, Flutter, build_runner, APK construction or emulators. The R1.6 Windows laboratory is authoritative for those gates.
++diff --git aa/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md bb/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
++index dd71e44..fca7e2c 100644
++--- aa/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+++++ bb/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
++@@ -1,10 +1,10 @@
++-# v4.2_R1.5 Authoritative Local Laboratory Runbook
+++# v4.2_R1.6 Authoritative Local Laboratory Runbook
++ 
++ ## Purpose
++ 
++ This laboratory proves the canonical-main-reconciled successor source without changing the real repository, any Firebase backend, or an existing app installation.
++ 
++-R1.5 preserves the R1.4 product and dependency tree and corrects only the PowerShell parser used by the Firebase CLI lock-policy gate. The lockfile is parsed with `ConvertFrom-Json -AsHashTable`, because npm lockfile v2/v3 contains the required empty-string root package key. Before the CLI can be used, the harness proves:
+++R1.6 preserves the R1.4 product and dependency tree and corrects only the PowerShell parser used by the Firebase CLI lock-policy gate. The lockfile is parsed with `ConvertFrom-Json -AsHashTable`, because npm lockfile v2/v3 contains the required empty-string root package key. Before the CLI can be used, the harness proves:
++ 
++ - `firebase-tools` is exactly `15.22.4`;
++ - `@hono/node-server` is exactly `1.19.14`;
++@@ -30,7 +30,7 @@ It does not push, merge, tag, deploy, write production data, uninstall an app, o
++ 
++ ## Required inputs
++ 
++-- extracted v4.2_R1.5 candidate;
+++- extracted v4.2_R1.6 candidate;
++ - clean canonical repository at `C:\Users\abhis\AndroidStudioProjects\crm3_baf_ops` containing the canonical Firebase inputs;
++ - Flutter `3.44.0`, Dart `3.12.0`, Node `22.15.0`, npm `10.9.2`, Java `21.0.11`.
++ 
++@@ -51,7 +51,7 @@ $Zip = Get-ChildItem "$HOME\Downloads" -File |
++   Select-Object -First 1
++ 
++ if (-not $Zip) {
++-    throw "v4.2_R1.5 candidate ZIP not found."
+++    throw "v4.2_R1.6 candidate ZIP not found."
++ }
++ 
++ $CandidateRoot = `
++@@ -68,7 +68,7 @@ $Script = Get-ChildItem $Candidate.FullName -Recurse -File `
++   Select-Object -First 1
++ 
++ if (-not $Script) {
++-    throw "R1.5 local-laboratory script not found."
+++    throw "R1.6 local-laboratory script not found."
++ }
++ 
++ & $Script.FullName `
++@@ -106,3 +106,8 @@ The run writes:
++ - its `.sha256.txt` sidecar.
++ 
++ Upload both files.
+++
+++
+++## R1.6 parallel-verdict rule
+++
+++The Firebase CLI dependency audit remains mandatory for an authoritative PASS. Its advisory result is recorded as a nonblocking HOLD so that local Flutter, Isar, Functions, APK and emulator evidence can still be collected. If that audit is not clean, the final status remains `HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT` even when downstream execution succeeds. This continuation never authorizes deployment or production mutation.
++diff --git aa/tooling/firebase-cli/package-lock.json bb/tooling/firebase-cli/package-lock.json
++index 56dfb24..beed9d9 100644
++--- aa/tooling/firebase-cli/package-lock.json
+++++ bb/tooling/firebase-cli/package-lock.json
++@@ -281,12 +281,11 @@
++       }
++     },
++     "node_modules/@hono/node-server": {
++-      "version": "1.19.14",
++-      "resolved": "https://registry.npmjs.org/@hono/node-server/-/node-server-1.19.14.tgz",
++-      "integrity": "sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==",
++-      "license": "MIT",
+++      "version": "2.0.10",
+++      "resolved": "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz",
+++      "integrity": "sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA==",
++       "engines": {
++-        "node": ">=18.14.1"
+++        "node": ">=20"
++       },
++       "peerDependencies": {
++         "hono": "^4"
++diff --git aa/tooling/firebase-cli/package.json bb/tooling/firebase-cli/package.json
++index 768c542..97315e3 100644
++--- aa/tooling/firebase-cli/package.json
+++++ bb/tooling/firebase-cli/package.json
++@@ -10,7 +10,7 @@
++     "@google-cloud/pubsub@5.3.1": {
++       "@opentelemetry/core": "2.8.0"
++     },
++-    "@hono/node-server": "1.19.14",
+++    "@hono/node-server": "2.0.10",
++     "body-parser": "1.20.6",
++     "brace-expansion@^1.0.0": "1.1.16",
++     "brace-expansion@^2.0.0": "2.1.2",
++diff --git aa/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1 bb/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
++index 71771d5..bc31b51 100644
++--- aa/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+++++ bb/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
++@@ -33,14 +33,14 @@ $expected = [ordered]@{
++   npm = '10.9.2'
++   javaPrefix = '21.0.11'
++   firebaseTools = '15.22.4'
++-  honoNodeServer = '1.19.14'
+++  honoNodeServer = '2.0.10'
++   fastUri = '3.1.4'
++ }
++ 
++ $CandidatePath = (Resolve-Path $CandidatePath).Path
++ $EvidenceRoot = [IO.Path]::GetFullPath($EvidenceRoot)
++ $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
++-$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_5_CANONICAL_LOCAL_LAB_$stamp"
+++$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_6_CANONICAL_LOCAL_LAB_$stamp"
++ $evidenceDir = Join-Path $runRoot 'evidence'
++ $workspace = Join-Path $runRoot 'workspace'
++ New-Item -ItemType Directory -Force -Path $evidenceDir, $workspace | Out-Null
++@@ -50,6 +50,7 @@ $steps = [System.Collections.Generic.List[object]]::new()
++ $startedAt = (Get-Date).ToUniversalTime().ToString('o')
++ $failureStatus = 'FAIL_LOCAL_LAB'
++ $diagnosticReasons = [System.Collections.Generic.List[string]]::new()
+++$recordedHolds = [System.Collections.Generic.List[object]]::new()
++ 
++ function Get-Sha256 {
++   param([Parameter(Mandatory)][string]$Path)
++@@ -102,6 +103,43 @@ function Invoke-CheckedStep {
++   }
++ }
++ 
+++function Invoke-RecordedHoldStep {
+++  param(
+++    [Parameter(Mandatory)][string]$Name,
+++    [Parameter(Mandatory)][scriptblock]$Action,
+++    [Parameter(Mandatory)][string]$HoldStatus,
+++    [string]$WorkingDirectory = $workspace
+++  )
+++  $safeName = $Name -replace '[^A-Za-z0-9_.-]', '_'
+++  $log = Join-Path $evidenceDir "$safeName.log"
+++  Write-Host "`n===== $Name =====" -ForegroundColor Cyan
+++  Push-Location $WorkingDirectory
+++  try {
+++    $global:LASTEXITCODE = 0
+++    & $Action 2>&1 | Tee-Object -FilePath $log
+++    $exitCode = if ($null -eq $global:LASTEXITCODE) {0} else {[int]$global:LASTEXITCODE}
+++    if ($exitCode -ne 0) {
+++      $detail = "exitCode=$exitCode; nonBlocking=true"
+++      Add-StepResult -Name $Name -Status 'HOLD' -Log $log -Detail $detail
+++      $script:recordedHolds.Add([ordered]@{status=$HoldStatus; step=$Name; detail=$detail; log=$log})
+++      Write-Host ("{0} recorded; application evidence collection continues, but final PASS remains prohibited." -f $HoldStatus) -ForegroundColor Yellow
+++      return
+++    }
+++    Add-StepResult -Name $Name -Status 'PASS' -Log $log
+++  }
+++  catch {
+++    $detail = "$($_.Exception.Message); nonBlocking=true"
+++    if (-not ($steps | Where-Object {$_.name -eq $Name})) {
+++      Add-StepResult -Name $Name -Status 'HOLD' -Log $log -Detail $detail
+++    }
+++    $script:recordedHolds.Add([ordered]@{status=$HoldStatus; step=$Name; detail=$detail; log=$log})
+++    Write-Host ("{0} recorded; application evidence collection continues, but final PASS remains prohibited." -f $HoldStatus) -ForegroundColor Yellow
+++  }
+++  finally {
+++    Pop-Location
+++  }
+++}
+++
++ function Copy-PristineTree {
++   param([string]$Source, [string]$Destination)
++   Get-ChildItem -LiteralPath $Source -Force | ForEach-Object {
++@@ -208,8 +246,8 @@ function Assert-FirebaseCliLockPolicy {
++     firebaseToolsLocked = ($null -ne $firebaseToolsLock -and [string](Get-JsonPropertyValue -Object $firebaseToolsLock -Name 'version') -eq $expected.firebaseTools)
++     honoOverride = ($honoOverride -eq $expected.honoNodeServer)
++     honoLocked = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'version') -eq $expected.honoNodeServer)
++-    honoResolved = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'resolved') -eq 'https://registry.npmjs.org/@hono/node-server/-/node-server-1.19.14.tgz')
++-    honoIntegrity = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'integrity') -eq 'sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==')
+++    honoResolved = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'resolved') -eq 'https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz')
+++    honoIntegrity = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'integrity') -eq 'sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA==')
++     honoNaturalRange = ($mcpHonoRange -eq '^1.19.9')
++     fastUriOverride = ($fastUriOverride -eq $expected.fastUri)
++     fastUriLocked = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version') -eq $expected.fastUri)
++@@ -345,7 +383,7 @@ function Seal-Evidence {
++ try {
++   Start-Transcript -Path $transcriptPath -Force | Out-Null
++   $transcriptActive = $true
++-  Write-Host 'CRM3 v4.2_R1.5 canonical-main local laboratory' -ForegroundColor Green
+++  Write-Host 'CRM3 v4.2_R1.6 canonical-main local laboratory' -ForegroundColor Green
++   Write-Host "Pristine candidate: $CandidatePath"
++   Write-Host "Disposable workspace: $workspace"
++   Write-Host "Mode: $Mode"
++@@ -481,42 +519,50 @@ try {
++   Invoke-NpmCiStep -Name '11_firebase_cli_npm_ci' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli')
++   $failureStatus = 'HOLD_FIREBASE_CLI_DEPENDENCY_VERSION'
++   Invoke-CheckedStep -Name '12_firebase_cli_installed_versions' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli') -Action { Assert-FirebaseCliInstalledVersions }
++-  $failureStatus = 'HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT'
++-  Invoke-CheckedStep -Name '13_firebase_cli_npm_audit' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli') -Action { npm audit --audit-level=low }
+++  $failureStatus = 'HOLD_FIREBASE_CLI_RUNTIME'
+++  Invoke-CheckedStep -Name '13_firebase_cli_load_smoke' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli') -Action {
+++    $firebaseCliEntry = Join-Path (Get-Location) 'node_modules/firebase-tools/lib/bin/firebase.js'
+++    $loadedVersion = ((& node $firebaseCliEntry --version 2>&1) -join "`n").Trim()
+++    if ($loadedVersion -ne $expected.firebaseTools) {
+++      throw "Firebase CLI load/version mismatch. Expected $($expected.firebaseTools); got $loadedVersion"
+++    }
+++    Write-Host "PASS_FIREBASE_CLI_LOAD_SMOKE: firebase-tools=$loadedVersion"
+++  }
++   $failureStatus = 'FAIL_LOCAL_LAB'
+++  Invoke-RecordedHoldStep -Name '14_firebase_cli_npm_audit' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli') -HoldStatus 'HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT' -Action { npm audit --audit-level=low }
++   Assert-LockfilesStable -Before $lockfiles
++ 
++-  Invoke-CheckedStep -Name '14_flutter_pub_get' -Action { flutter pub get }
+++  Invoke-CheckedStep -Name '15_flutter_pub_get' -Action { flutter pub get }
++   Assert-LockfilesStable -Before $lockfiles
++-  Invoke-CheckedStep -Name '15_authentic_isar_codegen' -Action { dart run build_runner build --delete-conflicting-outputs }
+++  Invoke-CheckedStep -Name '16_authentic_isar_codegen' -Action { dart run build_runner build --delete-conflicting-outputs }
++   Assert-LockfilesStable -Before $lockfiles
++ 
++   $postCodegenManifest = Join-Path $evidenceDir 'workspace-post-codegen-manifest.json'
++   $postCodegenReport = Join-Path $evidenceDir 'workspace-post-codegen-delta.json'
++-  Invoke-CheckedStep -Name '16_post_codegen_custody' -Action {
+++  Invoke-CheckedStep -Name '17_post_codegen_custody' -Action {
++     & $pythonExe @pythonPrefix 'tools/v4/trial_workspace_custody.py' 'verify' '--root' '.' '--before' $beforeManifest '--report' $postCodegenReport '--after' $postCodegenManifest
++   }
++-  Invoke-CheckedStep -Name '17_canonical_isar_continuity' -Action {
+++  Invoke-CheckedStep -Name '18_canonical_isar_continuity' -Action {
++     & $pythonExe @pythonPrefix 'tools/isar/verify_canonical_main_isar_continuity.py' '--report' (Join-Path $evidenceDir 'isar-continuity.json')
++   }
++-  Invoke-CheckedStep -Name '18_isar_release_authority' -Action {
+++  Invoke-CheckedStep -Name '19_isar_release_authority' -Action {
++     & $pythonExe @pythonPrefix 'tools/isar/verify_v4_isar_schema.py' '--release'
++   }
++ 
++-  Invoke-CheckedStep -Name '19_v42_r1_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_2_r1_canonical_audit.py' }
++-  Invoke-CheckedStep -Name '20_v42_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_2_ultimate_audit.py' }
++-  Invoke-CheckedStep -Name '21_v41_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_1_due_diligence_audit.py' }
++-  Invoke-CheckedStep -Name '22_whole_app_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/whole_app_reconciliation_audit.py' }
++-  Invoke-CheckedStep -Name '23_inherited_full_tree_audit' -Action { & $pythonExe @pythonPrefix 'tools/maintenance_workflow/full_tree_source_audit.py' }
++-  Invoke-CheckedStep -Name '24_inherited_expanded_audit' -Action { & $pythonExe @pythonPrefix 'tools/expanded_audit/expanded_implementation_audit.py' }
++-  Invoke-CheckedStep -Name '25_dart_structural_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/dart_structural_audit.py' }
++-  Invoke-CheckedStep -Name '26_policy_generation_check' -Action { npm run workflow:policy:check }
++-  Invoke-CheckedStep -Name '27_functions_tests' -WorkingDirectory (Join-Path $workspace 'functions') -Action { npm test }
++-  Invoke-CheckedStep -Name '28_flutter_analyze' -Action { flutter analyze }
+++  Invoke-CheckedStep -Name '20_v42_r1_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_2_r1_canonical_audit.py' }
+++  Invoke-CheckedStep -Name '21_v42_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_2_ultimate_audit.py' }
+++  Invoke-CheckedStep -Name '22_v41_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_1_due_diligence_audit.py' }
+++  Invoke-CheckedStep -Name '23_whole_app_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/whole_app_reconciliation_audit.py' }
+++  Invoke-CheckedStep -Name '24_inherited_full_tree_audit' -Action { & $pythonExe @pythonPrefix 'tools/maintenance_workflow/full_tree_source_audit.py' }
+++  Invoke-CheckedStep -Name '25_inherited_expanded_audit' -Action { & $pythonExe @pythonPrefix 'tools/expanded_audit/expanded_implementation_audit.py' }
+++  Invoke-CheckedStep -Name '26_dart_structural_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/dart_structural_audit.py' }
+++  Invoke-CheckedStep -Name '27_policy_generation_check' -Action { npm run workflow:policy:check }
+++  Invoke-CheckedStep -Name '28_functions_tests' -WorkingDirectory (Join-Path $workspace 'functions') -Action { npm test }
+++  Invoke-CheckedStep -Name '29_flutter_analyze' -Action { flutter analyze }
++   if (-not $SkipFlutterTests) {
++-    Invoke-CheckedStep -Name '29_flutter_tests' -Action { flutter test }
+++    Invoke-CheckedStep -Name '30_flutter_tests' -Action { flutter test }
++   }
++-  Invoke-CheckedStep -Name '30_android_debug_apk' -Action { flutter build apk --debug }
+++  Invoke-CheckedStep -Name '31_android_debug_apk' -Action { flutter build apk --debug }
++   Assert-LockfilesStable -Before $lockfiles
++ 
++   $emulatorPassed = $false
++@@ -529,7 +575,7 @@ try {
++     $config | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $emulatorConfig -Encoding utf8
++     try {
++       $firebaseCli = Join-Path $workspace 'tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js'
++-      Invoke-CheckedStep -Name '31_rules_and_functions_emulators' -Action {
+++      Invoke-CheckedStep -Name '32_rules_and_functions_emulators' -Action {
++         node $firebaseCli emulators:exec --config $emulatorConfig --only firestore "npm run test:rules && npm --prefix functions run test:emulator:governed"
++       }
++       $emulatorPassed = $true
++@@ -594,7 +640,7 @@ try {
++       $failureStatus = 'HOLD_DEVICE_NOT_CLEAN'
++       throw 'Target device already contains the package. This harness proves fresh install only and will not uninstall or clear it.'
++     }
++-    Invoke-CheckedStep -Name '32_clean_device_fresh_install' -Action { adb -s $DeviceId install -t $apkCopy }
+++    Invoke-CheckedStep -Name '33_clean_device_fresh_install' -Action { adb -s $DeviceId install -t $apkCopy }
++     & adb -s $DeviceId shell dumpsys package $expected.packageName 2>&1 |
++       Set-Content -LiteralPath (Join-Path $evidenceDir 'device-package-dump.txt') -Encoding utf8
++     $freshInstallPassed = $true
++@@ -602,13 +648,22 @@ try {
++ 
++   $authoritative = $Mode -eq 'Authoritative' -and $diagnosticReasons.Count -eq 0 -and -not $SkipFlutterTests
++   if ($freshInstallPassed) {
++-    $status = if ($authoritative) {'PASS_AUTHORITATIVE_FRESH_INSTALL'} else {'PASS_DIAGNOSTIC_FRESH_INSTALL'}
+++    $executionOutcome = if ($authoritative) {'PASS_AUTHORITATIVE_FRESH_INSTALL'} else {'PASS_DIAGNOSTIC_FRESH_INSTALL'}
++   }
++   elseif ($emulatorPassed) {
++-    $status = if ($authoritative) {'PASS_AUTHORITATIVE_BUILD_AND_EMULATOR'} else {'PASS_DIAGNOSTIC_BUILD_AND_EMULATOR'}
+++    $executionOutcome = if ($authoritative) {'PASS_AUTHORITATIVE_BUILD_AND_EMULATOR'} else {'PASS_DIAGNOSTIC_BUILD_AND_EMULATOR'}
+++  }
+++  else {
+++    $executionOutcome = if ($authoritative) {'PASS_AUTHORITATIVE_BUILD_ONLY'} else {'PASS_DIAGNOSTIC_BUILD_ONLY'}
+++  }
+++  if ($recordedHolds.Count -eq 0) {
+++    $status = $executionOutcome
+++  }
+++  elseif ($recordedHolds.Count -eq 1) {
+++    $status = [string]$recordedHolds[0].status
++   }
++   else {
++-    $status = if ($authoritative) {'PASS_AUTHORITATIVE_BUILD_ONLY'} else {'PASS_DIAGNOSTIC_BUILD_ONLY'}
+++    $status = 'HOLD_MULTIPLE_NONBLOCKING_GATES'
++   }
++   $result = [ordered]@{
++     schemaVersion = 1
++@@ -619,6 +674,8 @@ try {
++     disposableWorkspace = $workspace
++     mode = $Mode
++     diagnosticReasons = $diagnosticReasons
+++    recordedHolds = $recordedHolds
+++    executionOutcome = $executionOutcome
++     startedAt = $startedAt
++     completedAt = (Get-Date).ToUniversalTime().ToString('o')
++     remoteGitMutationPerformed = $false
++@@ -634,6 +691,7 @@ try {
++   $result | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $evidenceDir 'trial-result.json') -Encoding utf8
++   if (-not $KeepWorkspace) { Remove-Item -LiteralPath $workspace -Recurse -Force }
++   Seal-Evidence -Status $status
+++  if ($status -like 'HOLD*') { exit 2 }
++ }
++ catch {
++   $failure = [ordered]@{
++@@ -645,6 +703,7 @@ catch {
++     disposableWorkspace = $workspace
++     mode = $Mode
++     diagnosticReasons = $diagnosticReasons
+++    recordedHolds = $recordedHolds
++     startedAt = $startedAt
++     failedAt = (Get-Date).ToUniversalTime().ToString('o')
++     error = $_.Exception.Message
++diff --git aa/tools/v4/v4_2_r1_canonical_audit.py bb/tools/v4/v4_2_r1_canonical_audit.py
++index 87500ba..ea1e6b6 100755
++--- aa/tools/v4/v4_2_r1_canonical_audit.py
+++++ bb/tools/v4/v4_2_r1_canonical_audit.py
++@@ -204,12 +204,12 @@ mcp_sdk = firebase_cli_packages.get("node_modules/@modelcontextprotocol/sdk", {}
++ check(
++     "Firebase CLI tooling pins only the bounded patched dependency versions",
++     firebase_cli_package.get("dependencies", {}).get("firebase-tools") == "15.22.4"
++-    and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "1.19.14"
+++    and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.0.10"
++     and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.4"
++     and firebase_tools.get("version") == "15.22.4"
++-    and hono.get("version") == "1.19.14"
++-    and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-1.19.14.tgz"
++-    and hono.get("integrity") == "sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw=="
+++    and hono.get("version") == "2.0.10"
+++    and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
+++    and hono.get("integrity") == "sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA=="
++     and fast_uri.get("version") == "3.1.4"
++     and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.4.tgz"
++     and fast_uri.get("integrity") == "sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw=="
++@@ -239,16 +239,32 @@ check(
++         "10_firebase_cli_lock_policy",
++         "11_firebase_cli_npm_ci",
++         "12_firebase_cli_installed_versions",
++-        "13_firebase_cli_npm_audit",
+++        "13_firebase_cli_load_smoke",
+++        "14_firebase_cli_npm_audit",
++         "Assert-FirebaseCliLockPolicy",
++         "Assert-FirebaseCliInstalledVersions",
++         "HOLD_FIREBASE_CLI_LOCK_POLICY",
++         "HOLD_FIREBASE_CLI_DEPENDENCY_VERSION",
++         "HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT",
++-        "1.19.14",
+++        "2.0.10",
++         "3.1.4",
++     )),
++ )
+++check(
+++    "Firebase CLI major override is load-smoked before its advisory verdict",
+++    "HOLD_FIREBASE_CLI_RUNTIME" in harness
+++    and "PASS_FIREBASE_CLI_LOAD_SMOKE" in harness
+++    and harness.index("12_firebase_cli_installed_versions") < harness.index("13_firebase_cli_load_smoke") < harness.index("14_firebase_cli_npm_audit"),
+++)
+++check(
+++    "Tooling advisory verdict is nonblocking for evidence but still prohibits final PASS",
+++    "function Invoke-RecordedHoldStep" in harness
+++    and "$recordedHolds" in harness
+++    and "executionOutcome = $executionOutcome" in harness
+++    and "HOLD_MULTIPLE_NONBLOCKING_GATES" in harness
+++    and "final PASS remains prohibited" in harness
+++    and "Invoke-RecordedHoldStep -Name '14_firebase_cli_npm_audit'" in harness,
+++)
++ 
++ custody = text("tools/v4/trial_workspace_custody.py")
++ check(
+diff --git ab/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_CHANGED_FILES.md bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_CHANGED_FILES.md
+new file mode 100644
+index 0000000..3a8e485
+--- /dev/null
++++ bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_CHANGED_FILES.md
+@@ -0,0 +1,13 @@
++# v4.2_R1.5 → v4.2_R1.6 changed files
++
++Product/runtime dependency source is unchanged except for the isolated Firebase CLI tooling tree.
++
++1. `tooling/firebase-cli/package.json`
++2. `tooling/firebase-cli/package-lock.json`
++3. `tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1`
++4. `tools/v4/v4_2_r1_canonical_audit.py`
++5. `docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md`
++6. `README.md`
++7. R1.6 handoff evidence documents and manifest
++
++The product application, deployed Functions source, Firestore Rules, indexes, Isar model files, Android build files, governance policy and programme ledger are unchanged.
+diff --git ab/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_FIREBASE_CLI_HONO_AND_PARALLEL_VERDICT_HOTFIX.md bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_FIREBASE_CLI_HONO_AND_PARALLEL_VERDICT_HOTFIX.md
+new file mode 100644
+index 0000000..9364157
+--- /dev/null
++++ bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_FIREBASE_CLI_HONO_AND_PARALLEL_VERDICT_HOTFIX.md
+@@ -0,0 +1,28 @@
++# CRM3 App v4.2_R1.6 — Firebase CLI Hono and Parallel Verdict Hotfix
++
++## Evidence basis
++
++The R1.5 Windows evidence passed steps 01–12 and stopped at the strict Firebase CLI audit. The audit identified `@hono/node-server <2.0.5` through `@modelcontextprotocol/sdk`. R1.3 had separately shown the WebSocket-handshake advisory affecting `2.0.0` through `2.0.9`. The common patched floor is therefore `2.0.10`.
++
++## Bounded source correction
++
++- `firebase-tools` remains `15.22.4`.
++- `fast-uri` remains `3.1.4`.
++- `@hono/node-server` override changes from `1.19.14` to `2.0.10`.
++- The tooling lock entry is pinned to the public npm tarball and exact SHA-512 integrity.
++- The MCP SDK declared range `^1.19.9` is still recorded; the forced major override is therefore explicitly load-smoked before emulator use.
++
++## Laboratory structure correction
++
++The Firebase CLI audit remains a mandatory authoritative gate, but its verdict is recorded without stopping downstream application evidence. A recorded advisory hold:
++
++- does not become PASS;
++- remains in `trial-result.json` under `recordedHolds`;
++- makes the final status HOLD even if Flutter, Isar, APK and emulator gates pass;
++- never authorizes Firebase deployment or production writes.
++
++This prevents external advisory churn from suppressing information about the application while retaining strict release governance.
++
++## No product expansion
++
++No Flutter, Functions, Rules, Isar, Android, Firebase identity, workflow-policy, programme-ledger or release-authority behaviour changed.
+diff --git ab/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_RECONSTRUCTION_PROOF.md bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_RECONSTRUCTION_PROOF.md
+new file mode 100644
+index 0000000..a723fd7
+--- /dev/null
++++ bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_RECONSTRUCTION_PROOF.md
+@@ -0,0 +1,14 @@
++# v4.2_R1.6 reconstruction proof
++
++R1.6 was reconstructed from the exact R1.5 candidate tree. The accompanying binary-capable patch records the bounded delta.
++
++Primary semantic changes:
++
++- Firebase CLI `@hono/node-server`: `1.19.14` → `2.0.10`;
++- exact lock URL/integrity update;
++- Firebase CLI load smoke;
++- nonblocking evidence continuation for tooling advisory verdicts, while final PASS remains prohibited.
++
++No application or backend product source was intentionally changed.
++
++Patch: `CRM3_APP_V4_2_R1_5_TO_R1_6_FIREBASE_CLI_HONO_AND_PARALLEL_VERDICT_HOTFIX.patch`
+diff --git ab/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_STATIC_VALIDATION.log bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_STATIC_VALIDATION.log
+new file mode 100644
+index 0000000..a09289c
+--- /dev/null
++++ bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_STATIC_VALIDATION.log
+@@ -0,0 +1,178 @@
++===== canonical_r1 exit=0 =====
++PASS | Canonical repository authority is exact current main
++PASS | All 410 captured canonical-main paths are present and package-pinned | missing=0 drift=0
++PASS | Canonical reconciliation is no-loss with explicit successor delta | {'BYTE_IDENTICAL': 347, 'SUCCESSOR_MODIFIED': 63, 'MISSING': 0}
++PASS | Stage 2D-F2, Android and workflow/release authorities remain byte-identical
++PASS | PR39 websocket-driver closure remains present in package-lock.json
++PASS | PR39 websocket-driver closure remains present in functions/package-lock.json
++PASS | Backend approval authority is singular and generated-policy aligned | consumers=6
++PASS | Canonical authority unit tests cover legacy aliases and malformed roles
++PASS | Canonical authority returns its validated map and consumers use that narrowed result
++PASS | Trial harness uses a disposable workspace and tiered outcomes
++PASS | Trial harness exact-binds both canonical Firebase build inputs
++PASS | Trial harness enforces full pinned toolchain and lockfile stability
++PASS | Functions compiler is an early no-emit gate immediately after dependency installation
++PASS | Trial harness contains no remote/deploy/destructive command and is structurally balanced
++PASS | Firebase CLI tooling pins only the bounded patched dependency versions
++PASS | Firebase CLI tooling contains no private registry resolution
++PASS | Firebase CLI lock-policy parser supports npm's empty root-package key
++PASS | Laboratory verifies Firebase CLI lock policy, installed versions and strict audit
++PASS | Firebase CLI major override is load-smoked before its advisory verdict
++PASS | Tooling advisory verdict is nonblocking for evidence but still prohibits final PASS
++PASS | Post-codegen custody permits generated bindings but rejects handwritten drift
++PASS | Exact canonical-main Isar baseline contains all inherited collections
++PASS | Post-codegen Isar verifier checks collection, property and index identity
++PASS | Read-only full-collection integrity sweep catches orderBy blind spots
++PASS | Integrity sweep pure tests pass-source cover users and missing ordered fields
++PASS | Erroneous v4.1-only path count is corrected to file-level count
++PASS | Clean-cutover policy does not constrain the new architecture to disposable data
++PASS | Local-only 57be731 delta is classified, not merged wholesale
++SUMMARY | pass=28 fail=0 total=28
++
++===== v42 exit=0 =====
++PASS | Successor programme explicitly prioritises migration to the new architecture
++PASS | Non-negotiable v4 workflow capabilities remain ratified | capabilities=12
++PASS | Workflow Firestore adapter preserves native special values before object recursion
++PASS | Native-value and command-path persistence regressions are directly tested
++PASS | Workflow callable uses the singular canonical backend approval validator
++PASS | Firestore Rules enforce exact user shape, optional types and canonical role vocabulary
++PASS | Dart user parsing fails closed instead of mapping unknown roles to Operations
++PASS | Authority-critical workflow projections use strict required-field validators
++PASS | Malformed documents, including malformed watermarks, are quarantined individually
++PASS | Projection mapper has positive parity and negative malformed-data test sources
++PASS | Application and Functions lockfiles contain remediated dependency versions | root={'protobufjs': '7.6.5', 'brace-expansion': '2.1.2'}; functions={'protobufjs': '7.6.5', 'body-parser': '1.20.6', 'brace-expansion': '1.1.16'}
++PASS | Governed Firebase CLI lockfile is separately remediated | {'firebase-tools': '15.22.4', 'protobufjs': '7.6.5', 'body-parser': '1.20.6', 'tar': '7.5.20', '@hono/node-server': '2.0.10', 'fast-uri': '3.1.4'}
++PASS | All 16 pre-v4 Isar collections preserve collection/property/index identity | collections=16
++PASS | User-supplied pre-v4 source is retained as no-loss and migration evidence
++PASS | Tomorrow local trial harness is present and contains no remote/deploy/destructive command
++PASS | Tomorrow trial runbook preserves production NO-GO boundaries
++PASS | Authentic pinned Isar generation remains a mandatory release boundary | provisional=13; mode=SOURCE_HANDOFF
++SUMMARY | pass=17 fail=0 total=17
++
++===== v41 exit=0 =====
++PASS | Firebase Android app identity is single-valued | appId=1:894346496105:android:fba14febfbbee102e63af8
++PASS | Admin user writes use exact top-level whitelist
++PASS | Compliance Firestore mapper covers complete lifecycle projection | fields=36
++PASS | Workflow persistence adapter converts ISO lifecycle deadlines to Timestamp
++PASS | Admin whitelist regression guard exists
++PASS | Compliance projection test source exists
++PASS | Root operational documentation replaces Flutter boilerplate
++PASS | Firebase configuration custody boundary is explicit
++PASS | Review adjudication preserves successor-programme authority
++SUMMARY | pass=9 fail=0 total=9
++
++===== whole exit=0 =====
++CRM3 v4 — WHOLE-APP RECONCILIATION SOURCE AUDIT
++root=b
++PASS | workflow finalizer absorbs canonical module/evidence attestation | one workflow finalizer retains original remote-module and audit guarantees
++PASS | legacy completion is fenced from workflow-schema executions | old callable remains only for legacy jobs
++PASS | module reopen reactivates lane and writes correlated audit | module/lane states cannot diverge on reopen
++PASS | every module discipline has one canonical accountable lane | mapped=11 expected=11
++PASS | lane finalisation derives mandatory lanes from module population | classification cannot omit lanes already required by work
++PASS | lane mutation remaps dependent modules atomically or refuses | module identity is never stranded by lane removal
++PASS | workflow cancellation projects across old and new data planes | execution, lanes, compliance, maintenance, modules, equipment and audit move together
++PASS | compliance commands are workflow-bound and terminal guarded | continuations cannot trust foreign or historical references blindly
++PASS | maintenance bridge validates asset/binding and persists queue states | original ticket and compliance request form one contract
++PASS | client and Rules block deferred-ticket legacy mutation | server and local UI agree on deferred ticket authority
++PASS | original asset/report surfaces consume canonical equipment projection | workflow board is not a third isolated truth
++PASS | malformed remote records are quarantined per document | one poison projection cannot abort valid sibling records
++PASS | workflow diagnostics expose quarantine and manual-review commands read-only | supportability does not add an unsafe mutation bypass
++PASS | escalation is paged and transactionally revalidated | closed work cannot be escalated from a stale scheduler snapshot
++PASS | escalation indexes match v4 queries | present=2/2
++PASS | App Check is deploy-time gated rather than silently assumed | signed-client readiness remains an explicit production gate
++PASS | production release rejects provisional Isar authority | source completeness cannot be mistaken for pinned codegen proof
++PASS | policy is single-sourced across TypeScript and Dart | v4 lane/module/role policy remains generated
++PASS | Isar migration version explicitly advances to v3 | same-version schema drift is not hidden
++PASS | v4 Isar source schema verifier passes | PASS: v4 Isar schema structure verified; provisional_bindings=13; release_authority=NO
++PASS | release authority follows pinned-codegen state | provisional=13; verifier_rc=1
++SUMMARY | pass=21 fail=0 total=21
++
++===== full_tree exit=0 =====
++CRM3 MAINTENANCE WORKFLOW — FULL-TREE SOURCE AUDIT
++root=b
++PASS | client execution serializer excludes every server-owned workflow field | all 9 fields excluded
++PASS | new unproven JobExecution defaults to legacy/no-aggregate schema | default is 0; server creation elevates to 1
++PASS | all live batch execution writes use the client-safe serializer | FirestorePlannedRepository.batchUpsertExecutions inspected
++PASS | full lib tree handles both newly added discipline enum values | every discipline switch is explicit
++PASS | untouched composer owner bridge preserves EMD and Refractory identities | new disciplines no longer collapse into the legacy 'others' bucket
++PASS | untouched published-template parsers preserve EMD and Refractory | newly published modules no longer collapse into shared/others
++PASS | agreed Operations module authority is retained | authority is generated from the governing policy
++PASS | legacy 'others' modules remain operable by Senior Refractory | historical refractory-as-others compatibility is policy-generated
++PASS | workflow retry/pull failures are isolated from mature sync status | supplemental control plane has independent logging/catches
++PASS | one workflow collection failure does not abort later collections | per-collection watermark advances remain independent and post-upsert
++PASS | workflow notifications reuse shared token cleanup and data payload support | parallel sendEachForMulticast path removed
++PASS | workflow notification routing derives from generated lane policy | no parallel per-lane hardcode
++PASS | workflow notification receipt uses a retryable lease | concurrent/retried event delivery is guarded
++PASS | notification tap and terminated-app launch resolve to workflow UI | imperative navigation remains compatible with the existing app shell
++PASS | callable supported roles are generated from the policy role universe | hand-maintained fourth role list removed
++PASS | ratified online-only lifecycle decision is consumed by field UX | review criticism is adjudicated, not blindly implemented
++PASS | workflow timestamp parser accepts native Firestore Timestamp | review concern O-Deep-1 is closed as already-correct
++PASS | workflow joins do not rely on transported device-local execution ids | all workflow consumers join on Firestore/workflow identity
++SUMMARY | pass=18 fail=0 total=18
++
++===== expanded exit=0 =====
++CRM3 APP — EXPANDED IMPLEMENTATION SOURCE AUDIT
++root=b
++PASS | all authoritative workflow commands have a client entry point | commands=21 missing=[]
++PASS | Dart and TypeScript command vocabularies remain exact | dart=21 typescript=21
++PASS | compliance creation requires accountable origin-lane authority | origin lane can no longer be omitted by a handcrafted client
++PASS | RED preparation is reachable from the planned-job workflow panel | prepareRedLane
++PASS | compliance creation is reachable from the planned-job workflow panel | raiseCompliance
++PASS | workflow cancellation is reachable from the planned-job workflow panel | cancelWorkflow
++PASS | equipment reconciliation is reachable and authority-gated | Admin/SI control; server derives state from facts
++PASS | compliance inbox exposes role-aware operational views and due state | target, origin, supervisory, dormant/due and tier surfaces present
++PASS | escalation sweep is paged, transactionally revalidated and emits events | stale scheduler snapshots cannot escalate closed work
++PASS | escalation policy stops at Tier 3 and absorbs scheduler jitter | no repeated terminal-tier churn
++PASS | notification routing follows the ratified escalation ladder | Tier 1 lane senior; Tier 2 Shift Supervisor/SI; Tier 3 Admin
++PASS | all escalation query indexes are declared | required=2 present=2
++PASS | client affordances mirror server command authority | new controls are hidden from actors who cannot execute them
++PASS | home surfaces workflow attention and routes compliance notifications | pending lane acknowledgements plus due compliance are visible before opening the hub
++PASS | ratified online-only lifecycle model remains unchanged | expanded implementation does not reintroduce the superseded hybrid model
++SUMMARY | pass=15 fail=0 total=15
++
++===== dart_struct exit=0 =====
++CRM3 v4 — DART STRUCTURAL AUDIT
++PASS | lexical delimiter balance across 369 Dart files
++PASS | every declared part file exists
++PASS | generated Isar property/index ids contain no duplicates
++SKIP | git diff --check (not a Git worktree)
++SUMMARY | files=369 fail=0 provisional_isar=13 flutter_analyze=NOT_RUN
++
++===== integrity_tests exit=0 =====
++TAP version 13
++# Subtest: canonical user document passes
++ok 1 - canonical user document passes
++  ---
++  duration_ms: 0.980755
++  type: 'test'
++  ...
++# Subtest: legacy and malformed user fields are reported
++ok 2 - legacy and malformed user fields are reported
++  ---
++  duration_ms: 0.199306
++  type: 'test'
++  ...
++# Subtest: collection contract catches missing ordered fields without orderBy
++ok 3 - collection contract catches missing ordered fields without orderBy
++  ---
++  duration_ms: 0.206787
++  type: 'test'
++  ...
++1..3
++# tests 3
++# suites 0
++# pass 3
++# fail 0
++# cancelled 0
++# skipped 0
++# todo 0
++# duration_ms 50.175821
++
++===== policy_check exit=0 =====
++
++> crm3_baf_ops@1.0.0 workflow:policy:check
++> node tools/maintenance_workflow/generate_policy.mjs --check
++
++PASS functions/src/maintenanceWorkflow/policy.generated.ts
++PASS lib/features/maintenance_workflow/domain/workflow_policy_generated.dart
++PASS firestore.rules
+diff --git ab/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_VALIDATION.md bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_VALIDATION.md
+new file mode 100644
+index 0000000..3a12010
+--- /dev/null
++++ bb/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_6_VALIDATION.md
+@@ -0,0 +1,25 @@
++# v4.2_R1.6 validation record
++
++## Proven from the submitted R1.5 Windows evidence
++
++- Candidate and workspace custody passed.
++- Root and Functions installs/audits passed.
++- Functions TypeScript compilation passed.
++- Firebase CLI lock-policy parsing and all eleven checks passed.
++- Firebase CLI installation and exact installed-version assertion passed.
++- The strict CLI audit correctly held on `@hono/node-server 1.19.14`.
++
++## R1.6 package-level validation performed here
++
++- bounded package manifest and lock entry agree on `2.0.10`;
++- public npm URL and supplied SHA-512 integrity are exact;
++- `firebase-tools` remains `15.22.4` and `fast-uri` remains `3.1.4`;
++- PowerShell structural scanner passes;
++- canonical R1 audit passes;
++- inherited audit families pass;
++- internal SHA-256 manifest verifies;
++- ZIP extraction is byte-identical to the source tree.
++
++## Deliberately not claimed here
++
++This environment did not execute `npm ci`, `npm audit`, the Firebase CLI, Flutter, build_runner, APK construction or emulators. The R1.6 Windows laboratory is authoritative for those gates.
+diff --git aa/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md bb/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+index dd71e44..fca7e2c 100644
+--- aa/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
++++ bb/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+@@ -1,10 +1,10 @@
+-# v4.2_R1.5 Authoritative Local Laboratory Runbook
++# v4.2_R1.6 Authoritative Local Laboratory Runbook
+ 
+ ## Purpose
+ 
+ This laboratory proves the canonical-main-reconciled successor source without changing the real repository, any Firebase backend, or an existing app installation.
+ 
+-R1.5 preserves the R1.4 product and dependency tree and corrects only the PowerShell parser used by the Firebase CLI lock-policy gate. The lockfile is parsed with `ConvertFrom-Json -AsHashTable`, because npm lockfile v2/v3 contains the required empty-string root package key. Before the CLI can be used, the harness proves:
++R1.6 preserves the R1.4 product and dependency tree and corrects only the PowerShell parser used by the Firebase CLI lock-policy gate. The lockfile is parsed with `ConvertFrom-Json -AsHashTable`, because npm lockfile v2/v3 contains the required empty-string root package key. Before the CLI can be used, the harness proves:
+ 
+ - `firebase-tools` is exactly `15.22.4`;
+ - `@hono/node-server` is exactly `1.19.14`;
+@@ -30,7 +30,7 @@ It does not push, merge, tag, deploy, write production data, uninstall an app, o
+ 
+ ## Required inputs
+ 
+-- extracted v4.2_R1.5 candidate;
++- extracted v4.2_R1.6 candidate;
+ - clean canonical repository at `C:\Users\abhis\AndroidStudioProjects\crm3_baf_ops` containing the canonical Firebase inputs;
+ - Flutter `3.44.0`, Dart `3.12.0`, Node `22.15.0`, npm `10.9.2`, Java `21.0.11`.
+ 
+@@ -51,7 +51,7 @@ $Zip = Get-ChildItem "$HOME\Downloads" -File |
+   Select-Object -First 1
+ 
+ if (-not $Zip) {
+-    throw "v4.2_R1.5 candidate ZIP not found."
++    throw "v4.2_R1.6 candidate ZIP not found."
+ }
+ 
+ $CandidateRoot = `
+@@ -68,7 +68,7 @@ $Script = Get-ChildItem $Candidate.FullName -Recurse -File `
+   Select-Object -First 1
+ 
+ if (-not $Script) {
+-    throw "R1.5 local-laboratory script not found."
++    throw "R1.6 local-laboratory script not found."
+ }
+ 
+ & $Script.FullName `
+@@ -106,3 +106,8 @@ The run writes:
+ - its `.sha256.txt` sidecar.
+ 
+ Upload both files.
++
++
++## R1.6 parallel-verdict rule
++
++The Firebase CLI dependency audit remains mandatory for an authoritative PASS. Its advisory result is recorded as a nonblocking HOLD so that local Flutter, Isar, Functions, APK and emulator evidence can still be collected. If that audit is not clean, the final status remains `HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT` even when downstream execution succeeds. This continuation never authorizes deployment or production mutation.
+diff --git aa/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json bb/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
+index 598d988..04415de 100644
+--- aa/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
++++ bb/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
+@@ -55,7 +55,7 @@
+     {
+       "path": "README.md",
+       "canonicalSha256": "1DE7D30CC85FDB88E103349EFF9E8875F71C4BB872D6636CB5AF33A2B4E96FF3",
+-      "candidateSha256": "FBD2D4F3295CBE50AE150BF99B53DA179768570F0C1BAE57BDBA765CFB2BA908",
++      "candidateSha256": "8DF27CE33CCAFD3366AC9236DAC60557907C1E8159706425954C0CADBFAFBA55",
+       "canonicalBytes": 564,
+       "candidateBytes": 6900,
+       "disposition": "SUCCESSOR_MODIFIED"
+@@ -3215,7 +3215,7 @@
+     {
+       "path": "tooling/firebase-cli/package-lock.json",
+       "canonicalSha256": "6236AA3B73AD28A2DAC89C7ECF91D0FC27E325F4480A1BEDADFFF669AEBAFF87",
+-      "candidateSha256": "C54309A254E75ACD2BA86F10DA2FAD1CE75EE5DC148FB81F79FA68296C7B1233",
++      "candidateSha256": "273C33CE9E5DADF0B78FF98F912E848296A3FF36694015AE787ADA83EB3C7EAB",
+       "canonicalBytes": 285299,
+       "candidateBytes": 288124,
+       "disposition": "SUCCESSOR_MODIFIED"
+@@ -3223,7 +3223,7 @@
+     {
+       "path": "tooling/firebase-cli/package.json",
+       "canonicalSha256": "1B809592105E36C133713CBD50D548A542CCBABB496E654A7B4A94562FAEC64F",
+-      "candidateSha256": "9A083B3787B3B1F1A48045D83E4F256A5252BB756486620B3D2D235749CB9E29",
++      "candidateSha256": "8646CF8F9B9784A5B764F69D40124B4CA7E9D374A5CC2665E2145E9249F2C404",
+       "canonicalBytes": 273,
+       "candidateBytes": 488,
+       "disposition": "SUCCESSOR_MODIFIED"
+diff --git aa/tooling/firebase-cli/package-lock.json bb/tooling/firebase-cli/package-lock.json
+index 56dfb24..beed9d9 100644
+--- aa/tooling/firebase-cli/package-lock.json
++++ bb/tooling/firebase-cli/package-lock.json
+@@ -281,12 +281,11 @@
+       }
+     },
+     "node_modules/@hono/node-server": {
+-      "version": "1.19.14",
+-      "resolved": "https://registry.npmjs.org/@hono/node-server/-/node-server-1.19.14.tgz",
+-      "integrity": "sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==",
+-      "license": "MIT",
++      "version": "2.0.10",
++      "resolved": "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz",
++      "integrity": "sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA==",
+       "engines": {
+-        "node": ">=18.14.1"
++        "node": ">=20"
+       },
+       "peerDependencies": {
+         "hono": "^4"
+diff --git aa/tooling/firebase-cli/package.json bb/tooling/firebase-cli/package.json
+index 768c542..97315e3 100644
+--- aa/tooling/firebase-cli/package.json
++++ bb/tooling/firebase-cli/package.json
+@@ -10,7 +10,7 @@
+     "@google-cloud/pubsub@5.3.1": {
+       "@opentelemetry/core": "2.8.0"
+     },
+-    "@hono/node-server": "1.19.14",
++    "@hono/node-server": "2.0.10",
+     "body-parser": "1.20.6",
+     "brace-expansion@^1.0.0": "1.1.16",
+     "brace-expansion@^2.0.0": "2.1.2",
+diff --git aa/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1 bb/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+index 71771d5..bc31b51 100644
+--- aa/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
++++ bb/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+@@ -33,14 +33,14 @@ $expected = [ordered]@{
+   npm = '10.9.2'
+   javaPrefix = '21.0.11'
+   firebaseTools = '15.22.4'
+-  honoNodeServer = '1.19.14'
++  honoNodeServer = '2.0.10'
+   fastUri = '3.1.4'
+ }
+ 
+ $CandidatePath = (Resolve-Path $CandidatePath).Path
+ $EvidenceRoot = [IO.Path]::GetFullPath($EvidenceRoot)
+ $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+-$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_5_CANONICAL_LOCAL_LAB_$stamp"
++$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_6_CANONICAL_LOCAL_LAB_$stamp"
+ $evidenceDir = Join-Path $runRoot 'evidence'
+ $workspace = Join-Path $runRoot 'workspace'
+ New-Item -ItemType Directory -Force -Path $evidenceDir, $workspace | Out-Null
+@@ -50,6 +50,7 @@ $steps = [System.Collections.Generic.List[object]]::new()
+ $startedAt = (Get-Date).ToUniversalTime().ToString('o')
+ $failureStatus = 'FAIL_LOCAL_LAB'
+ $diagnosticReasons = [System.Collections.Generic.List[string]]::new()
++$recordedHolds = [System.Collections.Generic.List[object]]::new()
+ 
+ function Get-Sha256 {
+   param([Parameter(Mandatory)][string]$Path)
+@@ -102,6 +103,43 @@ function Invoke-CheckedStep {
+   }
+ }
+ 
++function Invoke-RecordedHoldStep {
++  param(
++    [Parameter(Mandatory)][string]$Name,
++    [Parameter(Mandatory)][scriptblock]$Action,
++    [Parameter(Mandatory)][string]$HoldStatus,
++    [string]$WorkingDirectory = $workspace
++  )
++  $safeName = $Name -replace '[^A-Za-z0-9_.-]', '_'
++  $log = Join-Path $evidenceDir "$safeName.log"
++  Write-Host "`n===== $Name =====" -ForegroundColor Cyan
++  Push-Location $WorkingDirectory
++  try {
++    $global:LASTEXITCODE = 0
++    & $Action 2>&1 | Tee-Object -FilePath $log
++    $exitCode = if ($null -eq $global:LASTEXITCODE) {0} else {[int]$global:LASTEXITCODE}
++    if ($exitCode -ne 0) {
++      $detail = "exitCode=$exitCode; nonBlocking=true"
++      Add-StepResult -Name $Name -Status 'HOLD' -Log $log -Detail $detail
++      $script:recordedHolds.Add([ordered]@{status=$HoldStatus; step=$Name; detail=$detail; log=$log})
++      Write-Host ("{0} recorded; application evidence collection continues, but final PASS remains prohibited." -f $HoldStatus) -ForegroundColor Yellow
++      return
++    }
++    Add-StepResult -Name $Name -Status 'PASS' -Log $log
++  }
++  catch {
++    $detail = "$($_.Exception.Message); nonBlocking=true"
++    if (-not ($steps | Where-Object {$_.name -eq $Name})) {
++      Add-StepResult -Name $Name -Status 'HOLD' -Log $log -Detail $detail
++    }
++    $script:recordedHolds.Add([ordered]@{status=$HoldStatus; step=$Name; detail=$detail; log=$log})
++    Write-Host ("{0} recorded; application evidence collection continues, but final PASS remains prohibited." -f $HoldStatus) -ForegroundColor Yellow
++  }
++  finally {
++    Pop-Location
++  }
++}
++
+ function Copy-PristineTree {
+   param([string]$Source, [string]$Destination)
+   Get-ChildItem -LiteralPath $Source -Force | ForEach-Object {
+@@ -208,8 +246,8 @@ function Assert-FirebaseCliLockPolicy {
+     firebaseToolsLocked = ($null -ne $firebaseToolsLock -and [string](Get-JsonPropertyValue -Object $firebaseToolsLock -Name 'version') -eq $expected.firebaseTools)
+     honoOverride = ($honoOverride -eq $expected.honoNodeServer)
+     honoLocked = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'version') -eq $expected.honoNodeServer)
+-    honoResolved = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'resolved') -eq 'https://registry.npmjs.org/@hono/node-server/-/node-server-1.19.14.tgz')
+-    honoIntegrity = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'integrity') -eq 'sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==')
++    honoResolved = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'resolved') -eq 'https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz')
++    honoIntegrity = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'integrity') -eq 'sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA==')
+     honoNaturalRange = ($mcpHonoRange -eq '^1.19.9')
+     fastUriOverride = ($fastUriOverride -eq $expected.fastUri)
+     fastUriLocked = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version') -eq $expected.fastUri)
+@@ -345,7 +383,7 @@ function Seal-Evidence {
+ try {
+   Start-Transcript -Path $transcriptPath -Force | Out-Null
+   $transcriptActive = $true
+-  Write-Host 'CRM3 v4.2_R1.5 canonical-main local laboratory' -ForegroundColor Green
++  Write-Host 'CRM3 v4.2_R1.6 canonical-main local laboratory' -ForegroundColor Green
+   Write-Host "Pristine candidate: $CandidatePath"
+   Write-Host "Disposable workspace: $workspace"
+   Write-Host "Mode: $Mode"
+@@ -481,42 +519,50 @@ try {
+   Invoke-NpmCiStep -Name '11_firebase_cli_npm_ci' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli')
+   $failureStatus = 'HOLD_FIREBASE_CLI_DEPENDENCY_VERSION'
+   Invoke-CheckedStep -Name '12_firebase_cli_installed_versions' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli') -Action { Assert-FirebaseCliInstalledVersions }
+-  $failureStatus = 'HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT'
+-  Invoke-CheckedStep -Name '13_firebase_cli_npm_audit' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli') -Action { npm audit --audit-level=low }
++  $failureStatus = 'HOLD_FIREBASE_CLI_RUNTIME'
++  Invoke-CheckedStep -Name '13_firebase_cli_load_smoke' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli') -Action {
++    $firebaseCliEntry = Join-Path (Get-Location) 'node_modules/firebase-tools/lib/bin/firebase.js'
++    $loadedVersion = ((& node $firebaseCliEntry --version 2>&1) -join "`n").Trim()
++    if ($loadedVersion -ne $expected.firebaseTools) {
++      throw "Firebase CLI load/version mismatch. Expected $($expected.firebaseTools); got $loadedVersion"
++    }
++    Write-Host "PASS_FIREBASE_CLI_LOAD_SMOKE: firebase-tools=$loadedVersion"
++  }
+   $failureStatus = 'FAIL_LOCAL_LAB'
++  Invoke-RecordedHoldStep -Name '14_firebase_cli_npm_audit' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli') -HoldStatus 'HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT' -Action { npm audit --audit-level=low }
+   Assert-LockfilesStable -Before $lockfiles
+ 
+-  Invoke-CheckedStep -Name '14_flutter_pub_get' -Action { flutter pub get }
++  Invoke-CheckedStep -Name '15_flutter_pub_get' -Action { flutter pub get }
+   Assert-LockfilesStable -Before $lockfiles
+-  Invoke-CheckedStep -Name '15_authentic_isar_codegen' -Action { dart run build_runner build --delete-conflicting-outputs }
++  Invoke-CheckedStep -Name '16_authentic_isar_codegen' -Action { dart run build_runner build --delete-conflicting-outputs }
+   Assert-LockfilesStable -Before $lockfiles
+ 
+   $postCodegenManifest = Join-Path $evidenceDir 'workspace-post-codegen-manifest.json'
+   $postCodegenReport = Join-Path $evidenceDir 'workspace-post-codegen-delta.json'
+-  Invoke-CheckedStep -Name '16_post_codegen_custody' -Action {
++  Invoke-CheckedStep -Name '17_post_codegen_custody' -Action {
+     & $pythonExe @pythonPrefix 'tools/v4/trial_workspace_custody.py' 'verify' '--root' '.' '--before' $beforeManifest '--report' $postCodegenReport '--after' $postCodegenManifest
+   }
+-  Invoke-CheckedStep -Name '17_canonical_isar_continuity' -Action {
++  Invoke-CheckedStep -Name '18_canonical_isar_continuity' -Action {
+     & $pythonExe @pythonPrefix 'tools/isar/verify_canonical_main_isar_continuity.py' '--report' (Join-Path $evidenceDir 'isar-continuity.json')
+   }
+-  Invoke-CheckedStep -Name '18_isar_release_authority' -Action {
++  Invoke-CheckedStep -Name '19_isar_release_authority' -Action {
+     & $pythonExe @pythonPrefix 'tools/isar/verify_v4_isar_schema.py' '--release'
+   }
+ 
+-  Invoke-CheckedStep -Name '19_v42_r1_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_2_r1_canonical_audit.py' }
+-  Invoke-CheckedStep -Name '20_v42_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_2_ultimate_audit.py' }
+-  Invoke-CheckedStep -Name '21_v41_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_1_due_diligence_audit.py' }
+-  Invoke-CheckedStep -Name '22_whole_app_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/whole_app_reconciliation_audit.py' }
+-  Invoke-CheckedStep -Name '23_inherited_full_tree_audit' -Action { & $pythonExe @pythonPrefix 'tools/maintenance_workflow/full_tree_source_audit.py' }
+-  Invoke-CheckedStep -Name '24_inherited_expanded_audit' -Action { & $pythonExe @pythonPrefix 'tools/expanded_audit/expanded_implementation_audit.py' }
+-  Invoke-CheckedStep -Name '25_dart_structural_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/dart_structural_audit.py' }
+-  Invoke-CheckedStep -Name '26_policy_generation_check' -Action { npm run workflow:policy:check }
+-  Invoke-CheckedStep -Name '27_functions_tests' -WorkingDirectory (Join-Path $workspace 'functions') -Action { npm test }
+-  Invoke-CheckedStep -Name '28_flutter_analyze' -Action { flutter analyze }
++  Invoke-CheckedStep -Name '20_v42_r1_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_2_r1_canonical_audit.py' }
++  Invoke-CheckedStep -Name '21_v42_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_2_ultimate_audit.py' }
++  Invoke-CheckedStep -Name '22_v41_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_1_due_diligence_audit.py' }
++  Invoke-CheckedStep -Name '23_whole_app_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/whole_app_reconciliation_audit.py' }
++  Invoke-CheckedStep -Name '24_inherited_full_tree_audit' -Action { & $pythonExe @pythonPrefix 'tools/maintenance_workflow/full_tree_source_audit.py' }
++  Invoke-CheckedStep -Name '25_inherited_expanded_audit' -Action { & $pythonExe @pythonPrefix 'tools/expanded_audit/expanded_implementation_audit.py' }
++  Invoke-CheckedStep -Name '26_dart_structural_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/dart_structural_audit.py' }
++  Invoke-CheckedStep -Name '27_policy_generation_check' -Action { npm run workflow:policy:check }
++  Invoke-CheckedStep -Name '28_functions_tests' -WorkingDirectory (Join-Path $workspace 'functions') -Action { npm test }
++  Invoke-CheckedStep -Name '29_flutter_analyze' -Action { flutter analyze }
+   if (-not $SkipFlutterTests) {
+-    Invoke-CheckedStep -Name '29_flutter_tests' -Action { flutter test }
++    Invoke-CheckedStep -Name '30_flutter_tests' -Action { flutter test }
+   }
+-  Invoke-CheckedStep -Name '30_android_debug_apk' -Action { flutter build apk --debug }
++  Invoke-CheckedStep -Name '31_android_debug_apk' -Action { flutter build apk --debug }
+   Assert-LockfilesStable -Before $lockfiles
+ 
+   $emulatorPassed = $false
+@@ -529,7 +575,7 @@ try {
+     $config | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $emulatorConfig -Encoding utf8
+     try {
+       $firebaseCli = Join-Path $workspace 'tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js'
+-      Invoke-CheckedStep -Name '31_rules_and_functions_emulators' -Action {
++      Invoke-CheckedStep -Name '32_rules_and_functions_emulators' -Action {
+         node $firebaseCli emulators:exec --config $emulatorConfig --only firestore "npm run test:rules && npm --prefix functions run test:emulator:governed"
+       }
+       $emulatorPassed = $true
+@@ -594,7 +640,7 @@ try {
+       $failureStatus = 'HOLD_DEVICE_NOT_CLEAN'
+       throw 'Target device already contains the package. This harness proves fresh install only and will not uninstall or clear it.'
+     }
+-    Invoke-CheckedStep -Name '32_clean_device_fresh_install' -Action { adb -s $DeviceId install -t $apkCopy }
++    Invoke-CheckedStep -Name '33_clean_device_fresh_install' -Action { adb -s $DeviceId install -t $apkCopy }
+     & adb -s $DeviceId shell dumpsys package $expected.packageName 2>&1 |
+       Set-Content -LiteralPath (Join-Path $evidenceDir 'device-package-dump.txt') -Encoding utf8
+     $freshInstallPassed = $true
+@@ -602,13 +648,22 @@ try {
+ 
+   $authoritative = $Mode -eq 'Authoritative' -and $diagnosticReasons.Count -eq 0 -and -not $SkipFlutterTests
+   if ($freshInstallPassed) {
+-    $status = if ($authoritative) {'PASS_AUTHORITATIVE_FRESH_INSTALL'} else {'PASS_DIAGNOSTIC_FRESH_INSTALL'}
++    $executionOutcome = if ($authoritative) {'PASS_AUTHORITATIVE_FRESH_INSTALL'} else {'PASS_DIAGNOSTIC_FRESH_INSTALL'}
+   }
+   elseif ($emulatorPassed) {
+-    $status = if ($authoritative) {'PASS_AUTHORITATIVE_BUILD_AND_EMULATOR'} else {'PASS_DIAGNOSTIC_BUILD_AND_EMULATOR'}
++    $executionOutcome = if ($authoritative) {'PASS_AUTHORITATIVE_BUILD_AND_EMULATOR'} else {'PASS_DIAGNOSTIC_BUILD_AND_EMULATOR'}
++  }
++  else {
++    $executionOutcome = if ($authoritative) {'PASS_AUTHORITATIVE_BUILD_ONLY'} else {'PASS_DIAGNOSTIC_BUILD_ONLY'}
++  }
++  if ($recordedHolds.Count -eq 0) {
++    $status = $executionOutcome
++  }
++  elseif ($recordedHolds.Count -eq 1) {
++    $status = [string]$recordedHolds[0].status
+   }
+   else {
+-    $status = if ($authoritative) {'PASS_AUTHORITATIVE_BUILD_ONLY'} else {'PASS_DIAGNOSTIC_BUILD_ONLY'}
++    $status = 'HOLD_MULTIPLE_NONBLOCKING_GATES'
+   }
+   $result = [ordered]@{
+     schemaVersion = 1
+@@ -619,6 +674,8 @@ try {
+     disposableWorkspace = $workspace
+     mode = $Mode
+     diagnosticReasons = $diagnosticReasons
++    recordedHolds = $recordedHolds
++    executionOutcome = $executionOutcome
+     startedAt = $startedAt
+     completedAt = (Get-Date).ToUniversalTime().ToString('o')
+     remoteGitMutationPerformed = $false
+@@ -634,6 +691,7 @@ try {
+   $result | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $evidenceDir 'trial-result.json') -Encoding utf8
+   if (-not $KeepWorkspace) { Remove-Item -LiteralPath $workspace -Recurse -Force }
+   Seal-Evidence -Status $status
++  if ($status -like 'HOLD*') { exit 2 }
+ }
+ catch {
+   $failure = [ordered]@{
+@@ -645,6 +703,7 @@ catch {
+     disposableWorkspace = $workspace
+     mode = $Mode
+     diagnosticReasons = $diagnosticReasons
++    recordedHolds = $recordedHolds
+     startedAt = $startedAt
+     failedAt = (Get-Date).ToUniversalTime().ToString('o')
+     error = $_.Exception.Message
+diff --git aa/tools/v4/v4_2_r1_canonical_audit.py bb/tools/v4/v4_2_r1_canonical_audit.py
+index 87500ba..ea1e6b6 100755
+--- aa/tools/v4/v4_2_r1_canonical_audit.py
++++ bb/tools/v4/v4_2_r1_canonical_audit.py
+@@ -204,12 +204,12 @@ mcp_sdk = firebase_cli_packages.get("node_modules/@modelcontextprotocol/sdk", {}
+ check(
+     "Firebase CLI tooling pins only the bounded patched dependency versions",
+     firebase_cli_package.get("dependencies", {}).get("firebase-tools") == "15.22.4"
+-    and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "1.19.14"
++    and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.0.10"
+     and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.4"
+     and firebase_tools.get("version") == "15.22.4"
+-    and hono.get("version") == "1.19.14"
+-    and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-1.19.14.tgz"
+-    and hono.get("integrity") == "sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw=="
++    and hono.get("version") == "2.0.10"
++    and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
++    and hono.get("integrity") == "sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA=="
+     and fast_uri.get("version") == "3.1.4"
+     and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.4.tgz"
+     and fast_uri.get("integrity") == "sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw=="
+@@ -239,16 +239,32 @@ check(
+         "10_firebase_cli_lock_policy",
+         "11_firebase_cli_npm_ci",
+         "12_firebase_cli_installed_versions",
+-        "13_firebase_cli_npm_audit",
++        "13_firebase_cli_load_smoke",
++        "14_firebase_cli_npm_audit",
+         "Assert-FirebaseCliLockPolicy",
+         "Assert-FirebaseCliInstalledVersions",
+         "HOLD_FIREBASE_CLI_LOCK_POLICY",
+         "HOLD_FIREBASE_CLI_DEPENDENCY_VERSION",
+         "HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT",
+-        "1.19.14",
++        "2.0.10",
+         "3.1.4",
+     )),
+ )
++check(
++    "Firebase CLI major override is load-smoked before its advisory verdict",
++    "HOLD_FIREBASE_CLI_RUNTIME" in harness
++    and "PASS_FIREBASE_CLI_LOAD_SMOKE" in harness
++    and harness.index("12_firebase_cli_installed_versions") < harness.index("13_firebase_cli_load_smoke") < harness.index("14_firebase_cli_npm_audit"),
++)
++check(
++    "Tooling advisory verdict is nonblocking for evidence but still prohibits final PASS",
++    "function Invoke-RecordedHoldStep" in harness
++    and "$recordedHolds" in harness
++    and "executionOutcome = $executionOutcome" in harness
++    and "HOLD_MULTIPLE_NONBLOCKING_GATES" in harness
++    and "final PASS remains prohibited" in harness
++    and "Invoke-RecordedHoldStep -Name '14_firebase_cli_npm_audit'" in harness,
++)
+ 
+ custody = text("tools/v4/trial_workspace_custody.py")
+ check(
+diff --git aa/tools/v4/v4_2_ultimate_audit.py bb/tools/v4/v4_2_ultimate_audit.py
+index 6f7af61..e5cc051 100644
+--- aa/tools/v4/v4_2_ultimate_audit.py
++++ bb/tools/v4/v4_2_ultimate_audit.py
+@@ -224,7 +224,7 @@ check(
+     tooling_versions["protobufjs"] == "7.6.5"
+     and tooling_versions["body-parser"] == "1.20.6"
+     and tooling_versions["tar"] == "7.5.20"
+-    and tooling_versions["@hono/node-server"] == "1.19.14"
++    and tooling_versions["@hono/node-server"] == "2.0.10"
+     and tooling_versions["fast-uri"] == "3.1.4",
+     str(tooling_versions),
+ )

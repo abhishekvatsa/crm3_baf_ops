@@ -1,0 +1,3243 @@
+diff --git a/README.md b/README.md
+index 9ec9043..b17532a 100644
+--- a/README.md
++++ b/README.md
+@@ -1,8 +1,8 @@
+-# CRM-III BAF Ops — v4 Successor Architecture
++# CRM-III BAF Ops — v4.2 Ultimate Successor Trial Candidate
+ 
+ CRM-III BAF Ops is an offline-aware Flutter/Firebase application for CRM-III maintenance, planned-job execution, equipment status, directives, abnormalities, audit and governed maintenance workflow.
+ 
+-This tree is the **v4 whole-app reconciliation successor candidate**. It preserves the v3.3 server-authoritative workflow architecture and absorbs the original application's valid closure, evidence, audit, maintenance and equipment guarantees into one authority model.
++This tree is the **v4.2 ultimate successor local-trial candidate**. It preserves the v3.3 server-authoritative workflow architecture and absorbs the original application's valid closure, evidence, audit, maintenance and equipment guarantees into one authority model.
+ 
+ It is **not an authorised production replacement** and must not be merged, deployed or distributed directly from this archive.
+ 
+@@ -28,6 +28,8 @@ See:
+ - `V4_HANDOFF/CRM3_APP_V4_AUTHORITY_MIGRATION_MATRIX.md`
+ - `V4_HANDOFF/CRM3_APP_V4_RESIDUAL_RUNTIME_GATES.md`
+ - `docs/V4_1_DUE_DILIGENCE_ADJUDICATION.md`
++- `docs/v4_2/PROGRAMME_AUTHORITY.md`
++- `docs/v4_2/TOMORROW_LOCAL_TRIAL_RUNBOOK.md`
+ 
+ ## Source layout
+ 
+@@ -51,7 +53,7 @@ The governed production policy pins:
+ - Java `21.0.11+10`
+ - Node `22.15.0`
+ - npm `10.9.2`
+-- Firebase Tools `15.17.0`
++- Firebase Tools `15.22.4`
+ 
+ Do not substitute another Flutter/Dart/Isar generator when approving schema output.
+ 
+@@ -106,20 +108,20 @@ npm ci
+ npm test
+ ```
+ 
+-The due-diligence correction candidate records 210 executable Functions tests passing and 29 emulator-dependent tests skipped in the available environment.
++The v4.2 hardening candidate records 224 executable Functions tests passing and 29 emulator-dependent tests skipped in the available environment. The root, Functions and governed Firebase CLI npm trees each audit at zero known vulnerabilities at packaging time.
+ 
+ ## Runtime validation still required
+ 
+ Static success is not replacement authority. The following gates remain mandatory:
+ 
+-1. Reconcile the v4 patch against the exact governed current `main` and classify every unique delta.
++1. Reconcile v4.2 against the exact governed repository authority and classify every unique delta. The user-supplied pre-v4 snapshot is already embedded as no-loss and Isar-continuity evidence.
+ 2. Restore and verify governed Firebase configuration.
+ 3. Run authentic Isar generation and a real current-database migration laboratory.
+ 4. Run `flutter analyze` and the full Flutter test suite, including mapper/widget/provider tests.
+ 5. Build Android debug and unsigned release artifacts and inspect package/Firebase identity.
+ 6. Run Firestore Rules and Functions emulator suites, transaction contention and scheduler due-time tests.
+ 7. Run upgrade, weak-network, multi-device, notification, recovery and rollback tests.
+-8. Complete signing, App Check, dependency-advisory and controlled-pilot governance.
++8. Complete signing, App Check and controlled-pilot governance; re-run dependency audits on the exact build lockfiles.
+ 
+ ## Baseline evidence note
+ 
+@@ -132,3 +134,15 @@ Static success is not replacement authority. The following gates remain mandator
+ - Direct merge into an unverified current `main`: **NO-GO**
+ - Flutter/Android build from this archive without governed inputs: **NO-GO**
+ - Firebase deployment or field distribution: **NO-GO**
++
++
++## Tomorrow local trial
++
++The guarded trial harness is:
++
++```powershell
++pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\v4\Invoke-Crm3V42LocalTrial.ps1 `
++  -CurrentAppRoot "C:\path\to\current\crm3_baf_ops"
++```
++
++It performs authentic code generation, source audits, three dependency audits, Functions tests, Flutter analysis/tests and a debug APK build. It contains no remote repository, backend deployment or production-data action. See `docs/v4_2/TOMORROW_LOCAL_TRIAL_RUNBOOK.md`.
+diff --git a/V4_2_HANDOFF/CRM3_APP_V4_2_CRITIQUE_ADJUDICATION.md b/V4_2_HANDOFF/CRM3_APP_V4_2_CRITIQUE_ADJUDICATION.md
+new file mode 100644
+index 0000000..8639a57
+--- /dev/null
++++ b/V4_2_HANDOFF/CRM3_APP_V4_2_CRITIQUE_ADJUDICATION.md
+@@ -0,0 +1,31 @@
++# v4.2 Critique Adjudication
++
++## First critique
++
++| Finding | Adjudication | v4.2 treatment |
++|---|---|---|
++| Native Firestore Timestamp flattened by generic recursion | Valid and critical | Fixed at common persistence boundary; native special types preserved; direct command-path tests added |
++| User optional-field and role validation incomplete | Valid | Exact Rules shape, bounds and canonical role vocabulary; server/client fail closed |
++| Live legacy user documents may contain extra keys | Valid deployment concern | Remains a readback/migration preflight before Rules deployment; no deployment authorised here |
++| Authority-critical projection defaults can hide corruption | Valid | Critical fields now throw and enter per-document quarantine |
++| Dependency advisories | Valid at review time | Root, Functions and Firebase CLI trees remediated to zero known advisories at packaging time |
++| Exact Git-main ancestry absent | Valid integration gate | Not treated as a reason to stop successor development; mandatory before remote merge |
++| Existing programme ledger should subordinate v4 to Stage 2D | Not accepted as design direction | Explicit user agreement makes v4.2 the source-migration authority; current app remains operational until cutover |
++| Isar generation/migration/Flutter/emulator/device proof open | Valid | Remain fail-closed trial and cutover gates |
++
++## Deep merged review
++
++The deep review’s principal positive findings are retained:
++
++- legacy closure cannot bypass workflow closure;
++- both closure regimes share the canonical readiness/attestation implementation;
++- 21-command client/server parity is exact;
++- ticket deferral is complete end to end;
++- policy generation retires cross-language authority drift;
++- App Check is staged honestly rather than enabled before signed-client readiness.
++
++Its statement that committed generated files prove authentic code generation is not adopted as release authority. Thirteen files remain explicitly provisional until the pinned toolchain regenerates them and the release verifier passes.
++
++## Governing synthesis
++
++The critiques improve v4; they do not reverse it. Old-app mechanisms are adapted only when they carry a legitimate capability, security guarantee or migration requirement. Avoiding change is not an architectural objective.
+diff --git a/V4_2_HANDOFF/CRM3_APP_V4_2_RESIDUAL_GATES.md b/V4_2_HANDOFF/CRM3_APP_V4_2_RESIDUAL_GATES.md
+new file mode 100644
+index 0000000..6db011b
+--- /dev/null
++++ b/V4_2_HANDOFF/CRM3_APP_V4_2_RESIDUAL_GATES.md
+@@ -0,0 +1,44 @@
++# CRM3 v4.2 Residual Gates
++
++## Required for tomorrow’s runnable source proof
++
++1. Restore governed `lib/firebase_options.dart` and `android/app/google-services.json`.
++2. Use Flutter 3.44.0 / Dart 3.12.0 / Isar 3.1.0+1.
++3. Run authentic `build_runner` generation.
++4. Require zero `PROVISIONAL_V4_ISAR_CODEGEN` markers.
++5. Pass `flutter analyze`, Flutter tests and debug APK build.
++6. Download/start the Firestore emulator and pass Rules/transaction suites.
++
++## Required before repository integration
++
++1. Establish the exact governed repository and branch authority.
++2. Apply/reconcile v4.2 on a fresh branch from that authority.
++3. Classify every unique delta and preserve current security/release closures.
++4. Run CI without weakening the v4 successor policy.
++
++## Required before data migration/cutover
++
++1. Use an authentic current-app Isar database with representative and unsynchronised records.
++2. Back up and hash the database.
++3. Upgrade using authentic generated schemas.
++4. Compare all records, indexes, queues and identity links.
++5. Test interruption, rebuild, downgrade refusal and recovery.
++6. Audit existing user-document key sets before deploying the stricter schema perimeter.
++
++## Required before controlled pilot
++
++1. Signed Android artifact and Firebase/package/certificate identity proof.
++2. App Check registration and signed-client matrix.
++3. Physical-device upgrade without uninstall or data clearing.
++4. Weak-network, duplicate-command, process-kill and notification tests.
++5. Multi-role and revocation matrix.
++6. Backend rollback and application recovery drill.
++7. Explicit promotion record bound to exact source and artifact hashes.
++
++## Still prohibited by this package
++
++- remote repository mutation;
++- Firebase backend deployment;
++- production data mutation;
++- pilot handout;
++- unrestricted field distribution.
+diff --git a/V4_2_HANDOFF/CRM3_APP_V4_2_ULTIMATE_IMPLEMENTATION_REPORT.md b/V4_2_HANDOFF/CRM3_APP_V4_2_ULTIMATE_IMPLEMENTATION_REPORT.md
+new file mode 100644
+index 0000000..a6db680
+--- /dev/null
++++ b/V4_2_HANDOFF/CRM3_APP_V4_2_ULTIMATE_IMPLEMENTATION_REPORT.md
+@@ -0,0 +1,103 @@
++# CRM3 App v4.2 — Ultimate Successor Local-Trial Candidate
++
++## Governing decision
++
++v4.2 is a forward-migration successor candidate. The v3.3/v4 architecture remains the design authority: server commands, receipts, lanes, compliance, RED, equipment projection, canonical closure, cancellation, escalation, notification and quarantine are non-negotiable. The pre-v4 app is used to preserve business capability, security closure, data continuity and recovery evidence; conflicting legacy authority paths are not retained merely to avoid change.
++
++The current installed application remains operationally canonical until governed cutover. This package does not authorise a remote merge, backend deployment, production-data mutation, pilot handout or field distribution.
++
++## Inputs reconciled
++
++- v4.1 due-diligence correction candidate, SHA-256 `5E72E2B220115DBED6A389832CA8363A79CA09BBB43ACF1C7AB9975871C85560`.
++- User-supplied current-pre-v4 source snapshot, SHA-256 `84BB9114C05C29777154E5EA7095DFF00850C478A2DB2048FDE5787CD5EB48CC`.
++- First v4.1 critique, which correctly identified native Firestore special-value corruption, further user-schema hardening, projection strictness and dependency concerns.
++- Deep merged review, which independently confirmed the canonical closure, legacy closure fence, complete ticket-deferral bridge, generated authority and overall v4.1 coherence.
++
++## Material v4.2 corrections
++
++### 1. Firestore persistence boundary
++
++`FirebaseWorkflowStore` now preserves native Admin SDK values before recursive object conversion:
++
++- `Timestamp`
++- `GeoPoint`
++- `DocumentReference`
++- `FieldValue`
++- binary/`Uint8Array`
++
++JSON-safe ISO lifecycle values continue to convert to native Firestore Timestamps. Direct tests cover nested values and the three concrete command paths identified during review: maintenance awaiting confirmation, equipment-state preservation and counter-condition successor creation.
++
++### 2. Singular user authority
++
++Approval and role authority now use one schema across callable, Rules and Flutter:
++
++- only `isApproved == true` grants approval;
++- roles must be a non-empty list from the canonical role vocabulary;
++- legacy `approved`, `status: approved` and singular `role` do not grant authority;
++- unknown or malformed roles fail closed rather than becoming Operations;
++- Firestore Rules enforce exact fields, types and bounded optional strings.
++
++### 3. Projection containment
++
++Authority-critical workflow projections now reject malformed IDs, statuses, lane keys, asset identity, versions and dates. A malformed document is retained as a per-document quarantine diagnostic while valid siblings continue to synchronize. Missing critical values are no longer rendered as asset `0`, epoch time, empty authority strings or invented default states.
++
++### 4. Dependency trust domains
++
++Narrow lockfile and override remediation was applied without forced major upgrades:
++
++- root application/test tree: 0 known vulnerabilities;
++- Functions tree: 0 known vulnerabilities;
++- governed Firebase CLI tree: 0 known vulnerabilities.
++
++Firebase CLI policy and lockfile custody now agree on version `15.22.4` and the remediated lockfile hash.
++
++### 5. Programme authority and old-app continuity
++
++A machine-readable successor-programme authority records the migration-first decision. The pre-v4 source reconciliation and all 16 authentic old Isar collection continuity records are embedded. Every pre-existing collection/property/index identity remains stable; the v4 persistence changes are additive.
++
++### 6. Tomorrow trial harness
++
++`tools/v4/Invoke-Crm3V42LocalTrial.ps1` performs a guarded local sequence:
++
++1. candidate manifest verification;
++2. governed Firebase input restoration and hash/identity checks;
++3. toolchain verification;
++4. three npm clean installs and audits;
++5. authentic Isar generation;
++6. v4.2/v4.1/v4/inherited audits;
++7. Isar release-authority verification;
++8. Functions build/tests;
++9. Flutter analysis and tests;
++10. debug APK build;
++11. optional isolated-port emulator execution;
++12. optional in-place test-device upgrade.
++
++It contains no remote repository, backend deployment, production-data, uninstall or data-clearing action.
++
++## Validation performed in the packaging environment
++
++- v4.2 ultimate audit: 17/17 PASS
++- v4.1 due-diligence audit: 9/9 PASS
++- v4 whole-app audit: 21/21 PASS
++- inherited full-tree audit: 18/18 PASS
++- inherited expanded audit: 15/15 PASS
++- Dart structural audit: PASS across 369 Dart files
++- policy generation: byte-stable
++- Isar source verifier: PASS
++- Isar release verifier: expected FAIL with 13 provisional bindings
++- TypeScript strict compilation: PASS
++- Functions: 224 passed / 29 emulator-dependent skipped
++- root npm audit: 0 vulnerabilities
++- Functions npm audit: 0 vulnerabilities
++- governed Firebase CLI npm audit: 0 vulnerabilities
++
++The Firestore emulator executable could not be downloaded in this sandbox, so emulator tests remain a real trial gate rather than being claimed as passing.
++
++## Classification
++
++- Successor architecture: **GO**
++- Local build/test trial: **GO, with governed Firebase inputs and pinned toolchain**
++- In-place controlled test-device upgrade: **CONDITIONAL GO with backup and no uninstall**
++- Direct remote merge: **NO-GO pending repository reconciliation**
++- Backend deployment or production mutation: **NO-GO**
++- Pilot/field distribution: **NO-GO**
+diff --git a/V4_2_HANDOFF/CRM3_APP_V4_2_VALIDATION_LOG.md b/V4_2_HANDOFF/CRM3_APP_V4_2_VALIDATION_LOG.md
+new file mode 100644
+index 0000000..f42ec55
+--- /dev/null
++++ b/V4_2_HANDOFF/CRM3_APP_V4_2_VALIDATION_LOG.md
+@@ -0,0 +1,48 @@
++# CRM3 v4.2 Validation Log
++
++## Static/source audits
++
++```text
++v4.2 ultimate hardening audit     17/17 PASS
++v4.1 due-diligence audit           9/9 PASS
++v4 whole-app reconciliation       21/21 PASS
++inherited full-tree audit         18/18 PASS
++inherited expanded audit          15/15 PASS
++Dart structural audit             PASS (369 Dart files)
++policy generation check           PASS
++Isar source verification          PASS
++Isar release authority            EXPECTED FAIL (13 provisional bindings)
++```
++
++## Backend
++
++```text
++TypeScript compile: PASS
++Test suites:        19 passed, 3 skipped
++Tests:              224 passed, 29 skipped, 253 total
++```
++
++The 29 skipped tests require a running Firestore emulator.
++
++## Dependency audits
++
++```text
++root application/test tree:       0 vulnerabilities
++Functions tree:                   0 vulnerabilities
++governed Firebase CLI tree:       0 vulnerabilities
++```
++
++## Emulator attempt
++
++The governed CLI started the emulator flow on an isolated port but the sandbox could not retrieve `cloud-firestore-emulator-v1.21.0.jar` from Google storage. No emulator test result is claimed.
++
++## Unavailable in packaging environment
++
++- Flutter/Dart SDK
++- authentic `build_runner`
++- `flutter analyze`
++- Flutter tests
++- Android build
++- physical device
++
++These are performed by the included local-trial harness tomorrow.
+diff --git a/docs/v4_2/CURRENT_PRE_V4_SOURCE_AUTHORITY_RECONCILIATION.md b/docs/v4_2/CURRENT_PRE_V4_SOURCE_AUTHORITY_RECONCILIATION.md
+new file mode 100644
+index 0000000..a044d9f
+--- /dev/null
++++ b/docs/v4_2/CURRENT_PRE_V4_SOURCE_AUTHORITY_RECONCILIATION.md
+@@ -0,0 +1,120 @@
++# CRM3 Current-Pre-v4 Source Authority Reconciliation
++
++## Custody
++
++- User-supplied archive: `currentbeforev4.zip`
++- SHA-256: `84BB9114C05C29777154E5EA7095DFF00850C478A2DB2048FDE5787CD5EB48CC`
++- ZIP entries: 440
++- Files: 360
++- Unsafe traversal paths: 0
++- Normalized source roots: `.github`, `functions`, `lib`, `test`, and root project files
++
++## Source continuity against v4.1
++
++| Area | Old files | Present in v4.1 | Byte-identical | Deliberately changed | Missing |
++|---|---:|---:|---:|---:|---:|
++| `lib/` | 205 | 204 | 167 | 37 | 1 |
++| `test/` | 87 | 87 | 84 | 3 | 0 |
++| `functions/` | 45 | 45 | 27 | 18 | 0 |
++| `.github/` | 3 | 3 | 3 | 0 | 0 |
++
++
++Whole normalized comparison:
++
++- Common paths: 351
++- Byte-identical common paths: 288
++- Changed common paths: 63
++- Old-only paths: 9
++- v4.1-only paths: 1083
++
++**No old test file, Cloud Functions file, workflow file, or ordinary application source file is absent from v4.1.** The only old `lib/` path not carried in the ordinary v4.1 handoff is the controlled Firebase output `lib/firebase_options.dart`.
++
++## Old-only path disposition
++
++| Path | Disposition |
++|---|---|
++| `.flutter-plugins` | Generated Flutter state; exclude |
++| `.flutter-plugins-dependencies` | Generated Flutter state; exclude |
++| `.gitattributes` | Useful line-ending/binary custody metadata; carry into next anchored candidate |
++| `.gitignore` | Useful source-control metadata; carry into next anchored candidate |
++| `.metadata` | Useful Flutter project provenance; carry into next anchored candidate |
++| `firestore-debug.log` | Emulator/debug output; exclude |
++| `isar.dll` | Host binary/build support artifact; exclude |
++| `lib/firebase_options.dart` | Controlled Firebase build input; use for identity/hash proof, keep outside ordinary evidence ZIP unless explicitly authorized |
++| `release-gate.yml` | Stale root duplicate; authoritative pinned workflow exists under .github/workflows |
++
++## Isar continuity result
++
++All 16 pre-existing collections retain:
++
++- the same collection ID;
++- the same ID and type for every pre-existing property;
++- the same ID and definition for every pre-existing index;
++- no removed old property;
++- no removed old index.
++
++v4.1 adds fields only to `JobExecution` and `MaintenanceRecord`, adds EMD/Refractory enum values without changing the persisted property shape, and registers nine new workflow collections.
++
++| Collection | Old collection ID | ID preserved | Properties | Old property mismatches | Removed old properties | New properties |
++|---|---:|---|---:|---:|---:|---|
++| AbnormalityType | 8484628406258702188 | YES | 22 → 22 | 0 | 0 | — |
++| AuditEvent | -228283108298215510 | YES | 13 → 13 | 0 | 0 | — |
++| BafKnowledgeMatrixMetaStore | -4597930498197848453 | YES | 19 → 19 | 0 | 0 | — |
++| BafKnowledgeRow | 6184583526286388735 | YES | 38 → 38 | 0 | 0 | — |
++| Charge | 1755725158846388127 | YES | 32 → 32 | 0 | 0 | — |
++| ChargeAbnormality | 4068838871833800476 | YES | 30 → 30 | 0 | 0 | — |
++| JobDiaryEntry | 3610953931278188100 | YES | 40 → 40 | 0 | 0 | — |
++| JobExecution | 8749547484972275668 | YES | 33 → 47 | 0 | 0 | cancellationReason, cancelledAt, cancelledByName, cancelledByUid, isCancelled, laneMappingReview, laneSetFinalizedAt, laneSetFinalizedByName, laneSetFinalizedByUid, laneSetVersion, parentExecutionFirestoreId, redAnswerJson, spawnedRedExecutionFirestoreId, workflowSchemaVersion |
++| JobModuleInstance | 1431400483870693323 | YES | 73 → 73 | 0 | 0 | — |
++| JobTemplate | 7389994387465344115 | YES | 25 → 25 | 0 | 0 | — |
++| MaintenanceRecord | 8394037719530270343 | YES | 46 → 65 | 0 | 0 | workflowAggregateId, workflowComplianceId, workflowConditionRef, workflowConditionTypeKey, workflowCorrectionReason, workflowDeferred, workflowDeferredAt, workflowDeferredByName, workflowDeferredByUid, workflowOriginLaneKey, workflowQueueState, workflowReactivatedAt, workflowReactivatedByName, workflowReactivatedByUid, workflowReleasedAt, workflowReleasedByName, workflowReleasedByUid, workflowTargetLaneKey, workflowUpdatedAt |
++| OperationalDirective | 8926677232068899510 | YES | 44 → 44 | 0 | 0 | — |
++| SyncRejection | -7653774813178690174 | YES | 14 → 14 | 0 | 0 | — |
++| TemplatePackage | 7246776624816934243 | YES | 38 → 38 | 0 | 0 | — |
++| TemplatePublishAudit | -236492924270429194 | YES | 17 → 17 | 0 | 0 | — |
++| TemplateVersion | 3679262402733643249 | YES | 52 → 52 | 0 | 0 | — |
++
++### Authority boundary
++
++This substantially reduces migration uncertainty but does not convert provisional bindings into genuine `build_runner` output. Authentic generation under Flutter 3.44.0 / Dart 3.12.0 / Isar 3.1.0+1 remains mandatory, especially for the nine new workflow collections.
++
++## Dependency and toolchain continuity
++
++The old snapshot and v4.1 have byte-identical:
++
++- `pubspec.yaml`
++- `pubspec.lock`
++- root `package-lock.json`
++- Functions `package-lock.json`
++
++The lockfile resolves Flutter `>=3.44.0`, Dart `>=3.12.0`, Isar `3.1.0+1`, `isar_generator 3.1.0+1`, and `build_runner 2.4.13`.
++
++## Firebase identity evidence
++
++- Old `firebase_options.dart` Android app ID: `1:894346496105:android:fba14febfbbee102e63af8`
++- Old `firebase.json` Android app ID: `1:894346496105:android:c320c57f2393dceee63af8`
++- Corrected v4.1 `firebase.json` Android app ID: `1:894346496105:android:fba14febfbbee102e63af8`
++- Old `firebase_options.dart` SHA-256: `07912823FCC37500C785BE26741B3930087D7A47F02F5E2268F7C7FC1A6031DE`
++
++This independently confirms that the old app contained the same Firebase identity contradiction identified by due diligence, and that v4.1 aligned `firebase.json` to the Android app already embedded in the old generated Firebase options.
++
++## What this archive proves
++
++1. v4.1 retains the old app's source/test/Functions capability inventory.
++2. The original Isar schema IDs are preserved exactly.
++3. The pinned dependency and generator versions are known and unchanged.
++4. The permanent Firebase Android registration selected in v4.1 is supported by the old app's generated Firebase options.
++5. The old source can now be used as a concrete no-loss baseline even without Git connectivity.
++
++## What it does not prove
++
++- Git ancestry or the commit SHA from which the ZIP was assembled;
++- Android Gradle/Kotlin/package identity, because no `android/` directory is present;
++- `google-services.json` parity;
++- authentic v4 Isar generation;
++- migration of a real installed Isar database;
++- Flutter compilation, emulator behaviour, device upgrade or rollback.
++
++## Governing disposition
++
++Treat SHA-256 `84BB9114C05C29777154E5EA7095DFF00850C478A2DB2048FDE5787CD5EB48CC` as the **user-supplied current-pre-v4 source snapshot authority** for source no-loss reconciliation. It does not supersede later repository evidence when Git authority becomes available, but it is materially stronger than reconstructing the old app indirectly from v3.3 artifacts.
+diff --git a/docs/v4_2/ISAR_SCHEMA_CONTINUITY.json b/docs/v4_2/ISAR_SCHEMA_CONTINUITY.json
+new file mode 100644
+index 0000000..cba3bbb
+--- /dev/null
++++ b/docs/v4_2/ISAR_SCHEMA_CONTINUITY.json
+@@ -0,0 +1,286 @@
++{
++  "AbnormalityType": {
++    "old_collection_id": 8484628406258702188,
++    "v_collection_id": 8484628406258702188,
++    "collection_id_same": true,
++    "old_property_count": 22,
++    "v_property_count": 22,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 6,
++    "v_index_count": 6,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "AuditEvent": {
++    "old_collection_id": -228283108298215510,
++    "v_collection_id": -228283108298215510,
++    "collection_id_same": true,
++    "old_property_count": 13,
++    "v_property_count": 13,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 4,
++    "v_index_count": 4,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "BafKnowledgeMatrixMetaStore": {
++    "old_collection_id": -4597930498197848453,
++    "v_collection_id": -4597930498197848453,
++    "collection_id_same": true,
++    "old_property_count": 19,
++    "v_property_count": 19,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 1,
++    "v_index_count": 1,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "BafKnowledgeRow": {
++    "old_collection_id": 6184583526286388735,
++    "v_collection_id": 6184583526286388735,
++    "collection_id_same": true,
++    "old_property_count": 38,
++    "v_property_count": 38,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 1,
++    "v_index_count": 1,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "Charge": {
++    "old_collection_id": 1755725158846388127,
++    "v_collection_id": 1755725158846388127,
++    "collection_id_same": true,
++    "old_property_count": 32,
++    "v_property_count": 32,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 2,
++    "v_index_count": 2,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "ChargeAbnormality": {
++    "old_collection_id": 4068838871833800476,
++    "v_collection_id": 4068838871833800476,
++    "collection_id_same": true,
++    "old_property_count": 30,
++    "v_property_count": 30,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 6,
++    "v_index_count": 6,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "JobDiaryEntry": {
++    "old_collection_id": 3610953931278188100,
++    "v_collection_id": 3610953931278188100,
++    "collection_id_same": true,
++    "old_property_count": 40,
++    "v_property_count": 40,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 13,
++    "v_index_count": 13,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "JobExecution": {
++    "old_collection_id": 8749547484972275668,
++    "v_collection_id": 8749547484972275668,
++    "collection_id_same": true,
++    "old_property_count": 33,
++    "v_property_count": 47,
++    "new_properties": [
++      "cancellationReason",
++      "cancelledAt",
++      "cancelledByName",
++      "cancelledByUid",
++      "isCancelled",
++      "laneMappingReview",
++      "laneSetFinalizedAt",
++      "laneSetFinalizedByName",
++      "laneSetFinalizedByUid",
++      "laneSetVersion",
++      "parentExecutionFirestoreId",
++      "redAnswerJson",
++      "spawnedRedExecutionFirestoreId",
++      "workflowSchemaVersion"
++    ],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 8,
++    "v_index_count": 11,
++    "new_indexes": [
++      "isCancelled",
++      "laneMappingReview",
++      "parentExecutionFirestoreId"
++    ],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "JobModuleInstance": {
++    "old_collection_id": 1431400483870693323,
++    "v_collection_id": 1431400483870693323,
++    "collection_id_same": true,
++    "old_property_count": 73,
++    "v_property_count": 73,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 21,
++    "v_index_count": 21,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "JobTemplate": {
++    "old_collection_id": 7389994387465344115,
++    "v_collection_id": 7389994387465344115,
++    "collection_id_same": true,
++    "old_property_count": 25,
++    "v_property_count": 25,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 4,
++    "v_index_count": 4,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "MaintenanceRecord": {
++    "old_collection_id": 8394037719530270343,
++    "v_collection_id": 8394037719530270343,
++    "collection_id_same": true,
++    "old_property_count": 46,
++    "v_property_count": 65,
++    "new_properties": [
++      "workflowAggregateId",
++      "workflowComplianceId",
++      "workflowConditionRef",
++      "workflowConditionTypeKey",
++      "workflowCorrectionReason",
++      "workflowDeferred",
++      "workflowDeferredAt",
++      "workflowDeferredByName",
++      "workflowDeferredByUid",
++      "workflowOriginLaneKey",
++      "workflowQueueState",
++      "workflowReactivatedAt",
++      "workflowReactivatedByName",
++      "workflowReactivatedByUid",
++      "workflowReleasedAt",
++      "workflowReleasedByName",
++      "workflowReleasedByUid",
++      "workflowTargetLaneKey",
++      "workflowUpdatedAt"
++    ],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 7,
++    "v_index_count": 11,
++    "new_indexes": [
++      "workflowAggregateId",
++      "workflowComplianceId",
++      "workflowDeferred",
++      "workflowQueueState"
++    ],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "OperationalDirective": {
++    "old_collection_id": 8926677232068899510,
++    "v_collection_id": 8926677232068899510,
++    "collection_id_same": true,
++    "old_property_count": 44,
++    "v_property_count": 44,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 6,
++    "v_index_count": 6,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "SyncRejection": {
++    "old_collection_id": -7653774813178690174,
++    "v_collection_id": -7653774813178690174,
++    "collection_id_same": true,
++    "old_property_count": 14,
++    "v_property_count": 14,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 5,
++    "v_index_count": 5,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "TemplatePackage": {
++    "old_collection_id": 7246776624816934243,
++    "v_collection_id": 7246776624816934243,
++    "collection_id_same": true,
++    "old_property_count": 38,
++    "v_property_count": 38,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 8,
++    "v_index_count": 8,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "TemplatePublishAudit": {
++    "old_collection_id": -236492924270429194,
++    "v_collection_id": -236492924270429194,
++    "collection_id_same": true,
++    "old_property_count": 17,
++    "v_property_count": 17,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 7,
++    "v_index_count": 7,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  },
++  "TemplateVersion": {
++    "old_collection_id": 3679262402733643249,
++    "v_collection_id": 3679262402733643249,
++    "collection_id_same": true,
++    "old_property_count": 52,
++    "v_property_count": 52,
++    "new_properties": [],
++    "removed_properties": [],
++    "property_id_mismatches": {},
++    "old_index_count": 7,
++    "v_index_count": 7,
++    "new_indexes": [],
++    "removed_indexes": [],
++    "index_mismatches": {}
++  }
++}
+diff --git a/docs/v4_2/PROGRAMME_AUTHORITY.md b/docs/v4_2/PROGRAMME_AUTHORITY.md
+new file mode 100644
+index 0000000..894fd56
+--- /dev/null
++++ b/docs/v4_2/PROGRAMME_AUTHORITY.md
+@@ -0,0 +1,14 @@
++# CRM3 v4.2 Successor-Programme Authority
++
++v4.2 is the active **source-migration architecture** for CRM3 BAF Ops.
++
++The governing decision is not to minimise change. The objective is to migrate the application's legitimate operational capability into the stronger v3.3/v4 authority model. Old mechanisms may be retained only when they remain the best implementation; otherwise their business, security, evidence or migration guarantee is absorbed into the new design and the conflicting mechanism is fenced or retired.
++
++## Authority distinction
++
++- **v4.2 is authoritative for successor development.**
++- The existing application remains operationally canonical until a governed cutover.
++- The old source is the no-loss, security and migration baseline; it is not an equal architectural authority.
++- Direct deployment, production mutation and field distribution remain prohibited.
++
++The machine-readable decision is `governance/v4_successor_programme_authority_v1.json`.
+diff --git a/docs/v4_2/TOMORROW_LOCAL_TRIAL_RUNBOOK.md b/docs/v4_2/TOMORROW_LOCAL_TRIAL_RUNBOOK.md
+new file mode 100644
+index 0000000..d465741
+--- /dev/null
++++ b/docs/v4_2/TOMORROW_LOCAL_TRIAL_RUNBOOK.md
+@@ -0,0 +1,151 @@
++# CRM3 v4.2 — Tomorrow Local Trial Runbook
++
++## Purpose
++
++This trial validates the **new v4.2 successor architecture** on a local Windows checkout and, optionally, on one controlled test device. The old app is used only as the source of governed Firebase inputs and as an upgrade/data-continuity baseline. The trial does not restore old architectural authority or remove v4 functionality.
++
++## Absolute boundaries
++
++- **NO FIREBASE DEPLOYMENT**
++- **NO PRODUCTION DATA MUTATION**
++- **NO GIT REMOTE MUTATION**
++- **NO PILOT OR FIELD DISTRIBUTION**
++- **NO APP UNINSTALL OR DATA CLEARING**
++
++The script contains no command that performs those actions.
++
++## What this trial attempts
++
++1. Verify the candidate’s internal SHA-256 manifest.
++2. Restore separately governed Firebase configuration files.
++3. Verify project, package, Firebase app ID and `google-services.json` SHA-256.
++4. Verify the pinned Flutter 3.44.0 / Dart 3.12.0 toolchain.
++5. Clean-install and audit the root, Functions and governed Firebase CLI npm trees.
++6. Run authentic Isar `build_runner` generation.
++7. Require the Isar release verifier to pass with no provisional markers.
++8. Run v4.2, v4.1, v4 and inherited source audits.
++9. Run Functions compilation and all non-emulator tests.
++10. Run `flutter analyze`, the full Flutter suite and a debug APK build.
++11. Optionally run the governed Firestore emulator suites.
++12. Optionally install the APK as an in-place upgrade on one backed-up test device.
++13. Produce a timestamped evidence folder and APK hash.
++
++## Prerequisites
++
++Use a Windows workstation with:
++
++- Flutter 3.44.0
++- Dart 3.12.0
++- Java 21
++- Node 22 and npm 10
++- Python 3
++- network access for package restoration if caches are incomplete
++- Android SDK and `adb` only when testing a device
++
++Prepare either:
++
++- the current app root containing `lib/firebase_options.dart` and `android/app/google-services.json`; or
++- those two files as separate explicit paths.
++
++The governed `google-services.json` SHA-256 must be:
++
++```text
++730A044FF0A698C2FBCCF3B993EE6964EE5431CA8C6435DDC02AA98A9848646A
++```
++
++## Recommended first run: build and tests only
++
++From PowerShell:
++
++```powershell
++Set-Location "$HOME\Downloads\CRM3_APP_V4_2_ULTIMATE_LOCAL_TRIAL_CANDIDATE"
++
++pwsh -NoProfile -ExecutionPolicy Bypass -File `
++  ".\tools\v4\Invoke-Crm3V42LocalTrial.ps1" `
++  -CurrentAppRoot "C:\path\to\current\crm3_baf_ops"
++```
++
++Do not use `-AllowToolchainMismatch` for evidence intended to support migration authority.
++
++## Optional emulator run
++
++```powershell
++pwsh -NoProfile -ExecutionPolicy Bypass -File `
++  ".\tools\v4\Invoke-Crm3V42LocalTrial.ps1" `
++  -CurrentAppRoot "C:\path\to\current\crm3_baf_ops" `
++  -RunEmulators `
++  -EmulatorPort 8187
++```
++
++Use `-EmulatorPort` when port 8080 is occupied. The emulator path is local-only. Confirm that no production credentials or service-account environment variables are injected into the shell.
++
++## Optional test-device upgrade
++
++Before this step:
++
++1. Use a non-production or explicitly approved test device.
++2. Record the currently installed package/version.
++3. Back up any evidence or data that can be backed up.
++4. Do not uninstall the current package.
++5. Do not clear application data.
++
++Then run:
++
++```powershell
++adb devices
++
++pwsh -NoProfile -ExecutionPolicy Bypass -File `
++  ".\tools\v4\Invoke-Crm3V42LocalTrial.ps1" `
++  -CurrentAppRoot "C:\path\to\current\crm3_baf_ops" `
++  -InstallOnDevice `
++  -DeviceId "<adb-device-id>"
++```
++
++The script uses an in-place debug APK installation. A successful install is not migration acceptance; open the app and carry out the manual matrix below.
++
++## Manual device matrix after successful installation
++
++Record evidence for:
++
++- app startup without local database loss;
++- login and approved-user role loading;
++- existing charges, abnormalities, directives and maintenance records;
++- planned-job and module visibility;
++- workflow hub, lane and compliance views;
++- deferred ticket → condition confirmation → reactivation;
++- equipment-state projection;
++- notification navigation from foreground, background and terminated state;
++- weak network and reconnection;
++- duplicate command taps and receipt/idempotency behaviour;
++- process kill and restart;
++- test-user role revocation;
++- no malformed projection silently appearing as asset 0, epoch time or empty authority state.
++
++Do not use production data to create artificial workflow events during this first local trial.
++
++## Expected stopping conditions
++
++Stop and preserve the evidence folder when any of these occurs:
++
++- Firebase identity/hash mismatch;
++- Flutter/Dart version mismatch;
++- authentic code generation fails;
++- any provisional Isar marker remains;
++- source audit failure;
++- npm advisory reappears;
++- Functions or Flutter test failure;
++- analysis/build failure;
++- upgrade installation proposes uninstall/data clearing;
++- existing data is missing or structurally altered.
++
++Do not “work around” a failed gate by deleting data, weakening Rules, removing v4 fields or reverting to an old authority path.
++
++## Evidence location
++
++By default, evidence is written inside:
++
++```text
++local_trial_evidence/V4_2_LOCAL_TRIAL_<timestamp>/
++```
++
++The key file is `trial-result.json`. It records each step, result, logs, toolchain and APK SHA-256, and explicitly states that no remote/backend/production mutation was performed.
+diff --git a/firestore.rules b/firestore.rules
+index 501a4df..85b2015 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -21,11 +21,63 @@ service cloud.firestore {
+       return get(/databases/$(database)/documents/users/$(request.auth.uid));
+     }
+ 
++    function validUserRoleList(roles) {
++      return roles is list
++        && roles.size() > 0
++        && roles.size() <= 10
++        && roles.hasOnly([
++          'admin',
++          'si',
++          'contractSupervisor',
++          'shiftSupervisor',
++          'seniorElectrical',
++          'seniorMechanical',
++          'seniorInstrumentation',
++          'seniorRefractory',
++          'refractory',
++          'operations'
++        ]);
++    }
++
++    function validOptionalUserString(value, maxLength) {
++      return value == null
++        || (value is string && value.size() <= maxLength);
++    }
++
++    function validUserDocumentShape(data) {
++      return data.keys().hasAll([
++          'name',
++          'email',
++          'roles',
++          'isApproved',
++          'createdAt'
++        ])
++        && data.keys().hasOnly([
++          'name',
++          'email',
++          'photoUrl',
++          'roles',
++          'isApproved',
++          'fcmToken',
++          'createdAt'
++        ])
++        && data.get('name', null) is string
++        && data.get('name', '').size() > 0
++        && data.get('name', '').size() <= 160
++        && data.get('email', null) is string
++        && data.get('email', '').size() > 0
++        && data.get('email', '').size() <= 320
++        && validOptionalUserString(data.get('photoUrl', null), 2048)
++        && validOptionalUserString(data.get('fcmToken', null), 4096)
++        && validUserRoleList(data.get('roles', null))
++        && data.get('isApproved', null) is bool
++        && data.get('createdAt', null) is timestamp;
++    }
++
+     function isApprovedUser() {
+       return hasUserDoc()
+-        ? (userDoc().data.keys().hasAll(['isApproved', 'roles'])
+-          && userDoc().data.get('isApproved', false) == true
+-          && userDoc().data.get('roles', null) is list)
++        ? (validUserDocumentShape(userDoc().data)
++          && userDoc().data.get('isApproved', false) == true)
+         : false;
+     }
+ 
+@@ -111,36 +163,16 @@ service cloud.firestore {
+     function validPendingUserCreate(userId) {
+       return isSelf(userId)
+         && requestEmailMatchesToken()
+-        ? (request.resource.data.keys().hasAll([
+-            'name',
+-            'email',
+-            'roles',
+-            'isApproved',
+-            'createdAt'
+-          ])
+-          ? (request.resource.data.keys().hasOnly([
+-              'name',
+-              'email',
+-              'photoUrl',
+-              'roles',
+-              'isApproved',
+-              'fcmToken',
+-              'createdAt'
+-            ])
+-            && request.resource.data.get('name', null) is string
+-            && request.resource.data.get('email', null) is string
+-            && request.resource.data.get('roles', []) is list
+-            && request.resource.data.get('roles', []).hasAll(['operations'])
+-            && request.resource.data.get('roles', []).hasOnly(['operations'])
+-            && request.resource.data.get('isApproved', null) == false
+-            && request.resource.data.get('createdAt', null) is timestamp)
+-          : false)
+-        : false;
++        && validUserDocumentShape(request.resource.data)
++        && request.resource.data.get('roles', []).hasAll(['operations'])
++        && request.resource.data.get('roles', []).hasOnly(['operations'])
++        && request.resource.data.get('isApproved', null) == false;
+     }
+ 
+     function validSelfUserUpdate(userId) {
+       return isSelf(userId)
+         && requestEmailMatchesToken()
++        && validUserDocumentShape(request.resource.data)
+         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+           'name',
+           'email',
+@@ -154,34 +186,11 @@ service cloud.firestore {
+ 
+     function validAdminUserWrite(userId) {
+       return isAdmin()
+-        ? (request.resource.data.keys().hasAll([
+-            'name',
+-            'email',
+-            'roles',
+-            'isApproved',
+-            'createdAt'
+-          ])
+-          ? (request.resource.data.keys().hasOnly([
+-              'name',
+-              'email',
+-              'photoUrl',
+-              'roles',
+-              'isApproved',
+-              'fcmToken',
+-              'createdAt'
+-            ])
+-            && request.resource.data.get('name', null) is string
+-            && request.resource.data.get('email', null) is string
+-            && request.resource.data.get('roles', []) is list
+-            && request.resource.data.get('roles', []).size() > 0
+-            && request.resource.data.get('isApproved', null) is bool
+-            && request.resource.data.get('createdAt', null) is timestamp
+-            && (
+-              request.auth.uid != userId
+-              || request.resource.data.get('roles', []).hasAny(['admin'])
+-            ))
+-          : false)
+-        : false;
++        && validUserDocumentShape(request.resource.data)
++        && (
++          request.auth.uid != userId
++          || request.resource.data.get('roles', []).hasAny(['admin'])
++        );
+     }
+ 
+     // ─────────────────────────────────────────────
+diff --git a/functions/package-lock.json b/functions/package-lock.json
+index c7a348d..f15582d 100644
+--- a/functions/package-lock.json
++++ b/functions/package-lock.json
+@@ -1927,9 +1927,9 @@
+       }
+     },
+     "node_modules/body-parser": {
+-      "version": "1.20.4",
+-      "resolved": "https://registry.npmjs.org/body-parser/-/body-parser-1.20.4.tgz",
+-      "integrity": "sha512-ZTgYYLMOXY9qKU/57FAo8F+HA2dGX7bqGc71txDRC1rS4frdFI5R7NhluHxH6M0YItAP0sHB4uqAOcYKxO6uGA==",
++      "version": "1.20.6",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/body-parser/-/body-parser-1.20.6.tgz",
++      "integrity": "sha512-p5tAzS57i5MV9fZFDj9LeIiTZEufbSe2eDozP+ElheSUq1m74CRq1jI4mYNDdVs9vQztXFLuk/Gd6BWTdwRJ5g==",
+       "license": "MIT",
+       "dependencies": {
+         "bytes": "~3.1.2",
+@@ -1940,7 +1940,7 @@
+         "http-errors": "~2.0.1",
+         "iconv-lite": "~0.4.24",
+         "on-finished": "~2.4.1",
+-        "qs": "~6.14.0",
++        "qs": "~6.15.1",
+         "raw-body": "~2.5.3",
+         "type-is": "~1.6.18",
+         "unpipe": "~1.0.0"
+@@ -1951,11 +1951,10 @@
+       }
+     },
+     "node_modules/brace-expansion": {
+-      "version": "1.1.14",
+-      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.14.tgz",
+-      "integrity": "sha512-MWPGfDxnyzKU7rNOW9SP/c50vi3xrmrua/+6hfPbCS2ABNWfx24vPidzvC7krjU/RTo235sV776ymlsMtGKj8g==",
++      "version": "1.1.16",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/brace-expansion/-/brace-expansion-1.1.16.tgz",
++      "integrity": "sha512-IDw48K2/2kRkg9LdJxurvq3lV3aBgq0REY89duEqFRthjlPdXHKMj7EnQOXVckxzgisinf3nHfrcE2FufFLXMw==",
+       "dev": true,
+-      "license": "MIT",
+       "dependencies": {
+         "balanced-match": "^1.0.0",
+         "concat-map": "0.0.1"
+@@ -5307,9 +5306,9 @@
+       }
+     },
+     "node_modules/protobufjs": {
+-      "version": "7.6.4",
+-      "resolved": "https://registry.npmjs.org/protobufjs/-/protobufjs-7.6.4.tgz",
+-      "integrity": "sha512-RJJPTTpvFfHcWLkIa2JFWK4XvtSzS0yEWDmunqHXli1h3JlkbcQZXDZdcWxv+JK3Xsl5/UFDPZ0iGm7DAengYw==",
++      "version": "7.6.5",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/protobufjs/-/protobufjs-7.6.5.tgz",
++      "integrity": "sha512-/FPD0nUc9jH6rfFjji9IBqOz4pcSE3CsT1m7Ep6Mdb0LxSUMj8hgl6GomOvZzpNpAqqGaXA0P3VSrZLFzIhQrw==",
+       "hasInstallScript": true,
+       "license": "BSD-3-Clause",
+       "dependencies": {
+diff --git a/functions/src/maintenanceWorkflow/callable.ts b/functions/src/maintenanceWorkflow/callable.ts
+index d9abc92..ef9057b 100644
+--- a/functions/src/maintenanceWorkflow/callable.ts
++++ b/functions/src/maintenanceWorkflow/callable.ts
+@@ -45,32 +45,49 @@ const parseCommand = (raw: unknown): WorkflowCommand => {
+   };
+ };
+ 
+-const actorFromRequest = async (
+-  request: CallableRequest<unknown>,
+-  db: admin.firestore.Firestore,
+-): Promise<Actor> => {
+-  const uid = request.auth?.uid;
+-  if (!uid) throw new HttpsError("unauthenticated", "Sign in is required.");
+-  const snap = await db.collection("users").doc(uid).get();
+-  if (!snap.exists) throw new HttpsError("permission-denied", "Approved user record was not found.");
+-  const data = snap.data() ?? {};
+-  if (data.isApproved !== true && data.approved !== true && data.status !== "approved") {
++export const workflowActorFromUserDataForTest = (
++  data: Record<string, unknown>,
++  uid: string,
++  tokenName?: string,
++): Actor => {
++  // v4.2 has one approval schema. Legacy aliases such as `approved`,
++  // `status: approved`, or singular `role` are intentionally not authority.
++  if (data.isApproved !== true) {
+     throw new HttpsError("permission-denied", "User is not approved for workflow actions.");
+   }
+-  const rawRoles = Array.isArray(data.roles) ? data.roles : [data.role];
++  if (!Array.isArray(data.roles) || data.roles.length === 0) {
++    throw new HttpsError("permission-denied", "Approved workflow users require a valid role list.");
++  }
+   const roles = new Set<RoleKey>();
+-  for (const value of rawRoles) {
+-    if (typeof value === "string" && SUPPORTED_ROLES.has(value as RoleKey)) {
+-      roles.add(value as RoleKey);
++  for (const value of data.roles) {
++    if (typeof value !== "string" || !SUPPORTED_ROLES.has(value as RoleKey)) {
++      throw new HttpsError("permission-denied", "User role data is malformed or unsupported.");
+     }
++    roles.add(value as RoleKey);
+   }
++  const storedName = typeof data.name === "string" ? data.name.trim() : "";
+   return {
+     uid,
+-    name: typeof data.name === "string" ? data.name : request.auth?.token.name?.toString() ?? uid,
++    name: storedName.length > 0 ? storedName : tokenName?.trim() || uid,
+     roles,
+   };
+ };
+ 
++const actorFromRequest = async (
++  request: CallableRequest<unknown>,
++  db: admin.firestore.Firestore,
++): Promise<Actor> => {
++  const uid = request.auth?.uid;
++  if (!uid) throw new HttpsError("unauthenticated", "Sign in is required.");
++  const snap = await db.collection("users").doc(uid).get();
++  if (!snap.exists) throw new HttpsError("permission-denied", "Approved user record was not found.");
++  return workflowActorFromUserDataForTest(
++    snap.data() ?? {},
++    uid,
++    request.auth?.token.name?.toString(),
++  );
++};
++
+ const toHttpsError = (error: WorkflowError): HttpsError => {
+   const nativeCodes = new Set([
+     "invalid-argument", "unauthenticated", "permission-denied", "not-found",
+diff --git a/functions/src/maintenanceWorkflow/firebaseStore.ts b/functions/src/maintenanceWorkflow/firebaseStore.ts
+index a567881..406fe9c 100644
+--- a/functions/src/maintenanceWorkflow/firebaseStore.ts
++++ b/functions/src/maintenanceWorkflow/firebaseStore.ts
+@@ -6,7 +6,18 @@ const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+ const isTimestampField = (key: string): boolean =>
+   key === "timestamp" || (key !== "appliedAt" && (key.endsWith("At") || key.endsWith("Since") || key.endsWith("DueAt")));
+ 
++const isNativeFirestoreValue = (value: unknown): boolean =>
++  value instanceof admin.firestore.Timestamp ||
++  value instanceof admin.firestore.GeoPoint ||
++  value instanceof admin.firestore.DocumentReference ||
++  value instanceof admin.firestore.FieldValue ||
++  value instanceof Uint8Array;
++
+ const toFirestoreValue = (value: unknown, key = ""): unknown => {
++  // Firestore values read from an earlier transaction step must remain native.
++  // Recursing into Timestamp/GeoPoint/DocumentReference/FieldValue instances
++  // would turn them into ordinary maps and silently corrupt persisted types.
++  if (isNativeFirestoreValue(value)) return value;
+   if (value instanceof Date) return admin.firestore.Timestamp.fromDate(value);
+   if (typeof value === "string" && isTimestampField(key) && ISO_INSTANT.test(value)) {
+     return admin.firestore.Timestamp.fromDate(new Date(value));
+diff --git a/functions/test/maintenanceWorkflowCallableAuthority.test.js b/functions/test/maintenanceWorkflowCallableAuthority.test.js
+new file mode 100644
+index 0000000..2c4a87e
+--- /dev/null
++++ b/functions/test/maintenanceWorkflowCallableAuthority.test.js
+@@ -0,0 +1,39 @@
++const {
++  workflowActorFromUserDataForTest,
++} = require('../lib/maintenanceWorkflow/callable');
++
++describe('maintenance workflow callable user authority', () => {
++  test('accepts only canonical isApproved plus supported role list', () => {
++    const actor = workflowActorFromUserDataForTest({
++      isApproved: true,
++      roles: ['seniorMechanical', 'shiftSupervisor'],
++      name: '  Supervisor  ',
++    }, 'user-1');
++
++    expect(actor.uid).toBe('user-1');
++    expect(actor.name).toBe('Supervisor');
++    expect([...actor.roles].sort()).toEqual(['seniorMechanical', 'shiftSupervisor']);
++  });
++
++  test.each([
++    [{approved: true, roles: ['admin']}],
++    [{status: 'approved', roles: ['admin']}],
++    [{isApproved: true, role: 'admin'}],
++    [{isApproved: true, roles: []}],
++    [{isApproved: true, roles: ['unknownRole']}],
++    [{isApproved: true, roles: ['admin', 7]}],
++  ])('rejects legacy or malformed authority payload %#', (payload) => {
++    expect(() => workflowActorFromUserDataForTest(payload, 'user-bad'))
++      .toThrow();
++  });
++
++  test('falls back only for display name, never for authority', () => {
++    const actor = workflowActorFromUserDataForTest({
++      isApproved: true,
++      roles: ['operations'],
++      name: '',
++    }, 'user-2', 'Token Name');
++    expect(actor.name).toBe('Token Name');
++    expect([...actor.roles]).toEqual(['operations']);
++  });
++});
+diff --git a/functions/test/maintenanceWorkflowFirebaseStore.test.js b/functions/test/maintenanceWorkflowFirebaseStore.test.js
+index 4afa9b9..07032ab 100644
+--- a/functions/test/maintenanceWorkflowFirebaseStore.test.js
++++ b/functions/test/maintenanceWorkflowFirebaseStore.test.js
+@@ -1,7 +1,18 @@
+ const admin = require('firebase-admin');
++const initializedForThisTest = admin.apps.length === 0;
++if (initializedForThisTest) admin.initializeApp({projectId: 'demo-crm3-v42'});
++afterAll(async () => {
++  if (initializedForThisTest && admin.apps.length > 0) await admin.app().delete();
++});
+ const {
+   workflowFirestoreDataForTest,
+ } = require('../lib/maintenanceWorkflow/firebaseStore');
++const {
++  maintenanceProjectionForAwaitingConfirmation,
++} = require('../lib/maintenanceWorkflow/maintenanceBridge');
++const {
++  equipmentProjectionWrite,
++} = require('../lib/maintenanceWorkflow/equipmentFacts');
+ 
+ describe('maintenance workflow Firestore persistence adapter', () => {
+   test('converts all lifecycle deadline fields from ISO instants to Timestamp', () => {
+@@ -40,4 +51,77 @@ describe('maintenance workflow Firestore persistence adapter', () => {
+     expect(converted.appliedAt).toBe(iso);
+     expect(converted.payload.conditionRef).toBe(iso);
+   });
++
++  test('preserves native Firestore values instead of recursively flattening them', () => {
++    const timestamp = admin.firestore.Timestamp.fromDate(new Date('2026-07-21T12:34:56.789Z'));
++    const geoPoint = new admin.firestore.GeoPoint(23.6693, 86.1511);
++    const fieldValue = admin.firestore.FieldValue.serverTimestamp();
++    const bytes = Buffer.from('crm3-v4.2');
++    const reference = admin.firestore().doc('maintenance_records/m-native');
++
++    const converted = workflowFirestoreDataForTest({
++      timestamp,
++      nested: {timestamp, geoPoint, fieldValue, bytes, reference},
++    });
++
++    expect(converted.timestamp).toBe(timestamp);
++    expect(converted.nested.timestamp).toBe(timestamp);
++    expect(converted.nested.geoPoint).toBe(geoPoint);
++    expect(converted.nested.fieldValue).toBe(fieldValue);
++    expect(converted.nested.bytes).toBe(bytes);
++    expect(converted.nested.reference).toBe(reference);
++  });
++
++  test('maintenance awaiting-confirmation path preserves an existing native reactivation time', () => {
++    const existing = admin.firestore.Timestamp.fromDate(new Date('2026-07-20T01:02:03.004Z'));
++    const projection = maintenanceProjectionForAwaitingConfirmation({
++      maintenance: {
++        version: 5,
++        workflowReactivatedAt: existing,
++        workflowReactivatedByUid: 'ops-1',
++        workflowReactivatedByName: 'Operations',
++      },
++      actorUid: 'elec-1',
++      actorName: 'Electrical',
++      at: new Date('2026-07-21T02:00:00.000Z'),
++    });
++
++    const converted = workflowFirestoreDataForTest(projection);
++    expect(converted.workflowReactivatedAt).toBe(existing);
++    expect(converted.workflowUpdatedAt).toBeInstanceOf(admin.firestore.Timestamp);
++  });
++
++  test('equipment projection preserves inServiceSince while converting new transition times', () => {
++    const existing = admin.firestore.Timestamp.fromDate(new Date('2026-07-19T00:00:00.000Z'));
++    const at = '2026-07-21T03:00:00.000Z';
++    const projection = equipmentProjectionWrite(
++      {state: 'inService', inServiceSince: existing, version: 7},
++      {activeNonRedMaintenanceCount: 0, activeRedWorkCount: 0, awaitingPreparationCount: 0},
++      {state: 'inService', conflicts: [], counts: {}},
++      {assetTypeKey: 'furnace', assetNumber: 7, trigger: 'reconcile', at, actorUid: 'admin-1', actorName: 'Admin'},
++    );
++
++    const converted = workflowFirestoreDataForTest(projection);
++    expect(converted.inServiceSince).toBe(existing);
++    expect(converted.lastTransitionAt).toBeInstanceOf(admin.firestore.Timestamp);
++    expect(converted.updatedAt).toBeInstanceOf(admin.firestore.Timestamp);
++  });
++
++  test('counter-condition successor spread preserves inherited native timestamps', () => {
++    const inherited = admin.firestore.Timestamp.fromDate(new Date('2026-07-18T05:00:00.000Z'));
++    const successor = {
++      linkedWorkflowId: 'wf-1',
++      becameDueAt: inherited,
++      priorEvidence: {observedAt: inherited},
++      createdAt: '2026-07-21T04:00:00.000Z',
++      updatedAt: '2026-07-21T04:00:00.000Z',
++    };
++
++    const converted = workflowFirestoreDataForTest(successor);
++    expect(converted.becameDueAt).toBe(inherited);
++    expect(converted.priorEvidence.observedAt).toBe(inherited);
++    expect(converted.createdAt).toBeInstanceOf(admin.firestore.Timestamp);
++    expect(converted.updatedAt).toBeInstanceOf(admin.firestore.Timestamp);
++  });
++
+ });
+diff --git a/functions/test/stage2dSecuritySource.test.js b/functions/test/stage2dSecuritySource.test.js
+index 84a4dae..4991fba 100644
+--- a/functions/test/stage2dSecuritySource.test.js
++++ b/functions/test/stage2dSecuritySource.test.js
+@@ -195,12 +195,12 @@ describe("Stage 2D source security candidate", () => {
+   test("remediates deployed and root-tooling high advisory packages", () => {
+     const packages = packageLock.packages;
+     expect(packages["node_modules/form-data"].version).toBe("2.5.6");
+-    expect(packages["node_modules/protobufjs"].version).toBe("7.6.4");
++    expect(packages["node_modules/protobufjs"].version).toBe("7.6.5");
+     expect(packages["node_modules/@protobufjs/inquire"]).toBeUndefined();
+ 
+-    expect(rootPackage.overrides.protobufjs).toBe("7.6.4");
++    expect(rootPackage.overrides.protobufjs).toBe("7.6.5");
+     expect(rootPackageLock.packages["node_modules/protobufjs"].version)
+-      .toBe("7.6.4");
++      .toBe("7.6.5");
+     expect(rootPackageLock.packages["node_modules/@protobufjs/inquire"])
+       .toBeUndefined();
+   });
+diff --git a/functions/test/userRulesHardeningSource.test.js b/functions/test/userRulesHardeningSource.test.js
+index 4edc14e..5093a6d 100644
+--- a/functions/test/userRulesHardeningSource.test.js
++++ b/functions/test/userRulesHardeningSource.test.js
+@@ -3,15 +3,18 @@ const path = require('path');
+ 
+ const rules = fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf8');
+ 
+-describe('user document schema perimeter', () => {
+-  test('admin writes are constrained to the approved top-level schema', () => {
+-    const start = rules.indexOf('function validAdminUserWrite');
+-    const end = rules.indexOf('// ─────────────────────────────────────────────', start);
+-    expect(start).toBeGreaterThanOrEqual(0);
+-    const block = rules.slice(start, end);
++const functionBlock = (name, nextMarker) => {
++  const start = rules.indexOf(`function ${name}`);
++  expect(start).toBeGreaterThanOrEqual(0);
++  const end = nextMarker == null ? rules.length : rules.indexOf(nextMarker, start);
++  return rules.slice(start, end < 0 ? rules.length : end);
++};
+ 
+-    expect(block).toContain("request.resource.data.keys().hasAll([");
+-    expect(block).toContain("request.resource.data.keys().hasOnly([");
++describe('user document schema perimeter', () => {
++  test('all user writes consume one exact document-shape validator', () => {
++    const shape = functionBlock('validUserDocumentShape', 'function isApprovedUser');
++    expect(shape).toContain('data.keys().hasAll([');
++    expect(shape).toContain('data.keys().hasOnly([');
+     for (const field of [
+       'name',
+       'email',
+@@ -21,7 +24,36 @@ describe('user document schema perimeter', () => {
+       'fcmToken',
+       'createdAt',
+     ]) {
+-      expect(block).toContain(`'${field}'`);
++      expect(shape).toContain(`'${field}'`);
++    }
++    expect(functionBlock('validPendingUserCreate', 'function validSelfUserUpdate'))
++      .toContain('validUserDocumentShape(request.resource.data)');
++    expect(functionBlock('validSelfUserUpdate', 'function validAdminUserWrite'))
++      .toContain('validUserDocumentShape(request.resource.data)');
++    expect(functionBlock('validAdminUserWrite', '// ─────────────────────────────────────────────'))
++      .toContain('validUserDocumentShape(request.resource.data)');
++  });
++
++  test('roles are restricted to the canonical vocabulary and non-empty list', () => {
++    const block = functionBlock('validUserRoleList', 'function validOptionalUserString');
++    expect(block).toContain('roles is list');
++    expect(block).toContain('roles.size() > 0');
++    expect(block).toContain('roles.size() <= 10');
++    expect(block).toContain('roles.hasOnly([');
++    for (const role of [
++      'admin', 'si', 'contractSupervisor', 'shiftSupervisor',
++      'seniorElectrical', 'seniorMechanical', 'seniorInstrumentation',
++      'seniorRefractory', 'refractory', 'operations',
++    ]) {
++      expect(block).toContain(`'${role}'`);
+     }
+   });
++
++  test('optional profile values are typed and bounded', () => {
++    const block = functionBlock('validUserDocumentShape', 'function isApprovedUser');
++    expect(block).toContain("validOptionalUserString(data.get('photoUrl', null), 2048)");
++    expect(block).toContain("validOptionalUserString(data.get('fcmToken', null), 4096)");
++    expect(block).toContain("data.get('name', '').size() <= 160");
++    expect(block).toContain("data.get('email', '').size() <= 320");
++  });
+ });
+diff --git a/governance/v4_successor_programme_authority_v1.json b/governance/v4_successor_programme_authority_v1.json
+new file mode 100644
+index 0000000..4228a78
+--- /dev/null
++++ b/governance/v4_successor_programme_authority_v1.json
+@@ -0,0 +1,59 @@
++{
++  "authorityId": "CRM3-V4-SUCCESSOR-PROGRAMME-V1",
++  "authorityDate": "2026-07-22",
++  "status": "ACTIVE_SOURCE_MIGRATION",
++  "authorityBasis": "Explicit project direction: migrate to the v4 successor architecture and preserve v3.3/v4 capabilities; retain old-app guarantees without preserving conflicting legacy mechanisms merely to reduce change.",
++  "governingPriority": "MIGRATE_TO_NEW_ARCHITECTURE",
++  "developmentAuthority": {
++    "successorArchitecture": "v4.2",
++    "currentOperationalApplication": "remains operationally canonical until governed cutover",
++    "legacyApplicationRole": "capability, security, data-continuity and migration baseline; not equal architectural authority"
++  },
++  "nonNegotiableSuccessorCapabilities": [
++    "server-authoritative command gateway",
++    "receipt-first idempotency",
++    "optimistic aggregate concurrency",
++    "generated cross-platform workflow policy",
++    "discipline lanes including EMD, Refractory and SHARED",
++    "compliance and counter-condition workflow",
++    "maintenance-ticket deferral bridge",
++    "RED preparation and successor workflow",
++    "canonical equipment projection",
++    "canonical closure with module/evidence attestation",
++    "whole-workflow cancellation projection",
++    "escalation, notifications, quarantine and diagnostics"
++  ],
++  "legacyTreatment": {
++    "preserve": [
++      "valid business capability",
++      "security closure",
++      "audit and evidence guarantee",
++      "source and data continuity",
++      "recovery and release governance"
++    ],
++    "adaptIntoSuccessor": true,
++    "preserveConflictingAuthorityPath": false,
++    "avoidChangeAsDesignGoal": false
++  },
++  "currentTrialAuthority": {
++    "sourceCorrection": "AUTHORIZED",
++    "localBuildAndTest": "AUTHORIZED_ON_NON_PRODUCTION_ENVIRONMENT",
++    "emulatorExecution": "AUTHORIZED",
++    "testDeviceUpgrade": "AUTHORIZED_WITH_DATA_BACKUP_AND_NO_UNINSTALL",
++    "gitRemoteMutation": "NOT_AUTHORIZED_BY_THIS_ARTIFACT",
++    "firebaseDeployment": "NOT_AUTHORIZED",
++    "productionDataMutation": "NOT_AUTHORIZED",
++    "pilotHandout": "NOT_AUTHORIZED",
++    "fieldDistribution": "NOT_AUTHORIZED"
++  },
++  "mandatoryBeforeCutover": [
++    "exact governed repository reconciliation",
++    "governed Firebase configuration restoration and identity proof",
++    "authentic pinned Isar generation",
++    "real old-database migration proof",
++    "Flutter analysis and full tests",
++    "Rules and Functions emulator proof",
++    "Android build and physical-device upgrade matrix",
++    "signing, App Check, recovery and rollback proof"
++  ]
++}
+diff --git a/lib/features/auth/data/user_model.dart b/lib/features/auth/data/user_model.dart
+index f74c107..0f060e2 100644
+--- a/lib/features/auth/data/user_model.dart
++++ b/lib/features/auth/data/user_model.dart
+@@ -5,23 +5,27 @@ import 'package:cloud_firestore/cloud_firestore.dart';
+ import '../../maintenance/data/maintenance_model.dart';
+ import '../../maintenance_workflow/domain/workflow_policy_generated.dart';
+ 
+-AppRole _parseAppRole(dynamic value) {
+-  if (value is! String) return AppRole.operations;
++AppRole? _parseAppRole(dynamic value) {
++  if (value is! String) return null;
+   for (final role in AppRole.values) {
+     if (role.name == value) return role;
+   }
+-  return AppRole.operations;
++  return null;
+ }
+ 
+ List<AppRole> _parseRoles(dynamic value) {
+-  if (value is! List) return [AppRole.operations];
++  if (value is! List || value.isEmpty) return const <AppRole>[];
+ 
+   final roles = <AppRole>{};
+   for (final raw in value) {
+-    roles.add(_parseAppRole(raw));
++    final parsed = _parseAppRole(raw);
++    // Authority data fails closed. Unknown/non-string roles must never be
++    // reinterpreted as Operations or any other valid permission.
++    if (parsed == null) return const <AppRole>[];
++    roles.add(parsed);
+   }
+ 
+-  return roles.isEmpty ? [AppRole.operations] : roles.toList();
++  return List<AppRole>.unmodifiable(roles);
+ }
+ 
+ String _cleanText(dynamic value) {
+@@ -525,13 +529,15 @@ class AppUser {
+   // ───────────────────────────────────────────────────────────
+ 
+   factory AppUser.fromFirestore(Map<String, dynamic> data, String uid) {
++    final parsedRoles = _parseRoles(data['roles']);
+     return AppUser(
+       uid: uid,
+       name: _cleanText(data['name']),
+       email: _cleanText(data['email']),
+       photoUrl: _cleanOptionalText(data['photoUrl']),
+-      roles: _parseRoles(data['roles']),
+-      isApproved: data['isApproved'] == true,
++      roles: parsedRoles,
++      // A malformed role payload cannot remain an approved local authority.
++      isApproved: data['isApproved'] == true && parsedRoles.isNotEmpty,
+       fcmToken: _cleanOptionalText(data['fcmToken']),
+       createdAt: _parseDateTime(data['createdAt']),
+     );
+diff --git a/lib/features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart b/lib/features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart
+index 99c5779..d5bac70 100644
+--- a/lib/features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart
++++ b/lib/features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart
+@@ -10,23 +10,103 @@ import '../data/job_lane_record.dart';
+ import '../data/workflow_aggregate_record.dart';
+ import '../data/workflow_event_record.dart';
+ 
+-DateTime _date(dynamic value) {
++const Set<String> _assetTypeKeys = <String>{
++  'base', 'furnace', 'forceCooler', 'innerCover',
++};
++const Set<String> _workflowStatusKeys = <String>{
++  'pendingLaneClassification', 'assigned', 'partiallyAcknowledged',
++  'fullyAcknowledged', 'inProgress', 'awaitingCompliance',
++  'readyForClosure', 'completed', 'cancelled',
++};
++const Set<String> _laneKeys = <String>{
++  'elec', 'mech', 'inst', 'oprn', 'emd', 'red', 'shared',
++};
++const Set<String> _laneStatusKeys = <String>{
++  'pending', 'acknowledged', 'closed', 'removed', 'terminated',
++};
++const Set<String> _complianceStatusKeys = <String>{
++  'raised', 'acknowledged', 'complied', 'confirmedClosed',
++  'superseded', 'cancelled',
++};
++const Set<String> _conditionTypeKeys = <String>{
++  'manual', 'chargeComplete', 'activityRef',
++};
++const Set<String> _priorityKeys = <String>{
++  'low', 'medium', 'high', 'critical',
++};
++const Set<String> _equipmentStateKeys = <String>{
++  'available', 'inService', 'underMaintenance', 'underRED',
++  'awaitingPreparation',
++};
++const Set<String> _promptTypeKeys = <String>{
++  'question', 'applicabilityMarker',
++};
++
++Never _projectionError(String field, dynamic value, [String? detail]) {
++  final suffix = detail == null ? '' : ' ($detail)';
++  throw FormatException(
++    'Invalid authority-critical workflow projection field "$field"$suffix: '
++    '${value.runtimeType}',
++  );
++}
++
++DateTime _date(dynamic value, [String field = 'date']) {
+   if (value is Timestamp) return value.toDate().toUtc();
+   if (value is DateTime) return value.toUtc();
+-  if (value is String) return DateTime.tryParse(value)?.toUtc() ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+-  return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
++  if (value is String) {
++    final parsed = DateTime.tryParse(value);
++    if (parsed != null) return parsed.toUtc();
++  }
++  return _projectionError(field, value, 'required timestamp');
+ }
+ 
+-String? _string(dynamic value) {
+-  final result = value?.toString().trim();
+-  return result == null || result.isEmpty ? null : result;
++String? _string(dynamic value, [String field = 'string']) {
++  if (value == null) return null;
++  if (value is! String) return _projectionError(field, value, 'expected string');
++  final result = value.trim();
++  return result.isEmpty ? null : result;
+ }
+ 
+-DateTime? _optionalDate(dynamic value) {
+-  if (value is Timestamp) return value.toDate().toUtc();
+-  if (value is DateTime) return value.toUtc();
+-  if (value is String) return DateTime.tryParse(value)?.toUtc();
+-  return null;
++String _requiredString(
++  Map<String, dynamic> data,
++  String field, {
++  Set<String>? allowed,
++}) {
++  final result = _string(data[field], field);
++  if (result == null) return _projectionError(field, data[field], 'required non-empty string');
++  if (allowed != null && !allowed.contains(result)) {
++    return _projectionError(field, data[field], 'unsupported value');
++  }
++  return result;
++}
++
++int _requiredInt(
++  Map<String, dynamic> data,
++  String field, {
++  int minimum = 0,
++}) {
++  final value = data[field];
++  if (value is! num || !value.isFinite || value.toInt() != value) {
++    return _projectionError(field, value, 'required integer');
++  }
++  final result = value.toInt();
++  if (result < minimum) return _projectionError(field, value, 'minimum $minimum');
++  return result;
++}
++
++int _optionalInt(
++  Map<String, dynamic> data,
++  String field, {
++  required int fallback,
++  int minimum = 0,
++}) {
++  if (data[field] == null) return fallback;
++  return _requiredInt(data, field, minimum: minimum);
++}
++
++DateTime? _optionalDate(dynamic value, [String field = 'date']) {
++  if (value == null) return null;
++  return _date(value, field);
+ }
+ 
+ class WorkflowRemoteFailure {
+@@ -70,15 +150,15 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
+   return ComplianceRequestRecord()
+     ..firestoreId = documentId
+     ..isSynced = true
+-    ..version = (data['version'] as num?)?.toInt() ?? 1
+-    ..title = _string(data['title']) ?? ''
+-    ..description = _string(data['description']) ?? ''
++    ..version = _requiredInt(data, 'version', minimum: 1)
++    ..title = _requiredString(data, 'title')
++    ..description = _requiredString(data, 'description')
+     ..originLaneKey = _string(data['originLaneKey'])
+-    ..targetLaneKey = _string(data['targetLaneKey']) ?? 'unknown'
+-    ..statusKey = _string(data['status']) ?? 'raised'
+-    ..conditionTypeKey = _string(data['conditionTypeKey']) ?? 'manual'
++    ..targetLaneKey = _requiredString(data, 'targetLaneKey', allowed: _laneKeys)
++    ..statusKey = _requiredString(data, 'status', allowed: _complianceStatusKeys)
++    ..conditionTypeKey = _requiredString(data, 'conditionTypeKey', allowed: _conditionTypeKeys)
+     ..conditionRef = _string(data['conditionRef'])
+-    ..priorityKey = _string(data['priorityKey']) ?? 'medium'
++    ..priorityKey = _requiredString(data, 'priorityKey', allowed: _priorityKeys)
+     ..raisedByUid = _string(data['raisedByUid'])
+     ..raisedByName = _string(data['raisedByName'])
+     ..raisedAt = _optionalDate(data['raisedAt'])
+@@ -90,7 +170,7 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
+     ..compliedAt = _optionalDate(data['compliedAt'])
+     ..complianceNote = _string(data['complianceNote'])
+     ..currentAttemptId = _string(data['currentAttemptId'])
+-    ..attemptCount = (data['attemptCount'] as num?)?.toInt() ?? 0
++    ..attemptCount = _optionalInt(data, 'attemptCount', fallback: 0)
+     ..confirmedByUid = _string(data['confirmedByUid'])
+     ..confirmedByName = _string(data['confirmedByName'])
+     ..confirmedAt = _optionalDate(data['confirmedAt'])
+@@ -99,7 +179,7 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
+     ..dueMarkedByUid = _string(data['dueMarkedByUid'])
+     ..dueMarkedByName = _string(data['dueMarkedByName'])
+     ..dueMarkedAt = _optionalDate(data['dueMarkedAt'])
+-    ..counterDepth = (data['counterDepth'] as num?)?.toInt() ?? 0
++    ..counterDepth = _optionalInt(data, 'counterDepth', fallback: 0)
+     ..counterConditionOfId = _string(data['counterConditionOfId'])
+     ..supersededById = _string(data['supersededById'])
+     ..counterProposedByUid = _string(counterProposal?['proposedByUid'])
+@@ -110,26 +190,26 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
+     ..counterDecisionByName = _string(counterDecision?['decidedByName'])
+     ..counterDecisionAt = _optionalDate(counterDecision?['decidedAt'])
+     ..counterDecisionNote = _string(counterDecision?['note'])
+-    ..correctionCount = (data['correctionCount'] as num?)?.toInt() ?? 0
++    ..correctionCount = _optionalInt(data, 'correctionCount', fallback: 0)
+     ..lastCorrectionByUid = _string(data['lastCorrectionByUid'])
+     ..lastCorrectionByName = _string(data['lastCorrectionByName'])
+     ..lastCorrectionAt = _optionalDate(data['lastCorrectionAt'])
+     ..lastCorrectionReason = _string(data['lastCorrectionReason'])
+-    ..linkedWorkflowId = _string(data['linkedWorkflowId'])
++    ..linkedWorkflowId = _requiredString(data, 'linkedWorkflowId')
+     ..linkedMaintenanceFirestoreId = _string(data['linkedMaintenanceFirestoreId'])
+     ..linkedExecutionFirestoreId = _string(data['linkedExecutionFirestoreId'])
+     ..linkedLaneFirestoreId = _string(data['linkedLaneFirestoreId'])
+     ..linkedModuleFirestoreId = _string(data['linkedModuleFirestoreId'])
+     ..gatesLaneFirestoreId = _string(data['gatesLaneFirestoreId'])
+-    ..assetTypeKey = _string(data['assetTypeKey']) ?? 'base'
+-    ..assetNumber = (data['assetNumber'] as num?)?.toInt() ?? 0
++    ..assetTypeKey = _requiredString(data, 'assetTypeKey', allowed: _assetTypeKeys)
++    ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
+     ..chargeNoAtEvent = (data['chargeNoAtEvent'] as num?)?.toInt()
+-    ..escalationTier = (data['escalationTier'] as num?)?.toInt() ?? 0
++    ..escalationTier = _optionalInt(data, 'escalationTier', fallback: 0)
+     ..lastEscalatedAt = _optionalDate(data['lastEscalatedAt'])
+     ..acknowledgementDueAt = _optionalDate(data['acknowledgementDueAt'])
+     ..complianceDueAt = _optionalDate(data['complianceDueAt'])
+-    ..createdAt = _date(data['createdAt'])
+-    ..updatedAt = _date(data['updatedAt'])
++    ..createdAt = _date(data['createdAt'], 'createdAt')
++    ..updatedAt = _date(data['updatedAt'], 'updatedAt')
+     ..isDeleted = data['isDeleted'] == true
+     ..deletedAt = _optionalDate(data['deletedAt'])
+     ..deletedByUid = _string(data['deletedByUid'])
+@@ -170,9 +250,13 @@ class FirestoreWorkflowReadRepository {
+       if (cursor != null) pageQuery = pageQuery.startAfterDocument(cursor);
+       final page = await pageQuery.get();
+       for (final document in page.docs) {
+-        final observedAt = _optionalDate(document.data()[timestampField]);
+-        if (observedAt != null) observedTimestamps.add(observedAt);
++        DateTime? observedAt;
+         try {
++          observedAt = _optionalDate(
++            document.data()[timestampField],
++            timestampField,
++          );
++          if (observedAt != null) observedTimestamps.add(observedAt);
+           records.add(map(document));
+         } catch (error) {
+           failures.add(
+@@ -255,48 +339,48 @@ class FirestoreWorkflowReadRepository {
+     final data = doc.data() ?? const <String, dynamic>{};
+     return WorkflowAggregateRecord()
+       ..firestoreId = doc.id
+-      ..jobExecutionFirestoreId = _string(data['jobExecutionId']) ?? doc.id
+-      ..assetTypeKey = _string(data['assetTypeKey']) ?? 'base'
+-      ..assetNumber = (data['assetNumber'] as num?)?.toInt() ?? 0
+-      ..statusKey = _string(data['status']) ?? 'pendingLaneClassification'
+-      ..workflowSchemaVersion = (data['workflowSchemaVersion'] as num?)?.toInt() ?? 1
+-      ..version = (data['version'] as num?)?.toInt() ?? 0
+-      ..laneSetVersion = (data['laneSetVersion'] as num?)?.toInt() ?? 0
+-      ..laneSetFinalizedAt = data['laneSetFinalizedAt'] == null ? null : _date(data['laneSetFinalizedAt'])
++      ..jobExecutionFirestoreId = _requiredString(data, 'jobExecutionId')
++      ..assetTypeKey = _requiredString(data, 'assetTypeKey', allowed: _assetTypeKeys)
++      ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
++      ..statusKey = _requiredString(data, 'status', allowed: _workflowStatusKeys)
++      ..workflowSchemaVersion = _requiredInt(data, 'workflowSchemaVersion', minimum: 1)
++      ..version = _requiredInt(data, 'version')
++      ..laneSetVersion = _requiredInt(data, 'laneSetVersion')
++      ..laneSetFinalizedAt = _optionalDate(data['laneSetFinalizedAt'], 'laneSetFinalizedAt')
+       ..laneSetFinalizedByUid = _string(data['laneSetFinalizedByUid'])
+       ..laneSetFinalizedByName = _string(data['laneSetFinalizedByName'])
+       ..activeRedWork = data['activeRedWork'] == true
+       ..awaitingPreparation = data['awaitingPreparation'] == true
+       ..cancelled = data['cancelled'] == true
+-      ..completedAt = data['completedAt'] == null ? null : _date(data['completedAt'])
+-      ..createdAt = _date(data['createdAt'])
+-      ..updatedAt = _date(data['updatedAt']);
++      ..completedAt = _optionalDate(data['completedAt'], 'completedAt')
++      ..createdAt = _date(data['createdAt'], 'createdAt')
++      ..updatedAt = _date(data['updatedAt'], 'updatedAt');
+   }
+ 
+   JobLaneRecord _lane(DocumentSnapshot<Map<String, dynamic>> doc) {
+     final data = doc.data() ?? const <String, dynamic>{};
+     return JobLaneRecord()
+       ..firestoreId = doc.id
+-      ..workflowFirestoreId = _string(data['workflowId']) ?? ''
+-      ..jobExecutionFirestoreId = _string(data['jobExecutionId']) ?? ''
+-      ..laneKey = _string(data['laneKey']) ?? 'unknown'
+-      ..statusKey = _string(data['status']) ?? 'pending'
+-      ..activationGeneration = (data['activationGeneration'] as num?)?.toInt() ?? 1
+-      ..version = (data['version'] as num?)?.toInt() ?? 1
+-      ..progressRevision = (data['progressRevision'] as num?)?.toInt() ?? 0
++      ..workflowFirestoreId = _requiredString(data, 'workflowId')
++      ..jobExecutionFirestoreId = _requiredString(data, 'jobExecutionId')
++      ..laneKey = _requiredString(data, 'laneKey', allowed: _laneKeys)
++      ..statusKey = _requiredString(data, 'status', allowed: _laneStatusKeys)
++      ..activationGeneration = _requiredInt(data, 'activationGeneration', minimum: 1)
++      ..version = _requiredInt(data, 'version', minimum: 1)
++      ..progressRevision = _optionalInt(data, 'progressRevision', fallback: 0)
+       ..isSynced = true
+       ..acknowledgedByUid = _string(data['acknowledgedByUid'])
+       ..acknowledgedByName = _string(data['acknowledgedByName'])
+-      ..acknowledgedAt = data['acknowledgedAt'] == null ? null : _date(data['acknowledgedAt'])
++      ..acknowledgedAt = _optionalDate(data['acknowledgedAt'], 'acknowledgedAt')
+       ..representedLaneKey = _string(data['representedLaneKey'])
+       ..delegationBasis = _string(data['delegationBasis'])
+       ..gatingComplianceRequestId = _string(data['gatingComplianceRequestId'])
+-      ..assetTypeKey = _string(data['assetTypeKey']) ?? 'base'
+-      ..assetNumber = (data['assetNumber'] as num?)?.toInt() ?? 0
+-      ..displayOrder = (data['displayOrder'] as num?)?.toInt() ?? 0
+-      ..acknowledgementDueAt = data['acknowledgementDueAt'] == null ? null : _date(data['acknowledgementDueAt'])
+-      ..createdAt = _date(data['createdAt'])
+-      ..updatedAt = _date(data['updatedAt']);
++      ..assetTypeKey = _requiredString(data, 'assetTypeKey', allowed: _assetTypeKeys)
++      ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
++      ..displayOrder = _optionalInt(data, 'displayOrder', fallback: 0)
++      ..acknowledgementDueAt = _optionalDate(data['acknowledgementDueAt'], 'acknowledgementDueAt')
++      ..createdAt = _date(data['createdAt'], 'createdAt')
++      ..updatedAt = _date(data['updatedAt'], 'updatedAt');
+   }
+ 
+   ComplianceRequestRecord _compliance(DocumentSnapshot<Map<String, dynamic>> doc) {
+@@ -311,19 +395,19 @@ class FirestoreWorkflowReadRepository {
+     return EquipmentStatusRecord()
+       ..firestoreId = doc.id
+       ..isSynced = true
+-      ..version = (data['version'] as num?)?.toInt() ?? 1
+-      ..assetTypeKey = _string(data['assetTypeKey']) ?? 'base'
+-      ..assetNumber = (data['assetNumber'] as num?)?.toInt() ?? 0
+-      ..stateKey = _string(data['state']) ?? 'inService'
+-      ..openMaintenanceCount = (data['activeNonRedMaintenanceCount'] as num?)?.toInt() ?? 0
+-      ..openRedCount = (data['activeRedWorkCount'] as num?)?.toInt() ?? 0
+-      ..awaitingPreparationCount = (data['awaitingPreparationCount'] as num?)?.toInt() ?? 0
+-      ..previousStateKey = _string(data['previousState']) ?? 'inService'
++      ..version = _requiredInt(data, 'version', minimum: 1)
++      ..assetTypeKey = _requiredString(data, 'assetTypeKey', allowed: _assetTypeKeys)
++      ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
++      ..stateKey = _requiredString(data, 'state', allowed: _equipmentStateKeys)
++      ..openMaintenanceCount = _requiredInt(data, 'activeNonRedMaintenanceCount')
++      ..openRedCount = _requiredInt(data, 'activeRedWorkCount')
++      ..awaitingPreparationCount = _requiredInt(data, 'awaitingPreparationCount')
++      ..previousStateKey = _requiredString(data, 'previousState', allowed: _equipmentStateKeys)
+       ..transitionTrigger = _string(data['transitionTrigger'])
+-      ..lastTransitionAt = data['lastTransitionAt'] == null ? null : _date(data['lastTransitionAt'])
++      ..lastTransitionAt = _optionalDate(data['lastTransitionAt'], 'lastTransitionAt')
+       ..lastTransitionByUid = _string(data['lastTransitionByUid'])
+       ..lastTransitionByName = _string(data['lastTransitionByName'])
+-      ..updatedAt = _date(data['updatedAt']);
++      ..updatedAt = _date(data['updatedAt'], 'updatedAt');
+   }
+ 
+   EquipmentPromptRecord _prompt(DocumentSnapshot<Map<String, dynamic>> doc) {
+@@ -331,10 +415,10 @@ class FirestoreWorkflowReadRepository {
+     return EquipmentPromptRecord()
+       ..firestoreId = doc.id
+       ..isSynced = true
+-      ..version = (data['version'] as num?)?.toInt() ?? 1
+-      ..assetTypeKey = _string(data['assetTypeKey']) ?? 'base'
+-      ..promptKey = _string(data['promptKey']) ?? ''
+-      ..promptTypeKey = _string(data['promptTypeKey']) ?? 'question'
++      ..version = _requiredInt(data, 'version', minimum: 1)
++      ..assetTypeKey = _requiredString(data, 'assetTypeKey', allowed: _assetTypeKeys)
++      ..promptKey = _requiredString(data, 'promptKey')
++      ..promptTypeKey = _requiredString(data, 'promptTypeKey', allowed: _promptTypeKeys)
+       ..question = _string(data['question'])
+       ..appliesWhenLaneKey = _string(data['appliesWhenLaneKey'])
+       ..complianceTargetLaneKey = _string(data['complianceTargetLaneKey'])
+@@ -343,23 +427,23 @@ class FirestoreWorkflowReadRepository {
+       ..successorTemplateVersionId = _string(data['successorTemplateVersionId'])
+       ..successorTemplateContentHash = _string(data['successorTemplateContentHash'])
+       ..active = data['active'] != false
+-      ..createdAt = _date(data['createdAt'])
+-      ..updatedAt = _date(data['updatedAt']);
++      ..createdAt = _date(data['createdAt'], 'createdAt')
++      ..updatedAt = _date(data['updatedAt'], 'updatedAt');
+   }
+ 
+   WorkflowEventRecord _event(DocumentSnapshot<Map<String, dynamic>> doc) {
+     final data = doc.data() ?? const <String, dynamic>{};
+     return WorkflowEventRecord()
+       ..firestoreId = doc.id
+-      ..aggregateId = _string(data['aggregateId']) ?? ''
+-      ..eventTypeKey = _string(data['eventType']) ?? 'unknown'
++      ..aggregateId = _requiredString(data, 'aggregateId')
++      ..eventTypeKey = _requiredString(data, 'eventType')
+       ..laneKey = _string(data['laneKey'])
+       ..representedLaneKey = _string(data['representedLaneKey'])
+       ..actorUid = _string(data['actorUid'])
+       ..actorName = _string(data['actorName'])
+       ..commandId = _string(data['commandId'])
+       ..payloadJson = jsonEncode(data['payload'] ?? const <String, Object?>{})
+-      ..occurredAt = _date(data['occurredAt'])
++      ..occurredAt = _date(data['occurredAt'], 'occurredAt')
+       ..isSynced = true;
+   }
+ 
+@@ -367,19 +451,19 @@ class FirestoreWorkflowReadRepository {
+     final data = doc.data() ?? const <String, dynamic>{};
+     return ComplianceAttemptRecord()
+       ..firestoreId = doc.id
+-      ..complianceRequestFirestoreId = _string(data['complianceRequestId']) ?? ''
+-      ..attemptNumber = (data['attemptNumber'] as num?)?.toInt() ?? 1
+-      ..attemptedByUid = _string(data['attemptedByUid']) ?? ''
++      ..complianceRequestFirestoreId = _requiredString(data, 'complianceRequestId')
++      ..attemptNumber = _requiredInt(data, 'attemptNumber', minimum: 1)
++      ..attemptedByUid = _requiredString(data, 'attemptedByUid')
+       ..attemptedByName = _string(data['attemptedByName'])
+-      ..attemptedAt = _date(data['attemptedAt'])
++      ..attemptedAt = _date(data['attemptedAt'], 'attemptedAt')
+       ..note = _string(data['note']) ?? ''
+       ..accepted = data['accepted'] == true
+       ..acceptedByUid = _string(data['acceptedByUid'])
+       ..acceptedByName = _string(data['acceptedByName'])
+-      ..acceptedAt = data['acceptedAt'] == null ? null : _date(data['acceptedAt'])
++      ..acceptedAt = _optionalDate(data['acceptedAt'], 'acceptedAt')
+       ..returnedByUid = _string(data['returnedByUid'])
+       ..returnedByName = _string(data['returnedByName'])
+-      ..returnedAt = data['returnedAt'] == null ? null : _date(data['returnedAt'])
++      ..returnedAt = _optionalDate(data['returnedAt'], 'returnedAt')
+       ..returnReason = _string(data['returnReason'])
+       ..isSynced = true;
+   }
+diff --git a/package-lock.json b/package-lock.json
+index 5e0e493..e548545 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -2406,11 +2406,10 @@
+       }
+     },
+     "node_modules/brace-expansion": {
+-      "version": "2.1.0",
+-      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.0.tgz",
+-      "integrity": "sha512-TN1kCZAgdgweJhWWpgKYrQaMNHcDULHkWwQIspdtjV4Y5aurRdZpjAqn6yX3FPqTA9ngHCc4hJxMAMgGfve85w==",
++      "version": "2.1.2",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/brace-expansion/-/brace-expansion-2.1.2.tgz",
++      "integrity": "sha512-w5JZcKgdhDOgOwm8H+KgbosopHMuGcl6qbulwjtz3SM7I7P3yW1eAjzMPLrIE+NQ9vjgANKHWeMHnrT0OXW1oA==",
+       "dev": true,
+-      "license": "MIT",
+       "dependencies": {
+         "balanced-match": "^1.0.0"
+       }
+@@ -4405,9 +4404,9 @@
+       }
+     },
+     "node_modules/protobufjs": {
+-      "version": "7.6.4",
+-      "resolved": "https://registry.npmjs.org/protobufjs/-/protobufjs-7.6.4.tgz",
+-      "integrity": "sha512-RJJPTTpvFfHcWLkIa2JFWK4XvtSzS0yEWDmunqHXli1h3JlkbcQZXDZdcWxv+JK3Xsl5/UFDPZ0iGm7DAengYw==",
++      "version": "7.6.5",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/protobufjs/-/protobufjs-7.6.5.tgz",
++      "integrity": "sha512-/FPD0nUc9jH6rfFjji9IBqOz4pcSE3CsT1m7Ep6Mdb0LxSUMj8hgl6GomOvZzpNpAqqGaXA0P3VSrZLFzIhQrw==",
+       "dev": true,
+       "hasInstallScript": true,
+       "license": "BSD-3-Clause",
+@@ -4831,11 +4830,10 @@
+       }
+     },
+     "node_modules/test-exclude/node_modules/brace-expansion": {
+-      "version": "1.1.14",
+-      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.14.tgz",
+-      "integrity": "sha512-MWPGfDxnyzKU7rNOW9SP/c50vi3xrmrua/+6hfPbCS2ABNWfx24vPidzvC7krjU/RTo235sV776ymlsMtGKj8g==",
++      "version": "1.1.16",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/brace-expansion/-/brace-expansion-1.1.16.tgz",
++      "integrity": "sha512-IDw48K2/2kRkg9LdJxurvq3lV3aBgq0REY89duEqFRthjlPdXHKMj7EnQOXVckxzgisinf3nHfrcE2FufFLXMw==",
+       "dev": true,
+-      "license": "MIT",
+       "dependencies": {
+         "balanced-match": "^1.0.0",
+         "concat-map": "0.0.1"
+diff --git a/package.json b/package.json
+index 6acef99..0698742 100644
+--- a/package.json
++++ b/package.json
+@@ -24,7 +24,7 @@
+     "jest": "^30.4.2"
+   },
+   "overrides": {
+-    "protobufjs": "7.6.4",
++    "protobufjs": "7.6.5",
+     "@grpc/grpc-js": "1.9.16",
+     "@babel/core": "7.29.6",
+     "js-yaml": "3.15.0"
+diff --git a/release/production-release-policy.json b/release/production-release-policy.json
+index db077f6..bf0dc51 100644
+--- a/release/production-release-policy.json
++++ b/release/production-release-policy.json
+@@ -79,13 +79,13 @@
+       "Unrestricted plant release is not approved",
+       "Controlled-pilot distribution requires a separate post-build promotion record bound to the exact governed package hash",
+       "O-06 App Check remains open",
+-      "O-07 dependency remediation remains open",
+       "O-08 closure concurrency remains open",
+       "O-09 assignment emulator and continuous PR coverage remain partial",
+       "O-10 physical-device, weak-network and package-ID cutover proof remains open",
+       "O-11 recovery drill remains partial",
+       "O-12 operator acceptance remains open",
+-      "Do not uninstall or clear the placeholder app until device-specific no-loss cutover is signed off"
++      "Do not uninstall or clear the placeholder app until device-specific no-loss cutover is signed off",
++      "Dependency audits must be re-run on the exact artifact-construction lockfiles"
+     ],
+     "unrestrictedPlantReleaseApproved": false,
+     "postBuildPromotionRequiredForAnyDistribution": true
+@@ -93,9 +93,9 @@
+   "toolchain": {
+     "bundletoolUrl": "https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar",
+     "bundletoolSha256": "A099CFA1543F55593BC2ED16A70A7C67FE54B1747BB7301F37FDFD6D91028E29",
+-    "firebaseToolsVersion": "15.17.0",
++    "firebaseToolsVersion": "15.22.4",
+     "firebaseToolsLockfile": "tooling/firebase-cli/package-lock.json",
+-    "firebaseToolsLockfileSha256": "7E738C479BA2C799229B9361A109A42E9AE7E01D193AD919F3B77348D281E74C",
++    "firebaseToolsLockfileSha256": "EC7B54707E26E2FF7C00A9C08DB96DCDC22325FCF4CC4752FEB65CFEC1D33287",
+     "linuxIsarCoreSha256": "7DC70DF7A2FBF63CD552ECA36708B6DEEB68CBD2AA270C1E201215E0BFC38EF1",
+     "linuxIsarCoreAuthorityReceipt": "release/approvals/linux-isar-core-authority.json",
+     "githubActionPinsFile": "release/github-actions-pins.json",
+@@ -108,7 +108,6 @@
+   },
+   "knownOpenGates": [
+     "O-06 Firebase App Check",
+-    "O-07 high-severity dependencies",
+     "O-08 closure concurrency",
+     "O-09 assignment emulator and continuous CI",
+     "O-10 physical-device, weak-network and package-ID cutover",
+diff --git a/test/maintenance_workflow/compliance_request_mapper_test.dart b/test/maintenance_workflow/compliance_request_mapper_test.dart
+index e5ab78d..1fa9f38 100644
+--- a/test/maintenance_workflow/compliance_request_mapper_test.dart
++++ b/test/maintenance_workflow/compliance_request_mapper_test.dart
+@@ -96,4 +96,51 @@ void main() {
+     expect(record.isDeleted, isTrue);
+     expect(jsonDecode(record.metadataJson!), containsPair('source', 'test'));
+   });
++
++  test('authority-critical malformed compliance data fails closed', () {
++    final base = <String, dynamic>{
++      'version': 1,
++      'title': 'Valid title',
++      'description': 'Valid description',
++      'targetLaneKey': 'mech',
++      'status': 'raised',
++      'conditionTypeKey': 'manual',
++      'priorityKey': 'medium',
++      'linkedWorkflowId': 'wf-1',
++      'assetTypeKey': 'furnace',
++      'assetNumber': 7,
++      'createdAt': DateTime.utc(2026, 7, 21),
++      'updatedAt': DateTime.utc(2026, 7, 21),
++    };
++
++    expect(
++      () => complianceRequestRecordFromFirestoreData(
++        documentId: 'bad-status',
++        data: <String, dynamic>{...base, 'status': 'inventedState'},
++      ),
++      throwsFormatException,
++    );
++    expect(
++      () => complianceRequestRecordFromFirestoreData(
++        documentId: 'bad-date',
++        data: <String, dynamic>{...base, 'updatedAt': 'not-a-date'},
++      ),
++      throwsFormatException,
++    );
++    expect(
++      () => complianceRequestRecordFromFirestoreData(
++        documentId: 'bad-asset',
++        data: <String, dynamic>{...base, 'assetNumber': 0},
++      ),
++      throwsFormatException,
++    );
++    expect(
++      () => complianceRequestRecordFromFirestoreData(
++        documentId: 'bad-title',
++        data: <String, dynamic>{...base, 'title': 42},
++      ),
++      throwsFormatException,
++    );
++  });
++
+ }
+diff --git a/test/user_authority_schema_test.dart b/test/user_authority_schema_test.dart
+new file mode 100644
+index 0000000..7301453
+--- /dev/null
++++ b/test/user_authority_schema_test.dart
+@@ -0,0 +1,54 @@
++import 'package:flutter_test/flutter_test.dart';
++import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
++import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
++
++void main() {
++  Map<String, dynamic> baseUser({dynamic roles, dynamic approved = true}) =>
++      <String, dynamic>{
++        'name': 'Test User',
++        'email': 'test@example.com',
++        'roles': roles,
++        'isApproved': approved,
++        'createdAt': DateTime.utc(2026, 7, 21),
++      };
++
++  test('canonical approved role list is preserved', () {
++    final user = AppUser.fromFirestore(
++      baseUser(roles: <String>['seniorMechanical', 'shiftSupervisor']),
++      'u1',
++    );
++    expect(user.isApproved, isTrue);
++    expect(user.roles, containsAll(<AppRole>[
++      AppRole.seniorMechanical,
++      AppRole.shiftSupervisor,
++    ]));
++  });
++
++  test('unknown roles fail closed instead of becoming Operations', () {
++    final user = AppUser.fromFirestore(
++      baseUser(roles: <dynamic>['admin', 'futureUnknownRole']),
++      'u2',
++    );
++    expect(user.isApproved, isFalse);
++    expect(user.roles, isEmpty);
++    expect(user.isOperations, isFalse);
++  });
++
++  test('legacy singular role and missing role list fail closed', () {
++    final user = AppUser.fromFirestore(<String, dynamic>{
++      ...baseUser(roles: null),
++      'role': 'admin',
++    }, 'u3');
++    expect(user.isApproved, isFalse);
++    expect(user.roles, isEmpty);
++  });
++
++  test('canonical isApproved is the only approval field', () {
++    final user = AppUser.fromFirestore(<String, dynamic>{
++      ...baseUser(roles: <String>['admin'], approved: false),
++      'approved': true,
++      'status': 'approved',
++    }, 'u4');
++    expect(user.isApproved, isFalse);
++  });
++}
+diff --git a/tooling/firebase-cli/package-lock.json b/tooling/firebase-cli/package-lock.json
+index 0be7187..58a3a5b 100644
+--- a/tooling/firebase-cli/package-lock.json
++++ b/tooling/firebase-cli/package-lock.json
+@@ -281,12 +281,11 @@
+       }
+     },
+     "node_modules/@hono/node-server": {
+-      "version": "1.19.14",
+-      "resolved": "https://registry.npmjs.org/@hono/node-server/-/node-server-1.19.14.tgz",
+-      "integrity": "sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==",
+-      "license": "MIT",
++      "version": "2.0.5",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/@hono/node-server/-/node-server-2.0.5.tgz",
++      "integrity": "sha512-yQFvDmyDo3y6rEOJZDUYPJ49DIKTPpIk4kGvm40xx4Ejne0Pu9a1+exxPN+C1UppWK/WGZX9F++/Xs231tE86g==",
+       "engines": {
+-        "node": ">=18.14.1"
++        "node": ">=20"
+       },
+       "peerDependencies": {
+         "hono": "^4"
+@@ -776,43 +775,6 @@
+         "node": ">= 0.6"
+       }
+     },
+-    "node_modules/@modelcontextprotocol/sdk/node_modules/body-parser": {
+-      "version": "2.3.0",
+-      "resolved": "https://registry.npmjs.org/body-parser/-/body-parser-2.3.0.tgz",
+-      "integrity": "sha512-2cGmJupaNgg+QUwVLAucDuWuoMZ6EX9iHDRswZ5lsNYEmwPaRknMPCLZz07yTzVq/83p4o/wzbDZbBrTvGGTIw==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "bytes": "^3.1.2",
+-        "content-type": "^2.0.0",
+-        "debug": "^4.4.3",
+-        "http-errors": "^2.0.1",
+-        "iconv-lite": "^0.7.2",
+-        "on-finished": "^2.4.1",
+-        "qs": "^6.15.2",
+-        "raw-body": "^3.0.2",
+-        "type-is": "^2.1.0"
+-      },
+-      "engines": {
+-        "node": ">=18"
+-      },
+-      "funding": {
+-        "type": "opencollective",
+-        "url": "https://opencollective.com/express"
+-      }
+-    },
+-    "node_modules/@modelcontextprotocol/sdk/node_modules/body-parser/node_modules/content-type": {
+-      "version": "2.0.0",
+-      "resolved": "https://registry.npmjs.org/content-type/-/content-type-2.0.0.tgz",
+-      "integrity": "sha512-j/O/d7GcZCyNl7/hwZAb606rzqkyvaDctLmckbxLzHvFBzTJHuGEdodATcP3yIRoDrLHkIATJuvzbFlp/ki2cQ==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=18"
+-      },
+-      "funding": {
+-        "type": "opencollective",
+-        "url": "https://opencollective.com/express"
+-      }
+-    },
+     "node_modules/@modelcontextprotocol/sdk/node_modules/content-disposition": {
+       "version": "1.1.0",
+       "resolved": "https://registry.npmjs.org/content-disposition/-/content-disposition-1.1.0.tgz",
+@@ -895,6 +857,111 @@
+         "url": "https://opencollective.com/express"
+       }
+     },
++    "node_modules/@modelcontextprotocol/sdk/node_modules/express/node_modules/body-parser": {
++      "version": "1.20.6",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/body-parser/-/body-parser-1.20.6.tgz",
++      "integrity": "sha512-p5tAzS57i5MV9fZFDj9LeIiTZEufbSe2eDozP+ElheSUq1m74CRq1jI4mYNDdVs9vQztXFLuk/Gd6BWTdwRJ5g==",
++      "license": "MIT",
++      "dependencies": {
++        "bytes": "~3.1.2",
++        "content-type": "~1.0.5",
++        "debug": "2.6.9",
++        "depd": "2.0.0",
++        "destroy": "~1.2.0",
++        "http-errors": "~2.0.1",
++        "iconv-lite": "~0.4.24",
++        "on-finished": "~2.4.1",
++        "qs": "~6.15.1",
++        "raw-body": "~2.5.3",
++        "type-is": "~1.6.18",
++        "unpipe": "~1.0.0"
++      },
++      "engines": {
++        "node": ">= 0.8",
++        "npm": "1.2.8000 || >= 1.4.16"
++      }
++    },
++    "node_modules/@modelcontextprotocol/sdk/node_modules/express/node_modules/body-parser/node_modules/debug": {
++      "version": "2.6.9",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/debug/-/debug-2.6.9.tgz",
++      "integrity": "sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==",
++      "dependencies": {
++        "ms": "2.0.0"
++      }
++    },
++    "node_modules/@modelcontextprotocol/sdk/node_modules/express/node_modules/body-parser/node_modules/mime-types": {
++      "version": "2.1.35",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/mime-types/-/mime-types-2.1.35.tgz",
++      "integrity": "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw==",
++      "license": "MIT",
++      "dependencies": {
++        "mime-db": "1.52.0"
++      },
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/@modelcontextprotocol/sdk/node_modules/express/node_modules/body-parser/node_modules/type-is": {
++      "version": "1.6.18",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/type-is/-/type-is-1.6.18.tgz",
++      "integrity": "sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==",
++      "dependencies": {
++        "media-typer": "0.3.0",
++        "mime-types": "~2.1.24"
++      },
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/@modelcontextprotocol/sdk/node_modules/express/node_modules/iconv-lite": {
++      "version": "0.4.24",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/iconv-lite/-/iconv-lite-0.4.24.tgz",
++      "integrity": "sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==",
++      "license": "MIT",
++      "dependencies": {
++        "safer-buffer": ">= 2.1.2 < 3"
++      },
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
++    "node_modules/@modelcontextprotocol/sdk/node_modules/express/node_modules/media-typer": {
++      "version": "0.3.0",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/media-typer/-/media-typer-0.3.0.tgz",
++      "integrity": "sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/@modelcontextprotocol/sdk/node_modules/express/node_modules/mime-db": {
++      "version": "1.52.0",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/mime-db/-/mime-db-1.52.0.tgz",
++      "integrity": "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg==",
++      "engines": {
++        "node": ">= 0.6"
++      }
++    },
++    "node_modules/@modelcontextprotocol/sdk/node_modules/express/node_modules/ms": {
++      "version": "2.0.0",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/ms/-/ms-2.0.0.tgz",
++      "integrity": "sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A=="
++    },
++    "node_modules/@modelcontextprotocol/sdk/node_modules/express/node_modules/raw-body": {
++      "version": "2.5.3",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/raw-body/-/raw-body-2.5.3.tgz",
++      "integrity": "sha512-s4VSOf6yN0rvbRZGxs8Om5CWj6seneMwK3oDb4lWDH0UPhWcxwOWw5+qk24bxq87szX1ydrwylIOp2uG1ojUpA==",
++      "license": "MIT",
++      "dependencies": {
++        "bytes": "~3.1.2",
++        "http-errors": "~2.0.1",
++        "iconv-lite": "~0.4.24",
++        "unpipe": "~1.0.0"
++      },
++      "engines": {
++        "node": ">= 0.8"
++      }
++    },
+     "node_modules/@modelcontextprotocol/sdk/node_modules/finalhandler": {
+       "version": "2.1.1",
+       "resolved": "https://registry.npmjs.org/finalhandler/-/finalhandler-2.1.1.tgz",
+@@ -1725,9 +1792,9 @@
+       }
+     },
+     "node_modules/body-parser": {
+-      "version": "1.20.5",
+-      "resolved": "https://registry.npmjs.org/body-parser/-/body-parser-1.20.5.tgz",
+-      "integrity": "sha512-3grm+/2tUOvu2cjJkvsIxrv/wVpfXQW4PsQHYm7yk4vfpu7Ekl6nEsYBoJUL6qDwZUx8wUhQ8tR2qz+ad9c9OA==",
++      "version": "1.20.6",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/body-parser/-/body-parser-1.20.6.tgz",
++      "integrity": "sha512-p5tAzS57i5MV9fZFDj9LeIiTZEufbSe2eDozP+ElheSUq1m74CRq1jI4mYNDdVs9vQztXFLuk/Gd6BWTdwRJ5g==",
+       "license": "MIT",
+       "dependencies": {
+         "bytes": "~3.1.2",
+@@ -1852,10 +1919,9 @@
+       }
+     },
+     "node_modules/brace-expansion": {
+-      "version": "1.1.15",
+-      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.15.tgz",
+-      "integrity": "sha512-EwOCDEex4quD37XhqM3omwtMoJjr//isUZz1JopUNWms+4Z2ViyM/k1YIRePpoVNnQhENnxtFjLaxNHrT7xIUg==",
+-      "license": "MIT",
++      "version": "1.1.16",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/brace-expansion/-/brace-expansion-1.1.16.tgz",
++      "integrity": "sha512-IDw48K2/2kRkg9LdJxurvq3lV3aBgq0REY89duEqFRthjlPdXHKMj7EnQOXVckxzgisinf3nHfrcE2FufFLXMw==",
+       "dependencies": {
+         "balanced-match": "^1.0.0",
+         "concat-map": "0.0.1"
+@@ -3230,9 +3296,9 @@
+       "license": "MIT"
+     },
+     "node_modules/fast-uri": {
+-      "version": "3.1.2",
+-      "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.2.tgz",
+-      "integrity": "sha512-rVjf7ArG3LTk+FS6Yw81V1DLuZl1bRbNrev6Tmd/9RaroeeRRJhAt7jg/6YFxbvAQXUCavSoZhPPj6oOx+5KjQ==",
++      "version": "3.1.3",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/fast-uri/-/fast-uri-3.1.3.tgz",
++      "integrity": "sha512-i70LwGWUduXqzicKXWshooq+sWL1K3WUU5rKZNG/0i3a1OSoX3HqhH5WbWwTmqWfor4urUakGPiRQcleRZTwOg==",
+       "funding": [
+         {
+           "type": "github",
+@@ -3242,8 +3308,7 @@
+           "type": "opencollective",
+           "url": "https://opencollective.com/fastify"
+         }
+-      ],
+-      "license": "BSD-3-Clause"
++      ]
+     },
+     "node_modules/fecha": {
+       "version": "4.2.3",
+@@ -3698,10 +3763,9 @@
+       }
+     },
+     "node_modules/glob/node_modules/brace-expansion": {
+-      "version": "2.1.1",
+-      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.1.tgz",
+-      "integrity": "sha512-WR1cURNjuvBLMZBMbqM0UoE+WAfdUcEV1ccD8PVBVOI+Z3ND4+SZbN8RsfT2bMuG1qwz5RFvPukSZm5fF2D5eA==",
+-      "license": "MIT",
++      "version": "2.1.2",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/brace-expansion/-/brace-expansion-2.1.2.tgz",
++      "integrity": "sha512-w5JZcKgdhDOgOwm8H+KgbosopHMuGcl6qbulwjtz3SM7I7P3yW1eAjzMPLrIE+NQ9vjgANKHWeMHnrT0OXW1oA==",
+       "dependencies": {
+         "balanced-match": "^1.0.0"
+       }
+@@ -5832,9 +5896,9 @@
+       }
+     },
+     "node_modules/protobufjs": {
+-      "version": "7.6.4",
+-      "resolved": "https://registry.npmjs.org/protobufjs/-/protobufjs-7.6.4.tgz",
+-      "integrity": "sha512-RJJPTTpvFfHcWLkIa2JFWK4XvtSzS0yEWDmunqHXli1h3JlkbcQZXDZdcWxv+JK3Xsl5/UFDPZ0iGm7DAengYw==",
++      "version": "7.6.5",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/protobufjs/-/protobufjs-7.6.5.tgz",
++      "integrity": "sha512-/FPD0nUc9jH6rfFjji9IBqOz4pcSE3CsT1m7Ep6Mdb0LxSUMj8hgl6GomOvZzpNpAqqGaXA0P3VSrZLFzIhQrw==",
+       "hasInstallScript": true,
+       "license": "BSD-3-Clause",
+       "dependencies": {
+@@ -6084,10 +6148,9 @@
+       }
+     },
+     "node_modules/readdir-glob/node_modules/brace-expansion": {
+-      "version": "2.1.1",
+-      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.1.tgz",
+-      "integrity": "sha512-WR1cURNjuvBLMZBMbqM0UoE+WAfdUcEV1ccD8PVBVOI+Z3ND4+SZbN8RsfT2bMuG1qwz5RFvPukSZm5fF2D5eA==",
+-      "license": "MIT",
++      "version": "2.1.2",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/brace-expansion/-/brace-expansion-2.1.2.tgz",
++      "integrity": "sha512-w5JZcKgdhDOgOwm8H+KgbosopHMuGcl6qbulwjtz3SM7I7P3yW1eAjzMPLrIE+NQ9vjgANKHWeMHnrT0OXW1oA==",
+       "dependencies": {
+         "balanced-match": "^1.0.0"
+       }
+@@ -6839,10 +6902,9 @@
+       }
+     },
+     "node_modules/superstatic/node_modules/brace-expansion": {
+-      "version": "2.1.1",
+-      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.1.tgz",
+-      "integrity": "sha512-WR1cURNjuvBLMZBMbqM0UoE+WAfdUcEV1ccD8PVBVOI+Z3ND4+SZbN8RsfT2bMuG1qwz5RFvPukSZm5fF2D5eA==",
+-      "license": "MIT",
++      "version": "2.1.2",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/brace-expansion/-/brace-expansion-2.1.2.tgz",
++      "integrity": "sha512-w5JZcKgdhDOgOwm8H+KgbosopHMuGcl6qbulwjtz3SM7I7P3yW1eAjzMPLrIE+NQ9vjgANKHWeMHnrT0OXW1oA==",
+       "dependencies": {
+         "balanced-match": "^1.0.0"
+       }
+@@ -6915,9 +6977,9 @@
+       }
+     },
+     "node_modules/tar": {
+-      "version": "7.5.16",
+-      "resolved": "https://registry.npmjs.org/tar/-/tar-7.5.16.tgz",
+-      "integrity": "sha512-56adEpPMouktRlBLXiaYFFzZ/3+JXa8P9n7WbR+ibIjtviN55mEaOkiysCnPnWm+7kkui1Dn8J9l+g6zV8731w==",
++      "version": "7.5.20",
++      "resolved": "https://packages.applied-caas-gateway1.internal.api.openai.org/artifactory/api/npm/npm-public/tar/-/tar-7.5.20.tgz",
++      "integrity": "sha512-9FcyK4PA6+WbzlTM9WhQm6vB5W7cP7dUiPsv1g7YDwEQnQ1CGpK3MGlKk/ITVWMk05kHZuBhmVhiv8LZoy/PFQ==",
+       "license": "BlueOak-1.0.0",
+       "dependencies": {
+         "@isaacs/fs-minipass": "^4.0.0",
+diff --git a/tooling/firebase-cli/package.json b/tooling/firebase-cli/package.json
+index 2f92083..754a5b3 100644
+--- a/tooling/firebase-cli/package.json
++++ b/tooling/firebase-cli/package.json
+@@ -9,6 +9,13 @@
+     "gaxios": "7.1.5",
+     "@google-cloud/pubsub@5.3.1": {
+       "@opentelemetry/core": "2.8.0"
+-    }
++    },
++    "@hono/node-server": "2.0.5",
++    "body-parser": "1.20.6",
++    "brace-expansion@^1.0.0": "1.1.16",
++    "brace-expansion@^2.0.0": "2.1.2",
++    "protobufjs": "7.6.5",
++    "tar": "7.5.20",
++    "fast-uri": "3.1.3"
+   }
+ }
+diff --git a/tools/release/Test-ProductionReleasePolicy.ps1 b/tools/release/Test-ProductionReleasePolicy.ps1
+index 1d3666f..c589de5 100644
+--- a/tools/release/Test-ProductionReleasePolicy.ps1
++++ b/tools/release/Test-ProductionReleasePolicy.ps1
+@@ -28,7 +28,7 @@ $ExpectedToolchain = [ordered]@{
+   npmVersion = '10.9.2'
+   flutterVersion = '3.44.0'
+   dartVersion = '3.12.0'
+-  firebaseToolsVersion = '15.17.0'
++  firebaseToolsVersion = '15.22.4'
+ }
+ 
+ function Get-Sha256 {
+diff --git a/tools/v4/Invoke-Crm3V42LocalTrial.ps1 b/tools/v4/Invoke-Crm3V42LocalTrial.ps1
+new file mode 100644
+index 0000000..9874c52
+--- /dev/null
++++ b/tools/v4/Invoke-Crm3V42LocalTrial.ps1
+@@ -0,0 +1,316 @@
++[CmdletBinding()]
++param(
++  [string]$CandidatePath = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path,
++  [string]$CurrentAppRoot,
++  [string]$FirebaseOptionsPath,
++  [string]$GoogleServicesPath,
++  [string]$EvidenceRoot,
++  [switch]$RunEmulators,
++  [ValidateRange(1024, 65535)][int]$EmulatorPort = 8080,
++  [switch]$InstallOnDevice,
++  [string]$DeviceId,
++  [switch]$AllowToolchainMismatch,
++  [switch]$SkipFlutterTests
++)
++
++Set-StrictMode -Version Latest
++$ErrorActionPreference = 'Stop'
++$ProgressPreference = 'SilentlyContinue'
++
++$expectedProjectId = 'crm3-baf-ops-b8638'
++$expectedPackage = 'in.co.sail.bsl.crm3.bafops'
++$expectedFirebaseAppId = '1:894346496105:android:fba14febfbbee102e63af8'
++$expectedGoogleServicesSha256 = '730A044FF0A698C2FBCCF3B993EE6964EE5431CA8C6435DDC02AA98A9848646A'
++$expectedFlutter = '3.44.0'
++$expectedDart = '3.12.0'
++
++$CandidatePath = (Resolve-Path $CandidatePath).Path
++if (-not $EvidenceRoot) {
++  $EvidenceRoot = Join-Path $CandidatePath 'local_trial_evidence'
++}
++$runStamp = Get-Date -Format 'yyyyMMdd_HHmmss'
++$evidenceDir = Join-Path $EvidenceRoot "V4_2_LOCAL_TRIAL_$runStamp"
++New-Item -ItemType Directory -Force -Path $evidenceDir | Out-Null
++$transcript = Join-Path $evidenceDir 'trial-transcript.txt'
++Start-Transcript -Path $transcript -Force | Out-Null
++
++$steps = [System.Collections.Generic.List[object]]::new()
++$startedAt = (Get-Date).ToUniversalTime().ToString('o')
++
++function Add-StepResult {
++  param([string]$Name, [string]$Status, [string]$Log, [string]$Detail = '')
++  $steps.Add([ordered]@{ name = $Name; status = $Status; log = $Log; detail = $Detail })
++}
++
++function Invoke-CheckedStep {
++  param(
++    [Parameter(Mandatory)][string]$Name,
++    [Parameter(Mandatory)][scriptblock]$Action,
++    [string]$WorkingDirectory = $CandidatePath
++  )
++  $safeName = ($Name -replace '[^A-Za-z0-9_.-]', '_')
++  $log = Join-Path $evidenceDir "$safeName.log"
++  Write-Host "`n===== $Name =====" -ForegroundColor Cyan
++  Push-Location $WorkingDirectory
++  try {
++    $global:LASTEXITCODE = 0
++    & $Action 2>&1 | Tee-Object -FilePath $log
++    $exitCode = if ($null -eq $global:LASTEXITCODE) { 0 } else { [int]$global:LASTEXITCODE }
++    if ($exitCode -ne 0) {
++      Add-StepResult -Name $Name -Status 'FAIL' -Log $log -Detail "exitCode=$exitCode"
++      throw "$Name failed with exit code $exitCode"
++    }
++    Add-StepResult -Name $Name -Status 'PASS' -Log $log
++  }
++  catch {
++    if (-not ($steps | Where-Object { $_.name -eq $Name -and $_.status -eq 'FAIL' })) {
++      Add-StepResult -Name $Name -Status 'FAIL' -Log $log -Detail $_.Exception.Message
++    }
++    throw
++  }
++  finally {
++    Pop-Location
++  }
++}
++
++function Assert-Command {
++  param([Parameter(Mandatory)][string]$Name)
++  if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
++    throw "Required command not found: $Name"
++  }
++}
++
++function Get-Sha256 {
++  param([Parameter(Mandatory)][string]$Path)
++  return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToUpperInvariant()
++}
++
++function Write-GeneratedBindingInventory {
++  param([Parameter(Mandatory)][string]$OutputPath)
++  $items = Get-ChildItem -LiteralPath (Join-Path $CandidatePath 'lib') -Recurse -File -Filter '*.g.dart' |
++    Sort-Object FullName |
++    ForEach-Object {
++      [ordered]@{
++        path = [IO.Path]::GetRelativePath($CandidatePath, $_.FullName).Replace('\','/')
++        sha256 = Get-Sha256 $_.FullName
++        provisional = (Select-String -LiteralPath $_.FullName -Pattern 'PROVISIONAL_V4_ISAR_CODEGEN' -Quiet)
++      }
++    }
++  $items | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $OutputPath -Encoding UTF8
++}
++
++try {
++  Write-Host 'CRM3 v4.2 governed local trial' -ForegroundColor Green
++  Write-Host "Candidate: $CandidatePath"
++  Write-Host "Evidence:  $evidenceDir"
++  Write-Host 'Scope: local source/build/test only; no remote repository or production backend action is performed.'
++
++  foreach ($required in @(
++    'firebase.json',
++    'firestore.rules',
++    'governance/v4_successor_programme_authority_v1.json',
++    'release/production-release-policy.json',
++    'tools/v4/v4_2_ultimate_audit.py'
++  )) {
++    if (-not (Test-Path -LiteralPath (Join-Path $CandidatePath $required) -PathType Leaf)) {
++      throw "Candidate is incomplete; missing $required"
++    }
++  }
++
++  Assert-Command 'node'
++  Assert-Command 'npm'
++  Assert-Command 'flutter'
++  Assert-Command 'dart'
++
++  $pythonCommand = Get-Command 'python' -ErrorAction SilentlyContinue
++  $pythonPrefix = @()
++  if (-not $pythonCommand) {
++    $pythonCommand = Get-Command 'py' -ErrorAction SilentlyContinue
++    $pythonPrefix = @('-3')
++  }
++  if (-not $pythonCommand) { throw 'Python 3 is required.' }
++  $pythonExe = $pythonCommand.Source
++
++  $manifestPath = Join-Path $CandidatePath 'V4_2_HANDOFF/FILE_SHA256SUMS.txt'
++  if (Test-Path -LiteralPath $manifestPath) {
++    Invoke-CheckedStep -Name '01_candidate_manifest' -Action {
++      & $pythonExe @pythonPrefix 'tools/v4/verify_file_manifest.py' '--manifest' 'V4_2_HANDOFF/FILE_SHA256SUMS.txt' '--root' '.'
++    }
++  }
++
++  if (-not $FirebaseOptionsPath -and $CurrentAppRoot) {
++    $FirebaseOptionsPath = Join-Path $CurrentAppRoot 'lib/firebase_options.dart'
++  }
++  if (-not $GoogleServicesPath -and $CurrentAppRoot) {
++    $GoogleServicesPath = Join-Path $CurrentAppRoot 'android/app/google-services.json'
++  }
++  if (-not $FirebaseOptionsPath -or -not (Test-Path -LiteralPath $FirebaseOptionsPath -PathType Leaf)) {
++    throw 'Provide -FirebaseOptionsPath or -CurrentAppRoot containing lib/firebase_options.dart.'
++  }
++  if (-not $GoogleServicesPath -or -not (Test-Path -LiteralPath $GoogleServicesPath -PathType Leaf)) {
++    throw 'Provide -GoogleServicesPath or -CurrentAppRoot containing android/app/google-services.json.'
++  }
++  $FirebaseOptionsPath = (Resolve-Path $FirebaseOptionsPath).Path
++  $GoogleServicesPath = (Resolve-Path $GoogleServicesPath).Path
++
++  $firebaseOptionsText = Get-Content -LiteralPath $FirebaseOptionsPath -Raw
++  if ($firebaseOptionsText -notmatch [regex]::Escape($expectedProjectId) -or
++      $firebaseOptionsText -notmatch [regex]::Escape($expectedFirebaseAppId)) {
++    throw 'firebase_options.dart does not match the governed Firebase project/app identity.'
++  }
++  $googleServices = Get-Content -LiteralPath $GoogleServicesPath -Raw | ConvertFrom-Json
++  if ([string]$googleServices.project_info.project_id -ne $expectedProjectId) {
++    throw 'google-services.json project_id does not match the governed project.'
++  }
++  $matchingClient = @($googleServices.client | Where-Object {
++    $_.client_info.android_client_info.package_name -eq $expectedPackage -and
++    $_.client_info.mobilesdk_app_id -eq $expectedFirebaseAppId
++  })
++  if ($matchingClient.Count -ne 1) {
++    throw 'google-services.json does not contain exactly one governed package/app registration.'
++  }
++  $googleSha = Get-Sha256 $GoogleServicesPath
++  if ($googleSha -ne $expectedGoogleServicesSha256) {
++    throw "google-services.json SHA-256 mismatch. Expected $expectedGoogleServicesSha256; got $googleSha"
++  }
++
++  $targetFirebaseOptions = Join-Path $CandidatePath 'lib/firebase_options.dart'
++  $targetGoogleServices = Join-Path $CandidatePath 'android/app/google-services.json'
++  foreach ($pair in @(
++    @($FirebaseOptionsPath, $targetFirebaseOptions),
++    @($GoogleServicesPath, $targetGoogleServices)
++  )) {
++    $source = $pair[0]; $target = $pair[1]
++    if (Test-Path -LiteralPath $target) {
++      $backupName = ([IO.Path]::GetFileName($target)) + '.before-trial'
++      Copy-Item -LiteralPath $target -Destination (Join-Path $evidenceDir $backupName) -Force
++    }
++    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
++    Copy-Item -LiteralPath $source -Destination $target -Force
++  }
++  [ordered]@{
++    projectId = $expectedProjectId
++    packageName = $expectedPackage
++    firebaseAppId = $expectedFirebaseAppId
++    firebaseOptionsSha256 = Get-Sha256 $targetFirebaseOptions
++    googleServicesSha256 = Get-Sha256 $targetGoogleServices
++  } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $evidenceDir 'firebase-identity.json') -Encoding UTF8
++
++  $flutterMachineText = (& flutter --version --machine 2>&1) -join "`n"
++  $flutterMachineText | Set-Content -LiteralPath (Join-Path $evidenceDir 'flutter-version-machine.json') -Encoding UTF8
++  $flutterInfo = $flutterMachineText | ConvertFrom-Json
++  $actualFlutter = [string]$flutterInfo.frameworkVersion
++  $actualDart = ([string]$flutterInfo.dartSdkVersion -split '\s+')[0]
++  if (-not $AllowToolchainMismatch -and ($actualFlutter -ne $expectedFlutter -or $actualDart -ne $expectedDart)) {
++    throw "Pinned toolchain mismatch. Expected Flutter $expectedFlutter / Dart $expectedDart; got Flutter $actualFlutter / Dart $actualDart."
++  }
++
++  Write-GeneratedBindingInventory -OutputPath (Join-Path $evidenceDir 'generated-bindings-before.json')
++
++  Invoke-CheckedStep -Name '02_root_npm_clean_install' -Action { npm ci --ignore-scripts }
++  Invoke-CheckedStep -Name '03_root_npm_audit' -Action { npm audit --audit-level=low }
++  Invoke-CheckedStep -Name '04_functions_npm_clean_install' -WorkingDirectory (Join-Path $CandidatePath 'functions') -Action { npm ci --ignore-scripts }
++  Invoke-CheckedStep -Name '05_functions_npm_audit' -WorkingDirectory (Join-Path $CandidatePath 'functions') -Action { npm audit --audit-level=low }
++  Invoke-CheckedStep -Name '06_firebase_cli_clean_install' -WorkingDirectory (Join-Path $CandidatePath 'tooling/firebase-cli') -Action { npm ci --ignore-scripts }
++  Invoke-CheckedStep -Name '07_firebase_cli_npm_audit' -WorkingDirectory (Join-Path $CandidatePath 'tooling/firebase-cli') -Action { npm audit --audit-level=low }
++
++  Invoke-CheckedStep -Name '08_flutter_pub_get' -Action { flutter pub get }
++  Invoke-CheckedStep -Name '09_authentic_isar_codegen' -Action { dart run build_runner build --delete-conflicting-outputs }
++  Write-GeneratedBindingInventory -OutputPath (Join-Path $evidenceDir 'generated-bindings-after.json')
++
++  Invoke-CheckedStep -Name '10_v42_ultimate_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_2_ultimate_audit.py' }
++  Invoke-CheckedStep -Name '11_v41_due_diligence_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/v4_1_due_diligence_audit.py' }
++  Invoke-CheckedStep -Name '12_v4_whole_app_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/whole_app_reconciliation_audit.py' }
++  Invoke-CheckedStep -Name '13_inherited_full_tree_audit' -Action { & $pythonExe @pythonPrefix 'tools/maintenance_workflow/full_tree_source_audit.py' }
++  Invoke-CheckedStep -Name '14_inherited_expanded_audit' -Action { & $pythonExe @pythonPrefix 'tools/expanded_audit/expanded_implementation_audit.py' }
++  Invoke-CheckedStep -Name '15_dart_structural_audit' -Action { & $pythonExe @pythonPrefix 'tools/v4/dart_structural_audit.py' }
++  Invoke-CheckedStep -Name '16_policy_generation_check' -Action { npm run workflow:policy:check }
++  Invoke-CheckedStep -Name '17_isar_source_verification' -Action { & $pythonExe @pythonPrefix 'tools/isar/verify_v4_isar_schema.py' }
++  Invoke-CheckedStep -Name '18_isar_release_authority' -Action { & $pythonExe @pythonPrefix 'tools/isar/verify_v4_isar_schema.py' '--release' }
++
++  Invoke-CheckedStep -Name '19_functions_build_and_tests' -WorkingDirectory (Join-Path $CandidatePath 'functions') -Action { npm test }
++  Invoke-CheckedStep -Name '20_flutter_analyze' -Action { flutter analyze }
++  if (-not $SkipFlutterTests) {
++    Invoke-CheckedStep -Name '21_flutter_full_test_suite' -Action { flutter test }
++  }
++  Invoke-CheckedStep -Name '22_android_debug_apk' -Action { flutter build apk --debug }
++
++  if ($RunEmulators) {
++    $emulatorConfig = Join-Path $CandidatePath ".firebase.v42.local.$runStamp.json"
++    $emulatorJson = Get-Content -LiteralPath (Join-Path $CandidatePath 'firebase.json') -Raw | ConvertFrom-Json
++    $emulatorJson.emulators.firestore | Add-Member -NotePropertyName host -NotePropertyValue '127.0.0.1' -Force
++    $emulatorJson.emulators.firestore.port = $EmulatorPort
++    $emulatorJson.emulators.ui.enabled = $false
++    $emulatorJson | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $emulatorConfig -Encoding UTF8
++    try {
++      $firebaseCli = Join-Path $CandidatePath 'tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js'
++      Invoke-CheckedStep -Name '23_governed_emulator_suites' -Action {
++        node $firebaseCli emulators:exec --config $emulatorConfig --only firestore `
++          "npm run test:rules && npm --prefix functions run test:emulator:governed"
++      }
++    }
++    finally {
++      Remove-Item -LiteralPath $emulatorConfig -Force -ErrorAction SilentlyContinue
++    }
++  }
++
++  $apkPath = Join-Path $CandidatePath 'build/app/outputs/flutter-apk/app-debug.apk'
++  if (-not (Test-Path -LiteralPath $apkPath -PathType Leaf)) {
++    throw "Debug APK not found after build: $apkPath"
++  }
++  $apkSha = Get-Sha256 $apkPath
++  [ordered]@{ path = $apkPath; sha256 = $apkSha; sizeBytes = (Get-Item $apkPath).Length } |
++    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $evidenceDir 'debug-apk.json') -Encoding UTF8
++
++  if ($InstallOnDevice) {
++    Assert-Command 'adb'
++    if (-not $DeviceId) {
++      $devices = @(& adb devices | Select-Object -Skip 1 | ForEach-Object {
++        if ($_ -match '^([^\s]+)\s+device$') { $matches[1] }
++      })
++      if ($devices.Count -ne 1) {
++        throw 'Specify -DeviceId unless exactly one authorised device is connected.'
++      }
++      $DeviceId = $devices[0]
++    }
++    Invoke-CheckedStep -Name '24_test_device_upgrade_install' -Action { adb -s $DeviceId install -r -t $apkPath }
++    & adb -s $DeviceId shell dumpsys package $expectedPackage 2>&1 |
++      Set-Content -LiteralPath (Join-Path $evidenceDir 'device-package-dump.txt') -Encoding UTF8
++  }
++
++  $result = [ordered]@{
++    candidate = $CandidatePath
++    startedAt = $startedAt
++    completedAt = (Get-Date).ToUniversalTime().ToString('o')
++    status = 'PASS_LOCAL_TRIAL'
++    remoteMutationPerformed = $false
++    backendDeploymentPerformed = $false
++    productionDataMutationPerformed = $false
++    flutterVersion = $actualFlutter
++    dartVersion = $actualDart
++    apkSha256 = $apkSha
++    deviceId = if ($InstallOnDevice) { $DeviceId } else { $null }
++    steps = $steps
++  }
++  $result | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidenceDir 'trial-result.json') -Encoding UTF8
++  Write-Host "`nPASS: v4.2 local trial completed. Evidence: $evidenceDir" -ForegroundColor Green
++}
++catch {
++  $failure = [ordered]@{
++    candidate = $CandidatePath
++    startedAt = $startedAt
++    failedAt = (Get-Date).ToUniversalTime().ToString('o')
++    status = 'FAIL_LOCAL_TRIAL'
++    error = $_.Exception.Message
++    remoteMutationPerformed = $false
++    backendDeploymentPerformed = $false
++    productionDataMutationPerformed = $false
++    steps = $steps
++  }
++  $failure | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $evidenceDir 'trial-result.json') -Encoding UTF8
++  Write-Error "v4.2 local trial failed: $($_.Exception.Message). Evidence: $evidenceDir"
++  exit 1
++}
++finally {
++  try { Stop-Transcript | Out-Null } catch {}
++}
+diff --git a/tools/v4/v4_1_due_diligence_audit.py b/tools/v4/v4_1_due_diligence_audit.py
+index 3bfa190..e495b56 100755
+--- a/tools/v4/v4_1_due_diligence_audit.py
++++ b/tools/v4/v4_1_due_diligence_audit.py
+@@ -23,12 +23,19 @@ check('Firebase Android app identity is single-valued',
+       f'appId={android_id}')
+ 
+ rules = (ROOT / 'firestore.rules').read_text()
+-start = rules.find('function validAdminUserWrite')
+-end = rules.find('// ─────────────────────────────────────────────', start)
+-admin = rules[start:end]
++shape_start = rules.find('function validUserDocumentShape')
++shape_end = rules.find('function isApprovedUser', shape_start)
++shape = rules[shape_start:shape_end]
++admin_start = rules.find('function validAdminUserWrite')
++admin_end = rules.find('// ─────────────────────────────────────────────', admin_start)
++admin = rules[admin_start:admin_end]
+ required_fields = ['name','email','photoUrl','roles','isApproved','fcmToken','createdAt']
+ check('Admin user writes use exact top-level whitelist',
+-      start >= 0 and 'keys().hasOnly([' in admin and all(f"'{f}'" in admin for f in required_fields))
++      shape_start >= 0
++      and 'keys().hasOnly([' in shape
++      and all(f"'{f}'" in shape for f in required_fields)
++      and admin_start >= 0
++      and 'validUserDocumentShape(request.resource.data)' in admin)
+ 
+ mapper = (ROOT / 'lib/features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart').read_text()
+ mapper_fields = [
+@@ -62,7 +69,7 @@ check('Compliance projection test source exists', mapper_test.exists() and 'esca
+ 
+ readme = (ROOT / 'README.md').read_text()
+ check('Root operational documentation replaces Flutter boilerplate',
+-      'v4 whole-app reconciliation successor candidate' in readme
++      'CRM-III BAF Ops' in readme and 'successor' in readme.lower()
+       and 'This project is a starting point for a Flutter application' not in readme)
+ 
+ custody = ROOT / 'docs/FIREBASE_CONFIGURATION_CUSTODY.md'
+diff --git a/tools/v4/v4_2_ultimate_audit.py b/tools/v4/v4_2_ultimate_audit.py
+new file mode 100755
+index 0000000..2230163
+--- /dev/null
++++ b/tools/v4/v4_2_ultimate_audit.py
+@@ -0,0 +1,291 @@
++#!/usr/bin/env python3
++"""Fail-closed source audit for the v4.2 ultimate local-trial successor."""
++from __future__ import annotations
++
++import json
++import re
++import sys
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[2]
++passes: list[tuple[str, str]] = []
++failures: list[tuple[str, str]] = []
++
++
++def check(name: str, condition: bool, detail: str = "") -> None:
++    target = passes if condition else failures
++    target.append((name, detail))
++    print(f"{'PASS' if condition else 'FAIL'} | {name}" + (f" | {detail}" if detail else ""))
++
++
++def text(rel: str) -> str:
++    return (ROOT / rel).read_text(encoding="utf-8")
++
++
++def data(rel: str):
++    return json.loads(text(rel))
++
++
++
++
++def powershell_delimiters_balanced(source: str) -> bool:
++    pairs = {')': '(', ']': '[', '}': '{'}
++    stack: list[str] = []
++    quote: str | None = None
++    escaped = False
++    comment = False
++    i = 0
++    while i < len(source):
++        ch = source[i]
++        if comment:
++            if ch == "\n":
++                comment = False
++            i += 1
++            continue
++        if quote:
++            if escaped:
++                escaped = False
++            elif ch == '`':
++                escaped = True
++            elif ch == quote:
++                # PowerShell doubles a quote to escape it inside the same quote type.
++                if i + 1 < len(source) and source[i + 1] == quote:
++                    i += 1
++                else:
++                    quote = None
++            i += 1
++            continue
++        if ch == '#':
++            comment = True
++        elif ch in ("'", '"'):
++            quote = ch
++        elif ch in '([{':
++            stack.append(ch)
++        elif ch in ')]}':
++            if not stack or stack.pop() != pairs[ch]:
++                return False
++        i += 1
++    return quote is None and not stack
++
++def lock_version(rel: str, package: str) -> str | None:
++    lock = data(rel)
++    entry = lock.get("packages", {}).get(f"node_modules/{package}")
++    return None if not isinstance(entry, dict) else entry.get("version")
++
++
++# 1. Governing migration direction: preserve v4, adapt legacy guarantees.
++authority = data("governance/v4_successor_programme_authority_v1.json")
++capabilities = set(authority.get("nonNegotiableSuccessorCapabilities", []))
++check(
++    "Successor programme explicitly prioritises migration to the new architecture",
++    authority.get("governingPriority") == "MIGRATE_TO_NEW_ARCHITECTURE"
++    and authority.get("developmentAuthority", {}).get("successorArchitecture") == "v4.2"
++    and authority.get("legacyTreatment", {}).get("preserveConflictingAuthorityPath") is False
++    and authority.get("legacyTreatment", {}).get("avoidChangeAsDesignGoal") is False,
++)
++check(
++    "Non-negotiable v4 workflow capabilities remain ratified",
++    len(capabilities) >= 12
++    and "server-authoritative command gateway" in capabilities
++    and "maintenance-ticket deferral bridge" in capabilities
++    and "canonical closure with module/evidence attestation" in capabilities
++    and "escalation, notifications, quarantine and diagnostics" in capabilities,
++    f"capabilities={len(capabilities)}",
++)
++
++# 2. Persistence boundary preserves native Firestore values and converts ISO deadlines.
++adapter = text("functions/src/maintenanceWorkflow/firebaseStore.ts")
++adapter_tests = text("functions/test/maintenanceWorkflowFirebaseStore.test.js")
++native_types = [
++    "admin.firestore.Timestamp",
++    "admin.firestore.GeoPoint",
++    "admin.firestore.DocumentReference",
++    "admin.firestore.FieldValue",
++    "Uint8Array",
++]
++check(
++    "Workflow Firestore adapter preserves native special values before object recursion",
++    "if (isNativeFirestoreValue(value)) return value;" in adapter
++    and adapter.index("if (isNativeFirestoreValue(value)) return value;")
++    < adapter.index('if (value != null && typeof value === "object")')
++    and all(t in adapter for t in native_types),
++)
++check(
++    "Native-value and command-path persistence regressions are directly tested",
++    all(
++        phrase in adapter_tests
++        for phrase in [
++            "preserves native Firestore values",
++            "maintenance awaiting-confirmation path",
++            "equipment projection preserves inServiceSince",
++            "counter-condition successor spread preserves inherited native timestamps",
++            "converts all lifecycle deadline fields",
++        ]
++    ),
++)
++
++# 3. Singular approval and role authority across server, Rules and client.
++callable_source = text("functions/src/maintenanceWorkflow/callable.ts")
++callable_test = text("functions/test/maintenanceWorkflowCallableAuthority.test.js")
++rules = text("firestore.rules")
++user_model = text("lib/features/auth/data/user_model.dart")
++user_test = text("test/user_authority_schema_test.dart")
++check(
++    "Workflow callable uses only canonical isApproved and rejects malformed roles",
++    "data.isApproved !== true" in callable_source
++    and "data.approved" not in callable_source
++    and 'data.status === "approved"' not in callable_source
++    and "workflowActorFromUserDataForTest" in callable_source
++    and "WORKFLOW_ROLE_UNIVERSE" in callable_source
++    and "rejects legacy or malformed authority" in callable_test.lower(),
++)
++role_vocabulary = [
++    "admin", "si", "contractSupervisor", "shiftSupervisor", "seniorElectrical",
++    "seniorMechanical", "seniorInstrumentation", "seniorRefractory", "refractory", "operations",
++]
++check(
++    "Firestore Rules enforce exact user shape, optional types and canonical role vocabulary",
++    "function validUserDocumentShape" in rules
++    and "function validUserRoleList" in rules
++    and "keys().hasOnly([" in rules
++    and all(f"'{r}'" in rules for r in role_vocabulary)
++    and "validOptionalUserString" in rules
++    and "validUserDocumentShape(request.resource.data)" in rules,
++)
++check(
++    "Dart user parsing fails closed instead of mapping unknown roles to Operations",
++    "AppRole? _parseAppRole" in user_model
++    and "data['isApproved'] == true && parsedRoles.isNotEmpty" in user_model
++    and "unknown roles fail closed instead of becoming Operations" in user_test,
++)
++
++# 4. Authority-critical remote projection parsing fails closed and remains quarantined per record.
++projection = text("lib/features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart")
++projection_test = text("test/maintenance_workflow/compliance_request_mapper_test.dart")
++check(
++    "Authority-critical workflow projections use strict required-field validators",
++    all(marker in projection for marker in [
++        "FormatException", "_requiredString(", "_requiredInt(", "_optionalDate(",
++        "allowed: _workflowStatusKeys", "allowed: _laneStatusKeys",
++        "allowed: _complianceStatusKeys", "allowed: _equipmentStateKeys",
++    ])
++    and "DateTime.fromMillisecondsSinceEpoch(0" not in projection,
++)
++# Ensure observed timestamp parsing is inside the per-document try/catch in _fetchAll.
++fetch_start = projection.find("Future<WorkflowRemoteBatch<T>> _fetchAll")
++fetch_end = projection.find("Future<List<WorkflowRemoteBatch", fetch_start)
++fetch_block = projection[fetch_start: fetch_end if fetch_end > fetch_start else None]
++check(
++    "Malformed documents, including malformed watermarks, are quarantined individually",
++    fetch_start >= 0
++    and "for (final document in page.docs)" in fetch_block
++    and "try {" in fetch_block
++    and "failures.add" in fetch_block
++    and "observedAt = _optionalDate" in fetch_block
++    and fetch_block.index("try {") < fetch_block.index("observedAt = _optionalDate"),
++)
++check(
++    "Projection mapper has positive parity and negative malformed-data test sources",
++    "compliance Firestore projection preserves the complete lifecycle record" in projection_test
++    and "authority-critical malformed compliance data fails closed" in projection_test
++    and projection_test.count("throwsFormatException") >= 4,
++)
++
++# 5. Dependency locks are explicitly remediated in all three trust domains.
++root_versions = {
++    "protobufjs": lock_version("package-lock.json", "protobufjs"),
++    "brace-expansion": lock_version("package-lock.json", "brace-expansion"),
++}
++functions_versions = {
++    "protobufjs": lock_version("functions/package-lock.json", "protobufjs"),
++    "body-parser": lock_version("functions/package-lock.json", "body-parser"),
++    "brace-expansion": lock_version("functions/package-lock.json", "brace-expansion"),
++}
++tooling_versions = {
++    "firebase-tools": lock_version("tooling/firebase-cli/package-lock.json", "firebase-tools"),
++    "protobufjs": lock_version("tooling/firebase-cli/package-lock.json", "protobufjs"),
++    "body-parser": lock_version("tooling/firebase-cli/package-lock.json", "body-parser"),
++    "tar": lock_version("tooling/firebase-cli/package-lock.json", "tar"),
++    "@hono/node-server": lock_version("tooling/firebase-cli/package-lock.json", "@hono/node-server"),
++    "fast-uri": lock_version("tooling/firebase-cli/package-lock.json", "fast-uri"),
++}
++check(
++    "Application and Functions lockfiles contain remediated dependency versions",
++    root_versions["protobufjs"] == "7.6.5"
++    and functions_versions["protobufjs"] == "7.6.5"
++    and functions_versions["body-parser"] == "1.20.6"
++    and functions_versions["brace-expansion"] == "1.1.16",
++    f"root={root_versions}; functions={functions_versions}",
++)
++check(
++    "Governed Firebase CLI lockfile is separately remediated",
++    tooling_versions["protobufjs"] == "7.6.5"
++    and tooling_versions["body-parser"] == "1.20.6"
++    and tooling_versions["tar"] == "7.5.20"
++    and tooling_versions["@hono/node-server"] in {"2.0.5", "2.0.11"}
++    and tooling_versions["fast-uri"] == "3.1.3",
++    str(tooling_versions),
++)
++
++# 6. Old-app no-loss and Isar ID continuity evidence are embedded.
++continuity = data("docs/v4_2/ISAR_SCHEMA_CONTINUITY.json")
++continuity_ok = len(continuity) == 16 and all(
++    item.get("collection_id_same") is True
++    and not item.get("removed_properties")
++    and not item.get("property_id_mismatches")
++    and not item.get("removed_indexes")
++    and not item.get("index_mismatches")
++    for item in continuity.values()
++)
++check(
++    "All 16 pre-v4 Isar collections preserve collection/property/index identity",
++    continuity_ok,
++    f"collections={len(continuity)}",
++)
++reconciliation = text("docs/v4_2/CURRENT_PRE_V4_SOURCE_AUTHORITY_RECONCILIATION.md")
++check(
++    "User-supplied pre-v4 source is retained as no-loss and migration evidence",
++    "84BB9114C05C29777154E5EA7095DFF00850C478A2DB2048FDE5787CD5EB48CC" in reconciliation
++    and "user-supplied current-pre-v4 source" in reconciliation.lower(),
++)
++
++# 7. Local trial is useful but cannot silently mutate remote/production state.
++trial = ROOT / "tools/v4/Invoke-Crm3V42LocalTrial.ps1"
++trial_text = trial.read_text(encoding="utf-8") if trial.exists() else ""
++forbidden = ["firebase deploy", "git push", "git merge", "git tag", "adb uninstall", "pm clear"]
++check(
++    "Tomorrow local trial harness is present and contains no remote/deploy/destructive command",
++    trial.exists()
++    and "build_runner build --delete-conflicting-outputs" in trial_text
++    and "flutter analyze" in trial_text
++    and "flutter build apk --debug" in trial_text
++    and all(item not in trial_text.lower() for item in forbidden)
++    and powershell_delimiters_balanced(trial_text),
++)
++runbook = ROOT / "docs/v4_2/TOMORROW_LOCAL_TRIAL_RUNBOOK.md"
++check(
++    "Tomorrow trial runbook preserves production NO-GO boundaries",
++    runbook.exists()
++    and "NO FIREBASE DEPLOYMENT" in runbook.read_text(encoding="utf-8")
++    and "NO GIT REMOTE MUTATION" in runbook.read_text(encoding="utf-8"),
++)
++
++# 8. Authentic Isar/release boundary remains fail-closed until real codegen.
++isar_verify = text("tools/isar/verify_v4_isar_schema.py")
++provisional_count = sum(
++    1 for p in (ROOT / "lib").rglob("*.g.dart")
++    if "PROVISIONAL_V4_ISAR_CODEGEN" in p.read_text(encoding="utf-8", errors="ignore")
++)
++check(
++    "Authentic pinned Isar generation remains a mandatory release boundary",
++    provisional_count in {0, 13}
++    and "if args.release and marked" in isar_verify
++    and "Pinned build_runner output required before release" in isar_verify,
++    f"provisional={provisional_count}; mode={'POST_CODEGEN' if provisional_count == 0 else 'SOURCE_HANDOFF'}",
++)
++
++print(f"SUMMARY | pass={len(passes)} fail={len(failures)} total={len(passes)+len(failures)}")
++if failures:
++    for name, detail in failures:
++        print(f"FAILED | {name}" + (f" | {detail}" if detail else ""), file=sys.stderr)
++raise SystemExit(1 if failures else 0)
+diff --git a/tools/v4/verify_file_manifest.py b/tools/v4/verify_file_manifest.py
+new file mode 100755
+index 0000000..9a35f19
+--- /dev/null
++++ b/tools/v4/verify_file_manifest.py
+@@ -0,0 +1,61 @@
++#!/usr/bin/env python3
++"""Verify a SHA-256 manifest containing '<hash>  <relative path>' lines."""
++from __future__ import annotations
++import argparse
++import hashlib
++from pathlib import Path
++import sys
++
++
++def sha256(path: Path) -> str:
++    h = hashlib.sha256()
++    with path.open('rb') as stream:
++        for block in iter(lambda: stream.read(1024 * 1024), b''):
++            h.update(block)
++    return h.hexdigest().upper()
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--root', type=Path, default=Path.cwd())
++    parser.add_argument('--manifest', type=Path, required=True)
++    args = parser.parse_args()
++    root = args.root.resolve()
++    manifest = args.manifest
++    if not manifest.is_absolute():
++        manifest = (root / manifest).resolve()
++    failures: list[str] = []
++    checked = 0
++    for line_no, raw in enumerate(manifest.read_text(encoding='utf-8').splitlines(), 1):
++        line = raw.strip('\n')
++        if not line or line.lstrip().startswith('#'):
++            continue
++        parts = line.split('  ', 1)
++        if len(parts) != 2 or len(parts[0].strip()) != 64:
++            failures.append(f'line {line_no}: malformed manifest entry')
++            continue
++        expected, rel = parts[0].strip().upper(), parts[1].strip().replace('\\', '/')
++        target = (root / rel).resolve()
++        try:
++            target.relative_to(root)
++        except ValueError:
++            failures.append(f'{rel}: path escapes root')
++            continue
++        if not target.is_file():
++            failures.append(f'{rel}: missing')
++            continue
++        actual = sha256(target)
++        checked += 1
++        if actual != expected:
++            failures.append(f'{rel}: expected {expected}, actual {actual}')
++    if failures:
++        print(f'FAIL: manifest verification checked={checked} failures={len(failures)}')
++        for failure in failures:
++            print(f'  {failure}')
++        return 1
++    print(f'PASS: manifest verification checked={checked} failures=0')
++    return 0
++
++
++if __name__ == '__main__':
++    sys.exit(main())
+diff --git a/tools/v4/whole_app_reconciliation_audit.py b/tools/v4/whole_app_reconciliation_audit.py
+index d1c46c6..9220115 100644
+--- a/tools/v4/whole_app_reconciliation_audit.py
++++ b/tools/v4/whole_app_reconciliation_audit.py
+@@ -149,8 +149,13 @@ def main()->int:
+         (schema.stdout or schema.stderr).strip())
+     release=subprocess.run([sys.executable,str(ROOT/'tools/isar/verify_v4_isar_schema.py'),'--release'],
+                            cwd=ROOT,text=True,capture_output=True)
+-    add(c,'release authority remains fail-closed until pinned build_runner',release.returncode!=0,
+-        'expected release block is active')
++    provisional=sum(
++        1 for path in (ROOT/'lib').rglob('*.g.dart')
++        if 'PROVISIONAL_V4_ISAR_CODEGEN' in path.read_text(errors='ignore')
++    )
++    release_expected = (release.returncode == 0) if provisional == 0 else (release.returncode != 0)
++    add(c,'release authority follows pinned-codegen state',release_expected,
++        f'provisional={provisional}; verifier_rc={release.returncode}')
+ 
+     print('CRM3 v4 — WHOLE-APP RECONCILIATION SOURCE AUDIT')
+     print(f'root={ROOT}')

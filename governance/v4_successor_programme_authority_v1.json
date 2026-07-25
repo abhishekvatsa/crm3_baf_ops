@@ -1,0 +1,77 @@
+{
+  "authorityId": "CRM3-V4-SUCCESSOR-PROGRAMME-V1",
+  "authorityDate": "2026-07-22",
+  "status": "ACTIVE_CANONICAL_MAIN_RECONCILED_SOURCE_MIGRATION",
+  "authorityBasis": "Explicit project direction: migrate to the v4 successor architecture and preserve v3.3/v4 capabilities; retain old-app guarantees without preserving conflicting legacy mechanisms merely to reduce change.",
+  "governingPriority": "MIGRATE_TO_NEW_ARCHITECTURE",
+  "developmentAuthority": {
+    "successorArchitecture": "v4.2_R1",
+    "currentOperationalApplication": "remains operationally canonical until governed cutover",
+    "legacyApplicationRole": "capability, security, data-continuity and migration baseline; not equal architectural authority",
+    "canonicalRepositoryBase": {
+      "branch": "main",
+      "commit": "633c58bb0d936011e391b42627f8b8f02c510e95",
+      "tree": "2f547a79e79076c70dd15ae8b85a7ad70c9fa018"
+    },
+    "dataCutoverStrategy": "clean cutover is preferred for development-only local/backend data; no site-truth data is asserted"
+  },
+  "nonNegotiableSuccessorCapabilities": [
+    "server-authoritative command gateway",
+    "receipt-first idempotency",
+    "optimistic aggregate concurrency",
+    "generated cross-platform workflow policy",
+    "discipline lanes including EMD, Refractory and SHARED",
+    "compliance and counter-condition workflow",
+    "maintenance-ticket deferral bridge",
+    "RED preparation and successor workflow",
+    "canonical equipment projection",
+    "canonical closure with module/evidence attestation",
+    "whole-workflow cancellation projection",
+    "escalation, notifications, quarantine and diagnostics"
+  ],
+  "legacyTreatment": {
+    "preserve": [
+      "valid business capability",
+      "security closure",
+      "audit and evidence guarantee",
+      "source and data continuity",
+      "recovery and release governance"
+    ],
+    "adaptIntoSuccessor": true,
+    "preserveConflictingAuthorityPath": false,
+    "avoidChangeAsDesignGoal": false,
+    "developmentDataPreservationRequired": false,
+    "developmentDataDisposition": "inventory first; then reset/reseed under v4 schema when separately authorised"
+  },
+  "currentTrialAuthority": {
+    "sourceCorrection": "AUTHORIZED",
+    "localBuildAndTest": "AUTHORIZED_ON_NON_PRODUCTION_ENVIRONMENT",
+    "emulatorExecution": "AUTHORIZED",
+    "testDeviceUpgrade": "NOT_PART_OF_INITIAL_TRIAL",
+    "gitRemoteMutation": "NOT_AUTHORIZED_BY_THIS_ARTIFACT",
+    "firebaseDeployment": "NOT_AUTHORIZED",
+    "productionDataMutation": "NOT_AUTHORIZED",
+    "pilotHandout": "NOT_AUTHORIZED",
+    "fieldDistribution": "NOT_AUTHORIZED",
+    "cleanTestDeviceFreshInstall": "AUTHORIZED_AFTER_AUTHORITATIVE_BUILD",
+    "stagingFirebaseDeployment": "REQUIRES_SEPARATE_EXPLICIT_AUTHORITY_AFTER_EMULATOR_PASS"
+  },
+  "mandatoryBeforeCutover": [
+    "canonical main reconciliation against 633c58bb0d936011e391b42627f8b8f02c510e95",
+    "governed Firebase configuration restoration and exact-hash identity proof",
+    "authentic pinned Isar generation and inherited-ID continuity proof",
+    "Flutter analysis and full tests",
+    "Rules and Functions emulator proof",
+    "separate Firebase staging-project end-to-end proof",
+    "fresh-install physical-device matrix",
+    "pre-live backend export and rollback runbook",
+    "signing, App Check, recovery and controlled pilot authority"
+  ],
+  "initialMigrationDataPolicy": {
+    "siteTruthDataPresent": false,
+    "oldLocalDatabaseMigrationRequiredForInitialTrial": false,
+    "legacyFirestoreCompatibilityRequiredForInitialTrial": false,
+    "requiredSafeguard": "read-only inventory before any deletion; no production mutation under this artifact",
+    "preferredInitialState": "empty new workflow collections plus known-good synthetic seed data"
+  }
+}

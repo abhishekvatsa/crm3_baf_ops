@@ -1,0 +1,57 @@
+CRM3 APP v4.2_R1.5 STATIC VALIDATION
+
+Accepted R1.4 evidence:
+  external ZIP SHA-256 matched sidecar: PASS
+  trial status: HOLD_FIREBASE_CLI_LOCK_POLICY
+  steps 01-09: PASS
+  step 10: parser failure before policy evaluation
+  repository/Firebase/device mutation flags: all false
+
+Root-cause reproduction from source/data:
+  package-lock packages empty-string root key present: PASS
+  R1.4 lock parser lacked -AsHashTable: CONFIRMED
+  PowerShell 7.6.4 transcript empty-property error: CONFIRMED
+
+R1.5 bounded correction checks:
+  lock ConvertFrom-Json -AsHashTable present: PASS
+  IDictionary-aware JSON accessor present: PASS
+  lock packages map accessed through shared accessor: PASS
+  direct $lock.packages access absent: PASS
+  missing packages map fails closed: PASS
+  evidence naming advanced to R1.5: PASS
+
+JSON-equivalent Firebase CLI lock policy:
+  firebaseToolsDeclared: PASS
+  firebaseToolsLocked: PASS
+  honoOverride: PASS
+  honoLocked: PASS
+  honoResolved: PASS
+  honoIntegrity: PASS
+  honoNaturalRange: PASS
+  fastUriOverride: PASS
+  fastUriLocked: PASS
+  fastUriResolved: PASS
+  fastUriIntegrity: PASS
+
+Source audits:
+  v4.2_R1 canonical audit: 26/26 PASS
+  v4.2 ultimate audit: 17/17 PASS
+  v4.1 due-diligence audit: 9/9 PASS
+  whole-app reconciliation audit: 21/21 PASS
+  inherited full-tree audit: 18/18 PASS
+  inherited expanded audit: 15/15 PASS
+  Dart structural audit: PASS over 369 files
+  integrity sweep: 3/3 PASS
+  generated workflow policy check: PASS
+
+Reconstruction:
+  R1.4 -> R1.5 core patch apply: PASS
+  reconstructed changed core paths byte-identical: PASS
+
+Unclaimed:
+  PowerShell runtime (pwsh unavailable in packaging environment)
+  Firebase CLI npm ci/version/audit
+  Flutter dependency resolution and analysis/tests
+  authentic Isar code generation/release authority
+  APK build/identity inspection
+  Firestore and Functions emulator campaign

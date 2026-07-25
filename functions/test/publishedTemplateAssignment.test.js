@@ -90,6 +90,20 @@ function auditFixture(overrides = {}) {
   };
 }
 
+function workflowFixture(overrides = {}) {
+  return {
+    firestoreId: "workflow1",
+    jobExecutionId: "workflow1",
+    assetTypeKey: "base",
+    assetNumber: 101,
+    status: "pendingLaneClassification",
+    activeRedWork: false,
+    awaitingPreparation: false,
+    cancelled: false,
+    ...overrides,
+  };
+}
+
 function fakeAssignmentDb({
   user = {
     isApproved: true,
@@ -99,9 +113,15 @@ function fakeAssignmentDb({
   packageData = packageFixture(),
   versionData = versionFixture(),
   audits = [auditFixture()],
+  equipmentData = null,
+  workflows = [],
 } = {}) {
   const store = new Map();
   const writes = [];
+  const queuedTransactionFailures = [];
+  let transactionAttempts = 0;
+  let queryReads = 0;
+  const directReadsByPath = new Map();
   let idCounter = 0;
 
   function seed(path, data) {
@@ -116,24 +136,64 @@ function fakeAssignmentDb({
       audit,
     ),
   );
+  if (equipmentData != null) {
+    seed("equipment_status/base_101", equipmentData);
+  }
+  workflows.forEach((workflow, index) => {
+    const id = workflow.firestoreId ?? `workflow${index + 1}`;
+    seed(`maintenance_workflows/${id}`, workflow);
+  });
 
   function docRef(collectionName, id) {
     const resolvedId = id ?? `${collectionName.replaceAll("_", "")}_${++idCounter}`;
+    const path = `${collectionName}/${resolvedId}`;
     return {
       id: resolvedId,
-      path: `${collectionName}/${resolvedId}`,
+      path,
+      async get() {
+        directReadsByPath.set(path, (directReadsByPath.get(path) ?? 0) + 1);
+        const data = store.get(path);
+        return {
+          exists: data != null,
+          id: resolvedId,
+          data: () => (data == null ? undefined : structuredClone(data)),
+        };
+      },
     };
   }
 
+  function querySnapshot(refOrQuery) {
+    const prefix = `${refOrQuery.collectionName}/`;
+    const docs = [];
+    for (const [path, data] of store.entries()) {
+      if (!path.startsWith(prefix)) continue;
+      const matches = refOrQuery.clauses.every(
+        ([field, op, value]) => op === "==" && data[field] === value,
+      );
+      if (!matches) continue;
+      docs.push({
+        exists: true,
+        id: path.slice(prefix.length),
+        data: () => structuredClone(data),
+      });
+    }
+    return {docs};
+  }
+
   function queryRef(collectionName, clauses) {
-    return {
+    const query = {
       kind: "query",
       collectionName,
       clauses,
       where(field, op, value) {
         return queryRef(collectionName, [...clauses, [field, op, value]]);
       },
+      async get() {
+        queryReads += 1;
+        return querySnapshot(query);
+      },
     };
+    return query;
   }
 
   const db = {
@@ -148,25 +208,15 @@ function fakeAssignmentDb({
       };
     },
     async runTransaction(fn) {
+      transactionAttempts += 1;
+      if (queuedTransactionFailures.length > 0) {
+        throw queuedTransactionFailures.shift();
+      }
       const staged = [];
       const transaction = {
         async get(refOrQuery) {
           if (refOrQuery.kind === "query") {
-            const prefix = `${refOrQuery.collectionName}/`;
-            const docs = [];
-            for (const [path, data] of store.entries()) {
-              if (!path.startsWith(prefix)) continue;
-              const matches = refOrQuery.clauses.every(
-                ([field, op, value]) => op === "==" && data[field] === value,
-              );
-              if (!matches) continue;
-              docs.push({
-                exists: true,
-                id: path.slice(prefix.length),
-                data: () => structuredClone(data),
-              });
-            }
-            return {docs};
+            return querySnapshot(refOrQuery);
           }
           const data = store.get(refOrQuery.path);
           return {
@@ -188,7 +238,30 @@ function fakeAssignmentDb({
     },
   };
 
-  return {db, store, writes};
+  return {
+    db,
+    store,
+    writes,
+    failNextTransaction(error) {
+      queuedTransactionFailures.push(error);
+    },
+    get transactionAttempts() {
+      return transactionAttempts;
+    },
+    get queryReads() {
+      return queryReads;
+    },
+    directReadCount(path) {
+      return directReadsByPath.get(path) ?? 0;
+    },
+  };
+}
+
+function closedTransactionError() {
+  const error = new Error("3 INVALID_ARGUMENT: Transaction is invalid or closed.");
+  error.code = 3;
+  error.details = "Transaction is invalid or closed.";
+  return error;
 }
 
 describe("published TemplateVersion server assignment", () => {
@@ -260,21 +333,291 @@ describe("published TemplateVersion server assignment", () => {
         `published_template_assignment_requests/${REQUEST_ID}`,
       ),
     ).toBe(true);
-    expect(writes).toHaveLength(3);
+    expect(
+      store.has(`maintenance_workflows/${result.executionId}`),
+    ).toBe(true);
+    expect(
+      store.has("equipment_status/base_101"),
+    ).toBe(true);
+    expect(
+      store.get(`maintenance_workflows/${result.executionId}`),
+    ).toMatchObject({
+      jobExecutionId: result.executionId,
+      status: "pendingLaneClassification",
+      workflowSchemaVersion: 1,
+      laneSetVersion: 0,
+    });
+    expect(
+      store.get("equipment_status/base_101"),
+    ).toMatchObject({
+      assetTypeKey: "base",
+      assetNumber: 101,
+      state: "underMaintenance",
+      activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 1,
+    });
+    expect(writes).toHaveLength(5);
   });
 
-  test("safe retry returns the same execution and modules without duplicate writes", async () => {
-    const {db, writes} = fakeAssignmentDb();
-    const first = await assignPublishedTemplateVersionWithDb({
+  test("serializes assignment through an existing governed equipment projection", async () => {
+    const {db, store} = fakeAssignmentDb({
+      workflows: [
+        workflowFixture({firestoreId: "workflow1"}),
+        workflowFixture({firestoreId: "workflow2"}),
+      ],
+      equipmentData: {
+        assetTypeKey: "base",
+        assetNumber: 101,
+        state: "underMaintenance",
+        activeNonRedMaintenanceCount: 2,
+        activeRedWorkCount: 0,
+        awaitingPreparationCount: 0,
+        version: 7,
+      },
+    });
+
+    await assignPublishedTemplateVersionWithDb({
       db,
       authUid: "supervisor1",
       data: requestFixture(),
       now: () => new Date("2026-06-19T11:00:00.000Z"),
     });
-    const writeCount = writes.length;
+
+    expect(store.get("equipment_status/base_101")).toMatchObject({
+      previousState: "underMaintenance",
+      state: "underMaintenance",
+      activeNonRedMaintenanceCount: 3,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 8,
+    });
+  });
+
+  test("reconstructs a missing projection from current workflow facts", async () => {
+    const fixture = fakeAssignmentDb({
+      workflows: [workflowFixture()],
+    });
+
+    await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+    });
+
+    expect(fixture.store.get("equipment_status/base_101")).toMatchObject({
+      state: "underMaintenance",
+      activeNonRedMaintenanceCount: 2,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 1,
+    });
+  });
+
+  test("upgrades a legacy projection whose state matches workflow facts", async () => {
+    const fixture = fakeAssignmentDb({
+      workflows: [workflowFixture()],
+      equipmentData: {
+        state: "underMaintenance",
+        version: 4,
+      },
+    });
+
+    await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+    });
+
+    expect(fixture.store.get("equipment_status/base_101")).toMatchObject({
+      assetTypeKey: "base",
+      assetNumber: 101,
+      state: "underMaintenance",
+      activeNonRedMaintenanceCount: 2,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 5,
+    });
+  });
+
+  test("re-reads workflow facts after a projection race before transaction start", async () => {
+    const fixture = fakeAssignmentDb();
+    let hookCalls = 0;
+
+    await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+      beforeAssignmentTransactionForTest: async () => {
+        hookCalls += 1;
+        fixture.store.set(
+          "maintenance_workflows/racing_workflow",
+          workflowFixture({firestoreId: "racing_workflow"}),
+        );
+        fixture.store.set("equipment_status/base_101", {
+          assetTypeKey: "base",
+          assetNumber: 101,
+          state: "underMaintenance",
+          activeNonRedMaintenanceCount: 1,
+          activeRedWorkCount: 0,
+          awaitingPreparationCount: 0,
+          version: 1,
+        });
+      },
+    });
+
+    expect(hookCalls).toBe(1);
+    expect(fixture.store.get("equipment_status/base_101")).toMatchObject({
+      activeNonRedMaintenanceCount: 2,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 2,
+    });
+  });
+
+  test("persistent workflow/projection mismatch exhausts bounded reconciliation without writes", async () => {
+    const fixture = fakeAssignmentDb({
+      workflows: [workflowFixture()],
+      equipmentData: {
+        assetTypeKey: "base",
+        assetNumber: 101,
+        state: "underMaintenance",
+        activeNonRedMaintenanceCount: 2,
+        activeRedWorkCount: 0,
+        awaitingPreparationCount: 0,
+        version: 2,
+      },
+    });
+
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: fixture.db,
+        authUid: "supervisor1",
+        data: requestFixture(),
+      }),
+    ).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: {
+        reasonCode: "equipment-projection-reconciliation-exhausted",
+        maximumAttempts: 5,
+      },
+    });
+    expect(fixture.writes).toHaveLength(0);
+    expect(
+      [...fixture.store.keys()].some((path) =>
+        path.startsWith("job_executions/") ||
+        path.startsWith("published_template_assignment_requests/"),
+      ),
+    ).toBe(false);
+  });
+
+  test.each([
+    [
+      "invalid counter",
+      {
+        assetTypeKey: "base",
+        assetNumber: 101,
+        state: "underMaintenance",
+        activeNonRedMaintenanceCount: -1,
+        activeRedWorkCount: 0,
+        awaitingPreparationCount: 0,
+        version: 1,
+      },
+      "equipment-projection-counter-invalid",
+    ],
+    [
+      "identity mismatch",
+      {
+        assetTypeKey: "furnace",
+        assetNumber: 1,
+        state: "underMaintenance",
+        activeNonRedMaintenanceCount: 1,
+        activeRedWorkCount: 0,
+        awaitingPreparationCount: 0,
+        version: 1,
+      },
+      "equipment-projection-identity-mismatch",
+    ],
+    [
+      "state mismatch",
+      {
+        assetTypeKey: "base",
+        assetNumber: 101,
+        state: "inService",
+        activeNonRedMaintenanceCount: 1,
+        activeRedWorkCount: 0,
+        awaitingPreparationCount: 0,
+        version: 1,
+      },
+      "equipment-projection-state-mismatch",
+    ],
+  ])("%s projection rejects without writes", async (_label, equipmentData, reasonCode) => {
+    const fixture = fakeAssignmentDb({
+      equipmentData,
+      workflows: [workflowFixture()],
+    });
+
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: fixture.db,
+        authUid: "supervisor1",
+        data: requestFixture(),
+      }),
+    ).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: {reasonCode},
+    });
+    expect(fixture.writes).toHaveLength(0);
+    expect(fixture.store.get("maintenance_workflows/workflow1")).toEqual(
+      workflowFixture(),
+    );
+    expect(
+      [...fixture.store.keys()].some((path) =>
+        path.startsWith("job_executions/") ||
+        path.startsWith("job_modules/") ||
+        path.startsWith("published_template_assignment_requests/"),
+      ),
+    ).toBe(false);
+  });
+
+  test("pre-transaction test hook executes before any transaction write", async () => {
+    const fixture = fakeAssignmentDb();
+    let hookCalls = 0;
+
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: fixture.db,
+        authUid: "supervisor1",
+        data: requestFixture(),
+        beforeAssignmentTransactionForTest: async () => {
+          hookCalls += 1;
+          throw new Error("forced-before-transaction");
+        },
+      }),
+    ).rejects.toThrow("forced-before-transaction");
+
+    expect(hookCalls).toBe(1);
+    expect(fixture.writes).toHaveLength(0);
+  });
+
+  test("safe retry returns the same execution and modules without duplicate writes", async () => {
+    const fixture = fakeAssignmentDb();
+    const receiptPath =
+      `published_template_assignment_requests/${REQUEST_ID}`;
+    const first = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+      now: () => new Date("2026-06-19T11:00:00.000Z"),
+    });
+    const writeCount = fixture.writes.length;
+    const queryReadCount = fixture.queryReads;
+    const transactionAttemptCount = fixture.transactionAttempts;
+    const receiptReadCount = fixture.directReadCount(receiptPath);
 
     const replay = await assignPublishedTemplateVersionWithDb({
-      db,
+      db: fixture.db,
       authUid: "supervisor1",
       data: requestFixture(),
       now: () => new Date("2026-06-19T12:00:00.000Z"),
@@ -285,21 +628,25 @@ describe("published TemplateVersion server assignment", () => {
     expect(replay.modules.map((module) => module.firestoreId)).toEqual(
       first.modules.map((module) => module.firestoreId),
     );
-    expect(writes).toHaveLength(writeCount);
+    expect(fixture.directReadCount(receiptPath)).toBe(receiptReadCount + 1);
+    expect(fixture.queryReads).toBe(queryReadCount);
+    expect(fixture.transactionAttempts).toBe(transactionAttemptCount + 1);
+    expect(fixture.writes).toHaveLength(writeCount);
   });
 
   test("same request ID with changed assignment meaning is rejected without writes", async () => {
-    const {db, writes} = fakeAssignmentDb();
+    const fixture = fakeAssignmentDb();
     await assignPublishedTemplateVersionWithDb({
-      db,
+      db: fixture.db,
       authUid: "supervisor1",
       data: requestFixture(),
     });
-    const writeCount = writes.length;
+    const writeCount = fixture.writes.length;
+    const queryReadCount = fixture.queryReads;
 
     await expect(
       assignPublishedTemplateVersionWithDb({
-        db,
+        db: fixture.db,
         authUid: "supervisor1",
         data: requestFixture({assetNumber: 102}),
       }),
@@ -307,21 +654,100 @@ describe("published TemplateVersion server assignment", () => {
       code: "already-exists",
       details: {reasonCode: "request-payload-mismatch"},
     });
-    expect(writes).toHaveLength(writeCount);
+    expect(fixture.queryReads).toBe(queryReadCount);
+    expect(fixture.writes).toHaveLength(writeCount);
+  });
+
+  test("receipt created after an absent preflight replays without duplicate writes", async () => {
+    const fixture = fakeAssignmentDb();
+    let concurrentResult = null;
+
+    const replay = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+      beforeAssignmentTransactionForTest: async () => {
+        concurrentResult = await assignPublishedTemplateVersionWithDb({
+          db: fixture.db,
+          authUid: "supervisor1",
+          data: requestFixture(),
+        });
+      },
+    });
+
+    expect(concurrentResult).toMatchObject({
+      ok: true,
+      idempotentReplay: false,
+    });
+    expect(replay).toMatchObject({
+      ok: true,
+      idempotentReplay: true,
+      executionId: concurrentResult.executionId,
+    });
+    expect(
+      [...fixture.store.keys()].filter((path) =>
+        path.startsWith("job_executions/"),
+      ),
+    ).toHaveLength(1);
+    expect(
+      [...fixture.store.keys()].filter((path) =>
+        path.startsWith("job_modules/"),
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("receipt observed during preflight fails closed if it disappears", async () => {
+    const fixture = fakeAssignmentDb();
+    const receiptPath =
+      `published_template_assignment_requests/${REQUEST_ID}`;
+    await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+    });
+    const queryReadCount = fixture.queryReads;
+    const writeCount = fixture.writes.length;
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+      beforeAssignmentTransactionForTest: async () => {
+        fixture.store.delete(receiptPath);
+      },
+    })).rejects.toMatchObject({
+      code: "aborted",
+      details: {reasonCode: "request-receipt-disappeared"},
+    });
+
+    expect(fixture.queryReads).toBe(queryReadCount);
+    expect(fixture.writes).toHaveLength(writeCount);
+    expect(
+      [...fixture.store.keys()].filter((path) =>
+        path.startsWith("job_executions/"),
+      ),
+    ).toHaveLength(1);
   });
 
   test("rejects unauthorized and unapproved users before writes", async () => {
-    const {db, writes} = fakeAssignmentDb({
+    const fixture = fakeAssignmentDb({
       user: {isApproved: true, roles: ["operations"], name: "Operations"},
     });
     await expect(
       assignPublishedTemplateVersionWithDb({
-        db,
+        db: fixture.db,
         authUid: "supervisor1",
         data: requestFixture(),
       }),
     ).rejects.toMatchObject({code: "permission-denied"});
-    expect(writes).toHaveLength(0);
+    expect(
+      fixture.directReadCount(
+        `published_template_assignment_requests/${REQUEST_ID}`,
+      ),
+    ).toBe(0);
+    expect(fixture.queryReads).toBe(0);
+    expect(fixture.transactionAttempts).toBe(0);
+    expect(fixture.writes).toHaveLength(0);
   });
 
   test("rejects historical, unpublished, or hash-divergent governance without partial writes", async () => {
@@ -589,6 +1015,68 @@ describe("published TemplateVersion server assignment", () => {
     });
     expect(fixture.writes).toHaveLength(writeCount);
     expect(first.executionId).toBeTruthy();
+  });
+
+
+  test("retries only the exact invalid-or-closed transaction transient and replays idempotently", async () => {
+    const fixture = fakeAssignmentDb();
+    const first = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+    });
+    fixture.failNextTransaction(closedTransactionError());
+
+    const replay = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+    });
+
+    expect(replay).toMatchObject({
+      ok: true,
+      idempotentReplay: true,
+      executionId: first.executionId,
+    });
+    expect(fixture.transactionAttempts).toBe(3);
+    expect(fixture.store.size).toBeGreaterThan(0);
+  });
+
+  test("does not retry unrelated INVALID_ARGUMENT failures", async () => {
+    const fixture = fakeAssignmentDb();
+    const error = new Error("3 INVALID_ARGUMENT: malformed request");
+    error.code = 3;
+    error.details = "malformed request";
+    fixture.failNextTransaction(error);
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+    })).rejects.toBe(error);
+    expect(fixture.transactionAttempts).toBe(1);
+    expect(fixture.writes).toHaveLength(0);
+  });
+
+  test("fails closed after bounded invalid-or-closed transaction retries", async () => {
+    const fixture = fakeAssignmentDb();
+    for (let index = 0; index < 8; index += 1) {
+      fixture.failNextTransaction(closedTransactionError());
+    }
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+    })).rejects.toMatchObject({
+      code: "aborted",
+      details: {
+        reasonCode: "assignment-transaction-retry-exhausted",
+        maximumAttempts: 8,
+      },
+    });
+    expect(fixture.transactionAttempts).toBe(8);
+    expect(fixture.writes).toHaveLength(0);
   });
 
   test("validates UUID and plant asset range before Firestore work", async () => {

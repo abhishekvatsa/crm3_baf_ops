@@ -1,0 +1,2122 @@
+diff --git a/README.md b/README.md
+index 62dbe8ffd38d48abed39b9ca64e690f9817be99f..22e9d70401d07c43cadc9d39fc23d60b6183555d 100644
+--- a/README.md
++++ b/README.md
+@@ -166,3 +166,7 @@ R1.12 addresses all 18 diagnostics produced by the authenticated R1.11 Windows `
+ ## R1.13 Flutter-test and replay-integrity correction
+ 
+ R1.13 corrects the R1.12 Flutter-test findings without treating them as analyzer regressions. It explicitly clears `isOpenForWork` during offline submit/accept replay, moves five dialog controllers into State ownership, repairs six stale or structurally brittle contracts, and makes Isar test-core custody hermetic and fail-closed. R1.13 remains a local-laboratory candidate until the complete authoritative Windows run passes from pristine packaged bytes.
++
++## R1.14 Rules-emulator and online-lifecycle correction
++
++R1.14 adjudicates the authenticated R1.13 emulator run: 103 of 122 Rules tests passed, ten permitted operations exhausted Firestore's 1,000-expression evaluation budget, and nine job-module positives exposed an omitted persisted `isOpenForWork` field. The correction preserves full user-document and role validation, routes one lifecycle branch per write, caches the module-family publication read, and writes the open-state field in all direct online module transitions. The next authority is a pristine `-RunEmulators` laboratory yielding `PASS_AUTHORITATIVE_BUILD_AND_EMULATOR`; this archive is not deployment authority.
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_14_AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_14_AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..0b3a8d668d77d9f0aa992158cce686e2da8bf053
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_14_AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+@@ -0,0 +1,72 @@
++# CRM3 App v4.2_R1.14 — Authoritative Local-Laboratory Runbook
++
++## Purpose
++
++R1.14 is the bounded correction for the authenticated R1.13 emulator failure. It:
++
++- routes expensive Firestore lifecycle checks through one selected transition;
++- preserves full approved-user document-shape validation;
++- persists `isOpenForWork` in every direct online job-module lifecycle transition;
++- corrects Rules fixtures to represent the persisted field;
++- captures the Firebase CLI load-smoke output in its individual evidence log.
++
++The required next run is the emulator-enabled authoritative tier. Do not add clean-device installation yet.
++
++## Expected candidate ZIP
++
++`CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip`
++
++Verify its SHA-256 against the supplied sidecar before extraction.
++
++## Authoritative command
++
++```powershell
++Set-Location "$HOME\Downloads"
++
++Get-FileHash `
++  ".\CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip" `
++  -Algorithm SHA256
++
++Remove-Item `
++  ".\CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE" `
++  -Recurse -Force `
++  -ErrorAction SilentlyContinue
++
++Expand-Archive `
++  -LiteralPath ".\CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip" `
++  -DestinationPath "." `
++  -Force
++
++Set-Location `
++  ".\CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE"
++
++pwsh -NoProfile -ExecutionPolicy Bypass -File `
++  ".\tools\v4\Invoke-Crm3V42R1CanonicalLocalLab.ps1" `
++  -CandidatePath (Get-Location).Path `
++  -CurrentAppRoot "C:\Users\abhis\AndroidStudioProjects\crm3_baf_ops" `
++  -Mode Authoritative `
++  -RunEmulators
++```
++
++Use `-EmulatorPort <free-port>` only if the default port is occupied.
++
++## Required successful tier
++
++The expected authoritative result is:
++
++`PASS_AUTHORITATIVE_BUILD_AND_EMULATOR`
++
++A `PASS_AUTHORITATIVE_BUILD_ONLY` result is insufficient because it does not rerun the failed Rules and governed Functions emulator gates. `PASS_AUTHORITATIVE_FRESH_INSTALL` is not required at this stage.
++
++## Evidence expected
++
++The harness writes:
++
++- `CRM3_V42_R1_14_CANONICAL_LOCAL_LAB_<timestamp>.zip`;
++- the matching `.sha256.txt` sidecar.
++
++Upload both. The evidence must contain an individual `13_firebase_cli_load_smoke.log`, a passing Rules result, a passing governed Functions emulator result, and `trial-result.json` with `emulatorPassed: true`.
++
++## Mutation boundary
++
++This run must not perform a Git push/merge/tag, Firebase deployment, production-data write, app uninstall or device-data clear.
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_14_CHANGED_FILES.md b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_14_CHANGED_FILES.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..dd4d5bf44db90eafa916bfcf1b25c4202903a30d
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_14_CHANGED_FILES.md
+@@ -0,0 +1,34 @@
++# CRM3 App v4.2_R1.14 — Changed Files
++
++## Product and Rules correction
++
++- `firestore.rules`
++  - single maintenance update router;
++  - status-routed template, directive, module-registry and job-module transitions;
++  - full approved-user shape remains mandatory;
++  - one cached module-family `getAfter` per revision publication.
++- `lib/features/planned_maintenance/providers/job_module_provider.dart`
++  - direct submit/accept/not-applicable persist `isOpenForWork: false`;
++  - direct reopen persists `isOpenForWork: true`.
++
++## Test correction and regression guards
++
++- `test/job_module_rules.test.js`
++- `test/firestore.rules.test.js`
++- `test/job_module_lifecycle_replay_contract_test.dart`
++- `test/firestore_rules_expression_budget_contract_test.dart` — new
++
++## Laboratory and audit correction
++
++- `tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1`
++- `tools/v4/r1_14_targeted_static_audit.py` — new
++- `tools/v4/v4_2_r1_canonical_audit.py`
++- `docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json`
++- `docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.md`
++- `docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md`
++- `docs/v4_2_r1/R1_13_RULES_EMULATOR_FAILURE_ADJUDICATION.md` — new
++- `README.md`
++
++## Handoff and sealing records
++
++The R1.14 patch, validation log, reconstruction proof, final verification and package manifest are generated after all source checks complete.
+diff --git a/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_14_VALIDATION.md b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_14_VALIDATION.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..d8d217fc6909816998838aa96924f2c9710b0052
+--- /dev/null
++++ b/V4_2_R1_HANDOFF/CRM3_APP_V4_2_R1_14_VALIDATION.md
+@@ -0,0 +1,27 @@
++# CRM3 App v4.2_R1.14 — Validation Boundary
++
++## Proven in the packaging environment
++
++- R1.13 evidence hash and failure stage independently verified.
++- Exact 19-failure classification established from the sealed emulator log.
++- Direct online job-module transition parity statically verified.
++- Full approved-user document validation retained.
++- Firestore transition routing and single-family-read structure verified.
++- Rules/test field parity verified.
++- Python source audits, structural audits, policy generation and manifest/reconstruction checks executed.
++
++## Not proven in the packaging environment
++
++The packaging environment has no Flutter SDK and cannot reach npm/Firebase artifact services. It therefore cannot claim:
++
++- Firestore Rules compilation by the emulator;
++- the 122 Rules tests passing;
++- governed Functions emulator tests passing;
++- `flutter analyze` or the complete Flutter suite passing after R1.14;
++- APK construction.
++
++Those claims require the fresh Windows authoritative run in the R1.14 runbook.
++
++## Release boundary
++
++R1.14 is a local-laboratory candidate only. No Git integration, Rules deployment, Functions deployment, signing, device installation or production authorization is implied.
+diff --git a/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md b/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+index 901377c93b87aae5593c336cabea86061f06aa43..0b3a8d668d77d9f0aa992158cce686e2da8bf053 100644
+--- a/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
++++ b/docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md
+@@ -1,118 +1,72 @@
+-# v4.2_R1.6 Authoritative Local Laboratory Runbook
++# CRM3 App v4.2_R1.14 — Authoritative Local-Laboratory Runbook
+ 
+ ## Purpose
+ 
+-This laboratory proves the canonical-main-reconciled successor source without changing the real repository, any Firebase backend, or an existing app installation.
++R1.14 is the bounded correction for the authenticated R1.13 emulator failure. It:
+ 
+-R1.6 preserves the R1.4 product and dependency tree and corrects only the PowerShell parser used by the Firebase CLI lock-policy gate. The lockfile is parsed with `ConvertFrom-Json -AsHashTable`, because npm lockfile v2/v3 contains the required empty-string root package key. Before the CLI can be used, the harness proves:
++- routes expensive Firestore lifecycle checks through one selected transition;
++- preserves full approved-user document-shape validation;
++- persists `isOpenForWork` in every direct online job-module lifecycle transition;
++- corrects Rules fixtures to represent the persisted field;
++- captures the Firebase CLI load-smoke output in its individual evidence log.
+ 
+-- `firebase-tools` is exactly `15.22.4`;
+-- `@hono/node-server` is exactly `1.19.14`;
+-- `fast-uri` is exactly `3.1.4`;
+-- the lockfile uses only the expected public npm artifacts and integrity hashes;
+-- the installed versions match the lock policy;
+-- the Firebase CLI dependency audit passes at `--audit-level=low`.
++The required next run is the emulator-enabled authoritative tier. Do not add clean-device installation yet.
+ 
+-The script also:
++## Expected candidate ZIP
+ 
+-- verifies the pristine package and disposable copy;
+-- exact-hash binds the two Firebase build inputs from canonical main;
+-- enforces Flutter, Dart, Node, npm and Java versions;
+-- proves all lockfiles stable;
+-- runs the early Functions TypeScript compiler gate proven in R1.3;
+-- runs authentic Isar generation and inherited-ID continuity checks;
+-- runs source audits, Functions tests, Flutter analysis/tests and debug APK build;
+-- optionally runs Rules/Functions emulator gates;
+-- optionally installs only where the package is absent;
+-- seals an evidence ZIP for both PASS and HOLD outcomes.
++`CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip`
+ 
+-It does not push, merge, tag, deploy, write production data, uninstall an app, or clear device data.
++Verify its SHA-256 against the supplied sidecar before extraction.
+ 
+-## Required inputs
+-
+-- extracted v4.2_R1.6 candidate;
+-- clean canonical repository at `C:\Users\abhis\AndroidStudioProjects\crm3_baf_ops` containing the canonical Firebase inputs;
+-- Flutter `3.44.0`, Dart `3.12.0`, Node `22.15.0`, npm `10.9.2`, Java `21.0.11`.
+-
+-Firebase build-input hashes remain:
+-
+-- `firebase_options.dart`: `07912823FCC37500C785BE26741B3930087D7A47F02F5E2268F7C7FC1A6031DE`;
+-- `google-services.json`: `DBD4450D064E6FE68D2F809A8A81B1FE5AC6E96E390F8F0B1762938D0EF5FE6D`.
+-
+-## Complete run
++## Authoritative command
+ 
+ ```powershell
+ Set-Location "$HOME\Downloads"
+ 
+-$Zip = Get-ChildItem "$HOME\Downloads" -File |
+-  Where-Object Name -Like `
+-    "CRM3_APP_V4_2_R1_5_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE*.zip" |
+-  Sort-Object LastWriteTime -Descending |
+-  Select-Object -First 1
+-
+-if (-not $Zip) {
+-    throw "v4.2_R1.6 candidate ZIP not found."
+-}
+-
+-$CandidateRoot = `
+-  "$HOME\Downloads\CRM3_APP_V4_2_R1_5_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE"
+-
+-Remove-Item $CandidateRoot -Recurse -Force -ErrorAction SilentlyContinue
+-Expand-Archive -LiteralPath $Zip.FullName -DestinationPath $CandidateRoot -Force
++Get-FileHash `
++  ".\CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip" `
++  -Algorithm SHA256
+ 
+-$Candidate = Get-ChildItem $CandidateRoot -Directory |
+-  Select-Object -First 1
++Remove-Item `
++  ".\CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE" `
++  -Recurse -Force `
++  -ErrorAction SilentlyContinue
+ 
+-$Script = Get-ChildItem $Candidate.FullName -Recurse -File `
+-  -Filter "Invoke-Crm3V42R1CanonicalLocalLab.ps1" |
+-  Select-Object -First 1
++Expand-Archive `
++  -LiteralPath ".\CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE.zip" `
++  -DestinationPath "." `
++  -Force
+ 
+-if (-not $Script) {
+-    throw "R1.6 local-laboratory script not found."
+-}
++Set-Location `
++  ".\CRM3_APP_V4_2_R1_14_CANONICAL_MAIN_LOCAL_LAB_CANDIDATE"
+ 
+-& $Script.FullName `
+-  -CandidatePath $Candidate.FullName `
++pwsh -NoProfile -ExecutionPolicy Bypass -File `
++  ".\tools\v4\Invoke-Crm3V42R1CanonicalLocalLab.ps1" `
++  -CandidatePath (Get-Location).Path `
+   -CurrentAppRoot "C:\Users\abhis\AndroidStudioProjects\crm3_baf_ops" `
+-  -EvidenceRoot "$HOME\Downloads" `
+-  -RunEmulators `
+-  -EmulatorPort 8180
++  -Mode Authoritative `
++  -RunEmulators
+ ```
+ 
+-Use a free emulator port if `8180` is occupied.
+-
+-## Important HOLD outcomes
+-
+-- `HOLD_FIREBASE_CLI_LOCK_POLICY`: declared or locked tooling versions/artifacts are not exact.
+-- `HOLD_FIREBASE_CLI_DEPENDENCY_VERSION`: `npm ci` installed a version other than the governed versions.
+-- `HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT`: the strict Firebase CLI audit still reports a known advisory.
+-- `HOLD_FUNCTIONS_TYPECHECK`: the early real Functions compiler gate failed.
+-
+-No HOLD can be promoted to an authoritative PASS by skipping the affected gate.
+-
+-## Authoritative outcomes
+-
+-- `PASS_AUTHORITATIVE_BUILD_ONLY`
+-- `PASS_AUTHORITATIVE_BUILD_AND_EMULATOR`
+-- `PASS_AUTHORITATIVE_FRESH_INSTALL`
+-
+-A diagnostic run, skipped Flutter tests, or toolchain mismatch cannot produce an authoritative PASS.
++Use `-EmulatorPort <free-port>` only if the default port is occupied.
+ 
+-## Evidence to upload
++## Required successful tier
+ 
+-The run writes:
++The expected authoritative result is:
+ 
+-- `CRM3_V42_R1_5_CANONICAL_LOCAL_LAB_<timestamp>.zip`
+-- its `.sha256.txt` sidecar.
++`PASS_AUTHORITATIVE_BUILD_AND_EMULATOR`
+ 
+-Upload both files.
++A `PASS_AUTHORITATIVE_BUILD_ONLY` result is insufficient because it does not rerun the failed Rules and governed Functions emulator gates. `PASS_AUTHORITATIVE_FRESH_INSTALL` is not required at this stage.
+ 
++## Evidence expected
+ 
+-## R1.6 parallel-verdict rule
++The harness writes:
+ 
+-The Firebase CLI dependency audit remains mandatory for an authoritative PASS. Its advisory result is recorded as a nonblocking HOLD so that local Flutter, Isar, Functions, APK and emulator evidence can still be collected. If that audit is not clean, the final status remains `HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT` even when downstream execution succeeds. This continuation never authorizes deployment or production mutation.
++- `CRM3_V42_R1_14_CANONICAL_LOCAL_LAB_<timestamp>.zip`;
++- the matching `.sha256.txt` sidecar.
+ 
++Upload both. The evidence must contain an individual `13_firebase_cli_load_smoke.log`, a passing Rules result, a passing governed Functions emulator result, and `trial-result.json` with `emulatorPassed: true`.
+ 
+-## R1.9 custody-regression correction
++## Mutation boundary
+ 
+-R1.9 restores the exact ten-path Flutter platform-registrant classification that was present in R1.7 but accidentally omitted while R1.8 introduced the semantic Isar-continuity verifier. The registrants remain visible in the post-codegen delta as `flutter-platform-registrant-added`; no broad directory or wildcard exclusion is used. The R1.8 semantic continuity gate remains unchanged.
++This run must not perform a Git push/merge/tag, Firebase deployment, production-data write, app uninstall or device-data clear.
+diff --git a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
+index 0d2fae233b91a5ab2def9c6f8db3e288d075a4a3..7f3586111fc47229c91304f2604d5607431c6b68 100644
+--- a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
++++ b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json
+@@ -16,8 +16,8 @@
+     "scope": "maintenance-workflow current-source audit collector; raw Firebase configuration and evidence artifacts excluded"
+   },
+   "counts": {
+-    "BYTE_IDENTICAL": 347,
+-    "SUCCESSOR_MODIFIED": 63
++    "BYTE_IDENTICAL": 345,
++    "SUCCESSOR_MODIFIED": 65
+   },
+   "paths": [
+     {
+@@ -55,9 +55,9 @@
+     {
+       "path": "README.md",
+       "canonicalSha256": "1DE7D30CC85FDB88E103349EFF9E8875F71C4BB872D6636CB5AF33A2B4E96FF3",
+-      "candidateSha256": "335D746FF4A1D8FDB5583B7B32F14558CF1719627ED6EA3BD771BA84C7254FBA",
++      "candidateSha256": "7B7DA97A97EA20DAD657D0EE6336AE35A9A6A685AEC9D6BF84B718D2300C04BC",
+       "canonicalBytes": 564,
+-      "candidateBytes": 8522,
++      "candidateBytes": 9204,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+@@ -375,9 +375,9 @@
+     {
+       "path": "firestore.rules",
+       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
+-      "candidateSha256": "243BD3F539F4195ADE793B7627A18FB27F47373776806233AE93D98A951DBD35",
++      "candidateSha256": "752665E7F3E399E8B4B9FD34D0676E696C228BBD60FB644B0FC344A61B8F5287",
+       "canonicalBytes": 111981,
+-      "candidateBytes": 125308,
++      "candidateBytes": 128187,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+@@ -2143,9 +2143,9 @@
+     {
+       "path": "lib/features/planned_maintenance/providers/job_module_provider.dart",
+       "canonicalSha256": "63416A789E4EC07F88448ADB718D1B5A48413FEFBFA0920C13BC9EF7133F216E",
+-      "candidateSha256": "4B2D9BAA49F95E154F174CE5BD8AAF055C42CDF5BB6048DD39A2C355E6FC6926",
++      "candidateSha256": "B878EDAC8C710BD15F2D7DC13C1BEEA62F0F8170AC8121C51BDB6CA90A990F1E",
+       "canonicalBytes": 65503,
+-      "candidateBytes": 67014,
++      "candidateBytes": 67157,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+@@ -2607,9 +2607,9 @@
+     {
+       "path": "test/firestore.rules.test.js",
+       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
+-      "candidateSha256": "328143A160356B54D274A7ACB0EC63B96C51F020E74C6CAEEA204B4897942A68",
++      "candidateSha256": "80C357D400D2D720A001F78C80CE8D2EE456641B02AC74B3FFF1E0ECE7F65D00",
+       "canonicalBytes": 78841,
+-      "candidateBytes": 79556,
++      "candidateBytes": 79641,
+       "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+@@ -2663,10 +2663,10 @@
+     {
+       "path": "test/job_module_lifecycle_replay_contract_test.dart",
+       "canonicalSha256": "EB260608BA77F0A90FE2CD8500636ADC87B938899D12DD613A362213451C4035",
+-      "candidateSha256": "E8F63190490033CD427A2335EC075930688747AEFD6451CB668D1DD5D6A6A14F",
++      "candidateSha256": "E70FB1CFEB8017A36C9C8D2C01139FEB55C7B9F1E5B9B4167C6FB42DA0BF7EBC",
+       "canonicalBytes": 12500,
+-      "candidateBytes": 12895,
+-      "disposition": "BYTE_IDENTICAL"
++      "candidateBytes": 16360,
++      "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+       "path": "test/job_module_population_replay_equivalence_test.dart",
+@@ -2679,10 +2679,10 @@
+     {
+       "path": "test/job_module_rules.test.js",
+       "canonicalSha256": "EA7C0BB20A46568A997F4B002F41306A3CCF05C7B49E45C7D91821388596F28C",
+-      "candidateSha256": "EA7C0BB20A46568A997F4B002F41306A3CCF05C7B49E45C7D91821388596F28C",
++      "candidateSha256": "AF8F953BCDE648B8CE2DFA8C162118D9DFE4D55AAC88F3727AE5AFC8442F6C3D",
+       "canonicalBytes": 22705,
+-      "candidateBytes": 22705,
+-      "disposition": "BYTE_IDENTICAL"
++      "candidateBytes": 23297,
++      "disposition": "SUCCESSOR_MODIFIED"
+     },
+     {
+       "path": "test/lifecycle_static_guardrail_contract_test.dart",
+diff --git a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.md b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.md
+index fe0e4826fd20540f10ef6b06949f20cf76e71cec..821f0064ebfa35ce291e9567ca4c36ef8e3e1fc9 100644
+--- a/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.md
++++ b/docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.md
+@@ -20,8 +20,8 @@ The exact post-PR38/post-PR39 maintenance-workflow source collector was used as
+ 
+ Within its 410 included source/configuration paths, v4.2_R1 contains:
+ 
+-- 347 byte-identical canonical paths;
+-- 63 intentional successor modifications;
++- 345 byte-identical canonical paths;
++- 65 intentional successor modifications;
+ - 0 missing canonical paths.
+ 
+ The machine-readable path and hash record is `CANONICAL_MAIN_RECONCILIATION.json`.
+@@ -41,7 +41,7 @@ The PR39 `websocket-driver` security closure is preserved in both root and Funct
+ 
+ ## Intentional successor modifications
+ 
+-The 61 modified canonical paths fall into these classes:
++The 65 modified canonical paths fall into these classes:
+ 
+ 1. **New workflow architecture and UI integration** — workflow lanes, compliance, equipment state, ticket bridge, canonical closure and diagnostics.
+ 2. **Server authority and Rules hardening** — generated policy, server-owned workflow fields, exact user schema and canonical approval/roles.
+diff --git a/docs/v4_2_r1/R1_13_RULES_EMULATOR_FAILURE_ADJUDICATION.md b/docs/v4_2_r1/R1_13_RULES_EMULATOR_FAILURE_ADJUDICATION.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..b8ff98728f3a30069e68e0250e8e1d80c005b5c9
+--- /dev/null
++++ b/docs/v4_2_r1/R1_13_RULES_EMULATOR_FAILURE_ADJUDICATION.md
+@@ -0,0 +1,86 @@
++# R1.13 Rules/Emulator Failure Adjudication
++
++## Evidence authority
++
++The authoritative R1.13 emulator-enabled laboratory evidence is:
++
++- archive: `CRM3_V42_R1_13_CANONICAL_LOCAL_LAB_20260723_011733.zip`;
++- archive SHA-256: `9BD708BB5E2EDD7AE8EF4671637311FC8BC629FE4CA807733BD4FD307F617C20`;
++- final result: `FAIL_LOCAL_LAB`;
++- failed stage: `33_rules_and_functions_emulators`;
++- remote Git mutation: none;
++- Firebase deployment: none;
++- production-data mutation: none;
++- device uninstall/clear: none.
++
++Stages 01–32 passed, including the canonical audit, Functions compilation and ordinary tests, `flutter analyze`, the complete Flutter suite, governed Isar test-core custody, authentic code generation and debug APK construction.
++
++## Exact Rules result
++
++The candidate's own `firestore.rules` was loaded by the Firestore emulator. The Rules suite reported:
++
++- 3 suites total;
++- 1 suite passed;
++- 2 suites failed;
++- 122 tests total;
++- 103 tests passed;
++- 19 tests failed.
++
++The command was serialized as `npm run test:rules && npm --prefix functions run test:emulator:governed`. Because `test:rules` failed, the governed Functions emulator suites did not execute. R1.13 therefore proves neither a Functions-emulator failure nor a Functions-emulator pass.
++
++## Bucket A — ten expression-budget failures
++
++Ten permitted Rules operations reached Firestore's maximum of 1,000 evaluated expressions:
++
++1. maintenance-record admin soft delete;
++2. maintenance-record mobile reopen;
++3. maintenance-record legacy reopen;
++4. draft template archive;
++5. archived draft restore;
++6. directive creation;
++7. directive closure by issuer;
++8. module-registry atomic publication;
++9. module-registry revision retirement;
++10. module-registry family refresh against its published revision.
++
++The failures were caused by evaluation structure, not by an absent role or malformed test document. The principal amplifiers were:
++
++- four independent `allow update` expressions for maintenance records;
++- lifecycle validators expressed as broad OR chains;
++- directive role authority repeatedly reopening and revalidating the same user document;
++- repeated `getAfter` reads of the same module-registry family;
++- complete user-shape validation repeated across overlapping branches.
++
++R1.14 retains the same fail-closed user-document shape, role vocabulary, immutable fields and transition conditions. It replaces overlapping evaluation with source/target-status routers, snapshots a fully validated role list once where needed, and caches the module-family `getAfter` result.
++
++## Bucket B — nine job-module open-state failures
++
++Nine positive job-module Rules tests were denied without the 1,000-expression message. Their seeded documents omitted the persisted `isOpenForWork` field, while the Rules correctly require:
++
++- an open-work status to carry `isOpenForWork == true`;
++- `submitted`, `accepted` and `notApplicable` to carry `isOpenForWork == false`;
++- `reopened` to carry `isOpenForWork == true`.
++
++That fixture omission exposed a second real product defect. R1.13 corrected only the offline replay builders. The direct online Firestore repository still changed `status` without writing the materialized `isOpenForWork` field. Because the repository uses merge writes, a module could retain an obsolete open flag across submit, accept or not-applicable, or retain a closed flag across reopen.
++
++R1.14 therefore writes the field explicitly in all four online transitions:
++
++- submit → `false`;
++- accept → `false`;
++- not applicable → `false`;
++- reopen → `true`.
++
++The Rules fixtures now materialize the field and each positive transition writes the expected target value. Negative role and immutable-field tests remain fail-closed.
++
++## Scope and non-claims
++
++R1.14 is a bounded source correction. It does not:
++
++- weaken full approved-user document validation;
++- broaden any role;
++- permit direct client job-module creation or deletion;
++- change canonical closure criteria;
++- deploy Rules or Functions;
++- mutate Git or production data.
++
++Static validation can prove structure, field parity, custody and reconstruction. Only a fresh authoritative Windows run with `-RunEmulators` can prove that the 122 Rules tests and governed Functions emulator suites pass under the actual Firebase emulator.
+diff --git a/firestore.rules b/firestore.rules
+index 85b20156f8bacb90764b2f3f6d3e933a4c7dad44..142c4554fe6057f239adeb121b135cd19609ee77 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -74,16 +74,28 @@ service cloud.firestore {
+         && data.get('createdAt', null) is timestamp;
+     }
+ 
++    // Preserve the original fail-closed user-document contract. Complex
++    // transition validators snapshot this fully validated profile once and
++    // reuse its roles instead of repeatedly calling role helpers across ORs.
++    function validApprovedUserAuthority(data) {
++      return validUserDocumentShape(data)
++        && data.get('isApproved', false) == true;
++    }
++
++    function approvedUserHasAnyRole(data, roles) {
++      return validApprovedUserAuthority(data)
++        && data.get('roles', []).hasAny(roles);
++    }
++
+     function isApprovedUser() {
+       return hasUserDoc()
+-        ? (validUserDocumentShape(userDoc().data)
+-          && userDoc().data.get('isApproved', false) == true)
++        ? validApprovedUserAuthority(userDoc().data)
+         : false;
+     }
+ 
+     function hasAnyRole(roles) {
+-      return isApprovedUser()
+-        ? userDoc().data.get('roles', []).hasAny(roles)
++      return hasUserDoc()
++        ? approvedUserHasAnyRole(userDoc().data, roles)
+         : false;
+     }
+ 
+@@ -533,7 +545,6 @@ service cloud.firestore {
+         ])
+         && resource.data.get('isDeleted', false) == false
+         && request.resource.data.get('isDeleted', false) == false
+-        && isApprovedUser()
+         && resource.data.get('firestoreId', null) == docId
+         && request.resource.data.get('version', -1) is int
+         && resource.data.get('version', -1) is int
+@@ -727,37 +738,41 @@ service cloud.firestore {
+     }
+ 
+     function validJobModuleUpdatePayload(docId, changedKeys, roles) {
++      let targetStatus = request.resource.data.get('status', null);
+       return jobModuleParentExistsAndIsOpen()
+         && validJobModuleUpdateCommon(docId, changedKeys)
+-        && (
+-          validJobModuleSoftDelete(changedKeys, roles)
+-          || validJobModuleSubmit(changedKeys, roles)
+-          || validJobModuleAccept(changedKeys, roles)
+-          || validJobModuleReopen(changedKeys, roles)
+-          || validJobModuleNotApplicable(changedKeys, roles)
+-          || validJobModuleWorkUpdate(changedKeys, roles)
+-        );
++        && (request.resource.data.get('isDeleted', false) !=
++            resource.data.get('isDeleted', false)
++          ? validJobModuleSoftDelete(changedKeys, roles)
++          : (targetStatus == 'submitted'
++            ? validJobModuleSubmit(changedKeys, roles)
++            : (targetStatus == 'accepted'
++              ? validJobModuleAccept(changedKeys, roles)
++              : (targetStatus == 'reopened'
++                ? validJobModuleReopen(changedKeys, roles)
++                : (targetStatus == 'notApplicable'
++                  ? validJobModuleNotApplicable(changedKeys, roles)
++                  : (isOpenModuleStatus(targetStatus)
++                    ? validJobModuleWorkUpdate(changedKeys, roles)
++                    : false))))));
+     }
+ 
+     function validJobModuleUpdate(docId) {
+-      // 47D.3: use the conditional operator as a true fast-deny boundary.
+-      // The previous `&&` match-gate still allowed the emulator to evaluate
+-      // the expensive update OR-chain on malformed `isSynced` / `responses`
+-      // writes. The selected branch of this conditional should prevent that
+-      // chain from being evaluated for known local-only/legacy payloads.
+-      //
+-      // 47D.4: Guard userDoc().data.get('roles', []) with isApprovedUser() — without
+-      // this, a signed-in user with no user doc (deletion in flight, fresh
+-      // signup before doc creation, admin-removed doc) makes this rule
+-      // ERROR instead of cleanly deny. Behavior is still deny in the end,
+-      // but errors-as-deny is a smell and pollutes the rules emulator log
+-      // with 20+ warnings per negative test run.
++      // Fast-deny local-only/legacy fields before any document lookup. Then
++      // validate the complete approved-user profile once, snapshot its roles,
++      // and evaluate only the transition selected by the target status.
+       let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+       return changedKeys.hasAny(['responses', 'isSynced'])
+         ? false
+-        : (isApprovedUser()
+-            ? validJobModuleUpdatePayload(docId, changedKeys, userDoc().data.get('roles', []))
+-            : false);
++        : (hasUserDoc()
++          ? (validApprovedUserAuthority(userDoc().data)
++            ? validJobModuleUpdatePayload(
++                docId,
++                changedKeys,
++                userDoc().data.get('roles', [])
++              )
++            : false)
++          : false);
+     }
+ 
+     // ─────────────────────────────────────────────
+@@ -816,22 +831,21 @@ service cloud.firestore {
+     // 📢 DIRECTIVE HELPERS
+     // ─────────────────────────────────────────────
+ 
+-    function canCloseAnyDirective() {
+-      return isModuleLifecycleModerator();
+-    }
+-
+-    function hasRequesterDirectiveTargetRole(role) {
+-      return isApprovedUser()
+-        ? (role is string && userDoc().data.get('roles', []).hasAny([role]))
+-        : false;
++    function directiveRolesCanCloseAny(roles) {
++      return roles.hasAny([
++        'admin',
++        'si',
++        'contractSupervisor',
++        'shiftSupervisor'
++      ]);
+     }
+ 
+-    function canDirectiveCreatorTarget(role) {
++    function directiveRolesCanTarget(roles, role) {
+       return role is string
+         && (
+-          (isAdmin() && role != 'admin')
++          (roles.hasAny(['admin']) && role != 'admin')
+           || (
+-            hasAnyRole(['si'])
++            roles.hasAny(['si'])
+             && [
+               'contractSupervisor',
+               'shiftSupervisor',
+@@ -843,7 +857,7 @@ service cloud.firestore {
+             ].hasAny([role])
+           )
+           || (
+-            hasAnyRole(['contractSupervisor'])
++            roles.hasAny(['contractSupervisor'])
+             && [
+               'shiftSupervisor',
+               'operations',
+@@ -854,7 +868,7 @@ service cloud.firestore {
+             ].hasAny([role])
+           )
+           || (
+-            hasAnyRole(['shiftSupervisor'])
++            roles.hasAny(['shiftSupervisor'])
+             && [
+               'operations',
+               'seniorElectrical',
+@@ -864,7 +878,7 @@ service cloud.firestore {
+             ].hasAny([role])
+           )
+           || (
+-            hasAnyRole(['operations'])
++            roles.hasAny(['operations'])
+             && [
+               'contractSupervisor',
+               'shiftSupervisor',
+@@ -924,7 +938,7 @@ service cloud.firestore {
+       ];
+     }
+ 
+-    function validDirectiveCreate(docId) {
++    function validDirectiveCreateForRoles(docId, roles) {
+       return request.resource.data.keys().hasAll([
+           'firestoreId',
+           'title',
+@@ -954,13 +968,26 @@ service cloud.firestore {
+           && request.resource.data.get('updatedAt', null) is string
+           && request.resource.data.get('version', -1) is int
+           && request.resource.data.get('version', -1) >= 1
+-          && canDirectiveCreatorTarget(request.resource.data.get('directedTo', null)))
++          && directiveRolesCanTarget(
++            roles,
++            request.resource.data.get('directedTo', null)
++          ))
++        : false;
++    }
++
++    function validDirectiveCreate(docId) {
++      return hasUserDoc()
++        ? (validApprovedUserAuthority(userDoc().data)
++          ? validDirectiveCreateForRoles(
++              docId,
++              userDoc().data.get('roles', [])
++            )
++          : false)
+         : false;
+     }
+ 
+     function validDirectiveBaseUpdate() {
+-      return isApprovedUser()
+-        && resource.data.get('isDeleted', false) == false
++      return resource.data.get('isDeleted', false) == false
+         && request.resource.data.get('isDeleted', false) == false
+         && request.resource.data.get('createdByUid', null) == resource.data.get('createdByUid', null)
+         && request.resource.data.get('issuedByUid', null) == resource.data.get('issuedByUid', null)
+@@ -971,36 +998,38 @@ service cloud.firestore {
+         && request.resource.data.get('version', -1) > resource.data.get('version', -1);
+     }
+ 
+-    function validDirectiveAcknowledge() {
++    function validDirectiveAcknowledgeForRoles(roles) {
+       return validDirectiveBaseUpdate()
+         && resource.data.get('status', null) == 'open'
+         && request.resource.data.get('status', null) == 'acknowledged'
+         && request.resource.data.get('acknowledgedByUid', null) == request.auth.uid
+         && request.resource.data.get('acknowledgedAt', null) != null
+-        && hasRequesterDirectiveTargetRole(resource.data.get('directedTo', null))
++        && resource.data.get('directedTo', null) is string
++        && roles.hasAny([resource.data.get('directedTo', null)])
+         && request.resource.data.get('closedByUid', null) == null
+         && request.resource.data.get('closedAt', null) == null;
+     }
+ 
+-    function validDirectiveClose() {
++    function validDirectiveCloseForRoles(roles) {
+       return validDirectiveBaseUpdate()
+         && (resource.data.get('status', null) == 'open' || resource.data.get('status', null) == 'acknowledged')
+         && request.resource.data.get('status', null) == 'closed'
+         && request.resource.data.get('closedByUid', null) == request.auth.uid
+         && request.resource.data.get('closedAt', null) != null
+         && (
+-          canCloseAnyDirective()
++          directiveRolesCanCloseAny(roles)
+           || directiveIssuedByRequester(resource.data)
+           || (
+             resource.data.get('status', null) == 'acknowledged'
+             && resource.data.get('acknowledgedByUid', null) == request.auth.uid
+-            && hasRequesterDirectiveTargetRole(resource.data.get('directedTo', null))
++            && resource.data.get('directedTo', null) is string
++            && roles.hasAny([resource.data.get('directedTo', null)])
+           )
+         );
+     }
+ 
+-    function validDirectiveAdminEdit() {
+-      return isAdmin()
++    function validDirectiveAdminEditForRoles(roles) {
++      return roles.hasAny(['admin'])
+         && request.resource.data.get('isDeleted', false) ==
+           resource.data.get('isDeleted', false)
+         && request.resource.data.get('version', -1) is int
+@@ -1008,18 +1037,32 @@ service cloud.firestore {
+         && request.resource.data.get('version', -1) > resource.data.get('version', -1);
+     }
+ 
+-    function validDirectiveAdminDelete() {
+-      return isAdmin()
++    function validDirectiveAdminDeleteForRoles(roles) {
++      return roles.hasAny(['admin'])
+         && resource.data.get('isDeleted', false) == false
+         && request.resource.data.get('isDeleted', false) == true
+         && request.resource.data.get('deletedByUid', '') == request.auth.uid;
+     }
+ 
++    function validDirectiveUpdateForRoles(roles) {
++      return roles.hasAny(['admin'])
++        ? (request.resource.data.get('isDeleted', false) == true
++          && resource.data.get('isDeleted', false) == false
++          ? validDirectiveAdminDeleteForRoles(roles)
++          : validDirectiveAdminEditForRoles(roles))
++        : (request.resource.data.get('status', null) == 'acknowledged'
++          ? validDirectiveAcknowledgeForRoles(roles)
++          : (request.resource.data.get('status', null) == 'closed'
++            ? validDirectiveCloseForRoles(roles)
++            : false));
++    }
++
+     function validDirectiveUpdate() {
+-      return validDirectiveAcknowledge()
+-        || validDirectiveClose()
+-        || validDirectiveAdminEdit()
+-        || validDirectiveAdminDelete();
++      return hasUserDoc()
++        ? (validApprovedUserAuthority(userDoc().data)
++          ? validDirectiveUpdateForRoles(userDoc().data.get('roles', []))
++          : false)
++        : false;
+     }
+ 
+     // ─────────────────────────────────────────────
+@@ -1251,23 +1294,22 @@ service cloud.firestore {
+       ]);
+     }
+ 
+-    function validTemplateVersionArchiveDelta() {
+-      return (
+-          resource.data.get('status', null) == 'retired'
+-          && request.resource.data.get('status', null) == 'archived'
+-          && templateVersionFrozenPayloadUnchanged()
+-        )
+-        || (
+-          resource.data.get('status', null) == 'draft'
+-          && request.resource.data.get('status', null) == 'archived'
+-          && resource.data.get('isDeleted', null) == false
+-          && request.resource.data.get('isDeleted', null) == false
+-          && templateVersionHasNoPublishOrRetireHistory(resource.data)
+-          && templateVersionHasNoPublishOrRetireHistory(request.resource.data)
+-          && templateVersionPayloadJsonUnchanged()
+-          && templateVersionDraftLifecycleChangedFieldsOnly()
+-          && templateContentHashLooksValid()
+-        );
++    function validRetiredTemplateVersionArchiveDelta() {
++      return resource.data.get('status', null) == 'retired'
++        && request.resource.data.get('status', null) == 'archived'
++        && templateVersionFrozenPayloadUnchanged();
++    }
++
++    function validDraftTemplateVersionArchiveDelta() {
++      return resource.data.get('status', null) == 'draft'
++        && request.resource.data.get('status', null) == 'archived'
++        && resource.data.get('isDeleted', null) == false
++        && request.resource.data.get('isDeleted', null) == false
++        && templateVersionHasNoPublishOrRetireHistory(resource.data)
++        && templateVersionHasNoPublishOrRetireHistory(request.resource.data)
++        && templateVersionPayloadJsonUnchanged()
++        && templateVersionDraftLifecycleChangedFieldsOnly()
++        && templateContentHashLooksValid();
+     }
+ 
+     function validTemplateVersionRestoreDelta() {
+@@ -1282,15 +1324,35 @@ service cloud.firestore {
+         && templateContentHashLooksValid();
+     }
+ 
++    function validTemplateVersionUpdateDelta() {
++      let sourceStatus = resource.data.get('status', null);
++      let targetStatus = request.resource.data.get('status', null);
++      return sourceStatus == 'draft'
++        ? (targetStatus == 'draft'
++          ? validDraftTemplateVersionUpdateDelta()
++          : (targetStatus == 'published'
++            ? validTemplateVersionPublishDelta()
++            : (targetStatus == 'archived'
++              ? validDraftTemplateVersionArchiveDelta()
++              : false)))
++        : (sourceStatus == 'published'
++          ? (targetStatus == 'retired'
++            ? validTemplateVersionRetireDelta()
++            : false)
++          : (sourceStatus == 'retired'
++            ? (targetStatus == 'archived'
++              ? validRetiredTemplateVersionArchiveDelta()
++              : false)
++            : (sourceStatus == 'archived'
++              ? (targetStatus == 'draft'
++                ? validTemplateVersionRestoreDelta()
++                : false)
++              : false)));
++    }
++
+     function validTemplateVersionUpdate(docId) {
+       return validTemplateVersionUpdateCommon(docId)
+-        && (
+-          validDraftTemplateVersionUpdateDelta()
+-          || validTemplateVersionPublishDelta()
+-          || validTemplateVersionRetireDelta()
+-          || validTemplateVersionArchiveDelta()
+-          || validTemplateVersionRestoreDelta()
+-        );
++        && validTemplateVersionUpdateDelta();
+     }
+ 
+     function validTemplateLifecycleAuditEvidence() {
+@@ -1695,6 +1757,41 @@ service cloud.firestore {
+         && moduleRegistryPointerBootstrapMatchesHistory(docId);
+     }
+ 
++    function validModuleRegistryFamilyPublishDelta(docId) {
++      return resource.data.get('status', null) == 'active'
++        && request.resource.data.get('status', null) == 'active'
++        && moduleRegistryFamilyPublishChangedFieldsOnly()
++        && request.resource.data.get('latestPublishedRevisionNumber', null) ==
++          resource.data.get('latestPublishedRevisionNumber', null) + 1
++        && moduleRegistryPublishPointerMatchesRevision(docId)
++        && (
++          resource.data.get('latestPublishedRevisionNumber', 0) == 0
++          || (
++            resource.data.get('latestPublishedRevisionId', null) is string
++            && resource.data.get('latestPublishedRevisionId', '').size() > 0
++            && resource.data.get('latestPublishedContentHash', null) is string
++            && resource.data.get('latestPublishedContentHash', '')
++              .matches('^mrg1-sha256:[0-9a-f]{64}$')
++            && request.resource.data.get(
++                  'latestPublishedContentHash',
++                  null
++                ) !=
++              resource.data.get('latestPublishedContentHash', null)
++          )
++        );
++    }
++
++    function validModuleRegistryFamilyRetireDelta() {
++      return resource.data.get('status', null) == 'active'
++        && request.resource.data.get('status', null) == 'retired'
++        && moduleRegistryFamilyRetireChangedFieldsOnly()
++        && request.resource.data.get('latestPublishedRevisionNumber', null) ==
++          resource.data.get('latestPublishedRevisionNumber', null)
++        && request.resource.data.get('retiredByUid', null) == request.auth.uid
++        && request.resource.data.get('retiredAt', null) != null
++        && request.resource.data.get('retireReason', null) is string;
++    }
++
+     function validModuleRegistryFamilyGovernedUpdate(docId) {
+       return isModuleRegistryGovernor()
+         && resource.data.get('registryModuleId', null) == docId
+@@ -1706,42 +1803,11 @@ service cloud.firestore {
+         && resource.data.get('version', -1) is int
+         && request.resource.data.get('version', -1) ==
+           resource.data.get('version', -1) + 1
+-        && (
+-          (
+-            resource.data.get('status', null) == 'active'
+-            && request.resource.data.get('status', null) == 'active'
+-            && moduleRegistryFamilyPublishChangedFieldsOnly()
+-            && request.resource.data.get('latestPublishedRevisionNumber', null) ==
+-              resource.data.get('latestPublishedRevisionNumber', null) + 1
+-            && moduleRegistryPublishPointerMatchesRevision(docId)
+-            && (
+-              resource.data.get('latestPublishedRevisionNumber', 0) == 0
+-              || (
+-                resource.data.get('latestPublishedRevisionId', null) is string
+-                && resource.data.get('latestPublishedRevisionId', '').size() > 0
+-                && resource.data.get('latestPublishedContentHash', null) is string
+-                && resource.data.get('latestPublishedContentHash', '')
+-                  .matches('^mrg1-sha256:[0-9a-f]{64}$')
+-                && request.resource.data.get(
+-                      'latestPublishedContentHash',
+-                      null
+-                    ) !=
+-                  resource.data.get('latestPublishedContentHash', null)
+-              )
+-            )
+-          )
+-          || (
+-            resource.data.get('status', null) == 'active'
+-            && request.resource.data.get('status', null) == 'retired'
+-            && moduleRegistryFamilyRetireChangedFieldsOnly()
+-            && request.resource.data.get('latestPublishedRevisionNumber', null) ==
+-              resource.data.get('latestPublishedRevisionNumber', null)
+-            && request.resource.data.get('retiredByUid', null) ==
+-              request.auth.uid
+-            && request.resource.data.get('retiredAt', null) != null
+-            && request.resource.data.get('retireReason', null) is string
+-          )
+-        );
++        && (request.resource.data.get('status', null) == 'active'
++          ? validModuleRegistryFamilyPublishDelta(docId)
++          : (request.resource.data.get('status', null) == 'retired'
++            ? validModuleRegistryFamilyRetireDelta()
++            : false));
+     }
+ 
+     function validModuleRegistryFamilyUpdate(docId) {
+@@ -1847,6 +1913,75 @@ service cloud.firestore {
+         && request.resource.data.get('lineageJson', null) == resource.data.get('lineageJson', null);
+     }
+ 
++    function moduleRegistryRevisionPublishMatchesFamily(
++      registryModuleId,
++      revisionId
++    ) {
++      let family = getAfter(
++        /databases/$(database)/documents/module_registry/$(registryModuleId)
++      ).data;
++      return family.get('latestPublishedRevisionId', null) == revisionId
++        && family.get('latestPublishedRevisionNumber', -1) ==
++          request.resource.data.get('revisionNumber', -1)
++        && family.get('latestPublishedContentHash', null) ==
++          request.resource.data.get('contentHash', null);
++    }
++
++    function validModuleRegistryRevisionDraftEditDelta() {
++      return resource.data.get('revisionStatus', null) == 'draft'
++        && request.resource.data.get('revisionStatus', null) == 'draft'
++        && request.resource.data.get('revisionNumber', -1) ==
++          resource.data.get('revisionNumber', -1);
++    }
++
++    function validModuleRegistryRevisionPublishDelta(
++      registryModuleId,
++      revisionId
++    ) {
++      return resource.data.get('revisionStatus', null) == 'draft'
++        && request.resource.data.get('revisionStatus', null) == 'published'
++        && moduleRegistryRevisionContentUnchanged()
++        && request.resource.data.get('revisionNumber', -1) is int
++        && request.resource.data.get('revisionNumber', -1) > 0
++        && moduleRegistryRevisionPublishMatchesFamily(
++          registryModuleId,
++          revisionId
++        )
++        && request.resource.data.get('publishedByUid', null) == request.auth.uid
++        && request.resource.data.get('publishedAt', null) != null;
++    }
++
++    function validModuleRegistryRevisionRetireDelta() {
++      return resource.data.get('revisionStatus', null) == 'published'
++        && request.resource.data.get('revisionStatus', null) == 'retired'
++        && moduleRegistryRevisionContentUnchanged()
++        && request.resource.data.get('revisionNumber', -1) ==
++          resource.data.get('revisionNumber', -1)
++        && request.resource.data.get('retiredByUid', null) == request.auth.uid
++        && request.resource.data.get('retiredAt', null) != null
++        && request.resource.data.get('retireReason', null) is string;
++    }
++
++    function validModuleRegistryRevisionUpdateDelta(
++      registryModuleId,
++      revisionId
++    ) {
++      let sourceStatus = resource.data.get('revisionStatus', null);
++      let targetStatus = request.resource.data.get('revisionStatus', null);
++      return sourceStatus == 'draft'
++        ? (targetStatus == 'draft'
++          ? validModuleRegistryRevisionDraftEditDelta()
++          : (targetStatus == 'published'
++            ? validModuleRegistryRevisionPublishDelta(
++                registryModuleId,
++                revisionId
++              )
++            : false))
++        : (sourceStatus == 'published' && targetStatus == 'retired'
++          ? validModuleRegistryRevisionRetireDelta()
++          : false);
++    }
++
+     function validModuleRegistryRevisionUpdate(registryModuleId, revisionId) {
+       return isModuleRegistryGovernor()
+         && validModuleRegistryRevisionFields()
+@@ -1858,42 +1993,11 @@ service cloud.firestore {
+         && request.resource.data.get('updatedByUid', null) == request.auth.uid
+         && request.resource.data.get('version', -1) is int
+         && resource.data.get('version', -1) is int
+-        && request.resource.data.get('version', -1) == resource.data.get('version', -1) + 1
+-        && (
+-          (
+-            resource.data.get('revisionStatus', null) == 'draft'
+-            && request.resource.data.get('revisionStatus', null) == 'draft'
+-            && request.resource.data.get('revisionNumber', -1) == resource.data.get('revisionNumber', -1)
+-          )
+-          || (
+-            resource.data.get('revisionStatus', null) == 'draft'
+-            && request.resource.data.get('revisionStatus', null) == 'published'
+-            && moduleRegistryRevisionContentUnchanged()
+-            && request.resource.data.get('revisionNumber', -1) is int
+-            && request.resource.data.get('revisionNumber', -1) > 0
+-            && getAfter(
+-              /databases/$(database)/documents/module_registry/$(registryModuleId)
+-            ).data.get('latestPublishedRevisionId', null) == revisionId
+-            && getAfter(
+-              /databases/$(database)/documents/module_registry/$(registryModuleId)
+-            ).data.get('latestPublishedRevisionNumber', -1) ==
+-              request.resource.data.get('revisionNumber', -1)
+-            && getAfter(
+-              /databases/$(database)/documents/module_registry/$(registryModuleId)
+-            ).data.get('latestPublishedContentHash', null) ==
+-              request.resource.data.get('contentHash', null)
+-            && request.resource.data.get('publishedByUid', null) == request.auth.uid
+-            && request.resource.data.get('publishedAt', null) != null
+-          )
+-          || (
+-            resource.data.get('revisionStatus', null) == 'published'
+-            && request.resource.data.get('revisionStatus', null) == 'retired'
+-            && moduleRegistryRevisionContentUnchanged()
+-            && request.resource.data.get('revisionNumber', -1) == resource.data.get('revisionNumber', -1)
+-            && request.resource.data.get('retiredByUid', null) == request.auth.uid
+-            && request.resource.data.get('retiredAt', null) != null
+-            && request.resource.data.get('retireReason', null) is string
+-          )
++        && request.resource.data.get('version', -1) ==
++          resource.data.get('version', -1) + 1
++        && validModuleRegistryRevisionUpdateDelta(
++          registryModuleId,
++          revisionId
+         );
+     }
+ 
+@@ -2327,6 +2431,20 @@ service cloud.firestore {
+         && maintenanceVersionAdvances();
+     }
+ 
++    function validMaintenanceUpdate() {
++      let sourceDeleted = resource.data.get('isDeleted', false);
++      let targetDeleted = request.resource.data.get('isDeleted', false);
++      let sourceResolved = resource.data.get('isResolved', false);
++      let targetResolved = request.resource.data.get('isResolved', false);
++      return targetDeleted != sourceDeleted
++        ? validMaintenanceSoftDeleteUpdate()
++        : (targetResolved != sourceResolved
++          ? (targetResolved
++            ? validMaintenanceCloseUpdate()
++            : validMaintenanceReopenUpdate())
++          : validMaintenanceAdminEditUpdate());
++    }
++
+     function maintenanceAdminEditChangedFieldsOnly(affected) {
+       return affected.hasOnly([
+         'maintenanceType',
+@@ -2579,18 +2697,9 @@ service cloud.firestore {
+     match /maintenance_records/{docId} {
+       allow read: if isApprovedUser();
+       allow create: if validMaintenanceCreate(docId);
+-      allow update: if exists(/databases/$(database)/documents/maintenance_records/$(docId))
+-        ? (isApprovedUser() ? validMaintenanceCloseUpdate() : false)
+-        : false;
+-      allow update: if exists(/databases/$(database)/documents/maintenance_records/$(docId))
+-        ? (isApprovedUser() ? validMaintenanceReopenUpdate() : false)
+-        : false;
+-      allow update: if exists(/databases/$(database)/documents/maintenance_records/$(docId))
+-        ? (isApprovedUser() ? validMaintenanceSoftDeleteUpdate() : false)
+-        : false;
+-      allow update: if exists(/databases/$(database)/documents/maintenance_records/$(docId))
+-        ? (isApprovedUser() ? validMaintenanceAdminEditUpdate() : false)
+-        : false;
++      // A single transition router prevents Firestore from evaluating four
++      // independent update allow expressions for the same request.
++      allow update: if validMaintenanceUpdate();
+       allow delete: if false;
+     }
+ 
+@@ -2610,9 +2719,7 @@ service cloud.firestore {
+       allow create: if isApprovedUser()
+         ? validTemplateVersionCreate(docId)
+         : false;
+-      allow update: if exists(/databases/$(database)/documents/template_versions/$(docId))
+-        ? (isApprovedUser() ? validTemplateVersionUpdate(docId) : false)
+-        : false;
++      allow update: if validTemplateVersionUpdate(docId);
+       allow delete: if false;
+     }
+ 
+@@ -2633,9 +2740,7 @@ service cloud.firestore {
+       allow create: if isApprovedUser()
+         ? validModuleRegistryFamilyCreate(registryModuleId)
+         : false;
+-      allow update: if exists(/databases/$(database)/documents/module_registry/$(registryModuleId))
+-        ? validModuleRegistryFamilyUpdate(registryModuleId)
+-        : false;
++      allow update: if validModuleRegistryFamilyUpdate(registryModuleId);
+       allow delete: if false;
+ 
+       match /revisions/{revisionId} {
+@@ -2643,9 +2748,7 @@ service cloud.firestore {
+         allow create: if isApprovedUser()
+           ? validModuleRegistryRevisionCreate(registryModuleId, revisionId)
+           : false;
+-        allow update: if exists(/databases/$(database)/documents/module_registry/$(registryModuleId)/revisions/$(revisionId))
+-          ? (isApprovedUser() ? validModuleRegistryRevisionUpdate(registryModuleId, revisionId) : false)
+-          : false;
++        allow update: if validModuleRegistryRevisionUpdate(registryModuleId, revisionId);
+         allow delete: if false;
+       }
+     }
+@@ -2710,9 +2813,7 @@ service cloud.firestore {
+       // All client-originated population creates are server-only. Governed
+       // published-template assignment uses the Admin SDK and bypasses rules.
+       allow create: if false;
+-      allow update: if exists(/databases/$(database)/documents/job_modules/$(docId))
+-        ? (isApprovedUser() ? validJobModuleUpdate(docId) : false)
+-        : false;
++      allow update: if validJobModuleUpdate(docId);
+       allow delete: if false;
+     }
+ 
+@@ -2722,12 +2823,8 @@ service cloud.firestore {
+ 
+     match /directives/{docId} {
+       allow read: if isApprovedUser();
+-      allow create: if isApprovedUser()
+-        ? validDirectiveCreate(docId)
+-        : false;
+-      allow update: if exists(/databases/$(database)/documents/directives/$(docId))
+-        ? (isApprovedUser() ? validDirectiveUpdate() : false)
+-        : false;
++      allow create: if validDirectiveCreate(docId);
++      allow update: if validDirectiveUpdate();
+       allow delete: if false;
+     }
+ 
+diff --git a/lib/features/planned_maintenance/providers/job_module_provider.dart b/lib/features/planned_maintenance/providers/job_module_provider.dart
+index 52fa415ff5971bcc3ed36ee020313caeff3fe38d..df640f012e369db4e663fa27f3ebecf33e80181a 100644
+--- a/lib/features/planned_maintenance/providers/job_module_provider.dart
++++ b/lib/features/planned_maintenance/providers/job_module_provider.dart
+@@ -1621,6 +1621,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
+       buildUpdate:
+           (now) => {
+             'status': JobModuleStatus.submitted.name,
++            'isOpenForWork': false,
+             'submittedByUid': actor.uid,
+             'submittedByName': _cleanOptionalText(actor.name),
+             'submittedAt': now.toIso8601String(),
+@@ -1648,6 +1649,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
+       buildUpdate:
+           (now) => {
+             'status': JobModuleStatus.reopened.name,
++            'isOpenForWork': true,
+             'reopenedByUid': actor.uid,
+             'reopenedByName': _cleanOptionalText(actor.name),
+             'reopenedAt': now.toIso8601String(),
+@@ -1689,6 +1691,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
+       buildUpdate:
+           (now) => {
+             'status': JobModuleStatus.notApplicable.name,
++            'isOpenForWork': false,
+             'notApplicableByUid': actor.uid,
+             'notApplicableByName': _cleanOptionalText(actor.name),
+             'notApplicableAt': now.toIso8601String(),
+@@ -1720,6 +1723,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
+       buildUpdate:
+           (now) => {
+             'status': JobModuleStatus.accepted.name,
++            'isOpenForWork': false,
+             'acceptedByUid': actor.uid,
+             'acceptedByName': _cleanOptionalText(actor.name),
+             'acceptedAt': now.toIso8601String(),
+diff --git a/test/firestore.rules.test.js b/test/firestore.rules.test.js
+index 0feb53036ff5b8935ae78a870c96f82fcd0dd975..8aab4698f182cc488ff88bf34f99a3b4488dc5ec 100644
+--- a/test/firestore.rules.test.js
++++ b/test/firestore.rules.test.js
+@@ -1555,6 +1555,7 @@ describe("job_modules", () => {
+     assetType: "base",
+     assetNumber: 1,
+     status: "draftSaved",
++    isOpenForWork: true,
+     discipline: "mechanical",
+     safetyClass: "normal",
+     requiredForClosure: false,
+@@ -1577,6 +1578,7 @@ describe("job_modules", () => {
+     await assertSucceeds(
+       updateDoc(doc(db, "job_modules/mod1"), {
+         status: "submitted",
++        isOpenForWork: false,
+         submittedByUid: "seniorMech",
+         submittedAt: Timestamp.now(),
+         updatedAt: Timestamp.now(),
+@@ -1596,6 +1598,7 @@ describe("job_modules", () => {
+     await assertFails(
+       updateDoc(doc(db, "job_modules/mod2"), {
+         status: "submitted",
++        isOpenForWork: false,
+         submittedByUid: "ops1",
+         submittedAt: Timestamp.now(),
+         updatedAt: Timestamp.now(),
+diff --git a/test/firestore_rules_expression_budget_contract_test.dart b/test/firestore_rules_expression_budget_contract_test.dart
+new file mode 100644
+index 0000000000000000000000000000000000000000..5255aa2362a640f873d9ed76328e6ee1fd2f9d12
+--- /dev/null
++++ b/test/firestore_rules_expression_budget_contract_test.dart
+@@ -0,0 +1,158 @@
++import 'dart:io';
++
++import 'package:flutter_test/flutter_test.dart';
++
++void main() {
++  group('R1.14 Firestore expression-budget contract', () {
++    late String rules;
++
++    setUpAll(() {
++      rules = File('firestore.rules').readAsStringSync();
++    });
++
++    test('authorization remains full-shape fail-closed and reusable', () {
++      final authority = _blockStartingAt(
++        rules,
++        'function validApprovedUserAuthority(data)',
++      );
++      expect(authority, contains('validUserDocumentShape(data)'));
++      expect(authority, contains("data.get('isApproved', false) == true"));
++      expect(
++        rules,
++        contains('snapshot this fully validated profile once'),
++      );
++    });
++
++    test('maintenance has one update allow and a transition router', () {
++      final matchBlock = _blockStartingAt(rules, 'match /maintenance_records/{docId}');
++      expect(
++        RegExp(r'allow update:').allMatches(matchBlock).length,
++        1,
++        reason: 'overlapping update allows consumed the emulator expression budget',
++      );
++      expect(matchBlock, contains('allow update: if validMaintenanceUpdate();'));
++
++      final router = _blockStartingAt(rules, 'function validMaintenanceUpdate()');
++      expect(router, contains('targetDeleted != sourceDeleted'));
++      expect(router, contains('validMaintenanceSoftDeleteUpdate()'));
++      expect(router, contains('targetResolved != sourceResolved'));
++      expect(router, contains('validMaintenanceCloseUpdate()'));
++      expect(router, contains('validMaintenanceReopenUpdate()'));
++      expect(router, contains('validMaintenanceAdminEditUpdate()'));
++    });
++
++    test('template lifecycle evaluates only the selected status transition', () {
++      final router = _blockStartingAt(
++        rules,
++        'function validTemplateVersionUpdateDelta()',
++      );
++      expect(router, contains("sourceStatus == 'draft'"));
++      expect(router, contains("targetStatus == 'published'"));
++      expect(router, contains('validDraftTemplateVersionArchiveDelta()'));
++      expect(router, contains('validRetiredTemplateVersionArchiveDelta()'));
++      expect(router, contains('validTemplateVersionRestoreDelta()'));
++      expect(
++        _blockStartingAt(rules, 'function validTemplateVersionUpdate(docId)'),
++        isNot(contains('||')),
++      );
++    });
++
++    test('job-module updates validate one user snapshot and one lifecycle branch', () {
++      final entry = _blockStartingAt(rules, 'function validJobModuleUpdate(docId)');
++      expect(entry, contains('validApprovedUserAuthority(userDoc().data)'));
++      expect(entry, contains("userDoc().data.get('roles', [])"));
++
++      final router = _blockStartingAt(
++        rules,
++        'function validJobModuleUpdatePayload(docId, changedKeys, roles)',
++      );
++      expect(router, contains("targetStatus == 'submitted'"));
++      expect(router, contains("targetStatus == 'accepted'"));
++      expect(router, contains("targetStatus == 'reopened'"));
++      expect(router, contains("targetStatus == 'notApplicable'"));
++      expect(router, contains('isOpenModuleStatus(targetStatus)'));
++      expect(router, isNot(contains('||')));
++    });
++
++    test('directives snapshot roles and route one transition branch', () {
++      expect(rules, contains('function directiveRolesCanTarget(roles, role)'));
++      expect(rules, contains('function validDirectiveUpdateForRoles(roles)'));
++      expect(rules, isNot(contains('function canDirectiveCreatorTarget(role)')));
++      expect(rules, isNot(contains('function hasRequesterDirectiveTargetRole(role)')));
++
++      final update = _blockStartingAt(
++        rules,
++        'function validDirectiveUpdate()',
++      );
++      expect(update, contains("userDoc().data.get('roles', [])"));
++      expect(update, contains('validDirectiveUpdateForRoles'));
++    });
++
++    test('module registry uses status routers and one family read per publish', () {
++      final family = _blockStartingAt(
++        rules,
++        'function validModuleRegistryFamilyGovernedUpdate(docId)',
++      );
++      expect(family, contains("request.resource.data.get('status', null) == 'active'"));
++      expect(family, contains('validModuleRegistryFamilyPublishDelta(docId)'));
++      expect(family, contains('validModuleRegistryFamilyRetireDelta()'));
++      expect(family, isNot(contains('||')));
++
++      final revision = _blockStartingAt(
++        rules,
++        'function validModuleRegistryRevisionUpdateDelta(',
++      );
++      expect(revision, contains("sourceStatus == 'draft'"));
++      expect(revision, contains('validModuleRegistryRevisionPublishDelta('));
++      expect(revision, contains('validModuleRegistryRevisionRetireDelta()'));
++
++      final familyRead = _blockStartingAt(
++        rules,
++        'function moduleRegistryRevisionPublishMatchesFamily(',
++      );
++      expect(RegExp(r'getAfter\(').allMatches(familyRead).length, 1);
++    });
++  });
++}
++
++String _blockStartingAt(String source, String marker) {
++  final markerIndex = source.indexOf(marker);
++  expect(markerIndex, isNot(-1), reason: 'Missing marker: $marker');
++
++  final openBrace = source.indexOf('{', markerIndex + marker.length);
++  expect(openBrace, isNot(-1), reason: 'Missing opening brace after $marker');
++
++  var depth = 0;
++  var inSingleQuote = false;
++  var inDoubleQuote = false;
++  var escaped = false;
++
++  for (var i = openBrace; i < source.length; i++) {
++    final char = source[i];
++    if (escaped) {
++      escaped = false;
++      continue;
++    }
++    if (char == '\\') {
++      escaped = true;
++      continue;
++    }
++    if (!inDoubleQuote && char == "'") {
++      inSingleQuote = !inSingleQuote;
++      continue;
++    }
++    if (!inSingleQuote && char == '"') {
++      inDoubleQuote = !inDoubleQuote;
++      continue;
++    }
++    if (inSingleQuote || inDoubleQuote) continue;
++
++    if (char == '{') depth++;
++    if (char == '}') {
++      depth--;
++      if (depth == 0) return source.substring(markerIndex, i + 1);
++    }
++  }
++
++  fail('Could not find closing brace for $marker');
++}
+diff --git a/test/job_module_lifecycle_replay_contract_test.dart b/test/job_module_lifecycle_replay_contract_test.dart
+index bd45bfe137313e862c846eb183b4f6a5a9aced1d..fef0eb8a402a98b1919ae5e570b9d7fb5b21506e 100644
+--- a/test/job_module_lifecycle_replay_contract_test.dart
++++ b/test/job_module_lifecycle_replay_contract_test.dart
+@@ -267,6 +267,47 @@ void main() {
+       }
+     });
+ 
++    test('direct Firestore lifecycle transitions persist the open-state invariant', () {
++      final provider = _read(_providerPath);
++      final remoteRepository = provider.substring(
++        provider.indexOf('class FirestoreJobModuleRepository'),
++      );
++
++      final expectedTransitions = <(String, String, String)>[
++        (
++          'Future<void> submitModule(',
++          "'status': JobModuleStatus.submitted.name",
++          "'isOpenForWork': false",
++        ),
++        (
++          'Future<void> reopenModule(',
++          "'status': JobModuleStatus.reopened.name",
++          "'isOpenForWork': true",
++        ),
++        (
++          'Future<void> markModuleNotApplicable(',
++          "'status': JobModuleStatus.notApplicable.name",
++          "'isOpenForWork': false",
++        ),
++        (
++          'Future<void> acceptModule(',
++          "'status': JobModuleStatus.accepted.name",
++          "'isOpenForWork': false",
++        ),
++      ];
++
++      for (final (method, status, openState) in expectedTransitions) {
++        final block = _methodBlockStartingAt(remoteRepository, method);
++        expect(block, contains(status), reason: 'Missing lifecycle status in $method');
++        expect(
++          block,
++          contains(openState),
++          reason:
++              '$method must persist the derived open-state field used by Rules and canonical closure',
++        );
++      }
++    });
++
+     test('remote-only repository primitive is explicit and merge-scoped', () {
+       final provider = _read(_providerPath);
+ 
+@@ -358,6 +399,88 @@ void _expectOrder(String source, List<String> fragments) {
+   }
+ }
+ 
++String _methodBlockStartingAt(String source, String marker) {
++  final markerIndex = source.indexOf(marker);
++  expect(markerIndex, isNot(-1), reason: 'Missing marker: $marker');
++
++  final openParen = source.indexOf('(', markerIndex);
++  expect(openParen, isNot(-1), reason: 'Missing parameter list after $marker');
++
++  var parenDepth = 0;
++  var inSingleQuote = false;
++  var inDoubleQuote = false;
++  var escaped = false;
++  var closeParen = -1;
++
++  for (var i = openParen; i < source.length; i++) {
++    final char = source[i];
++    if (escaped) {
++      escaped = false;
++      continue;
++    }
++    if (char == '\\') {
++      escaped = true;
++      continue;
++    }
++    if (!inDoubleQuote && char == "'") {
++      inSingleQuote = !inSingleQuote;
++      continue;
++    }
++    if (!inSingleQuote && char == '"') {
++      inDoubleQuote = !inDoubleQuote;
++      continue;
++    }
++    if (inSingleQuote || inDoubleQuote) continue;
++
++    if (char == '(') parenDepth++;
++    if (char == ')') {
++      parenDepth--;
++      if (parenDepth == 0) {
++        closeParen = i;
++        break;
++      }
++    }
++  }
++
++  expect(closeParen, isNot(-1), reason: 'Missing closing parenthesis for $marker');
++  final openBrace = source.indexOf('{', closeParen + 1);
++  expect(openBrace, isNot(-1), reason: 'Missing method body after $marker');
++
++  var braceDepth = 0;
++  inSingleQuote = false;
++  inDoubleQuote = false;
++  escaped = false;
++
++  for (var i = openBrace; i < source.length; i++) {
++    final char = source[i];
++    if (escaped) {
++      escaped = false;
++      continue;
++    }
++    if (char == '\\') {
++      escaped = true;
++      continue;
++    }
++    if (!inDoubleQuote && char == "'") {
++      inSingleQuote = !inSingleQuote;
++      continue;
++    }
++    if (!inSingleQuote && char == '"') {
++      inDoubleQuote = !inDoubleQuote;
++      continue;
++    }
++    if (inSingleQuote || inDoubleQuote) continue;
++
++    if (char == '{') braceDepth++;
++    if (char == '}') {
++      braceDepth--;
++      if (braceDepth == 0) return source.substring(markerIndex, i + 1);
++    }
++  }
++
++  fail('Could not find method body closing brace for $marker');
++}
++
+ String _blockStartingAt(String source, String marker) {
+   final markerIndex = source.indexOf(marker);
+   expect(markerIndex, isNot(-1), reason: 'Missing marker: $marker');
+diff --git a/test/job_module_rules.test.js b/test/job_module_rules.test.js
+index 73e2a29c037d0dcf3818a7cb67337ce2fdbc6715..7eb37c6289fb7c2bf1bdd228e5fe283da0db40c0 100644
+--- a/test/job_module_rules.test.js
++++ b/test/job_module_rules.test.js
+@@ -36,7 +36,7 @@ function baseModule(overrides = {}) {
+   const now = '2026-01-01T00:00:00.000Z';
+   const id = overrides.firestoreId || 'module_mech_1';
+ 
+-  return {
++  const data = {
+     firestoreId: id,
+     jobExecutionFirestoreId: 'job_1',
+     jobExecutionLocalId: null,
+@@ -111,6 +111,13 @@ function baseModule(overrides = {}) {
+     metadataJson: null,
+     ...overrides,
+   };
++  data.isOpenForWork =
++    overrides.isOpenForWork ??
++    (!data.isDeleted &&
++      data.status !== 'submitted' &&
++      data.status !== 'accepted' &&
++      data.status !== 'notApplicable');
++  return data;
+ }
+ 
+ 
+@@ -250,6 +257,7 @@ describe('job_modules update transition rules', () => {
+     await assertSucceeds(
+       updateDoc(doc(db, 'job_modules/module_mech_1'), {
+         status: 'submitted',
++        isOpenForWork: false,
+         responsesJson: '[{"fieldId":"f1","value":"done"}]',
+         actionsJson: '[]',
+         pendingIssue: null,
+@@ -272,6 +280,7 @@ describe('job_modules update transition rules', () => {
+     await assertSucceeds(
+       updateDoc(doc(db, 'job_modules/module_mech_1'), {
+         status: 'submitted',
++        isOpenForWork: false,
+         submittedByUid: 'senior_mech',
+         submittedByName: 'Senior Mechanical',
+         submittedAt: '2026-01-01T03:00:00.000Z',
+@@ -287,6 +296,7 @@ describe('job_modules update transition rules', () => {
+     await assertFails(
+       updateDoc(doc(db, 'job_modules/module_mech_1'), {
+         status: 'submitted',
++        isOpenForWork: false,
+         submittedByUid: 'senior_mech',
+         submittedByName: 'Senior Mechanical',
+         submittedAt: '2026-01-01T03:00:00.000Z',
+@@ -353,6 +363,7 @@ describe('job_modules update transition rules', () => {
+     await assertFails(
+       updateDoc(doc(db, 'job_modules/module_mech_1'), {
+         status: 'submitted',
++        isOpenForWork: false,
+         submittedByUid: 'senior_mech',
+         submittedAt: '2026-01-01T03:00:00.000Z',
+         acceptedByUid: 'senior_mech',
+@@ -368,6 +379,7 @@ describe('job_modules update transition rules', () => {
+     await assertSucceeds(
+       updateDoc(doc(db, 'job_modules/module_submitted_1'), {
+         status: 'accepted',
++        isOpenForWork: false,
+         acceptedByUid: 'supervisor',
+         acceptedByName: 'Shift Supervisor',
+         acceptedAt: '2026-01-01T04:00:00.000Z',
+@@ -386,6 +398,7 @@ describe('job_modules update transition rules', () => {
+     await assertSucceeds(
+       updateDoc(doc(db, 'job_modules/module_submitted_1'), {
+         status: 'accepted',
++        isOpenForWork: false,
+         acceptedByUid: 'supervisor',
+         acceptedByName: 'Shift Supervisor',
+         acceptedAt: '2026-01-01T04:00:00.000Z',
+@@ -401,6 +414,7 @@ describe('job_modules update transition rules', () => {
+     await assertFails(
+       updateDoc(doc(db, 'job_modules/module_submitted_1'), {
+         status: 'accepted',
++        isOpenForWork: false,
+         acceptedByUid: 'supervisor',
+         acceptedByName: 'Shift Supervisor',
+         acceptedAt: '2026-01-01T04:00:00.000Z',
+@@ -417,6 +431,7 @@ describe('job_modules update transition rules', () => {
+     await assertSucceeds(
+       updateDoc(doc(db, 'job_modules/module_accepted_1'), {
+         status: 'reopened',
++        isOpenForWork: true,
+         reopenedByUid: 'supervisor',
+         reopenedByName: 'Shift Supervisor',
+         reopenedAt: '2026-01-01T05:00:00.000Z',
+@@ -434,6 +449,7 @@ describe('job_modules update transition rules', () => {
+     await assertSucceeds(
+       updateDoc(doc(db, 'job_modules/module_mech_1'), {
+         status: 'notApplicable',
++        isOpenForWork: false,
+         notApplicableByUid: 'supervisor',
+         notApplicableByName: 'Shift Supervisor',
+         notApplicableAt: '2026-01-01T06:00:00.000Z',
+@@ -503,6 +519,7 @@ describe('job_modules update transition rules', () => {
+     const db = userDb('supervisor');
+     await assertFails(updateDoc(doc(db, 'job_modules/module_accepted_1'), {
+       status: 'reopened',
++      isOpenForWork: true,
+       reopenedByUid: 'supervisor',
+       reopenedAt: '2026-01-01T08:00:00.000Z',
+       reopenReason: 'Late reopen must be denied',
+@@ -522,6 +539,7 @@ describe('job_modules update transition rules', () => {
+     const supervisor = userDb('supervisor');
+     await assertFails(updateDoc(doc(senior, 'job_modules/module_mech_1'), {
+       status: 'submitted',
++      isOpenForWork: false,
+       submittedByUid: 'senior_mech',
+       submittedAt: '2026-01-01T08:00:00.000Z',
+       updatedAt: '2026-01-01T08:00:00.000Z',
+@@ -529,6 +547,7 @@ describe('job_modules update transition rules', () => {
+     }));
+     await assertFails(updateDoc(doc(supervisor, 'job_modules/module_submitted_1'), {
+       status: 'accepted',
++      isOpenForWork: false,
+       acceptedByUid: 'supervisor',
+       acceptedAt: '2026-01-01T08:00:00.000Z',
+       updatedAt: '2026-01-01T08:00:00.000Z',
+@@ -536,6 +555,7 @@ describe('job_modules update transition rules', () => {
+     }));
+     await assertFails(updateDoc(doc(supervisor, 'job_modules/module_mech_1'), {
+       status: 'notApplicable',
++      isOpenForWork: false,
+       notApplicableByUid: 'supervisor',
+       notApplicableAt: '2026-01-01T08:00:00.000Z',
+       notApplicableReason: 'Late N/A must be denied',
+diff --git a/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1 b/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+index 5da330ffd283ff2b65dfe90b039f226ddf428489..e9ea02a26437322170286033b53a294a57ccb001 100644
+--- a/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
++++ b/tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1
+@@ -42,7 +42,7 @@ $expected = [ordered]@{
+ $CandidatePath = (Resolve-Path $CandidatePath).Path
+ $EvidenceRoot = [IO.Path]::GetFullPath($EvidenceRoot)
+ $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+-$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_13_CANONICAL_LOCAL_LAB_$stamp"
++$runRoot = Join-Path $EvidenceRoot "CRM3_V42_R1_14_CANONICAL_LOCAL_LAB_$stamp"
+ $evidenceDir = Join-Path $runRoot 'evidence'
+ $workspace = Join-Path $runRoot 'workspace'
+ New-Item -ItemType Directory -Force -Path $evidenceDir, $workspace | Out-Null
+@@ -386,7 +386,7 @@ function Seal-Evidence {
+ try {
+   Start-Transcript -Path $transcriptPath -Force | Out-Null
+   $transcriptActive = $true
+-  Write-Host 'CRM3 v4.2_R1.13 canonical-main local laboratory' -ForegroundColor Green
++  Write-Host 'CRM3 v4.2_R1.14 canonical-main local laboratory' -ForegroundColor Green
+   Write-Host "Pristine candidate: $CandidatePath"
+   Write-Host "Disposable workspace: $workspace"
+   Write-Host "Mode: $Mode"
+@@ -530,7 +530,7 @@ try {
+     if ($loadedVersion -ne $expected.firebaseTools) {
+       throw "Firebase CLI load/version mismatch. Expected $($expected.firebaseTools); got $loadedVersion"
+     }
+-    Write-Host "PASS_FIREBASE_CLI_LOAD_SMOKE: firebase-tools=$loadedVersion"
++    Write-Output "PASS_FIREBASE_CLI_LOAD_SMOKE: firebase-tools=$loadedVersion"
+   }
+   $failureStatus = 'FAIL_LOCAL_LAB'
+   Invoke-RecordedHoldStep -Name '14_firebase_cli_npm_audit' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli') -HoldStatus 'HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT' -Action { npm audit --audit-level=low }
+diff --git a/tools/v4/r1_14_targeted_static_audit.py b/tools/v4/r1_14_targeted_static_audit.py
+new file mode 100755
+index 0000000000000000000000000000000000000000..948cdd5017b5fd752e961fa2d27688e611fb41b2
+--- /dev/null
++++ b/tools/v4/r1_14_targeted_static_audit.py
+@@ -0,0 +1,287 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import hashlib
++import re
++import sys
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[2]
++PASS: list[str] = []
++FAIL: list[str] = []
++
++
++def text(rel: str) -> str:
++    return (ROOT / rel).read_text(encoding="utf-8")
++
++
++def check(name: str, condition: bool, detail: str = "") -> None:
++    if condition:
++        PASS.append(name)
++        print(f"PASS | {name}" + (f" | {detail}" if detail else ""))
++    else:
++        FAIL.append(name)
++        print(f"FAIL | {name}" + (f" | {detail}" if detail else ""), file=sys.stderr)
++
++
++def block(source: str, marker: str) -> str:
++    start = source.find(marker)
++    if start < 0:
++        return ""
++    open_brace = source.find("{", start + len(marker))
++    if open_brace < 0:
++        return ""
++    depth = 0
++    quote: str | None = None
++    escaped = False
++    for i in range(open_brace, len(source)):
++        ch = source[i]
++        if quote:
++            if escaped:
++                escaped = False
++            elif ch == "\\":
++                escaped = True
++            elif ch == quote:
++                quote = None
++            continue
++        if ch in ("'", '"'):
++            quote = ch
++        elif ch == "{":
++            depth += 1
++        elif ch == "}":
++            depth -= 1
++            if depth == 0:
++                return source[start : i + 1]
++    return ""
++
++
++def method_block(source: str, marker: str) -> str:
++    start = source.find(marker)
++    if start < 0:
++        return ""
++    open_paren = source.find("(", start)
++    if open_paren < 0:
++        return ""
++    depth = 0
++    close_paren = -1
++    for i in range(open_paren, len(source)):
++        if source[i] == "(":
++            depth += 1
++        elif source[i] == ")":
++            depth -= 1
++            if depth == 0:
++                close_paren = i
++                break
++    if close_paren < 0:
++        return ""
++    body_open = source.find("{", close_paren + 1)
++    if body_open < 0:
++        return ""
++    depth = 0
++    quote: str | None = None
++    escaped = False
++    for i in range(body_open, len(source)):
++        ch = source[i]
++        if quote:
++            if escaped:
++                escaped = False
++            elif ch == "\\":
++                escaped = True
++            elif ch == quote:
++                quote = None
++            continue
++        if ch in ("'", '"'):
++            quote = ch
++        elif ch == "{":
++            depth += 1
++        elif ch == "}":
++            depth -= 1
++            if depth == 0:
++                return source[start : i + 1]
++    return ""
++
++
++def balanced(source: str) -> bool:
++    pairs = {')': '(', ']': '[', '}': '{'}
++    stack: list[str] = []
++    quote: str | None = None
++    escaped = False
++    line_comment = False
++    for i, ch in enumerate(source):
++        if line_comment:
++            if ch == "\n":
++                line_comment = False
++            continue
++        if quote:
++            if escaped:
++                escaped = False
++            elif ch == "\\":
++                escaped = True
++            elif ch == quote:
++                quote = None
++            continue
++        if ch == "/" and i + 1 < len(source) and source[i + 1] == "/":
++            line_comment = True
++            continue
++        if ch in ("'", '"'):
++            quote = ch
++        elif ch in "([{":
++            stack.append(ch)
++        elif ch in ")]}":
++            if not stack or stack.pop() != pairs[ch]:
++                return False
++    return quote is None and not stack
++
++
++rules = text("firestore.rules")
++provider = text("lib/features/planned_maintenance/providers/job_module_provider.dart")
++job_rules = text("test/job_module_rules.test.js")
++root_rules_test = text("test/firestore.rules.test.js")
++harness = text("tools/v4/Invoke-Crm3V42R1CanonicalLocalLab.ps1")
++contract = text("test/firestore_rules_expression_budget_contract_test.dart")
++lifecycle_contract = text("test/job_module_lifecycle_replay_contract_test.dart")
++
++check("Firestore Rules delimiters are balanced", balanced(rules))
++function_names = re.findall(r"\bfunction\s+([A-Za-z0-9_]+)\s*\(", rules)
++duplicates = sorted({name for name in function_names if function_names.count(name) > 1})
++check("Firestore Rules function names are unique", not duplicates, f"duplicates={duplicates}")
++
++maintenance_match = block(rules, "match /maintenance_records/{docId}")
++check(
++    "maintenance update has one allow expression",
++    maintenance_match.count("allow update:") == 1
++    and "allow update: if validMaintenanceUpdate();" in maintenance_match,
++)
++maintenance_router = block(rules, "function validMaintenanceUpdate()")
++for marker in (
++    "validMaintenanceSoftDeleteUpdate()",
++    "validMaintenanceCloseUpdate()",
++    "validMaintenanceReopenUpdate()",
++    "validMaintenanceAdminEditUpdate()",
++):
++    check(f"maintenance router retains {marker}", marker in maintenance_router)
++
++user_authority = block(rules, "function validApprovedUserAuthority(data)")
++check(
++    "approved-user authority remains full-shape fail-closed",
++    "validUserDocumentShape(data)" in user_authority
++    and "data.get('isApproved', false) == true" in user_authority,
++)
++
++template_router = block(rules, "function validTemplateVersionUpdateDelta()")
++check(
++    "template lifecycle uses source/target status routing",
++    all(
++        marker in template_router
++        for marker in (
++            "sourceStatus == 'draft'",
++            "validTemplateVersionPublishDelta()",
++            "validDraftTemplateVersionArchiveDelta()",
++            "validTemplateVersionRetireDelta()",
++            "validRetiredTemplateVersionArchiveDelta()",
++            "validTemplateVersionRestoreDelta()",
++        )
++    ),
++)
++check(
++    "template update wrapper has no parallel OR chain",
++    "||" not in block(rules, "function validTemplateVersionUpdate(docId)"),
++)
++
++directive_router = block(rules, "function validDirectiveUpdateForRoles(roles)")
++check(
++    "directive roles are snapshotted and routed",
++    directive_router
++    and "validDirectiveAdminDeleteForRoles(roles)" in directive_router
++    and "validDirectiveAdminEditForRoles(roles)" in directive_router
++    and "validDirectiveAcknowledgeForRoles(roles)" in directive_router
++    and "validDirectiveCloseForRoles(roles)" in directive_router
++    and "function canDirectiveCreatorTarget(role)" not in rules,
++)
++
++family_router = block(rules, "function validModuleRegistryFamilyGovernedUpdate(docId)")
++check(
++    "module family update routes publish versus retire",
++    "validModuleRegistryFamilyPublishDelta(docId)" in family_router
++    and "validModuleRegistryFamilyRetireDelta()" in family_router
++    and "||" not in family_router,
++)
++revision_router = block(rules, "function validModuleRegistryRevisionUpdateDelta(")
++check(
++    "module revision update routes one lifecycle transition",
++    "validModuleRegistryRevisionDraftEditDelta()" in revision_router
++    and "validModuleRegistryRevisionPublishDelta(" in revision_router
++    and "validModuleRegistryRevisionRetireDelta()" in revision_router,
++)
++family_read = block(rules, "function moduleRegistryRevisionPublishMatchesFamily(")
++check(
++    "module revision publish performs one family getAfter",
++    family_read.count("getAfter(") == 1,
++    f"getAfter={family_read.count('getAfter(')}",
++)
++
++job_router = block(rules, "function validJobModuleUpdatePayload(docId, changedKeys, roles)")
++check(
++    "job-module update routes one target lifecycle",
++    all(
++        marker in job_router
++        for marker in (
++            "targetStatus == 'submitted'",
++            "targetStatus == 'accepted'",
++            "targetStatus == 'reopened'",
++            "targetStatus == 'notApplicable'",
++            "isOpenModuleStatus(targetStatus)",
++        )
++    )
++    and "||" not in job_router,
++)
++
++remote = provider[provider.find("class FirestoreJobModuleRepository") :]
++transitions = {
++    "submitModule": ("JobModuleStatus.submitted.name", "'isOpenForWork': false"),
++    "reopenModule": ("JobModuleStatus.reopened.name", "'isOpenForWork': true"),
++    "markModuleNotApplicable": (
++        "JobModuleStatus.notApplicable.name",
++        "'isOpenForWork': false",
++    ),
++    "acceptModule": ("JobModuleStatus.accepted.name", "'isOpenForWork': false"),
++}
++for method, markers in transitions.items():
++    method_block_text = method_block(remote, f"Future<void> {method}(")
++    check(
++        f"direct {method} persists lifecycle open-state",
++        method_block_text and all(marker in method_block_text for marker in markers),
++    )
++
++check(
++    "job-module fixture materializes derived open-state",
++    "data.isOpenForWork =" in job_rules
++    and "data.status !== 'submitted'" in job_rules
++    and "data.status !== 'accepted'" in job_rules
++    and "data.status !== 'notApplicable'" in job_rules,
++)
++check(
++    "positive job-module transitions write explicit persisted state",
++    job_rules.count("isOpenForWork: false") >= 5
++    and "isOpenForWork: true" in job_rules
++    and "isOpenForWork: true" in root_rules_test
++    and "isOpenForWork: false" in root_rules_test,
++)
++check(
++    "Dart contracts cover online lifecycle and Rules expression routing",
++    "direct Firestore lifecycle transitions persist the open-state invariant"
++        in lifecycle_contract
++    and "R1.14 Firestore expression-budget contract" in contract,
++)
++check(
++    "laboratory emits R1.14 evidence name",
++    'CRM3_V42_R1_14_CANONICAL_LOCAL_LAB_$stamp' in harness,
++)
++check(
++    "Firebase CLI smoke uses capturable output stream",
++    'Write-Output "PASS_FIREBASE_CLI_LOAD_SMOKE' in harness
++    and 'Write-Host "PASS_FIREBASE_CLI_LOAD_SMOKE' not in harness,
++)
++
++print(f"SUMMARY passed={len(PASS)} failed={len(FAIL)} total={len(PASS)+len(FAIL)}")
++raise SystemExit(1 if FAIL else 0)
+diff --git a/tools/v4/v4_2_r1_canonical_audit.py b/tools/v4/v4_2_r1_canonical_audit.py
+index ce3e664145514a8f022a8a5c3ce5f8b092b26051..3193a71bfb00436662ad4d2027739101e111ba89 100644
+--- a/tools/v4/v4_2_r1_canonical_audit.py
++++ b/tools/v4/v4_2_r1_canonical_audit.py
+@@ -154,8 +154,8 @@ check(
+ )
+ check(
+     "Canonical reconciliation is no-loss with explicit successor delta",
+-    counts.get("BYTE_IDENTICAL") == 347
+-    and counts.get("SUCCESSOR_MODIFIED") == 63
++    counts.get("BYTE_IDENTICAL") == 345
++    and counts.get("SUCCESSOR_MODIFIED") == 65
+     and counts.get("MISSING", 0) == 0,
+     str(counts),
+ )
+@@ -516,6 +516,54 @@ check(
+     and "bc6768cc4b9c61aabff77152e7f33b4b17d2fc93134f7af1c3dd51500fe8d5e8" in text("pubspec.lock").lower(),
+ )
+ 
++
++rules = text("firestore.rules")
++job_module_rules_test = text("test/job_module_rules.test.js")
++firestore_rules_test = text("test/firestore.rules.test.js")
++expression_budget_guard = text(
++    "test/firestore_rules_expression_budget_contract_test.dart"
++)
++lifecycle_replay_guard = text("test/job_module_lifecycle_replay_contract_test.dart")
++check(
++    "R1.14 direct job-module transitions persist the open-state invariant",
++    module_provider.count("'isOpenForWork': false") >= 3
++    and "'isOpenForWork': true" in module_provider
++    and "JobModuleStatus.submitted.name" in module_provider
++    and "JobModuleStatus.reopened.name" in module_provider
++    and "JobModuleStatus.notApplicable.name" in module_provider
++    and "JobModuleStatus.accepted.name" in module_provider
++    and "direct Firestore lifecycle transitions persist the open-state invariant"
++        in lifecycle_replay_guard,
++)
++check(
++    "R1.14 Rules preserve full user-shape authority while routing one transition",
++    "return validUserDocumentShape(data)" in rules
++    and "function validMaintenanceUpdate()" in rules
++    and "allow update: if validMaintenanceUpdate();" in rules
++    and "function validTemplateVersionUpdateDelta()" in rules
++    and "function validDirectiveUpdateForRoles(roles)" in rules
++    and "function validModuleRegistryFamilyPublishDelta(docId)" in rules
++    and "function validModuleRegistryRevisionUpdateDelta(" in rules
++    and "function validJobModuleUpdatePayload(docId, changedKeys, roles)" in rules
++    and "R1.14 Firestore expression-budget contract" in expression_budget_guard,
++)
++check(
++    "R1.14 job-module Rules fixtures materialize open-state transitions",
++    "data.isOpenForWork =" in job_module_rules_test
++    and job_module_rules_test.count("isOpenForWork: false") >= 5
++    and "isOpenForWork: true" in job_module_rules_test
++    and "isOpenForWork: true" in firestore_rules_test
++    and "isOpenForWork: false" in firestore_rules_test,
++)
++check(
++    "R1.14 laboratory captures Firebase CLI smoke evidence and exact tier names",
++    'CRM3_V42_R1_14_CANONICAL_LOCAL_LAB_$stamp' in harness
++    and 'Write-Output "PASS_FIREBASE_CLI_LOAD_SMOKE' in harness
++    and "PASS_AUTHORITATIVE_BUILD_ONLY" in harness
++    and "PASS_AUTHORITATIVE_BUILD_AND_EMULATOR" in harness
++    and "PASS_AUTHORITATIVE_FRESH_INSTALL" in harness,
++)
++
+ print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
+ if FAIL:
+     for name, detail in FAIL:

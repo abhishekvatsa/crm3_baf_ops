@@ -3,6 +3,7 @@ import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
 import '../../planned_maintenance/data/job_template_model.dart';
 import '../../planned_maintenance/providers/planned_maintenance_provider.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../models/timeline_entry.dart';
 
 // ─── Filter State ─────────────────────────────────────────────────────────────
@@ -111,6 +112,7 @@ final assetTimelineProvider = Provider<AsyncValue<List<TimelineEntry>>>((ref) {
 
   final maintenanceAsync = ref.watch(_maintenanceStreamProvider(filter));
   final executionAsync = ref.watch(_executionStreamProvider(filter));
+  final equipmentAsync = ref.watch(equipmentStatusProvider(null));
 
   return maintenanceAsync.when(
     loading: () => const AsyncLoading(),
@@ -118,26 +120,38 @@ final assetTimelineProvider = Provider<AsyncValue<List<TimelineEntry>>>((ref) {
     data: (tickets) => executionAsync.when(
       loading: () => const AsyncLoading(),
       error: (e, s) => AsyncError(e, s),
-      data: (executions) {
-        final filteredTickets = selectedType == null && number != null
-            ? tickets.where((t) => t.assetNumber == number).toList()
-            : tickets;
+      data: (executions) => equipmentAsync.when(
+        loading: () => const AsyncLoading(),
+        error: (e, s) => AsyncError(e, s),
+        data: (equipment) {
+          final filteredTickets = selectedType == null && number != null
+              ? tickets.where((t) => t.assetNumber == number).toList()
+              : tickets;
 
-        final filteredExecutions = selectedType == null && number != null
-            ? executions.where((e) => e.assetNumber == number).toList()
-            : executions;
+          final filteredExecutions = selectedType == null && number != null
+              ? executions.where((e) => e.assetNumber == number).toList()
+              : executions;
 
-        final entries = [
-          ...filteredTickets.map((t) => TimelineEntry.fromTicket(t)),
-          ...filteredExecutions.map((e) => TimelineEntry.fromExecution(e)),
-        ];
+          final filteredEquipment = equipment.where((row) {
+            final typeMatches = selectedType == null ||
+                row.assetTypeKey == selectedType.name;
+            final numberMatches = number == null || row.assetNumber == number;
+            return typeMatches && numberMatches;
+          });
 
-        entries.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-        final entryLimit = filter.hasExactAsset
-            ? _exactAssetTimelineEntryLimit
-            : _broadTimelineEntryLimit;
-        return AsyncData(entries.take(entryLimit).toList(growable: false));
-      },
+          final entries = [
+            ...filteredTickets.map(TimelineEntry.fromTicket),
+            ...filteredExecutions.map(TimelineEntry.fromExecution),
+            ...filteredEquipment.map(TimelineEntry.fromEquipmentProjection),
+          ];
+
+          entries.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          final entryLimit = filter.hasExactAsset
+              ? _exactAssetTimelineEntryLimit
+              : _broadTimelineEntryLimit;
+          return AsyncData(entries.take(entryLimit).toList(growable: false));
+        },
+      ),
     ),
   );
 });

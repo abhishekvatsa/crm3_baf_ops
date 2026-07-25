@@ -5,6 +5,7 @@ import 'dart:async' show StreamSubscription, unawaited;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/maintenance_workflow/providers/workflow_providers.dart';
 import '../providers/sync_conflict_provider.dart';
 import '../providers/sync_status_provider.dart';
 import 'app_logger.dart';
@@ -204,9 +205,15 @@ class SyncCoordinator {
     final runStamp = DateTime.now();
 
     try {
-      // ORDER: PUSH → PULL
+      // ORDER: ordinary snapshot push → canonical pull → safe replay of
+      // uncertain workflow commands → workflow projection pull.
       await _sync.syncAll();
       await _pull.pullAndReconcile();
+
+      // Workflow is a supplemental control plane. Its retry/pull health is
+      // reported independently so it cannot turn a successful mature
+      // data-plane sync into an apparent whole-application failure.
+      await _runWorkflowSupplementalSync(reason: reason);
 
       final conflictKeys = <String>{
         ..._sync.lastConflictKeys,
@@ -363,6 +370,73 @@ class SyncCoordinator {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _runWorkflowSupplementalSync({
+    required String reason,
+  }) async {
+    try {
+      await _ref
+          .read(workflowUncertainRetryServiceProvider)
+          .retryDueCommands();
+    } catch (error, stackTrace) {
+      AppLogger.warning(
+        'Workflow uncertain-command retry failed independently',
+        context: {
+          'app_area': 'maintenance_workflow',
+          'sync_reason': reason,
+          'workflow_stage': 'uncertain_retry',
+          'workflow_error': '$error',
+        },
+      );
+      unawaited(
+        AppLogger.recordNonFatalError(
+          error,
+          stackTrace,
+          reason: 'workflow_uncertain_retry_failed',
+          context: {'sync_reason': reason},
+        ),
+      );
+    }
+
+    try {
+      final summary = await _ref.read(workflowPullServiceProvider).pull();
+      if (summary.hasFailures) {
+        AppLogger.warning(
+          'Workflow projection pull completed with isolated failures',
+          context: {
+            'app_area': 'maintenance_workflow',
+            'sync_reason': reason,
+            'workflow_failed_collections': summary.failures.keys.join(','),
+            'workflow_failure_count': summary.failures.length,
+            'workflow_quarantined_record_count':
+                summary.quarantinedRecords.length,
+            'workflow_quarantined_record_ids': summary.quarantinedRecords
+                .map((record) => '${record.collection}/${record.documentId}')
+                .take(20)
+                .join(','),
+          },
+        );
+      }
+    } catch (error, stackTrace) {
+      AppLogger.warning(
+        'Workflow projection pull failed before collection isolation',
+        context: {
+          'app_area': 'maintenance_workflow',
+          'sync_reason': reason,
+          'workflow_stage': 'pull_initialization',
+          'workflow_error': '$error',
+        },
+      );
+      unawaited(
+        AppLogger.recordNonFatalError(
+          error,
+          stackTrace,
+          reason: 'workflow_projection_pull_failed',
+          context: {'sync_reason': reason},
+        ),
+      );
     }
   }
 

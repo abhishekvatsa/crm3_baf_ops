@@ -1377,6 +1377,10 @@ Color _disciplineColor(JobModuleDiscipline discipline) {
       return BafColors.audit;
     case JobModuleDiscipline.operations:
       return BafColors.sync;
+    case JobModuleDiscipline.emd:
+      return BafColors.admin;
+    case JobModuleDiscipline.refractory:
+      return BafColors.warning;
     case JobModuleDiscipline.others:
       return BafColors.directives;
     case JobModuleDiscipline.shiftInCharge:

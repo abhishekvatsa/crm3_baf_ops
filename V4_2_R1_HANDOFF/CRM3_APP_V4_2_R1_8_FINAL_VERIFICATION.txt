@@ -1,0 +1,44 @@
+CRM3 APP v4.2_R1.8 FINAL PACKAGE-SOURCE VERIFICATION
+====================================================
+
+Canonical main commit:
+633c58bb0d936011e391b42627f8b8f02c510e95
+
+Canonical main tree:
+2f547a79e79076c70dd15ae8b85a7ad70c9fa018
+
+R1.7 execution evidence:
+SHA-256 99583FA64C89320E583FB2B62748BE3C1BCEF3F32657C751D08157B483C3C700
+Stages 01-17 PASS
+Stage 18 old continuity verifier FAIL
+Findings: 101 generated property-position changes, 0 inherited type changes
+
+R1.8 semantic regression:
+101 exact R1.7 position changes => PASS, failures=0
+Synthetic inherited long->string change => FAIL CLOSED, failures=1
+
+Static gates:
+canonical R1 audit: 28/28 PASS
+v4.2 ultimate audit: 17/17 PASS
+v4.1 due-diligence audit: 9/9 PASS
+whole-app audit: 21/21 PASS
+inherited full-tree audit: 18/18 PASS
+inherited expanded audit: 15/15 PASS
+Dart structural audit: PASS (369 files)
+integrity-sweep tests: 3/3 PASS
+workflow-policy generation: PASS
+provisional Isar source verification: PASS; release authority NO until authentic codegen
+
+Reconstruction:
+R1.7 + supplied patch => 650/650 non-self-referential files exact
+missing=0 extra=0 SHA-256 mismatches=0
+
+Safety:
+No Git remote mutation
+No Firebase deployment
+No production data write
+No device uninstall or data clear
+
+Runtime not claimed by packaging:
+PowerShell execution, authentic R1.8 codegen, release Isar verification,
+Functions tests, flutter analyze, Flutter tests, APK or emulators.

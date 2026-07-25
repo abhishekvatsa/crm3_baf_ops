@@ -924,6 +924,7 @@ $receiptFiles = @(
   'release/approvals/version-policy-approval.json'
   'release/approvals/signing-custody-approval.json'
   'release/approvals/firebase-registration-receipt.json'
+  'release/approvals/firebase-production-signing-restoration-receipt.json'
   'release/approvals/android-identity-migration-plan.json'
   'release/approvals/linux-isar-core-authority.json'
 )

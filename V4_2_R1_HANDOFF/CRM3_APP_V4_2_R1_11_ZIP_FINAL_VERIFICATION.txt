@@ -1,0 +1,15 @@
+CRM3 APP v4.2_R1.11 ZIP VERIFICATION PLAN
+
+Expected source files excluding internal manifest: 680
+Expected internal manifest entries:             680
+Expected ZIP file entries including manifest:  681
+
+Required final checks:
+- internal manifest missing: 0
+- internal manifest mismatches: 0
+- ZIP CRC failures: 0
+- duplicate ZIP paths: 0
+- absolute or traversal paths: 0
+- source/extracted byte mismatches: 0
+
+The final external verification record and SHA-256 sidecar are generated after ZIP creation.

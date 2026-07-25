@@ -1,0 +1,26 @@
+CRM3 APP v4.2_R1.11 INTERNAL VERIFICATION
+
+SCOPE
+- Audit/schema-tool UTF-8 portability only
+- No product, Rules, model, dependency, lockfile or governance change
+
+STATIC RESULTS
+- Python compileall: PASS
+- Locale-independent v4.1 audit: 9/9 PASS
+- Canonical R1 pristine audit: 33/33 PASS
+- v4.2 audit: 17/17 PASS
+- Whole-app audit: 21/21 PASS
+- Inherited full-tree audit: 18/18 PASS
+- Inherited expanded audit: 15/15 PASS
+- Dart structural audit: PASS (369 files)
+- Integrity-sweep tests: 3/3 PASS
+- Python text I/O calls inspected: 50
+- Implicit encoding calls: 0
+
+CUSTODY
+- Canonical main remains 633c58bb0d936011e391b42627f8b8f02c510e95
+- R1.10 evidence SHA verified: 8F2E3B61F9A495F60543FDE9E98C4EAFC61867DCF0D90833B83AF3B71286869B
+- Original repository, Firebase and device were not modified by evidence analysis or packaging
+
+RESIDUAL AUTHORITY
+The Windows R1.11 laboratory remains authoritative for codegen, remaining audits, Functions tests, Flutter analysis/tests, APK and emulator execution.

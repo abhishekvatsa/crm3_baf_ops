@@ -11,6 +11,8 @@ import 'package:isar/isar.dart';
 /// download fallback behavior.
 Future<void> initializeTestIsarCore() async {
   final configuredPath = Platform.environment['CRM_ISAR_CORE_PATH']?.trim();
+  final configuredCoreRequired =
+      Platform.environment['CRM_ISAR_CORE_REQUIRED'] == '1';
 
   final libraries = <Abi, String>{};
 
@@ -25,6 +27,10 @@ Future<void> initializeTestIsarCore() async {
     }
 
     libraries[Abi.current()] = configuredLibrary.path;
+  } else if (configuredCoreRequired) {
+    throw StateError(
+      'CRM_ISAR_CORE_REQUIRED=1 but CRM_ISAR_CORE_PATH was not provided.',
+    );
   } else if (Abi.current() == Abi.linuxX64) {
     final localLinuxLibrary =
         File('${Directory.current.path}/libisar.so').absolute;
@@ -36,6 +42,6 @@ Future<void> initializeTestIsarCore() async {
 
   await Isar.initializeIsarCore(
     libraries: libraries,
-    download: libraries.isEmpty,
+    download: libraries.isEmpty && !configuredCoreRequired,
   );
 }

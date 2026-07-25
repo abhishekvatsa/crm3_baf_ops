@@ -226,6 +226,62 @@ describe('runtime planned-job module population mutation', () => {
     });
   });
 
+  test('workflow-v1 create is bound to the exact active acknowledged lane generation', async () => {
+    const {db, store} = fakeDb({
+      'users/supervisor1': user(),
+      'job_executions/exec1': execution({workflowSchemaVersion: 1}),
+      'job_lanes/exec1_mech_1': {
+        workflowId: 'exec1',
+        laneKey: 'mech',
+        activationGeneration: 1,
+        statusKey: 'acknowledged',
+      },
+    });
+
+    await invoke(db, {
+      operation: 'create',
+      module: modulePayload({
+        laneKey: 'mech',
+        laneActivationGeneration: 1,
+        workflowLaneFirestoreId: 'exec1_mech_1',
+      }),
+    });
+
+    expect(store.get('job_modules/module1')).toMatchObject({
+      laneKey: 'mech',
+      laneActivationGeneration: 1,
+      workflowLaneFirestoreId: 'exec1_mech_1',
+      isOpenForWork: true,
+    });
+  });
+
+  test('workflow-v1 create rejects an unacknowledged or stale lane', async () => {
+    const {db} = fakeDb({
+      'users/supervisor1': user(),
+      'job_executions/exec1': execution({workflowSchemaVersion: 1}),
+      'job_lanes/exec1_mech_1': {
+        workflowId: 'exec1',
+        laneKey: 'mech',
+        activationGeneration: 1,
+        statusKey: 'pending',
+      },
+    });
+
+    await expect(invoke(db, {
+      operation: 'create',
+      module: modulePayload({
+        laneKey: 'mech',
+        laneActivationGeneration: 1,
+        workflowLaneFirestoreId: 'exec1_mech_1',
+      }),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'workflow-module-lane-not-acknowledged',
+      }),
+    });
+  });
+
   test('exact create replay returns immutable acceptance revision and current parent revision separately', async () => {
     const seed = fakeDb({
       'users/supervisor1': user(),

@@ -491,6 +491,10 @@ JobModuleDiscipline _parseModuleDiscipline(String? value) {
     case 'operations':
     case 'operation':
       return JobModuleDiscipline.operations;
+    case 'emd':
+      return JobModuleDiscipline.emd;
+    case 'refractory':
+      return JobModuleDiscipline.refractory;
     case 'shiftincharge':
     case 'shift':
       return JobModuleDiscipline.shiftInCharge;
@@ -498,7 +502,6 @@ JobModuleDiscipline _parseModuleDiscipline(String? value) {
       return JobModuleDiscipline.safety;
     case 'admin':
       return JobModuleDiscipline.admin;
-    case 'refractory':
     case 'others':
     case 'other':
       return JobModuleDiscipline.others;

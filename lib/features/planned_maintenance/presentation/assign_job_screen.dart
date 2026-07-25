@@ -7,12 +7,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/job_template_model.dart';
-import '../providers/planned_maintenance_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/utils/asset_validator.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../maintenance_workflow/domain/workflow_error.dart';
+import '../../maintenance_workflow/domain/workflow_policy.dart';
+import '../../maintenance_workflow/domain/workflow_types.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
+import '../../maintenance_workflow/services/workflow_command_factory.dart';
 
 class AssignJobScreen extends ConsumerStatefulWidget {
   final JobTemplate template;
@@ -102,13 +106,33 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
             ..createdAt = now
             ..updatedAt = now;
 
-      final repository = ref.read(plannedRepositoryProvider);
+      final executionId = execution.firestoreId;
+      if (executionId == null || executionId.trim().isEmpty) {
+        throw StateError('Execution identity was not generated.');
+      }
       final syncCoordinator = ref.read(syncCoordinatorProvider);
 
-      await repository.saveExecution(execution, actor: appUser);
+      await ref.read(workflowCommandControllerProvider.notifier).execute(
+        WorkflowCommandFactory.create(
+          type: WorkflowCommandType.createLegacyWorkflowJob,
+          aggregateId: executionId,
+          expectedVersion: 0,
+          payload: <String, Object?>{
+            'executionId': executionId,
+            'templateFirestoreId': templateFirestoreId,
+            'templateName': widget.template.jobName.trim(),
+            'assetTypeKey': execution.assetType.name,
+            'assetNumber': execution.assetNumber,
+            'assignedAgencies': execution.assignedAgencies,
+            if (execution.chargeNoAtEvent != null)
+              'chargeNoAtEvent': execution.chargeNoAtEvent,
+            if (execution.remarks != null) 'remarks': execution.remarks,
+          },
+        ),
+      );
 
       unawaited(
-        syncCoordinator.runFullSync(reason: 'job_assigned', force: true),
+        syncCoordinator.runFullSync(reason: 'workflow_job_assigned', force: true),
       );
 
       if (!mounted) return;
@@ -128,9 +152,13 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
     } catch (e) {
       if (!mounted) return;
 
+      final message = e is WorkflowException &&
+              e.code == WorkflowErrorCode.unavailable
+          ? 'Assignment requires an online connection. Nothing was submitted; your entries remain on this screen.'
+          : 'Failed to assign job: $e';
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
-          content: Text('Failed to assign job: $e'),
+          content: Text(message),
           backgroundColor: BafColors.danger,
         ),
       );
@@ -162,6 +190,10 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
           ),
           children: [
             _TemplateContextCard(template: widget.template),
+            if (WorkflowPolicy.onlineOnlyLifecycleCommands) ...[
+              const SizedBox(height: BafSpacing.md),
+              const _OnlineLifecycleNotice(),
+            ],
             const SizedBox(height: BafSpacing.lg),
             _SectionCard(
               title: 'Job details',
@@ -389,6 +421,40 @@ class _TemplateContextCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OnlineLifecycleNotice extends StatelessWidget {
+  const _OnlineLifecycleNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(BafSpacing.md),
+      decoration: BoxDecoration(
+        color: BafColors.warning.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(color: BafColors.warning.withValues(alpha: 0.45)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.cloud_outlined, color: BafColors.warning),
+          SizedBox(width: BafSpacing.sm),
+          Expanded(
+            child: Text(
+              'Authoritative assignment requires connectivity. This lifecycle action is not queued offline; if the connection is unavailable, the form remains open and nothing is submitted.',
+              style: TextStyle(
+                color: BafColors.textPrimary,
+                fontSize: 12,
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),

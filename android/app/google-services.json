@@ -66,6 +66,14 @@
           }
         },
         {
+          "client_id": "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.co.sail.bsl.crm3.bafops",
+            "certificate_hash": "41c2b828c71683a50ec346d19e1d44048758438d"
+          }
+        },
+        {
           "client_id": "894346496105-unm5h7dlpbldpltdeo59gc091o4snskq.apps.googleusercontent.com",
           "client_type": 3
         }

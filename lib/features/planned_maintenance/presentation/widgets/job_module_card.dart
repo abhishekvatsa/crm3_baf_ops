@@ -587,6 +587,10 @@ String _disciplineLabel(JobModuleDiscipline discipline) {
       return 'I&A';
     case JobModuleDiscipline.operations:
       return 'Operations';
+    case JobModuleDiscipline.emd:
+      return 'EMD';
+    case JobModuleDiscipline.refractory:
+      return 'Refractory';
     case JobModuleDiscipline.shiftInCharge:
       return 'Shift in-charge';
     case JobModuleDiscipline.safety:
@@ -610,6 +614,10 @@ Color _disciplineColor(JobModuleDiscipline discipline) {
       return BafColors.planned;
     case JobModuleDiscipline.operations:
       return BafColors.sync;
+    case JobModuleDiscipline.emd:
+      return BafColors.admin;
+    case JobModuleDiscipline.refractory:
+      return BafColors.warning;
     case JobModuleDiscipline.shiftInCharge:
       return BafColors.charges;
     case JobModuleDiscipline.safety:

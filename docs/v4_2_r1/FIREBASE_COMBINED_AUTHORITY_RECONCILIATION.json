@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "recordType": "firebase-android-combined-authority-reconciliation",
+  "operationReference": "CRM3-FB-RESTORE-001-C1",
+  "historicalRegistrationReference": "BAF-REF-005",
+  "repositoryBaseline": {
+    "branch": "main",
+    "commit": "633c58bb0d936011e391b42627f8b8f02c510e95",
+    "tree": "2f547a79e79076c70dd15ae8b85a7ad70c9fa018"
+  },
+  "firebase": {
+    "projectId": "crm3-baf-ops-b8638",
+    "projectNumber": "894346496105",
+    "firebaseAppId": "1:894346496105:android:fba14febfbbee102e63af8",
+    "packageName": "in.co.sail.bsl.crm3.bafops"
+  },
+  "debugAuthority": {
+    "sha1": "30B58F0F39E1BA3CA69FD9032D7CF6FB41EC8F31",
+    "sha256": "B0B0EF9B348F5D474356AEB79182483B98829012FC25EB3EDCD517D11563C6D5",
+    "oauthClientId": "894346496105-hmk7941e55ph206e6nr6ifvvqqqf7ee6.apps.googleusercontent.com"
+  },
+  "productionAuthority": {
+    "sha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+    "sha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "oauthClientId": "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com"
+  },
+  "configurationLineage": {
+    "historicalProductionRegistration": {
+      "sha256": "730A044FF0A698C2FBCCF3B993EE6964EE5431CA8C6435DDC02AA98A9848646A",
+      "reference": "BAF-REF-005"
+    },
+    "supersededDebugOnly": {
+      "sha256": "DBD4450D064E6FE68D2F809A8A81B1FE5AC6E96E390F8F0B1762938D0EF5FE6D",
+      "semanticSha256": "8BB5FFA242C09AB10323D9B8F1FF560724B045EC39D2EA565367F057EE49DC1F"
+    },
+    "currentCombined": {
+      "sha256": "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B",
+      "semanticSha256": "A9FEE3B4E0770F9643C3929F41FDF69FFA8D638A5BE55EF81B34B893C4258FE2"
+    }
+  },
+  "restorationEvidence": {
+    "archive": "CRM3_FIREBASE_PRODUCTION_SIGNING_RESTORATION_20260724_081110.zip",
+    "archiveSha256": "24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF",
+    "receiptSha256": "FAD4C1516BD681E7A6756282B241B52AE54FC1AB9290AA15DC27719925EFBF3B",
+    "finalStatus": "PASS_FIREBASE_PRODUCTION_SIGNING_RESTORED_HISTORICAL_AUTHORITY"
+  },
+  "repositoryIntegration": {
+    "mode": "single-governed-r116-plus-firebase-authority-draft-pr",
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "productionDataMutationAuthorized": false
+  },
+  "canonicalReconciliationCorrection": {
+    "reason": "Seven captured successor paths had been labelled BYTE_IDENTICAL even though their canonical and candidate hashes differed. The row hashes were authoritative; the disposition labels and aggregate counts were corrected without changing source behaviour.",
+    "priorCounts": {
+      "BYTE_IDENTICAL": 344,
+      "SUCCESSOR_MODIFIED": 66
+    },
+    "correctedCounts": {
+      "BYTE_IDENTICAL": 337,
+      "SUCCESSOR_MODIFIED": 73
+    },
+    "correctedPaths": [
+      "lib/core/services/sync_service.job_modules.dart",
+      "test/async_mounted_context_safety_contract_test.dart",
+      "test/lifecycle_static_guardrail_contract_test.dart",
+      "test/production_release_provenance_contract_test.dart",
+      "test/stage2d_source_security_contract_test.dart",
+      "tool/test_support/test_isar_core.dart",
+      "tools/release/New-ProductionArtifact.ps1"
+    ],
+    "canonicalPathCount": 410
+  }
+}

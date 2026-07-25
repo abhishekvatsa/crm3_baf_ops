@@ -184,10 +184,15 @@ void _requireRuntimeModuleAddControl(AppUser actor, JobModuleInstance module) {
   );
 }
 
-void _requireCanSaveModuleWork(AppUser actor) {
+void _requireCanSaveModuleWork(
+  AppUser actor,
+  JobModuleInstance module,
+) {
   _requireApprovedActor(actor, 'save module work');
-  if (!actor.canSaveJobModuleWork) {
-    throw StateError('Not authorized to save module work.');
+  if (!actor.canSaveJobModuleWorkFor(module.discipline.name)) {
+    throw StateError(
+      'Not authorized to save ${module.discipline.name} module work.',
+    );
   }
 }
 
@@ -491,6 +496,14 @@ abstract class JobModuleRepository {
     AuditContext? auditContext,
   });
 
+  Future<void> applyWorkflowModuleReopenProjection(
+    String firestoreId, {
+    required AppUser actor,
+    required String reason,
+    required DateTime appliedAt,
+  });
+
+
   Future<void> markModuleNotApplicable(
     dynamic id, {
     required AppUser actor,
@@ -570,7 +583,7 @@ class IsarJobModuleRepository implements JobModuleRepository {
       _requireCanAddModuleDuringExecution(actor);
       _requireRuntimeModuleAddControl(actor, module);
     } else {
-      _requireCanSaveModuleWork(actor);
+      _requireCanSaveModuleWork(actor, module);
     }
 
     Map<String, dynamic>? beforeSnapshot;
@@ -1033,6 +1046,35 @@ class IsarJobModuleRepository implements JobModuleRepository {
   }
 
   @override
+  Future<void> applyWorkflowModuleReopenProjection(
+    String firestoreId, {
+    required AppUser actor,
+    required String reason,
+    required DateTime appliedAt,
+  }) async {
+    final module = await isar.jobModuleInstances
+        .filter()
+        .firestoreIdEqualTo(firestoreId)
+        .findFirst();
+    if (module == null) return;
+    await isar.writeTxn(() async {
+      module
+        ..status = JobModuleStatus.reopened
+        ..isDeleted = false
+        ..reopenedByUid = actor.uid
+        ..reopenedByName = _cleanOptionalText(actor.name)
+        ..reopenedAt = appliedAt
+        ..reopenReason = _cleanOptionalText(reason)
+        ..updatedByUid = actor.uid
+        ..updatedByName = _cleanOptionalText(actor.name)
+        ..updatedAt = appliedAt
+        ..version += 1
+        ..isSynced = true;
+      await isar.jobModuleInstances.put(module);
+    });
+  }
+
+  @override
   Future<void> markModuleNotApplicable(
     dynamic id, {
     required AppUser actor,
@@ -1419,7 +1461,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
       _requireCanAddModuleDuringExecution(actor);
       _requireRuntimeModuleAddControl(actor, module);
     } else {
-      _requireCanSaveModuleWork(actor);
+      _requireCanSaveModuleWork(actor, module);
     }
 
     _normaliseModuleForUserSave(
@@ -1579,6 +1621,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
       buildUpdate:
           (now) => {
             'status': JobModuleStatus.submitted.name,
+            'isOpenForWork': false,
             'submittedByUid': actor.uid,
             'submittedByName': _cleanOptionalText(actor.name),
             'submittedAt': now.toIso8601String(),
@@ -1606,12 +1649,24 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
       buildUpdate:
           (now) => {
             'status': JobModuleStatus.reopened.name,
+            'isOpenForWork': true,
             'reopenedByUid': actor.uid,
             'reopenedByName': _cleanOptionalText(actor.name),
             'reopenedAt': now.toIso8601String(),
             'reopenReason': _cleanOptionalText(reopenReason),
           },
     );
+  }
+
+  @override
+  Future<void> applyWorkflowModuleReopenProjection(
+    String firestoreId, {
+    required AppUser actor,
+    required String reason,
+    required DateTime appliedAt,
+  }) async {
+    // The workflow command has already committed the canonical Firestore
+    // transition. Web views observe that document directly.
   }
 
   @override
@@ -1636,6 +1691,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
       buildUpdate:
           (now) => {
             'status': JobModuleStatus.notApplicable.name,
+            'isOpenForWork': false,
             'notApplicableByUid': actor.uid,
             'notApplicableByName': _cleanOptionalText(actor.name),
             'notApplicableAt': now.toIso8601String(),
@@ -1667,6 +1723,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
       buildUpdate:
           (now) => {
             'status': JobModuleStatus.accepted.name,
+            'isOpenForWork': false,
             'acceptedByUid': actor.uid,
             'acceptedByName': _cleanOptionalText(actor.name),
             'acceptedAt': now.toIso8601String(),

@@ -4,7 +4,7 @@
       "android": {
         "default": {
           "projectId": "crm3-baf-ops-b8638",
-          "appId": "1:894346496105:android:c320c57f2393dceee63af8",
+          "appId": "1:894346496105:android:fba14febfbbee102e63af8",
           "fileOutput": "android/app/google-services.json"
         }
       },
@@ -12,7 +12,7 @@
         "lib/firebase_options.dart": {
           "projectId": "crm3-baf-ops-b8638",
           "configurations": {
-            "android": "1:894346496105:android:c320c57f2393dceee63af8",
+            "android": "1:894346496105:android:fba14febfbbee102e63af8",
             "ios": "1:894346496105:ios:d42c0a5b8c069c67e63af8",
             "macos": "1:894346496105:ios:d42c0a5b8c069c67e63af8",
             "web": "1:894346496105:web:b7a8cff97a3a90a0e63af8",

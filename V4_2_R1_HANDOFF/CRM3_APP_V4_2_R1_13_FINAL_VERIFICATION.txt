@@ -1,0 +1,26 @@
+CRM3 APP v4.2_R1.13 — PRE-ARCHIVE FINAL VERIFICATION
+
+R1.12 evidence adjudicated: PASS
+R1.11 -> R1.12 regression boundary adjudicated: PASS
+Confirmed product defect corrected: PASS
+Controller ownership correction: PASS
+Stale/fragile contract corrections: PASS
+Hermetic Isar test-core design: PASS
+Exact Isar lock/harness archive SHA consistency: PASS
+R1.12 -> R1.13 patch reconstruction: PASS
+Patch SHA-256: 51AA7E8CC770645D74AF72CFC3C7D8E08C63FA1BBF26CCD67C20C57BAC0B98D9
+Patch paths: 19
+Patch reconstruction mismatches: 0
+Packaging-environment static suite: PASS
+Targeted R1.13 checks: 27/27 PASS
+Canonical R1 pristine audit: 38/38 PASS
+Final manifest scope: 701 entries + manifest file
+
+UNCLAIMED IN THIS ENVIRONMENT
+- flutter analyze
+- full Flutter test suite
+- Android debug APK
+- Firestore/Functions emulators
+- device install/launch
+
+Only a newly sealed authoritative Windows local-lab PASS against the pristine R1.13 archive can close those gates.

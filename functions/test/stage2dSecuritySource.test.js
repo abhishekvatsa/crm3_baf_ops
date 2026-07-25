@@ -195,12 +195,12 @@ describe("Stage 2D source security candidate", () => {
   test("remediates deployed and root-tooling high advisory packages", () => {
     const packages = packageLock.packages;
     expect(packages["node_modules/form-data"].version).toBe("2.5.6");
-    expect(packages["node_modules/protobufjs"].version).toBe("7.6.4");
+    expect(packages["node_modules/protobufjs"].version).toBe("7.6.5");
     expect(packages["node_modules/@protobufjs/inquire"]).toBeUndefined();
 
-    expect(rootPackage.overrides.protobufjs).toBe("7.6.4");
+    expect(rootPackage.overrides.protobufjs).toBe("7.6.5");
     expect(rootPackageLock.packages["node_modules/protobufjs"].version)
-      .toBe("7.6.4");
+      .toBe("7.6.5");
     expect(rootPackageLock.packages["node_modules/@protobufjs/inquire"])
       .toBeUndefined();
   });

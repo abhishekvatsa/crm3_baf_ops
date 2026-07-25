@@ -314,6 +314,56 @@ class _AssetCard extends StatelessWidget {
 
   const _AssetCard({required this.asset});
 
+  String _workflowStateLabel() {
+    switch (asset.operationalStateKey) {
+      case 'underMaintenance':
+        return 'Under maintenance';
+      case 'awaitingPreparation':
+        return 'Preparation pending';
+      case 'underRED':
+        return 'Under RED';
+      case 'available':
+        return 'Available';
+      case 'inService':
+        return 'In service';
+      default:
+        return asset.operationalStateKey;
+    }
+  }
+
+  Color _workflowStateColor() {
+    switch (asset.operationalStateKey) {
+      case 'underRED':
+        return BafColors.danger;
+      case 'awaitingPreparation':
+        return BafColors.warning;
+      case 'underMaintenance':
+        return BafColors.planned;
+      case 'available':
+      case 'inService':
+        return BafColors.sync;
+      default:
+        return BafColors.textSecondary;
+    }
+  }
+
+  IconData _workflowStateIcon() {
+    switch (asset.operationalStateKey) {
+      case 'underRED':
+        return Icons.local_fire_department_rounded;
+      case 'awaitingPreparation':
+        return Icons.hourglass_bottom_rounded;
+      case 'underMaintenance':
+        return Icons.build_circle_rounded;
+      case 'available':
+        return Icons.check_circle_outline_rounded;
+      case 'inService':
+        return Icons.play_circle_outline_rounded;
+      default:
+        return Icons.help_outline_rounded;
+    }
+  }
+
   Color _agingColor() {
     switch (asset.agingSeverity) {
       case 0:
@@ -392,6 +442,11 @@ class _AssetCard extends StatelessWidget {
                             spacing: 8,
                             runSpacing: 8,
                             children: [
+                              StatusBadge(
+                                label: _workflowStateLabel(),
+                                color: _workflowStateColor(),
+                                icon: _workflowStateIcon(),
+                              ),
                               StatusBadge(
                                 label: hasOpenTickets
                                     ? '${asset.openTicketsCount} recent open'

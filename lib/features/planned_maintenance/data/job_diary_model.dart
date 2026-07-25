@@ -116,11 +116,36 @@ enum JobDiaryDiscipline {
   electrical,
   instrumentation,
   operations,
+  emd,
+  refractory,
   shiftInCharge,
   safety,
   admin,
   shared,
   others,
+}
+
+String? _laneKeyForDiaryDiscipline(JobDiaryDiscipline discipline) {
+  switch (discipline) {
+    case JobDiaryDiscipline.electrical:
+      return 'elec';
+    case JobDiaryDiscipline.mechanical:
+      return 'mech';
+    case JobDiaryDiscipline.instrumentation:
+      return 'inst';
+    case JobDiaryDiscipline.operations:
+    case JobDiaryDiscipline.shiftInCharge:
+      return 'oprn';
+    case JobDiaryDiscipline.emd:
+      return 'emd';
+    case JobDiaryDiscipline.refractory:
+      return 'red';
+    case JobDiaryDiscipline.safety:
+    case JobDiaryDiscipline.admin:
+    case JobDiaryDiscipline.shared:
+    case JobDiaryDiscipline.others:
+      return 'shared';
+  }
 }
 
 enum JobDiarySeverity { low, medium, high, critical }
@@ -279,6 +304,7 @@ class JobDiaryEntry {
     'assetNumber': assetNumber,
     'kind': kind.name,
     'discipline': discipline.name,
+    'laneKey': _laneKeyForDiaryDiscipline(discipline),
     'isBlocker': isBlocker,
     'isHandover': isHandover,
     'blockerStatus': blockerStatus?.name,
@@ -298,6 +324,7 @@ class JobDiaryEntry {
     'templateName': _cleanOptionalText(templateName),
     'kind': kind.name,
     'discipline': discipline.name,
+    'laneKey': _laneKeyForDiaryDiscipline(discipline),
     'severity': severity.name,
     'blockerStatus': blockerStatus?.name,
     'isBlocker': isBlocker,

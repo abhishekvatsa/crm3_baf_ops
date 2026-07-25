@@ -456,12 +456,13 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
 
   @override
   Future<List<JobExecution>> getOpenExecutions() async {
-    return await isar.jobExecutions
+    final rows = await isar.jobExecutions
         .filter()
         .isCompletedEqualTo(false)
         .and()
         .isDeletedEqualTo(false)
         .findAll();
+    return rows.where((execution) => !execution.isCancelled).toList();
   }
 
   @override
@@ -630,8 +631,9 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
         .isDeletedEqualTo(false)
         .watch(fireImmediately: true)
         .map((list) {
-          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return list;
+          final active = list.where((execution) => !execution.isCancelled).toList();
+          active.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return active;
         });
   }
 
@@ -1351,6 +1353,7 @@ class FirestorePlannedRepository implements PlannedMaintenanceRepository {
           (snap) =>
               snap.docs
                   .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+                  .where((execution) => !execution.isCancelled)
                   .toList(),
         );
   }
@@ -1555,7 +1558,7 @@ class FirestorePlannedRepository implements PlannedMaintenanceRepository {
     _normalizeExecutionForUserSave(execution, markUnsynced: false);
     await _executions
         .doc(execution.firestoreId)
-        .set(execution.toMap(), SetOptions(merge: true));
+        .set(execution.toClientWritableMap(), SetOptions(merge: true));
   }
 
   @override
@@ -1575,6 +1578,7 @@ class FirestorePlannedRepository implements PlannedMaintenanceRepository {
             .get();
     return snap.docs
         .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+        .where((execution) => !execution.isCancelled)
         .toList();
   }
 
@@ -1815,7 +1819,7 @@ class FirestorePlannedRepository implements PlannedMaintenanceRepository {
       if (r.firestoreId != null) {
         batch.set(
           _executions.doc(r.firestoreId),
-          r.toMap(),
+          r.toClientWritableMap(),
           SetOptions(merge: true),
         );
       }
@@ -1874,13 +1878,14 @@ final openExecutionCountProvider = StreamProvider<int>((ref) {
         .distinct();
   }
 
-  Future<int> countOpenExecutions() {
-    return isar.jobExecutions
+  Future<int> countOpenExecutions() async {
+    final rows = await isar.jobExecutions
         .filter()
         .isCompletedEqualTo(false)
         .and()
         .isDeletedEqualTo(false)
-        .count();
+        .findAll();
+    return rows.where((execution) => !execution.isCancelled).length;
   }
 
   return isar.jobExecutions

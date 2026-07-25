@@ -1,0 +1,69 @@
+CRM3 APP v4.2_R1.16 — PRE-ARCHIVE FINAL VERIFICATION
+
+EVIDENCE AUTHORITY
+- R1.15 evidence SHA-256:
+  7A77A446FF9151022A2909BA5485A242F72E897969652F0A1AD976860CA2F1F4
+- Sidecar match: PASS
+- ZIP compressed-data integrity: PASS
+- Candidate-manifest binding: 722 files, 0 missing, 0 extra, 0 size/hash mismatches
+- R1.15 decision: FAIL_LOCAL_LAB
+- Failed stage: 31_flutter_tests
+- Flutter result: 472 passed, 1 failed
+- Emulator gate: NOT REACHED
+
+FAILURE ADJUDICATION
+- Failing test:
+  test/maintenance_lifecycle_replay_contract_test.dart
+- Failure type: private source-parser defect
+- Firestore Rules regression demonstrated: NO
+- The Rules line exists at the maintenance match and remains unchanged.
+- The helper selected the brace in {docId}, returned only the marker token and
+  therefore counted zero update rules.
+
+R1.16 CORRECTION
+- Firestore Rules bytes: UNCHANGED FROM R1.15
+- Application lib bytes: UNCHANGED FROM R1.15
+- Functions bytes: UNCHANGED FROM R1.15
+- Dependency/Firebase/Android/release authority bytes: UNCHANGED FROM R1.15
+- One helper line now searches from markerIndex + marker.length.
+- Router assertions and lifecycle coverage are unchanged.
+- Shared parser consolidation is deliberately deferred to a separate test-infrastructure change.
+- Harness evidence identity advances to R1.16.
+
+STATIC VERIFICATION
+- R1.16 targeted checks:                  8/8 PASS
+- Canonical R1 pristine audit:           44/44 PASS
+- v4.2 ultimate audit:                   17/17 PASS
+- v4.1 due-diligence audit:               9/9 PASS
+- Whole-app reconciliation audit:        21/21 PASS
+- Inherited full-tree audit:             18/18 PASS
+- Inherited expanded audit:              15/15 PASS
+- Dart structural audit:                  PASS (370 files)
+- Integrity-sweep unit tests:              3/3 PASS
+- Workflow-policy generation:             PASS
+- Isar semantic continuity:               PASS
+- Pristine provisional Isar release gate: EXPECTED FAIL-CLOSED
+- Protected product/Rules/dependency changes: 0
+- Generated/dependency directories:        0
+
+RECONSTRUCTION
+- Patch SHA-256:
+  A1BF5695A6B6EE521645B11953263281A08DC53DA7881951634BAFD6B1F15EE5
+- Patch paths: 13
+- Patch check/apply: PASS
+- Missing reconstructed paths: 0
+- Byte mismatches: 0
+
+MANIFEST SCOPE
+- Manifest entries: 731
+- Manifest file is excluded from its own hash list.
+
+UNCLAIMED IN THIS ENVIRONMENT
+- Complete Flutter test pass after R1.16
+- Firebase Rules emulator compilation
+- 122/122 Rules tests
+- Governed Functions emulator suites
+- Android debug APK
+
+Only a fresh authoritative Windows run with -RunEmulators can establish
+PASS_AUTHORITATIVE_BUILD_AND_EMULATOR for R1.16.

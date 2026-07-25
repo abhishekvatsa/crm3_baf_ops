@@ -129,6 +129,18 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_isSubmitting) return;
+    if (widget.ticket.workflowDeferred) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This ticket is deferred by maintenance workflow. '
+            'Reactivate or release the linked compliance request first.',
+          ),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+      return;
+    }
 
     final now = DateTime.now();
     if (widget.ticket.startDate.isAfter(now)) {

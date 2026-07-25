@@ -57,12 +57,23 @@
     "packageName": "in.co.sail.bsl.crm3.bafops",
     "firebaseAppId": "1:894346496105:android:fba14febfbbee102e63af8",
     "androidOauthClientId": "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com",
-    "googleServicesSha256": "730A044FF0A698C2FBCCF3B993EE6964EE5431CA8C6435DDC02AA98A9848646A",
+    "googleServicesSha256": "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B",
     "signingCertificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
     "signingCertificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
     "registrationReference": "BAF-REF-005",
     "registrationReceiptFile": "release/approvals/firebase-registration-receipt.json",
-    "registrationSourceDocumentSha256": "81ECA29EC696F41B27786761573578E11881E5C69C056D7AC67B68827C5475FC"
+    "registrationSourceDocumentSha256": "81ECA29EC696F41B27786761573578E11881E5C69C056D7AC67B68827C5475FC",
+    "debugAndroidOauthClientId": "894346496105-hmk7941e55ph206e6nr6ifvvqqqf7ee6.apps.googleusercontent.com",
+    "googleServicesSemanticSha256": "A9FEE3B4E0770F9643C3929F41FDF69FFA8D638A5BE55EF81B34B893C4258FE2",
+    "historicalRegistrationGoogleServicesSha256": "730A044FF0A698C2FBCCF3B993EE6964EE5431CA8C6435DDC02AA98A9848646A",
+    "supersededDebugOnlyGoogleServicesSha256": "DBD4450D064E6FE68D2F809A8A81B1FE5AC6E96E390F8F0B1762938D0EF5FE6D",
+    "supersededDebugOnlyGoogleServicesSemanticSha256": "8BB5FFA242C09AB10323D9B8F1FF560724B045EC39D2EA565367F057EE49DC1F",
+    "debugSigningCertificateSha1": "30B58F0F39E1BA3CA69FD9032D7CF6FB41EC8F31",
+    "debugSigningCertificateSha256": "B0B0EF9B348F5D474356AEB79182483B98829012FC25EB3EDCD517D11563C6D5",
+    "restorationReference": "CRM3-FB-RESTORE-001-C1",
+    "restorationReceiptFile": "release/approvals/firebase-production-signing-restoration-receipt.json",
+    "restorationReceiptSha256": "FAD4C1516BD681E7A6756282B241B52AE54FC1AB9290AA15DC27719925EFBF3B",
+    "restorationEvidenceSha256": "24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF"
   },
   "release": {
     "releaseId": "crm3-baf-ops-1.0.0-rc.1-b1",
@@ -79,13 +90,13 @@
       "Unrestricted plant release is not approved",
       "Controlled-pilot distribution requires a separate post-build promotion record bound to the exact governed package hash",
       "O-06 App Check remains open",
-      "O-07 dependency remediation remains open",
       "O-08 closure concurrency remains open",
       "O-09 assignment emulator and continuous PR coverage remain partial",
       "O-10 physical-device, weak-network and package-ID cutover proof remains open",
       "O-11 recovery drill remains partial",
       "O-12 operator acceptance remains open",
-      "Do not uninstall or clear the placeholder app until device-specific no-loss cutover is signed off"
+      "Do not uninstall or clear the placeholder app until device-specific no-loss cutover is signed off",
+      "Dependency audits must be re-run on the exact artifact-construction lockfiles"
     ],
     "unrestrictedPlantReleaseApproved": false,
     "postBuildPromotionRequiredForAnyDistribution": true
@@ -93,9 +104,9 @@
   "toolchain": {
     "bundletoolUrl": "https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar",
     "bundletoolSha256": "A099CFA1543F55593BC2ED16A70A7C67FE54B1747BB7301F37FDFD6D91028E29",
-    "firebaseToolsVersion": "15.17.0",
+    "firebaseToolsVersion": "15.22.4",
     "firebaseToolsLockfile": "tooling/firebase-cli/package-lock.json",
-    "firebaseToolsLockfileSha256": "7E738C479BA2C799229B9361A109A42E9AE7E01D193AD919F3B77348D281E74C",
+    "firebaseToolsLockfileSha256": "273C33CE9E5DADF0B78FF98F912E848296A3FF36694015AE787ADA83EB3C7EAB",
     "linuxIsarCoreSha256": "7DC70DF7A2FBF63CD552ECA36708B6DEEB68CBD2AA270C1E201215E0BFC38EF1",
     "linuxIsarCoreAuthorityReceipt": "release/approvals/linux-isar-core-authority.json",
     "githubActionPinsFile": "release/github-actions-pins.json",
@@ -108,7 +119,6 @@
   },
   "knownOpenGates": [
     "O-06 Firebase App Check",
-    "O-07 high-severity dependencies",
     "O-08 closure concurrency",
     "O-09 assignment emulator and continuous CI",
     "O-10 physical-device, weak-network and package-ID cutover",

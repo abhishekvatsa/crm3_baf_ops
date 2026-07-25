@@ -4731,139 +4731,209 @@ const JobExecutionSchema = CollectionSchema(
       name: r'assignedByUid',
       type: IsarType.string,
     ),
-    r'chargeNoAtEvent': PropertySchema(
+    r'cancellationReason': PropertySchema(
       id: 6,
+      name: r'cancellationReason',
+      type: IsarType.string,
+    ),
+    r'cancelledAt': PropertySchema(
+      id: 7,
+      name: r'cancelledAt',
+      type: IsarType.dateTime,
+    ),
+    r'cancelledByName': PropertySchema(
+      id: 8,
+      name: r'cancelledByName',
+      type: IsarType.string,
+    ),
+    r'cancelledByUid': PropertySchema(
+      id: 9,
+      name: r'cancelledByUid',
+      type: IsarType.string,
+    ),
+    r'chargeNoAtEvent': PropertySchema(
+      id: 10,
       name: r'chargeNoAtEvent',
       type: IsarType.long,
     ),
     r'completedAt': PropertySchema(
-      id: 7,
+      id: 11,
       name: r'completedAt',
       type: IsarType.dateTime,
     ),
     r'completedByName': PropertySchema(
-      id: 8,
+      id: 12,
       name: r'completedByName',
       type: IsarType.string,
     ),
     r'completedByUid': PropertySchema(
-      id: 9,
+      id: 13,
       name: r'completedByUid',
       type: IsarType.string,
     ),
     r'createdAt': PropertySchema(
-      id: 10,
+      id: 14,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'deleteReason': PropertySchema(
-      id: 11,
+      id: 15,
       name: r'deleteReason',
       type: IsarType.string,
     ),
     r'deletedAt': PropertySchema(
-      id: 12,
+      id: 16,
       name: r'deletedAt',
       type: IsarType.dateTime,
     ),
     r'deletedByName': PropertySchema(
-      id: 13,
+      id: 17,
       name: r'deletedByName',
       type: IsarType.string,
     ),
     r'deletedByUid': PropertySchema(
-      id: 14,
+      id: 18,
       name: r'deletedByUid',
       type: IsarType.string,
     ),
     r'firestoreId': PropertySchema(
-      id: 15,
+      id: 19,
       name: r'firestoreId',
       type: IsarType.string,
     ),
+    r'isCancelled': PropertySchema(
+      id: 20,
+      name: r'isCancelled',
+      type: IsarType.bool,
+    ),
     r'isCompleted': PropertySchema(
-      id: 16,
+      id: 21,
       name: r'isCompleted',
       type: IsarType.bool,
     ),
     r'isDeleted': PropertySchema(
-      id: 17,
+      id: 22,
       name: r'isDeleted',
       type: IsarType.bool,
     ),
     r'isSynced': PropertySchema(
-      id: 18,
+      id: 23,
       name: r'isSynced',
       type: IsarType.bool,
     ),
+    r'laneMappingReview': PropertySchema(
+      id: 24,
+      name: r'laneMappingReview',
+      type: IsarType.bool,
+    ),
+    r'laneSetFinalizedAt': PropertySchema(
+      id: 25,
+      name: r'laneSetFinalizedAt',
+      type: IsarType.dateTime,
+    ),
+    r'laneSetFinalizedByName': PropertySchema(
+      id: 26,
+      name: r'laneSetFinalizedByName',
+      type: IsarType.string,
+    ),
+    r'laneSetFinalizedByUid': PropertySchema(
+      id: 27,
+      name: r'laneSetFinalizedByUid',
+      type: IsarType.string,
+    ),
+    r'laneSetVersion': PropertySchema(
+      id: 28,
+      name: r'laneSetVersion',
+      type: IsarType.long,
+    ),
     r'metadataJson': PropertySchema(
-      id: 19,
+      id: 29,
       name: r'metadataJson',
       type: IsarType.string,
     ),
+    r'parentExecutionFirestoreId': PropertySchema(
+      id: 30,
+      name: r'parentExecutionFirestoreId',
+      type: IsarType.string,
+    ),
+    r'redAnswerJson': PropertySchema(
+      id: 31,
+      name: r'redAnswerJson',
+      type: IsarType.string,
+    ),
     r'remarks': PropertySchema(
-      id: 20,
+      id: 32,
       name: r'remarks',
       type: IsarType.string,
     ),
     r'responsesJson': PropertySchema(
-      id: 21,
+      id: 33,
       name: r'responsesJson',
       type: IsarType.string,
     ),
+    r'spawnedRedExecutionFirestoreId': PropertySchema(
+      id: 34,
+      name: r'spawnedRedExecutionFirestoreId',
+      type: IsarType.string,
+    ),
     r'teamsInvolved': PropertySchema(
-      id: 22,
+      id: 35,
       name: r'teamsInvolved',
       type: IsarType.stringList,
     ),
     r'templateContentHash': PropertySchema(
-      id: 23,
+      id: 36,
       name: r'templateContentHash',
       type: IsarType.string,
     ),
     r'templateFirestoreId': PropertySchema(
-      id: 24,
+      id: 37,
       name: r'templateFirestoreId',
       type: IsarType.string,
     ),
     r'templateName': PropertySchema(
-      id: 25,
+      id: 38,
       name: r'templateName',
       type: IsarType.string,
     ),
     r'templatePackageCode': PropertySchema(
-      id: 26,
+      id: 39,
       name: r'templatePackageCode',
       type: IsarType.string,
     ),
     r'templatePackageId': PropertySchema(
-      id: 27,
+      id: 40,
       name: r'templatePackageId',
       type: IsarType.string,
     ),
     r'templateVersionId': PropertySchema(
-      id: 28,
+      id: 41,
       name: r'templateVersionId',
       type: IsarType.string,
     ),
     r'templateVersionLabel': PropertySchema(
-      id: 29,
+      id: 42,
       name: r'templateVersionLabel',
       type: IsarType.string,
     ),
     r'templateVersionNumber': PropertySchema(
-      id: 30,
+      id: 43,
       name: r'templateVersionNumber',
       type: IsarType.long,
     ),
     r'updatedAt': PropertySchema(
-      id: 31,
+      id: 44,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'version': PropertySchema(
-      id: 32,
+      id: 45,
       name: r'version',
+      type: IsarType.long,
+    ),
+    r'workflowSchemaVersion': PropertySchema(
+      id: 46,
+      name: r'workflowSchemaVersion',
       type: IsarType.long,
     )
   },
@@ -4951,6 +5021,45 @@ const JobExecutionSchema = CollectionSchema(
         )
       ],
     ),
+    r'isCancelled': IndexSchema(
+      id: 9046873824095663760,
+      name: r'isCancelled',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'isCancelled',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
+    ),
+    r'laneMappingReview': IndexSchema(
+      id: 1128124999150228465,
+      name: r'laneMappingReview',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'laneMappingReview',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
+    ),
+    r'parentExecutionFirestoreId': IndexSchema(
+      id: 6813288294215407249,
+      name: r'parentExecutionFirestoreId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'parentExecutionFirestoreId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
     r'createdAt': IndexSchema(
       id: -3433535483987302584,
       name: r'createdAt',
@@ -5014,6 +5123,24 @@ int _jobExecutionEstimateSize(
     }
   }
   {
+    final value = object.cancellationReason;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.cancelledByName;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.cancelledByUid;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.completedByName;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -5050,7 +5177,31 @@ int _jobExecutionEstimateSize(
     }
   }
   {
+    final value = object.laneSetFinalizedByName;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.laneSetFinalizedByUid;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.metadataJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.parentExecutionFirestoreId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.redAnswerJson;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -5062,6 +5213,12 @@ int _jobExecutionEstimateSize(
     }
   }
   bytesCount += 3 + object.responsesJson.length * 3;
+  {
+    final value = object.spawnedRedExecutionFirestoreId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.teamsInvolved.length * 3;
   {
     for (var i = 0; i < object.teamsInvolved.length; i++) {
@@ -5121,33 +5278,47 @@ void _jobExecutionSerialize(
   writer.writeStringList(offsets[3], object.assignedAgencies);
   writer.writeString(offsets[4], object.assignedByName);
   writer.writeString(offsets[5], object.assignedByUid);
-  writer.writeLong(offsets[6], object.chargeNoAtEvent);
-  writer.writeDateTime(offsets[7], object.completedAt);
-  writer.writeString(offsets[8], object.completedByName);
-  writer.writeString(offsets[9], object.completedByUid);
-  writer.writeDateTime(offsets[10], object.createdAt);
-  writer.writeString(offsets[11], object.deleteReason);
-  writer.writeDateTime(offsets[12], object.deletedAt);
-  writer.writeString(offsets[13], object.deletedByName);
-  writer.writeString(offsets[14], object.deletedByUid);
-  writer.writeString(offsets[15], object.firestoreId);
-  writer.writeBool(offsets[16], object.isCompleted);
-  writer.writeBool(offsets[17], object.isDeleted);
-  writer.writeBool(offsets[18], object.isSynced);
-  writer.writeString(offsets[19], object.metadataJson);
-  writer.writeString(offsets[20], object.remarks);
-  writer.writeString(offsets[21], object.responsesJson);
-  writer.writeStringList(offsets[22], object.teamsInvolved);
-  writer.writeString(offsets[23], object.templateContentHash);
-  writer.writeString(offsets[24], object.templateFirestoreId);
-  writer.writeString(offsets[25], object.templateName);
-  writer.writeString(offsets[26], object.templatePackageCode);
-  writer.writeString(offsets[27], object.templatePackageId);
-  writer.writeString(offsets[28], object.templateVersionId);
-  writer.writeString(offsets[29], object.templateVersionLabel);
-  writer.writeLong(offsets[30], object.templateVersionNumber);
-  writer.writeDateTime(offsets[31], object.updatedAt);
-  writer.writeLong(offsets[32], object.version);
+  writer.writeString(offsets[6], object.cancellationReason);
+  writer.writeDateTime(offsets[7], object.cancelledAt);
+  writer.writeString(offsets[8], object.cancelledByName);
+  writer.writeString(offsets[9], object.cancelledByUid);
+  writer.writeLong(offsets[10], object.chargeNoAtEvent);
+  writer.writeDateTime(offsets[11], object.completedAt);
+  writer.writeString(offsets[12], object.completedByName);
+  writer.writeString(offsets[13], object.completedByUid);
+  writer.writeDateTime(offsets[14], object.createdAt);
+  writer.writeString(offsets[15], object.deleteReason);
+  writer.writeDateTime(offsets[16], object.deletedAt);
+  writer.writeString(offsets[17], object.deletedByName);
+  writer.writeString(offsets[18], object.deletedByUid);
+  writer.writeString(offsets[19], object.firestoreId);
+  writer.writeBool(offsets[20], object.isCancelled);
+  writer.writeBool(offsets[21], object.isCompleted);
+  writer.writeBool(offsets[22], object.isDeleted);
+  writer.writeBool(offsets[23], object.isSynced);
+  writer.writeBool(offsets[24], object.laneMappingReview);
+  writer.writeDateTime(offsets[25], object.laneSetFinalizedAt);
+  writer.writeString(offsets[26], object.laneSetFinalizedByName);
+  writer.writeString(offsets[27], object.laneSetFinalizedByUid);
+  writer.writeLong(offsets[28], object.laneSetVersion);
+  writer.writeString(offsets[29], object.metadataJson);
+  writer.writeString(offsets[30], object.parentExecutionFirestoreId);
+  writer.writeString(offsets[31], object.redAnswerJson);
+  writer.writeString(offsets[32], object.remarks);
+  writer.writeString(offsets[33], object.responsesJson);
+  writer.writeString(offsets[34], object.spawnedRedExecutionFirestoreId);
+  writer.writeStringList(offsets[35], object.teamsInvolved);
+  writer.writeString(offsets[36], object.templateContentHash);
+  writer.writeString(offsets[37], object.templateFirestoreId);
+  writer.writeString(offsets[38], object.templateName);
+  writer.writeString(offsets[39], object.templatePackageCode);
+  writer.writeString(offsets[40], object.templatePackageId);
+  writer.writeString(offsets[41], object.templateVersionId);
+  writer.writeString(offsets[42], object.templateVersionLabel);
+  writer.writeLong(offsets[43], object.templateVersionNumber);
+  writer.writeDateTime(offsets[44], object.updatedAt);
+  writer.writeLong(offsets[45], object.version);
+  writer.writeLong(offsets[46], object.workflowSchemaVersion);
 }
 
 JobExecution _jobExecutionDeserialize(
@@ -5165,34 +5336,48 @@ JobExecution _jobExecutionDeserialize(
   object.assignedAgencies = reader.readStringList(offsets[3]) ?? [];
   object.assignedByName = reader.readStringOrNull(offsets[4]);
   object.assignedByUid = reader.readStringOrNull(offsets[5]);
-  object.chargeNoAtEvent = reader.readLongOrNull(offsets[6]);
-  object.completedAt = reader.readDateTimeOrNull(offsets[7]);
-  object.completedByName = reader.readStringOrNull(offsets[8]);
-  object.completedByUid = reader.readStringOrNull(offsets[9]);
-  object.createdAt = reader.readDateTime(offsets[10]);
-  object.deleteReason = reader.readStringOrNull(offsets[11]);
-  object.deletedAt = reader.readDateTimeOrNull(offsets[12]);
-  object.deletedByName = reader.readStringOrNull(offsets[13]);
-  object.deletedByUid = reader.readStringOrNull(offsets[14]);
-  object.firestoreId = reader.readStringOrNull(offsets[15]);
+  object.cancellationReason = reader.readStringOrNull(offsets[6]);
+  object.cancelledAt = reader.readDateTimeOrNull(offsets[7]);
+  object.cancelledByName = reader.readStringOrNull(offsets[8]);
+  object.cancelledByUid = reader.readStringOrNull(offsets[9]);
+  object.chargeNoAtEvent = reader.readLongOrNull(offsets[10]);
+  object.completedAt = reader.readDateTimeOrNull(offsets[11]);
+  object.completedByName = reader.readStringOrNull(offsets[12]);
+  object.completedByUid = reader.readStringOrNull(offsets[13]);
+  object.createdAt = reader.readDateTime(offsets[14]);
+  object.deleteReason = reader.readStringOrNull(offsets[15]);
+  object.deletedAt = reader.readDateTimeOrNull(offsets[16]);
+  object.deletedByName = reader.readStringOrNull(offsets[17]);
+  object.deletedByUid = reader.readStringOrNull(offsets[18]);
+  object.firestoreId = reader.readStringOrNull(offsets[19]);
   object.id = id;
-  object.isCompleted = reader.readBool(offsets[16]);
-  object.isDeleted = reader.readBool(offsets[17]);
-  object.isSynced = reader.readBool(offsets[18]);
-  object.metadataJson = reader.readStringOrNull(offsets[19]);
-  object.remarks = reader.readStringOrNull(offsets[20]);
-  object.responsesJson = reader.readString(offsets[21]);
-  object.teamsInvolved = reader.readStringList(offsets[22]) ?? [];
-  object.templateContentHash = reader.readStringOrNull(offsets[23]);
-  object.templateFirestoreId = reader.readString(offsets[24]);
-  object.templateName = reader.readStringOrNull(offsets[25]);
-  object.templatePackageCode = reader.readStringOrNull(offsets[26]);
-  object.templatePackageId = reader.readStringOrNull(offsets[27]);
-  object.templateVersionId = reader.readStringOrNull(offsets[28]);
-  object.templateVersionLabel = reader.readStringOrNull(offsets[29]);
-  object.templateVersionNumber = reader.readLongOrNull(offsets[30]);
-  object.updatedAt = reader.readDateTime(offsets[31]);
-  object.version = reader.readLong(offsets[32]);
+  object.isCancelled = reader.readBool(offsets[20]);
+  object.isCompleted = reader.readBool(offsets[21]);
+  object.isDeleted = reader.readBool(offsets[22]);
+  object.isSynced = reader.readBool(offsets[23]);
+  object.laneMappingReview = reader.readBool(offsets[24]);
+  object.laneSetFinalizedAt = reader.readDateTimeOrNull(offsets[25]);
+  object.laneSetFinalizedByName = reader.readStringOrNull(offsets[26]);
+  object.laneSetFinalizedByUid = reader.readStringOrNull(offsets[27]);
+  object.laneSetVersion = reader.readLong(offsets[28]);
+  object.metadataJson = reader.readStringOrNull(offsets[29]);
+  object.parentExecutionFirestoreId = reader.readStringOrNull(offsets[30]);
+  object.redAnswerJson = reader.readStringOrNull(offsets[31]);
+  object.remarks = reader.readStringOrNull(offsets[32]);
+  object.responsesJson = reader.readString(offsets[33]);
+  object.spawnedRedExecutionFirestoreId = reader.readStringOrNull(offsets[34]);
+  object.teamsInvolved = reader.readStringList(offsets[35]) ?? [];
+  object.templateContentHash = reader.readStringOrNull(offsets[36]);
+  object.templateFirestoreId = reader.readString(offsets[37]);
+  object.templateName = reader.readStringOrNull(offsets[38]);
+  object.templatePackageCode = reader.readStringOrNull(offsets[39]);
+  object.templatePackageId = reader.readStringOrNull(offsets[40]);
+  object.templateVersionId = reader.readStringOrNull(offsets[41]);
+  object.templateVersionLabel = reader.readStringOrNull(offsets[42]);
+  object.templateVersionNumber = reader.readLongOrNull(offsets[43]);
+  object.updatedAt = reader.readDateTime(offsets[44]);
+  object.version = reader.readLong(offsets[45]);
+  object.workflowSchemaVersion = reader.readLong(offsets[46]);
   return object;
 }
 
@@ -5218,7 +5403,7 @@ P _jobExecutionDeserializeProp<P>(
     case 5:
       return (reader.readStringOrNull(offset)) as P;
     case 6:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 7:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 8:
@@ -5226,50 +5411,78 @@ P _jobExecutionDeserializeProp<P>(
     case 9:
       return (reader.readStringOrNull(offset)) as P;
     case 10:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 11:
-      return (reader.readStringOrNull(offset)) as P;
-    case 12:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 12:
+      return (reader.readStringOrNull(offset)) as P;
     case 13:
       return (reader.readStringOrNull(offset)) as P;
     case 14:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 15:
       return (reader.readStringOrNull(offset)) as P;
     case 16:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 17:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 18:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 19:
       return (reader.readStringOrNull(offset)) as P;
     case 20:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 21:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 22:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readBool(offset)) as P;
     case 23:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 24:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 25:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 26:
       return (reader.readStringOrNull(offset)) as P;
     case 27:
       return (reader.readStringOrNull(offset)) as P;
     case 28:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 29:
       return (reader.readStringOrNull(offset)) as P;
     case 30:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 31:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 32:
+      return (reader.readStringOrNull(offset)) as P;
+    case 33:
+      return (reader.readString(offset)) as P;
+    case 34:
+      return (reader.readStringOrNull(offset)) as P;
+    case 35:
+      return (reader.readStringList(offset) ?? []) as P;
+    case 36:
+      return (reader.readStringOrNull(offset)) as P;
+    case 37:
+      return (reader.readString(offset)) as P;
+    case 38:
+      return (reader.readStringOrNull(offset)) as P;
+    case 39:
+      return (reader.readStringOrNull(offset)) as P;
+    case 40:
+      return (reader.readStringOrNull(offset)) as P;
+    case 41:
+      return (reader.readStringOrNull(offset)) as P;
+    case 42:
+      return (reader.readStringOrNull(offset)) as P;
+    case 43:
+      return (reader.readLongOrNull(offset)) as P;
+    case 44:
+      return (reader.readDateTime(offset)) as P;
+    case 45:
+      return (reader.readLong(offset)) as P;
+    case 46:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -5322,6 +5535,22 @@ extension JobExecutionQueryWhereSort
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'isCompleted'),
+      );
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterWhere> anyIsCancelled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'isCancelled'),
+      );
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterWhere> anyLaneMappingReview() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'laneMappingReview'),
       );
     });
   }
@@ -5790,6 +6019,163 @@ extension JobExecutionQueryWhere
               indexName: r'isCompleted',
               lower: [],
               upper: [isCompleted],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterWhereClause>
+      isCancelledEqualTo(bool isCancelled) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'isCancelled',
+        value: [isCancelled],
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterWhereClause>
+      isCancelledNotEqualTo(bool isCancelled) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'isCancelled',
+              lower: [],
+              upper: [isCancelled],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'isCancelled',
+              lower: [isCancelled],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'isCancelled',
+              lower: [isCancelled],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'isCancelled',
+              lower: [],
+              upper: [isCancelled],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterWhereClause>
+      laneMappingReviewEqualTo(bool laneMappingReview) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'laneMappingReview',
+        value: [laneMappingReview],
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterWhereClause>
+      laneMappingReviewNotEqualTo(bool laneMappingReview) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'laneMappingReview',
+              lower: [],
+              upper: [laneMappingReview],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'laneMappingReview',
+              lower: [laneMappingReview],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'laneMappingReview',
+              lower: [laneMappingReview],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'laneMappingReview',
+              lower: [],
+              upper: [laneMappingReview],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterWhereClause>
+      parentExecutionFirestoreIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'parentExecutionFirestoreId',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterWhereClause>
+      parentExecutionFirestoreIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'parentExecutionFirestoreId',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterWhereClause>
+      parentExecutionFirestoreIdEqualTo(String? parentExecutionFirestoreId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'parentExecutionFirestoreId',
+        value: [parentExecutionFirestoreId],
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterWhereClause>
+      parentExecutionFirestoreIdNotEqualTo(String? parentExecutionFirestoreId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'parentExecutionFirestoreId',
+              lower: [],
+              upper: [parentExecutionFirestoreId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'parentExecutionFirestoreId',
+              lower: [parentExecutionFirestoreId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'parentExecutionFirestoreId',
+              lower: [parentExecutionFirestoreId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'parentExecutionFirestoreId',
+              lower: [],
+              upper: [parentExecutionFirestoreId],
               includeUpper: false,
             ));
       }
@@ -6793,6 +7179,542 @@ extension JobExecutionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'assignedByUid',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancellationReasonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'cancellationReason',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancellationReasonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'cancellationReason',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancellationReasonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'cancellationReason',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancellationReasonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'cancellationReason',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancellationReasonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'cancellationReason',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancellationReasonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'cancellationReason',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancellationReasonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'cancellationReason',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancellationReasonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'cancellationReason',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancellationReasonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'cancellationReason',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancellationReasonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'cancellationReason',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancellationReasonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'cancellationReason',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancellationReasonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'cancellationReason',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'cancelledAt',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'cancelledAt',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'cancelledAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'cancelledAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'cancelledAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'cancelledAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByNameIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'cancelledByName',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByNameIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'cancelledByName',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByNameEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'cancelledByName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByNameGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'cancelledByName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'cancelledByName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByNameBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'cancelledByName',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByNameStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'cancelledByName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByNameEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'cancelledByName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByNameContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'cancelledByName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByNameMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'cancelledByName',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByNameIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'cancelledByName',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByNameIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'cancelledByName',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByUidIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'cancelledByUid',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByUidIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'cancelledByUid',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByUidEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'cancelledByUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByUidGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'cancelledByUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'cancelledByUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByUidBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'cancelledByUid',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByUidStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'cancelledByUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByUidEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'cancelledByUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByUidContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'cancelledByUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByUidMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'cancelledByUid',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByUidIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'cancelledByUid',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      cancelledByUidIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'cancelledByUid',
         value: '',
       ));
     });
@@ -8054,6 +8976,16 @@ extension JobExecutionQueryFilter
   }
 
   QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      isCancelledEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isCancelled',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
       isCompletedEqualTo(bool value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
@@ -8079,6 +9011,457 @@ extension JobExecutionQueryFilter
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'isSynced',
         value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneMappingReviewEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'laneMappingReview',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'laneSetFinalizedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'laneSetFinalizedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'laneSetFinalizedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'laneSetFinalizedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'laneSetFinalizedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'laneSetFinalizedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByNameIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'laneSetFinalizedByName',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByNameIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'laneSetFinalizedByName',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByNameEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'laneSetFinalizedByName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByNameGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'laneSetFinalizedByName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'laneSetFinalizedByName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByNameBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'laneSetFinalizedByName',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByNameStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'laneSetFinalizedByName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByNameEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'laneSetFinalizedByName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByNameContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'laneSetFinalizedByName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByNameMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'laneSetFinalizedByName',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByNameIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'laneSetFinalizedByName',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByNameIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'laneSetFinalizedByName',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByUidIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'laneSetFinalizedByUid',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByUidIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'laneSetFinalizedByUid',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByUidEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'laneSetFinalizedByUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByUidGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'laneSetFinalizedByUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByUidLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'laneSetFinalizedByUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByUidBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'laneSetFinalizedByUid',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByUidStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'laneSetFinalizedByUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByUidEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'laneSetFinalizedByUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByUidContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'laneSetFinalizedByUid',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByUidMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'laneSetFinalizedByUid',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByUidIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'laneSetFinalizedByUid',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetFinalizedByUidIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'laneSetFinalizedByUid',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetVersionEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'laneSetVersion',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetVersionGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'laneSetVersion',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetVersionLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'laneSetVersion',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      laneSetVersionBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'laneSetVersion',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }
@@ -8232,6 +9615,316 @@ extension JobExecutionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'metadataJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      parentExecutionFirestoreIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'parentExecutionFirestoreId',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      parentExecutionFirestoreIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'parentExecutionFirestoreId',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      parentExecutionFirestoreIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'parentExecutionFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      parentExecutionFirestoreIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'parentExecutionFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      parentExecutionFirestoreIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'parentExecutionFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      parentExecutionFirestoreIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'parentExecutionFirestoreId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      parentExecutionFirestoreIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'parentExecutionFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      parentExecutionFirestoreIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'parentExecutionFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      parentExecutionFirestoreIdContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'parentExecutionFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      parentExecutionFirestoreIdMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'parentExecutionFirestoreId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      parentExecutionFirestoreIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'parentExecutionFirestoreId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      parentExecutionFirestoreIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'parentExecutionFirestoreId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      redAnswerJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'redAnswerJson',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      redAnswerJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'redAnswerJson',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      redAnswerJsonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'redAnswerJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      redAnswerJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'redAnswerJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      redAnswerJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'redAnswerJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      redAnswerJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'redAnswerJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      redAnswerJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'redAnswerJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      redAnswerJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'redAnswerJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      redAnswerJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'redAnswerJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      redAnswerJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'redAnswerJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      redAnswerJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'redAnswerJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      redAnswerJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'redAnswerJson',
         value: '',
       ));
     });
@@ -8522,6 +10215,162 @@ extension JobExecutionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'responsesJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      spawnedRedExecutionFirestoreIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'spawnedRedExecutionFirestoreId',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      spawnedRedExecutionFirestoreIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'spawnedRedExecutionFirestoreId',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      spawnedRedExecutionFirestoreIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'spawnedRedExecutionFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      spawnedRedExecutionFirestoreIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'spawnedRedExecutionFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      spawnedRedExecutionFirestoreIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'spawnedRedExecutionFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      spawnedRedExecutionFirestoreIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'spawnedRedExecutionFirestoreId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      spawnedRedExecutionFirestoreIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'spawnedRedExecutionFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      spawnedRedExecutionFirestoreIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'spawnedRedExecutionFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      spawnedRedExecutionFirestoreIdContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'spawnedRedExecutionFirestoreId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      spawnedRedExecutionFirestoreIdMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'spawnedRedExecutionFirestoreId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      spawnedRedExecutionFirestoreIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'spawnedRedExecutionFirestoreId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      spawnedRedExecutionFirestoreIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'spawnedRedExecutionFirestoreId',
         value: '',
       ));
     });
@@ -9997,6 +11846,62 @@ extension JobExecutionQueryFilter
       ));
     });
   }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      workflowSchemaVersionEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'workflowSchemaVersion',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      workflowSchemaVersionGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'workflowSchemaVersion',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      workflowSchemaVersionLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'workflowSchemaVersion',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterFilterCondition>
+      workflowSchemaVersionBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'workflowSchemaVersion',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
 }
 
 extension JobExecutionQueryObject
@@ -10069,6 +11974,61 @@ extension JobExecutionQuerySortBy
       sortByAssignedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assignedByUid', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByCancellationReason() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancellationReason', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByCancellationReasonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancellationReason', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy> sortByCancelledAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancelledAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByCancelledAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancelledAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByCancelledByName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancelledByName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByCancelledByNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancelledByName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByCancelledByUid() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancelledByUid', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByCancelledByUidDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancelledByUid', Sort.desc);
     });
   }
 
@@ -10203,6 +12163,19 @@ extension JobExecutionQuerySortBy
     });
   }
 
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy> sortByIsCancelled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isCancelled', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByIsCancelledDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isCancelled', Sort.desc);
+    });
+  }
+
   QueryBuilder<JobExecution, JobExecution, QAfterSortBy> sortByIsCompleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isCompleted', Sort.asc);
@@ -10240,6 +12213,76 @@ extension JobExecutionQuerySortBy
     });
   }
 
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByLaneMappingReview() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneMappingReview', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByLaneMappingReviewDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneMappingReview', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByLaneSetFinalizedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetFinalizedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByLaneSetFinalizedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetFinalizedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByLaneSetFinalizedByName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetFinalizedByName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByLaneSetFinalizedByNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetFinalizedByName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByLaneSetFinalizedByUid() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetFinalizedByUid', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByLaneSetFinalizedByUidDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetFinalizedByUid', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByLaneSetVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByLaneSetVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetVersion', Sort.desc);
+    });
+  }
+
   QueryBuilder<JobExecution, JobExecution, QAfterSortBy> sortByMetadataJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.asc);
@@ -10250,6 +12293,33 @@ extension JobExecutionQuerySortBy
       sortByMetadataJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByParentExecutionFirestoreId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'parentExecutionFirestoreId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByParentExecutionFirestoreIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'parentExecutionFirestoreId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy> sortByRedAnswerJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'redAnswerJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByRedAnswerJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'redAnswerJson', Sort.desc);
     });
   }
 
@@ -10275,6 +12345,20 @@ extension JobExecutionQuerySortBy
       sortByResponsesJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'responsesJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortBySpawnedRedExecutionFirestoreId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'spawnedRedExecutionFirestoreId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortBySpawnedRedExecutionFirestoreIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'spawnedRedExecutionFirestoreId', Sort.desc);
     });
   }
 
@@ -10412,6 +12496,20 @@ extension JobExecutionQuerySortBy
       return query.addSortBy(r'version', Sort.desc);
     });
   }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByWorkflowSchemaVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'workflowSchemaVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      sortByWorkflowSchemaVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'workflowSchemaVersion', Sort.desc);
+    });
+  }
 }
 
 extension JobExecutionQuerySortThenBy
@@ -10478,6 +12576,61 @@ extension JobExecutionQuerySortThenBy
       thenByAssignedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assignedByUid', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByCancellationReason() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancellationReason', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByCancellationReasonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancellationReason', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy> thenByCancelledAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancelledAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByCancelledAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancelledAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByCancelledByName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancelledByName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByCancelledByNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancelledByName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByCancelledByUid() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancelledByUid', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByCancelledByUidDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cancelledByUid', Sort.desc);
     });
   }
 
@@ -10624,6 +12777,19 @@ extension JobExecutionQuerySortThenBy
     });
   }
 
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy> thenByIsCancelled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isCancelled', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByIsCancelledDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isCancelled', Sort.desc);
+    });
+  }
+
   QueryBuilder<JobExecution, JobExecution, QAfterSortBy> thenByIsCompleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isCompleted', Sort.asc);
@@ -10661,6 +12827,76 @@ extension JobExecutionQuerySortThenBy
     });
   }
 
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByLaneMappingReview() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneMappingReview', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByLaneMappingReviewDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneMappingReview', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByLaneSetFinalizedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetFinalizedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByLaneSetFinalizedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetFinalizedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByLaneSetFinalizedByName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetFinalizedByName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByLaneSetFinalizedByNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetFinalizedByName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByLaneSetFinalizedByUid() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetFinalizedByUid', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByLaneSetFinalizedByUidDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetFinalizedByUid', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByLaneSetVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByLaneSetVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'laneSetVersion', Sort.desc);
+    });
+  }
+
   QueryBuilder<JobExecution, JobExecution, QAfterSortBy> thenByMetadataJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.asc);
@@ -10671,6 +12907,33 @@ extension JobExecutionQuerySortThenBy
       thenByMetadataJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'metadataJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByParentExecutionFirestoreId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'parentExecutionFirestoreId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByParentExecutionFirestoreIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'parentExecutionFirestoreId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy> thenByRedAnswerJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'redAnswerJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByRedAnswerJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'redAnswerJson', Sort.desc);
     });
   }
 
@@ -10696,6 +12959,20 @@ extension JobExecutionQuerySortThenBy
       thenByResponsesJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'responsesJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenBySpawnedRedExecutionFirestoreId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'spawnedRedExecutionFirestoreId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenBySpawnedRedExecutionFirestoreIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'spawnedRedExecutionFirestoreId', Sort.desc);
     });
   }
 
@@ -10833,6 +13110,20 @@ extension JobExecutionQuerySortThenBy
       return query.addSortBy(r'version', Sort.desc);
     });
   }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByWorkflowSchemaVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'workflowSchemaVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QAfterSortBy>
+      thenByWorkflowSchemaVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'workflowSchemaVersion', Sort.desc);
+    });
+  }
 }
 
 extension JobExecutionQueryWhereDistinct
@@ -10876,6 +13167,36 @@ extension JobExecutionQueryWhereDistinct
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assignedByUid',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QDistinct>
+      distinctByCancellationReason({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'cancellationReason',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QDistinct> distinctByCancelledAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'cancelledAt');
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QDistinct> distinctByCancelledByName(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'cancelledByName',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QDistinct> distinctByCancelledByUid(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'cancelledByUid',
           caseSensitive: caseSensitive);
     });
   }
@@ -10950,6 +13271,12 @@ extension JobExecutionQueryWhereDistinct
     });
   }
 
+  QueryBuilder<JobExecution, JobExecution, QDistinct> distinctByIsCancelled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isCancelled');
+    });
+  }
+
   QueryBuilder<JobExecution, JobExecution, QDistinct> distinctByIsCompleted() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isCompleted');
@@ -10968,10 +13295,63 @@ extension JobExecutionQueryWhereDistinct
     });
   }
 
+  QueryBuilder<JobExecution, JobExecution, QDistinct>
+      distinctByLaneMappingReview() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'laneMappingReview');
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QDistinct>
+      distinctByLaneSetFinalizedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'laneSetFinalizedAt');
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QDistinct>
+      distinctByLaneSetFinalizedByName({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'laneSetFinalizedByName',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QDistinct>
+      distinctByLaneSetFinalizedByUid({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'laneSetFinalizedByUid',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QDistinct>
+      distinctByLaneSetVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'laneSetVersion');
+    });
+  }
+
   QueryBuilder<JobExecution, JobExecution, QDistinct> distinctByMetadataJson(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'metadataJson', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QDistinct>
+      distinctByParentExecutionFirestoreId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'parentExecutionFirestoreId',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QDistinct> distinctByRedAnswerJson(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'redAnswerJson',
+          caseSensitive: caseSensitive);
     });
   }
 
@@ -10986,6 +13366,14 @@ extension JobExecutionQueryWhereDistinct
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'responsesJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<JobExecution, JobExecution, QDistinct>
+      distinctBySpawnedRedExecutionFirestoreId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'spawnedRedExecutionFirestoreId',
           caseSensitive: caseSensitive);
     });
   }
@@ -11070,6 +13458,13 @@ extension JobExecutionQueryWhereDistinct
       return query.addDistinctBy(r'version');
     });
   }
+
+  QueryBuilder<JobExecution, JobExecution, QDistinct>
+      distinctByWorkflowSchemaVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'workflowSchemaVersion');
+    });
+  }
 }
 
 extension JobExecutionQueryProperty
@@ -11116,6 +13511,34 @@ extension JobExecutionQueryProperty
       assignedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'assignedByUid');
+    });
+  }
+
+  QueryBuilder<JobExecution, String?, QQueryOperations>
+      cancellationReasonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'cancellationReason');
+    });
+  }
+
+  QueryBuilder<JobExecution, DateTime?, QQueryOperations>
+      cancelledAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'cancelledAt');
+    });
+  }
+
+  QueryBuilder<JobExecution, String?, QQueryOperations>
+      cancelledByNameProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'cancelledByName');
+    });
+  }
+
+  QueryBuilder<JobExecution, String?, QQueryOperations>
+      cancelledByUidProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'cancelledByUid');
     });
   }
 
@@ -11183,6 +13606,12 @@ extension JobExecutionQueryProperty
     });
   }
 
+  QueryBuilder<JobExecution, bool, QQueryOperations> isCancelledProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isCancelled');
+    });
+  }
+
   QueryBuilder<JobExecution, bool, QQueryOperations> isCompletedProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isCompleted');
@@ -11201,9 +13630,57 @@ extension JobExecutionQueryProperty
     });
   }
 
+  QueryBuilder<JobExecution, bool, QQueryOperations>
+      laneMappingReviewProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'laneMappingReview');
+    });
+  }
+
+  QueryBuilder<JobExecution, DateTime?, QQueryOperations>
+      laneSetFinalizedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'laneSetFinalizedAt');
+    });
+  }
+
+  QueryBuilder<JobExecution, String?, QQueryOperations>
+      laneSetFinalizedByNameProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'laneSetFinalizedByName');
+    });
+  }
+
+  QueryBuilder<JobExecution, String?, QQueryOperations>
+      laneSetFinalizedByUidProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'laneSetFinalizedByUid');
+    });
+  }
+
+  QueryBuilder<JobExecution, int, QQueryOperations> laneSetVersionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'laneSetVersion');
+    });
+  }
+
   QueryBuilder<JobExecution, String?, QQueryOperations> metadataJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'metadataJson');
+    });
+  }
+
+  QueryBuilder<JobExecution, String?, QQueryOperations>
+      parentExecutionFirestoreIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'parentExecutionFirestoreId');
+    });
+  }
+
+  QueryBuilder<JobExecution, String?, QQueryOperations>
+      redAnswerJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'redAnswerJson');
     });
   }
 
@@ -11216,6 +13693,13 @@ extension JobExecutionQueryProperty
   QueryBuilder<JobExecution, String, QQueryOperations> responsesJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'responsesJson');
+    });
+  }
+
+  QueryBuilder<JobExecution, String?, QQueryOperations>
+      spawnedRedExecutionFirestoreIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'spawnedRedExecutionFirestoreId');
     });
   }
 
@@ -11290,6 +13774,13 @@ extension JobExecutionQueryProperty
   QueryBuilder<JobExecution, int, QQueryOperations> versionProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'version');
+    });
+  }
+
+  QueryBuilder<JobExecution, int, QQueryOperations>
+      workflowSchemaVersionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'workflowSchemaVersion');
     });
   }
 }

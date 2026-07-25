@@ -36,7 +36,7 @@ function baseModule(overrides = {}) {
   const now = '2026-01-01T00:00:00.000Z';
   const id = overrides.firestoreId || 'module_mech_1';
 
-  return {
+  const data = {
     firestoreId: id,
     jobExecutionFirestoreId: 'job_1',
     jobExecutionLocalId: null,
@@ -111,6 +111,13 @@ function baseModule(overrides = {}) {
     metadataJson: null,
     ...overrides,
   };
+  data.isOpenForWork =
+    overrides.isOpenForWork ??
+    (!data.isDeleted &&
+      data.status !== 'submitted' &&
+      data.status !== 'accepted' &&
+      data.status !== 'notApplicable');
+  return data;
 }
 
 
@@ -250,6 +257,7 @@ describe('job_modules update transition rules', () => {
     await assertSucceeds(
       updateDoc(doc(db, 'job_modules/module_mech_1'), {
         status: 'submitted',
+        isOpenForWork: false,
         responsesJson: '[{"fieldId":"f1","value":"done"}]',
         actionsJson: '[]',
         pendingIssue: null,
@@ -272,6 +280,7 @@ describe('job_modules update transition rules', () => {
     await assertSucceeds(
       updateDoc(doc(db, 'job_modules/module_mech_1'), {
         status: 'submitted',
+        isOpenForWork: false,
         submittedByUid: 'senior_mech',
         submittedByName: 'Senior Mechanical',
         submittedAt: '2026-01-01T03:00:00.000Z',
@@ -287,6 +296,7 @@ describe('job_modules update transition rules', () => {
     await assertFails(
       updateDoc(doc(db, 'job_modules/module_mech_1'), {
         status: 'submitted',
+        isOpenForWork: false,
         submittedByUid: 'senior_mech',
         submittedByName: 'Senior Mechanical',
         submittedAt: '2026-01-01T03:00:00.000Z',
@@ -353,6 +363,7 @@ describe('job_modules update transition rules', () => {
     await assertFails(
       updateDoc(doc(db, 'job_modules/module_mech_1'), {
         status: 'submitted',
+        isOpenForWork: false,
         submittedByUid: 'senior_mech',
         submittedAt: '2026-01-01T03:00:00.000Z',
         acceptedByUid: 'senior_mech',
@@ -368,6 +379,7 @@ describe('job_modules update transition rules', () => {
     await assertSucceeds(
       updateDoc(doc(db, 'job_modules/module_submitted_1'), {
         status: 'accepted',
+        isOpenForWork: false,
         acceptedByUid: 'supervisor',
         acceptedByName: 'Shift Supervisor',
         acceptedAt: '2026-01-01T04:00:00.000Z',
@@ -386,6 +398,7 @@ describe('job_modules update transition rules', () => {
     await assertSucceeds(
       updateDoc(doc(db, 'job_modules/module_submitted_1'), {
         status: 'accepted',
+        isOpenForWork: false,
         acceptedByUid: 'supervisor',
         acceptedByName: 'Shift Supervisor',
         acceptedAt: '2026-01-01T04:00:00.000Z',
@@ -401,6 +414,7 @@ describe('job_modules update transition rules', () => {
     await assertFails(
       updateDoc(doc(db, 'job_modules/module_submitted_1'), {
         status: 'accepted',
+        isOpenForWork: false,
         acceptedByUid: 'supervisor',
         acceptedByName: 'Shift Supervisor',
         acceptedAt: '2026-01-01T04:00:00.000Z',
@@ -417,6 +431,7 @@ describe('job_modules update transition rules', () => {
     await assertSucceeds(
       updateDoc(doc(db, 'job_modules/module_accepted_1'), {
         status: 'reopened',
+        isOpenForWork: true,
         reopenedByUid: 'supervisor',
         reopenedByName: 'Shift Supervisor',
         reopenedAt: '2026-01-01T05:00:00.000Z',
@@ -434,6 +449,7 @@ describe('job_modules update transition rules', () => {
     await assertSucceeds(
       updateDoc(doc(db, 'job_modules/module_mech_1'), {
         status: 'notApplicable',
+        isOpenForWork: false,
         notApplicableByUid: 'supervisor',
         notApplicableByName: 'Shift Supervisor',
         notApplicableAt: '2026-01-01T06:00:00.000Z',
@@ -503,6 +519,7 @@ describe('job_modules update transition rules', () => {
     const db = userDb('supervisor');
     await assertFails(updateDoc(doc(db, 'job_modules/module_accepted_1'), {
       status: 'reopened',
+      isOpenForWork: true,
       reopenedByUid: 'supervisor',
       reopenedAt: '2026-01-01T08:00:00.000Z',
       reopenReason: 'Late reopen must be denied',
@@ -522,6 +539,7 @@ describe('job_modules update transition rules', () => {
     const supervisor = userDb('supervisor');
     await assertFails(updateDoc(doc(senior, 'job_modules/module_mech_1'), {
       status: 'submitted',
+      isOpenForWork: false,
       submittedByUid: 'senior_mech',
       submittedAt: '2026-01-01T08:00:00.000Z',
       updatedAt: '2026-01-01T08:00:00.000Z',
@@ -529,6 +547,7 @@ describe('job_modules update transition rules', () => {
     }));
     await assertFails(updateDoc(doc(supervisor, 'job_modules/module_submitted_1'), {
       status: 'accepted',
+      isOpenForWork: false,
       acceptedByUid: 'supervisor',
       acceptedAt: '2026-01-01T08:00:00.000Z',
       updatedAt: '2026-01-01T08:00:00.000Z',
@@ -536,6 +555,7 @@ describe('job_modules update transition rules', () => {
     }));
     await assertFails(updateDoc(doc(supervisor, 'job_modules/module_mech_1'), {
       status: 'notApplicable',
+      isOpenForWork: false,
       notApplicableByUid: 'supervisor',
       notApplicableAt: '2026-01-01T08:00:00.000Z',
       notApplicableReason: 'Late N/A must be denied',

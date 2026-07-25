@@ -165,20 +165,57 @@ class MissingIsarSchemaMigrationStepException
 class IsarSchemaMigrator {
   /// lib(15) baseline marker. Future schema changes must bump this and add a
   /// migration step to [defaultPlan] before any Isar schema-breaking release.
-  static const int currentSchemaVersion = 1;
+  static const int currentSchemaVersion = 3;
 
   /// Human-readable fingerprint of the registered Isar collection set in the
   /// current baseline. This is intentionally stable and reviewable in diffs.
   static const String currentSchemaFingerprint =
-      'v1:Charge,MaintenanceRecord,JobTemplate,JobExecution,JobDiaryEntry,'
-      'JobModuleInstance,TemplatePackage,TemplateVersion,TemplatePublishAudit,'
+      'v3:Charge,MaintenanceRecord+WorkflowBridge,JobTemplate,JobExecution+WorkflowTerminalState,JobDiaryEntry+EMD+RED,'
+      'JobModuleInstance+EMD+RED,TemplatePackage,TemplateVersion,TemplatePublishAudit,'
       'BafKnowledgeRow,BafKnowledgeMatrixMetaStore,OperationalDirective,'
-      'AuditEvent,SyncRejection,AbnormalityType,ChargeAbnormality';
+      'AuditEvent,SyncRejection,AbnormalityType,ChargeAbnormality,'
+      'WorkflowAggregateRecord,JobLaneRecord,ComplianceRequestRecord,'
+      'ComplianceAttemptRecord,EquipmentStatusRecord,EquipmentPromptRecord,'
+      'WorkflowEventRecord,WorkflowCommandRecord,WorkflowCommandReceiptRecord';
 
   static const IsarSchemaMigrationPlan defaultPlan = IsarSchemaMigrationPlan(
     currentVersion: currentSchemaVersion,
     schemaFingerprint: currentSchemaFingerprint,
+    stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
+      // Additive collection registration. The current installation contains
+      // only controlled fake/test data; no destructive row rewrite is needed.
+      2: _registerMaintenanceWorkflowCollections,
+      3: _reconcileV4WorkflowPersistence,
+    },
   );
+
+  static Future<void> _registerMaintenanceWorkflowCollections(
+    IsarSchemaMigrationContext context,
+  ) async {
+    if (context.fromVersion != 1 || context.toVersion != 2) {
+      throw IsarSchemaMigrationException(
+        'Unexpected maintenance-workflow schema transition.',
+        storedVersion: context.fromVersion,
+        targetVersion: context.toVersion,
+      );
+    }
+  }
+
+
+  static Future<void> _reconcileV4WorkflowPersistence(
+    IsarSchemaMigrationContext context,
+  ) async {
+    if (context.fromVersion != 2 || context.toVersion != 3) {
+      throw IsarSchemaMigrationException(
+        'Unexpected v4 workflow-persistence transition.',
+        storedVersion: context.fromVersion,
+        targetVersion: context.toVersion,
+      );
+    }
+    // Isar performs the additive field/index migration when the reconciled
+    // schemas are opened. This pre-open step intentionally records the
+    // reviewed transition and prevents same-version fingerprint drift.
+  }
 
   const IsarSchemaMigrator._();
 
