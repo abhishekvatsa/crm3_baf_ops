@@ -8,11 +8,13 @@ import * as admin from "firebase-admin";
 import {
   ClosureValidationError,
   completePlannedJobWithDb,
+  userCanComplete,
 } from "./plannedJobClosure";
 import type {FirestoreLike, JsonMap} from "./plannedJobClosure";
 import {
   AssignmentValidationError,
   assignPublishedTemplateVersionWithDb,
+  userCanAssignPublishedTemplate,
 } from "./publishedTemplateAssignment";
 import type {
   AssignmentFirestoreLike,
@@ -21,6 +23,9 @@ import type {
 import type {
   RuntimePopulationFirestoreLike,
   RuntimePopulationJsonMap,
+} from "./runtimeJobModulePopulation";
+import {
+  userCanMutateRuntimeJobModulePopulation,
 } from "./runtimeJobModulePopulation";
 import {
   invokeRuntimeJobModulePopulationCallable,
@@ -42,6 +47,7 @@ import type {
 import {
   mutateUserAuthorityWithDb,
   UserAuthorityMutationError,
+  userCanMutateUserAuthority,
 } from "./userAuthorityMutation";
 import type {
   UserAuthorityMutationFirestoreLike,
@@ -58,11 +64,42 @@ import type {
   FirestoreLike as NotifFirestoreLike,
   MessagingLike,
 } from "./notifications";
+import {
+  CallableAbuseControlError,
+  executeAuthorizedMutationWithAbuseControl,
+} from "./callableAbuseControl";
+import type {
+  CallableAbuseFirestoreLike,
+  MutatingCallableName,
+} from "./callableAbuseControl";
 
 admin.initializeApp();
 
 const NOTIFICATION_REGION = "asia-south1";
 const CALLABLE_REGION = "asia-south1";
+
+async function executeAuthorizedMutation<T>(args: {
+  db: admin.firestore.Firestore;
+  authUid: string | null;
+  callableName: MutatingCallableName;
+  authorize: (userData: {[key: string]: unknown}) => boolean;
+  execute: () => Promise<T>;
+}): Promise<T> {
+  try {
+    return await executeAuthorizedMutationWithAbuseControl({
+      db: args.db as unknown as CallableAbuseFirestoreLike,
+      actorUid: args.authUid,
+      callableName: args.callableName,
+      authorize: args.authorize,
+      execute: args.execute,
+    });
+  } catch (error) {
+    if (error instanceof CallableAbuseControlError) {
+      throw new HttpsError(error.code, error.message, error.details);
+    }
+    throw error;
+  }
+}
 
 // ─── Callable: planned-job closure ───────────────────────────────────────────
 
@@ -87,13 +124,22 @@ export const completePlannedJobExecution = onCall(
   },
   async (request: CallableRequest<CompletePlannedJobRequest>) => {
     try {
-      return await completePlannedJobWithDb({
-        db: admin.firestore() as unknown as FirestoreLike,
+      const db = admin.firestore();
+      return await executeAuthorizedMutation({
+        db,
         authUid: request.auth?.uid ?? null,
-        data: (request.data ?? {}) as JsonMap,
-        timestampFromDate: (date) => admin.firestore.Timestamp.fromDate(date),
+        callableName: "completePlannedJobExecution",
+        authorize: userCanComplete,
+        execute: () => completePlannedJobWithDb({
+          db: db as unknown as FirestoreLike,
+          authUid: request.auth?.uid ?? null,
+          data: (request.data ?? {}) as JsonMap,
+          timestampFromDate: (date) =>
+            admin.firestore.Timestamp.fromDate(date),
+        }),
       });
     } catch (error) {
+      if (error instanceof HttpsError) throw error;
       if (error instanceof ClosureValidationError) {
         throw new HttpsError(error.code, error.message, error.details);
       }
@@ -131,12 +177,20 @@ export const assignPublishedTemplateVersion = onCall(
     request: CallableRequest<AssignPublishedTemplateVersionRequest>,
   ) => {
     try {
-      return await assignPublishedTemplateVersionWithDb({
-        db: admin.firestore() as unknown as AssignmentFirestoreLike,
+      const db = admin.firestore();
+      return await executeAuthorizedMutation({
+        db,
         authUid: request.auth?.uid ?? null,
-        data: (request.data ?? {}) as AssignmentJsonMap,
+        callableName: "assignPublishedTemplateVersion",
+        authorize: userCanAssignPublishedTemplate,
+        execute: () => assignPublishedTemplateVersionWithDb({
+          db: db as unknown as AssignmentFirestoreLike,
+          authUid: request.auth?.uid ?? null,
+          data: (request.data ?? {}) as AssignmentJsonMap,
+        }),
       });
     } catch (error) {
+      if (error instanceof HttpsError) throw error;
       if (error instanceof AssignmentValidationError) {
         throw new HttpsError(error.code, error.message, error.details);
       }
@@ -169,11 +223,18 @@ export const mutateRuntimeJobModulePopulation = onCall(
     request: CallableRequest<MutateRuntimeJobModulePopulationRequest>,
   ) => {
     try {
-      return await invokeRuntimeJobModulePopulationCallable({
-        db: admin.firestore() as unknown as RuntimePopulationFirestoreLike,
+      const db = admin.firestore();
+      return await executeAuthorizedMutation({
+        db,
         authUid: request.auth?.uid ?? null,
-        data: (request.data ?? {}) as RuntimePopulationJsonMap,
-        timestampFromDate: admin.firestore.Timestamp.fromDate,
+        callableName: "mutateRuntimeJobModulePopulation",
+        authorize: userCanMutateRuntimeJobModulePopulation,
+        execute: () => invokeRuntimeJobModulePopulationCallable({
+          db: db as unknown as RuntimePopulationFirestoreLike,
+          authUid: request.auth?.uid ?? null,
+          data: (request.data ?? {}) as RuntimePopulationJsonMap,
+          timestampFromDate: admin.firestore.Timestamp.fromDate,
+        }),
       });
     } catch (error) {
       logger.error("mutateRuntimeJobModulePopulation failed", error);
@@ -236,13 +297,21 @@ export const mutateUserAuthority = onCall(
   },
   async (request: CallableRequest<MutateUserAuthorityRequest>) => {
     try {
-      return await mutateUserAuthorityWithDb({
-        db: admin.firestore() as unknown as UserAuthorityMutationFirestoreLike,
+      const db = admin.firestore();
+      return await executeAuthorizedMutation({
+        db,
         authUid: request.auth?.uid ?? null,
-        data: request.data ?? {},
-        timestampFromDate: admin.firestore.Timestamp.fromDate,
+        callableName: "mutateUserAuthority",
+        authorize: userCanMutateUserAuthority,
+        execute: () => mutateUserAuthorityWithDb({
+          db: db as unknown as UserAuthorityMutationFirestoreLike,
+          authUid: request.auth?.uid ?? null,
+          data: request.data ?? {},
+          timestampFromDate: admin.firestore.Timestamp.fromDate,
+        }),
       });
     } catch (error) {
+      if (error instanceof HttpsError) throw error;
       if (error instanceof UserAuthorityMutationError) {
         throw new HttpsError(error.code, error.message, error.details);
       }

@@ -159,18 +159,29 @@ check(
     and main["tree"] == "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
 )
 check(
-    "Successor reconciliation refresh is exact through the S-04 evidence baseline",
-    successor_refresh.get("throughMainCommit") == "466f81e72b033d367da47a2aca4b30850ffbcfc4"
-    and successor_refresh.get("throughMainTree") == "29f26f09da3b720296d899f8f80a843fbc8419a5"
+    "Successor reconciliation refresh is exact through the S-03 source baseline",
+    successor_refresh.get("throughMainCommit") == "b99ec28f1d7fe2f72f0b089df3d48357e4d53f75"
+    and successor_refresh.get("throughMainTree") == "548f9448524b8d84a4156383ad4f36fe72b06f4c"
     and successor_refresh.get("adjudicatedPullRequests")
-        == [40, 41, 42, 43, 44, 45, 46, 47, 48]
+        == [40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
     and successor_refresh.get("preExistingDriftPathCount") == 14
     and successor_refresh.get("crossPlatformRepresentationPathCount") == 19
     and successor_refresh.get("refreshTranche")
-        == "S04_CANONICAL_USER_AUTHORITY_SHAPE_CLOSURE"
+        == "S03_CALLABLE_ABUSE_CONTROL_SOURCE_IMPLEMENTATION"
     and successor_refresh.get("refreshTrancheTrackedPaths") == [
-        "docs/v4_2_r1/S04_CANONICAL_USER_AUTHORITY_SHAPE.md",
+        "docs/v4_2_r1/S03_CALLABLE_ABUSE_CONTROL.md",
+        "functions/package.json",
+        "functions/src/callableAbuseControl.ts",
+        "functions/src/index.ts",
+        "functions/src/maintenanceWorkflow/callable.ts",
+        "functions/src/publishedTemplateAssignment.ts",
+        "functions/src/runtimeJobModulePopulation.ts",
+        "functions/src/userAuthorityMutation.ts",
+        "functions/test/callableAbuseControl.firestoreEmulator.test.js",
+        "functions/test/callableAbuseControl.test.js",
+        "functions/test/callableAbuseControlSource.test.js",
         "governance/programme-ledger.json",
+        "test/firestore.rules.test.js",
         "tools/v4/v4_2_r1_canonical_audit.py",
     ],
 )
@@ -976,6 +987,114 @@ check(
     and "Merge commit:            3c0861dcfe032ae795833283f9a7d63a45dde7e3"
         in r06_decision
     and "Post-merge workflow run: 30196339736" in r06_decision,
+)
+
+s03_decision = text("docs/v4_2_r1/S03_CALLABLE_ABUSE_CONTROL.md")
+s03_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "S-03"
+]
+s03_record = s03_records[0] if len(s03_records) == 1 else {}
+s03_history = [
+    entry.get("status")
+    for entry in s03_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+abuse_control_source = text("functions/src/callableAbuseControl.ts")
+callable_index_source = text("functions/src/index.ts")
+workflow_callable_source = text(
+    "functions/src/maintenanceWorkflow/callable.ts"
+)
+abuse_control_unit_test = text(
+    "functions/test/callableAbuseControl.test.js"
+)
+abuse_control_emulator_test = text(
+    "functions/test/callableAbuseControl.firestoreEmulator.test.js"
+)
+abuse_control_source_test = text(
+    "functions/test/callableAbuseControlSource.test.js"
+)
+callable_names = [
+    "completePlannedJobExecution",
+    "assignPublishedTemplateVersion",
+    "mutateRuntimeJobModulePopulation",
+    "mutateUserAuthority",
+    "executeMaintenanceWorkflowCommand",
+]
+check(
+    "S-03 mutating callables have strict transactional rate and anomaly controls",
+    all(name in abuse_control_source for name in callable_names)
+    and "const STATE_FIELDS = new Set([" in abuse_control_source
+    and "keys.length !== STATE_FIELDS.size" in abuse_control_source
+    and "state.burstRequestCount >= policy.burstRequestLimit"
+        in abuse_control_source
+    and "state.dailyRequestCount >= policy.dailyRequestLimit"
+        in abuse_control_source
+    and "state.anomalyCount >= policy.anomalyLimit"
+        in abuse_control_source
+    and "transaction.set(ref, state);" in abuse_control_source
+    and '"resource-exhausted"' in abuse_control_source
+    and '"callable-burst-limit-exceeded"' in abuse_control_source
+    and '"callable-daily-limit-exceeded"' in abuse_control_source
+    and '"callable-anomaly-limit-exceeded"' in abuse_control_source
+    and '"aborted"' not in abuse_control_source,
+)
+preflight_actor_read = "const actorSnapshot = await args.db"
+preflight_admission = "return executeWithCallableAbuseControl({"
+check(
+    "S-03 admission is authority-first and excludes the read-only identity callable",
+    preflight_actor_read in abuse_control_source
+    and preflight_admission in abuse_control_source
+    and abuse_control_source.index(preflight_actor_read)
+        < abuse_control_source.index(preflight_admission)
+    and '.collection("users")' in abuse_control_source
+    and '"callable-preflight-authority-denied"' in abuse_control_source
+    and all(
+        f'callableName: "{name}"' in callable_index_source
+        for name in callable_names[:-1]
+    )
+    and 'const actor = await actorFromRequest(request, db);'
+        in workflow_callable_source
+    and 'callableName: "executeMaintenanceWorkflowCommand"'
+        in workflow_callable_source
+    and workflow_callable_source.index(
+        'const actor = await actorFromRequest(request, db);'
+    ) < workflow_callable_source.index(
+        'callableName: "executeMaintenanceWorkflowCommand"'
+    )
+    and "read-only backend identity callable is outside mutation quotas"
+        in abuse_control_source_test,
+)
+check(
+    "S-03 tests prove concurrency, strict state, Rules denial and hashed principals",
+    "atomically admits only the configured burst limit under concurrency"
+        in abuse_control_unit_test
+    and "fails closed on partial, unknown-field, negative, or future state"
+        in abuse_control_unit_test
+    and "separates quota state by actor and callable"
+        in abuse_control_unit_test
+    and "concurrent admission commits exactly the burst limit"
+        in abuse_control_emulator_test
+    and "partial persisted state fails closed before execution"
+        in abuse_control_emulator_test
+    and "clients cannot read or mutate admission and anomaly records"
+        in text("test/firestore.rules.test.js")
+    and "raw UID is not written" in s03_decision
+    and "no automatic" in s03_decision,
+)
+check(
+    "S-03 ledger records source implementation without claiming merge or deployment",
+    len(s03_records) == 1
+    and s03_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
+    and s03_record.get("evidence") == []
+    and s03_history[-2:] == ["OPEN", "SOURCE_IMPLEMENTED"]
+    and len(s03_record.get("requiredExitEvidence", [])) >= 8
+    and len(s03_record.get("reArmTriggers", [])) >= 7
+    and "Status: SOURCE_IMPLEMENTED" in s03_decision
+    and "PENDING_EXACT_HEAD_MERGE_AND_POSTMERGE_CI" in s03_decision
+    and "does not yet prove merge or live" in s03_decision
+    and "deployment, and it does not authorize" in s03_decision,
 )
 
 s04_decision = text("docs/v4_2_r1/S04_CANONICAL_USER_AUTHORITY_SHAPE.md")

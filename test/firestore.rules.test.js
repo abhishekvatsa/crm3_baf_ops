@@ -86,6 +86,24 @@ afterAll(async () => {
   setLogLevel("warn");
 });
 
+describe("server-only callable abuse controls", () => {
+  test("clients cannot read or mutate admission and anomaly records", async () => {
+    await seedUser("admin1", ["admin"]);
+    await seedDoc("callable_abuse_controls/example", {
+      schemaVersion: 1,
+      callableName: "mutateUserAuthority",
+      principalHash: "a".repeat(64),
+    });
+    const db = dbAs("admin1");
+    const ref = doc(db, "callable_abuse_controls/example");
+
+    await assertFails(getDoc(ref));
+    await assertFails(setDoc(ref, {schemaVersion: 1}));
+    await assertFails(updateDoc(ref, {blockedRequestCount: 0}));
+    await assertFails(deleteDoc(ref));
+  });
+});
+
 describe("users", () => {
   test("pending user can create only self as unapproved operations", async () => {
     const db = dbAs("newUser", {

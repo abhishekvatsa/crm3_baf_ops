@@ -6,6 +6,13 @@ import {WorkflowError} from "./errors";
 import {FirebaseWorkflowStore} from "./firebaseStore";
 import {MAINTENANCE_WORKFLOW_CALLABLE_SECURITY_OPTIONS} from "./securityConfig";
 import {canonicalApprovedUserAuthority} from "../userAuthority";
+import {
+  CallableAbuseControlError,
+  executeWithCallableAbuseControl,
+} from "../callableAbuseControl";
+import type {
+  CallableAbuseFirestoreLike,
+} from "../callableAbuseControl";
 import {Actor, JsonMap, RoleKey, WorkflowCommand, WorkflowCommandType} from "./types";
 
 const CALLABLE_REGION = "asia-south1";
@@ -108,11 +115,23 @@ export const executeMaintenanceWorkflowCommand = onCall(
     const db = admin.firestore();
     try {
       const actor = await actorFromRequest(request, db);
-      const command = parseCommand(request.data);
-      const service = new MaintenanceWorkflowCommandService(new FirebaseWorkflowStore(db));
-      return await service.execute(command, {actor, serverNow: new Date()});
+      return await executeWithCallableAbuseControl({
+        db: db as unknown as CallableAbuseFirestoreLike,
+        actorUid: actor.uid,
+        callableName: "executeMaintenanceWorkflowCommand",
+        execute: async () => {
+          const command = parseCommand(request.data);
+          const service = new MaintenanceWorkflowCommandService(
+            new FirebaseWorkflowStore(db),
+          );
+          return service.execute(command, {actor, serverNow: new Date()});
+        },
+      });
     } catch (error) {
       if (error instanceof HttpsError) throw error;
+      if (error instanceof CallableAbuseControlError) {
+        throw new HttpsError(error.code, error.message, error.details);
+      }
       if (error instanceof WorkflowError) throw toHttpsError(error);
       logger.error("executeMaintenanceWorkflowCommand failed", error);
       throw new HttpsError("internal", "Maintenance workflow command failed.");
