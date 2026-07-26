@@ -159,15 +159,18 @@ check(
     and main["tree"] == "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
 )
 check(
-    "Successor reconciliation refresh is exact through the S-06 source merge",
-    successor_refresh.get("throughMainCommit") == "d48ad31985d98f9415923b36bc5acb8133de7068"
-    and successor_refresh.get("throughMainTree") == "374878e3fe72b4c86e4a5dcab4110ec52549c192"
-    and successor_refresh.get("adjudicatedPullRequests") == [40, 41, 42, 43, 44, 45]
+    "Successor reconciliation refresh is exact through the S-09/R-06 source merge",
+    successor_refresh.get("throughMainCommit") == "3c0861dcfe032ae795833283f9a7d63a45dde7e3"
+    and successor_refresh.get("throughMainTree") == "2ed1174374801f992f1eaaeafbfdc93bcbb61b84"
+    and successor_refresh.get("adjudicatedPullRequests")
+        == [40, 41, 42, 43, 44, 45, 46, 47]
     and successor_refresh.get("preExistingDriftPathCount") == 14
     and successor_refresh.get("crossPlatformRepresentationPathCount") == 19
-    and successor_refresh.get("refreshTranche") == "S06_ATOMIC_CLOSURE_AUTHORITY_LEDGER_CLOSURE"
+    and successor_refresh.get("refreshTranche")
+        == "S09_R06_WORKFLOW_REPLAY_LEDGER_CLOSURE"
     and successor_refresh.get("refreshTrancheTrackedPaths") == [
-        "docs/v4_2_r1/S06_ATOMIC_CLOSURE_AUTHORITY.md",
+        "docs/v4_2_r1/R06_VERSIONED_WORKFLOW_RECEIPT_FINGERPRINTS.md",
+        "docs/v4_2_r1/S09_ATOMIC_WORKFLOW_AUTHORITY_AND_REPLAY.md",
         "governance/programme-ledger.json",
         "tools/v4/v4_2_r1_canonical_audit.py",
     ],
@@ -923,24 +926,57 @@ r06_records = [
 s09_record = s09_records[0] if len(s09_records) == 1 else {}
 r06_record = r06_records[0] if len(r06_records) == 1 else {}
 source_commit = "e15b9676fc1e6e5c5ef56ff161f8558cac80dadf"
+head_commit = "5a2d7e62fc7de810e6edbf8a69e9558c90930c8b"
+merge_commit = "3c0861dcfe032ae795833283f9a7d63a45dde7e3"
+postmerge_run = 30196339736
+s09_evidence = s09_record.get("evidence", [])
+r06_evidence = r06_record.get("evidence", [])
+s09_history = [
+    entry.get("status")
+    for entry in s09_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+r06_history = [
+    entry.get("status")
+    for entry in r06_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
 check(
-    "S-09 and R-06 ledger findings are exact source-implemented records",
+    "S-09 and R-06 ledger closures are exact, evidence-bound and re-armable",
     len(s09_records) == 1
     and len(r06_records) == 1
-    and s09_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
-    and r06_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
-    and s09_record.get("evidence", [{}])[0].get("sourceCommit")
-        == source_commit
-    and r06_record.get("evidence", [{}])[0].get("sourceCommit")
-        == source_commit
-    and s09_record.get("statusHistory", [])[-1].get("status")
-        == "SOURCE_IMPLEMENTED"
-    and r06_record.get("statusHistory", [])[-1].get("status")
-        == "SOURCE_IMPLEMENTED"
+    and s09_record.get("currentStatus") == "CLOSED"
+    and r06_record.get("currentStatus") == "CLOSED"
+    and len(s09_evidence) == 2
+    and len(r06_evidence) == 2
+    and s09_evidence[0].get("sourceCommit") == source_commit
+    and r06_evidence[0].get("sourceCommit") == source_commit
+    and s09_evidence[1].get("pullRequest") == 47
+    and r06_evidence[1].get("pullRequest") == 47
+    and s09_evidence[1].get("headCommit") == head_commit
+    and r06_evidence[1].get("headCommit") == head_commit
+    and s09_evidence[1].get("mergeCommit") == merge_commit
+    and r06_evidence[1].get("mergeCommit") == merge_commit
+    and s09_evidence[1].get("postMergeWorkflowRun") == postmerge_run
+    and r06_evidence[1].get("postMergeWorkflowRun") == postmerge_run
+    and s09_evidence[1].get("decision")
+        == "PASS_GATE_1A_S09_ATOMIC_WORKFLOW_AUTHORITY_AND_REPLAY"
+    and r06_evidence[1].get("decision")
+        == "PASS_R06_VERSIONED_WORKFLOW_RECEIPT_FINGERPRINTS"
+    and s09_history[-3:] == ["SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and r06_history[-3:] == ["SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
     and len(s09_record.get("requiredExitEvidence", [])) >= 7
     and len(r06_record.get("requiredExitEvidence", [])) >= 7
     and len(s09_record.get("reArmTriggers", [])) >= 5
-    and len(r06_record.get("reArmTriggers", [])) >= 5,
+    and len(r06_record.get("reArmTriggers", [])) >= 5
+    and "Pull request:            #47" in s09_decision
+    and "Merge commit:            3c0861dcfe032ae795833283f9a7d63a45dde7e3"
+        in s09_decision
+    and "Post-merge workflow run: 30196339736" in s09_decision
+    and "Pull request:            #47" in r06_decision
+    and "Merge commit:            3c0861dcfe032ae795833283f9a7d63a45dde7e3"
+        in r06_decision
+    and "Post-merge workflow run: 30196339736" in r06_decision,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
