@@ -1539,6 +1539,64 @@
       ]
     },
     {
+      "recordId": "FINDING:S-09",
+      "findingId": "S-09",
+      "title": "Maintenance workflow authority and receipt replay are not transactionally current or owner-bound",
+      "track": "INDEPENDENT_SECURITY",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "efd41221b8d13c612ae075bc1651b74d1f97be8d",
+      "currentStatus": "SOURCE_IMPLEMENTED",
+      "ownerClass": "Security/backend",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "sourceCommit": "e15b9676fc1e6e5c5ef56ff161f8558cac80dadf",
+          "sourceTree": "7c1f5b387756f37d7d99a7bded2ca77abc616145",
+          "decision": "PASS_SOURCE_S09_ATOMIC_WORKFLOW_AUTHORITY_AND_REPLAY",
+          "authority": "LOCAL_EXACT_SOURCE_BUILD_UNIT_AND_FIRESTORE_EMULATOR"
+        }
+      ],
+      "requiredExitEvidence": [
+        "workflow actor authority is read and validated inside every business transaction attempt",
+        "current command-specific authority gates both new mutations and exact replay",
+        "receipts are bound to the creating actor",
+        "receipt ownership rejection precedes payload fingerprint comparison",
+        "revocation and role narrowing before transaction start fail closed",
+        "cross-actor exact and altered replay attempts fail closed",
+        "exact-head pull request merges with green governed CI"
+      ],
+      "reArmTriggers": [
+        "workflow actor roles are accepted from a pre-transaction snapshot",
+        "receipt replay returns before current semantic authority validation",
+        "workflow receipts cease to be actor-owned",
+        "cross-actor replay can compare payload fingerprints",
+        "revocation or role-narrowing emulator regressions are removed or weakened"
+      ],
+      "notes": [
+        "Source commit e15b9676fc1e6e5c5ef56ff161f8558cac80dadf implements the transaction-time actor read, semantic authority scopes and owner-bound replay.",
+        "S-06 remains closed for planned-job completion; S-09 covers the distinct maintenance-workflow command surface.",
+        "Deployment, production mutation, pilot and cutover remain prohibited."
+      ],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-26",
+          "basis": "Repository verification confirmed stale workflow authority, replay-before-command-authorization and absent receipt ownership at baseline efd41221b8d13c612ae075bc1651b74d1f97be8d."
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-26",
+          "basis": "Exact source commit e15b9676fc1e6e5c5ef56ff161f8558cac80dadf passed Functions unit tests and governed Firestore emulator authority/replay witnesses."
+        }
+      ]
+    },
+    {
       "recordId": "FINDING:R-01",
       "findingId": "R-01",
       "title": "Client-time delta cursor can permanently miss slow-clock writes",
@@ -1672,6 +1730,64 @@
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        }
+      ]
+    },
+    {
+      "recordId": "FINDING:R-06",
+      "findingId": "R-06",
+      "title": "Maintenance workflow receipts use an unversioned non-standard payload hash",
+      "track": "BOTH_TRACKS",
+      "authorityType": "SOURCE_AND_CI",
+      "transitionProfile": "SOURCE_AND_CI",
+      "baselineCommit": "efd41221b8d13c612ae075bc1651b74d1f97be8d",
+      "currentStatus": "SOURCE_IMPLEMENTED",
+      "ownerClass": "Reliability/data",
+      "pilotSeverity": "MEDIUM",
+      "unrestrictedSeverity": "HIGH",
+      "legacyReferences": [],
+      "supersedes": [],
+      "supersededBy": null,
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "sourceCommit": "e15b9676fc1e6e5c5ef56ff161f8558cac80dadf",
+          "sourceTree": "7c1f5b387756f37d7d99a7bded2ca77abc616145",
+          "decision": "PASS_SOURCE_R06_VERSIONED_WORKFLOW_RECEIPT_FINGERPRINTS",
+          "authority": "LOCAL_EXACT_SOURCE_BUILD_UNIT_AND_FIRESTORE_EMULATOR"
+        }
+      ],
+      "requiredExitEvidence": [
+        "receipt fingerprint uses SHA-256 over canonical stable JSON encoded as UTF-8",
+        "receipt schema and fingerprint algorithm are explicitly versioned",
+        "same-owner exact replay succeeds and conflicting replay fails closed",
+        "malformed receipt fingerprint and identity fields fail closed",
+        "legacy unversioned receipts require explicit governed disposition",
+        "standard and non-ASCII fingerprint regression tests pass",
+        "exact-head pull request merges with green governed CI"
+      ],
+      "reArmTriggers": [
+        "a bespoke or non-cryptographic receipt fingerprint is reintroduced",
+        "receipt fingerprint algorithm becomes unversioned",
+        "legacy receipts are silently interpreted as current schema",
+        "conflicting command replay can return the original receipt",
+        "canonical fingerprint tests are removed or weakened"
+      ],
+      "notes": [
+        "Source commit e15b9676fc1e6e5c5ef56ff161f8558cac80dadf replaces the non-standard FNV-like function with algorithm-prefixed SHA-256 and receipt schema version 2.",
+        "Legacy receipt collection readback and any reconciliation remain a pilot/cutover prerequisite; this source tranche performs no production mutation.",
+        "Deployment, production mutation, pilot and cutover remain prohibited."
+      ],
+      "statusHistory": [
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-07-26",
+          "basis": "Repository verification proved standard-vector failure, UTF-16 processing and an unversioned persisted receipt fingerprint at baseline efd41221b8d13c612ae075bc1651b74d1f97be8d."
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-26",
+          "basis": "Exact source commit e15b9676fc1e6e5c5ef56ff161f8558cac80dadf passed canonical SHA-256, conflict, malformed and legacy-receipt regressions."
         }
       ]
     },
