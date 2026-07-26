@@ -2,7 +2,6 @@
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -173,8 +172,6 @@ class _ChargeAbnormalitiesScreenState
 
     if (!mounted) return;
 
-    final beforeSnapshot = existing?.toAuditMap();
-
     final draft = await showDialog<_ChargeAbnormalityDraft>(
       context: context,
       barrierDismissible: false,
@@ -229,26 +226,26 @@ class _ChargeAbnormalitiesScreenState
 
       record.normalizeReannealingState();
 
-      final auditContext = AuditContext(
-        performedByUid: actor.uid,
-        performedByName: actor.name,
-        reasonNotes: existing == null
-            ? 'Logged charge abnormality'
-            : 'Updated charge abnormality',
-        before: beforeSnapshot,
-      );
-
       if (existing == null) {
         await repository.saveAbnormality(
           record,
           actor: actor,
-          auditContext: auditContext,
+          auditContext: AuditContext(
+            performedByUid: actor.uid,
+            performedByName: actor.name,
+            reasonNotes: 'Logged charge abnormality',
+          ),
         );
       } else {
-        await repository.updateAbnormality(
-          record,
-          actor: actor,
-          auditContext: auditContext,
+        final result = await ref
+            .read(chargeAbnormalityCommandServiceProvider)
+            .update(
+              abnormality: record,
+              expectedVersion: existing.version,
+              reason: 'Updated charge abnormality',
+            );
+        await repository.updateAbnormalityFromRemote(
+          result.abnormality,
         );
       }
 
@@ -306,9 +303,7 @@ class _ChargeAbnormalitiesScreenState
     if (!mounted || decision == null) return;
 
     try {
-      final dynamic id = kIsWeb ? record.firestoreId : record.id;
-
-      if (id == null) {
+      if (record.firestoreId == null) {
         if (!mounted) return;
 
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -320,16 +315,19 @@ class _ChargeAbnormalitiesScreenState
       final repository = ref.read(abnormalityRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
 
-      await repository.softDeleteAbnormality(
-        id,
-        actor: actor,
-        auditContext: AuditContext(
-          performedByUid: actor.uid,
-          performedByName: actor.name,
-          reason: decision.reason,
-          reasonNotes: decision.notes,
-          before: record.toAuditMap(),
-        ),
+      final deleteReason = <String>[
+        if (decision.reason != null) _auditReasonLabel(decision.reason!),
+        if (decision.notes?.trim().isNotEmpty == true) decision.notes!.trim(),
+      ].join(': ');
+      final result = await ref
+          .read(chargeAbnormalityCommandServiceProvider)
+          .softDelete(
+            abnormality: record,
+            expectedVersion: record.version,
+            reason: deleteReason,
+          );
+      await repository.applyTombstoneFromAbnormalityRemote(
+        result.abnormality,
       );
 
       unawaited(

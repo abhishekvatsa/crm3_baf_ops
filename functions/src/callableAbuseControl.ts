@@ -5,6 +5,7 @@ export type MutatingCallableName =
   | "assignPublishedTemplateVersion"
   | "mutateRuntimeJobModulePopulation"
   | "mutateUserAuthority"
+  | "mutateChargeAbnormality"
   | "executeMaintenanceWorkflowCommand";
 
 export type CallableAbuseErrorCode =
@@ -88,6 +89,13 @@ export const CALLABLE_ABUSE_POLICIES: Readonly<
     dailyRequestLimit: 50,
     anomalyWindowSeconds: 30 * 60,
     anomalyLimit: 6,
+  }),
+  mutateChargeAbnormality: Object.freeze({
+    burstWindowSeconds: 60,
+    burstRequestLimit: 30,
+    dailyRequestLimit: 500,
+    anomalyWindowSeconds: 15 * 60,
+    anomalyLimit: 12,
   }),
   executeMaintenanceWorkflowCommand: Object.freeze({
     burstWindowSeconds: 60,

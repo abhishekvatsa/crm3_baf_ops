@@ -118,6 +118,7 @@ describe('S-03 callable abuse control', () => {
       'assignPublishedTemplateVersion',
       'completePlannedJobExecution',
       'executeMaintenanceWorkflowCommand',
+      'mutateChargeAbnormality',
       'mutateRuntimeJobModulePopulation',
       'mutateUserAuthority',
     ]);

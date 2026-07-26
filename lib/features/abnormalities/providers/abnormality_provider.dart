@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../main.dart';
 import '../data/abnormality_model.dart';
+import '../services/charge_abnormality_command_service.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../audit/repositories/audit_repository.dart';
 import '../../audit/providers/audit_provider.dart';
@@ -1827,6 +1828,11 @@ final firestoreAbnormalityRepoProvider =
       (ref) => FirestoreAbnormalityRepository(
         auditRepository: ref.read(auditRepositoryProvider),
       ),
+    );
+
+final chargeAbnormalityCommandServiceProvider =
+    Provider<ChargeAbnormalityCommandService>(
+      (ref) => ChargeAbnormalityCommandService(),
     );
 
 final abnormalityRepositoryProvider = Provider<AbnormalityRepository>((ref) {

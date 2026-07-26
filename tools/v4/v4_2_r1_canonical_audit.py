@@ -159,18 +159,36 @@ check(
     and main["tree"] == "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
 )
 check(
-    "Successor reconciliation refresh is exact through the S-03 closure baseline",
-    successor_refresh.get("throughMainCommit") == "08336c4e861074fd1284dd8758195c418247c9e8"
-    and successor_refresh.get("throughMainTree") == "28548c76681e549185d96a6cabe3d18c639e3835"
+    "Successor reconciliation refresh is exact through the S-07 source baseline",
+    successor_refresh.get("throughMainCommit") == "48676e6daa6cd4342fa9013f68a18e5007125244"
+    and successor_refresh.get("throughMainTree") == "776db23af9217881f4743f30521594039be06c2f"
     and successor_refresh.get("adjudicatedPullRequests")
-        == [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
+        == [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
     and successor_refresh.get("preExistingDriftPathCount") == 14
     and successor_refresh.get("crossPlatformRepresentationPathCount") == 19
     and successor_refresh.get("refreshTranche")
-        == "S03_CALLABLE_ABUSE_CONTROL_CLOSURE"
+        == "S07_GOVERNED_CHARGE_ABNORMALITY_SOURCE_IMPLEMENTATION"
     and successor_refresh.get("refreshTrancheTrackedPaths") == [
         "docs/v4_2_r1/S03_CALLABLE_ABUSE_CONTROL.md",
-        "governance/programme-ledger.json",
+        "docs/v4_2_r1/S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION.md",
+        "firestore.rules",
+        "functions/package.json",
+        "functions/src/callableAbuseControl.ts",
+        "functions/src/chargeAbnormalityMutation.ts",
+        "functions/src/index.ts",
+        "functions/test/callableAbuseControl.test.js",
+        "functions/test/callableAbuseControlSource.test.js",
+        "functions/test/chargeAbnormalityMutation.firestoreEmulator.test.js",
+        "functions/test/chargeAbnormalityMutation.test.js",
+        "lib/core/services/sync_service.dart",
+        "lib/core/services/sync_service.directives_abnormalities.dart",
+        "lib/core/services/sync_service.push_infrastructure.dart",
+        "lib/features/abnormalities/presentation/charge_abnormalities_screen.dart",
+        "lib/features/abnormalities/providers/abnormality_provider.dart",
+        "lib/features/abnormalities/services/charge_abnormality_command_service.dart",
+        "package.json",
+        "test/charge_abnormality_atomic_mutation_contract_test.dart",
+        "test/firestore.rules.test.js",
         "tools/v4/v4_2_r1_canonical_audit.py",
     ],
 )
@@ -275,8 +293,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 327
-    and counts.get("SUCCESSOR_MODIFIED") == 83
+    and counts.get("BYTE_IDENTICAL") == 322
+    and counts.get("SUCCESSOR_MODIFIED") == 88
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -1010,6 +1028,7 @@ callable_names = [
     "assignPublishedTemplateVersion",
     "mutateRuntimeJobModulePopulation",
     "mutateUserAuthority",
+    "mutateChargeAbnormality",
     "executeMaintenanceWorkflowCommand",
 ]
 check(
@@ -1096,6 +1115,73 @@ check(
     and "Decision: `PASS_S03_CALLABLE_ABUSE_CONTROL`" in s03_decision
     and "The control is not deployed live" in s03_decision
     and "closure does not authorize a Functions deployment" in s03_decision,
+)
+
+rules_source = text("firestore.rules")
+s07_decision = text(
+    "docs/v4_2_r1/S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION.md"
+)
+s07_source = text("functions/src/chargeAbnormalityMutation.ts")
+s07_unit_test = text(
+    "functions/test/chargeAbnormalityMutation.test.js"
+)
+s07_emulator_test = text(
+    "functions/test/chargeAbnormalityMutation.firestoreEmulator.test.js"
+)
+s07_client = text(
+    "lib/features/abnormalities/services/"
+    "charge_abnormality_command_service.dart"
+)
+s07_screen = text(
+    "lib/features/abnormalities/presentation/"
+    "charge_abnormalities_screen.dart"
+)
+s07_sync = text(
+    "lib/core/services/sync_service.directives_abnormalities.dart"
+)
+s07_dart_test = text(
+    "test/charge_abnormality_atomic_mutation_contract_test.dart"
+)
+check(
+    "S-07 Admin abnormality mutations are versioned and audit-coupled",
+    'export type ChargeAbnormalityMutationOperation' in s07_source
+    and '"UPDATE"' in s07_source
+    and '"SOFT_DELETE"' in s07_source
+    and "requireActor(await actorRef.get(), actorUid);" in s07_source
+    and "const actorSnapshot = await transaction.get(actorRef);"
+        in s07_source
+    and "existing.version !== request.expectedVersion" in s07_source
+    and "const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS];"
+        in s07_source
+    and "reannealed-charge-matches-source" in s07_source
+    and 'transaction.set(abnormalityRef, after);' in s07_source
+    and 'transaction.set(auditRef, {' in s07_source
+    and 'transaction.set(receiptRef, {' in s07_source
+    and 'callableName: "mutateChargeAbnormality"'
+        in callable_index_source
+    and "authorize: userCanMutateChargeAbnormality"
+        in callable_index_source,
+)
+check(
+    "S-07 direct updates are denied and UI plus queued sync use the callable",
+    "match /charge_abnormalities/{docId}" in rules_source
+    and "match /charge_abnormality_mutation_receipts/{docId}"
+        in rules_source
+    and "!docId.matches('^server_charge_abnormality_.*')"
+        in rules_source
+    and "chargeAbnormalityCommandServiceProvider" in s07_screen
+    and "repository.updateAbnormality(" not in s07_screen
+    and "repository.softDeleteAbnormality(" not in s07_screen
+    and "deterministicSyncRequestId" in s07_client
+    and "_pushGovernedChargeAbnormalityMutation" in s07_sync
+    and "concurrent same-version updates permit exactly one"
+        in s07_emulator_test
+    and "incomplete existing records fail closed" in s07_unit_test
+    and "source contract routes admin mutations only through governed callable"
+        in s07_dart_test
+    and "client-side creation audit is atomically coupled" in s07_decision
+    and "does not authorize Functions or" in s07_decision
+    and "Rules deployment" in s07_decision,
 )
 
 s04_decision = text("docs/v4_2_r1/S04_CANONICAL_USER_AUTHORITY_SHAPE.md")

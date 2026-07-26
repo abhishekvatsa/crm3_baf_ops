@@ -30,6 +30,7 @@ import '../../features/directives/data/operational_directive_model.dart';
 import '../../features/directives/providers/operational_directive_provider.dart';
 import '../../features/abnormalities/data/abnormality_model.dart';
 import '../../features/abnormalities/providers/abnormality_provider.dart';
+import '../../features/abnormalities/services/charge_abnormality_command_service.dart';
 import '../../features/audit/models/audit_event_model.dart';
 import '../../features/audit/repositories/audit_repository.dart';
 import '../../features/audit/providers/audit_provider.dart';
@@ -142,6 +143,7 @@ class SyncService {
 
   final AbnormalityRepository _abnormalityRepo;
   final AbnormalityRepository _firestoreAbnormality;
+  final ChargeAbnormalityCommandService _abnormalityCommands;
 
   final BafKnowledgeRepository _knowledgeRepo;
 
@@ -174,6 +176,7 @@ class SyncService {
     required DirectiveRepository firestoreDirective,
     required AbnormalityRepository abnormalityRepo,
     required AbnormalityRepository firestoreAbnormality,
+    ChargeAbnormalityCommandService? abnormalityCommandService,
     required BafKnowledgeRepository knowledgeRepo,
     required AuditRepository auditRepository,
   }) : _maintenanceRepo = maintenanceRepo,
@@ -191,6 +194,8 @@ class SyncService {
        _firestoreDirective = firestoreDirective,
        _abnormalityRepo = abnormalityRepo,
        _firestoreAbnormality = firestoreAbnormality,
+       _abnormalityCommands =
+           abnormalityCommandService ?? ChargeAbnormalityCommandService(),
        _knowledgeRepo = knowledgeRepo,
        _auditRepo = auditRepository;
 
@@ -349,6 +354,9 @@ final syncServiceProvider = Provider<SyncService>((ref) {
     firestoreDirective: ref.read(firestoreDirectiveRepo),
     abnormalityRepo: ref.read(abnormalityRepositoryProvider),
     firestoreAbnormality: ref.read(firestoreAbnormalityRepoProvider),
+    abnormalityCommandService: ref.read(
+      chargeAbnormalityCommandServiceProvider,
+    ),
     knowledgeRepo: ref.read(bafKnowledgeRepositoryProvider),
     auditRepository: ref.read(auditRepositoryProvider),
   );

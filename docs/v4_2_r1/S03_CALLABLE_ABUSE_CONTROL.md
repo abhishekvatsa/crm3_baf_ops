@@ -16,7 +16,8 @@ Decision: `PASS_S03_CALLABLE_ABUSE_CONTROL`
 
 ## Finding
 
-The five mutating callable functions had instance concurrency limits, but no
+At S-03 closure, the five mutating callable functions had instance concurrency
+limits, but no
 application-level per-actor request limit and no persisted quota for repeated
 caller-caused rejection patterns.
 
@@ -31,7 +32,12 @@ admission mechanism for:
 | `assignPublishedTemplateVersion` | 8 per 60 seconds | 100 | 15 minutes | 8 |
 | `mutateRuntimeJobModulePopulation` | 90 per 60 seconds | 2,000 | 15 minutes | 30 |
 | `mutateUserAuthority` | 6 per 5 minutes | 50 | 30 minutes | 6 |
+| `mutateChargeAbnormality` | 30 per 60 seconds | 500 | 15 minutes | 12 |
 | `executeMaintenanceWorkflowCommand` | 90 per 60 seconds | 3,000 | 15 minutes | 30 |
+
+S-07 subsequently added `mutateChargeAbnormality`; it entered service through
+this same authority-first admission boundary rather than creating an
+unmetered sixth mutation path.
 
 Every admitted request increments both its burst and rolling 24-hour counters.
 This includes an idempotent replay. Retries therefore remain correct but cannot
@@ -44,7 +50,8 @@ abuse-control collection.
 ## Authorization Order
 
 For planned-job closure, published-template assignment, runtime module
-population and user-authority mutation, the callable boundary performs:
+population, user-authority mutation, and charge-abnormality mutation, the
+callable boundary performs:
 
 ```text
 Firebase authentication

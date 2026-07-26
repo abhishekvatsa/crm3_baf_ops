@@ -11,10 +11,11 @@
     "test:emulator:authority": "npm run build && jest --runInBand --detectOpenHandles test/userAuthorityMutation.firestoreEmulator.test.js",
     "test:emulator:closure": "npm run build && jest --runInBand --detectOpenHandles test/plannedJobClosure.firestoreEmulator.test.js",
     "test:emulator:workflow": "npm run build && jest --runInBand --detectOpenHandles test/maintenanceWorkflow.firestoreEmulator.test.js test/workflowAuthorityReplayAdjudication.firestoreEmulator.test.js",
+    "test:emulator:abnormality": "npm run build && jest --runInBand --detectOpenHandles test/chargeAbnormalityMutation.firestoreEmulator.test.js",
     "serve": "npm run build && firebase emulators:start --only functions,firestore",
     "deploy": "npm run build && firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test:emulator:governed": "npm run build && jest --runInBand --detectOpenHandles test/plannedJobClosure.firestoreEmulator.test.js test/runtimeJobModulePopulation.firestoreEmulator.test.js test/publishedTemplateAssignment.firestoreEmulator.test.js test/maintenanceWorkflow.firestoreEmulator.test.js test/workflowAuthorityReplayAdjudication.firestoreEmulator.test.js test/userAuthorityMutation.firestoreEmulator.test.js test/callableAbuseControl.firestoreEmulator.test.js"
+    "test:emulator:governed": "npm run build && jest --runInBand --detectOpenHandles test/plannedJobClosure.firestoreEmulator.test.js test/runtimeJobModulePopulation.firestoreEmulator.test.js test/publishedTemplateAssignment.firestoreEmulator.test.js test/maintenanceWorkflow.firestoreEmulator.test.js test/workflowAuthorityReplayAdjudication.firestoreEmulator.test.js test/userAuthorityMutation.firestoreEmulator.test.js test/chargeAbnormalityMutation.firestoreEmulator.test.js test/callableAbuseControl.firestoreEmulator.test.js"
   },
   "dependencies": {
     "firebase-admin": "^13.10.0",
