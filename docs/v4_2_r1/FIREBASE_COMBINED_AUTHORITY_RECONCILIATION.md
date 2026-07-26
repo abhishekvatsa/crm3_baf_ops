@@ -4,8 +4,10 @@
 
 The permanent Firebase Android app now intentionally carries both debug and production signing identities. The current Firebase-generated `google-services.json` is bound by:
 
-- raw SHA-256 `2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B`;
+- restoration-artifact UTF-8 CRLF SHA-256 `2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B`;
+- repository Git-blob UTF-8 LF SHA-256 `6CBC8F2E9D021999433636E9AD517EEC461C9811A19DC7DAA28EEE7C28D750C7`;
 - semantic SHA-256 `A9FEE3B4E0770F9643C3929F41FDF69FFA8D638A5BE55EF81B34B893C4258FE2`;
+- restoration-receipt CRLF/LF SHA-256 pair `FAD4C1516BD681E7A6756282B241B52AE54FC1AB9290AA15DC27719925EFBF3B` / `CCE70C3FC7E541C72E29F6732502BDF313633B3AF4A49F1923DD2D440AFBEA13`;
 - restoration operation `CRM3-FB-RESTORE-001-C1`;
 - successful restoration evidence SHA-256 `24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF`.
 
@@ -14,7 +16,7 @@ The permanent Firebase Android app now intentionally carries both debug and prod
 1. BAF-REF-005 remains the immutable proof that production registration succeeded on 23 June 2026 (`730A044FF0A698C2FBCCF3B993EE6964EE5431CA8C6435DDC02AA98A9848646A`).
 2. The later debug-only configuration (`DBD4450D064E6FE68D2F809A8A81B1FE5AC6E96E390F8F0B1762938D0EF5FE6D`) remains preserved as superseded chronology, not current authority.
 3. The 24 July additive restoration retained the debug SHA pair and OAuth client while restoring the production SHA pair and historical production OAuth client.
-4. The current combined configuration is the only file authorised for repository integration.
+4. The LF Git blob and CRLF restoration artifact are the only permitted raw representations of the current combined semantic configuration.
 
 ## Canonical reconciliation count correction
 
@@ -29,6 +31,27 @@ The existing 410-path reconciliation carried seven disposition-label errors: the
 - `tools/release/New-ProductionArtifact.ps1`
 
 This is a custody correction only. It does not add source changes beyond those already present in the exact candidate and does not alter the independent Git-normalised integration boundary.
+
+## PR #40-#43 successor refresh
+
+The successor reconciliation was refreshed through main commit
+`ef03aa7d1755b9c5a6055d0c77d2bde7e6300f11` and tree
+`10629517e88a0224974a6c21ea0b656a5b431173`. Fourteen captured paths had
+reviewed source changes from PR #40 through PR #43. Seven of those paths had
+previously remained labelled `BYTE_IDENTICAL` and are now correctly classified
+as `SUCCESSOR_MODIFIED`:
+
+- `.github/workflows/release-gate.yml`
+- `functions/package.json`
+- `functions/test/publishedTemplateAssignment.firestoreEmulator.test.js`
+- `governance/programme-ledger.json`
+- `lib/features/admin/presentation/user_management_screen.dart`
+- `lib/features/auth/validation/user_input_validator.dart`
+- `test/input_validation_test.dart`
+
+The remaining seven were already classified `SUCCESSOR_MODIFIED`; only their
+candidate hashes and byte counts required refresh. Aggregate counts therefore
+move from `337 / 73` to `330 BYTE_IDENTICAL / 80 SUCCESSOR_MODIFIED`.
 
 ## Integration boundary
 

@@ -41,6 +41,29 @@ function Get-Sha256 {
   (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToUpperInvariant()
 }
 
+function Get-Utf8CrlfSha256 {
+  param([Parameter(Mandatory)][string]$Path)
+
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+    throw "Missing file: $Path"
+  }
+
+  $text = [IO.File]::ReadAllText(
+    (Resolve-Path -LiteralPath $Path).Path,
+    [Text.UTF8Encoding]::new($false)
+  )
+  $normalized = $text.Replace("`r`n", "`n").Replace("`r", "`n")
+  $bytes = [Text.UTF8Encoding]::new($false).GetBytes(
+    $normalized.Replace("`n", "`r`n")
+  )
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try {
+    [Convert]::ToHexString($sha.ComputeHash($bytes))
+  } finally {
+    $sha.Dispose()
+  }
+}
+
 Set-Location (Resolve-Path -LiteralPath $RepositoryRoot)
 $provisionalIsarBindings = @(
   Get-ChildItem -LiteralPath 'lib' -Recurse -Filter '*.g.dart' -File |
@@ -358,14 +381,34 @@ if ([string]$restorationReceipt.receiptType -ne 'firebase-android-production-sig
     $restorationReceipt.adjacentFirebaseMutationPerformed -ne $false) {
   throw 'Firebase production-signing restoration receipt mismatch.'
 }
+if ([string]$policy.firebaseAndroidApp.restorationReceiptSha256Representation -ne
+      'UTF8_CRLF_RESTORATION_ARTIFACT' -or
+    [string]$policy.firebaseAndroidApp.repositoryRestorationReceiptSha256Representation -ne
+      'UTF8_LF_GIT_BLOB') {
+  throw 'Firebase restoration receipt raw-hash representation policy mismatch.'
+}
 if ((Get-Sha256 $policy.firebaseAndroidApp.restorationReceiptFile) -ne
+    ([string]$policy.firebaseAndroidApp.repositoryRestorationReceiptSha256).ToUpperInvariant()) {
+  throw 'Repository Firebase restoration receipt hash mismatch.'
+}
+if ((Get-Utf8CrlfSha256 $policy.firebaseAndroidApp.restorationReceiptFile) -ne
     ([string]$policy.firebaseAndroidApp.restorationReceiptSha256).ToUpperInvariant()) {
-  throw 'Firebase restoration receipt hash mismatch.'
+  throw 'Firebase restoration receipt CRLF evidence hash mismatch.'
 }
 
+if ([string]$policy.firebaseAndroidApp.googleServicesSha256Representation -ne
+      'UTF8_CRLF_RESTORATION_ARTIFACT' -or
+    [string]$policy.firebaseAndroidApp.repositoryGoogleServicesSha256Representation -ne
+      'UTF8_LF_GIT_BLOB') {
+  throw 'google-services.json raw-hash representation policy mismatch.'
+}
 if ((Get-Sha256 'android/app/google-services.json') -ne
+    ([string]$policy.firebaseAndroidApp.repositoryGoogleServicesSha256).ToUpperInvariant()) {
+  throw 'Repository google-services.json hash mismatch.'
+}
+if ((Get-Utf8CrlfSha256 'android/app/google-services.json') -ne
     ([string]$policy.firebaseAndroidApp.googleServicesSha256).ToUpperInvariant()) {
-  throw 'google-services.json hash mismatch.'
+  throw 'google-services.json CRLF restoration hash mismatch.'
 }
 
 $migrationReceipt = Get-Content -LiteralPath $policy.migrationPlan.receiptFile `

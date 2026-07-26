@@ -28,6 +28,13 @@ def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest().upper()
 
 
+def text_sha_with_eol(path: Path, eol: str) -> str:
+    source = path.read_text(encoding="utf-8")
+    normalized = source.replace("\r\n", "\n").replace("\r", "\n")
+    rendered = normalized.replace("\n", eol).encode("utf-8")
+    return hashlib.sha256(rendered).hexdigest().upper()
+
+
 def text(rel: str) -> str:
     return (ROOT / rel).read_text(encoding="utf-8")
 
@@ -83,33 +90,44 @@ def powershell_balanced(source: str) -> bool:
 recon = data("docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json")
 main = recon["canonicalMain"]
 rows = recon["paths"]
+successor_refresh = recon.get("successorRefresh", {})
 combined_policy = data("release/production-release-policy.json")
+combined_receipt_path = ROOT / "release/approvals/firebase-production-signing-restoration-receipt.json"
 combined_receipt = data("release/approvals/firebase-production-signing-restoration-receipt.json")
+combined_receipt_crlf_sha = text_sha_with_eol(combined_receipt_path, "\r\n")
 historical_receipt = data("release/approvals/firebase-registration-receipt.json")
 combined_config_path = ROOT / "android/app/google-services.json"
 combined_config = data("android/app/google-services.json")
+combined_crlf_sha = text_sha_with_eol(combined_config_path, "\r\n")
 combined_semantic = hashlib.sha256((json.dumps(combined_config, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")).hexdigest().upper()
 permanent_clients = [row for row in combined_config.get("client", []) if row.get("client_info", {}).get("android_client_info", {}).get("package_name") == "in.co.sail.bsl.crm3.bafops"]
 android_oauth = [row for row in (permanent_clients[0].get("oauth_client", []) if len(permanent_clients) == 1 else []) if row.get("client_type") == 1]
 android_oauth_map = {(row.get("android_info", {}).get("certificate_hash", "").replace(":", "").upper(), row.get("client_id")) for row in android_oauth}
 check(
-    "Combined Firebase configuration is exact current authority",
-    sha(combined_config_path) == "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B"
+    "Combined Firebase configuration preserves exact repository and restoration representations",
+    sha(combined_config_path) == "6CBC8F2E9D021999433636E9AD517EEC461C9811A19DC7DAA28EEE7C28D750C7"
+    and combined_crlf_sha == "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B"
     and combined_semantic == "A9FEE3B4E0770F9643C3929F41FDF69FFA8D638A5BE55EF81B34B893C4258FE2"
     and len(permanent_clients) == 1
     and android_oauth_map == {
         ("30B58F0F39E1BA3CA69FD9032D7CF6FB41EC8F31", "894346496105-hmk7941e55ph206e6nr6ifvvqqqf7ee6.apps.googleusercontent.com"),
         ("41C2B828C71683A50EC346D19E1D44048758438D", "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com"),
     },
-    f"raw={sha(combined_config_path)} semantic={combined_semantic} oauth={len(android_oauth)}",
+    f"repository={sha(combined_config_path)} restoration={combined_crlf_sha} semantic={combined_semantic} oauth={len(android_oauth)}",
 )
 check(
     "Production policy binds combined, historical and restored Firebase custody",
     combined_policy["firebaseAndroidApp"]["googleServicesSha256"] == "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B"
+    and combined_policy["firebaseAndroidApp"]["googleServicesSha256Representation"] == "UTF8_CRLF_RESTORATION_ARTIFACT"
+    and combined_policy["firebaseAndroidApp"]["repositoryGoogleServicesSha256"] == "6CBC8F2E9D021999433636E9AD517EEC461C9811A19DC7DAA28EEE7C28D750C7"
+    and combined_policy["firebaseAndroidApp"]["repositoryGoogleServicesSha256Representation"] == "UTF8_LF_GIT_BLOB"
     and combined_policy["firebaseAndroidApp"]["googleServicesSemanticSha256"] == "A9FEE3B4E0770F9643C3929F41FDF69FFA8D638A5BE55EF81B34B893C4258FE2"
     and combined_policy["firebaseAndroidApp"]["historicalRegistrationGoogleServicesSha256"] == "730A044FF0A698C2FBCCF3B993EE6964EE5431CA8C6435DDC02AA98A9848646A"
     and combined_policy["firebaseAndroidApp"]["supersededDebugOnlyGoogleServicesSha256"] == "DBD4450D064E6FE68D2F809A8A81B1FE5AC6E96E390F8F0B1762938D0EF5FE6D"
     and combined_policy["firebaseAndroidApp"]["restorationReference"] == "CRM3-FB-RESTORE-001-C1"
+    and combined_policy["firebaseAndroidApp"]["restorationReceiptSha256Representation"] == "UTF8_CRLF_RESTORATION_ARTIFACT"
+    and combined_policy["firebaseAndroidApp"]["repositoryRestorationReceiptSha256"] == "CCE70C3FC7E541C72E29F6732502BDF313633B3AF4A49F1923DD2D440AFBEA13"
+    and combined_policy["firebaseAndroidApp"]["repositoryRestorationReceiptSha256Representation"] == "UTF8_LF_GIT_BLOB"
     and combined_policy["firebaseAndroidApp"]["restorationEvidenceSha256"] == "24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF",
 )
 check(
@@ -127,6 +145,8 @@ check(
     and combined_receipt["productionAuthorityRestored"]["sha1"] == "41C2B828C71683A50EC346D19E1D44048758438D"
     and combined_receipt["productionAuthorityRestored"]["sha256"] == "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C"
     and combined_receipt["productionAuthorityRestored"]["historicalOauthClientId"] == "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com"
+    and sha(combined_receipt_path) == combined_policy["firebaseAndroidApp"]["repositoryRestorationReceiptSha256"]
+    and combined_receipt_crlf_sha == combined_policy["firebaseAndroidApp"]["restorationReceiptSha256"]
     and combined_receipt["repositoryModified"] is False
     and combined_receipt["firebaseDeletionPerformed"] is False
     and combined_receipt["adjacentFirebaseMutationPerformed"] is False,
@@ -137,6 +157,21 @@ check(
     main["branch"] == "main"
     and main["commit"] == "633c58bb0d936011e391b42627f8b8f02c510e95"
     and main["tree"] == "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
+)
+check(
+    "Successor reconciliation refresh is exact through Gate 1B main",
+    successor_refresh.get("throughMainCommit") == "ef03aa7d1755b9c5a6055d0c77d2bde7e6300f11"
+    and successor_refresh.get("throughMainTree") == "10629517e88a0224974a6c21ea0b656a5b431173"
+    and successor_refresh.get("adjudicatedPullRequests") == [40, 41, 42, 43]
+    and successor_refresh.get("preExistingDriftPathCount") == 14
+    and successor_refresh.get("refreshTranche") == "CANONICAL_AUDIT_AUTHORITY_REFRESH"
+    and successor_refresh.get("refreshTrancheTrackedPaths") == [
+        ".github/workflows/release-gate.yml",
+        "README.md",
+        "release/production-release-policy.json",
+        "test/production_release_provenance_contract_test.dart",
+        "tools/release/Test-ProductionReleasePolicy.ps1",
+    ],
 )
 post_codegen_register = data("docs/v4_2_r1/AUTHORITATIVE_POST_CODEGEN_BINDINGS.json")
 post_codegen_bindings = post_codegen_register.get("bindings", {})
@@ -203,27 +238,37 @@ check(
 )
 check(
     "Canonical reconciliation is no-loss with explicit successor delta",
-    counts.get("BYTE_IDENTICAL") == 337
-    and counts.get("SUCCESSOR_MODIFIED") == 73
+    counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
+    and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
+    and counts.get("BYTE_IDENTICAL") == 330
+    and counts.get("SUCCESSOR_MODIFIED") == 80
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
 
 critical_exact = {
     ".github/workflows/production-artifact.yml",
-    ".github/workflows/release-gate.yml",
     ".github/workflows/verification-artifact.yml",
     "android/app/build.gradle.kts",
     "android/settings.gradle.kts",
-    "governance/programme-ledger.json",
     "release/stage2d-f-internal-controlled-deployment-scope.json",
     "test/stage2d_f2_programme_ledger_closure_contract_test.dart",
     "test/programme_ledger_contract_test.dart",
 }
 row_map = {row["path"]: row for row in rows}
 check(
-    "Stage 2D-F2, Android and workflow/release authorities remain byte-identical",
+    "Stage 2D-F2, Android and immutable workflow/release authorities remain byte-identical",
     all(row_map.get(path, {}).get("disposition") == "BYTE_IDENTICAL" for path in critical_exact),
+)
+check(
+    "Mutable release-gate and programme-ledger evolution is explicitly classified",
+    all(
+        row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
+        for path in (
+            ".github/workflows/release-gate.yml",
+            "governance/programme-ledger.json",
+        )
+    ),
 )
 
 for lock_rel in ("package-lock.json", "functions/package-lock.json"):
@@ -247,7 +292,8 @@ consumers = {
 check(
     "Backend approval authority is singular and generated-policy aligned",
     "WORKFLOW_ROLE_UNIVERSE" in user_authority
-    and "data.isApproved !== true" in user_authority
+    and "const capsule = canonicalUserAuthorityCapsule(data)" in user_authority
+    and "capsule == null || !capsule.isApproved" in user_authority
     and all(marker in text(path) for path, marker in consumers.items()),
     f"consumers={len(consumers)}",
 )
@@ -259,7 +305,7 @@ check(
 check(
     "Canonical authority returns its validated map and consumers use that narrowed result",
     "readonly data: UserAuthorityJsonMap" in user_authority
-    and "return {data, roles}" in user_authority
+    and "return {data, roles: capsule.roles}" in user_authority
     and "authority.data.fcmToken" in text("functions/src/notifications.ts")
     and "return {userData: authority.data, roles}" in text("functions/src/runtimeJobModulePopulation.ts")
     and "expect(authority.data).toBe(data)" in text("functions/test/userAuthority.test.js"),
@@ -279,7 +325,9 @@ check(
 check(
     "Trial harness exact-binds both canonical Firebase build inputs",
     "07912823FCC37500C785BE26741B3930087D7A47F02F5E2268F7C7FC1A6031DE" in harness
-    and "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B" in harness,
+    and "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B" in harness
+    and "6CBC8F2E9D021999433636E9AD517EEC461C9811A19DC7DAA28EEE7C28D750C7" in harness
+    and "Assert-AllowedHash" in harness,
 )
 check(
     "Trial harness enforces full pinned toolchain and lockfile stability",
@@ -630,9 +678,21 @@ check(
     and "direct Firestore lifecycle transitions persist the open-state invariant"
         in lifecycle_replay_guard,
 )
+authority_capsule_policy = text("docs/v4_2_r1/PR40_FIRESTORE_AUTHORITY_CAPSULE_POLICY.md")
 check(
-    "R1.14 Rules preserve full user-shape authority while routing one transition",
-    "return validUserDocumentShape(data)" in rules
+    "R1.14 Rules enforce minimal read authority and full client-write shape",
+    "function validApprovedUserAuthority(data)" in rules
+    and "data.keys().hasAll(['isApproved', 'roles'])" in rules
+    and "validUserRoleList(data.get('roles', null))" in rules
+    and "function validPendingUserCreate(userId)" in rules
+    and "function validSelfUserUpdate(userId)" in rules
+    and "function validAdminUserProfileUpdate(userId)" in rules
+    and expression_budget_guard.count(
+        "contains('validUserDocumentShape(request.resource.data)')"
+    ) >= 3
+    and "isNot(contains('validUserDocumentShape'))" in expression_budget_guard
+    and "minimal, security-relevant user" in authority_capsule_policy
+    and "Every client user-document create and update" in authority_capsule_policy
     and "function validMaintenanceUpdate()" in rules
     and "allow update: if validMaintenanceUpdate();" in rules
     and "function validTemplateVersionUpdateDelta()" in rules
