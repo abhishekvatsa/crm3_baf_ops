@@ -21,6 +21,7 @@ $expectedProjectId = 'crm3-baf-ops-b8638'
 $expectedPackage = 'in.co.sail.bsl.crm3.bafops'
 $expectedFirebaseAppId = '1:894346496105:android:fba14febfbbee102e63af8'
 $expectedGoogleServicesSha256 = '2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B'
+$expectedRepositoryGoogleServicesSha256 = '6CBC8F2E9D021999433636E9AD517EEC461C9811A19DC7DAA28EEE7C28D750C7'
 $expectedFlutter = '3.44.0'
 $expectedDart = '3.12.0'
 
@@ -170,8 +171,12 @@ try {
     throw 'google-services.json does not contain exactly one governed package/app registration.'
   }
   $googleSha = Get-Sha256 $GoogleServicesPath
-  if ($googleSha -ne $expectedGoogleServicesSha256) {
-    throw "google-services.json SHA-256 mismatch. Expected $expectedGoogleServicesSha256; got $googleSha"
+  $allowedGoogleServicesHashes = @(
+    $expectedGoogleServicesSha256,
+    $expectedRepositoryGoogleServicesSha256
+  )
+  if (-not $allowedGoogleServicesHashes.Contains($googleSha)) {
+    throw "google-services.json SHA-256 mismatch. Expected one of $($allowedGoogleServicesHashes -join ', '); got $googleSha"
   }
 
   $targetFirebaseOptions = Join-Path $CandidatePath 'lib/firebase_options.dart'

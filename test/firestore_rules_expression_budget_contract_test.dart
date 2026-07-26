@@ -27,6 +27,10 @@ void main() {
         _blockStartingAt(rules, 'function validSelfUserUpdate(userId)'),
         contains('validUserDocumentShape(request.resource.data)'),
       );
+      expect(
+        _blockStartingAt(rules, 'function validAdminUserProfileUpdate(userId)'),
+        contains('validUserDocumentShape(request.resource.data)'),
+      );
     });
 
     test('job execution completion is rejected before expensive work validation', () {

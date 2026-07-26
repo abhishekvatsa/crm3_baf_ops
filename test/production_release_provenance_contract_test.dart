@@ -174,6 +174,48 @@ void main() {
       expect(policy, contains('"restorationReference": "CRM3-FB-RESTORE-001-C1"'));
       expect(policy, contains('"googleServicesSha256": "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B"'));
       expect(
+        policy,
+        contains(
+          '"googleServicesSha256Representation": "UTF8_CRLF_RESTORATION_ARTIFACT"',
+        ),
+      );
+      expect(
+        policy,
+        contains(
+          '"repositoryGoogleServicesSha256": "6CBC8F2E9D021999433636E9AD517EEC461C9811A19DC7DAA28EEE7C28D750C7"',
+        ),
+      );
+      expect(
+        policy,
+        contains(
+          '"repositoryGoogleServicesSha256Representation": "UTF8_LF_GIT_BLOB"',
+        ),
+      );
+      expect(
+        policy,
+        contains(
+          '"restorationReceiptSha256": "FAD4C1516BD681E7A6756282B241B52AE54FC1AB9290AA15DC27719925EFBF3B"',
+        ),
+      );
+      expect(
+        policy,
+        contains(
+          '"repositoryRestorationReceiptSha256": "CCE70C3FC7E541C72E29F6732502BDF313633B3AF4A49F1923DD2D440AFBEA13"',
+        ),
+      );
+      expect(
+        read('tools/release/Test-ProductionReleasePolicy.ps1'),
+        contains('repositoryGoogleServicesSha256'),
+      );
+      expect(
+        read('tools/release/Test-ProductionReleasePolicy.ps1'),
+        contains('repositoryRestorationReceiptSha256'),
+      );
+      expect(
+        read('tools/release/Test-ProductionReleasePolicy.ps1'),
+        contains('Get-Utf8CrlfSha256'),
+      );
+      expect(
         read('tools/release/New-ProductionArtifact.ps1'),
         contains('firebase-production-signing-restoration-receipt.json'),
       );

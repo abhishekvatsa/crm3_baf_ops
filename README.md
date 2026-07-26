@@ -138,14 +138,20 @@ Static success is not replacement authority. The following gates remain mandator
 
 ## Tomorrow local trial
 
-The guarded trial harness is:
+The current guarded R1 trial harness is:
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\v4\Invoke-Crm3V42LocalTrial.ps1 `
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\v4\Invoke-Crm3V42R1CanonicalLocalLab.ps1 `
   -CurrentAppRoot "C:\path\to\current\crm3_baf_ops"
 ```
 
-It performs authentic code generation, source audits, three dependency audits, Functions tests, Flutter analysis/tests and a debug APK build. It contains no remote repository, backend deployment or production-data action. See `docs/v4_2/TOMORROW_LOCAL_TRIAL_RUNBOOK.md`.
+It performs authentic code generation, source audits, dependency audits,
+Functions tests, Flutter analysis/tests and a debug APK build. Add
+`-RunEmulators` for the complete Firestore/Auth evidence tier. It contains no
+remote repository, backend deployment or production-data action. See
+`docs/v4_2_r1/AUTHORITATIVE_LOCAL_LAB_RUNBOOK.md`. The earlier
+`Invoke-Crm3V42LocalTrial.ps1` and `docs/v4_2/TOMORROW_LOCAL_TRIAL_RUNBOOK.md`
+remain historical compatibility paths.
 
 ## R1.6 bounded laboratory correction
 
@@ -169,7 +175,7 @@ R1.13 corrects the R1.12 Flutter-test findings without treating them as analyzer
 
 ## R1.14 Rules-emulator and online-lifecycle correction
 
-R1.14 adjudicates the authenticated R1.13 emulator run: 103 of 122 Rules tests passed, ten permitted operations exhausted Firestore's 1,000-expression evaluation budget, and nine job-module positives exposed an omitted persisted `isOpenForWork` field. The correction preserves full user-document and role validation, routes one lifecycle branch per write, caches the module-family publication read, and writes the open-state field in all direct online module transitions. The next authority is a pristine `-RunEmulators` laboratory yielding `PASS_AUTHORITATIVE_BUILD_AND_EMULATOR`; this archive is not deployment authority.
+R1.14 adjudicates the authenticated R1.13 emulator run: 103 of 122 Rules tests passed, ten permitted operations exhausted Firestore's 1,000-expression evaluation budget, and nine job-module positives exposed an omitted persisted `isOpenForWork` field. The correction preserves full client user-document write validation and canonical authority-capsule validation, routes one lifecycle branch per write, caches the module-family publication read, and writes the open-state field in all direct online module transitions. The next authority is a pristine `-RunEmulators` laboratory yielding `PASS_AUTHORITATIVE_BUILD_AND_EMULATOR`; this archive is not deployment authority.
 
 ## R1.15 maintenance-router Flutter contract correction
 

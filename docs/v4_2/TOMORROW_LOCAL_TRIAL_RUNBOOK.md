@@ -47,10 +47,12 @@ Prepare either:
 - the current app root containing `lib/firebase_options.dart` and `android/app/google-services.json`; or
 - those two files as separate explicit paths.
 
-The governed `google-services.json` SHA-256 must be:
+The governed `google-services.json` must have one of the two exact raw hashes
+for the same semantic configuration:
 
 ```text
-2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B
+Repository UTF-8 LF:             6CBC8F2E9D021999433636E9AD517EEC461C9811A19DC7DAA28EEE7C28D750C7
+Restoration artifact UTF-8 CRLF: 2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B
 ```
 
 ## Recommended first run: build and tests only

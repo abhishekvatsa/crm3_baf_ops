@@ -35,6 +35,9 @@
     },
     "currentCombined": {
       "sha256": "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B",
+      "sha256Representation": "UTF8_CRLF_RESTORATION_ARTIFACT",
+      "repositorySha256": "6CBC8F2E9D021999433636E9AD517EEC461C9811A19DC7DAA28EEE7C28D750C7",
+      "repositorySha256Representation": "UTF8_LF_GIT_BLOB",
       "semanticSha256": "A9FEE3B4E0770F9643C3929F41FDF69FFA8D638A5BE55EF81B34B893C4258FE2"
     }
   },
@@ -42,6 +45,9 @@
     "archive": "CRM3_FIREBASE_PRODUCTION_SIGNING_RESTORATION_20260724_081110.zip",
     "archiveSha256": "24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF",
     "receiptSha256": "FAD4C1516BD681E7A6756282B241B52AE54FC1AB9290AA15DC27719925EFBF3B",
+    "receiptSha256Representation": "UTF8_CRLF_RESTORATION_ARTIFACT",
+    "repositoryReceiptSha256": "CCE70C3FC7E541C72E29F6732502BDF313633B3AF4A49F1923DD2D440AFBEA13",
+    "repositoryReceiptSha256Representation": "UTF8_LF_GIT_BLOB",
     "finalStatus": "PASS_FIREBASE_PRODUCTION_SIGNING_RESTORED_HISTORICAL_AUTHORITY"
   },
   "repositoryIntegration": {
@@ -70,5 +76,38 @@
       "tools/release/New-ProductionArtifact.ps1"
     ],
     "canonicalPathCount": 410
+  },
+  "successorReconciliationRefresh": {
+    "throughMainCommit": "ef03aa7d1755b9c5a6055d0c77d2bde7e6300f11",
+    "throughMainTree": "10629517e88a0224974a6c21ea0b656a5b431173",
+    "adjudicatedPullRequests": [
+      40,
+      41,
+      42,
+      43
+    ],
+    "refreshedTrackedPathCount": 14,
+    "crossPlatformRepresentationPathCount": 19,
+    "crossPlatformRepresentations": [
+      "UTF8_CRLF_WINDOWS_WORKTREE",
+      "UTF8_LF_GIT_BLOB"
+    ],
+    "priorCounts": {
+      "BYTE_IDENTICAL": 337,
+      "SUCCESSOR_MODIFIED": 73
+    },
+    "refreshedCounts": {
+      "BYTE_IDENTICAL": 330,
+      "SUCCESSOR_MODIFIED": 80
+    },
+    "reclassifiedPaths": [
+      ".github/workflows/release-gate.yml",
+      "functions/package.json",
+      "functions/test/publishedTemplateAssignment.firestoreEmulator.test.js",
+      "governance/programme-ledger.json",
+      "lib/features/admin/presentation/user_management_screen.dart",
+      "lib/features/auth/validation/user_input_validator.dart",
+      "test/input_validation_test.dart"
+    ]
   }
 }

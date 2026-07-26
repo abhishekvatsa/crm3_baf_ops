@@ -26,6 +26,7 @@ $expected = [ordered]@{
   firebaseAppId = '1:894346496105:android:fba14febfbbee102e63af8'
   firebaseOptionsSha256 = '07912823FCC37500C785BE26741B3930087D7A47F02F5E2268F7C7FC1A6031DE'
   canonicalGoogleServicesSha256 = '2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B'
+  canonicalRepositoryGoogleServicesSha256 = '6CBC8F2E9D021999433636E9AD517EEC461C9811A19DC7DAA28EEE7C28D750C7'
   canonicalGoogleServicesSemanticSha256 = 'A9FEE3B4E0770F9643C3929F41FDF69FFA8D638A5BE55EF81B34B893C4258FE2'
   supersededDebugOnlyGoogleServicesSha256 = 'DBD4450D064E6FE68D2F809A8A81B1FE5AC6E96E390F8F0B1762938D0EF5FE6D'
   supersededDebugOnlyGoogleServicesSemanticSha256 = '8BB5FFA242C09AB10323D9B8F1FF560724B045EC39D2EA565367F057EE49DC1F'
@@ -172,6 +173,16 @@ function Assert-ExactHash {
   if ($actual -ne $ExpectedHash) {
     $script:failureStatus = 'HOLD_FIREBASE_CUSTODY_MISMATCH'
     throw "$Label SHA-256 mismatch. Expected $ExpectedHash; got $actual"
+  }
+  return $actual
+}
+
+function Assert-AllowedHash {
+  param([string]$Path, [string[]]$ExpectedHashes, [string]$Label)
+  $actual = Get-Sha256 $Path
+  if (-not $ExpectedHashes.Contains($actual)) {
+    $script:failureStatus = 'HOLD_FIREBASE_CUSTODY_MISMATCH'
+    throw "$Label SHA-256 mismatch. Expected one of $($ExpectedHashes -join ', '); got $actual"
   }
   return $actual
 }
@@ -451,7 +462,10 @@ try {
   $FirebaseOptionsPath = (Resolve-Path $FirebaseOptionsPath).Path
   $GoogleServicesPath = (Resolve-Path $GoogleServicesPath).Path
   $firebaseOptionsSha = Assert-ExactHash -Path $FirebaseOptionsPath -ExpectedHash $expected.firebaseOptionsSha256 -Label 'firebase_options.dart'
-  $googleServicesSha = Assert-ExactHash -Path $GoogleServicesPath -ExpectedHash $expected.canonicalGoogleServicesSha256 -Label 'canonical-main google-services.json'
+  $googleServicesSha = Assert-AllowedHash -Path $GoogleServicesPath -ExpectedHashes @(
+    $expected.canonicalGoogleServicesSha256,
+    $expected.canonicalRepositoryGoogleServicesSha256
+  ) -Label 'canonical-main google-services.json'
 
   $firebaseOptionsText = Get-Content -LiteralPath $FirebaseOptionsPath -Raw
   if ($firebaseOptionsText -notmatch [regex]::Escape($expected.projectId) -or

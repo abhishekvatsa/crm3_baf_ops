@@ -58,6 +58,9 @@
     "firebaseAppId": "1:894346496105:android:fba14febfbbee102e63af8",
     "androidOauthClientId": "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com",
     "googleServicesSha256": "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B",
+    "googleServicesSha256Representation": "UTF8_CRLF_RESTORATION_ARTIFACT",
+    "repositoryGoogleServicesSha256": "6CBC8F2E9D021999433636E9AD517EEC461C9811A19DC7DAA28EEE7C28D750C7",
+    "repositoryGoogleServicesSha256Representation": "UTF8_LF_GIT_BLOB",
     "signingCertificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
     "signingCertificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
     "registrationReference": "BAF-REF-005",
@@ -73,6 +76,9 @@
     "restorationReference": "CRM3-FB-RESTORE-001-C1",
     "restorationReceiptFile": "release/approvals/firebase-production-signing-restoration-receipt.json",
     "restorationReceiptSha256": "FAD4C1516BD681E7A6756282B241B52AE54FC1AB9290AA15DC27719925EFBF3B",
+    "restorationReceiptSha256Representation": "UTF8_CRLF_RESTORATION_ARTIFACT",
+    "repositoryRestorationReceiptSha256": "CCE70C3FC7E541C72E29F6732502BDF313633B3AF4A49F1923DD2D440AFBEA13",
+    "repositoryRestorationReceiptSha256Representation": "UTF8_LF_GIT_BLOB",
     "restorationEvidenceSha256": "24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF"
   },
   "release": {
