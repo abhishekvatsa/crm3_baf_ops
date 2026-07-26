@@ -16,8 +16,8 @@
     "scope": "maintenance-workflow current-source audit collector; raw Firebase configuration and evidence artifacts excluded"
   },
   "successorRefresh": {
-    "throughMainCommit": "b99ec28f1d7fe2f72f0b089df3d48357e4d53f75",
-    "throughMainTree": "548f9448524b8d84a4156383ad4f36fe72b06f4c",
+    "throughMainCommit": "08336c4e861074fd1284dd8758195c418247c9e8",
+    "throughMainTree": "28548c76681e549185d96a6cabe3d18c639e3835",
     "adjudicatedPullRequests": [
       40,
       41,
@@ -28,25 +28,15 @@
       46,
       47,
       48,
-      49
+      49,
+      50
     ],
     "preExistingDriftPathCount": 14,
     "crossPlatformRepresentationPathCount": 19,
-    "refreshTranche": "S03_CALLABLE_ABUSE_CONTROL_SOURCE_IMPLEMENTATION",
+    "refreshTranche": "S03_CALLABLE_ABUSE_CONTROL_CLOSURE",
     "refreshTrancheTrackedPaths": [
       "docs/v4_2_r1/S03_CALLABLE_ABUSE_CONTROL.md",
-      "functions/package.json",
-      "functions/src/callableAbuseControl.ts",
-      "functions/src/index.ts",
-      "functions/src/maintenanceWorkflow/callable.ts",
-      "functions/src/publishedTemplateAssignment.ts",
-      "functions/src/runtimeJobModulePopulation.ts",
-      "functions/src/userAuthorityMutation.ts",
-      "functions/test/callableAbuseControl.firestoreEmulator.test.js",
-      "functions/test/callableAbuseControl.test.js",
-      "functions/test/callableAbuseControlSource.test.js",
       "governance/programme-ledger.json",
-      "test/firestore.rules.test.js",
       "tools/v4/v4_2_r1_canonical_audit.py"
     ]
   },
@@ -658,9 +648,9 @@
     {
       "path": "governance/programme-ledger.json",
       "canonicalSha256": "30FC5520D44172C2F6E0AD3E954AC7482C350292464AA972CE929D2740B02C56",
-      "candidateSha256": "09999E3069BA9A3C0BA93F26DE4FC00F9D8D2C4441D24C3611CCD87D58014CD2",
+      "candidateSha256": "46DF105BD3B05AA0B7FE811C13C87AABCD6748AFA67FF93EC47310E83B508509",
       "canonicalBytes": 73391,
-      "candidateBytes": 92480,
+      "candidateBytes": 93554,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

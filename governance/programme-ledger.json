@@ -1290,14 +1290,24 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 50,
+          "headCommit": "bb76e167eb27c0b26058c7c514085b0481157aa2",
+          "mergeCommit": "08336c4e861074fd1284dd8758195c418247c9e8",
+          "postMergeWorkflowRun": 30208984633,
+          "decision": "PASS_S03_CALLABLE_ABUSE_CONTROL",
+          "authority": "EXACT_HEAD_MERGE_AND_POSTMERGE_GREEN_CI"
+        }
+      ],
       "requiredExitEvidence": [
         "every mutating callable is covered by an explicit source-bounded policy",
         "authentication and callable authority preflight precede quota mutation",
@@ -1318,6 +1328,7 @@
         "rate-limit rejection loses stable resource-exhausted retry metadata"
       ],
       "notes": [
+        "S-03 tracked source-and-CI closure is proved by PR #50, merge commit 08336c4e861074fd1284dd8758195c418247c9e8 and post-merge run 30208984633.",
         "The shared control is per admitted actor and mutating callable; it is not a service-wide global quota.",
         "Storage is one fixed-size record per actor/callable and does not grow with request history; approved-actor cardinality is not source-bounded.",
         "Raw actor UIDs are not persisted in abuse-control records.",
@@ -1334,6 +1345,16 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-26",
           "basis": "All five mutating callable boundaries now use authority-first transactional burst, daily and caller-anomaly controls with strict state validation, Rules denial, unit coverage and Firestore concurrency proof."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PR #50 exact green head bb76e167eb27c0b26058c7c514085b0481157aa2 merged to main as 08336c4e861074fd1284dd8758195c418247c9e8."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PASS_S03_CALLABLE_ABUSE_CONTROL closes the source-and-CI finding after exact main post-merge run 30208984633 passed; deployment and live enforcement remain separate."
         }
       ]
     },

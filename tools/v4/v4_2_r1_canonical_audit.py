@@ -159,29 +159,18 @@ check(
     and main["tree"] == "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
 )
 check(
-    "Successor reconciliation refresh is exact through the S-03 source baseline",
-    successor_refresh.get("throughMainCommit") == "b99ec28f1d7fe2f72f0b089df3d48357e4d53f75"
-    and successor_refresh.get("throughMainTree") == "548f9448524b8d84a4156383ad4f36fe72b06f4c"
+    "Successor reconciliation refresh is exact through the S-03 closure baseline",
+    successor_refresh.get("throughMainCommit") == "08336c4e861074fd1284dd8758195c418247c9e8"
+    and successor_refresh.get("throughMainTree") == "28548c76681e549185d96a6cabe3d18c639e3835"
     and successor_refresh.get("adjudicatedPullRequests")
-        == [40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+        == [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
     and successor_refresh.get("preExistingDriftPathCount") == 14
     and successor_refresh.get("crossPlatformRepresentationPathCount") == 19
     and successor_refresh.get("refreshTranche")
-        == "S03_CALLABLE_ABUSE_CONTROL_SOURCE_IMPLEMENTATION"
+        == "S03_CALLABLE_ABUSE_CONTROL_CLOSURE"
     and successor_refresh.get("refreshTrancheTrackedPaths") == [
         "docs/v4_2_r1/S03_CALLABLE_ABUSE_CONTROL.md",
-        "functions/package.json",
-        "functions/src/callableAbuseControl.ts",
-        "functions/src/index.ts",
-        "functions/src/maintenanceWorkflow/callable.ts",
-        "functions/src/publishedTemplateAssignment.ts",
-        "functions/src/runtimeJobModulePopulation.ts",
-        "functions/src/userAuthorityMutation.ts",
-        "functions/test/callableAbuseControl.firestoreEmulator.test.js",
-        "functions/test/callableAbuseControl.test.js",
-        "functions/test/callableAbuseControlSource.test.js",
         "governance/programme-ledger.json",
-        "test/firestore.rules.test.js",
         "tools/v4/v4_2_r1_canonical_audit.py",
     ],
 )
@@ -996,6 +985,7 @@ s03_records = [
     if record.get("findingId") == "S-03"
 ]
 s03_record = s03_records[0] if len(s03_records) == 1 else {}
+s03_evidence = s03_record.get("evidence", [])
 s03_history = [
     entry.get("status")
     for entry in s03_record.get("statusHistory", [])
@@ -1084,17 +1074,28 @@ check(
     and "no automatic" in s03_decision,
 )
 check(
-    "S-03 ledger records source implementation without claiming merge or deployment",
+    "S-03 ledger closure is exact, evidence-bound and re-armable",
     len(s03_records) == 1
-    and s03_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
-    and s03_record.get("evidence") == []
-    and s03_history[-2:] == ["OPEN", "SOURCE_IMPLEMENTED"]
+    and s03_record.get("currentStatus") == "CLOSED"
+    and len(s03_evidence) == 1
+    and s03_evidence[0].get("pullRequest") == 50
+    and s03_evidence[0].get("headCommit")
+        == "bb76e167eb27c0b26058c7c514085b0481157aa2"
+    and s03_evidence[0].get("mergeCommit")
+        == "08336c4e861074fd1284dd8758195c418247c9e8"
+    and s03_evidence[0].get("postMergeWorkflowRun") == 30208984633
+    and s03_evidence[0].get("decision")
+        == "PASS_S03_CALLABLE_ABUSE_CONTROL"
+    and s03_history[-3:] == ["SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
     and len(s03_record.get("requiredExitEvidence", [])) >= 8
     and len(s03_record.get("reArmTriggers", [])) >= 7
-    and "Status: SOURCE_IMPLEMENTED" in s03_decision
-    and "PENDING_EXACT_HEAD_MERGE_AND_POSTMERGE_CI" in s03_decision
-    and "does not yet prove merge or live" in s03_decision
-    and "deployment, and it does not authorize" in s03_decision,
+    and "Status: CLOSED" in s03_decision
+    and "Pull request: #50" in s03_decision
+    and "08336c4e861074fd1284dd8758195c418247c9e8" in s03_decision
+    and "Post-merge workflow run: `30208984633`" in s03_decision
+    and "Decision: `PASS_S03_CALLABLE_ABUSE_CONTROL`" in s03_decision
+    and "The control is not deployed live" in s03_decision
+    and "closure does not authorize a Functions deployment" in s03_decision,
 )
 
 s04_decision = text("docs/v4_2_r1/S04_CANONICAL_USER_AUTHORITY_SHAPE.md")
