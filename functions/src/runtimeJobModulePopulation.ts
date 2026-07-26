@@ -550,6 +550,16 @@ function hasAnyRole(roles: Set<string>, allowed: Set<string>): boolean {
   return false;
 }
 
+export function userCanMutateRuntimeJobModulePopulation(
+  userData: RuntimePopulationJsonMap | null | undefined,
+): boolean {
+  const authority = canonicalApprovedUserAuthority(userData);
+  return authority != null && hasAnyRole(
+    new Set<string>(authority.roles),
+    ASSIGNER_ROLES,
+  );
+}
+
 function validateApprovedUser(
   userSnapshot: RuntimePopulationDocumentSnapshotLike,
 ): {userData: RuntimePopulationJsonMap; roles: Set<string>} {

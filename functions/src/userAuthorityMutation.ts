@@ -313,12 +313,19 @@ function querySnapshot(
   return value;
 }
 
+export function userCanMutateUserAuthority(
+  data: UserAuthorityJsonMap | null | undefined,
+): boolean {
+  const authority = canonicalApprovedUserAuthority(data);
+  return authority != null && authority.roles.has("admin");
+}
+
 function actorAuthority(
   snapshot: UserAuthorityMutationDocumentSnapshotLike,
 ): {data: UserAuthorityJsonMap; name: string} {
   const data = snapshot.exists ? snapshot.data() ?? {} : {};
   const authority = canonicalApprovedUserAuthority(data);
-  if (authority == null || !authority.roles.has("admin")) {
+  if (!userCanMutateUserAuthority(data) || authority == null) {
     throw new UserAuthorityMutationError(
       "permission-denied",
       "Approved Admin authority is required.",

@@ -16,8 +16,8 @@
     "scope": "maintenance-workflow current-source audit collector; raw Firebase configuration and evidence artifacts excluded"
   },
   "successorRefresh": {
-    "throughMainCommit": "466f81e72b033d367da47a2aca4b30850ffbcfc4",
-    "throughMainTree": "29f26f09da3b720296d899f8f80a843fbc8419a5",
+    "throughMainCommit": "b99ec28f1d7fe2f72f0b089df3d48357e4d53f75",
+    "throughMainTree": "548f9448524b8d84a4156383ad4f36fe72b06f4c",
     "adjudicatedPullRequests": [
       40,
       41,
@@ -27,14 +27,26 @@
       45,
       46,
       47,
-      48
+      48,
+      49
     ],
     "preExistingDriftPathCount": 14,
     "crossPlatformRepresentationPathCount": 19,
-    "refreshTranche": "S04_CANONICAL_USER_AUTHORITY_SHAPE_CLOSURE",
+    "refreshTranche": "S03_CALLABLE_ABUSE_CONTROL_SOURCE_IMPLEMENTATION",
     "refreshTrancheTrackedPaths": [
-      "docs/v4_2_r1/S04_CANONICAL_USER_AUTHORITY_SHAPE.md",
+      "docs/v4_2_r1/S03_CALLABLE_ABUSE_CONTROL.md",
+      "functions/package.json",
+      "functions/src/callableAbuseControl.ts",
+      "functions/src/index.ts",
+      "functions/src/maintenanceWorkflow/callable.ts",
+      "functions/src/publishedTemplateAssignment.ts",
+      "functions/src/runtimeJobModulePopulation.ts",
+      "functions/src/userAuthorityMutation.ts",
+      "functions/test/callableAbuseControl.firestoreEmulator.test.js",
+      "functions/test/callableAbuseControl.test.js",
+      "functions/test/callableAbuseControlSource.test.js",
       "governance/programme-ledger.json",
+      "test/firestore.rules.test.js",
       "tools/v4/v4_2_r1_canonical_audit.py"
     ]
   },
@@ -454,9 +466,9 @@
     {
       "path": "functions/package.json",
       "canonicalSha256": "B0A0CAD2A2F76012579544631D37DA260261FFA6F33BC3AF24F91F4C039EF1AC",
-      "candidateSha256": "727AE5DC94DC001B6A85FC41AFECDF8665BD1ECA594F9D76A685FBD0777EF9C3",
+      "candidateSha256": "038AD555CA462AA942433588BE69B34CCD805855307C12564C49087F330C57EF",
       "canonicalBytes": 1115,
-      "candidateBytes": 1632,
+      "candidateBytes": 1684,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -478,9 +490,9 @@
     {
       "path": "functions/src/index.ts",
       "canonicalSha256": "14EBFA6952BB20C137EEF408C1FB80C5706CC6CBCD5FA29F2E8699F8C04E3A48",
-      "candidateSha256": "E9E1501F1706C364210E8E4B2FBD79AAB3DA57B07BDF920A6027573A66B049D1",
+      "candidateSha256": "A266DBF60AE45F24F572B8BF44A138FC83931B997C3763F00618603613446AD3",
       "canonicalBytes": 9674,
-      "candidateBytes": 11390,
+      "candidateBytes": 13644,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -502,17 +514,17 @@
     {
       "path": "functions/src/publishedTemplateAssignment.ts",
       "canonicalSha256": "6AF4338D2E37EA71916190414F3CCAA0A3340C97D32FA311BAEFD4876AE0B5C1",
-      "candidateSha256": "75696BC50F6E91184F1DFBE16DE7265B37A7F0F32242D1671B2436AE3E7DE0A9",
+      "candidateSha256": "F57ACFBAA56B58D22B7F3F03E7AB8007CF12A1AC5F611F5F35C46CF3E522F522",
       "canonicalBytes": 50854,
-      "candidateBytes": 64676,
+      "candidateBytes": 64720,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "functions/src/runtimeJobModulePopulation.ts",
       "canonicalSha256": "50844312827F112F49FA7E6406358BFCA2E617F81D81AC4EE4134E57A3A0E1F8",
-      "candidateSha256": "4C5C885B6ED91DD29164B8A273BCE04770082B97FA5722F8CCDD732237FE167A",
+      "candidateSha256": "7047C21BF7A07F11CF5BEF5E31EE6C9D2DD43E9C4C03C50981CB9329AEC98AFC",
       "canonicalBytes": 50845,
-      "candidateBytes": 55499,
+      "candidateBytes": 55796,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -646,9 +658,9 @@
     {
       "path": "governance/programme-ledger.json",
       "canonicalSha256": "30FC5520D44172C2F6E0AD3E954AC7482C350292464AA972CE929D2740B02C56",
-      "candidateSha256": "4956E28EE3237C92093174E903DE6E97FF9A2578A7E2B327BF236988A8816FD1",
+      "candidateSha256": "09999E3069BA9A3C0BA93F26DE4FC00F9D8D2C4441D24C3611CCD87D58014CD2",
       "canonicalBytes": 73391,
-      "candidateBytes": 90412,
+      "candidateBytes": 92480,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2686,9 +2698,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "68F4EEEB2CD13E0B25C8D711ADCB453B681CC22ED9299DC4BCC1AA4EF31579FC",
+      "candidateSha256": "B021CD7ADC1037A853E892952FBCB8F0B8672C36797CDBEF035E6C0E0270240E",
       "canonicalBytes": 78841,
-      "candidateBytes": 82465,
+      "candidateBytes": 83112,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

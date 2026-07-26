@@ -1290,7 +1290,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
@@ -1298,14 +1298,42 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "every mutating callable is covered by an explicit source-bounded policy",
+        "authentication and callable authority preflight precede quota mutation",
+        "burst and rolling daily admission counters are transactionally enforced",
+        "stable caller-caused rejections feed a separate anomaly quota",
+        "malformed, partial, mismatched or clock-regressed control state fails closed",
+        "client access to abuse-control records is denied by Firestore Rules",
+        "concurrent emulator proof admits exactly the configured limit",
+        "exact-head pull request merges with green post-merge CI"
+      ],
+      "reArmTriggers": [
+        "a mutating callable bypasses shared abuse-control admission",
+        "quota state can be partially populated or malformed without failing closed",
+        "idempotent replay bypasses request accounting",
+        "unauthenticated or preflight-unauthorized callers can create quota records",
+        "client Rules permit access to callable_abuse_controls",
+        "server, contention or integrity failures are counted as caller anomalies",
+        "rate-limit rejection loses stable resource-exhausted retry metadata"
+      ],
+      "notes": [
+        "The shared control is per admitted actor and mutating callable; it is not a service-wide global quota.",
+        "Storage is one fixed-size record per actor/callable and does not grow with request history; approved-actor cardinality is not source-bounded.",
+        "Raw actor UIDs are not persisted in abuse-control records.",
+        "App Check, Play Integrity, platform quotas, alert routing and IAM remain independent controls.",
+        "Deployment, production mutation, artifact construction, pilot and cutover remain prohibited."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-26",
+          "basis": "All five mutating callable boundaries now use authority-first transactional burst, daily and caller-anomaly controls with strict state validation, Rules denial, unit coverage and Firestore concurrency proof."
         }
       ]
     },

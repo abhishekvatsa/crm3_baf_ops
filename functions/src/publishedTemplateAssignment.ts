@@ -1013,7 +1013,9 @@ function moduleTags(
   return [...tags].filter((item) => item.trim().length > 0).sort();
 }
 
-function actorCanAssign(userData: AssignmentJsonMap): boolean {
+export function userCanAssignPublishedTemplate(
+  userData: AssignmentJsonMap,
+): boolean {
   return canonicalUserHasAnyRole(userData, ASSIGNER_ROLES);
 }
 
@@ -1041,7 +1043,7 @@ function authorizedAssignmentActorData(
     );
   }
   const userData = snapshotData(snapshot, "User");
-  if (!actorCanAssign(userData)) {
+  if (!userCanAssignPublishedTemplate(userData)) {
     throw new AssignmentValidationError(
       "permission-denied",
       "This account is not authorized to assign governed jobs.",
