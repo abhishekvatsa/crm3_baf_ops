@@ -128,9 +128,42 @@ def verify_ids() -> None:
 
 def verify_migration() -> None:
     text=(ROOT/'lib/core/services/isar_schema_migration.dart').read_text(encoding="utf-8")
+    guard=(ROOT/'lib/core/services/isar_schema_guard_io.dart').read_text(encoding="utf-8")
+    startup=(ROOT/'lib/main.dart').read_text(encoding="utf-8")
     if 'currentSchemaVersion = 3' not in text: fail('Isar schema version is not v3')
     if "'v3:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('v3 schema fingerprint missing')
     if '3: _reconcileV4WorkflowPersistence' not in text: fail('v2->v3 migration step missing')
+    required_provenance = (
+        "baf_isar_schema_provenance_v1",
+        "databaseGenerationId",
+        "IsarSchemaMarkerState.prepared",
+        "IsarSchemaMarkerState.committed",
+        "existing-store-unmarked",
+        "legacy-marker-incomplete",
+        "stored-schema-fingerprint-unrecognized",
+        "_validateMarkerSource(",
+        "canonical-marker-write-failed",
+    )
+    missing = [token for token in required_provenance if token not in text]
+    if missing: fail(f"P-06 Isar provenance controls missing: {missing}")
+    accepted_block=text.split("acceptedFingerprintsByVersion:",1)[1].split(
+        "stepsByTargetVersion:",1
+    )[0]
+    if "2: <String>{" in accepted_block:
+        fail("Repository-unproved v2 fingerprint must not be accepted")
+    if ".isar.lock" in guard:
+        fail("Lock-only Isar residue must not be treated as durable data")
+    prepare=startup.index("ensureIsarSchemaBeforeOpen(")
+    opened=startup.index("Isar.open(",prepare)
+    repaired=startup.index("repairPlannedJobLocalLinks(",opened)
+    committed=startup.index("commitAfterSuccessfulOpen()",repaired)
+    if not prepare < opened < repaired < committed:
+        fail("Isar provenance must prepare before open and commit after repair")
+    if (
+        "readIsarSchemaProvenanceSnapshotJson()" not in startup
+        or '"schemaProvenanceSnapshot": $provenanceSnapshot' not in startup
+    ):
+        fail("Startup recovery must preserve exact provenance marker evidence")
 
 def main() -> int:
     parser=argparse.ArgumentParser()
@@ -147,7 +180,7 @@ def main() -> int:
         if MARKER in path.read_text(encoding='utf-8', errors='ignore'): marked.append(path.relative_to(ROOT))
     if args.release and marked:
         fail('Pinned build_runner output required before release; provisional files: '+', '.join(map(str,marked)))
-    print(f"PASS: v4 Isar schema structure verified; provisional_bindings={len(marked)}; release_authority={'NO' if marked else 'YES'}")
+    print(f"PASS: v4 Isar schema structure and P-06 provenance verified; provisional_bindings={len(marked)}; release_authority={'NO' if marked else 'YES'}")
     return 0
 
 if __name__=='__main__':

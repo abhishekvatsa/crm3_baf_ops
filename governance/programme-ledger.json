@@ -683,13 +683,17 @@
       "supersededBy": null,
       "evidence": [],
       "requiredExitEvidence": [
-        "device provenance",
-        "unmarked-store correction",
-        "populated migration fixture",
-        "interrupt/restart/reconcile proof"
+        "installed-device inventory that classifies absent, partial, complete legacy and canonical markers without mutation",
+        "governed correction or adoption evidence for every existing unmarked or legacy-marked store",
+        "populated repository-proven v1 and governed v2/v3 representative migration fixtures with row and relationship checks",
+        "forced interruption and restart proof across PREPARED, Isar open, post-open repair and COMMITTED boundaries",
+        "database-generation continuity or rotation plus backup, rebuild, pull and cloud reconciliation evidence"
       ],
       "reArmTriggers": [],
-      "notes": [],
+      "notes": [
+        "P-06 source controls are implemented, but this DEVICE_EVIDENCE gate remains OPEN.",
+        "A complete legacy marker is compatibility input, not proof of the installed database contents; device reconciliation remains mandatory."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
@@ -1166,7 +1170,7 @@
       "authorityType": "DEPLOYED_RUNTIME",
       "transitionProfile": "DEPLOYED_CONTROL",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "CONDITIONAL_BLOCKER",
       "unrestrictedSeverity": "BLOCKER",
@@ -1176,14 +1180,32 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "exact source commit and exact-head merge CI for the fail-closed provenance handshake",
+        "deployment receipt for a compatible client build",
+        "70K-RECOVERY device evidence covering installed-store provenance, populated migration, interruption and reconciliation"
+      ],
+      "reArmTriggers": [
+        "any path stamps an existing durable store without complete recognized provenance",
+        "any schema version is accepted without an exact repository-governed fingerprint and registered migration path",
+        "canonical provenance is committed before Isar open and post-open repair succeed",
+        "database replacement reuses the prior database generation identity"
+      ],
+      "notes": [
+        "The 2026-07-27 source tranche replaces split version/fingerprint keys with one exact PREPARED/COMMITTED marker, rejects unmarked or partial existing stores, validates source and target fingerprints, and preserves marker evidence in recovery packages.",
+        "SOURCE_IMPLEMENTED is not a merge, deployment, device-proof, pilot, or cutover claim.",
+        "70K-RECOVERY remains OPEN because existing legacy markers cannot by themselves prove installed database contents."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-27",
+          "basis": "Fail-closed atomic Isar provenance and two-phase startup handshake implemented; merge, deployment and device evidence pending"
         }
       ]
     },

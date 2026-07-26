@@ -79,9 +79,10 @@ void main() {
 
       _expectOrder(openBlock, const [
         'final dir = await getApplicationDocumentsDirectory();',
-        'await ensureIsarSchemaBeforeOpen(databaseDirectoryPath: dir.path);',
+        'final schemaPreparation = await ensureIsarSchemaBeforeOpen(',
         'final localIsar = await Isar.open(_isarSchemas, directory: dir.path);',
         'final repair = await repairPlannedJobLocalLinks(localIsar);',
+        'await schemaPreparation.commitAfterSuccessfulOpen();',
         'return localIsar;',
         'await localIsar.close();',
         'rethrow;',
@@ -89,6 +90,10 @@ void main() {
       expect(openBlock, contains('try {'));
       expect(openBlock, contains('catch (_)'));
       expect(openBlock, contains('repairPlannedJobLocalLinks(localIsar)'));
+      expect(
+        openBlock,
+        contains('schemaPreparation.commitAfterSuccessfulOpen()'),
+      );
       expect(openBlock, contains('await localIsar.close();'));
       expect(openBlock, contains('rethrow;'));
       expect(_occurrences(source, 'Isar.open('), 1);

@@ -16,8 +16,8 @@
     "scope": "maintenance-workflow current-source audit collector; raw Firebase configuration and evidence artifacts excluded"
   },
   "successorRefresh": {
-    "throughMainCommit": "31c890bb96518365ba0365a0e9b8e2cd79abb9de",
-    "throughMainTree": "1d10661ed09e14f82352a3c1bf2e0b90ee5d3633",
+    "throughMainCommit": "96c2a09563389cba177998482ac090f39d16bb88",
+    "throughMainTree": "41324fd041dcb6bb5b536d49225b9aa4f450317e",
     "adjudicatedPullRequests": [
       40,
       41,
@@ -31,20 +31,32 @@
       49,
       50,
       51,
-      52
+      52,
+      53
     ],
     "preExistingDriftPathCount": 14,
     "crossPlatformRepresentationPathCount": 19,
-    "refreshTranche": "S07_GOVERNED_CHARGE_ABNORMALITY_CLOSURE",
+    "refreshTranche": "P06_ISAR_PROVENANCE_SOURCE_IMPLEMENTATION",
     "refreshTrancheTrackedPaths": [
-      "docs/v4_2_r1/S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION.md",
+      "docs/v4_2_r1/P06_ISAR_PROVENANCE_AND_MIGRATION_SAFETY.md",
       "governance/programme-ledger.json",
-      "tools/v4/v4_2_r1_canonical_audit.py"
+      "lib/core/services/isar_schema_guard_io.dart",
+      "lib/core/services/isar_schema_guard_stub.dart",
+      "lib/core/services/isar_schema_migration.dart",
+      "lib/main.dart",
+      "test/isar_schema_guard_io_test.dart",
+      "test/isar_schema_migrator_test.dart",
+      "test/p06_programme_ledger_source_contract_test.dart",
+      "test/release_startup_hygiene_contract_test.dart",
+      "test/startup_recovery_hardening_contract_test.dart",
+      "tools/isar/verify_v4_isar_schema.py",
+      "tools/v4/v4_2_r1_canonical_audit.py",
+      "tools/v4/whole_app_reconciliation_audit.py"
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 322,
-    "SUCCESSOR_MODIFIED": 88
+    "BYTE_IDENTICAL": 319,
+    "SUCCESSOR_MODIFIED": 91
   },
   "paths": [
     {
@@ -650,9 +662,9 @@
     {
       "path": "governance/programme-ledger.json",
       "canonicalSha256": "30FC5520D44172C2F6E0AD3E954AC7482C350292464AA972CE929D2740B02C56",
-      "candidateSha256": "C1841AAD5BFEC3E38540AD2AD8BC5E8EAAB9CCCAC468016F42F95C7BD05B2ED5",
+      "candidateSha256": "AD3C54DFCAC0FAFFB3574F1DEDF4C4DB449A39B817F76CF1748F1EEF66E4D123",
       "canonicalBytes": 73391,
-      "candidateBytes": 97345,
+      "candidateBytes": 99467,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -902,25 +914,25 @@
     {
       "path": "lib/core/services/isar_schema_guard_io.dart",
       "canonicalSha256": "1D4B9B636F8735060B71D6EF132103EB66F75A35583F33853050339802B3E0D7",
-      "candidateSha256": "1D4B9B636F8735060B71D6EF132103EB66F75A35583F33853050339802B3E0D7",
+      "candidateSha256": "6D034B46AF17C1B9C42621C362EDE5A851B854168B1F270BB26A578B380766CB",
       "canonicalBytes": 1271,
-      "candidateBytes": 1271,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 2016,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/core/services/isar_schema_guard_stub.dart",
       "canonicalSha256": "0F98D49C1917040736B7666CD8FDA92A226C5931A260DCD0F2008EFE9AE8CD90",
-      "candidateSha256": "0F98D49C1917040736B7666CD8FDA92A226C5931A260DCD0F2008EFE9AE8CD90",
+      "candidateSha256": "E0EC632AC746535B03D6B2440771E7275C16D043965A64EF0D148D42A411B456",
       "canonicalBytes": 391,
-      "candidateBytes": 391,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 535,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/core/services/isar_schema_migration.dart",
       "canonicalSha256": "D744B0534E1104A5B3BAADF352711C29B4D31095373B4D9AD722A6B7BC6435C3",
-      "candidateSha256": "D9FBAC36BF8398D72D867203600594E043F253FB6AE6FFF68114BB7D0FBB0A9C",
+      "candidateSha256": "DBA6ED9CA57162A95E4930A919A7BA98F1FB39DFA1C5D893A7FD3DD6691DFF77",
       "canonicalBytes": 8792,
-      "candidateBytes": 10369,
+      "candidateBytes": 36936,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2330,9 +2342,9 @@
     {
       "path": "lib/main.dart",
       "canonicalSha256": "6DE20D01D9D00FAA761B6231101DD873CDB9A442194FAB2691E7B34809B87A97",
-      "candidateSha256": "18D07FFD022D4AC93C58C88FB02C656AF43924D5B864429BA688B8BF6207B9C2",
+      "candidateSha256": "3006A651A4491ABB446132A6B556581460247EE12F774C45FEA0735A0BA09934",
       "canonicalBytes": 41433,
-      "candidateBytes": 42435,
+      "candidateBytes": 46380,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2722,9 +2734,9 @@
     {
       "path": "test/isar_schema_migrator_test.dart",
       "canonicalSha256": "23413CE1A90B1338ACDF5D0001D4890C9FF321A31C03C45A27B4F96E7DE744DB",
-      "candidateSha256": "93D712331350F9339D152C69A00F510940BF02495983F9BEE9F7CAB8D6CDDC94",
+      "candidateSha256": "C38483A1ECC6D4FC4F3334FF004CC560D7EDD53296510FFAFBEF90613F273B8D",
       "canonicalBytes": 4757,
-      "candidateBytes": 5449,
+      "candidateBytes": 20723,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3118,9 +3130,9 @@
     {
       "path": "test/release_startup_hygiene_contract_test.dart",
       "canonicalSha256": "C709DF5B31A5CA444CAB63F4A538CF9551B538542C6F1B1F199D6B9E64B0A90F",
-      "candidateSha256": "7BA8939F0BD0CF88F214D3E20BBB9F97568974694FC62F64E48B0BA40EA2E9DD",
+      "candidateSha256": "DB9E3F88456ED740785E4FD1FCE5ECDCEA8E87497C3CB54BD54FC7C8992A4F11",
       "canonicalBytes": 17177,
-      "candidateBytes": 17177,
+      "candidateBytes": 17343,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3198,10 +3210,10 @@
     {
       "path": "test/startup_recovery_hardening_contract_test.dart",
       "canonicalSha256": "5F78731028D57BF3223F9D024BA2A66A7FE0739931103F23F80BB5AFAA1E74EF",
-      "candidateSha256": "5F78731028D57BF3223F9D024BA2A66A7FE0739931103F23F80BB5AFAA1E74EF",
+      "candidateSha256": "09DBB7B3C6A71E0B9D2B7020C70BBBB9E7DA9704E4E9956DAA7CF7BFD2168A7C",
       "canonicalBytes": 9581,
-      "candidateBytes": 9581,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 10879,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "test/sync_coordinator_queue_contract_test.dart",

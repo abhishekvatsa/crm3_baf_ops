@@ -49,6 +49,7 @@ import 'core/security/app_check_bootstrap.dart';
 import 'core/services/crash_reporting_bootstrap.dart';
 import 'core/services/isar_production_recovery.dart';
 import 'core/services/isar_schema_guard.dart';
+import 'core/services/isar_schema_migration.dart';
 import 'core/services/live_remote_sync_service.dart';
 import 'core/services/planned_job_local_link_repair.dart';
 import 'core/services/sync_coordinator.dart';
@@ -95,7 +96,9 @@ final _isarSchemas = [
 
 Future<Isar> _openLocalIsar() async {
   final dir = await getApplicationDocumentsDirectory();
-  await ensureIsarSchemaBeforeOpen(databaseDirectoryPath: dir.path);
+  final schemaPreparation = await ensureIsarSchemaBeforeOpen(
+    databaseDirectoryPath: dir.path,
+  );
   final localIsar = await Isar.open(_isarSchemas, directory: dir.path);
   try {
     final repair = await repairPlannedJobLocalLinks(localIsar);
@@ -107,6 +110,13 @@ Future<Isar> _openLocalIsar() async {
         'diaryModuleLinks=${repair.repairedDiaryModuleLinks}',
       );
     }
+    final committedMarker =
+        await schemaPreparation.commitAfterSuccessfulOpen();
+    debugPrint(
+      'Isar provenance committed: '
+      'schema=${committedMarker.schemaVersion}, '
+      'origin=${committedMarker.origin.wireName}',
+    );
     return localIsar;
   } catch (_) {
     await localIsar.close();
@@ -120,6 +130,7 @@ class StartupFailure {
   final StackTrace stackTrace;
   final DateTime occurredAt;
   final String? diagnosticsFilePath;
+  final String? schemaProvenanceSnapshotJson;
 
   StartupFailure({
     required this.stage,
@@ -127,6 +138,7 @@ class StartupFailure {
     required this.stackTrace,
     DateTime? occurredAt,
     this.diagnosticsFilePath,
+    this.schemaProvenanceSnapshotJson,
   }) : occurredAt = occurredAt ?? DateTime.now();
 
   String get diagnosticsText {
@@ -138,18 +150,25 @@ class StartupFailure {
       'error: $error',
       if (diagnosticsFilePath != null)
         'diagnosticsFilePath: $diagnosticsFilePath',
+      if (schemaProvenanceSnapshotJson != null)
+        'schemaProvenanceSnapshot: $schemaProvenanceSnapshotJson',
       'stackTrace:',
       stackTrace.toString(),
     ].join('\n');
   }
 
-  StartupFailure copyWith({String? diagnosticsFilePath}) {
+  StartupFailure copyWith({
+    String? diagnosticsFilePath,
+    String? schemaProvenanceSnapshotJson,
+  }) {
     return StartupFailure(
       stage: stage,
       error: error,
       stackTrace: stackTrace,
       occurredAt: occurredAt,
       diagnosticsFilePath: diagnosticsFilePath ?? this.diagnosticsFilePath,
+      schemaProvenanceSnapshotJson:
+          schemaProvenanceSnapshotJson ?? this.schemaProvenanceSnapshotJson,
     );
   }
 
@@ -157,6 +176,25 @@ class StartupFailure {
       stage.startsWith('local_database') ||
       stage.startsWith('isar_') ||
       stage.contains('database');
+
+  IsarSchemaMigrationException? get schemaProvenanceFailure =>
+      error is IsarSchemaMigrationException
+          ? error as IsarSchemaMigrationException
+          : null;
+
+  String? get schemaProvenanceReasonCode {
+    final currentError = error;
+    if (currentError is IsarSchemaMigrationException) {
+      return currentError.reasonCode;
+    }
+    if (currentError is IsarSchemaMarkerFormatException) {
+      return currentError.reasonCode;
+    }
+    return null;
+  }
+
+  bool get isSchemaProvenanceFailure =>
+      schemaProvenanceReasonCode != null;
 
   String _jsonEscape(String value) {
     return value
@@ -167,18 +205,41 @@ class StartupFailure {
   }
 
   String toRecoveryManifestJsonText() {
+    final provenanceFailure = schemaProvenanceFailure;
+    final provenanceReasonCode = schemaProvenanceReasonCode;
     final escapedError = _jsonEscape(error.toString());
     final escapedPath =
         diagnosticsFilePath == null
             ? 'null'
             : '"${_jsonEscape(diagnosticsFilePath!)}"';
+    final provenanceSnapshot = schemaProvenanceSnapshotJson ?? 'null';
     final mode =
         isLocalDatabaseStage
             ? 'startup_isar_open_failed'
             : 'startup_core_initialization_failed';
     final isarOpenStatus = isLocalDatabaseStage ? 'failed' : 'not_attempted';
+    final schemaProvenanceStatus =
+        provenanceReasonCode == null
+            ? 'not_evaluated'
+            : 'rejected_before_open';
+    final schemaProvenanceReason =
+        provenanceReasonCode == null
+            ? 'null'
+            : '"${_jsonEscape(provenanceReasonCode)}"';
+    final markerDisposition =
+        provenanceFailure?.markerDisposition == null
+            ? 'null'
+            : '"${_jsonEscape(provenanceFailure!.markerDisposition!)}"';
+    final storedSchemaVersion =
+        provenanceFailure?.storedVersion?.toString() ?? 'null';
+    final targetSchemaVersion =
+        provenanceFailure?.targetVersion.toString() ?? 'null';
+    final hadExistingLocalStore =
+        provenanceFailure?.hasExistingLocalStore?.toString() ?? 'null';
     final policy =
-        isLocalDatabaseStage
+        provenanceFailure != null
+            ? 'provenance rejected before Isar open; preserve raw files and marker evidence before governed recovery'
+            : isLocalDatabaseStage
             ? 'backup raw DB files before rebuild; Firestore restores synced records only'
             : 'capture diagnostics and review Firebase/startup configuration; local DB recovery not attempted';
     return '''{
@@ -190,6 +251,13 @@ class StartupFailure {
   "error": "$escapedError",
   "diagnosticsFilePath": $escapedPath,
   "isarOpenStatus": "$isarOpenStatus",
+  "schemaProvenanceStatus": "$schemaProvenanceStatus",
+  "schemaProvenanceReason": $schemaProvenanceReason,
+  "markerDisposition": $markerDisposition,
+  "storedSchemaVersion": $storedSchemaVersion,
+  "targetSchemaVersion": $targetSchemaVersion,
+  "hadExistingLocalStore": $hadExistingLocalStore,
+  "schemaProvenanceSnapshot": $provenanceSnapshot,
   "rowLevelInventoryAvailable": false,
   "policy": "$policy"
 }''';
@@ -206,6 +274,18 @@ Future<StartupFailure> _captureStartupFailure({
     error: error,
     stackTrace: stackTrace,
   );
+  if (!kIsWeb && failure.isLocalDatabaseStage) {
+    try {
+      final snapshot = await readIsarSchemaProvenanceSnapshotJson();
+      failure = failure.copyWith(schemaProvenanceSnapshotJson: snapshot);
+    } catch (snapshotError, snapshotStack) {
+      debugPrint(
+        'Could not capture Isar schema provenance marker evidence: '
+        '$snapshotError',
+      );
+      debugPrint('$snapshotStack');
+    }
+  }
   if (!kIsWeb) {
     try {
       final diagnostic = await writeIsarStartupFailureDiagnostics(
@@ -240,6 +320,9 @@ Future<StartupFailure> _captureStartupFailure({
       'isar_open_status':
           failure.isLocalDatabaseStage ? 'failed' : 'not_attempted',
       'diagnostics_written': failure.diagnosticsFilePath != null,
+      'schema_provenance_failure': failure.isSchemaProvenanceFailure,
+      if (failure.schemaProvenanceReasonCode case final reason?)
+        'schema_provenance_reason': reason,
     },
   );
 
@@ -1116,13 +1199,19 @@ class _LocalDatabaseStartupErrorScreen extends StatelessWidget {
     final compactError =
         errorText.length <= 360 ? errorText : '${errorText.substring(0, 360)}…';
     final isLocalDatabaseFailure = failure.isLocalDatabaseStage;
+    final isSchemaProvenanceFailure = failure.isSchemaProvenanceFailure;
 
     final title =
-        isLocalDatabaseFailure
+        isSchemaProvenanceFailure
+            ? 'Local database provenance could not be verified'
+            : isLocalDatabaseFailure
             ? 'Local database could not be opened'
             : 'App startup could not complete';
     final messagePrefix =
-        isLocalDatabaseFailure
+        isSchemaProvenanceFailure
+            ? 'The app rejected the offline database before opening it because its schema provenance was absent, incomplete, malformed, or unsupported. The existing store was not automatically stamped.\n\n'
+                'Do not uninstall the app or clear app data. Create a recovery package so authorized Admin/SI review can preserve the raw database and marker evidence before any governed rebuild or migration.\n\n'
+            : isLocalDatabaseFailure
             ? 'The app could not open the offline Isar database. This can happen after a schema-stage app update or if the local store is damaged.\n\n'
                 'Do not uninstall the app or clear app data before authorized Admin/SI recovery review, because unsynced plant-floor evidence may still exist only in local Isar files.\n\n'
                 'First create a recovery package. Rebuild should happen only after backup; Firestore can restore synced cloud records, not local-only unsynced evidence.\n\n'

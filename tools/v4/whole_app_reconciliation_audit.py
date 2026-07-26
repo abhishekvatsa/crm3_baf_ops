@@ -138,10 +138,26 @@ def main()->int:
         'v4 lane/module/role policy remains generated')
 
     migration=read('lib/core/services/isar_schema_migration.dart')
+    isar_guard=read('lib/core/services/isar_schema_guard_io.dart')
+    startup=read('lib/main.dart')
     add(c,'Isar migration version explicitly advances to v3',
         'currentSchemaVersion = 3' in migration and '3: _reconcileV4WorkflowPersistence' in migration
         and 'MaintenanceRecord+WorkflowBridge' in migration,
         'same-version schema drift is not hidden')
+    add(c,'Isar provenance refuses unmarked stores and commits after open',
+        all(token in migration for token in [
+            'baf_isar_schema_provenance_v1','databaseGenerationId',
+            'existing-store-unmarked','legacy-marker-incomplete',
+            '_validateMarkerSource('
+        ])
+        and '.isar.lock' not in isar_guard
+        and startup.index('ensureIsarSchemaBeforeOpen(')
+            < startup.index('Isar.open(')
+            < startup.index('repairPlannedJobLocalLinks(')
+            < startup.index('commitAfterSuccessfulOpen()')
+        and 'readIsarSchemaProvenanceSnapshotJson()' in startup
+        and '"schemaProvenanceSnapshot": $provenanceSnapshot' in startup,
+        'one-key PREPARED/COMMITTED provenance blocks silent adoption and preserves generation plus recovery evidence')
 
     schema=subprocess.run([sys.executable,str(ROOT/'tools/isar/verify_v4_isar_schema.py')],
                           cwd=ROOT,text=True,capture_output=True)
