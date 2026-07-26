@@ -1601,22 +1601,74 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 52,
+          "headCommit": "880a46f4c2530e5d2d830b5c083ec2688551cb4e",
+          "sourceTree": "1d10661ed09e14f82352a3c1bf2e0b90ee5d3633",
+          "mergeCommit": "31c890bb96518365ba0365a0e9b8e2cd79abb9de",
+          "postMergeWorkflowRun": 30214251697,
+          "decision": "PASS_GATE_1A_S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION",
+          "authority": "EXACT_HEAD_MERGE_AND_POSTMERGE_GREEN_CI"
+        }
+      ],
+      "requiredExitEvidence": [
+        "Admin charge-abnormality updates and soft deletes use a server-governed callable",
+        "current approved-Admin authority is revalidated inside every business transaction attempt",
+        "complete current-document shape and expected version fail closed before mutation",
+        "immutable origin and external-link fields cannot be changed by the client command",
+        "active abnormality-type evidence is read and canonicalized by the server for updates",
+        "business state, immutable audit and actor-bound replay receipt commit atomically",
+        "Firestore Rules deny direct updates, receipt access and deterministic audit pre-creation",
+        "interactive Admin and queued single-version sync mutations use the governed callable",
+        "unit and emulator tests prove concurrency, replay, revocation, malformed-state rollback and soft deletion",
+        "exact-head pull request merges with a green exact-merge post-merge release gate"
+      ],
+      "reArmTriggers": [
+        "any client regains direct update permission on charge_abnormalities",
+        "an interactive or queued Admin update bypasses mutateChargeAbnormality",
+        "transactional actor revalidation is removed or weakened below approved Admin",
+        "expected-version or complete current-document validation is removed",
+        "immutable origin or external-link fields become client-mutable",
+        "audit or replay receipt evidence ceases to commit atomically with business state",
+        "request receipts cease to be bound to actor and normalized payload",
+        "clients can read or mutate charge_abnormality_mutation_receipts or reserve server_charge_abnormality audit identities",
+        "governed tests stop proving same-version concurrency and malformed-state rollback"
+      ],
+      "notes": [
+        "S-07 source-and-CI closure is proved by PR #52, merge commit 31c890bb96518365ba0365a0e9b8e2cd79abb9de and post-merge run 30214251697.",
+        "First-time abnormality creation remains a separate approved-user client path and is not claimed to be atomically audit-coupled.",
+        "Existing charge_abnormalities require governed reconciliation before this source path is enabled for pilot or cutover.",
+        "No Functions or Rules deployment, production write, pilot handout or cutover is authorized by this closure."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-26",
+          "basis": "S-07 governed callable, version and shape invariants, atomic audit and replay evidence, direct-update Rules denial, app routing and focused regression coverage validated at commit 880a46f4c2530e5d2d830b5c083ec2688551cb4e."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PR #52 exact green head 880a46f4c2530e5d2d830b5c083ec2688551cb4e merged to main as 31c890bb96518365ba0365a0e9b8e2cd79abb9de with byte-identical tree 1d10661ed09e14f82352a3c1bf2e0b90ee5d3633."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PASS_GATE_1A_S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION closes the tracked source-and-CI finding after exact main post-merge run 30214251697 passed; deployment and production-data gates remain independent."
         }
       ]
     },

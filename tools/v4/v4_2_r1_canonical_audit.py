@@ -159,36 +159,18 @@ check(
     and main["tree"] == "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
 )
 check(
-    "Successor reconciliation refresh is exact through the S-07 source baseline",
-    successor_refresh.get("throughMainCommit") == "48676e6daa6cd4342fa9013f68a18e5007125244"
-    and successor_refresh.get("throughMainTree") == "776db23af9217881f4743f30521594039be06c2f"
+    "Successor reconciliation refresh is exact through the S-07 closure baseline",
+    successor_refresh.get("throughMainCommit") == "31c890bb96518365ba0365a0e9b8e2cd79abb9de"
+    and successor_refresh.get("throughMainTree") == "1d10661ed09e14f82352a3c1bf2e0b90ee5d3633"
     and successor_refresh.get("adjudicatedPullRequests")
-        == [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
+        == [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52]
     and successor_refresh.get("preExistingDriftPathCount") == 14
     and successor_refresh.get("crossPlatformRepresentationPathCount") == 19
     and successor_refresh.get("refreshTranche")
-        == "S07_GOVERNED_CHARGE_ABNORMALITY_SOURCE_IMPLEMENTATION"
+        == "S07_GOVERNED_CHARGE_ABNORMALITY_CLOSURE"
     and successor_refresh.get("refreshTrancheTrackedPaths") == [
-        "docs/v4_2_r1/S03_CALLABLE_ABUSE_CONTROL.md",
         "docs/v4_2_r1/S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION.md",
-        "firestore.rules",
-        "functions/package.json",
-        "functions/src/callableAbuseControl.ts",
-        "functions/src/chargeAbnormalityMutation.ts",
-        "functions/src/index.ts",
-        "functions/test/callableAbuseControl.test.js",
-        "functions/test/callableAbuseControlSource.test.js",
-        "functions/test/chargeAbnormalityMutation.firestoreEmulator.test.js",
-        "functions/test/chargeAbnormalityMutation.test.js",
-        "lib/core/services/sync_service.dart",
-        "lib/core/services/sync_service.directives_abnormalities.dart",
-        "lib/core/services/sync_service.push_infrastructure.dart",
-        "lib/features/abnormalities/presentation/charge_abnormalities_screen.dart",
-        "lib/features/abnormalities/providers/abnormality_provider.dart",
-        "lib/features/abnormalities/services/charge_abnormality_command_service.dart",
-        "package.json",
-        "test/charge_abnormality_atomic_mutation_contract_test.dart",
-        "test/firestore.rules.test.js",
+        "governance/programme-ledger.json",
         "tools/v4/v4_2_r1_canonical_audit.py",
     ],
 )
@@ -1121,6 +1103,18 @@ rules_source = text("firestore.rules")
 s07_decision = text(
     "docs/v4_2_r1/S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION.md"
 )
+s07_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "S-07"
+]
+s07_record = s07_records[0] if len(s07_records) == 1 else {}
+s07_evidence = s07_record.get("evidence", [])
+s07_history = [
+    entry.get("status")
+    for entry in s07_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
 s07_source = text("functions/src/chargeAbnormalityMutation.ts")
 s07_unit_test = text(
     "functions/test/chargeAbnormalityMutation.test.js"
@@ -1180,6 +1174,34 @@ check(
     and "source contract routes admin mutations only through governed callable"
         in s07_dart_test
     and "client-side creation audit is atomically coupled" in s07_decision
+    and "does not authorize Functions or" in s07_decision
+    and "Rules deployment" in s07_decision,
+)
+check(
+    "S-07 ledger closure is exact, evidence-bound and re-armable",
+    len(s07_records) == 1
+    and s07_record.get("currentStatus") == "CLOSED"
+    and len(s07_evidence) == 1
+    and s07_evidence[0].get("pullRequest") == 52
+    and s07_evidence[0].get("headCommit")
+        == "880a46f4c2530e5d2d830b5c083ec2688551cb4e"
+    and s07_evidence[0].get("sourceTree")
+        == "1d10661ed09e14f82352a3c1bf2e0b90ee5d3633"
+    and s07_evidence[0].get("mergeCommit")
+        == "31c890bb96518365ba0365a0e9b8e2cd79abb9de"
+    and s07_evidence[0].get("postMergeWorkflowRun") == 30214251697
+    and s07_evidence[0].get("decision")
+        == "PASS_GATE_1A_S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION"
+    and s07_history[-3:] == ["SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(s07_record.get("requiredExitEvidence", [])) >= 10
+    and len(s07_record.get("reArmTriggers", [])) >= 9
+    and "Status: CLOSED" in s07_decision
+    and "Pull request: #52" in s07_decision
+    and "31c890bb96518365ba0365a0e9b8e2cd79abb9de" in s07_decision
+    and "Post-merge workflow run: `30214251697`" in s07_decision
+    and "Decision: `PASS_GATE_1A_S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION`"
+        in s07_decision
+    and "This closes the S-07 source-and-CI finding" in s07_decision
     and "does not authorize Functions or" in s07_decision
     and "Rules deployment" in s07_decision,
 )
