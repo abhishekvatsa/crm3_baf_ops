@@ -53,6 +53,13 @@ The remaining seven were already classified `SUCCESSOR_MODIFIED`; only their
 candidate hashes and byte counts required refresh. Aggregate counts therefore
 move from `337 / 73` to `330 BYTE_IDENTICAL / 80 SUCCESSOR_MODIFIED`.
 
+Nineteen unchanged text paths in the original reconciliation had Windows CRLF
+candidate hashes while Git stores their blobs with LF. Their historical CRLF
+hashes remain intact. Exact LF Git-blob hashes and byte counts are now recorded
+alongside them, and the audit accepts only those two named representations
+after proving that both normalize to the same LF content. Their
+`BYTE_IDENTICAL` dispositions do not change.
+
 ## Integration boundary
 
 This record accompanies the R1.16 source integration. It permits a feature branch, one reviewed commit, push and draft pull request only after the full authoritative laboratory passes. It does not permit merge, tag, Firebase deployment, App Check enforcement, production artifact signing, distribution, or production-data mutation.

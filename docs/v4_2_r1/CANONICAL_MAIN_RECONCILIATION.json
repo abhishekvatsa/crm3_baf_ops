@@ -25,6 +25,7 @@
       43
     ],
     "preExistingDriftPathCount": 14,
+    "crossPlatformRepresentationPathCount": 19,
     "refreshTranche": "CANONICAL_AUDIT_AUTHORITY_REFRESH",
     "refreshTrancheTrackedPaths": [
       ".github/workflows/release-gate.yml",
@@ -107,8 +108,12 @@
       "path": "android/app/src/debug/AndroidManifest.xml",
       "canonicalSha256": "B01A4541A8144C15BC617BAB7EB267C99FA1476368FBBDA5A12CDBF4E316A34C",
       "candidateSha256": "B01A4541A8144C15BC617BAB7EB267C99FA1476368FBBDA5A12CDBF4E316A34C",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "30B0832ED8B92DFBD6AE2ABFA939CCF26333D37600056B1572BD4A397A18A74B",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 385,
       "candidateBytes": 385,
+      "candidateGitBytes": 378,
       "disposition": "BYTE_IDENTICAL"
     },
     {
@@ -131,16 +136,24 @@
       "path": "android/app/src/main/res/drawable-v21/launch_background.xml",
       "canonicalSha256": "DCA312EC77DE83E43EF70A825C299B51451247286C29167D62F19165750B8793",
       "candidateSha256": "DCA312EC77DE83E43EF70A825C299B51451247286C29167D62F19165750B8793",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "7CA6D5CEC2169C5A98661A119DB23A6F3399C8FEF2256FF04F3A642831282478",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 450,
       "candidateBytes": 450,
+      "candidateGitBytes": 438,
       "disposition": "BYTE_IDENTICAL"
     },
     {
       "path": "android/app/src/main/res/drawable/launch_background.xml",
       "canonicalSha256": "2DF60E2CFBEE873CE2858088CF003E6B93498F2F568476DA437610467EA1A9D7",
       "candidateSha256": "2DF60E2CFBEE873CE2858088CF003E6B93498F2F568476DA437610467EA1A9D7",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "94433756FE10005DDD6FC55CC5C0B1E9F3C10B66A08CEAC795ECE6713D34E28A",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 446,
       "candidateBytes": 446,
+      "candidateGitBytes": 434,
       "disposition": "BYTE_IDENTICAL"
     },
     {
@@ -187,24 +200,36 @@
       "path": "android/app/src/main/res/values-night/styles.xml",
       "canonicalSha256": "EA763597DC1A84C8034251CAEE98D7753E0FBF57340FFC94677427DE4B537516",
       "candidateSha256": "EA763597DC1A84C8034251CAEE98D7753E0FBF57340FFC94677427DE4B537516",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "8C5BAD5152F217E837519F9C15211D19F39BD45F5F67FAF6DD81CB4B299E518F",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 1013,
       "candidateBytes": 1013,
+      "candidateGitBytes": 995,
       "disposition": "BYTE_IDENTICAL"
     },
     {
       "path": "android/app/src/main/res/values/styles.xml",
       "canonicalSha256": "CCA15A99B59380A548BF6A890F7CA5380EE509B1F9BBB2F5F9EC3589FA25C2F7",
       "candidateSha256": "CCA15A99B59380A548BF6A890F7CA5380EE509B1F9BBB2F5F9EC3589FA25C2F7",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "937D7C82F539C72EB94FD3A3773F29B3D3FEF1997213C92CB632298CEDF4BDA9",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 1014,
       "candidateBytes": 1014,
+      "candidateGitBytes": 996,
       "disposition": "BYTE_IDENTICAL"
     },
     {
       "path": "android/app/src/profile/AndroidManifest.xml",
       "canonicalSha256": "B01A4541A8144C15BC617BAB7EB267C99FA1476368FBBDA5A12CDBF4E316A34C",
       "candidateSha256": "B01A4541A8144C15BC617BAB7EB267C99FA1476368FBBDA5A12CDBF4E316A34C",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "30B0832ED8B92DFBD6AE2ABFA939CCF26333D37600056B1572BD4A397A18A74B",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 385,
       "candidateBytes": 385,
+      "candidateGitBytes": 378,
       "disposition": "BYTE_IDENTICAL"
     },
     {
@@ -627,24 +652,36 @@
       "path": "ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json",
       "canonicalSha256": "5F8B941B774BDE4496D73347C1F79CBDD786BB76FBDAB9ED1F3F0CB78A0FB0D3",
       "candidateSha256": "5F8B941B774BDE4496D73347C1F79CBDD786BB76FBDAB9ED1F3F0CB78A0FB0D3",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "3B1E214F466FFEDFF74BAA5598AD5C4421130EEA6BC8D57B8FE23435E8280AE4",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 2641,
       "candidateBytes": 2641,
+      "candidateGitBytes": 2519,
       "disposition": "BYTE_IDENTICAL"
     },
     {
       "path": "ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json",
       "canonicalSha256": "FBD112A9F3B541A1D811F71AC8E4FE68B6176687D973A5F4D99B7AA4A722E94E",
       "candidateSha256": "FBD112A9F3B541A1D811F71AC8E4FE68B6176687D973A5F4D99B7AA4A722E94E",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "CCC7950FD5F5B82067C85F667940A9D59189151460761ECE8098CA78DAA19469",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 414,
       "candidateBytes": 414,
+      "candidateGitBytes": 391,
       "disposition": "BYTE_IDENTICAL"
     },
     {
       "path": "ios/Runner/Assets.xcassets/LaunchImage.imageset/README.md",
       "canonicalSha256": "853AC958E2416FE2540F6F61165283A3618B71A7BA5F85F65AC41C2158DFCD21",
       "candidateSha256": "853AC958E2416FE2540F6F61165283A3618B71A7BA5F85F65AC41C2158DFCD21",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "A985B626C4F7546A8BA392D135E9226C3547C8E2B46895F5F2BDF40D7B14EF9F",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 340,
       "candidateBytes": 340,
+      "candidateGitBytes": 336,
       "disposition": "BYTE_IDENTICAL"
     },
     {
@@ -2235,8 +2272,12 @@
       "path": "lib/features/planned_maintenance/widgets/action_bottom_sheet.dart",
       "canonicalSha256": "8D5AEA46F52C4CB900CB71E0DD35EA0946CBB2CE970D979E2888C7C3DE571E30",
       "candidateSha256": "8D5AEA46F52C4CB900CB71E0DD35EA0946CBB2CE970D979E2888C7C3DE571E30",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "A891F227FA447A06A1CE00646E3D02077705FD7C61F638B751218D3757DBD145",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 14808,
       "candidateBytes": 14808,
+      "candidateGitBytes": 14360,
       "disposition": "BYTE_IDENTICAL"
     },
     {
@@ -2291,32 +2332,48 @@
       "path": "linux/CMakeLists.txt",
       "canonicalSha256": "FC3815E1B6BEC516EF69E20C7810EA103A3A46436DB08EBD3B1F27B03FA4BD81",
       "candidateSha256": "FC3815E1B6BEC516EF69E20C7810EA103A3A46436DB08EBD3B1F27B03FA4BD81",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "3ECD3F1CCF8141C09E4BD8603748D78FE31D6D898970A302025FFBE97E1C8516",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 4891,
       "candidateBytes": 4891,
+      "candidateGitBytes": 4763,
       "disposition": "BYTE_IDENTICAL"
     },
     {
       "path": "linux/flutter/CMakeLists.txt",
       "canonicalSha256": "4EB17836308C1CD53F6B2BB8EDB3B7B30610BFF3B1D9DF7FECC9317F9109700C",
       "candidateSha256": "4EB17836308C1CD53F6B2BB8EDB3B7B30610BFF3B1D9DF7FECC9317F9109700C",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "787189E2623313CFEE590A0B553338EB9FC68B3AF922DDD77C5D39C75F989AEB",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 2903,
       "candidateBytes": 2903,
+      "candidateGitBytes": 2815,
       "disposition": "BYTE_IDENTICAL"
     },
     {
       "path": "linux/runner/CMakeLists.txt",
       "canonicalSha256": "81ECF2604C50F480C23D460B2DDF653ECD39DF29CC5B2FE4913F1A59F008A5A7",
       "candidateSha256": "81ECF2604C50F480C23D460B2DDF653ECD39DF29CC5B2FE4913F1A59F008A5A7",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "8CDCFD911E770FD7D511C97C7BCE6559486A815352A47C953F7EF632E236D2CC",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 1000,
       "candidateBytes": 1000,
+      "candidateGitBytes": 974,
       "disposition": "BYTE_IDENTICAL"
     },
     {
       "path": "macos/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json",
       "canonicalSha256": "992BA63D183DFB8F8E3AF38AC203D834D23C004DA1417C438B4C5A3D7D1D7103",
       "candidateSha256": "992BA63D183DFB8F8E3AF38AC203D834D23C004DA1417C438B4C5A3D7D1D7103",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "BC6BA8105CA69651AEEB77358851590DE295DCA04681A1D58C0F449641C242F3",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 1359,
       "candidateBytes": 1359,
+      "candidateGitBytes": 1291,
       "disposition": "BYTE_IDENTICAL"
     },
     {
@@ -2867,8 +2924,12 @@
       "path": "test/module_workshop_screen_test.dart",
       "canonicalSha256": "4D895E964CB513E66310FF878ADF5F8597AF1D5FADE94A0BB8911F443A4B3A71",
       "candidateSha256": "4D895E964CB513E66310FF878ADF5F8597AF1D5FADE94A0BB8911F443A4B3A71",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "DBD8E572E4496C356E2A6C61610DCEEE20D4C3AED9AC5F185060CBA8D217A56D",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 13852,
       "candidateBytes": 13852,
+      "candidateGitBytes": 13458,
       "disposition": "BYTE_IDENTICAL"
     },
     {
@@ -3291,32 +3352,48 @@
       "path": "web/manifest.json",
       "canonicalSha256": "F27D990CC1A246FE02847643A4EFF7ACDB7D8446544CECFD57152AAE7A5DF489",
       "candidateSha256": "F27D990CC1A246FE02847643A4EFF7ACDB7D8446544CECFD57152AAE7A5DF489",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "3C3FCC947BB16D11CFE79BA61C71B65B0BA200A3DDBF05B11E738D5BA6778019",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 948,
       "candidateBytes": 948,
+      "candidateGitBytes": 913,
       "disposition": "BYTE_IDENTICAL"
     },
     {
       "path": "windows/CMakeLists.txt",
       "canonicalSha256": "686EB6D9D042EC0CC57BB66561B6347BE8FACE5AFFC7BE2BB6B5CBCC610C5463",
       "candidateSha256": "686EB6D9D042EC0CC57BB66561B6347BE8FACE5AFFC7BE2BB6B5CBCC610C5463",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "0B2E9590A7B6E4166131F3617BBC04387DF9DFA661BE088E23F8DF33F0E882FA",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 4268,
       "candidateBytes": 4268,
+      "candidateGitBytes": 4160,
       "disposition": "BYTE_IDENTICAL"
     },
     {
       "path": "windows/flutter/CMakeLists.txt",
       "canonicalSha256": "BD05E3268B2F246BCBAFDB778165FE67A7BAFDBA04EB73599502563A67B8AE7E",
       "candidateSha256": "BD05E3268B2F246BCBAFDB778165FE67A7BAFDBA04EB73599502563A67B8AE7E",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "1FE418971B6F41BB35CEB3D64113A835F3F6F171ECAA707BF232492B57A588D6",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 3851,
       "candidateBytes": 3851,
+      "candidateGitBytes": 3742,
       "disposition": "BYTE_IDENTICAL"
     },
     {
       "path": "windows/runner/CMakeLists.txt",
       "canonicalSha256": "D765FDD05F63AD099E585A2CCED0CBFF13EC3229B7DE68C8681B2107DB850089",
       "candidateSha256": "D765FDD05F63AD099E585A2CCED0CBFF13EC3229B7DE68C8681B2107DB850089",
+      "candidateSha256Representation": "UTF8_CRLF_WINDOWS_WORKTREE",
+      "candidateGitSha256": "34119EC122E36940235EF4BC245FCFB43B6960ED443E28AF1A8D833A81209B9E",
+      "candidateGitSha256Representation": "UTF8_LF_GIT_BLOB",
       "canonicalBytes": 1836,
       "candidateBytes": 1836,
+      "candidateGitBytes": 1796,
       "disposition": "BYTE_IDENTICAL"
     }
   ]

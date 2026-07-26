@@ -164,6 +164,7 @@ check(
     and successor_refresh.get("throughMainTree") == "10629517e88a0224974a6c21ea0b656a5b431173"
     and successor_refresh.get("adjudicatedPullRequests") == [40, 41, 42, 43]
     and successor_refresh.get("preExistingDriftPathCount") == 14
+    and successor_refresh.get("crossPlatformRepresentationPathCount") == 19
     and successor_refresh.get("refreshTranche") == "CANONICAL_AUDIT_AUTHORITY_REFRESH"
     and successor_refresh.get("refreshTrancheTrackedPaths") == [
         ".github/workflows/release-gate.yml",
@@ -201,16 +202,44 @@ check(
 missing: list[str] = []
 hash_drift: list[str] = []
 generated_phase_paths: list[str] = []
+dual_representation_paths: list[str] = []
+invalid_representation_rows: list[str] = []
 for row in rows:
     rel = row["path"]
     path = ROOT / rel
-    expected_sha = row["candidateSha256"]
-    if PHASE == "post-codegen" and rel in post_codegen_bindings:
-        expected_sha = post_codegen_bindings[rel]["sha256"]
-        generated_phase_paths.append(rel)
     if not path.is_file():
         missing.append(rel)
-    elif sha(path) != expected_sha:
+        continue
+    actual_sha = sha(path)
+    actual_bytes = path.stat().st_size
+    if PHASE == "post-codegen" and rel in post_codegen_bindings:
+        generated_phase_paths.append(rel)
+        if actual_sha != post_codegen_bindings[rel]["sha256"]:
+            hash_drift.append(rel)
+        continue
+
+    allowed_representations = {
+        (row["candidateSha256"], row["candidateBytes"]),
+    }
+    git_sha = row.get("candidateGitSha256")
+    if git_sha is not None:
+        dual_representation_paths.append(rel)
+        git_bytes = row.get("candidateGitBytes")
+        representation_valid = (
+            row.get("candidateSha256Representation")
+            == "UTF8_CRLF_WINDOWS_WORKTREE"
+            and row.get("candidateGitSha256Representation")
+            == "UTF8_LF_GIT_BLOB"
+            and isinstance(git_bytes, int)
+            and git_bytes > 0
+            and re.fullmatch(r"[0-9A-F]{64}", str(git_sha)) is not None
+            and git_sha != row["candidateSha256"]
+            and text_sha_with_eol(path, "\n") == git_sha
+        )
+        if not representation_valid:
+            invalid_representation_rows.append(rel)
+        allowed_representations.add((git_sha, git_bytes))
+    if (actual_sha, actual_bytes) not in allowed_representations:
         hash_drift.append(rel)
 
 post_codegen_missing: list[str] = []
@@ -229,7 +258,13 @@ for row in rows:
 check(
     "All 410 captured canonical-main paths are present and phase-pinned",
     len(rows) == 410 and not missing and not hash_drift,
-    f"phase={PHASE} generated={len(generated_phase_paths)} missing={len(missing)} drift={len(hash_drift)}",
+    f"phase={PHASE} generated={len(generated_phase_paths)} missing={len(missing)} drift={len(hash_drift)} paths={','.join(hash_drift[:20])}",
+)
+check(
+    "Windows worktree and Git-blob text representations are exact and semantically identical",
+    len(dual_representation_paths) == 19
+    and not invalid_representation_rows,
+    f"dual={len(dual_representation_paths)} invalid={','.join(invalid_representation_rows)}",
 )
 check(
     "Authentic generated bindings are exact in post-codegen phase",

@@ -87,6 +87,11 @@
       43
     ],
     "refreshedTrackedPathCount": 14,
+    "crossPlatformRepresentationPathCount": 19,
+    "crossPlatformRepresentations": [
+      "UTF8_CRLF_WINDOWS_WORKTREE",
+      "UTF8_LF_GIT_BLOB"
+    ],
     "priorCounts": {
       "BYTE_IDENTICAL": 337,
       "SUCCESSOR_MODIFIED": 73
