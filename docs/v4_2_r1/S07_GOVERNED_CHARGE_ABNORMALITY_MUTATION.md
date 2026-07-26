@@ -1,8 +1,18 @@
 # S-07 Governed Charge-Abnormality Mutation
 
-Status: SOURCE IMPLEMENTED; exact-head merge evidence pending
+Status: CLOSED
 
-Decision candidate: `PASS_GATE_1A_S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION`
+Source commit: `880a46f4c2530e5d2d830b5c083ec2688551cb4e`
+
+Source and merge tree: `1d10661ed09e14f82352a3c1bf2e0b90ee5d3633`
+
+Pull request: #52
+
+Merge commit: `31c890bb96518365ba0365a0e9b8e2cd79abb9de`
+
+Post-merge workflow run: `30214251697`
+
+Decision: `PASS_GATE_1A_S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION`
 
 ## Finding
 
@@ -111,10 +121,15 @@ The emulator proves concurrent same-version updates permit exactly one commit
 and one evidence set. It also proves exact replay, atomic soft deletion, and
 full rollback for malformed current state.
 
+PR #52 passed both exact-head workflow invocations. The exact merge commit then
+passed the main-branch release gate in run `30214251697`, including Functions,
+Firestore Rules and governed transaction emulators, Flutter analysis and tests,
+the canonical audit, the no-loss regression spine, and the Rules
+expression-limit check.
+
 ## Deployment Boundary
 
-This source implementation authorizes source review, local validation, CI, and
-an exact-head pull-request decision only. It does not authorize Functions or
+This closes the S-07 source-and-CI finding. It does not authorize Functions or
 Rules deployment, production writes, pilot operation, or cutover.
 
 Before this boundary is enabled outside source review:
