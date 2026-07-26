@@ -17,6 +17,10 @@ export const mayDeployEquipment = (actor: Actor): boolean => hasAny(actor, COMMA
 export const mayReconcileEquipment = (actor: Actor): boolean => hasAny(actor, COMMAND_AUTHORITY_ROLES.reconcileEquipment);
 export const mayPrepareRedLane = (actor: Actor): boolean =>
   hasAny(actor, COMMAND_AUTHORITY_ROLES.prepareRedLane);
+export const mayReopenWorkflowModule = (actor: Actor): boolean =>
+  hasAny(actor, COMMAND_AUTHORITY_ROLES.reopenWorkflowModule);
+export const mayManageUnscopedCompliance = (actor: Actor): boolean =>
+  hasAny(actor, ["admin", "si"]);
 
 export const assertLaneAuthority = (
   actor: Actor,

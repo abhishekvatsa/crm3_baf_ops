@@ -22,6 +22,11 @@ const actor = {
   name: 'Admin',
   roles: new Set(['admin']),
 };
+const otherActor = {
+  uid: 'admin2',
+  name: 'Other Admin',
+  roles: new Set(['admin']),
+};
 
 function createCommand(id) {
   return {
@@ -64,7 +69,21 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
     );
   });
 
-  beforeEach(clearFirestore);
+  beforeEach(async () => {
+    await clearFirestore();
+    await Promise.all([
+      db.collection('users').doc(actor.uid).set({
+        isApproved: true,
+        roles: ['admin'],
+        name: actor.name,
+      }),
+      db.collection('users').doc(otherActor.uid).set({
+        isApproved: true,
+        roles: ['admin'],
+        name: otherActor.name,
+      }),
+    ]);
+  });
 
   afterAll(async () => {
     await db.terminate();
@@ -103,6 +122,96 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
       activeRedWorkCount: 0,
       awaitingPreparationCount: 0,
       version: 2,
+    });
+  });
+
+  test('transaction denies a stale preflight actor revoked before transaction start', async () => {
+    await db.collection('equipment_status').doc('base_101').set({
+      assetTypeKey: 'base',
+      assetNumber: 101,
+      state: 'available',
+      activeNonRedMaintenanceCount: 0,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 0,
+    });
+
+    // `actor` represents the successfully authorized callable preflight.
+    // Revocation commits before the business transaction starts.
+    await db.collection('users').doc(actor.uid).update({
+      isApproved: false,
+    });
+
+    await expect(service.execute(
+      createCommand('workflow-revocation-race'),
+      {
+        actor,
+        serverNow: new Date('2026-07-26T09:00:00.000Z'),
+      },
+    )).rejects.toMatchObject({
+      code: 'permission-denied',
+      details: {reasonCode: 'workflow-actor-authority-invalid'},
+    });
+
+    expect((await db.collection('maintenance_workflows').get()).empty).toBe(true);
+    expect((await db.collection(
+      'maintenance_workflow_command_receipts',
+    ).get()).empty).toBe(true);
+    expect((await db.collection('equipment_status').doc('base_101').get())
+      .data()).toMatchObject({
+      activeNonRedMaintenanceCount: 0,
+      version: 0,
+    });
+  });
+
+  test('role-narrowed owner and cross-actor attempts cannot replay a receipt', async () => {
+    await db.collection('equipment_status').doc('base_101').set({
+      assetTypeKey: 'base',
+      assetNumber: 101,
+      state: 'available',
+      activeNonRedMaintenanceCount: 0,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 0,
+    });
+    const command = createCommand('workflow-replay-guard');
+    const first = await service.execute(command, {
+      actor,
+      serverNow: new Date('2026-07-26T09:10:00.000Z'),
+    });
+
+    await db.collection('users').doc(actor.uid).update({
+      roles: ['operations'],
+    });
+    await expect(service.execute(command, {
+      actor,
+      serverNow: new Date('2026-07-26T09:11:00.000Z'),
+    })).rejects.toMatchObject({code: 'permission-denied'});
+
+    for (const replay of [
+      command,
+      {...command, payload: {...command.payload, remarks: 'changed'}},
+    ]) {
+      await expect(service.execute(replay, {
+        actor: otherActor,
+        serverNow: new Date('2026-07-26T09:12:00.000Z'),
+      })).rejects.toMatchObject({
+        code: 'permission-denied',
+        details: {reasonCode: 'workflow-receipt-owner-mismatch'},
+      });
+    }
+
+    const workflows = await db.collection('maintenance_workflows').get();
+    const receipts = await db.collection(
+      'maintenance_workflow_command_receipts',
+    ).get();
+    expect(workflows.size).toBe(1);
+    expect(receipts.size).toBe(1);
+    expect(receipts.docs[0].data()).toMatchObject({
+      receiptSchemaVersion: 2,
+      actorUid: actor.uid,
+      payloadFingerprint: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
+      resultKey: first.resultKey,
     });
   });
 });

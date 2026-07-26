@@ -1,19 +1,13 @@
 import {assertExpectedVersion, requireLaneReferenceForWorkflow, requireMutableWorkflow, workflowDocumentPath} from "./documents";
+import {mayReopenWorkflowModule} from "./authority";
 import {WorkflowError} from "./errors";
 import {eventPlan} from "./events";
 import {CommandHandler} from "./handlerTypes";
-import {COMMAND_AUTHORITY_ROLES} from "./policy.generated";
 import {executionPath, workflowPath} from "./paths";
-import {RoleKey} from "./types";
 import {cleanText, iso, laneKey} from "./utils";
 
-const mayReopenWorkflowModule = (
-  roles: ReadonlySet<RoleKey>,
-): boolean => COMMAND_AUTHORITY_ROLES.reopenWorkflowModule
-  .some((role) => roles.has(role as RoleKey));
-
 export const reopenWorkflowModule: CommandHandler = async ({tx, command, context}) => {
-  if (!mayReopenWorkflowModule(context.actor.roles)) {
+  if (!mayReopenWorkflowModule(context.actor)) {
     throw new WorkflowError("permission-denied", "Actor cannot reopen workflow modules.");
   }
   const workflow = await requireMutableWorkflow(tx, command.aggregateId);

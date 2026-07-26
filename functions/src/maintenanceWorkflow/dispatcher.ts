@@ -1,6 +1,19 @@
-import {payloadHash, iso} from "./utils";
+import {
+  assertWorkflowAuthorityScope,
+  resolveFreshWorkflowAuthorityScope,
+} from "./commandAuthority";
+import {payloadFingerprint, iso} from "./utils";
 import {WorkflowError} from "./errors";
-import {CommandContext, JsonMap, WorkflowCommand, WorkflowCommandReceipt, WorkflowCommandType} from "./types";
+import {
+  Actor,
+  CommandContext,
+  JsonMap,
+  RoleKey,
+  StoredWorkflowCommandReceipt,
+  WorkflowCommand,
+  WorkflowCommandReceipt,
+  WorkflowCommandType,
+} from "./types";
 import {WorkflowStore} from "./store";
 import {readExistingReceipt, receiptPath} from "./idempotency";
 import {CommandHandler} from "./handlerTypes";
@@ -11,6 +24,7 @@ import {finalizeJob} from "./finalizeJobHandler";
 import {prepareRedLane} from "./redHandlers";
 import {createLegacyWorkflowJob} from "./jobCreationHandler";
 import {reopenWorkflowModule} from "./moduleLifecycleHandlers";
+import {canonicalApprovedUserAuthority} from "../userAuthority";
 
 const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   createLegacyWorkflowJob,
@@ -48,18 +62,73 @@ export class MaintenanceWorkflowCommandService {
     const handler = handlers[command.commandType];
     if (!handler) throw new WorkflowError("unsupported-workflow-command", `Unsupported command ${command.commandType}.`);
     return this.store.runTransaction(async (tx) => {
-      const replay = await readExistingReceipt(tx, command);
+      const actorSnapshot = await tx.get(`users/${context.actor.uid}`);
+      if (!actorSnapshot.exists || actorSnapshot.data == null) {
+        throw new WorkflowError(
+          "permission-denied",
+          "Approved user record was not found.",
+          {reasonCode: "workflow-actor-authority-missing"},
+        );
+      }
+      const authority = canonicalApprovedUserAuthority(actorSnapshot.data);
+      if (authority == null) {
+        throw new WorkflowError(
+          "permission-denied",
+          "User approval or role data is malformed or unsupported.",
+          {reasonCode: "workflow-actor-authority-invalid"},
+        );
+      }
+      const storedName = typeof actorSnapshot.data.name === "string" ?
+        actorSnapshot.data.name.trim() :
+        "";
+      const actor: Actor = {
+        uid: context.actor.uid,
+        name: storedName.length > 0 ? storedName : context.actor.name,
+        roles: new Set<RoleKey>([...authority.roles] as RoleKey[]),
+      };
+      const transactionContext: CommandContext = {
+        actor,
+        serverNow: context.serverNow,
+      };
+
+      const replay = await readExistingReceipt(tx, command, actor);
       if (replay != null) return replay;
-      const handled = await handler({tx, command, context});
+      const authorityScope = await resolveFreshWorkflowAuthorityScope(
+        tx,
+        command,
+      );
+      assertWorkflowAuthorityScope(actor, authorityScope);
+      const handled = await handler({
+        tx,
+        command,
+        context: transactionContext,
+      });
       const receipt: WorkflowCommandReceipt = {
         commandId: command.commandId,
-        payloadHash: payloadHash(command as unknown as JsonMap),
         resultKey: handled.resultKey,
         aggregateVersion: handled.aggregateVersion,
         result: handled.result,
-        appliedAt: iso(context.serverNow),
+        appliedAt: iso(transactionContext.serverNow),
       };
-      tx.create(receiptPath(command.commandId), receipt as unknown as JsonMap);
+      const storedReceipt: StoredWorkflowCommandReceipt = {
+        receiptSchemaVersion: 2,
+        commandId: command.commandId,
+        commandType: command.commandType,
+        aggregateId: command.aggregateId,
+        actorUid: actor.uid,
+        authorityScope,
+        payloadFingerprint: payloadFingerprint(
+          command as unknown as JsonMap,
+        ),
+        resultKey: receipt.resultKey,
+        aggregateVersion: receipt.aggregateVersion,
+        result: receipt.result,
+        appliedAt: receipt.appliedAt,
+      };
+      tx.create(
+        receiptPath(command.commandId),
+        storedReceipt as unknown as JsonMap,
+      );
       return receipt;
     });
   }

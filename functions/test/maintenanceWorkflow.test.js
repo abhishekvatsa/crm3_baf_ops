@@ -8,6 +8,17 @@ const electrical = actor('elec-1', ['seniorElectrical']);
 const refractory = actor('red-1', ['refractory']);
 const at = (value) => new Date(value);
 
+const serviceFor = (store) => {
+  for (const current of [admin, ops, electrical, refractory]) {
+    store.seed(`users/${current.uid}`, {
+      isApproved: true,
+      roles: [...current.roles],
+      name: current.name,
+    });
+  }
+  return new MaintenanceWorkflowCommandService(store);
+};
+
 const seedWorkflow = (store, id = 'wf1', status = 'pendingLaneClassification', version = 0, assetTypeKey = 'furnace', assetNumber = 7) => {
   store.seed(`maintenance_workflows/${id}`, {
     jobExecutionId: `${id}-exec`, status, version, assetTypeKey, assetNumber,
@@ -52,7 +63,7 @@ describe('maintenance workflow command integration', () => {
       awaitingPreparationCount: 0,
       version: 0,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     const receipt = await service.execute({
       commandId: 'legacy-create-1',
       commandType: 'createLegacyWorkflowJob',
@@ -94,7 +105,7 @@ describe('maintenance workflow command integration', () => {
 
   test('legacy assignment rejects an unreconciled missing equipment projection', async () => {
     const store = new MemoryWorkflowStore();
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
 
     await expect(service.execute({
       commandId: 'legacy-create-missing-equipment',
@@ -123,7 +134,7 @@ describe('maintenance workflow command integration', () => {
 
   test('Admin reconciliation initializes a new equipment projection before its first workflow', async () => {
     const store = new MemoryWorkflowStore();
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
 
     await service.execute({
       commandId: 'reconcile-new-equipment',
@@ -175,7 +186,7 @@ describe('maintenance workflow command integration', () => {
 
   test('records Admin action transparently on behalf of EMD', async () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store);
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await service.execute({commandId: 'emd-finalise', commandType: 'finalizeLaneSet', aggregateId: 'wf1', expectedVersion: 0, payload: {laneKeys: ['emd']}}, {actor: admin, serverNow: at('2026-07-20T01:00:00Z')});
     await service.execute({commandId: 'emd-ack', commandType: 'acknowledgeLane', aggregateId: 'wf1', expectedVersion: 1, payload: {laneKey: 'emd'}}, {actor: admin, serverNow: at('2026-07-20T01:01:00Z')});
     expect(store.read('maintenance_workflow_events/emd-ack')).toMatchObject({representedLaneKey: 'emd', actorUid: 'admin-1'});
@@ -185,7 +196,7 @@ describe('maintenance workflow command integration', () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf1', 'awaitingCompliance', 3);
     store.seed('maintenance_records/m1', {version: 1, workflowAggregateId: 'wf1', workflowComplianceId: 'c1', workflowQueueState: 'deferred', workflowDeferred: true});
     store.seed('compliance_requests/c1', {linkedWorkflowId: 'wf1', linkedMaintenanceFirestoreId: 'm1', targetLaneKey: 'elec', status: 'acknowledged', conditionTypeKey: 'chargeComplete', version: 1});
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await service.execute({commandId: 'reactivate', commandType: 'confirmConditionAndReactivate', aggregateId: 'wf1', expectedVersion: 3, payload: {complianceId: 'c1'}}, {actor: ops, serverNow: at('2026-07-20T02:00:00Z')});
     expect(store.read('compliance_requests/c1').status).toBe('complied');
     expect(store.read('maintenance_records/m1')).toMatchObject({workflowQueueState: 'actionable', workflowDeferred: false});
@@ -194,7 +205,7 @@ describe('maintenance workflow command integration', () => {
   test('accepted counter supersedes original and creates one acknowledged successor', async () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf1', 'awaitingCompliance', 4);
     store.seed('compliance_requests/c1', {linkedWorkflowId: 'wf1', originLaneKey: 'elec', targetLaneKey: 'oprn', status: 'acknowledged', counterDepth: 0, counterProposal: {revisedDescription: 'After crane release', proposedByUid: 'ops-1', proposedByName: 'ops-1'}, version: 2});
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await service.execute({commandId: 'counter', commandType: 'decideCounterCondition', aggregateId: 'wf1', expectedVersion: 4, payload: {complianceId: 'c1', accepted: true, successorComplianceId: 'c2'}}, {actor: electrical, serverNow: at('2026-07-20T03:00:00Z')});
     expect(store.read('compliance_requests/c1').status).toBe('superseded');
     expect(store.read('compliance_requests/c2')).toMatchObject({status: 'acknowledged', counterConditionOfId: 'c1', targetLaneKey: 'oprn'});
@@ -211,7 +222,7 @@ describe('maintenance workflow command integration', () => {
       awaitingPreparationCount: 0,
       version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     const receipt = await service.execute({commandId: 'final-force-cooler', commandType: 'finalizeJob', aggregateId: 'wf1', expectedVersion: 7, payload: {}}, {actor: admin, serverNow: at('2026-07-20T04:00:00Z')});
     expect(receipt.result).toMatchObject({redAction: 'notApplicable', equipmentState: 'available'});
   });
@@ -228,7 +239,7 @@ describe('maintenance workflow command integration', () => {
       version: 2,
     });
     seedRedSuccessorTemplate(store, 'furnace');
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     const receipt = await service.execute({commandId: 'final-red', commandType: 'finalizeJob', aggregateId: 'wf1', expectedVersion: 8, payload: {redRequired: true, preparationRequired: true, remarks: 'Mechanical work complete', teamsInvolved: ['mechanical'], responsesJson: '[{"key":"final","value":"ok"}]', actionsJson: '[{"component":"burner","action":"checked"}]'}}, {actor: admin, serverNow: at('2026-07-20T05:00:00Z')});
     const successorWorkflowId = receipt.result.successorWorkflowId;
     const successorExecutionId = receipt.result.successorExecutionId;
@@ -256,7 +267,7 @@ describe('maintenance workflow command integration', () => {
       version: 1,
     });
     seedRedSuccessorTemplate(store, 'base');
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     const receipt = await service.execute({commandId: 'final-base-red', commandType: 'finalizeJob', aggregateId: 'wf-base', expectedVersion: 2, payload: {redRequired: true}}, {actor: admin, serverNow: at('2026-07-20T05:30:00Z')});
     const successorId = receipt.result.successorWorkflowId;
     expect(receipt.result.preparationComplianceId).toBeNull();
@@ -269,7 +280,7 @@ describe('maintenance workflow command integration', () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf-no-final', 'readyForClosure', 2, 'forceCooler', 1);
     store.seed('maintenance_workflows/wf-no-final', {jobExecutionId: 'wf-no-final-exec', status: 'readyForClosure', version: 2, assetTypeKey: 'forceCooler', assetNumber: 1, laneSetFinalizedAt: '2026-07-20T00:00:00Z'});
     store.seed('job_lanes/wf-no-final_mech_1', {workflowId: 'wf-no-final', jobExecutionId: 'wf-no-final-exec', laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2});
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await expect(service.execute({commandId: 'ops-final-denied', commandType: 'finalizeJob', aggregateId: 'wf-no-final', expectedVersion: 2, payload: {}}, {actor: ops, serverNow: at('2026-07-20T05:45:00Z')})).rejects.toMatchObject({code: 'permission-denied'});
   });
 
@@ -285,7 +296,7 @@ describe('maintenance workflow command integration', () => {
       awaitingPreparationCount: 0,
       version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await service.execute({commandId: 'prepare-red', commandType: 'prepareRedLane', aggregateId: 'wf-pre', expectedVersion: 3, payload: {preparationRequired: true}}, {actor: admin, serverNow: at('2026-07-20T06:00:00Z')});
     await expect(service.execute({commandId: 'early-red-ack', commandType: 'acknowledgeLane', aggregateId: 'wf-pre', expectedVersion: 4, payload: {laneKey: 'red'}}, {actor: refractory, serverNow: at('2026-07-20T06:01:00Z')})).rejects.toMatchObject({code: 'red-preparation-incomplete'});
     await service.execute({commandId: 'ack-prep', commandType: 'acknowledgeCompliance', aggregateId: 'wf-pre', expectedVersion: 4, payload: {complianceId: 'wf-pre_red_preparation'}}, {actor: ops, serverNow: at('2026-07-20T06:02:00Z')});
@@ -309,7 +320,7 @@ describe('maintenance workflow command integration', () => {
       awaitingPreparationCount: 0,
       version: 3,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await service.execute({commandId: 'final-multi', commandType: 'finalizeJob', aggregateId: 'wf-final', expectedVersion: 4, payload: {redRequired: false}}, {actor: admin, serverNow: at('2026-07-20T07:00:00Z')});
     expect(store.read('equipment_status/furnace_11')).toMatchObject({state: 'underMaintenance', activeNonRedMaintenanceCount: 1});
   });
@@ -345,7 +356,7 @@ describe('maintenance workflow command integration', () => {
       awaitingPreparationCount: 0,
       version: 3,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
 
     await expect(service.execute({
       commandId: 'final-counter-conflict',
@@ -398,7 +409,7 @@ describe('maintenance workflow command integration', () => {
       awaitingPreparationCount: 0,
       version: 3,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
 
     await expect(service.execute({
       commandId: 'final-partial-counters',
@@ -429,7 +440,7 @@ describe('maintenance workflow command integration', () => {
 
   test('same command id replays the original receipt without reapplying writes', async () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store);
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     const cmd = {commandId: 'replay-one', commandType: 'finalizeLaneSet', aggregateId: 'wf1', expectedVersion: 0, payload: {laneKeys: ['elec']}};
     const first = await service.execute(cmd, {actor: admin, serverNow: at('2026-07-20T08:00:00Z')});
     const second = await service.execute(cmd, {actor: admin, serverNow: at('2026-07-20T08:01:00Z')});
@@ -443,7 +454,7 @@ describe('maintenance workflow command integration', () => {
       linkedWorkflowId: 'wf-attempt', originLaneKey: 'elec', targetLaneKey: 'oprn',
       status: 'acknowledged', version: 1, attemptCount: 0,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await service.execute({commandId: 'attempt-1', commandType: 'markComplianceComplied', aggregateId: 'wf-attempt', expectedVersion: 1, payload: {complianceId: 'c-attempt', note: 'Initial placement'}}, {actor: ops, serverNow: at('2026-07-20T11:00:00Z')});
     expect(store.read('compliance_attempts/c-attempt_1')).toMatchObject({attemptNumber: 1, note: 'Initial placement', accepted: false});
     await service.execute({commandId: 'return-1', commandType: 'returnComplianceForCorrection', aggregateId: 'wf-attempt', expectedVersion: 2, payload: {complianceId: 'c-attempt', reason: 'Isolation incomplete'}}, {actor: electrical, serverNow: at('2026-07-20T11:01:00Z')});
@@ -462,7 +473,7 @@ describe('maintenance workflow command integration', () => {
       status: 'acknowledged', gatesLaneFirestoreId: 'job_lanes/wf-gate_mech_1',
       counterDepth: 0, counterProposal: {revisedDescription: 'After crane release', proposedByUid: 'ops-1', proposedByName: 'ops-1'}, version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await service.execute({commandId: 'gate-counter', commandType: 'decideCounterCondition', aggregateId: 'wf-gate', expectedVersion: 2, payload: {complianceId: 'c-gate', accepted: true, successorComplianceId: 'c-gate-2'}}, {actor: electrical, serverNow: at('2026-07-20T12:00:00Z')});
     expect(store.read('job_lanes/wf-gate_mech_1').gatingComplianceRequestId).toBe('c-gate-2');
     expect(store.read('compliance_requests/c-gate-2')).toMatchObject({gatesLaneFirestoreId: 'job_lanes/wf-gate_mech_1', counterDepth: 1});
@@ -474,7 +485,7 @@ describe('maintenance workflow command integration', () => {
       linkedWorkflowId: 'wf-reject', originLaneKey: 'elec', targetLaneKey: 'oprn', status: 'acknowledged',
       counterDepth: 0, counterProposal: {revisedDescription: 'Later', proposedByUid: 'ops-1'}, version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await service.execute({commandId: 'reject-counter', commandType: 'decideCounterCondition', aggregateId: 'wf-reject', expectedVersion: 2, payload: {complianceId: 'c-reject', accepted: false, note: 'Urgent work cannot wait'}}, {actor: electrical, serverNow: at('2026-07-20T13:00:00Z')});
     expect(store.read('compliance_requests/c-reject')).toMatchObject({counterDepth: 1, escalationTier: 1});
     await expect(service.execute({commandId: 'second-counter', commandType: 'proposeCounterCondition', aggregateId: 'wf-reject', expectedVersion: 3, payload: {complianceId: 'c-reject', revisedDescription: 'Another revision'}}, {actor: ops, serverNow: at('2026-07-20T13:01:00Z')})).rejects.toMatchObject({code: 'failed-precondition'});
@@ -483,7 +494,7 @@ describe('maintenance workflow command integration', () => {
   test('equipment deployment uses optimistic version and reconciliation is Admin/SI only', async () => {
     const store = new MemoryWorkflowStore();
     store.seed('equipment_status/furnace_15', {state: 'available', version: 4});
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await expect(service.execute({commandId: 'stale-deploy', commandType: 'deployEquipment', aggregateId: 'equipment_furnace_15', expectedVersion: 3, payload: {assetTypeKey: 'furnace', assetNumber: 15}}, {actor: ops, serverNow: at('2026-07-20T14:00:00Z')})).rejects.toMatchObject({code: 'workflow-version-conflict'});
     await service.execute({commandId: 'deploy', commandType: 'deployEquipment', aggregateId: 'equipment_furnace_15', expectedVersion: 4, payload: {assetTypeKey: 'furnace', assetNumber: 15}}, {actor: ops, serverNow: at('2026-07-20T14:01:00Z')});
     expect(store.read('equipment_status/furnace_15')).toMatchObject({state: 'inService', version: 5});
@@ -500,7 +511,7 @@ describe('maintenance workflow command integration', () => {
       workflowId: 'wf-compliance', laneKey: 'oprn', status: 'acknowledged',
       activationGeneration: 1, version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await expect(service.execute({
       commandId: 'raise-without-origin',
       commandType: 'raiseCompliance',
@@ -556,7 +567,7 @@ describe('maintenance workflow command integration', () => {
       status: 'open', isResolved: false, isDeleted: false,
       workflowQueueState: 'independent', workflowDeferred: false, version: 2,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await service.execute({
       commandId: 'raise-bridge', commandType: 'raiseCompliance',
       aggregateId: 'wf-bridge', expectedVersion: 4,
@@ -610,7 +621,7 @@ describe('maintenance workflow command integration', () => {
       firestoreId: 'm-wrong-asset', assetType: 'base', assetNumber: 7,
       status: 'open', isResolved: false, isDeleted: false, version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await expect(service.execute({
       commandId: 'raise-wrong-asset', commandType: 'raiseCompliance',
       aggregateId: 'wf-wrong-asset', expectedVersion: 1,
@@ -632,7 +643,7 @@ describe('maintenance workflow command integration', () => {
       linkedWorkflowId: 'wf-compliance-a', targetLaneKey: 'elec',
       status: 'raised', version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await expect(service.execute({
       commandId: 'ack-cross-workflow', commandType: 'acknowledgeCompliance',
       aggregateId: 'wf-compliance-b', expectedVersion: 4,
@@ -652,7 +663,7 @@ describe('maintenance workflow command integration', () => {
       linkedWorkflowId: 'wf-terminal-compliance', targetLaneKey: 'elec',
       status: 'raised', version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await expect(service.execute({
       commandId: 'ack-terminal-compliance', commandType: 'acknowledgeCompliance',
       aggregateId: 'wf-terminal-compliance', expectedVersion: 8,
@@ -673,7 +684,7 @@ describe('maintenance workflow command integration', () => {
       workflowId: 'wf-condition-contract', laneKey: 'oprn', status: 'acknowledged',
       activationGeneration: 1, version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await expect(service.execute({
       commandId: 'raise-condition-no-maintenance', commandType: 'raiseCompliance',
       aggregateId: 'wf-condition-contract', expectedVersion: 2,
@@ -716,7 +727,7 @@ describe('maintenance workflow command integration', () => {
       workflowComplianceId: 'c-other', workflowQueueState: 'actionable',
       workflowDeferred: false, isDeleted: false, version: 2,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await expect(service.execute({
       commandId: 'comply-wrong-binding', commandType: 'markComplianceComplied',
       aggregateId: 'wf-binding-check', expectedVersion: 3,
@@ -741,7 +752,7 @@ describe('maintenance workflow command integration', () => {
     store.seed('compliance_attempts/c-foreign-gate_1', {
       complianceRequestId: 'c-foreign-gate', attemptNumber: 1, accepted: false,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await expect(service.execute({
       commandId: 'close-foreign-gate', commandType: 'confirmComplianceClosed',
       aggregateId: 'wf-gate-owner', expectedVersion: 5,
@@ -771,7 +782,7 @@ describe('maintenance workflow command integration', () => {
       isOpenForWork: false, requiredForClosure: true, isDeleted: false,
       fieldDefinitionsJson: '[]', responsesJson: '[]', version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await expect(service.execute({
       commandId: 'close-unaccepted-lane', commandType: 'closeLane',
       aggregateId: 'wf-lane-guard', expectedVersion: 3,
@@ -815,7 +826,7 @@ describe('maintenance workflow command integration', () => {
       awaitingPreparationCount: 0,
       version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     const receipt = await service.execute({
       commandId: 'canonical-close', commandType: 'finalizeJob',
       aggregateId: 'wf-canonical-close', expectedVersion: 5, payload: {},
@@ -856,7 +867,7 @@ describe('maintenance workflow command integration', () => {
       awaitingPreparationCount: 0,
       version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await expect(service.execute({
       commandId: 'guard-finalize', commandType: 'finalizeJob',
       aggregateId: 'wf-close-guard', expectedVersion: 5, payload: {},
@@ -887,7 +898,7 @@ describe('maintenance workflow command integration', () => {
       discipline: 'mechanical', status: 'accepted', isOpenForWork: false,
       requiredForClosure: true, isDeleted: false, version: 4,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     const receipt = await service.execute({
       commandId: 'reopen-module-command', commandType: 'reopenWorkflowModule',
       aggregateId: 'wf-reopen-module', expectedVersion: 4,
@@ -916,7 +927,7 @@ describe('maintenance workflow command integration', () => {
       version: 5, isCompleted: true,
       metadataJson: JSON.stringify({closureAttestation: {hash: 'a'.repeat(64)}}),
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     const receipt = await service.execute({
       commandId: 'new-command-after-complete', commandType: 'finalizeJob',
       aggregateId: 'wf-already-complete', expectedVersion: 9, payload: {},
@@ -944,7 +955,7 @@ describe('maintenance workflow command integration', () => {
       discipline: 'safety', laneKey: null, workflowLaneFirestoreId: null,
       isDeleted: false, version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     const receipt = await service.execute({
       commandId: 'derive-lanes', commandType: 'finalizeLaneSet',
       aggregateId: 'wf-derived-lanes', expectedVersion: 0,
@@ -986,7 +997,7 @@ describe('maintenance workflow command integration', () => {
       discipline: 'mechanical', status: 'notStarted', isOpenForWork: true,
       isDeleted: false, version: 1,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     await expect(service.execute({
       commandId: 'remove-protected-lane', commandType: 'removeLane',
       aggregateId: 'wf-no-remove', expectedVersion: 3,
@@ -1017,7 +1028,7 @@ describe('maintenance workflow command integration', () => {
       discipline: 'mechanical', status: 'inProgress', isOpenForWork: true,
       isDeleted: false, version: 2,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     const receipt = await service.execute({
       commandId: 'replace-mech-generation', commandType: 'terminateLane',
       aggregateId: 'wf-remap-lane', expectedVersion: 6,
@@ -1069,7 +1080,7 @@ describe('maintenance workflow command integration', () => {
       awaitingPreparationCount: 0,
       version: 4,
     });
-    const service = new MaintenanceWorkflowCommandService(store);
+    const service = serviceFor(store);
     const receipt = await service.execute({
       commandId: 'cancel-everything', commandType: 'cancelWorkflow',
       aggregateId: 'wf-cancel-all', expectedVersion: 7,
