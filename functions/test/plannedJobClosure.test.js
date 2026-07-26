@@ -265,17 +265,7 @@ describe('planned job server closure validation', () => {
             return {
               path: `${name}/${id}`,
               async get() {
-                if (name === 'users') {
-                  return {
-                    exists: true,
-                    data: () => ({
-                      isApproved: true,
-                      roles: ['shiftSupervisor'],
-                      name: 'Shift Supervisor',
-                    }),
-                  };
-                }
-                return {exists: false, data: () => undefined};
+                throw new Error('authority must be read inside the transaction');
               },
             };
           },
@@ -287,6 +277,16 @@ describe('planned job server closure validation', () => {
       async runTransaction(fn) {
         return fn({
           async get(ref) {
+            if (ref.path === 'users/supervisor1') {
+              return {
+                exists: true,
+                data: () => ({
+                  isApproved: true,
+                  roles: ['shiftSupervisor'],
+                  name: 'Shift Supervisor',
+                }),
+              };
+            }
             if (ref.path === 'job_executions/job_1') {
               return {exists: true, data: () => executionData};
             }
@@ -320,7 +320,15 @@ describe('planned job server closure validation', () => {
 
 describe('completePlannedJobWithDb unhappy paths do not write', () => {
   function fakeCompletionDb({userData, executionData, modules = []}) {
-    const writes = {updates: [], sets: [], moduleQueryReads: 0, transactionRuns: 0};
+    const writes = {
+      updates: [],
+      sets: [],
+      outsideDocumentReads: 0,
+      authorityReads: 0,
+      executionReads: 0,
+      moduleQueryReads: 0,
+      transactionRuns: 0,
+    };
     const db = {
       collection(name) {
         return {
@@ -328,12 +336,8 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
             return {
               path: `${name}/${id}`,
               async get() {
-                if (name === 'users') {
-                  return userData == null
-                    ? {exists: false, data: () => undefined}
-                    : {exists: true, data: () => userData};
-                }
-                return {exists: false, data: () => undefined};
+                writes.outsideDocumentReads += 1;
+                throw new Error('document reads must use the transaction');
               },
             };
           },
@@ -355,7 +359,14 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
         writes.transactionRuns += 1;
         return fn({
           async get(refOrQuery) {
+            if (refOrQuery && refOrQuery.path?.startsWith('users/')) {
+              writes.authorityReads += 1;
+              return userData == null
+                ? {exists: false, data: () => undefined}
+                : {exists: true, data: () => userData};
+            }
             if (refOrQuery && refOrQuery.path === `job_executions/${executionData.firestoreId}`) {
+              writes.executionReads += 1;
               return {exists: true, data: () => executionData};
             }
             if (refOrQuery && refOrQuery.kind === 'query') {
@@ -407,7 +418,7 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
     })).rejects.toMatchObject({code: 'unauthenticated'});
   });
 
-  test('unapproved user rejects before transaction work', async () => {
+  test('unapproved user rejects transactionally before execution or module reads', async () => {
     const {db, writes} = fakeCompletionDb({
       userData: {isApproved: false, roles: ['shiftSupervisor']},
       executionData: baseExecution(),
@@ -420,12 +431,16 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
       data: {executionId: 'job_1'},
     })).rejects.toMatchObject({code: 'permission-denied'});
 
-    expect(writes.transactionRuns).toBe(0);
+    expect(writes.transactionRuns).toBe(1);
+    expect(writes.outsideDocumentReads).toBe(0);
+    expect(writes.authorityReads).toBe(1);
+    expect(writes.executionReads).toBe(0);
+    expect(writes.moduleQueryReads).toBe(0);
     expect(writes.updates).toHaveLength(0);
     expect(writes.sets).toHaveLength(0);
   });
 
-  test('operations role rejects before transaction work', async () => {
+  test('operations role rejects transactionally before execution or module reads', async () => {
     const {db, writes} = fakeCompletionDb({
       userData: {isApproved: true, roles: ['operations']},
       executionData: baseExecution(),
@@ -438,7 +453,11 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
       data: {executionId: 'job_1'},
     })).rejects.toMatchObject({code: 'permission-denied'});
 
-    expect(writes.transactionRuns).toBe(0);
+    expect(writes.transactionRuns).toBe(1);
+    expect(writes.outsideDocumentReads).toBe(0);
+    expect(writes.authorityReads).toBe(1);
+    expect(writes.executionReads).toBe(0);
+    expect(writes.moduleQueryReads).toBe(0);
     expect(writes.updates).toHaveLength(0);
     expect(writes.sets).toHaveLength(0);
   });

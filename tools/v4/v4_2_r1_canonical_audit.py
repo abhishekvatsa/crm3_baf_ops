@@ -159,19 +159,20 @@ check(
     and main["tree"] == "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
 )
 check(
-    "Successor reconciliation refresh is exact through Gate 1B main",
-    successor_refresh.get("throughMainCommit") == "ef03aa7d1755b9c5a6055d0c77d2bde7e6300f11"
-    and successor_refresh.get("throughMainTree") == "10629517e88a0224974a6c21ea0b656a5b431173"
-    and successor_refresh.get("adjudicatedPullRequests") == [40, 41, 42, 43]
+    "Successor reconciliation refresh is exact through the S-06 source baseline",
+    successor_refresh.get("throughMainCommit") == "4d3d2631a5dec5f79e53008de54608a96cf1eae3"
+    and successor_refresh.get("throughMainTree") == "91d6b5509dcae4feb3262d3da6363bdf56e180b7"
+    and successor_refresh.get("adjudicatedPullRequests") == [40, 41, 42, 43, 44]
     and successor_refresh.get("preExistingDriftPathCount") == 14
     and successor_refresh.get("crossPlatformRepresentationPathCount") == 19
-    and successor_refresh.get("refreshTranche") == "CANONICAL_AUDIT_AUTHORITY_REFRESH"
+    and successor_refresh.get("refreshTranche") == "S06_ATOMIC_CLOSURE_AUTHORITY_SOURCE"
     and successor_refresh.get("refreshTrancheTrackedPaths") == [
-        ".github/workflows/release-gate.yml",
-        "README.md",
-        "release/production-release-policy.json",
-        "test/production_release_provenance_contract_test.dart",
-        "tools/release/Test-ProductionReleasePolicy.ps1",
+        "docs/v4_2_r1/S06_ATOMIC_CLOSURE_AUTHORITY.md",
+        "functions/src/plannedJobClosure.ts",
+        "functions/test/newBehavior.test.js",
+        "functions/test/plannedJobClosure.firestoreEmulator.test.js",
+        "functions/test/plannedJobClosure.test.js",
+        "tools/v4/v4_2_r1_canonical_audit.py",
     ],
 )
 post_codegen_register = data("docs/v4_2_r1/AUTHORITATIVE_POST_CODEGEN_BINDINGS.json")
@@ -275,8 +276,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 330
-    and counts.get("SUCCESSOR_MODIFIED") == 80
+    and counts.get("BYTE_IDENTICAL") == 328
+    and counts.get("SUCCESSOR_MODIFIED") == 82
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -773,6 +774,39 @@ check(
     and "PASS_AUTHORITATIVE_BUILD_ONLY" in harness
     and "PASS_AUTHORITATIVE_BUILD_AND_EMULATOR" in harness
     and "PASS_AUTHORITATIVE_FRESH_INSTALL" in harness,
+)
+
+closure_source = text("functions/src/plannedJobClosure.ts")
+closure_unit_test = text("functions/test/plannedJobClosure.test.js")
+closure_emulator_test = text(
+    "functions/test/plannedJobClosure.firestoreEmulator.test.js"
+)
+closure_decision = text("docs/v4_2_r1/S06_ATOMIC_CLOSURE_AUTHORITY.md")
+authority_transaction_read = (
+    "const userSnap = asDocumentSnapshot(await transaction.get(userRef));"
+)
+execution_transaction_read = (
+    "const executionSnap = asDocumentSnapshot(await transaction.get(executionRef));"
+)
+check(
+    "S-06 closure authority is transactionally current and fails before business reads",
+    'await db.collection("users").doc(authUid).get()' not in closure_source
+    and "type DocumentRefLike = {readonly path: string};" in closure_source
+    and authority_transaction_read in closure_source
+    and execution_transaction_read in closure_source
+    and closure_source.index(authority_transaction_read)
+        < closure_source.index(execution_transaction_read)
+    and '{reasonCode: "closure-authority-denied"}' in closure_source
+    and "unapproved user rejects transactionally before execution or module reads"
+        in closure_unit_test
+    and "expect(writes.executionReads).toBe(0)" in closure_unit_test
+    and "expect(writes.moduleQueryReads).toBe(0)" in closure_unit_test
+    and "authority revoked before transaction start fails closed"
+        in closure_emulator_test
+    and "expect(after).toEqual(before)" in closure_emulator_test
+    and "# S-06 Atomic Closure Authority" in closure_decision
+    and "Idempotent completion replay remains authorization-gated"
+        in closure_decision,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

@@ -88,9 +88,8 @@ describe('completePlannedJobWithDb bad input handling', () => {
   test('omitted expectedCompletionVersion is allowed (no precondition check)', async () => {
     // We don't expect this to fully succeed without a real DB; we just
     // expect the FIRST error not to be about expectedCompletionVersion.
-    // The fake DB above runs the user check fine and then throws inside
-    // runTransaction, so any failure here must come from later code, not
-    // from the version parser.
+    // The fake DB throws when the transaction starts, so any failure here
+    // must come from later code, not from the version parser.
     await expect(completePlannedJobWithDb({
       db: fakeDbReturningNothing(),
       authUid: 'supervisor1',
@@ -122,17 +121,7 @@ describe('audit timestamp factory injection', () => {
             return {
               path: `${name}/${id ?? 'auto'}`,
               async get() {
-                if (name === 'users') {
-                  return {
-                    exists: true,
-                    data: () => ({
-                      isApproved: true,
-                      roles: ['shiftSupervisor'],
-                      name: 'Supervisor',
-                    }),
-                  };
-                }
-                return {exists: false, data: () => undefined};
+                throw new Error('authority must be read inside the transaction');
               },
             };
           },
@@ -146,6 +135,16 @@ describe('audit timestamp factory injection', () => {
       async runTransaction(fn) {
         return fn({
           async get(refOrQuery) {
+            if (refOrQuery && refOrQuery.path === 'users/supervisor1') {
+              return {
+                exists: true,
+                data: () => ({
+                  isApproved: true,
+                  roles: ['shiftSupervisor'],
+                  name: 'Supervisor',
+                }),
+              };
+            }
             if (refOrQuery && refOrQuery.path === 'job_executions/job_1') {
               return {exists: true, data: () => executionData};
             }
@@ -190,17 +189,11 @@ describe('audit timestamp factory injection', () => {
     const fakeDb = {
       collection(name) {
         return {
-          doc() {
+          doc(id) {
             return {
-              path: `${name}/job_1`,
+              path: `${name}/${id}`,
               async get() {
-                if (name === 'users') {
-                  return {
-                    exists: true,
-                    data: () => ({isApproved: true, roles: ['admin']}),
-                  };
-                }
-                return {exists: false, data: () => undefined};
+                throw new Error('authority must be read inside the transaction');
               },
             };
           },
@@ -213,6 +206,12 @@ describe('audit timestamp factory injection', () => {
       async runTransaction(fn) {
         return fn({
           async get(refOrQuery) {
+            if (refOrQuery && refOrQuery.path === 'users/admin1') {
+              return {
+                exists: true,
+                data: () => ({isApproved: true, roles: ['admin']}),
+              };
+            }
             if (refOrQuery && refOrQuery.path === 'job_executions/job_1') {
               return {exists: true, data: () => executionData};
             }
