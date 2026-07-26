@@ -16,8 +16,8 @@
     "scope": "maintenance-workflow current-source audit collector; raw Firebase configuration and evidence artifacts excluded"
   },
   "successorRefresh": {
-    "throughMainCommit": "3c0861dcfe032ae795833283f9a7d63a45dde7e3",
-    "throughMainTree": "2ed1174374801f992f1eaaeafbfdc93bcbb61b84",
+    "throughMainCommit": "466f81e72b033d367da47a2aca4b30850ffbcfc4",
+    "throughMainTree": "29f26f09da3b720296d899f8f80a843fbc8419a5",
     "adjudicatedPullRequests": [
       40,
       41,
@@ -26,14 +26,14 @@
       44,
       45,
       46,
-      47
+      47,
+      48
     ],
     "preExistingDriftPathCount": 14,
     "crossPlatformRepresentationPathCount": 19,
-    "refreshTranche": "S09_R06_WORKFLOW_REPLAY_LEDGER_CLOSURE",
+    "refreshTranche": "S04_CANONICAL_USER_AUTHORITY_SHAPE_CLOSURE",
     "refreshTrancheTrackedPaths": [
-      "docs/v4_2_r1/R06_VERSIONED_WORKFLOW_RECEIPT_FINGERPRINTS.md",
-      "docs/v4_2_r1/S09_ATOMIC_WORKFLOW_AUTHORITY_AND_REPLAY.md",
+      "docs/v4_2_r1/S04_CANONICAL_USER_AUTHORITY_SHAPE.md",
       "governance/programme-ledger.json",
       "tools/v4/v4_2_r1_canonical_audit.py"
     ]
@@ -646,9 +646,9 @@
     {
       "path": "governance/programme-ledger.json",
       "canonicalSha256": "30FC5520D44172C2F6E0AD3E954AC7482C350292464AA972CE929D2740B02C56",
-      "candidateSha256": "6BA2B9A504B3A65FEEF55E7ACA44F7444E0F82EA5E3080B6BB2613A7CC3B54BB",
+      "candidateSha256": "4956E28EE3237C92093174E903DE6E97FF9A2578A7E2B327BF236988A8816FD1",
       "canonicalBytes": 73391,
-      "candidateBytes": 86886,
+      "candidateBytes": 90412,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

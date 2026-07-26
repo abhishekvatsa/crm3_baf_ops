@@ -1317,7 +1317,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "HIGH",
       "unrestrictedSeverity": "HIGH",
@@ -1326,15 +1326,75 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 40,
+          "headCommit": "473ed3c25472b27d646c1d75406a22a80ca26cd9",
+          "mergeCommit": "f88c7e35f1dae95222cdcd57819b091a2f5f56c9",
+          "postMergeWorkflowRun": 30170153630,
+          "decision": "PASS_SOURCE_S04_RULES_ROLE_AND_CLIENT_SHAPE",
+          "authority": "EXACT_HEAD_MERGE_AND_POSTMERGE_GREEN_CI"
+        },
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 41,
+          "headCommit": "eb8bc9e505f559bc0e9267f56dd23ec4b6180ca2",
+          "mergeCommit": "96385151d73c04904184b0bfd9c057c23b9f6e84",
+          "postMergeWorkflowRun": 30172678080,
+          "decision": "PASS_SOURCE_S04_GOVERNED_AUTHORITY_WRITER",
+          "authority": "EXACT_HEAD_MERGE_AND_POSTMERGE_GREEN_CI"
+        },
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "currentMainCommit": "466f81e72b033d367da47a2aca4b30850ffbcfc4",
+          "postMergeWorkflowRun": 30196942545,
+          "decision": "PASS_S04_CANONICAL_USER_AUTHORITY_SHAPE",
+          "authority": "CURRENT_MAIN_SOURCE_POLICY_AND_GREEN_CI"
+        }
+      ],
+      "requiredExitEvidence": [
+        "canonical user roles are a non-empty bounded allowlist shared across Rules, Functions and Dart",
+        "client user creates and updates enforce exact permitted keys and field types",
+        "pending self-registration cannot grant approval or a privileged role",
+        "self and Admin profile updates cannot mutate authority fields",
+        "approval, revocation and role replacement use the governed backend writer",
+        "tracked backend user writers are field-bounded",
+        "the reduced read-authority capsule is explicitly accepted as policy"
+      ],
+      "reArmTriggers": [
+        "unknown or malformed role values can authorize",
+        "a client can write isApproved or roles outside the governed callable",
+        "client user writes can introduce unsupported top-level keys",
+        "a tracked backend writer can replace an unconstrained user document",
+        "the read-authority capsule policy is described as full-document validation"
+      ],
+      "notes": [
+        "PR #40 enforces canonical role values and exact client-write user shape; PR #41 routes authority mutations through the atomic audited backend writer.",
+        "Authorization reads intentionally validate only isApproved and roles. This expression-budget policy does not claim full-shape validation of server-written profile data.",
+        "Privileged-writer inventory and IAM minimization remain governed by Gate 1B and H2-IAM.",
+        "Deployment, production mutation, artifact construction, pilot and cutover remain prohibited."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PR #40 introduced canonical role and client-shape enforcement; PR #41 introduced the field-bounded transactional authority writer."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-26",
+          "basis": "Exact green heads 473ed3c25472b27d646c1d75406a22a80ca26cd9 and eb8bc9e505f559bc0e9267f56dd23ec4b6180ca2 merged as f88c7e35f1dae95222cdcd57819b091a2f5f56c9 and 96385151d73c04904184b0bfd9c057c23b9f6e84."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PASS_S04_CANONICAL_USER_AUTHORITY_SHAPE closes the source-and-CI finding while preserving the explicit capsule-only read policy and independent H2-IAM boundary."
         }
       ]
     },
