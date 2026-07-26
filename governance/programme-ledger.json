@@ -1425,22 +1425,62 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 45,
+          "headCommit": "1bf9292cc16c35775f8d005eae477e76ad7135fc",
+          "mergeCommit": "d48ad31985d98f9415923b36bc5acb8133de7068",
+          "decision": "PASS_GATE_1A_S06_ATOMIC_CLOSURE_AUTHORITY",
+          "authority": "EXACT_HEAD_MERGE_GREEN_CI_AND_SOURCE_TESTS"
+        }
+      ],
+      "requiredExitEvidence": [
+        "closure actor authority is read and validated inside the business transaction",
+        "authority rejection occurs before execution and module reads",
+        "authority rejection produces no completion or audit mutation",
+        "authority revocation before transaction start fails closed in the Firestore emulator",
+        "authorized idempotent replay remains current-authority gated",
+        "exact-head pull request merged with green CI"
+      ],
+      "reArmTriggers": [
+        "planned-job closure authority is read outside the business transaction",
+        "execution or module reads occur before closure authority validation",
+        "idempotent closure replay bypasses current authority validation",
+        "authority rejection can write execution, module or audit state",
+        "the authority-revocation emulator regression is removed or weakened"
+      ],
+      "notes": [
+        "S-06 tracked-source closure is proved by PR #45 and merge commit d48ad31985d98f9415923b36bc5acb8133de7068.",
+        "This closes the source-and-CI finding only; Functions deployment, production mutation, pilot and cutover remain separately governed."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-26",
+          "basis": "S-06 transaction-first authority validation, ordering tests and revocation-race emulator proof validated at commit 1bf9292cc16c35775f8d005eae477e76ad7135fc."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PR #45 exact green head 1bf9292cc16c35775f8d005eae477e76ad7135fc merged to main as d48ad31985d98f9415923b36bc5acb8133de7068."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PASS_GATE_1A_S06_ATOMIC_CLOSURE_AUTHORITY closes the tracked source-and-CI finding; deployment and production-data gates remain independent."
         }
       ]
     },

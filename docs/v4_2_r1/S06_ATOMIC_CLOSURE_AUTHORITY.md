@@ -80,6 +80,19 @@ The tests prove:
 * revocation before transaction start fails closed;
 * authorized new closure and authorized idempotent replay remain sound.
 
+## Exact merge evidence
+
+```text
+Repository:   abhishekvatsa/crm3_baf_ops
+Pull request: #45
+Head commit:  1bf9292cc16c35775f8d005eae477e76ad7135fc
+Merge commit: d48ad31985d98f9415923b36bc5acb8133de7068
+Decision:     PASS_GATE_1A_S06_ATOMIC_CLOSURE_AUTHORITY
+```
+
+All six release-gate jobs passed at the exact head. The merge closes the S-06
+source-and-CI finding. It does not change the deployment boundary below.
+
 ## Authorization boundary
 
 This source correction authorizes source review, local validation, CI, and an
