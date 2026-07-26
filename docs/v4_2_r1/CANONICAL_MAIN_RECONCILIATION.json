@@ -16,24 +16,22 @@
     "scope": "maintenance-workflow current-source audit collector; raw Firebase configuration and evidence artifacts excluded"
   },
   "successorRefresh": {
-    "throughMainCommit": "4d3d2631a5dec5f79e53008de54608a96cf1eae3",
-    "throughMainTree": "91d6b5509dcae4feb3262d3da6363bdf56e180b7",
+    "throughMainCommit": "d48ad31985d98f9415923b36bc5acb8133de7068",
+    "throughMainTree": "374878e3fe72b4c86e4a5dcab4110ec52549c192",
     "adjudicatedPullRequests": [
       40,
       41,
       42,
       43,
-      44
+      44,
+      45
     ],
     "preExistingDriftPathCount": 14,
     "crossPlatformRepresentationPathCount": 19,
-    "refreshTranche": "S06_ATOMIC_CLOSURE_AUTHORITY_SOURCE",
+    "refreshTranche": "S06_ATOMIC_CLOSURE_AUTHORITY_LEDGER_CLOSURE",
     "refreshTrancheTrackedPaths": [
       "docs/v4_2_r1/S06_ATOMIC_CLOSURE_AUTHORITY.md",
-      "functions/src/plannedJobClosure.ts",
-      "functions/test/newBehavior.test.js",
-      "functions/test/plannedJobClosure.firestoreEmulator.test.js",
-      "functions/test/plannedJobClosure.test.js",
+      "governance/programme-ledger.json",
       "tools/v4/v4_2_r1_canonical_audit.py"
     ]
   },
@@ -645,9 +643,9 @@
     {
       "path": "governance/programme-ledger.json",
       "canonicalSha256": "30FC5520D44172C2F6E0AD3E954AC7482C350292464AA972CE929D2740B02C56",
-      "candidateSha256": "81167C94C2FFA56BD16D1417110917CECFEC5F018BBF28F82F4A07E0668414B3",
+      "candidateSha256": "D82043E3E19166A2B0C8117DB3F61C5AF0F541E3574624AB65D95EA4DC50B8D5",
       "canonicalBytes": 73391,
-      "candidateBytes": 76388,
+      "candidateBytes": 78672,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

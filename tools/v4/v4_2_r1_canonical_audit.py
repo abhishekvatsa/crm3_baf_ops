@@ -159,19 +159,16 @@ check(
     and main["tree"] == "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
 )
 check(
-    "Successor reconciliation refresh is exact through the S-06 source baseline",
-    successor_refresh.get("throughMainCommit") == "4d3d2631a5dec5f79e53008de54608a96cf1eae3"
-    and successor_refresh.get("throughMainTree") == "91d6b5509dcae4feb3262d3da6363bdf56e180b7"
-    and successor_refresh.get("adjudicatedPullRequests") == [40, 41, 42, 43, 44]
+    "Successor reconciliation refresh is exact through the S-06 source merge",
+    successor_refresh.get("throughMainCommit") == "d48ad31985d98f9415923b36bc5acb8133de7068"
+    and successor_refresh.get("throughMainTree") == "374878e3fe72b4c86e4a5dcab4110ec52549c192"
+    and successor_refresh.get("adjudicatedPullRequests") == [40, 41, 42, 43, 44, 45]
     and successor_refresh.get("preExistingDriftPathCount") == 14
     and successor_refresh.get("crossPlatformRepresentationPathCount") == 19
-    and successor_refresh.get("refreshTranche") == "S06_ATOMIC_CLOSURE_AUTHORITY_SOURCE"
+    and successor_refresh.get("refreshTranche") == "S06_ATOMIC_CLOSURE_AUTHORITY_LEDGER_CLOSURE"
     and successor_refresh.get("refreshTrancheTrackedPaths") == [
         "docs/v4_2_r1/S06_ATOMIC_CLOSURE_AUTHORITY.md",
-        "functions/src/plannedJobClosure.ts",
-        "functions/test/newBehavior.test.js",
-        "functions/test/plannedJobClosure.firestoreEmulator.test.js",
-        "functions/test/plannedJobClosure.test.js",
+        "governance/programme-ledger.json",
         "tools/v4/v4_2_r1_canonical_audit.py",
     ],
 )
@@ -782,6 +779,7 @@ closure_emulator_test = text(
     "functions/test/plannedJobClosure.firestoreEmulator.test.js"
 )
 closure_decision = text("docs/v4_2_r1/S06_ATOMIC_CLOSURE_AUTHORITY.md")
+programme_ledger = data("governance/programme-ledger.json")
 authority_transaction_read = (
     "const userSnap = asDocumentSnapshot(await transaction.get(userRef));"
 )
@@ -806,6 +804,38 @@ check(
     and "expect(after).toEqual(before)" in closure_emulator_test
     and "# S-06 Atomic Closure Authority" in closure_decision
     and "Idempotent completion replay remains authorization-gated"
+        in closure_decision,
+)
+
+s06_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "S-06"
+]
+s06_record = s06_records[0] if len(s06_records) == 1 else {}
+s06_evidence = s06_record.get("evidence", [])
+s06_history = [
+    entry.get("status")
+    for entry in s06_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+check(
+    "S-06 ledger closure is exact, evidence-bound and re-armable",
+    len(s06_records) == 1
+    and s06_record.get("currentStatus") == "CLOSED"
+    and len(s06_evidence) == 1
+    and s06_evidence[0].get("pullRequest") == 45
+    and s06_evidence[0].get("headCommit")
+        == "1bf9292cc16c35775f8d005eae477e76ad7135fc"
+    and s06_evidence[0].get("mergeCommit")
+        == "d48ad31985d98f9415923b36bc5acb8133de7068"
+    and s06_evidence[0].get("decision")
+        == "PASS_GATE_1A_S06_ATOMIC_CLOSURE_AUTHORITY"
+    and s06_history[-3:] == ["SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(s06_record.get("requiredExitEvidence", [])) >= 6
+    and len(s06_record.get("reArmTriggers", [])) >= 5
+    and "Pull request: #45" in closure_decision
+    and "Merge commit: d48ad31985d98f9415923b36bc5acb8133de7068"
         in closure_decision,
 )
 
