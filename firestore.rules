@@ -2508,6 +2508,11 @@ service cloud.firestore {
     // ─────────────────────────────────────────────
 
     function validChargeAbnormalityCreate(docId) {
+      let sourceChargeNo = request.resource.data.get('sourceChargeNo', -1);
+      let reannealingStatus =
+        request.resource.data.get('reannealingStatus', null);
+      let reannealedToChargeNo =
+        request.resource.data.get('reannealedToChargeNo', null);
       return canLogChargeAbnormality()
         && request.resource.data.keys().hasAll([
           'firestoreId',
@@ -2518,30 +2523,178 @@ service cloud.firestore {
           'category',
           'severity',
           'affectedAssets',
+          'component',
           'observedReason',
+          'description',
+          'possibleRootReasonCategory',
+          'possibleRootReasonNotes',
+          'reannealingStatus',
+          'reannealedToChargeNo',
           'loggedAt',
           'updatedAt',
           'loggedByUid',
+          'loggedByName',
           'updatedByUid',
+          'updatedByName',
+          'linkedTicketFirestoreId',
+          'linkedExecutionFirestoreId',
           'version',
-          'isDeleted'
+          'isDeleted',
+          'deletedAt',
+          'deletedByUid',
+          'deletedByName',
+          'deleteReason'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'firestoreId',
+          'sourceChargeNo',
+          'abnormalityTypeId',
+          'abnormalityTypeTitle',
+          'abnormalityTypeCode',
+          'category',
+          'severity',
+          'affectedAssets',
+          'component',
+          'observedReason',
+          'description',
+          'possibleRootReasonCategory',
+          'possibleRootReasonNotes',
+          'reannealingStatus',
+          'reannealedToChargeNo',
+          'loggedAt',
+          'updatedAt',
+          'loggedByUid',
+          'loggedByName',
+          'updatedByUid',
+          'updatedByName',
+          'linkedTicketFirestoreId',
+          'linkedExecutionFirestoreId',
+          'version',
+          'isDeleted',
+          'deletedAt',
+          'deletedByUid',
+          'deletedByName',
+          'deleteReason'
         ])
         && request.resource.data.get('firestoreId', null) == docId
-        && request.resource.data.get('sourceChargeNo', -1) is int
-        && request.resource.data.get('abnormalityTypeId', null) is string
-        && request.resource.data.get('abnormalityTypeTitle', null) is string
-        && request.resource.data.get('abnormalityTypeCode', null) is string
-        && request.resource.data.get('category', null) is string
-        && request.resource.data.get('severity', null) is string
+        && sourceChargeNo is int
+        && sourceChargeNo > 0
+        && validNonEmptyString(
+          request.resource.data.get('abnormalityTypeId', null),
+          512
+        )
+        && validNonEmptyString(
+          request.resource.data.get('abnormalityTypeTitle', null),
+          500
+        )
+        && validNonEmptyString(
+          request.resource.data.get('abnormalityTypeCode', null),
+          160
+        )
+        && (
+          request.resource.data.get('category', null) == 'process'
+          || request.resource.data.get('category', null) == 'equipment'
+          || request.resource.data.get('category', null) == 'resultQuality'
+          || request.resource.data.get('category', null) == 'reannealing'
+          || request.resource.data.get('category', null) == 'other'
+        )
+        && (
+          request.resource.data.get('severity', null) == 'low'
+          || request.resource.data.get('severity', null) == 'medium'
+          || request.resource.data.get('severity', null) == 'high'
+          || request.resource.data.get('severity', null) == 'critical'
+        )
         && request.resource.data.get('affectedAssets', []) is list
-        && request.resource.data.get('observedReason', null) is string
-        && request.resource.data.get('loggedAt', null) is string
-        && request.resource.data.get('updatedAt', null) is string
+        && request.resource.data.get('affectedAssets', []).size() <= 50
+        && validOptionalString(
+          request.resource.data.get('component', null),
+          200
+        )
+        && validNonEmptyString(
+          request.resource.data.get('observedReason', null),
+          2000
+        )
+        && validOptionalString(
+          request.resource.data.get('description', null),
+          4000
+        )
+        && (
+          request.resource.data.get('possibleRootReasonCategory', null)
+            == 'unknown'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'baseRelated'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'furnaceRelated'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'forceCoolerRelated'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'atmosphereRelated'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'thermocoupleTemperature'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'cycleInterruption'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'materialOrCoilCondition'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'operationsRelated'
+          || request.resource.data.get('possibleRootReasonCategory', null)
+            == 'other'
+        )
+        && validOptionalString(
+          request.resource.data.get('possibleRootReasonNotes', null),
+          4000
+        )
+        && (
+          reannealingStatus == 'notApplicable'
+          || reannealingStatus == 'pendingDecision'
+          || reannealingStatus == 'required'
+          || reannealingStatus == 'notRequired'
+          || reannealingStatus == 'completed'
+        )
+        && (
+          (
+            reannealedToChargeNo == null
+            && reannealingStatus != 'completed'
+          )
+          || (
+            reannealedToChargeNo is int
+            && reannealedToChargeNo > 0
+            && reannealedToChargeNo != sourceChargeNo
+            && reannealingStatus == 'completed'
+          )
+        )
+        && validNonEmptyString(
+          request.resource.data.get('loggedAt', null),
+          64
+        )
+        && validNonEmptyString(
+          request.resource.data.get('updatedAt', null),
+          64
+        )
         && request.resource.data.get('loggedByUid', null) == request.auth.uid
+        && validOptionalString(
+          request.resource.data.get('loggedByName', null),
+          500
+        )
         && request.resource.data.get('updatedByUid', null) == request.auth.uid
-        && request.resource.data.get('version', -1) is int
-        && request.resource.data.get('version', -1) >= 1
-        && request.resource.data.get('isDeleted', null) == false;
+        && validOptionalString(
+          request.resource.data.get('updatedByName', null),
+          500
+        )
+        && validOptionalString(
+          request.resource.data.get('linkedTicketFirestoreId', null),
+          512
+        )
+        && validOptionalString(
+          request.resource.data.get('linkedExecutionFirestoreId', null),
+          512
+        )
+        && request.resource.data.get('version', -1) == 1
+        && request.resource.data.get('isDeleted', null) == false
+        && request.resource.data.get('deletedAt', null) == null
+        && request.resource.data.get('deletedByUid', null) == null
+        && request.resource.data.get('deletedByName', null) == null
+        && request.resource.data.get('deleteReason', null) == null;
     }
 
     // ─────────────────────────────────────────────
@@ -2859,7 +3012,9 @@ service cloud.firestore {
     match /charge_abnormalities/{docId} {
       allow read: if isApprovedUser();
       allow create: if validChargeAbnormalityCreate(docId);
-      allow update: if isAdmin();
+      // Admin edits and soft deletes are transactionally coupled to immutable
+      // audit and replay evidence by mutateChargeAbnormality.
+      allow update: if false;
       allow delete: if false;
     }
 
@@ -2910,6 +3065,10 @@ service cloud.firestore {
       allow read, create, update, delete: if false;
     }
 
+    match /charge_abnormality_mutation_receipts/{docId} {
+      allow read, create, update, delete: if false;
+    }
+
     match /workflow_notification_receipts/{docId} {
       allow read, create, update, delete: if false;
     }
@@ -2924,6 +3083,7 @@ service cloud.firestore {
       // Admin-SDK transaction and cannot be pre-created by a client.
       allow create: if !docId.matches('^server_module_population_.*')
         && !docId.matches('^server_authority_.*')
+        && !docId.matches('^server_charge_abnormality_.*')
         && validAuditCreate();
       allow update, delete: if false;
     }

@@ -292,7 +292,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
           .getAbnormalitiesByFirestoreIds(firestoreIds);
       final remoteMap = {for (var r in remoteList) r.firestoreId: r};
 
-      final recordsToPush = <ChargeAbnormality>[];
+      final recordsToCreate = <ChargeAbnormality>[];
       final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
 
       for (final record in activeBatchRecords) {
@@ -313,18 +313,32 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
 
         final remote = remoteMap[record.firestoreId];
 
+        if (remote == null) {
+          if (record.isDeleted) {
+            skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
+            lastSuccessCount++;
+          } else {
+            recordsToCreate.add(record);
+          }
+          continue;
+        }
+
         if (record.isDeleted) {
-          if (remote != null && remote.isDeleted) {
+          if (remote.isDeleted) {
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
             lastSuccessCount++;
             continue;
           }
 
-          recordsToPush.add(record);
+          await _pushGovernedChargeAbnormalityMutation(
+            local: record,
+            remote: remote,
+            operation: ChargeAbnormalityMutationOperation.softDelete,
+          );
           continue;
         }
 
-        if (remote != null && remote.isDeleted) {
+        if (remote.isDeleted) {
           try {
             await _abnormalityRepo.applyTombstoneFromAbnormalityRemote(remote);
             lastSuccessCount++;
@@ -341,7 +355,15 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
           continue;
         }
 
-        if (remote != null && _isRemoteNewer(record, remote)) {
+        if (_governedChargeAbnormalityStateMatches(record, remote)) {
+          final snapshot = _syncPushSnapshot(record);
+          await _abnormalityRepo.markAbnormalitiesSyncedIfUnchanged([snapshot]);
+          await _abnormalityRepo.updateAbnormalityFromRemote(remote);
+          lastSuccessCount++;
+          continue;
+        }
+
+        if (_isRemoteNewer(record, remote)) {
           await _recordPushConflict(
             entityType: 'charge_abnormality',
             entityId: record.firestoreId!,
@@ -355,27 +377,33 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
           continue;
         }
 
-        recordsToPush.add(record);
+        await _pushGovernedChargeAbnormalityMutation(
+          local: record,
+          remote: remote,
+          operation: ChargeAbnormalityMutationOperation.update,
+        );
       }
 
       bool pushSuccess = false;
 
-      if (recordsToPush.isNotEmpty) {
+      if (recordsToCreate.isNotEmpty) {
         try {
           await _retry(() async {
-            await _firestoreAbnormality.batchUpsertAbnormalities(recordsToPush);
+            await _firestoreAbnormality.batchUpsertAbnormalities(
+              recordsToCreate,
+            );
           });
 
           pushSuccess = true;
-          lastSuccessCount += recordsToPush.length;
+          lastSuccessCount += recordsToCreate.length;
         } catch (e, stackTrace) {
-          lastFailureCount += recordsToPush.length;
+          lastFailureCount += recordsToCreate.length;
           _recordPushFailuresForBatch(
             entityType: 'charge_abnormality',
-            records: recordsToPush,
+            records: recordsToCreate,
             error: e,
           );
-          debugPrint('❌ Charge abnormality batch sync failed: $e');
+          debugPrint('❌ Charge abnormality create sync failed: $e');
           debugPrintStack(stackTrace: stackTrace);
         }
       }
@@ -383,7 +411,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
       final snapshotsToMark = <SyncPushSnapshot>[...skippedButSyncedSnapshots];
 
       if (pushSuccess) {
-        snapshotsToMark.addAll(_syncPushSnapshots(recordsToPush));
+        snapshotsToMark.addAll(_syncPushSnapshots(recordsToCreate));
       }
 
       if (snapshotsToMark.isNotEmpty) {
@@ -392,5 +420,107 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         );
       }
     }
+  }
+
+  Future<void> _pushGovernedChargeAbnormalityMutation({
+    required ChargeAbnormality local,
+    required ChargeAbnormality remote,
+    required ChargeAbnormalityMutationOperation operation,
+  }) async {
+    final firestoreId = local.firestoreId!;
+    if (local.version != remote.version + 1) {
+      await _recordPushConflict(
+        entityType: 'charge_abnormality',
+        entityId: firestoreId,
+        localSnapshot: local.toAuditMap(),
+        remoteSnapshot: remote.toAuditMap(),
+      );
+      lastFailureCount++;
+      debugPrint(
+        '⚠️ GOVERNED PUSH CONFLICT: Charge abnormality $firestoreId '
+        'does not have a single-version local mutation.',
+      );
+      return;
+    }
+
+    final requestId = _abnormalityCommands.deterministicSyncRequestId(
+      operation: operation,
+      abnormalityId: firestoreId,
+      localVersion: local.version,
+    );
+    final snapshot = _syncPushSnapshot(local);
+    final rawReason =
+        operation == ChargeAbnormalityMutationOperation.softDelete
+            ? local.deleteReason ?? 'Deleted charge abnormality'
+            : 'Synchronised privileged charge-abnormality update';
+
+    try {
+      ChargeAbnormalityMutationResult? result;
+      await _retry(
+        () async {
+          if (operation == ChargeAbnormalityMutationOperation.softDelete) {
+            result = await _abnormalityCommands.softDelete(
+              abnormality: local,
+              expectedVersion: remote.version,
+              reason: rawReason,
+              requestId: requestId,
+            );
+            return;
+          }
+          result = await _abnormalityCommands.update(
+            abnormality: local,
+            expectedVersion: remote.version,
+            reason: rawReason,
+            requestId: requestId,
+          );
+        },
+        shouldRetry: (error) {
+          return error is! ChargeAbnormalityMutationException ||
+              !error.isDurableRejection;
+        },
+      );
+      final accepted = result;
+      if (accepted == null) {
+        throw const ChargeAbnormalityMutationException(
+          code: 'internal',
+          message: 'The governed abnormality mutation returned no result.',
+          reasonCode: 'abnormality-response-missing',
+        );
+      }
+      await _abnormalityRepo.markAbnormalitiesSyncedIfUnchanged([snapshot]);
+      await _abnormalityRepo.updateAbnormalityFromRemote(accepted.abnormality);
+      lastSuccessCount++;
+    } catch (error, stackTrace) {
+      lastFailureCount++;
+      _recordPushFailureDetail(
+        entityType: 'charge_abnormality',
+        entityId: firestoreId,
+        error: error,
+      );
+      debugPrint(
+        '❌ Governed charge abnormality ${operation.wireName} failed: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  bool _governedChargeAbnormalityStateMatches(
+    ChargeAbnormality local,
+    ChargeAbnormality remote,
+  ) {
+    return local.version == remote.version &&
+        local.abnormalityTypeId == remote.abnormalityTypeId &&
+        local.severity == remote.severity &&
+        encodeAffectedAssets(local.affectedAssets) ==
+            encodeAffectedAssets(remote.affectedAssets) &&
+        local.component == remote.component &&
+        local.observedReason == remote.observedReason &&
+        local.description == remote.description &&
+        local.possibleRootReasonCategory == remote.possibleRootReasonCategory &&
+        local.possibleRootReasonNotes == remote.possibleRootReasonNotes &&
+        local.reannealingStatus == remote.reannealingStatus &&
+        local.reannealedToChargeNo == remote.reannealedToChargeNo &&
+        local.isDeleted == remote.isDeleted &&
+        local.deleteReason == remote.deleteReason;
   }
 }

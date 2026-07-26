@@ -21,6 +21,7 @@ describe('S-03 callable boundary wiring', () => {
       'userCanMutateRuntimeJobModulePopulation',
     ],
     ['mutateUserAuthority', 'userCanMutateUserAuthority'],
+    ['mutateChargeAbnormality', 'userCanMutateChargeAbnormality'],
   ])('%s uses authority-first shared admission through %s', (
     callableName,
     authorityPredicate,

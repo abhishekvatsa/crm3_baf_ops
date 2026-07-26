@@ -104,6 +104,137 @@ describe("server-only callable abuse controls", () => {
   });
 });
 
+describe("charge abnormality governed admin mutations", () => {
+  function chargeAbnormalityPayload(uid, overrides = {}) {
+    const now = new Date().toISOString();
+    return {
+      firestoreId: "abn1",
+      sourceChargeNo: 12001,
+      abnormalityTypeId: "TYPE_1",
+      abnormalityTypeTitle: "Observed process condition",
+      abnormalityTypeCode: "TYPE_1",
+      category: "process",
+      severity: "medium",
+      affectedAssets: [{assetType: "base", assetNumber: 12}],
+      component: null,
+      observedReason: "Observed condition requiring review",
+      description: null,
+      possibleRootReasonCategory: "unknown",
+      possibleRootReasonNotes: null,
+      reannealingStatus: "notApplicable",
+      reannealedToChargeNo: null,
+      loggedAt: now,
+      updatedAt: now,
+      loggedByUid: uid,
+      loggedByName: uid,
+      updatedByUid: uid,
+      updatedByName: uid,
+      linkedTicketFirestoreId: null,
+      linkedExecutionFirestoreId: null,
+      version: 1,
+      isDeleted: false,
+      deletedAt: null,
+      deletedByUid: null,
+      deletedByName: null,
+      deleteReason: null,
+      ...overrides,
+    };
+  }
+
+  test("approved operator can still create a valid charge abnormality", async () => {
+    await seedUser("operator1", ["operations"]);
+    const db = dbAs("operator1");
+
+    await assertSucceeds(
+      setDoc(
+        doc(db, "charge_abnormalities/abn1"),
+        chargeAbnormalityPayload("operator1")
+      )
+    );
+  });
+
+  test.each([
+    [
+      "partial document",
+      (payload) => {
+        delete payload.possibleRootReasonNotes;
+        return payload;
+      },
+    ],
+    [
+      "unknown severity",
+      (payload) => ({...payload, severity: "urgent"}),
+    ],
+    [
+      "same-source completed RA",
+      (payload) => ({
+        ...payload,
+        reannealingStatus: "completed",
+        reannealedToChargeNo: payload.sourceChargeNo,
+      }),
+    ],
+    [
+      "unexpected field",
+      (payload) => ({...payload, shadowState: "unguarded"}),
+    ],
+  ])("approved operator cannot create %s", async (_label, mutate) => {
+    await seedUser("operator1", ["operations"]);
+    const payload = mutate(chargeAbnormalityPayload("operator1"));
+
+    await assertFails(
+      setDoc(doc(dbAs("operator1"), "charge_abnormalities/abn1"), payload)
+    );
+  });
+
+  test("Admin client cannot directly edit or soft-delete an abnormality", async () => {
+    await seedUser("admin1", ["admin"]);
+    await seedDoc(
+      "charge_abnormalities/abn1",
+      chargeAbnormalityPayload("operator1")
+    );
+    const ref = doc(dbAs("admin1"), "charge_abnormalities/abn1");
+
+    await assertFails(
+      updateDoc(ref, {
+        observedReason: "Ungoverned correction",
+        updatedByUid: "admin1",
+        version: 2,
+      })
+    );
+    await assertFails(
+      updateDoc(ref, {
+        isDeleted: true,
+        deletedByUid: "admin1",
+        version: 2,
+      })
+    );
+  });
+
+  test("mutation receipts and deterministic audits are server-only", async () => {
+    await seedUser("admin1", ["admin"]);
+    const db = dbAs("admin1");
+    const receipt = doc(
+      db,
+      "charge_abnormality_mutation_receipts/request1"
+    );
+
+    await assertFails(getDoc(receipt));
+    await assertFails(setDoc(receipt, {requestId: "request1"}));
+    await assertFails(updateDoc(receipt, {resultVersion: 2}));
+    await assertFails(deleteDoc(receipt));
+    await assertFails(
+      setDoc(doc(db, "audit_logs/server_charge_abnormality_request1"), {
+        entityType: "charge_abnormality",
+        entityId: "abn1",
+        action: "update",
+        performedByUid: "admin1",
+        timestamp: Timestamp.now(),
+        severity: "high",
+      })
+    );
+  });
+});
+
 describe("users", () => {
   test("pending user can create only self as unapproved operations", async () => {
     const db = dbAs("newUser", {

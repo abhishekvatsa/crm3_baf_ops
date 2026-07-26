@@ -16,8 +16,8 @@
     "scope": "maintenance-workflow current-source audit collector; raw Firebase configuration and evidence artifacts excluded"
   },
   "successorRefresh": {
-    "throughMainCommit": "08336c4e861074fd1284dd8758195c418247c9e8",
-    "throughMainTree": "28548c76681e549185d96a6cabe3d18c639e3835",
+    "throughMainCommit": "48676e6daa6cd4342fa9013f68a18e5007125244",
+    "throughMainTree": "776db23af9217881f4743f30521594039be06c2f",
     "adjudicatedPullRequests": [
       40,
       41,
@@ -29,20 +29,39 @@
       47,
       48,
       49,
-      50
+      50,
+      51
     ],
     "preExistingDriftPathCount": 14,
     "crossPlatformRepresentationPathCount": 19,
-    "refreshTranche": "S03_CALLABLE_ABUSE_CONTROL_CLOSURE",
+    "refreshTranche": "S07_GOVERNED_CHARGE_ABNORMALITY_SOURCE_IMPLEMENTATION",
     "refreshTrancheTrackedPaths": [
       "docs/v4_2_r1/S03_CALLABLE_ABUSE_CONTROL.md",
-      "governance/programme-ledger.json",
+      "docs/v4_2_r1/S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION.md",
+      "firestore.rules",
+      "functions/package.json",
+      "functions/src/callableAbuseControl.ts",
+      "functions/src/chargeAbnormalityMutation.ts",
+      "functions/src/index.ts",
+      "functions/test/callableAbuseControl.test.js",
+      "functions/test/callableAbuseControlSource.test.js",
+      "functions/test/chargeAbnormalityMutation.firestoreEmulator.test.js",
+      "functions/test/chargeAbnormalityMutation.test.js",
+      "lib/core/services/sync_service.dart",
+      "lib/core/services/sync_service.directives_abnormalities.dart",
+      "lib/core/services/sync_service.push_infrastructure.dart",
+      "lib/features/abnormalities/presentation/charge_abnormalities_screen.dart",
+      "lib/features/abnormalities/providers/abnormality_provider.dart",
+      "lib/features/abnormalities/services/charge_abnormality_command_service.dart",
+      "package.json",
+      "test/charge_abnormality_atomic_mutation_contract_test.dart",
+      "test/firestore.rules.test.js",
       "tools/v4/v4_2_r1_canonical_audit.py"
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 327,
-    "SUCCESSOR_MODIFIED": 83
+    "BYTE_IDENTICAL": 322,
+    "SUCCESSOR_MODIFIED": 88
   },
   "paths": [
     {
@@ -424,9 +443,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "77C4B7BF5F011BE1E5BA37537AEB8CFFBF02377B7C267FDCE230AA3AD0039726",
+      "candidateSha256": "A8C7F4DF23B091720DE05104FB6F1487AB1D63B2869FD099F85088759E170AC7",
       "canonicalBytes": 111981,
-      "candidateBytes": 128684,
+      "candidateBytes": 134201,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -456,9 +475,9 @@
     {
       "path": "functions/package.json",
       "canonicalSha256": "B0A0CAD2A2F76012579544631D37DA260261FFA6F33BC3AF24F91F4C039EF1AC",
-      "candidateSha256": "038AD555CA462AA942433588BE69B34CCD805855307C12564C49087F330C57EF",
+      "candidateSha256": "2F800592DBF7D95901340815961CEA302B15FF05AE2DEF24BEF5D9007F1EFC45",
       "canonicalBytes": 1115,
-      "candidateBytes": 1684,
+      "candidateBytes": 1888,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -480,9 +499,9 @@
     {
       "path": "functions/src/index.ts",
       "canonicalSha256": "14EBFA6952BB20C137EEF408C1FB80C5706CC6CBCD5FA29F2E8699F8C04E3A48",
-      "candidateSha256": "A266DBF60AE45F24F572B8BF44A138FC83931B997C3763F00618603613446AD3",
+      "candidateSha256": "CEC0F493CF88717C121B324DE83C29B3D12978ED85C3EF1EFDDBA3EC548C449B",
       "canonicalBytes": 9674,
-      "candidateBytes": 13644,
+      "candidateBytes": 15391,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -972,18 +991,18 @@
     {
       "path": "lib/core/services/sync_service.dart",
       "canonicalSha256": "A6D3A8AD047F20344D60BE7F969F83C693462EC8386B8D3ACF569760B331AA35",
-      "candidateSha256": "A6D3A8AD047F20344D60BE7F969F83C693462EC8386B8D3ACF569760B331AA35",
+      "candidateSha256": "71C18D6B41DAB1B010423C2FA91D9C94E843BA9C4F3FE8C5F6DDD6FDE837238B",
       "canonicalBytes": 14226,
-      "candidateBytes": 14226,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 14640,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/core/services/sync_service.directives_abnormalities.dart",
       "canonicalSha256": "CD37911E138E663DFF7CA1360FE7F4FB7E4BB82B27AD8FF2B89EA252CDB639A9",
-      "candidateSha256": "CD37911E138E663DFF7CA1360FE7F4FB7E4BB82B27AD8FF2B89EA252CDB639A9",
+      "candidateSha256": "402A8FE44668CB30E6BB18A72D86369B972485ECCFD2032DCC0CBE9003B77819",
       "canonicalBytes": 12272,
-      "candidateBytes": 12272,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 16887,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/core/services/sync_service.executions.dart",
@@ -1020,10 +1039,10 @@
     {
       "path": "lib/core/services/sync_service.push_infrastructure.dart",
       "canonicalSha256": "F8E41833491F92F363F1918D8700A444D628F6C5591F54477023941E64F77193",
-      "candidateSha256": "F8E41833491F92F363F1918D8700A444D628F6C5591F54477023941E64F77193",
+      "candidateSha256": "95D892F569DED32152141C19DE25F2414C1FBE3E287F7B12650C8F6EAE2FE198",
       "canonicalBytes": 13276,
-      "candidateBytes": 13276,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 13500,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/core/services/sync_service.template_governance.dart",
@@ -1140,18 +1159,18 @@
     {
       "path": "lib/features/abnormalities/presentation/charge_abnormalities_screen.dart",
       "canonicalSha256": "90B745A8A2C0A6B3C8C62FDCA0996067310198FAC13E3C1EDAA9BD3C137BA42F",
-      "candidateSha256": "90B745A8A2C0A6B3C8C62FDCA0996067310198FAC13E3C1EDAA9BD3C137BA42F",
+      "candidateSha256": "E56A026411CB30F7D2A29F0677C6AF4A4A875CBF94887E5828FFDFA2371980E3",
       "canonicalBytes": 54363,
-      "candidateBytes": 54363,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 54516,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/abnormalities/providers/abnormality_provider.dart",
       "canonicalSha256": "B0ED8D3927D445D9C5FEB676B38B648F7802269AC2C762F8A2B8912857D9DD51",
-      "candidateSha256": "B0ED8D3927D445D9C5FEB676B38B648F7802269AC2C762F8A2B8912857D9DD51",
+      "candidateSha256": "5F21CAEE1EF93108A6E9C1BF20DCF2B8F13544E47C6E302873C51A5281E393C0",
       "canonicalBytes": 67050,
-      "candidateBytes": 67050,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 67265,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/admin/presentation/admin_data_browser.dart",
@@ -2392,9 +2411,9 @@
     {
       "path": "package.json",
       "canonicalSha256": "FA45934BAA0695024EA92A790D86B57D5B172788D855B610EB1163374FF4EC30",
-      "candidateSha256": "D317F4F1E878CBC36BA91FBB2DC71CCB2195E75CA2482968BA33CC15CD1264B4",
+      "candidateSha256": "22A9A6F59797F8E71292BBC9E63639801FD33376E5FA2708BA91EE30DA2E9BFF",
       "canonicalBytes": 1103,
-      "candidateBytes": 2041,
+      "candidateBytes": 2240,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2688,9 +2707,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "B021CD7ADC1037A853E892952FBCB8F0B8672C36797CDBEF035E6C0E0270240E",
+      "candidateSha256": "2A5940746FA9D110E41569429E4DEB3217E804FFA8D3FE2C8481D1DD61969F3F",
       "canonicalBytes": 78841,
-      "candidateBytes": 83112,
+      "candidateBytes": 86806,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

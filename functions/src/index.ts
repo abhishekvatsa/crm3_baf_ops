@@ -53,6 +53,14 @@ import type {
   UserAuthorityMutationFirestoreLike,
 } from "./userAuthorityMutation";
 import {
+  ChargeAbnormalityMutationError,
+  mutateChargeAbnormalityWithDb,
+  userCanMutateChargeAbnormality,
+} from "./chargeAbnormalityMutation";
+import type {
+  ChargeAbnormalityMutationFirestoreLike,
+} from "./chargeAbnormalityMutation";
+import {
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
   buildTicketResolvedNotification,
@@ -319,6 +327,53 @@ export const mutateUserAuthority = onCall(
       throw new HttpsError(
         "internal",
         "Server-governed user-authority mutation failed.",
+      );
+    }
+  },
+);
+
+// ─── Callable: atomic charge-abnormality admin mutation ──────────────────────
+
+interface MutateChargeAbnormalityRequest {
+  [key: string]: unknown;
+  requestId?: unknown;
+  abnormalityId?: unknown;
+  operation?: unknown;
+  expectedVersion?: unknown;
+  reason?: unknown;
+}
+
+export const mutateChargeAbnormality = onCall(
+  {
+    region: CALLABLE_REGION,
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    concurrency: 20,
+  },
+  async (request: CallableRequest<MutateChargeAbnormalityRequest>) => {
+    try {
+      const db = admin.firestore();
+      return await executeAuthorizedMutation({
+        db,
+        authUid: request.auth?.uid ?? null,
+        callableName: "mutateChargeAbnormality",
+        authorize: userCanMutateChargeAbnormality,
+        execute: () => mutateChargeAbnormalityWithDb({
+          db: db as unknown as ChargeAbnormalityMutationFirestoreLike,
+          authUid: request.auth?.uid ?? null,
+          data: request.data ?? {},
+          timestampFromDate: admin.firestore.Timestamp.fromDate,
+        }),
+      });
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      if (error instanceof ChargeAbnormalityMutationError) {
+        throw new HttpsError(error.code, error.message, error.details);
+      }
+      logger.error("mutateChargeAbnormality failed", error);
+      throw new HttpsError(
+        "internal",
+        "Server-governed charge-abnormality mutation failed.",
       );
     }
   },

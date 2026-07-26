@@ -77,15 +77,20 @@ extension _SyncServicePushInfrastructure on SyncService {
   }) {
     final populationError =
         error is RuntimeJobModulePopulationException ? error : null;
+    final abnormalityError =
+        error is ChargeAbnormalityMutationException ? error : null;
     final firebaseError = error is FirebaseException ? error : null;
     final message =
         populationError?.operatorMessage ??
+        abnormalityError?.operatorMessage ??
         (firebaseError?.message?.trim().isNotEmpty == true
             ? firebaseError!.message!.trim()
             : error.toString());
-    final errorCode = populationError?.code ?? firebaseError?.code;
+    final errorCode =
+        populationError?.code ?? abnormalityError?.code ?? firebaseError?.code;
     final isLikelyPermanent =
         populationError?.isDurableRejection ??
+        abnormalityError?.isDurableRejection ??
         (firebaseError != null &&
             (firebaseError.code == 'permission-denied' ||
                 firebaseError.code == 'failed-precondition' ||
