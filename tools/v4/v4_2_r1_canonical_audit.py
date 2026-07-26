@@ -159,18 +159,17 @@ check(
     and main["tree"] == "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
 )
 check(
-    "Successor reconciliation refresh is exact through the S-09/R-06 source merge",
-    successor_refresh.get("throughMainCommit") == "3c0861dcfe032ae795833283f9a7d63a45dde7e3"
-    and successor_refresh.get("throughMainTree") == "2ed1174374801f992f1eaaeafbfdc93bcbb61b84"
+    "Successor reconciliation refresh is exact through the S-04 evidence baseline",
+    successor_refresh.get("throughMainCommit") == "466f81e72b033d367da47a2aca4b30850ffbcfc4"
+    and successor_refresh.get("throughMainTree") == "29f26f09da3b720296d899f8f80a843fbc8419a5"
     and successor_refresh.get("adjudicatedPullRequests")
-        == [40, 41, 42, 43, 44, 45, 46, 47]
+        == [40, 41, 42, 43, 44, 45, 46, 47, 48]
     and successor_refresh.get("preExistingDriftPathCount") == 14
     and successor_refresh.get("crossPlatformRepresentationPathCount") == 19
     and successor_refresh.get("refreshTranche")
-        == "S09_R06_WORKFLOW_REPLAY_LEDGER_CLOSURE"
+        == "S04_CANONICAL_USER_AUTHORITY_SHAPE_CLOSURE"
     and successor_refresh.get("refreshTrancheTrackedPaths") == [
-        "docs/v4_2_r1/R06_VERSIONED_WORKFLOW_RECEIPT_FINGERPRINTS.md",
-        "docs/v4_2_r1/S09_ATOMIC_WORKFLOW_AUTHORITY_AND_REPLAY.md",
+        "docs/v4_2_r1/S04_CANONICAL_USER_AUTHORITY_SHAPE.md",
         "governance/programme-ledger.json",
         "tools/v4/v4_2_r1_canonical_audit.py",
     ],
@@ -977,6 +976,83 @@ check(
     and "Merge commit:            3c0861dcfe032ae795833283f9a7d63a45dde7e3"
         in r06_decision
     and "Post-merge workflow run: 30196339736" in r06_decision,
+)
+
+s04_decision = text("docs/v4_2_r1/S04_CANONICAL_USER_AUTHORITY_SHAPE.md")
+s04_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "S-04"
+]
+s04_record = s04_records[0] if len(s04_records) == 1 else {}
+s04_evidence = s04_record.get("evidence", [])
+s04_history = [
+    entry.get("status")
+    for entry in s04_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+rules_source = text("firestore.rules")
+authority_mutation_source = text("functions/src/userAuthorityMutation.ts")
+authority_rules_test = text("test/firestore.rules.test.js")
+authority_unit_test = text("functions/test/userAuthority.test.js")
+authority_mutation_test = text(
+    "functions/test/userAuthorityMutation.firestoreEmulator.test.js"
+)
+dart_authority_test = text("test/user_authority_schema_test.dart")
+check(
+    "S-04 user authority roles, client shape and tracked writers are constrained",
+    "function validUserRoleList(roles)" in rules_source
+    and "roles.hasOnly([" in rules_source
+    and "function validUserDocumentShape(data)" in rules_source
+    and "data.keys().hasOnly([" in rules_source
+    and "function validApprovedUserAuthority(data)" in rules_source
+    and "Authorization reads validate only the canonical security capsule. Full"
+        in rules_source
+    and "user document shape remains enforced on every client create/update"
+        in rules_source
+    and "validAdminUserProfileUpdate(userId)" in rules_source
+    and "normalizeCanonicalUserRoles(value as string[])" in authority_mutation_source
+    and "transaction.set(targetRef, {" in authority_mutation_source
+    and "}, {merge: true});" in authority_mutation_source
+    and "admin client cannot perform direct" in authority_rules_test
+    and "admin cannot add ungoverned top-level user fields"
+        in authority_rules_test
+    and "rejects %s from a privileged writer" in authority_rules_test
+    and "fails closed for legacy or malformed authority" in authority_unit_test
+    and "malformed target authority fails closed" in authority_mutation_test
+    and "unknown roles fail closed instead of becoming Operations"
+        in dart_authority_test,
+)
+check(
+    "S-04 ledger closure is exact, policy-explicit and re-armable",
+    len(s04_records) == 1
+    and s04_record.get("currentStatus") == "CLOSED"
+    and len(s04_evidence) == 3
+    and s04_evidence[0].get("pullRequest") == 40
+    and s04_evidence[0].get("headCommit")
+        == "473ed3c25472b27d646c1d75406a22a80ca26cd9"
+    and s04_evidence[0].get("mergeCommit")
+        == "f88c7e35f1dae95222cdcd57819b091a2f5f56c9"
+    and s04_evidence[0].get("postMergeWorkflowRun") == 30170153630
+    and s04_evidence[1].get("pullRequest") == 41
+    and s04_evidence[1].get("headCommit")
+        == "eb8bc9e505f559bc0e9267f56dd23ec4b6180ca2"
+    and s04_evidence[1].get("mergeCommit")
+        == "96385151d73c04904184b0bfd9c057c23b9f6e84"
+    and s04_evidence[1].get("postMergeWorkflowRun") == 30172678080
+    and s04_evidence[2].get("currentMainCommit")
+        == "466f81e72b033d367da47a2aca4b30850ffbcfc4"
+    and s04_evidence[2].get("postMergeWorkflowRun") == 30196942545
+    and s04_evidence[2].get("decision")
+        == "PASS_S04_CANONICAL_USER_AUTHORITY_SHAPE"
+    and s04_history[-3:] == ["SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(s04_record.get("requiredExitEvidence", [])) >= 7
+    and len(s04_record.get("reArmTriggers", [])) >= 5
+    and "server-written document with a valid capsule remains authorizing"
+        in s04_decision
+    and "Decision:                PASS_S04_CANONICAL_USER_AUTHORITY_SHAPE"
+        in s04_decision
+    and "This closure does not authorize deployment" in s04_decision,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
