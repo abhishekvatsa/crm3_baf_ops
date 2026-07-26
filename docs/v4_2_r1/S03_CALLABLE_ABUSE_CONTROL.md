@@ -1,10 +1,18 @@
 # S-03 Callable Abuse Control
 
-Status: SOURCE_IMPLEMENTED
+Status: CLOSED
 
 Baseline main commit: `b99ec28f1d7fe2f72f0b089df3d48357e4d53f75`
 
-Decision: `PENDING_EXACT_HEAD_MERGE_AND_POSTMERGE_CI`
+Source commit: `bb76e167eb27c0b26058c7c514085b0481157aa2`
+
+Pull request: #50
+
+Merge commit: `08336c4e861074fd1284dd8758195c418247c9e8`
+
+Post-merge workflow run: `30208984633`
+
+Decision: `PASS_S03_CALLABLE_ABUSE_CONTROL`
 
 ## Finding
 
@@ -126,8 +134,9 @@ before execution.
 
 ## Scope Boundary
 
-This closes source implementation only. It does not yet prove merge or live
-deployment, and it does not authorize a Functions deployment.
+This closes the S-03 source-and-CI finding. Exact-head PR checks and the exact
+main-branch post-merge run passed. The control is not deployed live, and this
+closure does not authorize a Functions deployment.
 
 The control is not a substitute for App Check, Play Integrity, Cloud Functions
 platform quotas, IAM minimization, alert routing, or a service-wide global
