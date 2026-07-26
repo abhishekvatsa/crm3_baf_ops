@@ -126,8 +126,23 @@ Source tree:     7c1f5b387756f37d7d99a7bded2ca77abc616145
 Decision:        PASS_SOURCE_S09_ATOMIC_WORKFLOW_AUTHORITY_AND_REPLAY
 ```
 
-The finding is `SOURCE_IMPLEMENTED`. Exact-head CI, review, merge and
-postmerge evidence remain required before source closure.
+## Exact merge and post-merge evidence
+
+```text
+Repository:              abhishekvatsa/crm3_baf_ops
+Pull request:            #47
+Head commit:             5a2d7e62fc7de810e6edbf8a69e9558c90930c8b
+Merge commit:            3c0861dcfe032ae795833283f9a7d63a45dde7e3
+Post-merge workflow run: 30196339736
+Decision:                PASS_GATE_1A_S09_ATOMIC_WORKFLOW_AUTHORITY_AND_REPLAY
+```
+
+All six exact-head release-gate checks across the branch-push and pull-request
+runs passed. All three release-gate jobs also passed on the exact merge commit.
+The finding is therefore `CLOSED` as a source-and-CI finding.
+
+Closure does not dispose of legacy receipts. Their read-only inventory and any
+governed reconciliation remain pilot/cutover prerequisites.
 
 ## Authorization boundary
 

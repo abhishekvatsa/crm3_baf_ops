@@ -1546,7 +1546,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "efd41221b8d13c612ae075bc1651b74d1f97be8d",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
@@ -1560,6 +1560,15 @@
           "sourceTree": "7c1f5b387756f37d7d99a7bded2ca77abc616145",
           "decision": "PASS_SOURCE_S09_ATOMIC_WORKFLOW_AUTHORITY_AND_REPLAY",
           "authority": "LOCAL_EXACT_SOURCE_BUILD_UNIT_AND_FIRESTORE_EMULATOR"
+        },
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 47,
+          "headCommit": "5a2d7e62fc7de810e6edbf8a69e9558c90930c8b",
+          "mergeCommit": "3c0861dcfe032ae795833283f9a7d63a45dde7e3",
+          "postMergeWorkflowRun": 30196339736,
+          "decision": "PASS_GATE_1A_S09_ATOMIC_WORKFLOW_AUTHORITY_AND_REPLAY",
+          "authority": "EXACT_HEAD_MERGE_AND_POSTMERGE_GREEN_CI"
         }
       ],
       "requiredExitEvidence": [
@@ -1581,7 +1590,8 @@
       "notes": [
         "Source commit e15b9676fc1e6e5c5ef56ff161f8558cac80dadf implements the transaction-time actor read, semantic authority scopes and owner-bound replay.",
         "S-06 remains closed for planned-job completion; S-09 covers the distinct maintenance-workflow command surface.",
-        "Deployment, production mutation, pilot and cutover remain prohibited."
+        "Deployment, production mutation, pilot and cutover remain prohibited.",
+        "S-09 tracked-source closure is proved by PR #47, merge commit 3c0861dcfe032ae795833283f9a7d63a45dde7e3 and successful post-merge workflow run 30196339736."
       ],
       "statusHistory": [
         {
@@ -1593,6 +1603,16 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-26",
           "basis": "Exact source commit e15b9676fc1e6e5c5ef56ff161f8558cac80dadf passed Functions unit tests and governed Firestore emulator authority/replay witnesses."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PR #47 exact green head 5a2d7e62fc7de810e6edbf8a69e9558c90930c8b merged to main as 3c0861dcfe032ae795833283f9a7d63a45dde7e3."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PASS_GATE_1A_S09_ATOMIC_WORKFLOW_AUTHORITY_AND_REPLAY and successful exact-merge workflow run 30196339736 close the tracked source-and-CI finding; deployment and production-data gates remain independent."
         }
       ]
     },
@@ -1741,7 +1761,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "efd41221b8d13c612ae075bc1651b74d1f97be8d",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Reliability/data",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
@@ -1755,6 +1775,15 @@
           "sourceTree": "7c1f5b387756f37d7d99a7bded2ca77abc616145",
           "decision": "PASS_SOURCE_R06_VERSIONED_WORKFLOW_RECEIPT_FINGERPRINTS",
           "authority": "LOCAL_EXACT_SOURCE_BUILD_UNIT_AND_FIRESTORE_EMULATOR"
+        },
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 47,
+          "headCommit": "5a2d7e62fc7de810e6edbf8a69e9558c90930c8b",
+          "mergeCommit": "3c0861dcfe032ae795833283f9a7d63a45dde7e3",
+          "postMergeWorkflowRun": 30196339736,
+          "decision": "PASS_R06_VERSIONED_WORKFLOW_RECEIPT_FINGERPRINTS",
+          "authority": "EXACT_HEAD_MERGE_AND_POSTMERGE_GREEN_CI"
         }
       ],
       "requiredExitEvidence": [
@@ -1776,7 +1805,8 @@
       "notes": [
         "Source commit e15b9676fc1e6e5c5ef56ff161f8558cac80dadf replaces the non-standard FNV-like function with algorithm-prefixed SHA-256 and receipt schema version 2.",
         "Legacy receipt collection readback and any reconciliation remain a pilot/cutover prerequisite; this source tranche performs no production mutation.",
-        "Deployment, production mutation, pilot and cutover remain prohibited."
+        "Deployment, production mutation, pilot and cutover remain prohibited.",
+        "R-06 tracked-source closure is proved by PR #47, merge commit 3c0861dcfe032ae795833283f9a7d63a45dde7e3 and successful post-merge workflow run 30196339736."
       ],
       "statusHistory": [
         {
@@ -1788,6 +1818,16 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-26",
           "basis": "Exact source commit e15b9676fc1e6e5c5ef56ff161f8558cac80dadf passed canonical SHA-256, conflict, malformed and legacy-receipt regressions."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PR #47 exact green head 5a2d7e62fc7de810e6edbf8a69e9558c90930c8b merged to main as 3c0861dcfe032ae795833283f9a7d63a45dde7e3."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-26",
+          "basis": "PASS_R06_VERSIONED_WORKFLOW_RECEIPT_FINGERPRINTS and successful exact-merge workflow run 30196339736 close the tracked source-and-CI finding; legacy-receipt reconciliation, deployment and production-data gates remain independent."
         }
       ]
     },
