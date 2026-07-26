@@ -1,3 +1,4 @@
+import {createHash} from "crypto";
 import {JsonMap, JsonValue, LaneKey} from "./types";
 import {WorkflowError} from "./errors";
 
@@ -41,20 +42,10 @@ const stable = (value: JsonValue | undefined): string => {
 
 export const stableJson = (value: JsonValue): string => stable(value);
 
-export const fnv1a64 = (text: string): string => {
-  let high = 0xcbf29ce4;
-  let low = 0x84222325;
-  for (let i = 0; i < text.length; i += 1) {
-    low ^= text.charCodeAt(i);
-    const lowMul = low * 0x1b3;
-    const carry = Math.floor(lowMul / 0x100000000);
-    low = lowMul >>> 0;
-    high = (high * 0x1b3 + carry) >>> 0;
-  }
-  return high.toString(16).padStart(8, "0") + low.toString(16).padStart(8, "0");
-};
-
-export const payloadHash = (command: JsonMap): string => fnv1a64(stableJson(command));
+export const payloadFingerprint = (command: JsonMap): string =>
+  `sha256:${createHash("sha256")
+    .update(stableJson(command), "utf8")
+    .digest("hex")}`;
 export const iso = (date: Date): string => date.toISOString();
 export const plusMinutes = (date: Date, minutes: number): string =>
   new Date(date.getTime() + minutes * 60_000).toISOString();

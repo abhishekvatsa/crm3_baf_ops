@@ -273,8 +273,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 328
-    and counts.get("SUCCESSOR_MODIFIED") == 82
+    and counts.get("BYTE_IDENTICAL") == 327
+    and counts.get("SUCCESSOR_MODIFIED") == 83
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -286,7 +286,6 @@ critical_exact = {
     "android/settings.gradle.kts",
     "release/stage2d-f-internal-controlled-deployment-scope.json",
     "test/stage2d_f2_programme_ledger_closure_contract_test.dart",
-    "test/programme_ledger_contract_test.dart",
 }
 row_map = {row["path"]: row for row in rows}
 check(
@@ -294,12 +293,13 @@ check(
     all(row_map.get(path, {}).get("disposition") == "BYTE_IDENTICAL" for path in critical_exact),
 )
 check(
-    "Mutable release-gate and programme-ledger evolution is explicitly classified",
+    "Mutable release-gate, programme-ledger and ledger-contract evolution is explicitly classified",
     all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in (
             ".github/workflows/release-gate.yml",
             "governance/programme-ledger.json",
+            "test/programme_ledger_contract_test.dart",
         )
     ),
 )
@@ -837,6 +837,110 @@ check(
     and "Pull request: #45" in closure_decision
     and "Merge commit: d48ad31985d98f9415923b36bc5acb8133de7068"
         in closure_decision,
+)
+
+workflow_dispatcher = text(
+    "functions/src/maintenanceWorkflow/dispatcher.ts"
+)
+workflow_idempotency = text(
+    "functions/src/maintenanceWorkflow/idempotency.ts"
+)
+workflow_authority = text(
+    "functions/src/maintenanceWorkflow/commandAuthority.ts"
+)
+workflow_utils = text("functions/src/maintenanceWorkflow/utils.ts")
+workflow_replay_unit = text(
+    "functions/test/maintenanceWorkflowReplayAuthority.test.js"
+)
+workflow_replay_emulator = text(
+    "functions/test/workflowAuthorityReplayAdjudication.firestoreEmulator.test.js"
+)
+s09_decision = text(
+    "docs/v4_2_r1/S09_ATOMIC_WORKFLOW_AUTHORITY_AND_REPLAY.md"
+)
+r06_decision = text(
+    "docs/v4_2_r1/R06_VERSIONED_WORKFLOW_RECEIPT_FINGERPRINTS.md"
+)
+workflow_actor_read = (
+    "const actorSnapshot = await tx.get(`users/${context.actor.uid}`);"
+)
+workflow_receipt_read = (
+    "const replay = await readExistingReceipt(tx, command, actor);"
+)
+check(
+    "S-09 workflow authority and replay are transactionally current and owner-bound",
+    workflow_actor_read in workflow_dispatcher
+    and workflow_receipt_read in workflow_dispatcher
+    and workflow_dispatcher.index(workflow_actor_read)
+        < workflow_dispatcher.index(workflow_receipt_read)
+    and "assertWorkflowAuthorityScope(actor, authorityScope);"
+        in workflow_idempotency
+    and "workflow-receipt-owner-mismatch" in workflow_idempotency
+    and workflow_idempotency.index("workflow-receipt-owner-mismatch")
+        < workflow_idempotency.index(
+            "const expected = payloadFingerprint("
+        )
+    and "resolveFreshWorkflowAuthorityScope" in workflow_authority
+    and "stale preflight actor fails closed" in workflow_replay_unit
+    and "cross-actor owner rejection precedes payload fingerprint comparison"
+        in workflow_replay_unit
+    and "W2: revocation during the in-flight window fails closed"
+        in workflow_replay_emulator
+    and "W4: replay is refused after the required role is withdrawn"
+        in workflow_replay_emulator
+    and "# S-09 Atomic Workflow Authority and Replay" in s09_decision
+    and "semantic capability, not the role list" in s09_decision,
+)
+
+check(
+    "R-06 workflow receipts use versioned canonical SHA-256 fingerprints",
+    'createHash("sha256")' in workflow_utils
+    and "fnv1a64" not in workflow_utils
+    and '`sha256:${createHash("sha256")' in workflow_utils
+    and "receiptSchemaVersion: 2" in workflow_dispatcher
+    and "legacy-workflow-receipt-reconciliation-required"
+        in workflow_idempotency
+    and "workflow-receipt-fingerprint-malformed" in workflow_idempotency
+    and "same owner cannot reuse a command ID with a different payload"
+        in workflow_replay_unit
+    and "fingerprint is canonical SHA-256 over UTF-8 stable JSON"
+        in workflow_replay_unit
+    and "# R-06 Versioned Workflow Receipt Fingerprints" in r06_decision
+    and "No unsupported collision-resistance estimate is used"
+        in r06_decision,
+)
+
+s09_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "S-09"
+]
+r06_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "R-06"
+]
+s09_record = s09_records[0] if len(s09_records) == 1 else {}
+r06_record = r06_records[0] if len(r06_records) == 1 else {}
+source_commit = "e15b9676fc1e6e5c5ef56ff161f8558cac80dadf"
+check(
+    "S-09 and R-06 ledger findings are exact source-implemented records",
+    len(s09_records) == 1
+    and len(r06_records) == 1
+    and s09_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
+    and r06_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
+    and s09_record.get("evidence", [{}])[0].get("sourceCommit")
+        == source_commit
+    and r06_record.get("evidence", [{}])[0].get("sourceCommit")
+        == source_commit
+    and s09_record.get("statusHistory", [])[-1].get("status")
+        == "SOURCE_IMPLEMENTED"
+    and r06_record.get("statusHistory", [])[-1].get("status")
+        == "SOURCE_IMPLEMENTED"
+    and len(s09_record.get("requiredExitEvidence", [])) >= 7
+    and len(r06_record.get("requiredExitEvidence", [])) >= 7
+    and len(s09_record.get("reArmTriggers", [])) >= 5
+    and len(r06_record.get("reArmTriggers", [])) >= 5,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

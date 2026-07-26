@@ -35,6 +35,19 @@ export interface WorkflowCommand {
   readonly payload: JsonMap;
 }
 
+export type WorkflowAuthorityCapability =
+  | "lane.acknowledge" | "lane.work" | "lane.close"
+  | "laneSet.finalize" | "lanePopulation.manage" | "workflow.cancel"
+  | "condition.markDue" | "redLane.prepare" | "workflowModule.reopen"
+  | "job.finalize" | "equipment.deploy" | "equipment.reconcile"
+  | "compliance.unscoped.manage";
+
+export interface WorkflowAuthorityScope extends JsonMap {
+  readonly schemaVersion: 1;
+  readonly capability: WorkflowAuthorityCapability;
+  readonly laneKey?: LaneKey;
+}
+
 export type WorkflowCommandType =
   | "createLegacyWorkflowJob"
   | "finalizeLaneSet" | "acknowledgeLane" | "addLane" | "removeLane"
@@ -47,7 +60,20 @@ export type WorkflowCommandType =
 
 export interface WorkflowCommandReceipt {
   readonly commandId: string;
-  readonly payloadHash: string;
+  readonly resultKey: string;
+  readonly aggregateVersion: number;
+  readonly result: JsonMap;
+  readonly appliedAt: string;
+}
+
+export interface StoredWorkflowCommandReceipt extends JsonMap {
+  readonly receiptSchemaVersion: 2;
+  readonly commandId: string;
+  readonly commandType: WorkflowCommandType;
+  readonly aggregateId: string;
+  readonly actorUid: string;
+  readonly authorityScope: WorkflowAuthorityScope;
+  readonly payloadFingerprint: string;
   readonly resultKey: string;
   readonly aggregateVersion: number;
   readonly result: JsonMap;

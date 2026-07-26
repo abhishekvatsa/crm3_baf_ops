@@ -36,8 +36,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 328,
-    "SUCCESSOR_MODIFIED": 82
+    "BYTE_IDENTICAL": 327,
+    "SUCCESSOR_MODIFIED": 83
   },
   "paths": [
     {
@@ -451,9 +451,9 @@
     {
       "path": "functions/package.json",
       "canonicalSha256": "B0A0CAD2A2F76012579544631D37DA260261FFA6F33BC3AF24F91F4C039EF1AC",
-      "candidateSha256": "6648223EDE7E229FC8D54214D52F6B614C6D67E4EDAAC64E9CAC1938F0E980EF",
+      "candidateSha256": "727AE5DC94DC001B6A85FC41AFECDF8665BD1ECA594F9D76A685FBD0777EF9C3",
       "canonicalBytes": 1115,
-      "candidateBytes": 1360,
+      "candidateBytes": 1632,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -643,9 +643,9 @@
     {
       "path": "governance/programme-ledger.json",
       "canonicalSha256": "30FC5520D44172C2F6E0AD3E954AC7482C350292464AA972CE929D2740B02C56",
-      "candidateSha256": "D82043E3E19166A2B0C8117DB3F61C5AF0F541E3574624AB65D95EA4DC50B8D5",
+      "candidateSha256": "B58645A991D0E8EDD5991E96D3B3ED9D2DAB66CDDDA364560AE0F5FC7C26AA37",
       "canonicalBytes": 73391,
-      "candidateBytes": 78672,
+      "candidateBytes": 84583,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2387,9 +2387,9 @@
     {
       "path": "package.json",
       "canonicalSha256": "FA45934BAA0695024EA92A790D86B57D5B172788D855B610EB1163374FF4EC30",
-      "candidateSha256": "8951A99FC30F65DF40D8F251DAF77B27A5C79237F883B3AE385685DFB7B82ED0",
+      "candidateSha256": "D317F4F1E878CBC36BA91FBB2DC71CCB2195E75CA2482968BA33CC15CD1264B4",
       "canonicalBytes": 1103,
-      "candidateBytes": 1848,
+      "candidateBytes": 2041,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3039,10 +3039,10 @@
     {
       "path": "test/programme_ledger_contract_test.dart",
       "canonicalSha256": "DC917915EE0EA58C4B7B5A794AF361AEDCCA8927DE1420BA3A98A18D59024491",
-      "candidateSha256": "DC917915EE0EA58C4B7B5A794AF361AEDCCA8927DE1420BA3A98A18D59024491",
+      "candidateSha256": "CCC6BCED1D393631CA5A7B75BFCE4DED9B2456C4BA837382DA208D6A8D0B4501",
       "canonicalBytes": 18375,
-      "candidateBytes": 18375,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 18403,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "test/publish_metadata_dialog_integration_test.dart",
