@@ -20,6 +20,14 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function deferred() {
+  let resolve;
+  const promise = new Promise((resolver) => {
+    resolve = resolver;
+  });
+  return {promise, resolve};
+}
+
 function baseExecution(executionId, overrides = {}) {
   return {
     firestoreId: executionId,
@@ -260,6 +268,50 @@ describeWithEmulator(
           }),
         ).rejects.toMatchObject({
           code: 'permission-denied',
+        });
+
+        const after = await captureState(executionId);
+        expect(after).toEqual(before);
+      },
+    );
+
+    test(
+      'authority revoked before transaction start fails closed with no business mutation',
+      async () => {
+        const executionId = 'integration_authority_revoked';
+        const uid = 'supervisor_revoked';
+        const transactionMayStart = deferred();
+        const invocationReachedTransaction = deferred();
+
+        await seedUser(uid);
+        await seedExecution(executionId, {version: 6});
+        await seedModule(executionId);
+
+        const before = await captureState(executionId);
+        const closurePromise = completePlannedJobWithDb({
+          db,
+          authUid: uid,
+          data: {
+            executionId,
+            expectedCompletionVersion: 7,
+          },
+          timestampFromDate: admin.firestore.Timestamp.fromDate,
+          beforeTransactionForTest: async () => {
+            invocationReachedTransaction.resolve();
+            await transactionMayStart.promise;
+          },
+        });
+
+        await invocationReachedTransaction.promise;
+        await db.collection('users').doc(uid).update({
+          isApproved: false,
+          roles: [],
+        });
+        transactionMayStart.resolve();
+
+        await expect(closurePromise).rejects.toMatchObject({
+          code: 'permission-denied',
+          details: {reasonCode: 'closure-authority-denied'},
         });
 
         const after = await captureState(executionId);

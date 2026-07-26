@@ -36,7 +36,7 @@ type QueryLike = {
   where: (field: string, op: string, value: unknown) => QueryLike;
 };
 
-type DocumentRefLike = {get: () => Promise<DocumentSnapshotLike>};
+type DocumentRefLike = {readonly path: string};
 
 type DocumentSnapshotLike = {
   exists: boolean;
@@ -664,6 +664,7 @@ export async function completePlannedJobWithDb(params: {
    * existing in-memory test harness working without an admin dependency.
    */
   timestampFromDate?: AuditTimestampFactory;
+  beforeTransactionForTest?: () => Promise<void>;
   beforeClosureWriteForTest?: () => Promise<void>;
 }): Promise<JsonMap> {
   const {db, authUid, data} = params;
@@ -682,17 +683,6 @@ export async function completePlannedJobWithDb(params: {
     );
   }
 
-  const userSnap = asDocumentSnapshot(await db.collection("users").doc(authUid).get());
-  const userData = userSnap.exists ? userSnap.data() ?? {} : null;
-  if (!userCanComplete(userData)) {
-    throw new ClosureValidationError(
-      "permission-denied",
-      "You are not authorized to complete planned jobs.",
-    );
-  }
-
-  const completedByName =
-    cleanOptionalText(userData?.name) ?? cleanOptionalText(userData?.email) ?? authUid;
   const remarks = cleanOptionalText(data.remarks);
   const teamsInvolved = cleanStringList(data.teamsInvolved);
   const responsesJson = cleanOptionalText(data.responsesJson) ?? (data.responses == null ? null : JSON.stringify(parseJsonArray(data.responses)));
@@ -701,7 +691,26 @@ export async function completePlannedJobWithDb(params: {
     data.expectedCompletionVersion,
   );
 
+  if (params.beforeTransactionForTest != null) {
+    await params.beforeTransactionForTest();
+  }
+
   return db.runTransaction(async (transaction) => {
+    const userRef = db.collection("users").doc(authUid);
+    const userSnap = asDocumentSnapshot(await transaction.get(userRef));
+    const userData = userSnap.exists ? userSnap.data() ?? {} : null;
+    if (!userCanComplete(userData)) {
+      throw new ClosureValidationError(
+        "permission-denied",
+        "You are not authorized to complete planned jobs.",
+        {reasonCode: "closure-authority-denied"},
+      );
+    }
+    const completedByName =
+      cleanOptionalText(userData?.name) ??
+      cleanOptionalText(userData?.email) ??
+      authUid;
+
     const executionRef = db.collection("job_executions").doc(executionId);
     const executionSnap = asDocumentSnapshot(await transaction.get(executionRef));
     if (!executionSnap.exists) {
