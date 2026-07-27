@@ -1,27 +1,28 @@
 // FILE: lib/core/services/isar_schema_guard_io.dart
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'isar_schema_migration.dart';
 
-Future<IsarSchemaMigrationResult> ensureIsarSchemaBeforeOpen({
+Future<IsarSchemaOpenPreparation> ensureIsarSchemaBeforeOpen({
   required String databaseDirectoryPath,
 }) async {
   final preferences = await SharedPreferences.getInstance();
-  final hasExistingStore = await _hasLikelyIsarStoreFiles(
+  final hasExistingStore = await hasDurableIsarStoreFiles(
     databaseDirectoryPath,
   );
 
-  return IsarSchemaMigrator.ensureBeforeOpen(
-    store: SharedPreferencesIsarSchemaVersionStore(preferences),
+  return IsarSchemaMigrator.prepareBeforeOpen(
+    store: SharedPreferencesIsarSchemaProvenanceStore(preferences),
     databaseDirectoryPath: databaseDirectoryPath,
     hasExistingLocalStore: hasExistingStore,
   );
 }
 
-Future<bool> _hasLikelyIsarStoreFiles(String databaseDirectoryPath) async {
+Future<bool> hasDurableIsarStoreFiles(String databaseDirectoryPath) async {
   final directory = Directory(databaseDirectoryPath);
   if (!await directory.exists()) {
     return false;
@@ -33,7 +34,6 @@ Future<bool> _hasLikelyIsarStoreFiles(String databaseDirectoryPath) async {
     }
     final fileName = entity.uri.pathSegments.last.toLowerCase();
     if (fileName.endsWith('.isar') ||
-        fileName.endsWith('.isar.lock') ||
         fileName.endsWith('.isar.tmp') ||
         fileName == 'default.isar' ||
         fileName == 'baf_ops.isar') {
@@ -42,4 +42,27 @@ Future<bool> _hasLikelyIsarStoreFiles(String databaseDirectoryPath) async {
   }
 
   return false;
+}
+
+Future<String> readIsarSchemaProvenanceSnapshotJson() async {
+  final preferences = await SharedPreferences.getInstance();
+  final keys = <String>[
+    SharedPreferencesIsarSchemaProvenanceStore.canonicalMarkerKey,
+    SharedPreferencesIsarSchemaProvenanceStore.legacySchemaVersionKey,
+    SharedPreferencesIsarSchemaProvenanceStore.legacySchemaFingerprintKey,
+  ];
+  final values = <String, Object?>{};
+  for (final key in keys) {
+    final value = preferences.get(key);
+    values[key] = <String, Object?>{
+      'present': value != null,
+      'valueType': value?.runtimeType.toString(),
+      'value': value,
+    };
+  }
+  return jsonEncode(<String, Object?>{
+    'captureFormatVersion': 1,
+    'storage': 'SharedPreferences',
+    'values': values,
+  });
 }

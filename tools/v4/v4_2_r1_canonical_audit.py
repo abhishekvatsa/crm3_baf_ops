@@ -159,19 +159,30 @@ check(
     and main["tree"] == "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
 )
 check(
-    "Successor reconciliation refresh is exact through the S-07 closure baseline",
-    successor_refresh.get("throughMainCommit") == "31c890bb96518365ba0365a0e9b8e2cd79abb9de"
-    and successor_refresh.get("throughMainTree") == "1d10661ed09e14f82352a3c1bf2e0b90ee5d3633"
+    "Successor reconciliation refresh is exact through the P-06 source baseline",
+    successor_refresh.get("throughMainCommit") == "96c2a09563389cba177998482ac090f39d16bb88"
+    and successor_refresh.get("throughMainTree") == "41324fd041dcb6bb5b536d49225b9aa4f450317e"
     and successor_refresh.get("adjudicatedPullRequests")
-        == [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52]
+        == [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
     and successor_refresh.get("preExistingDriftPathCount") == 14
     and successor_refresh.get("crossPlatformRepresentationPathCount") == 19
     and successor_refresh.get("refreshTranche")
-        == "S07_GOVERNED_CHARGE_ABNORMALITY_CLOSURE"
+        == "P06_ISAR_PROVENANCE_SOURCE_IMPLEMENTATION"
     and successor_refresh.get("refreshTrancheTrackedPaths") == [
-        "docs/v4_2_r1/S07_GOVERNED_CHARGE_ABNORMALITY_MUTATION.md",
+        "docs/v4_2_r1/P06_ISAR_PROVENANCE_AND_MIGRATION_SAFETY.md",
         "governance/programme-ledger.json",
+        "lib/core/services/isar_schema_guard_io.dart",
+        "lib/core/services/isar_schema_guard_stub.dart",
+        "lib/core/services/isar_schema_migration.dart",
+        "lib/main.dart",
+        "test/isar_schema_guard_io_test.dart",
+        "test/isar_schema_migrator_test.dart",
+        "test/p06_programme_ledger_source_contract_test.dart",
+        "test/release_startup_hygiene_contract_test.dart",
+        "test/startup_recovery_hardening_contract_test.dart",
+        "tools/isar/verify_v4_isar_schema.py",
         "tools/v4/v4_2_r1_canonical_audit.py",
+        "tools/v4/whole_app_reconciliation_audit.py",
     ],
 )
 post_codegen_register = data("docs/v4_2_r1/AUTHORITATIVE_POST_CODEGEN_BINDINGS.json")
@@ -275,8 +286,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 322
-    and counts.get("SUCCESSOR_MODIFIED") == 88
+    and counts.get("BYTE_IDENTICAL") == 319
+    and counts.get("SUCCESSOR_MODIFIED") == 91
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -613,6 +624,8 @@ check(
 )
 
 isar_migration = text("lib/core/services/isar_schema_migration.dart")
+isar_guard = text("lib/core/services/isar_schema_guard_io.dart")
+startup = text("lib/main.dart")
 workflow_panel = text("lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart")
 compliance_dialog = text("lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart")
 module_provider = text("lib/features/planned_maintenance/providers/job_module_provider.dart")
@@ -632,6 +645,22 @@ check(
     and "classifyError(" not in retry_test
     and "activeLaneIds: <MaintenanceLaneId>" in red_gate_test
     and "if (!mounted) return;\n          redAnswers = await showRedExitDialog" in complete_screen,
+)
+check(
+    "P-06 Isar provenance fails closed and commits only after a successful open",
+    "baf_isar_schema_provenance_v1" in isar_migration
+    and "databaseGenerationId" in isar_migration
+    and "existing-store-unmarked" in isar_migration
+    and "legacy-marker-incomplete" in isar_migration
+    and "_validateMarkerSource(" in isar_migration
+    and "commitAfterSuccessfulOpen()" in startup
+    and startup.index("ensureIsarSchemaBeforeOpen(")
+    < startup.index("Isar.open(")
+    < startup.index("repairPlannedJobLocalLinks(")
+    < startup.index("commitAfterSuccessfulOpen()")
+    and "readIsarSchemaProvenanceSnapshotJson()" in startup
+    and '"schemaProvenanceSnapshot": $provenanceSnapshot' in startup
+    and ".isar.lock" not in isar_guard,
 )
 
 

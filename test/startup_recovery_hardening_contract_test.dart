@@ -329,6 +329,46 @@ void main() {
       expect(source, contains('_showStartupSnack('));
     });
 
+    test('schema provenance rejection is explicit in recovery evidence', () {
+      final source = _readMain();
+      final failureClass = _blockStartingAt(source, 'class StartupFailure');
+      final localErrorScreen = _blockStartingAt(
+        source,
+        'class _LocalDatabaseStartupErrorScreen',
+      );
+
+      expect(
+        failureClass,
+        contains('IsarSchemaMigrationException? get schemaProvenanceFailure'),
+      );
+      expect(
+        failureClass,
+        contains('currentError is IsarSchemaMarkerFormatException'),
+      );
+      expect(
+        failureClass,
+        contains(r'"schemaProvenanceStatus": "$schemaProvenanceStatus"'),
+      );
+      expect(
+        failureClass,
+        contains(r'"schemaProvenanceReason": $schemaProvenanceReason'),
+      );
+      expect(
+        failureClass,
+        contains(r'"markerDisposition": $markerDisposition'),
+      );
+      expect(
+        failureClass,
+        contains(r'"schemaProvenanceSnapshot": $provenanceSnapshot'),
+      );
+      expect(failureClass, contains("'provenance rejected before Isar open"));
+      expect(source, contains('await readIsarSchemaProvenanceSnapshotJson()'));
+      expect(
+        localErrorScreen,
+        contains('The existing store was not automatically stamped.'),
+      );
+    });
+
     test(
       'main.dart does not reintroduce single-line if-return lifecycle guards',
       () {

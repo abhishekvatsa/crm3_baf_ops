@@ -2,12 +2,16 @@
 
 import 'isar_schema_migration.dart';
 
-Future<IsarSchemaMigrationResult> ensureIsarSchemaBeforeOpen({
+Future<IsarSchemaOpenPreparation> ensureIsarSchemaBeforeOpen({
   required String databaseDirectoryPath,
 }) async {
-  return IsarSchemaMigrator.ensureBeforeOpen(
-    store: InMemoryIsarSchemaVersionStore(),
+  return IsarSchemaMigrator.prepareBeforeOpen(
+    store: InMemoryIsarSchemaProvenanceStore(),
     databaseDirectoryPath: databaseDirectoryPath,
     hasExistingLocalStore: false,
   );
+}
+
+Future<String> readIsarSchemaProvenanceSnapshotJson() async {
+  return '{"captureFormatVersion":1,"storage":"unsupported","values":{}}';
 }
