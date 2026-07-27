@@ -168,6 +168,25 @@ void main() {
 
     expect(source, contains('workflow_dispatch:'));
     expect(source, contains('ref: \${{ github.sha }}'));
+    expect(
+      source,
+      contains(r'CRM_DISPATCH_RELEASE_ID: ${{ inputs.release_id }}'),
+    );
+    expect(
+      source,
+      contains(
+        r'[[ "$CRM_DISPATCH_RELEASE_TAG" =~ '
+        r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]',
+      ),
+    );
+    expect(
+      source,
+      contains(
+        r'[[ "$CRM_DISPATCH_RELEASE_ID" =~ '
+        r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]',
+      ),
+    );
+    expect(source, contains('-ReleaseId \$env:CRM_DISPATCH_RELEASE_ID'));
     expect(source, contains('New-VerificationArtifact.ps1'));
     expect(source, contains("ReleaseChannel 'verification'"));
     expect(source, contains('actions/upload-artifact@v4'));
