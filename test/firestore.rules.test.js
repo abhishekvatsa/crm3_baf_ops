@@ -104,6 +104,34 @@ describe("server-only callable abuse controls", () => {
   });
 });
 
+describe("global pull server clock custody", () => {
+  test("clients cannot author or replace the reserved server clock", async () => {
+    await seedUser("admin1", ["admin"]);
+    const db = dbAs("admin1");
+    const ref = doc(db, "abnormality_types/type1");
+
+    await assertFails(
+      setDoc(ref, {
+        title: "Type 1",
+        _globalPullServerUpdatedAt: serverTimestamp(),
+      })
+    );
+    await assertSucceeds(setDoc(ref, {title: "Type 1"}));
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(
+        doc(context.firestore(), "abnormality_types/type1"),
+        {_globalPullServerUpdatedAt: Timestamp.now()}
+      );
+    });
+
+    await assertSucceeds(updateDoc(ref, {title: "Type 1 revised"}));
+    await assertFails(
+      updateDoc(ref, {_globalPullServerUpdatedAt: serverTimestamp()})
+    );
+  });
+});
+
 describe("charge abnormality governed admin mutations", () => {
   function chargeAbnormalityPayload(uid, overrides = {}) {
     const now = new Date().toISOString();

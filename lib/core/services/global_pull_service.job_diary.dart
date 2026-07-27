@@ -5,18 +5,22 @@ part of 'global_pull_service.dart';
 // ─────────────────────────────────────────────────────────────
 
 extension _GlobalPullJobDiary on GlobalPullService {
-  Future<void> _pullJobDiaryEntries(DateTime? lastSync) async {
+  Future<void> _pullJobDiaryEntries(
+    DateTime? lastSync,
+    DateTime through,
+  ) async {
     DocumentSnapshot? startAfter;
 
     while (true) {
       final result = await _firestoreJobDiary.getUpdatedEntries(
         since: lastSync,
+        through: through,
         limit: GlobalPullService._pageSize,
         startAfter: startAfter,
       );
 
       final entries = result.records;
-      _observeFetchedRemoteRecords(entries);
+      _validateFetchedServerBoundary(result.lastDoc, through);
       startAfter = result.lastDoc;
 
       if (entries.isEmpty) break;

@@ -19,6 +19,7 @@ import '../services/runtime_job_module_population_service.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
+import '../../../core/services/global_pull_protocol.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -539,6 +540,7 @@ abstract class JobModuleRepository {
 
   Future<PaginatedJobModuleResult> getUpdatedModules({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   });
@@ -1368,6 +1370,7 @@ class IsarJobModuleRepository implements JobModuleRepository {
   @override
   Future<PaginatedJobModuleResult> getUpdatedModules({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
@@ -1839,14 +1842,21 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
   @override
   Future<PaginatedJobModuleResult> getUpdatedModules({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
-    Query<Map<String, dynamic>> query = _modules.orderBy('updatedAt');
-
-    if (since != null) {
-      query = query.where('updatedAt', isGreaterThan: since.toIso8601String());
+    if (through == null) {
+      throw const GlobalPullProtocolException(
+        'The job-module pull has no server upper bound.',
+        reasonCode: 'job-module-server-anchor-missing',
+      );
     }
+    Query<Map<String, dynamic>> query = globalPullServerWindowQuery(
+      _modules,
+      afterInclusive: since,
+      throughInclusive: through,
+    );
 
     if (startAfter != null) {
       query = query.startAfterDocument(startAfter);

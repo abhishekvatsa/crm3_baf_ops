@@ -5,24 +5,22 @@ part of 'global_pull_service.dart';
 // ─────────────────────────────────────────────────────────────
 
 extension _GlobalPullTemplateGovernance on GlobalPullService {
-  Future<void> _pullTemplateGovernance(DateTime? lastSync) async {
-    await _pullTemplatePackages(lastSync);
-    await _pullTemplateVersions(lastSync);
-    await _pullTemplatePublishAudits(lastSync);
-  }
-
-  Future<void> _pullTemplatePackages(DateTime? lastSync) async {
+  Future<void> _pullTemplatePackages(
+    DateTime? lastSync,
+    DateTime through,
+  ) async {
     DocumentSnapshot? startAfter;
 
     while (true) {
       final result = await _firestoreTemplateGovernance.getUpdatedPackages(
         since: lastSync,
+        through: through,
         limit: GlobalPullService._pageSize,
         startAfter: startAfter,
       );
 
       final packages = result.records;
-      _observeFetchedRemoteRecords(packages);
+      _validateFetchedServerBoundary(result.lastDoc, through);
       startAfter = result.lastDoc;
 
       if (packages.isEmpty) break;
@@ -96,18 +94,22 @@ extension _GlobalPullTemplateGovernance on GlobalPullService {
     }
   }
 
-  Future<void> _pullTemplateVersions(DateTime? lastSync) async {
+  Future<void> _pullTemplateVersions(
+    DateTime? lastSync,
+    DateTime through,
+  ) async {
     DocumentSnapshot? startAfter;
 
     while (true) {
       final result = await _firestoreTemplateGovernance.getUpdatedVersions(
         since: lastSync,
+        through: through,
         limit: GlobalPullService._pageSize,
         startAfter: startAfter,
       );
 
       final versions = result.records;
-      _observeFetchedRemoteRecords(versions);
+      _validateFetchedServerBoundary(result.lastDoc, through);
       startAfter = result.lastDoc;
 
       if (versions.isEmpty) break;
@@ -181,18 +183,22 @@ extension _GlobalPullTemplateGovernance on GlobalPullService {
     }
   }
 
-  Future<void> _pullTemplatePublishAudits(DateTime? lastSync) async {
+  Future<void> _pullTemplatePublishAudits(
+    DateTime? lastSync,
+    DateTime through,
+  ) async {
     DocumentSnapshot? startAfter;
 
     while (true) {
       final result = await _firestoreTemplateGovernance.getUpdatedAudits(
         since: lastSync,
+        through: through,
         limit: GlobalPullService._pageSize,
         startAfter: startAfter,
       );
 
       final audits = result.records;
-      _observeFetchedRemoteRecords(audits);
+      _validateFetchedServerBoundary(result.lastDoc, through);
       startAfter = result.lastDoc;
 
       if (audits.isEmpty) break;
@@ -200,6 +206,16 @@ extension _GlobalPullTemplateGovernance on GlobalPullService {
       for (final remote in audits) {
         try {
           if (remote.firestoreId == null) continue;
+          if (remote.isDeleted) {
+            final result = await _templateGovernanceRepo
+                .applyTombstoneFromAuditRemote(remote);
+            _recordTombstoneApplyResult(
+              'template publish audit',
+              remote,
+              result,
+            );
+            continue;
+          }
           final local = await _templateGovernanceRepo.getAuditByFirestoreId(
             remote.firestoreId!,
           );

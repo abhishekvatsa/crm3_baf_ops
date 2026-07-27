@@ -159,6 +159,14 @@ def main()->int:
         and '"schemaProvenanceSnapshot": $provenanceSnapshot' in startup,
         'one-key PREPARED/COMMITTED provenance blocks silent adoption and preserves generation plus recovery evidence')
 
+    global_pull=subprocess.run(
+        [sys.executable,str(ROOT/'tools/v4/verify_global_pull_server_clock.py')],
+        cwd=ROOT,text=True,capture_output=True
+    )
+    add(c,'R-01/R-02 server clock and scoped cursor verifier passes',
+        global_pull.returncode==0 and 'SUMMARY | pass=15 fail=0 total=15' in global_pull.stdout,
+        (global_pull.stdout or global_pull.stderr).strip())
+
     schema=subprocess.run([sys.executable,str(ROOT/'tools/isar/verify_v4_isar_schema.py')],
                           cwd=ROOT,text=True,capture_output=True)
     add(c,'v4 Isar source schema verifier passes',schema.returncode==0,

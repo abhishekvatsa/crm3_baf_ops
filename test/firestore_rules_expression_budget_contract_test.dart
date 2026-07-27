@@ -50,7 +50,11 @@ void main() {
         1,
         reason: 'overlapping update allows consumed the emulator expression budget',
       );
-      expect(matchBlock, contains('allow update: if validMaintenanceUpdate();'));
+      expect(
+        matchBlock,
+        contains('allow update: if globalPullStampUnchangedOnUpdate()'),
+      );
+      expect(matchBlock, contains('&& validMaintenanceUpdate();'));
 
       final router = _blockStartingAt(rules, 'function validMaintenanceUpdate()');
       expect(router, contains('targetDeleted != sourceDeleted'));

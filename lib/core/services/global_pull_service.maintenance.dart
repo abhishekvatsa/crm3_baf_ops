@@ -5,18 +5,19 @@ part of 'global_pull_service.dart';
 // ─────────────────────────────────────────────────────────────
 
 extension _GlobalPullMaintenance on GlobalPullService {
-  Future<void> _pullMaintenance(DateTime? lastSync) async {
+  Future<void> _pullMaintenance(DateTime? lastSync, DateTime through) async {
     DocumentSnapshot? startAfter;
 
     while (true) {
       final result = await _firestoreMaintenance.getUpdatedTickets(
         since: lastSync,
+        through: through,
         limit: GlobalPullService._pageSize,
         startAfter: startAfter,
       );
 
       final remoteRecords = result.records;
-      _observeFetchedRemoteRecords(remoteRecords);
+      _validateFetchedServerBoundary(result.lastDoc, through);
       startAfter = result.lastDoc;
 
       if (remoteRecords.isEmpty) break;

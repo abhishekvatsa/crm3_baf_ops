@@ -5,26 +5,19 @@ part of 'global_pull_service.dart';
 // ─────────────────────────────────────────────────────────────
 
 extension _GlobalPullPlanned on GlobalPullService {
-  Future<void> _pullPlanned(DateTime? lastSync) async {
-    await _pullTemplateGovernance(lastSync);
-    await _pullTemplates(lastSync);
-    await _pullExecutions(lastSync);
-    await _pullJobDiaryEntries(lastSync);
-    await _pullJobModules(lastSync);
-  }
-
-  Future<void> _pullTemplates(DateTime? lastSync) async {
+  Future<void> _pullTemplates(DateTime? lastSync, DateTime through) async {
     DocumentSnapshot? startAfter;
 
     while (true) {
       final result = await _firestorePlanned.getUpdatedTemplates(
         since: lastSync,
+        through: through,
         limit: GlobalPullService._pageSize,
         startAfter: startAfter,
       );
 
       final templates = result.records;
-      _observeFetchedRemoteRecords(templates);
+      _validateFetchedServerBoundary(result.lastDoc, through);
       startAfter = result.lastDoc;
 
       if (templates.isEmpty) break;
@@ -101,18 +94,19 @@ extension _GlobalPullPlanned on GlobalPullService {
     }
   }
 
-  Future<void> _pullExecutions(DateTime? lastSync) async {
+  Future<void> _pullExecutions(DateTime? lastSync, DateTime through) async {
     DocumentSnapshot? startAfter;
 
     while (true) {
       final result = await _firestorePlanned.getUpdatedExecutions(
         since: lastSync,
+        through: through,
         limit: GlobalPullService._pageSize,
         startAfter: startAfter,
       );
 
       final executions = result.records;
-      _observeFetchedRemoteRecords(executions);
+      _validateFetchedServerBoundary(result.lastDoc, through);
       startAfter = result.lastDoc;
 
       if (executions.isEmpty) break;

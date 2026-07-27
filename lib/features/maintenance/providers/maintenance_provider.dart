@@ -17,6 +17,7 @@ import '../../auth/data/user_model.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
+import '../../../core/services/global_pull_protocol.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -133,6 +134,7 @@ abstract class MaintenanceRepository {
 
   Future<PaginatedMaintenanceResult> getUpdatedTickets({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   });
@@ -902,6 +904,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
   @override
   Future<PaginatedMaintenanceResult> getUpdatedTickets({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
@@ -1168,13 +1171,21 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
   @override
   Future<PaginatedMaintenanceResult> getUpdatedTickets({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
-    var query = _collection.orderBy('updatedAt');
-    if (since != null) {
-      query = query.where('updatedAt', isGreaterThan: since.toIso8601String());
+    if (through == null) {
+      throw const GlobalPullProtocolException(
+        'The maintenance pull has no server upper bound.',
+        reasonCode: 'maintenance-server-anchor-missing',
+      );
     }
+    var query = globalPullServerWindowQuery(
+      _collection,
+      afterInclusive: since,
+      throughInclusive: through,
+    );
     query = query.limit(limit);
     if (startAfter != null) query = query.startAfterDocument(startAfter);
     final snap = await query.get();
