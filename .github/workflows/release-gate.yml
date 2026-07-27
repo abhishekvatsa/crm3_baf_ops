@@ -198,7 +198,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="273C33CE9E5DADF0B78FF98F912E848296A3FF36694015AE787ADA83EB3C7EAB"
+          expected_lock_sha="95A45B74BC6AFD16C4B28E4AAED9E5DB2682718C3CE7F37FCC5157FC92B38276"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha" || {
             echo "::error::Governed Firebase CLI lockfile hash mismatch. Expected $expected_lock_sha, got $actual_lock_sha"
@@ -207,6 +207,7 @@ jobs:
           npm ci
           npm --prefix functions ci
           npm --prefix tooling/firebase-cli ci --ignore-scripts
+          npm run test:dependency-compat
 
       - name: Gate 1B read-only authority classifier contracts
         run: npm run test:gate1b

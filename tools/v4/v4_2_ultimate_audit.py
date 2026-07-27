@@ -136,7 +136,8 @@ check(
     "canonicalApprovedUserAuthority(data)" in callable_source
     and "data.approved" not in user_authority_source
     and 'data.status === "approved"' not in user_authority_source
-    and "data.isApproved !== true" in user_authority_source
+    and 'typeof data.isApproved !== "boolean"' in user_authority_source
+    and "capsule == null || !capsule.isApproved" in user_authority_source
     and "WORKFLOW_ROLE_UNIVERSE" in user_authority_source
     and "workflowActorFromUserDataForTest" in callable_source
     and "rejects legacy or malformed authority" in callable_test.lower(),
@@ -207,6 +208,7 @@ tooling_versions = {
     "firebase-tools": lock_version("tooling/firebase-cli/package-lock.json", "firebase-tools"),
     "protobufjs": lock_version("tooling/firebase-cli/package-lock.json", "protobufjs"),
     "body-parser": lock_version("tooling/firebase-cli/package-lock.json", "body-parser"),
+    "brace-expansion": lock_version("tooling/firebase-cli/package-lock.json", "brace-expansion"),
     "tar": lock_version("tooling/firebase-cli/package-lock.json", "tar"),
     "@hono/node-server": lock_version("tooling/firebase-cli/package-lock.json", "@hono/node-server"),
     "fast-uri": lock_version("tooling/firebase-cli/package-lock.json", "fast-uri"),
@@ -216,14 +218,16 @@ check(
     root_versions["protobufjs"] == "7.6.5"
     and functions_versions["protobufjs"] == "7.6.5"
     and functions_versions["body-parser"] == "1.20.6"
-    and functions_versions["brace-expansion"] == "1.1.16",
+    and root_versions["brace-expansion"] == "5.0.8"
+    and functions_versions["brace-expansion"] == "5.0.8",
     f"root={root_versions}; functions={functions_versions}",
 )
 check(
     "Governed Firebase CLI lockfile is separately remediated",
     tooling_versions["protobufjs"] == "7.6.5"
     and tooling_versions["body-parser"] == "1.20.6"
-    and tooling_versions["tar"] == "7.5.20"
+    and tooling_versions["tar"] == "7.5.21"
+    and tooling_versions["brace-expansion"] == "5.0.8"
     and tooling_versions["@hono/node-server"] == "2.0.10"
     and tooling_versions["fast-uri"] == "3.1.4",
     str(tooling_versions),

@@ -461,6 +461,9 @@ firebase_cli_lock = data("tooling/firebase-cli/package-lock.json")
 firebase_cli_packages = firebase_cli_lock.get("packages", {})
 hono = firebase_cli_packages.get("node_modules/@hono/node-server", {})
 fast_uri = firebase_cli_packages.get("node_modules/fast-uri", {})
+brace_expansion = firebase_cli_packages.get("node_modules/brace-expansion", {})
+brace_expansion_upstream = firebase_cli_packages.get("node_modules/brace-expansion-modern", {})
+tar = firebase_cli_packages.get("node_modules/tar", {})
 firebase_tools = firebase_cli_packages.get("node_modules/firebase-tools", {})
 mcp_sdk = firebase_cli_packages.get("node_modules/@modelcontextprotocol/sdk", {})
 check(
@@ -468,6 +471,9 @@ check(
     firebase_cli_package.get("dependencies", {}).get("firebase-tools") == "15.22.4"
     and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.0.10"
     and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.4"
+    and firebase_cli_package.get("dependencies", {}).get("brace-expansion") == "file:../brace-expansion-compat"
+    and firebase_cli_package.get("overrides", {}).get("brace-expansion") == "$brace-expansion"
+    and firebase_cli_package.get("overrides", {}).get("tar") == "7.5.21"
     and firebase_tools.get("version") == "15.22.4"
     and hono.get("version") == "2.0.10"
     and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
@@ -475,7 +481,35 @@ check(
     and fast_uri.get("version") == "3.1.4"
     and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.4.tgz"
     and fast_uri.get("integrity") == "sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw=="
+    and brace_expansion.get("version") == "5.0.8"
+    and brace_expansion.get("resolved") == "file:../brace-expansion-compat"
+    and brace_expansion_upstream.get("name") == "brace-expansion"
+    and brace_expansion_upstream.get("version") == "5.0.8"
+    and brace_expansion_upstream.get("resolved") == "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.8.tgz"
+    and brace_expansion_upstream.get("integrity") == "sha512-JZyDyq3D4AUifKTPOB7DELf6XsB3WdPuNxCtob1vFXPsSXhdAiHBWJ/tJ8HAc9aH84BK+5JFZLNkJKx3G9kzQg=="
+    and tar.get("version") == "7.5.21"
+    and tar.get("resolved") == "https://registry.npmjs.org/tar/-/tar-7.5.21.tgz"
+    and tar.get("integrity") == "sha512-XdhtCvlMywwxpCW8YEq3lOXBJpUPTR2OHHcwLPO3HwsJqOHa2Ok/oJ7ruGzp+JrKoRPVCzJwAdEjqLW/vNRPHA=="
     and mcp_sdk.get("dependencies", {}).get("@hono/node-server") == "^1.19.9",
+)
+brace_adapter_package = data("tooling/brace-expansion-compat/package.json")
+brace_adapter_cjs = text("tooling/brace-expansion-compat/index.cjs")
+brace_adapter_esm = text("tooling/brace-expansion-compat/index.mjs")
+brace_compat_smoke = text("tools/dependencies/verify_brace_expansion_compat.mjs")
+check(
+    "Patched brace-expansion adapter preserves legacy and modern interfaces",
+    brace_adapter_package.get("name") == "brace-expansion"
+    and brace_adapter_package.get("version") == "5.0.8"
+    and brace_adapter_package.get("dependencies", {}).get("brace-expansion-modern") == "npm:brace-expansion@5.0.8"
+    and "module.exports = Object.assign(upstream.expand, upstream)" in brace_adapter_cjs
+    and "export default expand" in brace_adapter_esm
+    and "PASS_BRACE_EXPANSION_COMPAT" in brace_compat_smoke
+    and "PASS_BRACE_EXPANSION_ESM_COMPAT" in brace_compat_smoke
+    and all(text(path).strip() == "install-links=true" for path in (
+        ".npmrc",
+        "functions/.npmrc",
+        "tooling/firebase-cli/.npmrc",
+    )),
 )
 check(
     "Firebase CLI tooling contains no private registry resolution",
@@ -510,12 +544,16 @@ check(
         "HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT",
         "2.0.10",
         "3.1.4",
+        "5.0.8",
+        "7.5.21",
+        "verify_brace_expansion_compat.mjs",
     )),
 )
 check(
-    "Firebase CLI major override is load-smoked before its advisory verdict",
+    "Firebase CLI dependency compatibility is load-smoked before its advisory verdict",
     "HOLD_FIREBASE_CLI_RUNTIME" in harness
     and "PASS_FIREBASE_CLI_LOAD_SMOKE" in harness
+    and "verify_brace_expansion_compat.mjs" in harness
     and harness.index("12_firebase_cli_installed_versions") < harness.index("13_firebase_cli_load_smoke") < harness.index("14_firebase_cli_npm_audit"),
 )
 check(
