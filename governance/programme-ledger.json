@@ -2197,7 +2197,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "CI/release",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
@@ -2206,7 +2206,21 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 57,
+          "headCommit": "7b3582768c84fef276b08617212efe1e6a996f38",
+          "sourceTree": "9508441e7261ca8bdeb80afab31b0a63df2f55f3",
+          "mergeCommit": "34e8f4a314fcd03991d535d050614b96eeaf3204",
+          "mergeTree": "9508441e7261ca8bdeb80afab31b0a63df2f55f3",
+          "postMergeWorkflowRun": 30293820019,
+          "postMergeWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30293820019",
+          "decision": "PASS_C01_WORKFLOW_DISPATCH_INPUT_CUSTODY",
+          "productionWorkflowDispatched": false,
+          "productionMutationPerformed": false
+        }
+      ],
       "requiredExitEvidence": [
         "exact source commit and exact-head merge CI for both manual workflow corrections and the repository-wide dispatch-input custody check",
         "green structured YAML regression tests proving dispatch expressions cannot occur in run blocks",
@@ -2236,6 +2250,16 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-27",
           "basis": "Both manual workflows now treat dispatch values as validated environment data, with structured repository-wide and independent policy/audit regression guards; merge and exact-main CI evidence remain pending."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-27",
+          "basis": "PR #57 exact green head 7b3582768c84fef276b08617212efe1e6a996f38 merged to main as 34e8f4a314fcd03991d535d050614b96eeaf3204."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-27",
+          "basis": "PASS_C01_WORKFLOW_DISPATCH_INPUT_CUSTODY closes the source-and-CI finding after exact main post-merge run 30293820019 passed; production workflow execution and deployment remain separate."
         }
       ]
     },

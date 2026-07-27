@@ -405,6 +405,45 @@ check(
     ).is_file(),
     ",".join(unsafe_dispatch_run_blocks),
 )
+c01_records = [
+    record
+    for record in data("governance/programme-ledger.json")["technicalFindings"]
+    if record.get("findingId") == "C-01"
+]
+c01_record = c01_records[0] if len(c01_records) == 1 else {}
+c01_evidence = c01_record.get("evidence", [])
+c01_history = [
+    entry.get("status")
+    for entry in c01_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+c01_decision = text("docs/v4_2_r1/C01_WORKFLOW_DISPATCH_INPUT_CUSTODY.md")
+check(
+    "C-01 workflow dispatch custody closure is exact and re-armable",
+    len(c01_records) == 1
+    and c01_record.get("currentStatus") == "CLOSED"
+    and len(c01_evidence) == 1
+    and c01_evidence[0].get("pullRequest") == 57
+    and c01_evidence[0].get("headCommit")
+        == "7b3582768c84fef276b08617212efe1e6a996f38"
+    and c01_evidence[0].get("sourceTree")
+        == "9508441e7261ca8bdeb80afab31b0a63df2f55f3"
+    and c01_evidence[0].get("mergeCommit")
+        == "34e8f4a314fcd03991d535d050614b96eeaf3204"
+    and c01_evidence[0].get("postMergeWorkflowRun") == 30293820019
+    and c01_evidence[0].get("decision")
+        == "PASS_C01_WORKFLOW_DISPATCH_INPUT_CUSTODY"
+    and c01_evidence[0].get("productionWorkflowDispatched") is False
+    and c01_evidence[0].get("productionMutationPerformed") is False
+    and c01_history[-3:] == ["SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(c01_record.get("requiredExitEvidence", [])) >= 4
+    and len(c01_record.get("reArmTriggers", [])) >= 5
+    and "Status: CLOSED" in c01_decision
+    and "PR #57" in c01_decision
+    and "30293820019" in c01_decision
+    and "PASS_C01_WORKFLOW_DISPATCH_INPUT_CUSTODY" in c01_decision
+    and "No production workflow was dispatched" in c01_decision,
+)
 
 for lock_rel in ("package-lock.json", "functions/package-lock.json"):
     lock = data(lock_rel)

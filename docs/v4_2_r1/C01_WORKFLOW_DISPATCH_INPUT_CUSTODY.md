@@ -1,6 +1,6 @@
 # C-01 Workflow Dispatch Input Custody
 
-Status: SOURCE_IMPLEMENTED
+Status: CLOSED
 
 Date: 2026-07-27
 
@@ -40,10 +40,21 @@ YAML run blocks, enforce the environment-custody markers and reject direct
 dispatch interpolation. Existing Flutter release-contract tests also bind the
 validation and argument-passing contract.
 
-## Evidence boundary
+## Merge and CI evidence
 
-This change is source implemented only. C-01 remains pending exact-head merge
-and post-merge release-gate evidence before it can be marked closed.
+PR #57 merged exact source head
+`7b3582768c84fef276b08617212efe1e6a996f38` to main as
+`34e8f4a314fcd03991d535d050614b96eeaf3204`. Post-merge release-gate run
+`30293820019` passed the Flutter, Firestore Rules and governed emulator, and
+Cloud Functions jobs on that exact main commit.
+
+Decision: `PASS_C01_WORKFLOW_DISPATCH_INPUT_CUSTODY`
+
+C-01 is closed as a source-and-CI finding. Any reappearance of direct dispatch
+interpolation in script source, weakening of the bounded grammars, removal of
+manual-workflow discovery, or loss of either independent audit re-arms it.
+
+## Operational boundary
 
 No production workflow was dispatched. No tag, signing operation, artifact
 build, upload, deployment, Firebase mutation or runtime activation occurred.
