@@ -2197,7 +2197,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "CI/release",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
@@ -2207,14 +2207,35 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "exact source commit and exact-head merge CI for both manual workflow corrections and the repository-wide dispatch-input custody check",
+        "green structured YAML regression tests proving dispatch expressions cannot occur in run blocks",
+        "green production policy, Flutter release-contract and canonical reconciliation audits",
+        "post-merge release-gate evidence on exact main before C-01 may transition to CLOSED"
+      ],
+      "reArmTriggers": [
+        "a workflow_dispatch input expression appears directly in any run block",
+        "the repository-wide manual-workflow discovery or structured YAML test is removed or narrowed",
+        "a dispatch identifier grammar is weakened to admit whitespace, quotes, path separators or shell metacharacters",
+        "the production policy verifier stops enforcing environment custody and script-source isolation",
+        "a new manual workflow is added without dispatch-input custody coverage"
+      ],
+      "notes": [
+        "Manual dispatch values are mapped into job environment variables and validated as data before checkout, artifact construction, tagging or upload.",
+        "The production commit and build number use bounded exact grammars; release, reservation and verification identifiers use a 1-to-128 character allowlist.",
+        "Expressions in action inputs, concurrency keys and trusted GitHub context are outside the shell-source defect and remain governed by their own consumers.",
+        "No production workflow dispatch, tag, signing operation, artifact build, deployment or runtime mutation was performed by this source correction."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-27",
+          "basis": "Both manual workflows now treat dispatch values as validated environment data, with structured repository-wide and independent policy/audit regression guards; merge and exact-main CI evidence remain pending."
         }
       ]
     },

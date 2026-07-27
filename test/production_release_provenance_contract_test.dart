@@ -127,6 +127,9 @@ void main() {
 
     test('workflow atomically reserves number and pins release toolchain', () {
       final text = read('.github/workflows/production-artifact.yml');
+      final policyVerifier = read(
+        'tools/release/Test-ProductionReleasePolicy.ps1',
+      );
 
       expect(text, contains('crm3-production-build-number-'));
       expect(text, contains('contents: write'));
@@ -140,6 +143,30 @@ void main() {
       expect(text, contains('Upload governed package and mandatory sidecar'));
       expect(text, contains('/*-GOVERNED-PACKAGE.zip'));
       expect(text, contains('/*-GOVERNED-PACKAGE.zip.sha256.txt'));
+      expect(
+        text,
+        contains(r'CRM_DISPATCH_COMMIT_SHA: ${{ inputs.commit_sha }}'),
+      );
+      expect(
+        text,
+        contains(
+          r'[[ "$CRM_DISPATCH_RELEASE_ID" =~ '
+          r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]',
+        ),
+      );
+      expect(
+        text,
+        contains(
+          r'[[ "$CRM_DISPATCH_RESERVATION_ID" =~ '
+          r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]',
+        ),
+      );
+      expect(
+        text,
+        contains(r'test "$GITHUB_SHA" = "$CRM_DISPATCH_COMMIT_SHA"'),
+      );
+      expect(policyVerifier, contains('Get-YamlRunBlocks'));
+      expect(policyVerifier, contains(r'(?:inputs|github\.event\.inputs)'));
       expect(text, isNot(contains(r'path: ${{env.CRM_PRODUCTION_OUTPUT}}/')));
       expect(text, isNot(matches(RegExp(r'uses:\s+[^\s]+@v\d'))));
     });
@@ -171,8 +198,16 @@ void main() {
       );
       expect(policy, contains('"approved": false'));
       expect(policy, contains('"unrestrictedPlantReleaseApproved": false'));
-      expect(policy, contains('"restorationReference": "CRM3-FB-RESTORE-001-C1"'));
-      expect(policy, contains('"googleServicesSha256": "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B"'));
+      expect(
+        policy,
+        contains('"restorationReference": "CRM3-FB-RESTORE-001-C1"'),
+      );
+      expect(
+        policy,
+        contains(
+          '"googleServicesSha256": "2980012127521E625271620CF6F97262C49B725AC3099898C4FF27DFD1E9481B"',
+        ),
+      );
       expect(
         policy,
         contains(

@@ -64,6 +64,52 @@ function Get-Utf8CrlfSha256 {
   }
 }
 
+function Get-YamlRunBlocks {
+  param([Parameter(Mandatory)][string]$Source)
+
+  $lines = [regex]::Split($Source, '\r?\n')
+  $blocks = [Collections.Generic.List[string]]::new()
+  for ($index = 0; $index -lt $lines.Count; $index++) {
+    $line = $lines[$index]
+    $inlineMatch = [regex]::Match($line, '^([ ]*)run:[ ]*(.+)$')
+    if ($inlineMatch.Success -and
+        $inlineMatch.Groups[2].Value -notmatch
+          '^[|>][+-]?[ ]*(?:#.*)?$') {
+      $blocks.Add($inlineMatch.Groups[2].Value)
+      continue
+    }
+    $blockMatch = [regex]::Match(
+      $line,
+      '^([ ]*)run:[ ]*[|>][+-]?[ ]*(?:#.*)?$'
+    )
+    if (-not $blockMatch.Success) {
+      continue
+    }
+
+    $baseIndent = $blockMatch.Groups[1].Value.Length
+    $body = [Collections.Generic.List[string]]::new()
+    $cursor = $index + 1
+    while ($cursor -lt $lines.Count) {
+      $bodyLine = $lines[$cursor]
+      if ($bodyLine.Trim().Length -eq 0) {
+        $body.Add($bodyLine)
+        $cursor++
+        continue
+      }
+      $indentMatch = [regex]::Match($bodyLine, '^([ ]*)')
+      if (-not $indentMatch.Success -or
+          $indentMatch.Groups[1].Value.Length -le $baseIndent) {
+        break
+      }
+      $body.Add($bodyLine)
+      $cursor++
+    }
+    $blocks.Add(($body -join "`n"))
+    $index = $cursor - 1
+  }
+  $blocks.ToArray()
+}
+
 Set-Location (Resolve-Path -LiteralPath $RepositoryRoot)
 $provisionalIsarBindings = @(
   Get-ChildItem -LiteralPath 'lib' -Recurse -Filter '*.g.dart' -File |
@@ -467,8 +513,17 @@ foreach ($required in @(
   'permissions:'
   'contents: write'
   'group: crm3-production-build-number-${{ inputs.build_number }}'
+  'CRM_DISPATCH_COMMIT_SHA: ${{ inputs.commit_sha }}'
+  'CRM_DISPATCH_RELEASE_ID: ${{ inputs.release_id }}'
+  'CRM_DISPATCH_RESERVATION_ID: ${{ inputs.reservation_id }}'
+  'CRM_DISPATCH_BUILD_NUMBER: ${{ inputs.build_number }}'
+  '[[ "$CRM_DISPATCH_COMMIT_SHA" =~ ^[0-9a-fA-F]{40}$ ]]'
+  '[[ "$CRM_DISPATCH_BUILD_NUMBER" =~ ^[1-9][0-9]{0,9}$ ]]'
+  'test "$CRM_DISPATCH_BUILD_NUMBER" -le 2147483647'
+  '[[ "$CRM_DISPATCH_RELEASE_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]'
+  '[[ "$CRM_DISPATCH_RESERVATION_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]'
   'test "$GITHUB_REF" = ''refs/heads/main'''
-  'test "$GITHUB_SHA" = ''${{ inputs.commit_sha }}'''
+  'test "$GITHUB_SHA" = "$CRM_DISPATCH_COMMIT_SHA"'
   "environment: $($policy.github.environmentName)"
   "runs-on: $($policy.toolchain.runnerImage)"
   "java-version: '$($policy.toolchain.javaVersion)'"
@@ -486,6 +541,15 @@ foreach ($required in @(
   if (-not $workflow.Contains($required)) {
     throw "Production workflow contract is missing: $required"
   }
+}
+$unsafeRunBlocks = @(
+  Get-YamlRunBlocks -Source $workflow |
+    Where-Object {
+      $_ -match '\$\{\{\s*(?:inputs|github\.event\.inputs)\.'
+    }
+)
+if ($unsafeRunBlocks.Count -gt 0) {
+  throw 'Production workflow interpolates dispatch input into script source.'
 }
 $builder = Get-Content `
   -LiteralPath 'tools/release/New-ProductionArtifact.ps1' `

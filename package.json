@@ -20,6 +20,7 @@
     "emulator:test:global-pull": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:global-pull\"",
     "emulator:test:governed": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules && npm --prefix functions run test:emulator:governed\"",
     "test:dependency-compat": "node tools/dependencies/verify_brace_expansion_compat.mjs",
+    "test:workflow-input-custody": "node --test tools/release/workflow_dispatch_input_custody.test.mjs",
     "workflow:policy:generate": "node tools/maintenance_workflow/generate_policy.mjs",
     "workflow:policy:check": "node tools/maintenance_workflow/generate_policy.mjs --check"
   },
@@ -30,6 +31,7 @@
     "@firebase/rules-unit-testing": "^5.0.1",
     "firebase": "^12.13.0",
     "brace-expansion": "file:tooling/brace-expansion-compat",
+    "js-yaml": "3.15.0",
     "jest": "^30.4.2"
   },
   "overrides": {

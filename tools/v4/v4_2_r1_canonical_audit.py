@@ -87,6 +87,45 @@ def powershell_balanced(source: str) -> bool:
     return quote is None and not stack
 
 
+def yaml_run_blocks(source: str) -> list[str]:
+    lines = source.splitlines()
+    blocks: list[str] = []
+    index = 0
+    while index < len(lines):
+        inline = re.fullmatch(r"([ ]*)run:[ ]*(.+)", lines[index])
+        if inline is not None and re.fullmatch(
+            r"[|>][+-]?[ ]*(?:#.*)?",
+            inline.group(2),
+        ) is None:
+            blocks.append(inline.group(2))
+            index += 1
+            continue
+        marker = re.fullmatch(
+            r"([ ]*)run:[ ]*[|>][+-]?[ ]*(?:#.*)?",
+            lines[index],
+        )
+        if marker is None:
+            index += 1
+            continue
+
+        base_indent = len(marker.group(1))
+        body: list[str] = []
+        index += 1
+        while index < len(lines):
+            line = lines[index]
+            if not line.strip():
+                body.append(line)
+                index += 1
+                continue
+            indent = len(line) - len(line.lstrip(" "))
+            if indent <= base_indent:
+                break
+            body.append(line)
+            index += 1
+        blocks.append("\n".join(body))
+    return blocks
+
+
 recon = data("docs/v4_2_r1/CANONICAL_MAIN_RECONCILIATION.json")
 main = recon["canonicalMain"]
 rows = recon["paths"]
@@ -313,15 +352,13 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 302
-    and counts.get("SUCCESSOR_MODIFIED") == 108
+    and counts.get("BYTE_IDENTICAL") == 299
+    and counts.get("SUCCESSOR_MODIFIED") == 111
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
 
 critical_exact = {
-    ".github/workflows/production-artifact.yml",
-    ".github/workflows/verification-artifact.yml",
     "android/app/build.gradle.kts",
     "android/settings.gradle.kts",
     "release/stage2d-f-internal-controlled-deployment-scope.json",
@@ -329,19 +366,44 @@ critical_exact = {
 }
 row_map = {row["path"]: row for row in rows}
 check(
-    "Stage 2D-F2, Android and immutable workflow/release authorities remain byte-identical",
+    "Stage 2D-F2, Android and immutable release authorities remain byte-identical",
     all(row_map.get(path, {}).get("disposition") == "BYTE_IDENTICAL" for path in critical_exact),
 )
 check(
-    "Mutable release-gate, programme-ledger and ledger-contract evolution is explicitly classified",
+    "Mutable workflows, programme-ledger and ledger-contract evolution is explicitly classified",
     all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in (
+            ".github/workflows/production-artifact.yml",
             ".github/workflows/release-gate.yml",
+            ".github/workflows/verification-artifact.yml",
             "governance/programme-ledger.json",
             "test/programme_ledger_contract_test.dart",
         )
     ),
+)
+manual_workflows = (
+    ".github/workflows/production-artifact.yml",
+    ".github/workflows/verification-artifact.yml",
+)
+unsafe_dispatch_run_blocks = [
+    f"{rel}#{index + 1}"
+    for rel in manual_workflows
+    for index, block in enumerate(yaml_run_blocks(text(rel)))
+    if re.search(r"\$\{\{\s*(?:inputs|github\.event\.inputs)\.", block)
+]
+check(
+    "Manual dispatch values remain data and never become shell source",
+    not unsafe_dispatch_run_blocks
+    and all("CRM_DISPATCH_" in text(rel) for rel in manual_workflows)
+    and "test:workflow-input-custody" in text("package.json")
+    and "npm run test:workflow-input-custody"
+        in text(".github/workflows/release-gate.yml")
+    and (ROOT / "tools/release/workflow_dispatch_input_custody.mjs").is_file()
+    and (
+        ROOT / "tools/release/workflow_dispatch_input_custody.test.mjs"
+    ).is_file(),
+    ",".join(unsafe_dispatch_run_blocks),
 )
 
 for lock_rel in ("package-lock.json", "functions/package-lock.json"):
