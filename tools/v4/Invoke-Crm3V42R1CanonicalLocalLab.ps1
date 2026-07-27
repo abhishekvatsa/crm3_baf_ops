@@ -43,6 +43,8 @@ $expected = [ordered]@{
   firebaseTools = '15.22.4'
   honoNodeServer = '2.0.10'
   fastUri = '3.1.4'
+  braceExpansion = '5.0.8'
+  tar = '7.5.21'
   isarFlutterLibs = '3.1.0+1'
   isarFlutterLibsArchiveSha256 = 'BC6768CC4B9C61AABFF77152E7F33B4B17D2FC93134F7AF1C3DD51500FE8D5E8'
 }
@@ -247,8 +249,11 @@ function Assert-FirebaseCliLockPolicy {
   $lock = Get-Content -LiteralPath $lockPath -Raw | ConvertFrom-Json -AsHashTable
 
   $firebaseToolsDeclared = [string](Get-JsonPropertyValue -Object $package.dependencies -Name 'firebase-tools')
+  $braceExpansionDeclared = [string](Get-JsonPropertyValue -Object $package.dependencies -Name 'brace-expansion')
   $honoOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name '@hono/node-server')
   $fastUriOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'fast-uri')
+  $braceExpansionOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'brace-expansion')
+  $tarOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'tar')
   $lockPackages = Get-JsonPropertyValue -Object $lock -Name 'packages'
   if ($null -eq $lockPackages) {
     $script:failureStatus = 'HOLD_FIREBASE_CLI_LOCK_POLICY'
@@ -256,6 +261,9 @@ function Assert-FirebaseCliLockPolicy {
   }
   $honoLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/@hono/node-server'
   $fastUriLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/fast-uri'
+  $braceExpansionLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/brace-expansion'
+  $braceExpansionUpstreamLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/brace-expansion-modern'
+  $tarLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/tar'
   $firebaseToolsLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/firebase-tools'
   $mcpLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/@modelcontextprotocol/sdk'
   $mcpHonoRange = if ($null -ne $mcpLock) {
@@ -274,6 +282,19 @@ function Assert-FirebaseCliLockPolicy {
     fastUriLocked = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version') -eq $expected.fastUri)
     fastUriResolved = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'resolved') -eq 'https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.4.tgz')
     fastUriIntegrity = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'integrity') -eq 'sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw==')
+    braceExpansionDeclared = ($braceExpansionDeclared -eq 'file:../brace-expansion-compat')
+    braceExpansionOverride = ($braceExpansionOverride -eq '$brace-expansion')
+    braceExpansionAdapterLocked = ($null -ne $braceExpansionLock -and [string](Get-JsonPropertyValue -Object $braceExpansionLock -Name 'version') -eq $expected.braceExpansion)
+    braceExpansionAdapterResolved = ($null -ne $braceExpansionLock -and [string](Get-JsonPropertyValue -Object $braceExpansionLock -Name 'resolved') -eq 'file:../brace-expansion-compat')
+    braceExpansionUpstreamNamed = ($null -ne $braceExpansionUpstreamLock -and [string](Get-JsonPropertyValue -Object $braceExpansionUpstreamLock -Name 'name') -eq 'brace-expansion')
+    braceExpansionUpstreamLocked = ($null -ne $braceExpansionUpstreamLock -and [string](Get-JsonPropertyValue -Object $braceExpansionUpstreamLock -Name 'version') -eq $expected.braceExpansion)
+    braceExpansionUpstreamResolved = ($null -ne $braceExpansionUpstreamLock -and [string](Get-JsonPropertyValue -Object $braceExpansionUpstreamLock -Name 'resolved') -eq 'https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.8.tgz')
+    braceExpansionUpstreamIntegrity = ($null -ne $braceExpansionUpstreamLock -and [string](Get-JsonPropertyValue -Object $braceExpansionUpstreamLock -Name 'integrity') -eq 'sha512-JZyDyq3D4AUifKTPOB7DELf6XsB3WdPuNxCtob1vFXPsSXhdAiHBWJ/tJ8HAc9aH84BK+5JFZLNkJKx3G9kzQg==')
+    tarOverride = ($tarOverride -eq $expected.tar)
+    tarLocked = ($null -ne $tarLock -and [string](Get-JsonPropertyValue -Object $tarLock -Name 'version') -eq $expected.tar)
+    tarResolved = ($null -ne $tarLock -and [string](Get-JsonPropertyValue -Object $tarLock -Name 'resolved') -eq 'https://registry.npmjs.org/tar/-/tar-7.5.21.tgz')
+    tarIntegrity = ($null -ne $tarLock -and [string](Get-JsonPropertyValue -Object $tarLock -Name 'integrity') -eq 'sha512-XdhtCvlMywwxpCW8YEq3lOXBJpUPTR2OHHcwLPO3HwsJqOHa2Ok/oJ7ruGzp+JrKoRPVCzJwAdEjqLW/vNRPHA==')
+    installLinksPolicy = ((Get-Content -LiteralPath (Join-Path $workspace 'tooling/firebase-cli/.npmrc') -Raw).Trim() -eq 'install-links=true')
   }
   $failed = @($checks.GetEnumerator() | Where-Object {-not $_.Value} | ForEach-Object {$_.Key})
   $report = [ordered]@{
@@ -281,9 +302,14 @@ function Assert-FirebaseCliLockPolicy {
       firebaseTools = $expected.firebaseTools
       honoNodeServer = $expected.honoNodeServer
       fastUri = $expected.fastUri
+      braceExpansion = $expected.braceExpansion
+      tar = $expected.tar
     }
     declared = [ordered]@{
       firebaseTools = $firebaseToolsDeclared
+      braceExpansion = $braceExpansionDeclared
+      braceExpansionOverride = $braceExpansionOverride
+      tarOverride = $tarOverride
       honoNodeServerOverride = $honoOverride
       fastUriOverride = $fastUriOverride
       mcpHonoRange = $mcpHonoRange
@@ -292,6 +318,9 @@ function Assert-FirebaseCliLockPolicy {
       firebaseTools = if ($null -ne $firebaseToolsLock) {[string](Get-JsonPropertyValue -Object $firebaseToolsLock -Name 'version')} else {$null}
       honoNodeServer = if ($null -ne $honoLock) {[string](Get-JsonPropertyValue -Object $honoLock -Name 'version')} else {$null}
       fastUri = if ($null -ne $fastUriLock) {[string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version')} else {$null}
+      braceExpansion = if ($null -ne $braceExpansionLock) {[string](Get-JsonPropertyValue -Object $braceExpansionLock -Name 'version')} else {$null}
+      braceExpansionUpstream = if ($null -ne $braceExpansionUpstreamLock) {[string](Get-JsonPropertyValue -Object $braceExpansionUpstreamLock -Name 'version')} else {$null}
+      tar = if ($null -ne $tarLock) {[string](Get-JsonPropertyValue -Object $tarLock -Name 'version')} else {$null}
     }
     checks = $checks
     failed = $failed
@@ -301,7 +330,7 @@ function Assert-FirebaseCliLockPolicy {
     $script:failureStatus = 'HOLD_FIREBASE_CLI_LOCK_POLICY'
     throw "Firebase CLI lock policy failed: $($failed -join ', ')"
   }
-  Write-Output "PASS_FIREBASE_CLI_LOCK_POLICY: firebase-tools=$firebaseToolsDeclared @hono/node-server=$honoOverride fast-uri=$fastUriOverride"
+  Write-Output "PASS_FIREBASE_CLI_LOCK_POLICY: firebase-tools=$firebaseToolsDeclared brace-expansion=$braceExpansionDeclared tar=$tarOverride @hono/node-server=$honoOverride fast-uri=$fastUriOverride"
 }
 
 function Assert-FirebaseCliInstalledVersions {
@@ -309,6 +338,9 @@ function Assert-FirebaseCliInstalledVersions {
     firebaseTools = Join-Path $workspace 'tooling/firebase-cli/node_modules/firebase-tools/package.json'
     honoNodeServer = Join-Path $workspace 'tooling/firebase-cli/node_modules/@hono/node-server/package.json'
     fastUri = Join-Path $workspace 'tooling/firebase-cli/node_modules/fast-uri/package.json'
+    braceExpansion = Join-Path $workspace 'tooling/firebase-cli/node_modules/brace-expansion/package.json'
+    braceExpansionUpstream = Join-Path $workspace 'tooling/firebase-cli/node_modules/brace-expansion-modern/package.json'
+    tar = Join-Path $workspace 'tooling/firebase-cli/node_modules/tar/package.json'
   }
   $actual = [ordered]@{}
   foreach ($key in $packagePaths.Keys) {
@@ -323,6 +355,9 @@ function Assert-FirebaseCliInstalledVersions {
     firebaseTools = $expected.firebaseTools
     honoNodeServer = $expected.honoNodeServer
     fastUri = $expected.fastUri
+    braceExpansion = $expected.braceExpansion
+    braceExpansionUpstream = $expected.braceExpansion
+    tar = $expected.tar
   }
   $mismatches = @()
   foreach ($key in $expectedVersions.Keys) {
@@ -339,7 +374,7 @@ function Assert-FirebaseCliInstalledVersions {
     $script:failureStatus = 'HOLD_FIREBASE_CLI_DEPENDENCY_VERSION'
     throw "Installed Firebase CLI dependency version mismatch: $($mismatches -join '; ')"
   }
-  Write-Output "PASS_FIREBASE_CLI_INSTALLED_VERSIONS: firebase-tools=$($actual.firebaseTools) @hono/node-server=$($actual.honoNodeServer) fast-uri=$($actual.fastUri)"
+  Write-Output "PASS_FIREBASE_CLI_INSTALLED_VERSIONS: firebase-tools=$($actual.firebaseTools) brace-expansion=$($actual.braceExpansion) tar=$($actual.tar) @hono/node-server=$($actual.honoNodeServer) fast-uri=$($actual.fastUri)"
 }
 
 function Invoke-NpmCiStep {
@@ -569,6 +604,8 @@ try {
   Invoke-CheckedStep -Name '12_firebase_cli_installed_versions' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli') -Action { Assert-FirebaseCliInstalledVersions }
   $failureStatus = 'HOLD_FIREBASE_CLI_RUNTIME'
   Invoke-CheckedStep -Name '13_firebase_cli_load_smoke' -WorkingDirectory (Join-Path $workspace 'tooling/firebase-cli') -Action {
+    $compatibilityScript = Join-Path $workspace 'tools/dependencies/verify_brace_expansion_compat.mjs'
+    & node $compatibilityScript
     $firebaseCliEntry = Join-Path (Get-Location) 'node_modules/firebase-tools/lib/bin/firebase.js'
     $loadedVersion = ((& node $firebaseCliEntry --version 2>&1) -join "`n").Trim()
     if ($loadedVersion -ne $expected.firebaseTools) {

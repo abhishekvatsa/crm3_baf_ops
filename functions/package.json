@@ -25,12 +25,14 @@
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "^22.15.0",
+    "brace-expansion": "file:../tooling/brace-expansion-compat",
     "jest": "^29.7.0",
     "typescript": "^5.9.3"
   },
   "overrides": {
     "qs": "6.15.2",
     "uuid": "11.1.1",
-    "@grpc/grpc-js": "1.14.4"
+    "@grpc/grpc-js": "1.14.4",
+    "brace-expansion": "$brace-expansion"
   }
 }

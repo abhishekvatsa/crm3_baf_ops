@@ -19,6 +19,7 @@
     "emulator:test:abnormality": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:abnormality\"",
     "emulator:test:global-pull": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:global-pull\"",
     "emulator:test:governed": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules && npm --prefix functions run test:emulator:governed\"",
+    "test:dependency-compat": "node tools/dependencies/verify_brace_expansion_compat.mjs",
     "workflow:policy:generate": "node tools/maintenance_workflow/generate_policy.mjs",
     "workflow:policy:check": "node tools/maintenance_workflow/generate_policy.mjs --check"
   },
@@ -28,12 +29,14 @@
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
     "firebase": "^12.13.0",
+    "brace-expansion": "file:tooling/brace-expansion-compat",
     "jest": "^30.4.2"
   },
   "overrides": {
     "protobufjs": "7.6.5",
     "@grpc/grpc-js": "1.9.16",
     "@babel/core": "7.29.6",
-    "js-yaml": "3.15.0"
+    "js-yaml": "3.15.0",
+    "brace-expansion": "$brace-expansion"
   }
 }

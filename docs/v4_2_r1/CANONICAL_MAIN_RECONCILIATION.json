@@ -105,9 +105,9 @@
     {
       "path": ".github/workflows/release-gate.yml",
       "canonicalSha256": "CE3A2B57B0A19DAC48F25587EAFFD8D3C0D57F00ECDE41703E10DECD31FC0561",
-      "candidateSha256": "087E70CB8F554D2C4A1EBEAAD8E540B7E8A00A35902AF02B83D03C188140A53B",
+      "candidateSha256": "1FC70F0CA60D78CF0C481619F355987314917751C64CF3C597B4AE9B5008737B",
       "canonicalBytes": 8984,
-      "candidateBytes": 9292,
+      "candidateBytes": 9333,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -489,17 +489,17 @@
     {
       "path": "functions/package-lock.json",
       "canonicalSha256": "C3C90D6A75AC63508F6FD9DF216A0A8CA2487B3A3D049FC7481EDBA1BD14CBE1",
-      "candidateSha256": "22389C4228A1696D28EC669B276C050BE40DE87C28BD3635A03C6A8F6EAC30FA",
+      "candidateSha256": "5ADA3D85220DBFCC27D088DB0B55DCB77F303E934662CC43C951D0F954042F3F",
       "canonicalBytes": 233312,
-      "candidateBytes": 233288,
+      "candidateBytes": 233501,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "functions/package.json",
       "canonicalSha256": "B0A0CAD2A2F76012579544631D37DA260261FFA6F33BC3AF24F91F4C039EF1AC",
-      "candidateSha256": "546FA6B879483807719B0CC3713940F4C0F685AC9C5930D562F94E748C344A73",
+      "candidateSha256": "CF2847BCD37112FF58E1995F5D4595773F4E61D6F57C944C80F3911D4F855C2E",
       "canonicalBytes": 1115,
-      "candidateBytes": 2104,
+      "candidateBytes": 2212,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2425,17 +2425,17 @@
     {
       "path": "package-lock.json",
       "canonicalSha256": "3BC76810165C6F341E9498FF430BFC057DF7FEE9E946DC258C2D86B01703C871",
-      "candidateSha256": "4A718617CC28A28466DC18BF5F4999F739178A79F6EC7BFFC8E3F580A6CC219C",
+      "candidateSha256": "E26706ED5AC87600F1E702982F0C77CF7C87B0FF66848F9D459734E96D55F19F",
       "canonicalBytes": 193819,
-      "candidateBytes": 193771,
+      "candidateBytes": 193585,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "package.json",
       "canonicalSha256": "FA45934BAA0695024EA92A790D86B57D5B172788D855B610EB1163374FF4EC30",
-      "candidateSha256": "14E2B4C2A632D755225E92FF0FF4CA334E2AF5BAF192432C9FB0846A9EEE317F",
+      "candidateSha256": "EDDEB62C672D7AE0D51BC5F37E7986D8663DAC28A76F639817F1FB9C55CA58C6",
       "canonicalBytes": 1103,
-      "candidateBytes": 2439,
+      "candidateBytes": 2635,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2593,7 +2593,7 @@
     {
       "path": "release/production-release-policy.json",
       "canonicalSha256": "599E82E90BE8424F4552690DB548968B4BFF364A6EF59CC96CFBA9A3AF1950F4",
-      "candidateSha256": "1B50B10AD0C7B82F7D62B03F881AC07F385631EE28B4D2B0042836EB16A53437",
+      "candidateSha256": "9E7BD48724D2916427329505FABEB403070C6009A567E2A70E08E2AD3AA1156E",
       "canonicalBytes": 5884,
       "candidateBytes": 7514,
       "disposition": "SUCCESSOR_MODIFIED"
@@ -3341,17 +3341,17 @@
     {
       "path": "tooling/firebase-cli/package-lock.json",
       "canonicalSha256": "6236AA3B73AD28A2DAC89C7ECF91D0FC27E325F4480A1BEDADFFF669AEBAFF87",
-      "candidateSha256": "273C33CE9E5DADF0B78FF98F912E848296A3FF36694015AE787ADA83EB3C7EAB",
+      "candidateSha256": "95A45B74BC6AFD16C4B28E4AAED9E5DB2682718C3CE7F37FCC5157FC92B38276",
       "canonicalBytes": 285299,
-      "candidateBytes": 288159,
+      "candidateBytes": 287243,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "tooling/firebase-cli/package.json",
       "canonicalSha256": "1B809592105E36C133713CBD50D548A542CCBABB496E654A7B4A94562FAEC64F",
-      "candidateSha256": "8646CF8F9B9784A5B764F69D40124B4CA7E9D374A5CC2665E2145E9249F2C404",
+      "candidateSha256": "7D98A689ACCF34E542C8CCCC86F1F850E96B82886E2BFAD64812A58C3D7CD808",
       "canonicalBytes": 273,
-      "candidateBytes": 489,
+      "candidateBytes": 510,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
