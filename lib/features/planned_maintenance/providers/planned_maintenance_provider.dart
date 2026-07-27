@@ -21,6 +21,7 @@ import '../../auth/data/user_model.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
+import '../../../core/services/global_pull_protocol.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -255,12 +256,14 @@ abstract class PlannedMaintenanceRepository {
 
   Future<PaginatedTemplateResult> getUpdatedTemplates({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   });
 
   Future<PaginatedExecutionResult> getUpdatedExecutions({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   });
@@ -1214,6 +1217,7 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
   @override
   Future<PaginatedTemplateResult> getUpdatedTemplates({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
@@ -1223,6 +1227,7 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
   @override
   Future<PaginatedExecutionResult> getUpdatedExecutions({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
@@ -1730,13 +1735,21 @@ class FirestorePlannedRepository implements PlannedMaintenanceRepository {
   @override
   Future<PaginatedTemplateResult> getUpdatedTemplates({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
-    var q = _templates.orderBy('updatedAt');
-    if (since != null) {
-      q = q.where('updatedAt', isGreaterThan: since.toIso8601String());
+    if (through == null) {
+      throw const GlobalPullProtocolException(
+        'The job-template pull has no server upper bound.',
+        reasonCode: 'job-template-server-anchor-missing',
+      );
     }
+    var q = globalPullServerWindowQuery(
+      _templates,
+      afterInclusive: since,
+      throughInclusive: through,
+    );
     if (startAfter != null) q = q.startAfterDocument(startAfter);
     final snap = await q.limit(limit).get();
     return PaginatedTemplateResult(
@@ -1749,13 +1762,21 @@ class FirestorePlannedRepository implements PlannedMaintenanceRepository {
   @override
   Future<PaginatedExecutionResult> getUpdatedExecutions({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
-    var q = _executions.orderBy('updatedAt');
-    if (since != null) {
-      q = q.where('updatedAt', isGreaterThan: since.toIso8601String());
+    if (through == null) {
+      throw const GlobalPullProtocolException(
+        'The job-execution pull has no server upper bound.',
+        reasonCode: 'job-execution-server-anchor-missing',
+      );
     }
+    var q = globalPullServerWindowQuery(
+      _executions,
+      afterInclusive: since,
+      throughInclusive: through,
+    );
     if (startAfter != null) q = q.startAfterDocument(startAfter);
     final snap = await q.limit(limit).get();
     return PaginatedExecutionResult(

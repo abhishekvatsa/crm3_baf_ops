@@ -11,7 +11,6 @@ void main() {
       expect(shell, contains('class GlobalPullService'));
       expect(shell, contains('bool _isPulling = false;'));
       expect(shell, contains('bool _hadRecordProcessingError = false;'));
-      expect(shell, contains('DateTime? _maxFetchedRemoteUpdatedAt;'));
       expect(shell, contains('int lastInserted = 0;'));
       expect(shell, contains('int lastUpdated = 0;'));
       expect(shell, contains('int lastSkipped = 0;'));
@@ -26,10 +25,9 @@ void main() {
       expect(shell, contains('static const int _pageSize = 500;'));
       expect(
         shell,
-        contains(
-          'static const Duration _pullTokenSafetyMargin = Duration(minutes: 5);',
-        ),
+        contains('final GlobalPullAuthorityReader _authorityReader;'),
       );
+      expect(shell, contains('final String Function() _runIdFactory;'));
 
       for (final partFile in _globalPullPartFiles) {
         expect(
@@ -47,9 +45,15 @@ void main() {
             'pullAndReconcile must have exactly one implementation, on GlobalPullService.',
       );
       expect(
-        _declarationCount(allPullSource, '_nextGlobalPullToken'),
+        _declarationCount(allPullSource, '_runDomain'),
         1,
-        reason: 'watermark calculation must have exactly one implementation.',
+        reason: 'domain completion must have exactly one implementation.',
+      );
+      expect(
+        _declarationCount(allPullSource, '_validateFetchedServerBoundary'),
+        1,
+        reason:
+            'server-window validation must have exactly one implementation.',
       );
       expect(
         _declarationCount(allPullSource, '_recordTombstoneApplyResult'),
@@ -149,13 +153,16 @@ void sample(String id, {String? reason}) {
         'lib/core/services/global_pull_service.conflicts.dart',
       );
 
-      final tokenBlock = _blockStartingAt(
+      final boundaryBlock = _blockStartingAt(
         watermark,
-        'DateTime? _nextGlobalPullToken({DateTime? previousToken})',
+        'void _validateFetchedServerBoundary(',
       );
-      expect(tokenBlock, contains('_maxFetchedRemoteUpdatedAt'));
-      expect(tokenBlock, contains('GlobalPullService._pullTokenSafetyMargin'));
-      expect(tokenBlock, contains('candidate.isBefore(previousToken)'));
+      expect(boundaryBlock, contains('globalPullServerUpdatedAtField'));
+      expect(boundaryBlock, contains('value is! Timestamp'));
+      expect(
+        boundaryBlock,
+        contains('value.toDate().toUtc().isAfter(through.toUtc())'),
+      );
 
       final auditBlock = _blockStartingAt(conflicts, 'void _logConflictAudit(');
       expect(auditBlock, contains('AuditEvent('));
@@ -184,7 +191,7 @@ void sample(String id, {String? reason}) {
       }
     });
 
-    test('global pull order remains frozen', () {
+    test('authenticated, generation-scoped domain order remains frozen', () {
       final shell = _read(_shellFile);
       final pullBlock = _blockStartingAt(
         shell,
@@ -201,63 +208,64 @@ void sample(String id, {String? reason}) {
         'lastConflicted = 0;',
         'lastConflictKeys.clear();',
         '_hadRecordProcessingError = false;',
-        '_maxFetchedRemoteUpdatedAt = null;',
-        "prefs.getString('last_global_pull')",
-        'await _pullKnowledgeBase(lastSync);',
-        'await _pullMaintenance(lastSync);',
-        'await _pullPlanned(lastSync);',
-        'await _pullDirectives(lastSync);',
-        'await _pullAbnormalities(lastSync);',
-        'if (_hadRecordProcessingError)',
-        '_nextGlobalPullToken(previousToken: lastSync)',
-        'await prefs.setString(',
-        "'last_global_pull'",
+        'final prefs = await SharedPreferences.getInstance();',
+        'FirebaseAuth.instance.currentUser?.uid',
+        'IsarSchemaMigrator.readCommittedMarker(',
+        '_authorityReader.beginRun(expectedUid: actorUid)',
+        'cursorStore.begin(',
+        'domain: GlobalPullDomain.knowledgeBase,',
+        'domain: GlobalPullDomain.maintenanceRecords,',
+        'domain: GlobalPullDomain.templatePackages,',
+        'domain: GlobalPullDomain.templateVersions,',
+        'domain: GlobalPullDomain.templatePublishAudits,',
+        'domain: GlobalPullDomain.jobTemplates,',
+        'domain: GlobalPullDomain.jobExecutions,',
+        'domain: GlobalPullDomain.jobDiaryEntries,',
+        'domain: GlobalPullDomain.jobModules,',
+        'domain: GlobalPullDomain.directives,',
+        'domain: GlobalPullDomain.abnormalityTypes,',
+        'domain: GlobalPullDomain.chargeAbnormalities,',
+        'await cursorStore.commit(envelope);',
         '_isPulling = false;',
       ]);
+      expect(pullBlock, isNot(contains("prefs.getString('last_global_pull')")));
+      expect(pullBlock, isNot(contains('DateTime.now()')));
     });
 
     test(
-      'planned, template-governance, and abnormality sub-orders stay frozen',
+      'each leaf pull receives the lower cursor and shared server anchor',
       () {
-        final planned = _read(
-          'lib/core/services/global_pull_service.planned.dart',
+        final shell = _read(_shellFile);
+        final runDomainBlock = _blockStartingAt(
+          shell,
+          'Future<GlobalPullRunEnvelope> _runDomain(',
         );
-        final plannedBlock = _blockStartingAt(
-          planned,
-          'Future<void> _pullPlanned(DateTime? lastSync)',
-        );
-        _expectOrder(plannedBlock, const [
-          'await _pullTemplateGovernance(lastSync);',
-          'await _pullTemplates(lastSync);',
-          'await _pullExecutions(lastSync);',
-          'await _pullJobDiaryEntries(lastSync);',
-          'await _pullJobModules(lastSync);',
+        _expectOrder(runDomainBlock, const [
+          'final cursor = envelope.cursorFor(domain);',
+          'if (cursor.completedInRun) return envelope;',
+          '_requireCurrentActor(envelope.actorUid);',
+          '_hadRecordProcessingError = false;',
+          'await pull(cursor.cursor, envelope.serverAnchor);',
+          '_requireCurrentActor(envelope.actorUid);',
+          'if (_hadRecordProcessingError)',
+          'return cursorStore.completeDomain(envelope, domain);',
         ]);
 
-        final templateGovernance = _read(
-          'lib/core/services/global_pull_service.template_governance.dart',
-        );
-        final templateGovernanceBlock = _blockStartingAt(
-          templateGovernance,
-          'Future<void> _pullTemplateGovernance(DateTime? lastSync)',
-        );
-        _expectOrder(templateGovernanceBlock, const [
-          'await _pullTemplatePackages(lastSync);',
-          'await _pullTemplateVersions(lastSync);',
-          'await _pullTemplatePublishAudits(lastSync);',
-        ]);
-
-        final abnormalities = _read(
-          'lib/core/services/global_pull_service.abnormalities.dart',
-        );
-        final abnormalitiesBlock = _blockStartingAt(
-          abnormalities,
-          'Future<void> _pullAbnormalities(DateTime? lastSync)',
-        );
-        _expectOrder(abnormalitiesBlock, const [
-          'await _pullAbnormalityTypes(lastSync);',
-          'await _pullChargeAbnormalities(lastSync);',
-        ]);
+        for (final methodName in _leafPullMethods) {
+          final owner = _expectedMethodOwners[methodName]!;
+          final source = _read(owner);
+          final declaration = RegExp(
+            'Future<void>\\s+${RegExp.escape(methodName)}\\s*\\('
+            '[\\s\\S]*?DateTime\\?\\s+lastSync,'
+            '[\\s\\S]*?DateTime\\s+through,?'
+            '[\\s\\S]*?\\)\\s+async',
+          );
+          expect(
+            declaration.hasMatch(source),
+            isTrue,
+            reason: '$methodName must accept a lower cursor and upper anchor.',
+          );
+        }
       },
     );
 
@@ -287,7 +295,29 @@ void sample(String id, {String? reason}) {
       expect(nonConflictParts, isNot(contains('void _logConflictAudit(')));
     });
 
-    test('watermark helpers stay centralized', () {
+    test('template publish-audit tombstones are applied and hidden', () {
+      final pullSource = _read(
+        'lib/core/services/global_pull_service.template_governance.dart',
+      );
+      final repositorySource = _read(
+        'lib/features/planned_maintenance/providers/'
+        'template_governance_provider.dart',
+      );
+
+      expect(pullSource, contains('if (remote.isDeleted)'));
+      expect(pullSource, contains('applyTombstoneFromAuditRemote(remote)'));
+      expect(pullSource, contains("'template publish audit',"));
+      expect(repositorySource, contains('isDeletedEqualTo(false)'));
+      expect(
+        repositorySource,
+        contains(
+          'Future<RemoteTombstoneApplyResult> '
+          'applyTombstoneFromAuditRemote(',
+        ),
+      );
+    });
+
+    test('server-window validation stays centralized', () {
       final watermark = _read(
         'lib/core/services/global_pull_service.watermark.dart',
       );
@@ -307,17 +337,8 @@ void sample(String id, {String? reason}) {
       }
       expect(
         nonWatermarkParts,
-        isNot(contains('DateTime? _nextGlobalPullToken(')),
+        isNot(contains('void _validateFetchedServerBoundary(')),
       );
-      expect(
-        nonWatermarkParts,
-        isNot(contains('void _observeFetchedRemoteRecords(')),
-      );
-      expect(
-        nonWatermarkParts,
-        isNot(contains('void _observeFetchedRemoteUpdatedAt(')),
-      );
-      expect(nonWatermarkParts, isNot(contains('DateTime? _readUpdatedAt(')));
     });
 
     test('shell imports and pull files remain data-layer only', () {
@@ -344,16 +365,41 @@ void sample(String id, {String? reason}) {
       );
     });
 
-    test('global pull token and failure logging contracts remain anchored', () {
+    test('server cursor and failure logging contracts remain anchored', () {
       final shell = _read(_shellFile);
+      final cursorStore = _read(
+        'lib/core/services/global_pull_cursor_store.dart',
+      );
+      final protocol = _read('lib/core/services/global_pull_protocol.dart');
 
-      expect(_occurrenceCount(shell, "'last_global_pull'"), 2);
-      _expectOrder(shell, const [
-        "prefs.getString('last_global_pull')",
-        '_nextGlobalPullToken(previousToken: lastSync)',
-        'await prefs.setString(',
-        "'last_global_pull'",
+      expect(_occurrenceCount(shell, "'last_global_pull'"), 0);
+      expect(
+        cursorStore,
+        contains("legacyGlobalCursorKey = 'last_global_pull'"),
+      );
+      final commitBlock = _blockStartingAt(
+        cursorStore,
+        'Future<GlobalPullRunEnvelope> commit(',
+      );
+      _expectOrder(commitBlock, const [
+        'final committed = envelope.commit();',
+        'await write(committed);',
+        'await preferences.remove(legacyGlobalCursorKey);',
       ]);
+      expect(protocol, contains('globalPullServerWindowQuery('));
+      expect(
+        protocol,
+        contains(
+          'isGreaterThanOrEqualTo: Timestamp.fromDate(afterInclusive.toUtc())',
+        ),
+      );
+      expect(
+        protocol,
+        contains(
+          'isLessThanOrEqualTo: Timestamp.fromDate(throughInclusive.toUtc())',
+        ),
+      );
+      expect(protocol, contains('orderBy(globalPullServerUpdatedAtField)'));
 
       expect(shell, contains("reason: 'global_delta_sync_failed'"));
       expect(
@@ -373,17 +419,13 @@ void sample(String id, {String? reason}) {
         ),
       );
 
-      final withoutQualifiedStaticAccess = partSource
-          .replaceAll('GlobalPullService._pageSize', '')
-          .replaceAll('GlobalPullService._pullTokenSafetyMargin', '');
+      final withoutQualifiedStaticAccess = partSource.replaceAll(
+        'GlobalPullService._pageSize',
+        '',
+      );
 
       expect(withoutQualifiedStaticAccess, isNot(contains('_pageSize')));
-      expect(
-        withoutQualifiedStaticAccess,
-        isNot(contains('_pullTokenSafetyMargin')),
-      );
       expect(partSource, contains('GlobalPullService._pageSize'));
-      expect(partSource, contains('GlobalPullService._pullTokenSafetyMargin'));
     });
 
     test('part files do not rely on analyzer-noisy this qualifiers', () {
@@ -428,15 +470,21 @@ void sample(String id, {String? reason}) {
       expect(maintenance, contains('Future<void> _pullMaintenance('));
       expect(
         templateGovernance,
-        contains('Future<void> _pullTemplateGovernance('),
+        contains('Future<void> _pullTemplatePackages('),
       );
-      expect(planned, contains('Future<void> _pullPlanned('));
+      expect(
+        templateGovernance,
+        contains('Future<void> _pullTemplateVersions('),
+      );
+      expect(
+        templateGovernance,
+        contains('Future<void> _pullTemplatePublishAudits('),
+      );
       expect(planned, contains('Future<void> _pullTemplates('));
       expect(planned, contains('Future<void> _pullExecutions('));
       expect(jobDiary, contains('Future<void> _pullJobDiaryEntries('));
       expect(jobModules, contains('Future<void> _pullJobModules('));
       expect(directives, contains('Future<void> _pullDirectives('));
-      expect(abnormalities, contains('Future<void> _pullAbnormalities('));
       expect(abnormalities, contains('Future<void> _pullAbnormalityTypes('));
       expect(abnormalities, contains('Future<void> _pullChargeAbnormalities('));
       expect(knowledgeBase, contains('Future<void> _pullKnowledgeBase('));
@@ -486,7 +534,7 @@ void sample(String id, {String? reason}) {
 const _shellFile = 'lib/core/services/global_pull_service.dart';
 
 const _partExtensionNames = <String, String>{
-  'global_pull_service.watermark.dart': '_GlobalPullWatermark',
+  'global_pull_service.watermark.dart': '_GlobalPullServerWindow',
   'global_pull_service.conflicts.dart': '_GlobalPullConflicts',
   'global_pull_service.maintenance.dart': '_GlobalPullMaintenance',
   'global_pull_service.template_governance.dart':
@@ -528,13 +576,9 @@ const _globalPullFiles = <String>[
 
 const _expectedMethodOwners = <String, String>{
   'pullAndReconcile': _shellFile,
-  '_nextGlobalPullToken':
+  '_runDomain': _shellFile,
+  '_validateFetchedServerBoundary':
       'lib/core/services/global_pull_service.watermark.dart',
-  '_observeFetchedRemoteRecords':
-      'lib/core/services/global_pull_service.watermark.dart',
-  '_observeFetchedRemoteUpdatedAt':
-      'lib/core/services/global_pull_service.watermark.dart',
-  '_readUpdatedAt': 'lib/core/services/global_pull_service.watermark.dart',
   '_conflictKey': 'lib/core/services/global_pull_service.conflicts.dart',
   '_isRemoteNewer': 'lib/core/services/global_pull_service.conflicts.dart',
   '_jsonSafeValue': 'lib/core/services/global_pull_service.conflicts.dart',
@@ -545,23 +589,18 @@ const _expectedMethodOwners = <String, String>{
   '_recordTombstoneApplyResult':
       'lib/core/services/global_pull_service.conflicts.dart',
   '_pullMaintenance': 'lib/core/services/global_pull_service.maintenance.dart',
-  '_pullTemplateGovernance':
-      'lib/core/services/global_pull_service.template_governance.dart',
   '_pullTemplatePackages':
       'lib/core/services/global_pull_service.template_governance.dart',
   '_pullTemplateVersions':
       'lib/core/services/global_pull_service.template_governance.dart',
   '_pullTemplatePublishAudits':
       'lib/core/services/global_pull_service.template_governance.dart',
-  '_pullPlanned': 'lib/core/services/global_pull_service.planned.dart',
   '_pullTemplates': 'lib/core/services/global_pull_service.planned.dart',
   '_pullExecutions': 'lib/core/services/global_pull_service.planned.dart',
   '_pullJobDiaryEntries':
       'lib/core/services/global_pull_service.job_diary.dart',
   '_pullJobModules': 'lib/core/services/global_pull_service.job_modules.dart',
   '_pullDirectives': 'lib/core/services/global_pull_service.directives.dart',
-  '_pullAbnormalities':
-      'lib/core/services/global_pull_service.abnormalities.dart',
   '_pullAbnormalityTypes':
       'lib/core/services/global_pull_service.abnormalities.dart',
   '_pullChargeAbnormalities':
@@ -581,11 +620,21 @@ const _sharedConflictHelpers = <String>[
   '_recordTombstoneApplyResult',
 ];
 
-const _watermarkHelpers = <String>[
-  '_nextGlobalPullToken',
-  '_observeFetchedRemoteRecords',
-  '_observeFetchedRemoteUpdatedAt',
-  '_readUpdatedAt',
+const _watermarkHelpers = <String>['_validateFetchedServerBoundary'];
+
+const _leafPullMethods = <String>[
+  '_pullKnowledgeBase',
+  '_pullMaintenance',
+  '_pullTemplatePackages',
+  '_pullTemplateVersions',
+  '_pullTemplatePublishAudits',
+  '_pullTemplates',
+  '_pullExecutions',
+  '_pullJobDiaryEntries',
+  '_pullJobModules',
+  '_pullDirectives',
+  '_pullAbnormalityTypes',
+  '_pullChargeAbnormalities',
 ];
 
 const _forbiddenUiFragments = <String>[

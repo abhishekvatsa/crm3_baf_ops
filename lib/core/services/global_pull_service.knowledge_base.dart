@@ -5,10 +5,9 @@ part of 'global_pull_service.dart';
 // ─────────────────────────────────────────────────────────────
 
 extension _GlobalPullKnowledgeBase on GlobalPullService {
-  Future<void> _pullKnowledgeBase(DateTime? lastSync) async {
+  Future<void> _pullKnowledgeBase(DateTime? lastSync, DateTime through) async {
     try {
-      final result = await _knowledgeRepo.pullCloudToLocal(lastSync);
-      _observeFetchedRemoteUpdatedAt(result.maxFetchedUpdatedAt);
+      final result = await _knowledgeRepo.pullCloudToLocal(lastSync, through);
       lastInserted += result.inserted;
       lastUpdated += result.updated;
       lastSkipped += result.skipped;

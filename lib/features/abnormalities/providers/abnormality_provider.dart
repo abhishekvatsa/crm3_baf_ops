@@ -19,6 +19,7 @@ import '../../auth/data/user_model.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
+import '../../../core/services/global_pull_protocol.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -141,12 +142,14 @@ abstract class AbnormalityRepository {
 
   Future<PaginatedAbnormalityTypesResult> getUpdatedTypes({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     fs.DocumentSnapshot? startAfter,
   });
 
   Future<PaginatedChargeAbnormalitiesResult> getUpdatedAbnormalities({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     fs.DocumentSnapshot? startAfter,
   });
@@ -882,6 +885,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
   @override
   Future<PaginatedAbnormalityTypesResult> getUpdatedTypes({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     fs.DocumentSnapshot? startAfter,
   }) async {
@@ -891,6 +895,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
   @override
   Future<PaginatedChargeAbnormalitiesResult> getUpdatedAbnormalities({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     fs.DocumentSnapshot? startAfter,
   }) async {
@@ -1649,14 +1654,21 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   @override
   Future<PaginatedAbnormalityTypesResult> getUpdatedTypes({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     fs.DocumentSnapshot? startAfter,
   }) async {
-    fs.Query<Map<String, dynamic>> query = _types.orderBy('updatedAt');
-
-    if (since != null) {
-      query = query.where('updatedAt', isGreaterThan: since.toIso8601String());
+    if (through == null) {
+      throw const GlobalPullProtocolException(
+        'The abnormality-type pull has no server upper bound.',
+        reasonCode: 'abnormality-type-server-anchor-missing',
+      );
     }
+    fs.Query<Map<String, dynamic>> query = globalPullServerWindowQuery(
+      _types,
+      afterInclusive: since,
+      throughInclusive: through,
+    );
 
     query = query.limit(limit);
 
@@ -1682,14 +1694,21 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   @override
   Future<PaginatedChargeAbnormalitiesResult> getUpdatedAbnormalities({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     fs.DocumentSnapshot? startAfter,
   }) async {
-    fs.Query<Map<String, dynamic>> query = _abnormalities.orderBy('updatedAt');
-
-    if (since != null) {
-      query = query.where('updatedAt', isGreaterThan: since.toIso8601String());
+    if (through == null) {
+      throw const GlobalPullProtocolException(
+        'The charge-abnormality pull has no server upper bound.',
+        reasonCode: 'charge-abnormality-server-anchor-missing',
+      );
     }
+    fs.Query<Map<String, dynamic>> query = globalPullServerWindowQuery(
+      _abnormalities,
+      afterInclusive: since,
+      throughInclusive: through,
+    );
 
     query = query.limit(limit);
 

@@ -2,6 +2,7 @@ import {onCall, HttpsError, CallableRequest} from "firebase-functions/v2/https";
 import {
   onDocumentCreated,
   onDocumentUpdated,
+  onDocumentWritten,
 } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
@@ -80,6 +81,15 @@ import type {
   CallableAbuseFirestoreLike,
   MutatingCallableName,
 } from "./callableAbuseControl";
+import {
+  applyGlobalPullServerClock,
+  beginGlobalPullRunWithDb,
+  GlobalPullServerClockError,
+} from "./globalPullServerClock";
+import type {
+  GlobalPullAuthorityFirestoreLike,
+  GlobalPullWriteChangeLike,
+} from "./globalPullServerClock";
 
 admin.initializeApp();
 
@@ -207,6 +217,59 @@ export const assignPublishedTemplateVersion = onCall(
         "internal",
         "Server-governed published-template assignment failed.",
       );
+    }
+  },
+);
+
+// ─── Global pull server clock and bounded-run authority ─────────────────────
+
+export const beginGlobalPullRun = onCall(
+  {
+    region: CALLABLE_REGION,
+    timeoutSeconds: 15,
+    memory: "256MiB",
+    concurrency: 80,
+  },
+  async (request: CallableRequest<unknown>) => {
+    try {
+      return await beginGlobalPullRunWithDb({
+        db: admin.firestore() as unknown as GlobalPullAuthorityFirestoreLike,
+        authUid: request.auth?.uid ?? null,
+        serverNow: () => admin.firestore.Timestamp.now().toDate(),
+      });
+    } catch (error) {
+      if (error instanceof GlobalPullServerClockError) {
+        throw new HttpsError(error.code, error.message, {
+          reason: error.reason,
+        });
+      }
+      logger.error("beginGlobalPullRun failed", error);
+      throw new HttpsError(
+        "internal",
+        "The global pull run could not be authorized.",
+      );
+    }
+  },
+);
+
+export const stampGlobalPullServerClock = onDocumentWritten(
+  {
+    document: "{collectionId}/{documentId}",
+    region: CALLABLE_REGION,
+    retry: true,
+  },
+  async (event) => {
+    if (event.data == null) return;
+    const action = await applyGlobalPullServerClock({
+      collectionId: event.params.collectionId,
+      change: event.data as unknown as GlobalPullWriteChangeLike,
+      serverTimestamp: admin.firestore.FieldValue.serverTimestamp,
+    });
+    if (action === "restored-tombstone") {
+      logger.warn("Global pull writer converted a hard delete to a tombstone.", {
+        collectionId: event.params.collectionId,
+        documentId: event.params.documentId,
+      });
     }
   },
 );
@@ -416,7 +479,7 @@ export const onTicketCreated = onDocumentCreated(
   },
   async (event) => {
     const ticket = event.data?.data();
-    if (ticket == null) return;
+    if (ticket == null || ticket.isDeleted === true) return;
     const plan = buildTicketCreatedNotification(ticket);
     const db = firestoreAdapter();
     const recipients = await getTokenLookupsForRoles(db, plan.roles);
@@ -471,7 +534,7 @@ export const onJobAssigned = onDocumentCreated(
   },
   async (event) => {
     const execution = event.data?.data();
-    if (execution == null) return;
+    if (execution == null || execution.isDeleted === true) return;
 
     const plan = buildJobAssignedNotification(execution);
     if (plan == null) return; // No agencies — nothing to do.

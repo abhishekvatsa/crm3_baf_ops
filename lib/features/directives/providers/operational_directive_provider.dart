@@ -16,6 +16,7 @@ import '../../audit/providers/audit_provider.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
+import '../../../core/services/global_pull_protocol.dart';
 
 T _enumByNameOr<T extends Enum>(List<T> values, dynamic value, T fallback) {
   if (value is! String) return fallback;
@@ -377,6 +378,7 @@ abstract class DirectiveRepository {
 
   Future<PaginatedDirectivesResult> getUpdatedDirectives({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   });
@@ -517,6 +519,7 @@ class IsarDirectiveRepository implements DirectiveRepository {
   @override
   Future<PaginatedDirectivesResult> getUpdatedDirectives({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
@@ -998,14 +1001,21 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
   @override
   Future<PaginatedDirectivesResult> getUpdatedDirectives({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
-    var query = _col.orderBy('updatedAt');
-
-    if (since != null) {
-      query = query.where('updatedAt', isGreaterThan: since.toIso8601String());
+    if (through == null) {
+      throw const GlobalPullProtocolException(
+        'The directive pull has no server upper bound.',
+        reasonCode: 'directive-server-anchor-missing',
+      );
     }
+    var query = globalPullServerWindowQuery(
+      _col,
+      afterInclusive: since,
+      throughInclusive: through,
+    );
 
     query = query.limit(limit);
     if (startAfter != null) {

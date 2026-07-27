@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../features/maintenance/data/maintenance_model.dart';
 import '../../features/maintenance/providers/maintenance_provider.dart';
@@ -29,6 +30,9 @@ import '../../features/audit/providers/audit_provider.dart';
 import 'remote_tombstone_apply_result.dart';
 import 'sync_remote_freshness_policy.dart';
 import 'app_logger.dart';
+import 'global_pull_cursor_store.dart';
+import 'global_pull_protocol.dart';
+import 'isar_schema_migration.dart';
 
 part 'global_pull_service.watermark.dart';
 part 'global_pull_service.conflicts.dart';
@@ -54,10 +58,10 @@ class GlobalPullService {
   final FirestorePlannedRepository _firestorePlanned;
 
   final JobDiaryRepository _jobDiaryRepo;
-  final JobDiaryRepository _firestoreJobDiary;
+  final FirestoreJobDiaryRepository _firestoreJobDiary;
 
   final JobModuleRepository _jobModuleRepo;
-  final JobModuleRepository _firestoreJobModule;
+  final FirestoreJobModuleRepository _firestoreJobModule;
 
   final TemplateGovernanceRepository _templateGovernanceRepo;
   final FirestoreTemplateGovernanceRepository _firestoreTemplateGovernance;
@@ -71,10 +75,11 @@ class GlobalPullService {
   final BafKnowledgeRepository _knowledgeRepo;
 
   final AuditRepository _auditRepo;
+  final GlobalPullAuthorityReader _authorityReader;
+  final String Function() _runIdFactory;
 
   bool _isPulling = false;
   bool _hadRecordProcessingError = false;
-  DateTime? _maxFetchedRemoteUpdatedAt;
 
   int lastInserted = 0;
   int lastUpdated = 0;
@@ -84,8 +89,6 @@ class GlobalPullService {
   final Set<String> lastConflictKeys = <String>{};
 
   static const int _pageSize = 500;
-  static const Duration _pullTokenSafetyMargin = Duration(minutes: 5);
-
   GlobalPullService(
     this._maintenanceRepo,
     this._firestoreMaintenance,
@@ -102,8 +105,12 @@ class GlobalPullService {
     this._abnormalityRepo,
     this._firestoreAbnormality,
     this._knowledgeRepo,
-    this._auditRepo,
-  );
+    this._auditRepo, {
+    GlobalPullAuthorityReader? authorityReader,
+    String Function()? runIdFactory,
+  }) : _authorityReader =
+           authorityReader ?? const FirebaseGlobalPullAuthorityReader(),
+       _runIdFactory = runIdFactory ?? const Uuid().v4;
 
   // ─────────────────────────────────────────────────────────────
   // ENTRY POINT
@@ -121,44 +128,110 @@ class GlobalPullService {
     lastConflicted = 0;
     lastConflictKeys.clear();
     _hadRecordProcessingError = false;
-    _maxFetchedRemoteUpdatedAt = null;
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final lastSyncStr = prefs.getString('last_global_pull');
-      DateTime? lastSync;
-
-      if (lastSyncStr != null) {
-        lastSync = DateTime.tryParse(lastSyncStr);
-      }
-
-      await _pullKnowledgeBase(lastSync);
-      await _pullMaintenance(lastSync);
-      await _pullPlanned(lastSync);
-      await _pullDirectives(lastSync);
-
-      // Master data first, then event records.
-      await _pullAbnormalities(lastSync);
-
-      if (_hadRecordProcessingError) {
-        throw Exception(
-          'Global pull completed with record processing errors; not advancing token.',
+      final actorUid = FirebaseAuth.instance.currentUser?.uid;
+      if (actorUid == null || actorUid.trim().isEmpty) {
+        throw const GlobalPullProtocolException(
+          'Authentication is required before global pull.',
+          reasonCode: 'client-actor-unauthenticated',
         );
       }
-
-      // Only advance the token if ALL domains successfully completed without throwing.
-      // Use the freshest remote updatedAt we actually fetched, not the tablet's
-      // local clock. Skewed unmanaged Android tablets must not be able to move
-      // the global pull watermark into the future and skip server rows.
-      final nextSyncToken = _nextGlobalPullToken(previousToken: lastSync);
-      if (nextSyncToken != null) {
-        await prefs.setString(
-          'last_global_pull',
-          nextSyncToken.toIso8601String(),
+      final provenance = await IsarSchemaMigrator.readCommittedMarker(
+        SharedPreferencesIsarSchemaProvenanceStore(prefs),
+      );
+      if (provenance == null) {
+        throw const GlobalPullCursorException(
+          'A committed local database generation is required for global pull.',
+          reasonCode: 'cursor-database-generation-unavailable',
         );
       }
+      final authority = await _authorityReader.beginRun(expectedUid: actorUid);
+      final cursorStore = SharedPreferencesGlobalPullCursorStore(prefs);
+      var envelope = await cursorStore.begin(
+        actorUid: actorUid,
+        databaseGenerationId: provenance.databaseGenerationId,
+        authority: authority,
+        runId: _runIdFactory(),
+      );
+
+      envelope = await _runDomain(
+        cursorStore: cursorStore,
+        envelope: envelope,
+        domain: GlobalPullDomain.knowledgeBase,
+        pull: _pullKnowledgeBase,
+      );
+      envelope = await _runDomain(
+        cursorStore: cursorStore,
+        envelope: envelope,
+        domain: GlobalPullDomain.maintenanceRecords,
+        pull: _pullMaintenance,
+      );
+      envelope = await _runDomain(
+        cursorStore: cursorStore,
+        envelope: envelope,
+        domain: GlobalPullDomain.templatePackages,
+        pull: _pullTemplatePackages,
+      );
+      envelope = await _runDomain(
+        cursorStore: cursorStore,
+        envelope: envelope,
+        domain: GlobalPullDomain.templateVersions,
+        pull: _pullTemplateVersions,
+      );
+      envelope = await _runDomain(
+        cursorStore: cursorStore,
+        envelope: envelope,
+        domain: GlobalPullDomain.templatePublishAudits,
+        pull: _pullTemplatePublishAudits,
+      );
+      envelope = await _runDomain(
+        cursorStore: cursorStore,
+        envelope: envelope,
+        domain: GlobalPullDomain.jobTemplates,
+        pull: _pullTemplates,
+      );
+      envelope = await _runDomain(
+        cursorStore: cursorStore,
+        envelope: envelope,
+        domain: GlobalPullDomain.jobExecutions,
+        pull: _pullExecutions,
+      );
+      envelope = await _runDomain(
+        cursorStore: cursorStore,
+        envelope: envelope,
+        domain: GlobalPullDomain.jobDiaryEntries,
+        pull: _pullJobDiaryEntries,
+      );
+      envelope = await _runDomain(
+        cursorStore: cursorStore,
+        envelope: envelope,
+        domain: GlobalPullDomain.jobModules,
+        pull: _pullJobModules,
+      );
+      envelope = await _runDomain(
+        cursorStore: cursorStore,
+        envelope: envelope,
+        domain: GlobalPullDomain.directives,
+        pull: _pullDirectives,
+      );
+      envelope = await _runDomain(
+        cursorStore: cursorStore,
+        envelope: envelope,
+        domain: GlobalPullDomain.abnormalityTypes,
+        pull: _pullAbnormalityTypes,
+      );
+      envelope = await _runDomain(
+        cursorStore: cursorStore,
+        envelope: envelope,
+        domain: GlobalPullDomain.chargeAbnormalities,
+        pull: _pullChargeAbnormalities,
+      );
+      _requireCurrentActor(envelope.actorUid);
+      await cursorStore.commit(envelope);
     } catch (e, stackTrace) {
-      debugPrint('❌ Global pull failed: $e');
+      debugPrint('Global pull failed: $e');
       debugPrintStack(stackTrace: stackTrace);
       unawaited(
         AppLogger.recordNonFatalError(
@@ -174,7 +247,38 @@ class GlobalPullService {
       _isPulling = false;
 
       debugPrint(
-        '📥 GLOBAL PULL → Inserted: $lastInserted, Updated: $lastUpdated, Deleted: $lastDeleted, Conflicted: $lastConflicted, Skipped: $lastSkipped',
+        'GLOBAL PULL: Inserted: $lastInserted, Updated: $lastUpdated, Deleted: $lastDeleted, Conflicted: $lastConflicted, Skipped: $lastSkipped',
+      );
+    }
+  }
+
+  Future<GlobalPullRunEnvelope> _runDomain({
+    required SharedPreferencesGlobalPullCursorStore cursorStore,
+    required GlobalPullRunEnvelope envelope,
+    required GlobalPullDomain domain,
+    required Future<void> Function(DateTime? since, DateTime through) pull,
+  }) async {
+    final cursor = envelope.cursorFor(domain);
+    if (cursor.completedInRun) return envelope;
+
+    _requireCurrentActor(envelope.actorUid);
+    _hadRecordProcessingError = false;
+    await pull(cursor.cursor, envelope.serverAnchor);
+    _requireCurrentActor(envelope.actorUid);
+    if (_hadRecordProcessingError) {
+      throw GlobalPullCursorException(
+        'Global pull domain ${domain.wireName} had record processing errors.',
+        reasonCode: 'domain-record-processing-failed',
+      );
+    }
+    return cursorStore.completeDomain(envelope, domain);
+  }
+
+  void _requireCurrentActor(String expectedUid) {
+    if (FirebaseAuth.instance.currentUser?.uid != expectedUid) {
+      throw const GlobalPullCursorException(
+        'The authenticated actor changed during global pull.',
+        reasonCode: 'cursor-actor-changed-during-run',
       );
     }
   }

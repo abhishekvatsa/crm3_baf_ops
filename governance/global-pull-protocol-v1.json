@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "fingerprintAlgorithm": "SHA256_CANONICAL_JSON",
+  "protocolFingerprint": "cf9bf145de29799e188ebb37bd4a3c5c668ed9df96b2ba4066404e4d7bc48321",
+  "fingerprintedContract": {
+    "protocolVersion": 1,
+    "writerVersion": "global-pull-server-stamp-v1",
+    "serverStampField": "_globalPullServerUpdatedAt",
+    "runtimeContractPath": "runtime_contracts/global_pull_v1",
+    "beginRunCallable": "beginGlobalPullRun",
+    "callableRegion": "asia-south1",
+    "stampTrigger": "stampGlobalPullServerClock",
+    "authorityDigestScheme": "auth1-sha256",
+    "cursorEnvelopeFormatVersion": 1,
+    "cursorScope": [
+      "domain",
+      "actorUid",
+      "authorityDigest",
+      "databaseGenerationId"
+    ],
+    "lowerBound": "INCLUSIVE",
+    "upperBound": "INCLUSIVE",
+    "deletionPolicy": "RESTORE_AS_STAMPED_SOFT_TOMBSTONE",
+    "activationEvidence": [
+      "sourceCommit",
+      "backfillReceiptSha256",
+      "activatedAt"
+    ],
+    "collections": [
+      "abnormality_types",
+      "charge_abnormalities",
+      "directives",
+      "job_diary_entries",
+      "job_executions",
+      "job_modules",
+      "job_templates",
+      "knowledge_base",
+      "maintenance_records",
+      "template_packages",
+      "template_publish_audits",
+      "template_versions"
+    ]
+  }
+}

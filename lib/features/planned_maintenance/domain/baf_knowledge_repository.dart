@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart' hide Query;
 
 import '../../../main.dart';
+import '../../../core/services/global_pull_protocol.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../data/baf_knowledge_model.dart';
 import 'baf_knowledge_layer.dart';
@@ -298,24 +299,28 @@ class BafKnowledgeRepository {
     });
   }
 
-  Future<BafKnowledgePullResult> pullCloudToLocal([DateTime? since]) async {
+  Future<BafKnowledgePullResult> pullCloudToLocal([
+    DateTime? since,
+    DateTime? through,
+  ]) async {
     if (kIsWeb || _isar == null) return const BafKnowledgePullResult();
 
-    // Pull rows in bounded pages. A full pull must include older/manual
-    // knowledge rows that may not yet carry updatedAt, so it pages by document
-    // ID. Incremental pulls use updatedAt once a caller supplies a watermark.
-    // All write paths below set updatedAt; the document-ID full pull prevents
-    // legacy safety knowledge rows from being silently skipped during first sync.
-    final Query<Map<String, dynamic>> baseQuery = since == null
-        ? _firestore
-        .collection(collectionPath)
-        .orderBy(FieldPath.documentId)
-        .limit(_knowledgePullPageSize)
-        : _firestore
-        .collection(collectionPath)
-        .where('updatedAt', isGreaterThan: since)
-        .orderBy('updatedAt')
-        .limit(_knowledgePullPageSize);
+    if (since != null && through == null) {
+      throw const GlobalPullProtocolException(
+        'The knowledge-base delta pull has no server upper bound.',
+        reasonCode: 'knowledge-server-anchor-missing',
+      );
+    }
+    final collection = _firestore.collection(collectionPath);
+    final Query<Map<String, dynamic>> baseQuery = through == null
+        ? collection
+            .orderBy(FieldPath.documentId)
+            .limit(_knowledgePullPageSize)
+        : globalPullServerWindowQuery(
+            collection,
+            afterInclusive: since,
+            throughInclusive: through,
+          ).limit(_knowledgePullPageSize);
 
     final Future<DocumentSnapshot<Map<String, dynamic>>?> metaFuture = _firestore
         .doc(metaPath)
@@ -331,6 +336,11 @@ class BafKnowledgeRepository {
           : baseQuery.startAfterDocument(lastDoc);
       final page = await pageQuery.get();
       if (page.docs.isEmpty) break;
+      if (through != null) {
+        for (final document in page.docs) {
+          globalPullServerTimestampFromDocument(document);
+        }
+      }
       docs.addAll(page.docs);
       if (page.docs.length < _knowledgePullPageSize) break;
       lastDoc = page.docs.last;

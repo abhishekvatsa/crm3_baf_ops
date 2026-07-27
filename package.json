@@ -17,6 +17,7 @@
     "emulator:test:closure": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:closure\"",
     "emulator:test:workflow": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:workflow\"",
     "emulator:test:abnormality": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:abnormality\"",
+    "emulator:test:global-pull": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:global-pull\"",
     "emulator:test:governed": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm run test:rules && npm --prefix functions run test:emulator:governed\"",
     "workflow:policy:generate": "node tools/maintenance_workflow/generate_policy.mjs",
     "workflow:policy:check": "node tools/maintenance_workflow/generate_policy.mjs --check"

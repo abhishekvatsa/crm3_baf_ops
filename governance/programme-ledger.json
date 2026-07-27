@@ -1807,7 +1807,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "Reliability/data",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "BLOCKER",
@@ -1817,14 +1817,34 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "exact source commit and exact-head merge CI for the server-authored global-pull clock, bounded query and governed activation controls",
+        "green Flutter, Functions, Firestore Rules and governed Firestore emulator evidence for all twelve pull domains",
+        "passing canonical global-pull protocol fingerprint and cross-layer source audit"
+      ],
+      "reArmTriggers": [
+        "any global-pull discovery path again uses a client-authored timestamp as its durable cursor authority",
+        "any global-pull query loses its inclusive server lower bound, inclusive server upper anchor or server-field ordering",
+        "any protocol collection can contain an unstamped document when the runtime contract is active",
+        "a client can create, change or remove the reserved server stamp",
+        "runtime activation can occur without a matching sealed zero-gap backfill receipt",
+        "a hard delete can disappear from global-pull discovery without a stamped tombstone"
+      ],
+      "notes": [
+        "The 2026-07-27 source tranche replaces the client-time maximum-minus-overlap token with a retrying server-authored stamp and one inclusive bounded server window per run.",
+        "The exact protocol is fingerprinted by governance/global-pull-protocol-v1.json and remains inactive until deployment, inventory, backfill and activation evidence exist.",
+        "SOURCE_IMPLEMENTED is not a merge, deployment, backfill, runtime-activation, device-proof, pilot, or cutover claim."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-27",
+          "basis": "Server-authored discovery stamp, inclusive bounded query, hard-delete tombstone restoration and governed zero-gap activation implemented; merge and runtime evidence pending"
         }
       ]
     },
@@ -1836,7 +1856,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "Reliability/data",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
@@ -1844,14 +1864,34 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "exact source commit and exact-head merge CI for the per-domain actor and database-generation scoped cursor envelope",
+        "green interruption, authority-change, wrong-type, partial-domain and cursor-regression tests",
+        "passing canonical global-pull protocol fingerprint and cross-layer source audit"
+      ],
+      "reArmTriggers": [
+        "a cursor is shared across pull domains, authenticated actors or P-06 database generations",
+        "an authority digest change reuses an earlier visibility cursor",
+        "a partial, unknown, wrong-typed, malformed or regressing cursor envelope is accepted",
+        "a domain cursor advances after record-processing failure or authenticated-actor change",
+        "the legacy last_global_pull value is reused as a trusted lower bound",
+        "the legacy cursor is removed before a complete replacement envelope is durably committed"
+      ],
+      "notes": [
+        "The 2026-07-27 source tranche stores an exact PREPARED/COMMITTED all-domain run envelope partitioned by actor UID, authority digest and the P-06 database generation.",
+        "Interrupted runs resume their fixed server anchor and durably completed domains; authority changes force a full all-domain reset.",
+        "SOURCE_IMPLEMENTED is not a merge, deployment, backfill, runtime-activation, device-proof, pilot, or cutover claim."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-27",
+          "basis": "Per-domain actor, authority and database-generation scoped PREPARED/COMMITTED cursor envelope implemented; merge and runtime evidence pending"
         }
       ]
     },

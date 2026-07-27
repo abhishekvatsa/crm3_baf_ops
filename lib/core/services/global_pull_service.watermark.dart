@@ -1,45 +1,30 @@
 part of 'global_pull_service.dart';
 
-// ─────────────────────────────────────────────────────────────
-// WATERMARK HELPERS
-// ─────────────────────────────────────────────────────────────
-
-extension _GlobalPullWatermark on GlobalPullService {
-  DateTime? _nextGlobalPullToken({DateTime? previousToken}) {
-    final maxFetched = _maxFetchedRemoteUpdatedAt;
-    if (maxFetched == null) return previousToken;
-
-    final candidate = maxFetched.subtract(
-      GlobalPullService._pullTokenSafetyMargin,
-    );
-    if (previousToken != null && candidate.isBefore(previousToken)) {
-      return previousToken;
+extension _GlobalPullServerWindow on GlobalPullService {
+  void _validateFetchedServerBoundary(
+    DocumentSnapshot? document,
+    DateTime through,
+  ) {
+    if (document == null) return;
+    final data = document.data();
+    if (data is! Map<String, dynamic>) {
+      throw const GlobalPullProtocolException(
+        'A global pull page boundary is not a document map.',
+        reasonCode: 'page-boundary-not-map',
+      );
     }
-    return candidate;
-  }
-
-  void _observeFetchedRemoteRecords(Iterable<dynamic> records) {
-    for (final record in records) {
-      _observeFetchedRemoteUpdatedAt(_readUpdatedAt(record));
+    final value = data[globalPullServerUpdatedAtField];
+    if (value is! Timestamp) {
+      throw const GlobalPullProtocolException(
+        'A global pull page boundary has no valid server timestamp.',
+        reasonCode: 'page-boundary-server-timestamp-invalid',
+      );
     }
-  }
-
-  void _observeFetchedRemoteUpdatedAt(DateTime? updatedAt) {
-    if (updatedAt == null) return;
-    final current = _maxFetchedRemoteUpdatedAt;
-    if (current == null || updatedAt.isAfter(current)) {
-      _maxFetchedRemoteUpdatedAt = updatedAt;
+    if (value.toDate().toUtc().isAfter(through.toUtc())) {
+      throw const GlobalPullProtocolException(
+        'A global pull page escaped its authoritative server window.',
+        reasonCode: 'page-boundary-after-server-anchor',
+      );
     }
-  }
-
-  DateTime? _readUpdatedAt(dynamic record) {
-    try {
-      final value = record.updatedAt;
-      if (value is DateTime) return value;
-    } catch (_) {
-      // Best-effort watermark tracking; malformed records are handled by the
-      // entity-specific processing paths below.
-    }
-    return null;
   }
 }

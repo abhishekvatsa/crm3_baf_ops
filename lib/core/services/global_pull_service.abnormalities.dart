@@ -5,23 +5,22 @@ part of 'global_pull_service.dart';
 // ─────────────────────────────────────────────────────────────
 
 extension _GlobalPullAbnormalities on GlobalPullService {
-  Future<void> _pullAbnormalities(DateTime? lastSync) async {
-    await _pullAbnormalityTypes(lastSync);
-    await _pullChargeAbnormalities(lastSync);
-  }
-
-  Future<void> _pullAbnormalityTypes(DateTime? lastSync) async {
+  Future<void> _pullAbnormalityTypes(
+    DateTime? lastSync,
+    DateTime through,
+  ) async {
     DocumentSnapshot? startAfter;
 
     while (true) {
       final result = await _firestoreAbnormality.getUpdatedTypes(
         since: lastSync,
+        through: through,
         limit: GlobalPullService._pageSize,
         startAfter: startAfter,
       );
 
       final records = result.records;
-      _observeFetchedRemoteRecords(records);
+      _validateFetchedServerBoundary(result.lastDoc, through);
       startAfter = result.lastDoc;
 
       if (records.isEmpty) break;
@@ -98,18 +97,22 @@ extension _GlobalPullAbnormalities on GlobalPullService {
     }
   }
 
-  Future<void> _pullChargeAbnormalities(DateTime? lastSync) async {
+  Future<void> _pullChargeAbnormalities(
+    DateTime? lastSync,
+    DateTime through,
+  ) async {
     DocumentSnapshot? startAfter;
 
     while (true) {
       final result = await _firestoreAbnormality.getUpdatedAbnormalities(
         since: lastSync,
+        through: through,
         limit: GlobalPullService._pageSize,
         startAfter: startAfter,
       );
 
       final records = result.records;
-      _observeFetchedRemoteRecords(records);
+      _validateFetchedServerBoundary(result.lastDoc, through);
       startAfter = result.lastDoc;
 
       if (records.isEmpty) break;

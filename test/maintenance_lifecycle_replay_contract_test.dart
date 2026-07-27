@@ -412,8 +412,9 @@ void main() {
         );
         expect(
           maintenanceMatch,
-          contains('allow update: if validMaintenanceUpdate();'),
+          contains('allow update: if globalPullStampUnchangedOnUpdate()'),
         );
+        expect(maintenanceMatch, contains('&& validMaintenanceUpdate();'));
 
         final maintenanceRouter = _blockStartingAt(
           rules,

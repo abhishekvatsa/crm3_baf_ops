@@ -16,6 +16,7 @@ import '../data/job_diary_model.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
+import '../../../core/services/global_pull_protocol.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -253,6 +254,7 @@ abstract class JobDiaryRepository {
 
   Future<PaginatedDiaryResult> getUpdatedEntries({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   });
@@ -597,6 +599,7 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
   @override
   Future<PaginatedDiaryResult> getUpdatedEntries({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
@@ -829,14 +832,21 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
   @override
   Future<PaginatedDiaryResult> getUpdatedEntries({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
-    Query<Map<String, dynamic>> query = _entries.orderBy('updatedAt');
-
-    if (since != null) {
-      query = query.where('updatedAt', isGreaterThan: since.toIso8601String());
+    if (through == null) {
+      throw const GlobalPullProtocolException(
+        'The job-diary pull has no server upper bound.',
+        reasonCode: 'job-diary-server-anchor-missing',
+      );
     }
+    Query<Map<String, dynamic>> query = globalPullServerWindowQuery(
+      _entries,
+      afterInclusive: since,
+      throughInclusive: through,
+    );
 
     if (startAfter != null) {
       query = query.startAfterDocument(startAfter);

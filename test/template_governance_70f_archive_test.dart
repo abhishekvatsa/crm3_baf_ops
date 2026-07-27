@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crm3_baf_ops/core/services/remote_tombstone_apply_result.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/template_governance_model.dart';
@@ -392,6 +393,92 @@ void main() {
               reason: 'Published records must remain immutable.',
             ),
             throwsStateError,
+          );
+        });
+      },
+    );
+
+    test(
+      'publish-audit tombstones apply without overwriting fresher evidence',
+      () async {
+        await _withTemplateGovernanceIsar((isar, repository) async {
+          final firstSeen = DateTime.utc(2026, 7, 25, 10);
+          final serverDelete = DateTime.utc(2026, 7, 25, 11);
+          final existing =
+              TemplatePublishAudit()
+                ..firestoreId = 'audit-server-delete'
+                ..versionFirestoreId = 'version-server-delete'
+                ..performedAt = firstSeen
+                ..updatedAt = firstSeen
+                ..isSynced = true;
+          await repository.insertAuditFromRemote(existing);
+
+          final tombstone =
+              TemplatePublishAudit()
+                ..firestoreId = existing.firestoreId
+                ..versionFirestoreId = existing.versionFirestoreId
+                ..performedAt = firstSeen
+                ..updatedAt = serverDelete
+                ..version = 2
+                ..isDeleted = true
+                ..isSynced = true;
+          final applied = await repository.applyTombstoneFromAuditRemote(
+            tombstone,
+          );
+
+          expect(applied.outcome, RemoteTombstoneApplyOutcome.applied);
+          expect(
+            (await repository.getAuditByFirestoreId(
+              'audit-server-delete',
+            ))!.isDeleted,
+            isTrue,
+          );
+          expect(
+            await repository.getAuditsForVersion('version-server-delete'),
+            isEmpty,
+          );
+
+          final dirty =
+              TemplatePublishAudit()
+                ..firestoreId = 'audit-dirty'
+                ..versionFirestoreId = 'version-dirty'
+                ..performedAt = firstSeen
+                ..updatedAt = serverDelete.add(const Duration(hours: 1))
+                ..isSynced = false;
+          await isar.writeTxn(() => isar.templatePublishAudits.put(dirty));
+          final staleTombstone =
+              TemplatePublishAudit()
+                ..firestoreId = dirty.firestoreId
+                ..versionFirestoreId = dirty.versionFirestoreId
+                ..performedAt = firstSeen
+                ..updatedAt = serverDelete
+                ..isDeleted = true
+                ..isSynced = true;
+
+          final preserved = await repository.applyTombstoneFromAuditRemote(
+            staleTombstone,
+          );
+          expect(
+            preserved.outcome,
+            RemoteTombstoneApplyOutcome.localDirtyPreserved,
+          );
+          expect(
+            (await repository.getAuditByFirestoreId('audit-dirty'))!.isDeleted,
+            isFalse,
+          );
+
+          final missing = await repository.applyTombstoneFromAuditRemote(
+            TemplatePublishAudit()
+              ..firestoreId = 'audit-missing'
+              ..versionFirestoreId = 'version-missing'
+              ..performedAt = firstSeen
+              ..updatedAt = serverDelete
+              ..isDeleted = true,
+          );
+          expect(missing.outcome, RemoteTombstoneApplyOutcome.localMissing);
+          expect(
+            await repository.getAuditByFirestoreId('audit-missing'),
+            isNull,
           );
         });
       },

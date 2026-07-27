@@ -15,6 +15,7 @@ import '../domain/template_version_snapshot_contract.dart';
 import '../domain/template_publication_readiness.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
+import '../../../core/services/global_pull_protocol.dart';
 
 // ─────────────────────────────────────────────────────────────
 // NORMALIZATION HELPERS
@@ -420,21 +421,27 @@ abstract class TemplateGovernanceRepository {
   Future<void> markAuditsSynced(List<int> ids);
   Future<void> markAuditsSyncedIfUnchanged(List<SyncPushSnapshot> snapshots);
   Future<void> insertAuditFromRemote(TemplatePublishAudit remote);
+  Future<RemoteTombstoneApplyResult> applyTombstoneFromAuditRemote(
+    TemplatePublishAudit remote,
+  );
 
   Future<PaginatedTemplatePackageResult> getUpdatedPackages({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   });
 
   Future<PaginatedTemplateVersionResult> getUpdatedVersions({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   });
 
   Future<PaginatedTemplateAuditResult> getUpdatedAudits({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   });
@@ -975,6 +982,8 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
         await isar.templatePublishAudits
             .filter()
             .versionFirestoreIdEqualTo(versionFirestoreId)
+            .and()
+            .isDeletedEqualTo(false)
             .findAll();
     records.sort((a, b) => b.performedAt.compareTo(a.performedAt));
     return records;
@@ -1286,13 +1295,52 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
 
   @override
   Future<void> insertAuditFromRemote(TemplatePublishAudit remote) async {
+    if (remote.isDeleted) return;
     remote.isSynced = true;
     await isar.writeTxn(() => isar.templatePublishAudits.put(remote));
   }
 
   @override
+  Future<RemoteTombstoneApplyResult> applyTombstoneFromAuditRemote(
+    TemplatePublishAudit remote,
+  ) async {
+    if (remote.firestoreId == null) {
+      return const RemoteTombstoneApplyResult.localMissing();
+    }
+    if (!remote.isDeleted) {
+      return const RemoteTombstoneApplyResult.notDeletedRemote();
+    }
+
+    return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
+      final local = await getAuditByFirestoreId(remote.firestoreId!);
+      if (local == null) return const RemoteTombstoneApplyResult.localMissing();
+      if (local.isDeleted) {
+        return RemoteTombstoneApplyResult.alreadyDeleted(local);
+      }
+      if (!local.isSynced && local.updatedAt.isAfter(remote.updatedAt)) {
+        debugPrint(
+          'Preserved fresher unsynced template publish audit against remote tombstone: '
+          'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
+          'remote.updatedAt=${remote.updatedAt}',
+        );
+        return RemoteTombstoneApplyResult.localDirtyPreserved(local);
+      }
+
+      local
+        ..isDeleted = true
+        ..updatedAt = remote.updatedAt
+        ..version = remote.version
+        ..schemaVersion = remote.schemaVersion
+        ..isSynced = true;
+      await isar.templatePublishAudits.put(local);
+      return RemoteTombstoneApplyResult.applied(local);
+    });
+  }
+
+  @override
   Future<PaginatedTemplatePackageResult> getUpdatedPackages({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
@@ -1302,6 +1350,7 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   @override
   Future<PaginatedTemplateVersionResult> getUpdatedVersions({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
@@ -1311,6 +1360,7 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   @override
   Future<PaginatedTemplateAuditResult> getUpdatedAudits({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
@@ -1895,6 +1945,7 @@ class FirestoreTemplateGovernanceRepository
     final records =
         snap.docs
             .map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
+            .where((record) => !record.isDeleted)
             .toList();
     records.sort((a, b) => b.performedAt.compareTo(a.performedAt));
     return records;
@@ -1978,15 +2029,33 @@ class FirestoreTemplateGovernanceRepository
   Future<void> insertAuditFromRemote(TemplatePublishAudit remote) async {}
 
   @override
+  Future<RemoteTombstoneApplyResult> applyTombstoneFromAuditRemote(
+    TemplatePublishAudit remote,
+  ) async {
+    if (!remote.isDeleted) {
+      return const RemoteTombstoneApplyResult.notDeletedRemote();
+    }
+    return const RemoteTombstoneApplyResult.localMissing();
+  }
+
+  @override
   Future<PaginatedTemplatePackageResult> getUpdatedPackages({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
-    Query<Map<String, dynamic>> query = _packages.orderBy('updatedAt');
-    if (since != null) {
-      query = query.where('updatedAt', isGreaterThan: since.toIso8601String());
+    if (through == null) {
+      throw const GlobalPullProtocolException(
+        'The template-package pull has no server upper bound.',
+        reasonCode: 'template-package-server-anchor-missing',
+      );
     }
+    Query<Map<String, dynamic>> query = globalPullServerWindowQuery(
+      _packages,
+      afterInclusive: since,
+      throughInclusive: through,
+    );
     if (startAfter != null) query = query.startAfterDocument(startAfter);
     final snap = await query.limit(limit).get();
     return PaginatedTemplatePackageResult(
@@ -2001,13 +2070,21 @@ class FirestoreTemplateGovernanceRepository
   @override
   Future<PaginatedTemplateVersionResult> getUpdatedVersions({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
-    Query<Map<String, dynamic>> query = _versions.orderBy('updatedAt');
-    if (since != null) {
-      query = query.where('updatedAt', isGreaterThan: since.toIso8601String());
+    if (through == null) {
+      throw const GlobalPullProtocolException(
+        'The template-version pull has no server upper bound.',
+        reasonCode: 'template-version-server-anchor-missing',
+      );
     }
+    Query<Map<String, dynamic>> query = globalPullServerWindowQuery(
+      _versions,
+      afterInclusive: since,
+      throughInclusive: through,
+    );
     if (startAfter != null) query = query.startAfterDocument(startAfter);
     final snap = await query.limit(limit).get();
     return PaginatedTemplateVersionResult(
@@ -2022,13 +2099,21 @@ class FirestoreTemplateGovernanceRepository
   @override
   Future<PaginatedTemplateAuditResult> getUpdatedAudits({
     DateTime? since,
+    DateTime? through,
     int limit = 500,
     DocumentSnapshot? startAfter,
   }) async {
-    Query<Map<String, dynamic>> query = _audits.orderBy('updatedAt');
-    if (since != null) {
-      query = query.where('updatedAt', isGreaterThan: since.toIso8601String());
+    if (through == null) {
+      throw const GlobalPullProtocolException(
+        'The template-audit pull has no server upper bound.',
+        reasonCode: 'template-audit-server-anchor-missing',
+      );
     }
+    Query<Map<String, dynamic>> query = globalPullServerWindowQuery(
+      _audits,
+      afterInclusive: since,
+      throughInclusive: through,
+    );
     if (startAfter != null) query = query.startAfterDocument(startAfter);
     final snap = await query.limit(limit).get();
     return PaginatedTemplateAuditResult(

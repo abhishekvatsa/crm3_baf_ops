@@ -159,7 +159,7 @@ check(
     and main["tree"] == "2f547a79e79076c70dd15ae8b85a7ad70c9fa018",
 )
 check(
-    "Successor reconciliation refresh is exact through the P-06 source baseline",
+    "Successor reconciliation preserves main authority through the R-01/R-02 source tranche",
     successor_refresh.get("throughMainCommit") == "96c2a09563389cba177998482ac090f39d16bb88"
     and successor_refresh.get("throughMainTree") == "41324fd041dcb6bb5b536d49225b9aa4f450317e"
     and successor_refresh.get("adjudicatedPullRequests")
@@ -167,21 +167,48 @@ check(
     and successor_refresh.get("preExistingDriftPathCount") == 14
     and successor_refresh.get("crossPlatformRepresentationPathCount") == 19
     and successor_refresh.get("refreshTranche")
-        == "P06_ISAR_PROVENANCE_SOURCE_IMPLEMENTATION"
+        == "R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_SOURCE_IMPLEMENTATION"
     and successor_refresh.get("refreshTrancheTrackedPaths") == [
-        "docs/v4_2_r1/P06_ISAR_PROVENANCE_AND_MIGRATION_SAFETY.md",
+        "docs/v4_2_r1/R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_REMEDIATION.md",
+        "firestore.rules",
+        "functions/package.json",
+        "functions/src/globalPullServerClock.ts",
+        "functions/src/index.ts",
+        "functions/test/globalPullServerClock.test.js",
+        "functions/test/globalPullServerClockGovernance.firestoreEmulator.test.js",
+        "functions/tools/global-pull-server-clock.mjs",
+        "governance/global-pull-protocol-v1.json",
         "governance/programme-ledger.json",
-        "lib/core/services/isar_schema_guard_io.dart",
-        "lib/core/services/isar_schema_guard_stub.dart",
-        "lib/core/services/isar_schema_migration.dart",
-        "lib/main.dart",
-        "test/isar_schema_guard_io_test.dart",
-        "test/isar_schema_migrator_test.dart",
-        "test/p06_programme_ledger_source_contract_test.dart",
-        "test/release_startup_hygiene_contract_test.dart",
-        "test/startup_recovery_hardening_contract_test.dart",
-        "tools/isar/verify_v4_isar_schema.py",
+        "lib/core/services/global_pull_cursor_store.dart",
+        "lib/core/services/global_pull_protocol.dart",
+        "lib/core/services/global_pull_service.abnormalities.dart",
+        "lib/core/services/global_pull_service.dart",
+        "lib/core/services/global_pull_service.directives.dart",
+        "lib/core/services/global_pull_service.job_diary.dart",
+        "lib/core/services/global_pull_service.job_modules.dart",
+        "lib/core/services/global_pull_service.knowledge_base.dart",
+        "lib/core/services/global_pull_service.maintenance.dart",
+        "lib/core/services/global_pull_service.planned.dart",
+        "lib/core/services/global_pull_service.template_governance.dart",
+        "lib/core/services/global_pull_service.watermark.dart",
+        "lib/features/abnormalities/providers/abnormality_provider.dart",
+        "lib/features/directives/providers/operational_directive_provider.dart",
+        "lib/features/maintenance/providers/maintenance_provider.dart",
+        "lib/features/planned_maintenance/domain/baf_knowledge_repository.dart",
+        "lib/features/planned_maintenance/providers/job_diary_provider.dart",
+        "lib/features/planned_maintenance/providers/job_module_provider.dart",
+        "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",
+        "lib/features/planned_maintenance/providers/template_governance_provider.dart",
+        "package.json",
+        "test/firestore_rules_expression_budget_contract_test.dart",
+        "test/firestore.rules.test.js",
+        "test/global_pull_cursor_store_test.dart",
+        "test/global_pull_service_decomposition_contract_test.dart",
+        "test/maintenance_lifecycle_replay_contract_test.dart",
+        "test/r01_r02_programme_ledger_source_contract_test.dart",
+        "test/template_governance_70f_archive_test.dart",
         "tools/v4/v4_2_r1_canonical_audit.py",
+        "tools/v4/verify_global_pull_server_clock.py",
         "tools/v4/whole_app_reconciliation_audit.py",
     ],
 )
@@ -286,8 +313,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 319
-    and counts.get("SUCCESSOR_MODIFIED") == 91
+    and counts.get("BYTE_IDENTICAL") == 302
+    and counts.get("SUCCESSOR_MODIFIED") == 108
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -758,7 +785,8 @@ check(
     and "minimal, security-relevant user" in authority_capsule_policy
     and "Every client user-document create and update" in authority_capsule_policy
     and "function validMaintenanceUpdate()" in rules
-    and "allow update: if validMaintenanceUpdate();" in rules
+    and "allow update: if globalPullStampUnchangedOnUpdate()" in rules
+    and "&& validMaintenanceUpdate();" in rules
     and "function validTemplateVersionUpdateDelta()" in rules
     and "function validDirectiveUpdateForRoles(roles)" in rules
     and "function validModuleRegistryFamilyPublishDelta(docId)" in rules
@@ -778,11 +806,13 @@ maintenance_replay_guard = text("test/maintenance_lifecycle_replay_contract_test
 check(
     "R1.15 maintenance replay contract follows the single Rules router",
     "'match /maintenance_records/{docId}'" in maintenance_replay_guard
-    and "contains('allow update: if validMaintenanceUpdate();')" in maintenance_replay_guard
+    and "contains('allow update: if globalPullStampUnchangedOnUpdate()')"
+        in maintenance_replay_guard
+    and "contains('&& validMaintenanceUpdate();')" in maintenance_replay_guard
     and r"RegExp(r'allow\s+update\s*:')" in maintenance_replay_guard
     and "Maintenance updates are intentionally split into small branch rules"
         not in maintenance_replay_guard
-    and "isNot(contains('allow update: if validMaintenanceUpdate();'))"
+    and "contains('allow update: if validMaintenanceUpdate();')"
         not in maintenance_replay_guard,
 )
 
@@ -811,6 +841,62 @@ closure_emulator_test = text(
 )
 closure_decision = text("docs/v4_2_r1/S06_ATOMIC_CLOSURE_AUTHORITY.md")
 programme_ledger = data("governance/programme-ledger.json")
+global_pull_manifest = data("governance/global-pull-protocol-v1.json")
+global_pull_contract = global_pull_manifest.get("fingerprintedContract", {})
+global_pull_fingerprint = hashlib.sha256(
+    json.dumps(
+        global_pull_contract,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+).hexdigest()
+global_pull_backend = text("functions/src/globalPullServerClock.ts")
+global_pull_client = text("lib/core/services/global_pull_protocol.dart")
+global_pull_cursor = text("lib/core/services/global_pull_cursor_store.dart")
+global_pull_governance = text("functions/tools/global-pull-server-clock.mjs")
+global_pull_remediation = text(
+    "docs/v4_2_r1/R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_REMEDIATION.md"
+)
+global_pull_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") in {"R-01", "R-02"}
+]
+check(
+    "R-01/R-02 server clock and scoped cursor source tranche is exact",
+    global_pull_manifest.get("schemaVersion") == 1
+    and global_pull_manifest.get("fingerprintAlgorithm")
+        == "SHA256_CANONICAL_JSON"
+    and global_pull_manifest.get("protocolFingerprint")
+        == global_pull_fingerprint
+    and all(
+        global_pull_fingerprint in source
+        for source in (
+            global_pull_backend,
+            global_pull_client,
+            global_pull_governance,
+        )
+    )
+    and "_globalPullServerUpdatedAt" in global_pull_backend
+    and "isGreaterThanOrEqualTo:" in global_pull_client
+    and "isLessThanOrEqualTo:" in global_pull_client
+    and "'databaseGenerationId'" in global_pull_cursor
+    and "'authorityDigest'" in global_pull_cursor
+    and "before.malformed !== 0" in global_pull_governance
+    and "Pre-activation inventory" in global_pull_governance
+    and len(global_pull_records) == 2
+    and all(
+        record.get("currentStatus") == "SOURCE_IMPLEMENTED"
+        and [
+            entry.get("status")
+            for entry in record.get("statusHistory", [])
+            if isinstance(entry, dict)
+        ] == ["OPEN", "SOURCE_IMPLEMENTED"]
+        for record in global_pull_records
+    )
+    and "Status: SOURCE_IMPLEMENTED" in global_pull_remediation
+    and "pilot/cutover authorization: prohibited" in global_pull_remediation,
+)
 authority_transaction_read = (
     "const userSnap = asDocumentSnapshot(await transaction.get(userRef));"
 )

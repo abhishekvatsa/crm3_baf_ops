@@ -5,18 +5,19 @@ part of 'global_pull_service.dart';
 // ─────────────────────────────────────────────────────────────
 
 extension _GlobalPullDirectives on GlobalPullService {
-  Future<void> _pullDirectives(DateTime? lastSync) async {
+  Future<void> _pullDirectives(DateTime? lastSync, DateTime through) async {
     DocumentSnapshot? startAfter;
 
     while (true) {
       final result = await _firestoreDirective.getUpdatedDirectives(
         since: lastSync,
+        through: through,
         limit: GlobalPullService._pageSize,
         startAfter: startAfter,
       );
 
       final directives = result.records;
-      _observeFetchedRemoteRecords(directives);
+      _validateFetchedServerBoundary(result.lastDoc, through);
       startAfter = result.lastDoc;
 
       if (directives.isEmpty) break;
