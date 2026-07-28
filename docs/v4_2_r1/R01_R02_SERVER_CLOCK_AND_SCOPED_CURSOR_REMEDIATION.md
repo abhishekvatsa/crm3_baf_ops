@@ -1,8 +1,10 @@
 # R-01/R-02 Server Clock and Scoped Cursor Remediation
 
-Status: SOURCE_IMPLEMENTED
+Status: CLOSED
 
-Merge, deployment, backfill, activation, and device evidence: PENDING
+Source merge and CI evidence: COMPLETE
+
+Deployment, backfill, activation, and device evidence: PENDING
 
 Findings:
 
@@ -201,17 +203,40 @@ The emulator proves that malformed stamps prevent every backfill write and that
 a sealed, zero-gap backfill receipt is required before immutable protocol
 activation.
 
-## Remaining Boundary
+## Merge and CI Evidence
 
-`SOURCE_IMPLEMENTED` means the diagnosed source design is corrected on this
-branch. It is not a merge, deployment, live backfill, runtime activation,
-device-proof, pilot, or cutover claim.
+PR #55 merged exact source head
+`f356835d08711e804de5f591f12794079f064024`, tree
+`f1f5feea68f712ef4ee5e281a4f26790d2d4d2a3`, to main as
+`1bf9f1e3f181e73d9cbf7ee49a14704269ef081b` with the identical tree.
 
-Until the required rollout order is evidenced:
+Post-merge release-gate run `30282720232` passed on that exact main commit:
 
 ```text
-R-01 source implementation: complete
-R-02 source implementation: complete
-runtime contract:            inactive
+Flutter analyze + tests + no-loss spine:          PASS
+Firestore Rules + governed transaction emulator: PASS
+Cloud Functions build + test:                     PASS
+```
+
+Decision:
+`PASS_R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_SOURCE_CLOSURE`
+
+R-01 and R-02 are closed under their `SOURCE_AND_CI` authority. Any loss of
+the server-authored discovery clock, inclusive bounded window, exact
+actor/authority/database-generation cursor envelope, immutable activation
+gate, or corresponding regression evidence re-arms the applicable finding.
+
+## Operational Boundary
+
+Source-and-CI closure means the diagnosed source defects are corrected and
+their exact-head merge evidence is complete. It is not a deployment, live
+backfill, runtime activation, device-proof, pilot, or cutover claim.
+
+Until the remaining rollout order is evidenced:
+
+```text
+R-01 source-and-CI finding: closed
+R-02 source-and-CI finding: closed
+runtime contract:           inactive
 pilot/cutover authorization: prohibited
 ```

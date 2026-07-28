@@ -1001,8 +1001,12 @@ global_pull_records = [
     for record in programme_ledger.get("technicalFindings", [])
     if record.get("findingId") in {"R-01", "R-02"}
 ]
+global_pull_evidence = [
+    record.get("evidence", [])
+    for record in global_pull_records
+]
 check(
-    "R-01/R-02 server clock and scoped cursor source tranche is exact",
+    "R-01/R-02 server clock and scoped cursor closure is exact and evidence-bound",
     global_pull_manifest.get("schemaVersion") == 1
     and global_pull_manifest.get("fingerprintAlgorithm")
         == "SHA256_CANONICAL_JSON"
@@ -1025,15 +1029,37 @@ check(
     and "Pre-activation inventory" in global_pull_governance
     and len(global_pull_records) == 2
     and all(
-        record.get("currentStatus") == "SOURCE_IMPLEMENTED"
+        record.get("currentStatus") == "CLOSED"
         and [
             entry.get("status")
             for entry in record.get("statusHistory", [])
             if isinstance(entry, dict)
-        ] == ["OPEN", "SOURCE_IMPLEMENTED"]
+        ] == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
         for record in global_pull_records
     )
-    and "Status: SOURCE_IMPLEMENTED" in global_pull_remediation
+    and all(len(evidence) == 1 for evidence in global_pull_evidence)
+    and all(
+        evidence[0].get("pullRequest") == 55
+        and evidence[0].get("headCommit")
+            == "f356835d08711e804de5f591f12794079f064024"
+        and evidence[0].get("sourceTree")
+            == "f1f5feea68f712ef4ee5e281a4f26790d2d4d2a3"
+        and evidence[0].get("mergeCommit")
+            == "1bf9f1e3f181e73d9cbf7ee49a14704269ef081b"
+        and evidence[0].get("mergeTree")
+            == "f1f5feea68f712ef4ee5e281a4f26790d2d4d2a3"
+        and evidence[0].get("postMergeWorkflowRun") == 30282720232
+        and evidence[0].get("decision")
+            == "PASS_R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_SOURCE_CLOSURE"
+        and evidence[0].get("runtimeContractActivated") is False
+        and evidence[0].get("productionMutationPerformed") is False
+        for evidence in global_pull_evidence
+    )
+    and "Status: CLOSED" in global_pull_remediation
+    and "PR #55" in global_pull_remediation
+    and "30282720232" in global_pull_remediation
+    and "PASS_R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_SOURCE_CLOSURE"
+        in global_pull_remediation
     and "pilot/cutover authorization: prohibited" in global_pull_remediation,
 )
 authority_transaction_read = (
