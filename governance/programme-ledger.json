@@ -1715,14 +1715,29 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 65,
+          "headCommit": "29a85772e6f1fa93ae76627cf539050c849b6ba7",
+          "sourceTree": "c0269dea3753f507eae1034ea3646df7d1c493b2",
+          "mergeCommit": "1131802af792fef050b3555e50b0b1aa31b6868e",
+          "mergeTree": "c0269dea3753f507eae1034ea3646df7d1c493b2",
+          "postMergeWorkflowRun": 30382196271,
+          "postMergeWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30382196271",
+          "decision": "PASS_S08_CRASH_REPORT_PRIVACY_BOUNDARY",
+          "clientDeployed": false,
+          "networkPayloadCaptured": false,
+          "pilotAuthorized": false
+        }
+      ],
       "requiredExitEvidence": [
         "all Crashlytics error paths replace raw exception objects and messages with a constrained type-only envelope",
         "all Crashlytics stack paths retain only bounded source-controlled package or Dart frames",
@@ -1739,7 +1754,8 @@
       "notes": [
         "The source boundary retains constrained exception types, package and Dart frame identities, opaque text fingerprints, and numeric or boolean telemetry.",
         "Debug console output remains local and is not claimed as remotely sanitized by this finding.",
-        "SOURCE_IMPLEMENTED is not a merge, deployed client, captured network-payload or pilot-authorisation claim."
+        "PR #65 merged the exact green source head with a byte-identical tree, and post-merge release-gate run 30382196271 passed on exact main.",
+        "Closure is limited to source-and-CI authority and does not claim a deployed client, captured network payload, production collection behavior or pilot authorization."
       ],
       "statusHistory": [
         {
@@ -1751,6 +1767,16 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-28",
           "basis": "Central fail-closed exception, stack, text-context and user-identifier sanitization implemented with hostile-value regression tests; merge and exact-main CI evidence pending"
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-28",
+          "basis": "PR #65 exact green head 29a85772e6f1fa93ae76627cf539050c849b6ba7 merged to main as 1131802af792fef050b3555e50b0b1aa31b6868e with byte-identical tree c0269dea3753f507eae1034ea3646df7d1c493b2."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-28",
+          "basis": "PASS_S08_CRASH_REPORT_PRIVACY_BOUNDARY closes the source-and-CI finding after exact main post-merge run 30382196271 passed; client deployment, network payload capture and pilot authorization remain separate."
         }
       ]
     },
@@ -2435,7 +2461,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "CI/release",
       "pilotSeverity": "LOW",
       "unrestrictedSeverity": "MEDIUM",
@@ -2444,15 +2470,59 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 64,
+          "headCommit": "ee1bfa2b9c448db983a093d6dbbad1f2452eba45",
+          "sourceTree": "47872d1ba609504e99e354a82147bb7aacacd09e",
+          "mergeCommit": "023945f45a402202ed61a0f7f7076f50868832f6",
+          "mergeTree": "47872d1ba609504e99e354a82147bb7aacacd09e",
+          "postMergeWorkflowRun": 30377037890,
+          "postMergeWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30377037890",
+          "decision": "PASS_C05_SINGULAR_FUNCTIONS_ENTRYPOINT",
+          "functionsDeployed": false,
+          "productionMutationPerformed": false
+        }
+      ],
+      "requiredExitEvidence": [
+        "functions/package.json identifies lib/index.js as the sole deployed entrypoint",
+        "functions/index.js contains only the exact compatibility delegate to lib/index.js",
+        "the TypeScript entrypoint remains the sole source owner of the three notification trigger definitions",
+        "clean build custody prevents deleted TypeScript sources from surviving as stale emitted JavaScript",
+        "exact-head pull-request CI and post-merge exact-main CI pass"
+      ],
+      "reArmTriggers": [
+        "functions/index.js gains any trigger implementation or export beyond the exact compatibility delegate",
+        "functions/package.json main moves away from the compiled TypeScript entrypoint without a new adjudication",
+        "a second source file defines any exported notification trigger name",
+        "clean emitted-output custody or the singular-entrypoint source contract is removed or weakened"
+      ],
+      "notes": [
+        "The retained functions/index.js path is a compatibility delegate, not an independently deployed or colliding trigger implementation.",
+        "PR #64 merged the exact green source head with a byte-identical tree, and post-merge release-gate run 30377037890 passed on exact main.",
+        "Closure is limited to source-and-CI authority and does not claim a Functions deployment or production mutation."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-28",
+          "basis": "The historical root entrypoint was reduced to an exact compatibility delegate, source ownership was made singular and clean emitted-output custody remained enforced."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-28",
+          "basis": "PR #64 exact green head ee1bfa2b9c448db983a093d6dbbad1f2452eba45 merged to main as 023945f45a402202ed61a0f7f7076f50868832f6 with byte-identical tree 47872d1ba609504e99e354a82147bb7aacacd09e."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-28",
+          "basis": "PASS_C05_SINGULAR_FUNCTIONS_ENTRYPOINT closes the source-and-CI finding after exact main post-merge run 30377037890 passed; Functions deployment remains separate."
         }
       ]
     },

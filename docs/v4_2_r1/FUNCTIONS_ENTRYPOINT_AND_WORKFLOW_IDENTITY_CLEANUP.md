@@ -1,6 +1,6 @@
 # Functions Entrypoint and Workflow Identity Cleanup
 
-Status: SOURCE_AND_CI_IMPLEMENTED
+Status: CLOSED
 
 ## Entrypoint decision
 
@@ -37,3 +37,19 @@ guards on current main. The executable behavior and assertions are unchanged.
 
 This cleanup does not remove the authority-first preflight read, change
 transaction authorization, deploy Functions or authorize a runtime transition.
+
+## Closure evidence
+
+- PR #64 exact head:
+  `ee1bfa2b9c448db983a093d6dbbad1f2452eba45`
+- source and merge tree:
+  `47872d1ba609504e99e354a82147bb7aacacd09e`
+- exact main merge:
+  `023945f45a402202ed61a0f7f7076f50868832f6`
+- successful post-merge release gate:
+  `30377037890`
+
+Decision: `PASS_C05_SINGULAR_FUNCTIONS_ENTRYPOINT`
+
+This closes C-05 under source-and-CI authority only. It does not claim a
+Functions deployment or production mutation.

@@ -1,6 +1,6 @@
 # S-08 Crash Report Privacy Boundary
 
-Status: SOURCE_IMPLEMENTED
+Status: CLOSED
 
 ## Diagnosed defect
 
@@ -43,5 +43,19 @@ development. This source tranche does not claim a deployed client, a captured
 Crashlytics network payload, production collection behavior or pilot
 authorization.
 
-S-08 may transition to `CLOSED` only after exact-head pull-request CI and the
-post-merge release gate pass on the resulting exact `main` commit.
+## Closure evidence
+
+- PR #65 exact head:
+  `29a85772e6f1fa93ae76627cf539050c849b6ba7`
+- source and merge tree:
+  `c0269dea3753f507eae1034ea3646df7d1c493b2`
+- exact main merge:
+  `1131802af792fef050b3555e50b0b1aa31b6868e`
+- successful post-merge release gate:
+  `30382196271`
+
+Decision: `PASS_S08_CRASH_REPORT_PRIVACY_BOUNDARY`
+
+This closes S-08 under source-and-CI authority only. Client deployment,
+captured Crashlytics payloads, production collection behavior and pilot
+authorization remain separate.

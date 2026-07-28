@@ -611,6 +611,21 @@ check(
 functions_package = data("functions/package.json")
 functions_root_entrypoint = text("functions/index.js").replace("\r\n", "\n").strip()
 functions_entrypoint_test = text("functions/test/functionsEntrypointSource.test.js")
+functions_cleanup_decision = text(
+    "docs/v4_2_r1/FUNCTIONS_ENTRYPOINT_AND_WORKFLOW_IDENTITY_CLEANUP.md"
+)
+c05_records = [
+    record
+    for record in data("governance/programme-ledger.json")["technicalFindings"]
+    if record.get("findingId") == "C-05"
+]
+c05_record = c05_records[0] if len(c05_records) == 1 else {}
+c05_evidence = c05_record.get("evidence", [])
+c05_history = [
+    entry.get("status")
+    for entry in c05_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
 workflow_types = text("functions/src/maintenanceWorkflow/types.ts")
 workflow_callable = text("functions/src/maintenanceWorkflow/callable.ts")
 workflow_dispatcher = text("functions/src/maintenanceWorkflow/dispatcher.ts")
@@ -618,7 +633,7 @@ workflow_adjudication_emulator = text(
     "functions/test/workflowAuthorityReplayAdjudication.firestoreEmulator.test.js"
 )
 check(
-    "Functions entrypoint is singular and workflow preflight roles cannot enter service context",
+    "C-05 Functions entrypoint closure is exact and workflow preflight roles cannot enter service context",
     functions_package.get("main") == "lib/index.js"
     and functions_root_entrypoint
         == '"use strict";\n\nmodule.exports = require("./lib/index.js");'
@@ -632,7 +647,29 @@ check(
     and "name: authorizedActor.name" in workflow_callable
     and "context: CommandInvocationContext" in workflow_dispatcher
     and "They must pass" in workflow_adjudication_emulator
-    and "expected to FAIL" not in workflow_adjudication_emulator,
+    and "expected to FAIL" not in workflow_adjudication_emulator
+    and len(c05_records) == 1
+    and c05_record.get("currentStatus") == "CLOSED"
+    and len(c05_evidence) == 1
+    and c05_evidence[0].get("pullRequest") == 64
+    and c05_evidence[0].get("headCommit")
+        == "ee1bfa2b9c448db983a093d6dbbad1f2452eba45"
+    and c05_evidence[0].get("sourceTree")
+        == "47872d1ba609504e99e354a82147bb7aacacd09e"
+    and c05_evidence[0].get("mergeCommit")
+        == "023945f45a402202ed61a0f7f7076f50868832f6"
+    and c05_evidence[0].get("mergeTree")
+        == "47872d1ba609504e99e354a82147bb7aacacd09e"
+    and c05_evidence[0].get("postMergeWorkflowRun") == 30377037890
+    and c05_evidence[0].get("decision")
+        == "PASS_C05_SINGULAR_FUNCTIONS_ENTRYPOINT"
+    and c05_evidence[0].get("functionsDeployed") is False
+    and c05_evidence[0].get("productionMutationPerformed") is False
+    and c05_history[-3:] == ["SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(c05_record.get("requiredExitEvidence", [])) >= 5
+    and len(c05_record.get("reArmTriggers", [])) >= 4
+    and "Status: CLOSED" in functions_cleanup_decision
+    and "PASS_C05_SINGULAR_FUNCTIONS_ENTRYPOINT" in functions_cleanup_decision,
 )
 check(
     "Canonical audit runs in explicit post-codegen phase after custody and Isar release authority",
@@ -1807,9 +1844,24 @@ s08_decision = text("docs/v4_2_r1/S08_CRASH_REPORT_PRIVACY_BOUNDARY.md")
 check(
     "S-08 crash reports fail closed before every Crashlytics error boundary",
     len(s08_records) == 1
-    and s08_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
-    and s08_history == ["OPEN", "SOURCE_IMPLEMENTED"]
-    and s08_record.get("evidence") == []
+    and s08_record.get("currentStatus") == "CLOSED"
+    and s08_history == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(s08_record.get("evidence", [])) == 1
+    and s08_record["evidence"][0].get("pullRequest") == 65
+    and s08_record["evidence"][0].get("headCommit")
+        == "29a85772e6f1fa93ae76627cf539050c849b6ba7"
+    and s08_record["evidence"][0].get("sourceTree")
+        == "c0269dea3753f507eae1034ea3646df7d1c493b2"
+    and s08_record["evidence"][0].get("mergeCommit")
+        == "1131802af792fef050b3555e50b0b1aa31b6868e"
+    and s08_record["evidence"][0].get("mergeTree")
+        == "c0269dea3753f507eae1034ea3646df7d1c493b2"
+    and s08_record["evidence"][0].get("postMergeWorkflowRun") == 30382196271
+    and s08_record["evidence"][0].get("decision")
+        == "PASS_S08_CRASH_REPORT_PRIVACY_BOUNDARY"
+    and s08_record["evidence"][0].get("clientDeployed") is False
+    and s08_record["evidence"][0].get("networkPayloadCaptured") is False
+    and s08_record["evidence"][0].get("pilotAuthorized") is False
     and len(s08_record.get("requiredExitEvidence", [])) >= 5
     and len(s08_record.get("reArmTriggers", [])) >= 4
     and "final class SanitizedCrashException" in crash_sanitizer_source
@@ -1827,7 +1879,8 @@ check(
     and "person@example.com" in crash_sanitizer_test
     and "abc12345678901234567890123456789" in crash_sanitizer_test
     and "C:/Users" in crash_sanitizer_test
-    and "Status: SOURCE_IMPLEMENTED" in s08_decision
+    and "Status: CLOSED" in s08_decision
+    and "PASS_S08_CRASH_REPORT_PRIVACY_BOUNDARY" in s08_decision
     and "does not claim a deployed client" in s08_decision,
 )
 
