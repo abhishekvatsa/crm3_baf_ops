@@ -405,6 +405,42 @@ check(
     ).is_file(),
     ",".join(unsafe_dispatch_run_blocks),
 )
+workflow_paths = tuple(
+    str(path.relative_to(ROOT)).replace("\\", "/")
+    for path in sorted((ROOT / ".github" / "workflows").glob("*.y*ml"))
+)
+workflow_action_refs = [
+    (rel, match.group(1))
+    for rel in workflow_paths
+    for match in re.finditer(
+        r"^\s*(?:-\s*)?uses:\s*([^\s#]+)",
+        text(rel),
+        flags=re.MULTILINE,
+    )
+]
+mutable_workflow_action_refs = [
+    f"{rel}:{reference}"
+    for rel, reference in workflow_action_refs
+    if not reference.startswith("./")
+    and re.fullmatch(r"[^@\s]+@[0-9a-fA-F]{40}", reference) is None
+    and re.fullmatch(
+        r"docker://[^@\s]+@sha256:[0-9a-fA-F]{64}",
+        reference,
+    ) is None
+]
+check(
+    "Workflow action references are immutable and repository-wide custody is CI-enforced",
+    not mutable_workflow_action_refs
+    and len(workflow_action_refs) == 18
+    and "test:workflow-action-custody" in text("package.json")
+    and "npm run test:workflow-action-custody"
+        in text(".github/workflows/release-gate.yml")
+    and (ROOT / "tools/release/workflow_action_ref_custody.mjs").is_file()
+    and (
+        ROOT / "tools/release/workflow_action_ref_custody.test.mjs"
+    ).is_file(),
+    ",".join(mutable_workflow_action_refs),
+)
 c01_records = [
     record
     for record in data("governance/programme-ledger.json")["technicalFindings"]

@@ -26,6 +26,14 @@ export function isManualWorkflow(workflow) {
   return workflow.on?.workflow_dispatch != null;
 }
 
+export function discoverWorkflowPaths(root = repositoryRoot) {
+  const workflowDirectory = path.join(root, '.github', 'workflows');
+  return fs.readdirSync(workflowDirectory)
+    .filter((name) => name.endsWith('.yml') || name.endsWith('.yaml'))
+    .map((name) => path.join(workflowDirectory, name))
+    .sort();
+}
+
 export function findUnsafeRunInterpolations(
   workflow,
   workflowPath = '<workflow>',
@@ -61,18 +69,14 @@ export function findUnsafeRunInterpolations(
 }
 
 export function discoverManualWorkflowPaths(root = repositoryRoot) {
-  const workflowDirectory = path.join(root, '.github', 'workflows');
-  return fs.readdirSync(workflowDirectory)
-    .filter((name) => name.endsWith('.yml') || name.endsWith('.yaml'))
-    .map((name) => path.join(workflowDirectory, name))
+  return discoverWorkflowPaths(root)
     .filter((workflowPath) => {
       const workflow = parseWorkflow(
         fs.readFileSync(workflowPath, 'utf8'),
         workflowPath,
       );
       return isManualWorkflow(workflow);
-    })
-    .sort();
+    });
 }
 
 export function auditManualWorkflows(root = repositoryRoot) {
