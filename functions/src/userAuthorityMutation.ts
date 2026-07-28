@@ -7,6 +7,7 @@ import {
   normalizeCanonicalUserRoles,
   UserAuthorityJsonMap,
 } from "./userAuthority";
+import {stableJson} from "./stableJson";
 
 export type UserAuthorityMutationHttpsErrorCode =
   | "invalid-argument"
@@ -87,6 +88,16 @@ interface ParsedUserAuthorityMutationRequest {
   readonly roles: ReadonlyArray<string> | null;
   readonly reason: string;
   readonly payloadFingerprint: string;
+  readonly legacyPayloadFingerprint: string;
+}
+
+interface UserAuthorityMutationFingerprintPayload {
+  readonly requestId: string;
+  readonly targetUid: string;
+  readonly operation: UserAuthorityMutationOperation;
+  readonly expectedAuthorityDigest: string;
+  readonly roles: ReadonlyArray<string> | null;
+  readonly reason: string;
 }
 
 export interface UserAuthorityMutationResult {
@@ -198,10 +209,30 @@ function parseCanonicalRoles(value: unknown): ReadonlyArray<string> {
   }
 }
 
-function fingerprint(value: unknown): string {
+export function userAuthorityMutationFingerprintV2(
+  value: unknown,
+): string {
+  return `authreq2-sha256:${
+    createHash("sha256")
+      .update(stableJson(value), "utf8")
+      .digest("hex")
+  }`;
+}
+
+export function legacyUserAuthorityMutationFingerprintV1(
+  value: UserAuthorityMutationFingerprintPayload,
+): string {
+  const legacyPayload = {
+    requestId: value.requestId,
+    targetUid: value.targetUid,
+    operation: value.operation,
+    expectedAuthorityDigest: value.expectedAuthorityDigest,
+    roles: value.roles,
+    reason: value.reason,
+  };
   return `authreq1-sha256:${
     createHash("sha256")
-      .update(JSON.stringify(value), "utf8")
+      .update(JSON.stringify(legacyPayload), "utf8")
       .digest("hex")
   }`;
 }
@@ -279,7 +310,9 @@ export function parseUserAuthorityMutationRequest(
   };
   return {
     ...canonicalPayload,
-    payloadFingerprint: fingerprint(canonicalPayload),
+    payloadFingerprint: userAuthorityMutationFingerprintV2(canonicalPayload),
+    legacyPayloadFingerprint:
+      legacyUserAuthorityMutationFingerprintV1(canonicalPayload),
   };
 }
 
@@ -390,10 +423,33 @@ function resultFromReceipt(
   expectedAuditId: string,
 ): UserAuthorityMutationResult {
   if (
-    receipt.payloadFingerprint !== request.payloadFingerprint ||
     receipt.actorUid !== actorUid ||
     receipt.targetUid !== request.targetUid
   ) {
+    throw new UserAuthorityMutationError(
+      "aborted",
+      "requestId is already bound to a different authority mutation.",
+      {reasonCode: "authority-request-id-conflict"},
+    );
+  }
+  const expectedFingerprint =
+    receipt.schemaVersion === 2 &&
+      typeof receipt.payloadFingerprint === "string" &&
+      receipt.payloadFingerprint.startsWith("authreq2-sha256:") ?
+      request.payloadFingerprint :
+      receipt.schemaVersion === 1 &&
+        typeof receipt.payloadFingerprint === "string" &&
+        receipt.payloadFingerprint.startsWith("authreq1-sha256:") ?
+        request.legacyPayloadFingerprint :
+        null;
+  if (expectedFingerprint == null) {
+    throw new UserAuthorityMutationError(
+      "data-loss",
+      "The authority mutation receipt fingerprint version is unsupported.",
+      {reasonCode: "authority-receipt-fingerprint-version-unsupported"},
+    );
+  }
+  if (receipt.payloadFingerprint !== expectedFingerprint) {
     throw new UserAuthorityMutationError(
       "aborted",
       "requestId is already bound to a different authority mutation.",
@@ -673,7 +729,7 @@ export async function mutateUserAuthorityWithDb(args: {
       authorityDigest: resultingDigest,
     });
     transaction.set(receiptRef, {
-      schemaVersion: 1,
+      schemaVersion: 2,
       requestId: request.requestId,
       actorUid,
       targetUid: request.targetUid,
