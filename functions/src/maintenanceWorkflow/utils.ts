@@ -1,6 +1,7 @@
 import {createHash} from "crypto";
 import {JsonMap, JsonValue, LaneKey} from "./types";
 import {WorkflowError} from "./errors";
+import {stableJson as sharedStableJson} from "../stableJson";
 
 export const cleanText = (value: unknown, field: string): string => {
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -32,15 +33,7 @@ export const stringArray = (value: unknown, field: string): string[] => {
   return value.map((item, index) => cleanText(item, `${field}[${index}]`));
 };
 
-const stable = (value: JsonValue | undefined): string => {
-  if (value === undefined) return "undefined";
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
-  const object = value as JsonMap;
-  return `{${Object.keys(object).sort().map((key) => `${JSON.stringify(key)}:${stable(object[key])}`).join(",")}}`;
-};
-
-export const stableJson = (value: JsonValue): string => stable(value);
+export const stableJson = (value: JsonValue): string => sharedStableJson(value);
 
 export const payloadFingerprint = (command: JsonMap): string =>
   `sha256:${createHash("sha256")

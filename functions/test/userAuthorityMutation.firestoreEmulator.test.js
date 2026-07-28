@@ -5,7 +5,9 @@ const {
   canonicalUserAuthorityDigest,
 } = require('../lib/userAuthority');
 const {
+  legacyUserAuthorityMutationFingerprintV1,
   mutateUserAuthorityWithDb,
+  parseUserAuthorityMutationRequest,
 } = require('../lib/userAuthorityMutation');
 
 jest.setTimeout(60000);
@@ -22,6 +24,7 @@ const IDS = {
   demoteA: '11111111-1111-4111-8111-111111111111',
   demoteB: '22222222-2222-4222-8222-222222222222',
   replay: '33333333-3333-4333-8333-333333333333',
+  legacyReplay: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   stale: '44444444-4444-4444-8444-444444444444',
   actorLoss: '55555555-5555-4555-8555-555555555555',
   malformed: '66666666-6666-4666-8666-666666666666',
@@ -170,9 +173,17 @@ describeWithEmulator('S-05 atomic user-authority mutation', () => {
 
     const first = await invoke('adminA', request);
     const replay = await invoke('adminA', request);
+    const receipt = (
+      await db
+        .collection('user_authority_mutation_receipts')
+        .doc(IDS.replay)
+        .get()
+    ).data();
 
     expect(first.idempotentReplay).toBe(false);
     expect(replay).toEqual({...first, idempotentReplay: true});
+    expect(receipt.schemaVersion).toBe(2);
+    expect(receipt.payloadFingerprint).toMatch(/^authreq2-sha256:[0-9a-f]{64}$/);
     expect(await collectionState('user_authority_mutation_receipts')).toHaveLength(1);
     expect(
       (await collectionState('audit_logs')).filter(({id}) =>
@@ -185,6 +196,69 @@ describeWithEmulator('S-05 atomic user-authority mutation', () => {
     ).rejects.toMatchObject({
       code: 'aborted',
       details: {reasonCode: 'authority-request-id-conflict'},
+    });
+  });
+
+  test('historical authreq1 receipts replay through the frozen legacy algorithm', async () => {
+    await seedUser('adminA');
+    await seedUser('target', {isApproved: false, roles: ['operations']});
+    const request = requestFixture({
+      requestId: IDS.legacyReplay,
+      targetUid: 'target',
+      operation: 'APPROVE',
+      isApproved: false,
+      currentRoles: ['operations'],
+    });
+    const first = await invoke('adminA', request);
+    const parsed = parseUserAuthorityMutationRequest(request);
+    const legacyFingerprint = legacyUserAuthorityMutationFingerprintV1(parsed);
+    const receiptRef = db
+      .collection('user_authority_mutation_receipts')
+      .doc(IDS.legacyReplay);
+    await receiptRef.update({
+      schemaVersion: 1,
+      payloadFingerprint: legacyFingerprint,
+    });
+
+    const replay = await invoke('adminA', request);
+
+    expect(replay).toEqual({...first, idempotentReplay: true});
+    expect((await receiptRef.get()).data()).toMatchObject({
+      schemaVersion: 1,
+      payloadFingerprint: legacyFingerprint,
+    });
+    await expect(
+      invoke('adminA', {...request, reason: 'A different governed reason.'}),
+    ).rejects.toMatchObject({
+      code: 'aborted',
+      details: {reasonCode: 'authority-request-id-conflict'},
+    });
+  });
+
+  test('unknown receipt fingerprint versions fail closed as data loss', async () => {
+    await seedUser('adminA');
+    await seedUser('target', {isApproved: false, roles: ['operations']});
+    const request = requestFixture({
+      requestId: IDS.legacyReplay,
+      targetUid: 'target',
+      operation: 'APPROVE',
+      isApproved: false,
+      currentRoles: ['operations'],
+    });
+    await invoke('adminA', request);
+    await db
+      .collection('user_authority_mutation_receipts')
+      .doc(IDS.legacyReplay)
+      .update({
+        schemaVersion: 99,
+        payloadFingerprint: `authreq99-sha256:${'0'.repeat(64)}`,
+      });
+
+    await expect(invoke('adminA', request)).rejects.toMatchObject({
+      code: 'data-loss',
+      details: {
+        reasonCode: 'authority-receipt-fingerprint-version-unsupported',
+      },
     });
   });
 

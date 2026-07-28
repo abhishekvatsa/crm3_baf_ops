@@ -577,6 +577,37 @@ check(
         in emitted_output_custody_test
     and "a missing emitted file fails correspondence" in emitted_output_custody_test,
 )
+authority_mutation_fingerprint_source = text(
+    "functions/src/userAuthorityMutation.ts"
+)
+authority_mutation_fingerprint_test = text(
+    "functions/test/userAuthorityMutation.test.js"
+)
+authority_mutation_fingerprint_emulator_test = text(
+    "functions/test/userAuthorityMutation.firestoreEmulator.test.js"
+)
+authority_mutation_decision = text(
+    "docs/v4_2_r1/S05_ATOMIC_AUTHORITY_MUTATION.md"
+)
+check(
+    "S-05 authority receipts use versioned canonical fingerprints with legacy replay",
+    'from "./stableJson"' in authority_mutation_fingerprint_source
+    and "authreq2-sha256:" in authority_mutation_fingerprint_source
+    and "authreq1-sha256:" in authority_mutation_fingerprint_source
+    and "schemaVersion: 2" in authority_mutation_fingerprint_source
+    and "authority-receipt-fingerprint-version-unsupported"
+        in authority_mutation_fingerprint_source
+    and "v2 canonical JSON is independent of object insertion order"
+        in authority_mutation_fingerprint_test
+    and "v1 and v2 algorithms retain frozen, distinct vectors"
+        in authority_mutation_fingerprint_test
+    and "historical authreq1 receipts replay through the frozen legacy algorithm"
+        in authority_mutation_fingerprint_emulator_test
+    and "unknown receipt fingerprint versions fail closed as data loss"
+        in authority_mutation_fingerprint_emulator_test
+    and "`authreq2-sha256`" in authority_mutation_decision
+    and "`authreq1-sha256`" in authority_mutation_decision,
+)
 check(
     "Canonical audit runs in explicit post-codegen phase after custody and Isar release authority",
     "'tools/v4/v4_2_r1_canonical_audit.py' '--phase' 'post-codegen'" in harness

@@ -34,6 +34,19 @@ Supported operations are `APPROVE`, `REVOKE`, and `REPLACE_ROLES`.
 - Existing receipts replay only for the same actor and payload and only while the recorded target/audit evidence remains coherent.
 - Missing, malformed, stale, conflicting, or colliding evidence fails closed.
 
+## Versioned request fingerprints
+
+New authority-mutation receipts use schema version 2 and an
+`authreq2-sha256` fingerprint over key-sorted canonical JSON. The digest no
+longer depends on JavaScript object-literal insertion order.
+
+Historical schema-version-1 receipts remain replayable only through the frozen
+`authreq1-sha256` serializer, which reconstructs the original six fields in
+their original order. The old prefix is never reused for the new algorithm.
+Unknown schema/prefix combinations fail closed with
+`authority-receipt-fingerprint-version-unsupported`; they do not fall through
+to new mutation execution.
+
 ## Rules boundary
 
 Clients may still:
