@@ -292,13 +292,19 @@ void main() {
         );
         expect(
           functionsPackage['scripts'],
-          containsPair('build', 'tsc && npm run audit:callable-inventory'),
+          containsPair(
+            'build',
+            'npm run clean && tsc --pretty false && '
+                'npm run audit:emitted-output && '
+                'npm run audit:callable-inventory',
+          ),
         );
         expect(
           functionsPackage['scripts'],
           containsPair(
             'test',
-            'npm run build && npm run test:callable-inventory && '
+            'npm run build && npm run test:emitted-output-custody && '
+                'npm run test:callable-inventory && '
                 'jest --runInBand',
           ),
         );
@@ -308,6 +314,31 @@ void main() {
             'test:callable-inventory',
             'node --test tools/audit_callable_inventory.test.mjs',
           ),
+        );
+        expect(
+          functionsPackage['scripts'],
+          containsPair(
+            'audit:emitted-output',
+            'node tools/emitted_output_custody.mjs audit',
+          ),
+        );
+        expect(
+          functionsPackage['scripts'],
+          containsPair(
+            'clean',
+            'node tools/emitted_output_custody.mjs clean',
+          ),
+        );
+        expect(
+          functionsPackage['scripts'],
+          containsPair(
+            'test:emitted-output-custody',
+            'node --test tools/emitted_output_custody.test.mjs',
+          ),
+        );
+        expect(
+          functionsPackage['scripts'],
+          containsPair('typecheck', 'tsc --noEmit --pretty false'),
         );
       },
     );

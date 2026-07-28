@@ -593,7 +593,7 @@ try {
   Invoke-CheckedStep -Name '06_root_npm_audit' -Action { npm audit --audit-level=low }
   Invoke-NpmCiStep -Name '07_functions_npm_ci' -WorkingDirectory (Join-Path $workspace 'functions')
   $failureStatus = 'HOLD_FUNCTIONS_TYPECHECK'
-  Invoke-CheckedStep -Name '08_functions_typecheck' -WorkingDirectory (Join-Path $workspace 'functions') -Action { npm run build -- --noEmit --pretty false }
+  Invoke-CheckedStep -Name '08_functions_typecheck' -WorkingDirectory (Join-Path $workspace 'functions') -Action { npm run typecheck }
   $failureStatus = 'FAIL_LOCAL_LAB'
   Invoke-CheckedStep -Name '09_functions_npm_audit' -WorkingDirectory (Join-Path $workspace 'functions') -Action { npm audit --audit-level=low }
   $failureStatus = 'HOLD_FIREBASE_CLI_LOCK_POLICY'

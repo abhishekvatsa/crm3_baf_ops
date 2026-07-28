@@ -549,8 +549,33 @@ check(
     "Functions compiler is an early no-emit gate immediately after dependency installation",
     "08_functions_typecheck" in harness
     and "HOLD_FUNCTIONS_TYPECHECK" in harness
-    and "npm run build -- --noEmit --pretty false" in harness
+    and "npm run typecheck" in harness
     and harness.index("07_functions_npm_ci") < harness.index("08_functions_typecheck") < harness.index("11_firebase_cli_npm_ci"),
+)
+functions_package_scripts = data("functions/package.json").get("scripts", {})
+emitted_output_custody = text("functions/tools/emitted_output_custody.mjs")
+emitted_output_custody_test = text(
+    "functions/tools/emitted_output_custody.test.mjs"
+)
+check(
+    "Functions builds clean and prove exact TypeScript emitted-output correspondence",
+    functions_package_scripts.get("clean")
+        == "node tools/emitted_output_custody.mjs clean"
+    and functions_package_scripts.get("typecheck") == "tsc --noEmit --pretty false"
+    and functions_package_scripts.get("audit:emitted-output")
+        == "node tools/emitted_output_custody.mjs audit"
+    and functions_package_scripts.get("build")
+        == (
+            "npm run clean && tsc --pretty false && "
+            "npm run audit:emitted-output && npm run audit:callable-inventory"
+        )
+    and functions_package_scripts.get("test:emitted-output-custody")
+        == "node --test tools/emitted_output_custody.test.mjs"
+    and "ts.getOutputFileNames" in emitted_output_custody
+    and "orphaned emitted files" in emitted_output_custody
+    and "a deleted source cannot leave orphaned JavaScript or source maps"
+        in emitted_output_custody_test
+    and "a missing emitted file fails correspondence" in emitted_output_custody_test,
 )
 check(
     "Canonical audit runs in explicit post-codegen phase after custody and Isar release authority",
