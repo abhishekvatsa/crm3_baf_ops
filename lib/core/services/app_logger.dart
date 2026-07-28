@@ -5,10 +5,13 @@ import 'dart:async' show Future, unawaited;
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
+import 'crash_report_sanitizer.dart';
+
 /// Sanitized Crashlytics/logging facade for CRM-III BAF Ops.
 ///
 /// This is intentionally conservative for plant-floor evidence safety:
 /// - no email/name/module-response/ticket-description logging;
+/// - no raw exception object, message, stack or arbitrary text value upload;
 /// - only coarse app/sync/startup/auth state is attached as custom keys;
 /// - debug builds keep console output but do not upload Crashlytics events;
 /// - web is a no-op because Firebase Crashlytics does not support Flutter web.
@@ -84,7 +87,9 @@ class AppLogger {
     if (!_collecting) return;
 
     try {
-      await FirebaseCrashlytics.instance.setUserIdentifier(_safeValue(uid));
+      await FirebaseCrashlytics.instance.setUserIdentifier(
+        CrashReportSanitizer.userIdentifier(uid),
+      );
       await setCustomKeys({
         'user_approved': isApproved,
         'user_roles': roles.join(','),
@@ -156,9 +161,13 @@ class AppLogger {
     if (!_collecting) return;
 
     _safeFireAndForget(() {
+      final safeError =
+          error == null
+              ? const SanitizedCrashException('ReportedWarning')
+              : CrashReportSanitizer.error(error);
       return FirebaseCrashlytics.instance.recordError(
-        error ?? safeMessage,
-        stackTrace ?? StackTrace.current,
+        safeError,
+        CrashReportSanitizer.stackTrace(stackTrace ?? StackTrace.current),
         reason: safeMessage,
         information: _contextToInformation(context),
         fatal: false,
@@ -181,8 +190,8 @@ class AppLogger {
 
     _safeFireAndForget(() {
       return FirebaseCrashlytics.instance.recordError(
-        error,
-        stackTrace ?? StackTrace.current,
+        CrashReportSanitizer.error(error),
+        CrashReportSanitizer.stackTrace(stackTrace ?? StackTrace.current),
         reason: safeMessage,
         information: _contextToInformation(context),
         fatal: fatal,
@@ -225,7 +234,14 @@ class AppLogger {
     }
 
     _safeFireAndForget(() {
-      return FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+      return FirebaseCrashlytics.instance.recordError(
+        CrashReportSanitizer.error(details.exception),
+        CrashReportSanitizer.stackTrace(details.stack),
+        reason: _composeMessage('flutter_framework_uncaught', {
+          'library': details.library,
+        }),
+        fatal: true,
+      );
     });
   }
 
@@ -284,25 +300,11 @@ class AppLogger {
   }
 
   static Object _safeCrashlyticsValue(Object? value) {
-    if (value == null) return '';
-    if (value is bool || value is int || value is double) return value;
-    return _safeValue(value);
-  }
-
-  static String _safeValue(Object value) {
-    final singleLine =
-        value
-            .toString()
-            .replaceAll('\n', ' ')
-            .replaceAll('\r', ' ')
-            .replaceAll(RegExp(r'\s+'), ' ')
-            .trim();
-    if (singleLine.length <= 512) return singleLine;
-    return '${singleLine.substring(0, 512)}…';
+    return CrashReportSanitizer.contextValue(value);
   }
 
   static String _composeMessage(String message, Map<String, Object?>? context) {
-    final safeMessage = _safeValue(message);
+    final safeMessage = CrashReportSanitizer.eventId(message);
     if (context == null || context.isEmpty) return safeMessage;
 
     final safeContext = context.entries

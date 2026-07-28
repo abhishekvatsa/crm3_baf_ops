@@ -211,7 +211,15 @@ void main() {
       expect(initBlock, contains("'build_mode'"));
       expect(initBlock, contains("'crashlytics_collecting'"));
       expect(logger, contains('Do not pass email/name here.'));
-      expect(logger, contains('singleLine.length <= 512'));
+      expect(logger, contains('CrashReportSanitizer.userIdentifier(uid)'));
+      expect(logger, contains('CrashReportSanitizer.error(error)'));
+      expect(logger, contains('CrashReportSanitizer.stackTrace(stackTrace'));
+      expect(
+        logger,
+        isNot(contains('recordFlutterFatalError(details)')),
+        reason:
+            'Raw FlutterErrorDetails must never cross the Crashlytics boundary.',
+      );
       expect(
         bootstrap,
         contains('FlutterError.onError = AppLogger.recordFlutterError;'),
@@ -324,10 +332,7 @@ void main() {
         );
         expect(
           functionsPackage['scripts'],
-          containsPair(
-            'clean',
-            'node tools/emitted_output_custody.mjs clean',
-          ),
+          containsPair('clean', 'node tools/emitted_output_custody.mjs clean'),
         );
         expect(
           functionsPackage['scripts'],
