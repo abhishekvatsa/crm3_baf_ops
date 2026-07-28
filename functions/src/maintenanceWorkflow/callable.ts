@@ -13,7 +13,14 @@ import {
 import type {
   CallableAbuseFirestoreLike,
 } from "../callableAbuseControl";
-import {Actor, JsonMap, RoleKey, WorkflowCommand, WorkflowCommandType} from "./types";
+import {
+  Actor,
+  CommandActorIdentity,
+  JsonMap,
+  RoleKey,
+  WorkflowCommand,
+  WorkflowCommandType,
+} from "./types";
 
 const CALLABLE_REGION = "asia-south1";
 const commandTypes = new Set<WorkflowCommandType>([
@@ -74,16 +81,20 @@ export const workflowActorFromUserDataForTest = (
 const actorFromRequest = async (
   request: CallableRequest<unknown>,
   db: admin.firestore.Firestore,
-): Promise<Actor> => {
+): Promise<CommandActorIdentity> => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in is required.");
   const snap = await db.collection("users").doc(uid).get();
   if (!snap.exists) throw new HttpsError("permission-denied", "Approved user record was not found.");
-  return workflowActorFromUserDataForTest(
+  const authorizedActor = workflowActorFromUserDataForTest(
     snap.data() ?? {},
     uid,
     request.auth?.token.name?.toString(),
   );
+  return {
+    uid: authorizedActor.uid,
+    name: authorizedActor.name,
+  };
 };
 
 const toHttpsError = (error: WorkflowError): HttpsError => {

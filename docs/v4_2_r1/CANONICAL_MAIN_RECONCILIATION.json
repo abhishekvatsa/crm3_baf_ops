@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 299,
-    "SUCCESSOR_MODIFIED": 111
+    "BYTE_IDENTICAL": 298,
+    "SUCCESSOR_MODIFIED": 112
   },
   "paths": [
     {
@@ -481,10 +481,10 @@
     {
       "path": "functions/index.js",
       "canonicalSha256": "56A56A3569F04683472A8FB11531DAA9B34ABA038A58D2FA6B75F3E0DC18A06A",
-      "candidateSha256": "56A56A3569F04683472A8FB11531DAA9B34ABA038A58D2FA6B75F3E0DC18A06A",
+      "candidateSha256": "187786542FB89BDEDFEA4B2B5AF02018538FA190380FC25A49B1BB8561EC1FC0",
       "canonicalBytes": 4798,
-      "candidateBytes": 4798,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 59,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "functions/package-lock.json",
