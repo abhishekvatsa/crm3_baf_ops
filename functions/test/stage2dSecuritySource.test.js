@@ -179,6 +179,8 @@ describe("Stage 2D source security candidate", () => {
       "completePlannedJobExecution",
       "assignPublishedTemplateVersion",
       "mutateRuntimeJobModulePopulation",
+      "mutateUserAuthority",
+      "mutateChargeAbnormality",
     ]) {
       const block = blockStartingAt(
         functionSource,
@@ -188,7 +190,7 @@ describe("Stage 2D source security candidate", () => {
         "BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS",
       );
       expect(block).not.toContain("serviceAccount:");
-      expect(block).not.toContain("enforceAppCheck:");
+      expect(block).toContain("...MUTATING_CALLABLE_SECURITY_OPTIONS");
     }
   });
 

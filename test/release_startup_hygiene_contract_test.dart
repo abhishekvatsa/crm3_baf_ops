@@ -283,10 +283,31 @@ void main() {
           isTrue,
         );
         expect(functionsPackage['engines'], containsPair('node', '22'));
-        expect(functionsPackage['scripts'], containsPair('build', 'tsc'));
         expect(
           functionsPackage['scripts'],
-          containsPair('test', 'npm run build && jest --runInBand'),
+          containsPair(
+            'audit:callable-inventory',
+            'node tools/audit_callable_inventory.mjs',
+          ),
+        );
+        expect(
+          functionsPackage['scripts'],
+          containsPair('build', 'tsc && npm run audit:callable-inventory'),
+        );
+        expect(
+          functionsPackage['scripts'],
+          containsPair(
+            'test',
+            'npm run build && npm run test:callable-inventory && '
+                'jest --runInBand',
+          ),
+        );
+        expect(
+          functionsPackage['scripts'],
+          containsPair(
+            'test:callable-inventory',
+            'node --test tools/audit_callable_inventory.test.mjs',
+          ),
         );
       },
     );

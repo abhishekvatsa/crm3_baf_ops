@@ -53,7 +53,7 @@ The programme preflight remains controlling:
 2. Production signing key generation and custody.
 3. Firebase app/package/SHA binding.
 4. Play Integrity/App Check registration.
-5. Enable `CRM3_WORKFLOW_ENFORCE_APP_CHECK` only when the signed pilot build is ready.
+5. Enable `CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK` only after the signed-client App Check and Play Integrity matrix is proven for all six mutating callables.
 6. Protected build-number reservation and governed APK/AAB production.
 
 ## Current classification

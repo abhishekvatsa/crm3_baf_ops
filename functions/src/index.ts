@@ -41,6 +41,10 @@ import {
 import {
   BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS,
 } from "./stage2dSecurityConfig";
+import {
+  MUTATING_CALLABLE_SECURITY_OPTIONS,
+  READ_ONLY_CALLABLE_SECURITY_OPTIONS,
+} from "./callableSecurityConfig";
 import type {
   BackendIdentityFirestoreLike,
   BackendIdentityJsonMap,
@@ -139,6 +143,7 @@ export const completePlannedJobExecution = onCall(
     timeoutSeconds: 60,
     memory: "512MiB",
     concurrency: 20,
+    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (request: CallableRequest<CompletePlannedJobRequest>) => {
     try {
@@ -190,6 +195,7 @@ export const assignPublishedTemplateVersion = onCall(
     timeoutSeconds: 60,
     memory: "512MiB",
     concurrency: 20,
+    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (
     request: CallableRequest<AssignPublishedTemplateVersionRequest>,
@@ -229,6 +235,7 @@ export const beginGlobalPullRun = onCall(
     timeoutSeconds: 15,
     memory: "256MiB",
     concurrency: 80,
+    ...READ_ONLY_CALLABLE_SECURITY_OPTIONS,
   },
   async (request: CallableRequest<unknown>) => {
     try {
@@ -289,6 +296,7 @@ export const mutateRuntimeJobModulePopulation = onCall(
     timeoutSeconds: 60,
     memory: "512MiB",
     concurrency: 20,
+    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (
     request: CallableRequest<MutateRuntimeJobModulePopulationRequest>,
@@ -365,6 +373,7 @@ export const mutateUserAuthority = onCall(
     timeoutSeconds: 60,
     memory: "256MiB",
     concurrency: 20,
+    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (request: CallableRequest<MutateUserAuthorityRequest>) => {
     try {
@@ -412,6 +421,7 @@ export const mutateChargeAbnormality = onCall(
     timeoutSeconds: 60,
     memory: "256MiB",
     concurrency: 20,
+    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (request: CallableRequest<MutateChargeAbnormalityRequest>) => {
     try {

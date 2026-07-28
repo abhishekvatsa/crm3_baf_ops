@@ -1,12 +1,7 @@
 import {createHash} from "crypto";
+import type {MutatingCallableName} from "./callableInventory";
 
-export type MutatingCallableName =
-  | "completePlannedJobExecution"
-  | "assignPublishedTemplateVersion"
-  | "mutateRuntimeJobModulePopulation"
-  | "mutateUserAuthority"
-  | "mutateChargeAbnormality"
-  | "executeMaintenanceWorkflowCommand";
+export type {MutatingCallableName} from "./callableInventory";
 
 export type CallableAbuseErrorCode =
   | "unauthenticated"

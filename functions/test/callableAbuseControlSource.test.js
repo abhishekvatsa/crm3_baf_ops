@@ -46,10 +46,22 @@ describe('S-03 callable boundary wiring', () => {
     expect(parseOffset).toBeGreaterThan(limiterOffset);
   });
 
-  test('read-only backend identity callable is outside mutation quotas', () => {
+  test.each([
+    [
+      'beginGlobalPullRun',
+      '// ─── Callable: runtime job-module population mutation',
+    ],
+    [
+      'getBackendReleaseIdentity',
+      '// ─── Callable: atomic user-authority mutation',
+    ],
+  ])('read-only %s callable is outside mutation quotas', (
+    callableName,
+    endMarker,
+  ) => {
     const identityBlock = indexSource.slice(
-      indexSource.indexOf('export const getBackendReleaseIdentity'),
-      indexSource.indexOf('// ─── Callable: atomic user-authority mutation'),
+      indexSource.indexOf(`export const ${callableName}`),
+      indexSource.indexOf(endMarker),
     );
     expect(identityBlock).not.toContain('executeAuthorizedMutation');
     expect(identityBlock).not.toContain('executeWithCallableAbuseControl');
