@@ -96,9 +96,11 @@ The workflow:
 - confirms the commit is exact live remote main;
 - verifies the merged production policy and composite backend authority before
   creating any reservation tag;
+- restores the pinned toolchain and locked dependencies;
+- configures the complete Android dependency graph before creating any
+  reservation tag;
 - atomically creates the annotated remote reservation tag;
 - refuses an already-reserved or already-built number;
-- restores pinned dependencies and Firebase CLI;
 - verifies the approved Linux Isar core;
 - restores the production keystore only from the protected environment;
 - runs all mandatory gates;
@@ -111,7 +113,9 @@ The failed build and its reservation must remain in the source ledger. The
 replacement approval must identify the failed run, prove that no built tag was
 created, bind the next monotonic number, and retain the non-distribution
 boundary. See `70I_B2_BUILD_1_FAILURE_AND_BUILD_2_ROLLOVER.md` for the first
-application of this protocol.
+application of this protocol and
+`70I_B3_BUILD_2_FAILURE_AND_BUILD_3_ROLLOVER.md` for the Android dependency
+configuration correction.
 
 ### Phase E — independent finalization and dual custody
 

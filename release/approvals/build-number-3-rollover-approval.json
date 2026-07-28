@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-build-number-rollover-approval",
+  "approved": true,
+  "approvedAtUtc": "2026-07-28T19:57:39.1149588Z",
+  "approverName": "Abhishek Vatsa",
+  "approvalReference": "BAF-REF-003-C2",
+  "authorityBasis": "Project-owner direction to continue the governed production-candidate construction after preserving the failed second attempt and correcting its deterministic Android dependency configuration defects.",
+  "approvalScope": "Allocate build number 3 for one protected, production-signed, non-distributable pre-release candidate after the Isar namespace and compile-SDK repair plus pre-reservation Android release-source compilation are merged to exact live main.",
+  "sourceBaseline": {
+    "commit": "4d5ea36327c3e7bc9d4ad162de362a3f94528610",
+    "tree": "e542bcb1ce99c48ec4003b9ba82e1d608f1e212f"
+  },
+  "consumedBuild": {
+    "buildNumber": 2,
+    "versionName": "1.0.0-rc.1",
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b2",
+    "reservationId": "crm3-baf-ops-o1-o5-v4-7b46862-b2-2",
+    "remoteReservationTag": "crm3-build-reserved/2",
+    "remoteReservationTagObject": "47e2063c3826c1c7ba4192b1796a745800a8815a",
+    "remoteReservationCommit": "4d5ea36327c3e7bc9d4ad162de362a3f94528610",
+    "githubRunId": 30392976122,
+    "githubRunAttempt": 1,
+    "githubRunUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30392976122",
+    "startedAtUtc": "2026-07-28T19:40:40Z",
+    "completedAtUtc": "2026-07-28T19:52:41Z",
+    "conclusion": "failure",
+    "failedStep": "Build once and independently verify",
+    "failureReason": "The locked isar_flutter_libs 3.1.0+1 Android library omitted the namespace required by Android Gradle Plugin 9.0.1.",
+    "productionKeystoreRestored": true,
+    "artifactConstructed": false,
+    "artifactUploaded": false,
+    "remoteBuiltTagCreated": false,
+    "numberRemainsConsumed": true
+  },
+  "nextBuild": {
+    "buildNumber": 3,
+    "versionName": "1.0.0-rc.1",
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b3",
+    "releaseTag": "crm3-baf-ops-v1.0.0-rc.1",
+    "releaseChannel": "production-candidate",
+    "campaignId": "crm3-baf-ops-o1-o5-v4-4d5ea36-b3",
+    "reservationId": "crm3-baf-ops-o1-o5-v4-4d5ea36-b3-3",
+    "remoteReservationTag": "crm3-build-reserved/3",
+    "remoteBuiltTag": "crm3-build-built/3"
+  },
+  "controls": {
+    "strictlyMonotonicNeverReuse": true,
+    "sourceRepairMustMergeBeforeDispatch": true,
+    "exactLiveMainRequired": true,
+    "fullPolicyAndAuthorityPreflightBeforeReservation": true,
+    "androidDependencyConfigurationPreflightBeforeReservation": true,
+    "androidReleaseSourceCompilationBeforeReservation": true,
+    "reservationMustPrecedeBuild": true,
+    "builtTagOnlyAfterIndependentVerificationAndDualCustody": true,
+    "failedOrWithdrawnBuildConsumesNumber": true
+  },
+  "distributionApproved": false,
+  "unrestrictedPlantReleaseApproved": false,
+  "limitations": [
+    "This approval does not authorize Firebase deployment.",
+    "This approval does not authorize controlled-pilot or unrestricted distribution.",
+    "The build-3 remote reservation does not exist until the protected workflow creates it atomically.",
+    "A failed build-3 attempt will consume build number 3."
+  ]
+}

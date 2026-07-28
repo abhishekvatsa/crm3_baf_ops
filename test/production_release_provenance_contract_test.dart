@@ -177,6 +177,41 @@ void main() {
       );
       expect(
         text,
+        contains('Prove Android dependency configuration before reservation'),
+      );
+      expect(text, contains('crm3-android-preflight-placeholder.p12'));
+      expect(
+        text,
+        contains(
+          './gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace',
+        ),
+      );
+      expect(
+        text,
+        contains(
+          './gradlew :app:compileReleaseSources --no-daemon --stacktrace',
+        ),
+      );
+      expect(
+        text.indexOf('- name: Restore locked dependencies and Firebase CLI'),
+        lessThan(
+          text.indexOf(
+            '- name: Prove Android dependency configuration before reservation',
+          ),
+        ),
+      );
+      expect(
+        text.indexOf(
+          '- name: Prove Android dependency configuration before reservation',
+        ),
+        lessThan(text.indexOf('- name: Atomically consume the build number')),
+      );
+      expect(
+        text.indexOf('- name: Atomically consume the build number'),
+        lessThan(text.indexOf('- name: Build once and independently verify')),
+      );
+      expect(
+        text,
         contains(r'CRM_DISPATCH_COMMIT_SHA: ${{ inputs.commit_sha }}'),
       );
       expect(
@@ -212,42 +247,81 @@ void main() {
       expect(text, contains('CRM_ANDROID_RELEASE_KEY_ALIAS'));
       expect(text, contains('CRM_ANDROID_RELEASE_KEY_PASSWORD'));
       expect(text, contains('signingConfigs.getByName("production")'));
+      expect(text, contains('compileSdk = 36'));
       expect(text, contains('isDebuggable = false'));
       expect(text, isNot(contains('signingConfigs.getByName("debug")')));
     });
 
-    test('failed build 1 is preserved and build 2 is separately approved', () {
+    test('locked legacy Isar library receives only its approved namespace', () {
+      final rootGradle = read('android/build.gradle.kts');
+      final lock = read('pubspec.lock');
+
+      expect(rootGradle, contains('name == "isar_flutter_libs"'));
+      expect(
+        rootGradle,
+        contains('pluginManager.withPlugin("com.android.library")'),
+      );
+      expect(
+        rootGradle,
+        contains(
+          'extensions.configure<com.android.build.api.variant.'
+          'LibraryAndroidComponentsExtension>',
+        ),
+      );
+      expect(rootGradle, contains('finalizeDsl { libraryExtension ->'));
+      expect(rootGradle, contains('if (libraryExtension.namespace == null)'));
+      expect(
+        rootGradle,
+        contains('libraryExtension.namespace = "dev.isar.isar_flutter_libs"'),
+      );
+      expect(rootGradle, contains('libraryExtension.compileSdk = 36'));
+      expect(
+        lock,
+        contains(RegExp(r'isar_flutter_libs:[\s\S]*?version: "3\.1\.0\+1"')),
+      );
+    });
+
+    test('failed builds 1 and 2 are preserved and build 3 is approved', () {
       final ledger =
           jsonDecode(read('release/build-number-ledger.json'))
               as Map<String, dynamic>;
       final entries =
           (ledger['entries'] as List<dynamic>).cast<Map<String, dynamic>>();
-      final consumed = entries.singleWhere(
-        (entry) => entry['buildNumber'] == 1,
-      );
-      final replacement = entries.singleWhere(
-        (entry) => entry['buildNumber'] == 2,
-      );
+      final build1 = entries.singleWhere((entry) => entry['buildNumber'] == 1);
+      final build2 = entries.singleWhere((entry) => entry['buildNumber'] == 2);
+      final build3 = entries.singleWhere((entry) => entry['buildNumber'] == 3);
 
-      expect(consumed['status'], 'remote-consumed-build-failed');
-      expect(consumed['githubRunId'], 30387521656);
-      expect(consumed['artifactConstructed'], isFalse);
-      expect(consumed['artifactUploaded'], isFalse);
-      expect(consumed['remoteBuiltTagCreated'], isFalse);
-      expect(consumed['failedOrWithdrawnBuildConsumesNumber'], isTrue);
+      expect(build1['status'], 'remote-consumed-build-failed');
+      expect(build1['githubRunId'], 30387521656);
+      expect(build1['artifactConstructed'], isFalse);
+      expect(build1['artifactUploaded'], isFalse);
+      expect(build1['remoteBuiltTagCreated'], isFalse);
+      expect(build1['failedOrWithdrawnBuildConsumesNumber'], isTrue);
 
+      expect(build2['status'], 'remote-consumed-build-failed');
+      expect(build2['githubRunId'], 30392976122);
       expect(
-        replacement['status'],
-        'source-reserved-awaiting-remote-consumption',
+        build2['remoteReservationTagObject'],
+        '47e2063c3826c1c7ba4192b1796a745800a8815a',
       );
-      expect(replacement['remoteReservationTag'], 'crm3-build-reserved/2');
-      expect(replacement['remoteBuiltTag'], 'crm3-build-built/2');
+      expect(
+        build2['remoteReservationCommit'],
+        '4d5ea36327c3e7bc9d4ad162de362a3f94528610',
+      );
+      expect(build2['productionKeystoreRestored'], isTrue);
+      expect(build2['artifactConstructed'], isFalse);
+      expect(build2['artifactUploaded'], isFalse);
+      expect(build2['remoteBuiltTagCreated'], isFalse);
+
+      expect(build3['status'], 'source-reserved-awaiting-remote-consumption');
+      expect(build3['remoteReservationTag'], 'crm3-build-reserved/3');
+      expect(build3['remoteBuiltTag'], 'crm3-build-built/3');
 
       final approval =
           jsonDecode(
                 read(
                   'release/approvals/'
-                  'build-number-2-rollover-approval.json',
+                  'build-number-3-rollover-approval.json',
                 ),
               )
               as Map<String, dynamic>;
@@ -255,9 +329,25 @@ void main() {
       expect(approval['distributionApproved'], isFalse);
       expect(
         (approval['consumedBuild'] as Map<String, dynamic>)['githubRunId'],
-        30387521656,
+        30392976122,
       );
-      expect((approval['nextBuild'] as Map<String, dynamic>)['buildNumber'], 2);
+      expect((approval['nextBuild'] as Map<String, dynamic>)['buildNumber'], 3);
+      expect(
+        (approval['controls']
+            as Map<
+              String,
+              dynamic
+            >)['androidDependencyConfigurationPreflightBeforeReservation'],
+        isTrue,
+      );
+      expect(
+        (approval['controls']
+            as Map<
+              String,
+              dynamic
+            >)['androidReleaseSourceCompilationBeforeReservation'],
+        isTrue,
+      );
     });
 
     test('permanent identity and public version are committed', () {
@@ -270,12 +360,12 @@ void main() {
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
         pubspec,
-        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+2$', multiLine: true)),
+        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+3$', multiLine: true)),
       );
-      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b2"'));
+      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b3"'));
       expect(
         policy,
-        contains('"remoteReservationTag": "crm3-build-reserved/2"'),
+        contains('"remoteReservationTag": "crm3-build-reserved/3"'),
       );
       expect(policy, contains('"approved": false'));
       expect(policy, contains('"unrestrictedPlantReleaseApproved": false'));
