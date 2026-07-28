@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 299
-    and counts.get("SUCCESSOR_MODIFIED") == 111
+    and counts.get("BYTE_IDENTICAL") == 298
+    and counts.get("SUCCESSOR_MODIFIED") == 112
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -607,6 +607,32 @@ check(
         in authority_mutation_fingerprint_emulator_test
     and "`authreq2-sha256`" in authority_mutation_decision
     and "`authreq1-sha256`" in authority_mutation_decision,
+)
+functions_package = data("functions/package.json")
+functions_root_entrypoint = text("functions/index.js").replace("\r\n", "\n").strip()
+functions_entrypoint_test = text("functions/test/functionsEntrypointSource.test.js")
+workflow_types = text("functions/src/maintenanceWorkflow/types.ts")
+workflow_callable = text("functions/src/maintenanceWorkflow/callable.ts")
+workflow_dispatcher = text("functions/src/maintenanceWorkflow/dispatcher.ts")
+workflow_adjudication_emulator = text(
+    "functions/test/workflowAuthorityReplayAdjudication.firestoreEmulator.test.js"
+)
+check(
+    "Functions entrypoint is singular and workflow preflight roles cannot enter service context",
+    functions_package.get("main") == "lib/index.js"
+    and functions_root_entrypoint
+        == '"use strict";\n\nmodule.exports = require("./lib/index.js");'
+    and "package and root compatibility path resolve to one compiled entrypoint"
+        in functions_entrypoint_test
+    and "interface CommandActorIdentity" in workflow_types
+    and "interface CommandInvocationContext" in workflow_types
+    and "readonly actor: CommandActorIdentity" in workflow_types
+    and "Promise<CommandActorIdentity>" in workflow_callable
+    and "uid: authorizedActor.uid" in workflow_callable
+    and "name: authorizedActor.name" in workflow_callable
+    and "context: CommandInvocationContext" in workflow_dispatcher
+    and "They must pass" in workflow_adjudication_emulator
+    and "expected to FAIL" not in workflow_adjudication_emulator,
 )
 check(
     "Canonical audit runs in explicit post-codegen phase after custody and Isar release authority",

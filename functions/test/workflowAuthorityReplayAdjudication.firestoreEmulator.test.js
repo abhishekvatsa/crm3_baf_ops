@@ -1,9 +1,9 @@
 /**
  * S-09 adjudication witnesses: maintenance-workflow authority and replay.
  *
- * These tests assert the INTENDED post-remediation behaviour. Against
- * unmodified `main` they are expected to FAIL, and each failure is the
- * executable proof of one defect:
+ * These tests preserve the merged post-remediation behaviour. They must pass
+ * on current `main`; a failure reopens the corresponding authority or replay
+ * defect:
  *
  *   W1  actor authority is captured outside the business transaction and is
  *       never re-read, so revocation cannot stop the mutation.
@@ -14,8 +14,8 @@
  *   W4  receipt replay returns before command-specific authorisation, so an
  *       actor who has lost the required role can still replay it.
  *
- * No production source change is required to run these. The defect is reached
- * through the existing `MaintenanceWorkflowCommandService(store)` seam.
+ * The witnesses execute through the governed
+ * `MaintenanceWorkflowCommandService(store)` transaction seam.
  *
  * Probe command: `deployEquipment`. Its authority check
  * (equipmentHandlers.ts) is a payload-independent role test, so the witnesses

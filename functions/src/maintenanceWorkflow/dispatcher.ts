@@ -7,6 +7,7 @@ import {WorkflowError} from "./errors";
 import {
   Actor,
   CommandContext,
+  CommandInvocationContext,
   JsonMap,
   RoleKey,
   StoredWorkflowCommandReceipt,
@@ -53,7 +54,10 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
 export class MaintenanceWorkflowCommandService {
   constructor(private readonly store: WorkflowStore) {}
 
-  async execute(command: WorkflowCommand, context: CommandContext): Promise<WorkflowCommandReceipt> {
+  async execute(
+    command: WorkflowCommand,
+    context: CommandInvocationContext,
+  ): Promise<WorkflowCommandReceipt> {
     if (command.commandId.trim().length === 0) throw new WorkflowError("invalid-argument", "commandId is required.");
     if (command.aggregateId.trim().length === 0) throw new WorkflowError("invalid-argument", "aggregateId is required.");
     if (!Number.isSafeInteger(command.expectedVersion) || command.expectedVersion < 0) {

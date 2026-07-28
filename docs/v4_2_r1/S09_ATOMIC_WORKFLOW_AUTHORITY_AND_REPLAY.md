@@ -50,7 +50,8 @@ otherwise:
 The actor document is the first transaction read. Firestore therefore includes
 current authority in the transaction read set on every transaction attempt.
 The preflight actor supplies identity and display-name fallback only; its role
-set is never mutation authority.
+set is never mutation authority. `CommandInvocationContext` enforces that
+boundary by excluding roles from the service input type.
 
 ## Semantic replay authority
 

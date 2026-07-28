@@ -27,6 +27,11 @@ export interface Actor {
   readonly roles: ReadonlySet<RoleKey>;
 }
 
+export interface CommandActorIdentity {
+  readonly uid: string;
+  readonly name: string;
+}
+
 export interface WorkflowCommand {
   readonly commandId: string;
   readonly commandType: WorkflowCommandType;
@@ -126,5 +131,10 @@ export interface ComplianceDoc extends JsonMap {
 
 export interface CommandContext {
   readonly actor: Actor;
+  readonly serverNow: Date;
+}
+
+export interface CommandInvocationContext {
+  readonly actor: CommandActorIdentity;
   readonly serverNow: Date;
 }
