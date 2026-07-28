@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 298
-    and counts.get("SUCCESSOR_MODIFIED") == 112
+    and counts.get("BYTE_IDENTICAL") == 297
+    and counts.get("SUCCESSOR_MODIFIED") == 113
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -1785,6 +1785,50 @@ check(
     and "Decision:                PASS_S04_CANONICAL_USER_AUTHORITY_SHAPE"
         in s04_decision
     and "This closure does not authorize deployment" in s04_decision,
+)
+
+s08_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "S-08"
+]
+s08_record = s08_records[0] if len(s08_records) == 1 else {}
+s08_history = [
+    entry.get("status")
+    for entry in s08_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+crash_sanitizer_source = text(
+    "lib/core/services/crash_report_sanitizer.dart"
+)
+app_logger_source = text("lib/core/services/app_logger.dart")
+crash_sanitizer_test = text("test/crash_report_sanitizer_test.dart")
+s08_decision = text("docs/v4_2_r1/S08_CRASH_REPORT_PRIVACY_BOUNDARY.md")
+check(
+    "S-08 crash reports fail closed before every Crashlytics error boundary",
+    len(s08_records) == 1
+    and s08_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
+    and s08_history == ["OPEN", "SOURCE_IMPLEMENTED"]
+    and s08_record.get("evidence") == []
+    and len(s08_record.get("requiredExitEvidence", [])) >= 5
+    and len(s08_record.get("reArmTriggers", [])) >= 4
+    and "final class SanitizedCrashException" in crash_sanitizer_source
+    and "static const int _maxStackFrames = 64" in crash_sanitizer_source
+    and "package:" in crash_sanitizer_source
+    and "dart:" in crash_sanitizer_source
+    and "<redacted-frame>" in crash_sanitizer_source
+    and "CrashReportSanitizer.userIdentifier(uid)" in app_logger_source
+    and app_logger_source.count(
+        "FirebaseCrashlytics.instance.recordError("
+    ) == 3
+    and app_logger_source.count("CrashReportSanitizer.error(") >= 3
+    and app_logger_source.count("CrashReportSanitizer.stackTrace(") >= 3
+    and "recordFlutterFatalError" not in app_logger_source
+    and "person@example.com" in crash_sanitizer_test
+    and "abc12345678901234567890123456789" in crash_sanitizer_test
+    and "C:/Users" in crash_sanitizer_test
+    and "Status: SOURCE_IMPLEMENTED" in s08_decision
+    and "does not claim a deployed client" in s08_decision,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

@@ -1715,7 +1715,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
@@ -1723,14 +1723,34 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "all Crashlytics error paths replace raw exception objects and messages with a constrained type-only envelope",
+        "all Crashlytics stack paths retain only bounded source-controlled package or Dart frames",
+        "arbitrary text context and user identifiers are opaque before SDK invocation",
+        "Flutter framework failures do not pass raw FlutterErrorDetails to Crashlytics",
+        "focused hostile-value tests, full Flutter tests, exact-head pull-request CI and post-merge exact-main CI pass"
+      ],
+      "reArmTriggers": [
+        "any Crashlytics API receives an original exception object, error message, stack trace or FlutterErrorDetails",
+        "any arbitrary string context or raw Firebase UID reaches Crashlytics",
+        "stack sanitization admits absolute paths, file URIs or unparsed frame content",
+        "the sanitizer ceases to fail closed for unknown diagnostic value types"
+      ],
+      "notes": [
+        "The source boundary retains constrained exception types, package and Dart frame identities, opaque text fingerprints, and numeric or boolean telemetry.",
+        "Debug console output remains local and is not claimed as remotely sanitized by this finding.",
+        "SOURCE_IMPLEMENTED is not a merge, deployed client, captured network-payload or pilot-authorisation claim."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-28",
+          "basis": "Central fail-closed exception, stack, text-context and user-identifier sanitization implemented with hostile-value regression tests; merge and exact-main CI evidence pending"
         }
       ]
     },
