@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "policyId": "S02-CALLABLE-APP-CHECK-SOURCE-POLICY",
+  "findingId": "S-02",
+  "declarationStatus": "SOURCE_POLICY_IMPLEMENTED_GOVERNED_DEFERRAL",
+  "immutablePilotScopeAuthority": {
+    "path": "release/stage2d-f-internal-controlled-deployment-scope.json",
+    "sha256": "3402EE679A03BB3878B5DC145A7A0EFD190033E053CD69CDDE456C48EDCC9DBE"
+  },
+  "callableAppCheckPolicy": {
+    "inventoryVersion": 1,
+    "activationStatus": "GOVERNED_DEFERRAL_DEFAULT_OFF",
+    "activationAuthorized": false,
+    "activationParameter": "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK",
+    "sourceDefault": false,
+    "consumeAppCheckToken": false,
+    "mutatingSecurityOptionsExport": "MUTATING_CALLABLE_SECURITY_OPTIONS",
+    "mutatingCallables": [
+      "assignPublishedTemplateVersion",
+      "completePlannedJobExecution",
+      "executeMaintenanceWorkflowCommand",
+      "mutateChargeAbnormality",
+      "mutateRuntimeJobModulePopulation",
+      "mutateUserAuthority"
+    ],
+    "readOnlySecurityOptionsByCallable": {
+      "beginGlobalPullRun": "READ_ONLY_CALLABLE_SECURITY_OPTIONS",
+      "getBackendReleaseIdentity": "BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS"
+    },
+    "sourceAuditCommand": "npm --prefix functions run audit:callable-inventory",
+    "activationPrerequisites": [
+      "registered production Android app identity",
+      "promoted signing-certificate registration",
+      "signed-client App Check token matrix",
+      "Play Integrity registration and readback",
+      "governed Functions deployment authorization"
+    ]
+  },
+  "sourceReArmTriggers": [
+    {
+      "id": "RA-07",
+      "condition": "exported callable inventory or mutating-callable App Check policy coverage changes",
+      "sourceDetectable": true,
+      "sourceProbe": "npm --prefix functions run audit:callable-inventory"
+    }
+  ],
+  "nonClaims": [
+    "This policy does not alter the immutable Stage 2D-F pilot-scope authority.",
+    "This policy does not activate App Check or Play Integrity.",
+    "This policy does not authorize a Functions deployment.",
+    "This policy does not close S-02."
+  ]
+}

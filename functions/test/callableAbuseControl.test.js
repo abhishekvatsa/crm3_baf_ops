@@ -6,6 +6,9 @@ const {
   executeAuthorizedMutationWithAbuseControl,
   executeWithCallableAbuseControl,
 } = require('../lib/callableAbuseControl');
+const {
+  CALLABLE_SECURITY_CLASSIFICATION,
+} = require('../lib/callableInventory');
 
 class MemoryFirestore {
   constructor() {
@@ -114,14 +117,14 @@ function invoke({
 
 describe('S-03 callable abuse control', () => {
   test('defines bounded policy for every and only mutating callable', () => {
-    expect(Object.keys(CALLABLE_ABUSE_POLICIES).sort()).toEqual([
-      'assignPublishedTemplateVersion',
-      'completePlannedJobExecution',
-      'executeMaintenanceWorkflowCommand',
-      'mutateChargeAbnormality',
-      'mutateRuntimeJobModulePopulation',
-      'mutateUserAuthority',
-    ]);
+    const mutatingCallables = Object.entries(
+      CALLABLE_SECURITY_CLASSIFICATION,
+    )
+      .filter(([, kind]) => kind === 'mutating')
+      .map(([name]) => name)
+      .sort();
+    expect(Object.keys(CALLABLE_ABUSE_POLICIES).sort())
+      .toEqual(mutatingCallables);
 
     for (const policy of Object.values(CALLABLE_ABUSE_POLICIES)) {
       expect(policy.burstWindowSeconds).toBeGreaterThan(0);

@@ -122,11 +122,16 @@ def main()->int:
     add(c,'escalation indexes match v4 queries',required.issubset(shapes),
         f'present={len(required & shapes)}/{len(required)}')
 
-    security=read('functions/src/maintenanceWorkflow/securityConfig.ts')
+    security=read('functions/src/callableSecurityConfig.ts')
     release_guard=read('tools/release/Test-ProductionReleasePolicy.ps1')
-    add(c,'App Check is deploy-time gated rather than silently assumed',
-        'CRM3_WORKFLOW_ENFORCE_APP_CHECK' in security and 'default: false' in security
-        and 'MAINTENANCE_WORKFLOW_CALLABLE_SECURITY_OPTIONS' in read('functions/src/maintenanceWorkflow/callable.ts'),
+    app_check_scope=json.loads(read('release/s02-callable-app-check-source-policy.json'))
+    callable_policy=app_check_scope['callableAppCheckPolicy']
+    add(c,'App Check is shared across discovered mutating callables and remains deploy-time gated',
+        'CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK' in security and 'default: false' in security
+        and 'MUTATING_CALLABLE_SECURITY_OPTIONS' in read('functions/src/index.ts')
+        and 'MUTATING_CALLABLE_SECURITY_OPTIONS' in read('functions/src/maintenanceWorkflow/callable.ts')
+        and len(callable_policy['mutatingCallables']) == 6
+        and callable_policy['activationAuthorized'] is False,
         'signed-client readiness remains an explicit production gate')
     add(c,'production release rejects provisional Isar authority',
         'PROVISIONAL_V4_ISAR_CODEGEN' in release_guard,

@@ -4,7 +4,7 @@ import {CallableRequest, HttpsError, onCall} from "firebase-functions/v2/https";
 import {MaintenanceWorkflowCommandService} from "./dispatcher";
 import {WorkflowError} from "./errors";
 import {FirebaseWorkflowStore} from "./firebaseStore";
-import {MAINTENANCE_WORKFLOW_CALLABLE_SECURITY_OPTIONS} from "./securityConfig";
+import {MUTATING_CALLABLE_SECURITY_OPTIONS} from "../callableSecurityConfig";
 import {canonicalApprovedUserAuthority} from "../userAuthority";
 import {
   CallableAbuseControlError,
@@ -109,7 +109,7 @@ export const executeMaintenanceWorkflowCommand = onCall(
     timeoutSeconds: 60,
     memory: "512MiB",
     concurrency: 20,
-    ...MAINTENANCE_WORKFLOW_CALLABLE_SECURITY_OPTIONS,
+    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (request: CallableRequest<unknown>) => {
     const db = admin.firestore();

@@ -1286,16 +1286,29 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
+      "requiredExitEvidence": [
+        "the exported callable graph and governed security classification reproduce exactly",
+        "every mutating callable is covered by the shared App Check deployment parameter",
+        "the shared mutating-callable App Check parameter has no default-on path",
+        "the production Android application and promoted signing certificate are registered",
+        "signed-client App Check and Play Integrity token coverage is proven",
+        "all mutating callable deployments enforce App Check in live readback",
+        "exact-head pull request and post-deployment evidence are recorded"
+      ],
       "reArmTriggers": [
         "RA-01",
         "RA-02",
         "RA-03",
         "RA-04",
         "RA-05",
-        "RA-06"
+        "RA-06",
+        "RA-07"
       ],
-      "notes": [],
+      "notes": [
+        "Source policy coverage is explicit for all six discovered mutating callables, but enforcement remains default-off under the governed deferral.",
+        "RA-07 forces an explicit source-policy and exact-inventory test update when the exported callable surface changes; mismatched classification or security-option wiring fails CI.",
+        "This source correction does not activate App Check, mutate the Firebase control plane or authorize a Functions deployment."
+      ],
       "statusHistory": [
         {
           "status": "DEFERRED",

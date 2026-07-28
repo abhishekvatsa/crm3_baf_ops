@@ -79,14 +79,16 @@ describe('workflow operational resilience source contract', () => {
     expect(screen).not.toContain('retryDueCommands');
   });
 
-  test('workflow callable has deploy-time App Check enforcement wired to client attestation support', () => {
+  test('workflow callable shares default-off mutating App Check policy', () => {
     const callable = read('functions/src/maintenanceWorkflow/callable.ts');
-    const security = read('functions/src/maintenanceWorkflow/securityConfig.ts');
+    const security = read('functions/src/callableSecurityConfig.ts');
     const client = read('lib/core/security/app_check_bootstrap.dart');
-    expect(callable).toContain('MAINTENANCE_WORKFLOW_CALLABLE_SECURITY_OPTIONS');
-    expect(security).toContain('CRM3_WORKFLOW_ENFORCE_APP_CHECK');
+    expect(callable).toContain('MUTATING_CALLABLE_SECURITY_OPTIONS');
+    expect(security).toContain('CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK');
     expect(security).toContain('default: false');
-    expect(security).toContain('enforceAppCheck: WORKFLOW_ENFORCE_APP_CHECK');
+    expect(security).toContain(
+      'enforceAppCheck: MUTATING_CALLABLE_ENFORCE_APP_CHECK',
+    );
     expect(client).toContain('CRM3_APP_CHECK_ENABLED');
     expect(client).toContain('AndroidPlayIntegrityProvider');
   });

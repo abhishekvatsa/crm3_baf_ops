@@ -1321,14 +1321,119 @@ abuse_control_emulator_test = text(
 abuse_control_source_test = text(
     "functions/test/callableAbuseControlSource.test.js"
 )
-callable_names = [
-    "completePlannedJobExecution",
-    "assignPublishedTemplateVersion",
-    "mutateRuntimeJobModulePopulation",
-    "mutateUserAuthority",
-    "mutateChargeAbnormality",
-    "executeMaintenanceWorkflowCommand",
+callable_inventory_source = text("functions/src/callableInventory.ts")
+callable_security_source = text("functions/src/callableSecurityConfig.ts")
+callable_inventory_audit = text(
+    "functions/tools/audit_callable_inventory.mjs"
+)
+callable_inventory_test = text(
+    "functions/tools/audit_callable_inventory.test.mjs"
+)
+s02_source_policy = text(
+    "docs/v4_2_r1/S02_CALLABLE_APP_CHECK_SOURCE_POLICY.md"
+)
+exported_callable_occurrences = [
+    name
+    for source_path in (ROOT / "functions" / "src").rglob("*.ts")
+    for name in re.findall(
+        r"export const ([A-Za-z_][A-Za-z0-9_]*)\s*=\s*onCall\(",
+        source_path.read_text(encoding="utf-8"),
+    )
 ]
+exported_callable_names = sorted(set(exported_callable_occurrences))
+callable_classification = {
+    name: kind
+    for name, kind in re.findall(
+        r'^\s{2}([A-Za-z_][A-Za-z0-9_]*): "(mutating|read-only)",$',
+        callable_inventory_source,
+        flags=re.MULTILINE,
+    )
+}
+callable_names = sorted(
+    name
+    for name, kind in callable_classification.items()
+    if kind == "mutating"
+)
+read_only_callable_names = sorted(
+    name
+    for name, kind in callable_classification.items()
+    if kind == "read-only"
+)
+s02_scope = data(
+    "release/s02-callable-app-check-source-policy.json"
+)
+s02_policy = s02_scope.get("callableAppCheckPolicy", {})
+s02_ra07 = [
+    trigger
+    for trigger in s02_scope.get("sourceReArmTriggers", [])
+    if isinstance(trigger, dict) and trigger.get("id") == "RA-07"
+]
+s02_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "S-02"
+]
+s02_record = s02_records[0] if len(s02_records) == 1 else {}
+functions_scripts = data("functions/package.json").get("scripts", {})
+check(
+    "S-02 callable inventory is discovered, policy-complete and default-off",
+    len(exported_callable_occurrences) == len(exported_callable_names) == 8
+    and set(exported_callable_names) == set(callable_classification)
+    and len(callable_names) == 6
+    and len(read_only_callable_names) == 2
+    and set(callable_names) == set(s02_policy.get("mutatingCallables", []))
+    and set(read_only_callable_names)
+        == set(
+            s02_policy.get(
+                "readOnlySecurityOptionsByCallable",
+                {},
+            )
+        )
+    and s02_policy.get("activationAuthorized") is False
+    and s02_policy.get("sourceDefault") is False
+    and s02_policy.get("activationParameter")
+        == "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK"
+    and "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK"
+        in callable_security_source
+    and "default: false" in callable_security_source
+    and callable_index_source.count(
+        "...MUTATING_CALLABLE_SECURITY_OPTIONS"
+    ) == 5
+    and workflow_callable_source.count(
+        "...MUTATING_CALLABLE_SECURITY_OPTIONS"
+    ) == 1
+    and callable_index_source.count(
+        "...READ_ONLY_CALLABLE_SECURITY_OPTIONS"
+    ) == 1
+    and callable_index_source.count(
+        "...BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS"
+    ) == 1
+    and "checker.getExportsOfModule" in callable_inventory_audit
+    and "export-classification-mismatch" in callable_inventory_audit
+    and "abuse-control-admission-missing" in callable_inventory_audit
+    and "a newly exported callable is discovered and fails closed"
+        in callable_inventory_test
+    and "a classified mutation cannot bypass security or admission"
+        in callable_inventory_test
+    and "audit:callable-inventory" in functions_scripts
+    and "audit:callable-inventory" in functions_scripts.get("build", "")
+    and len(s02_ra07) == 1
+    and s02_ra07[0].get("sourceDetectable") is True
+    and s02_ra07[0].get("sourceProbe")
+        == "npm --prefix functions run audit:callable-inventory"
+    and len(s02_records) == 1
+    and s02_record.get("currentStatus") == "DEFERRED"
+    and "RA-07" in s02_record.get("reArmTriggers", [])
+    and len(s02_record.get("requiredExitEvidence", [])) >= 7
+    and programme_ledger.get("programmeDecision", {}).get(
+        "playIntegrityAndAppCheck"
+    ) == "GOVERNED_DEFERRAL"
+    and "Status: DEFERRED" in s02_source_policy
+    and "This source change does not:" in s02_source_policy
+    and "close S-02" in s02_source_policy,
+    f"exported={exported_callable_names} "
+    f"mutating={callable_names} readOnly={read_only_callable_names}",
+)
 check(
     "S-03 mutating callables have strict transactional rate and anomaly controls",
     all(name in abuse_control_source for name in callable_names)
@@ -1350,7 +1455,7 @@ check(
 preflight_actor_read = "const actorSnapshot = await args.db"
 preflight_admission = "return executeWithCallableAbuseControl({"
 check(
-    "S-03 admission is authority-first and excludes the read-only identity callable",
+    "S-03 admission is authority-first and excludes read-only callables",
     preflight_actor_read in abuse_control_source
     and preflight_admission in abuse_control_source
     and abuse_control_source.index(preflight_actor_read)
@@ -1359,7 +1464,8 @@ check(
     and '"callable-preflight-authority-denied"' in abuse_control_source
     and all(
         f'callableName: "{name}"' in callable_index_source
-        for name in callable_names[:-1]
+        for name in callable_names
+        if name != "executeMaintenanceWorkflowCommand"
     )
     and 'const actor = await actorFromRequest(request, db);'
         in workflow_callable_source
@@ -1370,7 +1476,7 @@ check(
     ) < workflow_callable_source.index(
         'callableName: "executeMaintenanceWorkflowCommand"'
     )
-    and "read-only backend identity callable is outside mutation quotas"
+    and "read-only %s callable is outside mutation quotas"
         in abuse_control_source_test,
 )
 check(

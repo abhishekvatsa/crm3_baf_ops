@@ -557,6 +557,9 @@ void main() {
     final scope = _readJson(
       'release/stage2d-f-internal-controlled-deployment-scope.json',
     );
+    final s02SourcePolicy = _readJson(
+      'release/s02-callable-app-check-source-policy.json',
+    );
 
     final ledgerAuthority = _object(ledger['authority']);
     final scopeAuthority = _object(scope['authority']);
@@ -577,11 +580,18 @@ void main() {
         _objects(
           scope['reArmTriggers'],
         ).map((item) => item['id'] as String).toSet();
+    final sourceTriggerIds =
+        _objects(
+          s02SourcePolicy['sourceReArmTriggers'],
+        ).map((item) => item['id'] as String).toSet();
     final s02 = _objects(
       ledger['technicalFindings'],
     ).singleWhere((item) => item['findingId'] == 'S-02');
     expect(s02['currentStatus'], 'DEFERRED');
-    expect(_strings(s02['reArmTriggers']).toSet(), scopeTriggerIds);
+    expect(
+      _strings(s02['reArmTriggers']).toSet(),
+      scopeTriggerIds.union(sourceTriggerIds),
+    );
 
     final scopeLedger = _object(scope['programmeLedger']);
     expect(scopeLedger['path'], 'governance/programme-ledger.json');
