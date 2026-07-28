@@ -189,7 +189,36 @@ void main() {
     expect(source, contains('-ReleaseId \$env:CRM_DISPATCH_RELEASE_ID'));
     expect(source, contains('New-VerificationArtifact.ps1'));
     expect(source, contains("ReleaseChannel 'verification'"));
-    expect(source, contains('actions/upload-artifact@v4'));
+    expect(
+      source,
+      contains(
+        'actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5',
+      ),
+    );
+    expect(
+      source,
+      contains(
+        'actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9',
+      ),
+    );
+    expect(
+      source,
+      contains(
+        'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020',
+      ),
+    );
+    expect(
+      source,
+      contains(
+        'subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2',
+      ),
+    );
+    expect(
+      source,
+      contains(
+        'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02',
+      ),
+    );
   });
 
   test('native-core custody is explicit across builder, verifier, and CI', () {

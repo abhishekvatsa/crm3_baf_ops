@@ -105,17 +105,17 @@
     {
       "path": ".github/workflows/release-gate.yml",
       "canonicalSha256": "CE3A2B57B0A19DAC48F25587EAFFD8D3C0D57F00ECDE41703E10DECD31FC0561",
-      "candidateSha256": "243EC314FB811657159F075D30F76B972618C73769A1B7A8187544A0BD331BBD",
+      "candidateSha256": "233F7470B9F73E90BAB3CD812C61D42898874D8B0C0A68FCEE8A0DAC84F07506",
       "canonicalBytes": 8984,
-      "candidateBytes": 9379,
+      "candidateBytes": 9426,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": ".github/workflows/verification-artifact.yml",
       "canonicalSha256": "F1BB9E245AD2596522C753191D59D28C4743BBC24DF30AF896754BD3D22EB845",
-      "candidateSha256": "8E712FA7F0185B7FD36AF95C82AE6621DC67A10B51A418BB06656D7372C6A94F",
+      "candidateSha256": "69F36503034E9F5001257B4A670B9957AF48891F8203B3AB3C99864BADDE79B0",
       "canonicalBytes": 3910,
-      "candidateBytes": 4899,
+      "candidateBytes": 5089,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2433,9 +2433,9 @@
     {
       "path": "package.json",
       "canonicalSha256": "FA45934BAA0695024EA92A790D86B57D5B172788D855B610EB1163374FF4EC30",
-      "candidateSha256": "9F1EB0E5C81A319070B860FEA9A351034CC619903983A816946FA434243E15CA",
+      "candidateSha256": "DCC248DC215BD7604A4819DEB535F45320411E06DE9D71A5CD52723B25A3C2F6",
       "canonicalBytes": 1103,
-      "candidateBytes": 2765,
+      "candidateBytes": 2867,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3149,9 +3149,9 @@
     {
       "path": "test/release_provenance_tooling_contract_test.dart",
       "canonicalSha256": "5F75E40241190A585C84E8DE5EB05BFDF5052542890C42BF3923A7CC38B4E508",
-      "candidateSha256": "342D6E7E39001F25651CD425B70174F8896F9762CC5079839EF37745A1424875",
+      "candidateSha256": "189007198166DC1F638FDD83D488EFDBCBA92B74D65C79F5A34CAE048050C1BC",
       "canonicalBytes": 8509,
-      "candidateBytes": 8993,
+      "candidateBytes": 9586,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
