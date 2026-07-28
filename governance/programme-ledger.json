@@ -1807,7 +1807,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Reliability/data",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "BLOCKER",
@@ -1816,7 +1816,21 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 55,
+          "headCommit": "f356835d08711e804de5f591f12794079f064024",
+          "sourceTree": "f1f5feea68f712ef4ee5e281a4f26790d2d4d2a3",
+          "mergeCommit": "1bf9f1e3f181e73d9cbf7ee49a14704269ef081b",
+          "mergeTree": "f1f5feea68f712ef4ee5e281a4f26790d2d4d2a3",
+          "postMergeWorkflowRun": 30282720232,
+          "postMergeWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30282720232",
+          "decision": "PASS_R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_SOURCE_CLOSURE",
+          "runtimeContractActivated": false,
+          "productionMutationPerformed": false
+        }
+      ],
       "requiredExitEvidence": [
         "exact source commit and exact-head merge CI for the server-authored global-pull clock, bounded query and governed activation controls",
         "green Flutter, Functions, Firestore Rules and governed Firestore emulator evidence for all twelve pull domains",
@@ -1833,7 +1847,7 @@
       "notes": [
         "The 2026-07-27 source tranche replaces the client-time maximum-minus-overlap token with a retrying server-authored stamp and one inclusive bounded server window per run.",
         "The exact protocol is fingerprinted by governance/global-pull-protocol-v1.json and remains inactive until deployment, inventory, backfill and activation evidence exist.",
-        "SOURCE_IMPLEMENTED is not a merge, deployment, backfill, runtime-activation, device-proof, pilot, or cutover claim."
+        "Source-and-CI closure corrects the diagnosed source defect but does not authorize deployment, backfill, runtime activation, device proof, pilot or cutover."
       ],
       "statusHistory": [
         {
@@ -1845,6 +1859,16 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-27",
           "basis": "Server-authored discovery stamp, inclusive bounded query, hard-delete tombstone restoration and governed zero-gap activation implemented; merge and runtime evidence pending"
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-27",
+          "basis": "PR #55 exact green head f356835d08711e804de5f591f12794079f064024 merged to main as 1bf9f1e3f181e73d9cbf7ee49a14704269ef081b with identical source tree f1f5feea68f712ef4ee5e281a4f26790d2d4d2a3."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-28",
+          "basis": "PASS_R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_SOURCE_CLOSURE closes R-01 after exact-main release-gate run 30282720232 passed; deployment, backfill and activation remain separate."
         }
       ]
     },
@@ -1856,14 +1880,28 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Reliability/data",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 55,
+          "headCommit": "f356835d08711e804de5f591f12794079f064024",
+          "sourceTree": "f1f5feea68f712ef4ee5e281a4f26790d2d4d2a3",
+          "mergeCommit": "1bf9f1e3f181e73d9cbf7ee49a14704269ef081b",
+          "mergeTree": "f1f5feea68f712ef4ee5e281a4f26790d2d4d2a3",
+          "postMergeWorkflowRun": 30282720232,
+          "postMergeWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30282720232",
+          "decision": "PASS_R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_SOURCE_CLOSURE",
+          "runtimeContractActivated": false,
+          "productionMutationPerformed": false
+        }
+      ],
       "requiredExitEvidence": [
         "exact source commit and exact-head merge CI for the per-domain actor and database-generation scoped cursor envelope",
         "green interruption, authority-change, wrong-type, partial-domain and cursor-regression tests",
@@ -1880,7 +1918,7 @@
       "notes": [
         "The 2026-07-27 source tranche stores an exact PREPARED/COMMITTED all-domain run envelope partitioned by actor UID, authority digest and the P-06 database generation.",
         "Interrupted runs resume their fixed server anchor and durably completed domains; authority changes force a full all-domain reset.",
-        "SOURCE_IMPLEMENTED is not a merge, deployment, backfill, runtime-activation, device-proof, pilot, or cutover claim."
+        "Source-and-CI closure corrects the diagnosed source defect but does not authorize deployment, backfill, runtime activation, device proof, pilot or cutover."
       ],
       "statusHistory": [
         {
@@ -1892,6 +1930,16 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-27",
           "basis": "Per-domain actor, authority and database-generation scoped PREPARED/COMMITTED cursor envelope implemented; merge and runtime evidence pending"
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-27",
+          "basis": "PR #55 exact green head f356835d08711e804de5f591f12794079f064024 merged to main as 1bf9f1e3f181e73d9cbf7ee49a14704269ef081b with identical source tree f1f5feea68f712ef4ee5e281a4f26790d2d4d2a3."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-28",
+          "basis": "PASS_R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_SOURCE_CLOSURE closes R-02 after exact-main release-gate run 30282720232 passed; deployment, backfill and activation remain separate."
         }
       ]
     },

@@ -12,7 +12,7 @@ List<Map<String, dynamic>> _objects(dynamic value) =>
 List<String> _strings(dynamic value) => (value as List<dynamic>).cast<String>();
 
 void main() {
-  test('R-01/R-02 are source implemented without runtime overclaim', () {
+  test('R-01/R-02 are closed by exact source and CI evidence', () {
     final ledger =
         jsonDecode(File('governance/programme-ledger.json').readAsStringSync())
             as Map<String, dynamic>;
@@ -24,13 +24,35 @@ void main() {
       );
       expect(finding['authorityType'], 'SOURCE_AND_CI');
       expect(finding['transitionProfile'], 'SOURCE_AND_CI');
-      expect(finding['currentStatus'], 'SOURCE_IMPLEMENTED');
+      expect(finding['currentStatus'], 'CLOSED');
       expect(
         _objects(
           finding['statusHistory'],
         ).map((entry) => entry['status'] as String),
-        <String>['OPEN', 'SOURCE_IMPLEMENTED'],
+        <String>['OPEN', 'SOURCE_IMPLEMENTED', 'MERGED', 'CLOSED'],
       );
+      final evidence = _objects(finding['evidence']);
+      expect(evidence, hasLength(1));
+      expect(evidence.single['pullRequest'], 55);
+      expect(
+        evidence.single['headCommit'],
+        'f356835d08711e804de5f591f12794079f064024',
+      );
+      expect(
+        evidence.single['sourceTree'],
+        'f1f5feea68f712ef4ee5e281a4f26790d2d4d2a3',
+      );
+      expect(
+        evidence.single['mergeCommit'],
+        '1bf9f1e3f181e73d9cbf7ee49a14704269ef081b',
+      );
+      expect(evidence.single['postMergeWorkflowRun'], 30282720232);
+      expect(
+        evidence.single['decision'],
+        'PASS_R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_SOURCE_CLOSURE',
+      );
+      expect(evidence.single['runtimeContractActivated'], isFalse);
+      expect(evidence.single['productionMutationPerformed'], isFalse);
       expect(_strings(finding['requiredExitEvidence']), hasLength(3));
       expect(
         _strings(finding['reArmTriggers']).length,
@@ -39,8 +61,9 @@ void main() {
       expect(
         _strings(finding['notes']).join('\n'),
         contains(
-          'SOURCE_IMPLEMENTED is not a merge, deployment, backfill, '
-          'runtime-activation, device-proof, pilot, or cutover claim.',
+          'Source-and-CI closure corrects the diagnosed source defect but '
+          'does not authorize deployment, backfill, runtime activation, '
+          'device proof, pilot or cutover.',
         ),
       );
     }
@@ -66,12 +89,19 @@ void main() {
         File(
           'docs/v4_2_r1/R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_REMEDIATION.md',
         ).readAsStringSync();
-    expect(remediation, contains('Status: SOURCE_IMPLEMENTED'));
+    expect(remediation, contains('Status: CLOSED'));
+    expect(remediation, contains('Source merge and CI evidence: COMPLETE'));
     expect(
       remediation,
       contains(
-        'Merge, deployment, backfill, activation, and device evidence: PENDING',
+        'Deployment, backfill, activation, and device evidence: PENDING',
       ),
+    );
+    expect(remediation, contains('PR #55'));
+    expect(remediation, contains('30282720232'));
+    expect(
+      remediation,
+      contains('PASS_R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_SOURCE_CLOSURE'),
     );
     expect(remediation, contains('pilot/cutover authorization: prohibited'));
   });
