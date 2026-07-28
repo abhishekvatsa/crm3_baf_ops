@@ -11,8 +11,9 @@ Rules, indexes or Cloud Functions.
 
 ## Governing boundaries
 
-- **O-01** closes when the corrected 70I-C parity result is encoded in the
-  backend authority, B1 builder, verifier, runbook and contract test.
+- **O-01** closes when the strict composite backend authority is encoded in the
+  builders, verifiers, runbook and contract tests without converting its
+  historical live-reconstruction custody into a current-source parity claim.
 - **O-02** closes for permanent Android/Firebase source and artifact identity.
   Device-by-device migration, local-state reconciliation and retirement of the
   placeholder package remain O-10/70J.
@@ -93,7 +94,8 @@ commit, release ID, reservation ID and build number.
 The workflow:
 
 - confirms the commit is exact live remote main;
-- verifies the merged production policy;
+- verifies the merged production policy and composite backend authority before
+  creating any reservation tag;
 - atomically creates the annotated remote reservation tag;
 - refuses an already-reserved or already-built number;
 - restores pinned dependencies and Firebase CLI;
@@ -104,6 +106,12 @@ The workflow:
 
 A failed run consumes the number. Fix the cause, approve a new build number and
 create a new policy/ledger commit before another production build.
+
+The failed build and its reservation must remain in the source ledger. The
+replacement approval must identify the failed run, prove that no built tag was
+created, bind the next monotonic number, and retain the non-distribution
+boundary. See `70I_B2_BUILD_1_FAILURE_AND_BUILD_2_ROLLOVER.md` for the first
+application of this protocol.
 
 ### Phase E — independent finalization and dual custody
 

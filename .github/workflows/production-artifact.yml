@@ -108,6 +108,15 @@ jobs:
             throw 'Policy improperly claims distribution approval.'
           }
 
+          pwsh -NoProfile -ExecutionPolicy Bypass `
+            -File tools/release/Test-ProductionReleasePolicy.ps1 `
+            -PolicyPath release/production-release-policy.json `
+            -AuthorityPath release/backend-authority.prod.json `
+            -RepositoryRoot $PWD
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Pre-reservation production policy verification failed.'
+          }
+
           "CRM_RELEASE_ID=$($policy.release.releaseId)" |
             Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
           "CRM_RESERVATION_ID=$($policy.versionPolicy.reservationId)" |

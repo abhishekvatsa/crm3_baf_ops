@@ -45,7 +45,8 @@ param(
 
   [string]$ReleaseChannel = 'verification',
   [string]$CiRunId = 'local',
-  [string]$ExpectedBackendReleaseId = 'prod-4132b83-20260620_001612',
+  [string]$ExpectedBackendReleaseId =
+    'prod-composite-20260628T171115Z-rules-0b3868bf-fleet-d57d11bd',
   [string]$AuthorityPath = 'release/backend-authority.prod.json',
   [string]$OutputRoot,
   [string]$IsarCorePath = $env:CRM_ISAR_CORE_PATH,
@@ -308,20 +309,16 @@ $workingTreeAuthority =
   Get-Content -LiteralPath $authorityFullPath -Raw |
   ConvertFrom-Json
 
-if ($workingTreeAuthority.authorityClass -ne 'verified-production-backend') {
-  throw 'Backend authority class is not verified-production-backend.'
-}
-if ($workingTreeAuthority.firebaseProjectId -ne 'crm3-baf-ops-b8638') {
-  throw 'Backend authority points to an unexpected Firebase project.'
+& pwsh -NoProfile -ExecutionPolicy Bypass `
+  -File tools/release/Test-BackendAuthority.ps1 `
+  -AuthorityPath $authorityFullPath `
+  -RepositoryRoot $repo `
+  -ExpectedReleaseId $ExpectedBackendReleaseId
+if ($LASTEXITCODE -ne 0) {
+  throw 'Composite backend authority verification failed.'
 }
 if ($workingTreeAuthority.releaseId -ne $ExpectedBackendReleaseId) {
   throw "Expected backend release does not match authority: $ExpectedBackendReleaseId"
-}
-if ($workingTreeAuthority.deployedIndexesParityStatus -ne 'proven') {
-  throw 'Backend authority must encode corrected 70I-C parity as proven.'
-}
-if ([string]$workingTreeAuthority.deployedIndexesParityEvidence.evidenceSha256 -ne 'E21C7E71611FBF84A42DBBD6C6E44CF3FD353AFDDB298A855D03DACA6A254CB8') {
-  throw 'Corrected 70I-C evidence hash mismatch.'
 }
 
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
@@ -402,21 +399,6 @@ $authority = (
 
 if ($authority.releaseId -ne $workingTreeAuthority.releaseId) {
   throw 'Git-archive authority differs from the working-tree authority.'
-}
-
-$sourceCustody = [ordered]@{}
-foreach ($property in $authority.sourceCustody.PSObject.Properties) {
-  $relativePath = [string]$property.Name
-  $expectedHash = ([string]$property.Value).ToUpperInvariant()
-  $actualHash = Get-ZipEntrySha256 `
-    -ArchivePath $sourceArchivePath `
-    -EntryPath $relativePath
-
-  if ($actualHash -ne $expectedHash) {
-    throw "Canonical source-custody mismatch for $relativePath"
-  }
-
-  $sourceCustody[$relativePath] = $actualHash
 }
 
 
@@ -572,7 +554,7 @@ if ($verifierSha256 -ne $verifierSourceSha256) {
 }
 
 $manifest = [ordered]@{
-  schemaVersion = 2
+  schemaVersion = 3
   generatedAtUtc = $buildTimestampUtc
   artifactClass = 'verification'
   distributionAuthority = 'not-approved-for-production'
@@ -620,15 +602,12 @@ $manifest = [ordered]@{
     expectedMatchesAuthority = $true
     runtimeParityEvaluatedByBuild = $false
     appGitCommit = $head
-    backendGitCommit = [string]$authority.backendGitCommit
-    backendSourceChangedBy70H = $false
-    intentionalDivergenceReason =
-      [string]$authority.intentionalDivergencePolicy.reason
-    deployedIndexesParityStatus =
-      [string]$authority.deployedIndexesParityStatus
-    deployedIndexesParityEvidence =
-      $authority.deployedIndexesParityEvidence
-    sourceCustody = $sourceCustody
+    authorityClass = [string]$authority.authorityClass
+    authorityDigest = [string]$authority.authorityDigest
+    releaseModel = $authority.releaseModel
+    repositoryAuthority = $authority.repositoryAuthority
+    firestore = $authority.firestore
+    sourceCustody = $authority.sourceCustody
   }
   verificationTool = [ordered]@{
     file = $verifierName
@@ -707,13 +686,16 @@ $ledger = @"
 - APK SHA-256: ``$artifactSha256``
 - Signing certificate SHA-256: ``$certificateSha256``
 - Expected backend release: ``$ExpectedBackendReleaseId``
-- Backend source commit: ``$($authority.backendGitCommit)``
-- Deployed-index parity: **not proven**
+- Backend authority: ``$($authority.authorityClass)``
+- Backend reconstruction commit: ``$($authority.repositoryAuthority.productionReconstructionSourceCommit)``
+- Backend fleet: ``$($authority.releaseModel.functionFleetStatus)``
+- Deployed-index parity: **$($authority.firestore.indexes.status)**
 - Build time UTC: ``$buildTimestampUtc``
 
-## Intentional source divergence
+## Composite backend boundary
 
-$($authority.intentionalDivergencePolicy.reason)
+The backend authority records a mixed live Function fleet. It does not claim
+that one Git commit represents every deployed Function.
 
 ## Rollback prerequisites
 
