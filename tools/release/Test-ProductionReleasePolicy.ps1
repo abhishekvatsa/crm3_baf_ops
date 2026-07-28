@@ -267,6 +267,10 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
       [string]$versionSource.approvalReference -or
     $versionSource.controls.fullPolicyAndAuthorityPreflightBeforeReservation -ne
       $true -or
+    $versionSource.controls.
+      androidDependencyConfigurationPreflightBeforeReservation -ne $true -or
+    $versionSource.controls.
+      androidReleaseSourceCompilationBeforeReservation -ne $true -or
     $versionSource.controls.failedOrWithdrawnBuildConsumesNumber -ne $true -or
     $versionSource.distributionApproved -ne $false -or
     $versionSource.unrestrictedPlantReleaseApproved -ne $false) {
@@ -410,11 +414,33 @@ foreach ($required in @(
   "applicationId = `"$($policy.permanentApplicationId)`""
   'signingConfigs.getByName("production")'
   'Release signing input missing'
+  'compileSdk = 36'
   'isDebuggable = false'
 )) {
   if (-not $gradle.Contains($required)) {
     throw "Gradle production contract is missing: $required"
   }
+}
+
+$rootGradle = Get-Content -LiteralPath 'android/build.gradle.kts' -Raw
+foreach ($required in @(
+  'name == "isar_flutter_libs"'
+  'pluginManager.withPlugin("com.android.library")'
+  'extensions.configure<com.android.build.api.variant.LibraryAndroidComponentsExtension>'
+  'finalizeDsl { libraryExtension ->'
+  'if (libraryExtension.namespace == null)'
+  'libraryExtension.namespace = "dev.isar.isar_flutter_libs"'
+  'libraryExtension.compileSdk = 36'
+)) {
+  if (-not $rootGradle.Contains($required)) {
+    throw "Isar AGP namespace compatibility contract is missing: $required"
+  }
+}
+
+$pubspecLock = Get-Content -LiteralPath 'pubspec.lock' -Raw
+if ($pubspecLock -notmatch
+    '(?ms)^\s{2}isar_flutter_libs:\s+.*?^\s{4}version:\s+"3\.1\.0\+1"\s*$') {
+  throw 'Isar AGP namespace compatibility is not bound to the locked package.'
 }
 
 $google = Get-Content -LiteralPath 'android/app/google-services.json' -Raw |
@@ -611,11 +637,31 @@ foreach ($required in @(
   'reserved_ref="refs/tags/${CRM_RESERVATION_TAG}"'
   'built_ref="refs/tags/${CRM_BUILT_TAG}"'
   'tooling/firebase-cli/node_modules/.bin'
+  'Prove Android dependency configuration before reservation'
+  'crm3-android-preflight-placeholder.p12'
+  './gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace'
+  './gradlew :app:compileReleaseSources --no-daemon --stacktrace'
   'New-ProductionArtifact.ps1'
 )) {
   if (-not $workflow.Contains($required)) {
     throw "Production workflow contract is missing: $required"
   }
+}
+$dependencyRestoreIndex =
+  $workflow.IndexOf('- name: Restore locked dependencies and Firebase CLI')
+$androidPreflightIndex =
+  $workflow.IndexOf(
+    '- name: Prove Android dependency configuration before reservation'
+  )
+$reservationIndex =
+  $workflow.IndexOf('- name: Atomically consume the build number')
+$productionBuildIndex =
+  $workflow.IndexOf('- name: Build once and independently verify')
+if ($dependencyRestoreIndex -lt 0 -or
+    $androidPreflightIndex -le $dependencyRestoreIndex -or
+    $reservationIndex -le $androidPreflightIndex -or
+    $productionBuildIndex -le $reservationIndex) {
+  throw 'Android preflight, reservation and production build order is invalid.'
 }
 $unsafeRunBlocks = @(
   Get-YamlRunBlocks -Source $workflow |

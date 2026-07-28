@@ -144,55 +144,6 @@ jobs:
           "CRM_EXPECTED_DART_VERSION=$($policy.toolchain.dartVersion)" |
             Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
 
-      - name: Atomically consume the build number
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          reserved_ref="refs/tags/${CRM_RESERVATION_TAG}"
-          built_ref="refs/tags/${CRM_BUILT_TAG}"
-
-          if git ls-remote --exit-code origin "$built_ref" >/dev/null 2>&1; then
-            echo "::error::Build number already has a built tag: ${CRM_BUILT_TAG}"
-            exit 1
-          fi
-
-          if git ls-remote --exit-code origin "$reserved_ref" >/dev/null 2>&1; then
-            echo "::error::Build number was already reserved/consumed: ${CRM_RESERVATION_TAG}"
-            exit 1
-          fi
-
-          git config user.name "crm3-baf-ops-release-bot"
-          git config user.email "crm3-baf-ops-release-bot@users.noreply.github.com"
-
-          message_file="${RUNNER_TEMP}/crm3-build-reservation.txt"
-          cat > "$message_file" <<EOF
-          CRM-III BAF Ops governed build-number reservation
-
-          Build number: ${CRM_BUILD_NUMBER}
-          Release ID: ${CRM_RELEASE_ID}
-          Reservation ID: ${CRM_RESERVATION_ID}
-          Commit: ${CRM_DISPATCH_COMMIT_SHA}
-          GitHub run: ${{ github.run_id }}
-          GitHub run attempt: ${{ github.run_attempt }}
-
-          This number is consumed even if the build fails or is withdrawn.
-          EOF
-
-          git tag -a "${CRM_RESERVATION_TAG}" \
-            "${CRM_DISPATCH_COMMIT_SHA}" \
-            -F "$message_file"
-
-          git push origin \
-            "refs/tags/${CRM_RESERVATION_TAG}:refs/tags/${CRM_RESERVATION_TAG}"
-
-          remote_commit="$(
-            git ls-remote origin "$reserved_ref" "${reserved_ref}^{}" |
-            awk '$2 ~ /\^\{\}$/ {print $1; found=1} END {if (!found) exit 1}'
-          )"
-
-          test "$remote_commit" = "${CRM_DISPATCH_COMMIT_SHA}"
-
       - name: Set up Java 21
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
         with:
@@ -261,6 +212,72 @@ jobs:
 
           actual_firebase_version="$(firebase --version)"
           test "$actual_firebase_version" = "$CRM_FIREBASE_TOOLS_VERSION"
+
+      - name: Prove Android dependency configuration before reservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          preflight_store="${RUNNER_TEMP}/crm3-android-preflight-placeholder.p12"
+          : > "$preflight_store"
+          trap 'rm -f "$preflight_store"' EXIT
+          export CRM_ANDROID_RELEASE_STORE_FILE="$preflight_store"
+          export CRM_ANDROID_RELEASE_STORE_PASSWORD='preflight-only'
+          export CRM_ANDROID_RELEASE_KEY_ALIAS='preflight-only'
+          export CRM_ANDROID_RELEASE_KEY_PASSWORD='preflight-only'
+          (
+            cd android
+            ./gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace
+            ./gradlew :app:compileReleaseSources --no-daemon --stacktrace
+          )
+
+      - name: Atomically consume the build number
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          reserved_ref="refs/tags/${CRM_RESERVATION_TAG}"
+          built_ref="refs/tags/${CRM_BUILT_TAG}"
+
+          if git ls-remote --exit-code origin "$built_ref" >/dev/null 2>&1; then
+            echo "::error::Build number already has a built tag: ${CRM_BUILT_TAG}"
+            exit 1
+          fi
+
+          if git ls-remote --exit-code origin "$reserved_ref" >/dev/null 2>&1; then
+            echo "::error::Build number was already reserved/consumed: ${CRM_RESERVATION_TAG}"
+            exit 1
+          fi
+
+          git config user.name "crm3-baf-ops-release-bot"
+          git config user.email "crm3-baf-ops-release-bot@users.noreply.github.com"
+
+          message_file="${RUNNER_TEMP}/crm3-build-reservation.txt"
+          cat > "$message_file" <<EOF
+          CRM-III BAF Ops governed build-number reservation
+
+          Build number: ${CRM_BUILD_NUMBER}
+          Release ID: ${CRM_RELEASE_ID}
+          Reservation ID: ${CRM_RESERVATION_ID}
+          Commit: ${CRM_DISPATCH_COMMIT_SHA}
+          GitHub run: ${{ github.run_id }}
+          GitHub run attempt: ${{ github.run_attempt }}
+
+          This number is consumed even if the build fails or is withdrawn.
+          EOF
+
+          git tag -a "${CRM_RESERVATION_TAG}" \
+            "${CRM_DISPATCH_COMMIT_SHA}" \
+            -F "$message_file"
+
+          git push origin \
+            "refs/tags/${CRM_RESERVATION_TAG}:refs/tags/${CRM_RESERVATION_TAG}"
+
+          remote_commit="$(
+            git ls-remote origin "$reserved_ref" "${reserved_ref}^{}" |
+            awk '$2 ~ /\^\{\}$/ {print $1; found=1} END {if (!found) exit 1}'
+          )"
+
+          test "$remote_commit" = "${CRM_DISPATCH_COMMIT_SHA}"
 
       - name: Restore approved production keystore
         shell: pwsh
