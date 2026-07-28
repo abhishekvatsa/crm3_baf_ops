@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-build-number-rollover-approval",
+  "approved": true,
+  "approvedAtUtc": "2026-07-28T18:47:41.9299549Z",
+  "approverName": "Abhishek Vatsa",
+  "approvalReference": "BAF-REF-003-C1",
+  "authorityBasis": "Project-owner direction to continue the governed production-candidate construction after preserving the failed first attempt and correcting its deterministic source defect.",
+  "approvalScope": "Allocate build number 2 for one protected, production-signed, non-distributable pre-release candidate after the source repair is merged to exact live main.",
+  "sourceBaseline": {
+    "commit": "7b4686295f8fd971ba74c61173ec3304aaea9fc9",
+    "tree": "2780965664fe703ff095d89af0176572b5485dc0"
+  },
+  "consumedBuild": {
+    "buildNumber": 1,
+    "versionName": "1.0.0-rc.1",
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b1",
+    "reservationId": "crm3-baf-ops-o1-o5-v4-904fda1-b1-1",
+    "remoteReservationTag": "crm3-build-reserved/1",
+    "remoteReservationTagObject": "7b0c7182dc9c8d5b29a88759d35bbebb60d39f1e",
+    "remoteReservationCommit": "7b4686295f8fd971ba74c61173ec3304aaea9fc9",
+    "githubRunId": 30387521656,
+    "githubRunAttempt": 1,
+    "githubRunUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30387521656",
+    "startedAtUtc": "2026-07-28T18:27:36Z",
+    "completedAtUtc": "2026-07-28T18:30:10Z",
+    "conclusion": "failure",
+    "failedStep": "Build once and independently verify",
+    "failureReason": "Production builder referenced obsolete pre-composite backend-authority fields.",
+    "artifactConstructed": false,
+    "artifactUploaded": false,
+    "remoteBuiltTagCreated": false,
+    "numberRemainsConsumed": true
+  },
+  "nextBuild": {
+    "buildNumber": 2,
+    "versionName": "1.0.0-rc.1",
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b2",
+    "releaseTag": "crm3-baf-ops-v1.0.0-rc.1",
+    "releaseChannel": "production-candidate",
+    "campaignId": "crm3-baf-ops-o1-o5-v4-7b46862-b2",
+    "reservationId": "crm3-baf-ops-o1-o5-v4-7b46862-b2-2",
+    "remoteReservationTag": "crm3-build-reserved/2",
+    "remoteBuiltTag": "crm3-build-built/2"
+  },
+  "controls": {
+    "strictlyMonotonicNeverReuse": true,
+    "sourceRepairMustMergeBeforeDispatch": true,
+    "exactLiveMainRequired": true,
+    "fullPolicyAndAuthorityPreflightBeforeReservation": true,
+    "reservationMustPrecedeBuild": true,
+    "builtTagOnlyAfterIndependentVerificationAndDualCustody": true,
+    "failedOrWithdrawnBuildConsumesNumber": true
+  },
+  "distributionApproved": false,
+  "unrestrictedPlantReleaseApproved": false,
+  "limitations": [
+    "This approval does not authorize Firebase deployment.",
+    "This approval does not authorize controlled-pilot or unrestricted distribution.",
+    "The build-2 remote reservation does not exist until the protected workflow creates it atomically.",
+    "A failed build-2 attempt will consume build number 2."
+  ]
+}

@@ -575,10 +575,13 @@ if ($LASTEXITCODE -ne 0) {
   throw 'Production policy verification failed.'
 }
 
-if ($authority.deployedIndexesParityStatus -ne 'proven' -or
-  [string]$authority.deployedIndexesParityEvidence.evidenceSha256 -ne
-  'E21C7E71611FBF84A42DBBD6C6E44CF3FD353AFDDB298A855D03DACA6A254CB8') {
-  throw 'Corrected index-parity authority is missing.'
+& pwsh -NoProfile -ExecutionPolicy Bypass `
+  -File tools/release/Test-BackendAuthority.ps1 `
+  -AuthorityPath $AuthorityPath `
+  -RepositoryRoot $repo `
+  -ExpectedReleaseId ([string]$authority.releaseId)
+if ($LASTEXITCODE -ne 0) {
+  throw 'Composite backend authority verification failed.'
 }
 
 $nodeVersion = (& node --version).Trim().TrimStart('v')
@@ -907,21 +910,10 @@ Export-ZipEntry `
   -EntryPath $verifierEntry `
   -DestinationPath $packagedVerifier
 
-$sourceCustody = [ordered]@{}
-foreach ($property in $authority.sourceCustody.PSObject.Properties) {
-  $actual = Get-ZipEntrySha256 `
-    -ArchivePath $archivePath `
-    -EntryPath ([string]$property.Name)
-
-  if ($actual -ne ([string]$property.Value).ToUpperInvariant()) {
-    throw "Backend source custody mismatch: $($property.Name)"
-  }
-  $sourceCustody[$property.Name] = $actual
-}
-
 $receiptFiles = @(
   'release/approvals/permanent-identity-approval.json'
   'release/approvals/version-policy-approval.json'
+  [string]$policy.versionPolicy.sourceDocumentFile
   'release/approvals/signing-custody-approval.json'
   'release/approvals/firebase-registration-receipt.json'
   'release/approvals/firebase-production-signing-restoration-receipt.json'
@@ -950,6 +942,7 @@ $configurationFiles = @(
   'release/github-actions-pins.json'
   '.github/workflows/production-artifact.yml'
   'tools/release/New-ProductionArtifact.ps1'
+  'tools/release/Test-BackendAuthority.ps1'
   'tools/release/Test-ProductionReleaseManifest.ps1'
   'tools/release/Test-ProductionReleasePolicy.ps1'
   'tooling/firebase-cli/package.json'
@@ -986,7 +979,7 @@ $buildReservation = $buildLedger.entries |
   Select-Object -First 1
 
 $manifest = [ordered]@{
-  schemaVersion = 5
+  schemaVersion = 6
   generatedAtUtc = $generatedAtUtc
   artifactClass = 'production-signed-pre-release-candidate'
   distributionAuthority = 'production-signed-pre-release-candidate'
@@ -1082,12 +1075,12 @@ $manifest = [ordered]@{
     authorityFileSha256 = Get-ZipEntrySha256 `
       -ArchivePath $archivePath `
       -EntryPath 'release/backend-authority.prod.json'
-    backendGitCommit = [string]$authority.backendGitCommit
-    deployedIndexesParityStatus =
-      [string]$authority.deployedIndexesParityStatus
-    deployedIndexesParityEvidence =
-      $authority.deployedIndexesParityEvidence
-    sourceCustody = $sourceCustody
+    authorityClass = [string]$authority.authorityClass
+    authorityDigest = [string]$authority.authorityDigest
+    releaseModel = $authority.releaseModel
+    repositoryAuthority = $authority.repositoryAuthority
+    firestore = $authority.firestore
+    sourceCustody = $authority.sourceCustody
   }
   policy = [ordered]@{
     file = 'release/production-release-policy.json'
@@ -1166,7 +1159,9 @@ $ledgerText = @"
 - Certificate SHA-256: $apkCertificateSha256
 - Source archive SHA-256: $archiveSha256
 - Backend release: $($authority.releaseId)
-- Index parity: PROVEN (28 = 28, all READY)
+- Backend authority: $($authority.authorityClass)
+- Backend fleet: $($authority.releaseModel.functionFleetStatus)
+- Index parity: $($authority.firestore.indexes.status) ($($authority.firestore.indexes.sourceCompositeIndexes) = $($authority.firestore.indexes.deployedCompositeIndexes), all ready)
 - Remote reservation tag: $reservationTag
 - Remote built tag: not created by builder
 - Distribution: NOT APPROVED

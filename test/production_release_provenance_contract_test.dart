@@ -88,6 +88,19 @@ void main() {
       expect(text, contains('jarsigner'));
       expect(text, contains('exactly one unique signer certificate'));
       expect(text, contains('independently approved authority'));
+      expect(text, contains('Test-BackendAuthority.ps1'));
+      expect(text, contains('authority.firestore'));
+      expect(text, contains('authority.sourceCustody'));
+      expect(
+        text,
+        isNot(contains('manifest.backend.deployedIndexesParityStatus')),
+      );
+      expect(
+        text,
+        isNot(contains('manifest.backend.deployedIndexesParityEvidence')),
+      );
+      expect(text, isNot(contains('authority.deployedIndexesParityStatus')));
+      expect(text, isNot(contains('authority.backendGitCommit')));
       expect(text, isNot(contains('SkipQualityGates')));
       expect(text, isNot(contains("CiRunId = 'local'")));
     });
@@ -95,7 +108,7 @@ void main() {
     test('independent verifier reproduces signer and source custody', () {
       final text = read('tools/release/Test-ProductionReleaseManifest.ps1');
 
-      expect(text, contains('schemaVersion -ne 5'));
+      expect(text, contains('schemaVersion -ne 6'));
       expect(text, contains('certificateDerFile'));
       expect(text, contains('sourceArchiveEntrySha256'));
       expect(text, contains('reservationTagMessageSha256'));
@@ -108,6 +121,17 @@ void main() {
       expect(text, contains('exactly one unique signer certificate'));
       expect(text, contains('backupProofSha256'));
       expect(text, contains('recoveryProofSha256'));
+      expect(text, contains('COMPOSITE_LIVE_STATE'));
+      expect(text, contains('firestore.indexes.sourceSha256'));
+      expect(
+        text,
+        isNot(contains('manifest.backend.deployedIndexesParityStatus')),
+      );
+      expect(
+        text,
+        isNot(contains('manifest.backend.deployedIndexesParityEvidence')),
+      );
+      expect(text, isNot(contains('authority.deployedIndexesParityStatus')));
     });
 
     test('policy remains non-distributable and binds remote issuance', () {
@@ -143,6 +167,14 @@ void main() {
       expect(text, contains('Upload governed package and mandatory sidecar'));
       expect(text, contains('/*-GOVERNED-PACKAGE.zip'));
       expect(text, contains('/*-GOVERNED-PACKAGE.zip.sha256.txt'));
+      expect(
+        text,
+        contains('Pre-reservation production policy verification failed.'),
+      );
+      expect(
+        text.indexOf('Test-ProductionReleasePolicy.ps1'),
+        lessThan(text.indexOf('- name: Atomically consume the build number')),
+      );
       expect(
         text,
         contains(r'CRM_DISPATCH_COMMIT_SHA: ${{ inputs.commit_sha }}'),
@@ -184,6 +216,50 @@ void main() {
       expect(text, isNot(contains('signingConfigs.getByName("debug")')));
     });
 
+    test('failed build 1 is preserved and build 2 is separately approved', () {
+      final ledger =
+          jsonDecode(read('release/build-number-ledger.json'))
+              as Map<String, dynamic>;
+      final entries =
+          (ledger['entries'] as List<dynamic>).cast<Map<String, dynamic>>();
+      final consumed = entries.singleWhere(
+        (entry) => entry['buildNumber'] == 1,
+      );
+      final replacement = entries.singleWhere(
+        (entry) => entry['buildNumber'] == 2,
+      );
+
+      expect(consumed['status'], 'remote-consumed-build-failed');
+      expect(consumed['githubRunId'], 30387521656);
+      expect(consumed['artifactConstructed'], isFalse);
+      expect(consumed['artifactUploaded'], isFalse);
+      expect(consumed['remoteBuiltTagCreated'], isFalse);
+      expect(consumed['failedOrWithdrawnBuildConsumesNumber'], isTrue);
+
+      expect(
+        replacement['status'],
+        'source-reserved-awaiting-remote-consumption',
+      );
+      expect(replacement['remoteReservationTag'], 'crm3-build-reserved/2');
+      expect(replacement['remoteBuiltTag'], 'crm3-build-built/2');
+
+      final approval =
+          jsonDecode(
+                read(
+                  'release/approvals/'
+                  'build-number-2-rollover-approval.json',
+                ),
+              )
+              as Map<String, dynamic>;
+      expect(approval['approved'], isTrue);
+      expect(approval['distributionApproved'], isFalse);
+      expect(
+        (approval['consumedBuild'] as Map<String, dynamic>)['githubRunId'],
+        30387521656,
+      );
+      expect((approval['nextBuild'] as Map<String, dynamic>)['buildNumber'], 2);
+    });
+
     test('permanent identity and public version are committed', () {
       final gradle = read('android/app/build.gradle.kts');
       final manifest = read('android/app/src/main/AndroidManifest.xml');
@@ -194,7 +270,12 @@ void main() {
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
         pubspec,
-        contains(RegExp(r'^version:\s+\S+\+\d+', multiLine: true)),
+        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+2$', multiLine: true)),
+      );
+      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b2"'));
+      expect(
+        policy,
+        contains('"remoteReservationTag": "crm3-build-reserved/2"'),
       );
       expect(policy, contains('"approved": false'));
       expect(policy, contains('"unrestrictedPlantReleaseApproved": false'));

@@ -71,6 +71,17 @@ if ($LASTEXITCODE -ne 0) {
 }
 $global:LASTEXITCODE = 0
 
+Run-Gate "production policy and composite backend authority" {
+  pwsh -NoProfile -ExecutionPolicy Bypass `
+    -File tools/release/Test-ProductionReleasePolicy.ps1 `
+    -PolicyPath release/production-release-policy.json `
+    -AuthorityPath release/backend-authority.prod.json `
+    -RepositoryRoot (Get-Location).Path `
+    2>&1 | Tee-Object -FilePath (
+      Join-Path $EvidenceDir "production_policy_authority.log"
+    )
+}
+
 Run-Gate "flutter analyze" {
   flutter analyze 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_analyze.log")
 }

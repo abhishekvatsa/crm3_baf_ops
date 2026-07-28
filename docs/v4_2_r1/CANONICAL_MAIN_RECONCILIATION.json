@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 297,
-    "SUCCESSOR_MODIFIED": 113
+    "BYTE_IDENTICAL": 289,
+    "SUCCESSOR_MODIFIED": 121
   },
   "paths": [
     {
@@ -97,9 +97,9 @@
     {
       "path": ".github/workflows/production-artifact.yml",
       "canonicalSha256": "6A053C5417526F1EEE7E7DE8117B0891B5E9B895C78AD678516FC03ECD361232",
-      "candidateSha256": "D6B3EC989EEE6C57438EA51009B207AF82A43C18C16DC5768A254933D0CE7756",
+      "candidateSha256": "25DD9AE8663A4CD9B94DCAA1186303F262CD6EBC46A12638DBD7B0A16CA294E8",
       "canonicalBytes": 15445,
-      "candidateBytes": 15882,
+      "candidateBytes": 16289,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -361,10 +361,10 @@
     {
       "path": "docs/70I_B2_PRODUCTION_IDENTITY_SIGNING_RUNBOOK.md",
       "canonicalSha256": "5FD9CFFEB9EF6F6094CF8ED796040A5FB232DFC6790E00C68C0F2AA9A279F811",
-      "candidateSha256": "5FD9CFFEB9EF6F6094CF8ED796040A5FB232DFC6790E00C68C0F2AA9A279F811",
+      "candidateSha256": "A524D80E79F6E7D1CEAC24D745D09CE031029B403819B503D18A6663428DEDC2",
       "canonicalBytes": 6369,
-      "candidateBytes": 6369,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 6859,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "docs/campaign/ND_1_ND_2_Module_Population_Fence_Decision.md",
@@ -2449,10 +2449,10 @@
     {
       "path": "pubspec.yaml",
       "canonicalSha256": "AA50252F720ECFF280AEB9703F4602ED76BAD8636EF6922250A80B8733AC58B2",
-      "candidateSha256": "AA50252F720ECFF280AEB9703F4602ED76BAD8636EF6922250A80B8733AC58B2",
+      "candidateSha256": "3AF7639400BF2BE3139BEE9EBBF602CD28C34C11D4BCDA5FF2C9BDA9BBA57B46",
       "canonicalBytes": 845,
-      "candidateBytes": 845,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 846,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "release/approvals/android-identity-migration-plan.json",
@@ -2497,10 +2497,10 @@
     {
       "path": "release/approvals/version-policy-approval.json",
       "canonicalSha256": "40F82419238953032CB2350936D68C179339E5B020DBF5D59105E63BB326CC6D",
-      "candidateSha256": "40F82419238953032CB2350936D68C179339E5B020DBF5D59105E63BB326CC6D",
+      "candidateSha256": "8833EF25E23F259F7AF57CCBF5B3FBD6B7D8F3011601CE63CDBFAF1043C93CB1",
       "canonicalBytes": 530,
-      "candidateBytes": 530,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 617,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "release/backend-authority-composite-v2.schema.json",
@@ -2569,10 +2569,10 @@
     {
       "path": "release/build-number-ledger.json",
       "canonicalSha256": "6F60C54ADB8180013766D707F175ADE744F1C46FBE95349CA60C834930E633E6",
-      "candidateSha256": "6F60C54ADB8180013766D707F175ADE744F1C46FBE95349CA60C834930E633E6",
+      "candidateSha256": "401DDAD6BC359F0E4FFD311DC607ACF528C2864E5AF4158392ECFF7D0530A1C3",
       "canonicalBytes": 1097,
-      "candidateBytes": 1097,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 2614,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "release/client-platform-scope.prod.json",
@@ -2593,9 +2593,9 @@
     {
       "path": "release/production-release-policy.json",
       "canonicalSha256": "599E82E90BE8424F4552690DB548968B4BFF364A6EF59CC96CFBA9A3AF1950F4",
-      "candidateSha256": "9E7BD48724D2916427329505FABEB403070C6009A567E2A70E08E2AD3AA1156E",
+      "candidateSha256": "C4F12355F13778F3147FF2B66ED9BA45D7765DBCFCE133F0E174CC5DA884FF32",
       "canonicalBytes": 5884,
-      "candidateBytes": 7514,
+      "candidateBytes": 7599,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2625,10 +2625,10 @@
     {
       "path": "release_gate.ps1",
       "canonicalSha256": "619826FD314248421C9808F26165A31EAC685D2200DAF67A0BBCCF40236C4C38",
-      "candidateSha256": "619826FD314248421C9808F26165A31EAC685D2200DAF67A0BBCCF40236C4C38",
+      "candidateSha256": "56C584C19171FB89B5D568E87EDC029A236B4267FD53E28245D0B17F0DFE6AE0",
       "canonicalBytes": 7235,
-      "candidateBytes": 7235,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 7663,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "test/app_build_identity_test.dart",
@@ -3077,9 +3077,9 @@
     {
       "path": "test/production_release_provenance_contract_test.dart",
       "canonicalSha256": "3906E9F4737E325D73259BA259C8A2088CA9084C817AEAD6260FC510049FE985",
-      "candidateSha256": "99A1BD17D0974D67F8D75648FC27CA53E24F3C21503273B906E917F480F57D58",
+      "candidateSha256": "C810810BFD6D24218F52C745F1AB0ACC5A50E931E9AFADD2CE46F9E8FD047231",
       "canonicalBytes": 7635,
-      "candidateBytes": 10114,
+      "candidateBytes": 13200,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3149,9 +3149,9 @@
     {
       "path": "test/release_provenance_tooling_contract_test.dart",
       "canonicalSha256": "5F75E40241190A585C84E8DE5EB05BFDF5052542890C42BF3923A7CC38B4E508",
-      "candidateSha256": "189007198166DC1F638FDD83D488EFDBCBA92B74D65C79F5A34CAE048050C1BC",
+      "candidateSha256": "6AC0A56C5DEFB6933A26AE48CBC6FF3DCBADDC06C6526BCB5A00BA477B613FD1",
       "canonicalBytes": 8509,
-      "candidateBytes": 9586,
+      "candidateBytes": 10384,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3357,42 +3357,42 @@
     {
       "path": "tools/release/New-ProductionArtifact.ps1",
       "canonicalSha256": "C35E86B61B047085DF4BF3C3FB345D11829AA4FBBA9D8A84A3E33479D28F067C",
-      "candidateSha256": "6ADA4BCC13CB7320A9C3CC3D269051778C600F65034DAA2C705F000C3C863B04",
+      "candidateSha256": "F7136F25CB19A39334AAF5FCCD0958F21AED158C72128782041FA0D24EBBF7FE",
       "canonicalBytes": 38608,
-      "candidateBytes": 38683,
+      "candidateBytes": 38710,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "tools/release/New-VerificationArtifact.ps1",
       "canonicalSha256": "923BEDE5E3DFE8F10EBF62618E718D6366EAF735C8FB368DBE57F04E62AFD200",
-      "candidateSha256": "923BEDE5E3DFE8F10EBF62618E718D6366EAF735C8FB368DBE57F04E62AFD200",
+      "candidateSha256": "F7B1846C6905E058BF87ACBFA65FBA6F71436A7483B1D5B4A9D75823E2C99287",
       "canonicalBytes": 22744,
-      "candidateBytes": 22744,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 22139,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "tools/release/Test-ProductionReleaseManifest.ps1",
       "canonicalSha256": "AB122937FB3F7D3A359A685E54BC6869F5921D7300787DDF4E72743A1AC31774",
-      "candidateSha256": "AB122937FB3F7D3A359A685E54BC6869F5921D7300787DDF4E72743A1AC31774",
+      "candidateSha256": "7C17C1D297F387272AF2886643081BE101E63AA51197CF8EAB86158F91BB97E6",
       "canonicalBytes": 26745,
-      "candidateBytes": 26745,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 28246,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "tools/release/Test-ProductionReleasePolicy.ps1",
       "canonicalSha256": "6A7A51C91BCF2276ACEE8FE48AEC70783808F687E6539B600273178CD8FDF7D6",
-      "candidateSha256": "49755BE7AD5A3E86669662C4C2A98BFE7B0FEDC4EFF70B8BED27716101E6D622",
+      "candidateSha256": "8C96F4360B3472072AE1D2EA5523F6B2C48B2F8A434272ED64A28255B2FE0858",
       "canonicalBytes": 15649,
-      "candidateBytes": 23547,
+      "candidateBytes": 26957,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "tools/release/Test-ReleaseManifest.ps1",
       "canonicalSha256": "512360C955A8589EECB37512F5B82A7631BB27E7F6D24858567A004E718AE145",
-      "candidateSha256": "512360C955A8589EECB37512F5B82A7631BB27E7F6D24858567A004E718AE145",
+      "candidateSha256": "188CC663F3FBA6A144A363EDE51CE76969D68618A62F37239FEC77614F7E0833",
       "canonicalBytes": 12167,
-      "candidateBytes": 12167,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 13508,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "web/manifest.json",

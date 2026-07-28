@@ -330,8 +330,8 @@ $manifestFile = (Resolve-Path -LiteralPath $ManifestPath).Path
 $packageDirectory = Split-Path -Parent $manifestFile
 $manifest = Get-Content -LiteralPath $manifestFile -Raw | ConvertFrom-Json
 
-if ($manifest.schemaVersion -ne 5) {
-  throw 'Unsupported production manifest schema; expected 5.'
+if ($manifest.schemaVersion -ne 6) {
+  throw 'Unsupported production manifest schema; expected 6.'
 }
 if ([string]$manifest.artifactClass -ne
   'production-signed-pre-release-candidate' -or
@@ -380,10 +380,17 @@ if ([string]$manifest.ciAuthority.provider -ne 'github-actions' -or
   throw 'Protected GitHub Actions provenance is incomplete.'
 }
 
-if ($manifest.backend.deployedIndexesParityStatus -ne 'proven' -or
-    [string]$manifest.backend.deployedIndexesParityEvidence.evidenceSha256 -ne
-    'E21C7E71611FBF84A42DBBD6C6E44CF3FD353AFDDB298A855D03DACA6A254CB8') {
-  throw 'Corrected index-parity authority is missing.'
+if ([string]$manifest.backend.authorityClass -ne
+      'verified-production-backend-composite' -or
+    [string]$manifest.backend.releaseModel.type -ne
+      'COMPOSITE_LIVE_STATE' -or
+    $manifest.backend.releaseModel.singleHomogeneousDeployment -ne $false -or
+    [string]$manifest.backend.firestore.indexes.status -ne 'EXACT' -or
+    $manifest.backend.firestore.indexes.allReady -ne $true -or
+    [int]$manifest.backend.firestore.indexes.sourceCompositeIndexes -ne
+      [int]$manifest.backend.firestore.indexes.deployedCompositeIndexes -or
+    [int]$manifest.backend.firestore.indexes.fieldOverrideCount -ne 0) {
+  throw 'Composite backend or exact Firestore-index authority is missing.'
 }
 
 $sourceArchivePath = Resolve-ContainedFile `
@@ -456,6 +463,51 @@ if ((Get-ZipEntrySha256 `
       -EntryPath 'release/backend-authority.prod.json') -ne
     ([string]$manifest.backend.authorityFileSha256).ToUpperInvariant()) {
   throw 'Backend authority source-entry hash mismatch.'
+}
+
+if ([int]$authority.schemaVersion -ne 2 -or
+    [string]$authority.authorityClass -ne
+      'verified-production-backend-composite' -or
+    [string]$authority.releaseId -ne
+      [string]$manifest.backend.expectedReleaseId -or
+    [string]$authority.authorityDigest -ne
+      [string]$manifest.backend.authorityDigest) {
+  throw 'Manifest/backend composite authority identity mismatch.'
+}
+
+foreach ($legacyField in @(
+  'backendGitCommit'
+  'deployedIndexesParityStatus'
+  'deployedIndexesParityEvidence'
+  'intentionalDivergencePolicy'
+)) {
+  if ($null -ne $authority.PSObject.Properties[$legacyField]) {
+    throw "Backend authority retains obsolete top-level field: $legacyField"
+  }
+}
+
+foreach ($field in @(
+  'releaseModel'
+  'repositoryAuthority'
+  'firestore'
+  'sourceCustody'
+)) {
+  $authorityJson = $authority.$field | ConvertTo-Json -Depth 100 -Compress
+  $manifestJson = $manifest.backend.$field |
+    ConvertTo-Json -Depth 100 -Compress
+  if ($authorityJson -cne $manifestJson) {
+    throw "Manifest backend field differs from authority: $field"
+  }
+}
+
+$indexCustody = @(
+  $authority.sourceCustody.files |
+    Where-Object { [string]$_.path -eq 'firestore.indexes.json' }
+)
+if ($indexCustody.Count -ne 1 -or
+    [string]$indexCustody[0].sha256 -ne
+      [string]$authority.firestore.indexes.sourceSha256) {
+  throw 'Live Firestore index authority differs from reconstruction custody.'
 }
 
 foreach ($receipt in $manifest.policy.approvalReceiptHashes.PSObject.Properties) {
@@ -745,16 +797,6 @@ foreach ($facts in @($apkFacts, $aabFacts)) {
         [string]$manifest.release.buildNumber -or
       [string]$facts.debuggable -ne 'false') {
     throw 'Compiled artifact package/version/debuggable state mismatch.'
-  }
-}
-
-foreach ($property in $authority.sourceCustody.PSObject.Properties) {
-  $actual = Get-ZipEntrySha256 `
-    -ArchivePath $sourceArchivePath `
-    -EntryPath ([string]$property.Name)
-
-  if ($actual -ne ([string]$property.Value).ToUpperInvariant()) {
-    throw "Backend source custody mismatch: $($property.Name)"
   }
 }
 

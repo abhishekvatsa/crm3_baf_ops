@@ -147,7 +147,14 @@ void main() {
       expect(source, contains("'build', 'apk', '--debug'"));
       expect(source, contains('git archive'));
       expect(source, contains('Test-ReleaseManifest.ps1'));
-      expect(source, contains('deployedIndexesParityStatus'));
+      expect(source, contains('Test-BackendAuthority.ps1'));
+      expect(source, contains('authorityClass'));
+      expect(source, contains('authority.firestore'));
+      expect(source, contains('authority.sourceCustody'));
+      expect(source, isNot(contains('deployedIndexesParityStatus')));
+      expect(source, isNot(contains('deployedIndexesParityEvidence')));
+      expect(source, isNot(contains('authority.backendGitCommit')));
+      expect(source, isNot(contains('intentionalDivergencePolicy')));
     },
   );
 
@@ -161,6 +168,17 @@ void main() {
     expect(source, contains('sourceCustody'));
     expect(source, contains('EXPECTED_BACKEND_RELEASE_ID'));
     expect(source, contains('verification-result.json'));
+    expect(source, contains('COMPOSITE_LIVE_STATE'));
+    expect(source, contains('firestore.indexes.sourceSha256'));
+    expect(
+      source,
+      isNot(contains('manifest.backend.deployedIndexesParityStatus')),
+    );
+    expect(
+      source,
+      isNot(contains('manifest.backend.deployedIndexesParityEvidence')),
+    );
+    expect(source, isNot(contains('authority.deployedIndexesParityStatus')));
   });
 
   test('manual CI workflow uses exact commit and uploads evidence', () {
@@ -191,21 +209,15 @@ void main() {
     expect(source, contains("ReleaseChannel 'verification'"));
     expect(
       source,
-      contains(
-        'actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5',
-      ),
+      contains('actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5'),
     );
     expect(
       source,
-      contains(
-        'actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9',
-      ),
+      contains('actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9'),
     );
     expect(
       source,
-      contains(
-        'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020',
-      ),
+      contains('actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020'),
     );
     expect(
       source,
@@ -240,7 +252,7 @@ void main() {
     final builder = read('tools/release/New-VerificationArtifact.ps1');
     final verifier = read('tools/release/Test-ReleaseManifest.ps1');
 
-    expect(builder, contains("schemaVersion = 2"));
+    expect(builder, contains("schemaVersion = 3"));
     expect(builder, contains('Get-ZipEntrySha256'));
     expect(builder, contains("hashBasis = 'git-archive-entry-bytes'"));
     expect(builder, contains("entryPathStyle = 'posix'"));
@@ -250,7 +262,7 @@ void main() {
     expect(builder, contains("build/app/outputs/flutter-apk/app-debug.apk"));
     expect(builder, contains(r'$IsWindows'));
 
-    expect(verifier, contains("schemaVersion -ne 2"));
+    expect(verifier, contains("schemaVersion -ne 3"));
     expect(verifier, contains('Get-ZipEntrySha256'));
     expect(verifier, contains('Get-ZipEntryText'));
     expect(verifier, contains('Packaged verifier SHA-256 mismatch'));

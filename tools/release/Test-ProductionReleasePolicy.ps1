@@ -12,6 +12,7 @@ locked Firebase CLI, action pins and non-distribution release boundaries.
 [CmdletBinding()]
 param(
   [string]$PolicyPath = 'release/production-release-policy.json',
+  [string]$AuthorityPath = 'release/backend-authority.prod.json',
   [string]$RepositoryRoot = (Get-Location).Path
 )
 
@@ -126,6 +127,14 @@ $policy = Get-Content -LiteralPath $PolicyPath -Raw | ConvertFrom-Json
 if ($policy.schemaVersion -ne 3) {
   throw 'Unsupported production policy schema; expected 3.'
 }
+
+& pwsh -NoProfile -ExecutionPolicy Bypass `
+  -File tools/release/Test-BackendAuthority.ps1 `
+  -AuthorityPath $AuthorityPath `
+  -RepositoryRoot $RepositoryRoot
+if ($LASTEXITCODE -ne 0) {
+  throw 'Composite backend authority verification failed.'
+}
 if ([string]$policy.firebaseProjectId -ne 'crm3-baf-ops-b8638') {
   throw 'Unexpected Firebase project.'
 }
@@ -183,6 +192,7 @@ if ($policy.distribution.postBuildPromotionRequiredForAnyDistribution -ne
 $requiredFiles = @(
   [string]$policy.identityApproval.receiptFile
   [string]$policy.versionPolicy.approvalReceiptFile
+  [string]$policy.versionPolicy.sourceDocumentFile
   [string]$policy.signing.approvalReceiptFile
   [string]$policy.firebaseAndroidApp.registrationReceiptFile
   [string]$policy.firebaseAndroidApp.restorationReceiptFile
@@ -218,9 +228,49 @@ if ([string]$versionReceipt.receiptType -ne 'version-and-build-policy' -or
     [int64]$versionReceipt.buildNumber -ne [int64]$policy.release.buildNumber -or
     [string]$versionReceipt.reservationId -ne
       [string]$policy.versionPolicy.reservationId -or
+    [string]$versionReceipt.remoteReservationTag -ne
+      [string]$policy.versionPolicy.remoteReservationTag -or
+    [string]$versionReceipt.remoteBuiltTag -ne
+      [string]$policy.versionPolicy.remoteBuiltTag -or
+    [string]$versionReceipt.sourceDocumentFile -ne
+      [string]$policy.versionPolicy.sourceDocumentFile -or
     [string]$versionReceipt.sourceDocumentSha256 -ne
       [string]$policy.versionPolicy.sourceDocumentSha256) {
   throw 'Version-policy approval receipt differs from policy.'
+}
+
+$versionSource = Get-Content `
+  -LiteralPath $policy.versionPolicy.sourceDocumentFile `
+  -Raw | ConvertFrom-Json
+if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
+      ([string]$policy.versionPolicy.sourceDocumentSha256).
+        ToUpperInvariant() -or
+    [string]$versionSource.documentType -ne
+      'governed-build-number-rollover-approval' -or
+    $versionSource.approved -ne $true -or
+    [int64]$versionSource.nextBuild.buildNumber -ne
+      [int64]$policy.release.buildNumber -or
+    [string]$versionSource.nextBuild.releaseId -ne
+      [string]$policy.release.releaseId -or
+    [string]$versionSource.nextBuild.reservationId -ne
+      [string]$policy.versionPolicy.reservationId -or
+    [int64]$versionSource.consumedBuild.buildNumber -ge
+      [int64]$versionSource.nextBuild.buildNumber -or
+    [int64]$versionSource.nextBuild.buildNumber -ne
+      ([int64]$versionSource.consumedBuild.buildNumber + 1) -or
+    [string]$versionSource.consumedBuild.conclusion -ne 'failure' -or
+    [string]$versionSource.nextBuild.remoteReservationTag -ne
+      [string]$policy.versionPolicy.remoteReservationTag -or
+    [string]$versionSource.nextBuild.remoteBuiltTag -ne
+      [string]$policy.versionPolicy.remoteBuiltTag -or
+    [string]$versionReceipt.reference -ne
+      [string]$versionSource.approvalReference -or
+    $versionSource.controls.fullPolicyAndAuthorityPreflightBeforeReservation -ne
+      $true -or
+    $versionSource.controls.failedOrWithdrawnBuildConsumesNumber -ne $true -or
+    $versionSource.distributionApproved -ne $false -or
+    $versionSource.unrestrictedPlantReleaseApproved -ne $false) {
+  throw 'Governed build-number rollover authority is incomplete.'
 }
 
 $signingReceipt = Get-Content -LiteralPath $policy.signing.approvalReceiptFile -Raw |
@@ -291,8 +341,33 @@ if ([string]$reservation.reservationId -ne
     [string]$reservation.releaseId -ne
       [string]$policy.release.releaseId -or
     [string]$reservation.versionName -ne
-      [string]$policy.release.versionName) {
+      [string]$policy.release.versionName -or
+    [string]$reservation.status -ne
+      'source-reserved-awaiting-remote-consumption' -or
+    [string]$reservation.versionApprovalReference -ne
+      [string]$versionReceipt.reference -or
+    [string]$reservation.versionApprovalDocumentSha256 -ne
+      [string]$policy.versionPolicy.sourceDocumentSha256) {
   throw 'Build-number source reservation differs from policy.'
+}
+
+$consumedMatches = @(
+  $ledger.entries |
+    Where-Object {
+      [int64]$_.buildNumber -eq
+        [int64]$versionSource.consumedBuild.buildNumber
+    }
+)
+if ($consumedMatches.Count -ne 1 -or
+    [string]$consumedMatches[0].status -ne
+      'remote-consumed-build-failed' -or
+    [int64]$consumedMatches[0].githubRunId -ne
+      [int64]$versionSource.consumedBuild.githubRunId -or
+    $consumedMatches[0].failedOrWithdrawnBuildConsumesNumber -ne $true -or
+    $consumedMatches[0].artifactConstructed -ne $false -or
+    $consumedMatches[0].artifactUploaded -ne $false -or
+    $consumedMatches[0].remoteBuiltTagCreated -ne $false) {
+  throw 'Consumed failed-build evidence differs from rollover authority.'
 }
 
 if (@(
