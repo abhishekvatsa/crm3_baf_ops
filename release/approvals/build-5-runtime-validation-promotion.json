@@ -19,6 +19,15 @@
     "artifactOrTargetExpansion": false,
     "pilotOrExternalDistributionExpansion": false
   },
+  "explicitOauthAmendment": {
+    "priorRecoveryPromotionSha256": "A68A70EB01A5A5C7FA7528F5DFE908EE5415A79050A62A0038E873B564910AF2",
+    "reason": "After notification denial, the exact production app reached the approved-user home screen through a restored authentication session. That proves the approved-user gate but not a fresh production-certificate OAuth exchange.",
+    "scopeChange": "Permit in-app sign-out, including own-user fcmToken clearing, and require return to the Google sign-in screen before fresh OAuth proof.",
+    "appDataClearAuthorized": false,
+    "reinstallAuthorized": false,
+    "artifactOrTargetExpansion": false,
+    "pilotOrExternalDistributionExpansion": false
+  },
   "artifactAuthority": {
     "releaseId": "crm3-baf-ops-1.0.0-rc.1-b5",
     "versionName": "1.0.0-rc.1",
@@ -99,6 +108,8 @@
     "launch the installed application",
     "deny the Android notification permission on the named validation AVD when its first-launch system dialog blocks the sign-in screen",
     "finalize interrupted install evidence without reinstalling when the preserved prior-debug signer and exact current Build 5 installed hash prove the replacement",
+    "classify a restored approved-user session as approved-gate evidence but not fresh OAuth evidence",
+    "use the production app's own Sign Out control to clear the restored Firebase and Google session before fresh sign-in",
     "complete Google Sign-In using the existing owner-controlled emulator account",
     "read and hydrate only that Firebase identity's own users document through the app's existing authentication flow",
     "capture SHA-sealed package, device, install and privacy-minimized UI evidence"
@@ -106,6 +117,7 @@
   "expectedRemoteMutationBoundary": {
     "firebaseAuthenticationSessionCreated": true,
     "ownUserProfileHydrationPermitted": true,
+    "ownUserFcmTokenClearOnSignOutPermitted": true,
     "ownUserProfileFields": [
       "name",
       "email",
@@ -131,6 +143,7 @@
     "named AVD identity, API level, build fingerprint and Google Play Services presence",
     "inventory and secure removal of the exact prior debuggable package",
     "successful exact-APK installation with non-debuggable installed-package verification",
+    "restored-session classification followed by in-app sign-out and return to the Google sign-in screen",
     "approved-user home screen reached after Google Sign-In without storing account email or display name in repository evidence",
     "evidence mutation boundary and SHA-256 inventory"
   ],
