@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "policyId": "crm3-baf-ops-o1-o5-v4-4d5ea36-b3",
+  "policyId": "crm3-baf-ops-o1-o5-v4-a808376-b4",
   "firebaseProjectId": "crm3-baf-ops-b8638",
   "permanentApplicationId": "in.co.sail.bsl.crm3.bafops",
   "namespace": "in.co.sail.bsl.crm3.bafops",
@@ -26,15 +26,15 @@
     "approved": true,
     "scheme": "semver2",
     "versionName": "1.0.0-rc.1",
-    "buildNumber": 3,
+    "buildNumber": 4,
     "buildNumberPolicy": "positive-int32-strictly-monotonic-never-reuse",
-    "reservationId": "crm3-baf-ops-o1-o5-v4-4d5ea36-b3-3",
+    "reservationId": "crm3-baf-ops-o1-o5-v4-a808376-b4-4",
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
-    "sourceDocumentFile": "release/approvals/build-number-3-rollover-approval.json",
-    "sourceDocumentSha256": "1836755B416182BA24D37244E46A4D50D110BC7170CE6A166C4AE30C59760358",
-    "remoteReservationTag": "crm3-build-reserved/3",
-    "remoteBuiltTag": "crm3-build-built/3",
+    "sourceDocumentFile": "release/approvals/build-number-4-rollover-approval.json",
+    "sourceDocumentSha256": "A5119054F7AE484450D46E15392DFDCB3F359CAE12BEEB058F1EDEC63D4A76FD",
+    "remoteReservationTag": "crm3-build-reserved/4",
+    "remoteBuiltTag": "crm3-build-built/4",
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "signing": {
@@ -83,11 +83,11 @@
     "restorationEvidenceSha256": "24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF"
   },
   "release": {
-    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b3",
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b4",
     "releaseTag": "crm3-baf-ops-v1.0.0-rc.1",
     "releaseChannel": "production-candidate",
     "versionName": "1.0.0-rc.1",
-    "buildNumber": 3
+    "buildNumber": 4
   },
   "distribution": {
     "authority": "production-signed-pre-release-candidate",
