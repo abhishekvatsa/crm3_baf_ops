@@ -352,7 +352,7 @@ void main() {
       );
     });
 
-    test('builds 1 to 4 are preserved and build 5 is approved', () {
+    test('builds 1 to 4 are preserved and build 5 is finalized', () {
       final ledger =
           jsonDecode(read('release/build-number-ledger.json'))
               as Map<String, dynamic>;
@@ -421,10 +421,27 @@ void main() {
       expect(build4['dualCustodyCompleted'], isFalse);
       expect(build4['remoteBuiltTagCreated'], isFalse);
 
-      expect(build5['status'], 'source-reserved-awaiting-remote-consumption');
+      expect(
+        build5['status'],
+        'remote-consumed-artifact-built-finalized-non-distributable',
+      );
       expect(build5['remoteReservationTag'], 'crm3-build-reserved/5');
       expect(build5['remoteBuiltTag'], 'crm3-build-built/5');
       expect(build5['versionApprovalReference'], 'BAF-REF-003-C4');
+      expect(build5['githubRunId'], 30466468245);
+      expect(
+        build5['governedPackageSha256'],
+        'E702A72A6603B6187E9282FC12E1E633F9BF59057ED331464BE590579FFB29C1',
+      );
+      expect(build5['closureFinalizationCompleted'], isTrue);
+      expect(build5['dualCustodyCompleted'], isTrue);
+      expect(build5['remoteBuiltTagCreated'], isTrue);
+      expect(build5['remoteTagPushRecoveryRequired'], isTrue);
+      expect(build5['remoteTagPushRecoveryForceUsed'], isFalse);
+      expect(build5['firebaseBackendDeploymentPerformed'], isFalse);
+      expect(build5['controlledPilotApproved'], isFalse);
+      expect(build5['unrestrictedPlantReleaseApproved'], isFalse);
+      expect(build5['distributionPerformed'], isFalse);
 
       final approval =
           jsonDecode(
@@ -538,7 +555,85 @@ void main() {
       expect(finalizer, contains('Authorized dispatcher ID:'));
       expect(finalizer, contains(r'environmentSecretValuesInspected = $false'));
       expect(finalizer, contains(r'$prCommits.Count -lt 1'));
+      expect(
+        finalizer,
+        contains(
+          r'git push origin "refs/tags/${builtTag}:refs/tags/${builtTag}"',
+        ),
+      );
+      expect(
+        finalizer,
+        isNot(
+          contains(
+            r'git push origin "refs/tags/$builtTag:refs/tags/$builtTag"',
+          ),
+        ),
+      );
       expect(finalizer, isNot(contains('expectedCommitHeadlines')));
+    });
+
+    test('build 5 closure receipt binds recovery and release boundary', () {
+      final policy =
+          jsonDecode(read('release/production-release-policy.json'))
+              as Map<String, dynamic>;
+      final finalization = policy['finalization'] as Map<String, dynamic>;
+      final receipt =
+          jsonDecode(read(finalization['completionReceiptFile'] as String))
+              as Map<String, dynamic>;
+      final sourceAuthority =
+          receipt['sourceAuthority'] as Map<String, dynamic>;
+      final workflow = receipt['workflow'] as Map<String, dynamic>;
+      final governedPackage =
+          receipt['governedPackage'] as Map<String, dynamic>;
+      final remoteAuthority =
+          receipt['remoteAuthority'] as Map<String, dynamic>;
+      final dualCustody = receipt['dualCustody'] as Map<String, dynamic>;
+      final closure = receipt['closure'] as Map<String, dynamic>;
+      final incident = receipt['recoveryIncident'] as Map<String, dynamic>;
+      final recovery = incident['recovery'] as Map<String, dynamic>;
+      final correction = incident['sourceCorrection'] as Map<String, dynamic>;
+      final releaseBoundary =
+          receipt['releaseBoundary'] as Map<String, dynamic>;
+
+      expect(finalization['status'], 'completed-non-distributable');
+      expect(receipt['schemaVersion'], 1);
+      expect(receipt['status'], 'passed-non-distributable');
+      expect(
+        sourceAuthority['commit'],
+        '60dc4688fbbc7127e84c63d7955dab4210555e0d',
+      );
+      expect(workflow['runId'], 30466468245);
+      expect(workflow['actor'], 'abhishekvatsa');
+      expect(workflow['actorId'], 213690022);
+      expect(workflow['secretValuesInspected'], isFalse);
+      expect(
+        governedPackage['sha256'],
+        'E702A72A6603B6187E9282FC12E1E633F9BF59057ED331464BE590579FFB29C1',
+      );
+      expect(governedPackage['independentVerificationCompleted'], isTrue);
+      expect(
+        remoteAuthority['builtTagObjectSha'],
+        '6bf4ab7f0e65753e3a49b12f2e62df19ce8f795a',
+      );
+      expect(dualCustody['distinctVolumes'], isTrue);
+      expect(dualCustody['filesVerifiedInBothLocations'], 6);
+      expect(dualCustody['allFileHashesMatched'], isTrue);
+      expect(
+        closure['closurePackageSha256'],
+        '4AEBDFC8B1FE378FA8CAB26B6C05CB745250A52CC7CE095CA5987605030A6679',
+      );
+      expect(incident['failureBoundary'], 'remote-built-tag-push');
+      expect(incident['occurred'], isTrue);
+      expect(recovery['method'], 'exact-non-force-refspec-push');
+      expect(recovery['forceUsed'], isFalse);
+      expect(
+        correction['correctedExpression'],
+        r'git push origin "refs/tags/${builtTag}:refs/tags/${builtTag}"',
+      );
+      expect(releaseBoundary['firebaseBackendDeploymentPerformed'], isFalse);
+      expect(releaseBoundary['controlledPilotApproved'], isFalse);
+      expect(releaseBoundary['unrestrictedPlantReleaseApproved'], isFalse);
+      expect(releaseBoundary['distributionPerformed'], isFalse);
     });
 
     test('permanent identity and public version are committed', () {

@@ -757,7 +757,7 @@ Unrestricted plant release: not approved
     throw 'Unable to create local built tag.'
   }
 
-  git push origin "refs/tags/$builtTag:refs/tags/$builtTag"
+  git push origin "refs/tags/${builtTag}:refs/tags/${builtTag}"
   if ($LASTEXITCODE -ne 0) {
     throw 'Unable to push remote built tag.'
   }
