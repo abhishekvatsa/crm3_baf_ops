@@ -267,7 +267,7 @@ void main() {
     expect(decision['leastPrivilegeIam'], 'ACTIVE_INDEPENDENT_TRACK');
     expect(decision['broadFeatureExpansion'], 'HOLD');
     expect(decision['unrestrictedDistribution'], 'NO_GO');
-    expect(decision['nextMutation'], 'STAGE2D-F3');
+    expect(decision['nextMutation'], 'STAGE2D-F4');
 
     expect(_strings(payload['severityVocabulary']).toSet(), <String>{
       'BLOCKER',
@@ -557,17 +557,23 @@ void main() {
     }
   });
 
-  test('Build 5 adjudication advances only the evidence-proved records', () {
+  test('Build 5 runtime adjudication closes only P-01 and F3', () {
     const receiptPath = 'release/evidence/build-5-programme-adjudication.json';
     const receiptSha =
         '09031647BA40635350C3E36548CA6030CB0E0672C15C4CDBE538D44E988DC97B';
+    const runtimeAdjudicationPath =
+        'release/evidence/build-5-runtime-validation-adjudication.json';
+    const runtimeAdjudicationSha =
+        '5401E163E7B0942B3B4FAFD810A2BE45492666CB8E750ABB54FC0741091FE551';
     const closurePackageSha =
         '4AEBDFC8B1FE378FA8CAB26B6C05CB745250A52CC7CE095CA5987605030A6679';
 
     expect(_sha256(receiptPath), receiptSha);
+    expect(_sha256(runtimeAdjudicationPath), runtimeAdjudicationSha);
 
     final ledger = _readJson('governance/programme-ledger.json');
     final receipt = _readJson(receiptPath);
+    final runtimeAdjudication = _readJson(runtimeAdjudicationPath);
     final gates = _objects(ledger['programmeGates']);
     final findings = _objects(ledger['technicalFindings']);
 
@@ -589,29 +595,75 @@ void main() {
     expect(releaseBoundary['distributionPerformed'], isFalse);
 
     final p01 = findings.singleWhere((item) => item['findingId'] == 'P-01');
-    expect(p01['currentStatus'], 'SOURCE_IMPLEMENTED');
+    expect(p01['currentStatus'], 'CLOSED');
     expect(_strings(p01['requiredExitEvidence']), hasLength(4));
-    final p01Evidence = _objects(p01['evidence']).single;
-    expect(p01Evidence['sha256'], receiptSha);
-    expect(p01Evidence['productionSignedRuntimeGoogleSignInProved'], isFalse);
+    final p01Evidence = _objects(p01['evidence']);
+    final p01SourceEvidence = p01Evidence.singleWhere(
+      (entry) => entry['sha256'] == receiptSha,
+    );
+    expect(
+      p01SourceEvidence['productionSignedRuntimeGoogleSignInProved'],
+      isFalse,
+    );
+    final p01RuntimeEvidence = p01Evidence.singleWhere(
+      (entry) => entry['sha256'] == runtimeAdjudicationSha,
+    );
+    expect(
+      p01RuntimeEvidence['productionSignedRuntimeGoogleSignInProved'],
+      isTrue,
+    );
+    expect(p01RuntimeEvidence['approvedOwnUserRecordProved'], isTrue);
+    expect(p01RuntimeEvidence['sourceRemediationMerged'], isTrue);
+    expect(
+      p01RuntimeEvidence['futurePilotArtifactMustContainRemediation'],
+      isTrue,
+    );
     expect(
       _objects(
         p01['statusHistory'],
       ).map((entry) => entry['status']).toList(growable: false),
-      <String>['OPEN', 'SOURCE_IMPLEMENTED'],
+      <String>[
+        'OPEN',
+        'SOURCE_IMPLEMENTED',
+        'MERGED',
+        'DEPLOYED',
+        'DEVICE_PROVED',
+        'CLOSED',
+      ],
     );
     final p01Adjudication = _object(receipt['p01Adjudication']);
     expect(p01Adjudication['adjudicatedStatus'], 'SOURCE_IMPLEMENTED');
     expect(p01Adjudication['pilotBlockerRemains'], isTrue);
+    final runtimeP01Adjudication = _object(
+      runtimeAdjudication['p01Adjudication'],
+    );
+    expect(runtimeP01Adjudication['adjudicatedStatus'], 'CLOSED');
+    expect(runtimeP01Adjudication['pilotBlockerRemains'], isFalse);
+    expect(_strings(runtimeP01Adjudication['transitionSequence']), <String>[
+      'MERGED',
+      'DEPLOYED',
+      'DEVICE_PROVED',
+      'CLOSED',
+    ]);
 
     final f3 = gates.singleWhere((item) => item['gateId'] == 'STAGE2D-F3');
-    expect(f3['currentStatus'], 'OPEN');
-    expect(f3['authorization'], 'BLOCKS_PILOT_HANDOUT');
-    final f3Evidence = _objects(f3['evidence']).single;
-    expect(f3Evidence['sha256'], receiptSha);
-    expect(f3Evidence['completedExitDimensions'], 2);
-    expect(f3Evidence['requiredExitDimensions'], 3);
-    expect(f3Evidence['distributionPerformed'], isFalse);
+    expect(f3['currentStatus'], 'CLOSED');
+    expect(f3['authorization'], 'CLOSED_PASS');
+    final f3Evidence = _objects(f3['evidence']);
+    final f3SourceEvidence = f3Evidence.singleWhere(
+      (entry) => entry['sha256'] == receiptSha,
+    );
+    expect(f3SourceEvidence['completedExitDimensions'], 2);
+    expect(f3SourceEvidence['requiredExitDimensions'], 3);
+    expect(f3SourceEvidence['distributionPerformed'], isFalse);
+    final f3RuntimeEvidence = f3Evidence.singleWhere(
+      (entry) => entry['sha256'] == runtimeAdjudicationSha,
+    );
+    expect(f3RuntimeEvidence['completedExitDimensions'], 3);
+    expect(f3RuntimeEvidence['requiredExitDimensions'], 3);
+    expect(f3RuntimeEvidence['controlledDistributionPerformed'], isTrue);
+    expect(f3RuntimeEvidence['externalDistributionPerformed'], isFalse);
+    expect(f3RuntimeEvidence['pilotHandoutPerformed'], isFalse);
     final f3Adjudication = _object(receipt['stage2dF3Adjudication']);
     final f3Dimensions = _object(f3Adjudication['dimensions']);
     expect(_object(f3Dimensions['signedApkHash'])['status'], 'passed');
@@ -624,6 +676,28 @@ void main() {
       'open',
     );
     expect(f3Adjudication['pilotHandoutAuthorized'], isFalse);
+    final runtimeF3Adjudication = _object(
+      runtimeAdjudication['stage2dF3Adjudication'],
+    );
+    expect(runtimeF3Adjudication['adjudicatedStatus'], 'CLOSED');
+    expect(runtimeF3Adjudication['authorization'], 'CLOSED_PASS');
+    expect(runtimeF3Adjudication['completedExitDimensions'], 3);
+    expect(runtimeF3Adjudication['requiredExitDimensions'], 3);
+    expect(runtimeF3Adjudication['controlledDistributionPerformed'], isTrue);
+    expect(runtimeF3Adjudication['externalDistributionPerformed'], isFalse);
+    expect(runtimeF3Adjudication['pilotHandoutAuthorized'], isFalse);
+    expect(
+      _object(runtimeF3Adjudication['dimensions']).values.toSet(),
+      <String>{'passed'},
+    );
+    expect(
+      _object(runtimeAdjudication['programmeDecision'])['nextMutation'],
+      'STAGE2D-F4',
+    );
+    expect(
+      _object(runtimeAdjudication['programmeDecision'])['pilotHandout'],
+      'NOT_AUTHORIZED',
+    );
 
     final lr05 = gates.singleWhere((item) => item['gateId'] == 'LR-05');
     expect(lr05['currentStatus'], 'CLOSED');

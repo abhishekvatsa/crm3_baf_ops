@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 287
-    and counts.get("SUCCESSOR_MODIFIED") == 123
+    and counts.get("BYTE_IDENTICAL") == 286
+    and counts.get("SUCCESSOR_MODIFIED") == 124
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -362,12 +362,14 @@ critical_exact = {
     "android/app/build.gradle.kts",
     "android/settings.gradle.kts",
     "release/stage2d-f-internal-controlled-deployment-scope.json",
-    "test/stage2d_f2_programme_ledger_closure_contract_test.dart",
 }
 row_map = {row["path"]: row for row in rows}
 check(
-    "Stage 2D-F2, Android and immutable release authorities remain byte-identical",
-    all(row_map.get(path, {}).get("disposition") == "BYTE_IDENTICAL" for path in critical_exact),
+    "Android and immutable release authorities remain byte-identical",
+    all(
+        row_map.get(path, {}).get("disposition") == "BYTE_IDENTICAL"
+        for path in critical_exact
+    ),
 )
 check(
     "Mutable workflows, programme-ledger and ledger-contract evolution is explicitly classified",
@@ -379,6 +381,7 @@ check(
             ".github/workflows/verification-artifact.yml",
             "governance/programme-ledger.json",
             "test/programme_ledger_contract_test.dart",
+            "test/stage2d_f2_programme_ledger_closure_contract_test.dart",
         )
     ),
 )
@@ -1135,6 +1138,99 @@ closure_emulator_test = text(
 )
 closure_decision = text("docs/v4_2_r1/S06_ATOMIC_CLOSURE_AUTHORITY.md")
 programme_ledger = data("governance/programme-ledger.json")
+build5_runtime_adjudication_path = (
+    ROOT / "release/evidence/build-5-runtime-validation-adjudication.json"
+)
+build5_runtime_adjudication = data(
+    "release/evidence/build-5-runtime-validation-adjudication.json"
+)
+build5_runtime_adjudication_sha = (
+    "5401E163E7B0942B3B4FAFD810A2BE45492666CB8E750ABB54FC0741091FE551"
+)
+p01_runtime_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "P-01"
+]
+f3_runtime_records = [
+    record
+    for record in programme_ledger.get("programmeGates", [])
+    if record.get("gateId") == "STAGE2D-F3"
+]
+p01_runtime_record = (
+    p01_runtime_records[0] if len(p01_runtime_records) == 1 else {}
+)
+f3_runtime_record = f3_runtime_records[0] if len(f3_runtime_records) == 1 else {}
+check(
+    "Build 5 runtime evidence closes P-01 and F3 without authorizing handout",
+    sha(build5_runtime_adjudication_path) == build5_runtime_adjudication_sha
+    and build5_runtime_adjudication.get("decision")
+        == "PASS_P01_AND_STAGE2D_F3_CLOSED_PILOT_HANDOUT_REMAINS_NOT_AUTHORIZED"
+    and build5_runtime_adjudication.get(
+        "p01Adjudication",
+        {},
+    ).get("adjudicatedStatus")
+        == "CLOSED"
+    and build5_runtime_adjudication.get(
+        "stage2dF3Adjudication",
+        {},
+    ).get("adjudicatedStatus")
+        == "CLOSED"
+    and build5_runtime_adjudication.get(
+        "controlledDistributionChannel",
+        {},
+    ).get("controlledDistributionPerformed")
+        is True
+    and build5_runtime_adjudication.get(
+        "controlledDistributionChannel",
+        {},
+    ).get("externalDistributionPerformed")
+        is False
+    and build5_runtime_adjudication.get(
+        "controlledDistributionChannel",
+        {},
+    ).get("pilotHandoutPerformed")
+        is False
+    and p01_runtime_record.get("currentStatus") == "CLOSED"
+    and [
+        entry.get("status")
+        for entry in p01_runtime_record.get("statusHistory", [])
+    ]
+        == [
+            "OPEN",
+            "SOURCE_IMPLEMENTED",
+            "MERGED",
+            "DEPLOYED",
+            "DEVICE_PROVED",
+            "CLOSED",
+        ]
+    and any(
+        entry.get("sha256") == build5_runtime_adjudication_sha
+        and entry.get("productionSignedRuntimeGoogleSignInProved") is True
+        and entry.get("futurePilotArtifactMustContainRemediation") is True
+        for entry in p01_runtime_record.get("evidence", [])
+    )
+    and f3_runtime_record.get("currentStatus") == "CLOSED"
+    and f3_runtime_record.get("authorization") == "CLOSED_PASS"
+    and [
+        entry.get("status")
+        for entry in f3_runtime_record.get("statusHistory", [])
+    ]
+        == ["OPEN", "CLOSED"]
+    and any(
+        entry.get("sha256") == build5_runtime_adjudication_sha
+        and entry.get("completedExitDimensions") == 3
+        and entry.get("requiredExitDimensions") == 3
+        and entry.get("controlledDistributionPerformed") is True
+        and entry.get("externalDistributionPerformed") is False
+        and entry.get("pilotHandoutPerformed") is False
+        for entry in f3_runtime_record.get("evidence", [])
+    )
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F4"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
+)
 global_pull_manifest = data("governance/global-pull-protocol-v1.json")
 global_pull_contract = global_pull_manifest.get("fingerprintedContract", {})
 global_pull_fingerprint = hashlib.sha256(

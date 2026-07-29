@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "build-5-runtime-validation-programme-adjudication",
+  "adjudicatedAtUtc": "2026-07-29T22:15:55.9075229Z",
+  "privacyClassification": "REPOSITORY_SAFE_HASH_AND_INVARIANT_ONLY",
+  "authority": {
+    "adjudicationBaseCommit": "416fe777ffd52162de5666a860e185167ecf9e23",
+    "build5ArtifactSourceCommit": "60dc4688fbbc7127e84c63d7955dab4210555e0d",
+    "runtimePromotion": {
+      "path": "release/approvals/build-5-runtime-validation-promotion.json",
+      "sha256": "EACC71A8E7DE91144733362EC712C70311AF8FEB5FE0CA60B26B94AF6F38BF5F"
+    },
+    "runtimeHarnessLineage": [
+      {
+        "pullRequest": 73,
+        "mergeCommit": "dbdedfb973232faf7301eeafb148b0615ba18a8b",
+        "purpose": "governed runtime validation promotion"
+      },
+      {
+        "pullRequest": 74,
+        "mergeCommit": "1c9d14cbeb2f88fcddb54b769b7d1e757ed49004",
+        "purpose": "interrupted-install recovery and exact installed-package proof"
+      },
+      {
+        "pullRequest": 75,
+        "mergeCommit": "00ae4b16b961e467b3b09d4a6ef409c68a5b2dab",
+        "purpose": "explicit sign-out and fresh OAuth lineage proof"
+      },
+      {
+        "pullRequest": 76,
+        "mergeCommit": "8a93b43e0cecaf2ddc254b07297710c2220da18e",
+        "purpose": "privacy-minimized own-profile diagnostic"
+      },
+      {
+        "pullRequest": 77,
+        "mergeCommit": "416fe777ffd52162de5666a860e185167ecf9e23",
+        "purpose": "same-uid ID-token profile-listener race remediation"
+      }
+    ],
+    "sourceRemediation": {
+      "path": "lib/features/auth/providers/auth_provider.dart",
+      "decision": "MERGED_FAIL_CLOSED_ID_TOKEN_GATED_PROFILE_RETRY",
+      "build5ArtifactContainsRemediation": false,
+      "futurePilotArtifactMustContainRemediation": true
+    }
+  },
+  "artifact": {
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "versionName": "1.0.0-rc.1",
+    "versionCode": 5,
+    "apkSha256": "1A39F9F375D785817862AA86BF3810FB5D99545E1E8BFFB7BA4F3CA69253774C",
+    "apkBytes": 85884040,
+    "certificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "installedPackageDebuggable": false,
+    "debugSigningFallbackPresent": false
+  },
+  "controlledDistributionChannel": {
+    "status": "passed",
+    "planningMode": "internal-release-signed-apk",
+    "transport": "DIRECT_ADB_FROM_GOVERNED_LOCAL_CUSTODY",
+    "targetCount": 1,
+    "target": {
+      "serial": "emulator-5554",
+      "avdName": "Pixel_9",
+      "apiLevel": 36,
+      "googlePlayServicesPresent": true
+    },
+    "priorDebugPackageRemoved": true,
+    "priorAppSandboxSecurelyWiped": true,
+    "exactInstalledApkVerified": true,
+    "controlledDistributionPerformed": true,
+    "externalDistributionPerformed": false,
+    "pilotHandoutPerformed": false
+  },
+  "oauthAndApprovedUserRuntime": {
+    "status": "passed",
+    "decision": "PASS_EXACT_PRODUCTION_SIGNED_GOOGLE_SIGN_IN_AND_APPROVED_USER_GATE",
+    "restoredSessionExplicitlySignedOut": true,
+    "freshGoogleAccountChooserPresented": true,
+    "freshGoogleSignInOccurredAfterSignedOutMarker": true,
+    "firebaseAuthenticationSucceeded": true,
+    "governedFirebaseProjectId": "crm3-baf-ops-b8638",
+    "approvedOwnUserDocumentProved": true,
+    "approvedUserHomeGateReached": true,
+    "otherUserDocumentsRead": 0,
+    "remoteBusinessWritesPerformed": 0,
+    "accountEmailRetainedInRepository": false,
+    "accountDisplayNameRetainedInRepository": false,
+    "uidRetainedInRepository": false,
+    "controlPlaneReadback": {
+      "firestoreAppCheckEnforcementMode": "UNENFORCED",
+      "activeRulesSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
+      "activeRulesByteExactToRepositoryAtDiagnosticTime": false
+    },
+    "build5ProfileTokenRace": {
+      "firstOwnProfileListenerPermissionDenied": true,
+      "unchangedSignedInSessionReachedApprovedHomeAfterRelaunch": true,
+      "rootCause": "PROFILE_LISTENER_STARTED_BEFORE_USABLE_FIRESTORE_ID_TOKEN_CONTEXT",
+      "sourceRemediationMerged": true,
+      "futurePilotArtifactMustContainSourceRemediation": true
+    }
+  },
+  "evidenceSeals": {
+    "runtimeReceipt": {
+      "sha256": "C83231366BA07870A05CA1F92DD8E62CEEDD12916B36B79E6FDD4042D4DA053E",
+      "bytes": 3206
+    },
+    "installReceiptSha256": "EA11B3AF048E21E0E1518C053A26143C4FAC209B0016D9AB207AFBAE131FDA61",
+    "signOutReceiptSha256": "1845AE345D84D939513810A3067BBF3CA85D50270B7FAEE712628330F48C7EF8",
+    "googleAccountChooserUiSha256": "6C4AEAEC6A34463C254271386E406547A852290C467CC48D3AE0461CC6E1461F",
+    "postSelectionErrorUiSha256": "8AF50244FEA921ABF19E5782998AFBA7CD321493A048D27900198F68C715923A",
+    "profileDiagnosticReceiptSha256": "5EF5139DE70CAD7CA548898482C3ED047DE1220FAD7D06A6701C1466B0FD6B27",
+    "postAuthRelaunchUiSha256": "6A7A41F5084050B1E06556347D0D4C5C86A5F3CB7DAD23137FF0B5E5AC8181F3",
+    "approvedHomeScreenshotSha256": "32C257A93A105A0921763F0F7FB54F92860766B25CB14844E8F22B6CDF1C737A",
+    "privateEvidenceInventory": {
+      "sha256": "90B0E8330BF9B5838CBDD6B47B71025C1A77F5B6599C20B77299CB1D1ACEE5BC",
+      "originalEvidenceFiles": 16
+    },
+    "sealedPrivateArchive": {
+      "sha256": "DD11CF79E073C41E339AC683524A0642C21BACA97605D186FD803644B57E0789",
+      "bytes": 87517550,
+      "storedOutsideRepository": true
+    }
+  },
+  "p01Adjudication": {
+    "recordId": "FINDING:P-01",
+    "priorStatus": "SOURCE_IMPLEMENTED",
+    "adjudicatedStatus": "CLOSED",
+    "transitionSequence": [
+      "MERGED",
+      "DEPLOYED",
+      "DEVICE_PROVED",
+      "CLOSED"
+    ],
+    "decision": "PASS_EXACT_PRODUCTION_SIGNED_RUNTIME_GOOGLE_SIGN_IN_AND_APPROVED_OWN_USER",
+    "dimensions": {
+      "productionSignerAndOauthSourceBinding": "passed",
+      "exactProductionSignedArtifactBinding": "passed",
+      "productionSignedRuntimeGoogleSignIn": "passed",
+      "approvedOwnUserGate": "passed",
+      "noDebugSigningFallback": "passed"
+    },
+    "pilotBlockerRemains": false,
+    "futurePilotArtifactMustContainProfileTokenRaceRemediation": true
+  },
+  "stage2dF3Adjudication": {
+    "recordId": "GATE:STAGE2D-F3",
+    "priorStatus": "OPEN",
+    "adjudicatedStatus": "CLOSED",
+    "authorization": "CLOSED_PASS",
+    "decision": "PASS_ALL_THREE_EXIT_DIMENSIONS_CONTROLLED_INTERNAL_CHANNEL_PROVED",
+    "dimensions": {
+      "signedApkHash": "passed",
+      "packageVersionSourceCertificateBinding": "passed",
+      "controlledDistributionChannel": "passed"
+    },
+    "completedExitDimensions": 3,
+    "requiredExitDimensions": 3,
+    "controlledDistributionPerformed": true,
+    "externalDistributionPerformed": false,
+    "pilotHandoutAuthorized": false
+  },
+  "programmeDecision": {
+    "nextMutation": "STAGE2D-F4",
+    "pilotHandout": "NOT_AUTHORIZED",
+    "unrestrictedDistribution": "NO_GO"
+  },
+  "mutationBoundary": {
+    "firebaseAuthenticationSessionCreated": true,
+    "ownUserProfileHydrationPermitted": true,
+    "firebaseConfigurationMutationPerformed": false,
+    "backendDeploymentPerformed": false,
+    "externalDistributionPerformed": false,
+    "pilotHandoutPerformed": false
+  },
+  "decision": "PASS_P01_AND_STAGE2D_F3_CLOSED_PILOT_HANDOUT_REMAINS_NOT_AUTHORIZED"
+}

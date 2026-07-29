@@ -25,7 +25,7 @@
     "broadFeatureExpansion": "HOLD",
     "section71Implementation": "HOLD_CONCEPT_PRESERVED",
     "unrestrictedDistribution": "NO_GO",
-    "nextMutation": "STAGE2D-F3"
+    "nextMutation": "STAGE2D-F4"
   },
   "statusVocabulary": [
     "OPEN",
@@ -529,8 +529,8 @@
       "authorityType": "DEPLOYED_RUNTIME",
       "transitionProfile": "DEPLOYED_CONTROL",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "BLOCKS_PILOT_HANDOUT",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
       "evidence": [
@@ -542,6 +542,17 @@
           "completedExitDimensions": 2,
           "requiredExitDimensions": 3,
           "distributionPerformed": false
+        },
+        {
+          "fileName": "release/evidence/build-5-runtime-validation-adjudication.json",
+          "sha256": "5401E163E7B0942B3B4FAFD810A2BE45492666CB8E750ABB54FC0741091FE551",
+          "decision": "PASS_ALL_THREE_EXIT_DIMENSIONS_CONTROLLED_INTERNAL_CHANNEL_PROVED",
+          "authority": "BUILD5_EXACT_CONTROLLED_INTERNAL_INSTALL_AND_RUNTIME_VALIDATION",
+          "completedExitDimensions": 3,
+          "requiredExitDimensions": 3,
+          "controlledDistributionPerformed": true,
+          "externalDistributionPerformed": false,
+          "pilotHandoutPerformed": false
         }
       ],
       "requiredExitEvidence": [
@@ -552,14 +563,21 @@
       "reArmTriggers": [],
       "notes": [
         "Build 5 supplies the exact production-signed APK hash and the package, version, source and certificate binding with independent verification and dual custody.",
-        "The controlled distribution channel remains absent; STAGE2D-F3 stays OPEN and pilot handout remains NOT_AUTHORIZED.",
-        "Open-gate evidence is intentionally retained so completed exit dimensions do not disappear while the remaining dimension is governed."
+        "The initial source-and-artifact adjudication retained the open gate because no controlled distribution channel had yet been used.",
+        "The exact APK was subsequently installed from governed local custody over direct ADB to one named Pixel_9 AVD, with prior debug-package removal, sandbox wipe, installed-hash verification and no external distribution.",
+        "All three exit dimensions are now proved; STAGE2D-F3 is CLOSED with authorization CLOSED_PASS.",
+        "Pilot handout remains NOT_AUTHORIZED; STAGE2D-F4 is the next governed mutation."
       ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Required after F2"
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-30",
+          "basis": "The exact Build 5 APK was installed from governed local custody through a one-target direct-ADB channel and all three F3 exit dimensions passed; repository-safe adjudication SHA-256 5401E163E7B0942B3B4FAFD810A2BE45492666CB8E750ABB54FC0741091FE551."
         }
       ]
     },
@@ -930,7 +948,7 @@
       "authorityType": "DEPLOYED_RUNTIME",
       "transitionProfile": "DEPLOYED_CONTROL",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "BLOCKER",
       "unrestrictedSeverity": "BLOCKER",
@@ -947,6 +965,17 @@
           "decision": "PASS_SOURCE_AND_ARTIFACT_AUTHORITY_RUNTIME_PROOF_REMAINS_OPEN",
           "authority": "PRODUCTION_SIGNER_OAUTH_SOURCE_AND_BUILD5_ARTIFACT_BINDING",
           "productionSignedRuntimeGoogleSignInProved": false
+        },
+        {
+          "fileName": "release/evidence/build-5-runtime-validation-adjudication.json",
+          "sha256": "5401E163E7B0942B3B4FAFD810A2BE45492666CB8E750ABB54FC0741091FE551",
+          "decision": "PASS_EXACT_PRODUCTION_SIGNED_RUNTIME_GOOGLE_SIGN_IN_AND_APPROVED_OWN_USER",
+          "authority": "BUILD5_PRODUCTION_SIGNED_RUNTIME_AND_APPROVED_OWN_USER",
+          "productionSignedRuntimeGoogleSignInProved": true,
+          "approvedOwnUserRecordProved": true,
+          "firstAttemptProfileTokenRaceObserved": true,
+          "sourceRemediationMerged": true,
+          "futurePilotArtifactMustContainRemediation": true
         }
       ],
       "requiredExitEvidence": [
@@ -959,7 +988,9 @@
       "notes": [
         "The production signer and OAuth client are source-bound to the permanent Firebase Android app.",
         "Build 5 proves the exact production-signed APK/AAB, package, version, source, signer and dual-custody dimensions.",
-        "P-01 remains a pilot blocker until Google Sign-In is proved at runtime from the exact production-signed package; earlier F2 device evidence exercised the debug-signing authority."
+        "Fresh Google Sign-In, Firebase Authentication, the approved own-user record and approved-home gate were proved from the exact production-signed Build 5 package after explicit sign-out.",
+        "Build 5 exposed a first-listener ID-token race and then reached approved home from the unchanged signed-in session after relaunch; the fail-closed same-uid source remediation merged in PR #77.",
+        "P-01 is CLOSED. Build 5 remains immutable and does not contain the remediation, so every future pilot artifact must be built from source containing PR #77."
       ],
       "statusHistory": [
         {
@@ -971,6 +1002,26 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-29",
           "basis": "Build 5 and the restored Firebase production-signing registration prove source and artifact authority; exact production-signed runtime Google Sign-In remains outstanding."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-30",
+          "basis": "The governed runtime harness, explicit OAuth proof, privacy-minimized diagnostic and fail-closed profile token-race remediation merged through PRs #73-#77; final source authority is merge commit 416fe777ffd52162de5666a860e185167ecf9e23."
+        },
+        {
+          "status": "DEPLOYED",
+          "effectiveDate": "2026-07-30",
+          "basis": "The exact production-signed Build 5 APK SHA-256 1A39F9F375D785817862AA86BF3810FB5D99545E1E8BFFB7BA4F3CA69253774C was installed from governed local custody to the named Pixel_9 AVD and independently verified as non-debuggable."
+        },
+        {
+          "status": "DEVICE_PROVED",
+          "effectiveDate": "2026-07-30",
+          "basis": "After explicit in-app sign-out, the production-signed package completed a fresh Google and Firebase Auth exchange, proved the approved own-user record, and reached the approved-home gate; runtime receipt SHA-256 C83231366BA07870A05CA1F92DD8E62CEEDD12916B36B79E6FDD4042D4DA053E."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-30",
+          "basis": "All four required P-01 exit-evidence classes are satisfied with no debug fallback; repository-safe runtime adjudication SHA-256 5401E163E7B0942B3B4FAFD810A2BE45492666CB8E750ABB54FC0741091FE551. Future pilot artifacts remain required to contain PR #77."
         }
       ]
     },

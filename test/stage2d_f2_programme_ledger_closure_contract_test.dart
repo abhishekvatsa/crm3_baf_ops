@@ -16,13 +16,13 @@ List<String> _strings(dynamic value) {
 }
 
 void main() {
-  test('STAGE2D-F2 closes while F3 and pilot handout remain blocked', () {
+  test('STAGE2D-F2 closure survives successor-gate advancement', () {
     final ledger =
         jsonDecode(File('governance/programme-ledger.json').readAsStringSync())
             as Map<String, dynamic>;
 
     final programmeDecision = _object(ledger['programmeDecision']);
-    expect(programmeDecision['nextMutation'], 'STAGE2D-F3');
+    expect(programmeDecision['nextMutation'], 'STAGE2D-F4');
     expect(programmeDecision['pilotHandout'], 'NOT_AUTHORIZED');
 
     final p02 = _objects(
@@ -77,7 +77,13 @@ void main() {
       ledger['programmeGates'],
     ).singleWhere((item) => item['gateId'] == 'STAGE2D-F3');
 
-    expect(f3['currentStatus'], 'OPEN');
-    expect(f3['authorization'], 'BLOCKS_PILOT_HANDOUT');
+    expect(f3['currentStatus'], 'CLOSED');
+    expect(f3['authorization'], 'CLOSED_PASS');
+    expect(
+      _objects(
+        f3['statusHistory'],
+      ).map((entry) => entry['status']).toList(growable: false),
+      <String>['OPEN', 'CLOSED'],
+    );
   });
 }
