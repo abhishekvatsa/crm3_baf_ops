@@ -5,7 +5,7 @@ import 'dart:async' show unawaited;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -23,20 +23,62 @@ final authStateProvider = StreamProvider<User?>((ref) {
 });
 
 final currentAppUserProvider = StreamProvider<AppUser?>((ref) {
-  return ref.watch(firebaseAuthProvider).authStateChanges().asyncExpand((user) {
+  final auth = ref.watch(firebaseAuthProvider);
+  return auth.idTokenChanges().asyncExpand((user) {
     if (user == null) return Stream<AppUser?>.value(null);
 
-    return FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .snapshots()
-        .map((doc) {
-      final data = doc.data();
-      if (!doc.exists || data == null) return null;
-      return AppUser.fromFirestore(data, doc.id);
-    });
+    return _watchCurrentAppUser(
+      auth: auth,
+      firestore: FirebaseFirestore.instance,
+      user: user,
+    );
   });
 });
+
+@visibleForTesting
+bool shouldRetryCurrentAppUserPermissionDenied({
+  required String errorCode,
+  required String? authenticatedUid,
+  required String expectedUid,
+  required bool alreadyRetried,
+}) {
+  return !alreadyRetried &&
+      errorCode == 'permission-denied' &&
+      authenticatedUid == expectedUid;
+}
+
+Stream<AppUser?> _watchCurrentAppUser({
+  required FirebaseAuth auth,
+  required FirebaseFirestore firestore,
+  required User user,
+}) async* {
+  var retriedAfterTokenRefresh = false;
+  while (true) {
+    try {
+      await for (final doc
+          in firestore.collection('users').doc(user.uid).snapshots()) {
+        final data = doc.data();
+        if (!doc.exists || data == null) {
+          yield null;
+          continue;
+        }
+        yield AppUser.fromFirestore(data, doc.id);
+      }
+      return;
+    } on FirebaseException catch (error) {
+      if (!shouldRetryCurrentAppUserPermissionDenied(
+        errorCode: error.code,
+        authenticatedUid: auth.currentUser?.uid,
+        expectedUid: user.uid,
+        alreadyRetried: retriedAfterTokenRefresh,
+      )) {
+        rethrow;
+      }
+      retriedAfterTokenRefresh = true;
+      await user.getIdToken(true);
+    }
+  }
+}
 
 /// Keeps Crashlytics identity aligned with the current approved/pending app user.
 ///
