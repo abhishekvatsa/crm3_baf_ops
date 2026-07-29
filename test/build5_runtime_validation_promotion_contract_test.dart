@@ -57,6 +57,26 @@ void main() {
     expect(diagnosticAmendment['firestoreWriteAuthorized'], isFalse);
     expect(diagnosticAmendment['authMutationAuthorized'], isFalse);
     expect(diagnosticAmendment['rulesOrAppCheckMutationAuthorized'], isFalse);
+    final raceAmendment = _object(
+      promotion['profileTokenRaceRemediationAmendment'],
+    );
+    expect(
+      raceAmendment['priorPromotionSha256'],
+      'C3661F230803057E8D242C9659EC5B26A1165B1EBEC4F21303BD6088F707D62F',
+    );
+    expect(
+      raceAmendment['diagnosticReceiptSha256'],
+      '5EF5139DE70CAD7CA548898482C3ED047DE1220FAD7D06A6701C1466B0FD6B27',
+    );
+    expect(
+      raceAmendment['postAuthRelaunchUiSha256'],
+      '6A7A41F5084050B1E06556347D0D4C5C86A5F3CB7DAD23137FF0B5E5AC8181F3',
+    );
+    expect(raceAmendment['existingBuild5ArtifactContainsRemediation'], isFalse);
+    expect(raceAmendment['futurePilotArtifactMustContainRemediation'], isTrue);
+    expect(raceAmendment['rebuildOrResignAuthorized'], isFalse);
+    expect(raceAmendment['firestoreOrAuthMutationAuthorized'], isFalse);
+    expect(raceAmendment['rulesOrAppCheckMutationAuthorized'], isFalse);
 
     final artifact = _object(promotion['artifactAuthority']);
     expect(artifact['applicationId'], 'in.co.sail.bsl.crm3.bafops');
@@ -156,6 +176,12 @@ void main() {
         'otherUserDocumentsRead',
         'remoteWritesPerformed',
         'Verify requires explicit restored-session sign-out evidence.',
+        'Verify requires the governed profile diagnostic receipt.',
+        'Profile diagnostic receipt SHA-256',
+        'Verify requires the post-auth relaunch UI evidence.',
+        'Post-auth relaunch UI SHA-256',
+        'firstAttemptOwnProfileReadPermissionDenied',
+        'futurePilotArtifactMustContainSourceRemediation',
         'Verify refuses to replace an existing runtime receipt.',
         'Sign-out evidence promotion SHA-256',
         'Assert-ExactInstalledRelease',

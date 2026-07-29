@@ -40,6 +40,21 @@
     "artifactOrTargetExpansion": false,
     "pilotOrExternalDistributionExpansion": false
   },
+  "profileTokenRaceRemediationAmendment": {
+    "priorPromotionSha256": "C3661F230803057E8D242C9659EC5B26A1165B1EBEC4F21303BD6088F707D62F",
+    "signOutPromotionSha256": "083C844DC10BC8345326F3F784EC5A646D3E23E200935E2FB90DBBE0D3DEF39C",
+    "diagnosticReceiptSha256": "5EF5139DE70CAD7CA548898482C3ED047DE1220FAD7D06A6701C1466B0FD6B27",
+    "postAuthRelaunchUiSha256": "6A7A41F5084050B1E06556347D0D4C5C86A5F3CB7DAD23137FF0B5E5AC8181F3",
+    "reason": "The selected account is verified, enabled and Google-linked; its own approved user document is canonical and email-matched; App Check is unenforced. The first profile listener was denied, while an unchanged signed-in session reached approved home immediately after app relaunch.",
+    "sourceRemediation": "Gate current-user Firestore subscription on Firebase id-token changes and allow one same-uid permission-denied retry only after a forced token refresh.",
+    "existingBuild5ArtifactContainsRemediation": false,
+    "futurePilotArtifactMustContainRemediation": true,
+    "rebuildOrResignAuthorized": false,
+    "firestoreOrAuthMutationAuthorized": false,
+    "rulesOrAppCheckMutationAuthorized": false,
+    "artifactOrTargetExpansion": false,
+    "pilotOrExternalDistributionExpansion": false
+  },
   "artifactAuthority": {
     "releaseId": "crm3-baf-ops-1.0.0-rc.1-b5",
     "versionName": "1.0.0-rc.1",

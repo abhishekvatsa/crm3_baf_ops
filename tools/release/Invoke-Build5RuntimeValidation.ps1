@@ -1025,7 +1025,7 @@ Assert-Equal `
   'Fresh Google Sign-In preparation'
 Assert-Equal `
   $signOutEvidence.promotionSha256 `
-  (Get-Sha256 $promotionFile) `
+  $promotion.profileTokenRaceRemediationAmendment.signOutPromotionSha256 `
   'Sign-out evidence promotion SHA-256'
 Assert-Equal `
   $signOutEvidence.artifact.sha256 `
@@ -1039,6 +1039,37 @@ Assert-Equal `
   $signOutEvidence.decision `
   'PASS_RESTORED_SESSION_CLEARED_READY_FOR_FRESH_GOOGLE_SIGN_IN' `
   'Sign-out evidence decision'
+$diagnosticReceiptPath = Join-Path `
+  $evidenceRoot `
+  'profile-diagnostic-receipt.json'
+if (-not (Test-Path -LiteralPath $diagnosticReceiptPath -PathType Leaf)) {
+  throw 'Verify requires the governed profile diagnostic receipt.'
+}
+Assert-Equal `
+  (Get-Sha256 $diagnosticReceiptPath) `
+  $promotion.profileTokenRaceRemediationAmendment.diagnosticReceiptSha256 `
+  'Profile diagnostic receipt SHA-256'
+$diagnosticEvidence = Get-Content -LiteralPath $diagnosticReceiptPath -Raw |
+  ConvertFrom-Json
+Assert-Equal `
+  $diagnosticEvidence.promotionSha256 `
+  $promotion.profileTokenRaceRemediationAmendment.priorPromotionSha256 `
+  'Profile diagnostic promotion SHA-256'
+Assert-Equal `
+  $diagnosticEvidence.decision `
+  'PASS_PRIVACY_MINIMIZED_READ_ONLY_PROFILE_DIAGNOSTIC' `
+  'Profile diagnostic decision'
+
+$postAuthRelaunchPath = Join-Path `
+  $evidenceRoot `
+  'post-auth-relaunch-window.xml'
+if (-not (Test-Path -LiteralPath $postAuthRelaunchPath -PathType Leaf)) {
+  throw 'Verify requires the post-auth relaunch UI evidence.'
+}
+Assert-Equal `
+  (Get-Sha256 $postAuthRelaunchPath) `
+  $promotion.profileTokenRaceRemediationAmendment.postAuthRelaunchUiSha256 `
+  'Post-auth relaunch UI SHA-256'
 $installedSha = Assert-ExactInstalledRelease `
   -Adb $adb `
   -Serial $DeviceSerial `
@@ -1055,6 +1086,12 @@ $requiredHomeMarkers = @(
   'More',
   'Core modules'
 )
+$postAuthRelaunchUi = Get-Content -LiteralPath $postAuthRelaunchPath -Raw
+$missingRelaunchMarkers = @($requiredHomeMarkers |
+    Where-Object { -not $postAuthRelaunchUi.Contains($_) })
+if ($missingRelaunchMarkers.Count -ne 0) {
+  throw 'Post-auth relaunch evidence does not prove approved home.'
+}
 $forbiddenMarkers = @(
   'Sign in with Google',
   'pending admin approval',
@@ -1111,6 +1148,8 @@ $runtimeReceipt = [ordered]@{
     Join-Path $evidenceRoot 'install-receipt.json'
   )
   signOutReceiptSha256 = Get-Sha256 $signOutReceiptPath
+  profileDiagnosticReceiptSha256 = Get-Sha256 $diagnosticReceiptPath
+  postAuthRelaunchUiSha256 = Get-Sha256 $postAuthRelaunchPath
   installedApkSha256 = $installedSha
   artifact = $preflight.artifact
   target = $preflight.target
@@ -1124,6 +1163,14 @@ $runtimeReceipt = [ordered]@{
     accountDisplayNameStoredInRepositoryEvidence = $false
     uiHierarchySha256 = Get-Sha256 $runtimeUiPath
     screenshotSha256 = Get-Sha256 $runtimeScreenshot
+  }
+  build5ProfileTokenRace = [ordered]@{
+    firstAttemptOwnProfileReadPermissionDenied = $true
+    unchangedSignedInSessionReachedHomeAfterRelaunch = $true
+    existingBuild5ArtifactContainsSourceRemediation = $false
+    futurePilotArtifactMustContainSourceRemediation = $true
+    mergedSourceRemediation =
+      'id-token-gated profile listener with one same-uid token-refresh retry'
   }
   mutationBoundary = [ordered]@{
     firebaseAuthenticationSessionCreated = $true

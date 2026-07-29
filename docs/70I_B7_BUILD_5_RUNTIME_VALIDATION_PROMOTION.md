@@ -84,5 +84,17 @@ Neither fact alone identifies a safe repair. The read-only diagnostic phase
 therefore resolves only the selected chooser account and records privacy-safe
 Auth and own-document invariants before any remediation is proposed.
 
+The governed diagnostic proved that the selected Auth user is verified,
+enabled and Google-linked, and that its own approved user document is complete,
+canonical and email-matched. The unchanged signed-in session reached approved
+home immediately after an app relaunch. The source remediation therefore gates
+the current-user Firestore listener on `idTokenChanges()` and permits exactly
+one same-uid `permission-denied` retry after a forced token refresh.
+
+Build 5 remains the immutable runtime-validation artifact and does not contain
+that source remediation. It proves the production OAuth and approved-user
+authority path, with the first-listener race and relaunch recorded explicitly.
+Any future pilot artifact must be built from source containing the remediation.
+
 P-01 and STAGE2D-F3 may be adjudicated only from the resulting SHA-sealed
 execution evidence. This source promotion alone closes neither record.
