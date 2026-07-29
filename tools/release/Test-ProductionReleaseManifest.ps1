@@ -420,6 +420,13 @@ if ([string]$manifest.ciAuthority.provider -ne 'github-actions' -or
     [string]$manifest.source.gitCommit -or
     [string]$manifest.ciAuthority.workflowRef -notmatch
     '\.github/workflows/production-artifact\.yml@refs/heads/main$' -or
+    [string]$manifest.ciAuthority.dispatchApprovalReference -notmatch
+      '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$' -or
+    [string]$manifest.ciAuthority.actor -notmatch
+      '^[A-Za-z0-9][A-Za-z0-9-]{0,38}$' -or
+    [string]$manifest.ciAuthority.actorId -notmatch '^[1-9][0-9]{0,19}$' -or
+    [string]$manifest.ciAuthority.triggeringActor -ne
+      [string]$manifest.ciAuthority.actor -or
     $manifest.ciAuthority.localExecutionPermitted -ne $false) {
   throw 'Protected GitHub Actions provenance is incomplete.'
 }
@@ -492,6 +499,18 @@ $buildLedger = (
     -ArchivePath $sourceArchivePath `
     -EntryPath 'release/build-number-ledger.json'
 ) | ConvertFrom-Json
+$versionApproval = (
+  Get-ZipEntryText `
+    -ArchivePath $sourceArchivePath `
+    -EntryPath ([string]$policy.versionPolicy.approvalReceiptFile)
+) | ConvertFrom-Json
+$environmentException = (
+  Get-ZipEntryText `
+    -ArchivePath $sourceArchivePath `
+    -EntryPath (
+      [string]$policy.github.environmentReviewControl.exceptionApprovalFile
+    )
+) | ConvertFrom-Json
 
 if ($policy.schemaVersion -ne 3) {
   throw 'Unsupported policy schema in source archive.'
@@ -563,6 +582,19 @@ foreach ($receipt in $manifest.policy.approvalReceiptHashes.PSObject.Properties)
     throw "Approval receipt mismatch: $($receipt.Name)"
   }
 }
+$exceptionApprovalPath =
+  [string]$policy.github.environmentReviewControl.exceptionApprovalFile
+$exceptionHashProperty =
+  $manifest.policy.approvalReceiptHashes.PSObject.Properties[
+    $exceptionApprovalPath
+  ]
+if ($null -eq $exceptionHashProperty -or
+    [string]$exceptionHashProperty.Value -ne
+      [string]$policy.github.environmentReviewControl.exceptionApprovalSha256 -or
+    [string]$environmentException.approvalReference -ne
+      [string]$policy.github.environmentReviewControl.exceptionApprovalReference) {
+  throw 'Environment-review exception receipt is absent or differs from policy.'
+}
 
 if ([string]$manifest.ciAuthority.repository -ne
       [string]$policy.github.repository -or
@@ -570,11 +602,34 @@ if ([string]$manifest.ciAuthority.repository -ne
       [string]$policy.github.environmentName -or
     [string]$policy.github.workflowPath -ne
       '.github/workflows/production-artifact.yml' -or
+    [string]$manifest.ciAuthority.dispatchApprovalReference -ne
+      [string]$versionApproval.reference -or
     [string]$manifest.ciAuthority.workflowRef -notmatch
       [regex]::Escape(
         [string]$policy.github.workflowPath + '@refs/heads/main'
       )) {
   throw 'Manifest/policy GitHub Actions authority mismatch.'
+}
+$policyEnvironmentControlJson =
+  $policy.github.environmentReviewControl |
+    ConvertTo-Json -Depth 20 -Compress
+$manifestEnvironmentControlJson =
+  $manifest.ciAuthority.environmentReviewControl |
+    ConvertTo-Json -Depth 20 -Compress
+if ($policyEnvironmentControlJson -cne $manifestEnvironmentControlJson -or
+    [int64]$environmentException.scope.buildNumber -ne
+      [int64]$manifest.release.buildNumber -or
+    [string]$environmentException.scope.versionApprovalReference -ne
+      [string]$manifest.ciAuthority.dispatchApprovalReference -or
+    [string]$environmentException.liveStateEvidence.authorizedDispatcher.login -ne
+      [string]$manifest.ciAuthority.actor -or
+    [string]$environmentException.liveStateEvidence.authorizedDispatcher.id -ne
+      [string]$manifest.ciAuthority.actorId -or
+    $environmentException.compensatingControls.
+      authorizedDispatcherIdentityRequired -ne $true -or
+    $environmentException.compensatingControls.distributionApproved -ne
+      $false) {
+  throw 'Manifest environment-review control differs from approved exception.'
 }
 
 if ([string]$policy.permanentApplicationId -ne
@@ -862,6 +917,12 @@ foreach ($property in $manifest.configuration.hashes.PSObject.Properties) {
   if ($actual -ne ([string]$property.Value).ToUpperInvariant()) {
     throw "Configuration mismatch: $($property.Name)"
   }
+}
+if ($null -eq
+      $manifest.configuration.hashes.PSObject.Properties[
+        'tools/release/Finalize-ProductionRelease.ps1'
+      ]) {
+  throw 'Governed finalizer is absent from source configuration custody.'
 }
 
 $packagedVerifierPath = Resolve-ContainedFile `
