@@ -6,9 +6,10 @@ Android build number 4 is permanently consumed. Its production-signed package
 was constructed, uploaded and independently verified, but it was not finalized,
 placed into dual custody or represented by a remote built tag.
 
-Build number 5 is the next approved production-candidate construction attempt.
-This record does not approve Firebase deployment, controlled-pilot
-distribution or unrestricted plant release.
+Build number 5 was the next approved production-candidate construction attempt.
+It completed successfully and is now the finalized O-01 to O-05
+production-signed pre-release artifact. This status does not approve Firebase
+deployment, controlled-pilot distribution or unrestricted plant release.
 
 ## Consumed build 4
 
@@ -68,5 +69,41 @@ records the unavailable reviewer rule without claiming it exists. It is:
 - Version approval: `BAF-REF-003-C4`
 - Environment exception: `BAF-GH-ENV-001`
 
-The build-5 reservation tag does not exist until the governed workflow creates
-it atomically after this source correction is merged to exact live `main`.
+## Build 5 outcome
+
+- Exact source commit:
+  `60dc4688fbbc7127e84c63d7955dab4210555e0d`
+- GitHub run: `30466468245`
+- GitHub artifact ID: `8730747624`
+- Governed package SHA-256:
+  `E702A72A6603B6187E9282FC12E1E633F9BF59057ED331464BE590579FFB29C1`
+- Reservation tag object:
+  `c67adafc1910c7dd123dbf681b31e572ced25a17`
+- Built tag object:
+  `6bf4ab7f0e65753e3a49b12f2e62df19ce8f795a`
+- Closure package SHA-256:
+  `4AEBDFC8B1FE378FA8CAB26B6C05CB745250A52CC7CE095CA5987605030A6679`
+- Custody record SHA-256:
+  `DCF5ADBD45649ED22F8B7DB2780528F964D2DC0EE8F77260B49C150A3E8F1AE1`
+- Dual custody completed: yes, six matching files on distinct volumes
+- Firebase deployment performed: no
+- Controlled pilot approved: no
+- Unrestricted release approved: no
+- Distribution performed: no
+
+The first finalizer pass created the correct local annotated built tag after
+package verification and dual custody, then failed while pushing that tag.
+PowerShell interpreted `$builtTag:refs` in the unbraced refspec as a scoped
+variable and produced an invalid refspec. Before recovery, the remote built tag
+was confirmed absent and the local tag object, commit and two package copies
+were independently rechecked.
+
+Recovery used one explicit, non-force push of the already verified local tag.
+The unchanged governed finalizer was then rerun against the same GitHub run and
+same package hash; it verified the remote tag and completed closure. No rebuild,
+workflow rerun, deployment or distribution occurred. The source expression is
+now braced, and contracts reject the ambiguous form.
+
+The machine-readable evidence is
+`release/evidence/build-5-finalization-closure.json`, SHA-256
+`F91D5C60AF663C6B9785F922A95B67AD5B01216CE597C83832975E6DF4DD49CC`.

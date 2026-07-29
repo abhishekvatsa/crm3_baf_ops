@@ -53,6 +53,22 @@
     "remoteBuiltTag": "crm3-build-built/5",
     "failedOrWithdrawnBuildConsumesNumber": true
   },
+  "finalization": {
+    "status": "completed-non-distributable",
+    "completionReceiptFile": "release/evidence/build-5-finalization-closure.json",
+    "completionReceiptSha256": "F91D5C60AF663C6B9785F922A95B67AD5B01216CE597C83832975E6DF4DD49CC",
+    "sourceCommit": "60dc4688fbbc7127e84c63d7955dab4210555e0d",
+    "githubRunId": 30466468245,
+    "governedPackageSha256": "E702A72A6603B6187E9282FC12E1E633F9BF59057ED331464BE590579FFB29C1",
+    "closurePackageSha256": "4AEBDFC8B1FE378FA8CAB26B6C05CB745250A52CC7CE095CA5987605030A6679",
+    "custodyRecordSha256": "DCF5ADBD45649ED22F8B7DB2780528F964D2DC0EE8F77260B49C150A3E8F1AE1",
+    "remoteReservationTagObject": "c67adafc1910c7dd123dbf681b31e572ced25a17",
+    "remoteBuiltTagObject": "6bf4ab7f0e65753e3a49b12f2e62df19ce8f795a",
+    "dualCustodyCompleted": true,
+    "firebaseBackendDeploymentPerformed": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false
+  },
   "signing": {
     "mode": "release",
     "productionSigningApproved": true,

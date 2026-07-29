@@ -234,6 +234,7 @@ $requiredFiles = @(
   [string]$policy.identityApproval.receiptFile
   [string]$policy.versionPolicy.approvalReceiptFile
   [string]$policy.versionPolicy.sourceDocumentFile
+  [string]$policy.finalization.completionReceiptFile
   [string]$environmentReviewControl.exceptionApprovalFile
   [string]$policy.signing.approvalReceiptFile
   [string]$policy.firebaseAndroidApp.registrationReceiptFile
@@ -271,7 +272,7 @@ foreach ($requiredFinalizerControl in @(
   'environmentSecretValuesInspected = $false'
   'Authorized dispatcher ID:'
   'Dual production-package custody: passed'
-  'git push origin "refs/tags/$builtTag:refs/tags/$builtTag"'
+  'git push origin "refs/tags/${builtTag}:refs/tags/${builtTag}"'
 )) {
   if (-not $finalizer.Contains($requiredFinalizerControl)) {
     throw "Governed finalizer control is missing: $requiredFinalizerControl"
@@ -279,6 +280,10 @@ foreach ($requiredFinalizerControl in @(
 }
 if ($finalizer.Contains('expectedCommitHeadlines')) {
   throw 'Governed finalizer retains obsolete commit-headline coupling.'
+}
+if ($finalizer.Contains(
+    'git push origin "refs/tags/$builtTag:refs/tags/$builtTag"')) {
+  throw 'Governed finalizer retains the ambiguous built-tag refspec.'
 }
 
 $identityReceipt = Get-Content -LiteralPath $policy.identityApproval.receiptFile -Raw |
@@ -451,6 +456,80 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
   throw 'Governed build-number rollover authority is incomplete.'
 }
 
+$completionReceiptPath =
+  [string]$policy.finalization.completionReceiptFile
+$completionReceipt = Get-Content -LiteralPath $completionReceiptPath -Raw |
+  ConvertFrom-Json
+if ((Get-Sha256 $completionReceiptPath) -ne
+      ([string]$policy.finalization.completionReceiptSha256).
+        ToUpperInvariant() -or
+    [string]$policy.finalization.status -ne
+      'completed-non-distributable' -or
+    [string]$completionReceipt.evidenceType -ne
+      'production-build-finalization-closure' -or
+    $completionReceipt.schemaVersion -ne 1 -or
+    [string]$completionReceipt.status -ne 'passed-non-distributable' -or
+    [int64]$completionReceipt.release.buildNumber -ne
+      [int64]$policy.release.buildNumber -or
+    [string]$completionReceipt.release.releaseId -ne
+      [string]$policy.release.releaseId -or
+    [string]$completionReceipt.release.applicationId -ne
+      [string]$policy.permanentApplicationId -or
+    [string]$completionReceipt.sourceAuthority.commit -ne
+      [string]$policy.finalization.sourceCommit -or
+    [int64]$completionReceipt.workflow.runId -ne
+      [int64]$policy.finalization.githubRunId -or
+    [string]$completionReceipt.workflow.conclusion -ne 'success' -or
+    [string]$completionReceipt.workflow.actor -ne 'abhishekvatsa' -or
+    [long]$completionReceipt.workflow.actorId -ne 213690022 -or
+    $completionReceipt.workflow.secretValuesInspected -ne $false -or
+    [string]$completionReceipt.governedPackage.sha256 -ne
+      [string]$policy.finalization.governedPackageSha256 -or
+    $completionReceipt.governedPackage.independentVerificationCompleted -ne
+      $true -or
+    [string]$completionReceipt.remoteAuthority.reservationTag -ne
+      [string]$policy.versionPolicy.remoteReservationTag -or
+    [string]$completionReceipt.remoteAuthority.reservationTagObjectSha -ne
+      [string]$policy.finalization.remoteReservationTagObject -or
+    [string]$completionReceipt.remoteAuthority.builtTag -ne
+      [string]$policy.versionPolicy.remoteBuiltTag -or
+    [string]$completionReceipt.remoteAuthority.builtTagObjectSha -ne
+      [string]$policy.finalization.remoteBuiltTagObject -or
+    [string]$completionReceipt.remoteAuthority.builtTagCommit -ne
+      [string]$policy.finalization.sourceCommit -or
+    [string]$completionReceipt.closure.closurePackageSha256 -ne
+      [string]$policy.finalization.closurePackageSha256 -or
+    [string]$completionReceipt.closure.custodyRecordSha256 -ne
+      [string]$policy.finalization.custodyRecordSha256 -or
+    $completionReceipt.dualCustody.distinctVolumes -ne $true -or
+    $completionReceipt.dualCustody.allFileHashesMatched -ne $true -or
+    $policy.finalization.dualCustodyCompleted -ne $true -or
+    $completionReceipt.recoveryIncident.occurred -ne $true -or
+    [string]$completionReceipt.recoveryIncident.failureBoundary -ne
+      'remote-built-tag-push' -or
+    [string]$completionReceipt.recoveryIncident.sourceExpression -ne
+      'git push origin "refs/tags/$builtTag:refs/tags/$builtTag"' -or
+    [string]$completionReceipt.recoveryIncident.sourceCorrection.
+      correctedExpression -ne
+      'git push origin "refs/tags/${builtTag}:refs/tags/${builtTag}"' -or
+    $completionReceipt.recoveryIncident.stateBeforeRecovery.rebuildPerformed -ne
+      $false -or
+    $completionReceipt.recoveryIncident.stateBeforeRecovery.
+      workflowRerunPerformed -ne $false -or
+    $completionReceipt.recoveryIncident.recovery.forceUsed -ne $false -or
+    $completionReceipt.recoveryIncident.verification.closurePassed -ne $true -or
+    $policy.finalization.firebaseBackendDeploymentPerformed -ne $false -or
+    $policy.finalization.controlledPilotApproved -ne $false -or
+    $policy.finalization.unrestrictedPlantReleaseApproved -ne $false -or
+    $completionReceipt.releaseBoundary.firebaseBackendDeploymentPerformed -ne
+      $false -or
+    $completionReceipt.releaseBoundary.controlledPilotApproved -ne $false -or
+    $completionReceipt.releaseBoundary.unrestrictedPlantReleaseApproved -ne
+      $false -or
+    $completionReceipt.releaseBoundary.distributionPerformed -ne $false) {
+  throw 'Build-5 finalization receipt differs from policy or release boundary.'
+}
+
 $signingReceipt = Get-Content -LiteralPath $policy.signing.approvalReceiptFile -Raw |
   ConvertFrom-Json
 if ([string]$signingReceipt.receiptType -ne 'production-signing-and-custody' -or
@@ -521,12 +600,43 @@ if ([string]$reservation.reservationId -ne
     [string]$reservation.versionName -ne
       [string]$policy.release.versionName -or
     [string]$reservation.status -ne
-      'source-reserved-awaiting-remote-consumption' -or
+      'remote-consumed-artifact-built-finalized-non-distributable' -or
     [string]$reservation.versionApprovalReference -ne
       [string]$versionReceipt.reference -or
     [string]$reservation.versionApprovalDocumentSha256 -ne
-      [string]$policy.versionPolicy.sourceDocumentSha256) {
-  throw 'Build-number source reservation differs from policy.'
+      [string]$policy.versionPolicy.sourceDocumentSha256 -or
+    [int64]$reservation.githubRunId -ne
+      [int64]$completionReceipt.workflow.runId -or
+    [string]$reservation.remoteReservationTagObject -ne
+      [string]$completionReceipt.remoteAuthority.reservationTagObjectSha -or
+    [string]$reservation.remoteReservationCommit -ne
+      [string]$completionReceipt.remoteAuthority.reservationTagCommit -or
+    [string]$reservation.remoteBuiltTagObject -ne
+      [string]$completionReceipt.remoteAuthority.builtTagObjectSha -or
+    [string]$reservation.remoteBuiltCommit -ne
+      [string]$completionReceipt.remoteAuthority.builtTagCommit -or
+    [string]$reservation.githubArtifactDigest -ne
+      [string]$completionReceipt.githubArtifact.digest -or
+    [string]$reservation.governedPackageSha256 -ne
+      [string]$completionReceipt.governedPackage.sha256 -or
+    [string]$reservation.closurePackageSha256 -ne
+      [string]$completionReceipt.closure.closurePackageSha256 -or
+    [string]$reservation.custodyRecordSha256 -ne
+      [string]$completionReceipt.closure.custodyRecordSha256 -or
+    [string]$reservation.completionReceiptFile -ne
+      $completionReceiptPath -or
+    [string]$reservation.completionReceiptSha256 -ne
+      [string]$policy.finalization.completionReceiptSha256 -or
+    $reservation.closureFinalizationCompleted -ne $true -or
+    $reservation.dualCustodyCompleted -ne $true -or
+    $reservation.remoteBuiltTagCreated -ne $true -or
+    $reservation.remoteTagPushRecoveryRequired -ne $true -or
+    $reservation.remoteTagPushRecoveryForceUsed -ne $false -or
+    $reservation.firebaseBackendDeploymentPerformed -ne $false -or
+    $reservation.controlledPilotApproved -ne $false -or
+    $reservation.unrestrictedPlantReleaseApproved -ne $false -or
+    $reservation.distributionPerformed -ne $false) {
+  throw 'Finalized build-number evidence differs from policy.'
 }
 
 $consumedMatches = @(

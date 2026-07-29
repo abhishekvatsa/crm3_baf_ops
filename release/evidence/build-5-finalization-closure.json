@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "production-build-finalization-closure",
+  "status": "passed-non-distributable",
+  "release": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b5",
+    "version": "1.0.0-rc.1+5",
+    "buildNumber": 5,
+    "applicationId": "in.co.sail.bsl.crm3.bafops"
+  },
+  "sourceAuthority": {
+    "commit": "60dc4688fbbc7127e84c63d7955dab4210555e0d",
+    "tree": "324e77cc5748476f2ddff8531d6b378c9e92482a",
+    "pullRequestNumber": 70,
+    "productionPolicySha256AtBuild": "617328F969BAB50E1D16FC6A7CEDF817F2571D7FA032DCDB9A4F7323CDCA494A",
+    "finalizerSha256AtBuild": "FBFF874BCD3732E1C4C73E1B2C5F7A751921472C272121F527D0E2198E918912"
+  },
+  "workflow": {
+    "path": ".github/workflows/production-artifact.yml",
+    "runId": 30466468245,
+    "runAttempt": 1,
+    "url": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30466468245",
+    "startedAtUtc": "2026-07-29T15:33:55Z",
+    "completedAtUtc": "2026-07-29T16:03:39Z",
+    "conclusion": "success",
+    "actor": "abhishekvatsa",
+    "actorId": 213690022,
+    "triggeringActor": "abhishekvatsa",
+    "dispatchApprovalReference": "BAF-REF-003-C4",
+    "environmentExceptionApprovalReference": "BAF-GH-ENV-001",
+    "environmentReviewControlMode": "private-repository-plan-exception",
+    "secretNamesVerified": 4,
+    "secretValuesInspected": false
+  },
+  "githubArtifact": {
+    "id": 8730747624,
+    "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.1-b5-60dc4688fbbc7127e84c63d7955dab4210555e0d-run-30466468245",
+    "sizeBytes": 152848252,
+    "digest": "sha256:6c972e72a2c16e7ab2815fa92185c7faaf04fd38389fd230db28dcbaff60c2ec"
+  },
+  "governedPackage": {
+    "file": "crm3-baf-ops-1.0.0-rc.1-b5-GOVERNED-PACKAGE.zip",
+    "sha256": "E702A72A6603B6187E9282FC12E1E633F9BF59057ED331464BE590579FFB29C1",
+    "sidecarFile": "crm3-baf-ops-1.0.0-rc.1-b5-GOVERNED-PACKAGE.zip.sha256.txt",
+    "sidecarSha256": "1FCBF4F9636FCED063619789AB1736965A3BB9C191BB4A6684CCADCD647FFAC1",
+    "manifestSha256": "C337C7779ECAD5F32186049C4DE39686A124D1C07A0630FF63012CBDCF9364F6",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "independentVerificationCompleted": true
+  },
+  "remoteAuthority": {
+    "reservationTag": "crm3-build-reserved/5",
+    "reservationTagObjectSha": "c67adafc1910c7dd123dbf681b31e572ced25a17",
+    "reservationTagCommit": "60dc4688fbbc7127e84c63d7955dab4210555e0d",
+    "reservationTagMessageSha256": "DB412C008805EDCB244C66DCB0C5DA579556C3CF2A84AAFB3088DEAE866105AD",
+    "builtTag": "crm3-build-built/5",
+    "builtTagCreatedAtUtc": "2026-07-29T16:09:22Z",
+    "builtTagObjectSha": "6bf4ab7f0e65753e3a49b12f2e62df19ce8f795a",
+    "builtTagCommit": "60dc4688fbbc7127e84c63d7955dab4210555e0d",
+    "builtTagMessageSha256": "7F44FE2197F19D80363BEAAC57C6876A2C9A0FA68ECFDD63F985907230A274B5"
+  },
+  "dualCustody": {
+    "status": "passed",
+    "primaryVolumeRole": "operator-primary",
+    "backupVolumeRole": "offline-removable-backup",
+    "distinctVolumes": true,
+    "filesVerifiedInBothLocations": 6,
+    "allFileHashesMatched": true,
+    "completedAtUtc": "2026-07-29T16:15:22.3256228Z"
+  },
+  "closure": {
+    "decisionSchemaVersion": 4,
+    "decisionAtUtc": "2026-07-29T16:14:47.3496722Z",
+    "successfulWorkDirectoryName": "CRM_III_BAF_Ops_O1_O5_FINALIZATION_20260729_214155",
+    "closurePackageFile": "CRM_III_BAF_Ops_O1_O5_CLOSURE_20260729_214155.zip",
+    "closurePackageSha256": "4AEBDFC8B1FE378FA8CAB26B6C05CB745250A52CC7CE095CA5987605030A6679",
+    "closureSidecarSha256": "DB1653F4F3E26FE1F25708C83AEE086C900F636DAAF5FBA1655C5F6945987EB1",
+    "custodyRecordFile": "CRM_III_BAF_Ops_O1_O5_CUSTODY_20260729_214155.json",
+    "custodyRecordSha256": "DCF5ADBD45649ED22F8B7DB2780528F964D2DC0EE8F77260B49C150A3E8F1AE1",
+    "custodySidecarSha256": "762B0D22F9FC4A24FC0CEAAFF57477CB70B8B2796A4BDEA64C8A45E0405AA24D"
+  },
+  "recoveryIncident": {
+    "occurred": true,
+    "initialAttemptWorkDirectoryName": "CRM_III_BAF_Ops_O1_O5_FINALIZATION_20260729_213631",
+    "failureBoundary": "remote-built-tag-push",
+    "sourceExpression": "git push origin \"refs/tags/$builtTag:refs/tags/$builtTag\"",
+    "cause": "PowerShell parsed $builtTag:refs as a scoped variable reference and produced an invalid refspec.",
+    "observedError": "fatal: invalid refspec 'refs/tags//tags/crm3-build-built/5'",
+    "stateBeforeRecovery": {
+      "productionPackageDualCustodyCompleted": true,
+      "localAnnotatedBuiltTagCreated": true,
+      "localBuiltTagObjectSha": "6bf4ab7f0e65753e3a49b12f2e62df19ce8f795a",
+      "remoteBuiltTagPresent": false,
+      "rebuildPerformed": false,
+      "workflowRerunPerformed": false
+    },
+    "recovery": {
+      "method": "exact-non-force-refspec-push",
+      "command": "git push origin \"refs/tags/crm3-build-built/5:refs/tags/crm3-build-built/5\"",
+      "forceUsed": false,
+      "remoteBuiltTagObjectShaAfterPush": "6bf4ab7f0e65753e3a49b12f2e62df19ce8f795a",
+      "remoteBuiltTagCommitAfterPush": "60dc4688fbbc7127e84c63d7955dab4210555e0d"
+    },
+    "verification": {
+      "unchangedFinalizerRerunCompleted": true,
+      "sameGithubRunReused": true,
+      "samePackageHashReused": true,
+      "closurePassed": true
+    },
+    "sourceCorrection": {
+      "file": "tools/release/Finalize-ProductionRelease.ps1",
+      "correctedExpression": "git push origin \"refs/tags/${builtTag}:refs/tags/${builtTag}\"",
+      "regressionGuardRequired": true
+    }
+  },
+  "releaseBoundary": {
+    "authority": "production-signed-pre-release-candidate",
+    "firebaseBackendDeploymentPerformed": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false,
+    "distributionPerformed": false,
+    "postBuildPromotionRequiredForAnyDistribution": true
+  }
+}

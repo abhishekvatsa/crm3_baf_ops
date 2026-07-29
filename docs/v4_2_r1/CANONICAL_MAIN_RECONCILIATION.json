@@ -2569,9 +2569,9 @@
     {
       "path": "release/build-number-ledger.json",
       "canonicalSha256": "6F60C54ADB8180013766D707F175ADE744F1C46FBE95349CA60C834930E633E6",
-      "candidateSha256": "48665172F2C90AF8C67873AEBAA545D4D998E09C54E63EB8D68F800B6FFC2436",
+      "candidateSha256": "C72275D417F496F851D09CAD12115A01DFECE9B74C7399C61F0E693AE73B5906",
       "canonicalBytes": 1097,
-      "candidateBytes": 8625,
+      "candidateBytes": 10871,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2593,9 +2593,9 @@
     {
       "path": "release/production-release-policy.json",
       "canonicalSha256": "599E82E90BE8424F4552690DB548968B4BFF364A6EF59CC96CFBA9A3AF1950F4",
-      "candidateSha256": "617328F969BAB50E1D16FC6A7CEDF817F2571D7FA032DCDB9A4F7323CDCA494A",
+      "candidateSha256": "F6ADBF6AD45BEA819B644B614BB120D9F70866E5197E35DA62EE07DC1B26E149",
       "canonicalBytes": 5884,
-      "candidateBytes": 8375,
+      "candidateBytes": 9328,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3077,9 +3077,9 @@
     {
       "path": "test/production_release_provenance_contract_test.dart",
       "canonicalSha256": "3906E9F4737E325D73259BA259C8A2088CA9084C817AEAD6260FC510049FE985",
-      "candidateSha256": "09C05D1E5C3BEF3FCC2AAF5325B54F76211F327EB49B6F7C1D7C6B3024D9FCD0",
+      "candidateSha256": "BF799682FE01C5E08E93ECDC0940CBEEA13837A4D2D3BD0D0D2A2CAA9B22093A",
       "canonicalBytes": 7635,
-      "candidateBytes": 23618,
+      "candidateBytes": 27726,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3381,9 +3381,9 @@
     {
       "path": "tools/release/Test-ProductionReleasePolicy.ps1",
       "canonicalSha256": "6A7A51C91BCF2276ACEE8FE48AEC70783808F687E6539B600273178CD8FDF7D6",
-      "candidateSha256": "E3049C982F3F6BCACB78BC7DD3F3EB2F5685CAE8B9470B047B6E8DABFD304759",
+      "candidateSha256": "23DF4AD8053C1B7464140A8F58D3DB2927A9F802DF1EF7775E6F1B164F91B4E9",
       "canonicalBytes": 15649,
-      "candidateBytes": 41456,
+      "candidateBytes": 47606,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
