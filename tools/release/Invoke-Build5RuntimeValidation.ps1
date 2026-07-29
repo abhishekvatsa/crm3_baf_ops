@@ -11,7 +11,13 @@ privacy-minimized proof that the approved-user home screen was reached.
 
 [CmdletBinding(SupportsShouldProcess)]
 param(
-  [ValidateSet('Preflight', 'Install', 'FinalizeInstall', 'Verify')]
+  [ValidateSet(
+    'Preflight',
+    'Install',
+    'FinalizeInstall',
+    'PrepareSignIn',
+    'Verify'
+  )]
   [string]$Phase = 'Preflight',
 
   [Parameter(Mandatory)]
@@ -120,19 +126,38 @@ function Wait-ForLoginUi {
   param(
     [Parameter(Mandatory)][string]$Adb,
     [Parameter(Mandatory)][string]$Serial,
-    [Parameter(Mandatory)][string]$Destination
+    [Parameter(Mandatory)][string]$Destination,
+    [switch]$RequireLogin
   )
 
   $notificationPromptDenied = $false
+  $homeMarkers = @('Home', 'Issues', 'Work', 'Directives', 'More', 'Core modules')
   $deadline = [DateTimeOffset]::UtcNow.AddSeconds(60)
   do {
     Get-UiSnapshot -Adb $Adb -Serial $Serial -Destination $Destination
     $uiText = Get-Content -LiteralPath $Destination -Raw
     if ($uiText.Contains('Sign in with Google')) {
       return [pscustomobject]@{
+        state = 'LOGIN'
         uiText = $uiText
         notificationPromptDenied = $notificationPromptDenied
       }
+    }
+
+    $homeReached = @($homeMarkers |
+        Where-Object { -not $uiText.Contains($_) }).Count -eq 0
+    if ($homeReached -and -not $RequireLogin) {
+      return [pscustomobject]@{
+        state = 'APPROVED_HOME_RESTORED_SESSION'
+        uiText = $uiText
+        notificationPromptDenied = $notificationPromptDenied
+      }
+    }
+
+    if ($uiText.Contains('Sign Out') -and -not $RequireLogin) {
+      $null = Invoke-ExternalText -FilePath $Adb -Arguments @(
+        '-s', $Serial, 'shell', 'input', 'keyevent', 'KEYCODE_BACK'
+      )
     }
 
     if ($uiText.Contains(
@@ -171,6 +196,46 @@ function Wait-ForLoginUi {
   } while ([DateTimeOffset]::UtcNow -lt $deadline)
 
   throw 'The installed release did not reach the expected Google sign-in UI.'
+}
+
+function Assert-ExactInstalledRelease {
+  param(
+    [Parameter(Mandatory)][string]$Adb,
+    [Parameter(Mandatory)][string]$Serial,
+    [Parameter(Mandatory)][string]$PackageId,
+    [Parameter(Mandatory)][string]$ExpectedVersionCode,
+    [Parameter(Mandatory)][string]$ExpectedVersionName,
+    [Parameter(Mandatory)][string]$ExpectedSha256
+  )
+
+  $pathResult = Invoke-ExternalText `
+    -FilePath $Adb `
+    -Arguments @('-s', $Serial, 'shell', 'pm', 'path', $PackageId) `
+    -AllowFailure
+  if (-not $pathResult.output.StartsWith('package:')) {
+    throw 'The exact production release package is not installed.'
+  }
+
+  $details = (Invoke-ExternalText -FilePath $Adb -Arguments @(
+    '-s', $Serial, 'shell', 'dumpsys', 'package', $PackageId
+  )).output
+  if ($details.Contains('DEBUGGABLE')) {
+    throw 'The installed production release is unexpectedly debuggable.'
+  }
+  if ($details -notmatch
+      "versionCode=$([regex]::Escape($ExpectedVersionCode))(?:\s|$)" -or
+      $details -notmatch
+      "versionName=$([regex]::Escape($ExpectedVersionName))(?:\s|$)") {
+    throw 'The installed production release has an unexpected version.'
+  }
+
+  $installedPath = $pathResult.output.Replace('package:', '').Trim()
+  $shaOutput = (Invoke-ExternalText -FilePath $Adb -Arguments @(
+    '-s', $Serial, 'shell', 'sha256sum', $installedPath
+  )).output
+  $installedSha = ($shaOutput -split '\s+')[0].ToUpperInvariant()
+  Assert-Equal $installedSha $ExpectedSha256 'Installed APK SHA-256'
+  $installedSha
 }
 
 $root = (Resolve-Path -LiteralPath $RepositoryRoot).Path
@@ -500,7 +565,10 @@ if ($Phase -eq 'Install') {
     installedApkSha256 = $installedSha
     installedPackageDebuggable = $false
     loginUiSha256 = Get-Sha256 $uiPath
-    loginUiMarkerPresent = $true
+    loginUiMarkerPresent = $loginResult.state -eq 'LOGIN'
+    restoredApprovedSessionDetected =
+      $loginResult.state -eq 'APPROVED_HOME_RESTORED_SESSION'
+    explicitOauthExchangeProved = $false
     notificationPermissionPromptDenied =
       $loginResult.notificationPromptDenied
     launchOutput = $launch.output
@@ -628,7 +696,10 @@ if ($Phase -eq 'FinalizeInstall') {
     installedApkSha256 = $installedSha
     installedPackageDebuggable = $false
     loginUiSha256 = Get-Sha256 $uiPath
-    loginUiMarkerPresent = $true
+    loginUiMarkerPresent = $loginResult.state -eq 'LOGIN'
+    restoredApprovedSessionDetected =
+      $loginResult.state -eq 'APPROVED_HOME_RESTORED_SESSION'
+    explicitOauthExchangeProved = $false
     notificationPermissionPromptDenied =
       $loginResult.notificationPromptDenied
     launchOutput = $launch.output
@@ -648,6 +719,146 @@ if ($Phase -eq 'FinalizeInstall') {
   exit 0
 }
 
+if ($Phase -eq 'PrepareSignIn') {
+  if ($gitBranch -ne 'main' -or $gitHead -ne $originMain -or $gitStatus) {
+    throw 'PrepareSignIn requires an exact clean main equal to origin/main.'
+  }
+  $installReceiptPath = Join-Path $evidenceRoot 'install-receipt.json'
+  if (-not (Test-Path -LiteralPath $installReceiptPath -PathType Leaf)) {
+    throw 'PrepareSignIn requires the governed install receipt.'
+  }
+  $signOutReceiptPath = Join-Path $evidenceRoot 'signout-receipt.json'
+  if (Test-Path -LiteralPath $signOutReceiptPath) {
+    throw 'PrepareSignIn refuses to replace an existing sign-out receipt.'
+  }
+
+  $installEvidence = Get-Content -LiteralPath $installReceiptPath -Raw |
+    ConvertFrom-Json
+  Assert-Equal `
+    $installEvidence.installedApkSha256 `
+    $expectedApk.sha256 `
+    'Install evidence APK SHA-256'
+  Assert-Equal `
+    $installEvidence.restoredApprovedSessionDetected `
+    $true `
+    'Restored approved-session classification'
+  Assert-Equal `
+    $installEvidence.explicitOauthExchangeProved `
+    $false `
+    'Pre-sign-out OAuth proof state'
+  $installedSha = Assert-ExactInstalledRelease `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -PackageId $packageId `
+    -ExpectedVersionCode ([string]$promotion.artifactAuthority.versionCode) `
+    -ExpectedVersionName $promotion.artifactAuthority.versionName `
+    -ExpectedSha256 $expectedApk.sha256
+
+  $launch = Invoke-ExternalText -FilePath $adb -Arguments @(
+    '-s', $DeviceSerial, 'shell', 'monkey',
+    '-p', $packageId,
+    '-c', 'android.intent.category.LAUNCHER',
+    '1'
+  )
+  Start-Sleep -Seconds 2
+
+  $restoredHomePath = Join-Path $evidenceRoot 'restored-home-window.xml'
+  Get-UiSnapshot `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -Destination $restoredHomePath
+  $restoredHomeUi = Get-Content -LiteralPath $restoredHomePath -Raw
+  if (-not $restoredHomeUi.Contains('Sign Out')) {
+    $homeMarkers = @(
+      'Home',
+      'Issues',
+      'Work',
+      'Directives',
+      'More',
+      'Core modules'
+    )
+    $missingHomeMarkers = @($homeMarkers |
+        Where-Object { -not $restoredHomeUi.Contains($_) })
+    if ($missingHomeMarkers.Count -ne 0) {
+      throw 'PrepareSignIn cannot prove the restored approved-user home state.'
+    }
+    $null = Invoke-ExternalText -FilePath $adb -Arguments @(
+      '-s', $DeviceSerial, 'shell', 'input', 'tap', '990', '220'
+    )
+    Start-Sleep -Seconds 2
+    Get-UiSnapshot `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -Destination $restoredHomePath
+    $restoredHomeUi = Get-Content -LiteralPath $restoredHomePath -Raw
+  }
+
+  [xml]$profileXml = $restoredHomeUi
+  $signOutNode = $profileXml.SelectSingleNode(
+    "//node[@content-desc='Sign Out']"
+  )
+  if ($null -eq $signOutNode) {
+    throw 'PrepareSignIn cannot find the in-app Sign Out control.'
+  }
+  $bounds = [string]$signOutNode.bounds
+  $match = [regex]::Match(
+    $bounds,
+    '^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$'
+  )
+  if (-not $match.Success) {
+    throw "Sign Out control bounds are malformed: $bounds"
+  }
+  $x = [int]((
+    [int]$match.Groups[1].Value +
+    [int]$match.Groups[3].Value
+  ) / 2)
+  $y = [int]((
+    [int]$match.Groups[2].Value +
+    [int]$match.Groups[4].Value
+  ) / 2)
+  $null = Invoke-ExternalText -FilePath $adb -Arguments @(
+    '-s', $DeviceSerial, 'shell', 'input', 'tap', "$x", "$y"
+  )
+
+  $signedOutUiPath = Join-Path $evidenceRoot 'signed-out-login-window.xml'
+  $loginResult = Wait-ForLoginUi `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -Destination $signedOutUiPath `
+    -RequireLogin
+  Assert-Equal $loginResult.state 'LOGIN' 'Post-sign-out UI state'
+
+  $signOutReceipt = [ordered]@{
+    schemaVersion = 1
+    evidenceType = 'build-5-explicit-oauth-preparation'
+    signedOutAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    promotionSha256 = Get-Sha256 $promotionFile
+    installReceiptSha256 = Get-Sha256 $installReceiptPath
+    source = $preflight.source
+    artifact = $preflight.artifact
+    target = $preflight.target
+    installedApkSha256 = $installedSha
+    restoredApprovedSessionObserved = $true
+    restoredHomeUiSha256 = Get-Sha256 $restoredHomePath
+    inAppSignOutControlUsed = $true
+    ownUserFcmTokenClearPermitted = $true
+    signedOutLoginUiSha256 = Get-Sha256 $signedOutUiPath
+    signInWithGoogleMarkerPresent = $true
+    appDataClearPerformed = $false
+    reinstallPerformed = $false
+    explicitOauthExchangeProved = $false
+    accountEmailStoredInRepositoryEvidence = $false
+    accountDisplayNameStoredInRepositoryEvidence = $false
+    launchOutput = $launch.output
+    decision = 'PASS_RESTORED_SESSION_CLEARED_READY_FOR_FRESH_GOOGLE_SIGN_IN'
+  }
+  Write-Utf8NoBom `
+    -Path $signOutReceiptPath `
+    -Text (($signOutReceipt | ConvertTo-Json -Depth 30) + "`n")
+  $signOutReceipt | ConvertTo-Json -Depth 30
+  exit 0
+}
+
 if ($gitBranch -ne 'main' -or $gitHead -ne $originMain -or $gitStatus) {
   throw 'Verify requires an exact clean main equal to origin/main.'
 }
@@ -655,6 +866,10 @@ if (-not (Test-Path -LiteralPath (
     Join-Path $evidenceRoot 'install-receipt.json'
   ) -PathType Leaf)) {
   throw 'Verify requires the governed install receipt.'
+}
+$runtimeReceiptPath = Join-Path $evidenceRoot 'runtime-receipt.json'
+if (Test-Path -LiteralPath $runtimeReceiptPath) {
+  throw 'Verify refuses to replace an existing runtime receipt.'
 }
 
 $installEvidence = Get-Content -LiteralPath (
@@ -664,6 +879,39 @@ Assert-Equal `
   $installEvidence.installedApkSha256 `
   $expectedApk.sha256 `
   'Install evidence APK SHA-256'
+$signOutReceiptPath = Join-Path $evidenceRoot 'signout-receipt.json'
+if (-not (Test-Path -LiteralPath $signOutReceiptPath -PathType Leaf)) {
+  throw 'Verify requires explicit restored-session sign-out evidence.'
+}
+$signOutEvidence = Get-Content -LiteralPath $signOutReceiptPath -Raw |
+  ConvertFrom-Json
+Assert-Equal `
+  $signOutEvidence.signInWithGoogleMarkerPresent `
+  $true `
+  'Fresh Google Sign-In preparation'
+Assert-Equal `
+  $signOutEvidence.promotionSha256 `
+  (Get-Sha256 $promotionFile) `
+  'Sign-out evidence promotion SHA-256'
+Assert-Equal `
+  $signOutEvidence.artifact.sha256 `
+  $expectedApk.sha256 `
+  'Sign-out evidence APK SHA-256'
+Assert-Equal `
+  $signOutEvidence.target.serial `
+  $DeviceSerial `
+  'Sign-out evidence target serial'
+Assert-Equal `
+  $signOutEvidence.decision `
+  'PASS_RESTORED_SESSION_CLEARED_READY_FOR_FRESH_GOOGLE_SIGN_IN' `
+  'Sign-out evidence decision'
+$installedSha = Assert-ExactInstalledRelease `
+  -Adb $adb `
+  -Serial $DeviceSerial `
+  -PackageId $packageId `
+  -ExpectedVersionCode ([string]$promotion.artifactAuthority.versionCode) `
+  -ExpectedVersionName $promotion.artifactAuthority.versionName `
+  -ExpectedSha256 $expectedApk.sha256
 
 $requiredHomeMarkers = @(
   'Home',
@@ -728,12 +976,16 @@ $runtimeReceipt = [ordered]@{
   installReceiptSha256 = Get-Sha256 (
     Join-Path $evidenceRoot 'install-receipt.json'
   )
+  signOutReceiptSha256 = Get-Sha256 $signOutReceiptPath
+  installedApkSha256 = $installedSha
   artifact = $preflight.artifact
   target = $preflight.target
   approvedUserGate = [ordered]@{
     sourceInvariant = 'HomeScreen is reachable only after Firebase authentication, users/{uid} resolution and isApproved=true.'
     requiredMarkers = $requiredHomeMarkers
     forbiddenMarkersAbsent = $true
+    restoredSessionWasExplicitlyCleared = $true
+    freshGoogleSignInOccurredAfterSignedOutMarker = $true
     accountEmailStoredInRepositoryEvidence = $false
     accountDisplayNameStoredInRepositoryEvidence = $false
     uiHierarchySha256 = Get-Sha256 $runtimeUiPath
@@ -751,6 +1003,6 @@ $runtimeReceipt = [ordered]@{
   decision = 'PASS_EXACT_PRODUCTION_SIGNED_GOOGLE_SIGN_IN_AND_APPROVED_USER_GATE'
 }
 Write-Utf8NoBom `
-  -Path (Join-Path $evidenceRoot 'runtime-receipt.json') `
+  -Path $runtimeReceiptPath `
   -Text (($runtimeReceipt | ConvertTo-Json -Depth 30) + "`n")
 $runtimeReceipt | ConvertTo-Json -Depth 30

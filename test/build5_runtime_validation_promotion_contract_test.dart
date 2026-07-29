@@ -33,6 +33,18 @@ void main() {
     );
     expect(amendment['artifactOrTargetExpansion'], isFalse);
     expect(amendment['pilotOrExternalDistributionExpansion'], isFalse);
+    final explicitOauthAmendment = _object(promotion['explicitOauthAmendment']);
+    expect(
+      explicitOauthAmendment['priorRecoveryPromotionSha256'],
+      'A68A70EB01A5A5C7FA7528F5DFE908EE5415A79050A62A0038E873B564910AF2',
+    );
+    expect(explicitOauthAmendment['appDataClearAuthorized'], isFalse);
+    expect(explicitOauthAmendment['reinstallAuthorized'], isFalse);
+    expect(explicitOauthAmendment['artifactOrTargetExpansion'], isFalse);
+    expect(
+      explicitOauthAmendment['pilotOrExternalDistributionExpansion'],
+      isFalse,
+    );
 
     final artifact = _object(promotion['artifactAuthority']);
     expect(artifact['applicationId'], 'in.co.sail.bsl.crm3.bafops');
@@ -80,6 +92,7 @@ void main() {
     final remoteBoundary = _object(promotion['expectedRemoteMutationBoundary']);
     expect(remoteBoundary['firebaseAuthenticationSessionCreated'], isTrue);
     expect(remoteBoundary['ownUserProfileHydrationPermitted'], isTrue);
+    expect(remoteBoundary['ownUserFcmTokenClearOnSignOutPermitted'], isTrue);
     expect(remoteBoundary['otherFirestoreBusinessWritesAuthorized'], isFalse);
     expect(remoteBoundary['firebaseConfigurationMutationAuthorized'], isFalse);
     expect(remoteBoundary['backendDeploymentAuthorized'], isFalse);
@@ -100,7 +113,8 @@ void main() {
           ).readAsStringSync();
 
       for (final required in <String>[
-        "[ValidateSet('Preflight', 'Install', 'FinalizeInstall', 'Verify')]",
+        "'FinalizeInstall',",
+        "'PrepareSignIn',",
         'Get-FileHash -LiteralPath \$Path -Algorithm SHA256',
         "build-tools\\36.0.0\\aapt.exe",
         "build-tools\\36.0.0\\apksigner.bat",
@@ -114,8 +128,17 @@ void main() {
         'FinalizeInstall requires an exact clean main equal to origin/main.',
         'FinalizeInstall refuses to replace an existing install receipt.',
         'INTERRUPTED_AFTER_INSTALL_NOTIFICATION_PROMPT',
+        'APPROVED_HOME_RESTORED_SESSION',
         'Allow CRM-III BAF Ops to send you notifications?',
         'permission_deny_button',
+        'PrepareSignIn requires an exact clean main equal to origin/main.',
+        'PrepareSignIn refuses to replace an existing sign-out receipt.',
+        "//node[@content-desc='Sign Out']",
+        'PASS_RESTORED_SESSION_CLEARED_READY_FOR_FRESH_GOOGLE_SIGN_IN',
+        'Verify requires explicit restored-session sign-out evidence.',
+        'Verify refuses to replace an existing runtime receipt.',
+        'Sign-out evidence promotion SHA-256',
+        'Assert-ExactInstalledRelease',
         "'install', '--no-streaming', \$apkFile",
         'Installed Build 5 package is unexpectedly debuggable.',
         "'uiautomator', 'dump'",
