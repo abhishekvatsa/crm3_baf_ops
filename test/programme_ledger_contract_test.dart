@@ -1,12 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _readJson(String path) {
   final file = File(path);
   expect(file.existsSync(), isTrue, reason: 'Missing governed file: $path');
   return jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+}
+
+String _sha256(String path) {
+  return sha256.convert(File(path).readAsBytesSync()).toString().toUpperCase();
 }
 
 Map<String, dynamic> _object(dynamic value) {
@@ -549,6 +554,118 @@ void main() {
           ).map((entry) => entry['sha256'] as String).toSet();
       expect(evidenceShas, contains(mergeEvidenceSha));
       expect(evidenceShas, contains(closureEvidenceSha));
+    }
+  });
+
+  test('Build 5 adjudication advances only the evidence-proved records', () {
+    const receiptPath = 'release/evidence/build-5-programme-adjudication.json';
+    const receiptSha =
+        '09031647BA40635350C3E36548CA6030CB0E0672C15C4CDBE538D44E988DC97B';
+    const closurePackageSha =
+        '4AEBDFC8B1FE378FA8CAB26B6C05CB745250A52CC7CE095CA5987605030A6679';
+
+    expect(_sha256(receiptPath), receiptSha);
+
+    final ledger = _readJson('governance/programme-ledger.json');
+    final receipt = _readJson(receiptPath);
+    final gates = _objects(ledger['programmeGates']);
+    final findings = _objects(ledger['technicalFindings']);
+
+    final buildAuthority = _object(receipt['build5Authority']);
+    expect(
+      buildAuthority['sourceCommit'],
+      '60dc4688fbbc7127e84c63d7955dab4210555e0d',
+    );
+    expect(
+      _object(buildAuthority['apk'])['sha256'],
+      '1A39F9F375D785817862AA86BF3810FB5D99545E1E8BFFB7BA4F3CA69253774C',
+    );
+    expect(
+      _object(buildAuthority['productionSigner'])['certificateSha256'],
+      '6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C',
+    );
+    final releaseBoundary = _object(buildAuthority['releaseBoundary']);
+    expect(releaseBoundary['controlledDistributionChannelApproved'], isFalse);
+    expect(releaseBoundary['distributionPerformed'], isFalse);
+
+    final p01 = findings.singleWhere((item) => item['findingId'] == 'P-01');
+    expect(p01['currentStatus'], 'SOURCE_IMPLEMENTED');
+    expect(_strings(p01['requiredExitEvidence']), hasLength(4));
+    final p01Evidence = _objects(p01['evidence']).single;
+    expect(p01Evidence['sha256'], receiptSha);
+    expect(p01Evidence['productionSignedRuntimeGoogleSignInProved'], isFalse);
+    expect(
+      _objects(
+        p01['statusHistory'],
+      ).map((entry) => entry['status']).toList(growable: false),
+      <String>['OPEN', 'SOURCE_IMPLEMENTED'],
+    );
+    final p01Adjudication = _object(receipt['p01Adjudication']);
+    expect(p01Adjudication['adjudicatedStatus'], 'SOURCE_IMPLEMENTED');
+    expect(p01Adjudication['pilotBlockerRemains'], isTrue);
+
+    final f3 = gates.singleWhere((item) => item['gateId'] == 'STAGE2D-F3');
+    expect(f3['currentStatus'], 'OPEN');
+    expect(f3['authorization'], 'BLOCKS_PILOT_HANDOUT');
+    final f3Evidence = _objects(f3['evidence']).single;
+    expect(f3Evidence['sha256'], receiptSha);
+    expect(f3Evidence['completedExitDimensions'], 2);
+    expect(f3Evidence['requiredExitDimensions'], 3);
+    expect(f3Evidence['distributionPerformed'], isFalse);
+    final f3Adjudication = _object(receipt['stage2dF3Adjudication']);
+    final f3Dimensions = _object(f3Adjudication['dimensions']);
+    expect(_object(f3Dimensions['signedApkHash'])['status'], 'passed');
+    expect(
+      _object(f3Dimensions['packageVersionSourceCertificateBinding'])['status'],
+      'passed',
+    );
+    expect(
+      _object(f3Dimensions['controlledDistributionChannel'])['status'],
+      'open',
+    );
+    expect(f3Adjudication['pilotHandoutAuthorized'], isFalse);
+
+    final lr05 = gates.singleWhere((item) => item['gateId'] == 'LR-05');
+    expect(lr05['currentStatus'], 'CLOSED');
+    expect(lr05['authorization'], 'CLOSED_PASS');
+    expect(
+      _objects(
+        lr05['statusHistory'],
+      ).map((entry) => entry['status']).toList(growable: false),
+      <String>['OPEN', 'CLOSED'],
+    );
+    expect(
+      _objects(lr05['evidence']).map((entry) => entry['sha256']).toSet(),
+      <String>{receiptSha, closurePackageSha},
+    );
+
+    final lr05Adjudication = _object(receipt['lr05Adjudication']);
+    expect(lr05Adjudication['adjudicatedStatus'], 'CLOSED');
+    final approvalOutput = _objects(lr05Adjudication['outputs']).singleWhere(
+      (item) => item['file'] == 'github-environment-approvals.json',
+    );
+    expect(approvalOutput['validJson'], isFalse);
+    expect(approvalOutput['authoritativeDerivedCount'], 0);
+    final mutationBoundary = _object(lr05Adjudication['mutationBoundary']);
+    for (final field in <String>[
+      'githubEnvironmentMutationPerformed',
+      'githubSecretMutationPerformed',
+      'firebaseMutationPerformed',
+      'deploymentPerformed',
+      'distributionPerformed',
+    ]) {
+      expect(mutationBoundary[field], isFalse, reason: field);
+    }
+
+    for (final id in <String>['STAGE2D-F4', 'LR-01', 'LR-02']) {
+      final gate = gates.singleWhere((item) => item['gateId'] == id);
+      expect(gate['currentStatus'], 'OPEN', reason: id);
+      expect(_objects(gate['evidence']), isEmpty, reason: id);
+      expect(
+        _objects(gate['statusHistory']).map((entry) => entry['status']),
+        <String>['OPEN'],
+        reason: id,
+      );
     }
   });
 

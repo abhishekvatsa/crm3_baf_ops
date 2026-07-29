@@ -533,14 +533,28 @@
       "authorization": "BLOCKS_PILOT_HANDOUT",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/build-5-programme-adjudication.json",
+          "sha256": "09031647BA40635350C3E36548CA6030CB0E0672C15C4CDBE538D44E988DC97B",
+          "decision": "PASS_TWO_OF_THREE_EXIT_DIMENSIONS_CONTROLLED_CHANNEL_REMAINS_OPEN",
+          "authority": "BUILD5_SIGNED_APK_AND_PACKAGE_SOURCE_CERTIFICATE_BINDING",
+          "completedExitDimensions": 2,
+          "requiredExitDimensions": 3,
+          "distributionPerformed": false
+        }
+      ],
       "requiredExitEvidence": [
         "signed APK hash",
         "package/version/source/certificate binding",
         "controlled distribution channel"
       ],
       "reArmTriggers": [],
-      "notes": [],
+      "notes": [
+        "Build 5 supplies the exact production-signed APK hash and the package, version, source and certificate binding with independent verification and dual custody.",
+        "The controlled distribution channel remains absent; STAGE2D-F3 stays OPEN and pilot handout remains NOT_AUTHORIZED.",
+        "Open-gate evidence is intentionally retained so completed exit dimensions do not disappear while the remaining dimension is governed."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
@@ -814,21 +828,43 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/build-5-programme-adjudication.json",
+          "sha256": "09031647BA40635350C3E36548CA6030CB0E0672C15C4CDBE538D44E988DC97B",
+          "decision": "PASS_GITHUB_PRODUCTION_SIGNING_ENVIRONMENT_LIVE_READBACK",
+          "authority": "SOURCE_ADJUDICATION_OF_SHA_SEALED_FINALIZER_READBACK"
+        },
+        {
+          "fileName": "CRM_III_BAF_Ops_O1_O5_CLOSURE_20260729_214155.zip",
+          "sha256": "4AEBDFC8B1FE378FA8CAB26B6C05CB745250A52CC7CE095CA5987605030A6679",
+          "decision": "PASS_GITHUB_PRODUCTION_SIGNING_ENVIRONMENT_LIVE_READBACK",
+          "authority": "EXACT_COMMAND_OUTPUT_TIMESTAMP_AND_MUTATION_BOUNDARY_CUSTODY"
+        }
+      ],
       "requiredExitEvidence": [
         "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
       ],
       "reArmTriggers": [],
-      "notes": [],
+      "notes": [
+        "The Build 5 finalizer captured the private repository, production-signing environment, zero reviewer/approval state and exact four-secret name inventory without inspecting secret values.",
+        "The SHA-sealed closure binds the read commands, timestamp, outputs and mutation boundary. No GitHub environment, secret, Firebase, deployment or distribution mutation was performed by the readback.",
+        "The historical empty approval-array output is newline-only because of PowerShell pipeline serialization. The valid closure decision binds the in-memory count as zero, and the finalizer now emits an explicit JSON array for future evidence."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep re-audit live-readback appendix"
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-29",
+          "basis": "Build 5 closure package 4AEBDFC8B1FE378FA8CAB26B6C05CB745250A52CC7CE095CA5987605030A6679 and source adjudication 09031647BA40635350C3E36548CA6030CB0E0672C15C4CDBE538D44E988DC97B bind the exact GitHub production-signing environment readback."
         }
       ]
     },
@@ -894,7 +930,7 @@
       "authorityType": "DEPLOYED_RUNTIME",
       "transitionProfile": "DEPLOYED_CONTROL",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "BLOCKER",
       "unrestrictedSeverity": "BLOCKER",
@@ -904,15 +940,37 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/build-5-programme-adjudication.json",
+          "sha256": "09031647BA40635350C3E36548CA6030CB0E0672C15C4CDBE538D44E988DC97B",
+          "decision": "PASS_SOURCE_AND_ARTIFACT_AUTHORITY_RUNTIME_PROOF_REMAINS_OPEN",
+          "authority": "PRODUCTION_SIGNER_OAUTH_SOURCE_AND_BUILD5_ARTIFACT_BINDING",
+          "productionSignedRuntimeGoogleSignInProved": false
+        }
+      ],
+      "requiredExitEvidence": [
+        "production signer SHA-1 and SHA-256 bound to the permanent Firebase Android app and production OAuth client",
+        "exact production-signed APK and AAB package, version, source and certificate binding with independent verification and dual custody",
+        "Google Sign-In runtime proof from the exact production-signed package against the governed Firebase project and approved own-user record",
+        "no debug-signing fallback or alternate OAuth authority in the production artifact"
+      ],
       "reArmTriggers": [],
-      "notes": [],
+      "notes": [
+        "The production signer and OAuth client are source-bound to the permanent Firebase Android app.",
+        "Build 5 proves the exact production-signed APK/AAB, package, version, source, signer and dual-custody dimensions.",
+        "P-01 remains a pilot blocker until Google Sign-In is proved at runtime from the exact production-signed package; earlier F2 device evidence exercised the debug-signing authority."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-29",
+          "basis": "Build 5 and the restored Firebase production-signing registration prove source and artifact authority; exact production-signed runtime Google Sign-In remains outstanding."
         }
       ]
     },
