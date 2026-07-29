@@ -26,6 +26,13 @@ void main() {
       promotion['approvalClass'],
       'CONTROLLED_INTERNAL_RUNTIME_VALIDATION_ONLY',
     );
+    final amendment = _object(promotion['amendment']);
+    expect(
+      amendment['priorPromotionSha256'],
+      '5F9C28921E66FADBE6B4224ABFB230999E8678C2475531FCAE738ACC4DC9362B',
+    );
+    expect(amendment['artifactOrTargetExpansion'], isFalse);
+    expect(amendment['pilotOrExternalDistributionExpansion'], isFalse);
 
     final artifact = _object(promotion['artifactAuthority']);
     expect(artifact['applicationId'], 'in.co.sail.bsl.crm3.bafops');
@@ -93,7 +100,7 @@ void main() {
           ).readAsStringSync();
 
       for (final required in <String>[
-        "[ValidateSet('Preflight', 'Install', 'Verify')]",
+        "[ValidateSet('Preflight', 'Install', 'FinalizeInstall', 'Verify')]",
         'Get-FileHash -LiteralPath \$Path -Algorithm SHA256',
         "build-tools\\36.0.0\\aapt.exe",
         "build-tools\\36.0.0\\apksigner.bat",
@@ -104,6 +111,11 @@ void main() {
         'Existing package removal requires AllowDebugReplacement.',
         'Existing package is not the exact approved debuggable versionCode 1.',
         'Existing debug package signer SHA-256 is not approved.',
+        'FinalizeInstall requires an exact clean main equal to origin/main.',
+        'FinalizeInstall refuses to replace an existing install receipt.',
+        'INTERRUPTED_AFTER_INSTALL_NOTIFICATION_PROMPT',
+        'Allow CRM-III BAF Ops to send you notifications?',
+        'permission_deny_button',
         "'install', '--no-streaming', \$apkFile",
         'Installed Build 5 package is unexpectedly debuggable.',
         "'uiautomator', 'dump'",
