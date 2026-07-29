@@ -816,7 +816,9 @@ Write-Utf8NoBom `
   -Text (($environmentSecretsAuthority | ConvertTo-Json -Depth 30) + "`n")
 Write-Utf8NoBom `
   -Path (Join-Path $closureDirectory 'github-environment-approvals.json') `
-  -Text (($approvalHistory | ConvertTo-Json -Depth 30) + "`n")
+  -Text (
+    (ConvertTo-Json -InputObject @($approvalHistory) -Depth 30) + "`n"
+  )
 Write-Utf8NoBom `
   -Path (Join-Path $closureDirectory 'pull-request.json') `
   -Text (($pullRequest | ConvertTo-Json -Depth 20) + "`n")

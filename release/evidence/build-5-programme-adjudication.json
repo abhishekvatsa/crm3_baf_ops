@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "build-5-programme-adjudication",
+  "adjudicatedAtUtc": "2026-07-29T17:22:41.9253015Z",
+  "sourceBaseline": {
+    "commit": "1eb53c8148d922430c14ef7d889f3ba9f6c01bcd",
+    "tree": "d34533544a8f8d86423ad250c9a619408bef5acc"
+  },
+  "build5Authority": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b5",
+    "version": "1.0.0-rc.1+5",
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "sourceCommit": "60dc4688fbbc7127e84c63d7955dab4210555e0d",
+    "sourceTree": "324e77cc5748476f2ddff8531d6b378c9e92482a",
+    "sourceArchiveSha256": "8FF8D6A2757F34C3D58FF4F6F332B32651E85B65EAD8DA1EE2DFAE0383B69800",
+    "pullRequestNumber": 70,
+    "githubRunId": 30466468245,
+    "githubRunAttempt": 1,
+    "productionManifestSha256": "C337C7779ECAD5F32186049C4DE39686A124D1C07A0630FF63012CBDCF9364F6",
+    "governedPackageSha256": "E702A72A6603B6187E9282FC12E1E633F9BF59057ED331464BE590579FFB29C1",
+    "closurePackageSha256": "4AEBDFC8B1FE378FA8CAB26B6C05CB745250A52CC7CE095CA5987605030A6679",
+    "custodyRecordSha256": "DCF5ADBD45649ED22F8B7DB2780528F964D2DC0EE8F77260B49C150A3E8F1AE1",
+    "sourceClosureReceiptFile": "release/evidence/build-5-finalization-closure.json",
+    "sourceClosureReceiptSha256": "F91D5C60AF663C6B9785F922A95B67AD5B01216CE597C83832975E6DF4DD49CC",
+    "apk": {
+      "file": "crm3-baf-ops-1.0.0-rc.1-b5-release.apk",
+      "sha256": "1A39F9F375D785817862AA86BF3810FB5D99545E1E8BFFB7BA4F3CA69253774C",
+      "sizeBytes": 85884040,
+      "versionName": "1.0.0-rc.1",
+      "versionCode": 5,
+      "debuggable": false
+    },
+    "aab": {
+      "file": "crm3-baf-ops-1.0.0-rc.1-b5-release.aab",
+      "sha256": "3D3EE769AE1AC37E85BFF562376968FC7FC65BE84AB509533C75CE5ADC5A7A65",
+      "sizeBytes": 77492385,
+      "versionName": "1.0.0-rc.1",
+      "versionCode": 5,
+      "debuggable": false
+    },
+    "productionSigner": {
+      "keyAlias": "crm3-baf-ops-release",
+      "certificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+      "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+      "independentlyVerified": true
+    },
+    "firebaseOAuthAuthority": {
+      "firebaseProjectId": "crm3-baf-ops-b8638",
+      "firebaseAppId": "1:894346496105:android:fba14febfbbee102e63af8",
+      "productionOauthClientId": "894346496105-oljmi6mm7o790ue6o7cgcs20cakanjkg.apps.googleusercontent.com",
+      "productionCertificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+      "productionCertificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+      "restorationReceiptFile": "release/approvals/firebase-production-signing-restoration-receipt.json",
+      "restorationReceiptSha256": "CCE70C3FC7E541C72E29F6732502BDF313633B3AF4A49F1923DD2D440AFBEA13",
+      "sourceBindingStatus": "passed"
+    },
+    "dualCustody": {
+      "status": "passed",
+      "distinctVolumes": true,
+      "filesVerifiedInBothLocations": 6,
+      "allFileHashesMatched": true
+    },
+    "releaseBoundary": {
+      "firebaseBackendDeploymentPerformed": false,
+      "controlledDistributionChannelApproved": false,
+      "controlledPilotApproved": false,
+      "unrestrictedPlantReleaseApproved": false,
+      "distributionPerformed": false
+    }
+  },
+  "p01Adjudication": {
+    "recordId": "FINDING:P-01",
+    "priorStatus": "OPEN",
+    "adjudicatedStatus": "SOURCE_IMPLEMENTED",
+    "decision": "PASS_SOURCE_AND_ARTIFACT_AUTHORITY_RUNTIME_PROOF_REMAINS_OPEN",
+    "requiredExitEvidence": [
+      "production signer SHA-1 and SHA-256 bound to the permanent Firebase Android app and production OAuth client",
+      "exact production-signed APK and AAB package, version, source and certificate binding with independent verification and dual custody",
+      "Google Sign-In runtime proof from the exact production-signed package against the governed Firebase project and approved own-user record",
+      "no debug-signing fallback or alternate OAuth authority in the production artifact"
+    ],
+    "satisfiedDimensions": [
+      "production signer and OAuth source binding",
+      "production-signed package, source, version and certificate binding",
+      "independent verification and dual custody",
+      "production artifact has no debug-signing fallback"
+    ],
+    "remainingDimensions": [
+      "Google Sign-In runtime proof from the exact production-signed package"
+    ],
+    "pilotBlockerRemains": true
+  },
+  "stage2dF3Adjudication": {
+    "recordId": "GATE:STAGE2D-F3",
+    "priorStatus": "OPEN",
+    "adjudicatedStatus": "OPEN",
+    "decision": "PASS_TWO_OF_THREE_EXIT_DIMENSIONS_CONTROLLED_CHANNEL_REMAINS_OPEN",
+    "dimensions": {
+      "signedApkHash": {
+        "status": "passed",
+        "sha256": "1A39F9F375D785817862AA86BF3810FB5D99545E1E8BFFB7BA4F3CA69253774C"
+      },
+      "packageVersionSourceCertificateBinding": {
+        "status": "passed",
+        "sourceCommit": "60dc4688fbbc7127e84c63d7955dab4210555e0d",
+        "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C"
+      },
+      "controlledDistributionChannel": {
+        "status": "open",
+        "approvalCreated": false,
+        "distributionPerformed": false
+      }
+    },
+    "pilotHandoutAuthorized": false
+  },
+  "lr05Adjudication": {
+    "recordId": "GATE:LR-05",
+    "priorStatus": "OPEN",
+    "adjudicatedStatus": "CLOSED",
+    "decision": "PASS_GITHUB_PRODUCTION_SIGNING_ENVIRONMENT_LIVE_READBACK",
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "repositoryPrivate": true,
+    "repositoryVisibility": "private",
+    "environment": "crm3-baf-ops-production-signing",
+    "readbackAtUtc": "2026-07-29T16:14:47.3496722Z",
+    "commandAuthority": {
+      "sourceFile": "tools/release/Finalize-ProductionRelease.ps1",
+      "sourceCommit": "60dc4688fbbc7127e84c63d7955dab4210555e0d",
+      "sourceFileSha256": "FBFF874BCD3732E1C4C73E1B2C5F7A751921472C272121F527D0E2198E918912",
+      "commands": [
+        "gh api repos/{repository}",
+        "gh api repos/{repository}/environments/{encodedEnvironment}",
+        "gh api repos/{repository}/actions/runs/{runId}/approvals",
+        "gh api repos/{repository}/environments/{encodedEnvironment}/secrets?per_page=100"
+      ]
+    },
+    "outputs": [
+      {
+        "file": "github-repository.json",
+        "sha256": "FAA79E405F7C67DF44A57F6AA0262992E4FCCB9A136270AB670054EC04523967",
+        "bytes": 6555,
+        "validJson": true
+      },
+      {
+        "file": "github-environment.json",
+        "sha256": "C95F9165D81DD6F28E7A96C9E91AD736849DD139C29C057DB773A28D0EAAF1CC",
+        "bytes": 546,
+        "validJson": true
+      },
+      {
+        "file": "github-environment-secrets.json",
+        "sha256": "04E38AB2884755A47CF9DF099EF1A051876D83559EB8665049C5501EDF535236",
+        "bytes": 668,
+        "validJson": true,
+        "secretValuesInspected": false
+      },
+      {
+        "file": "github-environment-approvals.json",
+        "sha256": "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+        "bytes": 1,
+        "validJson": false,
+        "historicalRepresentation": "UTF8_LF_FROM_EMPTY_POWERSHELL_PIPELINE",
+        "authoritativeDerivedCount": 0
+      },
+      {
+        "file": "O1_O5_CLOSURE_DECISION.json",
+        "sha256": "3DD396C885A63A6FE6BBC360674533153464FC735915FCB4A65E6C8711A8BB44",
+        "bytes": 3314,
+        "validJson": true
+      }
+    ],
+    "derivedState": {
+      "requiredReviewerRuleCount": 0,
+      "environmentApprovalCount": 0,
+      "requiredEnvironmentSecretCount": 4,
+      "requiredEnvironmentSecretNames": [
+        "CRM_ANDROID_RELEASE_KEY_ALIAS",
+        "CRM_ANDROID_RELEASE_KEY_PASSWORD",
+        "CRM_ANDROID_RELEASE_KEYSTORE_BASE64",
+        "CRM_ANDROID_RELEASE_STORE_PASSWORD"
+      ],
+      "secretValuesInspected": false,
+      "privateRepositoryPlanExceptionReference": "BAF-GH-ENV-001"
+    },
+    "custody": {
+      "closurePackageFile": "CRM_III_BAF_Ops_O1_O5_CLOSURE_20260729_214155.zip",
+      "closurePackageSha256": "4AEBDFC8B1FE378FA8CAB26B6C05CB745250A52CC7CE095CA5987605030A6679",
+      "dualCustodyCompleted": true
+    },
+    "mutationBoundary": {
+      "githubEnvironmentMutationPerformed": false,
+      "githubSecretMutationPerformed": false,
+      "firebaseMutationPerformed": false,
+      "deploymentPerformed": false,
+      "distributionPerformed": false,
+      "laterBuiltTagMutationWasSeparateAndRecorded": true
+    },
+    "historicalOutputQualification": "The empty approvals array was validated in memory and bound as count zero by the valid closure decision. Its newline-only evidence file is an output-serialization defect, not an authority ambiguity. Future finalizer output is corrected to emit a valid JSON array."
+  }
+}

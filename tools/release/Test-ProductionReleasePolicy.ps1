@@ -273,6 +273,7 @@ foreach ($requiredFinalizerControl in @(
   'Authorized dispatcher ID:'
   'Dual production-package custody: passed'
   'git push origin "refs/tags/${builtTag}:refs/tags/${builtTag}"'
+  'ConvertTo-Json -InputObject @($approvalHistory) -Depth 30'
 )) {
   if (-not $finalizer.Contains($requiredFinalizerControl)) {
     throw "Governed finalizer control is missing: $requiredFinalizerControl"
@@ -284,6 +285,9 @@ if ($finalizer.Contains('expectedCommitHeadlines')) {
 if ($finalizer.Contains(
     'git push origin "refs/tags/$builtTag:refs/tags/$builtTag"')) {
   throw 'Governed finalizer retains the ambiguous built-tag refspec.'
+}
+if ($finalizer.Contains('$approvalHistory | ConvertTo-Json')) {
+  throw 'Governed finalizer can serialize an empty approval list as invalid JSON.'
 }
 
 $identityReceipt = Get-Content -LiteralPath $policy.identityApproval.receiptFile -Raw |
