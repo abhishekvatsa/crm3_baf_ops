@@ -22,6 +22,12 @@ $ErrorActionPreference = 'Stop'
 $ExpectedRepositorySlug = 'abhishekvatsa/crm3_baf_ops'
 $ExpectedWorkflowPath = '.github/workflows/production-artifact.yml'
 $ExpectedEnvironmentName = 'crm3-baf-ops-production-signing'
+$ExpectedEnvironmentSecretNames = @(
+  'CRM_ANDROID_RELEASE_KEY_ALIAS'
+  'CRM_ANDROID_RELEASE_KEY_PASSWORD'
+  'CRM_ANDROID_RELEASE_KEYSTORE_BASE64'
+  'CRM_ANDROID_RELEASE_STORE_PASSWORD'
+)
 $ExpectedToolchain = [ordered]@{
   runnerImage = 'ubuntu-24.04'
   javaVersion = '21.0.11+10'
@@ -150,6 +156,34 @@ if ([string]$policy.github.repository -ne $ExpectedRepositorySlug -or
     [string]$policy.github.environmentName -ne $ExpectedEnvironmentName) {
   throw 'GitHub repository/workflow/environment differs from governed authority.'
 }
+$environmentReviewControl = $policy.github.environmentReviewControl
+if ([string]$environmentReviewControl.mode -ne
+      'private-repository-plan-exception' -or
+    $environmentReviewControl.requiredReviewerAvailable -ne $false -or
+    $environmentReviewControl.requiredReviewerRulePresentAtApproval -ne
+      $false -or
+    $environmentReviewControl.manualDispatchApprovalReferenceRequired -ne
+      $true -or
+    [string]$environmentReviewControl.exceptionApprovalFile -ne
+      'release/approvals/private-repository-environment-reviewer-exception.json' -or
+    [string]$environmentReviewControl.exceptionApprovalSha256 -notmatch
+      '^[0-9A-Fa-f]{64}$' -or
+    [string]$environmentReviewControl.exceptionApprovalReference -ne
+      'BAF-GH-ENV-001' -or
+    $environmentReviewControl.failClosedIfRequiredReviewerRuleAppears -ne
+      $true) {
+  throw 'Private-repository environment-review control is incomplete.'
+}
+$policySecretNames = @(
+  $environmentReviewControl.requiredSecretNames |
+    ForEach-Object { [string]$_ } |
+    Sort-Object
+)
+if ($policySecretNames.Count -ne $ExpectedEnvironmentSecretNames.Count -or
+    ($policySecretNames -join "`n") -cne
+      (($ExpectedEnvironmentSecretNames | Sort-Object) -join "`n")) {
+  throw 'Production environment secret-name inventory differs from authority.'
+}
 foreach ($entry in $ExpectedToolchain.GetEnumerator()) {
   if ([string]$policy.toolchain.($entry.Key) -ne [string]$entry.Value) {
     throw "Production policy toolchain mismatch: $($entry.Key)"
@@ -200,6 +234,7 @@ $requiredFiles = @(
   [string]$policy.identityApproval.receiptFile
   [string]$policy.versionPolicy.approvalReceiptFile
   [string]$policy.versionPolicy.sourceDocumentFile
+  [string]$environmentReviewControl.exceptionApprovalFile
   [string]$policy.signing.approvalReceiptFile
   [string]$policy.firebaseAndroidApp.registrationReceiptFile
   [string]$policy.firebaseAndroidApp.restorationReceiptFile
@@ -208,12 +243,42 @@ $requiredFiles = @(
   [string]$policy.toolchain.githubActionPinsFile
   [string]$policy.toolchain.firebaseToolsLockfile
   [string]$policy.toolchain.linuxIsarCoreAuthorityReceipt
+  'tools/release/Finalize-ProductionRelease.ps1'
 )
 
 foreach ($file in $requiredFiles) {
   if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
     throw "Required policy file is missing: $file"
   }
+}
+$finalizerTokens = $null
+$finalizerParseErrors = $null
+[Management.Automation.Language.Parser]::ParseFile(
+  (Resolve-Path -LiteralPath 'tools/release/Finalize-ProductionRelease.ps1').Path,
+  [ref]$finalizerTokens,
+  [ref]$finalizerParseErrors
+) | Out-Null
+if (@($finalizerParseErrors).Count -gt 0) {
+  throw 'Governed production finalizer does not parse.'
+}
+$finalizer = Get-Content `
+  -LiteralPath 'tools/release/Finalize-ProductionRelease.ps1' `
+  -Raw
+foreach ($requiredFinalizerControl in @(
+  '$prCommits.Count -lt 1'
+  'private-repository-plan-exception'
+  'github-environment-secrets.json'
+  'environmentSecretValuesInspected = $false'
+  'Authorized dispatcher ID:'
+  'Dual production-package custody: passed'
+  'git push origin "refs/tags/$builtTag:refs/tags/$builtTag"'
+)) {
+  if (-not $finalizer.Contains($requiredFinalizerControl)) {
+    throw "Governed finalizer control is missing: $requiredFinalizerControl"
+  }
+}
+if ($finalizer.Contains('expectedCommitHeadlines')) {
+  throw 'Governed finalizer retains obsolete commit-headline coupling.'
 }
 
 $identityReceipt = Get-Content -LiteralPath $policy.identityApproval.receiptFile -Raw |
@@ -246,9 +311,101 @@ if ([string]$versionReceipt.receiptType -ne 'version-and-build-policy' -or
   throw 'Version-policy approval receipt differs from policy.'
 }
 
+$environmentException = Get-Content `
+  -LiteralPath $environmentReviewControl.exceptionApprovalFile `
+  -Raw | ConvertFrom-Json
+if ((Get-Sha256 $environmentReviewControl.exceptionApprovalFile) -ne
+      ([string]$environmentReviewControl.exceptionApprovalSha256).
+        ToUpperInvariant() -or
+    [string]$environmentException.receiptType -ne
+      'private-repository-environment-reviewer-plan-exception' -or
+    $environmentException.approved -ne $true -or
+    [string]$environmentException.approvalReference -ne
+      [string]$environmentReviewControl.exceptionApprovalReference -or
+    [string]$environmentException.scope.repository -ne
+      [string]$policy.github.repository -or
+    [string]$environmentException.scope.repositoryVisibility -ne 'private' -or
+    [string]$environmentException.scope.environmentName -ne
+      [string]$policy.github.environmentName -or
+    [string]$environmentException.scope.workflowPath -ne
+      [string]$policy.github.workflowPath -or
+    [int64]$environmentException.scope.buildNumber -ne
+      [int64]$policy.release.buildNumber -or
+    [string]$environmentException.scope.versionName -ne
+      [string]$policy.release.versionName -or
+    [string]$environmentException.scope.versionApprovalReference -ne
+      [string]$versionReceipt.reference -or
+    $environmentException.scope.singleBuildOnly -ne $true -or
+    $environmentException.liveStateEvidence.repositoryPrivate -ne $true -or
+    $environmentException.liveStateEvidence.requiredReviewerRulePresent -ne
+      $false -or
+    $environmentException.liveStateEvidence.secretValuesInspected -ne $false -or
+    [string]$environmentException.liveStateEvidence.
+      authorizedDispatcher.login -ne 'abhishekvatsa' -or
+    [long]$environmentException.liveStateEvidence.
+      authorizedDispatcher.id -ne 213690022 -or
+    $environmentException.compensatingControls.
+      manualDispatchApprovalReferenceRequired -ne $true -or
+    [string]$environmentException.compensatingControls.
+      dispatchApprovalReference -ne [string]$versionReceipt.reference -or
+    $environmentException.compensatingControls.
+      authorizedDispatcherIdentityRequired -ne $true -or
+    $environmentException.compensatingControls.
+      protectedEnvironmentSecretsRequired -ne $true -or
+    $environmentException.compensatingControls.
+      atomicOneTimeRemoteReservationRequired -ne $true -or
+    $environmentException.compensatingControls.
+      independentPackageVerificationRequired -ne $true -or
+    $environmentException.compensatingControls.
+      dualCustodyRequiredBeforeBuiltTag -ne $true -or
+    $environmentException.compensatingControls.distributionApproved -ne
+      $false -or
+    $environmentException.compensatingControls.firebaseDeploymentApproved -ne
+      $false -or
+    $environmentException.planConstraintEvidence.
+      publicRepositoryConversionApproved -ne $false) {
+  throw 'Private-repository environment-review exception differs from policy.'
+}
+$exceptionSecretNames = @(
+  $environmentException.liveStateEvidence.requiredEnvironmentSecretNames |
+    ForEach-Object { [string]$_ } |
+    Sort-Object
+)
+if (($exceptionSecretNames -join "`n") -cne
+    ($policySecretNames -join "`n")) {
+  throw 'Environment exception secret-name inventory differs from policy.'
+}
+
 $versionSource = Get-Content `
   -LiteralPath $policy.versionPolicy.sourceDocumentFile `
   -Raw | ConvertFrom-Json
+$consumedDisposition = [string]$versionSource.consumedBuild.disposition
+$consumedAuthorityValid = $false
+if ([string]$versionSource.consumedBuild.conclusion -eq 'failure' -and
+    $consumedDisposition -in @('', 'failed-build') -and
+    $versionSource.consumedBuild.artifactConstructed -eq $false -and
+    $versionSource.consumedBuild.artifactUploaded -eq $false -and
+    $versionSource.consumedBuild.remoteBuiltTagCreated -eq $false) {
+  $consumedAuthorityValid = $true
+}
+if ([string]$versionSource.consumedBuild.conclusion -eq 'success' -and
+    $consumedDisposition -eq 'successful-build-finalization-blocked' -and
+    $versionSource.consumedBuild.independentPackageVerificationCompleted -eq
+      $true -and
+    $versionSource.consumedBuild.artifactConstructed -eq $true -and
+    $versionSource.consumedBuild.governedPackageConstructed -eq $true -and
+    $versionSource.consumedBuild.artifactUploaded -eq $true -and
+    [string]$versionSource.consumedBuild.governedPackageSha256 -match
+      '^[0-9A-Fa-f]{64}$' -and
+    [string]$versionSource.consumedBuild.governedPackageSidecarSha256 -match
+      '^[0-9A-Fa-f]{64}$' -and
+    [string]$versionSource.consumedBuild.githubArtifactDigest -match
+      '^sha256:[0-9A-Fa-f]{64}$' -and
+    $versionSource.consumedBuild.closureFinalizationCompleted -eq $false -and
+    $versionSource.consumedBuild.dualCustodyCompleted -eq $false -and
+    $versionSource.consumedBuild.remoteBuiltTagCreated -eq $false) {
+  $consumedAuthorityValid = $true
+}
 if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
       ([string]$policy.versionPolicy.sourceDocumentSha256).
         ToUpperInvariant() -or
@@ -265,7 +422,7 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
       [int64]$versionSource.nextBuild.buildNumber -or
     [int64]$versionSource.nextBuild.buildNumber -ne
       ([int64]$versionSource.consumedBuild.buildNumber + 1) -or
-    [string]$versionSource.consumedBuild.conclusion -ne 'failure' -or
+    -not $consumedAuthorityValid -or
     [string]$versionSource.nextBuild.remoteReservationTag -ne
       [string]$policy.versionPolicy.remoteReservationTag -or
     [string]$versionSource.nextBuild.remoteBuiltTag -ne
@@ -278,6 +435,16 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
       androidDependencyConfigurationPreflightBeforeReservation -ne $true -or
     $versionSource.controls.
       androidReleaseSourceCompilationBeforeReservation -ne $true -or
+    $versionSource.controls.
+      privateRepositoryEnvironmentReviewerExceptionApproved -ne $true -or
+    [string]$versionSource.controls.environmentExceptionApprovalReference -ne
+      [string]$environmentReviewControl.exceptionApprovalReference -or
+    $versionSource.controls.manualDispatchApprovalReferenceRequired -ne
+      $true -or
+    $versionSource.controls.environmentSecretNameInventoryRequired -ne
+      $true -or
+    $versionSource.controls.governedFinalizerMustMatchCurrentPullRequest -ne
+      $true -or
     $versionSource.controls.failedOrWithdrawnBuildConsumesNumber -ne $true -or
     $versionSource.distributionApproved -ne $false -or
     $versionSource.unrestrictedPlantReleaseApproved -ne $false) {
@@ -369,15 +536,43 @@ $consumedMatches = @(
         [int64]$versionSource.consumedBuild.buildNumber
     }
 )
-if ($consumedMatches.Count -ne 1 -or
-    [string]$consumedMatches[0].status -ne
-      'remote-consumed-build-failed' -or
+$consumedLedgerValid = $false
+if ($consumedMatches.Count -eq 1 -and
     [int64]$consumedMatches[0].githubRunId -ne
-      [int64]$versionSource.consumedBuild.githubRunId -or
-    $consumedMatches[0].failedOrWithdrawnBuildConsumesNumber -ne $true -or
-    $consumedMatches[0].artifactConstructed -ne $false -or
-    $consumedMatches[0].artifactUploaded -ne $false -or
-    $consumedMatches[0].remoteBuiltTagCreated -ne $false) {
+      [int64]$versionSource.consumedBuild.githubRunId) {
+  throw 'Consumed build run differs from rollover authority.'
+}
+if ($consumedMatches.Count -eq 1 -and
+    $consumedMatches[0].failedOrWithdrawnBuildConsumesNumber -eq $true -and
+    [string]$versionSource.consumedBuild.conclusion -eq 'failure' -and
+    [string]$consumedMatches[0].status -eq
+      'remote-consumed-build-failed' -and
+    $consumedMatches[0].artifactConstructed -eq $false -and
+    $consumedMatches[0].artifactUploaded -eq $false -and
+    $consumedMatches[0].remoteBuiltTagCreated -eq $false) {
+  $consumedLedgerValid = $true
+}
+if ($consumedMatches.Count -eq 1 -and
+    $consumedMatches[0].failedOrWithdrawnBuildConsumesNumber -eq $true -and
+    [string]$versionSource.consumedBuild.disposition -eq
+      'successful-build-finalization-blocked' -and
+    [string]$consumedMatches[0].status -eq
+      'remote-consumed-artifact-built-finalization-blocked' -and
+    [string]$consumedMatches[0].disposition -eq
+      [string]$versionSource.consumedBuild.disposition -and
+    $consumedMatches[0].independentPackageVerificationCompleted -eq $true -and
+    $consumedMatches[0].artifactConstructed -eq $true -and
+    $consumedMatches[0].artifactUploaded -eq $true -and
+    [string]$consumedMatches[0].governedPackageSha256 -eq
+      [string]$versionSource.consumedBuild.governedPackageSha256 -and
+    [string]$consumedMatches[0].githubArtifactDigest -eq
+      [string]$versionSource.consumedBuild.githubArtifactDigest -and
+    $consumedMatches[0].closureFinalizationCompleted -eq $false -and
+    $consumedMatches[0].dualCustodyCompleted -eq $false -and
+    $consumedMatches[0].remoteBuiltTagCreated -eq $false) {
+  $consumedLedgerValid = $true
+}
+if (-not $consumedLedgerValid) {
   throw 'Consumed failed-build evidence differs from rollover authority.'
 }
 
@@ -624,14 +819,23 @@ foreach ($required in @(
   'CRM_DISPATCH_COMMIT_SHA: ${{ inputs.commit_sha }}'
   'CRM_DISPATCH_RELEASE_ID: ${{ inputs.release_id }}'
   'CRM_DISPATCH_RESERVATION_ID: ${{ inputs.reservation_id }}'
+  'CRM_DISPATCH_APPROVAL_REFERENCE: ${{ inputs.approval_reference }}'
   'CRM_DISPATCH_BUILD_NUMBER: ${{ inputs.build_number }}'
+  'CRM_DISPATCH_ACTOR: ${{ github.actor }}'
+  'CRM_DISPATCH_ACTOR_ID: ${{ github.actor_id }}'
+  'CRM_TRIGGERING_ACTOR: ${{ github.triggering_actor }}'
   '[[ "$CRM_DISPATCH_COMMIT_SHA" =~ ^[0-9a-fA-F]{40}$ ]]'
   '[[ "$CRM_DISPATCH_BUILD_NUMBER" =~ ^[1-9][0-9]{0,9}$ ]]'
   'test "$CRM_DISPATCH_BUILD_NUMBER" -le 2147483647'
   '[[ "$CRM_DISPATCH_RELEASE_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]'
   '[[ "$CRM_DISPATCH_RESERVATION_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]'
+  '[[ "$CRM_DISPATCH_APPROVAL_REFERENCE" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]'
+  'Workflow dispatcher identity differs from approved authority.'
   'test "$GITHUB_REF" = ''refs/heads/main'''
   'test "$GITHUB_SHA" = "$CRM_DISPATCH_COMMIT_SHA"'
+  'GH_TOKEN: ${{ github.token }}'
+  'Environment-review exception requires a private repository.'
+  'A required-reviewer rule now exists; exception mode is invalid.'
   "environment: $($policy.github.environmentName)"
   "runs-on: $($policy.toolchain.runnerImage)"
   "java-version: '$($policy.toolchain.javaVersion)'"
@@ -645,10 +849,12 @@ foreach ($required in @(
   'built_ref="refs/tags/${CRM_BUILT_TAG}"'
   'tooling/firebase-cli/node_modules/.bin'
   'Prove Android dependency configuration before reservation'
+  'Prove production environment secrets before reservation'
   'crm3-android-preflight-placeholder.p12'
   './gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace'
   './gradlew :app:compileReleaseSources --no-daemon --stacktrace'
   'New-ProductionArtifact.ps1'
+  '-ExpectedApprovalReference $env:CRM_DISPATCH_APPROVAL_REFERENCE'
 )) {
   if (-not $workflow.Contains($required)) {
     throw "Production workflow contract is missing: $required"
@@ -660,15 +866,67 @@ $androidPreflightIndex =
   $workflow.IndexOf(
     '- name: Prove Android dependency configuration before reservation'
   )
+$environmentSecretPreflightIndex =
+  $workflow.IndexOf(
+    '- name: Prove production environment secrets before reservation'
+  )
 $reservationIndex =
   $workflow.IndexOf('- name: Atomically consume the build number')
 $productionBuildIndex =
   $workflow.IndexOf('- name: Build once and independently verify')
 if ($dependencyRestoreIndex -lt 0 -or
     $androidPreflightIndex -le $dependencyRestoreIndex -or
-    $reservationIndex -le $androidPreflightIndex -or
+    $environmentSecretPreflightIndex -le $androidPreflightIndex -or
+    $reservationIndex -le $environmentSecretPreflightIndex -or
     $productionBuildIndex -le $reservationIndex) {
   throw 'Android preflight, reservation and production build order is invalid.'
+}
+$androidPreflightSection = $workflow.Substring(
+  $androidPreflightIndex,
+  $environmentSecretPreflightIndex - $androidPreflightIndex
+)
+if ($androidPreflightSection -notmatch
+    '(?m)^\s+\./gradlew :app:compileReleaseSources ' +
+      '--no-daemon --stacktrace\r?\n\s+\)\s*$') {
+  throw 'Android preflight subshell is not closed before secret preflight.'
+}
+$secretPreflightBlocks = @(
+  Get-YamlRunBlocks -Source $workflow |
+    Where-Object {
+      $_.Contains('Production signing environment is missing secret')
+    }
+)
+if ($secretPreflightBlocks.Count -ne 1) {
+  throw 'Production environment secret preflight block is not singular.'
+}
+$secretPreflightTokens = $null
+$secretPreflightParseErrors = $null
+[Management.Automation.Language.Parser]::ParseInput(
+  $secretPreflightBlocks[0],
+  [ref]$secretPreflightTokens,
+  [ref]$secretPreflightParseErrors
+) | Out-Null
+if (@($secretPreflightParseErrors).Count -gt 0) {
+  throw 'Production environment secret preflight does not parse.'
+}
+$powerShellRunBlocks = @(
+  Get-YamlRunBlocks -Source $workflow |
+    Where-Object { $_.Contains('$ErrorActionPreference') }
+)
+if ($powerShellRunBlocks.Count -lt 1) {
+  throw 'Production workflow has no discoverable PowerShell run blocks.'
+}
+foreach ($powerShellRunBlock in $powerShellRunBlocks) {
+  $powerShellRunTokens = $null
+  $powerShellRunParseErrors = $null
+  [Management.Automation.Language.Parser]::ParseInput(
+    $powerShellRunBlock,
+    [ref]$powerShellRunTokens,
+    [ref]$powerShellRunParseErrors
+  ) | Out-Null
+  if (@($powerShellRunParseErrors).Count -gt 0) {
+    throw 'A production workflow PowerShell run block does not parse.'
+  }
 }
 $unsafeRunBlocks = @(
   Get-YamlRunBlocks -Source $workflow |
@@ -684,6 +942,19 @@ $builder = Get-Content `
   -Raw
 if (-not $builder.Contains('$env:GITHUB_ACTIONS -ne ''true''')) {
   throw 'Production builder is missing its fail-closed GitHub Actions guard.'
+}
+foreach ($requiredBuilderControl in @(
+  'ExpectedApprovalReference'
+  'dispatchApprovalReference = $ExpectedApprovalReference'
+  'actor = [string]$env:GITHUB_ACTOR'
+  'actorId = [string]$env:GITHUB_ACTOR_ID'
+  'triggeringActor = [string]$env:GITHUB_TRIGGERING_ACTOR'
+  'environmentReviewControl ='
+  'tools/release/Finalize-ProductionRelease.ps1'
+)) {
+  if (-not $builder.Contains($requiredBuilderControl)) {
+    throw "Production builder control is missing: $requiredBuilderControl"
+  }
 }
 if ($workflow -match
   'uses:\s+[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@v[0-9]') {

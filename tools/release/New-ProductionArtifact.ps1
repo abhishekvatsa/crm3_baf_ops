@@ -29,6 +29,10 @@ param(
   [string]$ExpectedReservationId,
 
   [Parameter(Mandatory)]
+  [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$')]
+  [string]$ExpectedApprovalReference,
+
+  [Parameter(Mandatory)]
   [ValidateRange(1, 2147483647)]
   [int]$ExpectedBuildNumber,
 
@@ -503,7 +507,10 @@ foreach ($requiredEnvironment in @(
   'GITHUB_WORKFLOW_REF',
   'GITHUB_WORKFLOW',
   'GITHUB_JOB',
-  'GITHUB_SHA'
+  'GITHUB_SHA',
+  'GITHUB_ACTOR',
+  'GITHUB_ACTOR_ID',
+  'GITHUB_TRIGGERING_ACTOR'
 )) {
   if ([string]::IsNullOrWhiteSpace(
       [Environment]::GetEnvironmentVariable($requiredEnvironment)
@@ -557,6 +564,16 @@ if ([string]$policy.release.releaseId -ne $ExpectedReleaseId) {
 if ([string]$policy.versionPolicy.reservationId -ne
   $ExpectedReservationId) {
   throw 'Reservation ID mismatch.'
+}
+$versionApproval = Get-Content `
+  -LiteralPath $policy.versionPolicy.approvalReceiptFile `
+  -Raw | ConvertFrom-Json
+if ([string]$versionApproval.reference -ne $ExpectedApprovalReference -or
+    [string]$policy.github.environmentReviewControl.mode -ne
+      'private-repository-plan-exception' -or
+    $policy.github.environmentReviewControl.
+      manualDispatchApprovalReferenceRequired -ne $true) {
+  throw 'Dispatch approval reference differs from governed authority.'
 }
 if ([int]$policy.release.buildNumber -ne $ExpectedBuildNumber) {
   throw 'Build-number input differs from policy.'
@@ -914,6 +931,7 @@ $receiptFiles = @(
   'release/approvals/permanent-identity-approval.json'
   'release/approvals/version-policy-approval.json'
   [string]$policy.versionPolicy.sourceDocumentFile
+  [string]$policy.github.environmentReviewControl.exceptionApprovalFile
   'release/approvals/signing-custody-approval.json'
   'release/approvals/firebase-registration-receipt.json'
   'release/approvals/firebase-production-signing-restoration-receipt.json'
@@ -942,6 +960,7 @@ $configurationFiles = @(
   'release/github-actions-pins.json'
   '.github/workflows/production-artifact.yml'
   'tools/release/New-ProductionArtifact.ps1'
+  'tools/release/Finalize-ProductionRelease.ps1'
   'tools/release/Test-BackendAuthority.ps1'
   'tools/release/Test-ProductionReleaseManifest.ps1'
   'tools/release/Test-ProductionReleasePolicy.ps1'
@@ -996,7 +1015,13 @@ $manifest = [ordered]@{
     runAttempt = [string]$env:GITHUB_RUN_ATTEMPT
     job = [string]$env:GITHUB_JOB
     headSha = [string]$env:GITHUB_SHA
+    actor = [string]$env:GITHUB_ACTOR
+    actorId = [string]$env:GITHUB_ACTOR_ID
+    triggeringActor = [string]$env:GITHUB_TRIGGERING_ACTOR
     environment = [string]$policy.github.environmentName
+    dispatchApprovalReference = $ExpectedApprovalReference
+    environmentReviewControl =
+      $policy.github.environmentReviewControl
     localExecutionPermitted = $false
   }
   source = [ordered]@{

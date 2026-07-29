@@ -83,6 +83,12 @@ void main() {
       expect(text, contains('GITHUB_WORKFLOW_REF'));
       expect(text, contains("GITHUB_REF -ne 'refs/heads/main'"));
       expect(text, contains('SOURCE_ARCHIVE_SHA256'));
+      expect(text, contains('actor = [string]\$env:GITHUB_ACTOR'));
+      expect(text, contains('actorId = [string]\$env:GITHUB_ACTOR_ID'));
+      expect(
+        text,
+        contains('triggeringActor = [string]\$env:GITHUB_TRIGGERING_ACTOR'),
+      );
       expect(text, contains('Remote reservation tag is absent'));
       expect(text, contains('temporary AAB verification truststore'));
       expect(text, contains('jarsigner'));
@@ -181,6 +187,35 @@ void main() {
       expect(text, contains("test \"\$GITHUB_REF\" = 'refs/heads/main'"));
       expect(text, contains('tooling/firebase-cli/package-lock.json'));
       expect(text, contains('CRM_EXPECTED_ISAR_CORE_SHA256'));
+      expect(
+        text,
+        contains(
+          r'CRM_DISPATCH_APPROVAL_REFERENCE: '
+          r'${{ inputs.approval_reference }}',
+        ),
+      );
+      expect(text, contains(r'CRM_DISPATCH_ACTOR: ${{ github.actor }}'));
+      expect(text, contains(r'CRM_DISPATCH_ACTOR_ID: ${{ github.actor_id }}'));
+      expect(
+        text,
+        contains(r'CRM_TRIGGERING_ACTOR: ${{ github.triggering_actor }}'),
+      );
+      expect(
+        text,
+        contains('Environment-review exception requires a private repository.'),
+      );
+      expect(
+        text,
+        contains(
+          'A required-reviewer rule now exists; exception mode is invalid.',
+        ),
+      );
+      expect(
+        text,
+        contains(
+          'Workflow dispatcher identity differs from approved authority.',
+        ),
+      );
       expect(text, contains('Isar native-core load probe: PASS'));
       expect(text, contains('crm3-isar-approved-matches.txt'));
       expect(text, contains('Upload governed package and mandatory sidecar'));
@@ -223,6 +258,16 @@ void main() {
         text.indexOf(
           '- name: Prove Android dependency configuration before reservation',
         ),
+        lessThan(
+          text.indexOf(
+            '- name: Prove production environment secrets before reservation',
+          ),
+        ),
+      );
+      expect(
+        text.indexOf(
+          '- name: Prove production environment secrets before reservation',
+        ),
         lessThan(text.indexOf('- name: Atomically consume the build number')),
       );
       expect(
@@ -250,6 +295,13 @@ void main() {
       expect(
         text,
         contains(r'test "$GITHUB_SHA" = "$CRM_DISPATCH_COMMIT_SHA"'),
+      );
+      expect(
+        text,
+        contains(
+          r'-ExpectedApprovalReference '
+          r'$env:CRM_DISPATCH_APPROVAL_REFERENCE',
+        ),
       );
       expect(policyVerifier, contains('Get-YamlRunBlocks'));
       expect(policyVerifier, contains(r'(?:inputs|github\.event\.inputs)'));
@@ -300,7 +352,7 @@ void main() {
       );
     });
 
-    test('failed builds 1 to 3 are preserved and build 4 is approved', () {
+    test('builds 1 to 4 are preserved and build 5 is approved', () {
       final ledger =
           jsonDecode(read('release/build-number-ledger.json'))
               as Map<String, dynamic>;
@@ -310,6 +362,7 @@ void main() {
       final build2 = entries.singleWhere((entry) => entry['buildNumber'] == 2);
       final build3 = entries.singleWhere((entry) => entry['buildNumber'] == 3);
       final build4 = entries.singleWhere((entry) => entry['buildNumber'] == 4);
+      final build5 = entries.singleWhere((entry) => entry['buildNumber'] == 5);
 
       expect(build1['status'], 'remote-consumed-build-failed');
       expect(build1['githubRunId'], 30387521656);
@@ -353,15 +406,31 @@ void main() {
       expect(build3['artifactUploaded'], isFalse);
       expect(build3['remoteBuiltTagCreated'], isFalse);
 
-      expect(build4['status'], 'source-reserved-awaiting-remote-consumption');
+      expect(
+        build4['status'],
+        'remote-consumed-artifact-built-finalization-blocked',
+      );
       expect(build4['remoteReservationTag'], 'crm3-build-reserved/4');
       expect(build4['remoteBuiltTag'], 'crm3-build-built/4');
+      expect(build4['githubRunId'], 30418210455);
+      expect(build4['conclusion'], 'success');
+      expect(build4['independentPackageVerificationCompleted'], isTrue);
+      expect(build4['artifactConstructed'], isTrue);
+      expect(build4['artifactUploaded'], isTrue);
+      expect(build4['closureFinalizationCompleted'], isFalse);
+      expect(build4['dualCustodyCompleted'], isFalse);
+      expect(build4['remoteBuiltTagCreated'], isFalse);
+
+      expect(build5['status'], 'source-reserved-awaiting-remote-consumption');
+      expect(build5['remoteReservationTag'], 'crm3-build-reserved/5');
+      expect(build5['remoteBuiltTag'], 'crm3-build-built/5');
+      expect(build5['versionApprovalReference'], 'BAF-REF-003-C4');
 
       final approval =
           jsonDecode(
                 read(
                   'release/approvals/'
-                  'build-number-4-rollover-approval.json',
+                  'build-number-5-rollover-approval.json',
                 ),
               )
               as Map<String, dynamic>;
@@ -369,7 +438,7 @@ void main() {
       expect(approval['distributionApproved'], isFalse);
       expect(
         (approval['consumedBuild'] as Map<String, dynamic>)['githubRunId'],
-        30397899144,
+        30418210455,
       );
       expect(
         (approval['consumedBuild']
@@ -384,9 +453,14 @@ void main() {
       expect(
         (approval['consumedBuild']
             as Map<String, dynamic>)['artifactConstructed'],
+        isTrue,
+      );
+      expect(
+        (approval['consumedBuild']
+            as Map<String, dynamic>)['closureFinalizationCompleted'],
         isFalse,
       );
-      expect((approval['nextBuild'] as Map<String, dynamic>)['buildNumber'], 4);
+      expect((approval['nextBuild'] as Map<String, dynamic>)['buildNumber'], 5);
       expect(
         (approval['controls']
             as Map<
@@ -403,6 +477,68 @@ void main() {
             >)['androidReleaseSourceCompilationBeforeReservation'],
         isTrue,
       );
+      expect(
+        (approval['controls']
+            as Map<
+              String,
+              dynamic
+            >)['privateRepositoryEnvironmentReviewerExceptionApproved'],
+        isTrue,
+      );
+    });
+
+    test('private-repository reviewer exception is narrow and fail-closed', () {
+      final policy =
+          jsonDecode(read('release/production-release-policy.json'))
+              as Map<String, dynamic>;
+      final github = policy['github'] as Map<String, dynamic>;
+      final control =
+          github['environmentReviewControl'] as Map<String, dynamic>;
+      final exception =
+          jsonDecode(
+                read(
+                  'release/approvals/'
+                  'private-repository-environment-reviewer-exception.json',
+                ),
+              )
+              as Map<String, dynamic>;
+      final scope = exception['scope'] as Map<String, dynamic>;
+      final compensatingControls =
+          exception['compensatingControls'] as Map<String, dynamic>;
+      final liveStateEvidence =
+          exception['liveStateEvidence'] as Map<String, dynamic>;
+      final authorizedDispatcher =
+          liveStateEvidence['authorizedDispatcher'] as Map<String, dynamic>;
+      final finalizer = read('tools/release/Finalize-ProductionRelease.ps1');
+
+      expect(control['mode'], 'private-repository-plan-exception');
+      expect(control['requiredReviewerAvailable'], isFalse);
+      expect(control['manualDispatchApprovalReferenceRequired'], isTrue);
+      expect(control['failClosedIfRequiredReviewerRuleAppears'], isTrue);
+      expect(exception['approved'], isTrue);
+      expect(scope['repositoryVisibility'], 'private');
+      expect(scope['buildNumber'], 5);
+      expect(scope['singleBuildOnly'], isTrue);
+      expect(authorizedDispatcher['login'], 'abhishekvatsa');
+      expect(authorizedDispatcher['id'], 213690022);
+      expect(
+        compensatingControls['authorizedDispatcherIdentityRequired'],
+        isTrue,
+      );
+      expect(compensatingControls['distributionApproved'], isFalse);
+      expect(compensatingControls['firebaseDeploymentApproved'], isFalse);
+      expect(
+        finalizer,
+        contains(
+          'Live GitHub state does not satisfy the private-repository '
+          'plan exception.',
+        ),
+      );
+      expect(finalizer, contains('github-environment-secrets.json'));
+      expect(finalizer, contains('Authorized dispatcher ID:'));
+      expect(finalizer, contains(r'environmentSecretValuesInspected = $false'));
+      expect(finalizer, contains(r'$prCommits.Count -lt 1'));
+      expect(finalizer, isNot(contains('expectedCommitHeadlines')));
     });
 
     test('permanent identity and public version are committed', () {
@@ -415,12 +551,12 @@ void main() {
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
         pubspec,
-        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+4$', multiLine: true)),
+        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+5$', multiLine: true)),
       );
-      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b4"'));
+      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b5"'));
       expect(
         policy,
-        contains('"remoteReservationTag": "crm3-build-reserved/4"'),
+        contains('"remoteReservationTag": "crm3-build-reserved/5"'),
       );
       expect(policy, contains('"approved": false'));
       expect(policy, contains('"unrestrictedPlantReleaseApproved": false'));

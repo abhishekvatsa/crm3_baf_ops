@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "policyId": "crm3-baf-ops-o1-o5-v4-a808376-b4",
+  "policyId": "crm3-baf-ops-o1-o5-v4-350f948-b5",
   "firebaseProjectId": "crm3-baf-ops-b8638",
   "permanentApplicationId": "in.co.sail.bsl.crm3.bafops",
   "namespace": "in.co.sail.bsl.crm3.bafops",
@@ -9,7 +9,23 @@
   "github": {
     "repository": "abhishekvatsa/crm3_baf_ops",
     "workflowPath": ".github/workflows/production-artifact.yml",
-    "environmentName": "crm3-baf-ops-production-signing"
+    "environmentName": "crm3-baf-ops-production-signing",
+    "environmentReviewControl": {
+      "mode": "private-repository-plan-exception",
+      "requiredReviewerAvailable": false,
+      "requiredReviewerRulePresentAtApproval": false,
+      "manualDispatchApprovalReferenceRequired": true,
+      "exceptionApprovalFile": "release/approvals/private-repository-environment-reviewer-exception.json",
+      "exceptionApprovalSha256": "5D06660D671414B1F56354667C6FBD631BB944E0EB138D36285D9DEA2CFA686A",
+      "exceptionApprovalReference": "BAF-GH-ENV-001",
+      "requiredSecretNames": [
+        "CRM_ANDROID_RELEASE_KEY_ALIAS",
+        "CRM_ANDROID_RELEASE_KEY_PASSWORD",
+        "CRM_ANDROID_RELEASE_KEYSTORE_BASE64",
+        "CRM_ANDROID_RELEASE_STORE_PASSWORD"
+      ],
+      "failClosedIfRequiredReviewerRuleAppears": true
+    }
   },
   "identityApproval": {
     "receiptFile": "release/approvals/permanent-identity-approval.json",
@@ -26,15 +42,15 @@
     "approved": true,
     "scheme": "semver2",
     "versionName": "1.0.0-rc.1",
-    "buildNumber": 4,
+    "buildNumber": 5,
     "buildNumberPolicy": "positive-int32-strictly-monotonic-never-reuse",
-    "reservationId": "crm3-baf-ops-o1-o5-v4-a808376-b4-4",
+    "reservationId": "crm3-baf-ops-o1-o5-v4-350f948-b5-5",
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
-    "sourceDocumentFile": "release/approvals/build-number-4-rollover-approval.json",
-    "sourceDocumentSha256": "A5119054F7AE484450D46E15392DFDCB3F359CAE12BEEB058F1EDEC63D4A76FD",
-    "remoteReservationTag": "crm3-build-reserved/4",
-    "remoteBuiltTag": "crm3-build-built/4",
+    "sourceDocumentFile": "release/approvals/build-number-5-rollover-approval.json",
+    "sourceDocumentSha256": "D4D556C42D2EBCBFDAA9F1640C2B7470057116D7B24CD7F5DC4519A4DA5B3A50",
+    "remoteReservationTag": "crm3-build-reserved/5",
+    "remoteBuiltTag": "crm3-build-built/5",
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "signing": {
@@ -83,11 +99,11 @@
     "restorationEvidenceSha256": "24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF"
   },
   "release": {
-    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b4",
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b5",
     "releaseTag": "crm3-baf-ops-v1.0.0-rc.1",
     "releaseChannel": "production-candidate",
     "versionName": "1.0.0-rc.1",
-    "buildNumber": 4
+    "buildNumber": 5
   },
   "distribution": {
     "authority": "production-signed-pre-release-candidate",

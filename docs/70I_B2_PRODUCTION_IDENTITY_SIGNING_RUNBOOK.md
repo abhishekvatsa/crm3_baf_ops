@@ -33,9 +33,10 @@ Rules, indexes or Cloud Functions.
 2. No password, keystore, service-account JSON or operational database enters
    Git, the evidence package or chat.
 3. Source must begin at the named live baseline and remain reviewable through
-   four narrow commits in one PR.
+   a narrow pull request whose merge commit is the exact artifact commit.
 4. Production artifacts are built only after merge from exact live remote main
-   by the protected production workflow.
+   by the source-governed production workflow using the production-signing
+   environment.
 5. Build numbers are never reused. A remote reservation tag is created before
    the build and remains authoritative after failure or withdrawal.
 6. Firebase CLI, GitHub Actions, bundletool and Linux Isar native core are
@@ -81,21 +82,30 @@ number, push, merge, or deploy Firebase. Branch push is always a separate review
 ### Phase C — review and merge
 
 Review every commit and the generated preparation evidence. Push the feature
-branch manually, open one PR, require normal CI and merge to `main`. The PR
-must contain exactly the four governed commit headlines; the finalizer verifies
-that sequence from GitHub. Preserve the commits on main where repository policy
-allows it.
+branch manually, open one PR, require normal CI and merge to `main`. The
+finalizer verifies that the named PR is merged to `main`, its merge commit is
+the exact artifact commit, it contains at least one commit, and its head matches
+its final commit. It does not couple later corrective PRs to the four historical
+preparation-commit headlines.
 
 ### Phase D — protected one-time build
 
 Dispatch `.github/workflows/production-artifact.yml` with the exact merged-main
-commit, release ID, reservation ID and build number.
+commit, release ID, reservation ID, version-approval reference and build
+number.
 
 The workflow:
 
 - confirms the commit is exact live remote main;
+- confirms the dispatch approval reference is the exact source approval;
+- confirms the workflow actor and triggering actor are the exact authorized
+  dispatcher recorded in the exception;
 - verifies the merged production policy and composite backend authority before
   creating any reservation tag;
+- verifies the private-repository environment-review exception remains
+  applicable and fails if a required-reviewer rule has appeared;
+- proves all four named production-signing secrets are present without printing
+  them before creating any reservation tag;
 - restores the pinned toolchain and locked dependencies;
 - configures the complete Android dependency graph before creating any
   reservation tag;
@@ -106,8 +116,9 @@ The workflow:
 - runs all mandatory gates;
 - builds once and emits package plus mandatory sidecar.
 
-A failed run consumes the number. Fix the cause, approve a new build number and
-create a new policy/ledger commit before another production build.
+A failed, withdrawn or non-finalized run consumes the number. Fix the cause,
+approve a new build number and create a new policy/ledger commit before another
+production build.
 
 The failed build and its reservation must remain in the source ledger. The
 replacement approval must identify the failed run, prove that no built tag was
@@ -115,15 +126,31 @@ created, bind the next monotonic number, and retain the non-distribution
 boundary. See `70I_B2_BUILD_1_FAILURE_AND_BUILD_2_ROLLOVER.md` for the first
 application of this protocol and
 `70I_B3_BUILD_2_FAILURE_AND_BUILD_3_ROLLOVER.md` for the Android dependency
-configuration correction.
+configuration correction,
+`70I_B4_BUILD_3_FAILURE_AND_BUILD_4_ROLLOVER.md` for the executable-verifier
+correction, and
+`70I_B5_BUILD_4_FINALIZATION_BLOCK_AND_BUILD_5_ROLLOVER.md` for the
+private-repository environment-review exception and governed-finalizer
+correction.
 
 ### Phase E — independent finalization and dual custody
 
-Run `Finalize_CRM_III_BAF_Ops_O1_O5_Closure_v4.ps1` with the exact GitHub run
-ID and PR number. It queries GitHub itself, downloads the named run artifact,
-re-verifies the package, checks the remote reservation tag, establishes two
-independent custody copies, creates the built tag, creates a closure ZIP and
-establishes dual custody for the closure evidence.
+Run `tools/release/Finalize-ProductionRelease.ps1` with the exact GitHub run ID
+and PR number. It queries GitHub itself, downloads the named run artifact,
+re-verifies the package, checks the remote reservation tag and live environment
+control, establishes two independent custody copies, creates the built tag,
+creates a closure ZIP and establishes dual custody for the closure evidence.
+
+For build 5 only, the source policy records
+`private-repository-plan-exception`. GitHub's current plan eligibility does not
+provide required-reviewer environment protection for this private repository.
+The exception does not claim that a reviewer rule or environment approval
+exists. It substitutes an exact merged-source approval, a required dispatch
+approval reference, owner-bound workflow actor and triggering actor,
+environment-secret inventory, atomic reservation, independent verification and
+dual custody. It fails closed if the repository becomes non-private, the
+environment or secret names differ, the dispatcher identity differs, or a
+required-reviewer rule appears.
 
 ### Phase F — optional controlled-pilot promotion
 

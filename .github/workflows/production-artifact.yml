@@ -15,6 +15,10 @@ on:
         description: Exact source reservation ID
         required: true
         type: string
+      approval_reference:
+        description: Exact governed version-approval reference
+        required: true
+        type: string
       build_number:
         description: Exact positive Android build number
         required: true
@@ -38,7 +42,11 @@ jobs:
       CRM_DISPATCH_COMMIT_SHA: ${{ inputs.commit_sha }}
       CRM_DISPATCH_RELEASE_ID: ${{ inputs.release_id }}
       CRM_DISPATCH_RESERVATION_ID: ${{ inputs.reservation_id }}
+      CRM_DISPATCH_APPROVAL_REFERENCE: ${{ inputs.approval_reference }}
       CRM_DISPATCH_BUILD_NUMBER: ${{ inputs.build_number }}
+      CRM_DISPATCH_ACTOR: ${{ github.actor }}
+      CRM_DISPATCH_ACTOR_ID: ${{ github.actor_id }}
+      CRM_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
 
     steps:
       - name: Validate dispatch inputs
@@ -50,6 +58,10 @@ jobs:
           test "$CRM_DISPATCH_BUILD_NUMBER" -le 2147483647
           [[ "$CRM_DISPATCH_RELEASE_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]
           [[ "$CRM_DISPATCH_RESERVATION_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]
+          [[ "$CRM_DISPATCH_APPROVAL_REFERENCE" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]
+          [[ "$CRM_DISPATCH_ACTOR" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,38}$ ]]
+          [[ "$CRM_DISPATCH_ACTOR_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$CRM_TRIGGERING_ACTOR" =~ ^[A-Za-z0-9][A-Za-z0-9-]{0,38}$ ]]
           test "$GITHUB_REF" = 'refs/heads/main'
           test "$GITHUB_REF_NAME" = 'main'
           test "$GITHUB_SHA" = "$CRM_DISPATCH_COMMIT_SHA"
@@ -63,6 +75,8 @@ jobs:
 
       - name: Prove exact live remote main and policy inputs
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
           $head = (git rev-parse HEAD).Trim().ToLowerInvariant()
@@ -98,6 +112,29 @@ jobs:
               $env:CRM_DISPATCH_RESERVATION_ID) {
             throw 'Reservation ID differs from policy.'
           }
+          $versionApproval = Get-Content `
+            -LiteralPath $policy.versionPolicy.approvalReceiptFile `
+            -Raw | ConvertFrom-Json
+          if ([string]$versionApproval.reference -ne
+              $env:CRM_DISPATCH_APPROVAL_REFERENCE) {
+            throw 'Approval reference differs from policy.'
+          }
+          $environmentException = Get-Content `
+            -LiteralPath (
+              $policy.github.environmentReviewControl.exceptionApprovalFile
+            ) -Raw | ConvertFrom-Json
+          if ([string]$environmentException.liveStateEvidence.
+                authorizedDispatcher.login -ne $env:CRM_DISPATCH_ACTOR -or
+              [long]$environmentException.liveStateEvidence.
+                authorizedDispatcher.id -ne [long]$env:CRM_DISPATCH_ACTOR_ID -or
+              $env:CRM_TRIGGERING_ACTOR -ne $env:CRM_DISPATCH_ACTOR -or
+              $env:GITHUB_ACTOR -ne $env:CRM_DISPATCH_ACTOR -or
+              [long]$env:GITHUB_ACTOR_ID -ne
+                [long]$env:CRM_DISPATCH_ACTOR_ID -or
+              $env:GITHUB_TRIGGERING_ACTOR -ne
+                $env:CRM_TRIGGERING_ACTOR) {
+            throw 'Workflow dispatcher identity differs from approved authority.'
+          }
           if ([int]$policy.release.buildNumber -ne
               [int]$env:CRM_DISPATCH_BUILD_NUMBER) {
             throw 'Build number differs from policy.'
@@ -106,6 +143,34 @@ jobs:
             'production-signed-pre-release-candidate' -or
             $policy.distribution.approved -ne $false) {
             throw 'Policy improperly claims distribution approval.'
+          }
+          if ([string]$policy.github.environmentReviewControl.mode -ne
+              'private-repository-plan-exception' -or
+              $policy.github.environmentReviewControl.
+                failClosedIfRequiredReviewerRuleAppears -ne $true) {
+            throw 'Environment-review exception mode is not approved.'
+          }
+
+          $repository = gh api "repos/$env:GITHUB_REPOSITORY" |
+            ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $repository.private -ne $true) {
+            throw 'Environment-review exception requires a private repository.'
+          }
+          $environmentName = [string]$policy.github.environmentName
+          $encodedEnvironment = [Uri]::EscapeDataString($environmentName)
+          $environment = gh api `
+            "repos/$env:GITHUB_REPOSITORY/environments/$encodedEnvironment" |
+            ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or
+              [string]$environment.name -ne $environmentName) {
+            throw 'Unable to verify the production-signing environment.'
+          }
+          $requiredReviewerRules = @(
+            $environment.protection_rules |
+              Where-Object { [string]$_.type -eq 'required_reviewers' }
+          )
+          if ($requiredReviewerRules.Count -ne 0) {
+            throw 'A required-reviewer rule now exists; exception mode is invalid.'
           }
 
           pwsh -NoProfile -ExecutionPolicy Bypass `
@@ -132,6 +197,8 @@ jobs:
           "CRM_FIREBASE_TOOLS_VERSION=$($policy.toolchain.firebaseToolsVersion)" |
             Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
           "CRM_PRODUCTION_ENVIRONMENT=$($policy.github.environmentName)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_APPROVAL_REFERENCE=$($versionApproval.reference)" |
             Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
           "CRM_EXPECTED_JAVA_VERSION=$($policy.toolchain.javaVersion)" |
             Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
@@ -229,6 +296,27 @@ jobs:
             ./gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace
             ./gradlew :app:compileReleaseSources --no-daemon --stacktrace
           )
+
+      - name: Prove production environment secrets before reservation
+        shell: pwsh
+        env:
+          CRM_ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.CRM_ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          CRM_ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.CRM_ANDROID_RELEASE_STORE_PASSWORD }}
+          CRM_ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.CRM_ANDROID_RELEASE_KEY_ALIAS }}
+          CRM_ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.CRM_ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($name in @(
+            'CRM_ANDROID_RELEASE_KEYSTORE_BASE64'
+            'CRM_ANDROID_RELEASE_STORE_PASSWORD'
+            'CRM_ANDROID_RELEASE_KEY_ALIAS'
+            'CRM_ANDROID_RELEASE_KEY_PASSWORD'
+          )) {
+            if ([string]::IsNullOrWhiteSpace(
+                [Environment]::GetEnvironmentVariable($name))) {
+              throw "Production signing environment is missing secret: $name"
+            }
+          }
 
       - name: Atomically consume the build number
         shell: bash
@@ -397,6 +485,7 @@ jobs:
             -ExpectedCommit $env:CRM_DISPATCH_COMMIT_SHA `
             -ExpectedReleaseId $env:CRM_DISPATCH_RELEASE_ID `
             -ExpectedReservationId $env:CRM_DISPATCH_RESERVATION_ID `
+            -ExpectedApprovalReference $env:CRM_DISPATCH_APPROVAL_REFERENCE `
             -ExpectedBuildNumber ([int]$env:CRM_DISPATCH_BUILD_NUMBER) `
             -BundletoolJarPath $env:CRM_BUNDLETOOL_PATH `
             -ExpectedBundletoolSha256 $env:CRM_BUNDLETOOL_SHA256 `
