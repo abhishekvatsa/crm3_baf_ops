@@ -12,6 +12,13 @@
     "requestBasis": "Repository owner explicitly authorized solving the exact production-signed runtime Google Sign-In and controlled-distribution-channel requirements as major step 2.",
     "humanApprovalReference": "CODEX_TASK_MAJOR_STEP_2_20260729"
   },
+  "amendment": {
+    "priorPromotionSha256": "5F9C28921E66FADBE6B4224ABFB230999E8678C2475531FCAE738ACC4DC9362B",
+    "reason": "The first governed install stopped after successful package replacement because the Android 16 notification-permission controller covered the expected login marker.",
+    "scopeChange": "Permit privacy-minimizing denial of the app notification prompt and evidence-only finalization of the already completed exact package replacement without reinstalling.",
+    "artifactOrTargetExpansion": false,
+    "pilotOrExternalDistributionExpansion": false
+  },
   "artifactAuthority": {
     "releaseId": "crm3-baf-ops-1.0.0-rc.1-b5",
     "versionName": "1.0.0-rc.1",
@@ -90,6 +97,8 @@
     "uninstall the exact prior debuggable versionCode 1 package from the named AVD",
     "install the exact Build 5 APK by direct ADB",
     "launch the installed application",
+    "deny the Android notification permission on the named validation AVD when its first-launch system dialog blocks the sign-in screen",
+    "finalize interrupted install evidence without reinstalling when the preserved prior-debug signer and exact current Build 5 installed hash prove the replacement",
     "complete Google Sign-In using the existing owner-controlled emulator account",
     "read and hydrate only that Firebase identity's own users document through the app's existing authentication flow",
     "capture SHA-sealed package, device, install and privacy-minimized UI evidence"

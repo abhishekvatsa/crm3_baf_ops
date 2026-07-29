@@ -45,15 +45,23 @@ The governed harness is:
 
 `tools/release/Invoke-Build5RuntimeValidation.ps1`
 
-It has three explicit phases:
+It has four explicit phases:
 
 1. `Preflight` verifies source, artifact, signer, AVD and Google Play Services
    without mutation.
 2. `Install` requires clean merged `main`, an empty evidence directory and an
    explicit debug-replacement switch.
-3. `Verify` runs after Google Sign-In and proves the approved-user home gate
+3. `FinalizeInstall` resumes only the interrupted first run whose exact
+   prior-promotion hash, debug signer and installed Build 5 hash are preserved.
+   It denies the Android 16 notification prompt and does not reinstall.
+4. `Verify` runs after Google Sign-In and proves the approved-user home gate
    through stable UI markers without placing account email or display name in
    repository evidence.
+
+The `FinalizeInstall` phase was added after the first governed install reached
+the Android notification-permission controller after successful package
+replacement. The original promotion hash is retained in the amended authority
+and the interrupted evidence; target and distribution scope did not expand.
 
 P-01 and STAGE2D-F3 may be adjudicated only from the resulting SHA-sealed
 execution evidence. This source promotion alone closes neither record.

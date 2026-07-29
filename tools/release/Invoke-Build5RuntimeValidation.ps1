@@ -11,7 +11,7 @@ privacy-minimized proof that the approved-user home screen was reached.
 
 [CmdletBinding(SupportsShouldProcess)]
 param(
-  [ValidateSet('Preflight', 'Install', 'Verify')]
+  [ValidateSet('Preflight', 'Install', 'FinalizeInstall', 'Verify')]
   [string]$Phase = 'Preflight',
 
   [Parameter(Mandatory)]
@@ -114,6 +114,63 @@ function Get-UiSnapshot {
   if (-not (Test-Path -LiteralPath $Destination -PathType Leaf)) {
     throw 'UI hierarchy capture did not produce the expected local file.'
   }
+}
+
+function Wait-ForLoginUi {
+  param(
+    [Parameter(Mandatory)][string]$Adb,
+    [Parameter(Mandatory)][string]$Serial,
+    [Parameter(Mandatory)][string]$Destination
+  )
+
+  $notificationPromptDenied = $false
+  $deadline = [DateTimeOffset]::UtcNow.AddSeconds(60)
+  do {
+    Get-UiSnapshot -Adb $Adb -Serial $Serial -Destination $Destination
+    $uiText = Get-Content -LiteralPath $Destination -Raw
+    if ($uiText.Contains('Sign in with Google')) {
+      return [pscustomobject]@{
+        uiText = $uiText
+        notificationPromptDenied = $notificationPromptDenied
+      }
+    }
+
+    if ($uiText.Contains(
+        'Allow CRM-III BAF Ops to send you notifications?')) {
+      [xml]$uiXml = $uiText
+      $denyNode = $uiXml.SelectSingleNode(
+        "//node[@resource-id=" +
+        "'com.android.permissioncontroller:id/permission_deny_button']"
+      )
+      if ($null -eq $denyNode) {
+        throw 'Notification prompt is present without its deny control.'
+      }
+      $bounds = [string]$denyNode.bounds
+      $match = [regex]::Match(
+        $bounds,
+        '^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$'
+      )
+      if (-not $match.Success) {
+        throw "Notification deny-control bounds are malformed: $bounds"
+      }
+      $x = [int]((
+        [int]$match.Groups[1].Value +
+        [int]$match.Groups[3].Value
+      ) / 2)
+      $y = [int]((
+        [int]$match.Groups[2].Value +
+        [int]$match.Groups[4].Value
+      ) / 2)
+      $null = Invoke-ExternalText -FilePath $Adb -Arguments @(
+        '-s', $Serial, 'shell', 'input', 'tap', "$x", "$y"
+      )
+      $notificationPromptDenied = $true
+    }
+
+    Start-Sleep -Seconds 2
+  } while ([DateTimeOffset]::UtcNow -lt $deadline)
+
+  throw 'The installed release did not reach the expected Google sign-in UI.'
 }
 
 $root = (Resolve-Path -LiteralPath $RepositoryRoot).Path
@@ -421,13 +478,11 @@ if ($Phase -eq 'Install') {
     '1'
   )
 
-  Start-Sleep -Seconds 5
   $uiPath = Join-Path $evidenceRoot 'login-window.xml'
-  Get-UiSnapshot -Adb $adb -Serial $DeviceSerial -Destination $uiPath
-  $loginUi = Get-Content -LiteralPath $uiPath -Raw
-  if (-not $loginUi.Contains('Sign in with Google')) {
-    throw 'The installed release did not reach the expected Google sign-in UI.'
-  }
+  $loginResult = Wait-ForLoginUi `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -Destination $uiPath
 
   $installReceipt = [ordered]@{
     schemaVersion = 1
@@ -446,6 +501,8 @@ if ($Phase -eq 'Install') {
     installedPackageDebuggable = $false
     loginUiSha256 = Get-Sha256 $uiPath
     loginUiMarkerPresent = $true
+    notificationPermissionPromptDenied =
+      $loginResult.notificationPromptDenied
     launchOutput = $launch.output
     channel = [ordered]@{
       planningMode = $promotion.channel.planningMode
@@ -458,6 +515,134 @@ if ($Phase -eq 'Install') {
   }
   Write-Utf8NoBom `
     -Path (Join-Path $evidenceRoot 'install-receipt.json') `
+    -Text (($installReceipt | ConvertTo-Json -Depth 30) + "`n")
+  $installReceipt | ConvertTo-Json -Depth 30
+  exit 0
+}
+
+if ($Phase -eq 'FinalizeInstall') {
+  if ($gitBranch -ne 'main' -or $gitHead -ne $originMain -or $gitStatus) {
+    throw 'FinalizeInstall requires an exact clean main equal to origin/main.'
+  }
+  $installReceiptPath = Join-Path $evidenceRoot 'install-receipt.json'
+  if (Test-Path -LiteralPath $installReceiptPath) {
+    throw 'FinalizeInstall refuses to replace an existing install receipt.'
+  }
+  $priorPreflightPath = Join-Path $evidenceRoot 'preflight.json'
+  $priorDebugApk = Join-Path $evidenceRoot 'prior-debug-base.apk'
+  $priorSignerPath = Join-Path $evidenceRoot 'prior-debug-signer.txt'
+  foreach ($requiredPath in @(
+      $priorPreflightPath,
+      $priorDebugApk,
+      $priorSignerPath
+    )) {
+    if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+      throw "FinalizeInstall is missing interrupted-run evidence: $requiredPath"
+    }
+  }
+
+  $priorPreflight = Get-Content -LiteralPath $priorPreflightPath -Raw |
+    ConvertFrom-Json
+  Assert-Equal `
+    $priorPreflight.promotion.sha256 `
+    $promotion.amendment.priorPromotionSha256 `
+    'Interrupted-run promotion SHA-256'
+  Assert-Equal `
+    $priorPreflight.target.existingPackagePresent `
+    $true `
+    'Interrupted-run prior package presence'
+  Assert-Equal `
+    $priorPreflight.artifact.sha256 `
+    $expectedApk.sha256 `
+    'Interrupted-run Build 5 APK SHA-256'
+
+  $expectedPrior = $promotion.deviceProvenance.expectedPriorPackage
+  $priorSignerOutput = (Invoke-ExternalText `
+    -FilePath $apksigner `
+    -Arguments @('verify', '--print-certs', $priorDebugApk)).output
+  $normalizedPriorSigner = $priorSignerOutput.Replace(
+    ':',
+    ''
+  ).ToUpperInvariant()
+  if (-not $normalizedPriorSigner.Contains($expectedPrior.certificateSha1)) {
+    throw 'Interrupted-run debug signer SHA-1 is not approved.'
+  }
+  if (-not $normalizedPriorSigner.Contains(
+      $expectedPrior.certificateSha256)) {
+    throw 'Interrupted-run debug signer SHA-256 is not approved.'
+  }
+
+  if (-not $installedBefore) {
+    throw 'FinalizeInstall cannot find the installed Build 5 package.'
+  }
+  if ($installedBeforeDetails.Contains('DEBUGGABLE')) {
+    throw 'FinalizeInstall found a debuggable installed package.'
+  }
+  if ($installedBeforeDetails -notmatch 'versionCode=5(?:\s|$)' -or
+      $installedBeforeDetails -notmatch
+        'versionName=1\.0\.0-rc\.1(?:\s|$)') {
+    throw 'FinalizeInstall found an unexpected installed package version.'
+  }
+
+  $installedPath = $installedPathResult.output.Replace(
+    'package:',
+    ''
+  ).Trim()
+  $installedShaOutput = (Invoke-ExternalText -FilePath $adb -Arguments @(
+    '-s', $DeviceSerial, 'shell', 'sha256sum', $installedPath
+  )).output
+  $installedSha = ($installedShaOutput -split '\s+')[0].ToUpperInvariant()
+  Assert-Equal $installedSha $expectedApk.sha256 'Installed APK SHA-256'
+
+  $launch = Invoke-ExternalText -FilePath $adb -Arguments @(
+    '-s', $DeviceSerial, 'shell', 'monkey',
+    '-p', $packageId,
+    '-c', 'android.intent.category.LAUNCHER',
+    '1'
+  )
+  $uiPath = Join-Path $evidenceRoot 'login-window.xml'
+  $loginResult = Wait-ForLoginUi `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -Destination $uiPath
+
+  $installReceipt = [ordered]@{
+    schemaVersion = 1
+    evidenceType = 'build-5-controlled-internal-install'
+    finalizedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    recoveryMode = 'INTERRUPTED_AFTER_INSTALL_NOTIFICATION_PROMPT'
+    promotionLineage = [ordered]@{
+      priorPromotionSha256 = $promotion.amendment.priorPromotionSha256
+      currentPromotionSha256 = Get-Sha256 $promotionFile
+    }
+    source = $preflight.source
+    artifact = $preflight.artifact
+    target = $preflight.target
+    priorDebugPackageRemoved = $true
+    priorAppSandboxSecurelyWiped = $true
+    priorDebugApkSha256 = Get-Sha256 $priorDebugApk
+    priorDebugCertificateSha1 = $expectedPrior.certificateSha1
+    priorDebugCertificateSha256 = $expectedPrior.certificateSha256
+    replacementProof =
+      'Android package-signature isolation plus preserved prior-debug signer and exact current production APK prove uninstall-before-install replacement.'
+    installedApkSha256 = $installedSha
+    installedPackageDebuggable = $false
+    loginUiSha256 = Get-Sha256 $uiPath
+    loginUiMarkerPresent = $true
+    notificationPermissionPromptDenied =
+      $loginResult.notificationPromptDenied
+    launchOutput = $launch.output
+    channel = [ordered]@{
+      planningMode = $promotion.channel.planningMode
+      transport = $promotion.channel.transport
+      targetCount = 1
+      externalDistributionPerformed = $false
+      pilotHandoutPerformed = $false
+    }
+    decision = 'PASS_EXACT_BUILD5_CONTROLLED_INTERNAL_INSTALL'
+  }
+  Write-Utf8NoBom `
+    -Path $installReceiptPath `
     -Text (($installReceipt | ConvertTo-Json -Depth 30) + "`n")
   $installReceipt | ConvertTo-Json -Depth 30
   exit 0
