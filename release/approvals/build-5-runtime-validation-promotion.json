@@ -28,6 +28,18 @@
     "artifactOrTargetExpansion": false,
     "pilotOrExternalDistributionExpansion": false
   },
+  "postOauthDiagnosticAmendment": {
+    "priorPromotionSha256": "083C844DC10BC8345326F3F784EC5A646D3E23E200935E2FB90DBBE0D3DEF39C",
+    "reason": "The fresh production-certificate Google exchange reached Firebase Authentication, but the own-user profile hydration returned cloud_firestore/permission-denied before the approved home gate.",
+    "scopeChange": "Permit privacy-minimized read-only inspection of the selected identity's Firebase Auth verification flags, exactly its own users/{uid} document schema, the active Firestore Rules release and Firestore App Check enforcement mode.",
+    "identityValueRetentionAuthorized": false,
+    "otherUserReadAuthorized": false,
+    "firestoreWriteAuthorized": false,
+    "authMutationAuthorized": false,
+    "rulesOrAppCheckMutationAuthorized": false,
+    "artifactOrTargetExpansion": false,
+    "pilotOrExternalDistributionExpansion": false
+  },
   "artifactAuthority": {
     "releaseId": "crm3-baf-ops-1.0.0-rc.1-b5",
     "versionName": "1.0.0-rc.1",
@@ -112,12 +124,16 @@
     "use the production app's own Sign Out control to clear the restored Firebase and Google session before fresh sign-in",
     "complete Google Sign-In using the existing owner-controlled emulator account",
     "read and hydrate only that Firebase identity's own users document through the app's existing authentication flow",
+    "read the active Firestore Rules release and Firestore App Check enforcement mode",
+    "resolve only the selected Google account to its Firebase uid for a privacy-minimized diagnostic",
+    "read only that exact identity's users document and retain field names, value types and invariant booleans without field values",
     "capture SHA-sealed package, device, install and privacy-minimized UI evidence"
   ],
   "expectedRemoteMutationBoundary": {
     "firebaseAuthenticationSessionCreated": true,
     "ownUserProfileHydrationPermitted": true,
     "ownUserFcmTokenClearOnSignOutPermitted": true,
+    "readOnlyOwnUserDiagnosticPermitted": true,
     "ownUserProfileFields": [
       "name",
       "email",
@@ -125,6 +141,7 @@
       "fcmToken"
     ],
     "otherFirestoreBusinessWritesAuthorized": false,
+    "authMutationAuthorized": false,
     "firebaseConfigurationMutationAuthorized": false,
     "backendDeploymentAuthorized": false
   },
@@ -144,6 +161,8 @@
     "inventory and secure removal of the exact prior debuggable package",
     "successful exact-APK installation with non-debuggable installed-package verification",
     "restored-session classification followed by in-app sign-out and return to the Google sign-in screen",
+    "Google Play Services account chooser followed by Firebase Auth success and the exact own-user hydration denial",
+    "privacy-minimized Auth, own-user schema, active Rules and App Check diagnostic receipt",
     "approved-user home screen reached after Google Sign-In without storing account email or display name in repository evidence",
     "evidence mutation boundary and SHA-256 inventory"
   ],

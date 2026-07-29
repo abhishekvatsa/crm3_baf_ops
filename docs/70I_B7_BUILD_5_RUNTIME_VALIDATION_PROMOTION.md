@@ -45,7 +45,7 @@ The governed harness is:
 
 `tools/release/Invoke-Build5RuntimeValidation.ps1`
 
-It has five explicit phases:
+It has six explicit phases:
 
 1. `Preflight` verifies source, artifact, signer, AVD and Google Play Services
    without mutation.
@@ -57,7 +57,12 @@ It has five explicit phases:
 4. `PrepareSignIn` treats any restored approved session as gate evidence only,
    uses the app's own `Sign Out` control, and proves return to the Google
    sign-in screen without clearing app data or reinstalling.
-5. `Verify` runs after fresh Google Sign-In and proves the approved-user home gate
+5. `DiagnoseProfile` is available only after a fresh Google exchange reaches
+   Firebase Authentication but own-user hydration fails. It retains only Auth
+   verification flags, a Firebase uid hash, own-document field names/types,
+   invariant booleans, and active Rules/App Check posture. It reads no other
+   user document and performs no remote write.
+6. `Verify` runs after fresh Google Sign-In and proves the approved-user home gate
    through stable UI markers without placing account email or display name in
    repository evidence.
 
@@ -70,6 +75,14 @@ The first recovery then exposed a restored approved-user session. That state
 proves package execution and the approval gate, but it is not accepted as a
 fresh production-certificate OAuth exchange. The promotion therefore requires
 an explicit in-app sign-out and a new Google Sign-In before P-01 adjudication.
+
+That fresh exchange succeeded at Google and Firebase Authentication, then
+returned `cloud_firestore/permission-denied` while hydrating the selected
+identity's own user profile. App Check enforcement was read back as
+`UNENFORCED`; the deployed Rules release differs from repository `main`.
+Neither fact alone identifies a safe repair. The read-only diagnostic phase
+therefore resolves only the selected chooser account and records privacy-safe
+Auth and own-document invariants before any remediation is proposed.
 
 P-01 and STAGE2D-F3 may be adjudicated only from the resulting SHA-sealed
 execution evidence. This source promotion alone closes neither record.

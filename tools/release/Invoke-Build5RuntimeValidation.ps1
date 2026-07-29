@@ -16,6 +16,7 @@ param(
     'Install',
     'FinalizeInstall',
     'PrepareSignIn',
+    'DiagnoseProfile',
     'Verify'
   )]
   [string]$Phase = 'Preflight',
@@ -856,6 +857,139 @@ if ($Phase -eq 'PrepareSignIn') {
     -Path $signOutReceiptPath `
     -Text (($signOutReceipt | ConvertTo-Json -Depth 30) + "`n")
   $signOutReceipt | ConvertTo-Json -Depth 30
+  exit 0
+}
+
+if ($Phase -eq 'DiagnoseProfile') {
+  if ($gitBranch -ne 'main' -or $gitHead -ne $originMain -or $gitStatus) {
+    throw 'DiagnoseProfile requires an exact clean main equal to origin/main.'
+  }
+  $diagnosticReceiptPath = Join-Path `
+    $evidenceRoot `
+    'profile-diagnostic-receipt.json'
+  if (Test-Path -LiteralPath $diagnosticReceiptPath) {
+    throw 'DiagnoseProfile refuses to replace an existing diagnostic receipt.'
+  }
+
+  $installReceiptPath = Join-Path $evidenceRoot 'install-receipt.json'
+  $signOutReceiptPath = Join-Path $evidenceRoot 'signout-receipt.json'
+  $chooserPath = Join-Path `
+    $evidenceRoot `
+    'google-account-chooser-window.xml'
+  $postSelectionPath = Join-Path `
+    $evidenceRoot `
+    'post-account-selection-window.xml'
+  foreach ($requiredPath in @(
+      $installReceiptPath,
+      $signOutReceiptPath,
+      $chooserPath,
+      $postSelectionPath
+    )) {
+    if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+      throw "DiagnoseProfile is missing runtime evidence: $requiredPath"
+    }
+  }
+
+  $signOutEvidence = Get-Content -LiteralPath $signOutReceiptPath -Raw |
+    ConvertFrom-Json
+  Assert-Equal `
+    $signOutEvidence.promotionSha256 `
+    $promotion.postOauthDiagnosticAmendment.priorPromotionSha256 `
+    'Pre-diagnostic promotion SHA-256'
+  Assert-Equal `
+    $signOutEvidence.decision `
+    'PASS_RESTORED_SESSION_CLEARED_READY_FOR_FRESH_GOOGLE_SIGN_IN' `
+    'Pre-diagnostic sign-out evidence'
+
+  $chooserUi = Get-Content -LiteralPath $chooserPath -Raw
+  if (-not $chooserUi.Contains('Choose an account') -or
+      -not $chooserUi.Contains("package=`"com.google.android.gms`"")) {
+    throw 'DiagnoseProfile cannot prove the Google account chooser surface.'
+  }
+  $postSelectionUi = Get-Content -LiteralPath $postSelectionPath -Raw
+  foreach ($requiredMarker in @(
+      'User profile error',
+      '[cloud_firestore/permission-denied]',
+      'Sign Out'
+    )) {
+    if (-not $postSelectionUi.Contains($requiredMarker)) {
+      throw "DiagnoseProfile is missing runtime marker: $requiredMarker"
+    }
+  }
+
+  $installedSha = Assert-ExactInstalledRelease `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -PackageId $packageId `
+    -ExpectedVersionCode ([string]$promotion.artifactAuthority.versionCode) `
+    -ExpectedVersionName $promotion.artifactAuthority.versionName `
+    -ExpectedSha256 $expectedApk.sha256
+
+  $diagnosticTool = Join-Path `
+    $root `
+    'tools/release/diagnoseBuild5Profile.js'
+  if (-not (Test-Path -LiteralPath $diagnosticTool -PathType Leaf)) {
+    throw 'The governed Build 5 profile diagnostic tool is missing.'
+  }
+  $node = (Get-Command node -ErrorAction Stop).Source
+  $diagnosticOutput = Invoke-ExternalText `
+    -FilePath $node `
+    -Arguments @(
+      $diagnosticTool,
+      '--repository-root', $root,
+      '--chooser', $chooserPath,
+      '--project-id', 'crm3-baf-ops-b8638',
+      '--project-number', '894346496105'
+    )
+  $diagnostic = $diagnosticOutput.output | ConvertFrom-Json
+  Assert-Equal `
+    $diagnostic.privacy.accountEmailRetained `
+    $false `
+    'Diagnostic account-email retention'
+  Assert-Equal `
+    $diagnostic.privacy.localIdRetained `
+    $false `
+    'Diagnostic Firebase uid retention'
+  Assert-Equal `
+    $diagnostic.scope.matchedAuthUserCount `
+    1 `
+    'Diagnostic matched Auth-user count'
+  Assert-Equal `
+    $diagnostic.scope.otherUserDocumentsRead `
+    0 `
+    'Diagnostic other-user reads'
+  Assert-Equal `
+    $diagnostic.scope.remoteWritesPerformed `
+    0 `
+    'Diagnostic remote writes'
+
+  $diagnosticReceipt = [ordered]@{
+    schemaVersion = 1
+    evidenceType = 'build-5-own-user-profile-read-only-diagnostic'
+    capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    promotionSha256 = Get-Sha256 $promotionFile
+    source = $preflight.source
+    artifact = $preflight.artifact
+    target = $preflight.target
+    installedApkSha256 = $installedSha
+    installReceiptSha256 = Get-Sha256 $installReceiptPath
+    signOutReceiptSha256 = Get-Sha256 $signOutReceiptPath
+    googleAccountChooserUiSha256 = Get-Sha256 $chooserPath
+    postSelectionErrorUiSha256 = Get-Sha256 $postSelectionPath
+    diagnostic = $diagnostic
+    mutationBoundary = [ordered]@{
+      firestoreWritesPerformed = 0
+      authMutationsPerformed = 0
+      rulesMutationsPerformed = 0
+      appCheckMutationsPerformed = 0
+      backendDeploymentsPerformed = 0
+    }
+    decision = 'PASS_PRIVACY_MINIMIZED_READ_ONLY_PROFILE_DIAGNOSTIC'
+  }
+  Write-Utf8NoBom `
+    -Path $diagnosticReceiptPath `
+    -Text (($diagnosticReceipt | ConvertTo-Json -Depth 40) + "`n")
+  $diagnosticReceipt | ConvertTo-Json -Depth 40
   exit 0
 }
 

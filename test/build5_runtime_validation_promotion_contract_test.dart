@@ -45,6 +45,18 @@ void main() {
       explicitOauthAmendment['pilotOrExternalDistributionExpansion'],
       isFalse,
     );
+    final diagnosticAmendment = _object(
+      promotion['postOauthDiagnosticAmendment'],
+    );
+    expect(
+      diagnosticAmendment['priorPromotionSha256'],
+      '083C844DC10BC8345326F3F784EC5A646D3E23E200935E2FB90DBBE0D3DEF39C',
+    );
+    expect(diagnosticAmendment['identityValueRetentionAuthorized'], isFalse);
+    expect(diagnosticAmendment['otherUserReadAuthorized'], isFalse);
+    expect(diagnosticAmendment['firestoreWriteAuthorized'], isFalse);
+    expect(diagnosticAmendment['authMutationAuthorized'], isFalse);
+    expect(diagnosticAmendment['rulesOrAppCheckMutationAuthorized'], isFalse);
 
     final artifact = _object(promotion['artifactAuthority']);
     expect(artifact['applicationId'], 'in.co.sail.bsl.crm3.bafops');
@@ -93,7 +105,9 @@ void main() {
     expect(remoteBoundary['firebaseAuthenticationSessionCreated'], isTrue);
     expect(remoteBoundary['ownUserProfileHydrationPermitted'], isTrue);
     expect(remoteBoundary['ownUserFcmTokenClearOnSignOutPermitted'], isTrue);
+    expect(remoteBoundary['readOnlyOwnUserDiagnosticPermitted'], isTrue);
     expect(remoteBoundary['otherFirestoreBusinessWritesAuthorized'], isFalse);
+    expect(remoteBoundary['authMutationAuthorized'], isFalse);
     expect(remoteBoundary['firebaseConfigurationMutationAuthorized'], isFalse);
     expect(remoteBoundary['backendDeploymentAuthorized'], isFalse);
 
@@ -115,6 +129,7 @@ void main() {
       for (final required in <String>[
         "'FinalizeInstall',",
         "'PrepareSignIn',",
+        "'DiagnoseProfile',",
         'Get-FileHash -LiteralPath \$Path -Algorithm SHA256',
         "build-tools\\36.0.0\\aapt.exe",
         "build-tools\\36.0.0\\apksigner.bat",
@@ -135,6 +150,11 @@ void main() {
         'PrepareSignIn refuses to replace an existing sign-out receipt.',
         "//node[@content-desc='Sign Out']",
         'PASS_RESTORED_SESSION_CLEARED_READY_FOR_FRESH_GOOGLE_SIGN_IN',
+        'DiagnoseProfile requires an exact clean main equal to origin/main.',
+        'DiagnoseProfile refuses to replace an existing diagnostic receipt.',
+        'PASS_PRIVACY_MINIMIZED_READ_ONLY_PROFILE_DIAGNOSTIC',
+        'otherUserDocumentsRead',
+        'remoteWritesPerformed',
         'Verify requires explicit restored-session sign-out evidence.',
         'Verify refuses to replace an existing runtime receipt.',
         'Sign-out evidence promotion SHA-256',
@@ -162,6 +182,37 @@ void main() {
           isNot(contains(forbidden.toLowerCase())),
           reason: forbidden,
         );
+      }
+    },
+  );
+
+  test(
+    'profile diagnostic retains schema evidence without identity values',
+    () {
+      final source =
+          File('tools/release/diagnoseBuild5Profile.js').readAsStringSync();
+
+      for (final required in <String>[
+        'firebaseauth.users.get',
+        '/accounts:lookup',
+        '/documents/users/',
+        'localIdSha256',
+        'accountEmailRetained: false',
+        'localIdRetained: false',
+        'otherUserDocumentsRead: 0',
+        'remoteWritesPerformed: 0',
+        'firestore.googleapis.com',
+        'UNENFORCED',
+      ]) {
+        expect(source, contains(required), reason: 'missing $required');
+      }
+
+      for (final forbidden in <String>[
+        'accountEmail:',
+        'localId:',
+        'displayName:',
+      ]) {
+        expect(source, isNot(contains(forbidden)), reason: 'found $forbidden');
       }
     },
   );
