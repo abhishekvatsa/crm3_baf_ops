@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "approvalId": "CRM3-B5-RUNTIME-VALIDATION-001",
+  "approvalClass": "CONTROLLED_INTERNAL_RUNTIME_VALIDATION_ONLY",
+  "createdAtUtc": "2026-07-29T18:23:37.5172887Z",
+  "effectiveCondition": "This record is effective only after owner-reviewed merge to main and execution from an exact clean local main equal to origin/main.",
+  "approvalAuthority": {
+    "mode": "MERGED_OWNER_SOURCE_APPROVAL",
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "baselineCommit": "4855a1290af1178bbcd62a0bc23f1f2b106046df",
+    "baselineTree": "31011b7b31c06dd3137a56385209cb1f1ce0608a",
+    "requestBasis": "Repository owner explicitly authorized solving the exact production-signed runtime Google Sign-In and controlled-distribution-channel requirements as major step 2.",
+    "humanApprovalReference": "CODEX_TASK_MAJOR_STEP_2_20260729"
+  },
+  "artifactAuthority": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b5",
+    "versionName": "1.0.0-rc.1",
+    "versionCode": 5,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "sourceCommit": "60dc4688fbbc7127e84c63d7955dab4210555e0d",
+    "sourceTree": "324e77cc5748476f2ddff8531d6b378c9e92482a",
+    "githubRunId": 30466468245,
+    "apk": {
+      "fileName": "crm3-baf-ops-1.0.0-rc.1-b5-release.apk",
+      "sha256": "1A39F9F375D785817862AA86BF3810FB5D99545E1E8BFFB7BA4F3CA69253774C",
+      "bytes": 85884040,
+      "debuggable": false
+    },
+    "signer": {
+      "certificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+      "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C"
+    },
+    "governedPackageSha256": "E702A72A6603B6187E9282FC12E1E633F9BF59057ED331464BE590579FFB29C1",
+    "closurePackageSha256": "4AEBDFC8B1FE378FA8CAB26B6C05CB745250A52CC7CE095CA5987605030A6679",
+    "custodyRecordSha256": "DCF5ADBD45649ED22F8B7DB2780528F964D2DC0EE8F77260B49C150A3E8F1AE1",
+    "finalizationReceipt": {
+      "path": "release/evidence/build-5-finalization-closure.json",
+      "sha256": "F91D5C60AF663C6B9785F922A95B67AD5B01216CE597C83832975E6DF4DD49CC"
+    },
+    "programmeAdjudication": {
+      "path": "release/evidence/build-5-programme-adjudication.json",
+      "sha256": "09031647BA40635350C3E36548CA6030CB0E0672C15C4CDBE538D44E988DC97B"
+    }
+  },
+  "channel": {
+    "planningMode": "internal-release-signed-apk",
+    "transport": "DIRECT_ADB_FROM_GOVERNED_LOCAL_CUSTODY",
+    "purpose": "PRODUCTION_SIGNED_GOOGLE_SIGN_IN_RUNTIME_VALIDATION",
+    "maxTargetCount": 1,
+    "target": {
+      "kind": "ANDROID_VIRTUAL_DEVICE",
+      "avdName": "Pixel_9",
+      "adbSerial": "emulator-5554",
+      "minimumApiLevel": 36,
+      "requiresGooglePlayServices": true,
+      "requiresExistingOwnerControlledGoogleAccount": true
+    },
+    "installerIdentity": "com.android.shell",
+    "externalTesterRosterCreated": false,
+    "firebaseAppDistributionUploadAuthorized": false,
+    "playConsoleUploadAuthorized": false,
+    "webOrPublicLinkAuthorized": false
+  },
+  "deviceProvenance": {
+    "knownPrecondition": "The named AVD contains a versionCode 1 debuggable build signed by the Android debug authority.",
+    "expectedPriorPackage": {
+      "applicationId": "in.co.sail.bsl.crm3.bafops",
+      "versionName": "1.0.0-rc.1",
+      "versionCode": 1,
+      "debuggable": true,
+      "certificateSha1": "30B58F0F39E1BA3CA69FD9032D7CF6FB41EC8F31",
+      "certificateSha256": "B0B0EF9B348F5D474356AEB79182483B98829012FC25EB3EDCD517D11563C6D5"
+    },
+    "replacementAllowedOnlyWhen": [
+      "the installed package is debuggable",
+      "the installed versionCode is 1",
+      "the target is the exact named AVD",
+      "the operator supplies the explicit AllowDebugReplacement switch"
+    ],
+    "secureWipeAction": "Uninstall the debuggable package before installing Build 5; this removes the old application sandbox and is recorded as test-device provenance evidence.",
+    "stopIf": [
+      "the existing package is non-debuggable",
+      "the existing package version or identity differs",
+      "the device is not the exact named AVD",
+      "the worktree is not clean main equal to origin/main"
+    ]
+  },
+  "authorizedOperations": [
+    "read-only source, artifact, signer, package, device and Google Play Services preflight",
+    "uninstall the exact prior debuggable versionCode 1 package from the named AVD",
+    "install the exact Build 5 APK by direct ADB",
+    "launch the installed application",
+    "complete Google Sign-In using the existing owner-controlled emulator account",
+    "read and hydrate only that Firebase identity's own users document through the app's existing authentication flow",
+    "capture SHA-sealed package, device, install and privacy-minimized UI evidence"
+  ],
+  "expectedRemoteMutationBoundary": {
+    "firebaseAuthenticationSessionCreated": true,
+    "ownUserProfileHydrationPermitted": true,
+    "ownUserProfileFields": [
+      "name",
+      "email",
+      "photoUrl",
+      "fcmToken"
+    ],
+    "otherFirestoreBusinessWritesAuthorized": false,
+    "firebaseConfigurationMutationAuthorized": false,
+    "backendDeploymentAuthorized": false
+  },
+  "prohibitedOperations": [
+    "pilot handout",
+    "distribution to a physical device or a second emulator",
+    "distribution to another person or Google account",
+    "Firebase App Distribution, Play Console, Play Store, web or public upload",
+    "admin, roster, role, Rules, index, Functions, IAM or Firebase configuration mutation",
+    "unrestricted plant release",
+    "rebuilding, resigning or modifying the governed APK"
+  ],
+  "requiredRuntimeEvidence": [
+    "promotion-record SHA-256 and exact clean-main commit",
+    "source APK SHA-256, bytes, package, version and production signer",
+    "named AVD identity, API level, build fingerprint and Google Play Services presence",
+    "inventory and secure removal of the exact prior debuggable package",
+    "successful exact-APK installation with non-debuggable installed-package verification",
+    "approved-user home screen reached after Google Sign-In without storing account email or display name in repository evidence",
+    "evidence mutation boundary and SHA-256 inventory"
+  ],
+  "programmeBoundary": {
+    "intendedRecords": [
+      "FINDING:P-01",
+      "GATE:STAGE2D-F3"
+    ],
+    "pilotHandoutAuthorized": false,
+    "stage2dF4Authorized": false,
+    "unrestrictedDistributionAuthorized": false,
+    "closureRequiresPostExecutionAdjudication": true
+  }
+}
