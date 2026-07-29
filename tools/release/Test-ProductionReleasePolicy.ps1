@@ -112,6 +112,13 @@ function Get-YamlRunBlocks {
 }
 
 Set-Location (Resolve-Path -LiteralPath $RepositoryRoot)
+& pwsh -NoProfile -ExecutionPolicy Bypass `
+  -File tools/release/Test-ProductionReleaseManifest.ps1 `
+  -LedgerSelectionSelfTest
+if ($LASTEXITCODE -ne 0) {
+  throw 'Production release manifest runtime self-test failed.'
+}
+
 $provisionalIsarBindings = @(
   Get-ChildItem -LiteralPath 'lib' -Recurse -Filter '*.g.dart' -File |
     Select-String -SimpleMatch 'PROVISIONAL_V4_ISAR_CODEGEN'

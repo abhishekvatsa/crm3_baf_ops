@@ -13,14 +13,58 @@ RepositoryRoot is optional. When supplied, live clean main parity is checked in
 addition to package-only verification.
 #>
 
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName = 'Verify')]
 param(
-  [Parameter(Mandatory)][string]$ManifestPath,
+  [Parameter(Mandatory, ParameterSetName = 'Verify')]
+  [string]$ManifestPath,
+
+  [Parameter(Mandatory, ParameterSetName = 'LedgerSelectionSelfTest')]
+  [switch]$LedgerSelectionSelfTest,
+
+  [Parameter(ParameterSetName = 'Verify')]
   [string]$RepositoryRoot
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+function Get-LedgerReservationMatches {
+  param(
+    [Parameter(Mandatory)][object[]]$Entries,
+    [Parameter(Mandatory)][string]$ReservationId
+  )
+
+  @(
+    $Entries |
+      Where-Object {
+        [string]$_.reservationId -eq $ReservationId
+      }
+  )
+}
+
+if ($LedgerSelectionSelfTest) {
+  $fixtureEntries = @(
+    [pscustomobject]@{
+      reservationId = 'fixture-reservation-1'
+      buildNumber = 1
+    }
+    [pscustomobject]@{
+      reservationId = 'fixture-reservation-2'
+      buildNumber = 2
+    }
+  )
+  $fixtureMatches = @(
+    Get-LedgerReservationMatches `
+      -Entries $fixtureEntries `
+      -ReservationId 'fixture-reservation-2'
+  )
+  if ($fixtureMatches.Count -ne 1 -or
+      [int]$fixtureMatches[0].buildNumber -ne 2) {
+    throw 'Production release manifest ledger-selection self-test failed.'
+  }
+  Write-Output 'Production release manifest ledger-selection self-test: PASS'
+  return
+}
 
 function Get-Sha256 {
   param([Parameter(Mandatory)][string]$Path)
@@ -627,9 +671,9 @@ foreach ($androidPathField in @('apkSignerPath', 'apkAnalyzerPath')) {
 }
 
 $ledgerMatches = @(
-  $buildLedger.entries |
-    Where-Object reservationId -eq
-      [string]$manifest.versionPolicy.reservationId
+  Get-LedgerReservationMatches `
+    -Entries @($buildLedger.entries) `
+    -ReservationId ([string]$manifest.versionPolicy.reservationId)
 )
 if ($ledgerMatches.Count -ne 1 -or
     [int64]$ledgerMatches[0].buildNumber -ne

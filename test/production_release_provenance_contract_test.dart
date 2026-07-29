@@ -123,6 +123,10 @@ void main() {
       expect(text, contains('recoveryProofSha256'));
       expect(text, contains('COMPOSITE_LIVE_STATE'));
       expect(text, contains('firestore.indexes.sourceSha256'));
+      expect(text, contains('Get-LedgerReservationMatches'));
+      expect(text, contains('LedgerSelectionSelfTest'));
+      expect(text, contains(r'[string]$_.reservationId -eq $ReservationId'));
+      expect(text, isNot(contains('Where-Object reservationId -eq')));
       expect(
         text,
         isNot(contains('manifest.backend.deployedIndexesParityStatus')),
@@ -147,6 +151,21 @@ void main() {
       expect(text, contains('recoveryProofSha256'));
       expect(text, contains('bundletoolUrl must use HTTPS'));
       expect(text, contains('unrestrictedPlantReleaseApproved'));
+      expect(text, contains('-LedgerSelectionSelfTest'));
+      expect(
+        text,
+        contains('Production release manifest runtime self-test failed.'),
+      );
+    });
+
+    test('release gate executes production package verifier runtime proof', () {
+      final text = read('.github/workflows/release-gate.yml');
+
+      expect(
+        text,
+        contains('Production policy and package-verifier runtime gate'),
+      );
+      expect(text, contains('Test-ProductionReleasePolicy.ps1'));
     });
 
     test('workflow atomically reserves number and pins release toolchain', () {
@@ -281,7 +300,7 @@ void main() {
       );
     });
 
-    test('failed builds 1 and 2 are preserved and build 3 is approved', () {
+    test('failed builds 1 to 3 are preserved and build 4 is approved', () {
       final ledger =
           jsonDecode(read('release/build-number-ledger.json'))
               as Map<String, dynamic>;
@@ -290,6 +309,7 @@ void main() {
       final build1 = entries.singleWhere((entry) => entry['buildNumber'] == 1);
       final build2 = entries.singleWhere((entry) => entry['buildNumber'] == 2);
       final build3 = entries.singleWhere((entry) => entry['buildNumber'] == 3);
+      final build4 = entries.singleWhere((entry) => entry['buildNumber'] == 4);
 
       expect(build1['status'], 'remote-consumed-build-failed');
       expect(build1['githubRunId'], 30387521656);
@@ -313,15 +333,35 @@ void main() {
       expect(build2['artifactUploaded'], isFalse);
       expect(build2['remoteBuiltTagCreated'], isFalse);
 
-      expect(build3['status'], 'source-reserved-awaiting-remote-consumption');
+      expect(build3['status'], 'remote-consumed-build-failed');
+      expect(build3['githubRunId'], 30397899144);
       expect(build3['remoteReservationTag'], 'crm3-build-reserved/3');
       expect(build3['remoteBuiltTag'], 'crm3-build-built/3');
+      expect(
+        build3['remoteReservationTagObject'],
+        '43b6bc2da1beb7f90bc8f3bc82ebc961a5fc48d6',
+      );
+      expect(
+        build3['remoteReservationCommit'],
+        'a808376dbc4d2e4b198127e2d66fc698daac800e',
+      );
+      expect(build3['productionKeystoreRestored'], isTrue);
+      expect(build3['signedApkConstructed'], isTrue);
+      expect(build3['signedAabConstructed'], isTrue);
+      expect(build3['independentPackageVerificationCompleted'], isFalse);
+      expect(build3['artifactConstructed'], isFalse);
+      expect(build3['artifactUploaded'], isFalse);
+      expect(build3['remoteBuiltTagCreated'], isFalse);
+
+      expect(build4['status'], 'source-reserved-awaiting-remote-consumption');
+      expect(build4['remoteReservationTag'], 'crm3-build-reserved/4');
+      expect(build4['remoteBuiltTag'], 'crm3-build-built/4');
 
       final approval =
           jsonDecode(
                 read(
                   'release/approvals/'
-                  'build-number-3-rollover-approval.json',
+                  'build-number-4-rollover-approval.json',
                 ),
               )
               as Map<String, dynamic>;
@@ -329,15 +369,30 @@ void main() {
       expect(approval['distributionApproved'], isFalse);
       expect(
         (approval['consumedBuild'] as Map<String, dynamic>)['githubRunId'],
-        30392976122,
+        30397899144,
       );
-      expect((approval['nextBuild'] as Map<String, dynamic>)['buildNumber'], 3);
+      expect(
+        (approval['consumedBuild']
+            as Map<String, dynamic>)['signedApkConstructed'],
+        isTrue,
+      );
+      expect(
+        (approval['consumedBuild']
+            as Map<String, dynamic>)['signedAabConstructed'],
+        isTrue,
+      );
+      expect(
+        (approval['consumedBuild']
+            as Map<String, dynamic>)['artifactConstructed'],
+        isFalse,
+      );
+      expect((approval['nextBuild'] as Map<String, dynamic>)['buildNumber'], 4);
       expect(
         (approval['controls']
             as Map<
               String,
               dynamic
-            >)['androidDependencyConfigurationPreflightBeforeReservation'],
+            >)['manifestVerifierRuntimeSelfTestBeforeReservation'],
         isTrue,
       );
       expect(
@@ -360,12 +415,12 @@ void main() {
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
         pubspec,
-        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+3$', multiLine: true)),
+        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+4$', multiLine: true)),
       );
-      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b3"'));
+      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b4"'));
       expect(
         policy,
-        contains('"remoteReservationTag": "crm3-build-reserved/3"'),
+        contains('"remoteReservationTag": "crm3-build-reserved/4"'),
       );
       expect(policy, contains('"approved": false'));
       expect(policy, contains('"unrestrictedPlantReleaseApproved": false'));
