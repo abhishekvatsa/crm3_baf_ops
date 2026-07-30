@@ -541,6 +541,24 @@ void main() {
       expect(build6.containsKey('githubRunId'), isFalse);
       expect(build6.containsKey('remoteReservationTagObject'), isFalse);
       expect(build6.containsKey('remoteBuiltTagObject'), isFalse);
+      final preReservationFailures =
+          build6['preReservationDispatchFailures'] as List<dynamic>;
+      expect(preReservationFailures, hasLength(1));
+      final preReservationFailure =
+          preReservationFailures.single as Map<String, dynamic>;
+      expect(preReservationFailure['githubRunId'], 30531942779);
+      expect(
+        preReservationFailure['failureBoundary'],
+        'java-distribution-resolution-before-secret-preflight-and-reservation',
+      );
+      expect(
+        preReservationFailure['productionEnvironmentSecretsProved'],
+        isFalse,
+      );
+      expect(preReservationFailure['productionKeystoreRestored'], isFalse);
+      expect(preReservationFailure['remoteReservationTagCreated'], isFalse);
+      expect(preReservationFailure['artifactConstructed'], isFalse);
+      expect(preReservationFailure['numberConsumed'], isFalse);
     });
 
     test('private-repository reviewer exception is narrow and fail-closed', () {
