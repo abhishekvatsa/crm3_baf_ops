@@ -105,9 +105,9 @@
     {
       "path": ".github/workflows/release-gate.yml",
       "canonicalSha256": "CE3A2B57B0A19DAC48F25587EAFFD8D3C0D57F00ECDE41703E10DECD31FC0561",
-      "candidateSha256": "714BC731665F1A75D0754C96FEAE56B3DF7612B0FD66C9CA46CB0658B40FC156",
+      "candidateSha256": "91D6EFB392B258A120DBA796F0F0E32D4848439CAD58941CCC2C6509E2CE02E4",
       "canonicalBytes": 8984,
-      "candidateBytes": 10681,
+      "candidateBytes": 10720,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3077,9 +3077,9 @@
     {
       "path": "test/production_release_provenance_contract_test.dart",
       "canonicalSha256": "3906E9F4737E325D73259BA259C8A2088CA9084C817AEAD6260FC510049FE985",
-      "candidateSha256": "6E0A100B596267C8E593730D415F61CDB588F289A1409A29142EB1DE3E8417E9",
+      "candidateSha256": "91490601782B1B4B8C9B4F9BC1C30B20E920E1AF831119352DE7955F8391238D",
       "canonicalBytes": 7635,
-      "candidateBytes": 29551,
+      "candidateBytes": 29811,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

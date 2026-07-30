@@ -172,6 +172,16 @@ void main() {
         contains('Production policy and package-verifier runtime gate'),
       );
       expect(text, contains('Test-ProductionReleasePolicy.ps1'));
+      expect(
+        text,
+        contains(
+          'name: Checkout\n'
+          '        uses: actions/checkout@'
+          '34e114876b0b11c390a56381ad16ebd13914f8d5\n'
+          '        with:\n'
+          '          fetch-depth: 0',
+        ),
+      );
     });
 
     test('workflow atomically reserves number and pins release toolchain', () {
