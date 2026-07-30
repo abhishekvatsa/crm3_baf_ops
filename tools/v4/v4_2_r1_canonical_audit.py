@@ -1422,6 +1422,26 @@ check(
     and combined_policy.get("distribution", {}).get("approved") is False
     and build6_entry.get("status")
         == "source-reserved-awaiting-remote-consumption"
+    and len(build6_entry.get("preReservationDispatchFailures", [])) == 1
+    and build6_entry.get("preReservationDispatchFailures", [{}])[0].get(
+        "githubRunId"
+    )
+        == 30531942779
+    and build6_entry.get("preReservationDispatchFailures", [{}])[0].get(
+        "failureBoundary"
+    )
+        == (
+            "java-distribution-resolution-before-secret-preflight-"
+            "and-reservation"
+        )
+    and build6_entry.get("preReservationDispatchFailures", [{}])[0].get(
+        "remoteReservationTagCreated"
+    )
+        is False
+    and build6_entry.get("preReservationDispatchFailures", [{}])[0].get(
+        "numberConsumed"
+    )
+        is False
     and "githubRunId" not in build6_entry
     and "remoteReservationTagObject" not in build6_entry
     and "remoteBuiltTagObject" not in build6_entry,

@@ -75,3 +75,18 @@ reused. A fresh readback on 2026-07-30 established:
 `BAF-GH-ENV-002` is single-use for Build 6 and fails closed if that live state
 changes. Production signing remains a separate manual action after source
 merge and exact post-merge CI.
+
+## Pre-reservation Java resolution correction
+
+The first Build 6 dispatch, GitHub run `30531942779`, failed during
+`actions/setup-java` before environment-secret preflight, remote reservation,
+keystore restoration, artifact construction or upload. Neither
+`crm3-build-reserved/6` nor `crm3-build-built/6` was created, so build number 6
+remains unconsumed.
+
+The Temurin catalogue identifies the approved `21.0.11+10` Java runtime with
+the distributor-specific installer label `21.0.11+10.0.LTS`. Source therefore
+records both identities: `javaDistributionVersion` selects the exact installer,
+while `javaVersion` continues to verify the actual runtime output. A corrected
+dispatch remains prohibited until this source correction is merged to exact
+live `main` and its post-merge checks pass.

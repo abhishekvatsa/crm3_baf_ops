@@ -30,6 +30,7 @@ $ExpectedEnvironmentSecretNames = @(
 )
 $ExpectedToolchain = [ordered]@{
   runnerImage = 'ubuntu-24.04'
+  javaDistributionVersion = '21.0.11+10.0.LTS'
   javaVersion = '21.0.11+10'
   nodeVersion = '22.15.0'
   npmVersion = '10.9.2'
@@ -1117,7 +1118,7 @@ foreach ($required in @(
   'A required-reviewer rule now exists; exception mode is invalid.'
   "environment: $($policy.github.environmentName)"
   "runs-on: $($policy.toolchain.runnerImage)"
-  "java-version: '$($policy.toolchain.javaVersion)'"
+  "java-version: '$($policy.toolchain.javaDistributionVersion)'"
   "node-version: '$($policy.toolchain.nodeVersion)'"
   "flutter-version: '$($policy.toolchain.flutterVersion)'"
   'CRM_EXPECTED_NPM_VERSION'

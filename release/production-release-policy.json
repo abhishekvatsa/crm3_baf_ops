@@ -150,6 +150,7 @@
     "linuxIsarCoreAuthorityReceipt": "release/approvals/linux-isar-core-authority.json",
     "githubActionPinsFile": "release/github-actions-pins.json",
     "runnerImage": "ubuntu-24.04",
+    "javaDistributionVersion": "21.0.11+10.0.LTS",
     "javaVersion": "21.0.11+10",
     "nodeVersion": "22.15.0",
     "npmVersion": "10.9.2",

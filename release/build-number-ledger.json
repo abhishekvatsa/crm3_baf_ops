@@ -211,7 +211,25 @@
       "failedOrWithdrawnBuildConsumesNumber": true,
       "reservedAtUtc": "2026-07-30T08:48:51.8299893Z",
       "versionApprovalReference": "BAF-REF-003-C5",
-      "versionApprovalDocumentSha256": "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141"
+      "versionApprovalDocumentSha256": "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141",
+      "preReservationDispatchFailures": [
+        {
+          "githubRunId": 30531942779,
+          "githubRunAttempt": 1,
+          "githubRunUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30531942779",
+          "sourceCommit": "d4fd85f0cffcc51ff822ccdc4160dc39984ad496",
+          "startedAtUtc": "2026-07-30T09:45:08Z",
+          "completedAtUtc": "2026-07-30T09:45:34Z",
+          "conclusion": "failure",
+          "failureBoundary": "java-distribution-resolution-before-secret-preflight-and-reservation",
+          "failureReason": "Temurin published the approved Java runtime as distributor version 21.0.11+10.0.LTS; setup-java could not resolve the narrower 21.0.11+10 installer label.",
+          "productionEnvironmentSecretsProved": false,
+          "productionKeystoreRestored": false,
+          "remoteReservationTagCreated": false,
+          "artifactConstructed": false,
+          "numberConsumed": false
+        }
+      ]
     }
   ]
 }
