@@ -172,6 +172,16 @@ void main() {
         contains('Production policy and package-verifier runtime gate'),
       );
       expect(text, contains('Test-ProductionReleasePolicy.ps1'));
+      expect(
+        text,
+        contains(
+          'name: Checkout\n'
+          '        uses: actions/checkout@'
+          '34e114876b0b11c390a56381ad16ebd13914f8d5\n'
+          '        with:\n'
+          '          fetch-depth: 0',
+        ),
+      );
     });
 
     test('workflow atomically reserves number and pins release toolchain', () {
@@ -352,7 +362,7 @@ void main() {
       );
     });
 
-    test('builds 1 to 4 are preserved and build 5 is finalized', () {
+    test('builds 1 to 5 are preserved and build 6 is source-only', () {
       final ledger =
           jsonDecode(read('release/build-number-ledger.json'))
               as Map<String, dynamic>;
@@ -363,6 +373,7 @@ void main() {
       final build3 = entries.singleWhere((entry) => entry['buildNumber'] == 3);
       final build4 = entries.singleWhere((entry) => entry['buildNumber'] == 4);
       final build5 = entries.singleWhere((entry) => entry['buildNumber'] == 5);
+      final build6 = entries.singleWhere((entry) => entry['buildNumber'] == 6);
 
       expect(build1['status'], 'remote-consumed-build-failed');
       expect(build1['githubRunId'], 30387521656);
@@ -447,7 +458,7 @@ void main() {
           jsonDecode(
                 read(
                   'release/approvals/'
-                  'build-number-5-rollover-approval.json',
+                  'build-number-6-rollover-approval.json',
                 ),
               )
               as Map<String, dynamic>;
@@ -455,7 +466,7 @@ void main() {
       expect(approval['distributionApproved'], isFalse);
       expect(
         (approval['consumedBuild'] as Map<String, dynamic>)['githubRunId'],
-        30418210455,
+        30466468245,
       );
       expect(
         (approval['consumedBuild']
@@ -475,9 +486,29 @@ void main() {
       expect(
         (approval['consumedBuild']
             as Map<String, dynamic>)['closureFinalizationCompleted'],
+        isTrue,
+      );
+      expect(
+        (approval['consumedBuild']
+            as Map<String, dynamic>)['dualCustodyCompleted'],
+        isTrue,
+      );
+      expect(
+        (approval['consumedBuild']
+            as Map<String, dynamic>)['distributionPerformed'],
         isFalse,
       );
-      expect((approval['nextBuild'] as Map<String, dynamic>)['buildNumber'], 5);
+      expect((approval['nextBuild'] as Map<String, dynamic>)['buildNumber'], 6);
+      expect(
+        (approval['requiredSource']
+            as Map<String, dynamic>)['tokenRaceRemediationPullRequest'],
+        77,
+      );
+      expect(
+        (approval['requiredSource']
+            as Map<String, dynamic>)['tokenRaceRemediationMergeCommit'],
+        '416fe777ffd52162de5666a860e185167ecf9e23',
+      );
       expect(
         (approval['controls']
             as Map<
@@ -502,6 +533,14 @@ void main() {
             >)['privateRepositoryEnvironmentReviewerExceptionApproved'],
         isTrue,
       );
+
+      expect(build6['status'], 'source-reserved-awaiting-remote-consumption');
+      expect(build6['remoteReservationTag'], 'crm3-build-reserved/6');
+      expect(build6['remoteBuiltTag'], 'crm3-build-built/6');
+      expect(build6['versionApprovalReference'], 'BAF-REF-003-C5');
+      expect(build6.containsKey('githubRunId'), isFalse);
+      expect(build6.containsKey('remoteReservationTagObject'), isFalse);
+      expect(build6.containsKey('remoteBuiltTagObject'), isFalse);
     });
 
     test('private-repository reviewer exception is narrow and fail-closed', () {
@@ -515,7 +554,7 @@ void main() {
           jsonDecode(
                 read(
                   'release/approvals/'
-                  'private-repository-environment-reviewer-exception.json',
+                  'private-repository-environment-reviewer-exception-build-6.json',
                 ),
               )
               as Map<String, dynamic>;
@@ -534,7 +573,8 @@ void main() {
       expect(control['failClosedIfRequiredReviewerRuleAppears'], isTrue);
       expect(exception['approved'], isTrue);
       expect(scope['repositoryVisibility'], 'private');
-      expect(scope['buildNumber'], 5);
+      expect(scope['buildNumber'], 6);
+      expect(scope['versionApprovalReference'], 'BAF-REF-003-C5');
       expect(scope['singleBuildOnly'], isTrue);
       expect(authorizedDispatcher['login'], 'abhishekvatsa');
       expect(authorizedDispatcher['id'], 213690022);
@@ -570,15 +610,24 @@ void main() {
         ),
       );
       expect(finalizer, isNot(contains('expectedCommitHeadlines')));
+      final policyVerifier = read(
+        'tools/release/Test-ProductionReleasePolicy.ps1',
+      );
+      expect(
+        policyVerifier,
+        contains(r'$recoveryIncident.occurred -eq $false'),
+      );
+      expect(policyVerifier, contains("'pending-source-authorized'"));
     });
 
-    test('build 5 closure receipt binds recovery and release boundary', () {
+    test('build 5 closure remains exact while build 6 is pending', () {
       final policy =
           jsonDecode(read('release/production-release-policy.json'))
               as Map<String, dynamic>;
       final finalization = policy['finalization'] as Map<String, dynamic>;
+      final prior = finalization['priorCompletedBuild'] as Map<String, dynamic>;
       final receipt =
-          jsonDecode(read(finalization['completionReceiptFile'] as String))
+          jsonDecode(read(prior['completionReceiptFile'] as String))
               as Map<String, dynamic>;
       final sourceAuthority =
           receipt['sourceAuthority'] as Map<String, dynamic>;
@@ -595,7 +644,13 @@ void main() {
       final releaseBoundary =
           receipt['releaseBoundary'] as Map<String, dynamic>;
 
-      expect(finalization['status'], 'completed-non-distributable');
+      expect(finalization['status'], 'pending-source-authorized');
+      expect(finalization['dualCustodyCompleted'], isFalse);
+      expect(prior['buildNumber'], 5);
+      expect(
+        prior['completionReceiptSha256'],
+        'F91D5C60AF663C6B9785F922A95B67AD5B01216CE597C83832975E6DF4DD49CC',
+      );
       expect(receipt['schemaVersion'], 1);
       expect(receipt['status'], 'passed-non-distributable');
       expect(
@@ -646,12 +701,12 @@ void main() {
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
         pubspec,
-        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+5$', multiLine: true)),
+        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+6$', multiLine: true)),
       );
-      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b5"'));
+      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b6"'));
       expect(
         policy,
-        contains('"remoteReservationTag": "crm3-build-reserved/5"'),
+        contains('"remoteReservationTag": "crm3-build-reserved/6"'),
       );
       expect(policy, contains('"approved": false'));
       expect(policy, contains('"unrestrictedPlantReleaseApproved": false'));
