@@ -2516,22 +2516,76 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "CI/release",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 79,
+          "headCommit": "1021ccd0a628112f8e1e50ace1664b721e3ccb88",
+          "sourceTree": "f0737f16c42d4005d55108dcac3591e64a510b30",
+          "mergeCommit": "34ff071ee39d55c16cc7578c8898f00a371164c8",
+          "mergeTree": "f0737f16c42d4005d55108dcac3591e64a510b30",
+          "pullRequestWorkflowRun": 30511076330,
+          "pullRequestWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30511076330",
+          "pullRequestAndroidJob": 90771130887,
+          "postMergeWorkflowRun": 30524580357,
+          "postMergeWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30524580357",
+          "postMergeAndroidJob": 90812461841,
+          "evidenceFile": "release/evidence/c03-android-pr-packaging-closure.json",
+          "evidenceSha256": "5AE5DD7F8425389D558535A0D955AE71D9C2A86D574EB6CBDF697912E90E1D22",
+          "decision": "PASS_C03_ANDROID_PR_PACKAGING_SOURCE_AND_CI_CLOSURE",
+          "productionCertificateUsed": false,
+          "productionSecretsReferenced": false,
+          "artifactUploadPerformed": false,
+          "productionMutationPerformed": false
+        }
+      ],
+      "requiredExitEvidence": [
+        "normal push and pull-request CI invoke a release-mode APK and AAB package proof through the real Flutter and Gradle graph",
+        "the package proof generates a temporary non-production signer, rejects pre-existing production signing inputs and proves signer inequality",
+        "exact-head pull-request CI passes the Android package job and all governed release-gate jobs",
+        "post-merge release-gate CI passes the same Android package job on the exact admitted main commit"
+      ],
+      "reArmTriggers": [
+        "the Android package job no longer runs on every normal push and pull request",
+        "either the release APK or Android App Bundle build is removed or no longer uses release mode",
+        "the CI signer can equal the governed production certificate",
+        "the Android package job gains a production environment, production secret reference or artifact upload",
+        "APK or AAB signature verification is removed or weakened",
+        "application ID or non-debuggable APK verification is removed or weakened",
+        "repository-wide immutable-action or workflow-input custody stops covering the release gate"
+      ],
+      "notes": [
+        "PR #79 adds an independent secret-isolated Android package job and exact source contracts; merge commit 34ff071ee39d55c16cc7578c8898f00a371164c8 preserves the source tree.",
+        "Exact-head run 30511076330 and exact-main run 30524580357 both pass the Android release APK and AAB proof plus every governed release-gate job.",
+        "C-03 source-and-CI closure does not authorize a production artifact, build-number reservation, production signing, installation, device proof, F4, pilot or cutover."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-30",
+          "basis": "Secret-isolated release APK and AAB packaging, signer inequality, output verification and focused source contracts passed locally at exact source commit 1021ccd0a628112f8e1e50ace1664b721e3ccb88."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-07-30",
+          "basis": "PR #79 exact green head 1021ccd0a628112f8e1e50ace1664b721e3ccb88 merged to main as 34ff071ee39d55c16cc7578c8898f00a371164c8 with identical tree f0737f16c42d4005d55108dcac3591e64a510b30."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-07-30",
+          "basis": "PASS_C03_ANDROID_PR_PACKAGING_SOURCE_AND_CI_CLOSURE closes C-03 after exact-head run 30511076330 and exact-main run 30524580357 passed; production artifact, device and distribution authority remain separate."
         }
       ]
     },
