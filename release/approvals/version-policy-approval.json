@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "receiptType": "version-and-build-policy",
-  "reference": "BAF-REF-003-C4",
-  "sourceDocumentFile": "release/approvals/build-number-5-rollover-approval.json",
-  "sourceDocumentSha256": "D4D556C42D2EBCBFDAA9F1640C2B7470057116D7B24CD7F5DC4519A4DA5B3A50",
-  "recordedAtUtc": "2026-07-29T14:20:34.0501294Z",
+  "reference": "BAF-REF-003-C5",
+  "sourceDocumentFile": "release/approvals/build-number-6-rollover-approval.json",
+  "sourceDocumentSha256": "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141",
+  "recordedAtUtc": "2026-07-30T08:48:51.8299893Z",
   "sourceDocumentNotCommitted": false,
-  "remoteReservationTag": "crm3-build-reserved/5",
-  "buildNumber": 5,
-  "remoteBuiltTag": "crm3-build-built/5",
-  "reservationId": "crm3-baf-ops-o1-o5-v4-350f948-b5-5",
+  "remoteReservationTag": "crm3-build-reserved/6",
+  "buildNumber": 6,
+  "remoteBuiltTag": "crm3-build-built/6",
+  "reservationId": "crm3-baf-ops-o1-o5-v4-f6ddd3c-b6-6",
   "policy": "strictly-monotonic-never-reuse",
   "versionName": "1.0.0-rc.1"
 }

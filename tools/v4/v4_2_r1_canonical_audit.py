@@ -1338,6 +1338,94 @@ check(
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
+build6_approval_path = (
+    ROOT / "release/approvals/build-number-6-rollover-approval.json"
+)
+build6_exception_path = (
+    ROOT
+    / "release/approvals/"
+    / "private-repository-environment-reviewer-exception-build-6.json"
+)
+build6_approval = data(
+    "release/approvals/build-number-6-rollover-approval.json"
+)
+build6_exception = data(
+    "release/approvals/"
+    "private-repository-environment-reviewer-exception-build-6.json"
+)
+version_policy_approval = data(
+    "release/approvals/version-policy-approval.json"
+)
+build_number_ledger = data("release/build-number-ledger.json")
+build6_entries = [
+    entry
+    for entry in build_number_ledger.get("entries", [])
+    if entry.get("buildNumber") == 6
+]
+build6_entry = build6_entries[0] if len(build6_entries) == 1 else {}
+check(
+    "Build 6 source authority is exact, pending and non-distributable",
+    sha(build6_approval_path)
+        == combined_policy.get("versionPolicy", {}).get(
+            "sourceDocumentSha256"
+        )
+    and sha(build6_exception_path)
+        == combined_policy.get("github", {})
+        .get("environmentReviewControl", {})
+        .get("exceptionApprovalSha256")
+    and build6_approval.get("approvalReference") == "BAF-REF-003-C5"
+    and build6_approval.get("approved") is True
+    and build6_approval.get("distributionApproved") is False
+    and build6_approval.get("unrestrictedPlantReleaseApproved") is False
+    and build6_approval.get("consumedBuild", {}).get("buildNumber") == 5
+    and build6_approval.get("consumedBuild", {}).get(
+        "closureFinalizationCompleted"
+    )
+        is True
+    and build6_approval.get("consumedBuild", {}).get(
+        "distributionPerformed"
+    )
+        is False
+    and build6_approval.get("nextBuild", {}).get("buildNumber") == 6
+    and build6_approval.get("requiredSource", {}).get(
+        "tokenRaceRemediationMergeCommit"
+    )
+        == "416fe777ffd52162de5666a860e185167ecf9e23"
+    and build6_approval.get("requiredSource", {}).get(
+        "c03ClosureMergeCommit"
+    )
+        == "f6ddd3cd2e64af4e4a2c987fefee3af5e8eca2fc"
+    and build6_exception.get("approvalReference") == "BAF-GH-ENV-002"
+    and build6_exception.get("scope", {}).get("buildNumber") == 6
+    and build6_exception.get("scope", {}).get("singleBuildOnly") is True
+    and build6_exception.get("liveStateEvidence", {}).get(
+        "requiredReviewerRulePresent"
+    )
+        is False
+    and build6_exception.get("liveStateEvidence", {}).get(
+        "secretValuesInspected"
+    )
+        is False
+    and build6_exception.get("liveStateEvidence", {}).get(
+        "environmentApprovalHistoryObserved"
+    )
+        == "not-inspected"
+    and version_policy_approval.get("reference") == "BAF-REF-003-C5"
+    and version_policy_approval.get("buildNumber") == 6
+    and combined_policy.get("release", {}).get("buildNumber") == 6
+    and combined_policy.get("finalization", {}).get("status")
+        == "pending-source-authorized"
+    and combined_policy.get("finalization", {}).get(
+        "dualCustodyCompleted"
+    )
+        is False
+    and combined_policy.get("distribution", {}).get("approved") is False
+    and build6_entry.get("status")
+        == "source-reserved-awaiting-remote-consumption"
+    and "githubRunId" not in build6_entry
+    and "remoteReservationTagObject" not in build6_entry
+    and "remoteBuiltTagObject" not in build6_entry,
+)
 global_pull_manifest = data("governance/global-pull-protocol-v1.json")
 global_pull_contract = global_pull_manifest.get("fingerprintedContract", {})
 global_pull_fingerprint = hashlib.sha256(
