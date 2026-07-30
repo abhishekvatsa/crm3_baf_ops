@@ -385,6 +385,45 @@ check(
         )
     ),
 )
+release_gate_source = text(".github/workflows/release-gate.yml")
+c03_package_script = text(
+    "tools/release/Invoke-CIAndroidPackageProof.ps1"
+)
+c03_package_test = text("test/c03_android_packaging_ci_contract_test.dart")
+c03_package_decision = text("docs/v4_2_r1/C03_ANDROID_PR_PACKAGING.md")
+c03_job_start = release_gate_source.find("\n  android-package:")
+c03_job_end = release_gate_source.find("\n  firestore-rules:", c03_job_start + 1)
+c03_job_source = (
+    release_gate_source[c03_job_start:c03_job_end]
+    if c03_job_start >= 0 and c03_job_end > c03_job_start
+    else ""
+)
+check(
+    "C-03 every-PR Android release packaging is secret-isolated and complete",
+    "pull_request:" in release_gate_source
+    and "push:" in release_gate_source
+    and "Invoke-CIAndroidPackageProof.ps1" in c03_job_source
+    and "${{ secrets." not in c03_job_source
+    and "\n    environment:" not in c03_job_source
+    and "upload-artifact" not in c03_job_source
+    and "CI packaging proof refuses pre-existing signing input"
+        in c03_package_script
+    and "RandomNumberGenerator]::GetBytes(24)" in c03_package_script
+    and "'appbundle'" in c03_package_script
+    and "'apk'" in c03_package_script
+    and "'--release'" in c03_package_script
+    and "policy.signing.certificateSha256" in c03_package_script
+    and "Ephemeral CI signer unexpectedly matches the production certificate."
+        in c03_package_script
+    and "APK signer does not match" in c03_package_script
+    and "AAB signer does not match" in c03_package_script
+    and "productionSecretsReferenced=false" in c03_package_script
+    and "artifactUploadPerformed=false" in c03_package_script
+    and "release gate builds APK and AAB with no production authority"
+        in c03_package_test
+    and "This source implementation does not itself close `C-03`."
+        in c03_package_decision,
+)
 manual_workflows = (
     ".github/workflows/production-artifact.yml",
     ".github/workflows/verification-artifact.yml",
@@ -434,7 +473,7 @@ mutable_workflow_action_refs = [
 check(
     "Workflow action references are immutable and repository-wide custody is CI-enforced",
     not mutable_workflow_action_refs
-    and len(workflow_action_refs) == 18
+    and len(workflow_action_refs) == 21
     and "test:workflow-action-custody" in text("package.json")
     and "npm run test:workflow-action-custody"
         in text(".github/workflows/release-gate.yml")

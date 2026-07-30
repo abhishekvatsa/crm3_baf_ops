@@ -3,7 +3,8 @@ name: release-gate
 # Source-level CI gate for CRM-III BAF Ops.
 # Mirrors the local release_gate.ps1 source gates:
 #   format warning -> analyze -> full Flutter test -> no-loss spine
-#   -> Firestore rules/Jest + expression-limit scan -> Functions build/test
+#   -> secret-isolated Android release packaging -> Firestore rules/Jest
+#   -> expression-limit scan -> Functions build/test
 #
 # Field gates remain manual: signed APK install, physical-device smoke,
 # weak-network/offline drill, rollback/recovery, dependency/security triage.
@@ -182,6 +183,34 @@ jobs:
             test/runtime_module_population_no_loss_test.dart \
             test/runtime_job_module_population_exception_test.dart \
             test/job_module_population_replay_equivalence_test.dart
+
+  android-package:
+    name: Android release APK + AAB packaging proof
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Java 21 for Android packaging
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Flutter 3.44.0
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: "3.44.0"
+          cache: true
+
+      - name: Build and verify secret-isolated release packages
+        shell: pwsh
+        run: |
+          ./tools/release/Invoke-CIAndroidPackageProof.ps1 `
+            -RepositoryRoot $PWD `
+            -BuildName '0.0.0-ci' `
+            -BuildNumber 1
 
   firestore-rules:
     name: Firestore rules + governed transaction emulator
