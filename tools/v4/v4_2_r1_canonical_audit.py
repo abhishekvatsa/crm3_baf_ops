@@ -421,8 +421,76 @@ check(
     and "artifactUploadPerformed=false" in c03_package_script
     and "release gate builds APK and AAB with no production authority"
         in c03_package_test
-    and "This source implementation does not itself close `C-03`."
+    and "Status: CLOSED" in c03_package_decision
+    and "PASS_C03_ANDROID_PR_PACKAGING_SOURCE_AND_CI_CLOSURE"
         in c03_package_decision,
+)
+c03_closure_records = [
+    record
+    for record in data("governance/programme-ledger.json")["technicalFindings"]
+    if record.get("findingId") == "C-03"
+]
+c03_closure_record = (
+    c03_closure_records[0] if len(c03_closure_records) == 1 else {}
+)
+c03_closure_evidence = c03_closure_record.get("evidence", [])
+c03_closure_history = [
+    entry.get("status")
+    for entry in c03_closure_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+c03_closure_receipt_path = (
+    ROOT / "release/evidence/c03-android-pr-packaging-closure.json"
+)
+c03_closure_receipt = data(
+    "release/evidence/c03-android-pr-packaging-closure.json"
+)
+c03_pr_ci = c03_closure_receipt.get("pullRequestCi", {})
+c03_postmerge_ci = c03_closure_receipt.get("postMergeCi", {})
+c03_boundary = c03_closure_receipt.get("nonProductionBoundary", {})
+check(
+    "C-03 Android PR packaging closure is exact, evidence-bound and re-armable",
+    len(c03_closure_records) == 1
+    and c03_closure_record.get("currentStatus") == "CLOSED"
+    and len(c03_closure_evidence) == 1
+    and c03_closure_evidence[0].get("pullRequest") == 79
+    and c03_closure_evidence[0].get("headCommit")
+        == "1021ccd0a628112f8e1e50ace1664b721e3ccb88"
+    and c03_closure_evidence[0].get("sourceTree")
+        == "f0737f16c42d4005d55108dcac3591e64a510b30"
+    and c03_closure_evidence[0].get("mergeCommit")
+        == "34ff071ee39d55c16cc7578c8898f00a371164c8"
+    and c03_closure_evidence[0].get("pullRequestWorkflowRun")
+        == 30511076330
+    and c03_closure_evidence[0].get("postMergeWorkflowRun")
+        == 30524580357
+    and c03_closure_evidence[0].get("evidenceFile")
+        == "release/evidence/c03-android-pr-packaging-closure.json"
+    and c03_closure_evidence[0].get("evidenceSha256")
+        == sha(c03_closure_receipt_path)
+    and c03_closure_history
+        == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and c03_closure_receipt.get("decision")
+        == "PASS_C03_ANDROID_PR_PACKAGING_SOURCE_AND_CI_CLOSURE"
+    and c03_pr_ci.get("event") == "pull_request"
+    and c03_pr_ci.get("headSha")
+        == "1021ccd0a628112f8e1e50ace1664b721e3ccb88"
+    and c03_pr_ci.get("conclusion") == "success"
+    and c03_postmerge_ci.get("event") == "push"
+    and c03_postmerge_ci.get("headSha")
+        == "34ff071ee39d55c16cc7578c8898f00a371164c8"
+    and c03_postmerge_ci.get("conclusion") == "success"
+    and all(
+        job.get("conclusion") == "success"
+        for section in (c03_pr_ci, c03_postmerge_ci)
+        for job in section.get("jobs", [])
+    )
+    and len(c03_pr_ci.get("jobs", [])) == 4
+    and len(c03_postmerge_ci.get("jobs", [])) == 4
+    and c03_boundary
+    and all(value is False for value in c03_boundary.values())
+    and len(c03_closure_record.get("requiredExitEvidence", [])) == 4
+    and len(c03_closure_record.get("reArmTriggers", [])) >= 6,
 )
 manual_workflows = (
     ".github/workflows/production-artifact.yml",

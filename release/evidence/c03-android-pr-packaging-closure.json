@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "C03-ANDROID-PR-PACKAGING-CLOSURE-20260730",
+  "findingId": "C-03",
+  "authorityType": "SOURCE_AND_CI",
+  "decision": "PASS_C03_ANDROID_PR_PACKAGING_SOURCE_AND_CI_CLOSURE",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "pullRequest": 79,
+    "headCommit": "1021ccd0a628112f8e1e50ace1664b721e3ccb88",
+    "sourceTree": "f0737f16c42d4005d55108dcac3591e64a510b30",
+    "mergeCommit": "34ff071ee39d55c16cc7578c8898f00a371164c8",
+    "mergeTree": "f0737f16c42d4005d55108dcac3591e64a510b30"
+  },
+  "sourceControls": {
+    "workflow": {
+      "path": ".github/workflows/release-gate.yml",
+      "sha256": "714BC731665F1A75D0754C96FEAE56B3DF7612B0FD66C9CA46CB0658B40FC156"
+    },
+    "packageProof": {
+      "path": "tools/release/Invoke-CIAndroidPackageProof.ps1",
+      "sha256": "517AA28A901AF0730350B84F58BE88C03146F0A3A513F3AC5BB66C13708ACD47"
+    },
+    "contractTest": {
+      "path": "test/c03_android_packaging_ci_contract_test.dart",
+      "sha256": "DE5BBC73D69A04B4375F8238516DC4E8757FFC3275CD4B923E0A63596C782AEB"
+    }
+  },
+  "pullRequestCi": {
+    "runId": 30511076330,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30511076330",
+    "event": "pull_request",
+    "headSha": "1021ccd0a628112f8e1e50ace1664b721e3ccb88",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 90771130887,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 90771130907,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 90771130847,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 90771130911,
+        "conclusion": "success"
+      }
+    ],
+    "androidProofMarkers": {
+      "decision": "PASS_C03_ANDROID_RELEASE_PACKAGING_PROOF",
+      "applicationId": "in.co.sail.bsl.crm3.bafops",
+      "productionCertificateUsed": false,
+      "productionSecretsReferenced": false,
+      "artifactUploadPerformed": false
+    }
+  },
+  "postMergeCi": {
+    "runId": 30524580357,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30524580357",
+    "event": "push",
+    "headSha": "34ff071ee39d55c16cc7578c8898f00a371164c8",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 90812461841,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 90812461802,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 90812461839,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 90812461772,
+        "conclusion": "success"
+      }
+    ],
+    "androidProofMarkers": {
+      "decision": "PASS_C03_ANDROID_RELEASE_PACKAGING_PROOF",
+      "applicationId": "in.co.sail.bsl.crm3.bafops",
+      "productionCertificateUsed": false,
+      "productionSecretsReferenced": false,
+      "artifactUploadPerformed": false
+    }
+  },
+  "nonProductionBoundary": {
+    "productionEnvironmentNamed": false,
+    "productionSecretsReferenced": false,
+    "productionCertificateUsed": false,
+    "artifactUploaded": false,
+    "artifactDistributed": false,
+    "productionWorkflowDispatched": false,
+    "firebaseMutationPerformed": false,
+    "deploymentPerformed": false,
+    "deviceEvidenceClaimed": false,
+    "pilotAuthorizationCreated": false
+  }
+}

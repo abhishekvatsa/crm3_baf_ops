@@ -689,9 +689,9 @@
     {
       "path": "governance/programme-ledger.json",
       "canonicalSha256": "30FC5520D44172C2F6E0AD3E954AC7482C350292464AA972CE929D2740B02C56",
-      "candidateSha256": "3BF7736E1FA24FDC83E5DCE345C02F74B982E8E546D3CCE11009B9CA0502CC70",
+      "candidateSha256": "FF99472A2AE2AF78645C626F67CC3CD7FA07CE9383E73C243325F24E6002177C",
       "canonicalBytes": 73391,
-      "candidateBytes": 123859,
+      "candidateBytes": 127691,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

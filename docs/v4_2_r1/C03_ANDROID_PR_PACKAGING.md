@@ -1,5 +1,11 @@
 # C-03 Android PR Packaging
 
+Status: CLOSED
+
+Source merge and CI evidence: COMPLETE
+
+Production artifact, device evidence and distribution: NOT AUTHORIZED
+
 ## Decision
 
 Normal push and pull-request CI must construct both Android release package
@@ -37,14 +43,44 @@ request in a separate `android-package` job. The job has repository read
 permission only, names no GitHub environment, references no secret, and uses
 SHA-pinned setup actions.
 
-## Closure Boundary
+## Closure Evidence
 
-This source implementation does not itself close `C-03`. Closure requires:
+The source implementation did not by itself close `C-03`. PR #79 merged exact
+green head `1021ccd0a628112f8e1e50ace1664b721e3ccb88`, tree
+`f0737f16c42d4005d55108dcac3591e64a510b30`, to main as
+`34ff071ee39d55c16cc7578c8898f00a371164c8` with the identical tree.
 
-- owner-reviewed merge of the source tranche;
-- exact-head pull-request CI with the Android packaging job passing;
-- post-merge CI on the admitted merge commit;
-- a separate evidence record and append-only programme-ledger adjudication.
+Exact-head pull-request run `30511076330` passed all four jobs, including
+Android package job `90771130887`. The log recorded:
 
-Production artifact construction, signing, installation, F4 execution and
-pilot handout remain outside this change.
+```text
+PASS_C03_ANDROID_RELEASE_PACKAGING_PROOF
+applicationId=in.co.sail.bsl.crm3.bafops
+productionCertificateUsed=false
+productionSecretsReferenced=false
+artifactUploadPerformed=false
+```
+
+Post-merge run `30524580357` passed on the exact admitted main commit, including
+Android package job `90812461841`.
+
+The evidence record is
+`release/evidence/c03-android-pr-packaging-closure.json`.
+
+Decision:
+`PASS_C03_ANDROID_PR_PACKAGING_SOURCE_AND_CI_CLOSURE`
+
+## Operational Boundary
+
+C-03 source-and-CI closure proves that normal push and pull-request CI build
+and verify release-mode APK and AAB packages without production authority. It
+does not authorize a production artifact, reserve a build number, use the
+production signing key, install a package, claim device evidence, perform F4,
+or permit distribution.
+
+```text
+C-03 source-and-CI finding: closed
+production artifact:        not constructed
+device/F4 evidence:         not claimed
+pilot handout:              prohibited
+```
