@@ -87,6 +87,32 @@ remains unconsumed.
 The Temurin catalogue identifies the approved `21.0.11+10` Java runtime with
 the distributor-specific installer label `21.0.11+10.0.LTS`. Source therefore
 records both identities: `javaDistributionVersion` selects the exact installer,
-while `javaVersion` continues to verify the actual runtime output. A corrected
-dispatch remains prohibited until this source correction is merged to exact
-live `main` and its post-merge checks pass.
+while `javaVersion` continues to verify the actual runtime output. PR 82 merged
+the correction at `f6fccc662119790bcc742ff91e00934117030948`; its exact
+post-merge release gate passed before Build 6 was dispatched again.
+
+## Build 6 finalization
+
+GitHub run `30572342725` successfully constructed and independently verified
+the production-signed Build 6 candidate:
+
+- governed package SHA-256:
+  `E36C39E40C4B92B0721DAD916F050F439644FDF7FC40A36C1EB579571EBD074E`;
+- reservation tag object:
+  `9c82843b84194c9eeef9a4d7ec7b81d1d0c8caa7`;
+- built tag object:
+  `189f668f8f59f934b1baec0b9bdf723dc7960b6c`;
+- closure package SHA-256:
+  `A22ABCFCB19E856A7C51147AC9BAC79BCA856ECECB698140DA38D9FE22DC3517`;
+- dual custody: passed on distinct C: and removable D: volumes.
+
+The first local finalizer invocation lost its network connection while
+downloading the exact GitHub artifact. It failed before package custody or
+built-tag creation. The unchanged finalizer then reused the same successful
+run and artifact identity, verified the package hash, completed dual custody
+and created the built tag without force or workflow rerun.
+
+Build 6 is finalized but remains non-distributable. This closure performs no
+Firebase deployment, does not close STAGE2D-F4 and does not authorize pilot
+handout. Runtime promotion and the F4 device matrix remain separate,
+package-hash-bound work.
