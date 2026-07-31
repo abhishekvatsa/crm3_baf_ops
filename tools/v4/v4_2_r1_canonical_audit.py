@@ -1534,6 +1534,34 @@ check(
         {},
     ).get("containedInArtifact")
         is True
+    and build6_f4_rehearsal.get("upgradeFinalizationAmendment", {}).get(
+        "priorPromotionSha256"
+    )
+        == "C85F139AFCDD499354DC44AA9E3AF57E6216C3BB4A98D2DD570014C978BCAAED"
+    and build6_f4_rehearsal.get("upgradeFinalizationAmendment", {}).get(
+        "evidenceOnlyFinalizationAuthorized"
+    )
+        is True
+    and build6_f4_rehearsal.get("upgradeFinalizationAmendment", {}).get(
+        "reinstallAuthorized"
+    )
+        is False
+    and build6_f4_rehearsal.get("upgradeFinalizationAmendment", {}).get(
+        "uninstallOrDataClearAuthorized"
+    )
+        is False
+    and build6_f4_rehearsal.get("upgradeFinalizationAmendment", {}).get(
+        "artifactOrTargetExpansion"
+    )
+        is False
+    and build6_f4_rehearsal.get("upgradeFinalizationAmendment", {}).get(
+        "remoteMutationExpansion"
+    )
+        is False
+    and build6_f4_rehearsal.get("upgradeFinalizationAmendment", {}).get(
+        "pilotOrPhysicalDeviceExpansion"
+    )
+        is False
     and build6_f4_rehearsal.get("channel", {}).get("maxTargetCount") == 1
     and build6_f4_rehearsal.get("channel", {}).get(
         "physicalDeviceInstallationAuthorized"

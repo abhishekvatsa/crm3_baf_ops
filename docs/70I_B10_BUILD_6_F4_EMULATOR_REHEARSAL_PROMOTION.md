@@ -60,3 +60,26 @@ The programme ledger remains unchanged: `STAGE2D-F4` stays `OPEN`,
 
 Physical-device promotion and the full F4 matrix remain a separate,
 named-target authority tranche.
+
+## Interrupted Upgrade Finalization
+
+The first governed `Upgrade` invocation successfully extracted and verified the
+exact embedded APK, completed the same-signer `adb install -r`, verified exact
+installed Build 6 and confirmed that the original package first-install time
+was preserved. It then stopped before writing `upgrade-receipt.json` because
+Android's first UI-automation dump returned no remote file.
+
+Read-only inspection proved version code 6 and the exact APK hash were installed
+with the original first-install timestamp. A subsequent UI dump succeeded.
+
+The hash-linked amendment permits only `FinalizeUpgrade` against the exact
+interrupted evidence directory. That phase:
+
+- refuses a reinstall, uninstall or data clear;
+- re-verifies the extracted and installed APK, package, version and signer;
+- requires the preserved first-install timestamp;
+- captures the now-available UI state; and
+- writes the missing upgrade receipt with explicit recovery lineage.
+
+The incident and recovery do not expand the artifact, target, remote mutation or
+programme boundary.

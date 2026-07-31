@@ -15,6 +15,7 @@ param(
   [ValidateSet(
     'Preflight',
     'Upgrade',
+    'FinalizeUpgrade',
     'PrepareSignIn',
     'BeginFreshSignIn',
     'VerifyFreshSignIn'
@@ -530,6 +531,167 @@ if ([string]::IsNullOrWhiteSpace($EvidenceDirectory)) {
   throw 'EvidenceDirectory is mandatory outside Preflight.'
 }
 $evidenceRoot = [IO.Path]::GetFullPath($EvidenceDirectory)
+
+if ($Phase -eq 'FinalizeUpgrade') {
+  if ($gitBranch -ne 'main' -or $gitHead -ne $originMain -or $gitStatus) {
+    throw 'FinalizeUpgrade requires an exact clean main equal to origin/main.'
+  }
+  if ($gitHead -eq $promotion.approvalAuthority.baselineCommit) {
+    throw 'The promotion record is not effective on its unmodified baseline.'
+  }
+  $amendment = $promotion.upgradeFinalizationAmendment
+  Assert-Equal `
+    (Split-Path -Leaf $evidenceRoot) `
+    $amendment.interruptedEvidenceDirectoryName `
+    'Interrupted evidence directory'
+  Assert-Equal `
+    $amendment.evidenceOnlyFinalizationAuthorized `
+    $true `
+    'Evidence-only finalization authorization'
+  Assert-Equal `
+    $amendment.reinstallAuthorized `
+    $false `
+    'Reinstall authorization'
+  Assert-Equal `
+    $amendment.uninstallOrDataClearAuthorized `
+    $false `
+    'Uninstall or data-clear authorization'
+  if ((Get-Sha256 $promotionFile) -eq $amendment.priorPromotionSha256) {
+    throw 'FinalizeUpgrade requires the merged hash-linked amendment.'
+  }
+
+  $upgradeReceiptPath = Join-Path $evidenceRoot 'upgrade-receipt.json'
+  if (Test-Path -LiteralPath $upgradeReceiptPath) {
+    throw 'FinalizeUpgrade refuses to replace an existing receipt.'
+  }
+  $apkPath = Join-Path $evidenceRoot $expectedApk.entryName
+  Assert-Equal `
+    (Get-Sha256 $apkPath) `
+    $amendment.interruptedEvidence.extractedApkSha256 `
+    'Interrupted extracted APK SHA-256'
+  Assert-Equal (Get-Sha256 $apkPath) $expectedApk.sha256 'Extracted APK SHA-256'
+  Assert-Equal `
+    (Get-Item -LiteralPath $apkPath).Length `
+    $expectedApk.bytes `
+    'Extracted APK bytes'
+
+  $badging = (Invoke-ExternalText -FilePath $aapt -Arguments @(
+    'dump', 'badging', $apkPath
+  )).output
+  $packagePattern = "package: name='$([regex]::Escape(
+    $packageId
+  ))' versionCode='$($artifact.versionCode)' versionName='$([regex]::Escape(
+    $artifact.versionName
+  ))'"
+  if ($badging -notmatch $packagePattern) {
+    throw 'Interrupted Build 6 APK package or version identity is unexpected.'
+  }
+  $signerOutput = (Invoke-ExternalText -FilePath $apksigner -Arguments @(
+    'verify', '--print-certs', $apkPath
+  )).output
+  $normalizedSigner = $signerOutput.Replace(':', '').ToUpperInvariant()
+  if (-not $normalizedSigner.Contains($artifact.signer.certificateSha1) -or
+      -not $normalizedSigner.Contains($artifact.signer.certificateSha256)) {
+    throw 'Interrupted Build 6 APK signer is not the production authority.'
+  }
+
+  Assert-InstalledVersion `
+    -Installed $installed `
+    -VersionCode ([int]$artifact.versionCode) `
+    -VersionName $artifact.versionName `
+    -Sha256 $expectedApk.sha256 `
+    -Label 'The interrupted installed successor is not exact Build 6.'
+  Assert-Equal `
+    $installed.firstInstallTime `
+    $amendment.interruptedEvidence.preservedFirstInstallTime `
+    'Preserved package first-install time'
+
+  $launch = Invoke-ExternalText -FilePath $adb -Arguments @(
+    '-s', $DeviceSerial, 'shell', 'monkey',
+    '-p', $packageId,
+    '-c', 'android.intent.category.LAUNCHER',
+    '1'
+  )
+  $uiPath = Join-Path $evidenceRoot 'post-upgrade-window.xml'
+  $ui = Wait-ForUiState `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -Destination $uiPath `
+    -AllowedStates @('APPROVED_HOME', 'LOGIN')
+  $processId = Get-AppProcessId `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -PackageId $packageId
+
+  $receipt = [ordered]@{
+    schemaVersion = 1
+    evidenceType = 'build-6-f4-emulator-in-place-upgrade'
+    finalizedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    recoveryMode =
+      'INTERRUPTED_AFTER_EXACT_IN_PLACE_UPGRADE_BEFORE_UI_RECEIPT'
+    promotionLineage = [ordered]@{
+      priorPromotionSha256 = $amendment.priorPromotionSha256
+      currentPromotionSha256 = Get-Sha256 $promotionFile
+    }
+    source = [ordered]@{
+      branch = $gitBranch
+      head = $gitHead
+      originMain = $originMain
+      clean = $true
+    }
+    artifact = [ordered]@{
+      governedPackageSha256 = Get-Sha256 $packageFile
+      embeddedApkSha256 = $embeddedApk.sha256
+      extractedApkSha256 = Get-Sha256 $apkPath
+      versionCode = $artifact.versionCode
+      certificateSha256 = $artifact.signer.certificateSha256
+    }
+    target = [ordered]@{
+      serial = $DeviceSerial
+      avdName = $avdName
+      apiLevel = $apiLevel
+      model = $model
+      fingerprint = $fingerprint
+    }
+    installed = [ordered]@{
+      versionCode = $artifact.versionCode
+      apkSha256 = $installed.sha256
+      debuggable = $installed.debuggable
+      firstInstallTimePreserved = $true
+      applicationSandboxDisposition =
+        'adb install -r completed in the interrupted invocation without uninstall or data clear; application sandbox was preserved'
+    }
+    runtime = [ordered]@{
+      initialUiState = $ui.state
+      initialUiSha256 = Get-Sha256 $uiPath
+      applicationProcessId = $processId
+      accountEmailRetained = $false
+      firebaseUidRetained = $false
+    }
+    incident = [ordered]@{
+      failureBoundary = $amendment.failureBoundary
+      initialUiDumpProducedRemoteFile = $false
+      subsequentReadOnlyUiDumpSucceeded =
+        $amendment.interruptedEvidence.subsequentReadOnlyUiDumpSucceeded
+      reinstallPerformedDuringFinalization = $false
+      uninstallOrDataClearPerformedDuringFinalization = $false
+    }
+    programmeBoundary = [ordered]@{
+      physicalDeviceEvidenceCreated = $false
+      stage2dF4ClosureAuthorized = $false
+      businessWritesAuthorized = $false
+      pilotHandoutAuthorized = $false
+    }
+    launchOutput = $launch.output
+    decision = 'PASS_EXACT_BUILD6_IN_PLACE_EMULATOR_UPGRADE'
+  }
+  Write-Utf8NoBom `
+    -Path $upgradeReceiptPath `
+    -Text (($receipt | ConvertTo-Json -Depth 30) + "`n")
+  $receipt | ConvertTo-Json -Depth 30
+  Write-Verbose 'FinalizeUpgrade does not reinstall the package.'
+  exit 0
+}
 
 if ($Phase -eq 'Upgrade') {
   if ($gitBranch -ne 'main' -or $gitHead -ne $originMain -or $gitStatus) {
