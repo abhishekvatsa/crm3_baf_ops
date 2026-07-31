@@ -1500,6 +1500,93 @@ check(
     and build6_entry.get("dualCustodyCompleted") is True
     and build6_entry.get("distributionPerformed") is False,
 )
+build6_f4_rehearsal = data(
+    "release/approvals/build-6-f4-emulator-rehearsal-promotion.json"
+)
+f4_rehearsal_gate = next(
+    (
+        record
+        for record in programme_ledger.get("programmeGates", [])
+        if record.get("gateId") == "STAGE2D-F4"
+    ),
+    {},
+)
+check(
+    "Build 6 emulator rehearsal is exact and carries no F4 closure authority",
+    build6_f4_rehearsal.get("approvalClass")
+        == "CONTROLLED_INTERNAL_RUNTIME_REHEARSAL_ONLY"
+    and build6_f4_rehearsal.get("artifactAuthority", {}).get(
+        "sourceCommit"
+    )
+        == "f6fccc662119790bcc742ff91e00934117030948"
+    and build6_f4_rehearsal.get("artifactAuthority", {}).get(
+        "governedPackage",
+        {},
+    ).get("sha256")
+        == "E36C39E40C4B92B0721DAD916F050F439644FDF7FC40A36C1EB579571EBD074E"
+    and build6_f4_rehearsal.get("artifactAuthority", {}).get(
+        "apk",
+        {},
+    ).get("sha256")
+        == "01D26049E200730EC1DBF0FEE85D483A9FA820D68F020110E57AC95AF2EBE755"
+    and build6_f4_rehearsal.get("artifactAuthority", {}).get(
+        "sourceRemediation",
+        {},
+    ).get("containedInArtifact")
+        is True
+    and build6_f4_rehearsal.get("channel", {}).get("maxTargetCount") == 1
+    and build6_f4_rehearsal.get("channel", {}).get(
+        "physicalDeviceInstallationAuthorized"
+    )
+        is False
+    and build6_f4_rehearsal.get("channel", {}).get("target", {}).get(
+        "kind"
+    )
+        == "ANDROID_VIRTUAL_DEVICE"
+    and build6_f4_rehearsal.get("deviceProvenance", {}).get(
+        "requiredPriorPackage",
+        {},
+    ).get("versionCode")
+        == 5
+    and build6_f4_rehearsal.get("deviceProvenance", {}).get(
+        "appDataClearAuthorized"
+    )
+        is False
+    and build6_f4_rehearsal.get("deviceProvenance", {}).get(
+        "uninstallAuthorized"
+    )
+        is False
+    and build6_f4_rehearsal.get("expectedRemoteMutationBoundary", {}).get(
+        "otherFirestoreBusinessWritesAuthorized"
+    )
+        is False
+    and build6_f4_rehearsal.get("expectedRemoteMutationBoundary", {}).get(
+        "userAuthorityMutationAuthorized"
+    )
+        is False
+    and build6_f4_rehearsal.get("programmeBoundary", {}).get(
+        "stage2dF4RehearsalAuthorized"
+    )
+        is True
+    and build6_f4_rehearsal.get("programmeBoundary", {}).get(
+        "stage2dF4DeviceEvidenceCreated"
+    )
+        is False
+    and build6_f4_rehearsal.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    )
+        is False
+    and build6_f4_rehearsal.get("programmeBoundary", {}).get(
+        "pilotHandoutAuthorized"
+    )
+        is False
+    and f4_rehearsal_gate.get("currentStatus") == "OPEN"
+    and f4_rehearsal_gate.get("evidence") == []
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F4"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
+)
 global_pull_manifest = data("governance/global-pull-protocol-v1.json")
 global_pull_contract = global_pull_manifest.get("fingerprintedContract", {})
 global_pull_fingerprint = hashlib.sha256(
