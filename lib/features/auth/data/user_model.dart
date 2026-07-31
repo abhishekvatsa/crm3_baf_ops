@@ -191,6 +191,14 @@ class AppUser {
 
   bool get canSeeAllTickets => roles.any((r) => r != AppRole.operations);
 
+  /// Every approved user may inspect the cross-record equipment timeline.
+  /// Ticket visibility within that timeline remains repository/rules governed.
+  bool get canViewOperationalAssets => isApproved;
+
+  /// Closed-ticket history is operational reference data. Mutation controls
+  /// such as reopen and admin correction remain separately role-gated.
+  bool get canViewClosedMaintenanceTickets => isApproved;
+
   bool get canManageUsers => isApproved && isAdmin;
 
   bool get canViewAuditLogs => isApproved && isAdmin;

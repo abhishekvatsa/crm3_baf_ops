@@ -24,13 +24,20 @@ class WorkflowQueueView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final actor = ref.watch(currentAppUserProvider).value;
-    final lanesAsync = ref.watch(workflowAllLanesProvider);
-    final complianceAsync = ref.watch(workflowAllComplianceProvider);
-
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (actorAsync.hasError) {
+      return const Center(child: Text('Could not verify workflow access.'));
+    }
+    final actor = actorAsync.value;
     if (actor == null || !actor.isApproved) {
       return const Center(child: Text('Approved access is required.'));
     }
+
+    final lanesAsync = ref.watch(workflowAllLanesProvider);
+    final complianceAsync = ref.watch(workflowAllComplianceProvider);
     if (lanesAsync.isLoading || complianceAsync.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -121,6 +128,16 @@ class WorkflowQueueView extends ConsumerWidget {
           spacing: BafSpacing.sm,
           runSpacing: BafSpacing.sm,
           children: [
+            OutlinedButton.icon(
+              onPressed:
+                  () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const WorkflowHubScreen(),
+                    ),
+                  ),
+              icon: const Icon(Icons.account_tree_outlined),
+              label: const Text('Workflow overview'),
+            ),
             OutlinedButton.icon(
               onPressed:
                   () => Navigator.of(context).push(

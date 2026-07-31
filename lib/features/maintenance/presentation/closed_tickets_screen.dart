@@ -16,15 +16,43 @@ import '../../../core/services/sync_coordinator.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
-class ClosedTicketsScreen extends ConsumerStatefulWidget {
+class ClosedTicketsScreen extends ConsumerWidget {
   const ClosedTicketsScreen({super.key});
 
   @override
-  ConsumerState<ClosedTicketsScreen> createState() =>
+  Widget build(BuildContext context, WidgetRef ref) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    return actorAsync.when(
+      loading:
+          () =>
+              const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error:
+          (_, _) => const Scaffold(
+            body: Center(
+              child: Text('Could not verify resolved-history access.'),
+            ),
+          ),
+      data: (actor) {
+        if (actor == null || !actor.canViewClosedMaintenanceTickets) {
+          return const Scaffold(
+            body: Center(child: Text('Approved access is required.')),
+          );
+        }
+        return const _ClosedTicketsBody();
+      },
+    );
+  }
+}
+
+class _ClosedTicketsBody extends ConsumerStatefulWidget {
+  const _ClosedTicketsBody();
+
+  @override
+  ConsumerState<_ClosedTicketsBody> createState() =>
       _ClosedTicketsScreenState();
 }
 
-class _ClosedTicketsScreenState extends ConsumerState<ClosedTicketsScreen> {
+class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
   int _currentPage = 0;
   final int _pageSize = 20;
   final List<MaintenanceRecord> _tickets = [];
@@ -189,7 +217,8 @@ class _ClosedTicketsScreenState extends ConsumerState<ClosedTicketsScreen> {
   Future<void> _reopenTicket(MaintenanceRecord ticket) async {
     if (ticket.workflowDeferred) {
       _showSnack(
-        message: 'This ticket is held by workflow compliance and cannot be reopened here.',
+        message:
+            'This ticket is held by workflow compliance and cannot be reopened here.',
         color: BafColors.warning,
       );
       return;
@@ -659,12 +688,14 @@ class _ClosedTicketCard extends StatelessWidget {
                           if (ticket.isWorkflowLinked)
                             StatusBadge(
                               label: ticket.workflowStateLabel,
-                              color: ticket.workflowDeferred
-                                  ? BafColors.warning
-                                  : BafColors.audit,
-                              icon: ticket.workflowDeferred
-                                  ? Icons.pause_circle_outline_rounded
-                                  : Icons.account_tree_outlined,
+                              color:
+                                  ticket.workflowDeferred
+                                      ? BafColors.warning
+                                      : BafColors.audit,
+                              icon:
+                                  ticket.workflowDeferred
+                                      ? Icons.pause_circle_outline_rounded
+                                      : Icons.account_tree_outlined,
                             ),
                         ],
                       ),

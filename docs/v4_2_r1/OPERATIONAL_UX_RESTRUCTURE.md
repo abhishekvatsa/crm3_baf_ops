@@ -17,6 +17,14 @@ navigation did not consistently express how field users act on them:
 - Directives and operational lists had no immediate search control;
 - More was a long numbered catalogue that mixed ordinary records, governance
   tools and privileged support surfaces;
+- record visibility was coupled to unrelated mutation permissions: Operations
+  could reopen a resolved issue but could not reach resolved history, while
+  approved users had no universal route to closed planned-job dossiers;
+- workflow overview and diagnostics were reachable only from an existing
+  visible lane or a notification, leaving an empty queue without a complete
+  control-plane entry point;
+- entity audit evidence had no general Admin destination and could begin its
+  data read before direct-entry authority was resolved;
 - narrow and wide layouts used the same navigation and content width; and
 - large radii, shadows, headings and repeated empty-state counts consumed
   operational screen space without adding decision value.
@@ -45,21 +53,43 @@ lane access. Template and assignment controls continue to use existing
 `AppUser` capabilities. Navigation visibility is guidance only; backend and
 repository authorization remain final.
 
+## Functionality Representation Re-audit
+
+The follow-up role-to-functionality walk confirms that every governed workflow
+command has an operational UI path. It also closes the presentation gaps found
+around retained records and specialist oversight:
+
+| Capability | UI representation |
+| --- | --- |
+| Approved-user asset visibility | More > Assets, including Operations |
+| Approved-user resolved maintenance visibility | More > Resolved issues; reopen remains independently role-gated |
+| Approved-user closed planned-job visibility | More > Closed job dossiers, a bounded recent index searchable across completed and cancelled jobs |
+| Approved-user workflow inspection | Work > Workflow > Workflow overview, even when no lane is assigned |
+| Admin audit visibility | More > Audit log and entity audit evidence; both authorize before reading |
+| Admin/SI workflow diagnostics | Workflow overview > Workflow Diagnostics |
+
+Direct entry to Assets, Resolved issues, Closed job dossiers, Workflow overview
+and Audit screens now resolves the current user capsule before starting the
+corresponding data surface. Ordinary workflow event history remains visible to
+approved workflow users; correlated audit-log evidence remains Admin-only.
+
 ## Verification
 
 Local source verification on 2026-07-31:
 
 ```text
-Flutter analyze:                  no issues
-Focused operational UX tests:     6 passed
-Phone viewport exercised:         320 x 800
-Full Flutter suite:              566 passed
-Canonical R1 audit:               86 passed, 0 failed
+Flutter analyze:                           no issues
+Focused operational/representation tests: 10 passed
+Phone viewport exercised:                  320 x 800
+Full Flutter suite:                        572 passed
+Canonical R1 audit:                        87 passed, 0 failed
 ```
 
 The focused matrix covers task-first Work for an Operations actor, hidden
 template-governance controls, integrated workflow access, Issues empty-state
-priority, Directives search, compact widths and mobile overflow detection.
+priority, Directives search, compact widths, mobile overflow detection,
+closed-dossier search, read-versus-mutation capability separation and
+authority-before-read ordering for closed dossiers, workflow and audit data.
 
 ## Remaining Boundary
 

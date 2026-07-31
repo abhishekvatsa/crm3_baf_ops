@@ -39,6 +39,10 @@ void main() {
     expect(home, contains("title: 'Operations and records'"));
     expect(home, contains("title: 'Governance'"));
     expect(home, contains("title: 'Administration and support'"));
+    expect(home, contains("title: 'Closed job dossiers'"));
+    expect(home, contains("title: 'Audit log'"));
+    expect(home, contains('appUser.canViewOperationalAssets'));
+    expect(home, contains('appUser.canViewClosedMaintenanceTickets'));
 
     expect(work, contains('_PlannedWorkView.workflow'));
     expect(work, contains('WorkflowQueueView('));
@@ -86,6 +90,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Workflow queue'), findsOneWidget);
+    expect(find.text('Workflow overview'), findsOneWidget);
     expect(find.text('Compliance inbox'), findsOneWidget);
     expect(find.text('Equipment'), findsOneWidget);
     expect(find.text('No workflow tasks need your attention.'), findsOneWidget);
