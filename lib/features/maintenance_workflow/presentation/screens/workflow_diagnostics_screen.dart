@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../auth/providers/auth_provider.dart';
 import '../../data/workflow_command_record.dart';
 import '../../providers/workflow_providers.dart';
 import '../../services/workflow_pull_service.dart';
@@ -15,13 +16,7 @@ class WorkflowDiagnosticsScreen extends ConsumerStatefulWidget {
 
 class _WorkflowDiagnosticsScreenState
     extends ConsumerState<WorkflowDiagnosticsScreen> {
-  late Future<_WorkflowDiagnosticsSnapshot> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = _load();
-  }
+  Future<_WorkflowDiagnosticsSnapshot>? _future;
 
   Future<_WorkflowDiagnosticsSnapshot> _load() async {
     final quarantine = await WorkflowPullService.readQuarantine();
@@ -48,6 +43,23 @@ class _WorkflowDiagnosticsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return const _DiagnosticsAccessState(
+        title: 'Checking diagnostics access',
+        message: 'Please wait while your permissions are verified.',
+        showProgress: true,
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.canViewMaintenanceWorkflowDiagnostics) {
+      return const _DiagnosticsAccessState(
+        title: 'Admin/SI access required',
+        message: 'Only approved Admin/SI users can open workflow diagnostics.',
+      );
+    }
+    _future ??= _load();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Workflow Diagnostics'),
@@ -60,7 +72,7 @@ class _WorkflowDiagnosticsScreenState
         ],
       ),
       body: FutureBuilder<_WorkflowDiagnosticsSnapshot>(
-        future: _future,
+        future: _future!,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
@@ -77,7 +89,7 @@ class _WorkflowDiagnosticsScreenState
           return RefreshIndicator(
             onRefresh: () async {
               _refresh();
-              await _future;
+              await _future!;
             },
             child: ListView(
               padding: const EdgeInsets.all(16),
@@ -96,9 +108,8 @@ class _WorkflowDiagnosticsScreenState
                       ),
                     ),
                     TextButton.icon(
-                      onPressed: data.quarantine.isEmpty
-                          ? null
-                          : _clearQuarantine,
+                      onPressed:
+                          data.quarantine.isEmpty ? null : _clearQuarantine,
                       icon: const Icon(Icons.delete_sweep_outlined),
                       label: const Text('Clear local log'),
                     ),
@@ -106,14 +117,17 @@ class _WorkflowDiagnosticsScreenState
                 ),
                 if (data.quarantine.isEmpty)
                   const _EmptyCard(
-                    text: 'No malformed workflow projection is retained locally.',
+                    text:
+                        'No malformed workflow projection is retained locally.',
                   )
                 else
                   ...data.quarantine.reversed.map(
                     (record) => Card(
                       child: ListTile(
                         leading: const Icon(Icons.warning_amber_rounded),
-                        title: Text('${record.collection}/${record.documentId}'),
+                        title: Text(
+                          '${record.collection}/${record.documentId}',
+                        ),
                         subtitle: Text(
                           '${record.stage}: ${record.error}\n'
                           'Observed: ${record.observedAt ?? 'unknown'}\n'
@@ -131,7 +145,8 @@ class _WorkflowDiagnosticsScreenState
                 const SizedBox(height: 8),
                 if (data.pendingCommands.isEmpty)
                   const _EmptyCard(
-                    text: 'No workflow command is awaiting retry or manual review.',
+                    text:
+                        'No workflow command is awaiting retry or manual review.',
                   )
                 else
                   ...data.pendingCommands.map(
@@ -160,6 +175,47 @@ class _WorkflowDiagnosticsScreenState
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _DiagnosticsAccessState extends StatelessWidget {
+  final String title;
+  final String message;
+  final bool showProgress;
+
+  const _DiagnosticsAccessState({
+    required this.title,
+    required this.message,
+    this.showProgress = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Workflow Diagnostics')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showProgress)
+                const CircularProgressIndicator()
+              else
+                const Icon(Icons.lock_outline, size: 44),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(message, textAlign: TextAlign.center),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -233,9 +289,6 @@ class _EmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(text),
-        ),
-      );
+    child: Padding(padding: const EdgeInsets.all(16), child: Text(text)),
+  );
 }

@@ -20,6 +20,7 @@ import 'features/maintenance/presentation/closed_tickets_screen.dart';
 import 'features/reports/presentation/fleet_status_screen.dart';
 import 'features/abnormalities/presentation/abnormalities_home_screen.dart';
 import 'features/maintenance_workflow/presentation/screens/compliance_inbox_screen.dart';
+import 'features/maintenance_workflow/presentation/screens/compliance_notification_screen.dart';
 import 'features/maintenance_workflow/presentation/screens/equipment_status_board.dart';
 import 'features/maintenance_workflow/presentation/screens/workflow_hub_screen.dart';
 import 'features/maintenance_workflow/providers/workflow_providers.dart';
@@ -55,8 +56,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _notificationTapSubscription =
-        FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+    _notificationTapSubscription = FirebaseMessaging.onMessageOpenedApp.listen(
+      _handleNotificationTap,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_openInitialNotification());
     });
@@ -80,20 +82,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!mounted || workflowId == null || workflowId.isEmpty) return;
     final laneKey = message.data['laneKey']?.trim();
     final sourceCollection = message.data['sourceCollection']?.trim();
+    final complianceId = message.data['complianceId']?.trim();
     final destinationType = message.data['destinationType']?.trim();
     final Widget destination;
     if (destinationType == 'equipment') {
       destination = const EquipmentStatusBoard();
     } else if (sourceCollection == 'compliance_requests' &&
-        laneKey != null &&
-        laneKey.isNotEmpty) {
+        complianceId != null &&
+        complianceId.isNotEmpty) {
+      destination = ComplianceNotificationScreen(
+        complianceId: complianceId,
+        laneKey: laneKey,
+      );
+    } else if (sourceCollection == 'compliance_requests') {
       destination = ComplianceInboxScreen(laneKey: laneKey);
     } else {
       destination = WorkflowHubScreen(initialWorkflowId: workflowId);
     }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => destination),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => destination));
   }
 
   @override
@@ -120,41 +128,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final directiveCountAsync = ref.watch(
           visibleOpenDirectiveCountProvider(appUser),
         );
-        final workflowLanesAsync = appUser.canViewPlannedMaintenance
-            ? ref.watch(workflowAllLanesProvider)
-            : null;
-        final workflowComplianceAsync = appUser.canViewPlannedMaintenance
-            ? ref.watch(workflowAllComplianceProvider)
-            : null;
+        final workflowLanesAsync =
+            appUser.canViewPlannedMaintenance
+                ? ref.watch(workflowAllLanesProvider)
+                : null;
+        final workflowComplianceAsync =
+            appUser.canViewPlannedMaintenance
+                ? ref.watch(workflowAllComplianceProvider)
+                : null;
 
         final ticketCount = ticketCountAsync.value ?? 0;
         final executionCount = executionCountAsync?.value ?? 0;
         final directiveCount = directiveCountAsync.value ?? 0;
         final pendingLaneAcknowledgements =
             workflowLanesAsync?.value
-                    ?.where(
-                      (lane) =>
-                          lane.statusKey == 'pending' &&
-                          appUser.canAcknowledgeOrWorkMaintenanceLane(
-                            lane.laneKey,
-                          ),
-                    )
-                    .length ??
-                0;
+                ?.where(
+                  (lane) =>
+                      lane.statusKey == 'pending' &&
+                      appUser.canAcknowledgeOrWorkMaintenanceLane(lane.laneKey),
+                )
+                .length ??
+            0;
         final dueCompliance =
             workflowComplianceAsync?.value
-                    ?.where(
-                      (request) =>
-                          request.becameDueAt != null &&
-                          request.statusKey != 'confirmedClosed' &&
-                          request.statusKey != 'superseded' &&
-                          request.statusKey != 'cancelled' &&
-                          appUser.canAcknowledgeOrWorkMaintenanceLane(
-                            request.targetLaneKey,
-                          ),
-                    )
-                    .length ??
-                0;
+                ?.where(
+                  (request) =>
+                      request.becameDueAt != null &&
+                      request.statusKey != 'confirmedClosed' &&
+                      request.statusKey != 'superseded' &&
+                      request.statusKey != 'cancelled' &&
+                      appUser.canAcknowledgeOrWorkMaintenanceLane(
+                        request.targetLaneKey,
+                      ),
+                )
+                .length ??
+            0;
         final workflowAttentionCount =
             pendingLaneAcknowledgements + dueCompliance;
 
@@ -738,15 +746,6 @@ class _MoreScreen extends StatelessWidget {
           const SizedBox(height: BafSpacing.sm),
           ModuleListTile(
             number: 3,
-            module: BafModules.charges,
-            status: 'People',
-            statusColor: BafColors.charges,
-            onTap: onAssets,
-            enabled: canSeeOperationalData,
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          ModuleListTile(
-            number: 4,
             module: const ModuleVisual(
               title: 'Abnormalities',
               description: 'Charge abnormality and RA operational memory',
@@ -759,7 +758,7 @@ class _MoreScreen extends StatelessWidget {
           ),
           const SizedBox(height: BafSpacing.sm),
           ModuleListTile(
-            number: 5,
+            number: 4,
             module: BafModules.audit,
             status: canSeeClosed ? 'Closed' : 'Limited',
             statusColor: BafColors.audit,
@@ -768,7 +767,7 @@ class _MoreScreen extends StatelessWidget {
           ),
           const SizedBox(height: BafSpacing.sm),
           ModuleListTile(
-            number: 6,
+            number: 5,
             module: const ModuleVisual(
               title: 'Reports',
               description: 'Fleet status and operational summaries',
@@ -782,7 +781,7 @@ class _MoreScreen extends StatelessWidget {
           ),
           const SizedBox(height: BafSpacing.sm),
           ModuleListTile(
-            number: 7,
+            number: 6,
             module: BafModules.admin,
             status: appUser.canOpenAdminDataBrowser ? 'Admin' : 'Limited',
             statusColor: BafColors.admin,
@@ -791,16 +790,18 @@ class _MoreScreen extends StatelessWidget {
           ),
           const SizedBox(height: BafSpacing.sm),
           ModuleListTile(
-            number: 8,
+            number: 7,
             module: const ModuleVisual(
               title: 'Maintenance Workflow',
-              description: 'Lane acknowledgement, compliance and equipment availability',
+              description:
+                  'Lane acknowledgement, compliance and equipment availability',
               icon: Icons.account_tree_outlined,
               color: BafColors.planned,
             ),
-            status: !appUser.canViewPlannedMaintenance
-                ? 'Limited'
-                : workflowAttentionCount > 0
+            status:
+                !appUser.canViewPlannedMaintenance
+                    ? 'Limited'
+                    : workflowAttentionCount > 0
                     ? '$workflowAttentionCount pending'
                     : 'Open',
             statusColor: BafColors.planned,
@@ -810,7 +811,7 @@ class _MoreScreen extends StatelessWidget {
           if (appUser.canManageTemplateGovernance) ...[
             const SizedBox(height: BafSpacing.sm),
             ModuleListTile(
-              number: 9,
+              number: 8,
               module: const ModuleVisual(
                 title: 'Template Authoring',
                 description:
@@ -824,7 +825,7 @@ class _MoreScreen extends StatelessWidget {
             ),
             const SizedBox(height: BafSpacing.sm),
             ModuleListTile(
-              number: 10,
+              number: 9,
               module: const ModuleVisual(
                 title: 'Template Publisher',
                 description:
@@ -839,7 +840,7 @@ class _MoreScreen extends StatelessWidget {
             ),
             const SizedBox(height: BafSpacing.sm),
             ModuleListTile(
-              number: 11,
+              number: 10,
               module: const ModuleVisual(
                 title: 'Knowledge Governance',
                 description:
@@ -853,7 +854,7 @@ class _MoreScreen extends StatelessWidget {
             ),
             const SizedBox(height: BafSpacing.sm),
             ModuleListTile(
-              number: 12,
+              number: 11,
               module: const ModuleVisual(
                 title: 'Support Diagnostics',
                 description:

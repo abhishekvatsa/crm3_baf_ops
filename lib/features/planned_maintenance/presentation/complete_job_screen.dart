@@ -71,6 +71,11 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
   );
 
   Future<void> _loadTemplate() async {
+    if (widget.execution.isGovernedTemplateAssignment) {
+      if (mounted) setState(() => _loadingTemplate = false);
+      return;
+    }
+
     try {
       JobTemplate? template;
       final id = widget.execution.templateFirestoreId;
@@ -188,7 +193,8 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
         }
         final lanes = await workflowRepository.getLanes(workflowId);
         final activeLanes = lanes.where(
-          (lane) => lane.statusKey != 'removed' && lane.statusKey != 'terminated',
+          (lane) =>
+              lane.statusKey != 'removed' && lane.statusKey != 'terminated',
         );
         if (activeLanes.isEmpty ||
             activeLanes.any((lane) => lane.statusKey != 'closed')) {
@@ -207,8 +213,9 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
           if (!mounted) return;
           redAnswers = await showRedExitDialog(
             context,
-            askPreparation:
-                WorkflowPolicy.requiresStandPreparationQuestion(assetTypeKey),
+            askPreparation: WorkflowPolicy.requiresStandPreparationQuestion(
+              assetTypeKey,
+            ),
           );
           if (!mounted || redAnswers == null) return;
         }
@@ -592,16 +599,18 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
     final appUser = ref.watch(currentAppUserProvider).value;
     final hasCompletionAuthority = appUser?.canCompleteJobExecution ?? false;
     final workflowId = widget.execution.firestoreId?.trim();
-    final workflowAsync = widget.execution.workflowSchemaVersion == 1 &&
-            workflowId != null &&
-            workflowId.isNotEmpty
-        ? ref.watch(workflowRecordProvider(workflowId))
-        : null;
-    final workflowLanesAsync = widget.execution.workflowSchemaVersion == 1 &&
-            workflowId != null &&
-            workflowId.isNotEmpty
-        ? ref.watch(workflowLanesProvider(workflowId))
-        : null;
+    final workflowAsync =
+        widget.execution.workflowSchemaVersion == 1 &&
+                workflowId != null &&
+                workflowId.isNotEmpty
+            ? ref.watch(workflowRecordProvider(workflowId))
+            : null;
+    final workflowLanesAsync =
+        widget.execution.workflowSchemaVersion == 1 &&
+                workflowId != null &&
+                workflowId.isNotEmpty
+            ? ref.watch(workflowLanesProvider(workflowId))
+            : null;
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -638,27 +647,29 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                 lanesAsync: workflowLanesAsync,
               ),
             ],
-            const SizedBox(height: BafSpacing.lg),
-            _SectionCard(
-              title: 'Checklist responses',
-              subtitle:
-                  fields.isEmpty
-                      ? 'No checklist was defined for this template.'
-                      : 'Complete the required checks before closing the job.',
-              icon: Icons.fact_check_rounded,
-              children:
-                  fields.isEmpty
-                      ? const [
-                        Text(
-                          'No checklist defined for this template.',
-                          style: TextStyle(
-                            color: BafColors.textSecondary,
-                            fontSize: 13,
+            if (!widget.execution.isGovernedTemplateAssignment) ...[
+              const SizedBox(height: BafSpacing.lg),
+              _SectionCard(
+                title: 'Checklist responses',
+                subtitle:
+                    fields.isEmpty
+                        ? 'No checklist was defined for this legacy template.'
+                        : 'Complete the required checks before closing the job.',
+                icon: Icons.fact_check_rounded,
+                children:
+                    fields.isEmpty
+                        ? const [
+                          Text(
+                            'No checklist defined for this legacy template.',
+                            style: TextStyle(
+                              color: BafColors.textSecondary,
+                              fontSize: 13,
+                            ),
                           ),
-                        ),
-                      ]
-                      : fields.map(_buildField).toList(),
-            ),
+                        ]
+                        : fields.map(_buildField).toList(),
+              ),
+            ],
             const SizedBox(height: BafSpacing.lg),
             _SectionCard(
               title: 'Actions / observations',
@@ -1871,7 +1882,8 @@ class _WorkflowClosureGateCard extends StatelessWidget {
     final active = lanes.where(
       (lane) => lane.statusKey != 'removed' && lane.statusKey != 'terminated',
     );
-    final ready = workflow != null &&
+    final ready =
+        workflow != null &&
         active.isNotEmpty &&
         active.every((lane) => lane.statusKey == 'closed');
     final loading = workflowAsync.isLoading || lanesAsync.isLoading;
@@ -1901,8 +1913,8 @@ class _WorkflowClosureGateCard extends StatelessWidget {
                   loading
                       ? 'Checking workflow lanes…'
                       : ready
-                          ? 'All workflow lanes are closed'
-                          : 'Workflow lane closure is incomplete',
+                      ? 'All workflow lanes are closed'
+                      : 'Workflow lane closure is incomplete',
                   style: const TextStyle(
                     color: BafColors.textPrimary,
                     fontWeight: FontWeight.w900,
@@ -1914,8 +1926,8 @@ class _WorkflowClosureGateCard extends StatelessWidget {
                   loading
                       ? 'The current lane and compliance state is loading.'
                       : ready
-                          ? 'The server will still recheck lane versions, blocking compliance, RED applicability and equipment state.'
-                          : 'Return to the job dossier and close or formally resolve every active lane before final submission.',
+                      ? 'The server will still recheck lane versions, blocking compliance, RED applicability and equipment state.'
+                      : 'Return to the job dossier and close or formally resolve every active lane before final submission.',
                   style: const TextStyle(
                     color: BafColors.textSecondary,
                     fontSize: 12,

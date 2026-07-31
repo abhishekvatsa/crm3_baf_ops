@@ -1257,8 +1257,8 @@ class _Dash extends StatelessWidget {
 }
 
 class _OpenJobBottomBar extends StatelessWidget {
-  final VoidCallback onAddEntry;
-  final VoidCallback onComplete;
+  final VoidCallback? onAddEntry;
+  final VoidCallback? onComplete;
 
   const _OpenJobBottomBar({required this.onAddEntry, required this.onComplete});
 
@@ -1279,48 +1279,57 @@ class _OpenJobBottomBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Expanded(
-              child: SizedBox(
-                height: 54,
-                child: OutlinedButton.icon(
-                  onPressed: onAddEntry,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: BafColors.planned,
-                    side: const BorderSide(color: BafColors.planned),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(BafRadius.medium),
+            if (onAddEntry != null)
+              Expanded(
+                child: SizedBox(
+                  height: 54,
+                  child: OutlinedButton.icon(
+                    onPressed: onAddEntry,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: BafColors.planned,
+                      side: const BorderSide(color: BafColors.planned),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(BafRadius.medium),
+                      ),
                     ),
-                  ),
-                  icon: const Icon(Icons.add_comment_rounded),
-                  label: const Text(
-                    'Add Note',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                    icon: const Icon(Icons.add_comment_rounded),
+                    label: const Text(
+                      'Add Note',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: BafSpacing.sm),
-            Expanded(
-              child: SizedBox(
-                height: 54,
-                child: FilledButton.icon(
-                  onPressed: onComplete,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: BafColors.sync,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(BafRadius.medium),
+            if (onAddEntry != null && onComplete != null)
+              const SizedBox(width: BafSpacing.sm),
+            if (onComplete != null)
+              Expanded(
+                child: SizedBox(
+                  height: 54,
+                  child: FilledButton.icon(
+                    onPressed: onComplete,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: BafColors.sync,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(BafRadius.medium),
+                      ),
                     ),
-                  ),
-                  icon: const Icon(Icons.playlist_add_check_rounded),
-                  label: const Text(
-                    'Complete Job',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+                    icon: const Icon(Icons.playlist_add_check_rounded),
+                    label: const Text(
+                      'Complete Job',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),

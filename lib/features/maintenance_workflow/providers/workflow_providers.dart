@@ -23,9 +23,10 @@ final workflowRepositoryProvider = Provider<WorkflowRepository>((ref) {
   return IsarWorkflowRepository(isar);
 });
 
-final firestoreWorkflowReadRepositoryProvider = Provider<FirestoreWorkflowReadRepository>((ref) {
-  return FirestoreWorkflowReadRepository(FirebaseFirestore.instance);
-});
+final firestoreWorkflowReadRepositoryProvider =
+    Provider<FirestoreWorkflowReadRepository>((ref) {
+      return FirestoreWorkflowReadRepository(FirebaseFirestore.instance);
+    });
 
 final workflowCommandGatewayProvider = Provider<WorkflowCommandGateway>((ref) {
   return const FirebaseWorkflowCommandGateway();
@@ -47,58 +48,94 @@ final workflowPullServiceProvider = Provider<WorkflowPullService>((ref) {
   );
 });
 
-final workflowUncertainRetryServiceProvider = Provider<WorkflowUncertainRetryService>((ref) {
-  return WorkflowUncertainRetryService(
-    repository: ref.read(workflowRepositoryProvider),
-    executor: ref.read(workflowOnlineExecutorProvider),
-    now: DateTime.now,
-  );
-});
+final workflowUncertainRetryServiceProvider =
+    Provider<WorkflowUncertainRetryService>((ref) {
+      return WorkflowUncertainRetryService(
+        repository: ref.read(workflowRepositoryProvider),
+        executor: ref.read(workflowOnlineExecutorProvider),
+        now: DateTime.now,
+      );
+    });
 
-final workflowAggregateServiceProvider = Provider<WorkflowAggregateService>((ref) {
+final workflowAggregateServiceProvider = Provider<WorkflowAggregateService>((
+  ref,
+) {
   return WorkflowAggregateService(ref.read(workflowRepositoryProvider));
 });
 
-final workflowAggregateProvider = FutureProvider.family<WorkflowAggregateSnapshot?, String>((ref, workflowId) {
-  return ref.watch(workflowAggregateServiceProvider).load(workflowId);
-});
+final workflowAggregateProvider =
+    FutureProvider.family<WorkflowAggregateSnapshot?, String>((
+      ref,
+      workflowId,
+    ) {
+      return ref.watch(workflowAggregateServiceProvider).load(workflowId);
+    });
 
-final workflowRecordProvider = StreamProvider.family<WorkflowAggregateRecord?, String>((ref, workflowId) {
-  return ref.watch(workflowRepositoryProvider).watchWorkflow(workflowId);
-});
+final workflowRecordProvider =
+    StreamProvider.family<WorkflowAggregateRecord?, String>((ref, workflowId) {
+      return ref.watch(workflowRepositoryProvider).watchWorkflow(workflowId);
+    });
 
-final workflowLanesProvider = StreamProvider.family<List<JobLaneRecord>, String>((ref, workflowId) {
-  return ref.watch(workflowRepositoryProvider).watchLanes(workflowId);
-});
+final workflowLanesProvider =
+    StreamProvider.family<List<JobLaneRecord>, String>((ref, workflowId) {
+      return ref.watch(workflowRepositoryProvider).watchLanes(workflowId);
+    });
 
 final workflowAllLanesProvider = StreamProvider<List<JobLaneRecord>>((ref) {
   return ref.watch(workflowRepositoryProvider).watchAllLanes();
 });
 
-final workflowComplianceProvider = StreamProvider.family<List<ComplianceRequestRecord>, String>((ref, workflowId) {
-  return ref.watch(workflowRepositoryProvider).watchCompliance(workflowId);
-});
+final workflowComplianceProvider =
+    StreamProvider.family<List<ComplianceRequestRecord>, String>((
+      ref,
+      workflowId,
+    ) {
+      return ref.watch(workflowRepositoryProvider).watchCompliance(workflowId);
+    });
 
-final workflowEventsProvider = StreamProvider.family<List<WorkflowEventRecord>, String>((ref, workflowId) {
-  return ref.watch(workflowRepositoryProvider).watchEvents(workflowId);
-});
+final workflowEventsProvider =
+    StreamProvider.family<List<WorkflowEventRecord>, String>((ref, workflowId) {
+      return ref.watch(workflowRepositoryProvider).watchEvents(workflowId);
+    });
 
-final workflowComplianceInboxProvider = StreamProvider.family<List<ComplianceRequestRecord>, String>((ref, laneKey) {
+final workflowComplianceInboxProvider = StreamProvider.family<
+  List<ComplianceRequestRecord>,
+  String
+>((ref, laneKey) {
   return ref.watch(workflowRepositoryProvider).watchComplianceInbox(laneKey);
 });
 
-final workflowAllComplianceProvider = StreamProvider<List<ComplianceRequestRecord>>((ref) {
-  return ref.watch(workflowRepositoryProvider).watchAllCompliance();
-});
+final workflowAllComplianceProvider =
+    StreamProvider<List<ComplianceRequestRecord>>((ref) {
+      return ref.watch(workflowRepositoryProvider).watchAllCompliance();
+    });
 
-final equipmentStatusProvider = StreamProvider.family<List<EquipmentStatusRecord>, String?>((ref, stateKey) {
+final workflowComplianceRecordProvider = FutureProvider.autoDispose
+    .family<ComplianceRequestRecord?, String>((ref, complianceId) async {
+      final id = complianceId.trim();
+      if (id.isEmpty) return null;
+
+      final repository = ref.watch(workflowRepositoryProvider);
+      final local = await repository.getComplianceById(id);
+      if (local != null) return local;
+
+      await ref.read(workflowPullServiceProvider).pull();
+      return repository.getComplianceById(id);
+    });
+
+final equipmentStatusProvider = StreamProvider.family<
+  List<EquipmentStatusRecord>,
+  String?
+>((ref, stateKey) {
   return ref.watch(workflowRepositoryProvider).watchEquipmentByState(stateKey);
 });
 
-class WorkflowCommandController extends StateNotifier<AsyncValue<WorkflowCommandReceipt?>> {
+class WorkflowCommandController
+    extends StateNotifier<AsyncValue<WorkflowCommandReceipt?>> {
   final WorkflowOnlineExecutor executor;
   final WorkflowPullService pullService;
-  WorkflowCommandController(this.executor, this.pullService) : super(const AsyncData(null));
+  WorkflowCommandController(this.executor, this.pullService)
+    : super(const AsyncData(null));
 
   Future<WorkflowCommandReceipt> execute(WorkflowCommand command) async {
     state = const AsyncLoading();
@@ -119,7 +156,10 @@ class WorkflowCommandController extends StateNotifier<AsyncValue<WorkflowCommand
   }
 }
 
-final workflowCommandControllerProvider = StateNotifierProvider<WorkflowCommandController, AsyncValue<WorkflowCommandReceipt?>>((ref) {
+final workflowCommandControllerProvider = StateNotifierProvider<
+  WorkflowCommandController,
+  AsyncValue<WorkflowCommandReceipt?>
+>((ref) {
   return WorkflowCommandController(
     ref.read(workflowOnlineExecutorProvider),
     ref.read(workflowPullServiceProvider),

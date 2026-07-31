@@ -77,17 +77,12 @@ class _AbnormalitiesHomeScreenState
       body: ListView(
         padding: const EdgeInsets.all(BafSpacing.lg),
         children: [
-          _HeroCard(
-            activeCount: activeCount,
-            totalCount: totalCount,
-          ),
+          _HeroCard(activeCount: activeCount, totalCount: totalCount),
           const SizedBox(height: BafSpacing.lg),
-          _ChargeEntryCard(
-            controller: _chargeController,
-            onOpen: _openCharge,
-          ),
+          _ChargeEntryCard(controller: _chargeController, onOpen: _openCharge),
           const SizedBox(height: BafSpacing.lg),
           _ActionGrid(
+            canManageTypes: canManageTypes,
             onOpenMasterData: _openMasterData,
             onSeedDefaults: _seedDefaults,
             onOpenReports: _openReports,
@@ -153,19 +148,15 @@ class _AbnormalitiesHomeScreenState
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const AbnormalityTypesScreen(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const AbnormalityTypesScreen()));
   }
 
   void _openReports() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const AbnormalityReportsScreen(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const AbnormalityReportsScreen()));
   }
 
   void _openCharge() {
@@ -181,11 +172,12 @@ class _AbnormalitiesHomeScreenState
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ChargeAbnormalitiesScreen(
-          sourceChargeNo: chargeNo,
-          subtitle:
-          'Log abnormalities, RA decision, affected assets and root-reason memory for charge $chargeNo.',
-        ),
+        builder:
+            (_) => ChargeAbnormalitiesScreen(
+              sourceChargeNo: chargeNo,
+              subtitle:
+                  'Log abnormalities, RA decision, affected assets and root-reason memory for charge $chargeNo.',
+            ),
       ),
     );
   }
@@ -199,10 +191,7 @@ class _HeroCard extends StatelessWidget {
   final int? activeCount;
   final int? totalCount;
 
-  const _HeroCard({
-    required this.activeCount,
-    required this.totalCount,
-  });
+  const _HeroCard({required this.activeCount, required this.totalCount});
 
   @override
   Widget build(BuildContext context) {
@@ -221,10 +210,7 @@ class _HeroCard extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
-                child: const Icon(
-                  Icons.memory_rounded,
-                  color: Colors.white,
-                ),
+                child: const Icon(Icons.memory_rounded, color: Colors.white),
               ),
               const SizedBox(width: BafSpacing.md),
               const Expanded(
@@ -288,10 +274,7 @@ class _MetricPill extends StatelessWidget {
   final String label;
   final String value;
 
-  const _MetricPill({
-    required this.label,
-    required this.value,
-  });
+  const _MetricPill({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -304,9 +287,7 @@ class _MetricPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,10 +303,7 @@ class _MetricPill extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
           ),
         ],
       ),
@@ -337,10 +315,7 @@ class _ChargeEntryCard extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onOpen;
 
-  const _ChargeEntryCard({
-    required this.controller,
-    required this.onOpen,
-  });
+  const _ChargeEntryCard({required this.controller, required this.onOpen});
 
   @override
   Widget build(BuildContext context) {
@@ -352,7 +327,7 @@ class _ChargeEntryCard extends StatelessWidget {
             icon: Icons.confirmation_number_outlined,
             title: 'Open charge abnormality log',
             subtitle:
-            'Enter the original/source charge number to view or log abnormalities.',
+                'Enter the original/source charge number to view or log abnormalities.',
             color: BafColors.charges,
           ),
           const SizedBox(height: BafSpacing.md),
@@ -393,11 +368,13 @@ class _ChargeEntryCard extends StatelessWidget {
 }
 
 class _ActionGrid extends StatelessWidget {
+  final bool canManageTypes;
   final VoidCallback onOpenMasterData;
   final VoidCallback onSeedDefaults;
   final VoidCallback onOpenReports;
 
   const _ActionGrid({
+    required this.canManageTypes,
     required this.onOpenMasterData,
     required this.onSeedDefaults,
     required this.onOpenReports,
@@ -409,60 +386,59 @@ class _ActionGrid extends StatelessWidget {
       builder: (context, constraints) {
         final twoColumns = constraints.maxWidth >= 720;
 
-        final cards = [
-          _ActionCard(
-            icon: Icons.rule_folder_outlined,
-            title: 'Abnormality Types',
-            subtitle:
-            'Maintain process, equipment, result-quality and RA abnormality master data.',
-            color: BafColors.admin,
-            actionLabel: 'Manage',
-            onPressed: onOpenMasterData,
-          ),
+        final cards = <Widget>[
+          if (canManageTypes)
+            _ActionCard(
+              icon: Icons.rule_folder_outlined,
+              title: 'Abnormality Types',
+              subtitle:
+                  'Maintain process, equipment, result-quality and RA abnormality master data.',
+              color: BafColors.admin,
+              actionLabel: 'Manage',
+              onPressed: onOpenMasterData,
+            ),
           _ActionCard(
             icon: Icons.analytics_rounded,
             title: 'Reports / Intelligence',
             subtitle:
-            'Review recurrence, RA pending load, affected assets and root-reason patterns.',
+                'Review recurrence, RA pending load, affected assets and root-reason patterns.',
             color: BafColors.charges,
             actionLabel: 'Open',
             onPressed: onOpenReports,
           ),
-          _ActionCard(
-            icon: Icons.auto_fix_high_rounded,
-            title: 'Default RA Type',
-            subtitle:
-            'Ensure RA Required – Coil Colour exists for coil colour based re-annealing cases.',
-            color: BafColors.audit,
-            actionLabel: 'Check / Seed',
-            onPressed: onSeedDefaults,
-          ),
+          if (canManageTypes)
+            _ActionCard(
+              icon: Icons.auto_fix_high_rounded,
+              title: 'Default RA Type',
+              subtitle:
+                  'Ensure RA Required – Coil Colour exists for coil colour based re-annealing cases.',
+              color: BafColors.audit,
+              actionLabel: 'Check / Seed',
+              onPressed: onSeedDefaults,
+            ),
         ];
 
-        if (!twoColumns) {
+        if (!twoColumns || cards.length == 1) {
           return Column(
-            children: [
-              cards[0],
-              const SizedBox(height: BafSpacing.md),
-              cards[1],
-              const SizedBox(height: BafSpacing.md),
-              cards[2],
-            ],
+            children: List<Widget>.generate(cards.length * 2 - 1, (index) {
+              return index.isEven
+                  ? cards[index ~/ 2]
+                  : const SizedBox(height: BafSpacing.md);
+            }),
           );
         }
 
-        return Column(
-          children: [
-            Row(
-              children: [
-                Expanded(child: cards[0]),
-                const SizedBox(width: BafSpacing.md),
-                Expanded(child: cards[1]),
-              ],
-            ),
-            const SizedBox(height: BafSpacing.md),
-            cards[2],
-          ],
+        return Wrap(
+          spacing: BafSpacing.md,
+          runSpacing: BafSpacing.md,
+          children: cards
+              .map(
+                (card) => SizedBox(
+                  width: (constraints.maxWidth - BafSpacing.md) / 2,
+                  child: card,
+                ),
+              )
+              .toList(growable: false),
         );
       },
     );
@@ -532,7 +508,7 @@ class _BusinessPrincipleCard extends StatelessWidget {
             icon: Icons.lightbulb_outline_rounded,
             title: 'Business principle',
             subtitle:
-            'An abnormality is not only a fault. It is operational memory.',
+                'An abnormality is not only a fault. It is operational memory.',
             color: BafColors.audit,
           ),
           SizedBox(height: BafSpacing.md),
@@ -544,19 +520,19 @@ class _BusinessPrincipleCard extends StatelessWidget {
           _PrincipleRow(
             icon: Icons.repeat_rounded,
             text:
-            'If coil colour indicates RA, RA itself is an abnormality and must record the new charge when available.',
+                'If coil colour indicates RA, RA itself is an abnormality and must record the new charge when available.',
           ),
           SizedBox(height: BafSpacing.sm),
           _PrincipleRow(
             icon: Icons.precision_manufacturing_rounded,
             text:
-            'Affected base, furnace, force cooler or inner cover should be captured for recurrence analysis.',
+                'Affected base, furnace, force cooler or inner cover should be captured for recurrence analysis.',
           ),
           SizedBox(height: BafSpacing.sm),
           _PrincipleRow(
             icon: Icons.manage_search_rounded,
             text:
-            'Possible root reason can start as unknown and improve after investigation.',
+                'Possible root reason can start as unknown and improve after investigation.',
           ),
         ],
       ),
@@ -568,10 +544,7 @@ class _PrincipleRow extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _PrincipleRow({
-    required this.icon,
-    required this.text,
-  });
+  const _PrincipleRow({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -583,10 +556,7 @@ class _PrincipleRow extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
-              color: BafColors.textPrimary,
-              height: 1.3,
-            ),
+            style: const TextStyle(color: BafColors.textPrimary, height: 1.3),
           ),
         ),
       ],
@@ -654,10 +624,7 @@ class _SectionHeader extends StatelessWidget {
 // HELPERS
 // ─────────────────────────────────────────────────────────────
 
-InputDecoration _inputDecoration({
-  required String label,
-  String? hint,
-}) {
+InputDecoration _inputDecoration({required String label, String? hint}) {
   return InputDecoration(
     labelText: label,
     hintText: hint,
@@ -673,10 +640,7 @@ InputDecoration _inputDecoration({
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(BafRadius.medium),
-      borderSide: const BorderSide(
-        color: BafColors.navySoft,
-        width: 1.4,
-      ),
+      borderSide: const BorderSide(color: BafColors.navySoft, width: 1.4),
     ),
   );
 }
