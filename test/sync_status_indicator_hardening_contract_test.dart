@@ -140,9 +140,12 @@ void main() {
         expect(source, contains('ref.invalidate(syncPendingCountsProvider);'));
         expect(source, contains('if (!context.mounted) return;'));
         expect(source, contains('_showSyncSnack('));
+        expect(source, contains('outcome.manualSyncMessage'));
+        final coordinatorSource =
+            File('lib/core/services/sync_coordinator.dart').readAsStringSync();
         expect(
-          source,
-          contains('Manual sync is already running or queued as a follow-up.'),
+          coordinatorSource,
+          contains('Manual sync queued behind the sync already running.'),
         );
       },
     );

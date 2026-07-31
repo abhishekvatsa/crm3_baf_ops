@@ -9,7 +9,7 @@ part of 'module_composer_screen.dart';
 Future<TemplateVersion> saveAndRefreshComposerTemplateVersionDraft({
   required TemplateVersion version,
   required Future<void> Function() persistLocal,
-  required Future<bool> Function() runSync,
+  required Future<SyncRequestOutcome> Function() runSync,
   required Future<TemplateVersion?> Function(String firestoreId) reloadLocal,
 }) async {
   await persistLocal();
@@ -32,7 +32,7 @@ Future<TemplateVersion> saveAndRefreshComposerTemplateVersionDraft({
   final expectedMinAppVersion = version.minAppVersion?.trim();
   final expectedMetadataJson = version.metadataJson?.trim();
 
-  final syncReportedSuccess = await runSync();
+  final syncOutcome = await runSync();
   final refreshed = await reloadLocal(firestoreId);
   if (refreshed == null) {
     throw StateError(
@@ -98,10 +98,15 @@ Future<TemplateVersion> saveAndRefreshComposerTemplateVersionDraft({
   }
 
   if (!refreshed.isSynced) {
-    final syncDetail =
-        syncReportedSuccess
-            ? 'Sync completed without a confirmed draft acknowledgement.'
-            : 'Sync did not complete successfully.';
+    final syncDetail = switch (syncOutcome) {
+      SyncRequestOutcome.succeeded =>
+        'Sync completed without a confirmed draft acknowledgement.',
+      SyncRequestOutcome.failed => 'Sync failed before confirmation.',
+      SyncRequestOutcome.queued =>
+        'Sync is queued behind the run already in progress.',
+      SyncRequestOutcome.throttled =>
+        'Sync was throttled because another run completed recently.',
+    };
     throw StateError(
       'Draft $firestoreId is saved locally and remains retryable, but '
       'Firestore has not confirmed it. $syncDetail',

@@ -2119,7 +2119,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "Reliability/data",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "MEDIUM",
@@ -2127,14 +2127,33 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "sync request admission returns distinct succeeded, failed, queued and throttled outcomes",
+        "startup, retry custody, automatic health, manual feedback and governed publish confirmation consume the typed outcome without treating deferred work as failure or success",
+        "focused regression tests prove queued and throttled outcomes are deferred while confirmed-success gates remain fail closed",
+        "exact-head pull-request CI and post-merge CI pass before SOURCE_AND_CI closure"
+      ],
+      "reArmTriggers": [
+        "queued or throttled sync admission returns the same value as an execution failure",
+        "any caller treats a deferred sync request as confirmed successful",
+        "automatic or operator-facing health labels queued or throttled admission as failed",
+        "a new result-aware sync caller consumes the outcome through a boolean collapse"
+      ],
+      "notes": [
+        "The 2026-07-31 source tranche replaces the boolean request result with succeeded, failed, queued and throttled outcomes and updates every result-aware caller.",
+        "Deferred admission remains non-successful for startup, retry cancellation and governed publish confirmation; only a completed successful run satisfies those gates.",
+        "SOURCE_IMPLEMENTED is not merge or SOURCE_AND_CI closure. GitHub Actions runner admission was blocked on 2026-07-31 by account billing or spending-limit state, so exact-head and post-merge CI evidence remains pending."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-07-31",
+          "basis": "Typed sync request outcomes and result-aware caller handling implemented with focused local regression proof; merge and exact-head CI remain pending"
         }
       ]
     },

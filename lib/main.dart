@@ -1057,7 +1057,7 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
 
     Future.microtask(() async {
       try {
-        final syncSucceeded = await ref
+        final syncOutcome = await ref
             .read(syncCoordinatorProvider)
             .runFullSyncWithResult(reason: 'auth_gate', force: true);
 
@@ -1065,7 +1065,7 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
           return;
         }
 
-        if (syncSucceeded) {
+        if (syncOutcome.isSuccessful) {
           ref.read(syncOnceProvider.notifier).state = true;
         } else {
           _syncStarted = false;

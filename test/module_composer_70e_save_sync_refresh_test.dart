@@ -1,5 +1,6 @@
 import 'package:crm3_baf_ops/features/planned_maintenance/data/template_governance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/module_composer_screen.dart';
+import 'package:crm3_baf_ops/core/services/sync_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -16,7 +17,7 @@ void main() {
         },
         runSync: () async {
           calls.add('sync');
-          return true;
+          return SyncRequestOutcome.succeeded;
         },
         reloadLocal: (firestoreId) async {
           calls.add('reload:$firestoreId');
@@ -36,14 +37,14 @@ void main() {
     });
 
     test(
-      'accepts concurrent confirmation even if requested sync returns false',
+      'accepts concurrent confirmation when requested sync was queued',
       () async {
         final source = _draft(firestoreId: 'version-70e', isSynced: false);
 
         final refreshed = await saveAndRefreshComposerTemplateVersionDraft(
           version: source,
           persistLocal: () async {},
-          runSync: () async => false,
+          runSync: () async => SyncRequestOutcome.queued,
           reloadLocal: (firestoreId) async {
             return _draft(firestoreId: firestoreId, isSynced: true);
           },
@@ -62,7 +63,7 @@ void main() {
           saveAndRefreshComposerTemplateVersionDraft(
             version: source,
             persistLocal: () async {},
-            runSync: () async => false,
+            runSync: () async => SyncRequestOutcome.failed,
             reloadLocal: (firestoreId) async => source,
           ),
           throwsA(
@@ -89,7 +90,7 @@ void main() {
           persistLocal: () async {},
           runSync: () async {
             source.contentHash = changed.contentHash;
-            return true;
+            return SyncRequestOutcome.succeeded;
           },
           reloadLocal: (firestoreId) async => changed,
         ),
@@ -112,7 +113,7 @@ void main() {
         saveAndRefreshComposerTemplateVersionDraft(
           version: source,
           persistLocal: () async {},
-          runSync: () async => true,
+          runSync: () async => SyncRequestOutcome.succeeded,
           reloadLocal: (firestoreId) async => changed,
         ),
         throwsA(
@@ -139,7 +140,7 @@ void main() {
         saveAndRefreshComposerTemplateVersionDraft(
           version: source,
           persistLocal: () async {},
-          runSync: () async => true,
+          runSync: () async => SyncRequestOutcome.succeeded,
           reloadLocal: (firestoreId) async => stale,
         ),
         throwsA(
@@ -163,7 +164,7 @@ void main() {
         saveAndRefreshComposerTemplateVersionDraft(
           version: source,
           persistLocal: () async {},
-          runSync: () async => true,
+          runSync: () async => SyncRequestOutcome.succeeded,
           reloadLocal: (firestoreId) async => fork,
         ),
         throwsA(
