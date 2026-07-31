@@ -367,7 +367,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final messenger = ScaffoldMessenger.maybeOf(context);
 
     try {
-      final completed = await ref
+      final outcome = await ref
           .read(syncCoordinatorProvider)
           .runFullSyncWithResult(reason: 'manual_home', force: true);
 
@@ -375,12 +375,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       messenger?.showSnackBar(
         SnackBar(
-          content: Text(
-            completed
-                ? 'Manual sync completed.'
-                : 'Manual sync is already running or could not complete.',
-          ),
-          backgroundColor: completed ? BafColors.sync : BafColors.warning,
+          content: Text(outcome.manualSyncMessage),
+          backgroundColor:
+              outcome.isFailure
+                  ? BafColors.danger
+                  : (outcome.isSuccessful ? BafColors.sync : BafColors.warning),
         ),
       );
     } catch (error) {

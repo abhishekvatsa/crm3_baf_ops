@@ -277,8 +277,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 reason: 'normal_ticket_created_immediate',
                 force: true,
               )
-              .then((completed) {
-                if (completed) {
+              .then((outcome) {
+                if (outcome.isSuccessful) {
                   autoSyncService.clearPendingTicketSync(
                     reason: 'normal_ticket_created_immediate_success',
                   );

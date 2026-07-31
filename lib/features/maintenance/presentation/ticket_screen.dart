@@ -95,7 +95,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
 
     try {
       final syncCoordinator = ref.read(syncCoordinatorProvider);
-      final completed = await syncCoordinator.runFullSyncWithResult(
+      final outcome = await syncCoordinator.runFullSyncWithResult(
         reason: 'tickets_manual_refresh',
         force: true,
       );
@@ -104,12 +104,11 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
 
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
-          content: Text(
-            completed
-                ? 'Manual sync completed.'
-                : 'Manual sync is already running or could not complete.',
-          ),
-          backgroundColor: completed ? BafColors.sync : BafColors.warning,
+          content: Text(outcome.manualSyncMessage),
+          backgroundColor:
+              outcome.isFailure
+                  ? BafColors.danger
+                  : (outcome.isSuccessful ? BafColors.sync : BafColors.warning),
         ),
       );
     } catch (error) {

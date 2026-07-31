@@ -175,14 +175,14 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
     final autoSyncService = ref.read(autoSyncServiceProvider);
 
     try {
-      final completed = await coordinator.runFullSyncWithResult(
+      final outcome = await coordinator.runFullSyncWithResult(
         reason: 'manual_$source',
         force: true,
       );
 
       if (!mounted) return;
 
-      if (completed) {
+      if (outcome.isSuccessful) {
         autoSyncService.clearPendingTicketSync();
       }
 
@@ -191,8 +191,8 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
       if (!context.mounted) return;
       _showSyncSnack(
         context,
-        _manualSyncMessage(completed),
-        completed ? BafColors.sync : BafColors.warning,
+        outcome.manualSyncMessage,
+        _manualSyncColor(outcome),
       );
     } catch (error) {
       if (!context.mounted) return;
@@ -547,11 +547,11 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
                             ),
                             _HealthRow(
                               'Last automatic result',
-                              autoHealth.lastAutomaticSucceeded == null
+                              autoHealth.lastAutomaticOutcome == null
                                   ? '—'
-                                  : (autoHealth.lastAutomaticSucceeded!
-                                      ? 'Success'
-                                      : 'Skipped / failed'),
+                                  : autoHealth
+                                      .lastAutomaticOutcome!
+                                      .diagnosticLabel,
                             ),
                           ],
                         ),
@@ -692,10 +692,13 @@ _SyncVisual _visualFor(
   );
 }
 
-String _manualSyncMessage(bool completed) {
-  return completed
-      ? 'Manual sync completed.'
-      : 'Manual sync is already running or queued as a follow-up.';
+Color _manualSyncColor(SyncRequestOutcome outcome) {
+  return switch (outcome) {
+    SyncRequestOutcome.succeeded => BafColors.sync,
+    SyncRequestOutcome.failed => BafColors.danger,
+    SyncRequestOutcome.queued => BafColors.planned,
+    SyncRequestOutcome.throttled => BafColors.warning,
+  };
 }
 
 void _showSyncSnack(BuildContext context, String message, Color color) {

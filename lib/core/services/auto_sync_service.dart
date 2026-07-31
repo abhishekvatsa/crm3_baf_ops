@@ -33,7 +33,7 @@ class AutoSyncHealth {
   final DateTime? lastAutomaticAttemptAt;
   final DateTime? lastAutomaticCompletedAt;
   final String? lastAutomaticReason;
-  final bool? lastAutomaticSucceeded;
+  final SyncRequestOutcome? lastAutomaticOutcome;
   final String? lastTicketQueueReason;
 
   const AutoSyncHealth({
@@ -45,7 +45,7 @@ class AutoSyncHealth {
     this.lastAutomaticAttemptAt,
     this.lastAutomaticCompletedAt,
     this.lastAutomaticReason,
-    this.lastAutomaticSucceeded,
+    this.lastAutomaticOutcome,
     this.lastTicketQueueReason,
   });
 
@@ -60,7 +60,7 @@ class AutoSyncHealth {
     DateTime? lastAutomaticAttemptAt,
     DateTime? lastAutomaticCompletedAt,
     String? lastAutomaticReason,
-    bool? lastAutomaticSucceeded,
+    SyncRequestOutcome? lastAutomaticOutcome,
     String? lastTicketQueueReason,
     bool clearLastTicketQueueReason = false,
   }) {
@@ -81,8 +81,8 @@ class AutoSyncHealth {
       lastAutomaticCompletedAt:
       lastAutomaticCompletedAt ?? this.lastAutomaticCompletedAt,
       lastAutomaticReason: lastAutomaticReason ?? this.lastAutomaticReason,
-      lastAutomaticSucceeded:
-      lastAutomaticSucceeded ?? this.lastAutomaticSucceeded,
+      lastAutomaticOutcome:
+      lastAutomaticOutcome ?? this.lastAutomaticOutcome,
       lastTicketQueueReason: clearLastTicketQueueReason
           ? null
           : (lastTicketQueueReason ?? this.lastTicketQueueReason),
@@ -205,7 +205,7 @@ class AutoSyncService with WidgetsBindingObserver {
       ),
     );
 
-    final completed = await _ref
+    final outcome = await _ref
         .read(syncCoordinatorProvider)
         .runFullSyncWithResult(reason: reason, force: false);
 
@@ -213,9 +213,9 @@ class AutoSyncService with WidgetsBindingObserver {
     _setHealth(
       _health.copyWith(
         automaticSyncRunning: false,
-        lastAutomaticCompletedAt: finishedAt,
+        lastAutomaticCompletedAt: outcome.isDeferred ? null : finishedAt,
         lastAutomaticReason: reason,
-        lastAutomaticSucceeded: completed,
+        lastAutomaticOutcome: outcome,
         nextGeneralSyncAt: finishedAt.add(generalInterval),
       ),
     );

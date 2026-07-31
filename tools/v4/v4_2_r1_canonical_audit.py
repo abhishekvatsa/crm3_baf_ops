@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 286
-    and counts.get("SUCCESSOR_MODIFIED") == 124
+    and counts.get("BYTE_IDENTICAL") == 279
+    and counts.get("SUCCESSOR_MODIFIED") == 131
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -2362,6 +2362,42 @@ check(
     and "Status: CLOSED" in s08_decision
     and "PASS_S08_CRASH_REPORT_PRIVACY_BOUNDARY" in s08_decision
     and "does not claim a deployed client" in s08_decision,
+)
+
+r03_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "R-03"
+]
+r03_record = r03_records[0] if len(r03_records) == 1 else {}
+r03_history = [
+    entry.get("status")
+    for entry in r03_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+r03_sync_source = text("lib/core/services/sync_coordinator.dart")
+r03_auto_source = text("lib/core/services/auto_sync_service.dart")
+r03_indicator_source = text("lib/core/widgets/sync_status_indicator.dart")
+r03_decision = text("docs/v4_2_r1/R03_SYNC_REQUEST_OUTCOME_REMEDIATION.md")
+check(
+    "R-03 queued and throttled sync admission is distinct from failure",
+    len(r03_records) == 1
+    and r03_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
+    and r03_history == ["OPEN", "SOURCE_IMPLEMENTED"]
+    and len(r03_record.get("evidence", [])) == 0
+    and len(r03_record.get("requiredExitEvidence", [])) >= 4
+    and len(r03_record.get("reArmTriggers", [])) >= 4
+    and "enum SyncRequestOutcome" in r03_sync_source
+    and "return SyncRequestOutcome.queued" in r03_sync_source
+    and "return SyncRequestOutcome.throttled" in r03_sync_source
+    and "return SyncRequestOutcome.failed" in r03_sync_source
+    and "return SyncRequestOutcome.succeeded" in r03_sync_source
+    and "final SyncRequestOutcome? lastAutomaticOutcome" in r03_auto_source
+    and "lastAutomaticSucceeded" not in r03_auto_source
+    and "outcome.manualSyncMessage" in r03_indicator_source
+    and "Status: SOURCE_IMPLEMENTED" in r03_decision
+    and "Merge and exact-head CI evidence: PENDING" in r03_decision
+    and "No production deployment, device proof, F4 closure" in r03_decision,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
