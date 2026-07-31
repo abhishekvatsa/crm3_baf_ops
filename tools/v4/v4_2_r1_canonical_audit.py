@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 274
-    and counts.get("SUCCESSOR_MODIFIED") == 136
+    and counts.get("BYTE_IDENTICAL") == 268
+    and counts.get("SUCCESSOR_MODIFIED") == 142
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -3490,6 +3490,54 @@ check(
         in ui_alignment_test
     and "authorized governed dossier is stable" in ui_alignment_test
     and "does not prove the F4 physical-device matrix" in ui_alignment_decision,
+)
+
+operational_ux_decision = text(
+    "docs/v4_2_r1/OPERATIONAL_UX_RESTRUCTURE.md"
+)
+operational_ux_home = text("lib/home_screen.dart")
+operational_ux_issues = text(
+    "lib/features/maintenance/presentation/ticket_screen.dart"
+)
+operational_ux_work = text(
+    "lib/features/planned_maintenance/presentation/templates_screen.dart"
+)
+operational_ux_workflow = text(
+    "lib/features/maintenance_workflow/presentation/screens/"
+    "workflow_queue_view.dart"
+)
+operational_ux_directives = text(
+    "lib/features/directives/presentation/directives_screen.dart"
+)
+operational_ux_theme = text("lib/core/theme/baf_design_system.dart")
+operational_ux_test = text("test/operational_ux_restructure_test.dart")
+check(
+    "Operational UX is task-first, role-scoped and responsive",
+    "Status: SOURCE_IMPLEMENTED" in operational_ux_decision
+    and "Merge and exact-head CI evidence: PENDING" in operational_ux_decision
+    and "does not replace or modify the immutable" in operational_ux_decision
+    and "production-signed" in operational_ux_decision
+    and "NavigationRail(" in operational_ux_home
+    and "ModeSwitchCard(" not in operational_ux_home
+    and "'Needs attention'" in operational_ux_home
+    and "title: 'Operations and records'" in operational_ux_home
+    and "title: 'Governance'" in operational_ux_home
+    and "title: 'Administration and support'" in operational_ux_home
+    and "issues-raise-issue" in operational_ux_issues
+    and "issues-search" in operational_ux_issues
+    and "BoxConstraints(maxWidth: 960)" in operational_ux_issues
+    and "_PlannedWorkView.workflow" in operational_ux_work
+    and "canSeeTemplates" in operational_ux_work
+    and "WorkflowQueueView(" in operational_ux_work
+    and "BoxConstraints(maxWidth: 1000)" in operational_ux_work
+    and "actor.canAcknowledgeOrWorkMaintenanceLane" in operational_ux_workflow
+    and "directives-search" in operational_ux_directives
+    and "BoxConstraints(maxWidth: 960)" in operational_ux_directives
+    and "static const large = 10.0" in operational_ux_theme
+    and "static const xLarge = 12.0" in operational_ux_theme
+    and "operations Work is task-first" in operational_ux_test
+    and "empty Issues keeps reporting primary" in operational_ux_test
+    and "Directives supports immediate search" in operational_ux_test,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

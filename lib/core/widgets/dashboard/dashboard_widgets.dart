@@ -27,9 +27,7 @@ class DashboardCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(
-          color: borderColor ?? BafColors.border,
-        ),
+        border: Border.all(color: borderColor ?? BafColors.border),
         boxShadow: BafShadows.subtle,
       ),
       child: child,
@@ -53,9 +51,10 @@ class DashboardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firstName = userName.trim().isEmpty
-        ? 'there'
-        : userName.trim().split(RegExp(r'\s+')).first;
+    final firstName =
+        userName.trim().isEmpty
+            ? 'there'
+            : userName.trim().split(RegExp(r'\s+')).first;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,9 +62,9 @@ class DashboardHeader extends StatelessWidget {
         Row(
           children: [
             const Icon(
-              Icons.settings_applications_rounded,
+              Icons.factory_outlined,
               color: BafColors.navySoft,
-              size: 34,
+              size: 28,
             ),
             const SizedBox(width: 8),
             const Expanded(
@@ -75,33 +74,30 @@ class DashboardHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: BafColors.textPrimary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
             const SizedBox(width: 8),
             syncIndicator,
             const SizedBox(width: 8),
-            GestureDetector(
-              onTap: onProfileTap,
-              child: avatar,
-            ),
+            GestureDetector(onTap: onProfileTap, child: avatar),
           ],
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 14),
         Text(
-          'Welcome, $firstName 👋',
+          'Welcome, $firstName',
           style: const TextStyle(
             color: BafColors.textPrimary,
-            fontSize: 28,
-            fontWeight: FontWeight.w900,
-            height: 1.05,
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            height: 1.1,
           ),
         ),
         const SizedBox(height: 6),
         const Text(
-          'Report it. Track it. Fix it. Together.',
+          'Your operational priorities.',
           style: TextStyle(
             color: BafColors.textSecondary,
             fontSize: 14,
@@ -295,10 +291,7 @@ class IssueRaiserCard extends StatelessWidget {
               icon: const Icon(Icons.add_rounded),
               label: const Text(
                 'Raise Issue',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
               ),
             ),
           ),
@@ -708,10 +701,7 @@ class _HumanCircleIcon extends StatelessWidget {
   final Color color;
   final IconData icon;
 
-  const _HumanCircleIcon({
-    required this.color,
-    required this.icon,
-  });
+  const _HumanCircleIcon({required this.color, required this.icon});
 
   @override
   Widget build(BuildContext context) {
