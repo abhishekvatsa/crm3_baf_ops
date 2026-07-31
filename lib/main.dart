@@ -731,10 +731,53 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp> {
         colorScheme: ColorScheme.fromSeed(seedColor: BafColors.navySoft),
         useMaterial3: true,
         scaffoldBackgroundColor: BafColors.background,
+        visualDensity: VisualDensity.standard,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: BafColors.background,
+          foregroundColor: BafColors.textPrimary,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            color: BafColors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: BafSpacing.md,
+            vertical: BafSpacing.md,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(BafRadius.medium),
+            borderSide: const BorderSide(color: BafColors.border),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(BafRadius.medium),
+            borderSide: const BorderSide(color: BafColors.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(BafRadius.medium),
+            borderSide: const BorderSide(color: BafColors.navySoft, width: 1.5),
+          ),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          height: 68,
+          indicatorShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(BafRadius.medium),
+          ),
+          labelTextStyle: WidgetStateProperty.all(
+            const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+        ),
         cardTheme: CardThemeData(
-          elevation: 2,
+          elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(BafRadius.medium),
+            side: const BorderSide(color: BafColors.border),
           ),
         ),
       ),

@@ -30,10 +30,10 @@ class BafColors {
 class BafRadius {
   BafRadius._();
 
-  static const small = 10.0;
-  static const medium = 14.0;
-  static const large = 20.0;
-  static const xLarge = 26.0;
+  static const small = 6.0;
+  static const medium = 8.0;
+  static const large = 10.0;
+  static const xLarge = 12.0;
 }
 
 class BafSpacing {
@@ -52,16 +52,16 @@ class BafShadows {
   static List<BoxShadow> soft = [
     BoxShadow(
       color: Colors.black.withValues(alpha: 0.05),
-      blurRadius: 18,
-      offset: const Offset(0, 8),
+      blurRadius: 10,
+      offset: const Offset(0, 4),
     ),
   ];
 
   static List<BoxShadow> subtle = [
     BoxShadow(
       color: Colors.black.withValues(alpha: 0.035),
-      blurRadius: 10,
-      offset: const Offset(0, 4),
+      blurRadius: 5,
+      offset: const Offset(0, 2),
     ),
   ];
 }

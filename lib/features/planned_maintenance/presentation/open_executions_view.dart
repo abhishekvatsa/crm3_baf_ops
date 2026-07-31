@@ -52,63 +52,39 @@ class _OpenJobsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(BafSpacing.lg),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBF3),
-        borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(color: BafColors.warning.withValues(alpha: 0.22)),
-        boxShadow: BafShadows.subtle,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: BafColors.warning.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(BafRadius.medium),
-            ),
-            child: const Icon(
-              Icons.work_history_rounded,
-              color: BafColors.warning,
-              size: 29,
-            ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Open assigned jobs',
+                style: TextStyle(
+                  color: BafColors.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Assigned work from governed and retained legacy sources.',
+                style: TextStyle(
+                  color: BafColors.textSecondary,
+                  fontSize: 12,
+                  height: 1.25,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: BafSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Open assigned jobs',
-                  style: TextStyle(
-                    color: BafColors.textPrimary,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Jobs instantiated from legacy or governed published templates.',
-                  style: TextStyle(
-                    color: BafColors.textSecondary,
-                    fontSize: 12,
-                    height: 1.25,
-                  ),
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                StatusBadge(
-                  label: '$count open',
-                  color: BafColors.warning,
-                  icon: Icons.pending_actions_rounded,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+        StatusBadge(
+          label: '$count open',
+          color: BafColors.warning,
+          icon: Icons.pending_actions_rounded,
+        ),
+      ],
     );
   }
 }
@@ -281,16 +257,9 @@ class _EmptyOpenJobsState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(BafSpacing.xl),
-      decoration: BoxDecoration(
-        color: BafColors.card,
-        borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(color: BafColors.border),
-        boxShadow: BafShadows.subtle,
-      ),
-      child: const Column(
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: BafSpacing.xl),
+      child: Column(
         children: [
           Icon(Icons.task_alt_rounded, size: 38, color: BafColors.sync),
           SizedBox(height: BafSpacing.md),

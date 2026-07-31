@@ -17,11 +17,18 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 import 'create_directive_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 
-class DirectivesScreen extends ConsumerWidget {
+class DirectivesScreen extends ConsumerStatefulWidget {
   const DirectivesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DirectivesScreen> createState() => _DirectivesScreenState();
+}
+
+class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
     final directivesAsync = ref.watch(openDirectivesProvider);
     final appUser = ref.watch(currentAppUserProvider).value;
     final bottomSafeInset = MediaQuery.of(context).viewPadding.bottom;
@@ -36,33 +43,48 @@ class DirectivesScreen extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => _ErrorState(message: 'Error: $e'),
             data: (allDirectives) {
-              final directives = _visibleDirectives(allDirectives, appUser);
+              final visible = _visibleDirectives(allDirectives, appUser);
+              final directives = _filterDirectives(visible, _query);
 
-              if (directives.isEmpty) {
-                return const _EmptyDirectivesState();
-              }
-
-              return ListView.separated(
-                padding: EdgeInsets.fromLTRB(
-                  BafSpacing.lg,
-                  BafSpacing.lg,
-                  BafSpacing.lg,
-                  listBottomPadding,
+              return Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 960),
+                  child: ListView(
+                    padding: EdgeInsets.fromLTRB(
+                      BafSpacing.lg,
+                      BafSpacing.lg,
+                      BafSpacing.lg,
+                      listBottomPadding,
+                    ),
+                    children: [
+                      _DirectivesHeader(
+                        count: directives.length,
+                        totalCount: visible.length,
+                        query: _query,
+                        onQueryChanged:
+                            (value) => setState(() => _query = value),
+                      ),
+                      const SizedBox(height: BafSpacing.md),
+                      if (directives.isEmpty)
+                        _EmptyDirectivesState(
+                          hasSearch: _query.trim().isNotEmpty,
+                        )
+                      else
+                        ...directives.map(
+                          (directive) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: BafSpacing.md,
+                            ),
+                            child: _DirectiveCard(
+                              directive: directive,
+                              appUser: appUser,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-                itemCount: directives.length + 1,
-                separatorBuilder: (_, index) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return _DirectivesHeader(
-                      count: directives.length,
-                      canCreate: appUser?.canCreateDirective == true,
-                    );
-                  }
-
-                  final directive = directives[index - 1];
-
-                  return _DirectiveCard(directive: directive, appUser: appUser);
-                },
               );
             },
           ),
@@ -108,148 +130,159 @@ class DirectivesScreen extends ConsumerWidget {
         .where((directive) => canUserSeeDirective(directive, appUser))
         .toList();
   }
+
+  List<OperationalDirective> _filterDirectives(
+    List<OperationalDirective> directives,
+    String query,
+  ) {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) return directives;
+    return directives
+        .where((directive) {
+          return <String?>[
+            directive.title,
+            directive.description,
+            directive.assetType?.name,
+            directive.assetNumber?.toString(),
+            directive.component,
+            directive.subsystem,
+            directive.tag,
+            directive.directedTo.name,
+            directive.priority.name,
+            directive.issuedByName,
+          ].any((value) => value?.toLowerCase().contains(needle) == true);
+        })
+        .toList(growable: false);
+  }
 }
 
 class _DirectivesHeader extends StatelessWidget {
   final int count;
-  final bool canCreate;
+  final int totalCount;
+  final String query;
+  final ValueChanged<String> onQueryChanged;
 
-  const _DirectivesHeader({required this.count, required this.canCreate});
+  const _DirectivesHeader({
+    required this.count,
+    required this.totalCount,
+    required this.query,
+    required this.onQueryChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8F8),
-        borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(color: BafColors.directives.withValues(alpha: 0.18)),
-        boxShadow: BafShadows.subtle,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: BafColors.directives.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Directives',
+                    style: TextStyle(
+                      color: BafColors.textPrimary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Clear operational instructions, ownership and closure tracking.',
+                    style: TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: const Icon(
-              Icons.assignment_late_rounded,
+            const SizedBox(width: BafSpacing.sm),
+            StatusBadge(
+              label: '$count active',
               color: BafColors.directives,
-              size: 30,
+              icon: Icons.flag_outlined,
             ),
+          ],
+        ),
+        const SizedBox(height: BafSpacing.md),
+        TextField(
+          key: const ValueKey('directives-search'),
+          onChanged: onQueryChanged,
+          decoration: const InputDecoration(
+            hintText: 'Search title, asset or target role',
+            prefixIcon: Icon(Icons.search_rounded),
+            isDense: true,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Directives',
-                  style: TextStyle(
-                    color: BafColors.textPrimary,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Clear operational instructions, ownership and closure tracking.',
-                  style: TextStyle(
-                    color: BafColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    StatusBadge(
-                      label: '$count active',
-                      color: BafColors.directives,
-                      icon: Icons.flag_rounded,
-                    ),
-                    StatusBadge(
-                      label: canCreate ? 'Can create' : 'View only',
-                      color: canCreate ? BafColors.sync : BafColors.admin,
-                      icon:
-                          canCreate
-                              ? Icons.edit_note_rounded
-                              : Icons.visibility_rounded,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+        ),
+        const SizedBox(height: BafSpacing.xs),
+        Text(
+          query.trim().isEmpty
+              ? '$totalCount visible to your role'
+              : '$count of $totalCount matching',
+          style: const TextStyle(
+            color: BafColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
 class _EmptyDirectivesState extends StatelessWidget {
-  const _EmptyDirectivesState();
+  final bool hasSearch;
+
+  const _EmptyDirectivesState({required this.hasSearch});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: BafColors.card,
-            borderRadius: BorderRadius.circular(BafRadius.large),
-            border: Border.all(color: BafColors.border),
-            boxShadow: BafShadows.subtle,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: BafSpacing.xl),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: BafColors.sync.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.task_alt_rounded,
+              size: 32,
+              color: BafColors.sync,
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 66,
-                height: 66,
-                decoration: BoxDecoration(
-                  color: BafColors.sync.withValues(alpha: 0.10),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.task_alt_rounded,
-                  size: 38,
-                  color: BafColors.sync,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'No active directives',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: BafColors.textPrimary,
-                  fontSize: 21,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'All clear — no pending instructions for your role.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: BafColors.textSecondary,
-                  fontSize: 13,
-                  height: 1.3,
-                ),
-              ),
-            ],
+          const SizedBox(height: BafSpacing.md),
+          const Text(
+            'No directives found',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: BafColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        ),
+          const SizedBox(height: BafSpacing.xs),
+          Text(
+            hasSearch
+                ? 'No active directive matches this search.'
+                : 'All clear - no pending instructions for your role.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: BafColors.textSecondary,
+              fontSize: 13,
+              height: 1.3,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -543,7 +576,10 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       await repo.acknowledgeDirective(id, actor: appUser);
 
       unawaited(
-        syncCoordinator.runFullSync(reason: 'directive_acknowledged', force: true),
+        syncCoordinator.runFullSync(
+          reason: 'directive_acknowledged',
+          force: true,
+        ),
       );
 
       if (!mounted) return;
