@@ -22,12 +22,18 @@ abstract interface class WorkflowRepository {
   Future<WorkflowAggregateRecord?> getWorkflow(String workflowId);
   Future<List<JobLaneRecord>> getLanes(String workflowId);
   Future<List<ComplianceRequestRecord>> getCompliance(String workflowId);
-  Future<EquipmentStatusRecord?> getEquipment(String assetTypeKey, int assetNumber);
+  Future<ComplianceRequestRecord?> getComplianceById(String complianceId);
+  Future<EquipmentStatusRecord?> getEquipment(
+    String assetTypeKey,
+    int assetNumber,
+  );
 
   Future<void> upsertWorkflowFromRemote(WorkflowAggregateRecord record);
   Future<void> upsertLaneFromRemote(JobLaneRecord record);
   Future<void> upsertComplianceFromRemote(ComplianceRequestRecord record);
-  Future<void> upsertComplianceAttemptFromRemote(ComplianceAttemptRecord record);
+  Future<void> upsertComplianceAttemptFromRemote(
+    ComplianceAttemptRecord record,
+  );
   Future<void> upsertEquipmentFromRemote(EquipmentStatusRecord record);
   Future<void> upsertPromptFromRemote(EquipmentPromptRecord record);
   Future<void> upsertEventFromRemote(WorkflowEventRecord record);

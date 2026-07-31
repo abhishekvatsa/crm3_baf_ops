@@ -23,16 +23,16 @@ class IsarWorkflowRepository implements WorkflowRepository {
   const IsarWorkflowRepository(this.isar);
 
   @override
-  Stream<WorkflowAggregateRecord?> watchWorkflow(String workflowId) =>
-      isar.workflowAggregateRecords
-          .where()
-          .watch(fireImmediately: true)
-          .map((rows) {
-            for (final row in rows) {
-              if (row.firestoreId == workflowId) return row;
-            }
-            return null;
-          });
+  Stream<WorkflowAggregateRecord?> watchWorkflow(String workflowId) => isar
+      .workflowAggregateRecords
+      .where()
+      .watch(fireImmediately: true)
+      .map((rows) {
+        for (final row in rows) {
+          if (row.firestoreId == workflowId) return row;
+        }
+        return null;
+      });
 
   @override
   Stream<List<JobLaneRecord>> watchLanes(String workflowId) =>
@@ -47,79 +47,86 @@ class IsarWorkflowRepository implements WorkflowRepository {
   @override
   Stream<List<JobLaneRecord>> watchLanesByLane(String laneKey) =>
       isar.jobLaneRecords.where().watch(fireImmediately: true).map((rows) {
-        final result = rows.where((row) => row.laneKey == laneKey).toList()
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        final result =
+            rows.where((row) => row.laneKey == laneKey).toList()
+              ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
         return result;
       });
 
   @override
   Stream<List<JobLaneRecord>> watchAllLanes() =>
       isar.jobLaneRecords.where().watch(fireImmediately: true).map((rows) {
-        final result = rows.where((row) => !row.isDeleted).toList()
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        final result =
+            rows.where((row) => !row.isDeleted).toList()
+              ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
         return result;
       });
 
   @override
   Stream<List<ComplianceRequestRecord>> watchCompliance(String workflowId) =>
-      isar.complianceRequestRecords
-          .where()
-          .watch(fireImmediately: true)
-          .map((rows) {
-            final result = rows
-                .where((row) => row.linkedWorkflowId == workflowId)
-                .toList()
+      isar.complianceRequestRecords.where().watch(fireImmediately: true).map((
+        rows,
+      ) {
+        final result =
+            rows.where((row) => row.linkedWorkflowId == workflowId).toList()
               ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-            return result;
-          });
+        return result;
+      });
 
   @override
-  Stream<List<WorkflowEventRecord>> watchEvents(String workflowId) =>
-      isar.workflowEventRecords.where().watch(fireImmediately: true).map((rows) {
-        final result = rows.where((row) => row.aggregateId == workflowId).toList()
-          ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+  Stream<List<WorkflowEventRecord>> watchEvents(String workflowId) => isar
+      .workflowEventRecords
+      .where()
+      .watch(fireImmediately: true)
+      .map((rows) {
+        final result =
+            rows.where((row) => row.aggregateId == workflowId).toList()
+              ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
         return result;
       });
 
   @override
   Stream<List<ComplianceRequestRecord>> watchComplianceInbox(String laneKey) =>
-      isar.complianceRequestRecords
-          .where()
-          .watch(fireImmediately: true)
-          .map((rows) {
-            final result = rows
+      isar.complianceRequestRecords.where().watch(fireImmediately: true).map((
+        rows,
+      ) {
+        final result =
+            rows
                 .where((row) => row.targetLaneKey == laneKey && !row.isDeleted)
                 .toList()
               ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-            return result;
-          });
+        return result;
+      });
 
   @override
-  Stream<List<ComplianceRequestRecord>> watchAllCompliance() =>
-      isar.complianceRequestRecords
-          .where()
-          .watch(fireImmediately: true)
-          .map((rows) {
-            final result = rows.where((row) => !row.isDeleted).toList()
+  Stream<List<ComplianceRequestRecord>> watchAllCompliance() => isar
+      .complianceRequestRecords
+      .where()
+      .watch(fireImmediately: true)
+      .map((rows) {
+        final result =
+            rows.where((row) => !row.isDeleted).toList()
               ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-            return result;
-          });
+        return result;
+      });
 
   @override
   Stream<List<EquipmentStatusRecord>> watchEquipmentByState(String? stateKey) =>
-      isar.equipmentStatusRecords
-          .where()
-          .watch(fireImmediately: true)
-          .map((rows) {
-            final result = rows
+      isar.equipmentStatusRecords.where().watch(fireImmediately: true).map((
+        rows,
+      ) {
+        final result =
+            rows
                 .where((row) => stateKey == null || row.stateKey == stateKey)
                 .toList()
               ..sort((a, b) {
                 final type = a.assetTypeKey.compareTo(b.assetTypeKey);
-                return type != 0 ? type : a.assetNumber.compareTo(b.assetNumber);
+                return type != 0
+                    ? type
+                    : a.assetNumber.compareTo(b.assetNumber);
               });
-            return result;
-          });
+        return result;
+      });
 
   @override
   Future<WorkflowAggregateRecord?> getWorkflow(String workflowId) async {
@@ -151,6 +158,17 @@ class IsarWorkflowRepository implements WorkflowRepository {
   }
 
   @override
+  Future<ComplianceRequestRecord?> getComplianceById(
+    String complianceId,
+  ) async {
+    final rows = await isar.complianceRequestRecords.where().findAll();
+    for (final row in rows) {
+      if (!row.isDeleted && row.firestoreId == complianceId) return row;
+    }
+    return null;
+  }
+
+  @override
   Future<EquipmentStatusRecord?> getEquipment(
     String assetTypeKey,
     int assetNumber,
@@ -177,8 +195,9 @@ class IsarWorkflowRepository implements WorkflowRepository {
       isar.writeTxn(() async => isar.complianceRequestRecords.put(record));
 
   @override
-  Future<void> upsertComplianceAttemptFromRemote(ComplianceAttemptRecord record) =>
-      isar.writeTxn(() async => isar.complianceAttemptRecords.put(record));
+  Future<void> upsertComplianceAttemptFromRemote(
+    ComplianceAttemptRecord record,
+  ) => isar.writeTxn(() async => isar.complianceAttemptRecords.put(record));
 
   @override
   Future<void> upsertEquipmentFromRemote(EquipmentStatusRecord record) =>
@@ -228,9 +247,7 @@ class IsarWorkflowRepository implements WorkflowRepository {
   Future<List<WorkflowCommandRecord>> getPendingCommands() async {
     final rows = await isar.workflowCommandRecords.where().findAll();
     final pending = rows
-        .where(
-          (row) => row.stateKey != 'applied' && row.stateKey != 'rejected',
-        )
+        .where((row) => row.stateKey != 'applied' && row.stateKey != 'rejected')
         .toList(growable: false)
       ..sort((a, b) => a.createdLocallyAt.compareTo(b.createdLocallyAt));
     return pending;

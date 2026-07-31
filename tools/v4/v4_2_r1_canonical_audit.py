@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 279
-    and counts.get("SUCCESSOR_MODIFIED") == 131
+    and counts.get("BYTE_IDENTICAL") == 275
+    and counts.get("SUCCESSOR_MODIFIED") == 135
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -2398,6 +2398,66 @@ check(
     and "Status: SOURCE_IMPLEMENTED" in r03_decision
     and "Merge and exact-head CI evidence: PENDING" in r03_decision
     and "No production deployment, device proof, F4 closure" in r03_decision,
+)
+
+ui_alignment_decision = text(
+    "docs/v4_2_r1/UI_BUSINESS_LOGIC_ALIGNMENT.md"
+)
+ui_home_source = text("lib/home_screen.dart")
+ui_user_source = text("lib/features/auth/data/user_model.dart")
+ui_equipment_source = text(
+    "lib/features/maintenance_workflow/presentation/screens/"
+    "equipment_status_board.dart"
+)
+ui_workflow_provider_source = text(
+    "lib/features/maintenance_workflow/providers/workflow_providers.dart"
+)
+ui_planned_detail_source = text(
+    "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart"
+)
+ui_completion_source = text(
+    "lib/features/planned_maintenance/presentation/complete_job_screen.dart"
+)
+ui_abnormality_source = text(
+    "lib/features/abnormalities/presentation/abnormalities_home_screen.dart"
+)
+ui_audit_source = text(
+    "lib/features/audit/presentation/audit_timeline_screen.dart"
+)
+ui_diagnostics_source = text(
+    "lib/features/maintenance_workflow/presentation/screens/"
+    "workflow_diagnostics_screen.dart"
+)
+ui_alignment_test = text("test/ui_business_alignment_test.dart")
+diagnostics_guard = ui_diagnostics_source.find(
+    "!actor.canViewMaintenanceWorkflowDiagnostics"
+)
+diagnostics_read = ui_diagnostics_source.find("_future ??= _load()")
+check(
+    "Cross-app UI authority and workflow semantics remain policy-aligned",
+    "Status: SOURCE_IMPLEMENTED" in ui_alignment_decision
+    and "Merge and exact-head CI evidence: PENDING" in ui_alignment_decision
+    and "message.data['complianceId']" in ui_home_source
+    and "ComplianceNotificationScreen(" in ui_home_source
+    and "module: BafModules.charges" not in ui_home_source
+    and "canDeployMaintenanceEquipment" in ui_user_source
+    and "row.stateKey == 'available' && canDeploy" in ui_equipment_source
+    and "final local = await repository.getComplianceById(id)"
+        in ui_workflow_provider_source
+    and "await ref.read(workflowPullServiceProvider).pull()"
+        in ui_workflow_provider_source
+    and "final showBottomActions =" in ui_planned_detail_source
+    and "if (!execution.isGovernedTemplateAssignment)" in ui_planned_detail_source
+    and "if (!widget.execution.isGovernedTemplateAssignment)"
+        in ui_completion_source
+    and "canManageTypes: canManageTypes" in ui_abnormality_source
+    and "!actor.canReviewSyncConflicts" in ui_audit_source
+    and diagnostics_guard >= 0
+    and diagnostics_read > diagnostics_guard
+    and "diagnostics rejects before reading privileged local data"
+        in ui_alignment_test
+    and "authorized governed dossier is stable" in ui_alignment_test
+    and "does not prove the F4 physical-device matrix" in ui_alignment_decision,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

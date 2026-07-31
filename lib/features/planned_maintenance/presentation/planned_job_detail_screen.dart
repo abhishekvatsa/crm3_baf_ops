@@ -35,13 +35,10 @@ part 'dossier/planned_job_detail_common.dart';
 part 'dossier/planned_job_diary_dossier.dart';
 part 'dossier/planned_job_module_dossier.dart';
 
-/// Read-only planned-maintenance job dossier for the current legacy execution
-/// model.
+/// Planned-maintenance dossier for legacy and governed job executions.
 ///
-/// This is intentionally additive. It does not change JobExecution,
-/// JobTemplate, sync, repositories, or completion behavior. The screen acts as
-/// the first "legacy single-module dossier" foundation for the future
-/// module/diary/workspace architecture.
+/// Mutation affordances are derived from the current actor. The repositories
+/// and server remain the final authority for every submitted action.
 class PlannedJobDetailScreen extends ConsumerStatefulWidget {
   final JobExecution execution;
 
@@ -495,6 +492,12 @@ class _PlannedJobDetailScreenState
   @override
   Widget build(BuildContext context) {
     final execution = widget.execution;
+    final actor = ref.watch(currentAppUserProvider).value;
+    final canAddDiaryEntry = actor?.canCreateJobDiaryEntry ?? false;
+    final canAddModule = actor?.canAddJobModuleDuringExecution ?? false;
+    final canCompleteJob = actor?.canCompleteJobExecution ?? false;
+    final showBottomActions =
+        !execution.isCompleted && (canAddDiaryEntry || canCompleteJob);
     final statusColor =
         execution.isCompleted ? BafColors.sync : BafColors.warning;
     final diaryAsync = ref.watch(
@@ -533,7 +536,7 @@ class _PlannedJobDetailScreenState
           BafSpacing.lg,
           BafSpacing.md,
           BafSpacing.lg,
-          execution.isCompleted ? BafSpacing.xl : 112,
+          showBottomActions ? 112 : BafSpacing.xl,
         ),
         children: [
           _DossierHeaderCard(
@@ -648,16 +651,18 @@ class _PlannedJobDetailScreenState
               ),
             ],
           ),
-          const SizedBox(height: BafSpacing.lg),
-          _SectionCard(
-            title: 'Legacy module summary',
-            subtitle:
-                'Current jobs are shown as one legacy execution module until module instances are introduced.',
-            icon: Icons.view_module_rounded,
-            children: [
-              _LegacyModuleCard(execution: execution, template: _template),
-            ],
-          ),
+          if (!execution.isGovernedTemplateAssignment) ...[
+            const SizedBox(height: BafSpacing.lg),
+            _SectionCard(
+              title: 'Legacy execution summary',
+              subtitle:
+                  'Original execution-level evidence retained for jobs created from a legacy template.',
+              icon: Icons.view_module_rounded,
+              children: [
+                _LegacyModuleCard(execution: execution, template: _template),
+              ],
+            ),
+          ],
           const SizedBox(height: BafSpacing.lg),
           _SectionCard(
             title:
@@ -673,7 +678,7 @@ class _PlannedJobDetailScreenState
               _ProcessModuleDossier(
                 modulesAsync: modulesAsync,
                 isOpenJob: !execution.isCompleted,
-                onAddModule: _openAddJobModuleSheet,
+                onAddModule: canAddModule ? _openAddJobModuleSheet : null,
                 onOpenModule: _openModuleWorkspace,
               ),
             ],
@@ -693,29 +698,31 @@ class _PlannedJobDetailScreenState
               _DiaryDossier(
                 entriesAsync: diaryAsync,
                 isOpenJob: !execution.isCompleted,
-                onAddEntry: _openAddDiaryEntrySheet,
+                onAddEntry: canAddDiaryEntry ? _openAddDiaryEntrySheet : null,
               ),
             ],
           ),
-          const SizedBox(height: BafSpacing.lg),
-          _SectionCard(
-            title:
-                execution.isCompleted
-                    ? 'Closed checklist responses'
-                    : 'Checklist responses',
-            subtitle:
-                execution.isCompleted
-                    ? 'Final legacy checklist responses preserved as the submitted job evidence.'
-                    : 'Template fields and submitted responses for this job.',
-            icon: Icons.fact_check_rounded,
-            children: [
-              _ChecklistDossier(
-                template: _template,
-                responses: execution.responses,
-                isLoadingTemplate: _isLoadingTemplate,
-              ),
-            ],
-          ),
+          if (!execution.isGovernedTemplateAssignment) ...[
+            const SizedBox(height: BafSpacing.lg),
+            _SectionCard(
+              title:
+                  execution.isCompleted
+                      ? 'Closed checklist responses'
+                      : 'Checklist responses',
+              subtitle:
+                  execution.isCompleted
+                      ? 'Final legacy checklist responses preserved as the submitted job evidence.'
+                      : 'Template fields and submitted responses for this job.',
+              icon: Icons.fact_check_rounded,
+              children: [
+                _ChecklistDossier(
+                  template: _template,
+                  responses: execution.responses,
+                  isLoadingTemplate: _isLoadingTemplate,
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: BafSpacing.lg),
           _SectionCard(
             title:
@@ -724,8 +731,8 @@ class _PlannedJobDetailScreenState
                     : 'Actions / observations',
             subtitle:
                 execution.isCompleted
-                    ? 'Final component-level observations, replacements and work notes captured at closure.'
-                    : 'Component-level observations and work recorded at completion.',
+                    ? 'Final cross-module observations and work notes captured at closure.'
+                    : 'Cross-module observations and work to record at completion.',
             icon: Icons.build_circle_rounded,
             children: [
               if (execution.actions.isEmpty)
@@ -747,7 +754,9 @@ class _PlannedJobDetailScreenState
             subtitle:
                 execution.isCompleted
                     ? 'Final completion remarks and raw metadata preserved with the closed job dossier.'
-                    : 'Current legacy remarks are preserved here until assignment notes, diary and final remarks are split.',
+                    : execution.isGovernedTemplateAssignment
+                    ? 'Assignment context, final remarks and governed lineage metadata.'
+                    : 'Legacy remarks are preserved here alongside diary and final closure notes.',
             icon: Icons.notes_rounded,
             children: [
               if (_hasText(execution.remarks))
@@ -767,11 +776,11 @@ class _PlannedJobDetailScreenState
         ],
       ),
       bottomNavigationBar:
-          execution.isCompleted
+          !showBottomActions
               ? null
               : _OpenJobBottomBar(
-                onAddEntry: _openAddDiaryEntrySheet,
-                onComplete: _openCompletionScreen,
+                onAddEntry: canAddDiaryEntry ? _openAddDiaryEntrySheet : null,
+                onComplete: canCompleteJob ? _openCompletionScreen : null,
               ),
     );
   }
