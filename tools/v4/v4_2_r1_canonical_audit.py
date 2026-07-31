@@ -1346,12 +1346,18 @@ build6_exception_path = (
     / "release/approvals/"
     / "private-repository-environment-reviewer-exception-build-6.json"
 )
+build6_completion_path = (
+    ROOT / "release/evidence/build-6-finalization-closure.json"
+)
 build6_approval = data(
     "release/approvals/build-number-6-rollover-approval.json"
 )
 build6_exception = data(
     "release/approvals/"
     "private-repository-environment-reviewer-exception-build-6.json"
+)
+build6_completion = data(
+    "release/evidence/build-6-finalization-closure.json"
 )
 version_policy_approval = data(
     "release/approvals/version-policy-approval.json"
@@ -1364,7 +1370,7 @@ build6_entries = [
 ]
 build6_entry = build6_entries[0] if len(build6_entries) == 1 else {}
 check(
-    "Build 6 source authority is exact, pending and non-distributable",
+    "Build 6 is finalized, dual-custodied and non-distributable",
     sha(build6_approval_path)
         == combined_policy.get("versionPolicy", {}).get(
             "sourceDocumentSha256"
@@ -1414,14 +1420,18 @@ check(
     and version_policy_approval.get("buildNumber") == 6
     and combined_policy.get("release", {}).get("buildNumber") == 6
     and combined_policy.get("finalization", {}).get("status")
-        == "pending-source-authorized"
+        == "completed-non-distributable"
+    and sha(build6_completion_path)
+        == combined_policy.get("finalization", {}).get(
+            "completionReceiptSha256"
+        )
     and combined_policy.get("finalization", {}).get(
         "dualCustodyCompleted"
     )
-        is False
+        is True
     and combined_policy.get("distribution", {}).get("approved") is False
     and build6_entry.get("status")
-        == "source-reserved-awaiting-remote-consumption"
+        == "remote-consumed-artifact-built-finalized-non-distributable"
     and len(build6_entry.get("preReservationDispatchFailures", [])) == 1
     and build6_entry.get("preReservationDispatchFailures", [{}])[0].get(
         "githubRunId"
@@ -1442,9 +1452,53 @@ check(
         "numberConsumed"
     )
         is False
-    and "githubRunId" not in build6_entry
-    and "remoteReservationTagObject" not in build6_entry
-    and "remoteBuiltTagObject" not in build6_entry,
+    and build6_completion.get("status") == "passed-non-distributable"
+    and build6_completion.get("sourceAuthority", {}).get("commit")
+        == "f6fccc662119790bcc742ff91e00934117030948"
+    and build6_completion.get("workflow", {}).get("runId")
+        == 30572342725
+    and build6_completion.get("governedPackage", {}).get("sha256")
+        == "E36C39E40C4B92B0721DAD916F050F439644FDF7FC40A36C1EB579571EBD074E"
+    and build6_completion.get("remoteAuthority", {}).get(
+        "reservationTagObjectSha"
+    )
+        == "9c82843b84194c9eeef9a4d7ec7b81d1d0c8caa7"
+    and build6_completion.get("remoteAuthority", {}).get(
+        "builtTagObjectSha"
+    )
+        == "189f668f8f59f934b1baec0b9bdf723dc7960b6c"
+    and build6_completion.get("dualCustody", {}).get("distinctVolumes")
+        is True
+    and build6_completion.get("dualCustody", {}).get(
+        "allFileHashesMatched"
+    )
+        is True
+    and build6_completion.get("finalizationRetryIncident", {}).get(
+        "occurred"
+    )
+        is True
+    and build6_completion.get("recoveryIncident", {}).get("occurred")
+        is False
+    and build6_completion.get("releaseBoundary", {}).get(
+        "firebaseBackendDeploymentPerformed"
+    )
+        is False
+    and build6_completion.get("releaseBoundary", {}).get(
+        "controlledPilotApproved"
+    )
+        is False
+    and build6_completion.get("releaseBoundary", {}).get(
+        "distributionPerformed"
+    )
+        is False
+    and build6_entry.get("githubRunId") == 30572342725
+    and build6_entry.get("remoteReservationTagObject")
+        == "9c82843b84194c9eeef9a4d7ec7b81d1d0c8caa7"
+    and build6_entry.get("remoteBuiltTagObject")
+        == "189f668f8f59f934b1baec0b9bdf723dc7960b6c"
+    and build6_entry.get("closureFinalizationCompleted") is True
+    and build6_entry.get("dualCustodyCompleted") is True
+    and build6_entry.get("distributionPerformed") is False,
 )
 global_pull_manifest = data("governance/global-pull-protocol-v1.json")
 global_pull_contract = global_pull_manifest.get("fingerprintedContract", {})

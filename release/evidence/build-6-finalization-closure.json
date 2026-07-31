@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "production-build-finalization-closure",
+  "status": "passed-non-distributable",
+  "release": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b6",
+    "version": "1.0.0-rc.1+6",
+    "buildNumber": 6,
+    "applicationId": "in.co.sail.bsl.crm3.bafops"
+  },
+  "sourceAuthority": {
+    "commit": "f6fccc662119790bcc742ff91e00934117030948",
+    "tree": "b3262b2bb337dfd53d8a85bcee52e677ff50f82c",
+    "pullRequestNumber": 82,
+    "productionPolicySha256AtBuild": "9FCCE06D8DBEE23D41499BF915F856A47CFEFD61D12CA5672C9914BD5BA04BF6",
+    "finalizerSha256AtBuild": "B6D01F1DEF8E5A878316A050059A24BDE32BEA6EA114CD3E44C8B6E0ADD9ED90"
+  },
+  "workflow": {
+    "path": ".github/workflows/production-artifact.yml",
+    "runId": 30572342725,
+    "runAttempt": 1,
+    "url": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30572342725",
+    "startedAtUtc": "2026-07-30T18:52:31Z",
+    "completedAtUtc": "2026-07-30T19:15:47Z",
+    "conclusion": "success",
+    "actor": "abhishekvatsa",
+    "actorId": 213690022,
+    "triggeringActor": "abhishekvatsa",
+    "dispatchApprovalReference": "BAF-REF-003-C5",
+    "environmentExceptionApprovalReference": "BAF-GH-ENV-002",
+    "environmentReviewControlMode": "private-repository-plan-exception",
+    "secretNamesVerified": 4,
+    "secretValuesInspected": false
+  },
+  "githubArtifact": {
+    "id": 8771948980,
+    "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.1-b6-f6fccc662119790bcc742ff91e00934117030948-run-30572342725",
+    "sizeBytes": 152940614,
+    "digest": "sha256:168a4673ab42e13324904039544798458860e209aff86728f4e150f4d682ed8f"
+  },
+  "governedPackage": {
+    "file": "crm3-baf-ops-1.0.0-rc.1-b6-GOVERNED-PACKAGE.zip",
+    "sha256": "E36C39E40C4B92B0721DAD916F050F439644FDF7FC40A36C1EB579571EBD074E",
+    "sidecarFile": "crm3-baf-ops-1.0.0-rc.1-b6-GOVERNED-PACKAGE.zip.sha256.txt",
+    "sidecarSha256": "3A97A56B56A4A000AF4A5B8690D3981E0F4944B2A0CE4D3DE9FAD6C1804D5DD0",
+    "manifestSha256": "F45D0706408F9A4451B1F5DDF10818AAF27464C3AE7223A12A0C8DBDD0372FB5",
+    "apkSha256": "01D26049E200730EC1DBF0FEE85D483A9FA820D68F020110E57AC95AF2EBE755",
+    "aabSha256": "2D625BC9C58A65F0A0F32C0C6CD0E9685637DB316CF749F81924943FF633766A",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "independentVerificationCompleted": true
+  },
+  "remoteAuthority": {
+    "reservationTag": "crm3-build-reserved/6",
+    "reservationTagCreatedAtUtc": "2026-07-30T19:02:25Z",
+    "reservationTagObjectSha": "9c82843b84194c9eeef9a4d7ec7b81d1d0c8caa7",
+    "reservationTagCommit": "f6fccc662119790bcc742ff91e00934117030948",
+    "reservationTagMessageSha256": "FD08829C206FB3048DBD5053CBE2F3130D4987231396877EE73D3EBAA5BB37DA",
+    "builtTag": "crm3-build-built/6",
+    "builtTagCreatedAtUtc": "2026-07-30T19:32:19Z",
+    "builtTagObjectSha": "189f668f8f59f934b1baec0b9bdf723dc7960b6c",
+    "builtTagCommit": "f6fccc662119790bcc742ff91e00934117030948",
+    "builtTagMessageSha256": "54EE89B6E33B0DF5CFD668A2BBA8591238F9D79FC1352EB5C847AEC739906CFD"
+  },
+  "dualCustody": {
+    "status": "passed",
+    "primaryVolumeRole": "operator-primary",
+    "backupVolumeRole": "offline-removable-backup",
+    "distinctVolumes": true,
+    "filesVerifiedInBothLocations": 6,
+    "allFileHashesMatched": true,
+    "completedAtUtc": "2026-07-30T19:32:57.1680290Z"
+  },
+  "closure": {
+    "decisionSchemaVersion": 4,
+    "decisionAtUtc": "2026-07-30T19:32:29.9373755Z",
+    "successfulWorkDirectoryName": "CRM_III_BAF_Ops_O1_O5_FINALIZATION_20260731_005826",
+    "closurePackageFile": "CRM_III_BAF_Ops_O1_O5_CLOSURE_20260731_005826.zip",
+    "closurePackageSha256": "A22ABCFCB19E856A7C51147AC9BAC79BCA856ECECB698140DA38D9FE22DC3517",
+    "closureSidecarSha256": "6AA8A1DC0005E6ED8DE186F896DE91E7BFDC89076F873492D161AFED79CF2A43",
+    "custodyRecordFile": "CRM_III_BAF_Ops_O1_O5_CUSTODY_20260731_005826.json",
+    "custodyRecordSha256": "4F97B6EF90B382872099183AF5F825F16CFC0315099D11EE2AB9AFC06DF1F57C",
+    "custodySidecarSha256": "E7EA3E5207088EF376673AB07B69B37BF9BF500467DC59F9F555BEE72764D167"
+  },
+  "preReservationDispatchIncident": {
+    "occurred": true,
+    "githubRunId": 30531942779,
+    "sourceCommit": "d4fd85f0cffcc51ff822ccdc4160dc39984ad496",
+    "failureBoundary": "java-distribution-resolution-before-secret-preflight-and-reservation",
+    "remoteReservationCreated": false,
+    "productionKeystoreRestored": false,
+    "artifactConstructed": false,
+    "numberConsumed": false,
+    "sourceCorrection": {
+      "pullRequestNumber": 82,
+      "mergeCommit": "f6fccc662119790bcc742ff91e00934117030948",
+      "javaDistributionVersion": "21.0.11+10.0.LTS",
+      "javaRuntimeVersion": "21.0.11+10"
+    }
+  },
+  "finalizationRetryIncident": {
+    "occurred": true,
+    "initialAttemptWorkDirectoryName": "CRM_III_BAF_Ops_O1_O5_FINALIZATION_20260731_005433",
+    "failureBoundary": "github-artifact-download-before-custody-and-built-tag",
+    "cause": "The remote host reset the network connection while gh was writing the downloaded workflow artifact archive.",
+    "stateBeforeRetry": {
+      "remoteReservationTagPresent": true,
+      "productionPackageDualCustodyCompleted": false,
+      "remoteBuiltTagPresent": false,
+      "rebuildPerformed": false,
+      "workflowRerunPerformed": false
+    },
+    "retry": {
+      "method": "unchanged-finalizer-same-run-rerun",
+      "sameGithubRunReused": true,
+      "sameArtifactNameReused": true,
+      "forceUsed": false
+    },
+    "verification": {
+      "samePackageHashVerified": true,
+      "dualCustodyPassed": true,
+      "builtTagCreated": true,
+      "closurePassed": true
+    }
+  },
+  "recoveryIncident": {
+    "occurred": false,
+    "forceUsed": false
+  },
+  "releaseBoundary": {
+    "authority": "production-signed-pre-release-candidate",
+    "firebaseBackendDeploymentPerformed": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false,
+    "distributionPerformed": false,
+    "postBuildPromotionRequiredForAnyDistribution": true
+  }
+}
