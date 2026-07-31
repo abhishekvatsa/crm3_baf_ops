@@ -12,7 +12,9 @@ import 'features/planned_maintenance/presentation/templates_screen.dart';
 import 'features/planned_maintenance/presentation/module_composer_screen.dart';
 import 'features/planned_maintenance/presentation/template_publisher_screen.dart';
 import 'features/planned_maintenance/presentation/knowledge_governance_screen.dart';
+import 'features/planned_maintenance/presentation/closed_job_dossiers_screen.dart';
 import 'features/assets/presentation/asset_timeline_screen.dart';
+import 'features/audit/presentation/audit_timeline_screen.dart';
 import 'features/admin/presentation/admin_data_browser.dart';
 import 'features/admin/presentation/local_diagnostics_screen.dart';
 import 'features/directives/presentation/directives_screen.dart';
@@ -338,8 +340,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               appUser: appUser,
               onAssets: () => _push(context, const AssetTimelineScreen()),
               onClosed: () => _push(context, const ClosedTicketsScreen()),
+              onClosedJobs:
+                  () => _push(context, const ClosedJobDossiersScreen()),
               onReports: () => _push(context, const FleetStatusScreen()),
               onAdmin: () => _push(context, const AdminDataBrowser()),
+              onAuditLog: () => _push(context, const RecentAuditLogScreen()),
               onAbnormalities:
                   () => _push(context, const AbnormalitiesHomeScreen()),
               onTemplateAuthoring: () => _openModuleComposer(context, appUser),
@@ -661,8 +666,10 @@ class _MoreScreen extends StatelessWidget {
   final AppUser appUser;
   final VoidCallback onAssets;
   final VoidCallback onClosed;
+  final VoidCallback onClosedJobs;
   final VoidCallback onReports;
   final VoidCallback onAdmin;
+  final VoidCallback onAuditLog;
   final VoidCallback onAbnormalities;
   final VoidCallback onTemplateAuthoring;
   final VoidCallback onTemplatePublisher;
@@ -673,8 +680,10 @@ class _MoreScreen extends StatelessWidget {
     required this.appUser,
     required this.onAssets,
     required this.onClosed,
+    required this.onClosedJobs,
     required this.onReports,
     required this.onAdmin,
+    required this.onAuditLog,
     required this.onAbnormalities,
     required this.onTemplateAuthoring,
     required this.onTemplatePublisher,
@@ -684,8 +693,9 @@ class _MoreScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canSeeOperationalData = appUser.canSeeAllTickets;
-    final canSeeClosed = appUser.canCloseAnyTicket;
+    final canSeeOperationalData = appUser.canViewOperationalAssets;
+    final canSeeClosed = appUser.canViewClosedMaintenanceTickets;
+    final canSeeClosedJobs = appUser.canViewClosedJobDossiers;
     final canSeeReports = appUser.canViewReports;
 
     return SafeArea(
@@ -738,9 +748,18 @@ class _MoreScreen extends StatelessWidget {
                     _MoreDestinationTile(
                       icon: Icons.history_rounded,
                       color: BafColors.audit,
-                      title: 'Resolved history',
-                      subtitle: 'Closed issues and their audit trail',
+                      title: 'Resolved issues',
+                      subtitle: 'Closed maintenance issues and reopen history',
                       onTap: onClosed,
+                    ),
+                  if (canSeeClosedJobs)
+                    _MoreDestinationTile(
+                      icon: Icons.inventory_2_outlined,
+                      color: BafColors.planned,
+                      title: 'Closed job dossiers',
+                      subtitle:
+                          'Recent completed and cancelled planned-job records',
+                      onTap: onClosedJobs,
                     ),
                   if (canSeeReports)
                     _MoreDestinationTile(
@@ -783,6 +802,7 @@ class _MoreScreen extends StatelessWidget {
                 ),
               ],
               if (appUser.canOpenAdminDataBrowser ||
+                  appUser.canViewAuditLogs ||
                   appUser.canViewMaintenanceWorkflowDiagnostics) ...[
                 const SizedBox(height: BafSpacing.xl),
                 _MoreSection(
@@ -795,6 +815,14 @@ class _MoreScreen extends StatelessWidget {
                         title: 'Administration',
                         subtitle: 'Users, roles and governed data controls',
                         onTap: onAdmin,
+                      ),
+                    if (appUser.canViewAuditLogs)
+                      _MoreDestinationTile(
+                        icon: Icons.fact_check_outlined,
+                        color: BafColors.audit,
+                        title: 'Audit log',
+                        subtitle: 'Recent governed changes and evidence',
+                        onTap: onAuditLog,
                       ),
                     if (appUser.canViewMaintenanceWorkflowDiagnostics)
                       _MoreDestinationTile(

@@ -2479,6 +2479,25 @@ operational_ux_directives = text(
 )
 operational_ux_theme = text("lib/core/theme/baf_design_system.dart")
 operational_ux_test = text("test/operational_ux_restructure_test.dart")
+functionality_representation_test = text(
+    "test/functionality_representation_ux_test.dart"
+)
+functionality_representation_user = text(
+    "lib/features/auth/data/user_model.dart"
+)
+functionality_representation_dossiers = text(
+    "lib/features/planned_maintenance/presentation/closed_job_dossiers_screen.dart"
+)
+functionality_representation_provider = text(
+    "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart"
+)
+functionality_representation_audit = text(
+    "lib/features/audit/presentation/audit_timeline_screen.dart"
+)
+functionality_representation_panel = text(
+    "lib/features/maintenance_workflow/presentation/widgets/"
+    "planned_job_workflow_panel.dart"
+)
 check(
     "Operational UX is task-first, role-scoped and responsive",
     "Status: SOURCE_IMPLEMENTED" in operational_ux_decision
@@ -2506,6 +2525,39 @@ check(
     and "operations Work is task-first" in operational_ux_test
     and "empty Issues keeps reporting primary" in operational_ux_test
     and "Directives supports immediate search" in operational_ux_test,
+)
+check(
+    "Operational functionality is represented for each entitled role and authorizes before reads",
+    "## Functionality Representation Re-audit" in operational_ux_decision
+    and "canViewOperationalAssets => isApproved"
+        in functionality_representation_user
+    and "canViewClosedMaintenanceTickets => isApproved"
+        in functionality_representation_user
+    and "canViewClosedJobDossiers => isApproved"
+        in functionality_representation_user
+    and "title: 'Resolved issues'" in operational_ux_home
+    and "title: 'Closed job dossiers'" in operational_ux_home
+    and "title: 'Audit log'" in operational_ux_home
+    and "final closedExecutionsProvider" in functionality_representation_provider
+    and "watchAllExecutions(limit: _closedExecutionSourceLimit)"
+        in functionality_representation_provider
+    and "!actor.canViewClosedJobDossiers"
+        in functionality_representation_dossiers
+    and "ref.watch(closedExecutionsProvider)"
+        in functionality_representation_dossiers
+    and "label: const Text('Workflow overview')" in operational_ux_workflow
+    and operational_ux_workflow.index("actor == null || !actor.isApproved")
+        < operational_ux_workflow.index("ref.watch(workflowAllLanesProvider)")
+    and "class RecentAuditLogScreen" in functionality_representation_audit
+    and functionality_representation_audit.count("!actor.canViewAuditLogs") >= 2
+    and "canViewAuditEvidence: actor.canViewAuditLogs"
+        in functionality_representation_panel
+    and "closed dossiers reject before starting their data stream"
+        in functionality_representation_test
+    and "workflow queue rejects before lane and compliance reads"
+        in functionality_representation_test
+    and "entity audit rejects non-admin before the audit read"
+        in functionality_representation_test,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

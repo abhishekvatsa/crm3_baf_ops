@@ -30,6 +30,12 @@ final syncConflictAuditProvider = FutureProvider.autoDispose<List<AuditEvent>>((
   return ref.read(auditRepositoryProvider).getRecentSyncConflictEvents();
 });
 
+final recentAuditEventsProvider = FutureProvider.autoDispose<List<AuditEvent>>((
+  ref,
+) {
+  return ref.read(auditRepositoryProvider).getRecentLocalEvents();
+});
+
 // ─────────────────────────────────────────────────────────────
 // SCREEN
 // ─────────────────────────────────────────────────────────────
@@ -46,6 +52,24 @@ class AuditTimelineScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return const _AuditAccessState(
+        appBarTitle: 'Audit Timeline',
+        title: 'Checking audit access',
+        message: 'Please wait while your permissions are verified.',
+        showProgress: true,
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.canViewAuditLogs) {
+      return const _AuditAccessState(
+        appBarTitle: 'Audit Timeline',
+        title: 'Admin access required',
+        message: 'Only approved Admin users can inspect audit evidence.',
+      );
+    }
+
     final auditAsync = ref.watch(
       auditTimelineProvider((type: entityType, id: entityId)),
     );
@@ -78,6 +102,76 @@ class AuditTimelineScreen extends ConsumerWidget {
   }
 }
 
+class RecentAuditLogScreen extends ConsumerWidget {
+  const RecentAuditLogScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return const _AuditAccessState(
+        appBarTitle: 'Audit Log',
+        title: 'Checking audit access',
+        message: 'Please wait while your permissions are verified.',
+        showProgress: true,
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.canViewAuditLogs) {
+      return const _AuditAccessState(
+        appBarTitle: 'Audit Log',
+        title: 'Admin access required',
+        message: 'Only approved Admin users can inspect the audit log.',
+      );
+    }
+
+    final eventsAsync = ref.watch(recentAuditEventsProvider);
+    return Scaffold(
+      backgroundColor: BafColors.background,
+      appBar: AppBar(
+        title: const Text('Audit Log'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh audit log',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => ref.invalidate(recentAuditEventsProvider),
+          ),
+        ],
+      ),
+      body: eventsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error:
+            (error, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(BafSpacing.lg),
+                child: Text(
+                  'Could not load audit activity: $error',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: BafColors.danger),
+                ),
+              ),
+            ),
+        data: (events) {
+          if (events.isEmpty) {
+            return const Center(child: Text('No audit activity available'));
+          }
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(recentAuditEventsProvider);
+              await ref.read(recentAuditEventsProvider.future);
+            },
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: BafSpacing.sm),
+              itemCount: events.length,
+              itemBuilder: (_, index) => _AuditTile(event: events[index]),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class SyncConflictReviewScreen extends ConsumerWidget {
   const SyncConflictReviewScreen({super.key});
 
@@ -85,7 +179,8 @@ class SyncConflictReviewScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final actorAsync = ref.watch(currentAppUserProvider);
     if (actorAsync.isLoading) {
-      return const _SyncConflictAccessState(
+      return const _AuditAccessState(
+        appBarTitle: 'Sync Conflict Review',
         title: 'Checking conflict-review access',
         message: 'Please wait while your permissions are verified.',
         showProgress: true,
@@ -93,7 +188,8 @@ class SyncConflictReviewScreen extends ConsumerWidget {
     }
     final actor = actorAsync.value;
     if (actor == null || !actor.canReviewSyncConflicts) {
-      return const _SyncConflictAccessState(
+      return const _AuditAccessState(
+        appBarTitle: 'Sync Conflict Review',
         title: 'Admin access required',
         message: 'Only approved Admin users can review sync conflicts.',
       );
@@ -160,12 +256,14 @@ class SyncConflictReviewScreen extends ConsumerWidget {
   }
 }
 
-class _SyncConflictAccessState extends StatelessWidget {
+class _AuditAccessState extends StatelessWidget {
+  final String appBarTitle;
   final String title;
   final String message;
   final bool showProgress;
 
-  const _SyncConflictAccessState({
+  const _AuditAccessState({
+    required this.appBarTitle,
     required this.title,
     required this.message,
     this.showProgress = false,
@@ -175,7 +273,7 @@ class _SyncConflictAccessState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: BafColors.background,
-      appBar: AppBar(title: const Text('Sync Conflict Review')),
+      appBar: AppBar(title: Text(appBarTitle)),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(BafSpacing.xl),

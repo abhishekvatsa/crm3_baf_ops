@@ -20,61 +20,75 @@ class WorkflowHubScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final actor = ref.watch(currentAppUserProvider).value;
+    final actorAsync = ref.watch(currentAppUserProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Maintenance Workflow')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (initialWorkflowId != null && initialWorkflowId!.trim().isNotEmpty) ...[
-            PlannedJobWorkflowPanel(
-              workflowId: initialWorkflowId!.trim(),
-              jobCompleted: false,
-            ),
-            const SizedBox(height: 12),
-          ],
-          _WorkflowHubCard(
-            icon: Icons.precision_manufacturing_outlined,
-            title: 'Equipment Status',
-            subtitle:
-                'In Service, Under Maintenance, Awaiting Preparation, Under RED and Available.',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const EquipmentStatusBoard(),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _WorkflowHubCard(
-            icon: Icons.inbox_outlined,
-            title: 'Compliance Inbox',
-            subtitle:
-                'Role-aware queue for obligations assigned to you, raised by you, and supervisory review.',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const ComplianceInboxScreen(),
-              ),
-            ),
-          ),
-          if (actor?.canViewMaintenanceWorkflowDiagnostics == true) ...[
-            const SizedBox(height: 12),
-            _WorkflowHubCard(
-              icon: Icons.monitor_heart_outlined,
-              title: 'Workflow Diagnostics',
-              subtitle:
-                  'Quarantined projection records and uncertain commands requiring support attention.',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const WorkflowDiagnosticsScreen(),
+      body: actorAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error:
+            (_, _) =>
+                const Center(child: Text('Could not verify workflow access.')),
+        data: (actor) {
+          if (actor == null || !actor.isApproved) {
+            return const Center(child: Text('Approved access is required.'));
+          }
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (initialWorkflowId != null &&
+                  initialWorkflowId!.trim().isNotEmpty) ...[
+                PlannedJobWorkflowPanel(
+                  workflowId: initialWorkflowId!.trim(),
+                  jobCompleted: false,
                 ),
+                const SizedBox(height: 12),
+              ],
+              _WorkflowHubCard(
+                icon: Icons.precision_manufacturing_outlined,
+                title: 'Equipment Status',
+                subtitle:
+                    'In Service, Under Maintenance, Awaiting Preparation, Under RED and Available.',
+                onTap:
+                    () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const EquipmentStatusBoard(),
+                      ),
+                    ),
               ),
-            ),
-          ],
-        ],
+              const SizedBox(height: 12),
+              _WorkflowHubCard(
+                icon: Icons.inbox_outlined,
+                title: 'Compliance Inbox',
+                subtitle:
+                    'Role-aware queue for obligations assigned to you, raised by you, and supervisory review.',
+                onTap:
+                    () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ComplianceInboxScreen(),
+                      ),
+                    ),
+              ),
+              if (actor.canViewMaintenanceWorkflowDiagnostics) ...[
+                const SizedBox(height: 12),
+                _WorkflowHubCard(
+                  icon: Icons.monitor_heart_outlined,
+                  title: 'Workflow Diagnostics',
+                  subtitle:
+                      'Quarantined projection records and uncertain commands requiring support attention.',
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const WorkflowDiagnosticsScreen(),
+                        ),
+                      ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
-
 }
 
 class _WorkflowHubCard extends StatelessWidget {
