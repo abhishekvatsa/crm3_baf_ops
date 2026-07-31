@@ -11,6 +11,28 @@
     "requestBasis": "The repository owner authorized autonomous continuation after Build 6 closure, independently permitted use of the Pixel 9 API 36 emulator for application validation, and directed progression to the next major governed step without per-step confirmation.",
     "humanApprovalReference": "CODEX_TASK_RESUME_F4_20260731"
   },
+  "upgradeFinalizationAmendment": {
+    "amendedAtUtc": "2026-07-31T02:44:59.5208664Z",
+    "priorPromotionSha256": "C85F139AFCDD499354DC44AA9E3AF57E6216C3BB4A98D2DD570014C978BCAAED",
+    "reason": "The first governed Upgrade invocation completed exact APK extraction, signer and package verification, adb install -r, installed Build 6 hash verification and first-install-time preservation, then stopped because the first uiautomator dump returned no remote file.",
+    "failureBoundary": "after-exact-in-place-upgrade-before-upgrade-receipt",
+    "interruptedEvidenceDirectoryName": "CRM3_BUILD6_F4_EMULATOR_REHEARSAL_20260731_081248",
+    "interruptedEvidence": {
+      "extractedApkSha256": "01D26049E200730EC1DBF0FEE85D483A9FA820D68F020110E57AC95AF2EBE755",
+      "upgradeReceiptCreated": false,
+      "installedVersionCodeObserved": 6,
+      "installedApkSha256Observed": "01D26049E200730EC1DBF0FEE85D483A9FA820D68F020110E57AC95AF2EBE755",
+      "preservedFirstInstallTime": "2026-07-30 00:16:30",
+      "subsequentReadOnlyUiDumpSucceeded": true
+    },
+    "scopeChange": "Permit evidence-only finalization from the preserved extracted APK and exact currently installed Build 6 state without reinstalling, uninstalling, clearing data or expanding runtime scope.",
+    "evidenceOnlyFinalizationAuthorized": true,
+    "reinstallAuthorized": false,
+    "uninstallOrDataClearAuthorized": false,
+    "artifactOrTargetExpansion": false,
+    "remoteMutationExpansion": false,
+    "pilotOrPhysicalDeviceExpansion": false
+  },
   "artifactAuthority": {
     "releaseId": "crm3-baf-ops-1.0.0-rc.1-b6",
     "versionName": "1.0.0-rc.1",

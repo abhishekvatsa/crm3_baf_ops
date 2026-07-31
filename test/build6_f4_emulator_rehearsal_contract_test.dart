@@ -27,6 +27,17 @@ void main() {
       promotion['approvalClass'],
       'CONTROLLED_INTERNAL_RUNTIME_REHEARSAL_ONLY',
     );
+    final finalization = _object(promotion['upgradeFinalizationAmendment']);
+    expect(
+      finalization['priorPromotionSha256'],
+      'C85F139AFCDD499354DC44AA9E3AF57E6216C3BB4A98D2DD570014C978BCAAED',
+    );
+    expect(finalization['evidenceOnlyFinalizationAuthorized'], isTrue);
+    expect(finalization['reinstallAuthorized'], isFalse);
+    expect(finalization['uninstallOrDataClearAuthorized'], isFalse);
+    expect(finalization['artifactOrTargetExpansion'], isFalse);
+    expect(finalization['remoteMutationExpansion'], isFalse);
+    expect(finalization['pilotOrPhysicalDeviceExpansion'], isFalse);
 
     final artifact = _object(promotion['artifactAuthority']);
     expect(
@@ -120,6 +131,7 @@ void main() {
     for (final required in <String>[
       "'Preflight'",
       "'Upgrade'",
+      "'FinalizeUpgrade'",
       "'PrepareSignIn'",
       "'BeginFreshSignIn'",
       "'VerifyFreshSignIn'",
@@ -130,6 +142,9 @@ void main() {
       'The installed prerequisite is not exact Build 5.',
       "'install', '-r', '--no-streaming'",
       'Upgrade refuses to replace an existing receipt.',
+      'FinalizeUpgrade refuses to replace an existing receipt.',
+      'INTERRUPTED_AFTER_EXACT_IN_PLACE_UPGRADE_BEFORE_UI_RECEIPT',
+      'FinalizeUpgrade does not reinstall the package.',
       'application sandbox was preserved',
       "//node[@content-desc='Sign Out']",
       'Choose an account',
