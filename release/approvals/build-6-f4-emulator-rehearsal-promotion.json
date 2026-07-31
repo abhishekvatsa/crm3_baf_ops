@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "approvalId": "CRM3-B6-F4-EMULATOR-REHEARSAL-001",
+  "approvalClass": "CONTROLLED_INTERNAL_RUNTIME_REHEARSAL_ONLY",
+  "createdAtUtc": "2026-07-31T02:10:54.4751388Z",
+  "effectiveCondition": "This record is effective only after owner-reviewed merge to main and execution from an exact clean local main equal to origin/main.",
+  "approvalAuthority": {
+    "mode": "MERGED_OWNER_SOURCE_APPROVAL",
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "baselineCommit": "14b1fb0a4c96112bd933cb38260c0c1646060c5d",
+    "requestBasis": "The repository owner authorized autonomous continuation after Build 6 closure, independently permitted use of the Pixel 9 API 36 emulator for application validation, and directed progression to the next major governed step without per-step confirmation.",
+    "humanApprovalReference": "CODEX_TASK_RESUME_F4_20260731"
+  },
+  "artifactAuthority": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b6",
+    "versionName": "1.0.0-rc.1",
+    "versionCode": 6,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "sourceCommit": "f6fccc662119790bcc742ff91e00934117030948",
+    "sourceTree": "b3262b2bb337dfd53d8a85bcee52e677ff50f82c",
+    "githubRunId": 30572342725,
+    "governedPackage": {
+      "fileName": "crm3-baf-ops-1.0.0-rc.1-b6-GOVERNED-PACKAGE.zip",
+      "sha256": "E36C39E40C4B92B0721DAD916F050F439644FDF7FC40A36C1EB579571EBD074E",
+      "bytes": 152992806
+    },
+    "apk": {
+      "entryName": "crm3-baf-ops-1.0.0-rc.1-b6-release.apk",
+      "sha256": "01D26049E200730EC1DBF0FEE85D483A9FA820D68F020110E57AC95AF2EBE755",
+      "bytes": 85900424,
+      "debuggable": false
+    },
+    "signer": {
+      "certificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+      "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C"
+    },
+    "finalizationReceipt": {
+      "path": "release/evidence/build-6-finalization-closure.json",
+      "sha256": "147688A631C910D58A02F72EFDDDA74C2647F2430BF1492EFFC2952492B0CFD1"
+    },
+    "sourceRemediation": {
+      "pullRequestNumber": 77,
+      "mergeCommit": "416fe777ffd52162de5666a860e185167ecf9e23",
+      "description": "ID-token-gated own-profile listener with one same-uid forced-token-refresh retry after an initial permission denial.",
+      "containedInArtifact": true
+    }
+  },
+  "channel": {
+    "planningMode": "internal-release-signed-apk",
+    "transport": "DIRECT_ADB_FROM_GOVERNED_LOCAL_CUSTODY",
+    "purpose": "BUILD6_FIRST_LISTENER_REMEDIATION_EMULATOR_REHEARSAL",
+    "maxTargetCount": 1,
+    "target": {
+      "kind": "ANDROID_VIRTUAL_DEVICE",
+      "avdName": "Pixel_9",
+      "adbSerial": "emulator-5554",
+      "minimumApiLevel": 36,
+      "requiresGooglePlayServices": true,
+      "requiresExistingOwnerControlledGoogleAccount": true
+    },
+    "installerIdentity": "com.android.shell",
+    "externalTesterRosterCreated": false,
+    "firebaseAppDistributionUploadAuthorized": false,
+    "playConsoleUploadAuthorized": false,
+    "webOrPublicLinkAuthorized": false,
+    "physicalDeviceInstallationAuthorized": false
+  },
+  "deviceProvenance": {
+    "requiredPriorPackage": {
+      "releaseId": "crm3-baf-ops-1.0.0-rc.1-b5",
+      "applicationId": "in.co.sail.bsl.crm3.bafops",
+      "versionName": "1.0.0-rc.1",
+      "versionCode": 5,
+      "apkSha256": "1A39F9F375D785817862AA86BF3810FB5D99545E1E8BFFB7BA4F3CA69253774C",
+      "debuggable": false,
+      "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C"
+    },
+    "upgradeMode": "SAME_SIGNER_IN_PLACE_VERSIONCODE_5_TO_6",
+    "appDataClearAuthorized": false,
+    "uninstallAuthorized": false,
+    "downgradeAuthorized": false,
+    "stopIf": [
+      "the installed package is absent, debuggable or not exact Build 5",
+      "the installed Build 5 APK hash differs",
+      "the target is not the exact named Pixel_9 AVD",
+      "the governed package or embedded APK hash differs",
+      "the worktree is not clean main equal to origin/main"
+    ]
+  },
+  "authorizedOperations": [
+    "read-only source, governed-package, embedded-APK, installed-package, signer, AVD and Google Play Services preflight",
+    "extract the exact embedded Build 6 APK into a new evidence directory",
+    "upgrade the exact installed Build 5 package to Build 6 with adb install -r while preserving the application sandbox",
+    "launch the exact installed Build 6 package",
+    "use the application Sign Out control to prepare one fresh Google Sign-In",
+    "open the Google Play Services account chooser and select the existing owner-controlled account",
+    "create a Firebase Authentication session and hydrate only that identity's own users document through the application",
+    "permit the application's ordinary own-user fcmToken clear and refresh writes associated with sign-out and sign-in",
+    "capture privacy-minimized hashes and non-identity UI state for the first-listener remediation rehearsal"
+  ],
+  "expectedRemoteMutationBoundary": {
+    "firebaseAuthenticationSessionCreated": true,
+    "ownUserProfileHydrationPermitted": true,
+    "ownUserFcmTokenClearOnSignOutPermitted": true,
+    "ownUserFcmTokenRefreshOnSignInPermitted": true,
+    "otherFirestoreBusinessWritesAuthorized": false,
+    "otherUserReadsAuthorized": false,
+    "userAuthorityMutationAuthorized": false,
+    "authAdministrationMutationAuthorized": false,
+    "firebaseConfigurationMutationAuthorized": false,
+    "backendDeploymentAuthorized": false
+  },
+  "prohibitedOperations": [
+    "physical-device installation or distribution to a second emulator",
+    "pilot handout or distribution to another person or Google account",
+    "Firebase App Distribution, Play Console, Play Store, web or public upload",
+    "production business-record writes, sync-marker creation, offline or weak-network mutation",
+    "admin roster reads, user approval, revocation or role mutation",
+    "Rules, index, Functions, IAM, App Check or Firebase configuration mutation",
+    "application uninstall, app-data clear, downgrade or sandbox replacement",
+    "rebuilding, resigning or modifying the governed APK",
+    "claiming DEVICE_PROVED, closing STAGE2D-F4 or closing P-07"
+  ],
+  "requiredRuntimeEvidence": [
+    "promotion-record SHA-256 and exact clean-main commit",
+    "governed-package and embedded-APK SHA-256, bytes, package, version and production signer",
+    "exact Pixel_9 AVD identity, API level, build fingerprint and Google Play Services presence",
+    "exact installed Build 5 hash and non-debuggable state before the same-signer upgrade",
+    "successful Build 6 in-place upgrade with installed APK hash and sandbox-preservation evidence",
+    "explicit in-app sign-out and return to the Google sign-in surface",
+    "Google Play Services account chooser followed by same-process approved-home arrival",
+    "absence of the prior first-listener profile permission-denied surface",
+    "privacy and remote-mutation boundary receipt"
+  ],
+  "programmeBoundary": {
+    "intendedRecords": [],
+    "stage2dF4RehearsalAuthorized": true,
+    "stage2dF4DeviceEvidenceCreated": false,
+    "stage2dF4ClosureAuthorized": false,
+    "p07ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "unrestrictedDistributionAuthorized": false,
+    "physicalDevicePromotionRequiredNext": true
+  }
+}
