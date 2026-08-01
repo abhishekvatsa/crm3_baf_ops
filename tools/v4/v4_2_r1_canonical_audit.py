@@ -1615,6 +1615,142 @@ check(
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
+build6_f4_physical = data(
+    "release/approvals/build-6-f4-physical-device-execution-promotion.json"
+)
+physical_phase_ids = {
+    phase.get("id")
+    for phase in build6_f4_physical.get("requiredPhases", [])
+}
+physical_prohibited = "\n".join(
+    build6_f4_physical.get("prohibitedOperations", [])
+)
+check(
+    "Build 6 physical F4 execution is exact-target, six-phase and non-closing",
+    build6_f4_physical.get("approvalClass")
+        == "CONTROLLED_EXACT_TARGET_PHYSICAL_DEVICE_F4_EXECUTION"
+    and build6_f4_physical.get("approvalAuthority", {}).get(
+        "baselineCommit"
+    )
+        == "999600ce02045afa7806645020292f3036535ce3"
+    and build6_f4_physical.get("discoveryAuthority", {}).get(
+        "receiptSha256"
+    )
+        == "440874E51450BABA99ADD59AB47D19BF8D240F07BE9323373822E2FD81DB2825"
+    and build6_f4_physical.get("discoveryAuthority", {}).get(
+        "zeroMutationBoundaryProved"
+    )
+        is True
+    and build6_f4_physical.get("artifactAuthority", {}).get(
+        "governedPackage",
+        {},
+    ).get("sha256")
+        == "E36C39E40C4B92B0721DAD916F050F439644FDF7FC40A36C1EB579571EBD074E"
+    and build6_f4_physical.get("artifactAuthority", {}).get(
+        "apk",
+        {},
+    ).get("sha256")
+        == "01D26049E200730EC1DBF0FEE85D483A9FA820D68F020110E57AC95AF2EBE755"
+    and build6_f4_physical.get("targetAuthority", {}).get("kind")
+        == "ANDROID_PHYSICAL_DEVICE"
+    and len(
+        build6_f4_physical.get("targetAuthority", {}).get(
+            "adbSerialSha256",
+            "",
+        )
+    )
+        == 64
+    and len(
+        build6_f4_physical.get("targetAuthority", {}).get(
+            "buildFingerprintSha256",
+            "",
+        )
+    )
+        == 64
+    and build6_f4_physical.get("targetAuthority", {}).get(
+        "rawAdbSerialRetained"
+    )
+        is False
+    and build6_f4_physical.get("targetAuthority", {}).get(
+        "rawBuildFingerprintRetained"
+    )
+        is False
+    and build6_f4_physical.get("channel", {}).get("maxTargetCount") == 1
+    and build6_f4_physical.get("channel", {}).get(
+        "physicalDeviceInstallationAuthorized"
+    )
+        is True
+    and build6_f4_physical.get("channel", {}).get(
+        "externalDistributionAuthorized"
+    )
+        is False
+    and build6_f4_physical.get("identitySeparation", {}).get(
+        "subjectMustNotBeLastApprovedAdmin"
+    )
+        is True
+    and build6_f4_physical.get("identitySeparation", {}).get(
+        "subjectRequiredRolesInclude"
+    )
+        == ["si"]
+    and build6_f4_physical.get("identitySeparation", {}).get(
+        "subjectProhibitedRoles"
+    )
+        == ["admin"]
+    and build6_f4_physical.get("identitySeparation", {}).get(
+        "stopIfSeparationCannotBeProved"
+    )
+        is True
+    and physical_phase_ids
+        == {
+            "approved-sign-in",
+            "sync-marker",
+            "offline-reconnect",
+            "weak-network",
+            "revocation-next-operation-denial",
+            "wrong-role-denials",
+        }
+    and "synthetic production tickets" in physical_prohibited
+    and "direct Firestore write" in physical_prohibited
+    and "leave the subject revoked" in physical_prohibited
+    and build6_f4_physical.get("failurePolicy", {}).get(
+        "interruptedInstallEvidenceFinalizationAuthorized"
+    )
+        is True
+    and build6_f4_physical.get("failurePolicy", {}).get(
+        "finalizationRequiresExactInstalledApkHash"
+    )
+        is True
+    and build6_f4_physical.get("failurePolicy", {}).get(
+        "reinstallDuringFinalizationAuthorized"
+    )
+        is False
+    and build6_f4_physical.get("programmeBoundary", {}).get(
+        "stage2dF4ExecutionAuthorized"
+    )
+        is True
+    and build6_f4_physical.get("programmeBoundary", {}).get(
+        "stage2dF4DeviceEvidenceCreated"
+    )
+        is False
+    and build6_f4_physical.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    )
+        is False
+    and build6_f4_physical.get("programmeBoundary", {}).get(
+        "p07ClosureAuthorized"
+    )
+        is False
+    and build6_f4_physical.get("programmeBoundary", {}).get(
+        "pilotHandoutAuthorized"
+    )
+        is False
+    and f4_rehearsal_gate.get("currentStatus") == "OPEN"
+    and f4_rehearsal_gate.get("evidence") == []
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F4"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
+)
 global_pull_manifest = data("governance/global-pull-protocol-v1.json")
 global_pull_contract = global_pull_manifest.get("fingerprintedContract", {})
 global_pull_fingerprint = hashlib.sha256(
