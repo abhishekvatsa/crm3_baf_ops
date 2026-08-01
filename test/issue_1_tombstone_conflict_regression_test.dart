@@ -14,9 +14,9 @@ import '../tool/test_support/test_isar_core.dart';
 
 // Use package imports so analyzer treats test references to lib/ as the
 // canonical package libraries. Repository-relative imports resolve to the
-// same package:crm3_baf_ops/main.dart library.
+// same package libraries.
 
-import 'package:crm3_baf_ops/main.dart' as app;
+import 'package:crm3_baf_ops/core/persistence/app_database.dart' as app;
 
 import 'package:crm3_baf_ops/core/services/remote_tombstone_apply_result.dart';
 

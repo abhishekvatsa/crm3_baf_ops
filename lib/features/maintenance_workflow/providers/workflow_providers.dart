@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../main.dart';
+import '../../../core/persistence/app_database.dart';
 import '../data/compliance_request_record.dart';
 import '../data/equipment_status_record.dart';
 import '../data/job_lane_record.dart';

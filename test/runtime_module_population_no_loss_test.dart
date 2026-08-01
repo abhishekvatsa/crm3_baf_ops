@@ -5,7 +5,7 @@ import 'package:isar/isar.dart';
 
 import '../tool/test_support/test_isar_core.dart';
 
-import 'package:crm3_baf_ops/main.dart' as app;
+import 'package:crm3_baf_ops/core/persistence/app_database.dart' as app;
 import 'package:crm3_baf_ops/core/services/sync_service.dart';
 import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
 import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';

@@ -29,7 +29,7 @@ import '../../../features/planned_maintenance/data/template_governance_model.dar
 import '../../../features/planned_maintenance/services/planned_job_server_completion_service.dart';
 import '../../../features/planned_maintenance/services/published_template_assignment_server_service.dart';
 import '../../../firebase_options.dart';
-import '../../../main.dart' as app_main;
+import '../../../core/persistence/app_database.dart' as app_main;
 
 final localDiagnosticsReportProvider = FutureProvider.autoDispose<
   LocalDiagnosticsReport

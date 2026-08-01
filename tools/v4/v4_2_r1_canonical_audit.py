@@ -1094,6 +1094,43 @@ check(
     and ".isar.lock" not in isar_guard,
 )
 
+app_database_source = text("lib/core/persistence/app_database.dart")
+main_source = text("lib/main.dart")
+dart_import_cycle_test = text("test/dart_import_cycle_test.dart")
+dart_import_cycle_decision = text("docs/DART_IMPORT_CYCLE_CLOSURE.md")
+lib_dart_sources = {
+    str(path.relative_to(ROOT)).replace("\\", "/"):
+        path.read_text(encoding="utf-8")
+    for path in (ROOT / "lib").rglob("*.dart")
+}
+main_importers = [
+    path
+    for path, source in lib_dart_sources.items()
+    if re.search(r"import\s+['\"][^'\"]*main\.dart['\"]", source)
+]
+app_database_consumers = [
+    path
+    for path, source in lib_dart_sources.items()
+    if "core/persistence/app_database.dart" in source
+]
+check(
+    "Dart data layer is main-decoupled and guarded against import cycles",
+    "late Isar isar;" in app_database_source
+    and "late Isar isar;" not in main_source
+    and main_importers == []
+    and len(app_database_consumers) == 12
+    and "lib has no internal Dart import cycles" in dart_import_cycle_test
+    and "final lowLinks = <String, int>{};" in dart_import_cycle_test
+    and "component.length > 1 || graph[node]!.contains(node)"
+        in dart_import_cycle_test
+    and "cycles,\n      isEmpty" in dart_import_cycle_test
+    and "Largest component:      72 files" in dart_import_cycle_decision
+    and "Cyclic components:      0" in dart_import_cycle_decision
+    and "Isar schemas,\ndatabase naming, open order" in dart_import_cycle_decision,
+    f"mainImporters={main_importers} appDatabaseConsumers="
+    f"{len(app_database_consumers)}",
+)
+
 
 sync_job_modules = text("lib/core/services/sync_service.job_modules.dart")
 compliance_detail = text(

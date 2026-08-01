@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:isar/isar.dart';
 
-import '../../../main.dart';
+import '../../../core/persistence/app_database.dart';
 import '../data/maintenance_model.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import '../../audit/models/audit_event_model.dart';

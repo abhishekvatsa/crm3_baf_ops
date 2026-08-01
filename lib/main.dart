@@ -43,6 +43,7 @@ import 'features/auth/providers/auth_provider.dart';
 
 // ── SERVICES / PROVIDERS ─────────────────────────────────────
 import 'core/providers/sync_providers.dart';
+import 'core/persistence/app_database.dart';
 import 'core/services/auto_sync_service.dart';
 import 'core/services/app_logger.dart';
 import 'core/security/app_check_bootstrap.dart';
@@ -59,8 +60,6 @@ import 'core/theme/baf_design_system.dart';
 import 'home_screen.dart';
 
 // ─────────────────────────────────────────────────────────────
-
-late Isar isar;
 
 final _isarSchemas = [
   ChargeSchema,

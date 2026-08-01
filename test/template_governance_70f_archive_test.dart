@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crm3_baf_ops/core/persistence/app_database.dart' as app;
 import 'package:crm3_baf_ops/core/services/remote_tombstone_apply_result.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/template_governance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/template_governance_provider.dart';
-import 'package:crm3_baf_ops/main.dart' as app;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar/isar.dart';
 
