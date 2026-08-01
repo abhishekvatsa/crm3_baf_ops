@@ -38,6 +38,25 @@ void main() {
         authority['baselineTree'],
         '3a85ba1921e54298b82ff1ea80b5531df37bb474',
       );
+      final amendment = _object(
+        promotion['packageAbsenceCompatibilityAmendment'],
+      );
+      expect(
+        amendment['priorPromotionSha256'],
+        '478F33AEF7807ED4803AB4005F66C1116A5325EDF2BDD54F03A125611AFF2525',
+      );
+      expect(
+        amendment['priorHarnessSha256'],
+        'C9CF01717AA2EB18DE508CF794049819F656CD1EE6807A1EAC4FD783DECD3166',
+      );
+      expect(amendment['observedPackageLookupExitCode'], 1);
+      expect(amendment['observedPackageLookupOutputEmpty'], isTrue);
+      expect(amendment['packageInstallationAuthorized'], isFalse);
+      expect(amendment['applicationLaunchAuthorized'], isFalse);
+      expect(amendment['remoteMutationExpansion'], isFalse);
+      expect(amendment['artifactOrTargetExpansion'], isFalse);
+      expect(amendment['stage2dF4ExecutionExpansion'], isFalse);
+      expect(amendment['priorAttemptCreatedDeviceEvidence'], isFalse);
 
       final artifact = _object(promotion['artifactAuthority']);
       expect(
@@ -125,6 +144,9 @@ void main() {
       '(?i)(generic|emulator|sdk_gphone|goldfish|ranchu)',
       'The physical target does not expose Google Play Services.',
       'Physical target discovery requires the CRM-III package to be absent',
+      r'$existingPackage.exitCode -in @(0, 1)',
+      r'[string]::IsNullOrWhiteSpace(',
+      r'$existingPackage.output',
       'CRM-III package-presence lookup failed; absence is not proved.',
       'adbSerialSha256 = Get-TextSha256 \$DeviceSerial',
       'buildFingerprintSha256 = Get-TextSha256 \$fingerprint',

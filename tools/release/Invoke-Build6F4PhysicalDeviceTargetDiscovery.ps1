@@ -345,11 +345,15 @@ $existingPackage = Invoke-ExternalText `
   -FilePath $adb `
   -Arguments @('-s', $DeviceSerial, 'shell', 'pm', 'path', $applicationId) `
   -AllowFailure
-if ($existingPackage.exitCode -ne 0) {
-  throw 'CRM-III package-presence lookup failed; absence is not proved.'
-}
 if ($existingPackage.output.StartsWith('package:')) {
   throw 'Physical target discovery requires the CRM-III package to be absent; no removal is authorized.'
+}
+$absenceExitCodeAccepted = $existingPackage.exitCode -in @(0, 1)
+$absenceOutputAccepted = [string]::IsNullOrWhiteSpace(
+  $existingPackage.output
+)
+if (-not $absenceExitCodeAccepted -or -not $absenceOutputAccepted) {
+  throw 'CRM-III package-presence lookup failed; absence is not proved.'
 }
 
 $receipt = [ordered]@{

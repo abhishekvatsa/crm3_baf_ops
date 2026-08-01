@@ -12,6 +12,22 @@
     "requestBasis": "The repository owner directed progression after PR 86 while preserving physical-device-first sequencing before the remaining source queue.",
     "humanApprovalReference": "CODEX_TASK_F4_DEVICE_FIRST_20260801"
   },
+  "packageAbsenceCompatibilityAmendment": {
+    "amendedAtUtc": "2026-08-01T17:03:23Z",
+    "priorPromotionSha256": "478F33AEF7807ED4803AB4005F66C1116A5325EDF2BDD54F03A125611AFF2525",
+    "priorHarnessSha256": "C9CF01717AA2EB18DE508CF794049819F656CD1EE6807A1EAC4FD783DECD3166",
+    "reason": "The first tracked physical-target invocation reached the package-presence check with exact Build 6 and eligible physical-device prerequisites, then stopped because Samsung package manager reports an absent package as exit code 1 with empty output.",
+    "failureBoundary": "after-read-only-artifact-and-device-validation-before-target-discovery-receipt",
+    "observedPackageLookupExitCode": 1,
+    "observedPackageLookupOutputEmpty": true,
+    "scopeChange": "Treat only exit code 0 or 1 with empty output as package absence; continue to reject any package path, any nonempty unrecognized output and every other exit code.",
+    "packageInstallationAuthorized": false,
+    "applicationLaunchAuthorized": false,
+    "remoteMutationExpansion": false,
+    "artifactOrTargetExpansion": false,
+    "stage2dF4ExecutionExpansion": false,
+    "priorAttemptCreatedDeviceEvidence": false
+  },
   "artifactAuthority": {
     "releaseId": "crm3-baf-ops-1.0.0-rc.1-b6",
     "versionName": "1.0.0-rc.1",
