@@ -3150,6 +3150,10 @@ service cloud.firestore {
       allow read, create, update, delete: if false;
     }
 
+    match /notification_event_receipts/{docId} {
+      allow read, create, update, delete: if false;
+    }
+
     // ─────────────────────────────────────────────
     // 🛡️ AUDIT LOGS
     // ─────────────────────────────────────────────
