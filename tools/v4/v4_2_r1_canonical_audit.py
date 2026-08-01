@@ -1746,6 +1746,56 @@ check(
         {},
     ).get("safetyBoundary", {}).get("exactTransportRestorationRequired")
         is True
+    and build6_f4_physical.get(
+        "approvedHomeAutomaticVariableCompatibilityAmendment",
+        {},
+    ).get("executionSourceMergeCommit")
+        == "05f35fc61ac378c1273326760b664ced95c62287"
+    and build6_f4_physical.get(
+        "approvedHomeAutomaticVariableCompatibilityAmendment",
+        {},
+    ).get("priorPromotionSha256")
+        == "B7382D737430F428832B59B39DEE0656B3E8993FF861FB4E01A66229F45036CE"
+    and build6_f4_physical.get(
+        "approvedHomeAutomaticVariableCompatibilityAmendment",
+        {},
+    ).get("priorHarnessSha256")
+        == "F417A3BD6EB029B303B29705CED87A0EBBFD2BB9CAE9D05FBB42046721AC7463"
+    and build6_f4_physical.get(
+        "approvedHomeAutomaticVariableCompatibilityAmendment",
+        {},
+    ).get("controlledStopAdjudicationSha256")
+        == "63EA1D4BF8A5012A1E98F866D5763AD085AA1F10F41C99A1DFDCF7808CE1517D"
+    and build6_f4_physical.get(
+        "approvedHomeAutomaticVariableCompatibilityAmendment",
+        {},
+    ).get("syncBaselineReceiptCreated")
+        is False
+    and build6_f4_physical.get(
+        "approvedHomeAutomaticVariableCompatibilityAmendment",
+        {},
+    ).get("networkStateMutationPerformed")
+        is False
+    and build6_f4_physical.get(
+        "approvedHomeAutomaticVariableCompatibilityAmendment",
+        {},
+    ).get("remoteBusinessMutationPerformed")
+        is False
+    and build6_f4_physical.get(
+        "approvedHomeAutomaticVariableCompatibilityAmendment",
+        {},
+    ).get("failedAttemptMayNotBeRelabelledPass")
+        is True
+    and build6_f4_physical.get(
+        "approvedHomeAutomaticVariableCompatibilityAmendment",
+        {},
+    ).get("stage2dF4AuthorityExpansion")
+        is False
+    and build6_f4_physical.get(
+        "approvedHomeAutomaticVariableCompatibilityAmendment",
+        {},
+    ).get("pilotOrDistributionExpansion")
+        is False
     and build6_f4_physical.get("discoveryAuthority", {}).get(
         "receiptSha256"
     )
