@@ -40,6 +40,26 @@ void main() {
       authority['baselineTree'],
       '38b5829b86b154bf675aceb8cd2dc19012f3227f',
     );
+    final amendment = _object(
+      promotion['apiLevelBindingCompatibilityAmendment'],
+    );
+    expect(
+      amendment['priorPromotionSha256'],
+      '4E3ACCB9AFAFE59FED02B9904A4B2A108D9194834366860908327DCAEBBEABC5',
+    );
+    expect(
+      amendment['priorHarnessSha256'],
+      'EAF1F5B39195F006817290415EAD568376F7E5648348F80214DC578610CD1E8D',
+    );
+    expect(amendment['preflightReceiptCreated'], isFalse);
+    expect(amendment['evidenceDirectoryCreated'], isFalse);
+    expect(amendment['packageInstallationPerformed'], isFalse);
+    expect(amendment['applicationLaunchPerformed'], isFalse);
+    expect(amendment['authenticationSessionCreated'], isFalse);
+    expect(amendment['remoteMutationPerformed'], isFalse);
+    expect(amendment['artifactOrTargetExpansion'], isFalse);
+    expect(amendment['stage2dF4AuthorityExpansion'], isFalse);
+    expect(amendment['pilotOrDistributionExpansion'], isFalse);
 
     final discovery = _object(promotion['discoveryAuthority']);
     expect(
@@ -174,6 +194,9 @@ void main() {
       'Get-TextSha256 \$DeviceSerial',
       "-Name 'ro.build.fingerprint'",
       "-Name 'ro.kernel.qemu'",
+      r'$observedApiLevel = [int](Get-DeviceProperty',
+      r'$expectedApiLevel = [int]$promotion.targetAuthority.apiLevel',
+      'Assert-Equal `\n  -Actual \$observedApiLevel `\n  -Expected \$expectedApiLevel `\n  -Label \'Physical target API level\'',
       "'install', '--no-streaming', \$apkPath",
       'Installed APK SHA-256',
       "'Sign in with Google'",
@@ -196,6 +219,7 @@ void main() {
       'ro.serialno',
       'stage2dF4Status = \'CLOSED\'',
       'pilotHandoutAuthorized = \$true',
+      "Assert-Equal `\n  [int](Get-DeviceProperty",
     ]) {
       expect(
         script.toLowerCase(),
