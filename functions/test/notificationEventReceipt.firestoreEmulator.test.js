@@ -129,6 +129,7 @@ describeWithEmulator("R-05 notification event receipts", () => {
     expect(receipt.data()).toMatchObject({
       status: "deliveryUncertain",
       attemptCount: 1,
+      requiresAdjudication: true,
     });
   });
 });

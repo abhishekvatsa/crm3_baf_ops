@@ -2448,6 +2448,12 @@ check(
     and "notification-event-receipt-attempt-mismatch" in r05_receipt_source
     and "notification-event-receipt-state-malformed" in r05_receipt_source
     and "reason: \"delivery-uncertain\"" in r05_receipt_source
+    and "requiresAdjudication: true" in r05_receipt_source
+    and "reportDeliveryUncertain" in r05_receipt_source
+    and "Notification delivery requires governed adjudication"
+        in r05_index_source
+    and "Notification delivery requires governed adjudication"
+        in r05_workflow_source
     and "match /notification_event_receipts/{docId}" in r05_rules
     and "allow read, create, update, delete: if false;"
         in r05_rules[
@@ -2455,7 +2461,8 @@ check(
             r05_rules.index("AUDIT LOGS")
         ]
     and "completed replay never prepares or dispatches twice" in r05_unit_test
-    and "dispatch failure becomes delivery-uncertain" in r05_unit_test
+    and "dispatch failure is surfaced, quarantined" in r05_unit_test
+    and "operator reporting failure cannot reopen" in r05_unit_test
     and "concurrent duplicate events perform one delivery" in r05_emulator_test
     and "ambiguous dispatch is quarantined" in r05_emulator_test
     and "R-05 source status is exact" in r05_contract_test
@@ -2485,6 +2492,8 @@ check(
         in r05_inventory_test
     and "Status: SOURCE_IMPLEMENTED" in r05_decision
     and "This is not an exactly-once delivery claim." in r05_decision
+    and "structured error-level signal" in r05_decision
+    and "operator-queryable marker" in r05_decision
     and "R-05 remains `SOURCE_IMPLEMENTED`." in r05_decision,
 )
 

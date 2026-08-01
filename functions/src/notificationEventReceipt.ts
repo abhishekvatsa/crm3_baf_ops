@@ -56,6 +56,18 @@ export interface NotificationReceiptRuntime {
   nowMillis?(): number;
   createAttemptId?(): string;
   leaseMillis?: number;
+  reportDeliveryUncertain?(
+    signal: NotificationDeliveryUncertainSignal,
+  ): void | Promise<void>;
+}
+
+export interface NotificationDeliveryUncertainSignal {
+  receiptId: string;
+  triggerName: string;
+  cloudEventId: string;
+  sourceDocumentPath: string;
+  attemptId: string;
+  phase: "dispatch-outcome-unknown" | "completion-recording-failed";
 }
 
 export type NotificationEventExecutionResult =
@@ -271,6 +283,8 @@ async function acquireReceipt(
         attemptCount,
         leaseExpiresAtEpochMs: now + leaseMillis,
         ...(!snapshot.exists ? {createdAt: runtime.serverTimestamp()} : {}),
+        lastError: null,
+        requiresAdjudication: false,
         lastAttemptedAt: runtime.serverTimestamp(),
         updatedAt: runtime.serverTimestamp(),
       },
@@ -278,6 +292,25 @@ async function acquireReceipt(
     );
     return {kind: "acquired", receiptId, attemptId};
   });
+}
+
+async function reportDeliveryUncertain(args: {
+  runtime: NotificationReceiptRuntime;
+  identity: ReceiptIdentity;
+  receiptId: string;
+  attemptId: string;
+  phase: NotificationDeliveryUncertainSignal["phase"];
+}): Promise<void> {
+  try {
+    await args.runtime.reportDeliveryUncertain?.({
+      receiptId: args.receiptId,
+      ...args.identity,
+      attemptId: args.attemptId,
+      phase: args.phase,
+    });
+  } catch {
+    // Observability must not weaken the receipt's fail-closed state.
+  }
 }
 
 async function transitionReceipt(args: {
@@ -372,6 +405,7 @@ export async function executeIdempotentNotificationEvent<T>(args: {
       leaseExpiresAtEpochMs: null,
       failedBeforeDispatchAt: args.runtime.serverTimestamp(),
       lastError: errorText(error),
+      requiresAdjudication: false,
     });
     throw error;
   }
@@ -381,6 +415,8 @@ export async function executeIdempotentNotificationEvent<T>(args: {
       status: "suppressed",
       leaseExpiresAtEpochMs: null,
       suppressedAt: args.runtime.serverTimestamp(),
+      lastError: null,
+      requiresAdjudication: false,
     });
     return {kind: "suppressed", receiptId: acquisition.receiptId};
   }
@@ -389,6 +425,7 @@ export async function executeIdempotentNotificationEvent<T>(args: {
     status: "dispatching",
     leaseExpiresAtEpochMs: null,
     dispatchStartedAt: args.runtime.serverTimestamp(),
+    requiresAdjudication: true,
   });
 
   let outcome: NotificationDeliveryOutcome;
@@ -401,10 +438,18 @@ export async function executeIdempotentNotificationEvent<T>(args: {
         leaseExpiresAtEpochMs: null,
         deliveryUncertainAt: args.runtime.serverTimestamp(),
         lastError: errorText(error),
+        requiresAdjudication: true,
       }, true);
     } catch {
       // A replay still sees `dispatching` and cannot automatically resend.
     }
+    await reportDeliveryUncertain({
+      runtime: args.runtime,
+      identity,
+      receiptId: acquisition.receiptId,
+      attemptId: acquisition.attemptId,
+      phase: "dispatch-outcome-unknown",
+    });
     throw error;
   }
 
@@ -418,6 +463,8 @@ export async function executeIdempotentNotificationEvent<T>(args: {
       failedCount: outcome.failed,
       staleTokensCleared: outcome.staleTokensCleared,
       unknownAgencies: [...outcome.unknownAgencies],
+      lastError: null,
+      requiresAdjudication: false,
     });
   } catch (error) {
     try {
@@ -426,10 +473,18 @@ export async function executeIdempotentNotificationEvent<T>(args: {
         leaseExpiresAtEpochMs: null,
         deliveryUncertainAt: args.runtime.serverTimestamp(),
         lastError: errorText(error),
+        requiresAdjudication: true,
       }, true);
     } catch {
       // Fail closed: `dispatching` is itself a non-replayable state.
     }
+    await reportDeliveryUncertain({
+      runtime: args.runtime,
+      identity,
+      receiptId: acquisition.receiptId,
+      attemptId: acquisition.attemptId,
+      phase: "completion-recording-failed",
+    });
     throw error;
   }
 
