@@ -1663,6 +1663,89 @@ check(
         {},
     ).get("stage2dF4AuthorityExpansion")
         is False
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("priorPromotionSha256")
+        == "AA4EDD61A69AD26BBE38CBA123DCF9526A5775B3D333327D72F9AE02382907BE"
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("priorHarnessSha256")
+        == "6CA9EECF9F394C2ECFAB90EF871A41B7FE4132A9970A1E59ACD01B4CDFEBD4E4"
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("privateEvidence", {}).get("approvedSigninReceiptSha256")
+        == "00F8A27452E27CA38A7D67C452AF53584FFBC617D80A04B69F0C75DBD4BD90A0"
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("privateEvidence", {}).get("rawIdentityRetainedInRepository")
+        is False
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("runtimeWitness", {}).get(
+        "sameApplicationProcessFromChooserToApprovedHome"
+    )
+        is True
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("controlledStopsBeforePassingChooser", {}).get(
+        "chooserReceiptCreatedByStoppedAttempts"
+    )
+        is False
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("authorizedHarnessPhases")
+        == [
+            "CaptureSyncBaseline",
+            "RunSyncMarker",
+            "RunOfflineReconnect",
+            "RunWeakNetwork",
+        ]
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("networkProfile", {}).get("restoreInFinally")
+        is True
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("networkProfile", {}).get("falseOfflineSuccessFailsClosed")
+        is True
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("networkProfile", {}).get("actualWindowDurationsRecorded")
+        is True
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("networkProfile", {}).get("maximumIntermittentProfileSeconds")
+        == 120
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("safetyBoundary", {}).get(
+        "zeroPendingLocalBusinessWritesRequiredBeforeAndAfter"
+    )
+        is True
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("safetyBoundary", {}).get(
+        "authorityMutationAuthorizedByThisAmendment"
+    )
+        is False
+    and build6_f4_physical.get(
+        "syncNetworkTrancheAmendment",
+        {},
+    ).get("safetyBoundary", {}).get("exactTransportRestorationRequired")
+        is True
     and build6_f4_physical.get("discoveryAuthority", {}).get(
         "receiptSha256"
     )
@@ -1761,7 +1844,7 @@ check(
     and build6_f4_physical.get("programmeBoundary", {}).get(
         "stage2dF4DeviceEvidenceCreated"
     )
-        is False
+        is True
     and build6_f4_physical.get("programmeBoundary", {}).get(
         "stage2dF4ClosureAuthorized"
     )

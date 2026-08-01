@@ -61,6 +61,70 @@ void main() {
     expect(amendment['stage2dF4AuthorityExpansion'], isFalse);
     expect(amendment['pilotOrDistributionExpansion'], isFalse);
 
+    final networkTranche = _object(promotion['syncNetworkTrancheAmendment']);
+    expect(
+      networkTranche['priorPromotionSha256'],
+      'AA4EDD61A69AD26BBE38CBA123DCF9526A5775B3D333327D72F9AE02382907BE',
+    );
+    expect(
+      networkTranche['priorHarnessSha256'],
+      '6CA9EECF9F394C2ECFAB90EF871A41B7FE4132A9970A1E59ACD01B4CDFEBD4E4',
+    );
+    final privateEvidence = _object(networkTranche['privateEvidence']);
+    expect(
+      privateEvidence['approvedSigninReceiptSha256'],
+      '00F8A27452E27CA38A7D67C452AF53584FFBC617D80A04B69F0C75DBD4BD90A0',
+    );
+    expect(privateEvidence['storedOutsideRepository'], isTrue);
+    expect(privateEvidence['rawIdentityRetainedInRepository'], isFalse);
+    final witness = _object(networkTranche['runtimeWitness']);
+    expect(witness['approvedHomeReached'], isTrue);
+    expect(witness['sameApplicationProcessFromChooserToApprovedHome'], isTrue);
+    expect(witness['rawUiRetained'], isFalse);
+    expect(witness['remoteBusinessMutationPerformedByHarness'], isFalse);
+    final controlledStops = _object(
+      networkTranche['controlledStopsBeforePassingChooser'],
+    );
+    expect(controlledStops['count'], 2);
+    expect(controlledStops['chooserReceiptCreatedByStoppedAttempts'], isFalse);
+    expect(controlledStops['failedAttemptMayNotBeRelabelledPass'], isTrue);
+    expect(_strings(networkTranche['authorizedHarnessPhases']), <String>[
+      'CaptureSyncBaseline',
+      'RunSyncMarker',
+      'RunOfflineReconnect',
+      'RunWeakNetwork',
+    ]);
+    final networkProfile = _object(networkTranche['networkProfile']);
+    expect(networkProfile['intermittentCycles'], 3);
+    expect(networkProfile['offlineManualSyncObservationTimeoutSeconds'], 20);
+    expect(networkProfile['minimumDisconnectedHoldSecondsPerCycle'], 5);
+    expect(networkProfile['firstCycleSyncObservationTimeoutSeconds'], 8);
+    expect(networkProfile['minimumRestoredHoldSecondsPerCycle'], 10);
+    expect(networkProfile['maximumIntermittentProfileSeconds'], 120);
+    expect(networkProfile['actualWindowDurationsRecorded'], isTrue);
+    expect(networkProfile['restoreInFinally'], isTrue);
+    expect(networkProfile['falseOfflineSuccessFailsClosed'], isTrue);
+    final trancheSafety = _object(networkTranche['safetyBoundary']);
+    expect(
+      trancheSafety['zeroPendingLocalBusinessWritesRequiredBeforeAndAfter'],
+      isTrue,
+    );
+    expect(
+      trancheSafety['syntheticProductionBusinessRecordAuthorized'],
+      isFalse,
+    );
+    expect(
+      trancheSafety['authorityMutationAuthorizedByThisAmendment'],
+      isFalse,
+    );
+    expect(
+      trancheSafety['remoteBusinessWriteAuthorizedByThisAmendment'],
+      isFalse,
+    );
+    expect(trancheSafety['exactTransportRestorationRequired'], isTrue);
+    expect(trancheSafety['failedPhaseReceiptRequired'], isTrue);
+    expect(trancheSafety['stage2dF4ClosureAuthorized'], isFalse);
+
     final discovery = _object(promotion['discoveryAuthority']);
     expect(
       discovery['promotionSha256'],
@@ -162,7 +226,7 @@ void main() {
     final boundary = _object(promotion['programmeBoundary']);
     expect(boundary['intendedRecords'], isEmpty);
     expect(boundary['stage2dF4ExecutionAuthorized'], isTrue);
-    expect(boundary['stage2dF4DeviceEvidenceCreated'], isFalse);
+    expect(boundary['stage2dF4DeviceEvidenceCreated'], isTrue);
     expect(boundary['stage2dF4ClosureAuthorized'], isFalse);
     expect(boundary['p07ClosureAuthorized'], isFalse);
     expect(boundary['pilotHandoutAuthorized'], isFalse);
@@ -187,6 +251,10 @@ void main() {
     for (final required in <String>[
       "'FinalizeInstall'",
       "'BeginApprovedSignIn'",
+      "'CaptureSyncBaseline'",
+      "'RunSyncMarker'",
+      "'RunOfflineReconnect'",
+      "'RunWeakNetwork'",
       'Target-discovery receipt SHA-256',
       'Physical F4 execution requires exact tracked-clean main equal to freshly fetched origin/main.',
       'The execution promotion is not effective on its unmodified baseline.',
@@ -205,6 +273,24 @@ void main() {
       'accountEmailRetained = \$false',
       'firebaseUidRetained = \$false',
       'PASS_APPROVED_SIGNIN_CAPTURED_FULL_F4_MATRIX_REMAINS_OPEN',
+      'Approved-signin receipt SHA-256',
+      'Installed APK SHA-256 for sync/network tranche',
+      r'Assert-Equal $diagnostics.unsyncedRows 0',
+      'PASS_ZERO_PENDING_LOCAL_WRITES_SYNC_BASELINE',
+      'PASS_AUTHENTICATED_MANUAL_SYNC_ZERO_PENDING_WRITES',
+      "'svc', 'wifi'",
+      "'svc', 'data'",
+      'FALSE_SUCCESS_WHILE_ALL_TRANSPORTS_DISABLED',
+      'FALSE_SUCCESS_DURING_DISCONNECTED_PROFILE',
+      'measuredTransportDisabledDurationSeconds',
+      'measuredProfileDurationSeconds',
+      'measuredDurationSeconds',
+      'INTERMITTENT_PROFILE_EXCEEDED_BOUND',
+      'PASS_OFFLINE_SAFE_EXACT_TRANSPORT_RESTORATION_AND_SYNC_RECOVERY',
+      'PASS_BOUNDED_INTERMITTENT_NETWORK_AND_SYNC_RECOVERY',
+      'FAIL_OFFLINE_RECONNECT_REQUIRES_ADJUDICATION',
+      'FAIL_WEAK_NETWORK_REQUIRES_ADJUDICATION',
+      'finally {',
     ]) {
       expect(script, contains(required), reason: required);
     }
@@ -217,6 +303,8 @@ void main() {
       'appdistribution:distribute',
       'android_id',
       'ro.serialno',
+      "'svc', 'airplane'",
+      'mutateUserAuthority',
       'stage2dF4Status = \'CLOSED\'',
       'pilotHandoutAuthorized = \$true',
       "Assert-Equal `\n  [int](Get-DeviceProperty",

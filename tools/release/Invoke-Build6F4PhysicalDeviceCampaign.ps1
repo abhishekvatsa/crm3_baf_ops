@@ -5,9 +5,9 @@ Starts the exact-target Build 6 physical-device F4 campaign.
 
 .DESCRIPTION
 Preflight is read-only. Install installs and launches only the exact governed
-Build 6 APK on the discovery-bound physical target. CaptureApprovedSignIn
-retains only hashes and non-identity UI state. Later F4 evidence remains a
-separate phase and this harness never closes STAGE2D-F4 or P-07.
+Build 6 APK on the discovery-bound physical target. Authentication, sync and
+network phases retain only hashes and non-identity state. Authority mutation
+remains a separate tranche and this harness never closes STAGE2D-F4 or P-07.
 #>
 
 [CmdletBinding(SupportsShouldProcess)]
@@ -17,7 +17,11 @@ param(
     'Install',
     'FinalizeInstall',
     'BeginApprovedSignIn',
-    'CaptureApprovedSignIn'
+    'CaptureApprovedSignIn',
+    'CaptureSyncBaseline',
+    'RunSyncMarker',
+    'RunOfflineReconnect',
+    'RunWeakNetwork'
   )]
   [string]$Phase = 'Preflight',
 
@@ -295,6 +299,378 @@ function Get-ApprovedHomeEvidence {
   throw 'The approved home surface was not reached without a forbidden marker.'
 }
 
+function Assert-OneOf {
+  param(
+    [Parameter(Mandatory)]$Actual,
+    [Parameter(Mandatory)][object[]]$Expected,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  if ($Actual -notin $Expected) {
+    throw "$Label mismatch. Expected one approved value, got '$Actual'."
+  }
+}
+
+function Get-UiWithMarker {
+  param(
+    [Parameter(Mandatory)][string]$Adb,
+    [Parameter(Mandatory)][string]$Serial,
+    [Parameter(Mandatory)][string]$EvidenceRoot,
+    [Parameter(Mandatory)][string]$Label,
+    [Parameter(Mandatory)][string]$Marker,
+    [int]$TimeoutSeconds = 30
+  )
+
+  $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
+  do {
+    $ui = Get-UiEvidence `
+      -Adb $Adb `
+      -Serial $Serial `
+      -EvidenceRoot $EvidenceRoot `
+      -Label $Label
+    if ($ui.text.Contains($Marker)) {
+      return $ui
+    }
+    Start-Sleep -Seconds 1
+  } while ([DateTimeOffset]::UtcNow -lt $deadline)
+
+  throw "The expected UI marker was not reached: $Marker"
+}
+
+function Invoke-UiMarkerTap {
+  param(
+    [Parameter(Mandatory)][string]$Adb,
+    [Parameter(Mandatory)][string]$Serial,
+    [Parameter(Mandatory)][string]$EvidenceRoot,
+    [Parameter(Mandatory)][string]$Label,
+    [Parameter(Mandatory)][string]$Marker,
+    [Parameter(Mandatory)][string]$XPath,
+    [int]$ScrollAttempts = 0
+  )
+
+  for ($attempt = 0; $attempt -le $ScrollAttempts; $attempt++) {
+    $ui = Get-UiEvidence `
+      -Adb $Adb `
+      -Serial $Serial `
+      -EvidenceRoot $EvidenceRoot `
+      -Label "$Label-$attempt"
+    if ($ui.text.Contains($Marker)) {
+      $center = Get-NodeCenter `
+        -UiText $ui.text `
+        -XPath $XPath `
+        -Label $Marker
+      Invoke-UiTap -Adb $Adb -Serial $Serial -Center $center
+      return $ui.sha256
+    }
+    if ($attempt -lt $ScrollAttempts) {
+      $null = Invoke-ExternalText -FilePath $Adb -Arguments @(
+        '-s', $Serial, 'shell', 'input', 'swipe',
+        '540', '1800', '540', '650', '450'
+      )
+      Start-Sleep -Seconds 1
+    }
+  }
+
+  throw "Could not reach UI control: $Marker"
+}
+
+function Move-ToApprovedHome {
+  param(
+    [Parameter(Mandatory)][string]$Adb,
+    [Parameter(Mandatory)][string]$Serial,
+    [Parameter(Mandatory)][string]$EvidenceRoot
+  )
+
+  for ($attempt = 0; $attempt -le 5; $attempt++) {
+    $ui = Get-UiEvidence `
+      -Adb $Adb `
+      -Serial $Serial `
+      -EvidenceRoot $EvidenceRoot `
+      -Label "build6-f4-home-navigation-$attempt"
+    if ($ui.text.Contains('Core modules') -and $ui.text.Contains('Home')) {
+      $home = Get-ApprovedHomeEvidence `
+        -Adb $Adb `
+        -Serial $Serial `
+        -EvidenceRoot $EvidenceRoot
+      return $home
+    }
+    if ($ui.text.Contains('Home')) {
+      try {
+        $center = Get-NodeCenter `
+          -UiText $ui.text `
+          -XPath "//node[(@text='Home' or contains(@content-desc,'Home')) and @clickable='true']" `
+          -Label 'Home'
+        Invoke-UiTap -Adb $Adb -Serial $Serial -Center $center
+        Start-Sleep -Seconds 1
+        continue
+      } catch {
+        # A pushed route may contain non-navigation Home text; unwind below.
+      }
+    }
+    $null = Invoke-ExternalText -FilePath $Adb -Arguments @(
+      '-s', $Serial, 'shell', 'input', 'keyevent', '4'
+    )
+    Start-Sleep -Seconds 1
+  }
+  throw 'The approved Home navigation surface could not be restored.'
+}
+
+function Get-LocalDiagnosticsEvidence {
+  param(
+    [Parameter(Mandatory)][string]$Adb,
+    [Parameter(Mandatory)][string]$Serial,
+    [Parameter(Mandatory)][string]$EvidenceRoot,
+    [Parameter(Mandatory)][string]$Label
+  )
+
+  $null = Move-ToApprovedHome `
+    -Adb $Adb `
+    -Serial $Serial `
+    -EvidenceRoot $EvidenceRoot
+  $null = Invoke-UiMarkerTap `
+    -Adb $Adb `
+    -Serial $Serial `
+    -EvidenceRoot $EvidenceRoot `
+    -Label "$Label-more" `
+    -Marker 'More' `
+    -XPath "//node[(@text='More' or contains(@content-desc,'More')) and @clickable='true']"
+  $null = Get-UiWithMarker `
+    -Adb $Adb `
+    -Serial $Serial `
+    -EvidenceRoot $EvidenceRoot `
+    -Label "$Label-more-surface" `
+    -Marker 'Tools, records and administrative access.'
+  $null = Invoke-UiMarkerTap `
+    -Adb $Adb `
+    -Serial $Serial `
+    -EvidenceRoot $EvidenceRoot `
+    -Label "$Label-diagnostics-tile" `
+    -Marker 'Support Diagnostics' `
+    -XPath "//node[(@text='Support Diagnostics' or contains(@content-desc,'Support Diagnostics')) and @clickable='true']" `
+    -ScrollAttempts 8
+  $ui = Get-UiWithMarker `
+    -Adb $Adb `
+    -Serial $Serial `
+    -EvidenceRoot $EvidenceRoot `
+    -Label "$Label-diagnostics" `
+    -Marker 'Local diagnostics inventory' `
+    -TimeoutSeconds 60
+  $unsynced = [regex]::Match($ui.text, '(\d+) unsynced rows')
+  if (-not $unsynced.Success) {
+    throw 'Local diagnostics did not expose the unsynced-row count.'
+  }
+  $rejections = [regex]::Match($ui.text, '(\d+) unresolved rejections')
+  if (-not $rejections.Success) {
+    throw 'Local diagnostics did not expose the rejection count.'
+  }
+  $evidence = [pscustomobject]@{
+    uiSha256 = $ui.sha256
+    unsyncedRows = [int]$unsynced.Groups[1].Value
+    unresolvedRejections = [int]$rejections.Groups[1].Value
+  }
+  $null = Invoke-ExternalText -FilePath $Adb -Arguments @(
+    '-s', $Serial, 'shell', 'input', 'keyevent', '4'
+  )
+  Start-Sleep -Seconds 1
+  $null = Move-ToApprovedHome `
+    -Adb $Adb `
+    -Serial $Serial `
+    -EvidenceRoot $EvidenceRoot
+  $evidence
+}
+
+function Wait-ManualSyncOutcome {
+  param(
+    [Parameter(Mandatory)][string]$Adb,
+    [Parameter(Mandatory)][string]$Serial,
+    [Parameter(Mandatory)][string]$EvidenceRoot,
+    [Parameter(Mandatory)][string]$Label,
+    [int]$TimeoutSeconds = 120
+  )
+
+  $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
+  do {
+    $ui = Get-UiEvidence `
+      -Adb $Adb `
+      -Serial $Serial `
+      -EvidenceRoot $EvidenceRoot `
+      -Label $Label
+    if ($ui.text.Contains('Manual sync completed.')) {
+      return [pscustomobject]@{
+        outcome = 'SUCCESS'
+        uiSha256 = $ui.sha256
+      }
+    }
+    if ($ui.text.Contains('Manual sync failed:')) {
+      return [pscustomobject]@{
+        outcome = 'FAILED'
+        uiSha256 = $ui.sha256
+      }
+    }
+    if ($ui.text.Contains(
+        'Manual sync is already running or could not complete.')) {
+      return [pscustomobject]@{
+        outcome = 'NOT_COMPLETED'
+        uiSha256 = $ui.sha256
+      }
+    }
+    Start-Sleep -Milliseconds 500
+  } while ([DateTimeOffset]::UtcNow -lt $deadline)
+
+  [pscustomobject]@{
+    outcome = 'TIMEOUT_WITHOUT_SUCCESS_MARKER'
+    uiSha256 = $ui.sha256
+  }
+}
+
+function Invoke-ManualSyncEvidence {
+  param(
+    [Parameter(Mandatory)][string]$Adb,
+    [Parameter(Mandatory)][string]$Serial,
+    [Parameter(Mandatory)][string]$EvidenceRoot,
+    [Parameter(Mandatory)][string]$Label,
+    [int]$TimeoutSeconds = 120
+  )
+
+  $null = Move-ToApprovedHome `
+    -Adb $Adb `
+    -Serial $Serial `
+    -EvidenceRoot $EvidenceRoot
+  $deadline = [DateTimeOffset]::UtcNow.AddSeconds(15)
+  do {
+    $before = Get-UiEvidence `
+      -Adb $Adb `
+      -Serial $Serial `
+      -EvidenceRoot $EvidenceRoot `
+      -Label "$Label-ready"
+    $stale = $before.text.Contains('Manual sync completed.') -or
+      $before.text.Contains('Manual sync failed:') -or
+      $before.text.Contains(
+        'Manual sync is already running or could not complete.')
+    if (-not $stale) {
+      break
+    }
+    Start-Sleep -Seconds 1
+  } while ([DateTimeOffset]::UtcNow -lt $deadline)
+  if ($stale) {
+    throw 'A stale manual-sync result marker did not clear before execution.'
+  }
+  $null = Invoke-UiMarkerTap `
+    -Adb $Adb `
+    -Serial $Serial `
+    -EvidenceRoot $EvidenceRoot `
+    -Label "$Label-trigger" `
+    -Marker 'Sync now' `
+    -XPath "//node[(@text='Sync now' or contains(@content-desc,'Sync now')) and @clickable='true']"
+  Wait-ManualSyncOutcome `
+    -Adb $Adb `
+    -Serial $Serial `
+    -EvidenceRoot $EvidenceRoot `
+    -Label "$Label-outcome" `
+    -TimeoutSeconds $TimeoutSeconds
+}
+
+function Get-TransportState {
+  param(
+    [Parameter(Mandatory)][string]$Adb,
+    [Parameter(Mandatory)][string]$Serial
+  )
+
+  $wifi = (Invoke-ExternalText -FilePath $Adb -Arguments @(
+    '-s', $Serial, 'shell', 'settings', 'get', 'global', 'wifi_on'
+  )).output
+  $mobile = (Invoke-ExternalText -FilePath $Adb -Arguments @(
+    '-s', $Serial, 'shell', 'settings', 'get', 'global', 'mobile_data'
+  )).output
+  $airplane = (Invoke-ExternalText -FilePath $Adb -Arguments @(
+    '-s', $Serial, 'shell', 'settings', 'get', 'global', 'airplane_mode_on'
+  )).output
+  Assert-OneOf -Actual $wifi -Expected @('0', '1') -Label 'Wi-Fi setting'
+  Assert-OneOf `
+    -Actual $mobile `
+    -Expected @('0', '1') `
+    -Label 'Mobile-data setting'
+  Assert-OneOf `
+    -Actual $airplane `
+    -Expected @('0', '1') `
+    -Label 'Airplane-mode setting'
+  [pscustomobject]@{
+    wifiOn = [int]$wifi
+    mobileDataOn = [int]$mobile
+    airplaneModeOn = [int]$airplane
+  }
+}
+
+function Set-TransportState {
+  param(
+    [Parameter(Mandatory)][string]$Adb,
+    [Parameter(Mandatory)][string]$Serial,
+    [Parameter(Mandatory)][int]$WifiOn,
+    [Parameter(Mandatory)][int]$MobileDataOn
+  )
+
+  Assert-OneOf `
+    -Actual $WifiOn `
+    -Expected @(0, 1) `
+    -Label 'Requested Wi-Fi setting'
+  Assert-OneOf `
+    -Actual $MobileDataOn `
+    -Expected @(0, 1) `
+    -Label 'Requested mobile-data setting'
+  $wifiAction = if ($WifiOn -eq 1) { 'enable' } else { 'disable' }
+  $mobileAction = if ($MobileDataOn -eq 1) { 'enable' } else { 'disable' }
+  $null = Invoke-ExternalText -FilePath $Adb -Arguments @(
+    '-s', $Serial, 'shell', 'svc', 'wifi', $wifiAction
+  )
+  $null = Invoke-ExternalText -FilePath $Adb -Arguments @(
+    '-s', $Serial, 'shell', 'svc', 'data', $mobileAction
+  )
+  $deadline = [DateTimeOffset]::UtcNow.AddSeconds(30)
+  do {
+    $observed = Get-TransportState -Adb $Adb -Serial $Serial
+    if ($observed.wifiOn -eq $WifiOn -and
+        $observed.mobileDataOn -eq $MobileDataOn) {
+      return $observed
+    }
+    Start-Sleep -Seconds 1
+  } while ([DateTimeOffset]::UtcNow -lt $deadline)
+  throw 'Device transport state did not reach the requested values.'
+}
+
+function Assert-InstalledApkHash {
+  param(
+    [Parameter(Mandatory)][string]$Adb,
+    [Parameter(Mandatory)][string]$Serial,
+    [Parameter(Mandatory)][string]$PackageId,
+    [Parameter(Mandatory)][string]$ExpectedSha256,
+    [Parameter(Mandatory)][string]$EvidenceRoot
+  )
+
+  $paths = (Invoke-ExternalText -FilePath $Adb -Arguments @(
+    '-s', $Serial, 'shell', 'pm', 'path', $PackageId
+  )).output
+  $basePaths = @($paths -split "`n" | Where-Object {
+    $_.StartsWith('package:') -and $_.Contains('/base.apk')
+  })
+  if ($basePaths.Count -ne 1) {
+    throw 'Installed Build 6 base APK path is not uniquely available.'
+  }
+  $temporary = Join-Path $EvidenceRoot '.installed-build6-network-tranche.apk'
+  try {
+    $null = Invoke-ExternalText -FilePath $Adb -Arguments @(
+      '-s', $Serial, 'pull',
+      $basePaths[0].Substring('package:'.Length),
+      $temporary
+    )
+    Assert-Equal (Get-Sha256 $temporary) $ExpectedSha256 `
+      'Installed APK SHA-256 for sync/network tranche'
+  } finally {
+    if (Test-Path -LiteralPath $temporary) {
+      Remove-Item -LiteralPath $temporary -Force
+    }
+  }
+}
+
 $root = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $promotionFile = (Resolve-Path -LiteralPath (
   Join-Path $root $PromotionPath
@@ -303,6 +679,12 @@ $packageFile = (Resolve-Path -LiteralPath $GovernedPackagePath).Path
 $discoveryFile = (Resolve-Path -LiteralPath $DiscoveryReceiptPath).Path
 $promotion = Get-Content -LiteralPath $promotionFile -Raw | ConvertFrom-Json
 $discovery = Get-Content -LiteralPath $discoveryFile -Raw | ConvertFrom-Json
+$currentPromotionSha256 = Get-Sha256 $promotionFile
+$acceptedPromotionSha256 = @($currentPromotionSha256)
+if ($null -ne $promotion.syncNetworkTrancheAmendment) {
+  $acceptedPromotionSha256 +=
+    [string]$promotion.syncNetworkTrancheAmendment.priorPromotionSha256
+}
 
 Assert-Equal $promotion.schemaVersion 1 'Promotion schema version'
 Assert-Equal `
@@ -428,6 +810,14 @@ $preflightReceiptPath = Join-Path $evidenceRoot 'preflight-receipt.json'
 $installReceiptPath = Join-Path $evidenceRoot 'install-receipt.json'
 $chooserReceiptPath = Join-Path $evidenceRoot 'approved-signin-chooser-receipt.json'
 $signInReceiptPath = Join-Path $evidenceRoot 'approved-signin-receipt.json'
+$syncBaselineReceiptPath = Join-Path $evidenceRoot 'sync-baseline-receipt.json'
+$syncMarkerReceiptPath = Join-Path $evidenceRoot 'sync-marker-receipt.json'
+$offlineReceiptPath = Join-Path $evidenceRoot 'offline-reconnect-receipt.json'
+$weakNetworkReceiptPath = Join-Path $evidenceRoot 'weak-network-receipt.json'
+$offlineFailureReceiptPath =
+  Join-Path $evidenceRoot 'offline-reconnect-failure-receipt.json'
+$weakNetworkFailureReceiptPath =
+  Join-Path $evidenceRoot 'weak-network-failure-receipt.json'
 $applicationId = $promotion.artifactAuthority.applicationId
 $expectedApk = $promotion.artifactAuthority.apk
 
@@ -527,10 +917,10 @@ if (-not (Test-Path -LiteralPath $preflightReceiptPath -PathType Leaf) -or
 }
 $preflight = Get-Content -LiteralPath $preflightReceiptPath -Raw |
   ConvertFrom-Json
-Assert-Equal `
-  $preflight.promotionSha256 `
-  (Get-Sha256 $promotionFile) `
-  'Preflight promotion SHA-256'
+Assert-OneOf `
+  -Actual $preflight.promotionSha256 `
+  -Expected $acceptedPromotionSha256 `
+  -Label 'Preflight promotion SHA-256'
 Assert-Equal (Get-Sha256 $apkPath) $expectedApk.sha256 `
   'Campaign APK SHA-256'
 
@@ -718,60 +1108,716 @@ if ($Phase -eq 'BeginApprovedSignIn') {
   exit 0
 }
 
-if (-not (Test-Path -LiteralPath $chooserReceiptPath -PathType Leaf)) {
-  throw 'CaptureApprovedSignIn requires the governed account-chooser receipt.'
+if ($Phase -eq 'CaptureApprovedSignIn') {
+  if (-not (Test-Path -LiteralPath $chooserReceiptPath -PathType Leaf)) {
+    throw 'CaptureApprovedSignIn requires the governed account-chooser receipt.'
+  }
+  if (Test-Path -LiteralPath $signInReceiptPath) {
+    throw 'CaptureApprovedSignIn refuses to replace an existing receipt.'
+  }
+  $chooserReceipt = Get-Content -LiteralPath $chooserReceiptPath -Raw |
+    ConvertFrom-Json
+  $focus = (Invoke-ExternalText -FilePath $adb -Arguments @(
+    '-s', $DeviceSerial, 'shell', 'dumpsys', 'window', 'windows'
+  )).output
+  if (-not $focus.Contains($applicationId)) {
+    throw 'The CRM-III application must remain foreground for sign-in capture.'
+  }
+  $approvedHome = Get-ApprovedHomeEvidence `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -EvidenceRoot $evidenceRoot
+  $currentProcessId = Get-AppProcessId `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -PackageId $applicationId
+  Assert-Equal `
+    $currentProcessId `
+    $chooserReceipt.applicationProcessIdBeforeSelection `
+    'Same-process approved sign-in'
+  $receipt = [ordered]@{
+    schemaVersion = 1
+    evidenceType = 'build-6-f4-physical-device-approved-signin'
+    capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    promotionSha256 = Get-Sha256 $promotionFile
+    installReceiptSha256 = Get-Sha256 $installReceiptPath
+    chooserReceiptSha256 = Get-Sha256 $chooserReceiptPath
+    installedApkSha256 = $expectedApk.sha256
+    targetAdbSerialSha256 = Get-TextSha256 $DeviceSerial
+    runtime = [ordered]@{
+      googleFirebaseSignInObserved = $true
+      approvedHomeReached = $true
+      sameApplicationProcessFromChooserToApprovedHome = $true
+      homeMarkersPresent = $approvedHome.homeMarkersPresent
+      forbiddenMarkersAbsent = $approvedHome.forbiddenMarkersAbsent
+      approvedHomeUiSha256 = $approvedHome.sha256
+      rawUiRetained = $false
+    }
+    privacy = [ordered]@{
+      accountEmailRetained = $false
+      accountDisplayNameRetained = $false
+      firebaseUidRetained = $false
+      accessTokenRetained = $false
+    }
+    remainingRequiredPhases = @(
+      'sync-marker',
+      'offline-reconnect',
+      'weak-network',
+      'revocation-next-operation-denial',
+      'wrong-role-denials'
+    )
+    programmeBoundary = [ordered]@{
+      stage2dF4Status = 'OPEN'
+      stage2dF4ClosureAuthorized = $false
+      p07ClosureAuthorized = $false
+      pilotHandoutAuthorized = $false
+      separateEvidenceAdjudicationRequired = $true
+    }
+    decision = 'PASS_APPROVED_SIGNIN_CAPTURED_FULL_F4_MATRIX_REMAINS_OPEN'
+  }
+  Write-Utf8NoBom `
+    -Path $signInReceiptPath `
+    -Text (($receipt | ConvertTo-Json -Depth 30) + "`n")
+  $receipt | ConvertTo-Json -Depth 30
+  exit 0
 }
-if (Test-Path -LiteralPath $signInReceiptPath) {
-  throw 'CaptureApprovedSignIn refuses to replace an existing receipt.'
+
+$networkPhases = @(
+  'CaptureSyncBaseline',
+  'RunSyncMarker',
+  'RunOfflineReconnect',
+  'RunWeakNetwork'
+)
+if ($Phase -notin $networkPhases) {
+  throw "Unsupported physical F4 phase: $Phase"
 }
-$chooserReceipt = Get-Content -LiteralPath $chooserReceiptPath -Raw |
+if ($null -eq $promotion.syncNetworkTrancheAmendment) {
+  throw "$Phase requires the merged sync/network tranche amendment."
+}
+$tranche = $promotion.syncNetworkTrancheAmendment
+if (-not (Test-Path -LiteralPath $signInReceiptPath -PathType Leaf)) {
+  throw "$Phase requires the governed approved-signin receipt."
+}
+Assert-Equal `
+  (Get-Sha256 $signInReceiptPath) `
+  $tranche.privateEvidence.approvedSigninReceiptSha256 `
+  'Approved-signin receipt SHA-256'
+$signInReceipt = Get-Content -LiteralPath $signInReceiptPath -Raw |
   ConvertFrom-Json
-$focus = (Invoke-ExternalText -FilePath $adb -Arguments @(
-  '-s', $DeviceSerial, 'shell', 'dumpsys', 'window', 'windows'
-)).output
-if (-not $focus.Contains($applicationId)) {
-  throw 'The CRM-III application must remain foreground for sign-in capture.'
-}
-$approvedHome = Get-ApprovedHomeEvidence `
+Assert-Equal `
+  $signInReceipt.decision `
+  'PASS_APPROVED_SIGNIN_CAPTURED_FULL_F4_MATRIX_REMAINS_OPEN' `
+  'Approved-signin decision'
+Assert-Equal `
+  $signInReceipt.runtime.sameApplicationProcessFromChooserToApprovedHome `
+  $true `
+  'Approved-signin process continuity'
+Assert-InstalledApkHash `
+  -Adb $adb `
+  -Serial $DeviceSerial `
+  -PackageId $applicationId `
+  -ExpectedSha256 $expectedApk.sha256 `
+  -EvidenceRoot $evidenceRoot
+$null = Move-ToApprovedHome `
   -Adb $adb `
   -Serial $DeviceSerial `
   -EvidenceRoot $evidenceRoot
-$currentProcessId = Get-AppProcessId `
+
+if ($Phase -eq 'CaptureSyncBaseline') {
+  if (Test-Path -LiteralPath $syncBaselineReceiptPath) {
+    throw 'CaptureSyncBaseline refuses to replace an existing receipt.'
+  }
+  $diagnostics = Get-LocalDiagnosticsEvidence `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -EvidenceRoot $evidenceRoot `
+    -Label 'build6-f4-sync-baseline'
+  Assert-Equal $diagnostics.unsyncedRows 0 `
+    'Fresh-install pending local business writes'
+  $transport = Get-TransportState -Adb $adb -Serial $DeviceSerial
+  $receipt = [ordered]@{
+    schemaVersion = 1
+    evidenceType = 'build-6-f4-physical-device-sync-baseline'
+    capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    promotionSha256 = $currentPromotionSha256
+    approvedSigninReceiptSha256 = Get-Sha256 $signInReceiptPath
+    installedApkSha256 = $expectedApk.sha256
+    localDiagnostics = [ordered]@{
+      uiSha256 = $diagnostics.uiSha256
+      unsyncedRows = $diagnostics.unsyncedRows
+      unresolvedRejections = $diagnostics.unresolvedRejections
+      rawUiRetained = $false
+    }
+    initialTransport = [ordered]@{
+      wifiOn = $transport.wifiOn
+      mobileDataOn = $transport.mobileDataOn
+      airplaneModeOn = $transport.airplaneModeOn
+      rawNetworkIdentifiersRetained = $false
+    }
+    remoteBusinessMutationPerformed = $false
+    decision = 'PASS_ZERO_PENDING_LOCAL_WRITES_SYNC_BASELINE'
+  }
+  Write-Utf8NoBom `
+    -Path $syncBaselineReceiptPath `
+    -Text (($receipt | ConvertTo-Json -Depth 30) + "`n")
+  $receipt | ConvertTo-Json -Depth 30
+  exit 0
+}
+
+if (-not (Test-Path -LiteralPath $syncBaselineReceiptPath -PathType Leaf)) {
+  throw "$Phase requires the governed sync-baseline receipt."
+}
+$syncBaseline = Get-Content -LiteralPath $syncBaselineReceiptPath -Raw |
+  ConvertFrom-Json
+Assert-Equal $syncBaseline.promotionSha256 $currentPromotionSha256 `
+  'Sync-baseline promotion SHA-256'
+Assert-Equal `
+  $syncBaseline.approvedSigninReceiptSha256 `
+  (Get-Sha256 $signInReceiptPath) `
+  'Sync-baseline approved-signin receipt SHA-256'
+Assert-Equal $syncBaseline.installedApkSha256 $expectedApk.sha256 `
+  'Sync-baseline installed APK SHA-256'
+Assert-Equal $syncBaseline.decision `
+  'PASS_ZERO_PENDING_LOCAL_WRITES_SYNC_BASELINE' `
+  'Sync-baseline decision'
+Assert-Equal $syncBaseline.localDiagnostics.unsyncedRows 0 `
+  'Sync-baseline pending local business writes'
+
+if ($Phase -eq 'RunSyncMarker') {
+  if (Test-Path -LiteralPath $syncMarkerReceiptPath) {
+    throw 'RunSyncMarker refuses to replace an existing receipt.'
+  }
+  $before = Get-LocalDiagnosticsEvidence `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -EvidenceRoot $evidenceRoot `
+    -Label 'build6-f4-sync-marker-before'
+  Assert-Equal $before.unsyncedRows 0 `
+    'Pre-sync pending local business writes'
+  $sync = Invoke-ManualSyncEvidence `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -EvidenceRoot $evidenceRoot `
+    -Label 'build6-f4-sync-marker'
+  Assert-Equal $sync.outcome 'SUCCESS' 'Authenticated manual-sync outcome'
+  $after = Get-LocalDiagnosticsEvidence `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -EvidenceRoot $evidenceRoot `
+    -Label 'build6-f4-sync-marker-after'
+  Assert-Equal $after.unsyncedRows 0 `
+    'Post-sync pending local business writes'
+  $receipt = [ordered]@{
+    schemaVersion = 1
+    evidenceType = 'build-6-f4-physical-device-sync-marker'
+    capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    promotionSha256 = $currentPromotionSha256
+    syncBaselineReceiptSha256 = Get-Sha256 $syncBaselineReceiptPath
+    installedApkSha256 = $expectedApk.sha256
+    before = [ordered]@{
+      diagnosticsUiSha256 = $before.uiSha256
+      pendingLocalBusinessWrites = $before.unsyncedRows
+    }
+    manualSync = [ordered]@{
+      outcome = $sync.outcome
+      completionUiSha256 = $sync.uiSha256
+      syntheticBusinessRecordCreated = $false
+    }
+    after = [ordered]@{
+      diagnosticsUiSha256 = $after.uiSha256
+      pendingLocalBusinessWrites = $after.unsyncedRows
+    }
+    privacy = [ordered]@{
+      rawUiRetained = $false
+      accountIdentityRetained = $false
+      businessPayloadRetained = $false
+    }
+    decision = 'PASS_AUTHENTICATED_MANUAL_SYNC_ZERO_PENDING_WRITES'
+  }
+  Write-Utf8NoBom `
+    -Path $syncMarkerReceiptPath `
+    -Text (($receipt | ConvertTo-Json -Depth 30) + "`n")
+  $receipt | ConvertTo-Json -Depth 30
+  exit 0
+}
+
+if (-not (Test-Path -LiteralPath $syncMarkerReceiptPath -PathType Leaf)) {
+  throw "$Phase requires the governed sync-marker receipt."
+}
+$syncMarker = Get-Content -LiteralPath $syncMarkerReceiptPath -Raw |
+  ConvertFrom-Json
+Assert-Equal $syncMarker.promotionSha256 $currentPromotionSha256 `
+  'Sync-marker promotion SHA-256'
+Assert-Equal `
+  $syncMarker.syncBaselineReceiptSha256 `
+  (Get-Sha256 $syncBaselineReceiptPath) `
+  'Sync-marker baseline receipt SHA-256'
+Assert-Equal $syncMarker.installedApkSha256 $expectedApk.sha256 `
+  'Sync-marker installed APK SHA-256'
+Assert-Equal $syncMarker.decision `
+  'PASS_AUTHENTICATED_MANUAL_SYNC_ZERO_PENDING_WRITES' `
+  'Sync-marker decision'
+Assert-Equal $syncMarker.after.pendingLocalBusinessWrites 0 `
+  'Sync-marker post-run pending local business writes'
+
+if ($Phase -eq 'RunOfflineReconnect') {
+  if ((Test-Path -LiteralPath $offlineReceiptPath) -or
+      (Test-Path -LiteralPath $offlineFailureReceiptPath)) {
+    throw 'RunOfflineReconnect refuses to replace existing phase evidence.'
+  }
+  $before = Get-LocalDiagnosticsEvidence `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -EvidenceRoot $evidenceRoot `
+    -Label 'build6-f4-offline-before'
+  Assert-Equal $before.unsyncedRows 0 `
+    'Pre-offline pending local business writes'
+  $initialTransport = Get-TransportState -Adb $adb -Serial $DeviceSerial
+  Assert-Equal $initialTransport.airplaneModeOn 0 `
+    'Pre-offline airplane-mode setting'
+  if ($initialTransport.wifiOn -eq 0 -and
+      $initialTransport.mobileDataOn -eq 0) {
+    throw 'Offline/reconnect requires an initially enabled network transport.'
+  }
+  $offlineSync = $null
+  $offlineUi = $null
+  $phaseError = $null
+  $restorationError = $null
+  $transportDisabledAt = $null
+  $transportRestoreStartedAt = $null
+  $transportDisabledDurationSeconds = 0.0
+  try {
+    $null = Set-TransportState `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -WifiOn 0 `
+      -MobileDataOn 0
+    $transportDisabledAt = [DateTimeOffset]::UtcNow
+    Start-Sleep -Seconds 5
+    $offlineUi = Move-ToApprovedHome `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -EvidenceRoot $evidenceRoot
+    $offlineSync = Invoke-ManualSyncEvidence `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -EvidenceRoot $evidenceRoot `
+      -Label 'build6-f4-offline-sync' `
+      -TimeoutSeconds 20
+    if ($offlineSync.outcome -eq 'SUCCESS') {
+      $phaseError = 'FALSE_SUCCESS_WHILE_ALL_TRANSPORTS_DISABLED'
+    }
+    $offlineFinalUi = Get-UiEvidence `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -EvidenceRoot $evidenceRoot `
+      -Label 'build6-f4-offline-final-disconnected'
+    if ($offlineFinalUi.text.Contains('Manual sync completed.')) {
+      $phaseError = 'FALSE_SUCCESS_WHILE_ALL_TRANSPORTS_DISABLED'
+    }
+  } catch {
+    $phaseError = 'OFFLINE_OBSERVATION_FAILED_CLOSED'
+  } finally {
+    $transportRestoreStartedAt = [DateTimeOffset]::UtcNow
+    if ($null -ne $transportDisabledAt) {
+      $transportDisabledDurationSeconds = [math]::Round(
+        ($transportRestoreStartedAt - $transportDisabledAt).TotalSeconds,
+        3
+      )
+    }
+    try {
+      $null = Set-TransportState `
+        -Adb $adb `
+        -Serial $DeviceSerial `
+        -WifiOn $initialTransport.wifiOn `
+        -MobileDataOn $initialTransport.mobileDataOn
+    } catch {
+      $restorationError = 'TRANSPORT_RESTORATION_FAILED'
+    }
+  }
+  $restoredTransport = Get-TransportState -Adb $adb -Serial $DeviceSerial
+  $transportRestored =
+    $restoredTransport.wifiOn -eq $initialTransport.wifiOn -and
+    $restoredTransport.mobileDataOn -eq $initialTransport.mobileDataOn -and
+    $restoredTransport.airplaneModeOn -eq $initialTransport.airplaneModeOn
+  if (-not $transportRestored -or $null -ne $restorationError -or
+      $null -ne $phaseError) {
+    $failure = [ordered]@{
+      schemaVersion = 1
+      evidenceType = 'build-6-f4-physical-device-offline-reconnect-failure'
+      capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+      promotionSha256 = $currentPromotionSha256
+      syncMarkerReceiptSha256 = Get-Sha256 $syncMarkerReceiptPath
+      installedApkSha256 = $expectedApk.sha256
+      failureClass = if ($null -ne $restorationError) {
+        $restorationError
+      } elseif (-not $transportRestored) {
+        'EXACT_TRANSPORT_STATE_NOT_RESTORED'
+      } else {
+        $phaseError
+      }
+      initialTransport = $initialTransport
+      observedTransportAfterFinally = $restoredTransport
+      exactTransportStateRestored = $transportRestored
+      offlineManualSyncOutcome = if ($null -eq $offlineSync) {
+        'NOT_OBSERVED'
+      } else {
+        $offlineSync.outcome
+      }
+      transportDisabledDurationSeconds = $transportDisabledDurationSeconds
+      rawUiRetained = $false
+      rawNetworkIdentifiersRetained = $false
+      failedPhaseMayNotBeRelabelledPass = $true
+      decision = 'FAIL_OFFLINE_RECONNECT_REQUIRES_ADJUDICATION'
+    }
+    Write-Utf8NoBom `
+      -Path $offlineFailureReceiptPath `
+      -Text (($failure | ConvertTo-Json -Depth 30) + "`n")
+    throw "Offline/reconnect stopped: $($failure.failureClass)"
+  }
+  $postReconnect = $null
+  $after = $null
+  try {
+    Start-Sleep -Seconds 10
+    $postReconnect = Wait-ManualSyncOutcome `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -EvidenceRoot $evidenceRoot `
+      -Label 'build6-f4-offline-post-reconnect-existing' `
+      -TimeoutSeconds 60
+    if ($postReconnect.outcome -ne 'SUCCESS') {
+      $postReconnect = Invoke-ManualSyncEvidence `
+        -Adb $adb `
+        -Serial $DeviceSerial `
+        -EvidenceRoot $evidenceRoot `
+        -Label 'build6-f4-offline-post-reconnect-new' `
+        -TimeoutSeconds 120
+    }
+    Assert-Equal $postReconnect.outcome 'SUCCESS' `
+      'Post-reconnect manual-sync outcome'
+    $after = Get-LocalDiagnosticsEvidence `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -EvidenceRoot $evidenceRoot `
+      -Label 'build6-f4-offline-after'
+    Assert-Equal $after.unsyncedRows 0 `
+      'Post-reconnect pending local business writes'
+  } catch {
+    $failure = [ordered]@{
+      schemaVersion = 1
+      evidenceType = 'build-6-f4-physical-device-offline-reconnect-failure'
+      capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+      promotionSha256 = $currentPromotionSha256
+      syncMarkerReceiptSha256 = Get-Sha256 $syncMarkerReceiptPath
+      installedApkSha256 = $expectedApk.sha256
+      failureClass = 'POST_RECONNECT_VALIDATION_FAILED'
+      initialTransport = $initialTransport
+      observedTransportAfterFinally = $restoredTransport
+      exactTransportStateRestored = $transportRestored
+      offlineManualSyncOutcome = $offlineSync.outcome
+      postReconnectManualSyncOutcome = if ($null -eq $postReconnect) {
+        'NOT_OBSERVED'
+      } else {
+        $postReconnect.outcome
+      }
+      transportDisabledDurationSeconds = $transportDisabledDurationSeconds
+      rawUiRetained = $false
+      rawNetworkIdentifiersRetained = $false
+      failedPhaseMayNotBeRelabelledPass = $true
+      decision = 'FAIL_OFFLINE_RECONNECT_REQUIRES_ADJUDICATION'
+    }
+    Write-Utf8NoBom `
+      -Path $offlineFailureReceiptPath `
+      -Text (($failure | ConvertTo-Json -Depth 30) + "`n")
+    throw 'Offline/reconnect stopped: POST_RECONNECT_VALIDATION_FAILED'
+  }
+  $receipt = [ordered]@{
+    schemaVersion = 1
+    evidenceType = 'build-6-f4-physical-device-offline-reconnect'
+    capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    promotionSha256 = $currentPromotionSha256
+    syncMarkerReceiptSha256 = Get-Sha256 $syncMarkerReceiptPath
+    installedApkSha256 = $expectedApk.sha256
+    initialTransport = $initialTransport
+    offline = [ordered]@{
+      allTransportsDisabled = $true
+      transportStabilizationSeconds = 5
+      manualSyncObservationTimeoutSeconds = 20
+      measuredTransportDisabledDurationSeconds =
+        $transportDisabledDurationSeconds
+      approvedShellUiSha256 = $offlineUi.sha256
+      manualSyncOutcome = $offlineSync.outcome
+      falseSuccessObserved = $false
+      remoteBusinessMutationAttempted = $false
+    }
+    restoration = [ordered]@{
+      exactTransportStateRestored = $transportRestored
+      postReconnectSyncOutcome = $postReconnect.outcome
+      completionUiSha256 = $postReconnect.uiSha256
+    }
+    after = [ordered]@{
+      diagnosticsUiSha256 = $after.uiSha256
+      pendingLocalBusinessWrites = $after.unsyncedRows
+    }
+    rawUiRetained = $false
+    rawNetworkIdentifiersRetained = $false
+    decision = 'PASS_OFFLINE_SAFE_EXACT_TRANSPORT_RESTORATION_AND_SYNC_RECOVERY'
+  }
+  Write-Utf8NoBom `
+    -Path $offlineReceiptPath `
+    -Text (($receipt | ConvertTo-Json -Depth 30) + "`n")
+  $receipt | ConvertTo-Json -Depth 30
+  exit 0
+}
+
+if (-not (Test-Path -LiteralPath $offlineReceiptPath -PathType Leaf)) {
+  throw 'RunWeakNetwork requires the governed offline/reconnect receipt.'
+}
+$offlineReceipt = Get-Content -LiteralPath $offlineReceiptPath -Raw |
+  ConvertFrom-Json
+Assert-Equal $offlineReceipt.promotionSha256 $currentPromotionSha256 `
+  'Offline/reconnect promotion SHA-256'
+Assert-Equal `
+  $offlineReceipt.syncMarkerReceiptSha256 `
+  (Get-Sha256 $syncMarkerReceiptPath) `
+  'Offline/reconnect sync-marker receipt SHA-256'
+Assert-Equal $offlineReceipt.installedApkSha256 $expectedApk.sha256 `
+  'Offline/reconnect installed APK SHA-256'
+Assert-Equal $offlineReceipt.decision `
+  'PASS_OFFLINE_SAFE_EXACT_TRANSPORT_RESTORATION_AND_SYNC_RECOVERY' `
+  'Offline/reconnect decision'
+Assert-Equal $offlineReceipt.restoration.exactTransportStateRestored $true `
+  'Offline/reconnect transport restoration'
+if ((Test-Path -LiteralPath $weakNetworkReceiptPath) -or
+    (Test-Path -LiteralPath $weakNetworkFailureReceiptPath)) {
+  throw 'RunWeakNetwork refuses to replace existing phase evidence.'
+}
+$before = Get-LocalDiagnosticsEvidence `
   -Adb $adb `
   -Serial $DeviceSerial `
-  -PackageId $applicationId
-Assert-Equal `
-  $currentProcessId `
-  $chooserReceipt.applicationProcessIdBeforeSelection `
-  'Same-process approved sign-in'
+  -EvidenceRoot $evidenceRoot `
+  -Label 'build6-f4-weak-before'
+Assert-Equal $before.unsyncedRows 0 `
+  'Pre-profile pending local business writes'
+$initialTransport = Get-TransportState -Adb $adb -Serial $DeviceSerial
+Assert-Equal $initialTransport.airplaneModeOn 0 `
+  'Pre-profile airplane-mode setting'
+if ($initialTransport.wifiOn -eq 0 -and
+    $initialTransport.mobileDataOn -eq 0) {
+  throw 'Weak-network profile requires an initially enabled network transport.'
+}
+$events = @()
+$profileSync = $null
+$phaseError = $null
+$restorationError = $null
+$profileStartedAt = [DateTimeOffset]::UtcNow
+try {
+  for ($cycle = 1; $cycle -le 3; $cycle++) {
+    $null = Set-TransportState `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -WifiOn 0 `
+      -MobileDataOn 0
+    $disconnectedStartedAt = [DateTimeOffset]::UtcNow
+    Start-Sleep -Seconds 5
+    $offlineHome = Move-ToApprovedHome `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -EvidenceRoot $evidenceRoot
+    if ($cycle -eq 1) {
+      $profileSync = Invoke-ManualSyncEvidence `
+        -Adb $adb `
+        -Serial $DeviceSerial `
+        -EvidenceRoot $evidenceRoot `
+        -Label 'build6-f4-weak-profile-sync' `
+        -TimeoutSeconds 8
+      if ($profileSync.outcome -eq 'SUCCESS') {
+        $phaseError = 'FALSE_SUCCESS_DURING_DISCONNECTED_PROFILE'
+        break
+      }
+      $disconnectedFinalUi = Get-UiEvidence `
+        -Adb $adb `
+        -Serial $DeviceSerial `
+        -EvidenceRoot $evidenceRoot `
+        -Label 'build6-f4-weak-final-disconnected'
+      if ($disconnectedFinalUi.text.Contains('Manual sync completed.')) {
+        $phaseError = 'FALSE_SUCCESS_DURING_DISCONNECTED_PROFILE'
+        break
+      }
+    }
+    $disconnectedEndedAt = [DateTimeOffset]::UtcNow
+    $disconnectedDurationSeconds = [math]::Round(
+      ($disconnectedEndedAt - $disconnectedStartedAt).TotalSeconds,
+      3
+    )
+    $events += [ordered]@{
+      cycle = $cycle
+      state = 'DISCONNECTED'
+      measuredDurationSeconds = $disconnectedDurationSeconds
+      approvedHomeUiSha256 = $offlineHome.sha256
+    }
+    $null = Set-TransportState `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -WifiOn $initialTransport.wifiOn `
+      -MobileDataOn $initialTransport.mobileDataOn
+    $restoredWindowStartedAt = [DateTimeOffset]::UtcNow
+    Start-Sleep -Seconds 10
+    $onlineHome = Move-ToApprovedHome `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -EvidenceRoot $evidenceRoot
+    $restoredWindowEndedAt = [DateTimeOffset]::UtcNow
+    $restoredWindowDurationSeconds = [math]::Round(
+      ($restoredWindowEndedAt - $restoredWindowStartedAt).TotalSeconds,
+      3
+    )
+    $events += [ordered]@{
+      cycle = $cycle
+      state = 'RESTORED_WINDOW'
+      measuredDurationSeconds = $restoredWindowDurationSeconds
+      approvedHomeUiSha256 = $onlineHome.sha256
+    }
+  }
+} catch {
+  $phaseError = 'INTERMITTENT_PROFILE_FAILED_CLOSED'
+} finally {
+  try {
+    $null = Set-TransportState `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -WifiOn $initialTransport.wifiOn `
+      -MobileDataOn $initialTransport.mobileDataOn
+  } catch {
+    $restorationError = 'TRANSPORT_RESTORATION_FAILED'
+  }
+}
+$restoredTransport = Get-TransportState -Adb $adb -Serial $DeviceSerial
+$transportRestored =
+  $restoredTransport.wifiOn -eq $initialTransport.wifiOn -and
+  $restoredTransport.mobileDataOn -eq $initialTransport.mobileDataOn -and
+  $restoredTransport.airplaneModeOn -eq $initialTransport.airplaneModeOn
+$profileDurationSeconds = [math]::Round(
+  ([DateTimeOffset]::UtcNow - $profileStartedAt).TotalSeconds,
+  3
+)
+if ($profileDurationSeconds -gt 120 -and $null -eq $phaseError) {
+  $phaseError = 'INTERMITTENT_PROFILE_EXCEEDED_BOUND'
+}
+if (-not $transportRestored -or $null -ne $restorationError -or
+    $null -ne $phaseError) {
+  $failure = [ordered]@{
+    schemaVersion = 1
+    evidenceType = 'build-6-f4-physical-device-weak-network-failure'
+    capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    promotionSha256 = $currentPromotionSha256
+    offlineReconnectReceiptSha256 = Get-Sha256 $offlineReceiptPath
+    installedApkSha256 = $expectedApk.sha256
+    failureClass = if ($null -ne $restorationError) {
+      $restorationError
+    } elseif (-not $transportRestored) {
+      'EXACT_TRANSPORT_STATE_NOT_RESTORED'
+    } else {
+      $phaseError
+    }
+    initialTransport = $initialTransport
+    observedTransportAfterFinally = $restoredTransport
+    exactTransportStateRestored = $transportRestored
+    completedProfileEvents = $events.Count
+    measuredProfileDurationSeconds = $profileDurationSeconds
+    disconnectedManualSyncOutcome = if ($null -eq $profileSync) {
+      'NOT_OBSERVED'
+    } else {
+      $profileSync.outcome
+    }
+    rawUiRetained = $false
+    rawNetworkIdentifiersRetained = $false
+    failedPhaseMayNotBeRelabelledPass = $true
+    decision = 'FAIL_WEAK_NETWORK_REQUIRES_ADJUDICATION'
+  }
+  Write-Utf8NoBom `
+    -Path $weakNetworkFailureReceiptPath `
+    -Text (($failure | ConvertTo-Json -Depth 30) + "`n")
+  throw "Weak-network profile stopped: $($failure.failureClass)"
+}
+$postProfile = $null
+$after = $null
+try {
+  Start-Sleep -Seconds 10
+  $postProfile = Invoke-ManualSyncEvidence `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -EvidenceRoot $evidenceRoot `
+    -Label 'build6-f4-weak-post-profile' `
+    -TimeoutSeconds 120
+  Assert-Equal $postProfile.outcome 'SUCCESS' `
+    'Post-profile manual-sync outcome'
+  $after = Get-LocalDiagnosticsEvidence `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -EvidenceRoot $evidenceRoot `
+    -Label 'build6-f4-weak-after'
+  Assert-Equal $after.unsyncedRows 0 `
+    'Post-profile pending local business writes'
+} catch {
+  $failure = [ordered]@{
+    schemaVersion = 1
+    evidenceType = 'build-6-f4-physical-device-weak-network-failure'
+    capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    promotionSha256 = $currentPromotionSha256
+    offlineReconnectReceiptSha256 = Get-Sha256 $offlineReceiptPath
+    installedApkSha256 = $expectedApk.sha256
+    failureClass = 'POST_PROFILE_VALIDATION_FAILED'
+    initialTransport = $initialTransport
+    observedTransportAfterFinally = $restoredTransport
+    exactTransportStateRestored = $transportRestored
+    completedProfileEvents = $events.Count
+    measuredProfileDurationSeconds = $profileDurationSeconds
+    disconnectedManualSyncOutcome = $profileSync.outcome
+    postProfileManualSyncOutcome = if ($null -eq $postProfile) {
+      'NOT_OBSERVED'
+    } else {
+      $postProfile.outcome
+    }
+    rawUiRetained = $false
+    rawNetworkIdentifiersRetained = $false
+    failedPhaseMayNotBeRelabelledPass = $true
+    decision = 'FAIL_WEAK_NETWORK_REQUIRES_ADJUDICATION'
+  }
+  Write-Utf8NoBom `
+    -Path $weakNetworkFailureReceiptPath `
+    -Text (($failure | ConvertTo-Json -Depth 30) + "`n")
+  throw 'Weak-network profile stopped: POST_PROFILE_VALIDATION_FAILED'
+}
 $receipt = [ordered]@{
   schemaVersion = 1
-  evidenceType = 'build-6-f4-physical-device-approved-signin'
+  evidenceType = 'build-6-f4-physical-device-weak-network'
   capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
-  promotionSha256 = Get-Sha256 $promotionFile
-  installReceiptSha256 = Get-Sha256 $installReceiptPath
-  chooserReceiptSha256 = Get-Sha256 $chooserReceiptPath
+  promotionSha256 = $currentPromotionSha256
+  offlineReconnectReceiptSha256 = Get-Sha256 $offlineReceiptPath
   installedApkSha256 = $expectedApk.sha256
-  targetAdbSerialSha256 = Get-TextSha256 $DeviceSerial
-  runtime = [ordered]@{
-    googleFirebaseSignInObserved = $true
-    approvedHomeReached = $true
-    sameApplicationProcessFromChooserToApprovedHome = $true
-    homeMarkersPresent = $approvedHome.homeMarkersPresent
-    forbiddenMarkersAbsent = $approvedHome.forbiddenMarkersAbsent
-    approvedHomeUiSha256 = $approvedHome.sha256
-    rawUiRetained = $false
+  profile = [ordered]@{
+    kind = 'THREE_CYCLE_TRANSPORT_INTERRUPTION'
+    cycles = 3
+    minimumDisconnectedHoldSecondsPerCycle = 5
+    firstCycleSyncObservationTimeoutSeconds = 8
+    minimumRestoredHoldSecondsPerCycle = 10
+    maximumProfileSeconds = 120
+    measuredProfileDurationSeconds = $profileDurationSeconds
+    events = $events
+    disconnectedManualSyncOutcome = $profileSync.outcome
+    falseSuccessObservedWhileDisconnected = $false
   }
-  privacy = [ordered]@{
-    accountEmailRetained = $false
-    accountDisplayNameRetained = $false
-    firebaseUidRetained = $false
-    accessTokenRetained = $false
+  restoration = [ordered]@{
+    exactTransportStateRestored = $transportRestored
+    postProfileSyncOutcome = $postProfile.outcome
+    completionUiSha256 = $postProfile.uiSha256
+  }
+  after = [ordered]@{
+    diagnosticsUiSha256 = $after.uiSha256
+    pendingLocalBusinessWrites = $after.unsyncedRows
   }
   remainingRequiredPhases = @(
-    'sync-marker',
-    'offline-reconnect',
-    'weak-network',
     'revocation-next-operation-denial',
     'wrong-role-denials'
   )
@@ -782,9 +1828,11 @@ $receipt = [ordered]@{
     pilotHandoutAuthorized = $false
     separateEvidenceAdjudicationRequired = $true
   }
-  decision = 'PASS_APPROVED_SIGNIN_CAPTURED_FULL_F4_MATRIX_REMAINS_OPEN'
+  rawUiRetained = $false
+  rawNetworkIdentifiersRetained = $false
+  decision = 'PASS_BOUNDED_INTERMITTENT_NETWORK_AND_SYNC_RECOVERY'
 }
 Write-Utf8NoBom `
-  -Path $signInReceiptPath `
-  -Text (($receipt | ConvertTo-Json -Depth 30) + "`n")
-$receipt | ConvertTo-Json -Depth 30
+  -Path $weakNetworkReceiptPath `
+  -Text (($receipt | ConvertTo-Json -Depth 40) + "`n")
+$receipt | ConvertTo-Json -Depth 40
