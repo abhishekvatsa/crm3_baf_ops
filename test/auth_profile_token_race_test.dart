@@ -1,69 +1,81 @@
-import 'dart:io';
-
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('current app-user token race recovery', () {
-    test('retries only the first same-uid permission denial', () {
+    test('same-uid token re-emission cannot reopen the retry budget', () async {
+      final budget = CurrentAppUserPermissionRetryBudget();
+      final decisions = <bool>[];
+
+      await for (final uid in Stream<String?>.fromIterable(const [
+        'approved-user',
+        'approved-user',
+      ])) {
+        budget.observeAuthEvent(uid);
+        decisions.add(
+          budget.tryClaimPermissionDeniedRetry(
+            errorCode: 'permission-denied',
+            authenticatedUid: uid,
+            expectedUid: 'approved-user',
+          ),
+        );
+      }
+
+      expect(decisions, [isTrue, isFalse]);
+    });
+
+    test('sign-out starts a new retry budget for a later session', () {
+      final budget = CurrentAppUserPermissionRetryBudget();
+      budget.observeAuthEvent('approved-user');
       expect(
-        shouldRetryCurrentAppUserPermissionDenied(
+        budget.tryClaimPermissionDeniedRetry(
           errorCode: 'permission-denied',
           authenticatedUid: 'approved-user',
           expectedUid: 'approved-user',
-          alreadyRetried: false,
         ),
         isTrue,
       );
 
-      for (final input in <
-        ({String errorCode, String? authenticatedUid, bool alreadyRetried})
-      >[
-        (
-          errorCode: 'unavailable',
-          authenticatedUid: 'approved-user',
-          alreadyRetried: false,
-        ),
-        (
-          errorCode: 'permission-denied',
-          authenticatedUid: 'different-user',
-          alreadyRetried: false,
-        ),
-        (
-          errorCode: 'permission-denied',
-          authenticatedUid: null,
-          alreadyRetried: false,
-        ),
-        (
+      budget.observeAuthEvent(null);
+      budget.observeAuthEvent('approved-user');
+      expect(
+        budget.tryClaimPermissionDeniedRetry(
           errorCode: 'permission-denied',
           authenticatedUid: 'approved-user',
-          alreadyRetried: true,
+          expectedUid: 'approved-user',
         ),
-      ]) {
-        expect(
-          shouldRetryCurrentAppUserPermissionDenied(
-            errorCode: input.errorCode,
-            authenticatedUid: input.authenticatedUid,
-            expectedUid: 'approved-user',
-            alreadyRetried: input.alreadyRetried,
-          ),
-          isFalse,
-        );
-      }
+        isTrue,
+      );
     });
 
-    test('profile subscription is id-token gated and fail-closed', () {
-      final source =
-          File(
-            'lib/features/auth/providers/auth_provider.dart',
-          ).readAsStringSync();
+    test('ineligible errors fail closed without consuming the retry', () {
+      final budget = CurrentAppUserPermissionRetryBudget();
+      budget.observeAuthEvent('approved-user');
 
-      expect(source, contains('auth.idTokenChanges().asyncExpand'));
-      expect(source, contains('await user.getIdToken(true);'));
-      expect(source, contains("errorCode == 'permission-denied'"));
-      expect(source, contains('authenticatedUid == expectedUid'));
-      expect(source, contains('alreadyRetried: retriedAfterTokenRefresh'));
-      expect(source, contains('rethrow;'));
+      expect(
+        budget.tryClaimPermissionDeniedRetry(
+          errorCode: 'unavailable',
+          authenticatedUid: 'approved-user',
+          expectedUid: 'approved-user',
+        ),
+        isFalse,
+      );
+      expect(
+        budget.tryClaimPermissionDeniedRetry(
+          errorCode: 'permission-denied',
+          authenticatedUid: 'different-user',
+          expectedUid: 'approved-user',
+        ),
+        isFalse,
+      );
+      expect(
+        budget.tryClaimPermissionDeniedRetry(
+          errorCode: 'permission-denied',
+          authenticatedUid: 'approved-user',
+          expectedUid: 'approved-user',
+        ),
+        isTrue,
+      );
     });
   });
 }
