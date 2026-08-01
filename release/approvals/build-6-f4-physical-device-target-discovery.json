@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "approvalId": "CRM3-B6-F4-PHYSICAL-TARGET-DISCOVERY-001",
+  "approvalClass": "CONTROLLED_PHYSICAL_DEVICE_TARGET_DISCOVERY_ONLY",
+  "createdAtUtc": "2026-08-01T16:23:48.8563655Z",
+  "effectiveCondition": "This record is effective only after owner-reviewed merge to main and execution from an exact tracked-clean local main equal to freshly fetched origin/main.",
+  "approvalAuthority": {
+    "mode": "MERGED_OWNER_SOURCE_APPROVAL",
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "baselineCommit": "e48a97f4c2cc339b2316e1aaf2fc095d4f0efd93",
+    "baselineTree": "3a85ba1921e54298b82ff1ea80b5531df37bb474",
+    "requestBasis": "The repository owner directed progression after PR 86 while preserving physical-device-first sequencing before the remaining source queue.",
+    "humanApprovalReference": "CODEX_TASK_F4_DEVICE_FIRST_20260801"
+  },
+  "artifactAuthority": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b6",
+    "versionName": "1.0.0-rc.1",
+    "versionCode": 6,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "sourceCommit": "f6fccc662119790bcc742ff91e00934117030948",
+    "sourceTree": "b3262b2bb337dfd53d8a85bcee52e677ff50f82c",
+    "githubRunId": 30572342725,
+    "governedPackage": {
+      "fileName": "crm3-baf-ops-1.0.0-rc.1-b6-GOVERNED-PACKAGE.zip",
+      "sha256": "E36C39E40C4B92B0721DAD916F050F439644FDF7FC40A36C1EB579571EBD074E",
+      "bytes": 152992806
+    },
+    "apk": {
+      "entryName": "crm3-baf-ops-1.0.0-rc.1-b6-release.apk",
+      "sha256": "01D26049E200730EC1DBF0FEE85D483A9FA820D68F020110E57AC95AF2EBE755",
+      "bytes": 85900424,
+      "debuggable": false
+    },
+    "signer": {
+      "certificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+      "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C"
+    },
+    "finalizationReceipt": {
+      "path": "release/evidence/build-6-finalization-closure.json",
+      "sha256": "147688A631C910D58A02F72EFDDDA74C2647F2430BF1492EFFC2952492B0CFD1"
+    }
+  },
+  "channel": {
+    "planningMode": "physical-device-target-discovery",
+    "transport": "DIRECT_ADB_READ_ONLY_TARGET_DISCOVERY",
+    "purpose": "BIND_ONE_PHYSICAL_ANDROID_TARGET_BEFORE_F4_EXECUTION_AUTHORITY",
+    "maxTargetCount": 1,
+    "target": {
+      "kind": "ANDROID_PHYSICAL_DEVICE_CANDIDATE",
+      "bindingStatus": "UNBOUND_UNTIL_DISCOVERY_RECEIPT",
+      "requiresGooglePlayServices": true,
+      "requiresPackageAbsent": true,
+      "requiresNonEmulatorEvidence": true
+    },
+    "physicalDeviceInstallationAuthorized": false,
+    "applicationLaunchAuthorized": false,
+    "firebaseAuthenticationAuthorized": false,
+    "remoteMutationAuthorized": false,
+    "externalDistributionAuthorized": false
+  },
+  "authorizedOperations": [
+    "fetch origin/main and verify exact tracked-clean source authority",
+    "read and verify the exact governed Build 6 package and embedded APK",
+    "extract the exact embedded APK into a private evidence directory",
+    "read package, version, minimum SDK and production-signer metadata",
+    "read one ADB target's state, API level, physical-device properties and Google Play Services presence",
+    "verify that the CRM-III package is absent from the candidate target",
+    "write one privacy-minimized target-discovery receipt outside the repository"
+  ],
+  "prohibitedOperations": [
+    "install, upgrade, downgrade, uninstall or clear application data",
+    "launch the CRM-III application or interact with device UI",
+    "create a Google or Firebase Authentication session",
+    "read or write Firestore, Realtime Database, Storage or business data",
+    "approve, revoke or alter any user or role",
+    "deploy or mutate Firebase, Rules, Functions, IAM or App Check",
+    "retain the raw ADB serial, Android ID, account identity or Firebase uid in evidence",
+    "pilot handout, second-device use, external upload or public distribution",
+    "claim DEVICE_PROVED, close STAGE2D-F4 or close P-07"
+  ],
+  "requiredTargetEvidence": [
+    "promotion SHA-256 and exact main source state",
+    "governed-package and embedded-APK SHA-256, bytes, package, version, minimum SDK and signer",
+    "hashed ADB serial and hashed build fingerprint",
+    "manufacturer, model, product, device name and API level",
+    "multiple non-emulator property checks",
+    "Google Play Services presence",
+    "CRM-III package absence",
+    "explicit zero-remote-mutation and zero-install boundary"
+  ],
+  "nextAuthorityStep": {
+    "required": true,
+    "description": "After a passing discovery receipt, a separate owner-reviewed promotion must bind the exact hashed target, exact Build 6 artifact and the individual F4 phases before any installation or runtime mutation.",
+    "mayReuseThisApprovalForInstallation": false,
+    "mayReuseThisApprovalForF4Execution": false
+  },
+  "programmeBoundary": {
+    "intendedRecords": [],
+    "stage2dF4TargetDiscoveryAuthorized": true,
+    "stage2dF4ExecutionAuthorized": false,
+    "stage2dF4DeviceEvidenceCreated": false,
+    "stage2dF4ClosureAuthorized": false,
+    "p07ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "unrestrictedDistributionAuthorized": false
+  }
+}
