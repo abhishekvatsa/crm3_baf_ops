@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "approvalId": "CRM3-B6-F4-PHYSICAL-EXECUTION-001",
+  "approvalClass": "CONTROLLED_EXACT_TARGET_PHYSICAL_DEVICE_F4_EXECUTION",
+  "createdAtUtc": "2026-08-01T17:32:06.3936377Z",
+  "effectiveCondition": "This record is effective only after owner-reviewed merge to main and execution from an exact tracked-clean local main equal to freshly fetched origin/main.",
+  "approvalAuthority": {
+    "mode": "MERGED_OWNER_SOURCE_APPROVAL",
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "baselineCommit": "999600ce02045afa7806645020292f3036535ce3",
+    "baselineTree": "38b5829b86b154bf675aceb8cd2dc19012f3227f",
+    "requestBasis": "The repository owner approved continuation after connecting and authorizing one physical Android target, merging the Samsung package-absence compatibility correction, and producing the passing read-only target-discovery receipt.",
+    "humanApprovalReference": "CODEX_TASK_F4_PHYSICAL_EXECUTION_20260801"
+  },
+  "discoveryAuthority": {
+    "approvalId": "CRM3-B6-F4-PHYSICAL-TARGET-DISCOVERY-001",
+    "promotionSha256": "A000789E637109EC238C7E6AC718850239F452BA7FD6F1E48EF8782A6142ABC4",
+    "receiptSha256": "440874E51450BABA99ADD59AB47D19BF8D240F07BE9323373822E2FD81DB2825",
+    "capturedAtUtc": "2026-08-01T17:27:30.9267372+00:00",
+    "sourceCommit": "999600ce02045afa7806645020292f3036535ce3",
+    "decision": "PASS_BUILD6_F4_PHYSICAL_DEVICE_TARGET_CANDIDATE_READ_ONLY",
+    "zeroMutationBoundaryProved": true
+  },
+  "artifactAuthority": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b6",
+    "versionName": "1.0.0-rc.1",
+    "versionCode": 6,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "sourceCommit": "f6fccc662119790bcc742ff91e00934117030948",
+    "sourceTree": "b3262b2bb337dfd53d8a85bcee52e677ff50f82c",
+    "githubRunId": 30572342725,
+    "governedPackage": {
+      "fileName": "crm3-baf-ops-1.0.0-rc.1-b6-GOVERNED-PACKAGE.zip",
+      "sha256": "E36C39E40C4B92B0721DAD916F050F439644FDF7FC40A36C1EB579571EBD074E",
+      "bytes": 152992806
+    },
+    "apk": {
+      "entryName": "crm3-baf-ops-1.0.0-rc.1-b6-release.apk",
+      "sha256": "01D26049E200730EC1DBF0FEE85D483A9FA820D68F020110E57AC95AF2EBE755",
+      "bytes": 85900424,
+      "debuggable": false
+    },
+    "signer": {
+      "certificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+      "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C"
+    },
+    "finalizationReceipt": {
+      "path": "release/evidence/build-6-finalization-closure.json",
+      "sha256": "147688A631C910D58A02F72EFDDDA74C2647F2430BF1492EFFC2952492B0CFD1"
+    }
+  },
+  "targetAuthority": {
+    "kind": "ANDROID_PHYSICAL_DEVICE",
+    "adbSerialSha256": "D5BADBAE21E335B1E21A6A694445F3E7A454BFE5525650BFA9E1B1D637523E74",
+    "buildFingerprintSha256": "68E985831F5D35DA949DF29788BD25B3713CCF6B6EFAE56AED6DA8BC829C64B6",
+    "manufacturer": "samsung",
+    "model": "SM-G990E",
+    "product": "r9sxxx",
+    "device": "r9s",
+    "brand": "samsung",
+    "apiLevel": 36,
+    "requiresGooglePlayServices": true,
+    "requiresPackageAbsentAtPreflight": true,
+    "rawAdbSerialRetained": false,
+    "rawBuildFingerprintRetained": false,
+    "androidIdRead": false
+  },
+  "channel": {
+    "planningMode": "internal-release-signed-apk",
+    "transport": "DIRECT_ADB_FROM_GOVERNED_LOCAL_CUSTODY",
+    "purpose": "BUILD6_EXACT_TARGET_STAGE2D_F4_DEVICE_MATRIX",
+    "maxTargetCount": 1,
+    "physicalDeviceInstallationAuthorized": true,
+    "applicationLaunchAuthorized": true,
+    "firebaseAuthenticationAuthorized": true,
+    "firebaseReadAuthorized": true,
+    "boundedRemoteMutationAuthorized": true,
+    "deviceNetworkStateMutationAuthorized": true,
+    "externalDistributionAuthorized": false,
+    "pilotHandoutAuthorized": false
+  },
+  "identitySeparation": {
+    "subject": "one owner-controlled approved SI non-admin test identity used on the exact physical target",
+    "operator": "a different approved admin identity used only through the governed authority writer",
+    "subjectRequiredRolesInclude": [
+      "si"
+    ],
+    "subjectProhibitedRoles": [
+      "admin"
+    ],
+    "subjectMustNotBeLastApprovedAdmin": true,
+    "subjectInitialRolesMustBeCaptured": true,
+    "subjectInitialApprovalMustBeTrue": true,
+    "operatorMustRemainApprovedAdmin": true,
+    "stopIfSeparationCannotBeProved": true
+  },
+  "requiredPhases": [
+    {
+      "id": "approved-sign-in",
+      "operation": "Fresh Google/Firebase sign-in on the exact installed Build 6 target and same-process arrival at the approved home surface.",
+      "requiredEvidence": [
+        "installed APK hash, package, version and signer remain exact",
+        "home navigation markers are present",
+        "login, loading, error and awaiting-approval markers are absent",
+        "no account email, raw uid or Google identity is retained"
+      ]
+    },
+    {
+      "id": "sync-marker",
+      "operation": "Run one authenticated manual full sync from the fresh installation with zero queued local business writes.",
+      "requiredEvidence": [
+        "manual sync returns to a successful non-busy state",
+        "pending local write count is zero before and after",
+        "the receipt hashes the UI and local diagnostic evidence",
+        "no synthetic production business document is created"
+      ]
+    },
+    {
+      "id": "offline-reconnect",
+      "operation": "Disable the active device network transports, prove the signed-in shell remains safe offline, restore the exact prior transport state, and complete another manual sync.",
+      "requiredEvidence": [
+        "transport state before disconnection is captured",
+        "offline UI evidence is captured without a false successful remote mutation",
+        "the original transport state is restored even on failure",
+        "post-reconnect manual sync succeeds with zero queued local writes"
+      ]
+    },
+    {
+      "id": "weak-network",
+      "operation": "Exercise authenticated listeners and sync during a bounded intermittent-network profile, restore transport state, and verify recovery.",
+      "requiredEvidence": [
+        "the degradation profile and bounded duration are recorded",
+        "the app does not report a false completed mutation while disconnected",
+        "transport state is restored even on failure",
+        "post-profile manual sync succeeds with zero queued local writes"
+      ]
+    },
+    {
+      "id": "revocation-next-operation-denial",
+      "operation": "Use the governed authority writer from the separate admin identity to revoke the subject, then prove the physical client loses approved access before its next privileged operation.",
+      "requiredEvidence": [
+        "authority receipt and audit evidence are privacy-minimized and request-bound",
+        "the client reaches the awaiting-approval surface without relaunch",
+        "no privileged operation succeeds after revocation",
+        "restoration uses a separate governed request and restores the exact captured role set"
+      ]
+    },
+    {
+      "id": "wrong-role-denials",
+      "operation": "Temporarily replace the restored subject roles with operations-only through the governed writer and prove multiple admin/SI-only surfaces are unavailable before exact-role restoration.",
+      "requiredEvidence": [
+        "the Admin module is visibly limited and cannot be opened",
+        "Template Authoring, Template Publisher, Knowledge Governance and Support Diagnostics are absent",
+        "at least one server-authoritative admin/SI mutation attempt is denied where safely observable",
+        "the original approval and exact role set are restored through the governed writer"
+      ]
+    }
+  ],
+  "authorizedOperations": [
+    "verify the exact merged promotion, discovery receipt, governed package, embedded APK, signer and hashed physical target",
+    "install the exact non-debuggable Build 6 APK once on the bound physical target and launch only that package",
+    "use one owner-controlled non-admin test Google identity for Firebase Authentication and own-profile hydration",
+    "perform ordinary own-user fcmToken maintenance caused by sign-in, sign-out or token refresh",
+    "run manual full sync only while the fresh-install pending local business-write count is zero",
+    "temporarily disable and restore device Wi-Fi/mobile-data state for the offline and bounded intermittent-network phases",
+    "use a separate approved admin identity and the governed authority writer for request-bound revoke, approve and exact-role replacement steps",
+    "read the subject's own profile, governed authority receipts/audits and minimum phase-specific Firebase evidence",
+    "capture privacy-minimized UI, device, network, local-diagnostic and authority evidence outside the repository"
+  ],
+  "prohibitedOperations": [
+    "use an emulator, second physical device, second subject identity or artifact other than exact Build 6",
+    "retain a raw ADB serial, raw build fingerprint, Android ID, account email, Firebase uid, access token or business payload",
+    "use the subject identity as the authority operator or revoke the last approved admin",
+    "create synthetic production tickets, workflows, directives, templates, abnormalities or other business records as a sync marker",
+    "clear application data, uninstall, downgrade, rebuild, resign or modify the governed APK",
+    "mutate authority by direct Firestore write, Admin SDK shortcut or any path other than the governed callable",
+    "leave the subject revoked, role-narrowed or with a role set different from the captured initial state",
+    "leave Wi-Fi or mobile-data state different from its captured initial state",
+    "deploy or mutate Firebase, Rules, Functions, IAM, App Check or distribution configuration",
+    "pilot handout, external upload, Play Console, Firebase App Distribution, public link or unrestricted distribution",
+    "claim DEVICE_PROVED, close STAGE2D-F4 or close P-07 before all six phase receipts are independently adjudicated"
+  ],
+  "failurePolicy": {
+    "stopOnArtifactTargetOrSourceMismatch": true,
+    "stopOnUnexpectedExistingPackage": true,
+    "interruptedInstallEvidenceFinalizationAuthorized": true,
+    "finalizationRequiresExactInstalledApkHash": true,
+    "reinstallDuringFinalizationAuthorized": false,
+    "restoreNetworkStateInFinally": true,
+    "restoreAuthorityBeforeCampaignCompletion": true,
+    "retainFailedPhaseEvidence": true,
+    "failedPhaseMayNotBeRelabelledPass": true,
+    "newEvidenceDirectoryRequiredForRestart": true
+  },
+  "programmeBoundary": {
+    "intendedRecords": [],
+    "stage2dF4ExecutionAuthorized": true,
+    "stage2dF4DeviceEvidenceCreated": false,
+    "stage2dF4ClosureAuthorized": false,
+    "p07ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "unrestrictedDistributionAuthorized": false,
+    "separateEvidenceAdjudicationRequired": true
+  }
+}
