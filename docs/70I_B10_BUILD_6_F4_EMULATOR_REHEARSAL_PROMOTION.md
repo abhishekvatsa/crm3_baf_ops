@@ -83,3 +83,10 @@ interrupted evidence directory. That phase:
 
 The incident and recovery do not expand the artifact, target, remote mutation or
 programme boundary.
+
+The first `PrepareSignIn` call after recovery stopped before Sign Out because
+the recovered receipt records `promotionLineage.currentPromotionSha256`, while
+the downstream check still expected the uninterrupted receipt's direct
+`promotionSha256`. The compatibility correction accepts exactly those two
+known shapes and requires the resolved current hash to equal the merged
+promotion file. It does not change runtime authority or evidence content.

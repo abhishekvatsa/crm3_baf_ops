@@ -341,6 +341,26 @@ function Assert-InstalledVersion {
   }
 }
 
+function Get-UpgradeReceiptPromotionSha256 {
+  param([Parameter(Mandatory)]$Receipt)
+
+  $direct = $Receipt.PSObject.Properties['promotionSha256']
+  if ($null -ne $direct -and
+      -not [string]::IsNullOrWhiteSpace([string]$direct.Value)) {
+    return ([string]$direct.Value).ToUpperInvariant()
+  }
+  $lineage = $Receipt.PSObject.Properties['promotionLineage']
+  if ($null -eq $lineage -or $null -eq $lineage.Value) {
+    throw 'Upgrade receipt has no promotion authority.'
+  }
+  $current = $lineage.Value.PSObject.Properties['currentPromotionSha256']
+  if ($null -eq $current -or
+      [string]::IsNullOrWhiteSpace([string]$current.Value)) {
+    throw 'Upgrade receipt recovery lineage is incomplete.'
+  }
+  ([string]$current.Value).ToUpperInvariant()
+}
+
 $root = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $promotionFile = (Resolve-Path -LiteralPath (
   Join-Path $root $PromotionPath
@@ -863,8 +883,10 @@ if (-not (Test-Path -LiteralPath $upgradeReceiptPath -PathType Leaf)) {
 }
 $upgradeReceipt = Get-Content -LiteralPath $upgradeReceiptPath -Raw |
   ConvertFrom-Json
+$upgradeReceiptPromotionSha256 =
+  Get-UpgradeReceiptPromotionSha256 -Receipt $upgradeReceipt
 Assert-Equal `
-  $upgradeReceipt.promotionSha256 `
+  $upgradeReceiptPromotionSha256 `
   (Get-Sha256 $promotionFile) `
   'Upgrade receipt promotion SHA-256'
 Assert-Equal `
