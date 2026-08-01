@@ -677,7 +677,8 @@ check(
     and functions_package_scripts.get("build")
         == (
             "npm run clean && tsc --pretty false && "
-            "npm run audit:emitted-output && npm run audit:callable-inventory"
+            "npm run audit:emitted-output && npm run audit:callable-inventory && "
+            "npm run audit:notification-inventory"
         )
     and functions_package_scripts.get("test:emitted-output-custody")
         == "node --test tools/emitted_output_custody.test.mjs"
@@ -2362,6 +2363,129 @@ check(
     and "Status: CLOSED" in s08_decision
     and "PASS_S08_CRASH_REPORT_PRIVACY_BOUNDARY" in s08_decision
     and "does not claim a deployed client" in s08_decision,
+)
+
+r05_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "R-05"
+]
+r05_record = r05_records[0] if len(r05_records) == 1 else {}
+r05_history = [
+    entry.get("status")
+    for entry in r05_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+r05_receipt_source = text("functions/src/notificationEventReceipt.ts")
+r05_index_source = text("functions/src/index.ts")
+r05_workflow_source = text(
+    "functions/src/maintenanceWorkflow/workflowNotificationTrigger.ts"
+)
+r05_unit_test = text("functions/test/notificationEventReceipt.test.js")
+r05_emulator_test = text(
+    "functions/test/notificationEventReceipt.firestoreEmulator.test.js"
+)
+r05_contract_test = text(
+    "test/r05_notification_event_idempotency_contract_test.dart"
+)
+r05_decision = text("docs/v4_2_r1/R05_NOTIFICATION_EVENT_IDEMPOTENCY.md")
+r05_rules = text("firestore.rules")
+r05_package = data("functions/package.json")
+r05_inventory_policy = data(
+    "release/r05-notification-trigger-source-policy.json"
+)
+r05_inventory_audit = text(
+    "functions/tools/audit_notification_trigger_inventory.mjs"
+)
+r05_inventory_test = text(
+    "functions/tools/audit_notification_trigger_inventory.test.mjs"
+)
+r05_trigger_names = (
+    "onTicketCreated",
+    "onTicketResolved",
+    "onJobAssigned",
+)
+r05_trigger_starts = [
+    r05_index_source.index(f"export const {name}")
+    for name in r05_trigger_names
+]
+r05_trigger_ends = r05_trigger_starts[1:] + [
+    r05_index_source.index("Maintenance workflow control plane")
+]
+r05_trigger_sections = [
+    r05_index_source[start:end]
+    for start, end in zip(r05_trigger_starts, r05_trigger_ends)
+]
+check(
+    "R-05 notification event idempotency is source-implemented and fail-closed",
+    len(r05_records) == 1
+    and r05_record.get("authorityType") == "SOURCE_AND_CI"
+    and r05_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
+    and r05_history == ["OPEN", "SOURCE_IMPLEMENTED"]
+    and r05_record.get("evidence") == []
+    and len(r05_record.get("requiredExitEvidence", [])) == 6
+    and len(r05_record.get("reArmTriggers", [])) == 6
+    and all(
+        section.count("executeIdempotentNotificationEvent({") == 1
+        and "retry: true" in section
+        and "cloudEventId: event.id" in section
+        and section.index("executeIdempotentNotificationEvent({")
+            < section.index("getTokenLookup")
+        for section in r05_trigger_sections
+    )
+    and r05_workflow_source.count(
+        "executeIdempotentNotificationEvent({"
+    ) == 1
+    and "retry: true" in r05_workflow_source
+    and "cloudEventId: event.id" in r05_workflow_source
+    and "workflow_notification_receipts" in r05_workflow_source
+    and r05_workflow_source.index("executeIdempotentNotificationEvent({")
+        < r05_workflow_source.index("getTokenLookupsForRoles(")
+    and "notification-event-receipt-v1\\0" in r05_receipt_source
+    and "notification_event_receipts" in r05_receipt_source
+    and "failedBeforeDispatch" in r05_receipt_source
+    and "deliveryUncertain" in r05_receipt_source
+    and "notification-event-receipt-attempt-mismatch" in r05_receipt_source
+    and "notification-event-receipt-state-malformed" in r05_receipt_source
+    and "reason: \"delivery-uncertain\"" in r05_receipt_source
+    and "match /notification_event_receipts/{docId}" in r05_rules
+    and "allow read, create, update, delete: if false;"
+        in r05_rules[
+            r05_rules.index("match /notification_event_receipts/{docId}"):
+            r05_rules.index("AUDIT LOGS")
+        ]
+    and "completed replay never prepares or dispatches twice" in r05_unit_test
+    and "dispatch failure becomes delivery-uncertain" in r05_unit_test
+    and "concurrent duplicate events perform one delivery" in r05_emulator_test
+    and "ambiguous dispatch is quarantined" in r05_emulator_test
+    and "R-05 source status is exact" in r05_contract_test
+    and "notificationEventReceipt.firestoreEmulator.test.js"
+        in r05_package["scripts"]["test:emulator:governed"]
+    and "audit:notification-inventory"
+        in r05_package["scripts"]["build"]
+    and r05_inventory_policy.get("schemaVersion") == 1
+    and r05_inventory_policy.get("receiptCoordinator")
+        == "executeIdempotentNotificationEvent"
+    and r05_inventory_policy.get("receiptCollection")
+        == "notification_event_receipts"
+    and sorted(
+        trigger.get("name")
+        for trigger in r05_inventory_policy.get("notificationTriggers", [])
+        if isinstance(trigger, dict)
+    ) == sorted((*r05_trigger_names, "onMaintenanceWorkflowEventCreated"))
+    and "notification-trigger-policy-mismatch" in r05_inventory_audit
+    and "unowned-notification-dispatch-call" in r05_inventory_audit
+    and "direct-fcm-dispatch-bypasses-notification-coordinator"
+        in r05_inventory_audit
+    and "notification-dispatch-outside-receipt-boundary"
+        in r05_inventory_audit
+    and "a newly added notification trigger is discovered"
+        in r05_inventory_test
+    and "an aliased notification dispatcher remains discoverable"
+        in r05_inventory_test
+    and "Status: SOURCE_IMPLEMENTED" in r05_decision
+    and "This is not an exactly-once delivery claim." in r05_decision
+    and "R-05 remains `SOURCE_IMPLEMENTED`." in r05_decision,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

@@ -2173,7 +2173,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "Reliability/data",
       "pilotSeverity": "LOW_MEDIUM",
       "unrestrictedSeverity": "HIGH",
@@ -2181,14 +2181,38 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "a build-time discovered inventory proves every deployed Firestore notification trigger acquires a schema-versioned receipt keyed by trigger name and immutable CloudEvent ID before recipient lookup or FCM dispatch",
+        "completed and suppressed replays bypass preparation and dispatch, while malformed receipts and stale attempts fail closed",
+        "pre-dispatch failures remain retryable and dispatching or delivery-uncertain receipts cannot automatically resend",
+        "unit and Firestore-emulator evidence proves concurrent duplicate delivery collapses to one dispatch and ambiguous delivery is quarantined",
+        "Firestore Rules deny every client read and write to notification_event_receipts",
+        "exact-head pull-request CI and post-merge CI pass the Functions, Rules, emulator and canonical governance contracts"
+      ],
+      "reArmTriggers": [
+        "a deployed notification trigger can invoke FCM without executeIdempotentNotificationEvent",
+        "a notification trigger retry policy is removed or bypasses the receipt coordinator",
+        "dispatching or deliveryUncertain receipts can be automatically reacquired for delivery",
+        "receipt schema, immutable identity, attempt binding or malformed-state validation is weakened",
+        "clients gain any read or write access to notification_event_receipts",
+        "the focused unit, Firestore-emulator, Rules or canonical R-05 contracts are removed or weakened"
+      ],
+      "notes": [
+        "A TypeScript-AST build audit discovers notification dispatch surfaces and binds the governed four-trigger inventory; the shared coordinator covers onTicketCreated, onTicketResolved, onJobAssigned and onMaintenanceWorkflowEventCreated.",
+        "The historical workflow_notification_receipts collection remains client-denied but is no longer written by source.",
+        "The delivery boundary intentionally prefers duplicate prevention over automatic recovery after FCM dispatch begins: dispatching and deliveryUncertain require governed adjudication because FCM does not offer an atomic transaction with Firestore.",
+        "SOURCE_IMPLEMENTED records local source, unit, emulator and Rules proof only. It is not merge, deployment, notification-delivery, pilot or cutover evidence."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-08-01",
+          "basis": "All four Firestore notification triggers now use a schema-versioned, CloudEvent-bound receipt state machine; focused unit, Firestore-emulator and client-denial Rules evidence passes locally. Merge and post-merge CI remain pending."
         }
       ]
     },

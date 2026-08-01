@@ -250,6 +250,14 @@ describe("charge abnormality governed admin mutations", () => {
     await assertFails(setDoc(receipt, {requestId: "request1"}));
     await assertFails(updateDoc(receipt, {resultVersion: 2}));
     await assertFails(deleteDoc(receipt));
+    const notificationReceipt = doc(
+      db,
+      "notification_event_receipts/event1"
+    );
+    await assertFails(getDoc(notificationReceipt));
+    await assertFails(setDoc(notificationReceipt, {status: "completed"}));
+    await assertFails(updateDoc(notificationReceipt, {status: "suppressed"}));
+    await assertFails(deleteDoc(notificationReceipt));
     await assertFails(
       setDoc(doc(db, "audit_logs/server_charge_abnormality_request1"), {
         entityType: "charge_abnormality",

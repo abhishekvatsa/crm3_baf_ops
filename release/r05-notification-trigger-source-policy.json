@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "receiptCoordinator": "executeIdempotentNotificationEvent",
+  "receiptCollection": "notification_event_receipts",
+  "notificationTriggers": [
+    {
+      "name": "onJobAssigned",
+      "sourcePath": "src/index.ts"
+    },
+    {
+      "name": "onMaintenanceWorkflowEventCreated",
+      "sourcePath": "src/maintenanceWorkflow/workflowNotificationTrigger.ts"
+    },
+    {
+      "name": "onTicketCreated",
+      "sourcePath": "src/index.ts"
+    },
+    {
+      "name": "onTicketResolved",
+      "sourcePath": "src/index.ts"
+    }
+  ]
+}
