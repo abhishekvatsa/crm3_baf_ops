@@ -24,13 +24,16 @@ final authStateProvider = StreamProvider<User?>((ref) {
 
 final currentAppUserProvider = StreamProvider<AppUser?>((ref) {
   final auth = ref.watch(firebaseAuthProvider);
+  final retryBudget = CurrentAppUserPermissionRetryBudget();
   return auth.idTokenChanges().asyncExpand((user) {
+    retryBudget.observeAuthEvent(user?.uid);
     if (user == null) return Stream<AppUser?>.value(null);
 
     return _watchCurrentAppUser(
       auth: auth,
       firestore: FirebaseFirestore.instance,
       user: user,
+      retryBudget: retryBudget,
     );
   });
 });
@@ -47,12 +50,42 @@ bool shouldRetryCurrentAppUserPermissionDenied({
       authenticatedUid == expectedUid;
 }
 
+@visibleForTesting
+final class CurrentAppUserPermissionRetryBudget {
+  String? _authSessionUid;
+  bool _retryConsumed = false;
+
+  void observeAuthEvent(String? uid) {
+    if (uid == _authSessionUid) return;
+    _authSessionUid = uid;
+    _retryConsumed = false;
+  }
+
+  bool tryClaimPermissionDeniedRetry({
+    required String errorCode,
+    required String? authenticatedUid,
+    required String expectedUid,
+  }) {
+    final shouldRetry =
+        _authSessionUid == expectedUid &&
+        shouldRetryCurrentAppUserPermissionDenied(
+          errorCode: errorCode,
+          authenticatedUid: authenticatedUid,
+          expectedUid: expectedUid,
+          alreadyRetried: _retryConsumed,
+        );
+    if (!shouldRetry) return false;
+    _retryConsumed = true;
+    return true;
+  }
+}
+
 Stream<AppUser?> _watchCurrentAppUser({
   required FirebaseAuth auth,
   required FirebaseFirestore firestore,
   required User user,
+  required CurrentAppUserPermissionRetryBudget retryBudget,
 }) async* {
-  var retriedAfterTokenRefresh = false;
   while (true) {
     try {
       await for (final doc
@@ -66,15 +99,13 @@ Stream<AppUser?> _watchCurrentAppUser({
       }
       return;
     } on FirebaseException catch (error) {
-      if (!shouldRetryCurrentAppUserPermissionDenied(
+      if (!retryBudget.tryClaimPermissionDeniedRetry(
         errorCode: error.code,
         authenticatedUid: auth.currentUser?.uid,
         expectedUid: user.uid,
-        alreadyRetried: retriedAfterTokenRefresh,
       )) {
         rethrow;
       }
-      retriedAfterTokenRefresh = true;
       await user.getIdToken(true);
     }
   }

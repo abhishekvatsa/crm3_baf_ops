@@ -1429,9 +1429,9 @@
     {
       "path": "lib/features/auth/providers/auth_provider.dart",
       "canonicalSha256": "9887242027192BDE5FF830F8AD0E9AC20528DF5F587704BC3B6CADA4ED377C28",
-      "candidateSha256": "12D8A01575073050338280E7B7BA7FD6817E78C824B5700B0638F8BE210F3D73",
+      "candidateSha256": "26E4D6EDFEFD255D8FEDA96541FB2D02198DDF8F060C1A2C3424478DCD81F9E1",
       "canonicalBytes": 6822,
-      "candidateBytes": 7914,
+      "candidateBytes": 8770,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

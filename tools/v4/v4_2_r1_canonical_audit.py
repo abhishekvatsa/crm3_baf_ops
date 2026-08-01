@@ -1378,6 +1378,30 @@ check(
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
+auth_profile_source = text("lib/features/auth/providers/auth_provider.dart")
+auth_profile_test = text("test/auth_profile_token_race_test.dart")
+auth_profile_decision = text(
+    "docs/70I_B11_AUTH_PROFILE_RETRY_SESSION_BOUND.md"
+)
+check(
+    "Auth profile permission retry is bounded to one per authenticated session",
+    "final retryBudget = CurrentAppUserPermissionRetryBudget();"
+        in auth_profile_source
+    and "retryBudget.observeAuthEvent(user?.uid);" in auth_profile_source
+    and "retryBudget: retryBudget" in auth_profile_source
+    and "_authSessionUid == expectedUid" in auth_profile_source
+    and "_retryConsumed = true;" in auth_profile_source
+    and "var retriedAfterTokenRefresh" not in auth_profile_source
+    and "Stream<String?>.fromIterable" in auth_profile_test
+    and "same-uid token re-emission cannot reopen the retry budget"
+        in auth_profile_test
+    and "sign-out starts a new retry budget" in auth_profile_test
+    and "ineligible errors fail closed without consuming the retry"
+        in auth_profile_test
+    and "Status: SOURCE_IMPLEMENTED" in auth_profile_decision
+    and "does not authorize pilot handout or distribution"
+        in auth_profile_decision,
+)
 build6_approval_path = (
     ROOT / "release/approvals/build-number-6-rollover-approval.json"
 )
