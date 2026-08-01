@@ -30,6 +30,73 @@
     "stage2dF4AuthorityExpansion": false,
     "pilotOrDistributionExpansion": false
   },
+  "syncNetworkTrancheAmendment": {
+    "authorizedAtUtc": "2026-08-01T19:04:56.6288793Z",
+    "priorPromotionSha256": "AA4EDD61A69AD26BBE38CBA123DCF9526A5775B3D333327D72F9AE02382907BE",
+    "priorHarnessSha256": "6CA9EECF9F394C2ECFAB90EF871A41B7FE4132A9970A1E59ACD01B4CDFEBD4E4",
+    "executionSourceMergeCommit": "0e8599da7bfb9dd139db13798445bfdbcf9b72e7",
+    "privateEvidence": {
+      "preflightReceiptSha256": "AC98C6A5FB48CD8A987AE8E5A93239C29386E0BE916E51BA78710BA257716206",
+      "installReceiptSha256": "0884185A8ACAB9BF4E9B099E3451189F296F4FC33A8B1BB7AB67CF7F05634F51",
+      "chooserReceiptSha256": "AFA57D945E048F38E59AD9C8D98999C3401C189C60F3FDEC2FA271A83A6D833B",
+      "approvedSigninReceiptSha256": "00F8A27452E27CA38A7D67C452AF53584FFBC617D80A04B69F0C75DBD4BD90A0",
+      "storedOutsideRepository": true,
+      "rawIdentityRetainedInRepository": false
+    },
+    "runtimeWitness": {
+      "preflightDecision": "PASS_BUILD6_F4_PHYSICAL_DEVICE_PREFLIGHT_READ_ONLY",
+      "installDecision": "PASS_EXACT_BUILD6_INSTALLED_ON_BOUND_PHYSICAL_TARGET",
+      "chooserDecision": "PASS_PHYSICAL_GOOGLE_ACCOUNT_CHOOSER_READY",
+      "approvedSigninDecision": "PASS_APPROVED_SIGNIN_CAPTURED_FULL_F4_MATRIX_REMAINS_OPEN",
+      "approvedHomeReached": true,
+      "sameApplicationProcessFromChooserToApprovedHome": true,
+      "rawUiRetained": false,
+      "accountEmailRetained": false,
+      "firebaseUidRetained": false,
+      "remoteBusinessMutationPerformedByHarness": false
+    },
+    "controlledStopsBeforePassingChooser": {
+      "count": 2,
+      "firstClassification": "OWNER_SELECTED_AUTHORIZED_ACCOUNT_BEFORE_CHOOSER_ATTESTATION",
+      "firstRecovery": "OWNER_SIGNED_OUT_AND_RETURNED_TO_FRESH_LOGIN_SURFACE",
+      "secondClassification": "DEVICE_LOCKED_SYSTEM_UI_ONLY",
+      "secondRecovery": "OWNER_UNLOCKED_DEVICE_WITHOUT_ACCOUNT_SELECTION",
+      "chooserReceiptCreatedByStoppedAttempts": false,
+      "rawIdentityRetained": false,
+      "failedAttemptMayNotBeRelabelledPass": true
+    },
+    "authorizedHarnessPhases": [
+      "CaptureSyncBaseline",
+      "RunSyncMarker",
+      "RunOfflineReconnect",
+      "RunWeakNetwork"
+    ],
+    "networkProfile": {
+      "offlineTransportStabilizationSeconds": 5,
+      "offlineManualSyncObservationTimeoutSeconds": 20,
+      "intermittentCycles": 3,
+      "minimumDisconnectedHoldSecondsPerCycle": 5,
+      "firstCycleSyncObservationTimeoutSeconds": 8,
+      "minimumRestoredHoldSecondsPerCycle": 10,
+      "maximumIntermittentProfileSeconds": 120,
+      "actualWindowDurationsRecorded": true,
+      "captureExactPriorWifiAndMobileDataState": true,
+      "restoreInFinally": true,
+      "falseOfflineSuccessFailsClosed": true
+    },
+    "safetyBoundary": {
+      "zeroPendingLocalBusinessWritesRequiredBeforeAndAfter": true,
+      "syntheticProductionBusinessRecordAuthorized": false,
+      "authorityMutationAuthorizedByThisAmendment": false,
+      "remoteBusinessWriteAuthorizedByThisAmendment": false,
+      "deviceNetworkStateMutationAuthorizedByPromotion": true,
+      "exactTransportRestorationRequired": true,
+      "failedPhaseReceiptRequired": true,
+      "stage2dF4ClosureAuthorized": false,
+      "p07ClosureAuthorized": false,
+      "pilotHandoutAuthorized": false
+    }
+  },
   "discoveryAuthority": {
     "approvalId": "CRM3-B6-F4-PHYSICAL-TARGET-DISCOVERY-001",
     "promotionSha256": "A000789E637109EC238C7E6AC718850239F452BA7FD6F1E48EF8782A6142ABC4",
@@ -213,7 +280,7 @@
   "programmeBoundary": {
     "intendedRecords": [],
     "stage2dF4ExecutionAuthorized": true,
-    "stage2dF4DeviceEvidenceCreated": false,
+    "stage2dF4DeviceEvidenceCreated": true,
     "stage2dF4ClosureAuthorized": false,
     "p07ClosureAuthorized": false,
     "pilotHandoutAuthorized": false,

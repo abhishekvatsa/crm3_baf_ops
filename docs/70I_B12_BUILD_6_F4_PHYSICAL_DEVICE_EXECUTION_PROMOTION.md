@@ -80,11 +80,11 @@ first campaign tranche:
   after the owner selects the controlled SI/non-admin account, and proves that
   the app process did not change between chooser and approved home.
 
-The remaining five dimensions are explicitly left open in the sign-in receipt.
-Their evidence capture will proceed only after the installed runtime confirms
-the exact app surfaces and the separate subject/operator prerequisite is met.
-This prevents an untested automation assumption from acquiring authority over
-production identity or business data.
+The approved-sign-in receipt leaves five dimensions open. The merged runtime
+has now confirmed the exact approved Home, local diagnostics and manual-sync
+surfaces. The sync/network tranche may therefore proceed without granting the
+harness authority over user roles or production business writes. Revocation
+and wrong-role proof remain a separate subject/operator tranche.
 
 After this promotion is merged to `main`, run the phases in order from a new
 private evidence directory outside the repository:
@@ -124,3 +124,58 @@ This correction does not alter the expected API level, target, artifact,
 authorized phases or mutation boundary. No preflight receipt, installation,
 launch, authentication session or remote mutation was created by the stopped
 invocation.
+
+## Approved Sign-In Runtime Witness
+
+The corrected campaign passed on merged source `0e8599d` and produced private,
+privacy-minimized receipts with these seals:
+
+- preflight:
+  `AC98C6A5FB48CD8A987AE8E5A93239C29386E0BE916E51BA78710BA257716206`;
+- exact install:
+  `0884185A8ACAB9BF4E9B099E3451189F296F4FC33A8B1BB7AB67CF7F05634F51`;
+- Google chooser:
+  `AFA57D945E048F38E59AD9C8D98999C3401C189C60F3FDEC2FA271A83A6D833B`;
+- same-process approved sign-in:
+  `00F8A27452E27CA38A7D67C452AF53584FFBC617D80A04B69F0C75DBD4BD90A0`.
+
+The final receipt proves the approved Home in the same application process as
+the chooser. It retains no email, display name, Firebase uid, access token or
+raw UI. Two earlier chooser starts stopped without a receipt: once after the
+owner selected the authorized account before attestation, and once while the
+device was locked. The owner signed out after the first stop and unlocked after
+the second; neither stopped run is relabelled as passing evidence.
+
+## Sync And Network Tranche
+
+The harness now adds four ordered phases:
+
+1. `CaptureSyncBaseline` reads the SI-visible, local-only diagnostics summary
+   and stops unless pending local business writes equal zero.
+2. `RunSyncMarker` performs one authenticated manual full sync, requires the
+   success marker and re-proves zero pending writes without creating a
+   synthetic production record.
+3. `RunOfflineReconnect` captures Wi-Fi and mobile-data state, disables both,
+   exercises manual sync without accepting a disconnected success, restores
+   the exact state in `finally`, and requires a successful reconnect sync.
+4. `RunWeakNetwork` applies three bounded interruption cycles with at least a
+   five-second disconnected hold and ten-second restored hold. The first cycle
+   also includes an eight-second sync-observation timeout. Receipts record the
+   measured duration of every window, fail on a success observed while
+   disconnected, restore the exact state in `finally`, and require a successful
+   post-profile sync.
+
+Each phase re-hashes the installed base APK and chains to the prior receipt.
+UI evidence is immediately reduced to hashes and known outcome counts. Network
+receipts retain only binary transport state; they retain no SSID, carrier,
+address or other network identifier. A failed network phase writes a separate
+failure receipt and cannot replace it with a pass in the same evidence chain.
+
+After owner-reviewed merge, run the four phases in order against the existing
+private campaign directory. Each invocation still requires the exact governed
+package, discovery receipt and bound device parameters used above.
+
+These phases can prove three more F4 dimensions, but they cannot close F4.
+Revocation and wrong-role evidence still require the separate approved admin
+operator, exact initial-role capture, request-bound governed authority writes,
+and exact restoration. Pilot handout remains prohibited.
