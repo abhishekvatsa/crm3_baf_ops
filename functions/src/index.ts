@@ -483,6 +483,9 @@ function notificationReceiptRuntime(
   return {
     db: db as unknown as NotificationReceiptFirestoreLike,
     serverTimestamp: () => admin.firestore.FieldValue.serverTimestamp(),
+    reportDeliveryUncertain: (signal) => {
+      logger.error("Notification delivery requires governed adjudication", signal);
+    },
   };
 }
 

@@ -86,6 +86,8 @@ void main() {
       'notification-event-receipt-state-malformed',
       'existing.status === "dispatching"',
       'reason: "delivery-uncertain"',
+      'requiresAdjudication: true',
+      'reportDeliveryUncertain',
     ]) {
       expect(receipt, contains(marker), reason: 'Missing receipt marker $marker');
     }
@@ -138,6 +140,12 @@ void main() {
     ).readAsStringSync();
     expect(decision, contains('Status: SOURCE_IMPLEMENTED'));
     expect(decision, contains('This is not an exactly-once delivery claim.'));
+    expect(decision, contains('structured error-level signal'));
+    expect(decision, contains('operator-queryable marker'));
+    expect(
+      decision,
+      contains('A reporting failure cannot reopen or resend the event.'),
+    );
     expect(decision, contains('R-05 remains `SOURCE_IMPLEMENTED`.'));
   });
 }

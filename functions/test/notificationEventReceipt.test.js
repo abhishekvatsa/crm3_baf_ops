@@ -158,11 +158,18 @@ describe("notification event receipts", () => {
       NOTIFICATION_RECEIPT_COLLECTION,
       notificationEventReceiptId(identity.triggerName, identity.cloudEventId),
     );
-    expect(receipt).toMatchObject({status: "completed", attemptCount: 2});
+    expect(receipt).toMatchObject({
+      status: "completed",
+      attemptCount: 2,
+      lastError: null,
+      requiresAdjudication: false,
+    });
   });
 
-  test("dispatch failure becomes delivery-uncertain and cannot resend", async () => {
+  test("dispatch failure is surfaced, quarantined and cannot resend", async () => {
     const h = harness({attemptIds: ["attempt-1", "attempt-2"]});
+    const reportDeliveryUncertain = jest.fn();
+    h.runtime.reportDeliveryUncertain = reportDeliveryUncertain;
     const prepare = jest.fn(async () => ({message: "ready"}));
     const dispatch = jest.fn(async () => {
       throw new Error("FCM outcome unknown");
@@ -177,6 +184,42 @@ describe("notification event receipts", () => {
       reason: "delivery-uncertain",
     });
     expect(prepare).toHaveBeenCalledTimes(1);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(reportDeliveryUncertain).toHaveBeenCalledTimes(1);
+    expect(reportDeliveryUncertain).toHaveBeenCalledWith({
+      receiptId: notificationEventReceiptId(
+        identity.triggerName,
+        identity.cloudEventId,
+      ),
+      ...identity,
+      attemptId: "attempt-1",
+      phase: "dispatch-outcome-unknown",
+    });
+    const receipt = h.get(
+      NOTIFICATION_RECEIPT_COLLECTION,
+      notificationEventReceiptId(identity.triggerName, identity.cloudEventId),
+    );
+    expect(receipt).toMatchObject({
+      status: "deliveryUncertain",
+      requiresAdjudication: true,
+    });
+  });
+
+  test("operator reporting failure cannot reopen ambiguous delivery", async () => {
+    const h = harness({attemptIds: ["attempt-1", "attempt-2"]});
+    h.runtime.reportDeliveryUncertain = async () => {
+      throw new Error("logging unavailable");
+    };
+    const dispatch = jest.fn(async () => {
+      throw new Error("FCM outcome unknown");
+    });
+
+    await expect(execute(h.runtime, {dispatch}))
+      .rejects.toThrow("FCM outcome unknown");
+    await expect(execute(h.runtime, {dispatch})).resolves.toMatchObject({
+      kind: "skipped",
+      reason: "delivery-uncertain",
+    });
     expect(dispatch).toHaveBeenCalledTimes(1);
   });
 
@@ -204,6 +247,37 @@ describe("notification event receipts", () => {
     releasePreparation();
     await expect(first).resolves.toMatchObject({kind: "completed"});
     expect(dispatch).toHaveBeenCalledTimes(1);
+  });
+
+  test("dispatching is durably marked for adjudication until completion", async () => {
+    const h = harness();
+    let releaseDispatch;
+    const dispatchGate = new Promise((resolve) => {
+      releaseDispatch = resolve;
+    });
+    const running = execute(h.runtime, {
+      dispatch: async () => {
+        await dispatchGate;
+        return outcome;
+      },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const receiptId = notificationEventReceiptId(
+      identity.triggerName,
+      identity.cloudEventId,
+    );
+    expect(h.get(NOTIFICATION_RECEIPT_COLLECTION, receiptId)).toMatchObject({
+      status: "dispatching",
+      requiresAdjudication: true,
+    });
+
+    releaseDispatch();
+    await expect(running).resolves.toMatchObject({kind: "completed"});
+    expect(h.get(NOTIFICATION_RECEIPT_COLLECTION, receiptId)).toMatchObject({
+      status: "completed",
+      requiresAdjudication: false,
+    });
   });
 
   test("expired preparation can be reclaimed but stale attempt cannot dispatch", async () => {
