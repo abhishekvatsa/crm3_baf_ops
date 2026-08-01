@@ -111,3 +111,16 @@ No receipt from this source tranche may be used to claim `DEVICE_PROVED`, close
 `STAGE2D-F4` or `P-07`, authorize pilot handout, distribute Build 6, or alter
 Firebase configuration. A later evidence adjudication must verify all six
 phase receipts and clean restoration before any ledger transition.
+
+## API-Level Binding Compatibility Correction
+
+The first merged `Preflight` invocation stopped before evidence-directory
+creation or device mutation. PowerShell 7 treated inline integer casts in the
+positional API-level assertion as additional positional arguments. The harness
+now resolves both API levels into typed local variables and supplies them to
+`Assert-Equal` through named parameters.
+
+This correction does not alter the expected API level, target, artifact,
+authorized phases or mutation boundary. No preflight receipt, installation,
+launch, authentication session or remote mutation was created by the stopped
+invocation.

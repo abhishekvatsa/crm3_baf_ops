@@ -12,6 +12,24 @@
     "requestBasis": "The repository owner approved continuation after connecting and authorizing one physical Android target, merging the Samsung package-absence compatibility correction, and producing the passing read-only target-discovery receipt.",
     "humanApprovalReference": "CODEX_TASK_F4_PHYSICAL_EXECUTION_20260801"
   },
+  "apiLevelBindingCompatibilityAmendment": {
+    "amendedAtUtc": "2026-08-01T18:20:03.0967088Z",
+    "priorPromotionSha256": "4E3ACCB9AFAFE59FED02B9904A4B2A108D9194834366860908327DCAEBBEABC5",
+    "priorHarnessSha256": "EAF1F5B39195F006817290415EAD568376F7E5648348F80214DC578610CD1E8D",
+    "reason": "The first merged physical-campaign Preflight stopped because PowerShell 7 parsed inline integer casts in a positional Assert-Equal call as additional positional arguments.",
+    "failureBoundary": "after-source-artifact-discovery-receipt-and-target-hash-validation-before-evidence-directory-creation",
+    "observedError": "A positional parameter cannot be found that accepts argument 'Physical target API level'.",
+    "scopeChange": "Resolve observed and expected API levels into typed local variables and pass them through named Assert-Equal parameters.",
+    "preflightReceiptCreated": false,
+    "evidenceDirectoryCreated": false,
+    "packageInstallationPerformed": false,
+    "applicationLaunchPerformed": false,
+    "authenticationSessionCreated": false,
+    "remoteMutationPerformed": false,
+    "artifactOrTargetExpansion": false,
+    "stage2dF4AuthorityExpansion": false,
+    "pilotOrDistributionExpansion": false
+  },
   "discoveryAuthority": {
     "approvalId": "CRM3-B6-F4-PHYSICAL-TARGET-DISCOVERY-001",
     "promotionSha256": "A000789E637109EC238C7E6AC718850239F452BA7FD6F1E48EF8782A6142ABC4",

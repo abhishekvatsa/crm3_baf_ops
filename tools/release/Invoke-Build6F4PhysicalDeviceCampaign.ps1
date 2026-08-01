@@ -403,11 +403,13 @@ Assert-Equal `
   (Get-DeviceProperty -Adb $adb -Serial $DeviceSerial -Name 'ro.product.model') `
   $promotion.targetAuthority.model `
   'Physical target model'
+$observedApiLevel = [int](Get-DeviceProperty `
+  -Adb $adb -Serial $DeviceSerial -Name 'ro.build.version.sdk')
+$expectedApiLevel = [int]$promotion.targetAuthority.apiLevel
 Assert-Equal `
-  [int](Get-DeviceProperty `
-    -Adb $adb -Serial $DeviceSerial -Name 'ro.build.version.sdk') `
-  [int]$promotion.targetAuthority.apiLevel `
-  'Physical target API level'
+  -Actual $observedApiLevel `
+  -Expected $expectedApiLevel `
+  -Label 'Physical target API level'
 $gms = (Invoke-ExternalText -FilePath $adb -Arguments @(
   '-s', $DeviceSerial, 'shell', 'pm', 'path', 'com.google.android.gms'
 )).output

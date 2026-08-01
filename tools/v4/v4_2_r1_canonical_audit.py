@@ -1633,6 +1633,36 @@ check(
         "baselineCommit"
     )
         == "999600ce02045afa7806645020292f3036535ce3"
+    and build6_f4_physical.get(
+        "apiLevelBindingCompatibilityAmendment",
+        {},
+    ).get("priorPromotionSha256")
+        == "4E3ACCB9AFAFE59FED02B9904A4B2A108D9194834366860908327DCAEBBEABC5"
+    and build6_f4_physical.get(
+        "apiLevelBindingCompatibilityAmendment",
+        {},
+    ).get("priorHarnessSha256")
+        == "EAF1F5B39195F006817290415EAD568376F7E5648348F80214DC578610CD1E8D"
+    and build6_f4_physical.get(
+        "apiLevelBindingCompatibilityAmendment",
+        {},
+    ).get("evidenceDirectoryCreated")
+        is False
+    and build6_f4_physical.get(
+        "apiLevelBindingCompatibilityAmendment",
+        {},
+    ).get("packageInstallationPerformed")
+        is False
+    and build6_f4_physical.get(
+        "apiLevelBindingCompatibilityAmendment",
+        {},
+    ).get("remoteMutationPerformed")
+        is False
+    and build6_f4_physical.get(
+        "apiLevelBindingCompatibilityAmendment",
+        {},
+    ).get("stage2dF4AuthorityExpansion")
+        is False
     and build6_f4_physical.get("discoveryAuthority", {}).get(
         "receiptSha256"
     )
