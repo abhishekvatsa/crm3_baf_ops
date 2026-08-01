@@ -212,6 +212,7 @@ tooling_versions = {
     "tar": lock_version("tooling/firebase-cli/package-lock.json", "tar"),
     "@hono/node-server": lock_version("tooling/firebase-cli/package-lock.json", "@hono/node-server"),
     "fast-uri": lock_version("tooling/firebase-cli/package-lock.json", "fast-uri"),
+    "re2": lock_version("tooling/firebase-cli/package-lock.json", "re2"),
 }
 check(
     "Application and Functions lockfiles contain remediated dependency versions",
@@ -229,7 +230,8 @@ check(
     and tooling_versions["tar"] == "7.5.21"
     and tooling_versions["brace-expansion"] == "5.0.8"
     and tooling_versions["@hono/node-server"] == "2.0.10"
-    and tooling_versions["fast-uri"] == "3.1.4",
+    and tooling_versions["fast-uri"] == "3.1.4"
+    and tooling_versions["re2"] == "1.25.2",
     str(tooling_versions),
 )
 

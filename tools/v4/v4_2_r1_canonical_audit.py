@@ -651,7 +651,7 @@ check(
 )
 check(
     "Trial harness enforces full pinned toolchain and lockfile stability",
-    all(item in harness for item in ("22.15.0", "10.9.2", "21.0.11", "3.44.0", "3.12.0"))
+    all(item in harness for item in ("22.23.1", "10.9.8", "21.0.11", "3.44.0", "3.12.0"))
     and "Assert-LockfilesStable" in harness
     and "HOLD_LOCKFILE_DRIFT" in harness,
 )
@@ -830,6 +830,7 @@ fast_uri = firebase_cli_packages.get("node_modules/fast-uri", {})
 brace_expansion = firebase_cli_packages.get("node_modules/brace-expansion", {})
 brace_expansion_upstream = firebase_cli_packages.get("node_modules/brace-expansion-modern", {})
 tar = firebase_cli_packages.get("node_modules/tar", {})
+re2 = firebase_cli_packages.get("node_modules/re2", {})
 firebase_tools = firebase_cli_packages.get("node_modules/firebase-tools", {})
 mcp_sdk = firebase_cli_packages.get("node_modules/@modelcontextprotocol/sdk", {})
 check(
@@ -840,6 +841,7 @@ check(
     and firebase_cli_package.get("dependencies", {}).get("brace-expansion") == "file:../brace-expansion-compat"
     and firebase_cli_package.get("overrides", {}).get("brace-expansion") == "$brace-expansion"
     and firebase_cli_package.get("overrides", {}).get("tar") == "7.5.21"
+    and firebase_cli_package.get("overrides", {}).get("re2") == "1.25.2"
     and firebase_tools.get("version") == "15.22.4"
     and hono.get("version") == "2.0.10"
     and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
@@ -856,6 +858,9 @@ check(
     and tar.get("version") == "7.5.21"
     and tar.get("resolved") == "https://registry.npmjs.org/tar/-/tar-7.5.21.tgz"
     and tar.get("integrity") == "sha512-XdhtCvlMywwxpCW8YEq3lOXBJpUPTR2OHHcwLPO3HwsJqOHa2Ok/oJ7ruGzp+JrKoRPVCzJwAdEjqLW/vNRPHA=="
+    and re2.get("version") == "1.25.2"
+    and re2.get("resolved") == "https://registry.npmjs.org/re2/-/re2-1.25.2.tgz"
+    and re2.get("integrity") == "sha512-t75KS05wrPM0S7IRbM0l/WUYlHftJj3WAzQJAcSH8CrDP/jFYicZbMYTKohJ8w/3kFGwkY/G8/dGtC6CdShDlw=="
     and mcp_sdk.get("dependencies", {}).get("@hono/node-server") == "^1.19.9",
 )
 brace_adapter_package = data("tooling/brace-expansion-compat/package.json")
@@ -911,6 +916,7 @@ check(
         "2.0.10",
         "3.1.4",
         "5.0.8",
+        "1.25.2",
         "7.5.21",
         "verify_brace_expansion_compat.mjs",
     )),
