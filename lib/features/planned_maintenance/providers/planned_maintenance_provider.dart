@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:isar/isar.dart';
 
-import '../../../main.dart';
+import '../../../core/persistence/app_database.dart';
 import '../data/job_template_model.dart';
 import '../data/job_module_model.dart';
 import '../domain/planned_job_closure_guard.dart';
