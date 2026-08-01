@@ -70,3 +70,19 @@ each authorized F4 phase. It must also define the approved sign-in, sync-marker,
 offline/reconnect, weak-network, revocation and wrong-role evidence sequence.
 
 No installation or F4 runtime step may begin under this discovery approval.
+
+## Package-Absence Compatibility Correction
+
+The first tracked physical-target invocation stopped safely before producing a
+receipt. The exact Build 6 artifact and preliminary physical-device checks had
+passed, but Samsung package manager represented the absent CRM-III package as
+exit code `1` with empty output. The original harness accepted only exit code
+`0`, so it classified absence as unproved.
+
+The amended classifier accepts package absence only when output is empty and
+the exit code is either `0` or `1`. It still fails closed when a package path is
+returned, when output is nonempty but unrecognized, or when any other exit code
+is observed. This is a platform-compatibility correction only; it does not
+authorize installation, launch, authentication, remote mutation, F4 execution
+or gate closure. The interrupted local directories contain only the extracted
+governed APK and create no device evidence.
