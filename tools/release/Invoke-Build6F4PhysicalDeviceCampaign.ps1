@@ -388,11 +388,11 @@ function Move-ToApprovedHome {
       -EvidenceRoot $EvidenceRoot `
       -Label "build6-f4-home-navigation-$attempt"
     if ($ui.text.Contains('Core modules') -and $ui.text.Contains('Home')) {
-      $home = Get-ApprovedHomeEvidence `
+      $approvedHome = Get-ApprovedHomeEvidence `
         -Adb $Adb `
         -Serial $Serial `
         -EvidenceRoot $EvidenceRoot
-      return $home
+      return $approvedHome
     }
     if ($ui.text.Contains('Home')) {
       try {

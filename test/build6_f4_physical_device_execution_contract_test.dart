@@ -125,6 +125,37 @@ void main() {
     expect(trancheSafety['failedPhaseReceiptRequired'], isTrue);
     expect(trancheSafety['stage2dF4ClosureAuthorized'], isFalse);
 
+    final homeVariableAmendment = _object(
+      promotion['approvedHomeAutomaticVariableCompatibilityAmendment'],
+    );
+    expect(
+      homeVariableAmendment['executionSourceMergeCommit'],
+      '05f35fc61ac378c1273326760b664ced95c62287',
+    );
+    expect(
+      homeVariableAmendment['priorPromotionSha256'],
+      'B7382D737430F428832B59B39DEE0656B3E8993FF861FB4E01A66229F45036CE',
+    );
+    expect(
+      homeVariableAmendment['priorHarnessSha256'],
+      'F417A3BD6EB029B303B29705CED87A0EBBFD2BB9CAE9D05FBB42046721AC7463',
+    );
+    expect(
+      homeVariableAmendment['controlledStopAdjudicationSha256'],
+      '63EA1D4BF8A5012A1E98F866D5763AD085AA1F10F41C99A1DFDCF7808CE1517D',
+    );
+    expect(homeVariableAmendment['runtimeLogCreated'], isFalse);
+    expect(homeVariableAmendment['syncBaselineReceiptCreated'], isFalse);
+    expect(homeVariableAmendment['networkStateMutationPerformed'], isFalse);
+    expect(homeVariableAmendment['remoteBusinessMutationPerformed'], isFalse);
+    expect(homeVariableAmendment['rawIdentityRetainedInRepository'], isFalse);
+    expect(
+      homeVariableAmendment['failedAttemptMayNotBeRelabelledPass'],
+      isTrue,
+    );
+    expect(homeVariableAmendment['stage2dF4AuthorityExpansion'], isFalse);
+    expect(homeVariableAmendment['pilotOrDistributionExpansion'], isFalse);
+
     final discovery = _object(promotion['discoveryAuthority']);
     expect(
       discovery['promotionSha256'],
@@ -247,6 +278,18 @@ void main() {
         File(
           'tools/release/Invoke-Build6F4PhysicalDeviceCampaign.ps1',
         ).readAsStringSync();
+
+    expect(
+      RegExp(
+        r'^\s*\$home\s*=',
+        caseSensitive: false,
+        multiLine: true,
+      ).hasMatch(script),
+      isFalse,
+      reason:
+          r'PowerShell names are case-insensitive and $HOME is a read-only automatic variable.',
+    );
+    expect(script, contains(r'$approvedHome = Get-ApprovedHomeEvidence'));
 
     for (final required in <String>[
       "'FinalizeInstall'",

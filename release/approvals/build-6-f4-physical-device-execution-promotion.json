@@ -97,6 +97,29 @@
       "pilotHandoutAuthorized": false
     }
   },
+  "approvedHomeAutomaticVariableCompatibilityAmendment": {
+    "amendedAtUtc": "2026-08-01T19:51:07.8509523Z",
+    "executionSourceMergeCommit": "05f35fc61ac378c1273326760b664ced95c62287",
+    "priorPromotionSha256": "B7382D737430F428832B59B39DEE0656B3E8993FF861FB4E01A66229F45036CE",
+    "priorHarnessSha256": "F417A3BD6EB029B303B29705CED87A0EBBFD2BB9CAE9D05FBB42046721AC7463",
+    "controlledStopAdjudicationSha256": "63EA1D4BF8A5012A1E98F866D5763AD085AA1F10F41C99A1DFDCF7808CE1517D",
+    "reason": "The first merged CaptureSyncBaseline invocation stopped because PowerShell variable names are case-insensitive and the helper attempted to assign to the read-only HOME automatic variable through a local named home.",
+    "observedError": "Cannot overwrite variable HOME because it is read-only or constant.",
+    "failureBoundary": "after exact-main, artifact, target and receipt-chain validation during approved-home navigation; before local diagnostics baseline capture",
+    "scopeChange": "Rename the local approved-home evidence variable and add a regression contract that rejects assignments to HOME in the harness.",
+    "runtimeLogCreated": false,
+    "postStopAdjudicationStoredOutsideRepository": true,
+    "syncBaselineReceiptCreated": false,
+    "offlineReconnectReceiptCreated": false,
+    "weakNetworkReceiptCreated": false,
+    "networkStateMutationPerformed": false,
+    "remoteBusinessMutationPerformed": false,
+    "rawIdentityRetainedInRepository": false,
+    "failedAttemptMayNotBeRelabelledPass": true,
+    "artifactOrTargetExpansion": false,
+    "stage2dF4AuthorityExpansion": false,
+    "pilotOrDistributionExpansion": false
+  },
   "discoveryAuthority": {
     "approvalId": "CRM3-B6-F4-PHYSICAL-TARGET-DISCOVERY-001",
     "promotionSha256": "A000789E637109EC238C7E6AC718850239F452BA7FD6F1E48EF8782A6142ABC4",

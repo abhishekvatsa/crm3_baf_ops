@@ -179,3 +179,28 @@ These phases can prove three more F4 dimensions, but they cannot close F4.
 Revocation and wrong-role evidence still require the separate approved admin
 operator, exact initial-role capture, request-bound governed authority writes,
 and exact restoration. Pilot handout remains prohibited.
+
+## Approved-Home Automatic-Variable Compatibility Correction
+
+The first merged `CaptureSyncBaseline` invocation stopped during approved-Home
+navigation before local diagnostics capture. PowerShell variable names are
+case-insensitive, so the helper's local `$home` assignment attempted to replace
+the read-only `$HOME` automatic variable. The helper now uses
+`$approvedHome`, and the source contract rejects any future assignment to
+`$HOME` in the harness.
+
+The stopped invocation ran from merge commit `05f35fc`, with promotion SHA-256
+`B7382D737430F428832B59B39DEE0656B3E8993FF861FB4E01A66229F45036CE` and
+harness SHA-256
+`F417A3BD6EB029B303B29705CED87A0EBBFD2BB9CAE9D05FBB42046721AC7463`.
+No sync-baseline or network receipt was created, no transport state or remote
+business data was mutated, and no raw identity was retained. The invoking Tee
+pipeline returned the error but did not create its intended log file, so a
+clearly labelled post-stop adjudication was stored outside the repository with
+SHA-256
+`63EA1D4BF8A5012A1E98F866D5763AD085AA1F10F41C99A1DFDCF7808CE1517D`.
+It is not passing evidence and cannot be relabelled as such.
+
+This compatibility correction does not expand the approved device, artifact,
+phases, authority, distribution or pilot boundary. `STAGE2D-F4`, `P-07` and
+pilot handout remain open.
