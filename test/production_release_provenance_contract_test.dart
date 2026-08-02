@@ -670,6 +670,21 @@ void main() {
         contains(r'$recoveryIncident.occurred -eq $false'),
       );
       expect(policyVerifier, contains("'pending-source-authorized'"));
+      expect(
+        policyVerifier,
+        contains('firestoreValueNormalizationRemediationRequired'),
+      );
+      expect(
+        policyVerifier,
+        contains('firestoreValueNormalizationMergeCommit'),
+      );
+      expect(
+        policyVerifier,
+        contains(
+          'Dispatch source does not contain the Firestore '
+          'value-normalization remediation.',
+        ),
+      );
     });
 
     test('build 6 closure remains exact while build 7 is pending', () {

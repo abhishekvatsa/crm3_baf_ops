@@ -1461,6 +1461,22 @@ check(
         "firestoreValueNormalizationMergeCommit"
     )
         == "53b10006bc8e34240e2ec94b861ef907311071c0"
+    and build7_approval.get("requiredSource", {}).get(
+        "tokenRaceRemediationMergeCommit"
+    )
+        == "416fe777ffd52162de5666a860e185167ecf9e23"
+    and build7_approval.get("requiredSource", {}).get(
+        "c03ClosureMergeCommit"
+    )
+        == "f6ddd3cd2e64af4e4a2c987fefee3af5e8eca2fc"
+    and build7_approval.get("controls", {}).get(
+        "androidPrPackagingProofRequired"
+    )
+        is True
+    and build7_approval.get("controls", {}).get(
+        "tokenRaceRemediationRequired"
+    )
+        is True
     and build7_approval.get("runtimeFinding", {}).get(
         "build6CanSatisfyF4"
     )

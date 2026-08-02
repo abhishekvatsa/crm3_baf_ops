@@ -73,6 +73,11 @@
     "remoteBuiltTag": "crm3-build-built/7"
   },
   "requiredSource": {
+    "tokenRaceRemediationPullRequest": 77,
+    "tokenRaceRemediationMergeCommit": "416fe777ffd52162de5666a860e185167ecf9e23",
+    "tokenRaceRemediationMustBeAncestorOfDispatchCommit": true,
+    "c03ClosureMergeCommit": "f6ddd3cd2e64af4e4a2c987fefee3af5e8eca2fc",
+    "androidPrPackagingProofRequired": true,
     "firestoreValueNormalizationPullRequest": 111,
     "firestoreValueNormalizationMergeCommit": "53b10006bc8e34240e2ec94b861ef907311071c0",
     "firestoreValueNormalizationTree": "c917912942190c0e780412bd3ae127adb0e66eb6",
@@ -97,6 +102,8 @@
     "manifestVerifierRuntimeSelfTestBeforeReservation": true,
     "androidDependencyConfigurationPreflightBeforeReservation": true,
     "androidReleaseSourceCompilationBeforeReservation": true,
+    "androidPrPackagingProofRequired": true,
+    "tokenRaceRemediationRequired": true,
     "firestoreValueNormalizationRemediationRequired": true,
     "privateRepositoryEnvironmentReviewerExceptionApproved": true,
     "environmentExceptionApprovalReference": "BAF-GH-ENV-003",

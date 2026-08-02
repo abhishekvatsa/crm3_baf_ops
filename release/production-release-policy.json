@@ -48,7 +48,7 @@
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
     "sourceDocumentFile": "release/approvals/build-number-7-rollover-approval.json",
-    "sourceDocumentSha256": "CF0ABE08D6A48C1E9EF849D0B9569554F367E8DEC24ED46201BA94CD0F0D7452",
+    "sourceDocumentSha256": "E2D25FAFB29D1EAB42E8BF8C03D38F60FDF75D4C2A8CE5037D9DA61E56C89C76",
     "remoteReservationTag": "crm3-build-reserved/7",
     "remoteBuiltTag": "crm3-build-built/7",
     "failedOrWithdrawnBuildConsumesNumber": true
