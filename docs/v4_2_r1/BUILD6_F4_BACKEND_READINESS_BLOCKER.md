@@ -73,9 +73,23 @@ Functions under separate least-privilege runtime identities. A synthetic live
 write was server-stamped and settled without recursive rewrites; an
 unauthenticated callable request reached the handler and failed closed.
 
-This progress does not change the controlled stop above. Authentication and
-client parity, the full staging walkthrough, the production restore pack,
-production deployment, backfill, contract activation and the private backend
-readiness receipt remain required. See
+At that staging-tranche checkpoint, this progress did not change the controlled
+stop above. Authentication and client parity, the full staging walkthrough,
+the production restore pack, production deployment, backfill, contract
+activation and the private backend readiness receipt remained required. See
 `BUILD6_F4_STAGING_BACKEND_TRANCHE.md` and
 `release/evidence/build-6-f4-staging-backend-tranche.json`.
+
+## Production Restore-Pack Update - 2026-08-02
+
+The private production restore pack is now sealed and independently verified
+at exact source commit `f604c5e1966fc40f4ddd5d4eb75e483d807435eb` after
+post-merge `release-gate` run `30747352624`. Its privacy-safe receipt is
+`release/evidence/production-prelive-restore-pack-seal.json`.
+
+This satisfies the restore-pack prerequisite only.
+The seal does not change the controlled stop: it does not authorize a
+production backend mutation, activate the runtime contract, resume the device
+campaign, close `STAGE2D-F4` or `P-07`, authorize pilot handout, or adjudicate
+held PRs #87 through #93. The controlled stop remains in force until the other
+requirements above are proven in their required order.
