@@ -12,6 +12,15 @@ The failure was source-side harness incompatibility, not an application,
 Firestore, authentication or Timestamp failure. No read receipt was created and
 no production write occurred.
 
+The first invocation of the merged recovery also stopped before creating its
+locator witness. Android resumed the already-open Knowledge Governance route,
+while the phase entry point demanded Home immediately after launch. A
+privacy-safe diagnostic confirmed the expected application package and
+Knowledge Governance screen, with no raw UI retained. Because the locator
+witness and read receipt were both absent, this navigation stop did not consume
+the one locator retry. The harness now routes every resumed phase through its
+existing bounded approved-Home normalizer before continuing.
+
 ## Preserved Evidence
 
 The original Build 7 promotion remains byte-for-byte unchanged. Its SHA-256 is

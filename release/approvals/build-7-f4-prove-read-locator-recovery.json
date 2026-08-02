@@ -21,6 +21,7 @@
     "failedHarnessCommit": "59489c25ff5e43faa6cca2fed6d9de1ff88cd126",
     "failedHarnessTree": "3e354bb648061e830a591e3b4781eee267c65fb3",
     "requiredCorrection": "Include the Android UIAutomator hint attribute when locating the Search rowCode input.",
+    "additionalMergedCorrection": "Route each resumed campaign phase through the existing approved-Home normalizer before opening a module.",
     "mergedSuccessorRequired": true
   },
   "campaignAuthority": {
@@ -54,7 +55,19 @@
     "correctedLocatorCanResolve": true,
     "productionWriteOccurred": false,
     "readReceiptCreated": false,
-    "rawUiRetained": false
+    "rawUiRetained": false,
+    "preWitnessRecoveryStop": {
+      "stableFailureReason": "Expected UI state was not reached: Home, Issues, Work, Directives, More, Core modules",
+      "cause": "Android resumed the already-open Knowledge Governance route after application launch.",
+      "observedPackageMatched": true,
+      "observedKnowledgeGovernance": true,
+      "observedHome": false,
+      "uiHierarchySha256": "1AA08559436560DEC4667F9923681B071D3EE48C3F84D457E6DAA0996576423D",
+      "failureWitnessCreated": false,
+      "readReceiptCreated": false,
+      "productionWriteOccurred": false,
+      "rawUiRetained": false
+    }
   },
   "retryAuthority": {
     "phase": "RecoverProveReadLocator",
@@ -67,6 +80,7 @@
     "applicationDataMutationAuthorized": false,
     "remoteMutationAuthorized": false,
     "retirementAuthorizedDuringRecovery": false,
+    "preWitnessNavigationStopConsumesRetry": false,
     "failureReproductionWitnessRequiredBeforeRetry": true,
     "rawUiMustBeDeletedAfterHashing": true
   },
@@ -81,6 +95,7 @@
     "verify the unchanged original promotion and exact private preflight and upgrade receipt hashes",
     "verify exact Build 7 remains installed on the same hash-bound physical target with the approved session preserved",
     "navigate the existing read-only Template Authoring and Knowledge Governance paths",
+    "normalize an already-open application route back to the approved Home surface using the existing bounded back-navigation helper",
     "reproduce and record only the privacy-safe structural UI-locator mismatch in the existing evidence directory",
     "perform one read-only controlled-row search using text, content-description or hint attributes",
     "create the controlled-row active-precondition receipt only if the exact row renders active"

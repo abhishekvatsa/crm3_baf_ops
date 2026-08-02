@@ -1064,7 +1064,7 @@ if ($Phase -in @('Upgrade', 'FinalizeUpgrade')) {
     -Adb $adb `
     -Serial $DeviceSerial `
     -PackageId $applicationId
-  $approvedHome = Get-ApprovedHomeEvidence `
+  $approvedHome = Move-ToApprovedHome `
     -Adb $adb `
     -Serial $DeviceSerial `
     -EvidenceRoot $evidenceRoot
@@ -1209,6 +1209,9 @@ if ($Phase -eq 'RecoverProveReadLocator') {
     $locatorRecoveryApproval.retryAuthority.retirementAuthorizedDuringRecovery `
     $false 'Locator recovery retirement authorization'
   Assert-Equal `
+    $locatorRecoveryApproval.retryAuthority.preWitnessNavigationStopConsumesRetry `
+    $false 'Locator recovery pre-witness navigation-stop authority'
+  Assert-Equal `
     $locatorRecoveryApproval.retryAuthority.failureReproductionWitnessRequiredBeforeRetry `
     $true 'Locator recovery failure-witness requirement'
   Assert-Equal `
@@ -1264,7 +1267,7 @@ if ($Phase -in @('ProveRead', 'RecoverProveReadLocator')) {
     -Adb $adb `
     -Serial $DeviceSerial `
     -PackageId $applicationId
-  $null = Get-ApprovedHomeEvidence `
+  $null = Move-ToApprovedHome `
     -Adb $adb `
     -Serial $DeviceSerial `
     -EvidenceRoot $evidenceRoot
@@ -1491,7 +1494,7 @@ Start-Crm3Application `
   -Adb $adb `
   -Serial $DeviceSerial `
   -PackageId $applicationId
-$null = Get-ApprovedHomeEvidence `
+$null = Move-ToApprovedHome `
   -Adb $adb `
   -Serial $DeviceSerial `
   -EvidenceRoot $evidenceRoot

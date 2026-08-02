@@ -66,6 +66,10 @@ void main() {
       source['failedHarnessTree'],
       '3e354bb648061e830a591e3b4781eee267c65fb3',
     );
+    expect(
+      source['additionalMergedCorrection'],
+      contains('approved-Home normalizer'),
+    );
     expect(source['mergedSuccessorRequired'], isTrue);
 
     final campaign = _object(recovery['campaignAuthority']);
@@ -117,6 +121,15 @@ void main() {
     expect(failure['correctedLocatorCanResolve'], isTrue);
     expect(failure['productionWriteOccurred'], isFalse);
     expect(failure['rawUiRetained'], isFalse);
+    final preWitnessStop = _object(failure['preWitnessRecoveryStop']);
+    expect(preWitnessStop['observedPackageMatched'], isTrue);
+    expect(preWitnessStop['observedKnowledgeGovernance'], isTrue);
+    expect(preWitnessStop['observedHome'], isFalse);
+    expect(preWitnessStop['failureWitnessCreated'], isFalse);
+    expect(preWitnessStop['readReceiptCreated'], isFalse);
+    expect(preWitnessStop['productionWriteOccurred'], isFalse);
+    expect((preWitnessStop['uiHierarchySha256'] as String).length, 64);
+    expect(preWitnessStop['rawUiRetained'], isFalse);
 
     final retry = _object(recovery['retryAuthority']);
     expect(retry['phase'], 'RecoverProveReadLocator');
@@ -127,6 +140,7 @@ void main() {
     expect(retry['reinstallAuthorized'], isFalse);
     expect(retry['remoteMutationAuthorized'], isFalse);
     expect(retry['retirementAuthorizedDuringRecovery'], isFalse);
+    expect(retry['preWitnessNavigationStopConsumesRetry'], isFalse);
     expect(retry['failureReproductionWitnessRequiredBeforeRetry'], isTrue);
     expect(retry['rawUiMustBeDeletedAfterHashing'], isTrue);
 
@@ -168,6 +182,8 @@ void main() {
       "contains(@hint,'Search rowCode')",
       r'rawUiRetained = $false',
       r'remoteMutationPerformed = $false',
+      r'$approvedHome = Move-ToApprovedHome',
+      r'$null = Move-ToApprovedHome',
     ]) {
       expect(harness, contains(required), reason: required);
     }
@@ -183,6 +199,21 @@ void main() {
     expect(readBlock, isNot(contains('ShouldProcess')));
     expect(readBlock, isNot(contains('Retire the exact controlled')));
     expect(readBlock, contains('remoteMutationPerformed = \$false'));
+
+    expect(
+      RegExp(
+        r'^\s*\$(?:approvedHome|null) = Get-ApprovedHomeEvidence',
+        multiLine: true,
+      ).allMatches(harness),
+      isEmpty,
+    );
+    expect(
+      RegExp(
+        r'^\s*\$(?:approvedHome|null) = Move-ToApprovedHome',
+        multiLine: true,
+      ).allMatches(harness).length,
+      4,
+    );
 
     expect(
       recoveryDoc,
