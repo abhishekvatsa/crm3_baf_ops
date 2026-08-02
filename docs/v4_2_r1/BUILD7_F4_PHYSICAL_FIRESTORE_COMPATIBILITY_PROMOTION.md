@@ -67,7 +67,10 @@ pre-stamp copy.
 
 `FinalizeUpgrade` and `FinalizeRetirement` are evidence-only recovery phases.
 They may be used only after the corresponding operation completed but receipt
-creation was interrupted. They never reinstall or write the retirement twice.
+creation was interrupted. `FinalizeRetirement` additionally requires the
+privacy-safe completion witness written after the pull, governance audit and
+retired-row render all passed; row state alone cannot authorize finalization.
+The recovery phases never reinstall or write the retirement twice.
 
 ## Invocation
 

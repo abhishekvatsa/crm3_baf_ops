@@ -1762,6 +1762,12 @@ check(
         in build7_f4_compatibility_harness
     and "postWriteCloudPullCompleted = $true"
         in build7_f4_compatibility_harness
+    and "PASS_BUILD7_GOVERNED_RETIREMENT_PULL_AUDIT_AND_RENDER"
+        in build7_f4_compatibility_harness
+    and build7_f4_compatibility.get("failurePolicy", {}).get(
+        "retirementFinalizationRequiresCompletionWitness"
+    )
+        is True
     and "PASS_BUILD7_CONTROLLED_TIMESTAMP_ROW_RETIRED_POST_WRITE_RENDERED"
         in build7_f4_compatibility_harness
     and "FinalizeUpgrade" in build7_f4_compatibility_harness

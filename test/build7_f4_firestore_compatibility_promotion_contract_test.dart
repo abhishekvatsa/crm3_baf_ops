@@ -194,6 +194,10 @@ void main() {
       failure['secondRetirementWriteDuringFinalizationAuthorized'],
       isFalse,
     );
+    expect(
+      failure['retirementFinalizationRequiresCompletionWitness'],
+      isTrue,
+    );
     expect(failure['failedPhaseMayNotBeRelabelledPass'], isTrue);
   });
 
@@ -227,6 +231,8 @@ void main() {
       r'compatibilityProofDeferredToGovernedPostWritePull = $true',
       'Retire the exact controlled F4 compatibility row',
       'Reason for retired',
+      'controlled-row-retirement-completion-witness.json',
+      'PASS_BUILD7_GOVERNED_RETIREMENT_PULL_AUDIT_AND_RENDER',
       'PASS_BUILD7_CONTROLLED_TIMESTAMP_ROW_RETIRED_POST_WRITE_RENDERED',
       'INTERRUPTED_AFTER_UPGRADE_BEFORE_RECEIPT',
       'INTERRUPTED_AFTER_RETIREMENT_BEFORE_RECEIPT',
@@ -235,10 +241,12 @@ void main() {
       'secondKnowledgeRecordMutated = \$false',
       'activeRowPreconditionReceiptPassed = \$true',
       'postWriteCloudPullCompleted = \$true',
+      'governanceAuditCompleted = \$true',
       'nativeTimestampDecodePassed = \$true',
       'postGovernedWriteRendered = \$true',
       'productionBackfillAuthorized = \$false',
       'runtimeContractActivationAuthorized = \$false',
+      'row state alone is insufficient',
     ]) {
       expect(script, contains(required), reason: required);
     }

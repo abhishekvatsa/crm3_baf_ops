@@ -139,7 +139,7 @@
     },
     {
       "id": "finalize-retirement",
-      "operation": "Create retirement evidence without another write only when an interrupted RetireRow already left the exact controlled row locally renderable as retired."
+      "operation": "Create retirement evidence without another write only when an interrupted RetireRow already wrote the privacy-safe governed completion witness and left the exact controlled row locally renderable as retired. Row state alone is not sufficient."
     }
   ],
   "authorizedOperations": [
@@ -177,6 +177,7 @@
     "interruptedUpgradeEvidenceFinalizationAuthorized": true,
     "reinstallDuringUpgradeFinalizationAuthorized": false,
     "interruptedRetirementEvidenceFinalizationAuthorized": true,
+    "retirementFinalizationRequiresCompletionWitness": true,
     "secondRetirementWriteDuringFinalizationAuthorized": false,
     "retainFailedPhaseEvidence": true,
     "failedPhaseMayNotBeRelabelledPass": true,

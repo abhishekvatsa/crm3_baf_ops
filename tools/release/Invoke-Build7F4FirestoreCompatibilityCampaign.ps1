@@ -832,6 +832,8 @@ $apkPath = Join-Path $evidenceRoot 'governed-build7.apk'
 $preflightReceiptPath = Join-Path $evidenceRoot 'preflight-receipt.json'
 $upgradeReceiptPath = Join-Path $evidenceRoot 'upgrade-receipt.json'
 $readReceiptPath = Join-Path $evidenceRoot 'stamped-row-read-receipt.json'
+$retirementCompletionWitnessPath =
+  Join-Path $evidenceRoot 'controlled-row-retirement-completion-witness.json'
 $retirementReceiptPath = Join-Path $evidenceRoot 'controlled-row-retirement-receipt.json'
 $applicationId = [string]$promotion.build7ArtifactAuthority.applicationId
 $build7Apk = $promotion.build7ArtifactAuthority.apk
@@ -1218,6 +1220,35 @@ if ($Phase -notin @('RetireRow', 'FinalizeRetirement')) {
 if (Test-Path -LiteralPath $retirementReceiptPath) {
   throw "$Phase refuses to replace an existing retirement receipt."
 }
+if ($Phase -eq 'RetireRow' -and
+    (Test-Path -LiteralPath $retirementCompletionWitnessPath)) {
+  throw 'RetireRow found a completion witness. Use FinalizeRetirement; do not write the lifecycle transition again.'
+}
+$completionWitness = $null
+if ($Phase -eq 'FinalizeRetirement') {
+  if (-not (Test-Path -LiteralPath $retirementCompletionWitnessPath -PathType Leaf)) {
+    throw 'FinalizeRetirement requires the governed completion witness; row state alone is insufficient.'
+  }
+  $completionWitness = Get-Content `
+    -LiteralPath $retirementCompletionWitnessPath `
+    -Raw | ConvertFrom-Json
+  Assert-Equal `
+    $completionWitness.decision `
+    'PASS_BUILD7_GOVERNED_RETIREMENT_PULL_AUDIT_AND_RENDER' `
+    'Retirement completion witness decision'
+  Assert-Equal $completionWitness.promotionSha256 $promotionSha256 `
+    'Retirement completion witness promotion SHA-256'
+  Assert-Equal `
+    $completionWitness.readReceiptSha256 `
+    (Get-Sha256 $readReceiptPath) `
+    'Retirement completion witness read-receipt SHA-256'
+  Assert-Equal `
+    $completionWitness.controlledDocument `
+    "knowledge_base/$controlledDocumentId" `
+    'Retirement completion witness document'
+  Assert-Equal $completionWitness.governanceAuditCompleted $true `
+    'Retirement completion witness governance audit'
+}
 
 Start-Crm3Application `
   -Adb $adb `
@@ -1251,7 +1282,6 @@ Enter-UiText `
   -Text $controlledDocumentId
 
 $recoveryMode = 'NONE'
-$governedCompletionUiSha256 = $null
 $postWritePullEvidence = 'NOT_OBSERVED'
 if ($Phase -eq 'RetireRow') {
   $activeRow = Wait-RowLifecycle `
@@ -1322,17 +1352,6 @@ if ($Phase -eq 'RetireRow') {
     -Marker 'retired' `
     -XPath "//node[@text='retired']" `
     -NearestClickableAncestor
-  $governedCompletion = Wait-UiState `
-    -Adb $adb `
-    -Serial $DeviceSerial `
-    -EvidenceRoot $evidenceRoot `
-    -Label 'build7-retirement-governed-completion' `
-    -RequiredMarkers @($controlledDocumentId, 'retired.') `
-    -ForbiddenMarkers @('[cloud_firestore/', 'KnowledgeGovernanceException') `
-    -AbsentMarkers @('Edit row', 'Reason for retired') `
-    -TimeoutSeconds 120
-  $governedCompletionUiSha256 = $governedCompletion.sha256
-  $postWritePullEvidence = 'DIRECT_COMPLETION_SNACKBAR_AND_LOCAL_RETIRED_RENDER'
   $retiredRow = Wait-RowLifecycle `
     -Adb $adb `
     -Serial $DeviceSerial `
@@ -1342,6 +1361,26 @@ if ($Phase -eq 'RetireRow') {
     -Lifecycle 'retired' `
     -AbsentMarkers @('Edit row', 'Reason for retired') `
     -TimeoutSeconds 120
+  $completionWitness = [ordered]@{
+    schemaVersion = 1
+    evidenceType = 'build-7-f4-governed-retirement-completion-witness'
+    capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+    promotionSha256 = $promotionSha256
+    readReceiptSha256 = Get-Sha256 $readReceiptPath
+    installedApkSha256 = $installedBuild7.apkSha256
+    controlledDocument = "knowledge_base/$controlledDocumentId"
+    finalLifecycle = 'retired'
+    governedControllerCompleted = $true
+    postWriteCloudPullCompleted = $true
+    governanceAuditCompleted = $true
+    retiredRowUiSha256 = $retiredRow.sha256
+    rawUiRetained = $false
+    decision = 'PASS_BUILD7_GOVERNED_RETIREMENT_PULL_AUDIT_AND_RENDER'
+  }
+  Write-Utf8NoBom `
+    -Path $retirementCompletionWitnessPath `
+    -Text (($completionWitness | ConvertTo-Json -Depth 30) + "`n")
+  $postWritePullEvidence = 'DIRECT_CHAINED_COMPLETION_WITNESS_AND_LOCAL_RETIRED_RENDER'
 } else {
   $currentUi = Get-UiEvidence `
     -Adb $adb `
@@ -1377,7 +1416,7 @@ if ($Phase -eq 'RetireRow') {
     -AbsentMarkers @('Edit row', 'Reason for retired') `
     -TimeoutSeconds 90
   $recoveryMode = 'INTERRUPTED_AFTER_RETIREMENT_BEFORE_RECEIPT'
-  $postWritePullEvidence = 'RECOVERED_LOCAL_RETIRED_RENDER_AFTER_ACTIVE_PRECONDITION'
+  $postWritePullEvidence = 'CHAINED_COMPLETION_WITNESS_AND_RECOVERED_LOCAL_RETIRED_RENDER'
 }
 
 $receipt = [ordered]@{
@@ -1386,6 +1425,7 @@ $receipt = [ordered]@{
   capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
   promotionSha256 = $promotionSha256
   readReceiptSha256 = Get-Sha256 $readReceiptPath
+  completionWitnessSha256 = Get-Sha256 $retirementCompletionWitnessPath
   recoveryMode = $recoveryMode
   installedApkSha256 = $installedBuild7.apkSha256
   controlledDocument = "knowledge_base/$controlledDocumentId"
@@ -1398,7 +1438,7 @@ $receipt = [ordered]@{
   activeRowPreconditionReceiptPassed = $true
   postWriteCloudPullCompleted = $true
   postWriteCloudPullEvidence = $postWritePullEvidence
-  governedCompletionUiSha256 = $governedCompletionUiSha256
+  governanceAuditCompleted = $true
   nativeTimestampDecodePassed = $true
   postGovernedWriteRendered = $true
   retiredRowUiSha256 = $retiredRow.sha256
