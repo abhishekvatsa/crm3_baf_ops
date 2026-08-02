@@ -17,7 +17,10 @@ shared option is controlled by
 `false`.
 
 `beginGlobalPullRun` has an explicit read-only, non-enforcing option composed
-with its separately governed least-privilege runtime identity.
+with its separately governed least-privilege runtime identity. That identity is
+derived from Firebase's built-in deployment `PROJECT_ID`, so staging and
+production resolve to accounts in their own target project without changing the
+App Check deferral.
 `getBackendReleaseIdentity` retains its separately governed identity-callable
 security options.
 

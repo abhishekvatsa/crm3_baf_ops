@@ -1,11 +1,17 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const {
+  stackToWire,
+} = require("../node_modules/firebase-functions/lib/runtime/manifest.js");
 
 const {
   GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS,
   GLOBAL_PULL_READER_RUNTIME_SERVICE_ACCOUNT,
+  GLOBAL_PULL_READER_RUNTIME_SERVICE_ACCOUNT_ID,
   GLOBAL_PULL_TRIGGER_SECURITY_OPTIONS,
   GLOBAL_PULL_WRITER_RUNTIME_SERVICE_ACCOUNT,
+  GLOBAL_PULL_WRITER_RUNTIME_SERVICE_ACCOUNT_ID,
+  globalPullRuntimeServiceAccountsForProject,
 } = require("../lib/globalPullSecurityConfig");
 
 const root = path.resolve(__dirname, "../..");
@@ -31,9 +37,12 @@ function functionBlock(startMarker, endMarker) {
 
 describe("global pull runtime identity source policy", () => {
   test("binds the callable to an exact read-only runtime identity", () => {
-    expect(GLOBAL_PULL_READER_RUNTIME_SERVICE_ACCOUNT).toBe(
-      "crm3-global-pull-reader@" +
-      "crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    expect(GLOBAL_PULL_READER_RUNTIME_SERVICE_ACCOUNT_ID).toBe(
+      "crm3-global-pull-reader",
+    );
+    expect(GLOBAL_PULL_READER_RUNTIME_SERVICE_ACCOUNT.toCEL()).toBe(
+      "crm3-global-pull-reader@{{ params.PROJECT_ID }}" +
+      ".iam.gserviceaccount.com",
     );
     expect(GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS).toEqual({
       enforceAppCheck: false,
@@ -49,9 +58,12 @@ describe("global pull runtime identity source policy", () => {
   });
 
   test("binds the stamp trigger to a separate writer identity", () => {
-    expect(GLOBAL_PULL_WRITER_RUNTIME_SERVICE_ACCOUNT).toBe(
-      "crm3-global-pull-writer@" +
-      "crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    expect(GLOBAL_PULL_WRITER_RUNTIME_SERVICE_ACCOUNT_ID).toBe(
+      "crm3-global-pull-writer",
+    );
+    expect(GLOBAL_PULL_WRITER_RUNTIME_SERVICE_ACCOUNT.toCEL()).toBe(
+      "crm3-global-pull-writer@{{ params.PROJECT_ID }}" +
+      ".iam.gserviceaccount.com",
     );
     expect(GLOBAL_PULL_TRIGGER_SECURITY_OPTIONS).toEqual({
       serviceAccount: GLOBAL_PULL_WRITER_RUNTIME_SERVICE_ACCOUNT,
@@ -63,12 +75,76 @@ describe("global pull runtime identity source policy", () => {
     expect(block).toContain("...GLOBAL_PULL_TRIGGER_SECURITY_OPTIONS");
   });
 
+  test("resolves production and staging identities inside their own project", () => {
+    expect(
+      globalPullRuntimeServiceAccountsForProject("crm3-baf-ops-b8638"),
+    ).toEqual({
+      reader:
+        "crm3-global-pull-reader@" +
+        "crm3-baf-ops-b8638.iam.gserviceaccount.com",
+      writer:
+        "crm3-global-pull-writer@" +
+        "crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    });
+    expect(
+      globalPullRuntimeServiceAccountsForProject("crm3-baf-ops-staging"),
+    ).toEqual({
+      reader:
+        "crm3-global-pull-reader@" +
+        "crm3-baf-ops-staging.iam.gserviceaccount.com",
+      writer:
+        "crm3-global-pull-writer@" +
+        "crm3-baf-ops-staging.iam.gserviceaccount.com",
+    });
+    expect(() => globalPullRuntimeServiceAccountsForProject(
+      " crm3-baf-ops-b8638",
+    )).toThrow("A canonical Google Cloud project ID is required.");
+    expect(() => globalPullRuntimeServiceAccountsForProject(
+      "CRM3-baf-ops-b8638",
+    )).toThrow("A canonical Google Cloud project ID is required.");
+  });
+
+  test("Firebase wire manifest preserves target-project interpolation", () => {
+    const wire = stackToWire({
+      endpoints: {
+        beginGlobalPullRun: {
+          serviceAccountEmail: GLOBAL_PULL_READER_RUNTIME_SERVICE_ACCOUNT,
+        },
+        stampGlobalPullServerClock: {
+          serviceAccountEmail: GLOBAL_PULL_WRITER_RUNTIME_SERVICE_ACCOUNT,
+        },
+      },
+    });
+    expect(wire.endpoints.beginGlobalPullRun.serviceAccountEmail).toBe(
+      "crm3-global-pull-reader@{{ params.PROJECT_ID }}" +
+      ".iam.gserviceaccount.com",
+    );
+    expect(wire.endpoints.stampGlobalPullServerClock.serviceAccountEmail).toBe(
+      "crm3-global-pull-writer@{{ params.PROJECT_ID }}" +
+      ".iam.gserviceaccount.com",
+    );
+  });
+
   test("policy grants only the admitted roles and excludes the old fleet", () => {
+    expect(policy.schemaVersion).toBe(2);
+    expect(policy.policyId).toBe("GLOBAL-PULL-RUNTIME-IDENTITY-POLICY-V2");
     expect(policy.declarationStatus).toBe(
       "SOURCE_IMPLEMENTED_PENDING_IAM_AND_DEPLOYMENT",
     );
+    expect(policy.productionProjectId).toBe("crm3-baf-ops-b8638");
+    expect(policy.targetProjectBinding).toEqual({
+      builtInParameter: "PROJECT_ID",
+      serviceAccountDomain: "iam.gserviceaccount.com",
+      sameProjectRequired: true,
+      crossProjectResolutionAllowed: false,
+    });
     expect(policy.functionBindings.beginGlobalPullRun).toEqual({
-      runtimeServiceAccount: GLOBAL_PULL_READER_RUNTIME_SERVICE_ACCOUNT,
+      runtimeServiceAccountId: GLOBAL_PULL_READER_RUNTIME_SERVICE_ACCOUNT_ID,
+      runtimeServiceAccountTemplate:
+        "crm3-global-pull-reader@${PROJECT_ID}.iam.gserviceaccount.com",
+      productionResolvedRuntimeServiceAccount:
+        globalPullRuntimeServiceAccountsForProject("crm3-baf-ops-b8638")
+          .reader,
       requiredProjectRoles: [
         "roles/datastore.viewer",
         "roles/logging.logWriter",
@@ -76,7 +152,12 @@ describe("global pull runtime identity source policy", () => {
       firestoreAccess: "READ_ONLY",
     });
     expect(policy.functionBindings.stampGlobalPullServerClock).toEqual({
-      runtimeServiceAccount: GLOBAL_PULL_WRITER_RUNTIME_SERVICE_ACCOUNT,
+      runtimeServiceAccountId: GLOBAL_PULL_WRITER_RUNTIME_SERVICE_ACCOUNT_ID,
+      runtimeServiceAccountTemplate:
+        "crm3-global-pull-writer@${PROJECT_ID}.iam.gserviceaccount.com",
+      productionResolvedRuntimeServiceAccount:
+        globalPullRuntimeServiceAccountsForProject("crm3-baf-ops-b8638")
+          .writer,
       requiredProjectRoles: [
         "roles/datastore.user",
         "roles/eventarc.eventReceiver",
@@ -94,5 +175,6 @@ describe("global pull runtime identity source policy", () => {
     expect(policy.existingFunctionFleetMutationAuthorized).toBe(false);
     expect(policy.defaultComputeRoleMutationAuthorized).toBe(false);
     expect(policy.crossProjectGrantAuthorized).toBe(false);
+    expect(policy.deploymentTargetRequirements).toHaveLength(4);
   });
 });

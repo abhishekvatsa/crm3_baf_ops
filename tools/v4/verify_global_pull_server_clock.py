@@ -235,9 +235,38 @@ check(
     "Global-pull functions use separate least-privilege runtime identities",
     "GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS" in backend_index
     and "GLOBAL_PULL_TRIGGER_SECURITY_OPTIONS" in backend_index
-    and "crm3-global-pull-reader@" in runtime_security
-    and "crm3-global-pull-writer@" in runtime_security
+    and '"crm3-global-pull-reader"' in runtime_security
+    and '"crm3-global-pull-writer"' in runtime_security
+    and 'import {expr, projectID} from "firebase-functions/params"'
+        in runtime_security
+    and "@${projectID}.iam.gserviceaccount.com" in runtime_security
+    and "@crm3-baf-ops-b8638.iam.gserviceaccount.com"
+        not in runtime_security
     and "compute@developer.gserviceaccount.com" not in runtime_security
+    and runtime_identity_policy.get("schemaVersion") == 2
+    and runtime_identity_policy.get("targetProjectBinding") == {
+        "builtInParameter": "PROJECT_ID",
+        "serviceAccountDomain": "iam.gserviceaccount.com",
+        "sameProjectRequired": True,
+        "crossProjectResolutionAllowed": False,
+    }
+    and runtime_identity_policy.get("functionBindings", {})
+        .get("beginGlobalPullRun", {}).get("runtimeServiceAccountTemplate")
+        == "crm3-global-pull-reader@${PROJECT_ID}.iam.gserviceaccount.com"
+    and runtime_identity_policy.get("functionBindings", {})
+        .get("stampGlobalPullServerClock", {})
+        .get("runtimeServiceAccountTemplate")
+        == "crm3-global-pull-writer@${PROJECT_ID}.iam.gserviceaccount.com"
+    and runtime_identity_policy.get("productionProjectId")
+        == "crm3-baf-ops-b8638"
+    and runtime_identity_policy.get("functionBindings", {})
+        .get("beginGlobalPullRun", {})
+        .get("productionResolvedRuntimeServiceAccount")
+        == "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com"
+    and runtime_identity_policy.get("functionBindings", {})
+        .get("stampGlobalPullServerClock", {})
+        .get("productionResolvedRuntimeServiceAccount")
+        == "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com"
     and runtime_identity_policy.get("functionBindings", {})
         .get("beginGlobalPullRun", {}).get("requiredProjectRoles")
         == ["roles/datastore.viewer", "roles/logging.logWriter"]
@@ -252,7 +281,8 @@ check(
     and runtime_identity_policy.get("existingFunctionFleetMutationAuthorized")
         is False
     and runtime_identity_policy.get("defaultComputeRoleMutationAuthorized")
-        is False,
+        is False
+    and runtime_identity_policy.get("crossProjectGrantAuthorized") is False,
 )
 check(
     "Governance evidence omits document IDs by default and keeps stdout count-only",
