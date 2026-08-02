@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:isar/isar.dart';
 
+import '../../../core/services/global_pull_protocol.dart';
 import '../domain/baf_knowledge_layer.dart';
 import '../domain/module_composer_models.dart';
 
@@ -175,8 +176,8 @@ class BafKnowledgeRow {
   }
 
   Map<String, dynamic> toEntryMap() {
-    final decoded = _decodeRaw(rawJson);
-    return <String, dynamic>{
+    final decoded = _decodeRaw(rawJson)..remove(globalPullServerUpdatedAtField);
+    final map = <String, dynamic>{
       ...decoded,
       'rowCode': rowCode,
       'moduleCandidateCode': moduleCandidateCode,
@@ -208,6 +209,8 @@ class BafKnowledgeRow {
       'confidence': confidence,
       'consultQuestion': consultQuestion,
     };
+    map.remove(globalPullServerUpdatedAtField);
+    return map;
   }
 
   Map<String, dynamic> toCloudMap({bool serverTimestamps = false}) {
@@ -227,6 +230,7 @@ class BafKnowledgeRow {
       'changeSummary': changeSummary,
       'isDeleted': isDeleted,
     };
+    map.remove(globalPullServerUpdatedAtField);
     return map;
   }
 }
@@ -423,12 +427,44 @@ Map<String, dynamic> _decodeRaw(String rawJson) {
 }
 
 Map<String, dynamic> _entryMapFromCloud(Map<String, dynamic> map, String rowCode) {
-  return <String, dynamic>{
-    ...map,
+  final retained = <String, dynamic>{
+    for (final entry in map.entries)
+      if (entry.key != globalPullServerUpdatedAtField) entry.key: entry.value,
+  };
+  return _jsonSafeCloudMap(<String, dynamic>{
+    ...retained,
     'rowCode': rowCode,
     'moduleCandidateCode': _clean(map['moduleCandidateCode']).isEmpty ? rowCode : _clean(map['moduleCandidateCode']),
     'safetyClass': _stringList(map['safetyClasses'] ?? map['safetyClass']),
     'suggestedFields': _suggestedFieldLabels(map),
     'suggestedFieldPresets': _suggestedFieldPresetMaps(map['suggestedFieldPresets'] ?? map['fieldPresets']),
-  };
+  });
+}
+
+Map<String, dynamic> _jsonSafeCloudMap(Map<String, dynamic> map) {
+  return map.map((key, value) => MapEntry(key, _jsonSafeCloudValue(value)));
+}
+
+Object? _jsonSafeCloudValue(Object? value) {
+  if (value == null || value is bool || value is String) {
+    return value;
+  }
+  if (value is num) return value.isFinite ? value : value.toString();
+  if (value is DateTime) return value.toUtc().toIso8601String();
+  if (value is Map) {
+    return value.map((key, mapValue) => MapEntry(key.toString(), _jsonSafeCloudValue(mapValue)));
+  }
+  if (value is Iterable) {
+    return value.map(_jsonSafeCloudValue).toList(growable: false);
+  }
+  try {
+    final dynamic timestampLike = value;
+    final dynamic converted = timestampLike.toDate();
+    if (converted is DateTime) {
+      return converted.toUtc().toIso8601String();
+    }
+  } catch (_) {
+    // Preserve other cloud-native values as readable JSON instead of failing.
+  }
+  return value.toString();
 }
