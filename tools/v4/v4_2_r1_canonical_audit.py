@@ -1673,6 +1673,123 @@ check(
     and build7_entry.get("finalizationRetryRequired") is True
     and build7_entry.get("distributionPerformed") is False,
 )
+build7_f4_compatibility = data(
+    "release/approvals/build-7-f4-firestore-compatibility-promotion.json"
+)
+build7_f4_compatibility_harness = text(
+    "tools/release/Invoke-Build7F4FirestoreCompatibilityCampaign.ps1"
+)
+build7_f4_compatibility_doc = text(
+    "docs/v4_2_r1/BUILD7_F4_PHYSICAL_FIRESTORE_COMPATIBILITY_PROMOTION.md"
+)
+build7_f4_phase_ids = {
+    phase.get("id")
+    for phase in build7_f4_compatibility.get("requiredPhases", [])
+}
+build7_f4_prohibited = "\n".join(
+    build7_f4_compatibility.get("prohibitedOperations", [])
+)
+build7_f4_gate = next(
+    (
+        record
+        for record in programme_ledger.get("programmeGates", [])
+        if record.get("gateId") == "STAGE2D-F4"
+    ),
+    {},
+)
+check(
+    "Build 7 physical Timestamp compatibility is exact-target and one-row bounded",
+    build7_f4_compatibility.get("approvalClass")
+        == "CONTROLLED_EXACT_TARGET_BUILD7_FIRESTORE_COMPATIBILITY_EXECUTION"
+    and build7_f4_compatibility.get("approvalAuthority", {}).get(
+        "baselineCommit"
+    )
+        == "9b6bb0c27f8585470e743f352ccd2922561344a3"
+    and build7_f4_compatibility.get("build6Lineage", {}).get(
+        "installedApkSha256"
+    )
+        == "01D26049E200730EC1DBF0FEE85D483A9FA820D68F020110E57AC95AF2EBE755"
+    and build7_f4_compatibility.get("build7ArtifactAuthority", {}).get(
+        "sourceCommit"
+    )
+        == "d8619ef1a9c7bf53828523c4bca3efe33e4074f0"
+    and build7_f4_compatibility.get("build7ArtifactAuthority", {}).get(
+        "governedPackage", {}
+    ).get("sha256")
+        == "D6E2710481681F63651B13A9C5872B16BDADE90EB288E610DD59BE1B9B07ACE7"
+    and build7_f4_compatibility.get("build7ArtifactAuthority", {}).get(
+        "apk", {}
+    ).get("sha256")
+        == "EE5B5B7205A37F1FEF1F1B4C98CB1446ED544A123E130D7F3A4134E6A5E6DD56"
+    and build7_f4_compatibility.get("targetAuthority", {}).get("model")
+        == "SM-G990E"
+    and len(
+        build7_f4_compatibility.get("targetAuthority", {}).get(
+            "adbSerialSha256", ""
+        )
+    )
+        == 64
+    and build7_f4_compatibility.get("channel", {}).get(
+        "inPlaceUpgradeAuthorized"
+    )
+        is True
+    and build7_f4_compatibility.get("channel", {}).get(
+        "freshInstallAuthorized"
+    )
+        is False
+    and build7_f4_phase_ids
+        == {"preflight", "upgrade", "prove-read", "retire-row"}
+    and build7_f4_compatibility.get("controlledRecordAuthority", {}).get(
+        "documentId"
+    )
+        == "zz-f4-global-pull-compat-v1"
+    and build7_f4_compatibility.get("controlledRecordAuthority", {}).get(
+        "maximumKnowledgeDocumentUpdates"
+    )
+        == 1
+    and build7_f4_compatibility.get("controlledRecordAuthority", {}).get(
+        "authorizedFinalLifecycle"
+    )
+        == "retired"
+    and "any knowledge row other than zz-f4-global-pull-compat-v1"
+        in build7_f4_prohibited
+    and "claim DEVICE_PROVED" in build7_f4_prohibited
+    and "'install', '--no-streaming', '-r', $apkPath"
+        in build7_f4_compatibility_harness
+    and "PASS_BUILD7_CONTROLLED_ROW_ACTIVE_PRECONDITION"
+        in build7_f4_compatibility_harness
+    and "firestoreTimestampDecodeClaimed = $false"
+        in build7_f4_compatibility_harness
+    and "postWriteCloudPullCompleted = $true"
+        in build7_f4_compatibility_harness
+    and "PASS_BUILD7_GOVERNED_RETIREMENT_PULL_AUDIT_AND_RENDER"
+        in build7_f4_compatibility_harness
+    and build7_f4_compatibility.get("failurePolicy", {}).get(
+        "retirementFinalizationRequiresCompletionWitness"
+    )
+        is True
+    and "PASS_BUILD7_CONTROLLED_TIMESTAMP_ROW_RETIRED_POST_WRITE_RENDERED"
+        in build7_f4_compatibility_harness
+    and "FinalizeUpgrade" in build7_f4_compatibility_harness
+    and "FinalizeRetirement" in build7_f4_compatibility_harness
+    and "does not activate the global-pull runtime contract"
+        in build7_f4_compatibility_doc
+    and build7_f4_compatibility.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    )
+        is False
+    and build7_f4_compatibility.get("programmeBoundary", {}).get(
+        "p07ClosureAuthorized"
+    )
+        is False
+    and build7_f4_compatibility.get("programmeBoundary", {}).get(
+        "pilotHandoutAuthorized"
+    )
+        is False
+    and build7_f4_gate.get("currentStatus") == "OPEN"
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F4",
+)
 build6_f4_rehearsal = data(
     "release/approvals/build-6-f4-emulator-rehearsal-promotion.json"
 )

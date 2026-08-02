@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "approvalId": "CRM3-B7-F4-FIRESTORE-COMPATIBILITY-001",
+  "approvalClass": "CONTROLLED_EXACT_TARGET_BUILD7_FIRESTORE_COMPATIBILITY_EXECUTION",
+  "createdAtUtc": "2026-08-02T18:07:01.5572554Z",
+  "effectiveCondition": "This record is effective only after owner-reviewed merge to main, passing CI, and execution from an exact tracked-clean local main equal to freshly fetched origin/main.",
+  "approvalAuthority": {
+    "mode": "MERGED_OWNER_SOURCE_APPROVAL",
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "baselineCommit": "9b6bb0c27f8585470e743f352ccd2922561344a3",
+    "baselineTree": "98842e89d23a7dbbffc7e2e98436db8bb2580481",
+    "requestBasis": "The repository owner directed autonomous continuation after Build 7 finalization, while requiring device evidence before broader gate movement or held-PR adjudication.",
+    "humanApprovalReference": "CODEX_TASK_BUILD7_F4_COMPATIBILITY_20260802"
+  },
+  "build6Lineage": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b6",
+    "versionCode": 6,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "installedApkSha256": "01D26049E200730EC1DBF0FEE85D483A9FA820D68F020110E57AC95AF2EBE755",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "physicalExecutionPromotion": {
+      "path": "release/approvals/build-6-f4-physical-device-execution-promotion.json",
+      "sha256": "39199AF090789F8A78F4372E8D05F6DBDEACAB635C9256F40B5DA3033312DFC1"
+    },
+    "privateEvidence": {
+      "storedOutsideRepository": true,
+      "preflightReceiptSha256": "AC98C6A5FB48CD8A987AE8E5A93239C29386E0BE916E51BA78710BA257716206",
+      "installReceiptSha256": "0884185A8ACAB9BF4E9B099E3451189F296F4FC33A8B1BB7AB67CF7F05634F51",
+      "approvedSigninReceiptSha256": "00F8A27452E27CA38A7D67C452AF53584FFBC617D80A04B69F0C75DBD4BD90A0",
+      "syncBaselineReceiptSha256": "FF07D7CF1A10204823CD85C939AA569FD793740412837986ED828F18EFCA6CDF",
+      "failedCompatibilityLogSha256": "0E2FC4678343DD9B746F6AF03131B2F63EAD4B37AB6C24D8B87CDDC05FF7E208",
+      "rawIdentityRetainedInRepository": false
+    },
+    "failureWitness": {
+      "controlledDocument": "knowledge_base/zz-f4-global-pull-compat-v1",
+      "serverWatermarkField": "_globalPullServerUpdatedAt",
+      "serverWatermarkFirestoreType": "Timestamp",
+      "build6Failure": "Converting object to an encodable object failed: Instance of 'Timestamp'",
+      "syncMarkerDecision": "NOT_COMPLETED"
+    }
+  },
+  "build7ArtifactAuthority": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b7",
+    "versionName": "1.0.0-rc.1",
+    "versionCode": 7,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "sourceCommit": "d8619ef1a9c7bf53828523c4bca3efe33e4074f0",
+    "sourceTree": "60e246772e3c47006e94f179b646ee0e278d79b8",
+    "sourceCorrectionPullRequest": 111,
+    "githubRunId": 30757692948,
+    "governedPackage": {
+      "fileName": "crm3-baf-ops-1.0.0-rc.1-b7-GOVERNED-PACKAGE.zip",
+      "sha256": "D6E2710481681F63651B13A9C5872B16BDADE90EB288E610DD59BE1B9B07ACE7",
+      "bytes": 153115296
+    },
+    "apk": {
+      "entryName": "crm3-baf-ops-1.0.0-rc.1-b7-release.apk",
+      "sha256": "EE5B5B7205A37F1FEF1F1B4C98CB1446ED544A123E130D7F3A4134E6A5E6DD56",
+      "bytes": 85900424,
+      "debuggable": false
+    },
+    "signer": {
+      "certificateSha1": "41C2B828C71683A50EC346D19E1D44048758438D",
+      "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C"
+    },
+    "finalizationReceipt": {
+      "path": "release/evidence/build-7-finalization-closure.json",
+      "sha256": "F9788C0DD9BB7DB0B21A43FF461D68CEBC85A2135E16DA68E1ABA8342B1B1337",
+      "status": "passed-non-distributable"
+    }
+  },
+  "targetAuthority": {
+    "kind": "ANDROID_PHYSICAL_DEVICE",
+    "adbSerialSha256": "D5BADBAE21E335B1E21A6A694445F3E7A454BFE5525650BFA9E1B1D637523E74",
+    "buildFingerprintSha256": "68E985831F5D35DA949DF29788BD25B3713CCF6B6EFAE56AED6DA8BC829C64B6",
+    "manufacturer": "samsung",
+    "model": "SM-G990E",
+    "product": "r9sxxx",
+    "device": "r9s",
+    "brand": "samsung",
+    "apiLevel": 36,
+    "requiresGooglePlayServices": true,
+    "requiresExactBuild6InstalledAtPreflight": true,
+    "rawAdbSerialRetained": false,
+    "rawBuildFingerprintRetained": false,
+    "androidIdRead": false
+  },
+  "controlledRecordAuthority": {
+    "collection": "knowledge_base",
+    "documentId": "zz-f4-global-pull-compat-v1",
+    "requiredInitialLifecycle": "active",
+    "authorizedFinalLifecycle": "retired",
+    "retirementReason": "Retire controlled F4 compatibility row during Build 7 Timestamp proof.",
+    "maximumKnowledgeDocumentUpdates": 1,
+    "expectedServerStampFollowUpOnSameDocument": true,
+    "expectedGovernanceAudit": true,
+    "archiveAuthorized": false,
+    "restoreAuthorized": false,
+    "deleteAuthorized": false,
+    "secondKnowledgeRecordAuthorized": false
+  },
+  "channel": {
+    "planningMode": "internal-release-signed-apk",
+    "transport": "DIRECT_ADB_FROM_GOVERNED_LOCAL_CUSTODY",
+    "purpose": "BUILD7_EXACT_TARGET_TIMESTAMP_COMPATIBILITY_AND_CONTROLLED_ROW_RETIREMENT",
+    "maxTargetCount": 1,
+    "inPlaceUpgradeAuthorized": true,
+    "freshInstallAuthorized": false,
+    "applicationLaunchAuthorized": true,
+    "existingAuthenticationSessionMayBeReused": true,
+    "firebaseReadAuthorized": true,
+    "boundedRemoteMutationAuthorized": true,
+    "deviceNetworkStateMutationAuthorized": false,
+    "externalDistributionAuthorized": false,
+    "pilotHandoutAuthorized": false
+  },
+  "requiredPhases": [
+    {
+      "id": "preflight",
+      "operation": "Verify exact merged source, Build 7 custody package, finalization receipt, signer, target and currently installed Build 6 without mutation."
+    },
+    {
+      "id": "upgrade",
+      "operation": "Upgrade exact Build 6 to exact Build 7 with adb install -r, preserve the application sandbox and approved session, then verify the installed APK and version."
+    },
+    {
+      "id": "prove-read",
+      "operation": "Allow the Template Authoring knowledge loader to settle, then prove Knowledge Governance can render the exact controlled compatibility row as the active precondition. This phase does not alone claim native Timestamp compatibility."
+    },
+    {
+      "id": "retire-row",
+      "operation": "Retire only the exact compatibility row through Knowledge Governance with the fixed reason, then prove the governed update, its required post-write cloud pull and the local retired render all complete."
+    }
+  ],
+  "authorizedRecoveryPhases": [
+    {
+      "id": "finalize-upgrade",
+      "operation": "Create upgrade evidence without reinstalling only when an interrupted Upgrade already left the exact Build 7 APK installed with the original first-install time preserved."
+    },
+    {
+      "id": "finalize-retirement",
+      "operation": "Create retirement evidence without another write only when an interrupted RetireRow already wrote the privacy-safe governed completion witness and left the exact controlled row locally renderable as retired. Row state alone is not sufficient."
+    }
+  ],
+  "authorizedOperations": [
+    "verify exact merged source, Build 6 lineage receipts, Build 7 finalization receipt, governed package, embedded APK, signer and hashed target",
+    "extract the exact Build 7 APK into a new private evidence directory",
+    "read the exact installed Build 6 package, version, base APK hash, signer and first-install time",
+    "upgrade Build 6 to Build 7 once with adb install --no-streaming -r while preserving application data",
+    "launch only in.co.sail.bsl.crm3.bafops and prove the approved session reaches Home",
+    "open Template Authoring once and wait for its existing knowledge loader to settle after the bounded cloud-to-local refresh attempt",
+    "open Knowledge Governance and search only for zz-f4-global-pull-compat-v1",
+    "retire only zz-f4-global-pull-compat-v1 through the governed application lifecycle action using the fixed reason",
+    "capture privacy-minimized hashes, counts, version state and decision receipts outside the repository"
+  ],
+  "prohibitedOperations": [
+    "install on an emulator, second physical device or any target not matching both target hashes",
+    "fresh install, uninstall, downgrade, clear application data, rebuild, resign or modify the governed APK",
+    "retain a raw ADB serial, raw build fingerprint, Android ID, account email, Firebase uid, access token or business payload",
+    "create, update, retire, archive, restore or delete any knowledge row other than zz-f4-global-pull-compat-v1",
+    "archive, restore or delete zz-f4-global-pull-compat-v1",
+    "invoke manual global sync, alter device network state or manufacture a sync-marker record",
+    "directly write Firestore, use Admin SDK, use a Firebase console shortcut or bypass the governed application path",
+    "deploy or mutate Firebase Rules, indexes, Functions, IAM, runtime contracts, backfill state, App Check or distribution configuration",
+    "pilot handout, external upload, Play Console, Firebase App Distribution, public link or unrestricted distribution",
+    "claim DEVICE_PROVED, close STAGE2D-F4, close P-07 or release held PRs before separate evidence adjudication"
+  ],
+  "failurePolicy": {
+    "stopOnArtifactTargetSourceOrReceiptMismatch": true,
+    "stopUnlessExactBuild6InstalledAtPreflight": true,
+    "stopIfApprovedSessionIsNotPreservedAfterUpgrade": true,
+    "stopIfTemplateAuthoringKnowledgeLoaderDoesNotSettle": true,
+    "stopIfControlledRowCannotBeRenderedActive": true,
+    "retirementRequiresSeparatePriorPassingReadReceipt": true,
+    "stopIfGovernedRetirementPostWriteCloudPullDoesNotComplete": true,
+    "stopIfAnyOtherKnowledgeRowWouldBeMutated": true,
+    "interruptedUpgradeEvidenceFinalizationAuthorized": true,
+    "reinstallDuringUpgradeFinalizationAuthorized": false,
+    "interruptedRetirementEvidenceFinalizationAuthorized": true,
+    "retirementFinalizationRequiresCompletionWitness": true,
+    "secondRetirementWriteDuringFinalizationAuthorized": false,
+    "retainFailedPhaseEvidence": true,
+    "failedPhaseMayNotBeRelabelledPass": true,
+    "newEvidenceDirectoryRequiredForRestart": true
+  },
+  "programmeBoundary": {
+    "stage2dF4ExecutionAuthorized": true,
+    "stage2dF4CompatibilityEvidenceCreated": false,
+    "stage2dF4ClosureAuthorized": false,
+    "p07ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "heldPullRequests87Through93Adjudicated": false,
+    "productionBackfillAuthorized": false,
+    "runtimeContractActivationAuthorized": false,
+    "separateEvidenceAdjudicationRequired": true
+  }
+}
