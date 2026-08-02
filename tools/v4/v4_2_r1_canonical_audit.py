@@ -1796,6 +1796,81 @@ check(
         {},
     ).get("pilotOrDistributionExpansion")
         is False
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("executionSourceMergeCommit")
+        == "feeb7f1c010c134d5f9938da2ad8c76093ba06b0"
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("priorPromotionSha256")
+        == "52FFB67CB43F501645F172B851FA3C0E1BBC59AB366CA4C1550EB43134EA92F1"
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("priorHarnessSha256")
+        == "F638782278027500593FBACF2EE63480AA2CEE96CB876672CC26F37492073AFC"
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("passingSyncBaselineReceiptSha256")
+        == "FF07D7CF1A10204823CD85C939AA569FD793740412837986ED828F18EFCA6CDF"
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("stoppedSyncMarkerStderrSha256")
+        == "C6BBC7F67A0E68D346AE0FE90E4C0D4D4C821476AAB2A932D19A87B22B704D33"
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("syncBaselineReceiptCreated")
+        is True
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("syncMarkerReceiptCreated")
+        is False
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("manualSyncInvoked")
+        is False
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("networkStateMutationPerformed")
+        is False
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("remoteBusinessMutationPerformed")
+        is False
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("temporaryDiagnosticScreenshotDeleted")
+        is True
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("rawUiRetained")
+        is False
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("failedAttemptMayNotBeRelabelledPass")
+        is True
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("stage2dF4AuthorityExpansion")
+        is False
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("pilotOrDistributionExpansion")
+        is False
     and build6_f4_physical.get("discoveryAuthority", {}).get(
         "receiptSha256"
     )

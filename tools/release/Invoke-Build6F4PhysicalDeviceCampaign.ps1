@@ -434,12 +434,6 @@ function Get-LocalDiagnosticsEvidence {
     -Label "$Label-more" `
     -Marker 'More' `
     -XPath "//node[(@text='More' or contains(@content-desc,'More')) and @clickable='true']"
-  $null = Get-UiWithMarker `
-    -Adb $Adb `
-    -Serial $Serial `
-    -EvidenceRoot $EvidenceRoot `
-    -Label "$Label-more-surface" `
-    -Marker 'Tools, records and administrative access.'
   $null = Invoke-UiMarkerTap `
     -Adb $Adb `
     -Serial $Serial `
