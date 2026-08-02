@@ -228,6 +228,17 @@ check(
     and '"--output is required for a write mode."' in governance_tool,
 )
 check(
+    "Governance evidence omits document IDs by default and keeps stdout count-only",
+    '"--include-document-ids is valid only for inventory."' in governance_tool
+    and '"--include-document-ids requires --output."' in governance_tool
+    and "documentIdsRetained: includeDocumentIds" in governance_tool
+    and "consoleContainsDocumentIds: false" in governance_tool
+    and "options.includeDocumentIds" in governance_tool
+    and "missingExamples != null" in governance_tool
+    and "malformedExamples != null" in governance_tool
+    and "result.receipt.inventory.collections.map(" in governance_tool,
+)
+check(
     "Backfill refuses malformed stamps and verifies a zero-gap receipt",
     "before.malformed !== 0" in governance_tool
     and "malformed server stamps require adjudication" in governance_tool
