@@ -58,3 +58,41 @@ pass would invalidate the compatibility evidence.
 
 Production backfill and runtime-contract activation remain separate later
 decisions. They must not be bundled into artifact construction.
+
+## Build 7 Finalization
+
+Pull request 112 merged the Build 7 authority at
+`d8619ef1a9c7bf53828523c4bca3efe33e4074f0`. The exact post-merge release gate
+passed before the production workflow was dispatched. GitHub run `30757692948`
+then constructed and independently verified the production-signed candidate:
+
+- governed package SHA-256:
+  `D6E2710481681F63651B13A9C5872B16BDADE90EB288E610DD59BE1B9B07ACE7`;
+- APK SHA-256:
+  `EE5B5B7205A37F1FEF1F1B4C98CB1446ED544A123E130D7F3A4134E6A5E6DD56`;
+- reservation tag object:
+  `5e351f0b5acf1f887e14c5ad70c60864a5d6c470`;
+- built tag object:
+  `b06edcbcd4fdb2d27fc4b844dd16f54340aa0c3d`;
+- closure package SHA-256:
+  `C15D8655E2F27D0F87BAFEC97A32208926BD62130E268E13945E6C32F2FDD876`;
+- dual custody: passed on distinct C: and removable D: volumes.
+
+The primary checkout was intentionally left unchanged because it contained
+operator-owned untracked directories. A clean exact-commit worktree was used
+instead. The first detached worktree preflight exposed a null branch-name error
+in the finalizer; attaching that clean worktree to exact `main` satisfied the
+existing policy without changing source. This closure change makes the branch
+check null-safe so future detached invocations fail with the intended stable
+message.
+
+The first artifact-download attempt then lost its network connection before
+package custody or built-tag creation. The unchanged finalizer reused the same
+successful GitHub run and artifact name. It verified the same package hash,
+completed dual custody and created the built tag without force or workflow
+rerun.
+
+Build 7 is finalized but remains non-distributable. No Firebase deployment,
+production backfill, runtime-contract activation, production data mutation or
+pilot handout is authorized by this closure. Physical execution still requires
+a separate promotion bound to the exact package, APK and target device.

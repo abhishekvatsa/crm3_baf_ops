@@ -238,7 +238,12 @@ if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
 
 Set-Location (Resolve-Path -LiteralPath $RepoPath)
 $repo = (Get-Location).Path
-if ((git branch --show-current).Trim() -ne 'main') {
+$currentBranchOutput = @(git branch --show-current)
+if ($LASTEXITCODE -ne 0) {
+  throw 'Unable to determine the current branch.'
+}
+$currentBranch = ($currentBranchOutput -join "`n").Trim()
+if ($currentBranch -ne 'main') {
   throw 'Finalization must run from local main.'
 }
 
