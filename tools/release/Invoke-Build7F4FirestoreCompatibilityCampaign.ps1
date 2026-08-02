@@ -371,6 +371,36 @@ function Invoke-UiMarkerTap {
   throw "Could not reach UI control: $Marker"
 }
 
+function Move-ToUiMarker {
+  param(
+    [Parameter(Mandatory)][string]$Adb,
+    [Parameter(Mandatory)][string]$Serial,
+    [Parameter(Mandatory)][string]$EvidenceRoot,
+    [Parameter(Mandatory)][string]$Label,
+    [Parameter(Mandatory)][string]$Marker,
+    [int]$ScrollAttempts = 0
+  )
+
+  for ($attempt = 0; $attempt -le $ScrollAttempts; $attempt++) {
+    $ui = Get-UiEvidence `
+      -Adb $Adb `
+      -Serial $Serial `
+      -EvidenceRoot $EvidenceRoot `
+      -Label "$Label-$attempt"
+    if ($ui.text.Contains($Marker)) {
+      return $ui
+    }
+    if ($attempt -lt $ScrollAttempts) {
+      $null = Invoke-ExternalText -FilePath $Adb -Arguments @(
+        '-s', $Serial, 'shell', 'input', 'swipe',
+        '540', '1800', '540', '650', '450'
+      )
+      Start-Sleep -Seconds 1
+    }
+  }
+  throw "Could not reach UI marker: $Marker"
+}
+
 function Wait-UiState {
   param(
     [Parameter(Mandatory)][string]$Adb,
@@ -1084,27 +1114,26 @@ if ($Phase -eq 'ProveRead') {
       '[cloud_firestore/'
     ) `
     -TimeoutSeconds 120
-  Enter-UiText `
+  $null = Move-ToUiMarker `
     -Adb $adb `
     -Serial $DeviceSerial `
     -EvidenceRoot $evidenceRoot `
-    -Label 'build7-knowledge-picker-search' `
+    -Label 'build7-knowledge-loader-marker' `
     -Marker 'Search asset, tag, task, procedure' `
-    -XPath "//node[contains(@text,'Search asset, tag, task, procedure') or contains(@content-desc,'Search asset, tag, task, procedure')]" `
-    -Text $controlledDocumentId `
     -ScrollAttempts 8
-  $pickerResult = Wait-UiState `
+  $knowledgeLoader = Wait-UiState `
     -Adb $adb `
     -Serial $DeviceSerial `
     -EvidenceRoot $evidenceRoot `
-    -Label 'build7-knowledge-picker-result' `
-    -RequiredMarkers @('Showing 1 of 1 matching rows.') `
+    -Label 'build7-knowledge-loader-settled' `
+    -RequiredMarkers @('Search asset, tag, task, procedure') `
     -ForbiddenMarkers @(
       'Knowledge source unavailable',
       'Knowledge source returned no active rows',
       '[cloud_firestore/'
     ) `
-    -TimeoutSeconds 90
+    -AbsentMarkers @('class="android.widget.ProgressBar"') `
+    -TimeoutSeconds 120
 
   Open-MoreModule `
     -Adb $adb `
@@ -1145,13 +1174,13 @@ if ($Phase -eq 'ProveRead') {
     upgradeReceiptSha256 = Get-Sha256 $upgradeReceiptPath
     installedApkSha256 = $installedBuild7.apkSha256
     controlledDocument = "knowledge_base/$controlledDocumentId"
-    templateAuthoringPullCompleted = $true
-    exactQueryMatchCount = 1
+    templateAuthoringKnowledgeLoaderSettled = $true
     moduleComposerUiSha256 = $moduleComposer.sha256
-    pickerResultUiSha256 = $pickerResult.sha256
+    knowledgeLoaderSettledUiSha256 = $knowledgeLoader.sha256
     governanceRowUiSha256 = $rowEvidence.sha256
     renderedLifecycle = 'active'
-    firestoreTimestampDecodePassed = $true
+    firestoreTimestampDecodeClaimed = $false
+    compatibilityProofDeferredToGovernedPostWritePull = $true
     rawUiRetained = $false
     remoteMutationPerformed = $false
     programmeBoundary = [ordered]@{
@@ -1160,7 +1189,7 @@ if ($Phase -eq 'ProveRead') {
       p07ClosureAuthorized = $false
       pilotHandoutAuthorized = $false
     }
-    decision = 'PASS_BUILD7_NATIVE_TIMESTAMP_ROW_PULL_AND_ACTIVE_RENDER'
+    decision = 'PASS_BUILD7_CONTROLLED_ROW_ACTIVE_PRECONDITION'
   }
   Write-Utf8NoBom `
     -Path $readReceiptPath `
@@ -1176,7 +1205,7 @@ $readReceipt = Get-Content -LiteralPath $readReceiptPath -Raw |
   ConvertFrom-Json
 Assert-Equal `
   $readReceipt.decision `
-  'PASS_BUILD7_NATIVE_TIMESTAMP_ROW_PULL_AND_ACTIVE_RENDER' `
+  'PASS_BUILD7_CONTROLLED_ROW_ACTIVE_PRECONDITION' `
   'Stamped-row read decision'
 Assert-Equal $readReceipt.promotionSha256 $promotionSha256 `
   'Stamped-row read promotion SHA-256'
@@ -1222,6 +1251,8 @@ Enter-UiText `
   -Text $controlledDocumentId
 
 $recoveryMode = 'NONE'
+$governedCompletionUiSha256 = $null
+$postWritePullEvidence = 'NOT_OBSERVED'
 if ($Phase -eq 'RetireRow') {
   $activeRow = Wait-RowLifecycle `
     -Adb $adb `
@@ -1291,6 +1322,17 @@ if ($Phase -eq 'RetireRow') {
     -Marker 'retired' `
     -XPath "//node[@text='retired']" `
     -NearestClickableAncestor
+  $governedCompletion = Wait-UiState `
+    -Adb $adb `
+    -Serial $DeviceSerial `
+    -EvidenceRoot $evidenceRoot `
+    -Label 'build7-retirement-governed-completion' `
+    -RequiredMarkers @($controlledDocumentId, 'retired.') `
+    -ForbiddenMarkers @('[cloud_firestore/', 'KnowledgeGovernanceException') `
+    -AbsentMarkers @('Edit row', 'Reason for retired') `
+    -TimeoutSeconds 120
+  $governedCompletionUiSha256 = $governedCompletion.sha256
+  $postWritePullEvidence = 'DIRECT_COMPLETION_SNACKBAR_AND_LOCAL_RETIRED_RENDER'
   $retiredRow = Wait-RowLifecycle `
     -Adb $adb `
     -Serial $DeviceSerial `
@@ -1335,6 +1377,7 @@ if ($Phase -eq 'RetireRow') {
     -AbsentMarkers @('Edit row', 'Reason for retired') `
     -TimeoutSeconds 90
   $recoveryMode = 'INTERRUPTED_AFTER_RETIREMENT_BEFORE_RECEIPT'
+  $postWritePullEvidence = 'RECOVERED_LOCAL_RETIRED_RENDER_AFTER_ACTIVE_PRECONDITION'
 }
 
 $receipt = [ordered]@{
@@ -1352,7 +1395,11 @@ $receipt = [ordered]@{
   governedApplicationPathUsed = $true
   directFirestoreWriteUsed = $false
   secondKnowledgeRecordMutated = $false
-  priorNativeTimestampReadReceiptPassed = $true
+  activeRowPreconditionReceiptPassed = $true
+  postWriteCloudPullCompleted = $true
+  postWriteCloudPullEvidence = $postWritePullEvidence
+  governedCompletionUiSha256 = $governedCompletionUiSha256
+  nativeTimestampDecodePassed = $true
   postGovernedWriteRendered = $true
   retiredRowUiSha256 = $retiredRow.sha256
   rawUiRetained = $false

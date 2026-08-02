@@ -1756,7 +1756,11 @@ check(
     and "claim DEVICE_PROVED" in build7_f4_prohibited
     and "'install', '--no-streaming', '-r', $apkPath"
         in build7_f4_compatibility_harness
-    and "PASS_BUILD7_NATIVE_TIMESTAMP_ROW_PULL_AND_ACTIVE_RENDER"
+    and "PASS_BUILD7_CONTROLLED_ROW_ACTIVE_PRECONDITION"
+        in build7_f4_compatibility_harness
+    and "firestoreTimestampDecodeClaimed = $false"
+        in build7_f4_compatibility_harness
+    and "postWriteCloudPullCompleted = $true"
         in build7_f4_compatibility_harness
     and "PASS_BUILD7_CONTROLLED_TIMESTAMP_ROW_RETIRED_POST_WRITE_RENDERED"
         in build7_f4_compatibility_harness

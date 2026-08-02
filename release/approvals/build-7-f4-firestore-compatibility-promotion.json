@@ -90,7 +90,7 @@
     "documentId": "zz-f4-global-pull-compat-v1",
     "requiredInitialLifecycle": "active",
     "authorizedFinalLifecycle": "retired",
-    "retirementReason": "Retire controlled F4 compatibility row after Build 7 Timestamp proof.",
+    "retirementReason": "Retire controlled F4 compatibility row during Build 7 Timestamp proof.",
     "maximumKnowledgeDocumentUpdates": 1,
     "expectedServerStampFollowUpOnSameDocument": true,
     "expectedGovernanceAudit": true,
@@ -125,11 +125,11 @@
     },
     {
       "id": "prove-read",
-      "operation": "Open Template Authoring to invoke the existing knowledge pull, then prove Knowledge Governance can render the exact stamped compatibility row as active."
+      "operation": "Allow the Template Authoring knowledge loader to settle, then prove Knowledge Governance can render the exact controlled compatibility row as the active precondition. This phase does not alone claim native Timestamp compatibility."
     },
     {
       "id": "retire-row",
-      "operation": "Retire only the exact compatibility row through Knowledge Governance with the fixed reason, then prove the governed update completes and the row renders as retired."
+      "operation": "Retire only the exact compatibility row through Knowledge Governance with the fixed reason, then prove the governed update, its required post-write cloud pull and the local retired render all complete."
     }
   ],
   "authorizedRecoveryPhases": [
@@ -148,7 +148,7 @@
     "read the exact installed Build 6 package, version, base APK hash, signer and first-install time",
     "upgrade Build 6 to Build 7 once with adb install --no-streaming -r while preserving application data",
     "launch only in.co.sail.bsl.crm3.bafops and prove the approved session reaches Home",
-    "open Template Authoring once so its existing knowledge loader performs the bounded cloud-to-local refresh",
+    "open Template Authoring once and wait for its existing knowledge loader to settle after the bounded cloud-to-local refresh attempt",
     "open Knowledge Governance and search only for zz-f4-global-pull-compat-v1",
     "retire only zz-f4-global-pull-compat-v1 through the governed application lifecycle action using the fixed reason",
     "capture privacy-minimized hashes, counts, version state and decision receipts outside the repository"
@@ -169,8 +169,10 @@
     "stopOnArtifactTargetSourceOrReceiptMismatch": true,
     "stopUnlessExactBuild6InstalledAtPreflight": true,
     "stopIfApprovedSessionIsNotPreservedAfterUpgrade": true,
+    "stopIfTemplateAuthoringKnowledgeLoaderDoesNotSettle": true,
     "stopIfControlledRowCannotBeRenderedActive": true,
     "retirementRequiresSeparatePriorPassingReadReceipt": true,
+    "stopIfGovernedRetirementPostWriteCloudPullDoesNotComplete": true,
     "stopIfAnyOtherKnowledgeRowWouldBeMutated": true,
     "interruptedUpgradeEvidenceFinalizationAuthorized": true,
     "reinstallDuringUpgradeFinalizationAuthorized": false,

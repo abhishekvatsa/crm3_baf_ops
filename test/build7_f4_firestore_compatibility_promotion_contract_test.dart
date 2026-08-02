@@ -153,6 +153,10 @@ void main() {
     expect(record['deleteAuthorized'], isFalse);
     expect(record['secondKnowledgeRecordAuthorized'], isFalse);
     expect(
+      record['retirementReason'],
+      'Retire controlled F4 compatibility row during Build 7 Timestamp proof.',
+    );
+    expect(
       (record['retirementReason'] as String).length,
       greaterThanOrEqualTo(15),
     );
@@ -174,7 +178,15 @@ void main() {
     expect(failure['stopUnlessExactBuild6InstalledAtPreflight'], isTrue);
     expect(failure['stopIfApprovedSessionIsNotPreservedAfterUpgrade'], isTrue);
     expect(
+      failure['stopIfTemplateAuthoringKnowledgeLoaderDoesNotSettle'],
+      isTrue,
+    );
+    expect(
       failure['retirementRequiresSeparatePriorPassingReadReceipt'],
+      isTrue,
+    );
+    expect(
+      failure['stopIfGovernedRetirementPostWriteCloudPullDoesNotComplete'],
       isTrue,
     );
     expect(failure['reinstallDuringUpgradeFinalizationAuthorized'], isFalse);
@@ -204,12 +216,15 @@ void main() {
       'PASS_EXACT_BUILD7_IN_PLACE_UPGRADE_SESSION_PRESERVED',
       'Template Authoring',
       'Search asset, tag, task, procedure',
-      'Showing 1 of 1 matching rows.',
+      'class="android.widget.ProgressBar"',
       'Knowledge Governance',
       'Search rowCode',
       r'$promotion.controlledRecordAuthority.documentId',
       r'$promotion.controlledRecordAuthority.retirementReason',
-      'PASS_BUILD7_NATIVE_TIMESTAMP_ROW_PULL_AND_ACTIVE_RENDER',
+      'PASS_BUILD7_CONTROLLED_ROW_ACTIVE_PRECONDITION',
+      r'templateAuthoringKnowledgeLoaderSettled = $true',
+      r'firestoreTimestampDecodeClaimed = $false',
+      r'compatibilityProofDeferredToGovernedPostWritePull = $true',
       'Retire the exact controlled F4 compatibility row',
       'Reason for retired',
       'PASS_BUILD7_CONTROLLED_TIMESTAMP_ROW_RETIRED_POST_WRITE_RENDERED',
@@ -218,13 +233,33 @@ void main() {
       'rawUiRetained = \$false',
       'directFirestoreWriteUsed = \$false',
       'secondKnowledgeRecordMutated = \$false',
-      'priorNativeTimestampReadReceiptPassed = \$true',
+      'activeRowPreconditionReceiptPassed = \$true',
+      'postWriteCloudPullCompleted = \$true',
+      'nativeTimestampDecodePassed = \$true',
       'postGovernedWriteRendered = \$true',
       'productionBackfillAuthorized = \$false',
       'runtimeContractActivationAuthorized = \$false',
     ]) {
       expect(script, contains(required), reason: required);
     }
+
+    final proveReadStart = script.indexOf("if (\$Phase -eq 'ProveRead')");
+    final retireReadChainStart = script.indexOf(
+      "\$readReceipt = Get-Content",
+      proveReadStart,
+    );
+    expect(proveReadStart, greaterThanOrEqualTo(0));
+    expect(retireReadChainStart, greaterThan(proveReadStart));
+    final proveReadBlock = script.substring(
+      proveReadStart,
+      retireReadChainStart,
+    );
+    expect(proveReadBlock, isNot(contains('exactQueryMatchCount')));
+    expect(proveReadBlock, isNot(contains('pickerResultUiSha256')));
+    expect(
+      proveReadBlock,
+      isNot(contains('firestoreTimestampDecodePassed = \$true')),
+    );
 
     for (final forbidden in <String>[
       "'uninstall'",

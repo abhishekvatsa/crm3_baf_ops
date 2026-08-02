@@ -43,10 +43,12 @@ then added a native Firestore `Timestamp`. Build 6 could not JSON-encode that
 value while refreshing its local cache. Pull request 111 corrected the decoder,
 but the immutable Build 6 package cannot carry the correction.
 
-Build 7 already contains the fix. The campaign opens Template Authoring because
-its existing knowledge loader performs the bounded cloud-to-local refresh
-without requiring the still-inactive global-pull runtime contract. Knowledge
-Governance then proves the exact row is locally renderable before any mutation.
+Build 7 already contains the fix. The campaign first lets Template Authoring's
+existing knowledge loader settle without requiring the still-inactive
+global-pull runtime contract. Knowledge Governance then proves the exact row is
+locally renderable as the active precondition. That pre-mutation render is not
+treated as native `Timestamp` proof because Build 6 may have retained a local
+pre-stamp copy.
 
 ## Ordered Phases
 
@@ -54,11 +56,14 @@ Governance then proves the exact row is locally renderable before any mutation.
    currently installed Build 6. It writes private evidence only.
 2. `Upgrade` uses `adb install --no-streaming -r` once, verifies exact Build 7,
    preserves first-install time and requires the approved session to reach Home.
-3. `ProveRead` opens Template Authoring, searches for the exact controlled row,
-   then proves Knowledge Governance renders it as `active`.
+3. `ProveRead` waits for the Template Authoring knowledge loader to settle,
+   then proves Knowledge Governance renders the exact controlled row as
+   `active`. It records an active-row precondition only.
 4. `RetireRow` requires the separate passing read receipt, retires only that row
-   with the fixed governed reason, and proves the governed update completes and
-   the row renders as `retired`.
+   with the fixed governed reason, and proves the governed update, its required
+   post-write cloud pull and the local `retired` render all complete. The app
+   cannot emit its completion result or update the Isar-backed row until that
+   pull succeeds, so this is the native `Timestamp` compatibility proof.
 
 `FinalizeUpgrade` and `FinalizeRetirement` are evidence-only recovery phases.
 They may be used only after the corresponding operation completed but receipt
@@ -87,10 +92,11 @@ when the harness explicitly identifies the corresponding interrupted boundary.
 The only authorized business-document mutation is the lifecycle update of
 `knowledge_base/zz-f4-global-pull-compat-v1` from `active` to `retired`. The
 expected governance audit and the trigger's stamp-only follow-up are consequences
-of that exact app action; the separate active-row read is the evidence that
-native `Timestamp` decoding passed. No second knowledge row, manual global sync, direct
-Firestore write, Firebase deployment, backfill, runtime activation, network
-profile or distribution action is authorized.
+of that exact app action. The active-row receipt is only a mutation precondition;
+the completed governed action and its post-write pull are the evidence that
+native `Timestamp` decoding passed. No second knowledge row, manual global sync,
+direct Firestore write, Firebase deployment, backfill, runtime activation,
+network profile or distribution action is authorized.
 
 Even a fully passing campaign creates compatibility evidence only. A separate
 adjudication must determine what it proves for the wider F4 matrix. Pilot
