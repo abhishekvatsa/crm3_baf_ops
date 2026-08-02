@@ -93,3 +93,30 @@ production backend mutation, activate the runtime contract, resume the device
 campaign, close `STAGE2D-F4` or `P-07`, authorize pilot handout, or adjudicate
 held PRs #87 through #93. The controlled stop remains in force until the other
 requirements above are proven in their required order.
+
+## Production Compatibility Update - 2026-08-02
+
+The bounded production backend tranche advanced at exact source commit
+`96cf6448a19a8f371d976bf8afda3ef37e833c9a`. Read-only Gate 1B checks passed,
+all 51 source indexes became ready, current Rules were activated with an exact
+source readback, and only `beginGlobalPullRun` plus
+`stampGlobalPullServerClock` were deployed under their dedicated
+least-privilege identities. The runtime contract remains absent. No global
+backfill or contract activation was performed.
+
+The controlled physical-device compatibility proof then found a client defect.
+An actual Build 6 Knowledge Governance create reached production, committed,
+and received a valid `_globalPullServerUpdatedAt` server stamp. Build 6 failed
+after that successful write while converting the returned Firestore
+`Timestamp` values into the row's local JSON cache. The production trigger,
+Rules and write path therefore passed; the installed client decoder did not.
+
+The source correction normalizes Firestore-native values before local JSON
+encoding and strips the server-owned watermark both on ingest and on every
+outbound knowledge map, including maps reconstructed from an older local
+cache. Build 6 cannot satisfy F4 once stamped knowledge documents are present.
+A successor signed client carrying this correction is required before the
+compatibility proof, backfill, runtime-contract activation or remaining F4
+device phases may resume. The controlled synthetic knowledge row must later be
+retired through that corrected client so the retirement also exercises the
+governed update path.
