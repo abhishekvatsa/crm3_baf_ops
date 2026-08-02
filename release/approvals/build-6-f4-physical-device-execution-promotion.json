@@ -177,6 +177,75 @@
     "stage2dF4AuthorityExpansion": false,
     "pilotOrDistributionExpansion": false
   },
+  "backendReadinessControlledStopAmendment": {
+    "amendedAtUtc": "2026-08-02T06:52:45.8069989Z",
+    "executionSourceMergeCommit": "a929b1437ac411bf57baa050b188829d0398a9c4",
+    "priorPromotionSha256": "1D7A2939528F925B3D549033E04F22C9AFFF371FCB86F998EE5E378EB7B5458D",
+    "priorHarnessSha256": "07F1AC23AC83BF486BA999B6D4B97684CABB31FCB6D5B06A1F8D2A2479775F91",
+    "passingSyncBaselineReceiptSha256": "FF07D7CF1A10204823CD85C939AA569FD793740412837986ED828F18EFCA6CDF",
+    "stoppedSyncMarkerStdoutSha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+    "stoppedSyncMarkerStderrSha256": "0E2FC4678343DD9B746F6AF03131B2F63EAD4B37AB6C24D8B87CDDC05FF7E208",
+    "postStopAdjudicationUiSha256": "2B574C233F6060026F7DF55ED3DE22D87CD10989564B06440E914BD87838E732",
+    "manualSyncInvoked": true,
+    "observedManualSyncOutcome": "NOT_COMPLETED",
+    "observedSanitizedFailure": "firebase_functions/not-found",
+    "rawLogRetained": false,
+    "rawUiRetained": false,
+    "accountIdentityRetained": false,
+    "businessPayloadRetained": false,
+    "reason": "The corrected harness invoked the authenticated manual sync, which failed because the production callable beginGlobalPullRun is absent from asia-south1. A read-only live-state comparison then proved independent drift in Firestore Rules, indexes and Functions.",
+    "failureBoundary": "after manual-sync invocation and before any successful pull run, sync-marker receipt, device network mutation or remote business mutation",
+    "liveReadback": {
+      "firebaseProjectId": "crm3-baf-ops-b8638",
+      "capturedReadOnly": true,
+      "firestoreRules": {
+        "activeRulesetName": "projects/crm3-baf-ops-b8638/rulesets/fa9e0461-7ff4-4e0f-b83b-7f11abbf812a",
+        "activeSourceSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
+        "currentMainSourceSha256": "1A575F795DE66A34BF9F0C8562569CA7F4257747263929351607D26DC10DB7DF",
+        "exactRepositoryCommit": "f8308c99e0fbf836a550e50e01d9ff93d4587111",
+        "matchesCurrentMain": false
+      },
+      "firestoreIndexes": {
+        "liveIndexCount": 28,
+        "currentMainIndexCount": 51,
+        "currentMainSourceSha256": "A0D032CCB2D9A9229AF9142CC69A6A66C2F6FB796F37A597C2B591F07B11AD52",
+        "exactRepositoryCommit": "33f599d90d3ff1057c3c8dd90f2b0d5f9ee941b7",
+        "matchesCurrentMain": false
+      },
+      "functions": {
+        "liveFunctionCount": 7,
+        "currentMainExportCount": 14,
+        "beginGlobalPullRunActive": false,
+        "stampGlobalPullServerClockActive": false,
+        "runtimeServiceAccountPosture": "OVER_PRIVILEGED_DEFAULT_COMPUTE_SERVICE_ACCOUNT"
+      },
+      "database": {
+        "pointInTimeRecovery": "DISABLED",
+        "deleteProtection": "DISABLED"
+      }
+    },
+    "requiredBeforeDeviceRetry": [
+      "separately admitted exact backend deployment and migration promotion",
+      "current-source Rules and indexes deployment only after their data prerequisites are reconciled",
+      "global-pull stamp trigger and callable deployment",
+      "legacy-write compatibility proof",
+      "read-only stamp inventory and malformed-value adjudication",
+      "governed backfill with sealed zero-gap receipt",
+      "runtime contract activation",
+      "privacy-minimized PASS_BUILD6_F4_BACKEND_READY receipt bound by a later append-only amendment"
+    ],
+    "syncMarkerReceiptCreated": false,
+    "offlineReconnectPhaseStarted": false,
+    "weakNetworkPhaseStarted": false,
+    "deviceNetworkStateMutationPerformed": false,
+    "remoteBusinessMutationPerformed": false,
+    "firebaseDeploymentPerformed": false,
+    "failedAttemptMayNotBeRelabelledPass": true,
+    "furtherDeviceSyncAuthorizedByThisAmendment": false,
+    "stage2dF4AuthorityExpansion": false,
+    "pilotOrDistributionExpansion": false,
+    "decision": "STOP_F4_BACKEND_DEPLOYMENT_PREREQUISITE_UNMET"
+  },
   "discoveryAuthority": {
     "approvalId": "CRM3-B6-F4-PHYSICAL-TARGET-DISCOVERY-001",
     "promotionSha256": "A000789E637109EC238C7E6AC718850239F452BA7FD6F1E48EF8782A6142ABC4",

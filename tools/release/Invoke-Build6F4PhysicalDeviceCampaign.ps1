@@ -37,6 +37,8 @@ param(
   [Parameter(Mandatory)]
   [string]$EvidenceDirectory,
 
+  [string]$BackendReadinessReceiptPath,
+
   [string]$PromotionPath =
     'release/approvals/build-6-f4-physical-device-execution-promotion.json',
 
@@ -753,6 +755,65 @@ if ($gitBranch -ne 'main' -or $gitHead -ne $originMain -or $trackedStatus) {
 }
 if ($gitHead -eq $promotion.approvalAuthority.baselineCommit) {
   throw 'The execution promotion is not effective on its unmodified baseline.'
+}
+
+$backendBoundPhases = @(
+  'RunSyncMarker',
+  'RunOfflineReconnect',
+  'RunWeakNetwork'
+)
+if ($Phase -in $backendBoundPhases) {
+  $backendAuthorityProperty = $promotion.PSObject.Properties[
+    'backendReadinessActivationAmendment'
+  ]
+  if ($null -eq $backendAuthorityProperty) {
+    throw 'F4 sync/network execution is blocked until backend readiness is separately admitted.'
+  }
+  if ([string]::IsNullOrWhiteSpace($BackendReadinessReceiptPath)) {
+    throw "$Phase requires the governed backend-readiness receipt."
+  }
+  $backendAuthority = $backendAuthorityProperty.Value
+  $backendReceiptFile = (Resolve-Path -LiteralPath (
+    $BackendReadinessReceiptPath
+  )).Path
+  $backendReceipt = Get-Content -LiteralPath $backendReceiptFile -Raw |
+    ConvertFrom-Json
+  Assert-Equal `
+    (Get-Sha256 $backendReceiptFile) `
+    $backendAuthority.backendReadinessReceiptSha256 `
+    'Backend-readiness receipt SHA-256'
+  Assert-Equal $backendReceipt.schemaVersion 1 `
+    'Backend-readiness receipt schema version'
+  Assert-Equal `
+    $backendReceipt.evidenceType `
+    'build-6-f4-backend-readiness' `
+    'Backend-readiness evidence type'
+  Assert-Equal $backendReceipt.projectId 'crm3-baf-ops-b8638' `
+    'Backend-readiness Firebase project'
+  Assert-Equal $backendReceipt.readOnly $true `
+    'Backend-readiness read-only capture boundary'
+  Assert-Equal `
+    $backendReceipt.deploymentPromotionSha256 `
+    $backendAuthority.deploymentPromotionSha256 `
+    'Backend deployment promotion SHA-256'
+  Assert-Equal `
+    $backendReceipt.source.commit `
+    $backendAuthority.deploymentSourceCommit `
+    'Backend deployment source commit'
+  Assert-Equal $backendReceipt.live.firestoreRulesMatchesSource $true `
+    'Live Firestore Rules source parity'
+  Assert-Equal $backendReceipt.live.firestoreIndexesMatchSource $true `
+    'Live Firestore indexes source parity'
+  Assert-Equal $backendReceipt.live.requiredFunctionsActive $true `
+    'Live F4 Functions readiness'
+  Assert-Equal $backendReceipt.live.globalPullContractActive $true `
+    'Live global-pull contract activation'
+  Assert-Equal $backendReceipt.live.globalPullInventoryZeroGap $true `
+    'Live global-pull zero-gap inventory'
+  Assert-Equal `
+    $backendReceipt.decision `
+    'PASS_BUILD6_F4_BACKEND_READY' `
+    'Backend-readiness decision'
 }
 
 $sdkRoot = if ($env:ANDROID_SDK_ROOT) {
