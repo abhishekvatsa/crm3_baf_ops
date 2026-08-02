@@ -60,9 +60,18 @@ function Invoke-ExternalText {
     [Parameter(Mandatory = $true)][string[]]$ArgumentList
   )
 
-  $output = @(& $FilePath @ArgumentList 2>&1)
-  if ($LASTEXITCODE -ne 0) {
-    throw "Command failed ($LASTEXITCODE): $FilePath $($ArgumentList -join ' ')`n$($output -join "`n")"
+  $nativeErrorActionPreference = $ErrorActionPreference
+  try {
+    # Windows gcloud.ps1 emits successful transfer progress as error records.
+    $ErrorActionPreference = 'Continue'
+    $output = @(& $FilePath @ArgumentList 2>&1)
+    $exitCode = $LASTEXITCODE
+  }
+  finally {
+    $ErrorActionPreference = $nativeErrorActionPreference
+  }
+  if ($exitCode -ne 0) {
+    throw "Command failed ($exitCode): $FilePath $($ArgumentList -join ' ')`n$($output -join "`n")"
   }
   return ($output -join "`n").Trim()
 }
@@ -387,7 +396,8 @@ try {
     Write-Utf8NoBom -Path "$destination.metadata.json" `
       -Value $sourceDescriptionJson
     Invoke-ExternalText -FilePath 'gcloud' -ArgumentList @(
-      'storage', 'cp', $sourceUri, $destination, "--project=$ProjectId"
+      'storage', 'cp', $sourceUri, $destination, "--project=$ProjectId",
+      '--no-user-output-enabled'
     ) | Out-Null
     if (
       (Get-Item -LiteralPath $destination).Length -ne [long]$sourceDescription.size -or
@@ -491,7 +501,8 @@ try {
       Out-Null
     $generationUri = "$objectUri#$($description.generation)"
     Invoke-ExternalText -FilePath 'gcloud' -ArgumentList @(
-      'storage', 'cp', $generationUri, $localObject, "--project=$ProjectId"
+      'storage', 'cp', $generationUri, $localObject, "--project=$ProjectId",
+      '--no-user-output-enabled'
     ) | Out-Null
     if (
       (Get-Item -LiteralPath $localObject).Length -ne [long]$description.size -or
