@@ -344,21 +344,26 @@ function Invoke-UiMarkerTap {
     [Parameter(Mandatory)][string]$EvidenceRoot,
     [Parameter(Mandatory)][string]$Label,
     [Parameter(Mandatory)][string]$Marker,
+    [string[]]$AlternativeMarkers = @(),
     [Parameter(Mandatory)][string]$XPath,
     [int]$ScrollAttempts = 0
   )
 
+  $acceptedMarkers = @($Marker) + @($AlternativeMarkers)
   for ($attempt = 0; $attempt -le $ScrollAttempts; $attempt++) {
     $ui = Get-UiEvidence `
       -Adb $Adb `
       -Serial $Serial `
       -EvidenceRoot $EvidenceRoot `
       -Label "$Label-$attempt"
-    if ($ui.text.Contains($Marker)) {
+    $visibleMarker = $acceptedMarkers |
+      Where-Object { $ui.text.Contains($_) } |
+      Select-Object -First 1
+    if ($null -ne $visibleMarker) {
       $center = Get-NodeCenter `
         -UiText $ui.text `
         -XPath $XPath `
-        -Label $Marker
+        -Label $visibleMarker
       Invoke-UiTap -Adb $Adb -Serial $Serial -Center $center
       return $ui.sha256
     }
@@ -371,7 +376,7 @@ function Invoke-UiMarkerTap {
     }
   }
 
-  throw "Could not reach UI control: $Marker"
+  throw "Could not reach UI control: $($acceptedMarkers -join ' or ')"
 }
 
 function Move-ToApprovedHome {
@@ -555,7 +560,8 @@ function Invoke-ManualSyncEvidence {
     -EvidenceRoot $EvidenceRoot `
     -Label "$Label-trigger" `
     -Marker 'Sync now' `
-    -XPath "//node[(@text='Sync now' or contains(@content-desc,'Sync now')) and @clickable='true']"
+    -AlternativeMarkers @('Retry sync') `
+    -XPath "//node[(@text='Sync now' or @text='Retry sync' or contains(@content-desc,'Sync now') or contains(@content-desc,'Retry sync')) and @clickable='true']"
   Wait-ManualSyncOutcome `
     -Adb $Adb `
     -Serial $Serial `

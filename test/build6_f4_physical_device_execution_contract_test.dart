@@ -208,6 +208,63 @@ void main() {
     expect(retainedScrollAmendment['stage2dF4AuthorityExpansion'], isFalse);
     expect(retainedScrollAmendment['pilotOrDistributionExpansion'], isFalse);
 
+    final retryLabelAmendment = _object(
+      promotion['manualSyncRetryLabelCompatibilityAmendment'],
+    );
+    expect(
+      retryLabelAmendment['executionSourceMergeCommit'],
+      'e9cd2ecf858c958f3e3c236dc9e483e8cb5293f4',
+    );
+    expect(
+      retryLabelAmendment['priorPromotionSha256'],
+      'DD6F930A230CCF2A2E1DDFBF69E5A8A59C5A1ACD4D8B2DA78A2A958546CFFA87',
+    );
+    expect(
+      retryLabelAmendment['priorHarnessSha256'],
+      '4D41B2AA7E152F1F5DA4BD1F8B239F19B1A3ADC616295FEFCD50585897A4A168',
+    );
+    expect(
+      retryLabelAmendment['passingSyncBaselineReceiptSha256'],
+      'FF07D7CF1A10204823CD85C939AA569FD793740412837986ED828F18EFCA6CDF',
+    );
+    expect(
+      retryLabelAmendment['stoppedSyncMarkerStdoutSha256'],
+      'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855',
+    );
+    expect(
+      retryLabelAmendment['stoppedSyncMarkerStderrSha256'],
+      '440E2157943E6E2F2443D72E9E72394D1BEB29E24B2B35752E0A3B9960C29427',
+    );
+    expect(
+      retryLabelAmendment['postStopAdjudicationUiSha256'],
+      '2B574C233F6060026F7DF55ED3DE22D87CD10989564B06440E914BD87838E732',
+    );
+    expect(
+      retryLabelAmendment['ownerReportedExternalRouterInterruption'],
+      isTrue,
+    );
+    expect(retryLabelAmendment['postStopNetworkValidated'], isTrue);
+    expect(retryLabelAmendment['observedActionLabel'], 'Retry sync');
+    expect(retryLabelAmendment['absentActionLabel'], 'Sync now');
+    expect(retryLabelAmendment['syncBaselineReceiptCreated'], isTrue);
+    expect(retryLabelAmendment['syncMarkerReceiptCreated'], isFalse);
+    expect(retryLabelAmendment['manualSyncInvoked'], isFalse);
+    expect(
+      retryLabelAmendment['harnessNetworkStateMutationPerformed'],
+      isFalse,
+    );
+    expect(retryLabelAmendment['remoteBusinessMutationPerformed'], isFalse);
+    expect(retryLabelAmendment['rawUiRetained'], isFalse);
+    expect(retryLabelAmendment['retryRequiresFreshLogNames'], isTrue);
+    expect(
+      retryLabelAmendment['retryAuthorizedOnlyAfterMergedCorrection'],
+      isTrue,
+    );
+    expect(retryLabelAmendment['failedAttemptMayNotBeRelabelledPass'], isTrue);
+    expect(retryLabelAmendment['artifactOrTargetExpansion'], isFalse);
+    expect(retryLabelAmendment['stage2dF4AuthorityExpansion'], isFalse);
+    expect(retryLabelAmendment['pilotOrDistributionExpansion'], isFalse);
+
     final discovery = _object(promotion['discoveryAuthority']);
     expect(
       discovery['promotionSha256'],
@@ -378,6 +435,8 @@ void main() {
       'Sync-baseline promotion SHA-256 is outside the governed lineage.',
       'Sync-baseline receipt lineage SHA-256',
       "'retainedMoreScrollNavigationCompatibilityAmendment'",
+      "-AlternativeMarkers @('Retry sync')",
+      "@text='Retry sync'",
       r'Assert-Equal $diagnostics.unsyncedRows 0',
       'PASS_ZERO_PENDING_LOCAL_WRITES_SYNC_BASELINE',
       'PASS_AUTHENTICATED_MANUAL_SYNC_ZERO_PENDING_WRITES',
