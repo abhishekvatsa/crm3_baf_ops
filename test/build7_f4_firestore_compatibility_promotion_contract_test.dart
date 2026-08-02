@@ -194,10 +194,7 @@ void main() {
       failure['secondRetirementWriteDuringFinalizationAuthorized'],
       isFalse,
     );
-    expect(
-      failure['retirementFinalizationRequiresCompletionWitness'],
-      isTrue,
-    );
+    expect(failure['retirementFinalizationRequiresCompletionWitness'], isTrue);
     expect(failure['failedPhaseMayNotBeRelabelledPass'], isTrue);
   });
 
@@ -252,7 +249,9 @@ void main() {
       expect(script, contains(required), reason: required);
     }
 
-    final proveReadStart = script.indexOf("if (\$Phase -eq 'ProveRead')");
+    final proveReadStart = script.indexOf(
+      "if (\$Phase -in @('ProveRead', 'RecoverProveReadLocator'))",
+    );
     final retireReadChainStart = script.indexOf(
       "\$readReceipt = Get-Content",
       proveReadStart,

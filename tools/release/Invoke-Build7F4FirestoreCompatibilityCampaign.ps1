@@ -19,6 +19,7 @@ param(
     'Upgrade',
     'FinalizeUpgrade',
     'ProveRead',
+    'RecoverProveReadLocator',
     'RetireRow',
     'FinalizeRetirement'
   )]
@@ -38,6 +39,9 @@ param(
 
   [string]$PromotionPath =
     'release/approvals/build-7-f4-firestore-compatibility-promotion.json',
+
+  [string]$LocatorRecoveryApprovalPath =
+    'release/approvals/build-7-f4-prove-read-locator-recovery.json',
 
   [string]$RepositoryRoot = (Get-Location).Path
 )
@@ -317,6 +321,39 @@ function Get-NodeCenter {
         [int]$match.Groups[3].Value) / 2)
     y = [int](([int]$match.Groups[2].Value +
         [int]$match.Groups[4].Value) / 2)
+  }
+}
+
+function Get-UiLocatorAttributeEvidence {
+  param(
+    [Parameter(Mandatory)][string]$UiText,
+    [Parameter(Mandatory)][string]$Marker
+  )
+
+  [xml]$document = $UiText
+  $hintMatchCount = 0
+  $textMatchCount = 0
+  $contentDescriptionMatchCount = 0
+  foreach ($node in $document.SelectNodes('//node')) {
+    if ($node.GetAttribute('hint').Contains($Marker)) {
+      $hintMatchCount++
+    }
+    if ($node.GetAttribute('text').Contains($Marker)) {
+      $textMatchCount++
+    }
+    if ($node.GetAttribute('content-desc').Contains($Marker)) {
+      $contentDescriptionMatchCount++
+    }
+  }
+
+  [pscustomobject]@{
+    hintMatchCount = $hintMatchCount
+    textMatchCount = $textMatchCount
+    contentDescriptionMatchCount = $contentDescriptionMatchCount
+    oldLocatorCouldResolve =
+      ($textMatchCount + $contentDescriptionMatchCount) -gt 0
+    correctedLocatorCouldResolve =
+      ($hintMatchCount + $textMatchCount + $contentDescriptionMatchCount) -gt 0
   }
 }
 
@@ -833,6 +870,8 @@ $apkPath = Join-Path $evidenceRoot 'governed-build7.apk'
 $preflightReceiptPath = Join-Path $evidenceRoot 'preflight-receipt.json'
 $upgradeReceiptPath = Join-Path $evidenceRoot 'upgrade-receipt.json'
 $readReceiptPath = Join-Path $evidenceRoot 'stamped-row-read-receipt.json'
+$locatorFailureWitnessPath =
+  Join-Path $evidenceRoot 'prove-read-locator-failure-witness.json'
 $retirementCompletionWitnessPath =
   Join-Path $evidenceRoot 'controlled-row-retirement-completion-witness.json'
 $retirementReceiptPath = Join-Path $evidenceRoot 'controlled-row-retirement-receipt.json'
@@ -1072,6 +1111,128 @@ Assert-Equal `
 Assert-Equal $upgradeReceipt.promotionSha256 $promotionSha256 `
   'Build 7 upgrade promotion SHA-256'
 
+$locatorRecoveryApproval = $null
+$locatorRecoveryApprovalSha256 = $null
+$locatorFailureWitnessSha256 = $null
+if ($Phase -eq 'RecoverProveReadLocator') {
+  $locatorRecoveryApprovalFile = (Resolve-Path -LiteralPath (
+    Join-Path $root $LocatorRecoveryApprovalPath
+  )).Path
+  $locatorRecoveryApproval = Get-Content `
+    -LiteralPath $locatorRecoveryApprovalFile `
+    -Raw | ConvertFrom-Json
+  $locatorRecoveryApprovalSha256 = Get-Sha256 $locatorRecoveryApprovalFile
+
+  Assert-Equal $locatorRecoveryApproval.schemaVersion 1 `
+    'Locator recovery schema version'
+  Assert-Equal `
+    $locatorRecoveryApproval.approvalClass `
+    'CONTROLLED_BUILD7_PROVE_READ_LOCATOR_RECOVERY' `
+    'Locator recovery approval class'
+  Assert-Equal `
+    $locatorRecoveryApproval.originalPromotion.sha256 `
+    $promotionSha256 `
+    'Locator recovery original promotion SHA-256'
+  Assert-Equal $locatorRecoveryApproval.originalPromotion.remainsUnmodified `
+    $true 'Locator recovery original promotion immutability'
+  Assert-Equal `
+    $locatorRecoveryApproval.originalPromotion.failedPhaseMayNotBeRelabelledPass `
+    $true `
+    'Locator recovery failed-phase relabelling authority'
+  Assert-Equal `
+    $locatorRecoveryApproval.authorizedSourceCorrection.failedHarnessCommit `
+    '59489c25ff5e43faa6cca2fed6d9de1ff88cd126' `
+    'Locator recovery failed harness commit'
+  Assert-Equal `
+    $locatorRecoveryApproval.authorizedSourceCorrection.failedHarnessTree `
+    '3e354bb648061e830a591e3b4781eee267c65fb3' `
+    'Locator recovery failed harness tree'
+  $ancestor = Invoke-ExternalText -FilePath 'git' -Arguments @(
+    '-C', $root, 'merge-base', '--is-ancestor',
+    $locatorRecoveryApproval.authorizedSourceCorrection.failedHarnessCommit,
+    $gitHead
+  ) -AllowFailure
+  Assert-Equal $ancestor.exitCode 0 'Locator recovery source ancestry'
+  Assert-True `
+    ($gitHead -ne
+      $locatorRecoveryApproval.authorizedSourceCorrection.failedHarnessCommit) `
+    'Locator recovery merged successor source'
+  Assert-Equal `
+    ([IO.DirectoryInfo]::new($evidenceRoot).Name) `
+    $locatorRecoveryApproval.campaignAuthority.evidenceDirectoryName `
+    'Locator recovery campaign directory'
+  Assert-Equal $locatorRecoveryApproval.campaignAuthority.sameCampaignRequired `
+    $true 'Locator recovery same-campaign authority'
+  Assert-Equal `
+    (Get-Sha256 $preflightReceiptPath) `
+    $locatorRecoveryApproval.campaignAuthority.preflightReceiptSha256 `
+    'Locator recovery preflight receipt SHA-256'
+  Assert-Equal `
+    (Get-Sha256 $upgradeReceiptPath) `
+    $locatorRecoveryApproval.campaignAuthority.upgradeReceiptSha256 `
+    'Locator recovery upgrade receipt SHA-256'
+  Assert-Equal $locatorRecoveryApproval.campaignAuthority.preflightDecision `
+    'PASS_BUILD7_COMPATIBILITY_PREFLIGHT_EXACT_BUILD6_INSTALLED' `
+    'Locator recovery preflight decision authority'
+  Assert-Equal $locatorRecoveryApproval.campaignAuthority.upgradeDecision `
+    'PASS_EXACT_BUILD7_IN_PLACE_UPGRADE_SESSION_PRESERVED' `
+    'Locator recovery upgrade decision authority'
+  Assert-Equal `
+    $locatorRecoveryApproval.artifactAndTargetAuthority.build7ApkSha256 `
+    $build7Apk.sha256 `
+    'Locator recovery Build 7 APK SHA-256'
+  Assert-Equal `
+    $locatorRecoveryApproval.artifactAndTargetAuthority.adbSerialSha256 `
+    $promotion.targetAuthority.adbSerialSha256 `
+    'Locator recovery target serial hash'
+  Assert-Equal `
+    $locatorRecoveryApproval.artifactAndTargetAuthority.buildFingerprintSha256 `
+    $promotion.targetAuthority.buildFingerprintSha256 `
+    'Locator recovery target fingerprint hash'
+  Assert-Equal `
+    $locatorRecoveryApproval.controlledRecord `
+    "knowledge_base/$controlledDocumentId" `
+    'Locator recovery controlled record'
+  Assert-Equal $locatorRecoveryApproval.retryAuthority.phase `
+    'RecoverProveReadLocator' 'Locator recovery phase'
+  Assert-Equal $locatorRecoveryApproval.retryAuthority.maximumAttempts 1 `
+    'Locator recovery maximum attempts'
+  Assert-Equal $locatorRecoveryApproval.retryAuthority.sameEvidenceDirectoryRequired `
+    $true 'Locator recovery evidence-directory continuity'
+  Assert-Equal $locatorRecoveryApproval.retryAuthority.readOnly $true `
+    'Locator recovery read-only authority'
+  Assert-Equal $locatorRecoveryApproval.retryAuthority.installAuthorized $false `
+    'Locator recovery install authorization'
+  Assert-Equal $locatorRecoveryApproval.retryAuthority.remoteMutationAuthorized $false `
+    'Locator recovery remote-mutation authorization'
+  Assert-Equal `
+    $locatorRecoveryApproval.retryAuthority.retirementAuthorizedDuringRecovery `
+    $false 'Locator recovery retirement authorization'
+  Assert-Equal `
+    $locatorRecoveryApproval.retryAuthority.failureReproductionWitnessRequiredBeforeRetry `
+    $true 'Locator recovery failure-witness requirement'
+  Assert-Equal `
+    $locatorRecoveryApproval.retryAuthority.rawUiMustBeDeletedAfterHashing `
+    $true 'Locator recovery raw-UI retention authority'
+  Assert-Equal `
+    $locatorRecoveryApproval.narrowFailurePolicyOverride.originalField `
+    'newEvidenceDirectoryRequiredForRestart' `
+    'Locator recovery overridden failure-policy field'
+  Assert-Equal `
+    $locatorRecoveryApproval.narrowFailurePolicyOverride.originalValue `
+    $true 'Locator recovery original failure-policy value'
+  Assert-Equal $locatorRecoveryApproval.narrowFailurePolicyOverride.scope `
+    'READ_ONLY_UI_LOCATOR_RECOVERY_ONLY' `
+    'Locator recovery failure-policy override scope'
+  Assert-Equal `
+    $locatorRecoveryApproval.narrowFailurePolicyOverride.allOtherOriginalFailurePoliciesRemainEffective `
+    $true 'Locator recovery remaining failure policies'
+  Assert-Equal $locatorRecoveryApproval.programmeBoundary.stage2dF4ClosureAuthorized `
+    $false 'Locator recovery F4 closure authorization'
+  Assert-Equal $locatorRecoveryApproval.programmeBoundary.pilotHandoutAuthorized `
+    $false 'Locator recovery pilot handout authorization'
+}
+
 $installedBuild7 = Get-PackageState `
   -Adb $adb `
   -Serial $DeviceSerial `
@@ -1086,9 +1247,18 @@ Assert-PackageState `
   -ApkSha256 $build7Apk.sha256 `
   -Label 'Installed Build 7 phase precondition'
 
-if ($Phase -eq 'ProveRead') {
+if ($Phase -in @('ProveRead', 'RecoverProveReadLocator')) {
   if (Test-Path -LiteralPath $readReceiptPath) {
-    throw 'ProveRead refuses to replace an existing read receipt.'
+    throw "$Phase refuses to replace an existing read receipt."
+  }
+  if ($Phase -eq 'RecoverProveReadLocator' -and
+      (Test-Path -LiteralPath $locatorFailureWitnessPath)) {
+    throw 'RecoverProveReadLocator refuses to replace an existing failure witness.'
+  }
+  if ($Phase -eq 'RecoverProveReadLocator' -and
+      ((Test-Path -LiteralPath $retirementCompletionWitnessPath) -or
+       (Test-Path -LiteralPath $retirementReceiptPath))) {
+    throw 'RecoverProveReadLocator refuses a campaign containing retirement evidence.'
   }
   Start-Crm3Application `
     -Adb $adb `
@@ -1152,13 +1322,76 @@ if ($Phase -eq 'ProveRead') {
     -RequiredMarkers @('Knowledge Governance', 'Rows') `
     -ForbiddenMarkers @('Failed to load knowledge base', '[cloud_firestore/') `
     -TimeoutSeconds 90
+  $readRecoveryMode = 'NONE'
+  if ($Phase -eq 'RecoverProveReadLocator') {
+    $locatorUi = Get-UiEvidence `
+      -Adb $adb `
+      -Serial $DeviceSerial `
+      -EvidenceRoot $evidenceRoot `
+      -Label 'build7-prove-read-locator-failure-reproduction'
+    $locatorShape = Get-UiLocatorAttributeEvidence `
+      -UiText $locatorUi.text `
+      -Marker 'Search rowCode'
+    Assert-Equal $locatorShape.hintMatchCount 1 `
+      'Locator recovery hint match count'
+    Assert-Equal $locatorShape.textMatchCount 0 `
+      'Locator recovery text match count'
+    Assert-Equal $locatorShape.contentDescriptionMatchCount 0 `
+      'Locator recovery content-description match count'
+    Assert-Equal $locatorShape.oldLocatorCouldResolve $false `
+      'Locator recovery old-locator result'
+    Assert-Equal $locatorShape.correctedLocatorCouldResolve $true `
+      'Locator recovery corrected-locator result'
+
+    $locatorFailureWitness = [ordered]@{
+      schemaVersion = 1
+      evidenceType = 'build-7-f4-prove-read-locator-failure-reproduction'
+      capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+      promotionSha256 = $promotionSha256
+      locatorRecoveryApprovalSha256 = $locatorRecoveryApprovalSha256
+      preflightReceiptSha256 = Get-Sha256 $preflightReceiptPath
+      upgradeReceiptSha256 = Get-Sha256 $upgradeReceiptPath
+      recoverySource = [ordered]@{
+        head = $gitHead
+        originMain = $originMain
+        trackedClean = $true
+      }
+      controlledDocument = "knowledge_base/$controlledDocumentId"
+      originalFailure = [ordered]@{
+        phase = 'ProveRead'
+        reason = 'Could not find UI control: Search rowCode'
+        readReceiptCreated = $false
+        remoteMutationPerformed = $false
+      }
+      observedLocatorShape = [ordered]@{
+        marker = 'Search rowCode'
+        hintMatchCount = $locatorShape.hintMatchCount
+        textMatchCount = $locatorShape.textMatchCount
+        contentDescriptionMatchCount =
+          $locatorShape.contentDescriptionMatchCount
+        oldLocatorCouldResolve = $locatorShape.oldLocatorCouldResolve
+        correctedLocatorCouldResolve =
+          $locatorShape.correctedLocatorCouldResolve
+        uiHierarchySha256 = $locatorUi.sha256
+      }
+      readOnlyRetry = $true
+      rawUiRetained = $false
+      decision =
+        'PASS_BUILD7_PROVE_READ_LOCATOR_FAILURE_REPRODUCED_PRIVACY_SAFE'
+    }
+    Write-Utf8NoBom `
+      -Path $locatorFailureWitnessPath `
+      -Text (($locatorFailureWitness | ConvertTo-Json -Depth 30) + "`n")
+    $locatorFailureWitnessSha256 = Get-Sha256 $locatorFailureWitnessPath
+    $readRecoveryMode = 'READ_ONLY_HINT_ATTRIBUTE_LOCATOR_RECOVERY'
+  }
   Enter-UiText `
     -Adb $adb `
     -Serial $DeviceSerial `
     -EvidenceRoot $evidenceRoot `
     -Label 'build7-governance-search' `
     -Marker 'Search rowCode' `
-    -XPath "//node[contains(@text,'Search rowCode') or contains(@content-desc,'Search rowCode')]" `
+    -XPath "//node[contains(@text,'Search rowCode') or contains(@content-desc,'Search rowCode') or contains(@hint,'Search rowCode')]" `
     -Text $controlledDocumentId
   $rowEvidence = Wait-RowLifecycle `
     -Adb $adb `
@@ -1175,6 +1408,9 @@ if ($Phase -eq 'ProveRead') {
     capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
     promotionSha256 = $promotionSha256
     upgradeReceiptSha256 = Get-Sha256 $upgradeReceiptPath
+    recoveryMode = $readRecoveryMode
+    locatorRecoveryApprovalSha256 = $locatorRecoveryApprovalSha256
+    locatorFailureWitnessSha256 = $locatorFailureWitnessSha256
     installedApkSha256 = $installedBuild7.apkSha256
     controlledDocument = "knowledge_base/$controlledDocumentId"
     templateAuthoringKnowledgeLoaderSettled = $true
@@ -1279,7 +1515,7 @@ Enter-UiText `
   -EvidenceRoot $evidenceRoot `
   -Label 'build7-retirement-search' `
   -Marker 'Search rowCode' `
-  -XPath "//node[contains(@text,'Search rowCode') or contains(@content-desc,'Search rowCode')]" `
+  -XPath "//node[contains(@text,'Search rowCode') or contains(@content-desc,'Search rowCode') or contains(@hint,'Search rowCode')]" `
   -Text $controlledDocumentId
 
 $recoveryMode = 'NONE'

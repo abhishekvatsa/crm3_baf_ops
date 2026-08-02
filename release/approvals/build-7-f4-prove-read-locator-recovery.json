@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "approvalId": "CRM3-B7-F4-PROVE-READ-LOCATOR-RECOVERY-001",
+  "approvalClass": "CONTROLLED_BUILD7_PROVE_READ_LOCATOR_RECOVERY",
+  "createdAtUtc": "2026-08-02T19:18:45.5882864Z",
+  "effectiveCondition": "This amendment is effective only after owner-reviewed merge to main, passing CI, and execution from an exact tracked-clean local main equal to freshly fetched origin/main.",
+  "approvalAuthority": {
+    "mode": "MERGED_OWNER_SOURCE_APPROVAL",
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "requestBasis": "The repository owner directed autonomous continuation after the Build 7 read phase stopped safely on an Android 16 UI-locator mismatch.",
+    "humanApprovalReference": "CODEX_TASK_BUILD7_F4_LOCATOR_RECOVERY_20260802"
+  },
+  "originalPromotion": {
+    "path": "release/approvals/build-7-f4-firestore-compatibility-promotion.json",
+    "sha256": "39818BA2550AB962F87992467D0BD0AD7DD4B1D8CAE6D65CC738B80B6CB689F9",
+    "remainsUnmodified": true,
+    "failedPhaseMayNotBeRelabelledPass": true
+  },
+  "authorizedSourceCorrection": {
+    "harnessPath": "tools/release/Invoke-Build7F4FirestoreCompatibilityCampaign.ps1",
+    "failedHarnessCommit": "59489c25ff5e43faa6cca2fed6d9de1ff88cd126",
+    "failedHarnessTree": "3e354bb648061e830a591e3b4781eee267c65fb3",
+    "requiredCorrection": "Include the Android UIAutomator hint attribute when locating the Search rowCode input.",
+    "mergedSuccessorRequired": true
+  },
+  "campaignAuthority": {
+    "evidenceDirectoryName": "CRM3_BUILD7_F4_PHYSICAL_COMPATIBILITY_20260803_003953",
+    "sameCampaignRequired": true,
+    "preflightReceiptSha256": "11B8AD068F6ED082B7D8FCE430C9A1D0329465DD13E009253E52E13945F8599D",
+    "preflightDecision": "PASS_BUILD7_COMPATIBILITY_PREFLIGHT_EXACT_BUILD6_INSTALLED",
+    "upgradeReceiptSha256": "CB36DBBBACE68175782E55EA7509AF2B91D449D786D7B733A9F6768DFEBFB716",
+    "upgradeDecision": "PASS_EXACT_BUILD7_IN_PLACE_UPGRADE_SESSION_PRESERVED",
+    "readReceiptExistedAfterFailure": false,
+    "retirementCompletionWitnessExistedAfterFailure": false,
+    "retirementReceiptExistedAfterFailure": false
+  },
+  "artifactAndTargetAuthority": {
+    "build7ApkSha256": "EE5B5B7205A37F1FEF1F1B4C98CB1446ED544A123E130D7F3A4134E6A5E6DD56",
+    "versionCode": 7,
+    "adbSerialSha256": "D5BADBAE21E335B1E21A6A694445F3E7A454BFE5525650BFA9E1B1D637523E74",
+    "buildFingerprintSha256": "68E985831F5D35DA949DF29788BD25B3713CCF6B6EFAE56AED6DA8BC829C64B6",
+    "rawIdentifiersRetained": false
+  },
+  "controlledRecord": "knowledge_base/zz-f4-global-pull-compat-v1",
+  "failureAdjudication": {
+    "failedPhase": "ProveRead",
+    "stableFailureReason": "Could not find UI control: Search rowCode",
+    "observedAndroidApiLevel": 36,
+    "observedControlClass": "android.widget.EditText",
+    "markerPresentInHint": true,
+    "markerPresentInText": false,
+    "markerPresentInContentDescription": false,
+    "oldLocatorCouldResolve": false,
+    "correctedLocatorCanResolve": true,
+    "productionWriteOccurred": false,
+    "readReceiptCreated": false,
+    "rawUiRetained": false
+  },
+  "retryAuthority": {
+    "phase": "RecoverProveReadLocator",
+    "maximumAttempts": 1,
+    "sameEvidenceDirectoryRequired": true,
+    "readOnly": true,
+    "installAuthorized": false,
+    "reinstallAuthorized": false,
+    "downgradeAuthorized": false,
+    "applicationDataMutationAuthorized": false,
+    "remoteMutationAuthorized": false,
+    "retirementAuthorizedDuringRecovery": false,
+    "failureReproductionWitnessRequiredBeforeRetry": true,
+    "rawUiMustBeDeletedAfterHashing": true
+  },
+  "narrowFailurePolicyOverride": {
+    "originalField": "newEvidenceDirectoryRequiredForRestart",
+    "originalValue": true,
+    "override": "The one RecoverProveReadLocator attempt must use the existing evidence directory so the unchanged preflight and upgrade receipt chain remains authoritative.",
+    "scope": "READ_ONLY_UI_LOCATOR_RECOVERY_ONLY",
+    "allOtherOriginalFailurePoliciesRemainEffective": true
+  },
+  "authorizedOperations": [
+    "verify the unchanged original promotion and exact private preflight and upgrade receipt hashes",
+    "verify exact Build 7 remains installed on the same hash-bound physical target with the approved session preserved",
+    "navigate the existing read-only Template Authoring and Knowledge Governance paths",
+    "reproduce and record only the privacy-safe structural UI-locator mismatch in the existing evidence directory",
+    "perform one read-only controlled-row search using text, content-description or hint attributes",
+    "create the controlled-row active-precondition receipt only if the exact row renders active"
+  ],
+  "prohibitedOperations": [
+    "modify or replace the original Build 7 promotion, preflight receipt or upgrade receipt",
+    "install, reinstall, downgrade, uninstall, clear app data, rebuild, resign or replace Build 7",
+    "create, update, retire, archive, restore or delete any Firestore document during locator recovery",
+    "retain raw UI XML, raw ADB serial, raw build fingerprint, Android ID, account identity, Firebase uid, access token or business payload",
+    "deploy or mutate Firebase Rules, indexes, Functions, IAM, runtime contracts, backfill state, App Check or distribution configuration",
+    "claim DEVICE_PROVED, close STAGE2D-F4, close P-07, authorize pilot handout or release held pull requests"
+  ],
+  "programmeBoundary": {
+    "stage2dF4ExecutionContinues": true,
+    "stage2dF4ClosureAuthorized": false,
+    "p07ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "heldPullRequests87Through93Adjudicated": false,
+    "productionBackfillAuthorized": false,
+    "runtimeContractActivationAuthorized": false,
+    "separateEvidenceAdjudicationRequired": true
+  }
+}
