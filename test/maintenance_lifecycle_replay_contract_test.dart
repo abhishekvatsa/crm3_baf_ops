@@ -412,7 +412,7 @@ void main() {
         );
         expect(
           maintenanceMatch,
-          contains('allow update: if globalPullStampUnchangedOnUpdate()'),
+          contains('allow update: if globalPullStampValidOnUpdate()'),
         );
         expect(maintenanceMatch, contains('&& validMaintenanceUpdate();'));
 

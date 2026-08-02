@@ -52,7 +52,7 @@ void main() {
       );
       expect(
         matchBlock,
-        contains('allow update: if globalPullStampUnchangedOnUpdate()'),
+        contains('allow update: if globalPullStampValidOnUpdate()'),
       );
       expect(matchBlock, contains('&& validMaintenanceUpdate();'));
 
