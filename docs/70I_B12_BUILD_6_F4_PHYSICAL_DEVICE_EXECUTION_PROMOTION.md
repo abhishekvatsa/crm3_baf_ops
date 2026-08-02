@@ -204,3 +204,39 @@ It is not passing evidence and cannot be relabelled as such.
 This compatibility correction does not expand the approved device, artifact,
 phases, authority, distribution or pilot boundary. `STAGE2D-F4`, `P-07` and
 pilot handout remain open.
+
+## Retained More-Scroll Navigation Compatibility Correction
+
+The corrected baseline then passed with zero unsynced rows and zero unresolved
+rejections. Its receipt SHA-256 is
+`FF07D7CF1A10204823CD85C939AA569FD793740412837986ED828F18EFCA6CDF`.
+The first merged `RunSyncMarker` invocation subsequently stopped during its
+pre-sync diagnostics navigation, before opening Support Diagnostics or invoking
+manual sync.
+
+The app was on the correct `More` tab with `Support Diagnostics` visible. Its
+`ListView` had correctly retained the prior scroll position, so the
+top-of-page sentence `Tools, records and administrative access.` was off-screen.
+The harness incorrectly required that transient sentence before using the
+exact, scroll-capable `Support Diagnostics` tile lookup. The correction removes
+only that top-header prerequisite.
+
+Because this additive amendment changes the promotion file hash, the harness
+accepts the already passing baseline through one explicit lineage rule: both
+its receipt hash and its embedded pre-amendment promotion hash must match the
+values above. There is no generic prior-hash fallback, and no future unlisted
+promotion lineage is accepted.
+
+The stopped invocation ran from merge commit `feeb7f1`, with promotion SHA-256
+`52FFB67CB43F501645F172B851FA3C0E1BBC59AB366CA4C1550EB43134EA92F1` and
+harness SHA-256
+`F638782278027500593FBACF2EE63480AA2CEE96CB876672CC26F37492073AFC`.
+Its durable stderr log SHA-256 is
+`C6BBC7F67A0E68D346AE0FE90E4C0D4D4C821476AAB2A932D19A87B22B704D33`.
+No sync-marker receipt, manual sync, network-state mutation or remote business
+mutation occurred. The temporary diagnostic screenshot was deleted and no raw
+UI is retained.
+
+This correction does not expand the approved artifact, target, phases,
+authority, distribution or pilot boundary. The stopped attempt is not passing
+evidence and cannot be relabelled as such.

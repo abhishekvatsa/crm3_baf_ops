@@ -156,6 +156,58 @@ void main() {
     expect(homeVariableAmendment['stage2dF4AuthorityExpansion'], isFalse);
     expect(homeVariableAmendment['pilotOrDistributionExpansion'], isFalse);
 
+    final retainedScrollAmendment = _object(
+      promotion['retainedMoreScrollNavigationCompatibilityAmendment'],
+    );
+    expect(
+      retainedScrollAmendment['executionSourceMergeCommit'],
+      'feeb7f1c010c134d5f9938da2ad8c76093ba06b0',
+    );
+    expect(
+      retainedScrollAmendment['priorPromotionSha256'],
+      '52FFB67CB43F501645F172B851FA3C0E1BBC59AB366CA4C1550EB43134EA92F1',
+    );
+    expect(
+      retainedScrollAmendment['priorHarnessSha256'],
+      'F638782278027500593FBACF2EE63480AA2CEE96CB876672CC26F37492073AFC',
+    );
+    expect(
+      retainedScrollAmendment['passingSyncBaselineReceiptSha256'],
+      'FF07D7CF1A10204823CD85C939AA569FD793740412837986ED828F18EFCA6CDF',
+    );
+    expect(
+      retainedScrollAmendment['passingBaselineAcceptedAfterPromotionAmendment'],
+      isTrue,
+    );
+    expect(
+      retainedScrollAmendment['acceptanceRequiresExactBaselineReceiptSha256'],
+      isTrue,
+    );
+    expect(
+      retainedScrollAmendment['futureUnlistedPromotionLineageAccepted'],
+      isFalse,
+    );
+    expect(
+      retainedScrollAmendment['stoppedSyncMarkerStderrSha256'],
+      'C6BBC7F67A0E68D346AE0FE90E4C0D4D4C821476AAB2A932D19A87B22B704D33',
+    );
+    expect(retainedScrollAmendment['syncBaselineReceiptCreated'], isTrue);
+    expect(retainedScrollAmendment['syncMarkerReceiptCreated'], isFalse);
+    expect(retainedScrollAmendment['manualSyncInvoked'], isFalse);
+    expect(retainedScrollAmendment['networkStateMutationPerformed'], isFalse);
+    expect(retainedScrollAmendment['remoteBusinessMutationPerformed'], isFalse);
+    expect(
+      retainedScrollAmendment['temporaryDiagnosticScreenshotDeleted'],
+      isTrue,
+    );
+    expect(retainedScrollAmendment['rawUiRetained'], isFalse);
+    expect(
+      retainedScrollAmendment['failedAttemptMayNotBeRelabelledPass'],
+      isTrue,
+    );
+    expect(retainedScrollAmendment['stage2dF4AuthorityExpansion'], isFalse);
+    expect(retainedScrollAmendment['pilotOrDistributionExpansion'], isFalse);
+
     final discovery = _object(promotion['discoveryAuthority']);
     expect(
       discovery['promotionSha256'],
@@ -290,6 +342,11 @@ void main() {
           r'PowerShell names are case-insensitive and $HOME is a read-only automatic variable.',
     );
     expect(script, contains(r'$approvedHome = Get-ApprovedHomeEvidence'));
+    expect(
+      script,
+      isNot(contains("-Marker 'Tools, records and administrative access.'")),
+      reason: 'More navigation must tolerate its retained ListView position.',
+    );
 
     for (final required in <String>[
       "'FinalizeInstall'",
@@ -318,6 +375,9 @@ void main() {
       'PASS_APPROVED_SIGNIN_CAPTURED_FULL_F4_MATRIX_REMAINS_OPEN',
       'Approved-signin receipt SHA-256',
       'Installed APK SHA-256 for sync/network tranche',
+      'Sync-baseline promotion SHA-256 is outside the governed lineage.',
+      'Sync-baseline receipt lineage SHA-256',
+      "'retainedMoreScrollNavigationCompatibilityAmendment'",
       r'Assert-Equal $diagnostics.unsyncedRows 0',
       'PASS_ZERO_PENDING_LOCAL_WRITES_SYNC_BASELINE',
       'PASS_AUTHENTICATED_MANUAL_SYNC_ZERO_PENDING_WRITES',
