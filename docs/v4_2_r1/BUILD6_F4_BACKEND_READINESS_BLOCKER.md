@@ -63,3 +63,19 @@ This record and harness correction perform no Firebase deployment, Rules
 mutation, Functions mutation, IAM mutation, production-data write, device
 network mutation, pilot handout or F4 closure. The stopped device attempt is
 not a pass and may not be relabelled as one.
+
+## Staging Tranche Update - 2026-08-02
+
+The bounded staging backend tranche is now proven at exact deployment source
+`6366a415f23ed2f5d31aa22d8401186b27062d2e`. The isolated staging project has
+51 ready indexes, byte-exact current Rules and only the two required global-pull
+Functions under separate least-privilege runtime identities. A synthetic live
+write was server-stamped and settled without recursive rewrites; an
+unauthenticated callable request reached the handler and failed closed.
+
+This progress does not change the controlled stop above. Authentication and
+client parity, the full staging walkthrough, the production restore pack,
+production deployment, backfill, contract activation and the private backend
+readiness receipt remain required. See
+`BUILD6_F4_STAGING_BACKEND_TRANCHE.md` and
+`release/evidence/build-6-f4-staging-backend-tranche.json`.
