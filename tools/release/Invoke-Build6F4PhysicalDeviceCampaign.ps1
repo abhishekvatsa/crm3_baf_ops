@@ -1263,8 +1263,23 @@ if (-not (Test-Path -LiteralPath $syncBaselineReceiptPath -PathType Leaf)) {
 }
 $syncBaseline = Get-Content -LiteralPath $syncBaselineReceiptPath -Raw |
   ConvertFrom-Json
-Assert-Equal $syncBaseline.promotionSha256 $currentPromotionSha256 `
-  'Sync-baseline promotion SHA-256'
+if ($syncBaseline.promotionSha256 -ne $currentPromotionSha256) {
+  $lineageProperty = $promotion.PSObject.Properties[
+    'retainedMoreScrollNavigationCompatibilityAmendment'
+  ]
+  if ($null -eq $lineageProperty) {
+    throw 'Sync-baseline promotion SHA-256 is outside the governed lineage.'
+  }
+  $lineage = $lineageProperty.Value
+  Assert-Equal `
+    $syncBaseline.promotionSha256 `
+    $lineage.priorPromotionSha256 `
+    'Sync-baseline prior promotion SHA-256'
+  Assert-Equal `
+    (Get-Sha256 $syncBaselineReceiptPath) `
+    $lineage.passingSyncBaselineReceiptSha256 `
+    'Sync-baseline receipt lineage SHA-256'
+}
 Assert-Equal `
   $syncBaseline.approvedSigninReceiptSha256 `
   (Get-Sha256 $signInReceiptPath) `

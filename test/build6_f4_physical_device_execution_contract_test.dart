@@ -176,6 +176,18 @@ void main() {
       'FF07D7CF1A10204823CD85C939AA569FD793740412837986ED828F18EFCA6CDF',
     );
     expect(
+      retainedScrollAmendment['passingBaselineAcceptedAfterPromotionAmendment'],
+      isTrue,
+    );
+    expect(
+      retainedScrollAmendment['acceptanceRequiresExactBaselineReceiptSha256'],
+      isTrue,
+    );
+    expect(
+      retainedScrollAmendment['futureUnlistedPromotionLineageAccepted'],
+      isFalse,
+    );
+    expect(
       retainedScrollAmendment['stoppedSyncMarkerStderrSha256'],
       'C6BBC7F67A0E68D346AE0FE90E4C0D4D4C821476AAB2A932D19A87B22B704D33',
     );
@@ -363,6 +375,9 @@ void main() {
       'PASS_APPROVED_SIGNIN_CAPTURED_FULL_F4_MATRIX_REMAINS_OPEN',
       'Approved-signin receipt SHA-256',
       'Installed APK SHA-256 for sync/network tranche',
+      'Sync-baseline promotion SHA-256 is outside the governed lineage.',
+      'Sync-baseline receipt lineage SHA-256',
+      "'retainedMoreScrollNavigationCompatibilityAmendment'",
       r'Assert-Equal $diagnostics.unsyncedRows 0',
       'PASS_ZERO_PENDING_LOCAL_WRITES_SYNC_BASELINE',
       'PASS_AUTHENTICATED_MANUAL_SYNC_ZERO_PENDING_WRITES',

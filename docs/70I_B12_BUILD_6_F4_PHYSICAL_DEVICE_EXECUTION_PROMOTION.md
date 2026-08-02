@@ -221,6 +221,12 @@ The harness incorrectly required that transient sentence before using the
 exact, scroll-capable `Support Diagnostics` tile lookup. The correction removes
 only that top-header prerequisite.
 
+Because this additive amendment changes the promotion file hash, the harness
+accepts the already passing baseline through one explicit lineage rule: both
+its receipt hash and its embedded pre-amendment promotion hash must match the
+values above. There is no generic prior-hash fallback, and no future unlisted
+promotion lineage is accepted.
+
 The stopped invocation ran from merge commit `feeb7f1`, with promotion SHA-256
 `52FFB67CB43F501645F172B851FA3C0E1BBC59AB366CA4C1550EB43134EA92F1` and
 harness SHA-256

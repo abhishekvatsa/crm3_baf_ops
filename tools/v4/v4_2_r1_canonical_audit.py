@@ -1819,6 +1819,21 @@ check(
     and build6_f4_physical.get(
         "retainedMoreScrollNavigationCompatibilityAmendment",
         {},
+    ).get("passingBaselineAcceptedAfterPromotionAmendment")
+        is True
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("acceptanceRequiresExactBaselineReceiptSha256")
+        is True
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
+    ).get("futureUnlistedPromotionLineageAccepted")
+        is False
+    and build6_f4_physical.get(
+        "retainedMoreScrollNavigationCompatibilityAmendment",
+        {},
     ).get("stoppedSyncMarkerStderrSha256")
         == "C6BBC7F67A0E68D346AE0FE90E4C0D4D4C821476AAB2A932D19A87B22B704D33"
     and build6_f4_physical.get(
