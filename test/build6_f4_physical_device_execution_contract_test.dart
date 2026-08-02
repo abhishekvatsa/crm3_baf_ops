@@ -265,6 +265,75 @@ void main() {
     expect(retryLabelAmendment['stage2dF4AuthorityExpansion'], isFalse);
     expect(retryLabelAmendment['pilotOrDistributionExpansion'], isFalse);
 
+    final backendStopAmendment = _object(
+      promotion['backendReadinessControlledStopAmendment'],
+    );
+    expect(
+      backendStopAmendment['executionSourceMergeCommit'],
+      'a929b1437ac411bf57baa050b188829d0398a9c4',
+    );
+    expect(
+      backendStopAmendment['priorPromotionSha256'],
+      '1D7A2939528F925B3D549033E04F22C9AFFF371FCB86F998EE5E378EB7B5458D',
+    );
+    expect(
+      backendStopAmendment['priorHarnessSha256'],
+      '07F1AC23AC83BF486BA999B6D4B97684CABB31FCB6D5B06A1F8D2A2479775F91',
+    );
+    expect(
+      backendStopAmendment['passingSyncBaselineReceiptSha256'],
+      'FF07D7CF1A10204823CD85C939AA569FD793740412837986ED828F18EFCA6CDF',
+    );
+    expect(
+      backendStopAmendment['stoppedSyncMarkerStderrSha256'],
+      '0E2FC4678343DD9B746F6AF03131B2F63EAD4B37AB6C24D8B87CDDC05FF7E208',
+    );
+    expect(backendStopAmendment['manualSyncInvoked'], isTrue);
+    expect(backendStopAmendment['observedManualSyncOutcome'], 'NOT_COMPLETED');
+    expect(
+      backendStopAmendment['observedSanitizedFailure'],
+      'firebase_functions/not-found',
+    );
+    expect(backendStopAmendment['rawLogRetained'], isFalse);
+    expect(backendStopAmendment['rawUiRetained'], isFalse);
+    final liveReadback = _object(backendStopAmendment['liveReadback']);
+    final liveRules = _object(liveReadback['firestoreRules']);
+    expect(liveRules['matchesCurrentMain'], isFalse);
+    expect(
+      liveRules['exactRepositoryCommit'],
+      'f8308c99e0fbf836a550e50e01d9ff93d4587111',
+    );
+    final liveIndexes = _object(liveReadback['firestoreIndexes']);
+    expect(liveIndexes['liveIndexCount'], 28);
+    expect(liveIndexes['currentMainIndexCount'], 51);
+    expect(liveIndexes['matchesCurrentMain'], isFalse);
+    expect(
+      liveIndexes['exactRepositoryCommit'],
+      '33f599d90d3ff1057c3c8dd90f2b0d5f9ee941b7',
+    );
+    final liveFunctions = _object(liveReadback['functions']);
+    expect(liveFunctions['liveFunctionCount'], 7);
+    expect(liveFunctions['currentMainExportCount'], 14);
+    expect(liveFunctions['beginGlobalPullRunActive'], isFalse);
+    expect(liveFunctions['stampGlobalPullServerClockActive'], isFalse);
+    expect(backendStopAmendment['syncMarkerReceiptCreated'], isFalse);
+    expect(backendStopAmendment['offlineReconnectPhaseStarted'], isFalse);
+    expect(backendStopAmendment['weakNetworkPhaseStarted'], isFalse);
+    expect(
+      backendStopAmendment['deviceNetworkStateMutationPerformed'],
+      isFalse,
+    );
+    expect(backendStopAmendment['remoteBusinessMutationPerformed'], isFalse);
+    expect(backendStopAmendment['firebaseDeploymentPerformed'], isFalse);
+    expect(
+      backendStopAmendment['furtherDeviceSyncAuthorizedByThisAmendment'],
+      isFalse,
+    );
+    expect(
+      backendStopAmendment['decision'],
+      'STOP_F4_BACKEND_DEPLOYMENT_PREREQUISITE_UNMET',
+    );
+
     final discovery = _object(promotion['discoveryAuthority']);
     expect(
       discovery['promotionSha256'],
@@ -437,6 +506,16 @@ void main() {
       "'retainedMoreScrollNavigationCompatibilityAmendment'",
       "-AlternativeMarkers @('Retry sync')",
       "@text='Retry sync'",
+      r'[string]$BackendReadinessReceiptPath',
+      "'backendReadinessActivationAmendment'",
+      'F4 sync/network execution is blocked until backend readiness is separately admitted.',
+      'Backend-readiness receipt SHA-256',
+      'PASS_BUILD6_F4_BACKEND_READY',
+      r'$backendReceipt.live.firestoreRulesMatchesSource',
+      r'$backendReceipt.live.firestoreIndexesMatchSource',
+      r'$backendReceipt.live.requiredFunctionsActive',
+      r'$backendReceipt.live.globalPullContractActive',
+      r'$backendReceipt.live.globalPullInventoryZeroGap',
       r'Assert-Equal $diagnostics.unsyncedRows 0',
       'PASS_ZERO_PENDING_LOCAL_WRITES_SYNC_BASELINE',
       'PASS_AUTHENTICATED_MANUAL_SYNC_ZERO_PENDING_WRITES',

@@ -1618,6 +1618,15 @@ check(
 build6_f4_physical = data(
     "release/approvals/build-6-f4-physical-device-execution-promotion.json"
 )
+build6_f4_physical_harness = text(
+    "tools/release/Invoke-Build6F4PhysicalDeviceCampaign.ps1"
+)
+build6_f4_backend_blocker = text(
+    "docs/v4_2_r1/BUILD6_F4_BACKEND_READINESS_BLOCKER.md"
+)
+open_pr_87_93_hold = text(
+    "docs/v4_2_r1/OPEN_PR_87_93_HOLD_REGISTER.md"
+)
 physical_phase_ids = {
     phase.get("id")
     for phase in build6_f4_physical.get("requiredPhases", [])
@@ -2001,6 +2010,76 @@ check(
         {},
     ).get("pilotOrDistributionExpansion")
         is False
+    and build6_f4_physical.get(
+        "backendReadinessControlledStopAmendment",
+        {},
+    ).get("executionSourceMergeCommit")
+        == "a929b1437ac411bf57baa050b188829d0398a9c4"
+    and build6_f4_physical.get(
+        "backendReadinessControlledStopAmendment",
+        {},
+    ).get("priorPromotionSha256")
+        == "1D7A2939528F925B3D549033E04F22C9AFFF371FCB86F998EE5E378EB7B5458D"
+    and build6_f4_physical.get(
+        "backendReadinessControlledStopAmendment",
+        {},
+    ).get("priorHarnessSha256")
+        == "07F1AC23AC83BF486BA999B6D4B97684CABB31FCB6D5B06A1F8D2A2479775F91"
+    and build6_f4_physical.get(
+        "backendReadinessControlledStopAmendment",
+        {},
+    ).get("stoppedSyncMarkerStderrSha256")
+        == "0E2FC4678343DD9B746F6AF03131B2F63EAD4B37AB6C24D8B87CDDC05FF7E208"
+    and build6_f4_physical.get(
+        "backendReadinessControlledStopAmendment",
+        {},
+    ).get("manualSyncInvoked")
+        is True
+    and build6_f4_physical.get(
+        "backendReadinessControlledStopAmendment",
+        {},
+    ).get("observedSanitizedFailure")
+        == "firebase_functions/not-found"
+    and build6_f4_physical.get(
+        "backendReadinessControlledStopAmendment",
+        {},
+    ).get("liveReadback", {}).get("firestoreRules", {}).get(
+        "exactRepositoryCommit"
+    )
+        == "f8308c99e0fbf836a550e50e01d9ff93d4587111"
+    and build6_f4_physical.get(
+        "backendReadinessControlledStopAmendment",
+        {},
+    ).get("liveReadback", {}).get("firestoreIndexes", {}).get(
+        "exactRepositoryCommit"
+    )
+        == "33f599d90d3ff1057c3c8dd90f2b0d5f9ee941b7"
+    and build6_f4_physical.get(
+        "backendReadinessControlledStopAmendment",
+        {},
+    ).get("liveReadback", {}).get("functions", {}).get(
+        "beginGlobalPullRunActive"
+    )
+        is False
+    and build6_f4_physical.get(
+        "backendReadinessControlledStopAmendment",
+        {},
+    ).get("furtherDeviceSyncAuthorizedByThisAmendment")
+        is False
+    and build6_f4_physical.get(
+        "backendReadinessControlledStopAmendment",
+        {},
+    ).get("decision")
+        == "STOP_F4_BACKEND_DEPLOYMENT_PREREQUISITE_UNMET"
+    and "backendReadinessActivationAmendment" in build6_f4_physical_harness
+    and "PASS_BUILD6_F4_BACKEND_READY" in build6_f4_physical_harness
+    and "Deploying only `beginGlobalPullRun` is insufficient"
+        in build6_f4_backend_blocker
+    and "perform no Firebase deployment" in build6_f4_backend_blocker
+    and "Status: HOLD BY DEFAULT" in open_pr_87_93_hold
+    and "The stacked chain must preserve order: #87, #88, #89, then #92"
+        in open_pr_87_93_hold
+    and "does not close, supersede or merge any PR" in open_pr_87_93_hold
     and build6_f4_physical.get("discoveryAuthority", {}).get(
         "receiptSha256"
     )
