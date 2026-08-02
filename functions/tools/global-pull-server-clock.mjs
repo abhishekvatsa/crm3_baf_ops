@@ -19,6 +19,7 @@ const WRITER_VERSION = "global-pull-server-stamp-v1";
 const CONTRACT_PATH = "runtime_contracts/global_pull_v1";
 const PAGE_SIZE = 500;
 const WRITE_BATCH_SIZE = 400;
+const MAX_EXAMPLE_IDS_PER_COLLECTION = 20;
 const COLLECTIONS = Object.freeze([
   "abnormality_types",
   "charge_abnormalities",
@@ -41,7 +42,8 @@ function usage() {
   return `
 Usage:
   node functions/tools/global-pull-server-clock.mjs \
-    --project <firebase-project-id> [--mode inventory] [--output <receipt.json>]
+    --project <firebase-project-id> [--mode inventory] [--output <receipt.json>] \
+    [--include-document-ids]
 
   node functions/tools/global-pull-server-clock.mjs \
     --project <firebase-project-id> --confirm-project <same-project-id> \
@@ -55,7 +57,10 @@ Usage:
 
 Inventory is read-only and is the default mode. Backfill stamps only missing
 fields and refuses to run when a malformed stamp exists. Activation performs a
-fresh zero-gap inventory before writing the runtime contract.
+fresh zero-gap inventory before writing the runtime contract. Inventory,
+backfill and activation receipts omit document IDs by default. The explicit
+--include-document-ids diagnostic is inventory-only, requires an exclusive
+output file and never emits document IDs to stdout.
 `.trim();
 }
 
@@ -70,14 +75,19 @@ function parseArgs(argv) {
     "--backfill-receipt",
     "--output",
   ]);
+  const booleanFlags = new Set(["--include-document-ids"]);
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index];
     if (flag === "--help") return {help: true};
-    if (!valueFlags.has(flag)) {
+    if (!valueFlags.has(flag) && !booleanFlags.has(flag)) {
       throw new Error(`Unknown argument: ${flag}`);
     }
     if (values.has(flag)) {
       throw new Error(`Duplicate argument: ${flag}`);
+    }
+    if (booleanFlags.has(flag)) {
+      values.set(flag, true);
+      continue;
     }
     const value = argv[index + 1];
     if (value == null || value.startsWith("--")) {
@@ -103,6 +113,7 @@ function parseArgs(argv) {
     sourceCommit: values.get("--source-commit"),
     backfillReceiptPath: values.get("--backfill-receipt"),
     outputPath: values.get("--output"),
+    includeDocumentIds: values.get("--include-document-ids") === true,
   };
   if (mode !== "inventory") {
     if (options.confirmProjectId !== projectId) {
@@ -125,6 +136,12 @@ function parseArgs(argv) {
   }
   if (mode !== "activate" && options.backfillReceiptPath) {
     throw new Error("--backfill-receipt is valid only for activation.");
+  }
+  if (options.includeDocumentIds && mode !== "inventory") {
+    throw new Error("--include-document-ids is valid only for inventory.");
+  }
+  if (options.includeDocumentIds && !options.outputPath) {
+    throw new Error("--include-document-ids requires --output.");
   }
   return options;
 }
@@ -181,6 +198,16 @@ function protocolEvidence() {
   };
 }
 
+function privacyEvidence(includeDocumentIds) {
+  return {
+    documentIdsRetained: includeDocumentIds,
+    maximumExampleIdsPerCollection: includeDocumentIds
+      ? MAX_EXAMPLE_IDS_PER_COLLECTION
+      : 0,
+    consoleContainsDocumentIds: false,
+  };
+}
+
 function assertProtocolEvidence(value) {
   if (
     value.protocolVersion !== PROTOCOL_VERSION ||
@@ -193,14 +220,14 @@ function assertProtocolEvidence(value) {
   }
 }
 
-async function scanCollection(db, collectionId) {
+async function scanCollection(db, collectionId, includeDocumentIds = false) {
   let lastDocument = null;
   let total = 0;
   let stamped = 0;
   let missing = 0;
   let malformed = 0;
-  const missingExamples = [];
-  const malformedExamples = [];
+  const missingExamples = includeDocumentIds ? [] : null;
+  const malformedExamples = includeDocumentIds ? [] : null;
 
   while (true) {
     let query = db
@@ -214,33 +241,46 @@ async function scanCollection(db, collectionId) {
       const value = document.get(SERVER_STAMP_FIELD);
       if (value == null) {
         missing += 1;
-        if (missingExamples.length < 20) missingExamples.push(document.id);
+        if (
+          missingExamples != null &&
+          missingExamples.length < MAX_EXAMPLE_IDS_PER_COLLECTION
+        ) {
+          missingExamples.push(document.id);
+        }
       } else if (value instanceof Timestamp) {
         stamped += 1;
       } else {
         malformed += 1;
-        if (malformedExamples.length < 20) malformedExamples.push(document.id);
+        if (
+          malformedExamples != null &&
+          malformedExamples.length < MAX_EXAMPLE_IDS_PER_COLLECTION
+        ) {
+          malformedExamples.push(document.id);
+        }
       }
     }
     if (snapshot.size < PAGE_SIZE) break;
     lastDocument = snapshot.docs.at(-1);
   }
 
-  return {
+  const counts = {
     collectionId,
     total,
     stamped,
     missing,
     malformed,
-    missingExamples,
-    malformedExamples,
   };
+  return includeDocumentIds
+    ? {...counts, missingExamples, malformedExamples}
+    : counts;
 }
 
-async function inventory(db) {
+async function inventory(db, {includeDocumentIds = false} = {}) {
   const collections = [];
   for (const collectionId of COLLECTIONS) {
-    collections.push(await scanCollection(db, collectionId));
+    collections.push(
+      await scanCollection(db, collectionId, includeDocumentIds),
+    );
   }
   return {
     total: collections.reduce((sum, item) => sum + item.total, 0),
@@ -305,13 +345,16 @@ async function writeReceipt(path, receipt) {
 
 async function runInventory(db, options) {
   const observedAt = new Date().toISOString();
-  const result = await inventory(db);
+  const result = await inventory(db, {
+    includeDocumentIds: options.includeDocumentIds,
+  });
   const receipt = sealReceipt({
     receiptType: "GLOBAL_PULL_SERVER_CLOCK_INVENTORY",
     receiptVersion: 1,
     projectId: options.projectId,
     observedAt,
     readOnly: true,
+    privacy: privacyEvidence(options.includeDocumentIds),
     ...protocolEvidence(),
     inventory: result,
   });
@@ -359,6 +402,7 @@ async function runBackfill(db, options) {
     sourceCommit: options.sourceCommit,
     startedAt,
     completedAt: new Date().toISOString(),
+    privacy: privacyEvidence(false),
     ...protocolEvidence(),
     before,
     updated,
@@ -436,6 +480,7 @@ async function runActivation(db, options) {
     activatedAt: data.activatedAt.toDate().toISOString(),
     contractPath: CONTRACT_PATH,
     backfillReceiptSha256: backfillReceipt.receiptSha256,
+    privacy: privacyEvidence(false),
     ...protocolEvidence(),
     preActivation,
   });
@@ -474,7 +519,23 @@ async function main() {
         receiptSha256: result.receipt.receiptSha256,
         outputPath: result.outputPath,
         inventory:
-          options.mode === "inventory" ? result.receipt.inventory : undefined,
+          options.mode === "inventory"
+            ? {
+                total: result.receipt.inventory.total,
+                stamped: result.receipt.inventory.stamped,
+                missing: result.receipt.inventory.missing,
+                malformed: result.receipt.inventory.malformed,
+                collections: result.receipt.inventory.collections.map(
+                  ({collectionId, total, stamped, missing, malformed}) => ({
+                    collectionId,
+                    total,
+                    stamped,
+                    missing,
+                    malformed,
+                  }),
+                ),
+              }
+            : undefined,
       },
       null,
       2,

@@ -2245,6 +2245,10 @@ check(
     and "'authorityDigest'" in global_pull_cursor
     and "before.malformed !== 0" in global_pull_governance
     and "Pre-activation inventory" in global_pull_governance
+    and "documentIdsRetained: includeDocumentIds" in global_pull_governance
+    and '"--include-document-ids is valid only for inventory."'
+        in global_pull_governance
+    and "consoleContainsDocumentIds: false" in global_pull_governance
     and len(global_pull_records) == 2
     and all(
         record.get("currentStatus") == "CLOSED"

@@ -145,9 +145,16 @@ source-commit, activation-time, and backfill-receipt evidence.
 
 | Mode | Mutation | Required controls |
 | --- | --- | --- |
-| `inventory` | none | explicit project; default mode |
+| `inventory` | none | explicit project; default mode; count-only evidence unless document-ID diagnostics are explicitly requested to an exclusive output file |
 | `backfill` | stamps missing fields | matching project confirmation, operator, exact source commit, exclusive receipt path |
 | `activate` | creates runtime contract | all backfill controls, sealed matching receipt, fresh zero-gap inventory |
+
+All three modes emit privacy-safe, count-only evidence by default. Backfill and
+activation never retain document IDs. The optional `--include-document-ids`
+diagnostic is limited to read-only inventory, requires an exclusive output
+file, and still keeps console output count-only. It is intended only for a
+separately admitted malformed-record adjudication; ordinary readiness evidence
+must leave it disabled.
 
 Backfill scans every document in every protocol collection. It refuses to
 start if any existing stamp is malformed, stamps only missing values with a

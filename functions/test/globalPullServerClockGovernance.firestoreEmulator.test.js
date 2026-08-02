@@ -68,6 +68,89 @@ describeWithEmulator("R-01/R-02 global pull governance", () => {
     if (app) await app.delete();
   });
 
+  test("inventory evidence is privacy-safe unless IDs are explicit", async () => {
+    const missingId = "sensitive-missing-record";
+    const malformedId = "sensitive-malformed-record";
+    await db.collection("directives").doc(missingId).set({isDeleted: false});
+    await db.collection("directives").doc(malformedId).set({
+      _globalPullServerUpdatedAt: "client-authored",
+    });
+
+    const safePath = join(evidenceDirectory, "inventory-safe.json");
+    const safe = runTool([
+      "--project",
+      projectId,
+      "--mode",
+      "inventory",
+      "--output",
+      safePath,
+    ]);
+    expect(safe.status).toBe(0);
+    expect(safe.stdout).not.toContain(missingId);
+    expect(safe.stdout).not.toContain(malformedId);
+    const safeText = await readFile(safePath, "utf8");
+    expect(safeText).not.toContain(missingId);
+    expect(safeText).not.toContain(malformedId);
+    const safeReceipt = JSON.parse(safeText);
+    expect(safeReceipt.privacy).toEqual({
+      documentIdsRetained: false,
+      maximumExampleIdsPerCollection: 0,
+      consoleContainsDocumentIds: false,
+    });
+    const safeDirectives = safeReceipt.inventory.collections.find(
+      ({collectionId}) => collectionId === "directives",
+    );
+    expect(safeDirectives).toMatchObject({missing: 1, malformed: 1});
+    expect(safeDirectives).not.toHaveProperty("missingExamples");
+    expect(safeDirectives).not.toHaveProperty("malformedExamples");
+
+    const diagnosticPath = join(evidenceDirectory, "inventory-diagnostic.json");
+    const diagnostic = runTool([
+      "--project",
+      projectId,
+      "--mode",
+      "inventory",
+      "--include-document-ids",
+      "--output",
+      diagnosticPath,
+    ]);
+    expect(diagnostic.status).toBe(0);
+    expect(diagnostic.stdout).not.toContain(missingId);
+    expect(diagnostic.stdout).not.toContain(malformedId);
+    const diagnosticReceipt = JSON.parse(
+      await readFile(diagnosticPath, "utf8"),
+    );
+    expect(diagnosticReceipt.privacy.documentIdsRetained).toBe(true);
+    const diagnosticDirectives = diagnosticReceipt.inventory.collections.find(
+      ({collectionId}) => collectionId === "directives",
+    );
+    expect(diagnosticDirectives.missingExamples).toContain(missingId);
+    expect(diagnosticDirectives.malformedExamples).toContain(malformedId);
+  });
+
+  test("write modes reject document-ID diagnostics", () => {
+    const result = runTool([
+      "--project",
+      projectId,
+      "--confirm-project",
+      projectId,
+      "--mode",
+      "backfill",
+      "--operator",
+      "emulator-test",
+      "--source-commit",
+      sourceCommit,
+      "--include-document-ids",
+      "--output",
+      join(evidenceDirectory, "should-not-exist.json"),
+    ]);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain(
+      "--include-document-ids is valid only for inventory",
+    );
+  });
+
   test("verified backfill precedes immutable protocol activation", async () => {
     await db.collection("directives").doc("legacy-missing").set({
       isDeleted: false,
