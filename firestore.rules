@@ -17,9 +17,31 @@ service cloud.firestore {
       ]);
     }
 
-    function globalPullStampUnchangedOnUpdate() {
-      return request.resource.data.get('_globalPullServerUpdatedAt', null)
-        == resource.data.get('_globalPullServerUpdatedAt', null);
+    function globalPullStampValidOnUpdate() {
+      let requestHasStamp = request.resource.data.keys().hasAny([
+        '_globalPullServerUpdatedAt'
+      ]);
+      let resourceHasStamp = resource.data.keys().hasAny([
+        '_globalPullServerUpdatedAt'
+      ]);
+      return (
+          requestHasStamp
+          && resourceHasStamp
+          && request.resource.data.get('_globalPullServerUpdatedAt', null)
+            == resource.data.get('_globalPullServerUpdatedAt', null)
+        )
+        || (
+          // Legacy clients can replace a document instead of merging it. An
+          // omitted stamp is safe only when business data also changed, which
+          // causes the retrying server trigger to write a fresh stamp.
+          !requestHasStamp
+          && (
+            !resourceHasStamp
+            || !request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              '_globalPullServerUpdatedAt'
+            ])
+          )
+        );
     }
 
     function hasUserDoc() {
@@ -2852,7 +2874,7 @@ service cloud.firestore {
         ? (
           isApprovedUser()
             ? (
-              globalPullStampUnchangedOnUpdate()
+              globalPullStampValidOnUpdate()
               && validKnowledgeBaseUpdate(docId)
             )
             : false
@@ -2877,7 +2899,7 @@ service cloud.firestore {
         && validMaintenanceCreate(docId);
       // A single transition router prevents Firestore from evaluating four
       // independent update allow expressions for the same request.
-      allow update: if globalPullStampUnchangedOnUpdate()
+      allow update: if globalPullStampValidOnUpdate()
         && validMaintenanceUpdate();
       allow delete: if false;
     }
@@ -2890,7 +2912,7 @@ service cloud.firestore {
       allow read: if isApprovedUser();
       allow create: if globalPullStampAbsentOnCreate()
         && validTemplatePackageCreate(docId);
-      allow update: if globalPullStampUnchangedOnUpdate()
+      allow update: if globalPullStampValidOnUpdate()
         && validTemplatePackageUpdate(docId);
       allow delete: if false;
     }
@@ -2903,7 +2925,7 @@ service cloud.firestore {
           && validTemplateVersionCreate(docId)
         )
         : false;
-      allow update: if globalPullStampUnchangedOnUpdate()
+      allow update: if globalPullStampValidOnUpdate()
         && validTemplateVersionUpdate(docId);
       allow delete: if false;
     }
@@ -2954,7 +2976,7 @@ service cloud.firestore {
       allow read: if isApprovedUser();
       allow create: if globalPullStampAbsentOnCreate()
         && validLegacyJobTemplateCreate();
-      allow update: if globalPullStampUnchangedOnUpdate()
+      allow update: if globalPullStampValidOnUpdate()
         && validLegacyJobTemplateUpdate();
       allow delete: if false;
     }
@@ -2975,7 +2997,7 @@ service cloud.firestore {
         ? (
           isApprovedUser()
             ? (
-              globalPullStampUnchangedOnUpdate()
+              globalPullStampValidOnUpdate()
               && validJobExecutionUpdate(docId)
             )
             : false
@@ -3001,7 +3023,7 @@ service cloud.firestore {
         ? (
           isApprovedUser()
             ? (
-              globalPullStampUnchangedOnUpdate()
+              globalPullStampValidOnUpdate()
               && validJobDiaryUpdate(docId)
             )
             : false
@@ -3019,7 +3041,7 @@ service cloud.firestore {
       // All client-originated population creates are server-only. Governed
       // published-template assignment uses the Admin SDK and bypasses rules.
       allow create: if false;
-      allow update: if globalPullStampUnchangedOnUpdate()
+      allow update: if globalPullStampValidOnUpdate()
         && validJobModuleUpdate(docId);
       allow delete: if false;
     }
@@ -3032,7 +3054,7 @@ service cloud.firestore {
       allow read: if isApprovedUser();
       allow create: if globalPullStampAbsentOnCreate()
         && validDirectiveCreate(docId);
-      allow update: if globalPullStampUnchangedOnUpdate()
+      allow update: if globalPullStampValidOnUpdate()
         && validDirectiveUpdate();
       allow delete: if false;
     }
@@ -3055,7 +3077,7 @@ service cloud.firestore {
     match /abnormality_types/{docId} {
       allow read: if isApprovedUser();
       allow create: if globalPullStampAbsentOnCreate() && isAdmin();
-      allow update: if globalPullStampUnchangedOnUpdate() && isAdmin();
+      allow update: if globalPullStampValidOnUpdate() && isAdmin();
       allow delete: if false;
     }
 

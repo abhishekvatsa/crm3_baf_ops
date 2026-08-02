@@ -215,13 +215,15 @@ for collection in EXPECTED_COLLECTIONS:
         create_denied or "globalPullStampAbsentOnCreate()" in block
     )
     rules_complete = rules_complete and (
-        update_denied or "globalPullStampUnchangedOnUpdate()" in block
+        update_denied or "globalPullStampValidOnUpdate()" in block
     )
 check(
     "Rules reserve the server stamp on every protocol collection",
     rules_complete
     and "request.resource.data.keys().hasAny([" in rules
-    and "request.resource.data.get('_globalPullServerUpdatedAt', null)" in rules,
+    and "request.resource.data.get('_globalPullServerUpdatedAt', null)" in rules
+    and "!request.resource.data.diff(resource.data).affectedKeys().hasOnly(["
+        in rules,
 )
 check(
     "Governance defaults read-only and gates both write modes",

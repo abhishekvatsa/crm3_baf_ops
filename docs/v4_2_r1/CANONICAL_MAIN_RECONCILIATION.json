@@ -465,9 +465,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "1A575F795DE66A34BF9F0C8562569CA7F4257747263929351607D26DC10DB7DF",
+      "candidateSha256": "BCF2CCFCCD4F03FFF11D5CCDBE9F869CEFCAA0563A164E41FDC3E41297F0500E",
       "canonicalBytes": 111981,
-      "candidateBytes": 135807,
+      "candidateBytes": 136543,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2729,9 +2729,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "D6314BC86B7FBD4B2095B35C1F2564FB0DF57E78B6AD7486CB98EBBEE5CF3D64",
+      "candidateSha256": "D4B372433546659006E0DCAB55A742A95E3BABD50877D49508CA6D13469D5907",
       "canonicalBytes": 78841,
-      "candidateBytes": 87666,
+      "candidateBytes": 89111,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2825,9 +2825,9 @@
     {
       "path": "test/maintenance_lifecycle_replay_contract_test.dart",
       "canonicalSha256": "F0E6B4CD5FA4B519998FA947242F926D61C5F9524BC8E0641AB40DF0199DB970",
-      "candidateSha256": "8FE83C6037B03BA801BA0AFE56AAE4C0ACC5017AE774406E538C79C19874F262",
+      "candidateSha256": "CA35E7AB20B143C1401A569E321B4B54C979B96F665448C1D03619A95DBE5633",
       "canonicalBytes": 21051,
-      "candidateBytes": 21092,
+      "candidateBytes": 21088,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

@@ -1189,7 +1189,9 @@ check(
     and "minimal, security-relevant user" in authority_capsule_policy
     and "Every client user-document create and update" in authority_capsule_policy
     and "function validMaintenanceUpdate()" in rules
-    and "allow update: if globalPullStampUnchangedOnUpdate()" in rules
+    and "allow update: if globalPullStampValidOnUpdate()" in rules
+    and "!request.resource.data.diff(resource.data).affectedKeys().hasOnly(["
+        in rules
     and "&& validMaintenanceUpdate();" in rules
     and "function validTemplateVersionUpdateDelta()" in rules
     and "function validDirectiveUpdateForRoles(roles)" in rules
@@ -1210,7 +1212,7 @@ maintenance_replay_guard = text("test/maintenance_lifecycle_replay_contract_test
 check(
     "R1.15 maintenance replay contract follows the single Rules router",
     "'match /maintenance_records/{docId}'" in maintenance_replay_guard
-    and "contains('allow update: if globalPullStampUnchangedOnUpdate()')"
+    and "contains('allow update: if globalPullStampValidOnUpdate()')"
         in maintenance_replay_guard
     and "contains('&& validMaintenanceUpdate();')" in maintenance_replay_guard
     and r"RegExp(r'allow\s+update\s*:')" in maintenance_replay_guard

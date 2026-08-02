@@ -73,7 +73,12 @@ rollout does not authorize any change to the existing deployed Function fleet
 or its still-open S-01 campaign.
 
 Firestore Rules prevent clients from supplying the reserved field on create or
-changing/removing it on update. Client update paths already denied by Rules
+replacing it with a client value on update. Merge updates must preserve the
+exact stamp. For Build 6 compatibility, a substantive overwrite-style update
+may omit the field; a stamp-only removal remains denied, and the retrying
+trigger restores a fresh server timestamp after the substantive write. The
+runtime contract remains absent until backfill and a fresh inventory prove
+that no unstamped gap remains. Client update paths already denied by Rules
 remain denied rather than receiving a redundant guard.
 
 ## Run Window
@@ -188,7 +193,8 @@ This order is mandatory:
 3. Deploy and read back the admitted Firestore Rules, callable, and retrying
    stamp trigger while leaving the runtime contract absent.
 4. Prove legacy-client create/update compatibility after a server stamp exists,
-   including overwrite-style writes.
+   including a substantive overwrite that omits the stamp, successful trigger
+   restamping, and denial of a stamp-only removal.
 5. Run read-only inventory and adjudicate every malformed value.
 6. Run governed backfill while the stamp trigger is active.
 7. Verify the sealed zero-gap receipt and repeat inventory.

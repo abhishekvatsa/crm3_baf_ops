@@ -16,6 +16,7 @@ const {
   where,
   Timestamp,
   serverTimestamp,
+  deleteField,
   writeBatch,
   setLogLevel,
 } = require("firebase/firestore");
@@ -105,7 +106,7 @@ describe("server-only callable abuse controls", () => {
 });
 
 describe("global pull server clock custody", () => {
-  test("clients cannot author or replace the reserved server clock", async () => {
+  test("clients cannot author or replace the stamp, and stamp-only removal fails", async () => {
     await seedUser("admin1", ["admin"]);
     const db = dbAs("admin1");
     const ref = doc(db, "abnormality_types/type1");
@@ -117,6 +118,9 @@ describe("global pull server clock custody", () => {
       })
     );
     await assertSucceeds(setDoc(ref, {title: "Type 1"}));
+    await assertFails(
+      updateDoc(ref, {_globalPullServerUpdatedAt: null})
+    );
 
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await updateDoc(
@@ -129,6 +133,23 @@ describe("global pull server clock custody", () => {
     await assertFails(
       updateDoc(ref, {_globalPullServerUpdatedAt: serverTimestamp()})
     );
+    await assertFails(
+      updateDoc(ref, {_globalPullServerUpdatedAt: deleteField()})
+    );
+  });
+
+  test("legacy substantive replacement may omit the stamp for server restamping", async () => {
+    await seedUser("admin1", ["admin"]);
+    await seedDoc("abnormality_types/type1", {
+      title: "Type 1",
+      _globalPullServerUpdatedAt: Timestamp.now(),
+    });
+    const db = dbAs("admin1");
+    const ref = doc(db, "abnormality_types/type1");
+
+    await assertSucceeds(setDoc(ref, {title: "Type 1 revised"}));
+    const replaced = await getDoc(ref);
+    expect(replaced.data()._globalPullServerUpdatedAt).toBeUndefined();
   });
 });
 
@@ -2173,6 +2194,31 @@ describe("knowledge_base", () => {
         updatedAt: serverTimestamp(),
         version: 2,
       })
+    );
+  });
+
+  test("legacy knowledge replacement can omit a prior server stamp", async () => {
+    const createdAt = Timestamp.fromDate(new Date(Date.now() - 60000));
+    await seedDoc("knowledge_base/KB-001", {
+      ...knowledgeRow({
+        createdAt,
+        updatedAt: createdAt,
+      }),
+      _globalPullServerUpdatedAt: Timestamp.now(),
+    });
+
+    const db = dbAs("admin1");
+    await assertSucceeds(
+      setDoc(
+        doc(db, "knowledge_base/KB-001"),
+        knowledgeRow({
+          createdAt,
+          updatedAt: serverTimestamp(),
+          version: 2,
+          changeSummary:
+            "Restored the governed row through the legacy replacement path.",
+        })
+      )
     );
   });
 
