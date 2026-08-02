@@ -1886,6 +1886,121 @@ check(
         {},
     ).get("pilotOrDistributionExpansion")
         is False
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("executionSourceMergeCommit")
+        == "e9cd2ecf858c958f3e3c236dc9e483e8cb5293f4"
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("priorPromotionSha256")
+        == "DD6F930A230CCF2A2E1DDFBF69E5A8A59C5A1ACD4D8B2DA78A2A958546CFFA87"
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("priorHarnessSha256")
+        == "4D41B2AA7E152F1F5DA4BD1F8B239F19B1A3ADC616295FEFCD50585897A4A168"
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("passingSyncBaselineReceiptSha256")
+        == "FF07D7CF1A10204823CD85C939AA569FD793740412837986ED828F18EFCA6CDF"
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("stoppedSyncMarkerStdoutSha256")
+        == "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("stoppedSyncMarkerStderrSha256")
+        == "440E2157943E6E2F2443D72E9E72394D1BEB29E24B2B35752E0A3B9960C29427"
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("postStopAdjudicationUiSha256")
+        == "2B574C233F6060026F7DF55ED3DE22D87CD10989564B06440E914BD87838E732"
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("ownerReportedExternalRouterInterruption")
+        is True
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("postStopNetworkValidated")
+        is True
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("observedActionLabel")
+        == "Retry sync"
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("absentActionLabel")
+        == "Sync now"
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("syncBaselineReceiptCreated")
+        is True
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("syncMarkerReceiptCreated")
+        is False
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("manualSyncInvoked")
+        is False
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("harnessNetworkStateMutationPerformed")
+        is False
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("remoteBusinessMutationPerformed")
+        is False
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("rawUiRetained")
+        is False
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("retryRequiresFreshLogNames")
+        is True
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("retryAuthorizedOnlyAfterMergedCorrection")
+        is True
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("failedAttemptMayNotBeRelabelledPass")
+        is True
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("artifactOrTargetExpansion")
+        is False
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("stage2dF4AuthorityExpansion")
+        is False
+    and build6_f4_physical.get(
+        "manualSyncRetryLabelCompatibilityAmendment",
+        {},
+    ).get("pilotOrDistributionExpansion")
+        is False
     and build6_f4_physical.get("discoveryAuthority", {}).get(
         "receiptSha256"
     )

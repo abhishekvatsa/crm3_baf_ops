@@ -240,3 +240,37 @@ UI is retained.
 This correction does not expand the approved artifact, target, phases,
 authority, distribution or pilot boundary. The stopped attempt is not passing
 evidence and cannot be relabelled as such.
+
+## Manual-Sync Retry-Label Compatibility Correction
+
+The next merged `RunSyncMarker` invocation stopped after the pre-sync
+diagnostics and approved-Home navigation had completed, but before the harness
+tapped a manual-sync action. During the invocation the owner reported an
+external router interruption. The app correctly changed its failed-state
+action label from `Sync now` to `Retry sync`; the harness accepted only the
+idle/success label and stopped with `Could not reach UI control: Sync now`.
+
+The stopped invocation ran from merge commit `e9cd2ec`, with promotion SHA-256
+`DD6F930A230CCF2A2E1DDFBF69E5A8A59C5A1ACD4D8B2DA78A2A958546CFFA87` and
+harness SHA-256
+`4D41B2AA7E152F1F5DA4BD1F8B239F19B1A3ADC616295FEFCD50585897A4A168`.
+Its empty stdout and durable stderr SHA-256 values are respectively
+`E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855` and
+`440E2157943E6E2F2443D72E9E72394D1BEB29E24B2B35752E0A3B9960C29427`.
+No sync-marker receipt was written and control flow stopped before the action
+tap, so no manual sync or harness-controlled network mutation occurred.
+
+A privacy-minimized post-stop check observed approved Home with `Retry sync`
+present and `Sync now` absent after connectivity had been restored and
+validated. Its raw UI was deleted immediately after hashing; the retained hash
+is `2B574C233F6060026F7DF55ED3DE22D87CD10989564B06440E914BD87838E732`.
+
+The harness now accepts exactly `Sync now` or `Retry sync` as clickable labels
+for the same manual-sync action. It does not accept a busy state, weaken the
+required successful outcome, or reuse the stopped logs. A retry is authorized
+only after this correction is merged and must use fresh log names while
+preserving the stopped logs. The prior attempt remains failed evidence.
+
+This correction does not expand the approved artifact, target, phases,
+authority, distribution or pilot boundary. `STAGE2D-F4`, `P-07` and pilot
+handout remain open.
