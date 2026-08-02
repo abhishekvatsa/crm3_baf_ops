@@ -144,6 +144,15 @@ void main() {
         globalPullSecuritySource,
         contains('GLOBAL_PULL_READER_RUNTIME_SERVICE_ACCOUNT'),
       );
+      expect(
+        globalPullSecuritySource,
+        contains('import {expr, projectID} from "firebase-functions/params"'),
+      );
+      expect(globalPullSecuritySource, contains(r'@${projectID}'));
+      expect(
+        globalPullSecuritySource,
+        isNot(contains('@crm3-baf-ops-b8638.iam.gserviceaccount.com')),
+      );
     },
   );
 

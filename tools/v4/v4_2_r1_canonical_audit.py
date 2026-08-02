@@ -2255,10 +2255,44 @@ check(
     and '"--include-document-ids is valid only for inventory."'
         in global_pull_governance
     and "consoleContainsDocumentIds: false" in global_pull_governance
-    and "crm3-global-pull-reader@" in global_pull_runtime_security
-    and "crm3-global-pull-writer@" in global_pull_runtime_security
+    and '"crm3-global-pull-reader"' in global_pull_runtime_security
+    and '"crm3-global-pull-writer"' in global_pull_runtime_security
+    and 'import {expr, projectID} from "firebase-functions/params"'
+        in global_pull_runtime_security
+    and "@${projectID}.iam.gserviceaccount.com"
+        in global_pull_runtime_security
+    and "@crm3-baf-ops-b8638.iam.gserviceaccount.com"
+        not in global_pull_runtime_security
     and "compute@developer.gserviceaccount.com"
         not in global_pull_runtime_security
+    and global_pull_runtime_identity_policy.get("schemaVersion") == 2
+    and global_pull_runtime_identity_policy.get("targetProjectBinding") == {
+        "builtInParameter": "PROJECT_ID",
+        "serviceAccountDomain": "iam.gserviceaccount.com",
+        "sameProjectRequired": True,
+        "crossProjectResolutionAllowed": False,
+    }
+    and global_pull_runtime_identity_policy.get(
+        "functionBindings", {}
+    ).get("beginGlobalPullRun", {}).get("runtimeServiceAccountTemplate")
+        == "crm3-global-pull-reader@${PROJECT_ID}.iam.gserviceaccount.com"
+    and global_pull_runtime_identity_policy.get(
+        "functionBindings", {}
+    ).get("stampGlobalPullServerClock", {}).get(
+        "runtimeServiceAccountTemplate"
+    ) == "crm3-global-pull-writer@${PROJECT_ID}.iam.gserviceaccount.com"
+    and global_pull_runtime_identity_policy.get("productionProjectId")
+        == "crm3-baf-ops-b8638"
+    and global_pull_runtime_identity_policy.get(
+        "functionBindings", {}
+    ).get("beginGlobalPullRun", {}).get(
+        "productionResolvedRuntimeServiceAccount"
+    ) == "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com"
+    and global_pull_runtime_identity_policy.get(
+        "functionBindings", {}
+    ).get("stampGlobalPullServerClock", {}).get(
+        "productionResolvedRuntimeServiceAccount"
+    ) == "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com"
     and global_pull_runtime_identity_policy.get(
         "functionBindings", {}
     ).get("beginGlobalPullRun", {}).get("requiredProjectRoles")
@@ -2274,6 +2308,9 @@ check(
         ]
     and global_pull_runtime_identity_policy.get(
         "existingFunctionFleetMutationAuthorized"
+    ) is False
+    and global_pull_runtime_identity_policy.get(
+        "crossProjectGrantAuthorized"
     ) is False
     and len(global_pull_records) == 2
     and all(

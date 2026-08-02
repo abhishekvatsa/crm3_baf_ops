@@ -181,7 +181,10 @@ This order is mandatory:
 
 1. Merge the exact source head with green CI.
 2. Create and read back the two exact dedicated runtime identities with only
-   the roles in `release/global-pull-runtime-identity-policy.json`.
+   the roles in `release/global-pull-runtime-identity-policy.json`. Each
+   identity is derived from Firebase's built-in deployment `PROJECT_ID`; the
+   resolved account must belong to the deployment target, and a cross-project
+   identity is prohibited.
 3. Deploy and read back the admitted Firestore Rules, callable, and retrying
    stamp trigger while leaving the runtime contract absent.
 4. Prove legacy-client create/update compatibility after a server stamp exists,
@@ -197,6 +200,12 @@ This order is mandatory:
 Backfill before the trigger is active is unsafe because concurrent writes could
 recreate an unstamped gap. Deploying the compatible client before activation is
 also prohibited because the client intentionally fails closed.
+
+The same-project identity rule is also a staging boundary. Staging must create
+its own reader and writer accounts and must never resolve either function to a
+production service account. Production retains exact resolved-address custody,
+while source remains deployable to an isolated staging project without an
+operator-supplied project override.
 
 ## Verification
 
