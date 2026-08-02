@@ -487,6 +487,8 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
     $versionSource.controls.androidPrPackagingProofRequired -ne $true -or
     $versionSource.controls.tokenRaceRemediationRequired -ne $true -or
     $versionSource.controls.
+      firestoreValueNormalizationRemediationRequired -ne $true -or
+    $versionSource.controls.
       privateRepositoryEnvironmentReviewerExceptionApproved -ne $true -or
     [string]$versionSource.controls.environmentExceptionApprovalReference -ne
       [string]$environmentReviewControl.exceptionApprovalReference -or
@@ -506,6 +508,12 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
     [string]$versionSource.requiredSource.c03ClosureMergeCommit -notmatch
       '^[0-9a-f]{40}$' -or
     $versionSource.requiredSource.androidPrPackagingProofRequired -ne $true -or
+    [int64]$versionSource.requiredSource.
+      firestoreValueNormalizationPullRequest -ne 111 -or
+    [string]$versionSource.requiredSource.
+      firestoreValueNormalizationMergeCommit -notmatch '^[0-9a-f]{40}$' -or
+    $versionSource.requiredSource.
+      firestoreValueNormalizationMustBeAncestorOfDispatchCommit -ne $true -or
     $versionSource.distributionApproved -ne $false -or
     $versionSource.unrestrictedPlantReleaseApproved -ne $false) {
   throw 'Governed build-number rollover authority is incomplete.'
@@ -521,6 +529,13 @@ git merge-base --is-ancestor `
   HEAD
 if ($LASTEXITCODE -ne 0) {
   throw 'Dispatch source does not contain the C-03 Android packaging closure.'
+}
+git merge-base --is-ancestor `
+  ([string]$versionSource.requiredSource.
+    firestoreValueNormalizationMergeCommit) `
+  HEAD
+if ($LASTEXITCODE -ne 0) {
+  throw 'Dispatch source does not contain the Firestore value-normalization remediation.'
 }
 
 $completionReceiptPath = $null
