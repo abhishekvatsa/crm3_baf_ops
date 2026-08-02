@@ -825,7 +825,8 @@ Assert-True $gms.StartsWith('package:') `
 $evidenceRoot = [IO.Path]::GetFullPath($EvidenceDirectory)
 $rootPrefix = $root.TrimEnd([IO.Path]::DirectorySeparatorChar) +
   [IO.Path]::DirectorySeparatorChar
-if ($evidenceRoot.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+if ($evidenceRoot.Equals($root, [StringComparison]::OrdinalIgnoreCase) -or
+    $evidenceRoot.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
   throw 'EvidenceDirectory must be outside the repository.'
 }
 $apkPath = Join-Path $evidenceRoot 'governed-build7.apk'

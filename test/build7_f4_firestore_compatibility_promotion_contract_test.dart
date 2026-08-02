@@ -213,6 +213,7 @@ void main() {
       'Build 7 compatibility execution requires exact tracked-clean main equal to freshly fetched origin/main.',
       'The Build 7 compatibility promotion is not effective on its unmodified baseline.',
       'EvidenceDirectory must be outside the repository.',
+      r'$evidenceRoot.Equals($root, [StringComparison]::OrdinalIgnoreCase)',
       'Build 7 finalization receipt SHA-256',
       'Build 6 private evidence',
       "'install', '--no-streaming', '-r', \$apkPath",
