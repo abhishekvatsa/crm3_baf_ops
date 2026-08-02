@@ -43,8 +43,11 @@ import {
 } from "./stage2dSecurityConfig";
 import {
   MUTATING_CALLABLE_SECURITY_OPTIONS,
-  READ_ONLY_CALLABLE_SECURITY_OPTIONS,
 } from "./callableSecurityConfig";
+import {
+  GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS,
+  GLOBAL_PULL_TRIGGER_SECURITY_OPTIONS,
+} from "./globalPullSecurityConfig";
 import type {
   BackendIdentityFirestoreLike,
   BackendIdentityJsonMap,
@@ -235,7 +238,7 @@ export const beginGlobalPullRun = onCall(
     timeoutSeconds: 15,
     memory: "256MiB",
     concurrency: 80,
-    ...READ_ONLY_CALLABLE_SECURITY_OPTIONS,
+    ...GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS,
   },
   async (request: CallableRequest<unknown>) => {
     try {
@@ -264,6 +267,7 @@ export const stampGlobalPullServerClock = onDocumentWritten(
     document: "{collectionId}/{documentId}",
     region: CALLABLE_REGION,
     retry: true,
+    ...GLOBAL_PULL_TRIGGER_SECURITY_OPTIONS,
   },
   async (event) => {
     if (event.data == null) return;

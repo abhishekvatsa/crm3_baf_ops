@@ -16,7 +16,8 @@ shared option is controlled by
 `CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK`, which deliberately defaults to
 `false`.
 
-`beginGlobalPullRun` has an explicit read-only, non-enforcing option.
+`beginGlobalPullRun` has an explicit read-only, non-enforcing option composed
+with its separately governed least-privilege runtime identity.
 `getBackendReleaseIdentity` retains its separately governed identity-callable
 security options.
 

@@ -64,6 +64,14 @@ tombstones are applied to existing local evidence with fresher-unsynced
 protection, are never inserted as phantom local records, and are excluded from
 normal audit reads.
 
+The callable and stamp trigger use separate dedicated runtime identities. The
+callable identity is limited to Datastore Viewer and Logs Writer; the trigger
+identity has Datastore User and Logs Writer plus the Eventarc Event Receiver and
+Cloud Run Invoker roles required for authenticated event delivery. Neither
+source binding uses the default Compute service account, and the two-function
+rollout does not authorize any change to the existing deployed Function fleet
+or its still-open S-01 campaign.
+
 Firestore Rules prevent clients from supplying the reserved field on create or
 changing/removing it on update. Client update paths already denied by Rules
 remain denied rather than receiving a redundant guard.
@@ -172,16 +180,18 @@ repairs an existing contract.
 This order is mandatory:
 
 1. Merge the exact source head with green CI.
-2. Deploy and read back the admitted Firestore Rules, callable, and retrying
+2. Create and read back the two exact dedicated runtime identities with only
+   the roles in `release/global-pull-runtime-identity-policy.json`.
+3. Deploy and read back the admitted Firestore Rules, callable, and retrying
    stamp trigger while leaving the runtime contract absent.
-3. Prove legacy-client create/update compatibility after a server stamp exists,
+4. Prove legacy-client create/update compatibility after a server stamp exists,
    including overwrite-style writes.
-4. Run read-only inventory and adjudicate every malformed value.
-5. Run governed backfill while the stamp trigger is active.
-6. Verify the sealed zero-gap receipt and repeat inventory.
-7. Activate the exact runtime contract.
-8. Deploy the compatible client to a controlled canary.
-9. Prove first-run full reconciliation, interrupted-run resume, actor and
+5. Run read-only inventory and adjudicate every malformed value.
+6. Run governed backfill while the stamp trigger is active.
+7. Verify the sealed zero-gap receipt and repeat inventory.
+8. Activate the exact runtime contract.
+9. Deploy the compatible client to a controlled canary.
+10. Prove first-run full reconciliation, interrupted-run resume, actor and
    generation isolation, tombstone discovery, and subsequent bounded pulls.
 
 Backfill before the trigger is active is unsafe because concurrent writes could
