@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "CRM3-B6-F4-STAGING-BACKEND-TRANCHE-20260802",
+  "evidenceType": "bounded-staging-backend-runtime-readiness",
+  "createdAtUtc": "2026-08-02T10:26:50.2088941Z",
+  "decision": "PASS_BOUNDED_STAGING_BACKEND_TRANCHE",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "deploymentCommit": "6366a415f23ed2f5d31aa22d8401186b27062d2e",
+    "deploymentTree": "412d9901f6f82c3811c4e662f856ba4cddf96954",
+    "branch": "main",
+    "originParityVerified": true,
+    "trackedWorktreeClean": true,
+    "functionsBuild": {
+      "cleanEmitPerformed": true,
+      "typescriptSourceCount": 57,
+      "emittedFileCount": 114,
+      "exportedCallableCount": 8,
+      "mutatingCallableCount": 6,
+      "readOnlyCallableCount": 2
+    }
+  },
+  "target": {
+    "environment": "staging",
+    "projectId": "crm3-baf-ops-staging",
+    "projectNumber": "162468056121",
+    "productionProjectId": "crm3-baf-ops-b8638",
+    "region": "asia-south1",
+    "firestoreDatabase": "(default)",
+    "firestoreMode": "NATIVE",
+    "firestoreLocation": "asia-south1",
+    "pointInTimeRecoveryEnabled": false,
+    "deleteProtectionEnabled": false,
+    "databaseWasEmptyBeforeSmokeTest": true
+  },
+  "deploymentBoundary": {
+    "explicitProjectOnEveryCloudMutation": true,
+    "gcloudDefaultProjectAfterDeployment": "crm3-baf-ops-b8638",
+    "productionRulesMutationPerformed": false,
+    "productionIndexMutationPerformed": false,
+    "productionFunctionMutationPerformed": false,
+    "productionIamMutationPerformed": false,
+    "productionDataMutationPerformed": false,
+    "productionFunctionCountAfterDeployment": 7,
+    "productionContainsBeginGlobalPullRun": false,
+    "productionContainsStampGlobalPullServerClock": false,
+    "productionRestorePackCreated": false
+  },
+  "firestore": {
+    "indexes": {
+      "sourcePath": "firestore.indexes.json",
+      "sourceSha256": "A0D032CCB2D9A9229AF9142CC69A6A66C2F6FB796F37A597C2B591F07B11AD52",
+      "sourceCount": 51,
+      "deployedCount": 51,
+      "readyCount": 51,
+      "nonReadyCount": 0
+    },
+    "rules": {
+      "sourcePath": "firestore.rules",
+      "repositorySha256": "1A575F795DE66A34BF9F0C8562569CA7F4257747263929351607D26DC10DB7DF",
+      "activeSha256": "1A575F795DE66A34BF9F0C8562569CA7F4257747263929351607D26DC10DB7DF",
+      "activeTextLength": 130515,
+      "repositoryTextLength": 130515,
+      "byteExact": true,
+      "releaseName": "projects/crm3-baf-ops-staging/releases/cloud.firestore",
+      "rulesetName": "projects/crm3-baf-ops-staging/rulesets/be0e0928-5bfa-42f4-ad0e-1b86c14e756a",
+      "rulesetCreateTime": "2026-08-02T09:56:04.828114Z"
+    },
+    "runtimeContract": {
+      "document": "runtime_contracts/global_pull_v1",
+      "readStatus": 404,
+      "state": "ABSENT",
+      "activationPerformed": false
+    },
+    "syntheticClockSmoke": {
+      "document": "maintenance_records/codex-staging-clock-smoke-v1",
+      "purpose": "global-pull-server-clock-staging-smoke",
+      "createTime": "2026-08-02T10:21:58.592319Z",
+      "clientUpdatedAt": "2026-08-02T10:21:58.384352Z",
+      "serverStamp": "2026-08-02T10:22:00.519Z",
+      "triggerUpdateTime": "2026-08-02T10:22:00.554303Z",
+      "serverStampAdded": true,
+      "stampOnlyFollowUpStableAfterSeconds": 20,
+      "stampOnlyFollowUpRewroteDocument": false,
+      "recordRetainedForStagingEvidence": true
+    }
+  },
+  "functions": {
+    "deployedCount": 2,
+    "firebaseFunctionsHash": "2711a5cb299d99f736e5a6c749eb0c440188dc6a",
+    "appCheckActivationParameter": {
+      "name": "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK",
+      "deployedValue": false,
+      "governedDeferralPreserved": true
+    },
+    "sourceControls": {
+      "runtimeIdentitySourcePath": "functions/src/globalPullSecurityConfig.ts",
+      "runtimeIdentitySourceSha256": "8DFE07729B9D59E8E46D62DC3C2D6B808483956C1C2EF25234E9A7CACF55D3A9",
+      "runtimeIdentityPolicyPath": "release/global-pull-runtime-identity-policy.json",
+      "runtimeIdentityPolicySha256": "23320F9E9055BF7E091B3FA384D03AFB3158571A46282D9F5F31172764C6F241"
+    },
+    "inventory": [
+      {
+        "name": "beginGlobalPullRun",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "region": "asia-south1",
+        "state": "ACTIVE",
+        "trigger": "callable",
+        "runtimeServiceAccount": "crm3-global-pull-reader@crm3-baf-ops-staging.iam.gserviceaccount.com",
+        "timeoutSeconds": 15,
+        "concurrency": 80,
+        "unauthenticatedProbeStatus": 401,
+        "unauthenticatedProbeReachedCallableHandler": true,
+        "unauthenticatedProbeCallableVerificationPassed": true
+      },
+      {
+        "name": "stampGlobalPullServerClock",
+        "platform": "gcfv2",
+        "runtime": "nodejs22",
+        "region": "asia-south1",
+        "state": "ACTIVE",
+        "trigger": "google.cloud.firestore.document.v1.written",
+        "documentPattern": "{collectionId}/{documentId}",
+        "database": "(default)",
+        "namespace": "(default)",
+        "retryPolicy": "RETRY_POLICY_RETRY",
+        "runtimeServiceAccount": "crm3-global-pull-writer@crm3-baf-ops-staging.iam.gserviceaccount.com"
+      }
+    ],
+    "runtimeIdentityRoles": {
+      "crm3-global-pull-reader@crm3-baf-ops-staging.iam.gserviceaccount.com": [
+        "roles/datastore.viewer",
+        "roles/logging.logWriter"
+      ],
+      "crm3-global-pull-writer@crm3-baf-ops-staging.iam.gserviceaccount.com": [
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver",
+        "roles/logging.logWriter",
+        "roles/run.invoker"
+      ]
+    }
+  },
+  "deploymentIncidents": [
+    {
+      "stage": "parameter-resolution",
+      "attempts": 2,
+      "outcome": "STOPPED_BEFORE_FUNCTION_CREATION",
+      "cause": "Non-interactive Firebase deployment required an explicit project-scoped value for CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK.",
+      "resolution": "A temporary staging-only dotenv file supplied false and was removed after deployment."
+    },
+    {
+      "stage": "retry-policy-acknowledgement",
+      "attempts": 1,
+      "outcome": "STOPPED_BEFORE_FUNCTION_CREATION",
+      "cause": "The CLI required explicit acknowledgement of the source-defined retry policy.",
+      "resolution": "The trigger's at-least-once safety and stamp-only recursion guard were verified before using --force."
+    },
+    {
+      "stage": "first-use-service-propagation",
+      "attempts": 1,
+      "outcome": "STOPPED_BEFORE_FUNCTION_CREATION",
+      "cause": "Concurrent first-use creation raced the Gen2 source bucket and Eventarc service-agent propagation.",
+      "resolution": "The bucket and official roles were read back, then allowed to propagate without additional IAM grants."
+    },
+    {
+      "stage": "artifact-repository-first-use-race",
+      "attempts": 1,
+      "outcome": "PARTIAL_STAGING_DEPLOYMENT",
+      "cause": "The trigger build began before the callable completed creation of the shared gcf-artifacts repository.",
+      "resolution": "The active callable was retained; the failed trigger placeholder with no Run service or Eventarc trigger was deleted and recreated successfully after repository readiness."
+    }
+  ],
+  "remainingPrerequisites": {
+    "authenticationProviderParityVerified": false,
+    "stagingSpecificClientConfigurationCreated": false,
+    "visibleStagingClientIdentityCreated": false,
+    "syntheticUserRoleMatrixCreated": false,
+    "fullStagingWorkflowWalkthroughCompleted": false,
+    "productionRestorePackCreated": false,
+    "productionRulesIndexesOrFunctionsDeployed": false,
+    "productionGlobalPullBackfillCompleted": false,
+    "productionRuntimeContractActivated": false,
+    "build6F4BackendReadyReceiptCreated": false,
+    "physicalDeviceF4Resumed": false
+  },
+  "programmeBoundary": {
+    "stage2dF4CurrentStatus": "OPEN",
+    "stage2dF4ClosureAuthorized": false,
+    "p07ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "heldPullRequests87Through93ReAdjudicated": false,
+    "decisionMayBeUsedAsPassBuild6F4BackendReady": false
+  }
+}
