@@ -27,6 +27,9 @@ No production credentials or production data are copied into staging.
 
 ## Stage C — pre-live restore pack
 
+The executable collector and current operational status are recorded in
+`PRODUCTION_PRELIVE_RESTORE_PACK.md`.
+
 Before any live backend mutation, create one sealed package containing:
 
 1. exact source commit/tag and a fresh-clone build proof;
