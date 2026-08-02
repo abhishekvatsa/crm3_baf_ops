@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "CRM3-PRODUCTION-PRELIVE-RESTORE-PACK-SEAL-20260802",
+  "evidenceType": "privacy-safe-production-pre-live-restore-pack-seal-receipt",
+  "recordedAtUtc": "2026-08-02T12:30:23.3469930Z",
+  "decision": "PASS_PRIVATE_PRODUCTION_RESTORE_PACK_SEALED_AND_INDEPENDENTLY_VERIFIED",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "collectorCommit": "f604c5e1966fc40f4ddd5d4eb75e483d807435eb",
+    "collectorTree": "4016ed33c5d5d39c125a6f5500d3a3465289bc25",
+    "branch": "main",
+    "originParityVerified": true,
+    "trackedWorktreeClean": true,
+    "ci": {
+      "workflow": "release-gate",
+      "event": "push",
+      "runId": 30747352624,
+      "headSha": "f604c5e1966fc40f4ddd5d4eb75e483d807435eb",
+      "expectedJobCount": 4,
+      "allExpectedJobsPassed": true
+    },
+    "collectorHistory": {
+      "builderPullRequest": 107,
+      "builderMergeCommit": "a7e1b0801b8f83e838ba421ec7266011dc7e8d10",
+      "nativeOutputFixPullRequest": 108,
+      "nativeOutputFixMergeCommit": "f604c5e1966fc40f4ddd5d4eb75e483d807435eb"
+    }
+  },
+  "protectedFirestoreExport": {
+    "projectId": "crm3-baf-ops-b8638",
+    "projectNumber": "894346496105",
+    "region": "asia-south1",
+    "operationName": "projects/crm3-baf-ops-b8638/databases/(default)/operations/ASA3ZTc5MmU4M2ZmOTUtNzdhOS1iZDQ0LWExMDYtY2QzNzc2MWEkGnNlbmlsZXBpcAkKMxI",
+    "outputUriPrefix": "gs://crm3-baf-ops-b8638-firestore-restore/pre-live/20260802T110053Z-052fd55",
+    "operationState": "SUCCESSFUL",
+    "completedAtUtc": "2026-08-02T11:00:56.255079Z",
+    "objectCount": 3,
+    "totalBytes": 229459,
+    "retentionDays": 90,
+    "versioningEnabled": true,
+    "publicAccessPreventionEnforced": true
+  },
+  "privatePack": {
+    "createdAtUtc": "2026-08-02T12:25:13.5813244Z",
+    "archiveFileName": "CRM3_PRODUCTION_RESTORE_PACK_20260802T122513Z_f604c5e1.zip",
+    "archiveBytes": 160973106,
+    "archiveSha256": "0FFB2A1DCD73AFD5C452E8978E21FF96D555FE063D32DC3B054B50229594CE08",
+    "manifestSha256": "AE0652127028B54E6386848DB8FA21B2F6E1C7AF4439AAF69D45787CDE30B3EF",
+    "manifestRecordedFileCount": 44,
+    "archiveEntryCount": 45,
+    "deployedFunctionCount": 7,
+    "managedExportObjectCount": 3,
+    "governedBuild6Sha256": "E36C39E40C4B92B0721DAD916F050F439644FDF7FC40A36C1EB579571EBD074E",
+    "privateCustodyCopyCount": 2,
+    "secondaryPrivateCustodyHashVerified": true,
+    "archiveCommittedToRepository": false,
+    "absoluteCustodyPathRecorded": false
+  },
+  "independentVerification": {
+    "decision": "PASS_INDEPENDENT_RESTORE_PACK_VERIFICATION",
+    "archiveHashRecalculated": true,
+    "sidecarBindingVerified": true,
+    "manifestHashRecalculated": true,
+    "everyManifestEntryHashAndSizeVerified": true,
+    "diskAndArchiveEntrySetsMatched": true,
+    "archiveOpenedSuccessfully": true,
+    "allFunctionSourceArchivesVerified": true,
+    "allManagedExportObjectsVerified": true,
+    "governedBuild6HashVerified": true,
+    "mutationFlagsTrue": 0
+  },
+  "failedClosedAttempt": {
+    "attemptedAtUtc": "2026-08-02T11:56:58Z",
+    "collectorCommit": "a7e1b0801b8f83e838ba421ec7266011dc7e8d10",
+    "outcome": "FAILED_CLOSED_NO_SEALED_ARCHIVE",
+    "failureClass": "windows-native-progress-output-handling",
+    "partialFileCount": 12,
+    "manifestCreated": false,
+    "archiveCreated": false,
+    "sidecarCreated": false,
+    "productionMutationPerformed": false,
+    "resolutionPullRequest": 108
+  },
+  "mutationBoundary": {
+    "firestoreDocumentMutationPerformed": false,
+    "firestoreImportPerformed": false,
+    "rulesMutationPerformed": false,
+    "indexesMutationPerformed": false,
+    "functionsMutationPerformed": false,
+    "iamMutationPerformed": false,
+    "clientDistributionPerformed": false
+  },
+  "privacyBoundary": {
+    "receiptContainsProductionDocuments": false,
+    "receiptContainsDeployedFunctionSource": false,
+    "receiptContainsSigningMaterial": false,
+    "receiptContainsAbsolutePrivateCustodyPaths": false,
+    "privateRecoveryArchiveCommitted": false,
+    "privatePackContainsSensitiveRecoveryMaterial": true
+  },
+  "programmeBoundary": {
+    "restorePackPrerequisiteSatisfied": true,
+    "productionBackendMutationAuthorizedByThisReceipt": false,
+    "stage2dF4CurrentStatus": "OPEN",
+    "stage2dF4ClosureAuthorized": false,
+    "p07ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "heldPullRequests87Through93ReAdjudicated": false
+  }
+}

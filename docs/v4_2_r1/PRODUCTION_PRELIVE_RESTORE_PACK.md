@@ -1,6 +1,6 @@
 # Production Pre-Live Restore Pack
 
-Status: SOURCE IMPLEMENTED; PRIVATE PACK SEAL PENDING POST-MERGE EXECUTION
+Status: PRIVATE PACK SEALED AND INDEPENDENTLY VERIFIED; LIVE MUTATION NOT AUTHORIZED
 
 ## Purpose
 
@@ -35,6 +35,33 @@ It contains three generation-bound objects totaling 229,459 bytes. Creating
 the bucket and export did not mutate Firestore documents or application
 controls.
 
+## Seal Receipt
+
+The collector was executed from exact `main` commit
+`f604c5e1966fc40f4ddd5d4eb75e483d807435eb` after all four jobs in post-merge
+`release-gate` run `30747352624` passed. The private pack was sealed at
+`2026-08-02T12:25:13.5813244Z` with:
+
+- archive SHA-256
+  `0FFB2A1DCD73AFD5C452E8978E21FF96D555FE063D32DC3B054B50229594CE08`;
+- manifest SHA-256
+  `AE0652127028B54E6386848DB8FA21B2F6E1C7AF4439AAF69D45787CDE30B3EF`;
+- 44 manifest-recorded files and 45 archive entries including the manifest;
+- all seven deployed production Function source archives;
+- all three managed Firestore export objects;
+- the exact governed Build 6 package.
+
+An independent verification recalculated both hashes, checked every manifest
+entry's size and hash, opened the ZIP, matched the complete disk/archive entry
+sets and reverified the Function, export and Build 6 payloads. A second private
+custody copy was hash-verified. The privacy-safe repository receipt is
+`release/evidence/production-prelive-restore-pack-seal.json`.
+
+An earlier attempt at collector commit `a7e1b0801b8f83e838ba421ec7266011dc7e8d10`
+failed closed while handling normal Windows native-command progress output. It
+created 12 partial files but no manifest, archive or sidecar, performed no
+production mutation, and was corrected by PR #108 before the successful seal.
+
 ## Collector Boundary
 
 The collector requires all of the following:
@@ -67,8 +94,8 @@ download only.
 
 ## Execution
 
-After this source is merged and the post-merge CI run succeeds, execute from
-exact clean `main`:
+For an explicitly authorized future refresh, execute from exact clean `main`
+after its post-merge CI run succeeds:
 
 ```powershell
 .\tools\release\New-ProductionRestorePack.ps1 `

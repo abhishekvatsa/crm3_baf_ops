@@ -80,11 +80,13 @@ void main() {
       final normalizedPolicy = policy.replaceAll(RegExp(r'\s+'), ' ');
 
       for (final required in <String>[
-        'PRIVATE PACK SEAL PENDING POST-MERGE EXECUTION',
+        'PRIVATE PACK SEALED AND INDEPENDENTLY VERIFIED; LIVE MUTATION NOT AUTHORIZED',
         'must never be committed',
         'did not mutate Firestore documents or application controls',
         'readback and download only',
         'privacy-safe receipt',
+        'production-prelive-restore-pack-seal.json',
+        'An independent verification recalculated both hashes',
         'separate live rollback decision',
         'import-rehearsed in an isolated recovery target',
         '`STAGE2D-F4`, `P-07` and pilot handout remain open',
