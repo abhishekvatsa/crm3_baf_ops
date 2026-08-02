@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "production-build-finalization-closure",
+  "status": "passed-non-distributable",
+  "release": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b7",
+    "version": "1.0.0-rc.1+7",
+    "buildNumber": 7,
+    "applicationId": "in.co.sail.bsl.crm3.bafops"
+  },
+  "sourceAuthority": {
+    "commit": "d8619ef1a9c7bf53828523c4bca3efe33e4074f0",
+    "tree": "60e246772e3c47006e94f179b646ee0e278d79b8",
+    "pullRequestNumber": 112,
+    "productionPolicySha256AtBuild": "17B4A83FD7C753A38E363FA325A8025D0B439BB5BE7B5DA2CE628334451D0A7A",
+    "finalizerSha256AtBuild": "B6D01F1DEF8E5A878316A050059A24BDE32BEA6EA114CD3E44C8B6E0ADD9ED90"
+  },
+  "workflow": {
+    "path": ".github/workflows/production-artifact.yml",
+    "runId": 30757692948,
+    "runAttempt": 1,
+    "url": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30757692948",
+    "startedAtUtc": "2026-08-02T16:54:41Z",
+    "completedAtUtc": "2026-08-02T17:16:23Z",
+    "conclusion": "success",
+    "actor": "abhishekvatsa",
+    "actorId": 213690022,
+    "triggeringActor": "abhishekvatsa",
+    "dispatchApprovalReference": "BAF-REF-003-C6",
+    "environmentExceptionApprovalReference": "BAF-GH-ENV-003",
+    "environmentReviewControlMode": "private-repository-plan-exception",
+    "secretNamesVerified": 4,
+    "secretValuesInspected": false
+  },
+  "githubArtifact": {
+    "id": 8836687771,
+    "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.1-b7-d8619ef1a9c7bf53828523c4bca3efe33e4074f0-run-30757692948",
+    "sizeBytes": 153060389,
+    "digest": "sha256:816404e201baf8e06a553e6c1642ad27ea5218ad144f1226fdb23aca0b46b14c"
+  },
+  "governedPackage": {
+    "file": "crm3-baf-ops-1.0.0-rc.1-b7-GOVERNED-PACKAGE.zip",
+    "sha256": "D6E2710481681F63651B13A9C5872B16BDADE90EB288E610DD59BE1B9B07ACE7",
+    "sidecarFile": "crm3-baf-ops-1.0.0-rc.1-b7-GOVERNED-PACKAGE.zip.sha256.txt",
+    "sidecarSha256": "882C50C088A4B3D1F0F7D0C1C939E51D4C74EB7FFAC481B02CD2CCEF911E9CAE",
+    "manifestSha256": "89ABC9F1B3A56BF5FC258FD0060BC5BE8FEE6233D41C8B5B899FFED896195EAA",
+    "apkSha256": "EE5B5B7205A37F1FEF1F1B4C98CB1446ED544A123E130D7F3A4134E6A5E6DD56",
+    "aabSha256": "ACA6E447CD125EBB8E506A35277682A683C32C9398F57515EDE155B466EDE5A6",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "independentVerificationCompleted": true
+  },
+  "remoteAuthority": {
+    "reservationTag": "crm3-build-reserved/7",
+    "reservationTagCreatedAtUtc": "2026-08-02T17:03:39Z",
+    "reservationTagObjectSha": "5e351f0b5acf1f887e14c5ad70c60864a5d6c470",
+    "reservationTagCommit": "d8619ef1a9c7bf53828523c4bca3efe33e4074f0",
+    "reservationTagMessageSha256": "3B36780E4873214CFCF539A7E19BBDF7DC0F27F0B2E95DA75925562F861F2ADB",
+    "builtTag": "crm3-build-built/7",
+    "builtTagCreatedAtUtc": "2026-08-02T17:26:51Z",
+    "builtTagObjectSha": "b06edcbcd4fdb2d27fc4b844dd16f54340aa0c3d",
+    "builtTagCommit": "d8619ef1a9c7bf53828523c4bca3efe33e4074f0",
+    "builtTagMessageSha256": "EA8985BC4D7E410F7CF4F65EF3DA310A1DF461ECA27072DEB0991FB09B27231C"
+  },
+  "dualCustody": {
+    "status": "passed",
+    "primaryVolumeRole": "operator-primary",
+    "backupVolumeRole": "offline-removable-backup",
+    "distinctVolumes": true,
+    "filesVerifiedInBothLocations": 6,
+    "allFileHashesMatched": true,
+    "completedAtUtc": "2026-08-02T17:27:37.0829850Z"
+  },
+  "closure": {
+    "decisionSchemaVersion": 4,
+    "decisionAtUtc": "2026-08-02T17:27:02.2414997Z",
+    "successfulWorkDirectoryName": "CRM_III_BAF_Ops_O1_O5_FINALIZATION_20260802_225330",
+    "closurePackageFile": "CRM_III_BAF_Ops_O1_O5_CLOSURE_20260802_225330.zip",
+    "closurePackageSha256": "C15D8655E2F27D0F87BAFEC97A32208926BD62130E268E13945E6C32F2FDD876",
+    "closureSidecarSha256": "FDAED2927C05BBB266624B9CF5043AF971EF3F482CA30871A0F9A096FDD9CCD6",
+    "custodyRecordFile": "CRM_III_BAF_Ops_O1_O5_CUSTODY_20260802_225330.json",
+    "custodyRecordSha256": "550033EA6E3D87C204480D5B4030846B0750E4A0FD37A40F5473CEC96F0047CF",
+    "custodySidecarSha256": "220D252B6C22B18BBA7C5B38495A5BBDC5055C3F13A8A75FC84A20BB63357A6F"
+  },
+  "localPreflightIncidents": {
+    "occurred": true,
+    "incidents": [
+      {
+        "failureBoundary": "repository-cleanliness-before-fetch",
+        "cause": "The primary checkout contained preserved operator-owned untracked directories, so the finalizer rejected it as dirty.",
+        "sourceOrArtifactDefect": false,
+        "remoteMutationPerformed": false,
+        "custodyPerformed": false,
+        "resolution": "Used a separate clean worktree at the exact authorized commit without modifying the operator-owned directories."
+      },
+      {
+        "failureBoundary": "detached-head-branch-preflight-before-fetch",
+        "cause": "The finalizer called Trim on the absent branch-name output in a detached clean worktree.",
+        "sourceOrArtifactDefect": true,
+        "remoteMutationPerformed": false,
+        "custodyPerformed": false,
+        "resolution": "Attached the clean worktree to exact main; the closure source change adds null-safe branch validation for future runs."
+      }
+    ],
+    "buildWorkflowRerunPerformed": false,
+    "rebuildPerformed": false
+  },
+  "finalizationRetryIncident": {
+    "occurred": true,
+    "initialAttemptWorkDirectoryName": "CRM_III_BAF_Ops_O1_O5_FINALIZATION_20260802_224924",
+    "failureBoundary": "github-artifact-download-before-custody-and-built-tag",
+    "cause": "The remote host reset the network connection while gh was writing the downloaded workflow artifact archive.",
+    "stateBeforeRetry": {
+      "remoteReservationTagPresent": true,
+      "productionPackageDualCustodyCompleted": false,
+      "remoteBuiltTagPresent": false,
+      "rebuildPerformed": false,
+      "workflowRerunPerformed": false
+    },
+    "retry": {
+      "method": "unchanged-finalizer-same-run-rerun",
+      "sameGithubRunReused": true,
+      "sameArtifactNameReused": true,
+      "forceUsed": false
+    },
+    "verification": {
+      "samePackageHashVerified": true,
+      "dualCustodyPassed": true,
+      "builtTagCreated": true,
+      "closurePassed": true
+    }
+  },
+  "recoveryIncident": {
+    "occurred": false,
+    "forceUsed": false
+  },
+  "releaseBoundary": {
+    "authority": "production-signed-pre-release-candidate",
+    "firebaseBackendDeploymentPerformed": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false,
+    "distributionPerformed": false,
+    "postBuildPromotionRequiredForAnyDistribution": true
+  }
+}

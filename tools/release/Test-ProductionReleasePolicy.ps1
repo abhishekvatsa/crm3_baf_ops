@@ -275,6 +275,7 @@ $finalizer = Get-Content `
   -LiteralPath 'tools/release/Finalize-ProductionRelease.ps1' `
   -Raw
 foreach ($requiredFinalizerControl in @(
+  '$currentBranchOutput = @(git branch --show-current)'
   '$prCommits.Count -lt 1'
   'private-repository-plan-exception'
   'github-environment-secrets.json'

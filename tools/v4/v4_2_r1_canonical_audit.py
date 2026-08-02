@@ -1369,12 +1369,18 @@ build7_exception_path = (
     / "release/approvals/"
     / "private-repository-environment-reviewer-exception-build-7.json"
 )
+build7_completion_path = (
+    ROOT / "release/evidence/build-7-finalization-closure.json"
+)
 build7_approval = data(
     "release/approvals/build-number-7-rollover-approval.json"
 )
 build7_exception = data(
     "release/approvals/"
     "private-repository-environment-reviewer-exception-build-7.json"
+)
+build7_completion = data(
+    "release/evidence/build-7-finalization-closure.json"
 )
 version_policy_approval = data(
     "release/approvals/version-policy-approval.json"
@@ -1393,7 +1399,7 @@ build7_entries = [
 ]
 build7_entry = build7_entries[0] if len(build7_entries) == 1 else {}
 check(
-    "Build 6 is finalized and Build 7 is source-authorized only",
+    "Build 6 remains exact and Build 7 is finalized non-distributable",
     sha(build6_approval_path)
         == "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141"
     and sha(build6_exception_path)
@@ -1508,17 +1514,23 @@ check(
     and version_policy_approval.get("buildNumber") == 7
     and combined_policy.get("release", {}).get("buildNumber") == 7
     and combined_policy.get("finalization", {}).get("status")
-        == "pending-source-authorized"
-    and sha(build6_completion_path)
+        == "completed-non-distributable"
+    and sha(build7_completion_path)
         == combined_policy.get("finalization", {}).get(
-            "priorCompletedBuild", {}
-        ).get(
             "completionReceiptSha256"
         )
+    and combined_policy.get("finalization", {}).get("sourceCommit")
+        == "d8619ef1a9c7bf53828523c4bca3efe33e4074f0"
+    and combined_policy.get("finalization", {}).get("githubRunId")
+        == 30757692948
+    and combined_policy.get("finalization", {}).get(
+        "governedPackageSha256"
+    )
+        == "D6E2710481681F63651B13A9C5872B16BDADE90EB288E610DD59BE1B9B07ACE7"
     and combined_policy.get("finalization", {}).get(
         "dualCustodyCompleted"
     )
-        is False
+        is True
     and combined_policy.get("distribution", {}).get("approved") is False
     and build6_entry.get("status")
         == "remote-consumed-artifact-built-finalized-non-distributable"
@@ -1589,17 +1601,77 @@ check(
     and build6_entry.get("closureFinalizationCompleted") is True
     and build6_entry.get("dualCustodyCompleted") is True
     and build6_entry.get("distributionPerformed") is False
+    and build7_completion.get("status") == "passed-non-distributable"
+    and build7_completion.get("sourceAuthority", {}).get("commit")
+        == "d8619ef1a9c7bf53828523c4bca3efe33e4074f0"
+    and build7_completion.get("sourceAuthority", {}).get(
+        "pullRequestNumber"
+    )
+        == 112
+    and build7_completion.get("workflow", {}).get("runId")
+        == 30757692948
+    and build7_completion.get("governedPackage", {}).get("sha256")
+        == "D6E2710481681F63651B13A9C5872B16BDADE90EB288E610DD59BE1B9B07ACE7"
+    and build7_completion.get("remoteAuthority", {}).get(
+        "reservationTagObjectSha"
+    )
+        == "5e351f0b5acf1f887e14c5ad70c60864a5d6c470"
+    and build7_completion.get("remoteAuthority", {}).get(
+        "builtTagObjectSha"
+    )
+        == "b06edcbcd4fdb2d27fc4b844dd16f54340aa0c3d"
+    and build7_completion.get("dualCustody", {}).get("distinctVolumes")
+        is True
+    and build7_completion.get("dualCustody", {}).get(
+        "allFileHashesMatched"
+    )
+        is True
+    and build7_completion.get("localPreflightIncidents", {}).get(
+        "occurred"
+    )
+        is True
+    and len(
+        build7_completion.get("localPreflightIncidents", {}).get(
+            "incidents", []
+        )
+    )
+        == 2
+    and build7_completion.get("finalizationRetryIncident", {}).get(
+        "occurred"
+    )
+        is True
+    and build7_completion.get("recoveryIncident", {}).get("occurred")
+        is False
+    and build7_completion.get("releaseBoundary", {}).get(
+        "firebaseBackendDeploymentPerformed"
+    )
+        is False
+    and build7_completion.get("releaseBoundary", {}).get(
+        "controlledPilotApproved"
+    )
+        is False
+    and build7_completion.get("releaseBoundary", {}).get(
+        "distributionPerformed"
+    )
+        is False
     and build7_entry.get("status")
-        == "source-reserved-awaiting-remote-consumption"
+        == "remote-consumed-artifact-built-finalized-non-distributable"
     and build7_entry.get("versionApprovalReference") == "BAF-REF-003-C6"
     and build7_entry.get("versionApprovalDocumentSha256")
         == sha(build7_approval_path)
     and build7_entry.get("remoteReservationTag")
         == "crm3-build-reserved/7"
     and build7_entry.get("remoteBuiltTag") == "crm3-build-built/7"
-    and "githubRunId" not in build7_entry
-    and "remoteReservationTagObject" not in build7_entry
-    and "remoteBuiltTagObject" not in build7_entry,
+    and build7_entry.get("githubRunId") == 30757692948
+    and build7_entry.get("remoteReservationTagObject")
+        == "5e351f0b5acf1f887e14c5ad70c60864a5d6c470"
+    and build7_entry.get("remoteBuiltTagObject")
+        == "b06edcbcd4fdb2d27fc4b844dd16f54340aa0c3d"
+    and build7_entry.get("closureFinalizationCompleted") is True
+    and build7_entry.get("dualCustodyCompleted") is True
+    and build7_entry.get("localFinalizerPreflightIncidentCount") == 2
+    and build7_entry.get("finalizationRetryRequired") is True
+    and build7_entry.get("distributionPerformed") is False,
 )
 build6_f4_rehearsal = data(
     "release/approvals/build-6-f4-emulator-rehearsal-promotion.json"
