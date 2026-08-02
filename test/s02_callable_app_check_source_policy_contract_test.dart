@@ -91,6 +91,14 @@ void main() {
         'beginGlobalPullRun',
         'getBackendReleaseIdentity',
       });
+      expect(
+        readOnly['beginGlobalPullRun'],
+        'GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS',
+      );
+      expect(
+        readOnly['getBackendReleaseIdentity'],
+        'BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS',
+      );
 
       final indexSource = File('functions/src/index.ts').readAsStringSync();
       for (final callable in mutating.where(
@@ -111,7 +119,7 @@ void main() {
       );
       expect(
         _callableOptions(indexSource, 'beginGlobalPullRun'),
-        contains('READ_ONLY_CALLABLE_SECURITY_OPTIONS'),
+        contains('GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS'),
       );
       expect(
         _callableOptions(indexSource, 'getBackendReleaseIdentity'),
@@ -125,6 +133,17 @@ void main() {
         contains('CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK'),
       );
       expect(securitySource, contains('default: false'));
+
+      final globalPullSecuritySource =
+          File('functions/src/globalPullSecurityConfig.ts').readAsStringSync();
+      expect(
+        globalPullSecuritySource,
+        contains('...READ_ONLY_CALLABLE_SECURITY_OPTIONS'),
+      );
+      expect(
+        globalPullSecuritySource,
+        contains('GLOBAL_PULL_READER_RUNTIME_SERVICE_ACCOUNT'),
+      );
     },
   );
 
