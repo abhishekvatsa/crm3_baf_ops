@@ -1790,6 +1790,81 @@ check(
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
         == "STAGE2D-F4",
 )
+build7_f4_locator_recovery_path = (
+    "release/approvals/build-7-f4-prove-read-locator-recovery.json"
+)
+build7_f4_locator_recovery = data(build7_f4_locator_recovery_path)
+build7_f4_locator_recovery_doc = text(
+    "docs/v4_2_r1/BUILD7_F4_PROVE_READ_LOCATOR_RECOVERY.md"
+)
+check(
+    "Build 7 prove-read locator recovery preserves receipts and is read-only",
+    build7_f4_locator_recovery.get("approvalClass")
+        == "CONTROLLED_BUILD7_PROVE_READ_LOCATOR_RECOVERY"
+    and build7_f4_locator_recovery.get("originalPromotion", {}).get("sha256")
+        == sha(
+            ROOT
+            / "release/approvals/build-7-f4-firestore-compatibility-promotion.json"
+        )
+        == "39818BA2550AB962F87992467D0BD0AD7DD4B1D8CAE6D65CC738B80B6CB689F9"
+    and build7_f4_locator_recovery.get("originalPromotion", {}).get(
+        "remainsUnmodified"
+    )
+        is True
+    and build7_f4_locator_recovery.get("authorizedSourceCorrection", {}).get(
+        "failedHarnessCommit"
+    )
+        == "59489c25ff5e43faa6cca2fed6d9de1ff88cd126"
+    and build7_f4_locator_recovery.get("campaignAuthority", {}).get(
+        "preflightReceiptSha256"
+    )
+        == "11B8AD068F6ED082B7D8FCE430C9A1D0329465DD13E009253E52E13945F8599D"
+    and build7_f4_locator_recovery.get("campaignAuthority", {}).get(
+        "upgradeReceiptSha256"
+    )
+        == "CB36DBBBACE68175782E55EA7509AF2B91D449D786D7B733A9F6768DFEBFB716"
+    and build7_f4_locator_recovery.get("failureAdjudication", {}).get(
+        "markerPresentInHint"
+    )
+        is True
+    and build7_f4_locator_recovery.get("failureAdjudication", {}).get(
+        "oldLocatorCouldResolve"
+    )
+        is False
+    and build7_f4_locator_recovery.get("retryAuthority", {}).get(
+        "maximumAttempts"
+    )
+        == 1
+    and build7_f4_locator_recovery.get("retryAuthority", {}).get("readOnly")
+        is True
+    and build7_f4_locator_recovery.get("retryAuthority", {}).get(
+        "remoteMutationAuthorized"
+    )
+        is False
+    and build7_f4_locator_recovery.get(
+        "narrowFailurePolicyOverride", {}
+    ).get("scope")
+        == "READ_ONLY_UI_LOCATOR_RECOVERY_ONLY"
+    and build7_f4_compatibility.get("failurePolicy", {}).get(
+        "newEvidenceDirectoryRequiredForRestart"
+    )
+        is True
+    and "RecoverProveReadLocator" in build7_f4_compatibility_harness
+    and "contains(@hint,'Search rowCode')"
+        in build7_f4_compatibility_harness
+    and "PASS_BUILD7_PROVE_READ_LOCATOR_FAILURE_REPRODUCED_PRIVACY_SAFE"
+        in build7_f4_compatibility_harness
+    and "does not relabel the failed `ProveRead` attempt as passing"
+        in build7_f4_locator_recovery_doc
+    and build7_f4_locator_recovery.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    )
+        is False
+    and build7_f4_locator_recovery.get("programmeBoundary", {}).get(
+        "pilotHandoutAuthorized"
+    )
+        is False,
+)
 build6_f4_rehearsal = data(
     "release/approvals/build-6-f4-emulator-rehearsal-promotion.json"
 )
