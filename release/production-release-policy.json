@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "policyId": "crm3-baf-ops-o1-o5-v4-f6ddd3c-b6",
+  "policyId": "crm3-baf-ops-o1-o5-v4-53b1000-b7",
   "firebaseProjectId": "crm3-baf-ops-b8638",
   "permanentApplicationId": "in.co.sail.bsl.crm3.bafops",
   "namespace": "in.co.sail.bsl.crm3.bafops",
@@ -15,9 +15,9 @@
       "requiredReviewerAvailable": false,
       "requiredReviewerRulePresentAtApproval": false,
       "manualDispatchApprovalReferenceRequired": true,
-      "exceptionApprovalFile": "release/approvals/private-repository-environment-reviewer-exception-build-6.json",
-      "exceptionApprovalSha256": "B3B8F50593CB13D94FE269E97BDD2C46EF7E1E3A7822F52B79A75328EDED4C02",
-      "exceptionApprovalReference": "BAF-GH-ENV-002",
+      "exceptionApprovalFile": "release/approvals/private-repository-environment-reviewer-exception-build-7.json",
+      "exceptionApprovalSha256": "9430D7D23568C7BCD25248790F47E18D9A4C464336C50D4C76D36E97DF68D800",
+      "exceptionApprovalReference": "BAF-GH-ENV-003",
       "requiredSecretNames": [
         "CRM_ANDROID_RELEASE_KEY_ALIAS",
         "CRM_ANDROID_RELEASE_KEY_PASSWORD",
@@ -42,29 +42,29 @@
     "approved": true,
     "scheme": "semver2",
     "versionName": "1.0.0-rc.1",
-    "buildNumber": 6,
+    "buildNumber": 7,
     "buildNumberPolicy": "positive-int32-strictly-monotonic-never-reuse",
-    "reservationId": "crm3-baf-ops-o1-o5-v4-f6ddd3c-b6-6",
+    "reservationId": "crm3-baf-ops-o1-o5-v4-53b1000-b7-7",
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
-    "sourceDocumentFile": "release/approvals/build-number-6-rollover-approval.json",
-    "sourceDocumentSha256": "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141",
-    "remoteReservationTag": "crm3-build-reserved/6",
-    "remoteBuiltTag": "crm3-build-built/6",
+    "sourceDocumentFile": "release/approvals/build-number-7-rollover-approval.json",
+    "sourceDocumentSha256": "CF0ABE08D6A48C1E9EF849D0B9569554F367E8DEC24ED46201BA94CD0F0D7452",
+    "remoteReservationTag": "crm3-build-reserved/7",
+    "remoteBuiltTag": "crm3-build-built/7",
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
-    "status": "completed-non-distributable",
-    "completionReceiptFile": "release/evidence/build-6-finalization-closure.json",
-    "completionReceiptSha256": "147688A631C910D58A02F72EFDDDA74C2647F2430BF1492EFFC2952492B0CFD1",
-    "sourceCommit": "f6fccc662119790bcc742ff91e00934117030948",
-    "githubRunId": 30572342725,
-    "governedPackageSha256": "E36C39E40C4B92B0721DAD916F050F439644FDF7FC40A36C1EB579571EBD074E",
-    "closurePackageSha256": "A22ABCFCB19E856A7C51147AC9BAC79BCA856ECECB698140DA38D9FE22DC3517",
-    "custodyRecordSha256": "4F97B6EF90B382872099183AF5F825F16CFC0315099D11EE2AB9AFC06DF1F57C",
-    "remoteReservationTagObject": "9c82843b84194c9eeef9a4d7ec7b81d1d0c8caa7",
-    "remoteBuiltTagObject": "189f668f8f59f934b1baec0b9bdf723dc7960b6c",
-    "dualCustodyCompleted": true,
+    "status": "pending-source-authorized",
+    "priorCompletedBuild": {
+      "buildNumber": 6,
+      "completionReceiptFile": "release/evidence/build-6-finalization-closure.json",
+      "completionReceiptSha256": "147688A631C910D58A02F72EFDDDA74C2647F2430BF1492EFFC2952492B0CFD1",
+      "sourceCommit": "f6fccc662119790bcc742ff91e00934117030948",
+      "githubRunId": 30572342725,
+      "remoteBuiltTag": "crm3-build-built/6",
+      "governedPackageSha256": "E36C39E40C4B92B0721DAD916F050F439644FDF7FC40A36C1EB579571EBD074E"
+    },
+    "dualCustodyCompleted": false,
     "firebaseBackendDeploymentPerformed": false,
     "controlledPilotApproved": false,
     "unrestrictedPlantReleaseApproved": false
@@ -115,11 +115,11 @@
     "restorationEvidenceSha256": "24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF"
   },
   "release": {
-    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b6",
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b7",
     "releaseTag": "crm3-baf-ops-v1.0.0-rc.1",
     "releaseChannel": "production-candidate",
     "versionName": "1.0.0-rc.1",
-    "buildNumber": 6
+    "buildNumber": 7
   },
   "distribution": {
     "authority": "production-signed-pre-release-candidate",

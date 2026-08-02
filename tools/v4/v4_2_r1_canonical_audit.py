@@ -1361,6 +1361,21 @@ build6_exception = data(
 build6_completion = data(
     "release/evidence/build-6-finalization-closure.json"
 )
+build7_approval_path = (
+    ROOT / "release/approvals/build-number-7-rollover-approval.json"
+)
+build7_exception_path = (
+    ROOT
+    / "release/approvals/"
+    / "private-repository-environment-reviewer-exception-build-7.json"
+)
+build7_approval = data(
+    "release/approvals/build-number-7-rollover-approval.json"
+)
+build7_exception = data(
+    "release/approvals/"
+    "private-repository-environment-reviewer-exception-build-7.json"
+)
 version_policy_approval = data(
     "release/approvals/version-policy-approval.json"
 )
@@ -1371,16 +1386,18 @@ build6_entries = [
     if entry.get("buildNumber") == 6
 ]
 build6_entry = build6_entries[0] if len(build6_entries) == 1 else {}
+build7_entries = [
+    entry
+    for entry in build_number_ledger.get("entries", [])
+    if entry.get("buildNumber") == 7
+]
+build7_entry = build7_entries[0] if len(build7_entries) == 1 else {}
 check(
-    "Build 6 is finalized, dual-custodied and non-distributable",
+    "Build 6 is finalized and Build 7 is source-authorized only",
     sha(build6_approval_path)
-        == combined_policy.get("versionPolicy", {}).get(
-            "sourceDocumentSha256"
-        )
+        == "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141"
     and sha(build6_exception_path)
-        == combined_policy.get("github", {})
-        .get("environmentReviewControl", {})
-        .get("exceptionApprovalSha256")
+        == "B3B8F50593CB13D94FE269E97BDD2C46EF7E1E3A7822F52B79A75328EDED4C02"
     and build6_approval.get("approvalReference") == "BAF-REF-003-C5"
     and build6_approval.get("approved") is True
     and build6_approval.get("distributionApproved") is False
@@ -1418,19 +1435,74 @@ check(
         "environmentApprovalHistoryObserved"
     )
         == "not-inspected"
-    and version_policy_approval.get("reference") == "BAF-REF-003-C5"
-    and version_policy_approval.get("buildNumber") == 6
-    and combined_policy.get("release", {}).get("buildNumber") == 6
+    and sha(build7_approval_path)
+        == combined_policy.get("versionPolicy", {}).get(
+            "sourceDocumentSha256"
+        )
+    and sha(build7_exception_path)
+        == combined_policy.get("github", {})
+        .get("environmentReviewControl", {})
+        .get("exceptionApprovalSha256")
+    and build7_approval.get("approvalReference") == "BAF-REF-003-C6"
+    and build7_approval.get("approved") is True
+    and build7_approval.get("distributionApproved") is False
+    and build7_approval.get("unrestrictedPlantReleaseApproved") is False
+    and build7_approval.get("consumedBuild", {}).get("buildNumber") == 6
+    and build7_approval.get("consumedBuild", {}).get(
+        "closureFinalizationCompleted"
+    )
+        is True
+    and build7_approval.get("consumedBuild", {}).get(
+        "distributionPerformed"
+    )
+        is False
+    and build7_approval.get("nextBuild", {}).get("buildNumber") == 7
+    and build7_approval.get("requiredSource", {}).get(
+        "firestoreValueNormalizationMergeCommit"
+    )
+        == "53b10006bc8e34240e2ec94b861ef907311071c0"
+    and build7_approval.get("runtimeFinding", {}).get(
+        "build6CanSatisfyF4"
+    )
+        is False
+    and build7_approval.get("controls", {}).get(
+        "productionBackfillAuthorized"
+    )
+        is False
+    and build7_approval.get("controls", {}).get(
+        "globalPullRuntimeContractActivationAuthorized"
+    )
+        is False
+    and build7_approval.get("controls", {}).get(
+        "productionDataMutationAuthorized"
+    )
+        is False
+    and build7_exception.get("approvalReference") == "BAF-GH-ENV-003"
+    and build7_exception.get("scope", {}).get("buildNumber") == 7
+    and build7_exception.get("scope", {}).get("singleBuildOnly") is True
+    and build7_exception.get("liveStateEvidence", {}).get(
+        "requiredReviewerRulePresent"
+    )
+        is False
+    and build7_exception.get("liveStateEvidence", {}).get(
+        "secretValuesInspected"
+    )
+        is False
+    and version_policy_approval.get("reference") == "BAF-REF-003-C6"
+    and version_policy_approval.get("buildNumber") == 7
+    and combined_policy.get("release", {}).get("buildNumber") == 7
     and combined_policy.get("finalization", {}).get("status")
-        == "completed-non-distributable"
+        == "pending-source-authorized"
     and sha(build6_completion_path)
         == combined_policy.get("finalization", {}).get(
+            "priorCompletedBuild", {}
+        ).get(
             "completionReceiptSha256"
         )
     and combined_policy.get("finalization", {}).get(
         "dualCustodyCompleted"
     )
-        is True
+        is False
     and combined_policy.get("distribution", {}).get("approved") is False
     and build6_entry.get("status")
         == "remote-consumed-artifact-built-finalized-non-distributable"
@@ -1500,7 +1572,18 @@ check(
         == "189f668f8f59f934b1baec0b9bdf723dc7960b6c"
     and build6_entry.get("closureFinalizationCompleted") is True
     and build6_entry.get("dualCustodyCompleted") is True
-    and build6_entry.get("distributionPerformed") is False,
+    and build6_entry.get("distributionPerformed") is False
+    and build7_entry.get("status")
+        == "source-reserved-awaiting-remote-consumption"
+    and build7_entry.get("versionApprovalReference") == "BAF-REF-003-C6"
+    and build7_entry.get("versionApprovalDocumentSha256")
+        == sha(build7_approval_path)
+    and build7_entry.get("remoteReservationTag")
+        == "crm3-build-reserved/7"
+    and build7_entry.get("remoteBuiltTag") == "crm3-build-built/7"
+    and "githubRunId" not in build7_entry
+    and "remoteReservationTagObject" not in build7_entry
+    and "remoteBuiltTagObject" not in build7_entry,
 )
 build6_f4_rehearsal = data(
     "release/approvals/build-6-f4-emulator-rehearsal-promotion.json"
