@@ -2211,6 +2211,12 @@ global_pull_backend = text("functions/src/globalPullServerClock.ts")
 global_pull_client = text("lib/core/services/global_pull_protocol.dart")
 global_pull_cursor = text("lib/core/services/global_pull_cursor_store.dart")
 global_pull_governance = text("functions/tools/global-pull-server-clock.mjs")
+global_pull_runtime_security = text(
+    "functions/src/globalPullSecurityConfig.ts"
+)
+global_pull_runtime_identity_policy = data(
+    "release/global-pull-runtime-identity-policy.json"
+)
 global_pull_remediation = text(
     "docs/v4_2_r1/R01_R02_SERVER_CLOCK_AND_SCOPED_CURSOR_REMEDIATION.md"
 )
@@ -2249,6 +2255,26 @@ check(
     and '"--include-document-ids is valid only for inventory."'
         in global_pull_governance
     and "consoleContainsDocumentIds: false" in global_pull_governance
+    and "crm3-global-pull-reader@" in global_pull_runtime_security
+    and "crm3-global-pull-writer@" in global_pull_runtime_security
+    and "compute@developer.gserviceaccount.com"
+        not in global_pull_runtime_security
+    and global_pull_runtime_identity_policy.get(
+        "functionBindings", {}
+    ).get("beginGlobalPullRun", {}).get("requiredProjectRoles")
+        == ["roles/datastore.viewer", "roles/logging.logWriter"]
+    and global_pull_runtime_identity_policy.get(
+        "functionBindings", {}
+    ).get("stampGlobalPullServerClock", {}).get("requiredProjectRoles")
+        == [
+            "roles/datastore.user",
+            "roles/eventarc.eventReceiver",
+            "roles/run.invoker",
+            "roles/logging.logWriter",
+        ]
+    and global_pull_runtime_identity_policy.get(
+        "existingFunctionFleetMutationAuthorized"
+    ) is False
     and len(global_pull_records) == 2
     and all(
         record.get("currentStatus") == "CLOSED"
@@ -2589,7 +2615,7 @@ check(
         "...MUTATING_CALLABLE_SECURITY_OPTIONS"
     ) == 1
     and callable_index_source.count(
-        "...READ_ONLY_CALLABLE_SECURITY_OPTIONS"
+        "...GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS"
     ) == 1
     and callable_index_source.count(
         "...BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS"

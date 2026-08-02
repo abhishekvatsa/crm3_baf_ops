@@ -24,7 +24,7 @@
       "mutateUserAuthority"
     ],
     "readOnlySecurityOptionsByCallable": {
-      "beginGlobalPullRun": "READ_ONLY_CALLABLE_SECURITY_OPTIONS",
+      "beginGlobalPullRun": "GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS",
       "getBackendReleaseIdentity": "BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS"
     },
     "sourceAuditCommand": "npm --prefix functions run audit:callable-inventory",

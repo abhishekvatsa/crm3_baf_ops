@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "policyId": "GLOBAL-PULL-RUNTIME-IDENTITY-POLICY-V1",
+  "declarationStatus": "SOURCE_IMPLEMENTED_PENDING_IAM_AND_DEPLOYMENT",
+  "projectId": "crm3-baf-ops-b8638",
+  "functionBindings": {
+    "beginGlobalPullRun": {
+      "runtimeServiceAccount": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+      "requiredProjectRoles": [
+        "roles/datastore.viewer",
+        "roles/logging.logWriter"
+      ],
+      "firestoreAccess": "READ_ONLY"
+    },
+    "stampGlobalPullServerClock": {
+      "runtimeServiceAccount": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+      "requiredProjectRoles": [
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver",
+        "roles/run.invoker",
+        "roles/logging.logWriter"
+      ],
+      "firestoreAccess": "READ_WRITE_PROTOCOL_COLLECTIONS_ENFORCED_BY_SOURCE"
+    }
+  },
+  "forbiddenProjectRoles": [
+    "roles/owner",
+    "roles/editor",
+    "roles/iam.securityAdmin",
+    "roles/iam.serviceAccountAdmin",
+    "roles/iam.serviceAccountTokenCreator"
+  ],
+  "deploymentScope": [
+    "beginGlobalPullRun",
+    "stampGlobalPullServerClock"
+  ],
+  "existingFunctionFleetMutationAuthorized": false,
+  "defaultComputeRoleMutationAuthorized": false,
+  "crossProjectGrantAuthorized": false,
+  "nonClaims": [
+    "This source policy does not create service accounts or mutate IAM.",
+    "This source policy does not deploy Functions, Rules or indexes.",
+    "This source policy does not close S-01, H2-IAM or LR-03.",
+    "This source policy does not authorize runtime contract activation, device validation or pilot handout."
+  ]
+}

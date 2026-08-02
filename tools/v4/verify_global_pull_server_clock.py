@@ -86,6 +86,10 @@ cursor_store = source("lib/core/services/global_pull_cursor_store.dart")
 pull_shell = source("lib/core/services/global_pull_service.dart")
 rules = source("firestore.rules")
 governance_tool = source("functions/tools/global-pull-server-clock.mjs")
+runtime_security = source("functions/src/globalPullSecurityConfig.ts")
+runtime_identity_policy = json.loads(
+    source("release/global-pull-runtime-identity-policy.json")
+)
 
 backend_collections = quoted_list_after(
     backend, "export const GLOBAL_PULL_COLLECTIONS"
@@ -226,6 +230,29 @@ check(
     and "options.confirmProjectId !== projectId" in governance_tool
     and '"--operator is required for a write mode."' in governance_tool
     and '"--output is required for a write mode."' in governance_tool,
+)
+check(
+    "Global-pull functions use separate least-privilege runtime identities",
+    "GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS" in backend_index
+    and "GLOBAL_PULL_TRIGGER_SECURITY_OPTIONS" in backend_index
+    and "crm3-global-pull-reader@" in runtime_security
+    and "crm3-global-pull-writer@" in runtime_security
+    and "compute@developer.gserviceaccount.com" not in runtime_security
+    and runtime_identity_policy.get("functionBindings", {})
+        .get("beginGlobalPullRun", {}).get("requiredProjectRoles")
+        == ["roles/datastore.viewer", "roles/logging.logWriter"]
+    and runtime_identity_policy.get("functionBindings", {})
+        .get("stampGlobalPullServerClock", {}).get("requiredProjectRoles")
+        == [
+            "roles/datastore.user",
+            "roles/eventarc.eventReceiver",
+            "roles/run.invoker",
+            "roles/logging.logWriter",
+        ]
+    and runtime_identity_policy.get("existingFunctionFleetMutationAuthorized")
+        is False
+    and runtime_identity_policy.get("defaultComputeRoleMutationAuthorized")
+        is False,
 )
 check(
     "Governance evidence omits document IDs by default and keeps stdout count-only",
