@@ -260,6 +260,15 @@ void main() {
       expect(script, contains(marker), reason: marker);
     }
     expect(script, isNot(contains("'Core modules'")));
+    expect(script, contains(r'$homeEvidence = Move-ToApprovedHome'));
+    expect(
+      RegExp(
+        r'^\s*\$home\s*=',
+        caseSensitive: false,
+        multiLine: true,
+      ).hasMatch(script),
+      isFalse,
+    );
     expect(home, contains("label: const Text('Raise issue')"));
     expect(home, contains("'Needs attention'"));
 

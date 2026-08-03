@@ -676,7 +676,7 @@ try {
     '-p', $applicationId, '-c', 'android.intent.category.LAUNCHER', '1'
   )
   Start-Sleep -Seconds 3
-  $home = Move-ToApprovedHome `
+  $homeEvidence = Move-ToApprovedHome `
     -Adb $adb -Serial $DeviceSerial -EvidenceRoot $evidenceRoot
   $before = Get-LocalDiagnosticsEvidence `
     -Adb $adb -Serial $DeviceSerial -EvidenceRoot $evidenceRoot `
@@ -727,9 +727,9 @@ try {
     }
     session = [ordered]@{
       approvedHomeReached = $true
-      requiredHomeMarkerCount = $home.requiredMarkerCount
-      forbiddenMarkerCount = $home.forbiddenMarkerCount
-      homeUiSha256 = $home.uiSha256
+      requiredHomeMarkerCount = $homeEvidence.requiredMarkerCount
+      forbiddenMarkerCount = $homeEvidence.forbiddenMarkerCount
+      homeUiSha256 = $homeEvidence.uiSha256
       accountIdentityRetained = $false
     }
     currentNetworkState = $network
