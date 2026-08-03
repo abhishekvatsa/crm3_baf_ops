@@ -99,11 +99,14 @@ The workflow:
 - confirms the commit is exact live remote main;
 - confirms the dispatch approval reference is the exact source approval;
 - confirms the workflow actor and triggering actor are the exact authorized
-  dispatcher recorded in the exception;
+  dispatcher recorded in the build-scoped environment approval;
 - verifies the merged production policy and composite backend authority before
   creating any reservation tag;
-- verifies the private-repository environment-review exception remains
-  applicable and fails if a required-reviewer rule has appeared;
+- verifies that the repository remains public, the exact required-reviewer
+  rule remains present, administrator bypass remains disabled, and only
+  `main` may deploy to the production-signing environment;
+- queries the exact workflow-run approval history and requires an approved
+  review by the governed reviewer before any build-number reservation;
 - proves all four named production-signing secrets are present without printing
   them before creating any reservation tag;
 - restores the pinned toolchain and locked dependencies;
@@ -141,16 +144,19 @@ re-verifies the package, checks the remote reservation tag and live environment
 control, establishes two independent custody copies, creates the built tag,
 creates a closure ZIP and establishes dual custody for the closure evidence.
 
-For build 5 only, the source policy records
-`private-repository-plan-exception`. GitHub's current plan eligibility does not
-provide required-reviewer environment protection for this private repository.
-The exception does not claim that a reviewer rule or environment approval
-exists. It substitutes an exact merged-source approval, a required dispatch
-approval reference, owner-bound workflow actor and triggering actor,
-environment-secret inventory, atomic reservation, independent verification and
-dual custody. It fails closed if the repository becomes non-private, the
-environment or secret names differ, the dispatcher identity differs, or a
-required-reviewer rule appears.
+Builds 5, 6 and 7 are immutable historical releases finalized while the
+repository was private under build-scoped `private-repository-plan-exception`
+receipts. Those receipts remain preserved as evidence and do not authorize a
+future build.
+
+Beginning with Build 8, the repository is public and the source policy records
+`public-repository-required-reviewer`. The production-signing environment must
+retain the exact reviewer, disabled administrator bypass, an exact `main`-only
+deployment rule and the four approved secret names. Both the workflow and the
+independent finalizer query the exact run's approval history and require an
+approved review by that reviewer. Because this is currently a single-owner
+repository, self-review is explicitly permitted; the approval is a deliberate
+secret-release event, not evidence of independent two-person review.
 
 ### Phase F — optional controlled-pilot promotion
 

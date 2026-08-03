@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "policyId": "crm3-baf-ops-o1-o5-v4-53b1000-b7",
+  "policyId": "crm3-baf-ops-o1-o5-v4-45ebd9c-b8",
   "firebaseProjectId": "crm3-baf-ops-b8638",
   "permanentApplicationId": "in.co.sail.bsl.crm3.bafops",
   "namespace": "in.co.sail.bsl.crm3.bafops",
@@ -11,20 +11,35 @@
     "workflowPath": ".github/workflows/production-artifact.yml",
     "environmentName": "crm3-baf-ops-production-signing",
     "environmentReviewControl": {
-      "mode": "private-repository-plan-exception",
-      "requiredReviewerAvailable": false,
-      "requiredReviewerRulePresentAtApproval": false,
+      "mode": "public-repository-required-reviewer",
+      "repositoryVisibility": "public",
+      "requiredReviewerAvailable": true,
+      "requiredReviewerRulePresentAtApproval": true,
+      "requiredReviewerLogin": "abhishekvatsa",
+      "requiredReviewerId": 213690022,
+      "preventSelfReview": false,
+      "adminBypassAllowed": false,
+      "deploymentBranchPolicy": {
+        "protectedBranches": false,
+        "customBranchPolicies": true,
+        "allowedBranches": [
+          {
+            "name": "main",
+            "type": "branch"
+          }
+        ]
+      },
       "manualDispatchApprovalReferenceRequired": true,
-      "exceptionApprovalFile": "release/approvals/private-repository-environment-reviewer-exception-build-7.json",
-      "exceptionApprovalSha256": "9430D7D23568C7BCD25248790F47E18D9A4C464336C50D4C76D36E97DF68D800",
-      "exceptionApprovalReference": "BAF-GH-ENV-003",
+      "approvedRunReviewHistoryRequired": true,
+      "approvalReceiptFile": "release/approvals/public-repository-environment-reviewer-approval-build-8.json",
+      "approvalReceiptSha256": "B763824728626C23F12C5DAC76428F803CF37E2433DD041E1157F8EDCEF391DE",
+      "approvalReference": "BAF-GH-ENV-004",
       "requiredSecretNames": [
         "CRM_ANDROID_RELEASE_KEY_ALIAS",
         "CRM_ANDROID_RELEASE_KEY_PASSWORD",
         "CRM_ANDROID_RELEASE_KEYSTORE_BASE64",
         "CRM_ANDROID_RELEASE_STORE_PASSWORD"
-      ],
-      "failClosedIfRequiredReviewerRuleAppears": true
+      ]
     }
   },
   "identityApproval": {
@@ -42,29 +57,29 @@
     "approved": true,
     "scheme": "semver2",
     "versionName": "1.0.0-rc.1",
-    "buildNumber": 7,
+    "buildNumber": 8,
     "buildNumberPolicy": "positive-int32-strictly-monotonic-never-reuse",
-    "reservationId": "crm3-baf-ops-o1-o5-v4-53b1000-b7-7",
+    "reservationId": "crm3-baf-ops-o1-o5-v4-45ebd9c-b8-8",
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
-    "sourceDocumentFile": "release/approvals/build-number-7-rollover-approval.json",
-    "sourceDocumentSha256": "E2D25FAFB29D1EAB42E8BF8C03D38F60FDF75D4C2A8CE5037D9DA61E56C89C76",
-    "remoteReservationTag": "crm3-build-reserved/7",
-    "remoteBuiltTag": "crm3-build-built/7",
+    "sourceDocumentFile": "release/approvals/build-number-8-rollover-approval.json",
+    "sourceDocumentSha256": "5060D9CC53FB9F65CCA888F913A45A1C7D4B5629FF93350138DB8C4E605A7335",
+    "remoteReservationTag": "crm3-build-reserved/8",
+    "remoteBuiltTag": "crm3-build-built/8",
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
-    "status": "completed-non-distributable",
-    "completionReceiptFile": "release/evidence/build-7-finalization-closure.json",
-    "completionReceiptSha256": "F9788C0DD9BB7DB0B21A43FF461D68CEBC85A2135E16DA68E1ABA8342B1B1337",
-    "sourceCommit": "d8619ef1a9c7bf53828523c4bca3efe33e4074f0",
-    "githubRunId": 30757692948,
-    "governedPackageSha256": "D6E2710481681F63651B13A9C5872B16BDADE90EB288E610DD59BE1B9B07ACE7",
-    "closurePackageSha256": "C15D8655E2F27D0F87BAFEC97A32208926BD62130E268E13945E6C32F2FDD876",
-    "custodyRecordSha256": "550033EA6E3D87C204480D5B4030846B0750E4A0FD37A40F5473CEC96F0047CF",
-    "remoteReservationTagObject": "5e351f0b5acf1f887e14c5ad70c60864a5d6c470",
-    "remoteBuiltTagObject": "b06edcbcd4fdb2d27fc4b844dd16f54340aa0c3d",
-    "dualCustodyCompleted": true,
+    "status": "pending-source-authorized",
+    "priorCompletedBuild": {
+      "buildNumber": 7,
+      "completionReceiptFile": "release/evidence/build-7-finalization-closure.json",
+      "completionReceiptSha256": "F9788C0DD9BB7DB0B21A43FF461D68CEBC85A2135E16DA68E1ABA8342B1B1337",
+      "sourceCommit": "d8619ef1a9c7bf53828523c4bca3efe33e4074f0",
+      "githubRunId": 30757692948,
+      "remoteBuiltTag": "crm3-build-built/7",
+      "governedPackageSha256": "D6E2710481681F63651B13A9C5872B16BDADE90EB288E610DD59BE1B9B07ACE7"
+    },
+    "dualCustodyCompleted": false,
     "firebaseBackendDeploymentPerformed": false,
     "controlledPilotApproved": false,
     "unrestrictedPlantReleaseApproved": false
@@ -115,11 +130,11 @@
     "restorationEvidenceSha256": "24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF"
   },
   "release": {
-    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b7",
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b8",
     "releaseTag": "crm3-baf-ops-v1.0.0-rc.1",
     "releaseChannel": "production-candidate",
     "versionName": "1.0.0-rc.1",
-    "buildNumber": 7
+    "buildNumber": 8
   },
   "distribution": {
     "authority": "production-signed-pre-release-candidate",

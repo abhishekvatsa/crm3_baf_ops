@@ -119,13 +119,13 @@ jobs:
               $env:CRM_DISPATCH_APPROVAL_REFERENCE) {
             throw 'Approval reference differs from policy.'
           }
-          $environmentException = Get-Content `
+          $environmentApproval = Get-Content `
             -LiteralPath (
-              $policy.github.environmentReviewControl.exceptionApprovalFile
+              $policy.github.environmentReviewControl.approvalReceiptFile
             ) -Raw | ConvertFrom-Json
-          if ([string]$environmentException.liveStateEvidence.
+          if ([string]$environmentApproval.liveStateEvidence.
                 authorizedDispatcher.login -ne $env:CRM_DISPATCH_ACTOR -or
-              [long]$environmentException.liveStateEvidence.
+              [long]$environmentApproval.liveStateEvidence.
                 authorizedDispatcher.id -ne [long]$env:CRM_DISPATCH_ACTOR_ID -or
               $env:CRM_TRIGGERING_ACTOR -ne $env:CRM_DISPATCH_ACTOR -or
               $env:GITHUB_ACTOR -ne $env:CRM_DISPATCH_ACTOR -or
@@ -144,17 +144,21 @@ jobs:
             $policy.distribution.approved -ne $false) {
             throw 'Policy improperly claims distribution approval.'
           }
-          if ([string]$policy.github.environmentReviewControl.mode -ne
-              'private-repository-plan-exception' -or
-              $policy.github.environmentReviewControl.
-                failClosedIfRequiredReviewerRuleAppears -ne $true) {
-            throw 'Environment-review exception mode is not approved.'
+          $environmentControl = $policy.github.environmentReviewControl
+          if ([string]$environmentControl.mode -ne
+                'public-repository-required-reviewer' -or
+              $environmentControl.requiredReviewerRulePresentAtApproval -ne
+                $true -or
+              $environmentControl.approvedRunReviewHistoryRequired -ne $true -or
+              $environmentControl.adminBypassAllowed -ne $false) {
+            throw 'Required-reviewer environment mode is not approved.'
           }
 
           $repository = gh api "repos/$env:GITHUB_REPOSITORY" |
             ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0 -or $repository.private -ne $true) {
-            throw 'Environment-review exception requires a private repository.'
+          if ($LASTEXITCODE -ne 0 -or $repository.private -ne $false -or
+              [string]$repository.visibility -ne 'public') {
+            throw 'Required-reviewer mode requires the approved public repository.'
           }
           $environmentName = [string]$policy.github.environmentName
           $encodedEnvironment = [Uri]::EscapeDataString($environmentName)
@@ -169,8 +173,72 @@ jobs:
             $environment.protection_rules |
               Where-Object { [string]$_.type -eq 'required_reviewers' }
           )
-          if ($requiredReviewerRules.Count -ne 0) {
-            throw 'A required-reviewer rule now exists; exception mode is invalid.'
+          $approvedReviewers = @()
+          if ($requiredReviewerRules.Count -eq 1) {
+            $approvedReviewers = @(
+              $requiredReviewerRules[0].reviewers |
+                Where-Object {
+                  [string]$_.type -eq 'User' -and
+                  [string]$_.reviewer.login -eq
+                    [string]$environmentControl.requiredReviewerLogin -and
+                  [long]$_.reviewer.id -eq
+                    [long]$environmentControl.requiredReviewerId
+                }
+            )
+          }
+          if ($requiredReviewerRules.Count -ne 1 -or
+              $approvedReviewers.Count -ne 1 -or
+              $requiredReviewerRules[0].prevent_self_review -ne
+                $environmentControl.preventSelfReview -or
+              $environment.can_admins_bypass -ne $false -or
+              $environment.deployment_branch_policy.protected_branches -ne
+                $false -or
+              $environment.deployment_branch_policy.custom_branch_policies -ne
+                $true) {
+            throw 'Live required-reviewer environment protection differs from policy.'
+          }
+
+          $branchPolicies = gh api (
+            "repos/$env:GITHUB_REPOSITORY/environments/" +
+            "$encodedEnvironment/deployment-branch-policies"
+          ) | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or
+              [int]$branchPolicies.total_count -ne 1 -or
+              [string]$branchPolicies.branch_policies[0].name -ne 'main' -or
+              [string]$branchPolicies.branch_policies[0].type -ne 'branch') {
+            throw 'Production-signing environment is not restricted to main.'
+          }
+
+          $approvalHistoryText = @(
+            gh api (
+              "repos/$env:GITHUB_REPOSITORY/actions/runs/" +
+              "$env:GITHUB_RUN_ID/approvals"
+            )
+          )
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to verify the exact run environment approval.'
+          }
+          $approvalHistory = @(
+            (($approvalHistoryText -join "`n") | ConvertFrom-Json)
+          )
+          $approvedRunReviews = @(
+            $approvalHistory |
+              Where-Object {
+                [string]$_.state -eq 'approved' -and
+                [string]$_.user.login -eq
+                  [string]$environmentControl.requiredReviewerLogin -and
+                [long]$_.user.id -eq
+                  [long]$environmentControl.requiredReviewerId -and
+                @(
+                  $_.environments |
+                    Where-Object {
+                      [string]$_.name -eq $environmentName
+                    }
+                ).Count -gt 0
+              }
+          )
+          if ($approvedRunReviews.Count -lt 1) {
+            throw 'Exact run lacks approval by the governed environment reviewer.'
           }
 
           pwsh -NoProfile -ExecutionPolicy Bypass `
@@ -199,6 +267,8 @@ jobs:
           "CRM_PRODUCTION_ENVIRONMENT=$($policy.github.environmentName)" |
             Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
           "CRM_APPROVAL_REFERENCE=$($versionApproval.reference)" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_ENVIRONMENT_APPROVAL_REFERENCE=$($environmentControl.approvalReference)" |
             Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
           "CRM_EXPECTED_JAVA_VERSION=$($policy.toolchain.javaVersion)" |
             Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8

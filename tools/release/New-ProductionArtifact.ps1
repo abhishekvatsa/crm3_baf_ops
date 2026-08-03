@@ -570,7 +570,7 @@ $versionApproval = Get-Content `
   -Raw | ConvertFrom-Json
 if ([string]$versionApproval.reference -ne $ExpectedApprovalReference -or
     [string]$policy.github.environmentReviewControl.mode -ne
-      'private-repository-plan-exception' -or
+      'public-repository-required-reviewer' -or
     $policy.github.environmentReviewControl.
       manualDispatchApprovalReferenceRequired -ne $true) {
   throw 'Dispatch approval reference differs from governed authority.'
@@ -931,7 +931,7 @@ $receiptFiles = @(
   'release/approvals/permanent-identity-approval.json'
   'release/approvals/version-policy-approval.json'
   [string]$policy.versionPolicy.sourceDocumentFile
-  [string]$policy.github.environmentReviewControl.exceptionApprovalFile
+  [string]$policy.github.environmentReviewControl.approvalReceiptFile
   'release/approvals/signing-custody-approval.json'
   'release/approvals/firebase-registration-receipt.json'
   'release/approvals/firebase-production-signing-restoration-receipt.json'
