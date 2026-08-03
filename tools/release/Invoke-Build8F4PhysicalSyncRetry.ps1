@@ -336,8 +336,8 @@ function Get-LocalDiagnosticsEvidence {
     -Serial $Serial `
     -EvidenceRoot $EvidenceRoot `
     -Label "$Label-diagnostics-tile" `
-    -Markers @('Support Diagnostics') `
-    -XPath "//node[(@text='Support Diagnostics' or contains(@content-desc,'Support Diagnostics')) and @clickable='true']" `
+    -Markers @('Support diagnostics') `
+    -XPath "//node[(@text='Support diagnostics' or contains(@content-desc,'Support diagnostics')) and @clickable='true']" `
     -ScrollAttempts 8
   $deadline = [DateTimeOffset]::UtcNow.AddSeconds(60)
   do {

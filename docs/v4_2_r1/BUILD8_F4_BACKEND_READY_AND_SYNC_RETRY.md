@@ -70,6 +70,16 @@ was present, all temporary UI and APK files were removed, and the empty evidence
 directory was removed. The Build 8 harness now binds its role-neutral markers
 to the current Home source so later UX changes cannot silently stale this check.
 
+A later reviewed-main invocation stopped before the pending-write preflight or
+manual sync because the harness required `Support Diagnostics`, while the
+role-scoped More destination is exactly `Support diagnostics`. No install,
+authentication, network, backend or business-data mutation occurred; temporary
+UI and APK material and the empty evidence directory were removed. Because the
+`Sync now` control was never reached, the one authorized manual-sync attempt was
+not consumed. The corrected harness binds the exact label to
+`lib/home_screen.dart` and rejects the stale capitalization in its contract
+test.
+
 ## Programme boundary
 
 The backend prerequisite is satisfied, but this source tranche does not close
