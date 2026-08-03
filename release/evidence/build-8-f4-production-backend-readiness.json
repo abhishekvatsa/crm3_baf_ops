@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "CRM3-B8-F4-PRODUCTION-BACKEND-READY-20260803",
+  "evidenceType": "build-8-f4-production-backend-readiness-adjudication",
+  "recordedAtUtc": "2026-08-03T21:23:06.536Z",
+  "decision": "PASS_BUILD8_F4_BACKEND_READY",
+  "target": {
+    "projectId": "crm3-baf-ops-b8638",
+    "projectNumber": "894346496105",
+    "region": "asia-south1",
+    "firestoreDatabase": "(default)"
+  },
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "deploymentCommit": "34dd01511ffd0ca4aba37735b6dfd710d2964b46",
+    "deploymentTree": "045deb7d79a5286b79ab35b4ba39b07deb467cb4",
+    "postMergeReleaseGateRunId": 30850203589,
+    "postMergeReleaseGateConclusion": "success",
+    "trackedMainAndOriginParityVerified": true,
+    "deploymentPromotionFile": "release/approvals/build-8-f4-production-backend-activation-promotion.json",
+    "deploymentPromotionSha256": "FF030BAB46BDAD1F482E54913C35D560212D792B3BF6DC54733CDDAA72E83B5B"
+  },
+  "sealedReceipts": {
+    "preflight": {
+      "fileSha256": "19174BC5D794720C87DEA843408D1C8AC2FE22F060D0CFE7F6EA004E1095AD44",
+      "receiptSha256": "87118542c25cdb63bfb0a863fe7fff5aff90cc45b3a149200f4e20a1a05dad54",
+      "decision": "PASS_BUILD8_PRODUCTION_GLOBAL_PULL_ACTIVATION_PREFLIGHT"
+    },
+    "postDeploy": {
+      "fileSha256": "4E42FE7DF051C6F8237E7F52256CC5B1AD2AAB93C43462A7BE00213AC5A91ACE",
+      "receiptSha256": "90ce3d4492f41789525629598ea6d41e87b10bea3bcb7a7412c52749660e94be",
+      "decision": "PASS_BUILD8_PRODUCTION_GLOBAL_PULL_ACTIVATION_PREFLIGHT"
+    },
+    "backfill": {
+      "fileSha256": "583367140B2A311CBA0D3574BDBD88167C520A876873DA6195906B47582B8742",
+      "receiptSha256": "9fac630751f87f8ffeeeb2415bb96135c4a8f471cdedd075a3e7d2edb84d2d14",
+      "updatedDocuments": 41
+    },
+    "postBackfillInventory": {
+      "fileSha256": "87401DB3BD9AA6EDF65A90CDB3B89028D01640E99BD4DEB3B6B0FED7230ACFF2",
+      "receiptSha256": "7309cf1c7516d1fdc19cc1ea4b6898302be89e516a7fbb3961c5ac941564bc90"
+    },
+    "activation": {
+      "fileSha256": "7F8592F6441E7FAA4AE0B4E519F29F9A0EBAD80280D1265F287A14BD303F3C33",
+      "receiptSha256": "57e278567c08c14066b3d266b1df428655c3848bc6881f68907c8c5d1b6e73c7"
+    },
+    "postActivationInventory": {
+      "fileSha256": "662A86CCAF676FE5FA77853C4DB4315061E1BDBFFF00D488C4FE8435CF9296BC",
+      "receiptSha256": "e08942b4f3de3e188edc0f24b267576751fcff5a89702a578f6754c7ce5335b1"
+    },
+    "backendReadiness": {
+      "fileSha256": "3E15CEA5AE1FBD852159B40186A5456C8DB4C2506AA507B1ABCDD67D8AB8F017",
+      "receiptSha256": "ab8f8f1570473b1221d72567e458980028b7bf8c9979e8ce82491795c90401b2",
+      "decision": "PASS_BUILD8_F4_BACKEND_READY"
+    }
+  },
+  "liveReadback": {
+    "firestoreRulesMatchDeploymentSource": true,
+    "firestoreIndexesMatchSource": true,
+    "firestoreIndexCount": 51,
+    "firestoreIndexesReady": 51,
+    "requiredFunctionsActive": true,
+    "requiredFunctionsShareSourceHash": true,
+    "requiredRuntimeIdentitiesExact": true,
+    "appCheckParameter": false,
+    "globalPullContractState": "ACTIVE",
+    "protocolVersion": 1,
+    "protocolFingerprint": "cf9bf145de29799e188ebb37bd4a3c5c668ed9df96b2ba4066404e4d7bc48321",
+    "inventoryTotal": 42,
+    "inventoryStamped": 42,
+    "inventoryMissing": 0,
+    "inventoryMalformed": 0
+  },
+  "mutationAdjudication": {
+    "firestoreRulesDeployed": true,
+    "deployedFunctions": [
+      "beginGlobalPullRun",
+      "stampGlobalPullServerClock"
+    ],
+    "firestoreIndexesMutated": false,
+    "iamMutated": false,
+    "appCheckActivated": false,
+    "watermarkFieldsCreated": 41,
+    "businessFieldsMutated": false,
+    "documentsCreated": 1,
+    "createdDocument": "runtime_contracts/global_pull_v1",
+    "documentsDeleted": 0,
+    "distributionPerformed": false
+  },
+  "executionIncidents": [
+    {
+      "class": "firebase-rules-service-unavailable",
+      "attemptCount": 2,
+      "boundary": "rules-validation-before-cloud-mutation",
+      "cloudMutationPerformed": false,
+      "resolution": "Retried unchanged after the service recovered."
+    },
+    {
+      "class": "local-firebase-debug-log-lock",
+      "boundary": "after-successful-rules-release-before-function-deployment",
+      "rulesReleaseSucceeded": true,
+      "functionDeploymentStarted": false,
+      "resolution": "Reran the idempotent governed deploy phase unchanged; Rules were already exact and both required functions then deployed successfully."
+    }
+  ],
+  "privacyBoundary": {
+    "documentIdsRetained": false,
+    "businessPayloadRetained": false,
+    "accountIdentifiersRetained": false,
+    "signingMaterialRetained": false,
+    "rawPrivateEvidenceCommitted": false
+  },
+  "programmeBoundary": {
+    "backendPrerequisiteSatisfied": true,
+    "build8SyncRetryMayBeSeparatelyAuthorized": true,
+    "stage2dF4Status": "OPEN",
+    "stage2dF4ClosureAuthorized": false,
+    "p07ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "distributionAuthorized": false
+  }
+}

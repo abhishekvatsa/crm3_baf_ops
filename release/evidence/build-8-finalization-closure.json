@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "production-build-finalization-closure",
+  "status": "passed-non-distributable",
+  "release": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b8",
+    "version": "1.0.0-rc.1+8",
+    "buildNumber": 8,
+    "applicationId": "in.co.sail.bsl.crm3.bafops"
+  },
+  "sourceAuthority": {
+    "commit": "731a02980d38e4e3a8f61ff2bca74a1e85771478",
+    "tree": "8805af93cf0d99d5527a835dcf43fa16d3bfa3f0",
+    "pullRequestNumber": 118,
+    "productionPolicySha256AtBuild": "49F2CE4798FB782C9C5A7CC3C716A6F415E4A96A5268664E0D6D52F49B16B0F0",
+    "finalizerSha256AtBuild": "68B54952CEE8FBDB5CC671834957239F4DBA56126A02FAA10F1F185A83407C12"
+  },
+  "workflow": {
+    "path": ".github/workflows/production-artifact.yml",
+    "runId": 30839125687,
+    "runAttempt": 1,
+    "url": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30839125687",
+    "startedAtUtc": "2026-08-03T17:58:08Z",
+    "completedAtUtc": "2026-08-03T18:15:17Z",
+    "conclusion": "success",
+    "actor": "abhishekvatsa",
+    "actorId": 213690022,
+    "triggeringActor": "abhishekvatsa",
+    "dispatchApprovalReference": "BAF-REF-003-C7",
+    "environmentApprovalReference": "BAF-GH-ENV-004",
+    "environmentReviewControlMode": "public-repository-required-reviewer",
+    "secretNamesVerified": 4,
+    "secretValuesInspected": false
+  },
+  "githubArtifact": {
+    "id": 8866525607,
+    "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.1-b8-731a02980d38e4e3a8f61ff2bca74a1e85771478-run-30839125687",
+    "sizeBytes": 153468037,
+    "digest": "sha256:f957bc6cf667be54c9aceeb154465fad03875411b058859447a7ef2efe1fbbe1"
+  },
+  "governedPackage": {
+    "file": "crm3-baf-ops-1.0.0-rc.1-b8-GOVERNED-PACKAGE.zip",
+    "sha256": "75362F9875CC5067012B4A5768720CB4AE0AD2C6A94B38C1F174E0FD1E1CA91F",
+    "sidecarSha256": "EF63F207E7D558D3AE5840586B357B6C68628EBD2560FF37E63CCC2692273C8A",
+    "manifestSha256": "C607A8CD826F21A8B2A25942002246E72CCBC8AE0F4FC3E29B17AEAA4EBE38ED",
+    "apkSha256": "7F6CD741431230689193A0DD9505918B2E865C0A500649B7F242EA4747303CCD",
+    "apkSizeBytes": 86244388,
+    "aabSha256": "17928CF0D78D50B6D2B9E4CE641F2799263AA4D00600BF098A7688564C1CD1BE",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "independentVerificationCompleted": true
+  },
+  "remoteAuthority": {
+    "reservationTag": "crm3-build-reserved/8",
+    "reservationTagObjectSha": "e0a50955db970ddd2c93e6bda6dc0517eaca150f",
+    "reservationTagCommit": "731a02980d38e4e3a8f61ff2bca74a1e85771478",
+    "builtTag": "crm3-build-built/8",
+    "builtTagCreatedAtUtc": "2026-08-03T18:32:56Z",
+    "builtTagObjectSha": "f9f6f3fbacd33d824bf4b5213b0b28f6d7e29feb",
+    "builtTagCommit": "731a02980d38e4e3a8f61ff2bca74a1e85771478"
+  },
+  "dualCustody": {
+    "status": "passed",
+    "completedAtUtc": "2026-08-03T18:32:55.6366533Z",
+    "distinctVolumes": true,
+    "allFileHashesMatched": true
+  },
+  "closure": {
+    "decisionAtUtc": "2026-08-03T18:33:04.5371304Z",
+    "closurePackageSha256": "F704274E51723ECB1AE7BEB498F568A06EC0547E5B6F5331AA8644BCFC506E42",
+    "custodyRecordSha256": "2737C0B726393CC915C0D0A9343661CE5F50625FDA79B30F663C60CF38496AF2"
+  },
+  "recoveryIncident": {
+    "occurred": false,
+    "forceUsed": false
+  },
+  "releaseBoundary": {
+    "authority": "production-signed-pre-release-candidate",
+    "firebaseBackendDeploymentPerformed": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false,
+    "distributionPerformed": false,
+    "postBuildPromotionRequiredForAnyDistribution": true
+  }
+}
