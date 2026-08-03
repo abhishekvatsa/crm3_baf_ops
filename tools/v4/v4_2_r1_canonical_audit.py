@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 268
-    and counts.get("SUCCESSOR_MODIFIED") == 142
+    and counts.get("BYTE_IDENTICAL") == 267
+    and counts.get("SUCCESSOR_MODIFIED") == 143
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -2077,6 +2077,9 @@ build6_f4_backend_blocker = text(
 open_pr_87_93_hold = text(
     "docs/v4_2_r1/OPEN_PR_87_93_HOLD_REGISTER.md"
 )
+pr87_93_integration = text(
+    "docs/v4_2_r1/PR87_93_CURRENT_INTEGRATION_PACKAGE.md"
+)
 physical_phase_ids = {
     phase.get("id")
     for phase in build6_f4_physical.get("requiredPhases", [])
@@ -2526,10 +2529,15 @@ check(
     and "Deploying only `beginGlobalPullRun` is insufficient"
         in build6_f4_backend_blocker
     and "perform no Firebase deployment" in build6_f4_backend_blocker
-    and "Status: HOLD BY DEFAULT" in open_pr_87_93_hold
-    and "The stacked chain must preserve order: #87, #88, #89, then #92"
+    and "Status: CONSOLIDATED SOURCE CANDIDATE" in open_pr_87_93_hold
+    and "The dependent order was preserved as #87, #88, #89, then #92."
         in open_pr_87_93_hold
-    and "does not close, supersede or merge any PR" in open_pr_87_93_hold
+    and "The original PRs are" in open_pr_87_93_hold
+    and "not merged by this action." in open_pr_87_93_hold
+    and "No phone was available" in open_pr_87_93_hold
+    and "Status: SOURCE_INTEGRATION_CANDIDATE" in pr87_93_integration
+    and "No physical phone was available" in pr87_93_integration
+    and "does not deploy Firebase Rules or Functions" in pr87_93_integration
     and build6_f4_physical.get("discoveryAuthority", {}).get(
         "receiptSha256"
     )

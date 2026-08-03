@@ -205,6 +205,7 @@ def main() -> int:
     notification_policy = text(
         "functions/src/maintenanceWorkflow/workflowNotificationPolicy.ts"
     )
+    notification_receipt = text("functions/src/notificationEventReceipt.ts")
     add(
         checks,
         "workflow notifications reuse shared token cleanup and data payload support",
@@ -221,11 +222,16 @@ def main() -> int:
     )
     add(
         checks,
-        "workflow notification receipt uses a retryable lease",
-        "acquireReceiptLease" in trigger
+        "workflow notification receipt uses event-bound fail-closed coordination",
+        "executeIdempotentNotificationEvent({" in trigger
         and "retry: true" in trigger
-        and 'status: "completed"' in trigger,
-        "concurrent/retried event delivery is guarded",
+        and "cloudEventId: event.id" in trigger
+        and "workflow_notification_receipts" in trigger
+        and 'status: "completed"' in notification_receipt
+        and 'status: "failedBeforeDispatch"' in notification_receipt
+        and 'status: "deliveryUncertain"' in notification_receipt
+        and "acquireReceiptLease" not in trigger,
+        "concurrent retries replay completion; ambiguous dispatch is quarantined",
     )
 
     home = text("lib/home_screen.dart")

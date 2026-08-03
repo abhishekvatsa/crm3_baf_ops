@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 268,
-    "SUCCESSOR_MODIFIED": 142
+    "BYTE_IDENTICAL": 267,
+    "SUCCESSOR_MODIFIED": 143
   },
   "paths": [
     {
@@ -129,10 +129,10 @@
     {
       "path": "analysis_options.yaml",
       "canonicalSha256": "221644652D9BDB04F66AC51D6252183AC23358D9076639FC8A2FB1EB2566F1F9",
-      "candidateSha256": "221644652D9BDB04F66AC51D6252183AC23358D9076639FC8A2FB1EB2566F1F9",
+      "candidateSha256": "C69F461AC4261C3344151CCE471FC444189D3A2905C25C27DF70FF9441934725",
       "canonicalBytes": 1833,
-      "candidateBytes": 1833,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 2009,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "android/.gitignore",

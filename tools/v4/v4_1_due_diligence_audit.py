@@ -26,16 +26,26 @@ rules = (ROOT / 'firestore.rules').read_text(encoding="utf-8")
 shape_start = rules.find('function validUserDocumentShape')
 shape_end = rules.find('function isApprovedUser', shape_start)
 shape = rules[shape_start:shape_end]
-admin_start = rules.find('function validAdminUserWrite')
+admin_start = rules.find('function validAdminUserProfileUpdate')
 admin_end = rules.find('// ─────────────────────────────────────────────', admin_start)
 admin = rules[admin_start:admin_end]
 required_fields = ['name','email','photoUrl','roles','isApproved','fcmToken','createdAt']
-check('Admin user writes use exact top-level whitelist',
+users_start = rules.find('match /users/{userId}')
+users_end = rules.find('match /knowledge_base/{docId}', users_start)
+users_match = rules[users_start:users_end]
+check('User writes keep exact shape and admin profile updates cannot mutate authority',
       shape_start >= 0
       and 'keys().hasOnly([' in shape
       and all(f"'{f}'" in shape for f in required_fields)
       and admin_start >= 0
-      and 'validUserDocumentShape(request.resource.data)' in admin)
+      and 'validUserDocumentShape(request.resource.data)' in admin
+      and 'affectedKeys().hasOnly([' in admin
+      and all(f"'{f}'" in admin for f in ['name','email','photoUrl','fcmToken'])
+      and "request.resource.data.get('roles', []) == resource.data.get('roles', [])" in admin
+      and "request.resource.data.get('isApproved', null) == resource.data.get('isApproved', null)" in admin
+      and users_start >= 0
+      and 'validAdminUserProfileUpdate(userId)' in users_match
+      and 'validAdminUserWrite' not in users_match)
 
 mapper = (ROOT / 'lib/features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart').read_text(encoding="utf-8")
 mapper_fields = [
