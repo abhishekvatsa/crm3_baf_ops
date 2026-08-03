@@ -1831,6 +1831,14 @@ check(
         "oldLocatorCouldResolve"
     )
         is False
+    and build7_f4_locator_recovery.get("failureAdjudication", {}).get(
+        "preWitnessRecoveryStop", {}
+    ).get("observedKnowledgeGovernance")
+        is True
+    and build7_f4_locator_recovery.get("failureAdjudication", {}).get(
+        "preWitnessRecoveryStop", {}
+    ).get("failureWitnessCreated")
+        is False
     and build7_f4_locator_recovery.get("retryAuthority", {}).get(
         "maximumAttempts"
     )
@@ -1839,6 +1847,10 @@ check(
         is True
     and build7_f4_locator_recovery.get("retryAuthority", {}).get(
         "remoteMutationAuthorized"
+    )
+        is False
+    and build7_f4_locator_recovery.get("retryAuthority", {}).get(
+        "preWitnessNavigationStopConsumesRetry"
     )
         is False
     and build7_f4_locator_recovery.get(
@@ -1854,6 +1866,11 @@ check(
         in build7_f4_compatibility_harness
     and "PASS_BUILD7_PROVE_READ_LOCATOR_FAILURE_REPRODUCED_PRIVACY_SAFE"
         in build7_f4_compatibility_harness
+    and build7_f4_compatibility_harness.count("= Move-ToApprovedHome") == 4
+    and "$approvedHome = Get-ApprovedHomeEvidence"
+        not in build7_f4_compatibility_harness
+    and "$null = Get-ApprovedHomeEvidence"
+        not in build7_f4_compatibility_harness
     and "does not relabel the failed `ProveRead` attempt as passing"
         in build7_f4_locator_recovery_doc
     and build7_f4_locator_recovery.get("programmeBoundary", {}).get(
