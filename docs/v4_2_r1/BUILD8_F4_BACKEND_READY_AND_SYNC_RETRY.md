@@ -54,6 +54,13 @@ install, upgrade, clear or uninstall the app; change network state; alter the
 authentication session; deploy backend resources; retain raw UI or identity
 data; or distribute the artifact.
 
+The first post-merge harness invocation stopped before app launch or sync.
+Windows PowerShell treated ADB's successful APK-pull progress on stderr as a
+terminating error even though ADB returned exit code zero. The two temporary
+APK copies and their empty evidence directory were removed. The corrected
+harness captures native stderr for diagnostics while continuing to fail closed
+on every nonzero exit code.
+
 ## Programme boundary
 
 The backend prerequisite is satisfied, but this source tranche does not close

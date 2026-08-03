@@ -75,13 +75,19 @@ function Invoke-ExternalText {
   )
 
   $prior = Get-Location
+  $priorErrorActionPreference = $ErrorActionPreference
+  $output = ''
+  $exitCode = 1
   try {
     if (-not [string]::IsNullOrWhiteSpace($WorkingDirectory)) {
       Set-Location -LiteralPath $WorkingDirectory
     }
+    # Native tools can write progress to stderr even when they succeed.
+    $ErrorActionPreference = 'Continue'
     $output = & $FilePath @Arguments 2>&1 | Out-String
     $exitCode = $LASTEXITCODE
   } finally {
+    $ErrorActionPreference = $priorErrorActionPreference
     Set-Location -LiteralPath $prior
   }
   if (-not $AllowFailure -and $exitCode -ne 0) {
