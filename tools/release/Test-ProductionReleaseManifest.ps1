@@ -504,11 +504,11 @@ $versionApproval = (
     -ArchivePath $sourceArchivePath `
     -EntryPath ([string]$policy.versionPolicy.approvalReceiptFile)
 ) | ConvertFrom-Json
-$environmentException = (
+$environmentApproval = (
   Get-ZipEntryText `
     -ArchivePath $sourceArchivePath `
     -EntryPath (
-      [string]$policy.github.environmentReviewControl.exceptionApprovalFile
+      [string]$policy.github.environmentReviewControl.approvalReceiptFile
     )
 ) | ConvertFrom-Json
 
@@ -582,18 +582,20 @@ foreach ($receipt in $manifest.policy.approvalReceiptHashes.PSObject.Properties)
     throw "Approval receipt mismatch: $($receipt.Name)"
   }
 }
-$exceptionApprovalPath =
-  [string]$policy.github.environmentReviewControl.exceptionApprovalFile
-$exceptionHashProperty =
+$environmentApprovalPath =
+  [string]$policy.github.environmentReviewControl.approvalReceiptFile
+$environmentApprovalHashProperty =
   $manifest.policy.approvalReceiptHashes.PSObject.Properties[
-    $exceptionApprovalPath
+    $environmentApprovalPath
   ]
-if ($null -eq $exceptionHashProperty -or
-    [string]$exceptionHashProperty.Value -ne
-      [string]$policy.github.environmentReviewControl.exceptionApprovalSha256 -or
-    [string]$environmentException.approvalReference -ne
-      [string]$policy.github.environmentReviewControl.exceptionApprovalReference) {
-  throw 'Environment-review exception receipt is absent or differs from policy.'
+if ($null -eq $environmentApprovalHashProperty -or
+    [string]$environmentApprovalHashProperty.Value -ne
+      [string]$policy.github.environmentReviewControl.approvalReceiptSha256 -or
+    [string]$environmentApproval.receiptType -ne
+      'public-repository-required-reviewer-control' -or
+    [string]$environmentApproval.approvalReference -ne
+      [string]$policy.github.environmentReviewControl.approvalReference) {
+  throw 'Required-reviewer approval receipt is absent or differs from policy.'
 }
 
 if ([string]$manifest.ciAuthority.repository -ne
@@ -617,19 +619,22 @@ $manifestEnvironmentControlJson =
   $manifest.ciAuthority.environmentReviewControl |
     ConvertTo-Json -Depth 20 -Compress
 if ($policyEnvironmentControlJson -cne $manifestEnvironmentControlJson -or
-    [int64]$environmentException.scope.buildNumber -ne
+    [int64]$environmentApproval.scope.buildNumber -ne
       [int64]$manifest.release.buildNumber -or
-    [string]$environmentException.scope.versionApprovalReference -ne
+    [string]$environmentApproval.scope.versionApprovalReference -ne
       [string]$manifest.ciAuthority.dispatchApprovalReference -or
-    [string]$environmentException.liveStateEvidence.authorizedDispatcher.login -ne
+    [string]$environmentApproval.liveStateEvidence.authorizedDispatcher.login -ne
       [string]$manifest.ciAuthority.actor -or
-    [string]$environmentException.liveStateEvidence.authorizedDispatcher.id -ne
+    [string]$environmentApproval.liveStateEvidence.authorizedDispatcher.id -ne
       [string]$manifest.ciAuthority.actorId -or
-    $environmentException.compensatingControls.
+    $environmentApproval.controls.
       authorizedDispatcherIdentityRequired -ne $true -or
-    $environmentException.compensatingControls.distributionApproved -ne
+    $environmentApproval.controls.approvedRunReviewByRequiredReviewerRequired -ne
+      $true -or
+    $environmentApproval.controls.adminBypassMustRemainDisabled -ne $true -or
+    $environmentApproval.controls.distributionApproved -ne
       $false) {
-  throw 'Manifest environment-review control differs from approved exception.'
+  throw 'Manifest environment-review control differs from required-reviewer approval.'
 }
 
 if ([string]$policy.permanentApplicationId -ne

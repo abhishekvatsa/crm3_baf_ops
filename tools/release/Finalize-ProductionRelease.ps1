@@ -496,6 +496,18 @@ $requiredReviewerRules = @(
     Where-Object { [string]$_.type -eq 'required_reviewers' }
 )
 
+$branchPoliciesText = @(
+  gh api (
+    "repos/$repositorySlug/environments/$encodedEnvironment/" +
+    'deployment-branch-policies'
+  )
+)
+if ($LASTEXITCODE -ne 0) {
+  throw 'Unable to verify production-signing deployment branch policies.'
+}
+$branchPoliciesAuthority = ($branchPoliciesText -join "`n") |
+  ConvertFrom-Json
+
 $approvalHistoryText = @(
   gh api "repos/$repositorySlug/actions/runs/$GitHubRunId/approvals"
 )
@@ -503,16 +515,6 @@ if ($LASTEXITCODE -ne 0) {
   throw 'Unable to verify protected-environment approval history.'
 }
 $approvalHistory = @((($approvalHistoryText -join "`n") | ConvertFrom-Json))
-$approvedEnvironmentReviews = @(
-  $approvalHistory |
-    Where-Object {
-      [string]$_.state -eq 'approved' -and
-      @(
-        $_.environments |
-          Where-Object { [string]$_.name -eq $ExpectedEnvironmentName }
-      ).Count -gt 0
-    }
-)
 
 $environmentSecretsText = @(
   gh api `
@@ -551,53 +553,118 @@ if ($manifestEnvironmentReviewControlJson -cne
   throw 'Artifact environment-review control differs from exact source.'
 }
 
+$requiredReviewerMatches = @()
+if ($requiredReviewerRules.Count -eq 1) {
+  $requiredReviewerMatches = @(
+    $requiredReviewerRules[0].reviewers |
+      Where-Object {
+        [string]$_.type -eq 'User' -and
+        [string]$_.reviewer.login -eq
+          [string]$environmentReviewControl.requiredReviewerLogin -and
+        [long]$_.reviewer.id -eq
+          [long]$environmentReviewControl.requiredReviewerId
+      }
+  )
+}
+$approvedRequiredReviewerReviews = @(
+  $approvalHistory |
+    Where-Object {
+      [string]$_.state -eq 'approved' -and
+      [string]$_.user.login -eq
+        [string]$environmentReviewControl.requiredReviewerLogin -and
+      [long]$_.user.id -eq
+        [long]$environmentReviewControl.requiredReviewerId -and
+      @(
+        $_.environments |
+          Where-Object { [string]$_.name -eq $ExpectedEnvironmentName }
+      ).Count -gt 0
+    }
+)
 if ([string]$environmentReviewControl.mode -ne
-      'private-repository-plan-exception' -or
-    $environmentReviewControl.requiredReviewerAvailable -ne $false -or
+      'public-repository-required-reviewer' -or
+    [string]$environmentReviewControl.repositoryVisibility -ne 'public' -or
+    $environmentReviewControl.requiredReviewerAvailable -ne $true -or
     $environmentReviewControl.requiredReviewerRulePresentAtApproval -ne
-      $false -or
+      $true -or
     $environmentReviewControl.manualDispatchApprovalReferenceRequired -ne
       $true -or
-    $environmentReviewControl.failClosedIfRequiredReviewerRuleAppears -ne
+    $environmentReviewControl.approvedRunReviewHistoryRequired -ne
       $true -or
-    $repositoryAuthority.private -ne $true -or
-    [string]$repositoryAuthority.visibility -ne 'private' -or
-    $requiredReviewerRules.Count -ne 0 -or
-    $approvalHistory.Count -ne 0 -or
-    $approvedEnvironmentReviews.Count -ne 0) {
-  throw 'Live GitHub state does not satisfy the private-repository plan exception.'
+    $environmentReviewControl.adminBypassAllowed -ne $false -or
+    $repositoryAuthority.private -ne $false -or
+    [string]$repositoryAuthority.visibility -ne 'public' -or
+    $requiredReviewerRules.Count -ne 1 -or
+    $requiredReviewerMatches.Count -ne 1 -or
+    $requiredReviewerRules[0].prevent_self_review -ne
+      $environmentReviewControl.preventSelfReview -or
+    $environmentAuthority.can_admins_bypass -ne $false -or
+    $environmentAuthority.deployment_branch_policy.protected_branches -ne
+      $false -or
+    $environmentAuthority.deployment_branch_policy.custom_branch_policies -ne
+      $true -or
+    [int]$branchPoliciesAuthority.total_count -ne 1 -or
+    [string]$branchPoliciesAuthority.branch_policies[0].name -ne 'main' -or
+    [string]$branchPoliciesAuthority.branch_policies[0].type -ne 'branch' -or
+    $approvedRequiredReviewerReviews.Count -lt 1) {
+  throw 'Live GitHub state does not satisfy required-reviewer signing control.'
 }
 
-$environmentExceptionPath =
-  [string]$environmentReviewControl.exceptionApprovalFile
-$environmentException = Get-Content `
-  -LiteralPath $environmentExceptionPath `
+$environmentApprovalPath =
+  [string]$environmentReviewControl.approvalReceiptFile
+$environmentApproval = Get-Content `
+  -LiteralPath $environmentApprovalPath `
   -Raw | ConvertFrom-Json
 $versionApproval = Get-Content `
   -LiteralPath $sourcePolicy.versionPolicy.approvalReceiptFile `
   -Raw | ConvertFrom-Json
-if ((Get-Sha256 $environmentExceptionPath) -ne
-      ([string]$environmentReviewControl.exceptionApprovalSha256).
+$versionSourceApproval = Get-Content `
+  -LiteralPath $sourcePolicy.versionPolicy.sourceDocumentFile `
+  -Raw | ConvertFrom-Json
+if ((Get-Sha256 $environmentApprovalPath) -ne
+      ([string]$environmentReviewControl.approvalReceiptSha256).
         ToUpperInvariant() -or
-    [string]$environmentException.approvalReference -ne
-      [string]$environmentReviewControl.exceptionApprovalReference -or
-    [string]$environmentException.scope.repository -ne $repositorySlug -or
-    [string]$environmentException.scope.repositoryVisibility -ne 'private' -or
-    [string]$environmentException.scope.environmentName -ne
+    [string]$environmentApproval.receiptType -ne
+      'public-repository-required-reviewer-control' -or
+    $environmentApproval.approved -ne $true -or
+    [string]$environmentApproval.approvalReference -ne
+      [string]$environmentReviewControl.approvalReference -or
+    [string]$environmentApproval.scope.repository -ne $repositorySlug -or
+    [string]$environmentApproval.scope.repositoryVisibility -ne 'public' -or
+    [string]$environmentApproval.scope.environmentName -ne
       $ExpectedEnvironmentName -or
-    [int64]$environmentException.scope.buildNumber -ne
+    [string]$environmentApproval.scope.workflowPath -ne
+      [string]$sourcePolicy.github.workflowPath -or
+    [int64]$environmentApproval.scope.buildNumber -ne
       [int64]$manifest.release.buildNumber -or
-    [string]$environmentException.scope.versionApprovalReference -ne
+    [string]$environmentApproval.scope.versionName -ne
+      [string]$manifest.release.versionName -or
+    [string]$environmentApproval.scope.versionApprovalReference -ne
       [string]$manifest.ciAuthority.dispatchApprovalReference -or
-    [string]$environmentException.liveStateEvidence.authorizedDispatcher.login -ne
+    $environmentApproval.scope.singleBuildOnly -ne $true -or
+    [string]$environmentApproval.liveStateEvidence.requiredReviewer.login -ne
+      [string]$environmentReviewControl.requiredReviewerLogin -or
+    [long]$environmentApproval.liveStateEvidence.requiredReviewer.id -ne
+      [long]$environmentReviewControl.requiredReviewerId -or
+    $environmentApproval.liveStateEvidence.preventSelfReview -ne
+      $environmentReviewControl.preventSelfReview -or
+    $environmentApproval.liveStateEvidence.canAdminsBypass -ne $false -or
+    [string]$environmentApproval.liveStateEvidence.authorizedDispatcher.login -ne
       [string]$manifest.ciAuthority.actor -or
-    [long]$environmentException.liveStateEvidence.authorizedDispatcher.id -ne
+    [long]$environmentApproval.liveStateEvidence.authorizedDispatcher.id -ne
       [long]$manifest.ciAuthority.actorId -or
-    $environmentException.compensatingControls.
+    $environmentApproval.controls.
       authorizedDispatcherIdentityRequired -ne $true -or
+    [string]$environmentApproval.controls.requiredIntegratedMergeCommit -ne
+      [string]$versionSourceApproval.requiredSource.
+        integratedSuccessorMergeCommit -or
+    $environmentApproval.controls.
+      approvedRunReviewByRequiredReviewerRequired -ne $true -or
+    $environmentApproval.controls.adminBypassMustRemainDisabled -ne $true -or
+    $environmentApproval.controls.mainOnlyEnvironmentDeploymentRequired -ne
+      $true -or
     [string]$manifest.ciAuthority.dispatchApprovalReference -ne
       [string]$versionApproval.reference) {
-  throw 'Private-repository environment-review exception authority mismatch.'
+  throw 'Public required-reviewer environment authority mismatch.'
 }
 
 $reservationTag =
@@ -749,7 +816,7 @@ Environment review control: $($environmentReviewControl.mode)
 Dispatch approval reference: $($manifest.ciAuthority.dispatchApprovalReference)
 Authorized dispatcher: $($manifest.ciAuthority.actor)
 Authorized dispatcher ID: $($manifest.ciAuthority.actorId)
-Environment exception reference: $($environmentReviewControl.exceptionApprovalReference)
+Environment approval reference: $($environmentReviewControl.approvalReference)
 Distribution approval: not created
 Unrestricted plant release: not approved
 "@
@@ -791,7 +858,7 @@ foreach ($requiredLine in @(
   "Dispatch approval reference: $($manifest.ciAuthority.dispatchApprovalReference)"
   "Authorized dispatcher: $($manifest.ciAuthority.actor)"
   "Authorized dispatcher ID: $($manifest.ciAuthority.actorId)"
-  "Environment exception reference: $($environmentReviewControl.exceptionApprovalReference)"
+  "Environment approval reference: $($environmentReviewControl.approvalReference)"
   'Distribution approval: not created'
   'Unrestricted plant release: not approved'
 )) {
@@ -813,6 +880,9 @@ Write-Utf8NoBom `
 Write-Utf8NoBom `
   -Path (Join-Path $closureDirectory 'github-environment.json') `
   -Text (($environmentAuthority | ConvertTo-Json -Depth 30) + "`n")
+Write-Utf8NoBom `
+  -Path (Join-Path $closureDirectory 'github-environment-branch-policies.json') `
+  -Text (($branchPoliciesAuthority | ConvertTo-Json -Depth 30) + "`n")
 Write-Utf8NoBom `
   -Path (Join-Path $closureDirectory 'github-repository.json') `
   -Text (($repositoryAuthority | ConvertTo-Json -Depth 30) + "`n")
@@ -859,12 +929,12 @@ $closureDecision = [ordered]@{
   repositoryPrivate = [bool]$repositoryAuthority.private
   environmentReviewControlMode =
     [string]$environmentReviewControl.mode
-  protectedEnvironmentRequiredReviewerRule = $false
-  protectedEnvironmentApprovalCount = $approvedEnvironmentReviews.Count
-  environmentExceptionApprovalReference =
-    [string]$environmentReviewControl.exceptionApprovalReference
-  environmentExceptionApprovalSha256 =
-    [string]$environmentReviewControl.exceptionApprovalSha256
+  protectedEnvironmentRequiredReviewerRule = $true
+  protectedEnvironmentApprovalCount = $approvedRequiredReviewerReviews.Count
+  environmentApprovalReference =
+    [string]$environmentReviewControl.approvalReference
+  environmentApprovalSha256 =
+    [string]$environmentReviewControl.approvalReceiptSha256
   dispatchApprovalReference =
     [string]$manifest.ciAuthority.dispatchApprovalReference
   authorizedDispatcher = [string]$manifest.ciAuthority.actor
@@ -999,8 +1069,8 @@ $finalCustodyRecord = [ordered]@{
     [string]$manifest.ciAuthority.dispatchApprovalReference
   authorizedDispatcher = [string]$manifest.ciAuthority.actor
   authorizedDispatcherId = [string]$manifest.ciAuthority.actorId
-  environmentExceptionApprovalReference =
-    [string]$environmentReviewControl.exceptionApprovalReference
+  environmentApprovalReference =
+    [string]$environmentReviewControl.approvalReference
   custodyApprover = $CustodyApprover
   custodyReference = $CustodyReference
   primaryVerified = $true

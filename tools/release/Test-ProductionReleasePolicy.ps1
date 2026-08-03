@@ -22,6 +22,13 @@ $ErrorActionPreference = 'Stop'
 $ExpectedRepositorySlug = 'abhishekvatsa/crm3_baf_ops'
 $ExpectedWorkflowPath = '.github/workflows/production-artifact.yml'
 $ExpectedEnvironmentName = 'crm3-baf-ops-production-signing'
+$ExpectedRequiredReviewerLogin = 'abhishekvatsa'
+$ExpectedRequiredReviewerId = 213690022
+$ExpectedIntegratedSuccessorCommit =
+  '45ebd9c853798f88fedd2e4d72d6022dc389097f'
+$ExpectedIntegratedSuccessorTree =
+  '24487330756ea9933be5bf81181fde4d607e375d'
+$ExpectedIntegratedSuccessorPostMergeRunId = 30796250694
 $ExpectedEnvironmentSecretNames = @(
   'CRM_ANDROID_RELEASE_KEY_ALIAS'
   'CRM_ANDROID_RELEASE_KEY_PASSWORD'
@@ -159,21 +166,37 @@ if ([string]$policy.github.repository -ne $ExpectedRepositorySlug -or
 }
 $environmentReviewControl = $policy.github.environmentReviewControl
 if ([string]$environmentReviewControl.mode -ne
-      'private-repository-plan-exception' -or
-    $environmentReviewControl.requiredReviewerAvailable -ne $false -or
+      'public-repository-required-reviewer' -or
+    [string]$environmentReviewControl.repositoryVisibility -ne 'public' -or
+    $environmentReviewControl.requiredReviewerAvailable -ne $true -or
     $environmentReviewControl.requiredReviewerRulePresentAtApproval -ne
+      $true -or
+    [string]$environmentReviewControl.requiredReviewerLogin -ne
+      $ExpectedRequiredReviewerLogin -or
+    [long]$environmentReviewControl.requiredReviewerId -ne
+      $ExpectedRequiredReviewerId -or
+    $environmentReviewControl.preventSelfReview -ne $false -or
+    $environmentReviewControl.adminBypassAllowed -ne $false -or
+    $environmentReviewControl.deploymentBranchPolicy.protectedBranches -ne
       $false -or
+    $environmentReviewControl.deploymentBranchPolicy.customBranchPolicies -ne
+      $true -or
+    @($environmentReviewControl.deploymentBranchPolicy.allowedBranches).Count -ne
+      1 -or
+    [string]$environmentReviewControl.deploymentBranchPolicy.
+      allowedBranches[0].name -ne 'main' -or
+    [string]$environmentReviewControl.deploymentBranchPolicy.
+      allowedBranches[0].type -ne 'branch' -or
     $environmentReviewControl.manualDispatchApprovalReferenceRequired -ne
       $true -or
-    [string]$environmentReviewControl.exceptionApprovalFile -notmatch
-      '^release/approvals/private-repository-environment-reviewer-exception-build-[1-9][0-9]*\.json$' -or
-    [string]$environmentReviewControl.exceptionApprovalSha256 -notmatch
+    $environmentReviewControl.approvedRunReviewHistoryRequired -ne $true -or
+    [string]$environmentReviewControl.approvalReceiptFile -notmatch
+      '^release/approvals/public-repository-environment-reviewer-approval-build-[1-9][0-9]*\.json$' -or
+    [string]$environmentReviewControl.approvalReceiptSha256 -notmatch
       '^[0-9A-Fa-f]{64}$' -or
-    [string]$environmentReviewControl.exceptionApprovalReference -notmatch
-      '^BAF-GH-ENV-[0-9]{3}$' -or
-    $environmentReviewControl.failClosedIfRequiredReviewerRuleAppears -ne
-      $true) {
-  throw 'Private-repository environment-review control is incomplete.'
+    [string]$environmentReviewControl.approvalReference -notmatch
+      '^BAF-GH-ENV-[0-9]{3}$') {
+  throw 'Public required-reviewer environment control is incomplete.'
 }
 $policySecretNames = @(
   $environmentReviewControl.requiredSecretNames |
@@ -235,7 +258,7 @@ $requiredFiles = @(
   [string]$policy.identityApproval.receiptFile
   [string]$policy.versionPolicy.approvalReceiptFile
   [string]$policy.versionPolicy.sourceDocumentFile
-  [string]$environmentReviewControl.exceptionApprovalFile
+  [string]$environmentReviewControl.approvalReceiptFile
   [string]$policy.signing.approvalReceiptFile
   [string]$policy.firebaseAndroidApp.registrationReceiptFile
   [string]$policy.firebaseAndroidApp.restorationReceiptFile
@@ -277,7 +300,10 @@ $finalizer = Get-Content `
 foreach ($requiredFinalizerControl in @(
   '$currentBranchOutput = @(git branch --show-current)'
   '$prCommits.Count -lt 1'
-  'private-repository-plan-exception'
+  'public-repository-required-reviewer'
+  'deployment-branch-policies'
+  '$approvedRequiredReviewerReviews.Count -lt 1'
+  'environmentApprovalReference'
   'github-environment-secrets.json'
   'environmentSecretValuesInspected = $false'
   'Authorized dispatcher ID:'
@@ -330,69 +356,101 @@ if ([string]$versionReceipt.receiptType -ne 'version-and-build-policy' -or
   throw 'Version-policy approval receipt differs from policy.'
 }
 
-$environmentException = Get-Content `
-  -LiteralPath $environmentReviewControl.exceptionApprovalFile `
+$environmentApproval = Get-Content `
+  -LiteralPath $environmentReviewControl.approvalReceiptFile `
   -Raw | ConvertFrom-Json
-if ((Get-Sha256 $environmentReviewControl.exceptionApprovalFile) -ne
-      ([string]$environmentReviewControl.exceptionApprovalSha256).
+if ((Get-Sha256 $environmentReviewControl.approvalReceiptFile) -ne
+      ([string]$environmentReviewControl.approvalReceiptSha256).
         ToUpperInvariant() -or
-    [string]$environmentException.receiptType -ne
-      'private-repository-environment-reviewer-plan-exception' -or
-    $environmentException.approved -ne $true -or
-    [string]$environmentException.approvalReference -ne
-      [string]$environmentReviewControl.exceptionApprovalReference -or
-    [string]$environmentException.scope.repository -ne
+    [string]$environmentApproval.receiptType -ne
+      'public-repository-required-reviewer-control' -or
+    $environmentApproval.approved -ne $true -or
+    [string]$environmentApproval.approvalReference -ne
+      [string]$environmentReviewControl.approvalReference -or
+    [string]$environmentApproval.scope.repository -ne
       [string]$policy.github.repository -or
-    [string]$environmentException.scope.repositoryVisibility -ne 'private' -or
-    [string]$environmentException.scope.environmentName -ne
+    [string]$environmentApproval.scope.repositoryVisibility -ne 'public' -or
+    [string]$environmentApproval.scope.environmentName -ne
       [string]$policy.github.environmentName -or
-    [string]$environmentException.scope.workflowPath -ne
+    [string]$environmentApproval.scope.workflowPath -ne
       [string]$policy.github.workflowPath -or
-    [int64]$environmentException.scope.buildNumber -ne
+    [int64]$environmentApproval.scope.buildNumber -ne
       [int64]$policy.release.buildNumber -or
-    [string]$environmentException.scope.versionName -ne
+    [string]$environmentApproval.scope.versionName -ne
       [string]$policy.release.versionName -or
-    [string]$environmentException.scope.versionApprovalReference -ne
+    [string]$environmentApproval.scope.versionApprovalReference -ne
       [string]$versionReceipt.reference -or
-    $environmentException.scope.singleBuildOnly -ne $true -or
-    $environmentException.liveStateEvidence.repositoryPrivate -ne $true -or
-    $environmentException.liveStateEvidence.requiredReviewerRulePresent -ne
-      $false -or
-    $environmentException.liveStateEvidence.secretValuesInspected -ne $false -or
-    [string]$environmentException.liveStateEvidence.
+    $environmentApproval.scope.singleBuildOnly -ne $true -or
+    $environmentApproval.liveStateEvidence.repositoryPrivate -ne $false -or
+    [string]$environmentApproval.liveStateEvidence.repositoryVisibility -ne
+      'public' -or
+    [long]$environmentApproval.liveStateEvidence.environmentId -le 0 -or
+    $environmentApproval.liveStateEvidence.requiredReviewerRulePresent -ne
+      $true -or
+    [long]$environmentApproval.liveStateEvidence.requiredReviewerRuleId -le 0 -or
+    [string]$environmentApproval.liveStateEvidence.requiredReviewer.type -ne
+      'User' -or
+    [string]$environmentApproval.liveStateEvidence.requiredReviewer.login -ne
+      $ExpectedRequiredReviewerLogin -or
+    [long]$environmentApproval.liveStateEvidence.requiredReviewer.id -ne
+      $ExpectedRequiredReviewerId -or
+    $environmentApproval.liveStateEvidence.preventSelfReview -ne $false -or
+    $environmentApproval.liveStateEvidence.canAdminsBypass -ne $false -or
+    $environmentApproval.liveStateEvidence.deploymentBranchPolicy.
+      protectedBranches -ne $false -or
+    $environmentApproval.liveStateEvidence.deploymentBranchPolicy.
+      customBranchPolicies -ne $true -or
+    @($environmentApproval.liveStateEvidence.deploymentBranchPolicy.
+      allowedBranches).Count -ne 1 -or
+    [string]$environmentApproval.liveStateEvidence.deploymentBranchPolicy.
+      allowedBranches[0].name -ne 'main' -or
+    [string]$environmentApproval.liveStateEvidence.deploymentBranchPolicy.
+      allowedBranches[0].type -ne 'branch' -or
+    $environmentApproval.liveStateEvidence.secretValuesInspected -ne $false -or
+    [string]$environmentApproval.liveStateEvidence.
       authorizedDispatcher.login -ne 'abhishekvatsa' -or
-    [long]$environmentException.liveStateEvidence.
+    [long]$environmentApproval.liveStateEvidence.
       authorizedDispatcher.id -ne 213690022 -or
-    $environmentException.compensatingControls.
+    $environmentApproval.singleOperatorConstraint.
+      independentSecondPartyReviewerAvailable -ne $false -or
+    $environmentApproval.singleOperatorConstraint.selfReviewPermitted -ne
+      $true -or
+    $environmentApproval.singleOperatorConstraint.
+      explicitEnvironmentApprovalStillRequired -ne $true -or
+    $environmentApproval.controls.
       manualDispatchApprovalReferenceRequired -ne $true -or
-    [string]$environmentException.compensatingControls.
+    [string]$environmentApproval.controls.
       dispatchApprovalReference -ne [string]$versionReceipt.reference -or
-    $environmentException.compensatingControls.
+    $environmentApproval.controls.
       authorizedDispatcherIdentityRequired -ne $true -or
-    $environmentException.compensatingControls.
+    $environmentApproval.controls.
       protectedEnvironmentSecretsRequired -ne $true -or
-    $environmentException.compensatingControls.
+    [string]$environmentApproval.controls.requiredIntegratedMergeCommit -ne
+      $ExpectedIntegratedSuccessorCommit -or
+    $environmentApproval.controls.
+      approvedRunReviewByRequiredReviewerRequired -ne $true -or
+    $environmentApproval.controls.adminBypassMustRemainDisabled -ne $true -or
+    $environmentApproval.controls.mainOnlyEnvironmentDeploymentRequired -ne
+      $true -or
+    $environmentApproval.controls.
       atomicOneTimeRemoteReservationRequired -ne $true -or
-    $environmentException.compensatingControls.
+    $environmentApproval.controls.
       independentPackageVerificationRequired -ne $true -or
-    $environmentException.compensatingControls.
+    $environmentApproval.controls.
       dualCustodyRequiredBeforeBuiltTag -ne $true -or
-    $environmentException.compensatingControls.distributionApproved -ne
+    $environmentApproval.controls.distributionApproved -ne
       $false -or
-    $environmentException.compensatingControls.firebaseDeploymentApproved -ne
-      $false -or
-    $environmentException.planConstraintEvidence.
-      publicRepositoryConversionApproved -ne $false) {
-  throw 'Private-repository environment-review exception differs from policy.'
+    $environmentApproval.controls.firebaseDeploymentApproved -ne $false) {
+  throw 'Public required-reviewer environment approval differs from policy.'
 }
-$exceptionSecretNames = @(
-  $environmentException.liveStateEvidence.requiredEnvironmentSecretNames |
+$approvalSecretNames = @(
+  $environmentApproval.liveStateEvidence.requiredEnvironmentSecretNames |
     ForEach-Object { [string]$_ } |
     Sort-Object
 )
-if (($exceptionSecretNames -join "`n") -cne
+if (($approvalSecretNames -join "`n") -cne
     ($policySecretNames -join "`n")) {
-  throw 'Environment exception secret-name inventory differs from policy.'
+  throw 'Environment approval secret-name inventory differs from policy.'
 }
 
 $versionSource = Get-Content `
@@ -489,10 +547,15 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
     $versionSource.controls.tokenRaceRemediationRequired -ne $true -or
     $versionSource.controls.
       firestoreValueNormalizationRemediationRequired -ne $true -or
-    $versionSource.controls.
-      privateRepositoryEnvironmentReviewerExceptionApproved -ne $true -or
-    [string]$versionSource.controls.environmentExceptionApprovalReference -ne
-      [string]$environmentReviewControl.exceptionApprovalReference -or
+    $versionSource.controls.integratedSuccessorRequired -ne $true -or
+    $versionSource.controls.publicRepositoryRequiredReviewerApproved -ne
+      $true -or
+    [string]$versionSource.controls.environmentApprovalReference -ne
+      [string]$environmentReviewControl.approvalReference -or
+    $versionSource.controls.approvedEnvironmentReviewHistoryRequired -ne
+      $true -or
+    $versionSource.controls.adminBypassProhibited -ne $true -or
+    $versionSource.controls.mainOnlyEnvironmentDeploymentRequired -ne $true -or
     $versionSource.controls.manualDispatchApprovalReferenceRequired -ne
       $true -or
     $versionSource.controls.environmentSecretNameInventoryRequired -ne
@@ -515,6 +578,18 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
       firestoreValueNormalizationMergeCommit -notmatch '^[0-9a-f]{40}$' -or
     $versionSource.requiredSource.
       firestoreValueNormalizationMustBeAncestorOfDispatchCommit -ne $true -or
+    [int64]$versionSource.requiredSource.integratedSuccessorPullRequest -ne
+      117 -or
+    [string]$versionSource.requiredSource.integratedSuccessorMergeCommit -ne
+      $ExpectedIntegratedSuccessorCommit -or
+    [string]$versionSource.requiredSource.integratedSuccessorTree -ne
+      $ExpectedIntegratedSuccessorTree -or
+    $versionSource.requiredSource.
+      integratedSuccessorMustBeAncestorOfDispatchCommit -ne $true -or
+    [int64]$versionSource.requiredSource.postMergeGithubRunId -ne
+      $ExpectedIntegratedSuccessorPostMergeRunId -or
+    [string]$versionSource.requiredSource.postMergeGithubRunConclusion -ne
+      'success' -or
     $versionSource.distributionApproved -ne $false -or
     $versionSource.unrestrictedPlantReleaseApproved -ne $false) {
   throw 'Governed build-number rollover authority is incomplete.'
@@ -537,6 +612,12 @@ git merge-base --is-ancestor `
   HEAD
 if ($LASTEXITCODE -ne 0) {
   throw 'Dispatch source does not contain the Firestore value-normalization remediation.'
+}
+git merge-base --is-ancestor `
+  ([string]$versionSource.requiredSource.integratedSuccessorMergeCommit) `
+  HEAD
+if ($LASTEXITCODE -ne 0) {
+  throw 'Dispatch source does not contain the integrated PR 117 successor.'
 }
 
 $completionReceiptPath = $null
@@ -1111,6 +1192,7 @@ foreach ($pin in $actionPins.actions.PSObject.Properties) {
 foreach ($required in @(
   'permissions:'
   'contents: write'
+  'actions: read'
   'group: crm3-production-build-number-${{ inputs.build_number }}'
   'CRM_DISPATCH_COMMIT_SHA: ${{ inputs.commit_sha }}'
   'CRM_DISPATCH_RELEASE_ID: ${{ inputs.release_id }}'
@@ -1130,8 +1212,12 @@ foreach ($required in @(
   'test "$GITHUB_REF" = ''refs/heads/main'''
   'test "$GITHUB_SHA" = "$CRM_DISPATCH_COMMIT_SHA"'
   'GH_TOKEN: ${{ github.token }}'
-  'Environment-review exception requires a private repository.'
-  'A required-reviewer rule now exists; exception mode is invalid.'
+  'Required-reviewer mode requires the approved public repository.'
+  'Live required-reviewer environment protection differs from policy.'
+  'deployment-branch-policies'
+  'actions/runs/'
+  '/approvals'
+  'Exact run lacks approval by the governed environment reviewer.'
   "environment: $($policy.github.environmentName)"
   "runs-on: $($policy.toolchain.runnerImage)"
   "java-version: '$($policy.toolchain.javaDistributionVersion)'"
