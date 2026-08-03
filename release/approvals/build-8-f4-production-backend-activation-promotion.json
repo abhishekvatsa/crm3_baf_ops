@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 1,
+  "approvalId": "CRM3-B8-F4-PRODUCTION-GLOBAL-PULL-ACTIVATION-001",
+  "approvalClass": "CONTROLLED_PRODUCTION_GLOBAL_PULL_BACKEND_ACTIVATION",
+  "createdAtUtc": "2026-08-03T18:46:28.1861533Z",
+  "approved": true,
+  "effectiveCondition": "Effective only after owner-reviewed merge to main, exact post-merge CI success, and execution from tracked-clean main equal to freshly fetched origin/main.",
+  "approvalAuthority": {
+    "mode": "MERGED_OWNER_SOURCE_APPROVAL",
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "baselineCommit": "731a02980d38e4e3a8f61ff2bca74a1e85771478",
+    "baselineTree": "8805af93cf0d99d5527a835dcf43fa16d3bfa3f0",
+    "humanApprovalReference": "CODEX_TASK_BUILD8_BACKEND_AND_ADB_APPROVAL_20260803",
+    "requestBasis": "The repository owner explicitly approved governed Build 8 finalization, backend verification and deployment where governed checks permit it, and no-loss ADB upgrade and verification. Build 8 then reached an active beginGlobalPullRun callable that failed closed because its immutable runtime contract remained absent."
+  },
+  "target": {
+    "environment": "production",
+    "projectId": "crm3-baf-ops-b8638",
+    "projectNumber": "894346496105",
+    "region": "asia-south1",
+    "firestoreDatabase": "(default)",
+    "applicationId": "in.co.sail.bsl.crm3.bafops"
+  },
+  "sourceAuthority": {
+    "executionCommitRule": "The deployment and activation source commit is the post-merge main commit observed by the harness; it must differ from baselineCommit and equal origin/main.",
+    "protocolVersion": 1,
+    "protocolFingerprint": "cf9bf145de29799e188ebb37bd4a3c5c668ed9df96b2ba4066404e4d7bc48321",
+    "functionsTrackedFileCount": 112,
+    "functionsTrackedManifestSha256": "E5ADD15B6732ADDCF059D8992EE0F7CE4DBC7F558CCD505A3AF3EE2BF0E0DCAC",
+    "deploymentFiles": [
+      {
+        "path": "firebase.json",
+        "sha256": "E98B915A3631BCFD4BB202A79AB4CC7F58F2B32AD5F9C8C74B756AC934C5B26C"
+      },
+      {
+        "path": "firestore.rules",
+        "sha256": "B1B50675EF479CA62E8841DDFF61D4CD7995F1B1C5E8E4A34AD4F2292B18096E"
+      },
+      {
+        "path": "firestore.indexes.json",
+        "sha256": "A0D032CCB2D9A9229AF9142CC69A6A66C2F6FB796F37A597C2B591F07B11AD52"
+      },
+      {
+        "path": "functions/src/index.ts",
+        "sha256": "C181A240A12FB5D56209ABF3EEC3E4181101B6469D6B8E1A9B41D274E6DF731D"
+      },
+      {
+        "path": "functions/src/globalPullServerClock.ts",
+        "sha256": "AFE1C6AEA51E0DB1ED511E9F56ACADDB6372C1B7DAF44AA1F1F1759C4B83D68A"
+      },
+      {
+        "path": "functions/src/globalPullSecurityConfig.ts",
+        "sha256": "8DFE07729B9D59E8E46D62DC3C2D6B808483956C1C2EF25234E9A7CACF55D3A9"
+      },
+      {
+        "path": "functions/src/callableSecurityConfig.ts",
+        "sha256": "76C5A7A1A9C430D3E02B5106333D679D1FFF4AC3721241DA5096872496809E46"
+      },
+      {
+        "path": "functions/tools/global-pull-server-clock.mjs",
+        "sha256": "85E130F43C0A7847B5C2CFDDAAAB9A5AC0D2B78E196AFEB7EF06CB03D9D80044"
+      },
+      {
+        "path": "functions/package.json",
+        "sha256": "7829F6F4E9F6A5A5A349EC14442267968A73F3BCE911E470E90D2A5511CE0399"
+      },
+      {
+        "path": "functions/package-lock.json",
+        "sha256": "5ADA3D85220DBFCC27D088DB0B55DCB77F303E934662CC43C951D0F954042F3F"
+      },
+      {
+        "path": "governance/global-pull-protocol-v1.json",
+        "sha256": "64291767BE11CB41DEBCD7CA2E5CF2441CF8E71E3CA90664AD61F78C3E63098D"
+      },
+      {
+        "path": "tooling/firebase-cli/package.json",
+        "sha256": "BC520BBE86E00D08F8D9576F551F00A76846A1FEFCAEFEBD2DBD6152AEC66A70"
+      },
+      {
+        "path": "tooling/firebase-cli/package-lock.json",
+        "sha256": "4805A6E50EC60E9051E63F751CB8C6BFFA9E293A62B7708530E8C1FD4D2494EE"
+      }
+    ]
+  },
+  "preflightEvidence": {
+    "capturedAtUtc": "2026-08-03T18:38:00Z",
+    "readOnly": true,
+    "inventoryFileSha256": "EE63F6C45B1B3EF27052459CB4501FF53CBCC5BC4CEC88EF0D9DCBD514261B86",
+    "inventoryReceiptSha256": "dc4f127c57349fe933057c869e990bfd550b3843861c62cdbb776fb7f1044843",
+    "totalDocuments": 42,
+    "stampedDocuments": 1,
+    "missingDocuments": 41,
+    "malformedDocuments": 0,
+    "documentIdsRetained": false,
+    "requiredFunctionsActive": true,
+    "requiredFunctionsUseDedicatedRuntimeIdentities": true,
+    "requiredFunctionsSourceHash": "0258b5d602ff114bdf4794df8e059d0a45ebdcae",
+    "runtimeIdentityProjectRolesExact": true,
+    "activeRulesSha256": "BCF2CCFCCD4F03FFF11D5CCDBE9F869CEFCAA0563A164E41FDC3E41297F0500E",
+    "currentSourceRulesSha256": "B1B50675EF479CA62E8841DDFF61D4CD7995F1B1C5E8E4A34AD4F2292B18096E",
+    "activeRulesMatchCurrentSource": false,
+    "liveIndexCount": 51,
+    "sourceIndexCount": 51,
+    "liveIndexesMatchCurrentSource": true,
+    "runtimeContractState": "ABSENT",
+    "pointInTimeRecoveryState": "POINT_IN_TIME_RECOVERY_DISABLED",
+    "deleteProtectionState": "DELETE_PROTECTION_DISABLED",
+    "phoneObservedFailure": "firebase_functions/failed-precondition: global pull protocol is not activated",
+    "rawAccountIdentityRetained": false,
+    "businessPayloadRetained": false
+  },
+  "restoreAuthority": {
+    "sealReceiptPath": "release/evidence/production-prelive-restore-pack-seal.json",
+    "sealReceiptSha256": "982040C70DD01325870E877378D74A8A705B1F64576A46B2C98FB244576AE599",
+    "decision": "PASS_PRIVATE_PRODUCTION_RESTORE_PACK_SEALED_AND_INDEPENDENTLY_VERIFIED",
+    "managedExportOperationState": "SUCCESSFUL",
+    "privateCustodyCopyCount": 2,
+    "liveRollbackAutomaticallyAuthorized": false
+  },
+  "authorizedSequence": [
+    "verify one exact successful four-job post-merge release-gate push run for the execution commit",
+    "fresh read-only Rules, index, Function, runtime-IAM, contract and privacy-minimized watermark inventory preflight",
+    "deploy the exact source Firestore Rules only; do not deploy or delete indexes because the 51-index source/live sets are already exact",
+    "clean-build and deploy only beginGlobalPullRun and stampGlobalPullServerClock with App Check remaining false under the existing deferral",
+    "repeat read-only parity and malformed-watermark checks while the runtime contract remains absent",
+    "backfill only missing _globalPullServerUpdatedAt fields with server timestamps and optimistic last-update preconditions",
+    "seal and independently reread a zero-missing, zero-malformed inventory",
+    "create runtime_contracts/global_pull_v1 once, bound to the exact source commit and sealed backfill receipt",
+    "capture a final read-only PASS_BUILD8_F4_BACKEND_READY receipt before any device sync retry"
+  ],
+  "authorizedMutations": {
+    "firestoreRules": "EXACT_SOURCE_ONLY",
+    "firestoreIndexes": "READ_ONLY_PARITY",
+    "functions": [
+      "beginGlobalPullRun",
+      "stampGlobalPullServerClock"
+    ],
+    "functionFleetOutsideNamedScope": "PROHIBITED",
+    "iam": "PROHIBITED",
+    "appCheck": "PROHIBITED",
+    "globalPullWatermarkBackfill": "MISSING_FIELD_ONLY",
+    "runtimeContract": "ONE_CREATE_AT_runtime_contracts/global_pull_v1",
+    "businessFields": "PROHIBITED",
+    "documentCreationDeletionOrLifecycleChange": "PROHIBITED",
+    "distribution": "PROHIBITED"
+  },
+  "migrationBoundary": {
+    "maximumObservedDocuments": 100,
+    "maximumBackfillUpdates": 50,
+    "malformedWatermarksAllowed": 0,
+    "documentIdsMayBeRetained": false,
+    "serverTimestampField": "_globalPullServerUpdatedAt",
+    "writePrecondition": "lastUpdateTime",
+    "partialBackfillRecovery": "STOP_WITH_CONTRACT_ABSENT; REINVENTORY_AND_RETRY_ONLY_UNDER_THE_SAME_MERGED_PROMOTION",
+    "contractCreateIsImmutable": true
+  },
+  "requiredRuntimeIdentity": {
+    "beginGlobalPullRun": {
+      "serviceAccount": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+      "exactProjectRoles": [
+        "roles/datastore.viewer",
+        "roles/logging.logWriter"
+      ]
+    },
+    "stampGlobalPullServerClock": {
+      "serviceAccount": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+      "exactProjectRoles": [
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver",
+        "roles/logging.logWriter",
+        "roles/run.invoker"
+      ]
+    },
+    "forbiddenRoles": [
+      "roles/owner",
+      "roles/editor",
+      "roles/iam.securityAdmin",
+      "roles/iam.serviceAccountAdmin",
+      "roles/iam.serviceAccountTokenCreator"
+    ]
+  },
+  "failurePolicy": {
+    "stopOnSourceOriginOrPromotionMismatch": true,
+    "stopOnRestoreSealMismatch": true,
+    "stopOnUnexpectedIndexDrift": true,
+    "stopOnRuntimeIdentityDrift": true,
+    "stopOnAnyMalformedWatermark": true,
+    "stopOnMigrationBoundaryExpansion": true,
+    "stopWithContractAbsentAfterDeploymentOrBackfillFailure": true,
+    "activationRequiresFreshZeroGapInventory": true,
+    "automaticRollbackAuthorized": false,
+    "failedPhaseMayNotBeRelabelledPass": true,
+    "newReceiptPathRequiredForEveryRetry": true
+  },
+  "prohibitedOperations": [
+    "deploy all Functions or mutate any Function outside the exact two-name scope",
+    "deploy, delete or rebuild Firestore indexes when exact source/live parity already exists",
+    "create, delete or broaden any service account or IAM binding",
+    "enable App Check in the client, callable policy or Firebase control plane",
+    "read or retain production document IDs, account identifiers or business payloads",
+    "change any Firestore field other than a missing _globalPullServerUpdatedAt watermark and the one exact runtime contract",
+    "delete, restore, import, archive or change lifecycle state of any production document",
+    "activate the runtime contract before a sealed zero-gap inventory",
+    "resume device sync without PASS_BUILD8_F4_BACKEND_READY",
+    "close STAGE2D-F4 or P-07, authorize pilot handout, or create a distribution channel"
+  ],
+  "programmeBoundary": {
+    "stage2dF4CurrentStatus": "OPEN",
+    "stage2dF4ClosureAuthorized": false,
+    "p07ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "externalDistributionAuthorized": false,
+    "build8DeviceSyncRetryAuthorizedByThisPromotion": false,
+    "separateBackendEvidenceAdjudicationRequired": true,
+    "separateBuild8PhysicalExecutionPromotionRequired": true
+  },
+  "expiresWhen": "Any bound source file, target project, runtime identity, protocol fingerprint, restore seal, migration ceiling or prohibited-operation boundary differs, or the runtime contract exists before the admitted activation phase."
+}
