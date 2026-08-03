@@ -1465,6 +1465,34 @@ build8_environment_approval = data(
     "release/approvals/"
     "public-repository-environment-reviewer-approval-build-8.json"
 )
+build8_completion_path = (
+    ROOT / "release/evidence/build-8-finalization-closure.json"
+)
+build8_completion = data(
+    "release/evidence/build-8-finalization-closure.json"
+)
+build8_backend_readiness_path = (
+    ROOT
+    / "release/evidence/build-8-f4-production-backend-readiness.json"
+)
+build8_backend_readiness = data(
+    "release/evidence/build-8-f4-production-backend-readiness.json"
+)
+build8_sync_promotion_path = (
+    ROOT
+    / "release/approvals/build-8-f4-physical-sync-retry-promotion.json"
+)
+build8_sync_promotion = data(
+    "release/approvals/build-8-f4-physical-sync-retry-promotion.json"
+)
+build8_sync_harness_path = (
+    ROOT / "tools/release/Invoke-Build8F4PhysicalSyncRetry.ps1"
+)
+build8_sync_harness = build8_sync_harness_path.read_text(encoding="utf-8")
+build8_sync_doc_path = (
+    ROOT / "docs/v4_2_r1/BUILD8_F4_BACKEND_READY_AND_SYNC_RETRY.md"
+)
+build8_sync_doc = build8_sync_doc_path.read_text(encoding="utf-8")
 version_policy_approval = data(
     "release/approvals/version-policy-approval.json"
 )
@@ -1488,7 +1516,7 @@ build8_entries = [
 ]
 build8_entry = build8_entries[0] if len(build8_entries) == 1 else {}
 check(
-    "Build 6 and 7 remain exact; Build 8 is source-authorized",
+    "Builds 6 through 8 are finalized and remain non-distributable",
     sha(build6_approval_path)
         == "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141"
     and sha(build6_exception_path)
@@ -1693,31 +1721,23 @@ check(
     and version_policy_approval.get("buildNumber") == 8
     and combined_policy.get("release", {}).get("buildNumber") == 8
     and combined_policy.get("finalization", {}).get("status")
-        == "pending-source-authorized"
-    and sha(build7_completion_path)
-        == combined_policy.get("finalization", {})
-        .get("priorCompletedBuild", {})
-        .get("completionReceiptSha256")
+        == "completed-non-distributable"
+    and sha(build8_completion_path)
+        == combined_policy.get("finalization", {}).get(
+            "completionReceiptSha256"
+        )
+    and combined_policy.get("finalization", {}).get("sourceCommit")
+        == "731a02980d38e4e3a8f61ff2bca74a1e85771478"
+    and combined_policy.get("finalization", {}).get("githubRunId")
+        == 30839125687
     and combined_policy.get("finalization", {}).get(
-        "priorCompletedBuild", {}
-    ).get("buildNumber")
-        == 7
-    and combined_policy.get("finalization", {}).get(
-        "priorCompletedBuild", {}
-    ).get("sourceCommit")
-        == "d8619ef1a9c7bf53828523c4bca3efe33e4074f0"
-    and combined_policy.get("finalization", {}).get(
-        "priorCompletedBuild", {}
-    ).get("githubRunId")
-        == 30757692948
-    and combined_policy.get("finalization", {}).get(
-        "priorCompletedBuild", {}
-    ).get("governedPackageSha256")
-        == "D6E2710481681F63651B13A9C5872B16BDADE90EB288E610DD59BE1B9B07ACE7"
+        "governedPackageSha256"
+    )
+        == "75362F9875CC5067012B4A5768720CB4AE0AD2C6A94B38C1F174E0FD1E1CA91F"
     and combined_policy.get("finalization", {}).get(
         "dualCustodyCompleted"
     )
-        is False
+        is True
     and combined_policy.get("finalization", {}).get(
         "firebaseBackendDeploymentPerformed"
     )
@@ -1733,6 +1753,43 @@ check(
     and combined_policy.get("distribution", {}).get("approved") is False
     and combined_policy.get("distribution", {}).get(
         "unrestrictedPlantReleaseApproved"
+    )
+        is False
+    and build8_completion.get("status") == "passed-non-distributable"
+    and build8_completion.get("sourceAuthority", {}).get("commit")
+        == "731a02980d38e4e3a8f61ff2bca74a1e85771478"
+    and build8_completion.get("sourceAuthority", {}).get(
+        "pullRequestNumber"
+    )
+        == 118
+    and build8_completion.get("workflow", {}).get("runId")
+        == 30839125687
+    and build8_completion.get("workflow", {}).get("actorId")
+        == 213690022
+    and build8_completion.get("governedPackage", {}).get("sha256")
+        == "75362F9875CC5067012B4A5768720CB4AE0AD2C6A94B38C1F174E0FD1E1CA91F"
+    and build8_completion.get("remoteAuthority", {}).get(
+        "builtTagObjectSha"
+    )
+        == "f9f6f3fbacd33d824bf4b5213b0b28f6d7e29feb"
+    and build8_completion.get("dualCustody", {}).get("distinctVolumes")
+        is True
+    and build8_completion.get("dualCustody", {}).get(
+        "allFileHashesMatched"
+    )
+        is True
+    and build8_completion.get("recoveryIncident", {}).get("occurred")
+        is False
+    and build8_completion.get("releaseBoundary", {}).get(
+        "firebaseBackendDeploymentPerformed"
+    )
+        is False
+    and build8_completion.get("releaseBoundary", {}).get(
+        "controlledPilotApproved"
+    )
+        is False
+    and build8_completion.get("releaseBoundary", {}).get(
+        "distributionPerformed"
     )
         is False
     and build7_completion.get("status") == "passed-non-distributable"
@@ -1876,7 +1933,7 @@ check(
     and build7_entry.get("finalizationRetryRequired") is True
     and build7_entry.get("distributionPerformed") is False
     and build8_entry.get("status")
-        == "source-reserved-awaiting-remote-consumption"
+        == "remote-consumed-artifact-built-finalized-non-distributable"
     and build8_entry.get("baselineCommit")
         == "45ebd9c853798f88fedd2e4d72d6022dc389097f"
     and build8_entry.get("versionApprovalReference") == "BAF-REF-003-C7"
@@ -1885,7 +1942,191 @@ check(
     and build8_entry.get("remoteReservationTag")
         == "crm3-build-reserved/8"
     and build8_entry.get("remoteBuiltTag") == "crm3-build-built/8"
-    and build8_entry.get("failedOrWithdrawnBuildConsumesNumber") is True,
+    and build8_entry.get("failedOrWithdrawnBuildConsumesNumber") is True
+    and build8_entry.get("githubRunId") == 30839125687
+    and build8_entry.get("remoteReservationTagObject")
+        == "e0a50955db970ddd2c93e6bda6dc0517eaca150f"
+    and build8_entry.get("remoteBuiltTagObject")
+        == "f9f6f3fbacd33d824bf4b5213b0b28f6d7e29feb"
+    and build8_entry.get("governedPackageSha256")
+        == "75362F9875CC5067012B4A5768720CB4AE0AD2C6A94B38C1F174E0FD1E1CA91F"
+    and build8_entry.get("completionReceiptSha256")
+        == sha(build8_completion_path)
+    and build8_entry.get("closureFinalizationCompleted") is True
+    and build8_entry.get("dualCustodyCompleted") is True
+    and build8_entry.get("remoteBuiltTagCreated") is True
+    and build8_entry.get("remoteTagPushRecoveryRequired") is False
+    and build8_entry.get("firebaseBackendDeploymentPerformed") is False
+    and build8_entry.get("controlledPilotApproved") is False
+    and build8_entry.get("distributionPerformed") is False,
+)
+check(
+    "Build 8 backend is ready and its one physical sync retry stays bounded",
+    sha(build8_sync_promotion_path)
+        == "C453E38385A4405B0C44E66272DDC038C3E56C33F7793A7D7A17F89D11EF4E64"
+    and sha(build8_sync_harness_path)
+        == "EAA9BC23A1BE2CECB1394824BE6830EFF2E0498A43D2BBB4BB5C39F47FF8C40A"
+    and sha(build8_sync_doc_path)
+        == "06FAB48DE68A947401813A38F90B6865A9157E75D28DCE31FE8E0AB8226D7B93"
+    and "Status: BACKEND READY; ONE EXACT-TARGET SYNC RETRY PROPOSED"
+        in build8_sync_doc
+    and sha(build8_backend_readiness_path)
+        == combined_policy.get("finalization", {})
+        .get("backendActivation", {})
+        .get("evidenceSha256")
+    and build8_backend_readiness.get("decision")
+        == "PASS_BUILD8_F4_BACKEND_READY"
+    and build8_backend_readiness.get("sourceAuthority", {}).get(
+        "deploymentCommit"
+    )
+        == "34dd01511ffd0ca4aba37735b6dfd710d2964b46"
+    and build8_backend_readiness.get("sourceAuthority", {}).get(
+        "postMergeReleaseGateRunId"
+    )
+        == 30850203589
+    and build8_backend_readiness.get("sourceAuthority", {}).get(
+        "postMergeReleaseGateConclusion"
+    )
+        == "success"
+    and build8_backend_readiness.get("liveReadback", {}).get(
+        "globalPullContractState"
+    )
+        == "ACTIVE"
+    and build8_backend_readiness.get("liveReadback", {}).get(
+        "inventoryTotal"
+    )
+        == 42
+    and build8_backend_readiness.get("liveReadback", {}).get(
+        "inventoryStamped"
+    )
+        == 42
+    and build8_backend_readiness.get("liveReadback", {}).get(
+        "inventoryMissing"
+    )
+        == 0
+    and build8_backend_readiness.get("liveReadback", {}).get(
+        "inventoryMalformed"
+    )
+        == 0
+    and build8_backend_readiness.get("mutationAdjudication", {}).get(
+        "watermarkFieldsCreated"
+    )
+        == 41
+    and build8_backend_readiness.get("mutationAdjudication", {}).get(
+        "businessFieldsMutated"
+    )
+        is False
+    and build8_backend_readiness.get("mutationAdjudication", {}).get(
+        "distributionPerformed"
+    )
+        is False
+    and build8_backend_readiness.get("programmeBoundary", {}).get(
+        "stage2dF4Status"
+    )
+        == "OPEN"
+    and build8_backend_readiness.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    )
+        is False
+    and build8_backend_readiness.get("programmeBoundary", {}).get(
+        "pilotHandoutAuthorized"
+    )
+        is False
+    and build8_sync_promotion.get("approved") is True
+    and build8_sync_promotion.get("approvalClass")
+        == "CONTROLLED_EXACT_TARGET_BUILD8_POST_ACTIVATION_SYNC_RETRY"
+    and build8_sync_promotion.get("backendAuthority", {}).get(
+        "evidenceSha256"
+    )
+        == sha(build8_backend_readiness_path)
+    and build8_sync_promotion.get("artifactAuthority", {}).get(
+        "finalizationEvidenceSha256"
+    )
+        == sha(build8_completion_path)
+    and build8_sync_promotion.get("artifactAuthority", {})
+        .get("apk", {})
+        .get("versionCode")
+        == 8
+    and build8_sync_promotion.get("artifactAuthority", {})
+        .get("apk", {})
+        .get("debuggable")
+        is False
+    and build8_sync_promotion.get("targetAuthority", {}).get(
+        "maxTargetCount"
+    )
+        == 1
+    and build8_sync_promotion.get("targetAuthority", {}).get(
+        "physicalDeviceRequired"
+    )
+        is True
+    and build8_sync_promotion.get("targetAuthority", {}).get(
+        "rawAdbSerialRetained"
+    )
+        is False
+    and build8_sync_promotion.get("authorizedMutations", {}).get(
+        "applicationInstallOrUpgrade"
+    )
+        == "PROHIBITED_ALREADY_EXACT"
+    and build8_sync_promotion.get("authorizedMutations", {}).get(
+        "inAppManualSync"
+    )
+        == "ONE_ATTEMPT"
+    and build8_sync_promotion.get("authorizedMutations", {}).get(
+        "firebaseBackend"
+    )
+        == "PROHIBITED"
+    and build8_sync_promotion.get("authorizedMutations", {}).get(
+        "deviceDataClearOrUninstall"
+    )
+        == "PROHIBITED"
+    and build8_sync_promotion.get("authorizedMutations", {}).get(
+        "distribution"
+    )
+        == "PROHIBITED"
+    and build8_sync_promotion.get("passCriteria", {}).get(
+        "pendingLocalBusinessWritesBefore"
+    )
+        == 0
+    and build8_sync_promotion.get("passCriteria", {}).get(
+        "manualSyncOutcome"
+    )
+        == "SUCCESS"
+    and build8_sync_promotion.get("programmeBoundary", {}).get(
+        "stage2dF4Status"
+    )
+        == "OPEN"
+    and build8_sync_promotion.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    )
+        is False
+    and build8_sync_promotion.get("programmeBoundary", {}).get(
+        "offlineReconnectAuthorized"
+    )
+        is False
+    and build8_sync_promotion.get("programmeBoundary", {}).get(
+        "weakNetworkAuthorized"
+    )
+        is False
+    and all(
+        marker in build8_sync_harness
+        for marker in [
+            "Physical sync retry requires exact tracked-clean main equal to origin/main.",
+            "Pending local business writes are nonzero; sync retry is prohibited.",
+            "PASS_BUILD8_F4_POST_ACTIVATION_SYNC_MARKER",
+            "stage2dF4ClosureAuthorized = $false",
+            "pilotHandoutAuthorized = $false",
+            "rawUiRetained = $false",
+        ]
+    )
+    and all(
+        marker not in build8_sync_harness.lower()
+        for marker in [
+            "'pm', 'clear'",
+            "'uninstall'",
+            "firebase deploy",
+            "appdistribution:distribute",
+        ]
+    ),
 )
 build7_f4_compatibility = data(
     "release/approvals/build-7-f4-firestore-compatibility-promotion.json"

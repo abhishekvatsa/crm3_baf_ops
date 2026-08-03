@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {spawnSync} from "node:child_process";
+import {createHash} from "node:crypto";
 import fs from "node:fs";
 import {createRequire} from "node:module";
 import os from "node:os";
@@ -15,7 +16,6 @@ const {
   inventoryShapeValid,
   protocolReceiptChecks,
   sealReceipt,
-  trackedPathManifest,
   validatePromotion,
   verifyReceiptSeal,
 } = require("./collectProductionGlobalPullBackend.js");
@@ -34,6 +34,46 @@ const protocolCollections = [
   "template_publish_audits",
   "template_versions",
 ];
+
+function gitOutput(args, encoding = "utf8") {
+  const result = spawnSync("git", args, {
+    cwd: process.cwd(),
+    encoding,
+    windowsHide: true,
+  });
+  assert.equal(result.status, 0, result.stderr?.toString() ?? "git failed");
+  return result.stdout;
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex").toUpperCase();
+}
+
+function gitBlob(commit, relativePath) {
+  return gitOutput(["show", `${commit}:${relativePath}`], null);
+}
+
+function trackedPathManifestAtCommit(commit, pathspec) {
+  const relativePaths = gitOutput([
+    "ls-tree",
+    "-r",
+    "--name-only",
+    commit,
+    "--",
+    pathspec,
+  ])
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .sort();
+  const entries = relativePaths.map((relativePath) => ({
+    path: relativePath,
+    sha256: sha256(gitBlob(commit, relativePath)),
+  }));
+  return {
+    fileCount: entries.length,
+    sha256: sha256(canonicalJson(entries)),
+  };
+}
 
 test("canonical receipt seal is key-order independent and tamper evident", () => {
   const sealed = sealReceipt({
@@ -286,17 +326,49 @@ test("inventory and backfill arithmetic reject partial or inconsistent receipts"
   );
 });
 
-test("merged promotion binds exact source files and sealed restore authority", () => {
-  const result = validatePromotion(
-    process.cwd(),
-    "release/approvals/build-8-f4-production-backend-activation-promotion.json",
+test("merged promotion binds the exact deployed historical source", () => {
+  const promotion = JSON.parse(
+    fs.readFileSync(
+      "release/approvals/build-8-f4-production-backend-activation-promotion.json",
+      "utf8",
+    ),
   );
-  assert.equal(Object.values(result.checks).every(Boolean), true);
-  assert.equal(Object.values(result.fileChecks).every(Boolean), true);
-  assert.deepEqual(trackedPathManifest(process.cwd(), "functions"), {
+  const backendEvidence = JSON.parse(
+    fs.readFileSync(
+      "release/evidence/build-8-f4-production-backend-readiness.json",
+      "utf8",
+    ),
+  );
+  const deploymentCommit = backendEvidence.sourceAuthority.deploymentCommit;
+  assert.equal(
+    deploymentCommit,
+    "34dd01511ffd0ca4aba37735b6dfd710d2964b46",
+  );
+  assert.equal(
+    gitOutput(["rev-parse", `${deploymentCommit}^{tree}`]).trim(),
+    backendEvidence.sourceAuthority.deploymentTree,
+  );
+  assert.deepEqual(trackedPathManifestAtCommit(deploymentCommit, "functions"), {
     fileCount: 112,
     sha256: "E5ADD15B6732ADDCF059D8992EE0F7CE4DBC7F558CCD505A3AF3EE2BF0E0DCAC",
   });
+  const boundFiles = promotion.sourceAuthority.deploymentFiles;
+  assert.equal(boundFiles.length, 13);
+  assert.equal(
+    boundFiles.every(
+      ({path: relativePath, sha256: expectedSha256}) =>
+        sha256(gitBlob(deploymentCommit, relativePath)) === expectedSha256,
+    ),
+    true,
+  );
+  assert.equal(
+    sha256(
+      fs.readFileSync(
+        "release/evidence/production-prelive-restore-pack-seal.json",
+      ),
+    ),
+    promotion.restoreAuthority.sealReceiptSha256,
+  );
   assert.throws(
     () =>
       validatePromotion(

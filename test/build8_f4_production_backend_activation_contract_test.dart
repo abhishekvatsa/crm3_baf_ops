@@ -137,6 +137,126 @@ void main() {
     );
   });
 
+  test('post-activation sync retry is exact-target and non-distributable', () {
+    final readiness = _object(
+      jsonDecode(
+        File(
+          'release/evidence/build-8-f4-production-backend-readiness.json',
+        ).readAsStringSync(),
+      ),
+    );
+    final retry = _object(
+      jsonDecode(
+        File(
+          'release/approvals/'
+          'build-8-f4-physical-sync-retry-promotion.json',
+        ).readAsStringSync(),
+      ),
+    );
+
+    expect(readiness['decision'], 'PASS_BUILD8_F4_BACKEND_READY');
+    final readback = _object(readiness['liveReadback']);
+    expect(readback['globalPullContractState'], 'ACTIVE');
+    expect(readback['inventoryTotal'], 42);
+    expect(readback['inventoryStamped'], 42);
+    expect(readback['inventoryMissing'], 0);
+    expect(readback['inventoryMalformed'], 0);
+
+    expect(retry['approved'], isTrue);
+    expect(
+      retry['approvalClass'],
+      'CONTROLLED_EXACT_TARGET_BUILD8_POST_ACTIVATION_SYNC_RETRY',
+    );
+    final backend = _object(retry['backendAuthority']);
+    expect(
+      backend['evidenceSha256'],
+      '73295B13B7DC7C476A7F094B779A58DF5B3491B32DB4E349A2CDD5C695BC7096',
+    );
+    expect(backend['inventoryMissing'], 0);
+    expect(backend['inventoryMalformed'], 0);
+    final artifact = _object(retry['artifactAuthority']);
+    expect(
+      artifact['finalizationEvidenceSha256'],
+      '9DA20D9997DC11D305317F4A594F3A139E9AC2FF3111523FDD4E288C0D31B446',
+    );
+    final apk = _object(artifact['apk']);
+    expect(apk['versionCode'], 8);
+    expect(apk['debuggable'], isFalse);
+    final target = _object(retry['targetAuthority']);
+    expect(target['maxTargetCount'], 1);
+    expect(target['physicalDeviceRequired'], isTrue);
+    expect(target['rawAdbSerialRetained'], isFalse);
+    expect(target['rawBuildFingerprintRetained'], isFalse);
+
+    final mutations = _object(retry['authorizedMutations']);
+    expect(
+      mutations['applicationInstallOrUpgrade'],
+      'PROHIBITED_ALREADY_EXACT',
+    );
+    expect(mutations['inAppManualSync'], 'ONE_ATTEMPT');
+    expect(
+      mutations['productionBusinessWrites'],
+      'PROHIBITED_BY_ZERO_PENDING_LOCAL_WRITES_PREFLIGHT',
+    );
+    expect(mutations['networkState'], 'READ_ONLY_CURRENT_STATE');
+    expect(mutations['authenticationSession'], 'PRESERVE_EXISTING_ONLY');
+    expect(mutations['firebaseBackend'], 'PROHIBITED');
+    expect(mutations['deviceDataClearOrUninstall'], 'PROHIBITED');
+    expect(mutations['distribution'], 'PROHIBITED');
+
+    final boundary = _object(retry['programmeBoundary']);
+    expect(boundary['stage2dF4Status'], 'OPEN');
+    expect(boundary['stage2dF4ClosureAuthorized'], isFalse);
+    expect(boundary['p07ClosureAuthorized'], isFalse);
+    expect(boundary['pilotHandoutAuthorized'], isFalse);
+    expect(boundary['offlineReconnectAuthorized'], isFalse);
+    expect(boundary['weakNetworkAuthorized'], isFalse);
+    expect(boundary['revocationAuthorized'], isFalse);
+    expect(boundary['wrongRoleExecutionAuthorized'], isFalse);
+  });
+
+  test('physical retry harness preserves data and fails closed', () {
+    final script =
+        File(
+          'tools/release/Invoke-Build8F4PhysicalSyncRetry.ps1',
+        ).readAsStringSync();
+
+    for (final required in <String>[
+      'EvidenceDirectory must be outside the repository.',
+      'Physical sync retry requires exact tracked-clean main equal to origin/main.',
+      'Post-merge release-gate must contain exactly four successful jobs.',
+      'Backend missing-watermark count',
+      'Backend malformed-watermark count',
+      'Installed APK SHA-256',
+      'Preserved first-install time',
+      'Preserved last-update time',
+      'Pending local business writes are nonzero; sync retry is prohibited.',
+      'Manual sync completed.',
+      'PASS_BUILD8_F4_POST_ACTIVATION_SYNC_MARKER',
+      'stage2dF4Status = \'OPEN\'',
+      'stage2dF4ClosureAuthorized = \$false',
+      'pilotHandoutAuthorized = \$false',
+      'rawUiRetained = \$false',
+      'businessPayloadRetained = \$false',
+    ]) {
+      expect(script, contains(required), reason: required);
+    }
+
+    for (final forbidden in <String>[
+      "'install'",
+      "'uninstall'",
+      "'pm', 'clear'",
+      "'svc', 'wifi'",
+      "'svc', 'data'",
+      'firebase deploy',
+      'appdistribution:distribute',
+      'stage2dF4ClosureAuthorized = \$true',
+      'pilotHandoutAuthorized = \$true',
+    ]) {
+      expect(script.toLowerCase(), isNot(contains(forbidden.toLowerCase())));
+    }
+  });
+
   test('activation harness chains four phases and excludes wider mutation', () {
     final script =
         File(

@@ -69,17 +69,24 @@
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
-    "status": "pending-source-authorized",
-    "priorCompletedBuild": {
-      "buildNumber": 7,
-      "completionReceiptFile": "release/evidence/build-7-finalization-closure.json",
-      "completionReceiptSha256": "F9788C0DD9BB7DB0B21A43FF461D68CEBC85A2135E16DA68E1ABA8342B1B1337",
-      "sourceCommit": "d8619ef1a9c7bf53828523c4bca3efe33e4074f0",
-      "githubRunId": 30757692948,
-      "remoteBuiltTag": "crm3-build-built/7",
-      "governedPackageSha256": "D6E2710481681F63651B13A9C5872B16BDADE90EB288E610DD59BE1B9B07ACE7"
+    "status": "completed-non-distributable",
+    "completionReceiptFile": "release/evidence/build-8-finalization-closure.json",
+    "completionReceiptSha256": "9DA20D9997DC11D305317F4A594F3A139E9AC2FF3111523FDD4E288C0D31B446",
+    "sourceCommit": "731a02980d38e4e3a8f61ff2bca74a1e85771478",
+    "githubRunId": 30839125687,
+    "governedPackageSha256": "75362F9875CC5067012B4A5768720CB4AE0AD2C6A94B38C1F174E0FD1E1CA91F",
+    "remoteReservationTagObject": "e0a50955db970ddd2c93e6bda6dc0517eaca150f",
+    "remoteBuiltTagObject": "f9f6f3fbacd33d824bf4b5213b0b28f6d7e29feb",
+    "closurePackageSha256": "F704274E51723ECB1AE7BEB498F568A06EC0547E5B6F5331AA8644BCFC506E42",
+    "custodyRecordSha256": "2737C0B726393CC915C0D0A9343661CE5F50625FDA79B30F663C60CF38496AF2",
+    "backendActivation": {
+      "status": "completed-ready-for-bounded-device-retry",
+      "evidenceFile": "release/evidence/build-8-f4-production-backend-readiness.json",
+      "evidenceSha256": "73295B13B7DC7C476A7F094B779A58DF5B3491B32DB4E349A2CDD5C695BC7096",
+      "decision": "PASS_BUILD8_F4_BACKEND_READY",
+      "deploymentCommit": "34dd01511ffd0ca4aba37735b6dfd710d2964b46"
     },
-    "dualCustodyCompleted": false,
+    "dualCustodyCompleted": true,
     "firebaseBackendDeploymentPerformed": false,
     "controlledPilotApproved": false,
     "unrestrictedPlantReleaseApproved": false
