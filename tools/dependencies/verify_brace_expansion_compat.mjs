@@ -42,8 +42,8 @@ for (const packageRoot of packageRoots) {
   for (const [lockPath, metadata] of braceEntries) {
     assert.equal(
       metadata.version,
-      '5.0.8',
-      `${label}:${lockPath} must resolve brace-expansion 5.0.8`,
+      '5.0.9',
+      `${label}:${lockPath} must resolve brace-expansion 5.0.9`,
     );
   }
 
