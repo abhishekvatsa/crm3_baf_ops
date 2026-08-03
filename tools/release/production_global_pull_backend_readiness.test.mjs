@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import {spawnSync} from "node:child_process";
+import fs from "node:fs";
 import {createRequire} from "node:module";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
@@ -96,6 +99,39 @@ test("canonical receipt seal is key-order independent and tamper evident", () =>
     ).valid,
     false,
   );
+});
+
+test("receipt verification CLI avoids inline-script argument marshalling", () => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crm3-production-receipt-verifier-"),
+  );
+  try {
+    const receiptPath = path.join(directory, "receipt.json");
+    const receipt = sealReceipt({receiptType: "WINDOWS_HANDOFF_TEST"});
+    fs.writeFileSync(receiptPath, `${JSON.stringify(receipt)}\n`, "utf8");
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(
+          process.cwd(),
+          "tools/release/collectProductionGlobalPullBackend.js",
+        ),
+        "--verify-receipt",
+        receiptPath,
+        "--label",
+        "WINDOWS_HANDOFF_TEST",
+      ],
+      {encoding: "utf8", windowsHide: true},
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      verified: true,
+      label: "WINDOWS_HANDOFF_TEST",
+      receiptSha256: receipt.receiptSha256,
+    });
+  } finally {
+    fs.rmSync(directory, {recursive: true, force: true});
+  }
 });
 
 test("index comparison ignores only the API-added document-name tiebreaker", () => {
