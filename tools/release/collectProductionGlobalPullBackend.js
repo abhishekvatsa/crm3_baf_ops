@@ -1074,6 +1074,25 @@ async function collect(options) {
 }
 
 async function main() {
+  if (process.argv.slice(2).includes("--verify-receipt")) {
+    const argv = process.argv.slice(2);
+    const known = new Set(["--verify-receipt", "--label"]);
+    for (let index = 0; index < argv.length; index += 2) {
+      if (!known.has(argv[index])) fail(`Unknown argument: ${argv[index]}`);
+    }
+    const receiptPath = path.resolve(readArg(argv, "--verify-receipt"));
+    const label = readArg(argv, "--label");
+    const receipt = readJson(receiptPath);
+    verifyReceiptSeal(receipt, label);
+    process.stdout.write(
+      `${JSON.stringify({
+        verified: true,
+        label,
+        receiptSha256: receipt.receiptSha256,
+      })}\n`,
+    );
+    return receipt;
+  }
   return collect(parseArgs(process.argv.slice(2)));
 }
 

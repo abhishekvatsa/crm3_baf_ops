@@ -94,18 +94,10 @@ function Read-Receipt {
     [Parameter(Mandatory = $true)][string]$ExpectedDecision
   )
   $resolved = (Resolve-Path -LiteralPath $Path).Path
-  $verifier = @'
-const fs = require("fs");
-const collector = require(process.argv[1]);
-const receipt = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-collector.verifyReceiptSeal(receipt, process.argv[3]);
-'@
   Invoke-ExternalText -FilePath 'node' -WorkingDirectory $root -Arguments @(
-    '-e',
-    $verifier,
-    (Join-Path $root 'tools/release/collectProductionGlobalPullBackend.js'),
-    $resolved,
-    $ExpectedDecision
+    'tools/release/collectProductionGlobalPullBackend.js',
+    '--verify-receipt', $resolved,
+    '--label', $ExpectedDecision
   ) | Out-Null
   $receipt = Get-Content -LiteralPath $resolved -Raw | ConvertFrom-Json
   Assert-Equal $receipt.decision $ExpectedDecision 'Receipt decision'
