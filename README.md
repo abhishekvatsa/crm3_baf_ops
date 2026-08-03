@@ -51,8 +51,8 @@ The governed production policy pins:
 - Dart `3.12.0`
 - Isar `3.1.0+1`
 - Java `21.0.11+10`
-- Node `22.15.0`
-- npm `10.9.2`
+- Node `22.23.1`
+- npm `10.9.8`
 - Firebase Tools `15.22.4`
 
 Do not substitute another Flutter/Dart/Isar generator when approving schema output.

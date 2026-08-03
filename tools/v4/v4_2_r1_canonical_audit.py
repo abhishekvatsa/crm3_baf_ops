@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 285
-    and counts.get("SUCCESSOR_MODIFIED") == 125
+    and counts.get("BYTE_IDENTICAL") == 267
+    and counts.get("SUCCESSOR_MODIFIED") == 143
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -651,7 +651,7 @@ check(
 )
 check(
     "Trial harness enforces full pinned toolchain and lockfile stability",
-    all(item in harness for item in ("22.15.0", "10.9.2", "21.0.11", "3.44.0", "3.12.0"))
+    all(item in harness for item in ("22.23.1", "10.9.8", "21.0.11", "3.44.0", "3.12.0"))
     and "Assert-LockfilesStable" in harness
     and "HOLD_LOCKFILE_DRIFT" in harness,
 )
@@ -677,7 +677,8 @@ check(
     and functions_package_scripts.get("build")
         == (
             "npm run clean && tsc --pretty false && "
-            "npm run audit:emitted-output && npm run audit:callable-inventory"
+            "npm run audit:emitted-output && npm run audit:callable-inventory && "
+            "npm run audit:notification-inventory"
         )
     and functions_package_scripts.get("test:emitted-output-custody")
         == "node --test tools/emitted_output_custody.test.mjs"
@@ -830,6 +831,7 @@ fast_uri = firebase_cli_packages.get("node_modules/fast-uri", {})
 brace_expansion = firebase_cli_packages.get("node_modules/brace-expansion", {})
 brace_expansion_upstream = firebase_cli_packages.get("node_modules/brace-expansion-modern", {})
 tar = firebase_cli_packages.get("node_modules/tar", {})
+re2 = firebase_cli_packages.get("node_modules/re2", {})
 firebase_tools = firebase_cli_packages.get("node_modules/firebase-tools", {})
 mcp_sdk = firebase_cli_packages.get("node_modules/@modelcontextprotocol/sdk", {})
 check(
@@ -840,6 +842,7 @@ check(
     and firebase_cli_package.get("dependencies", {}).get("brace-expansion") == "file:../brace-expansion-compat"
     and firebase_cli_package.get("overrides", {}).get("brace-expansion") == "$brace-expansion"
     and firebase_cli_package.get("overrides", {}).get("tar") == "7.5.21"
+    and firebase_cli_package.get("overrides", {}).get("re2") == "1.25.2"
     and firebase_tools.get("version") == "15.22.4"
     and hono.get("version") == "2.0.10"
     and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
@@ -856,6 +859,9 @@ check(
     and tar.get("version") == "7.5.21"
     and tar.get("resolved") == "https://registry.npmjs.org/tar/-/tar-7.5.21.tgz"
     and tar.get("integrity") == "sha512-XdhtCvlMywwxpCW8YEq3lOXBJpUPTR2OHHcwLPO3HwsJqOHa2Ok/oJ7ruGzp+JrKoRPVCzJwAdEjqLW/vNRPHA=="
+    and re2.get("version") == "1.25.2"
+    and re2.get("resolved") == "https://registry.npmjs.org/re2/-/re2-1.25.2.tgz"
+    and re2.get("integrity") == "sha512-t75KS05wrPM0S7IRbM0l/WUYlHftJj3WAzQJAcSH8CrDP/jFYicZbMYTKohJ8w/3kFGwkY/G8/dGtC6CdShDlw=="
     and mcp_sdk.get("dependencies", {}).get("@hono/node-server") == "^1.19.9",
 )
 brace_adapter_package = data("tooling/brace-expansion-compat/package.json")
@@ -911,6 +917,7 @@ check(
         "2.0.10",
         "3.1.4",
         "5.0.8",
+        "1.25.2",
         "7.5.21",
         "verify_brace_expansion_compat.mjs",
     )),
@@ -1092,6 +1099,43 @@ check(
     and "readIsarSchemaProvenanceSnapshotJson()" in startup
     and '"schemaProvenanceSnapshot": $provenanceSnapshot' in startup
     and ".isar.lock" not in isar_guard,
+)
+
+app_database_source = text("lib/core/persistence/app_database.dart")
+main_source = text("lib/main.dart")
+dart_import_cycle_test = text("test/dart_import_cycle_test.dart")
+dart_import_cycle_decision = text("docs/DART_IMPORT_CYCLE_CLOSURE.md")
+lib_dart_sources = {
+    str(path.relative_to(ROOT)).replace("\\", "/"):
+        path.read_text(encoding="utf-8")
+    for path in (ROOT / "lib").rglob("*.dart")
+}
+main_importers = [
+    path
+    for path, source in lib_dart_sources.items()
+    if re.search(r"import\s+['\"][^'\"]*main\.dart['\"]", source)
+]
+app_database_consumers = [
+    path
+    for path, source in lib_dart_sources.items()
+    if "core/persistence/app_database.dart" in source
+]
+check(
+    "Dart data layer is main-decoupled and guarded against import cycles",
+    "late Isar isar;" in app_database_source
+    and "late Isar isar;" not in main_source
+    and main_importers == []
+    and len(app_database_consumers) == 12
+    and "lib has no internal Dart import cycles" in dart_import_cycle_test
+    and "final lowLinks = <String, int>{};" in dart_import_cycle_test
+    and "component.length > 1 || graph[node]!.contains(node)"
+        in dart_import_cycle_test
+    and "cycles,\n      isEmpty" in dart_import_cycle_test
+    and "Largest component:      72 files" in dart_import_cycle_decision
+    and "Cyclic components:      0" in dart_import_cycle_decision
+    and "Isar schemas,\ndatabase naming, open order" in dart_import_cycle_decision,
+    f"mainImporters={main_importers} appDatabaseConsumers="
+    f"{len(app_database_consumers)}",
 )
 
 
@@ -1339,6 +1383,30 @@ check(
         == "STAGE2D-F4"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
+)
+auth_profile_source = text("lib/features/auth/providers/auth_provider.dart")
+auth_profile_test = text("test/auth_profile_token_race_test.dart")
+auth_profile_decision = text(
+    "docs/70I_B11_AUTH_PROFILE_RETRY_SESSION_BOUND.md"
+)
+check(
+    "Auth profile permission retry is bounded to one per authenticated session",
+    "final retryBudget = CurrentAppUserPermissionRetryBudget();"
+        in auth_profile_source
+    and "retryBudget.observeAuthEvent(user?.uid);" in auth_profile_source
+    and "retryBudget: retryBudget" in auth_profile_source
+    and "_authSessionUid == expectedUid" in auth_profile_source
+    and "_retryConsumed = true;" in auth_profile_source
+    and "var retriedAfterTokenRefresh" not in auth_profile_source
+    and "Stream<String?>.fromIterable" in auth_profile_test
+    and "same-uid token re-emission cannot reopen the retry budget"
+        in auth_profile_test
+    and "sign-out starts a new retry budget" in auth_profile_test
+    and "ineligible errors fail closed without consuming the retry"
+        in auth_profile_test
+    and "Status: SOURCE_IMPLEMENTED" in auth_profile_decision
+    and "does not authorize pilot handout or distribution"
+        in auth_profile_decision,
 )
 build6_approval_path = (
     ROOT / "release/approvals/build-number-6-rollover-approval.json"
@@ -2009,6 +2077,9 @@ build6_f4_backend_blocker = text(
 open_pr_87_93_hold = text(
     "docs/v4_2_r1/OPEN_PR_87_93_HOLD_REGISTER.md"
 )
+pr87_93_integration = text(
+    "docs/v4_2_r1/PR87_93_CURRENT_INTEGRATION_PACKAGE.md"
+)
 physical_phase_ids = {
     phase.get("id")
     for phase in build6_f4_physical.get("requiredPhases", [])
@@ -2458,10 +2529,15 @@ check(
     and "Deploying only `beginGlobalPullRun` is insufficient"
         in build6_f4_backend_blocker
     and "perform no Firebase deployment" in build6_f4_backend_blocker
-    and "Status: HOLD BY DEFAULT" in open_pr_87_93_hold
-    and "The stacked chain must preserve order: #87, #88, #89, then #92"
+    and "Status: CONSOLIDATED SOURCE CANDIDATE" in open_pr_87_93_hold
+    and "The dependent order was preserved as #87, #88, #89, then #92."
         in open_pr_87_93_hold
-    and "does not close, supersede or merge any PR" in open_pr_87_93_hold
+    and "The original PRs are" in open_pr_87_93_hold
+    and "not merged by this action." in open_pr_87_93_hold
+    and "No phone was available" in open_pr_87_93_hold
+    and "Status: SOURCE_INTEGRATION_CANDIDATE" in pr87_93_integration
+    and "No physical phone was available" in pr87_93_integration
+    and "does not deploy Firebase Rules or Functions" in pr87_93_integration
     and build6_f4_physical.get("discoveryAuthority", {}).get(
         "receiptSha256"
     )
@@ -3394,6 +3470,334 @@ check(
     and "Status: CLOSED" in s08_decision
     and "PASS_S08_CRASH_REPORT_PRIVACY_BOUNDARY" in s08_decision
     and "does not claim a deployed client" in s08_decision,
+)
+
+r03_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "R-03"
+]
+r03_record = r03_records[0] if len(r03_records) == 1 else {}
+r03_history = [
+    entry.get("status")
+    for entry in r03_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+r03_sync_source = text("lib/core/services/sync_coordinator.dart")
+r03_auto_source = text("lib/core/services/auto_sync_service.dart")
+r03_indicator_source = text("lib/core/widgets/sync_status_indicator.dart")
+r03_decision = text("docs/v4_2_r1/R03_SYNC_REQUEST_OUTCOME_REMEDIATION.md")
+check(
+    "R-03 queued and throttled sync admission is distinct from failure",
+    len(r03_records) == 1
+    and r03_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
+    and r03_history == ["OPEN", "SOURCE_IMPLEMENTED"]
+    and len(r03_record.get("evidence", [])) == 0
+    and len(r03_record.get("requiredExitEvidence", [])) >= 4
+    and len(r03_record.get("reArmTriggers", [])) >= 4
+    and "enum SyncRequestOutcome" in r03_sync_source
+    and "return SyncRequestOutcome.queued" in r03_sync_source
+    and "return SyncRequestOutcome.throttled" in r03_sync_source
+    and "return SyncRequestOutcome.failed" in r03_sync_source
+    and "return SyncRequestOutcome.succeeded" in r03_sync_source
+    and "final SyncRequestOutcome? lastAutomaticOutcome" in r03_auto_source
+    and "lastAutomaticSucceeded" not in r03_auto_source
+    and "outcome.manualSyncMessage" in r03_indicator_source
+    and "Status: SOURCE_IMPLEMENTED" in r03_decision
+    and "Merge and exact-head CI evidence: PENDING" in r03_decision
+    and "No production deployment, device proof, F4 closure" in r03_decision,
+)
+
+ui_alignment_decision = text(
+    "docs/v4_2_r1/UI_BUSINESS_LOGIC_ALIGNMENT.md"
+)
+ui_home_source = text("lib/home_screen.dart")
+ui_user_source = text("lib/features/auth/data/user_model.dart")
+ui_equipment_source = text(
+    "lib/features/maintenance_workflow/presentation/screens/"
+    "equipment_status_board.dart"
+)
+ui_workflow_provider_source = text(
+    "lib/features/maintenance_workflow/providers/workflow_providers.dart"
+)
+ui_planned_detail_source = text(
+    "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart"
+)
+ui_completion_source = text(
+    "lib/features/planned_maintenance/presentation/complete_job_screen.dart"
+)
+ui_abnormality_source = text(
+    "lib/features/abnormalities/presentation/abnormalities_home_screen.dart"
+)
+ui_audit_source = text(
+    "lib/features/audit/presentation/audit_timeline_screen.dart"
+)
+ui_diagnostics_source = text(
+    "lib/features/maintenance_workflow/presentation/screens/"
+    "workflow_diagnostics_screen.dart"
+)
+ui_alignment_test = text("test/ui_business_alignment_test.dart")
+diagnostics_guard = ui_diagnostics_source.find(
+    "!actor.canViewMaintenanceWorkflowDiagnostics"
+)
+diagnostics_read = ui_diagnostics_source.find("_future ??= _load()")
+check(
+    "Cross-app UI authority and workflow semantics remain policy-aligned",
+    "Status: SOURCE_IMPLEMENTED" in ui_alignment_decision
+    and "Merge and exact-head CI evidence: PENDING" in ui_alignment_decision
+    and "message.data['complianceId']" in ui_home_source
+    and "ComplianceNotificationScreen(" in ui_home_source
+    and "module: BafModules.charges" not in ui_home_source
+    and "canDeployMaintenanceEquipment" in ui_user_source
+    and "row.stateKey == 'available' && canDeploy" in ui_equipment_source
+    and "final local = await repository.getComplianceById(id)"
+        in ui_workflow_provider_source
+    and "await ref.read(workflowPullServiceProvider).pull()"
+        in ui_workflow_provider_source
+    and "final showBottomActions =" in ui_planned_detail_source
+    and "if (!execution.isGovernedTemplateAssignment)" in ui_planned_detail_source
+    and "if (!widget.execution.isGovernedTemplateAssignment)"
+        in ui_completion_source
+    and "canManageTypes: canManageTypes" in ui_abnormality_source
+    and "!actor.canReviewSyncConflicts" in ui_audit_source
+    and diagnostics_guard >= 0
+    and diagnostics_read > diagnostics_guard
+    and "diagnostics rejects before reading privileged local data"
+        in ui_alignment_test
+    and "authorized governed dossier is stable" in ui_alignment_test
+    and "does not prove the F4 physical-device matrix" in ui_alignment_decision,
+)
+
+operational_ux_decision = text(
+    "docs/v4_2_r1/OPERATIONAL_UX_RESTRUCTURE.md"
+)
+operational_ux_home = text("lib/home_screen.dart")
+operational_ux_issues = text(
+    "lib/features/maintenance/presentation/ticket_screen.dart"
+)
+operational_ux_work = text(
+    "lib/features/planned_maintenance/presentation/templates_screen.dart"
+)
+operational_ux_workflow = text(
+    "lib/features/maintenance_workflow/presentation/screens/"
+    "workflow_queue_view.dart"
+)
+operational_ux_directives = text(
+    "lib/features/directives/presentation/directives_screen.dart"
+)
+operational_ux_theme = text("lib/core/theme/baf_design_system.dart")
+operational_ux_test = text("test/operational_ux_restructure_test.dart")
+functionality_representation_test = text(
+    "test/functionality_representation_ux_test.dart"
+)
+functionality_representation_user = text(
+    "lib/features/auth/data/user_model.dart"
+)
+functionality_representation_dossiers = text(
+    "lib/features/planned_maintenance/presentation/closed_job_dossiers_screen.dart"
+)
+functionality_representation_provider = text(
+    "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart"
+)
+functionality_representation_audit = text(
+    "lib/features/audit/presentation/audit_timeline_screen.dart"
+)
+functionality_representation_panel = text(
+    "lib/features/maintenance_workflow/presentation/widgets/"
+    "planned_job_workflow_panel.dart"
+)
+check(
+    "Operational UX is task-first, role-scoped and responsive",
+    "Status: SOURCE_IMPLEMENTED" in operational_ux_decision
+    and "Merge and exact-head CI evidence: PENDING" in operational_ux_decision
+    and "does not replace or modify the immutable" in operational_ux_decision
+    and "production-signed" in operational_ux_decision
+    and "NavigationRail(" in operational_ux_home
+    and "ModeSwitchCard(" not in operational_ux_home
+    and "'Needs attention'" in operational_ux_home
+    and "title: 'Operations and records'" in operational_ux_home
+    and "title: 'Governance'" in operational_ux_home
+    and "title: 'Administration and support'" in operational_ux_home
+    and "issues-raise-issue" in operational_ux_issues
+    and "issues-search" in operational_ux_issues
+    and "BoxConstraints(maxWidth: 960)" in operational_ux_issues
+    and "_PlannedWorkView.workflow" in operational_ux_work
+    and "canSeeTemplates" in operational_ux_work
+    and "WorkflowQueueView(" in operational_ux_work
+    and "BoxConstraints(maxWidth: 1000)" in operational_ux_work
+    and "actor.canAcknowledgeOrWorkMaintenanceLane" in operational_ux_workflow
+    and "directives-search" in operational_ux_directives
+    and "BoxConstraints(maxWidth: 960)" in operational_ux_directives
+    and "static const large = 10.0" in operational_ux_theme
+    and "static const xLarge = 12.0" in operational_ux_theme
+    and "operations Work is task-first" in operational_ux_test
+    and "empty Issues keeps reporting primary" in operational_ux_test
+    and "Directives supports immediate search" in operational_ux_test,
+)
+check(
+    "Operational functionality is represented for each entitled role and authorizes before reads",
+    "## Functionality Representation Re-audit" in operational_ux_decision
+    and "canViewOperationalAssets => isApproved"
+        in functionality_representation_user
+    and "canViewClosedMaintenanceTickets => isApproved"
+        in functionality_representation_user
+    and "canViewClosedJobDossiers => isApproved"
+        in functionality_representation_user
+    and "title: 'Resolved issues'" in operational_ux_home
+    and "title: 'Closed job dossiers'" in operational_ux_home
+    and "title: 'Audit log'" in operational_ux_home
+    and "final closedExecutionsProvider" in functionality_representation_provider
+    and "watchAllExecutions(limit: _closedExecutionSourceLimit)"
+        in functionality_representation_provider
+    and "!actor.canViewClosedJobDossiers"
+        in functionality_representation_dossiers
+    and "ref.watch(closedExecutionsProvider)"
+        in functionality_representation_dossiers
+    and "label: const Text('Workflow overview')" in operational_ux_workflow
+    and operational_ux_workflow.index("actor == null || !actor.isApproved")
+        < operational_ux_workflow.index("ref.watch(workflowAllLanesProvider)")
+    and "class RecentAuditLogScreen" in functionality_representation_audit
+    and functionality_representation_audit.count("!actor.canViewAuditLogs") >= 2
+    and "canViewAuditEvidence: actor.canViewAuditLogs"
+        in functionality_representation_panel
+    and "closed dossiers reject before starting their data stream"
+        in functionality_representation_test
+    and "workflow queue rejects before lane and compliance reads"
+        in functionality_representation_test
+    and "entity audit rejects non-admin before the audit read"
+        in functionality_representation_test,
+)
+
+r05_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "R-05"
+]
+r05_record = r05_records[0] if len(r05_records) == 1 else {}
+r05_history = [
+    entry.get("status")
+    for entry in r05_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+r05_receipt_source = text("functions/src/notificationEventReceipt.ts")
+r05_index_source = text("functions/src/index.ts")
+r05_workflow_source = text(
+    "functions/src/maintenanceWorkflow/workflowNotificationTrigger.ts"
+)
+r05_unit_test = text("functions/test/notificationEventReceipt.test.js")
+r05_emulator_test = text(
+    "functions/test/notificationEventReceipt.firestoreEmulator.test.js"
+)
+r05_contract_test = text(
+    "test/r05_notification_event_idempotency_contract_test.dart"
+)
+r05_decision = text("docs/v4_2_r1/R05_NOTIFICATION_EVENT_IDEMPOTENCY.md")
+r05_rules = text("firestore.rules")
+r05_package = data("functions/package.json")
+r05_inventory_policy = data(
+    "release/r05-notification-trigger-source-policy.json"
+)
+r05_inventory_audit = text(
+    "functions/tools/audit_notification_trigger_inventory.mjs"
+)
+r05_inventory_test = text(
+    "functions/tools/audit_notification_trigger_inventory.test.mjs"
+)
+r05_trigger_names = (
+    "onTicketCreated",
+    "onTicketResolved",
+    "onJobAssigned",
+)
+r05_trigger_starts = [
+    r05_index_source.index(f"export const {name}")
+    for name in r05_trigger_names
+]
+r05_trigger_ends = r05_trigger_starts[1:] + [
+    r05_index_source.index("Maintenance workflow control plane")
+]
+r05_trigger_sections = [
+    r05_index_source[start:end]
+    for start, end in zip(r05_trigger_starts, r05_trigger_ends)
+]
+check(
+    "R-05 notification event idempotency is source-implemented and fail-closed",
+    len(r05_records) == 1
+    and r05_record.get("authorityType") == "SOURCE_AND_CI"
+    and r05_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
+    and r05_history == ["OPEN", "SOURCE_IMPLEMENTED"]
+    and r05_record.get("evidence") == []
+    and len(r05_record.get("requiredExitEvidence", [])) == 6
+    and len(r05_record.get("reArmTriggers", [])) == 6
+    and all(
+        section.count("executeIdempotentNotificationEvent({") == 1
+        and "retry: true" in section
+        and "cloudEventId: event.id" in section
+        and section.index("executeIdempotentNotificationEvent({")
+            < section.index("getTokenLookup")
+        for section in r05_trigger_sections
+    )
+    and r05_workflow_source.count(
+        "executeIdempotentNotificationEvent({"
+    ) == 1
+    and "retry: true" in r05_workflow_source
+    and "cloudEventId: event.id" in r05_workflow_source
+    and "workflow_notification_receipts" in r05_workflow_source
+    and r05_workflow_source.index("executeIdempotentNotificationEvent({")
+        < r05_workflow_source.index("getTokenLookupsForRoles(")
+    and "notification-event-receipt-v1\\0" in r05_receipt_source
+    and "notification_event_receipts" in r05_receipt_source
+    and "failedBeforeDispatch" in r05_receipt_source
+    and "deliveryUncertain" in r05_receipt_source
+    and "notification-event-receipt-attempt-mismatch" in r05_receipt_source
+    and "notification-event-receipt-state-malformed" in r05_receipt_source
+    and "reason: \"delivery-uncertain\"" in r05_receipt_source
+    and "requiresAdjudication: true" in r05_receipt_source
+    and "reportDeliveryUncertain" in r05_receipt_source
+    and "Notification delivery requires governed adjudication"
+        in r05_index_source
+    and "Notification delivery requires governed adjudication"
+        in r05_workflow_source
+    and "match /notification_event_receipts/{docId}" in r05_rules
+    and "allow read, create, update, delete: if false;"
+        in r05_rules[
+            r05_rules.index("match /notification_event_receipts/{docId}"):
+            r05_rules.index("AUDIT LOGS")
+        ]
+    and "completed replay never prepares or dispatches twice" in r05_unit_test
+    and "dispatch failure is surfaced, quarantined" in r05_unit_test
+    and "operator reporting failure cannot reopen" in r05_unit_test
+    and "concurrent duplicate events perform one delivery" in r05_emulator_test
+    and "ambiguous dispatch is quarantined" in r05_emulator_test
+    and "R-05 source status is exact" in r05_contract_test
+    and "notificationEventReceipt.firestoreEmulator.test.js"
+        in r05_package["scripts"]["test:emulator:governed"]
+    and "audit:notification-inventory"
+        in r05_package["scripts"]["build"]
+    and r05_inventory_policy.get("schemaVersion") == 1
+    and r05_inventory_policy.get("receiptCoordinator")
+        == "executeIdempotentNotificationEvent"
+    and r05_inventory_policy.get("receiptCollection")
+        == "notification_event_receipts"
+    and sorted(
+        trigger.get("name")
+        for trigger in r05_inventory_policy.get("notificationTriggers", [])
+        if isinstance(trigger, dict)
+    ) == sorted((*r05_trigger_names, "onMaintenanceWorkflowEventCreated"))
+    and "notification-trigger-policy-mismatch" in r05_inventory_audit
+    and "unowned-notification-dispatch-call" in r05_inventory_audit
+    and "direct-fcm-dispatch-bypasses-notification-coordinator"
+        in r05_inventory_audit
+    and "notification-dispatch-outside-receipt-boundary"
+        in r05_inventory_audit
+    and "a newly added notification trigger is discovered"
+        in r05_inventory_test
+    and "an aliased notification dispatcher remains discoverable"
+        in r05_inventory_test
+    and "Status: SOURCE_IMPLEMENTED" in r05_decision
+    and "This is not an exactly-once delivery claim." in r05_decision
+    and "structured error-level signal" in r05_decision
+    and "operator-queryable marker" in r05_decision
+    and "R-05 remains `SOURCE_IMPLEMENTED`." in r05_decision,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

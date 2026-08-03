@@ -301,10 +301,18 @@ void main() {
         expect(
           functionsPackage['scripts'],
           containsPair(
+            'audit:notification-inventory',
+            'node tools/audit_notification_trigger_inventory.mjs',
+          ),
+        );
+        expect(
+          functionsPackage['scripts'],
+          containsPair(
             'build',
             'npm run clean && tsc --pretty false && '
                 'npm run audit:emitted-output && '
-                'npm run audit:callable-inventory',
+                'npm run audit:callable-inventory && '
+                'npm run audit:notification-inventory',
           ),
         );
         expect(
@@ -313,6 +321,7 @@ void main() {
             'test',
             'npm run build && npm run test:emitted-output-custody && '
                 'npm run test:callable-inventory && '
+                'npm run test:notification-inventory && '
                 'jest --runInBand',
           ),
         );
@@ -321,6 +330,13 @@ void main() {
           containsPair(
             'test:callable-inventory',
             'node --test tools/audit_callable_inventory.test.mjs',
+          ),
+        );
+        expect(
+          functionsPackage['scripts'],
+          containsPair(
+            'test:notification-inventory',
+            'node --test tools/audit_notification_trigger_inventory.test.mjs',
           ),
         );
         expect(

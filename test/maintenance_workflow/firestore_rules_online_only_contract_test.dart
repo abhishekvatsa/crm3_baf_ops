@@ -15,6 +15,7 @@ void main() {
       'maintenance_workflow_events',
       'maintenance_workflow_command_receipts',
       'workflow_notification_receipts',
+      'notification_event_receipts',
     ]) {
       final block = RegExp(
         r'match\s+/' + RegExp.escape(collection) + r'/\{[^}]+\}\s*\{([\s\S]*?)\n\s*\}',

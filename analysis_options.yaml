@@ -18,6 +18,9 @@ analyzer:
     # npm installs the governed Firebase CLI under this repository path.
     # Its bundled Dart templates are third-party scaffolding, not app source.
     - "tooling/firebase-cli/node_modules/**"
+    # Release campaigns retain historical source snapshots for evidence. They
+    # must not be analyzed as a second copy of the current application.
+    - "release_output/**"
 
 linter:
   # The lint rules applied to this project can be customized in the

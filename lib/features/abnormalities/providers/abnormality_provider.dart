@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../main.dart';
+import '../../../core/persistence/app_database.dart';
 import '../data/abnormality_model.dart';
 import '../services/charge_abnormality_command_service.dart';
 import '../../audit/models/audit_event_model.dart';

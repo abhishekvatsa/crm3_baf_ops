@@ -12,6 +12,33 @@ import 'app_logger.dart';
 import 'global_pull_service.dart';
 import 'sync_service.dart';
 
+enum SyncRequestOutcome { succeeded, failed, queued, throttled }
+
+extension SyncRequestOutcomeX on SyncRequestOutcome {
+  bool get isSuccessful => this == SyncRequestOutcome.succeeded;
+
+  bool get isFailure => this == SyncRequestOutcome.failed;
+
+  bool get isDeferred =>
+      this == SyncRequestOutcome.queued || this == SyncRequestOutcome.throttled;
+
+  String get diagnosticLabel => switch (this) {
+    SyncRequestOutcome.succeeded => 'Success',
+    SyncRequestOutcome.failed => 'Failed',
+    SyncRequestOutcome.queued => 'Queued',
+    SyncRequestOutcome.throttled => 'Throttled',
+  };
+
+  String get manualSyncMessage => switch (this) {
+    SyncRequestOutcome.succeeded => 'Manual sync completed.',
+    SyncRequestOutcome.failed => 'Manual sync could not complete.',
+    SyncRequestOutcome.queued =>
+      'Manual sync queued behind the sync already running.',
+    SyncRequestOutcome.throttled =>
+      'Manual sync skipped because another sync completed recently.',
+  };
+}
+
 // ─────────────────────────────────────────────────────────────
 // COORDINATOR HEALTH
 // ─────────────────────────────────────────────────────────────
@@ -154,15 +181,15 @@ class SyncCoordinator {
     await _runFullSync(reason: reason, force: force);
   }
 
-  /// Runs a full sync and returns true only when it completes successfully.
-  Future<bool> runFullSyncWithResult({
+  /// Runs a full sync and distinguishes completion from deferred admission.
+  Future<SyncRequestOutcome> runFullSyncWithResult({
     String reason = 'unknown',
     bool force = false,
   }) {
     return _runFullSync(reason: reason, force: force);
   }
 
-  Future<bool> _runFullSync({
+  Future<SyncRequestOutcome> _runFullSync({
     String reason = 'unknown',
     bool force = false,
     bool queuedFollowUp = false,
@@ -171,12 +198,12 @@ class SyncCoordinator {
 
     if (_running) {
       _queueFollowUp(reason: reason, force: force);
-      return false;
+      return SyncRequestOutcome.queued;
     }
 
     if (!force && !queuedFollowUp && now.difference(_lastRun) < minGap) {
       _markSkipped(reason: '$reason (throttled)');
-      return false;
+      return SyncRequestOutcome.throttled;
     }
 
     _running = true;
@@ -289,7 +316,7 @@ class SyncCoordinator {
               'sync_first_failure_permanent': firstFailure.isLikelyPermanent,
           },
         );
-        return false;
+        return SyncRequestOutcome.failed;
       }
 
       Future.delayed(const Duration(seconds: 5), () {
@@ -302,7 +329,7 @@ class SyncCoordinator {
         }
       });
 
-      return true;
+      return SyncRequestOutcome.succeeded;
     } catch (error, stackTrace) {
       final completedAt = DateTime.now();
       final nextRunCount = _health.runCount + 1;
@@ -354,7 +381,7 @@ class SyncCoordinator {
           'sync_conflict_count': conflictCount,
         },
       );
-      return false;
+      return SyncRequestOutcome.failed;
     } finally {
       final followUp = _takeQueuedFollowUp();
       _running = false;
@@ -601,8 +628,8 @@ class SyncCoordinator {
     });
 
     // Deliberately no immediate checkConnectivity() startup sync here.
-    // AuthGate owns startup sync and only marks syncOnceProvider true
-    // when runFullSyncWithResult(...) returns true.
+    // AuthGate owns startup sync and only marks syncOnceProvider true after a
+    // successfully completed run, never for a queued or throttled request.
   }
 
   void dispose() {

@@ -14,6 +14,7 @@ import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/maintenance_model.dart';
 import '../providers/maintenance_provider.dart';
+import 'maintenance_form.dart';
 import 'resolve_form.dart';
 
 class TicketScreen extends ConsumerStatefulWidget {
@@ -25,6 +26,7 @@ class TicketScreen extends ConsumerStatefulWidget {
 
 class _TicketScreenState extends ConsumerState<TicketScreen> {
   Timer? _timer;
+  String _query = '';
 
   @override
   void initState() {
@@ -55,10 +57,11 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
           onRefresh: _refreshTickets,
           child: appUserAsync.when(
             loading: _buildLoadingState,
-            error: (error, _) => _buildErrorState(
-              title: 'Could not load your access',
-              message: '$error',
-            ),
+            error:
+                (error, _) => _buildErrorState(
+                  title: 'Could not load your access',
+                  message: '$error',
+                ),
             data: (appUser) {
               if (appUser == null || !appUser.isApproved) {
                 return _buildAccessPendingState();
@@ -68,15 +71,19 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
 
               return openTicketsAsync.when(
                 loading: _buildLoadingState,
-                error: (error, _) => _buildErrorState(
-                  title: 'Could not load issues',
-                  message: '$error',
-                ),
+                error:
+                    (error, _) => _buildErrorState(
+                      title: 'Could not load issues',
+                      message: '$error',
+                    ),
                 data: (allTickets) {
                   final tickets = _visibleTickets(allTickets, appUser);
 
                   if (tickets.isEmpty) {
-                    return _buildEmptyState(appUser.canSeeAllTickets, syncStatus);
+                    return _buildEmptyState(
+                      appUser.canSeeAllTickets,
+                      syncStatus,
+                    );
                   }
 
                   return _buildTicketList(tickets, appUser, syncStatus);
@@ -95,7 +102,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
 
     try {
       final syncCoordinator = ref.read(syncCoordinatorProvider);
-      final completed = await syncCoordinator.runFullSyncWithResult(
+      final outcome = await syncCoordinator.runFullSyncWithResult(
         reason: 'tickets_manual_refresh',
         force: true,
       );
@@ -104,12 +111,11 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
 
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
-          content: Text(
-            completed
-                ? 'Manual sync completed.'
-                : 'Manual sync is already running or could not complete.',
-          ),
-          backgroundColor: completed ? BafColors.sync : BafColors.warning,
+          content: Text(outcome.manualSyncMessage),
+          backgroundColor:
+              outcome.isFailure
+                  ? BafColors.danger
+                  : (outcome.isSuccessful ? BafColors.sync : BafColors.warning),
         ),
       );
     } catch (error) {
@@ -124,9 +130,9 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
   }
 
   List<MaintenanceRecord> _visibleTickets(
-      List<MaintenanceRecord> allTickets,
-      AppUser appUser,
-      ) {
+    List<MaintenanceRecord> allTickets,
+    AppUser appUser,
+  ) {
     if (appUser.canSeeAllTickets) return allTickets;
     return allTickets
         .where((ticket) => ticket.loggedByUid == appUser.uid)
@@ -139,17 +145,12 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
       padding: const EdgeInsets.all(BafSpacing.lg),
       children: const [
         SizedBox(height: 120),
-        Center(
-          child: CircularProgressIndicator(color: BafColors.maintenance),
-        ),
+        Center(child: CircularProgressIndicator(color: BafColors.maintenance)),
       ],
     );
   }
 
-  Widget _buildErrorState({
-    required String title,
-    required String message,
-  }) {
+  Widget _buildErrorState({required String title, required String message}) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(BafSpacing.lg),
@@ -175,50 +176,91 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
           color: BafColors.audit,
           title: 'Checking your access',
           message:
-          'Your issue list will appear once your approved user profile is loaded.',
+              'Your issue list will appear once your approved user profile is loaded.',
         ),
       ],
     );
   }
 
   Widget _buildTicketList(
-      List<MaintenanceRecord> tickets,
-      AppUser appUser,
-      SyncStatus syncStatus,
-      ) {
+    List<MaintenanceRecord> tickets,
+    AppUser appUser,
+    SyncStatus syncStatus,
+  ) {
     final canResolveAnyTicket = appUser.canCloseAnyTicket;
+    final filtered = _filterTickets(tickets, _query);
 
-    return ListView.separated(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(
-        BafSpacing.lg,
-        BafSpacing.lg,
-        BafSpacing.lg,
-        BafSpacing.xl,
-      ),
-      itemCount: tickets.length + 1,
-      separatorBuilder: (_, __) => const SizedBox(height: BafSpacing.md),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _IssuesHeader(
-            count: tickets.length,
+    return _BoundedIssuesContent(
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+          BafSpacing.lg,
+          BafSpacing.lg,
+          BafSpacing.lg,
+          BafSpacing.xl,
+        ),
+        children: [
+          _IssuesHeader(
+            count: filtered.length,
+            totalCount: tickets.length,
             canSeeAll: appUser.canSeeAllTickets,
             isSyncing: syncStatus == SyncStatus.syncing,
+            query: _query,
+            onQueryChanged: (value) => setState(() => _query = value),
+            onRaiseIssue: _openMaintenanceForm,
             onSyncNow: _refreshTickets,
-          );
-        }
+          ),
+          const SizedBox(height: BafSpacing.md),
+          if (filtered.isEmpty)
+            const _NoMatchingIssuesState()
+          else
+            ...filtered.map((ticket) {
+              final canResolveThis =
+                  ticket.routedTo == RoutedTo.refractory
+                      ? appUser.canCloseRedTicket
+                      : canResolveAnyTicket;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: BafSpacing.md),
+                child: _TicketCard(
+                  ticket: ticket,
+                  canResolve: canResolveThis && !ticket.workflowDeferred,
+                  onResolve: () => _openResolve(ticket),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
 
-        final ticket = tickets[index - 1];
-        final canResolveThis = ticket.routedTo == RoutedTo.refractory
-            ? appUser.canCloseRedTicket
-            : canResolveAnyTicket;
+  List<MaintenanceRecord> _filterTickets(
+    List<MaintenanceRecord> tickets,
+    String query,
+  ) {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) return tickets;
+    return tickets
+        .where((ticket) {
+          return <String?>[
+            ticket.description,
+            ticket.assetType.name,
+            '${ticket.assetNumber}',
+            ticket.component,
+            ticket.subsystem,
+            ticket.tag,
+            ticket.classification,
+            ticket.routedTo.name,
+            ticket.loggedByName,
+            ticket.reportedBy,
+          ].any((value) => value?.toLowerCase().contains(needle) == true);
+        })
+        .toList(growable: false);
+  }
 
-        return _TicketCard(
-          ticket: ticket,
-          canResolve: canResolveThis && !ticket.workflowDeferred,
-          onResolve: () => _openResolve(ticket),
-        );
-      },
+  void _openMaintenanceForm() {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const MaintenanceForm()),
     );
   }
 
@@ -230,142 +272,196 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
   }
 
   Widget _buildEmptyState(bool canSeeAll, SyncStatus syncStatus) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(BafSpacing.lg),
-      children: [
-        const SizedBox(height: 80),
-        _StateCard(
-          icon: Icons.check_circle_outline_rounded,
-          color: BafColors.sync,
-          title: 'All clear',
-          message: canSeeAll
-              ? 'No active breakdowns on the floor right now.'
-              : 'You have no active issues logged right now.',
-        ),
-        const SizedBox(height: BafSpacing.md),
-        _SyncNowButton(
-          isSyncing: syncStatus == SyncStatus.syncing,
-          onSyncNow: _refreshTickets,
-        ),
-      ],
-    );
-  }
-}
-
-class _IssuesHeader extends StatelessWidget {
-  final int count;
-  final bool canSeeAll;
-  final bool isSyncing;
-  final Future<void> Function() onSyncNow;
-
-  const _IssuesHeader({
-    required this.count,
-    required this.canSeeAll,
-    required this.isSyncing,
-    required this.onSyncNow,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(BafSpacing.lg),
-      decoration: BoxDecoration(
-        color: BafColors.card,
-        borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(color: BafColors.border),
-        boxShadow: BafShadows.subtle,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return _BoundedIssuesContent(
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(BafSpacing.lg),
         children: [
-          Row(
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: BafColors.maintenance.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(BafRadius.medium),
-                ),
-                child: const Icon(
-                  Icons.report_problem_rounded,
-                  color: BafColors.maintenance,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: BafSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Open issues',
-                      style: TextStyle(
-                        color: BafColors.textPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: BafSpacing.xs),
-                    Text(
-                      canSeeAll
-                          ? 'Issues needing attention across the floor.'
-                          : 'Issues raised by you and still active.',
-                      style: const TextStyle(
-                        color: BafColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: BafSpacing.sm),
-              StatusBadge(
-                label: '$count open',
-                color: BafColors.maintenance,
-                icon: Icons.timer_outlined,
-              ),
-            ],
+          _IssuesHeader(
+            count: 0,
+            totalCount: 0,
+            canSeeAll: canSeeAll,
+            isSyncing: syncStatus == SyncStatus.syncing,
+            query: '',
+            onQueryChanged: (_) {},
+            onRaiseIssue: _openMaintenanceForm,
+            onSyncNow: _refreshTickets,
           ),
-          const SizedBox(height: BafSpacing.md),
-          _SyncNowButton(isSyncing: isSyncing, onSyncNow: onSyncNow),
+          const SizedBox(height: BafSpacing.xl),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: BafSpacing.xl),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.task_alt_rounded,
+                  size: 38,
+                  color: BafColors.success,
+                ),
+                const SizedBox(height: BafSpacing.md),
+                const Text(
+                  'All clear',
+                  style: TextStyle(
+                    color: BafColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: BafSpacing.xs),
+                Text(
+                  canSeeAll
+                      ? 'No active breakdowns on the floor right now.'
+                      : 'You have no active issues logged right now.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: BafColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _SyncNowButton extends StatelessWidget {
+class _BoundedIssuesContent extends StatelessWidget {
+  final Widget child;
+
+  const _BoundedIssuesContent({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 960),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _IssuesHeader extends StatelessWidget {
+  final int count;
+  final int totalCount;
+  final bool canSeeAll;
   final bool isSyncing;
+  final String query;
+  final ValueChanged<String> onQueryChanged;
+  final VoidCallback onRaiseIssue;
   final Future<void> Function() onSyncNow;
 
-  const _SyncNowButton({
+  const _IssuesHeader({
+    required this.count,
+    required this.totalCount,
+    required this.canSeeAll,
     required this.isSyncing,
+    required this.query,
+    required this.onQueryChanged,
+    required this.onRaiseIssue,
     required this.onSyncNow,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: isSyncing ? null : () { onSyncNow(); },
-        icon: isSyncing
-            ? const SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        )
-            : const Icon(Icons.sync_rounded),
-        label: Text(isSyncing ? 'Syncing now...' : 'Manual sync now'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: BafColors.sync,
-          side: const BorderSide(color: BafColors.sync),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(BafRadius.medium),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Open issues',
+                    style: TextStyle(
+                      color: BafColors.textPrimary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: BafSpacing.xs),
+                  Text(
+                    canSeeAll
+                        ? 'Issues needing attention across the floor.'
+                        : 'Issues raised by you and still active.',
+                    style: const TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: BafSpacing.sm),
+            IconButton(
+              tooltip: isSyncing ? 'Sync in progress' : 'Refresh issues',
+              onPressed: isSyncing ? null : () => onSyncNow(),
+              icon:
+                  isSyncing
+                      ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Icon(Icons.refresh_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: BafSpacing.md),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                key: const ValueKey('issues-search'),
+                onChanged: onQueryChanged,
+                decoration: const InputDecoration(
+                  hintText: 'Search asset, component or description',
+                  prefixIcon: Icon(Icons.search_rounded),
+                  isDense: true,
+                ),
+              ),
+            ),
+            const SizedBox(width: BafSpacing.sm),
+            FilledButton.icon(
+              key: const ValueKey('issues-raise-issue'),
+              onPressed: onRaiseIssue,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Raise'),
+              style: FilledButton.styleFrom(
+                backgroundColor: BafColors.maintenance,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(88, 48),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: BafSpacing.sm),
+        Text(
+          query.trim().isEmpty
+              ? '$totalCount open'
+              : '$count of $totalCount matching',
+          style: const TextStyle(
+            color: BafColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NoMatchingIssuesState extends StatelessWidget {
+  const _NoMatchingIssuesState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: BafSpacing.xl),
+      child: Center(
+        child: Text(
+          'No open issues match this search.',
+          style: TextStyle(color: BafColors.textSecondary),
         ),
       ),
     );
@@ -411,9 +507,10 @@ class _TicketCard extends StatelessWidget {
             color: BafColors.card,
             borderRadius: BorderRadius.circular(BafRadius.large),
             border: Border.all(
-              color: ticket.isCritical
-                  ? BafColors.danger.withValues(alpha: 0.42)
-                  : BafColors.border,
+              color:
+                  ticket.isCritical
+                      ? BafColors.danger.withValues(alpha: 0.42)
+                      : BafColors.border,
             ),
             boxShadow: BafShadows.subtle,
           ),
@@ -430,7 +527,11 @@ class _TicketCard extends StatelessWidget {
                       color: deptColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(BafRadius.medium),
                     ),
-                    child: Icon(Icons.build_rounded, color: deptColor, size: 27),
+                    child: Icon(
+                      Icons.build_rounded,
+                      color: deptColor,
+                      size: 27,
+                    ),
                   ),
                   const SizedBox(width: BafSpacing.md),
                   Expanded(
@@ -470,12 +571,14 @@ class _TicketCard extends StatelessWidget {
                             if (ticket.isWorkflowLinked)
                               StatusBadge(
                                 label: ticket.workflowStateLabel,
-                                color: ticket.workflowDeferred
-                                    ? BafColors.warning
-                                    : BafColors.audit,
-                                icon: ticket.workflowDeferred
-                                    ? Icons.pause_circle_outline_rounded
-                                    : Icons.account_tree_outlined,
+                                color:
+                                    ticket.workflowDeferred
+                                        ? BafColors.warning
+                                        : BafColors.audit,
+                                icon:
+                                    ticket.workflowDeferred
+                                        ? Icons.pause_circle_outline_rounded
+                                        : Icons.account_tree_outlined,
                               ),
                           ],
                         ),
@@ -503,7 +606,7 @@ class _TicketCard extends StatelessWidget {
               _MetaRow(
                 icon: Icons.schedule_rounded,
                 text:
-                'Logged ${DateFormat('dd MMM, HH:mm').format(ticket.createdAt)}',
+                    'Logged ${DateFormat('dd MMM, HH:mm').format(ticket.createdAt)}',
               ),
               if (ticket.chargeNoAtEvent != null) ...[
                 const SizedBox(height: 5),

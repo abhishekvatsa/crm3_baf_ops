@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:isar/isar.dart';
 
-import '../../../main.dart';
+import '../../../core/persistence/app_database.dart';
 import '../data/job_template_model.dart';
 import '../data/job_module_model.dart';
 import '../domain/planned_job_closure_guard.dart';
@@ -459,12 +459,13 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
 
   @override
   Future<List<JobExecution>> getOpenExecutions() async {
-    final rows = await isar.jobExecutions
-        .filter()
-        .isCompletedEqualTo(false)
-        .and()
-        .isDeletedEqualTo(false)
-        .findAll();
+    final rows =
+        await isar.jobExecutions
+            .filter()
+            .isCompletedEqualTo(false)
+            .and()
+            .isDeletedEqualTo(false)
+            .findAll();
     return rows.where((execution) => !execution.isCancelled).toList();
   }
 
@@ -634,7 +635,8 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
         .isDeletedEqualTo(false)
         .watch(fireImmediately: true)
         .map((list) {
-          final active = list.where((execution) => !execution.isCancelled).toList();
+          final active =
+              list.where((execution) => !execution.isCancelled).toList();
           active.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           return active;
         });
@@ -1887,6 +1889,22 @@ final openExecutionsProvider = StreamProvider<List<JobExecution>>((ref) {
   return ref.watch(plannedRepositoryProvider).watchOpenExecutions();
 });
 
+/// Completed and cancelled executions retained as closed operational dossiers.
+/// The repository excludes tombstones and returns newest updates first.
+const int _closedExecutionSourceLimit = 500;
+final closedExecutionsProvider = StreamProvider<List<JobExecution>>((ref) {
+  return ref
+      .watch(plannedRepositoryProvider)
+      .watchAllExecutions(limit: _closedExecutionSourceLimit)
+      .map(
+        (executions) => executions
+            .where(
+              (execution) => execution.isCompleted || execution.isCancelled,
+            )
+            .toList(growable: false),
+      );
+});
+
 /// Home badge count provider. On mobile/desktop it avoids materialising the
 /// full open-execution list just to compute the badge count. List screens should
 /// keep using [openExecutionsProvider].
@@ -1900,12 +1918,13 @@ final openExecutionCountProvider = StreamProvider<int>((ref) {
   }
 
   Future<int> countOpenExecutions() async {
-    final rows = await isar.jobExecutions
-        .filter()
-        .isCompletedEqualTo(false)
-        .and()
-        .isDeletedEqualTo(false)
-        .findAll();
+    final rows =
+        await isar.jobExecutions
+            .filter()
+            .isCompletedEqualTo(false)
+            .and()
+            .isDeletedEqualTo(false)
+            .findAll();
     return rows.where((execution) => !execution.isCancelled).length;
   }
 

@@ -7,11 +7,13 @@
   },
   "scripts": {
     "audit:callable-inventory": "node tools/audit_callable_inventory.mjs",
+    "audit:notification-inventory": "node tools/audit_notification_trigger_inventory.mjs",
     "audit:emitted-output": "node tools/emitted_output_custody.mjs audit",
-    "build": "npm run clean && tsc --pretty false && npm run audit:emitted-output && npm run audit:callable-inventory",
+    "build": "npm run clean && tsc --pretty false && npm run audit:emitted-output && npm run audit:callable-inventory && npm run audit:notification-inventory",
     "clean": "node tools/emitted_output_custody.mjs clean",
-    "test": "npm run build && npm run test:emitted-output-custody && npm run test:callable-inventory && jest --runInBand",
+    "test": "npm run build && npm run test:emitted-output-custody && npm run test:callable-inventory && npm run test:notification-inventory && jest --runInBand",
     "test:callable-inventory": "node --test tools/audit_callable_inventory.test.mjs",
+    "test:notification-inventory": "node --test tools/audit_notification_trigger_inventory.test.mjs",
     "test:emitted-output-custody": "node --test tools/emitted_output_custody.test.mjs",
     "typecheck": "tsc --noEmit --pretty false",
     "test:emulator:authority": "npm run build && jest --runInBand --detectOpenHandles test/userAuthorityMutation.firestoreEmulator.test.js",
@@ -19,10 +21,11 @@
     "test:emulator:workflow": "npm run build && jest --runInBand --detectOpenHandles test/maintenanceWorkflow.firestoreEmulator.test.js test/workflowAuthorityReplayAdjudication.firestoreEmulator.test.js",
     "test:emulator:abnormality": "npm run build && jest --runInBand --detectOpenHandles test/chargeAbnormalityMutation.firestoreEmulator.test.js",
     "test:emulator:global-pull": "npm run build && jest --runInBand --detectOpenHandles test/globalPullServerClockGovernance.firestoreEmulator.test.js",
+    "test:emulator:notifications": "npm run build && jest --runInBand --detectOpenHandles test/notificationEventReceipt.firestoreEmulator.test.js",
     "serve": "npm run build && firebase emulators:start --only functions,firestore",
     "deploy": "npm run build && firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test:emulator:governed": "npm run build && jest --runInBand --detectOpenHandles test/plannedJobClosure.firestoreEmulator.test.js test/runtimeJobModulePopulation.firestoreEmulator.test.js test/publishedTemplateAssignment.firestoreEmulator.test.js test/maintenanceWorkflow.firestoreEmulator.test.js test/workflowAuthorityReplayAdjudication.firestoreEmulator.test.js test/userAuthorityMutation.firestoreEmulator.test.js test/chargeAbnormalityMutation.firestoreEmulator.test.js test/callableAbuseControl.firestoreEmulator.test.js test/globalPullServerClockGovernance.firestoreEmulator.test.js"
+    "test:emulator:governed": "npm run build && jest --runInBand --detectOpenHandles test/plannedJobClosure.firestoreEmulator.test.js test/runtimeJobModulePopulation.firestoreEmulator.test.js test/publishedTemplateAssignment.firestoreEmulator.test.js test/maintenanceWorkflow.firestoreEmulator.test.js test/workflowAuthorityReplayAdjudication.firestoreEmulator.test.js test/userAuthorityMutation.firestoreEmulator.test.js test/chargeAbnormalityMutation.firestoreEmulator.test.js test/callableAbuseControl.firestoreEmulator.test.js test/globalPullServerClockGovernance.firestoreEmulator.test.js test/notificationEventReceipt.firestoreEmulator.test.js"
   },
   "dependencies": {
     "firebase-admin": "^13.10.0",

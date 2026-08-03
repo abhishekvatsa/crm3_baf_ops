@@ -17,6 +17,7 @@ void main() {
           source,
           contains('_queueFollowUp(reason: reason, force: force)'),
         );
+        expect(source, contains('return SyncRequestOutcome.queued'));
         expect(
           source,
           contains("lastSkippedReason: '\$reason (queued while running)'"),
@@ -39,6 +40,7 @@ void main() {
             'if (!force && !queuedFollowUp && now.difference(_lastRun) < minGap)',
           ),
         );
+        expect(source, contains('return SyncRequestOutcome.throttled'));
         expect(
           source,
           contains("reason: '\${followUp.reason} (queued follow-up)'"),

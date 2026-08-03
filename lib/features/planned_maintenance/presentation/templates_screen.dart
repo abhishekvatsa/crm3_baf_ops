@@ -9,12 +9,13 @@ import '../../auth/providers/auth_provider.dart';
 import '../../../features/maintenance/data/maintenance_model.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../maintenance_workflow/presentation/screens/workflow_queue_view.dart';
 import 'create_template_screen.dart';
 import 'open_executions_view.dart';
 import 'published_template_assignment_screen.dart';
 import 'template_detail_screen.dart';
 
-enum _PlannedWorkView { openJobs, templates }
+enum _PlannedWorkView { openJobs, workflow, templates }
 
 class TemplatesScreen extends ConsumerStatefulWidget {
   const TemplatesScreen({super.key});
@@ -25,6 +26,7 @@ class TemplatesScreen extends ConsumerStatefulWidget {
 
 class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
   _PlannedWorkView _selectedView = _PlannedWorkView.openJobs;
+  String _query = '';
 
   @override
   Widget build(BuildContext context) {
@@ -33,11 +35,24 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
     final appUser = ref.watch(currentAppUserProvider).value;
     final canCreateTemplate = appUser?.canCreateLegacyJobTemplate ?? false;
     final canAssignJob = appUser?.canAssignJobExecution ?? false;
+    final canSeeTemplates =
+        canCreateTemplate ||
+        canAssignJob ||
+        (appUser?.canManageTemplateGovernance ?? false);
+    final filteredExecutions = _filterExecutions(
+      executionsAsync.value ?? const <JobExecution>[],
+      _query,
+    );
+    final filteredTemplates = _filterTemplates(
+      templatesAsync.value ?? const <JobTemplate>[],
+      _query,
+    );
     final bottomSafeInset = MediaQuery.of(context).viewPadding.bottom;
     final fabBottomGap = BafSpacing.lg + bottomSafeInset;
     final showCreateTemplateFab =
         canCreateTemplate && _selectedView == _PlannedWorkView.templates;
-    final showAssignFab = canAssignJob;
+    final showAssignFab =
+        canAssignJob && _selectedView == _PlannedWorkView.openJobs;
     final hasAnyFab = showCreateTemplateFab || showAssignFab;
     final listBottomPadding =
         hasAnyFab ? 132 + bottomSafeInset + BafSpacing.xl : BafSpacing.xl;
@@ -46,65 +61,79 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
       children: [
         ColoredBox(
           color: BafColors.background,
-          child: Column(
-            children: [
-              _PlannedWorkSelector(
-                selectedView: _selectedView,
-                openJobCount: executionsAsync.value?.length,
-                templateCount: templatesAsync.value?.length,
-                onChanged: (view) {
-                  if (view == _selectedView) return;
-                  setState(() => _selectedView = view);
-                },
-              ),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
-                  child:
-                      _selectedView == _PlannedWorkView.openJobs
-                          ? KeyedSubtree(
-                            key: const ValueKey('planned-work-open-jobs'),
-                            child: executionsAsync.when(
-                              loading:
-                                  () => const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                              error:
-                                  (e, _) => _ErrorState(
-                                    message: 'Could not load open jobs: $e',
-                                  ),
-                              data:
-                                  (executions) => OpenExecutionsView(
-                                    executions: executions,
-                                    bottomPadding: listBottomPadding,
-                                  ),
-                            ),
-                          )
-                          : KeyedSubtree(
-                            key: const ValueKey('planned-work-templates'),
-                            child: templatesAsync.when(
-                              loading:
-                                  () => const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                              error:
-                                  (e, _) => _ErrorState(
-                                    message: 'Could not load templates: $e',
-                                  ),
-                              data: (templates) {
-                                if (templates.isEmpty) {
-                                  return const _EmptyTemplatesState();
-                                }
-                                return _TemplateList(
-                                  templates: templates,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: Column(
+                children: [
+                  _PlannedWorkSelector(
+                    selectedView: _selectedView,
+                    openJobCount: executionsAsync.value?.length,
+                    templateCount: templatesAsync.value?.length,
+                    canSeeTemplates: canSeeTemplates,
+                    query: _query,
+                    onQueryChanged: (value) => setState(() => _query = value),
+                    onChanged: (view) {
+                      if (view == _selectedView) return;
+                      setState(() => _selectedView = view);
+                    },
+                  ),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: switch (_selectedView) {
+                        _PlannedWorkView.openJobs => KeyedSubtree(
+                          key: const ValueKey('planned-work-open-jobs'),
+                          child: executionsAsync.when(
+                            loading:
+                                () => const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                            error:
+                                (e, _) => _ErrorState(
+                                  message: 'Could not load open jobs: $e',
+                                ),
+                            data:
+                                (_) => OpenExecutionsView(
+                                  executions: filteredExecutions,
                                   bottomPadding: listBottomPadding,
-                                );
-                              },
-                            ),
+                                ),
                           ),
-                ),
+                        ),
+                        _PlannedWorkView.workflow => WorkflowQueueView(
+                          key: const ValueKey('planned-work-workflow'),
+                          query: _query,
+                          bottomPadding: listBottomPadding,
+                        ),
+                        _PlannedWorkView.templates => KeyedSubtree(
+                          key: const ValueKey('planned-work-templates'),
+                          child: templatesAsync.when(
+                            loading:
+                                () => const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                            error:
+                                (e, _) => _ErrorState(
+                                  message: 'Could not load templates: $e',
+                                ),
+                            data: (_) {
+                              if (filteredTemplates.isEmpty) {
+                                return const _EmptyTemplatesState();
+                              }
+                              return _TemplateList(
+                                templates: filteredTemplates,
+                                bottomPadding: listBottomPadding,
+                              );
+                            },
+                          ),
+                        ),
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
         if (showAssignFab)
@@ -113,7 +142,7 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
             right: BafSpacing.lg,
             child: FloatingActionButton.extended(
               heroTag: 'published_templates_fab',
-              backgroundColor: BafColors.sync,
+              backgroundColor: BafColors.planned,
               foregroundColor: Colors.white,
               elevation: 2,
               icon: const Icon(Icons.verified_rounded),
@@ -158,18 +187,62 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
       ],
     );
   }
+
+  List<JobExecution> _filterExecutions(
+    List<JobExecution> executions,
+    String query,
+  ) {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) return executions;
+    return executions
+        .where((execution) {
+          return <String?>[
+            execution.templateName,
+            execution.templatePackageCode,
+            execution.assetType.name,
+            '${execution.assetNumber}',
+            execution.assignedByName,
+            ...execution.assignedAgencies,
+          ].any((value) => value?.toLowerCase().contains(needle) == true);
+        })
+        .toList(growable: false);
+  }
+
+  List<JobTemplate> _filterTemplates(
+    List<JobTemplate> templates,
+    String query,
+  ) {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) return templates;
+    return templates
+        .where((template) {
+          return <String?>[
+            template.jobName,
+            template.description,
+            template.applicableAssetType.name,
+            ...template.assignedAgencies,
+          ].any((value) => value?.toLowerCase().contains(needle) == true);
+        })
+        .toList(growable: false);
+  }
 }
 
 class _PlannedWorkSelector extends StatelessWidget {
   final _PlannedWorkView selectedView;
   final int? openJobCount;
   final int? templateCount;
+  final bool canSeeTemplates;
+  final String query;
+  final ValueChanged<String> onQueryChanged;
   final ValueChanged<_PlannedWorkView> onChanged;
 
   const _PlannedWorkSelector({
     required this.selectedView,
     required this.openJobCount,
     required this.templateCount,
+    required this.canSeeTemplates,
+    required this.query,
+    required this.onQueryChanged,
     required this.onChanged,
   });
 
@@ -183,13 +256,7 @@ class _PlannedWorkSelector extends StatelessWidget {
         BafSpacing.lg,
         BafSpacing.sm,
       ),
-      padding: const EdgeInsets.all(BafSpacing.md),
-      decoration: BoxDecoration(
-        color: BafColors.card,
-        borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(color: BafColors.border),
-        boxShadow: BafShadows.subtle,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: BafSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -197,13 +264,13 @@ class _PlannedWorkSelector extends StatelessWidget {
             'Planned Maintenance',
             style: TextStyle(
               color: BafColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 4),
           const Text(
-            'Open assigned work and reusable templates are separate views.',
+            'Jobs, workflow obligations and governed planning.',
             style: TextStyle(
               color: BafColors.textSecondary,
               fontSize: 12,
@@ -215,17 +282,20 @@ class _PlannedWorkSelector extends StatelessWidget {
             width: double.infinity,
             child: SegmentedButton<_PlannedWorkView>(
               showSelectedIcon: false,
-              segments: const [
-                ButtonSegment<_PlannedWorkView>(
+              segments: [
+                const ButtonSegment<_PlannedWorkView>(
                   value: _PlannedWorkView.openJobs,
-                  icon: Icon(Icons.work_history_rounded),
-                  label: Text('Open jobs'),
+                  label: Text('Jobs'),
                 ),
-                ButtonSegment<_PlannedWorkView>(
-                  value: _PlannedWorkView.templates,
-                  icon: Icon(Icons.event_note_rounded),
-                  label: Text('Templates'),
+                const ButtonSegment<_PlannedWorkView>(
+                  value: _PlannedWorkView.workflow,
+                  label: Text('Workflow'),
                 ),
+                if (canSeeTemplates)
+                  const ButtonSegment<_PlannedWorkView>(
+                    value: _PlannedWorkView.templates,
+                    label: Text('Templates'),
+                  ),
               ],
               selected: <_PlannedWorkView>{selectedView},
               onSelectionChanged: (selection) {
@@ -234,27 +304,29 @@ class _PlannedWorkSelector extends StatelessWidget {
             ),
           ),
           const SizedBox(height: BafSpacing.sm),
-          Wrap(
-            spacing: BafSpacing.sm,
-            runSpacing: BafSpacing.sm,
-            children: [
-              StatusBadge(
-                label:
-                    openJobCount == null
-                        ? 'Open jobs loading'
-                        : '$openJobCount open jobs',
-                color: BafColors.warning,
-                icon: Icons.pending_actions_rounded,
-              ),
-              StatusBadge(
-                label:
-                    templateCount == null
-                        ? 'Templates loading'
-                        : '$templateCount templates',
-                color: BafColors.planned,
-                icon: Icons.event_note_rounded,
-              ),
-            ],
+          TextField(
+            key: const ValueKey('planned-work-search'),
+            onChanged: onQueryChanged,
+            decoration: InputDecoration(
+              hintText:
+                  selectedView == _PlannedWorkView.openJobs
+                      ? 'Search jobs or assets'
+                      : selectedView == _PlannedWorkView.workflow
+                      ? 'Search lanes or compliance'
+                      : 'Search templates',
+              prefixIcon: const Icon(Icons.search_rounded),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: BafSpacing.xs),
+          Text(
+            '${openJobCount ?? 0} open jobs'
+            '${canSeeTemplates ? ' · ${templateCount ?? 0} templates' : ''}',
+            style: const TextStyle(
+              color: BafColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -313,64 +385,35 @@ class _TemplatesHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(BafSpacing.lg),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FBFF),
-        borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(color: BafColors.planned.withValues(alpha: 0.18)),
-        boxShadow: BafShadows.subtle,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: BafColors.planned.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(BafRadius.medium),
-            ),
-            child: const Icon(
-              Icons.event_note_rounded,
-              color: BafColors.planned,
-              size: 30,
-            ),
+    return Row(
+      children: [
+        const Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Template library',
+                style: TextStyle(
+                  color: BafColors.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(height: BafSpacing.xs),
+              Text(
+                'Reusable plans for preventive and structured work.',
+                style: TextStyle(color: BafColors.textSecondary, fontSize: 12),
+              ),
+            ],
           ),
-          const SizedBox(width: BafSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Planned Maintenance',
-                  style: TextStyle(
-                    color: BafColors.textPrimary,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: BafSpacing.xs),
-                const Text(
-                  'Reusable job templates for preventive and structured work.',
-                  style: TextStyle(
-                    color: BafColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                StatusBadge(
-                  label: '$count active templates',
-                  color: BafColors.planned,
-                  icon: Icons.task_alt_rounded,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(width: BafSpacing.sm),
+        StatusBadge(
+          label: '$count active',
+          color: BafColors.planned,
+          icon: Icons.task_alt_rounded,
+        ),
+      ],
     );
   }
 }

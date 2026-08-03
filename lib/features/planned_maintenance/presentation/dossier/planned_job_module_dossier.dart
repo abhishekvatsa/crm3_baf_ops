@@ -3,7 +3,7 @@ part of '../planned_job_detail_screen.dart';
 class _ProcessModuleDossier extends StatelessWidget {
   final AsyncValue<List<JobModuleInstance>> modulesAsync;
   final bool isOpenJob;
-  final ValueChanged<List<JobModuleInstance>> onAddModule;
+  final ValueChanged<List<JobModuleInstance>>? onAddModule;
   final ValueChanged<JobModuleInstance> onOpenModule;
 
   const _ProcessModuleDossier({
@@ -33,11 +33,11 @@ class _ProcessModuleDossier extends StatelessWidget {
               const _ClosedModulesReadOnlyBanner(),
               const SizedBox(height: BafSpacing.md),
             ],
-            if (isOpenJob) ...[
+            if (isOpenJob && onAddModule != null) ...[
               Align(
                 alignment: Alignment.centerLeft,
                 child: OutlinedButton.icon(
-                  onPressed: () => onAddModule(visibleModules),
+                  onPressed: () => onAddModule!(visibleModules),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: BafColors.planned,
                     side: const BorderSide(color: BafColors.planned),

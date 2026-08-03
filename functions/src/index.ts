@@ -79,7 +79,16 @@ import {
 import type {
   FirestoreLike as NotifFirestoreLike,
   MessagingLike,
+  SendOutcome,
 } from "./notifications";
+import {
+  executeIdempotentNotificationEvent,
+} from "./notificationEventReceipt";
+import type {
+  NotificationEventExecutionResult,
+  NotificationReceiptFirestoreLike,
+  NotificationReceiptRuntime,
+} from "./notificationEventReceipt";
 import {
   CallableAbuseControlError,
   executeAuthorizedMutationWithAbuseControl,
@@ -468,6 +477,18 @@ function messagingAdapter(): MessagingLike {
   return admin.messaging() as unknown as MessagingLike;
 }
 
+function notificationReceiptRuntime(
+  db: NotifFirestoreLike,
+): NotificationReceiptRuntime {
+  return {
+    db: db as unknown as NotificationReceiptFirestoreLike,
+    serverTimestamp: () => admin.firestore.FieldValue.serverTimestamp(),
+    reportDeliveryUncertain: (signal) => {
+      logger.error("Notification delivery requires governed adjudication", signal);
+    },
+  };
+}
+
 function logOutcome(
   fn: string,
   outcome: {
@@ -486,25 +507,45 @@ function logOutcome(
   }
 }
 
+function logNotificationResult(
+  fn: string,
+  result: NotificationEventExecutionResult,
+): void {
+  if (result.kind === "completed") {
+    logOutcome(fn, result.outcome);
+    return;
+  }
+  logger.info(`${fn} did not dispatch`, result);
+}
+
 export const onTicketCreated = onDocumentCreated(
   {
     document: "maintenance_records/{ticketId}",
     region: NOTIFICATION_REGION,
+    retry: true,
   },
   async (event) => {
     const ticket = event.data?.data();
     if (ticket == null || ticket.isDeleted === true) return;
     const plan = buildTicketCreatedNotification(ticket);
     const db = firestoreAdapter();
-    const recipients = await getTokenLookupsForRoles(db, plan.roles);
-    const outcome = await sendNotification({
-      db,
-      messaging: messagingAdapter(),
-      recipients,
-      title: plan.title,
-      body: plan.body,
+    const result = await executeIdempotentNotificationEvent({
+      runtime: notificationReceiptRuntime(db),
+      triggerName: "onTicketCreated",
+      cloudEventId: event.id,
+      sourceDocumentPath: `maintenance_records/${event.params.ticketId}`,
+      prepare: async () => ({
+        recipients: await getTokenLookupsForRoles(db, plan.roles),
+      }),
+      dispatch: ({recipients}): Promise<SendOutcome> => sendNotification({
+        db,
+        messaging: messagingAdapter(),
+        recipients,
+        title: plan.title,
+        body: plan.body,
+      }),
     });
-    logOutcome("onTicketCreated", outcome);
+    logNotificationResult("onTicketCreated", result);
   },
 );
 
@@ -512,6 +553,7 @@ export const onTicketResolved = onDocumentUpdated(
   {
     document: "maintenance_records/{ticketId}",
     region: NOTIFICATION_REGION,
+    retry: true,
   },
   async (event) => {
     const before = event.data?.before.data();
@@ -522,22 +564,32 @@ export const onTicketResolved = onDocumentUpdated(
 
     const plan = buildTicketResolvedNotification(after);
     const db = firestoreAdapter();
-
-    const roleRecipients = await getTokenLookupsForRoles(db, plan.roles);
-    const recipients = [...roleRecipients];
-    if (plan.loggedByUid != null) {
-      const loggedByLookup = await getTokenLookupForUser(db, plan.loggedByUid);
-      if (loggedByLookup != null) recipients.push(loggedByLookup);
-    }
-
-    const outcome = await sendNotification({
-      db,
-      messaging: messagingAdapter(),
-      recipients,
-      title: plan.title,
-      body: plan.body,
+    const result = await executeIdempotentNotificationEvent({
+      runtime: notificationReceiptRuntime(db),
+      triggerName: "onTicketResolved",
+      cloudEventId: event.id,
+      sourceDocumentPath: `maintenance_records/${event.params.ticketId}`,
+      prepare: async () => {
+        const roleRecipients = await getTokenLookupsForRoles(db, plan.roles);
+        const recipients = [...roleRecipients];
+        if (plan.loggedByUid != null) {
+          const loggedByLookup = await getTokenLookupForUser(
+            db,
+            plan.loggedByUid,
+          );
+          if (loggedByLookup != null) recipients.push(loggedByLookup);
+        }
+        return {recipients};
+      },
+      dispatch: ({recipients}): Promise<SendOutcome> => sendNotification({
+        db,
+        messaging: messagingAdapter(),
+        recipients,
+        title: plan.title,
+        body: plan.body,
+      }),
     });
-    logOutcome("onTicketResolved", outcome);
+    logNotificationResult("onTicketResolved", result);
   },
 );
 
@@ -545,25 +597,36 @@ export const onJobAssigned = onDocumentCreated(
   {
     document: "job_executions/{executionId}",
     region: NOTIFICATION_REGION,
+    retry: true,
   },
   async (event) => {
     const execution = event.data?.data();
     if (execution == null || execution.isDeleted === true) return;
 
-    const plan = buildJobAssignedNotification(execution);
-    if (plan == null) return; // No agencies — nothing to do.
-
     const db = firestoreAdapter();
-    const recipients = await getTokenLookupsForRoles(db, plan.roles);
-    const outcome = await sendNotification({
-      db,
-      messaging: messagingAdapter(),
-      recipients,
-      title: plan.title,
-      body: plan.body,
-      unknownAgencies: plan.unknownAgencies,
+    const result = await executeIdempotentNotificationEvent({
+      runtime: notificationReceiptRuntime(db),
+      triggerName: "onJobAssigned",
+      cloudEventId: event.id,
+      sourceDocumentPath: `job_executions/${event.params.executionId}`,
+      prepare: async () => {
+        const plan = buildJobAssignedNotification(execution);
+        if (plan == null) return null;
+        return {
+          plan,
+          recipients: await getTokenLookupsForRoles(db, plan.roles),
+        };
+      },
+      dispatch: ({plan, recipients}): Promise<SendOutcome> => sendNotification({
+        db,
+        messaging: messagingAdapter(),
+        recipients,
+        title: plan.title,
+        body: plan.body,
+        unknownAgencies: plan.unknownAgencies,
+      }),
     });
-    logOutcome("onJobAssigned", outcome);
+    logNotificationResult("onJobAssigned", result);
   },
 );
 

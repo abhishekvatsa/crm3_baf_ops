@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:isar/isar.dart';
 
 import '../../../core/services/app_logger.dart';
-import '../../../main.dart';
+import '../../../core/persistence/app_database.dart';
 import '../models/audit_event_model.dart';
 
 T _enumByNameOr<T extends Enum>(

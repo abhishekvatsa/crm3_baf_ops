@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart' hide Query;
 
-import '../../../main.dart';
+import '../../../core/persistence/app_database.dart';
 import '../../../core/services/global_pull_protocol.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../data/baf_knowledge_model.dart';

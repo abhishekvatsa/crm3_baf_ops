@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/audit_event_model.dart';
 import '../providers/audit_provider.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../auth/providers/auth_provider.dart';
 
 // ─────────────────────────────────────────────────────────────
 // PROVIDERS
@@ -14,19 +15,26 @@ import '../../../core/theme/baf_design_system.dart';
 
 final auditTimelineProvider = FutureProvider.family
     .autoDispose<List<AuditEvent>, ({String type, String id})>((ref, args) {
-  final repo = ref.read(auditRepositoryProvider);
+      final repo = ref.read(auditRepositoryProvider);
 
-  if (kIsWeb) {
-    return repo.getRemoteEventsForEntity(args.type, args.id);
-  }
+      if (kIsWeb) {
+        return repo.getRemoteEventsForEntity(args.type, args.id);
+      }
 
-  return repo.getLocalEventsForEntity(args.type, args.id);
-});
+      return repo.getLocalEventsForEntity(args.type, args.id);
+    });
 
-final syncConflictAuditProvider = FutureProvider.autoDispose<List<AuditEvent>>((ref) {
+final syncConflictAuditProvider = FutureProvider.autoDispose<List<AuditEvent>>((
+  ref,
+) {
   return ref.read(auditRepositoryProvider).getRecentSyncConflictEvents();
 });
 
+final recentAuditEventsProvider = FutureProvider.autoDispose<List<AuditEvent>>((
+  ref,
+) {
+  return ref.read(auditRepositoryProvider).getRecentLocalEvents();
+});
 
 // ─────────────────────────────────────────────────────────────
 // SCREEN
@@ -44,13 +52,30 @@ class AuditTimelineScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auditAsync =
-    ref.watch(auditTimelineProvider((type: entityType, id: entityId)));
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return const _AuditAccessState(
+        appBarTitle: 'Audit Timeline',
+        title: 'Checking audit access',
+        message: 'Please wait while your permissions are verified.',
+        showProgress: true,
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.canViewAuditLogs) {
+      return const _AuditAccessState(
+        appBarTitle: 'Audit Timeline',
+        title: 'Admin access required',
+        message: 'Only approved Admin users can inspect audit evidence.',
+      );
+    }
+
+    final auditAsync = ref.watch(
+      auditTimelineProvider((type: entityType, id: entityId)),
+    );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Audit Timeline"),
-      ),
+      appBar: AppBar(title: const Text("Audit Timeline")),
       body: auditAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text("Error: $e")),
@@ -62,7 +87,8 @@ class AuditTimelineScreen extends ConsumerWidget {
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(
-                  auditTimelineProvider((type: entityType, id: entityId)));
+                auditTimelineProvider((type: entityType, id: entityId)),
+              );
             },
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -76,12 +102,99 @@ class AuditTimelineScreen extends ConsumerWidget {
   }
 }
 
+class RecentAuditLogScreen extends ConsumerWidget {
+  const RecentAuditLogScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return const _AuditAccessState(
+        appBarTitle: 'Audit Log',
+        title: 'Checking audit access',
+        message: 'Please wait while your permissions are verified.',
+        showProgress: true,
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.canViewAuditLogs) {
+      return const _AuditAccessState(
+        appBarTitle: 'Audit Log',
+        title: 'Admin access required',
+        message: 'Only approved Admin users can inspect the audit log.',
+      );
+    }
+
+    final eventsAsync = ref.watch(recentAuditEventsProvider);
+    return Scaffold(
+      backgroundColor: BafColors.background,
+      appBar: AppBar(
+        title: const Text('Audit Log'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh audit log',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => ref.invalidate(recentAuditEventsProvider),
+          ),
+        ],
+      ),
+      body: eventsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error:
+            (error, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(BafSpacing.lg),
+                child: Text(
+                  'Could not load audit activity: $error',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: BafColors.danger),
+                ),
+              ),
+            ),
+        data: (events) {
+          if (events.isEmpty) {
+            return const Center(child: Text('No audit activity available'));
+          }
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(recentAuditEventsProvider);
+              await ref.read(recentAuditEventsProvider.future);
+            },
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: BafSpacing.sm),
+              itemCount: events.length,
+              itemBuilder: (_, index) => _AuditTile(event: events[index]),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
 
 class SyncConflictReviewScreen extends ConsumerWidget {
   const SyncConflictReviewScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return const _AuditAccessState(
+        appBarTitle: 'Sync Conflict Review',
+        title: 'Checking conflict-review access',
+        message: 'Please wait while your permissions are verified.',
+        showProgress: true,
+      );
+    }
+    final actor = actorAsync.value;
+    if (actor == null || !actor.canReviewSyncConflicts) {
+      return const _AuditAccessState(
+        appBarTitle: 'Sync Conflict Review',
+        title: 'Admin access required',
+        message: 'Only approved Admin users can review sync conflicts.',
+      );
+    }
+
     final conflictsAsync = ref.watch(syncConflictAuditProvider);
 
     return Scaffold(
@@ -102,16 +215,17 @@ class SyncConflictReviewScreen extends ConsumerWidget {
       ),
       body: conflictsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(BafSpacing.lg),
-            child: Text(
-              'Could not load sync conflicts: $e',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: BafColors.danger),
+        error:
+            (e, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(BafSpacing.lg),
+                child: Text(
+                  'Could not load sync conflicts: $e',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: BafColors.danger),
+                ),
+              ),
             ),
-          ),
-        ),
         data: (events) {
           if (events.isEmpty) {
             return const _NoSyncConflictsState();
@@ -142,6 +256,62 @@ class SyncConflictReviewScreen extends ConsumerWidget {
   }
 }
 
+class _AuditAccessState extends StatelessWidget {
+  final String appBarTitle;
+  final String title;
+  final String message;
+  final bool showProgress;
+
+  const _AuditAccessState({
+    required this.appBarTitle,
+    required this.title,
+    required this.message,
+    this.showProgress = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: BafColors.background,
+      appBar: AppBar(title: Text(appBarTitle)),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(BafSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showProgress)
+                const CircularProgressIndicator()
+              else
+                const Icon(
+                  Icons.lock_outline_rounded,
+                  size: 44,
+                  color: BafColors.danger,
+                ),
+              const SizedBox(height: BafSpacing.md),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: BafColors.textPrimary,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: BafColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _NoSyncConflictsState extends StatelessWidget {
   const _NoSyncConflictsState();
 
@@ -162,11 +332,7 @@ class _NoSyncConflictsState extends StatelessWidget {
           child: const Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.verified_rounded,
-                color: BafColors.success,
-                size: 42,
-              ),
+              Icon(Icons.verified_rounded, color: BafColors.success, size: 42),
               SizedBox(height: BafSpacing.md),
               Text(
                 'No sync conflicts found',
@@ -181,10 +347,7 @@ class _NoSyncConflictsState extends StatelessWidget {
               Text(
                 'When sync preserves a local/remote conflict, it will appear here for admin review.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: BafColors.textSecondary,
-                  height: 1.35,
-                ),
+                style: TextStyle(color: BafColors.textSecondary, height: 1.35),
               ),
             ],
           ),
@@ -286,7 +449,9 @@ class _AuditTileState extends State<_AuditTile> {
                     child: Text(
                       e.summary ?? e.action.name.toUpperCase(),
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                   Text(
@@ -317,10 +482,7 @@ class _AuditTileState extends State<_AuditTile> {
                 ),
 
               // ───────── EXPANDED DIFF ─────────
-              if (expanded) ...[
-                const Divider(),
-                _buildDiff(e),
-              ]
+              if (expanded) ...[const Divider(), _buildDiff(e)],
             ],
           ),
         ),

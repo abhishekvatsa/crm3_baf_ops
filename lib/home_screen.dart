@@ -12,7 +12,9 @@ import 'features/planned_maintenance/presentation/templates_screen.dart';
 import 'features/planned_maintenance/presentation/module_composer_screen.dart';
 import 'features/planned_maintenance/presentation/template_publisher_screen.dart';
 import 'features/planned_maintenance/presentation/knowledge_governance_screen.dart';
+import 'features/planned_maintenance/presentation/closed_job_dossiers_screen.dart';
 import 'features/assets/presentation/asset_timeline_screen.dart';
+import 'features/audit/presentation/audit_timeline_screen.dart';
 import 'features/admin/presentation/admin_data_browser.dart';
 import 'features/admin/presentation/local_diagnostics_screen.dart';
 import 'features/directives/presentation/directives_screen.dart';
@@ -20,6 +22,7 @@ import 'features/maintenance/presentation/closed_tickets_screen.dart';
 import 'features/reports/presentation/fleet_status_screen.dart';
 import 'features/abnormalities/presentation/abnormalities_home_screen.dart';
 import 'features/maintenance_workflow/presentation/screens/compliance_inbox_screen.dart';
+import 'features/maintenance_workflow/presentation/screens/compliance_notification_screen.dart';
 import 'features/maintenance_workflow/presentation/screens/equipment_status_board.dart';
 import 'features/maintenance_workflow/presentation/screens/workflow_hub_screen.dart';
 import 'features/maintenance_workflow/providers/workflow_providers.dart';
@@ -48,15 +51,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   StreamSubscription<RemoteMessage>? _notificationTapSubscription;
   bool _initialNotificationHandled = false;
 
-  /// Null means: derive the initial mode from the user's role.
-  /// Once the user manually switches, preserve their runtime choice.
-  bool? _attendMode;
-
   @override
   void initState() {
     super.initState();
-    _notificationTapSubscription =
-        FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+    _notificationTapSubscription = FirebaseMessaging.onMessageOpenedApp.listen(
+      _handleNotificationTap,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_openInitialNotification());
     });
@@ -80,20 +80,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!mounted || workflowId == null || workflowId.isEmpty) return;
     final laneKey = message.data['laneKey']?.trim();
     final sourceCollection = message.data['sourceCollection']?.trim();
+    final complianceId = message.data['complianceId']?.trim();
     final destinationType = message.data['destinationType']?.trim();
     final Widget destination;
     if (destinationType == 'equipment') {
       destination = const EquipmentStatusBoard();
     } else if (sourceCollection == 'compliance_requests' &&
-        laneKey != null &&
-        laneKey.isNotEmpty) {
+        complianceId != null &&
+        complianceId.isNotEmpty) {
+      destination = ComplianceNotificationScreen(
+        complianceId: complianceId,
+        laneKey: laneKey,
+      );
+    } else if (sourceCollection == 'compliance_requests') {
       destination = ComplianceInboxScreen(laneKey: laneKey);
     } else {
       destination = WorkflowHubScreen(initialWorkflowId: workflowId);
     }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => destination),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => destination));
   }
 
   @override
@@ -120,45 +126,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final directiveCountAsync = ref.watch(
           visibleOpenDirectiveCountProvider(appUser),
         );
-        final workflowLanesAsync = appUser.canViewPlannedMaintenance
-            ? ref.watch(workflowAllLanesProvider)
-            : null;
-        final workflowComplianceAsync = appUser.canViewPlannedMaintenance
-            ? ref.watch(workflowAllComplianceProvider)
-            : null;
+        final workflowLanesAsync =
+            appUser.canViewPlannedMaintenance
+                ? ref.watch(workflowAllLanesProvider)
+                : null;
+        final workflowComplianceAsync =
+            appUser.canViewPlannedMaintenance
+                ? ref.watch(workflowAllComplianceProvider)
+                : null;
 
         final ticketCount = ticketCountAsync.value ?? 0;
         final executionCount = executionCountAsync?.value ?? 0;
         final directiveCount = directiveCountAsync.value ?? 0;
         final pendingLaneAcknowledgements =
             workflowLanesAsync?.value
-                    ?.where(
-                      (lane) =>
-                          lane.statusKey == 'pending' &&
-                          appUser.canAcknowledgeOrWorkMaintenanceLane(
-                            lane.laneKey,
-                          ),
-                    )
-                    .length ??
-                0;
+                ?.where(
+                  (lane) =>
+                      lane.statusKey == 'pending' &&
+                      appUser.canAcknowledgeOrWorkMaintenanceLane(lane.laneKey),
+                )
+                .length ??
+            0;
         final dueCompliance =
             workflowComplianceAsync?.value
-                    ?.where(
-                      (request) =>
-                          request.becameDueAt != null &&
-                          request.statusKey != 'confirmedClosed' &&
-                          request.statusKey != 'superseded' &&
-                          request.statusKey != 'cancelled' &&
-                          appUser.canAcknowledgeOrWorkMaintenanceLane(
-                            request.targetLaneKey,
-                          ),
-                    )
-                    .length ??
-                0;
+                ?.where(
+                  (request) =>
+                      request.becameDueAt != null &&
+                      request.statusKey != 'confirmedClosed' &&
+                      request.statusKey != 'superseded' &&
+                      request.statusKey != 'cancelled' &&
+                      appUser.canAcknowledgeOrWorkMaintenanceLane(
+                        request.targetLaneKey,
+                      ),
+                )
+                .length ??
+            0;
         final workflowAttentionCount =
             pendingLaneAcknowledgements + dueCompliance;
-
-        final attendMode = _attendMode ?? _defaultAttendMode(appUser);
 
         final tabs = _buildTabs(
           appUser: appUser,
@@ -166,35 +170,76 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           executionCount: executionCount,
           directiveCount: directiveCount,
           workflowAttentionCount: workflowAttentionCount,
-          attendMode: attendMode,
         );
 
         final safeIndex = _currentIndex.clamp(0, tabs.length - 1);
 
-        return Scaffold(
-          backgroundColor: BafColors.background,
-          body: _LazyIndexedStack(
-            index: safeIndex,
-            itemCount: tabs.length,
-            itemBuilder: (context, index) => tabs[index].buildScreen(context),
-          ),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: safeIndex,
-            onDestinationSelected: (index) {
-              setState(() => _currentIndex = index);
-            },
-            backgroundColor: BafColors.card,
-            indicatorColor: BafColors.navySoft.withValues(alpha: 0.12),
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            destinations: tabs.map((t) => t.destination).toList(),
-          ),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final body = _LazyIndexedStack(
+              index: safeIndex,
+              itemCount: tabs.length,
+              itemBuilder: (context, index) => tabs[index].buildScreen(context),
+            );
+            final useRail = constraints.maxWidth >= 900;
+
+            if (useRail) {
+              return Scaffold(
+                backgroundColor: BafColors.background,
+                body: Row(
+                  children: [
+                    SafeArea(
+                      child: NavigationRail(
+                        selectedIndex: safeIndex,
+                        extended: constraints.maxWidth >= 1200,
+                        minExtendedWidth: 210,
+                        backgroundColor: BafColors.card,
+                        indicatorColor: BafColors.navySoft.withValues(
+                          alpha: 0.12,
+                        ),
+                        onDestinationSelected:
+                            (index) => setState(() => _currentIndex = index),
+                        labelType:
+                            constraints.maxWidth >= 1200
+                                ? NavigationRailLabelType.none
+                                : NavigationRailLabelType.all,
+                        destinations: tabs
+                            .map(
+                              (tab) => NavigationRailDestination(
+                                icon: tab.destination.icon,
+                                selectedIcon:
+                                    tab.destination.selectedIcon ??
+                                    tab.destination.icon,
+                                label: Text(tab.label),
+                              ),
+                            )
+                            .toList(growable: false),
+                      ),
+                    ),
+                    const VerticalDivider(width: 1),
+                    Expanded(child: body),
+                  ],
+                ),
+              );
+            }
+
+            return Scaffold(
+              backgroundColor: BafColors.background,
+              body: body,
+              bottomNavigationBar: NavigationBar(
+                selectedIndex: safeIndex,
+                onDestinationSelected:
+                    (index) => setState(() => _currentIndex = index),
+                backgroundColor: BafColors.card,
+                indicatorColor: BafColors.navySoft.withValues(alpha: 0.12),
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                destinations: tabs.map((t) => t.destination).toList(),
+              ),
+            );
+          },
         );
       },
     );
-  }
-
-  bool _defaultAttendMode(AppUser appUser) {
-    return appUser.canCloseAnyTicket || appUser.canSeeAllTickets;
   }
 
   List<_AppTab> _buildTabs({
@@ -203,7 +248,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required int executionCount,
     required int directiveCount,
     required int workflowAttentionCount,
-    required bool attendMode,
   }) {
     return [
       _AppTab(
@@ -214,10 +258,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ticketCount: ticketCount,
               executionCount: executionCount,
               directiveCount: directiveCount,
-              attendMode: attendMode,
-              onAttendModeChanged: (value) {
-                setState(() => _attendMode = value);
-              },
+              workflowAttentionCount: workflowAttentionCount,
               onProfileTap: () => _showProfileSheet(context, ref, appUser),
               onRaiseIssue: () => _openMaintenanceForm(context),
               onIssues: () => setState(() => _currentIndex = 1),
@@ -225,7 +266,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onDirectives: () => setState(() => _currentIndex = 3),
               onAbnormalities:
                   () => _push(context, const AbnormalitiesHomeScreen()),
-              onMore: () => setState(() => _currentIndex = 4),
               onManualSync: () => _runManualSync(context),
             ),
         destination: const NavigationDestination(
@@ -264,13 +304,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
         destination: NavigationDestination(
           icon: Badge(
-            isLabelVisible: executionCount > 0,
-            label: Text('$executionCount'),
+            isLabelVisible: executionCount + workflowAttentionCount > 0,
+            label: Text('${executionCount + workflowAttentionCount}'),
             child: const Icon(Icons.work_outline_rounded),
           ),
           selectedIcon: Badge(
-            isLabelVisible: executionCount > 0,
-            label: Text('$executionCount'),
+            isLabelVisible: executionCount + workflowAttentionCount > 0,
+            label: Text('${executionCount + workflowAttentionCount}'),
             child: const Icon(Icons.work_rounded),
           ),
           label: 'Work',
@@ -298,12 +338,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         screenBuilder:
             (_) => _MoreScreen(
               appUser: appUser,
-              workflowAttentionCount: workflowAttentionCount,
               onAssets: () => _push(context, const AssetTimelineScreen()),
               onClosed: () => _push(context, const ClosedTicketsScreen()),
+              onClosedJobs:
+                  () => _push(context, const ClosedJobDossiersScreen()),
               onReports: () => _push(context, const FleetStatusScreen()),
               onAdmin: () => _push(context, const AdminDataBrowser()),
-              onRaiseIssue: () => _openMaintenanceForm(context),
+              onAuditLog: () => _push(context, const RecentAuditLogScreen()),
               onAbnormalities:
                   () => _push(context, const AbnormalitiesHomeScreen()),
               onTemplateAuthoring: () => _openModuleComposer(context, appUser),
@@ -313,8 +354,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const KnowledgeGovernanceScreen()),
               onLocalDiagnostics:
                   () => _push(context, const LocalDiagnosticsScreen()),
-              onMaintenanceWorkflow:
-                  () => _push(context, const WorkflowHubScreen()),
             ),
         destination: const NavigationDestination(
           icon: Icon(Icons.more_horiz_rounded),
@@ -367,7 +406,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final messenger = ScaffoldMessenger.maybeOf(context);
 
     try {
-      final completed = await ref
+      final outcome = await ref
           .read(syncCoordinatorProvider)
           .runFullSyncWithResult(reason: 'manual_home', force: true);
 
@@ -375,12 +414,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       messenger?.showSnackBar(
         SnackBar(
-          content: Text(
-            completed
-                ? 'Manual sync completed.'
-                : 'Manual sync is already running or could not complete.',
-          ),
-          backgroundColor: completed ? BafColors.sync : BafColors.warning,
+          content: Text(outcome.manualSyncMessage),
+          backgroundColor:
+              outcome.isFailure
+                  ? BafColors.danger
+                  : (outcome.isSuccessful ? BafColors.sync : BafColors.warning),
         ),
       );
     } catch (error) {
@@ -510,15 +548,13 @@ class _DashboardHome extends StatelessWidget {
   final int ticketCount;
   final int executionCount;
   final int directiveCount;
-  final bool attendMode;
-  final ValueChanged<bool> onAttendModeChanged;
+  final int workflowAttentionCount;
   final VoidCallback onProfileTap;
   final VoidCallback onRaiseIssue;
   final VoidCallback onIssues;
   final VoidCallback onWork;
   final VoidCallback onDirectives;
   final VoidCallback onAbnormalities;
-  final VoidCallback onMore;
   final VoidCallback onManualSync;
 
   const _DashboardHome({
@@ -526,134 +562,101 @@ class _DashboardHome extends StatelessWidget {
     required this.ticketCount,
     required this.executionCount,
     required this.directiveCount,
-    required this.attendMode,
-    required this.onAttendModeChanged,
+    required this.workflowAttentionCount,
     required this.onProfileTap,
     required this.onRaiseIssue,
     required this.onIssues,
     required this.onWork,
     required this.onDirectives,
     required this.onAbnormalities,
-    required this.onMore,
     required this.onManualSync,
   });
 
   @override
   Widget build(BuildContext context) {
+    final totalAttention =
+        ticketCount + executionCount + directiveCount + workflowAttentionCount;
+
     return SafeArea(
       bottom: false,
-      child: CustomScrollView(
-        slivers: [
-          SliverPadding(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
             padding: const EdgeInsets.fromLTRB(
               BafSpacing.lg,
               BafSpacing.md,
               BafSpacing.lg,
-              BafSpacing.lg,
+              BafSpacing.xl,
             ),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                DashboardHeader(
-                  userName: appUser.name,
-                  avatar: _UserAvatar(appUser: appUser),
-                  syncIndicator: _CompactSyncPill(onManualSync: onManualSync),
-                  onProfileTap: onProfileTap,
-                ),
-                const SizedBox(height: BafSpacing.lg),
-                ModeSwitchCard(
-                  attendMode: attendMode,
-                  onChanged: onAttendModeChanged,
-                ),
-                const SizedBox(height: BafSpacing.lg),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  child:
-                      attendMode
-                          ? AttendingTeamCard(
-                            key: const ValueKey('attend'),
-                            assignedCount: ticketCount,
-                            openTicketCount: ticketCount,
-                            plannedJobCount: executionCount,
-                            onAssigned: onIssues,
-                            onOpenTickets: onIssues,
-                            onPlannedJobs: onWork,
-                          )
-                          : IssueRaiserCard(
-                            key: const ValueKey('raise'),
-                            onRaiseIssue: onRaiseIssue,
-                            onTrackIssues: onIssues,
-                            onRecentReports: onIssues,
-                          ),
-                ),
-                const SizedBox(height: BafSpacing.lg),
-                const _SectionTitle(
-                  title: 'Core modules',
-                  subtitle: 'Everything needed from report to resolution',
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                ModuleListTile(
-                  number: 1,
-                  module: BafModules.maintenance,
-                  status: 'Open $ticketCount',
-                  statusColor: BafColors.maintenance,
-                  onTap: onIssues,
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                ModuleListTile(
-                  number: 2,
-                  module: BafModules.planned,
-                  status:
-                      appUser.canViewPlannedMaintenance
-                          ? 'Due $executionCount'
-                          : 'Limited',
-                  statusColor: BafColors.planned,
-                  onTap: onWork,
-                  enabled: appUser.canViewPlannedMaintenance,
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                ModuleListTile(
-                  number: 3,
-                  module: BafModules.directives,
-                  status: 'New $directiveCount',
-                  statusColor: BafColors.directives,
-                  onTap: onDirectives,
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                ModuleListTile(
-                  number: 4,
-                  module: const ModuleVisual(
-                    title: 'Abnormalities',
-                    description:
-                        'Charge events, RA traceability and root cause memory',
-                    icon: Icons.memory_rounded,
-                    color: BafColors.charges,
+            children: [
+              DashboardHeader(
+                userName: appUser.name,
+                avatar: _UserAvatar(appUser: appUser),
+                syncIndicator: _CompactSyncPill(onManualSync: onManualSync),
+                onProfileTap: onProfileTap,
+              ),
+              const SizedBox(height: BafSpacing.lg),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      key: const ValueKey('home-raise-issue'),
+                      onPressed: onRaiseIssue,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Raise issue'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: BafColors.maintenance,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                    ),
                   ),
-                  status: 'Charge log',
-                  statusColor: BafColors.charges,
-                  onTap: onAbnormalities,
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                ModuleListTile(
-                  number: 5,
-                  module: BafModules.audit,
-                  status: 'Traceable',
-                  statusColor: BafColors.audit,
-                  onTap: onMore,
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                ModuleListTile(
-                  number: 6,
-                  module: BafModules.sync,
-                  status: 'Sync now',
-                  statusColor: BafColors.sync,
-                  onTap: onManualSync,
-                ),
-                const SizedBox(height: BafSpacing.lg),
-                const _PrinciplesStrip(),
-              ]),
-            ),
+                  const SizedBox(width: BafSpacing.sm),
+                  IconButton.outlined(
+                    tooltip: 'Open abnormalities',
+                    onPressed: onAbnormalities,
+                    icon: const Icon(Icons.memory_outlined),
+                  ),
+                ],
+              ),
+              const SizedBox(height: BafSpacing.xl),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Needs attention',
+                      style: TextStyle(
+                        color: BafColors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  StatusBadge(
+                    label:
+                        totalAttention == 0 ? 'All clear' : '$totalAttention',
+                    color:
+                        totalAttention == 0
+                            ? BafColors.success
+                            : BafColors.warning,
+                  ),
+                ],
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              _AttentionPanel(
+                ticketCount: ticketCount,
+                executionCount: executionCount,
+                directiveCount: directiveCount,
+                workflowAttentionCount: workflowAttentionCount,
+                onIssues: onIssues,
+                onWork: onWork,
+                onDirectives: onDirectives,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -661,214 +664,373 @@ class _DashboardHome extends StatelessWidget {
 
 class _MoreScreen extends StatelessWidget {
   final AppUser appUser;
-  final int workflowAttentionCount;
   final VoidCallback onAssets;
   final VoidCallback onClosed;
+  final VoidCallback onClosedJobs;
   final VoidCallback onReports;
   final VoidCallback onAdmin;
-  final VoidCallback onRaiseIssue;
+  final VoidCallback onAuditLog;
   final VoidCallback onAbnormalities;
   final VoidCallback onTemplateAuthoring;
   final VoidCallback onTemplatePublisher;
   final VoidCallback onKnowledgeGovernance;
   final VoidCallback onLocalDiagnostics;
-  final VoidCallback onMaintenanceWorkflow;
 
   const _MoreScreen({
     required this.appUser,
-    required this.workflowAttentionCount,
     required this.onAssets,
     required this.onClosed,
+    required this.onClosedJobs,
     required this.onReports,
     required this.onAdmin,
-    required this.onRaiseIssue,
+    required this.onAuditLog,
     required this.onAbnormalities,
     required this.onTemplateAuthoring,
     required this.onTemplatePublisher,
     required this.onKnowledgeGovernance,
     required this.onLocalDiagnostics,
-    required this.onMaintenanceWorkflow,
   });
 
   @override
   Widget build(BuildContext context) {
-    final canSeeOperationalData = appUser.canSeeAllTickets;
-    final canSeeClosed = appUser.canCloseAnyTicket;
+    final canSeeOperationalData = appUser.canViewOperationalAssets;
+    final canSeeClosed = appUser.canViewClosedMaintenanceTickets;
+    final canSeeClosedJobs = appUser.canViewClosedJobDossiers;
     final canSeeReports = appUser.canViewReports;
 
     return SafeArea(
       bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          BafSpacing.lg,
-          BafSpacing.lg,
-          BafSpacing.lg,
-          BafSpacing.xl,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              BafSpacing.lg,
+              BafSpacing.lg,
+              BafSpacing.lg,
+              BafSpacing.xl,
+            ),
+            children: [
+              const Text(
+                'More',
+                style: TextStyle(
+                  color: BafColors.textPrimary,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: BafSpacing.xs),
+              const Text(
+                'Records, reporting and governed administration.',
+                style: TextStyle(color: BafColors.textSecondary, fontSize: 13),
+              ),
+              const SizedBox(height: BafSpacing.xl),
+              _MoreSection(
+                title: 'Operations and records',
+                children: [
+                  if (canSeeOperationalData)
+                    _MoreDestinationTile(
+                      icon: Icons.precision_manufacturing_outlined,
+                      color: BafColors.assets,
+                      title: 'Assets',
+                      subtitle: 'Equipment, locations and operational history',
+                      onTap: onAssets,
+                    ),
+                  _MoreDestinationTile(
+                    icon: Icons.memory_outlined,
+                    color: BafColors.charges,
+                    title: 'Abnormalities',
+                    subtitle: 'Charge events, RA traceability and root causes',
+                    onTap: onAbnormalities,
+                  ),
+                  if (canSeeClosed)
+                    _MoreDestinationTile(
+                      icon: Icons.history_rounded,
+                      color: BafColors.audit,
+                      title: 'Resolved issues',
+                      subtitle: 'Closed maintenance issues and reopen history',
+                      onTap: onClosed,
+                    ),
+                  if (canSeeClosedJobs)
+                    _MoreDestinationTile(
+                      icon: Icons.inventory_2_outlined,
+                      color: BafColors.planned,
+                      title: 'Closed job dossiers',
+                      subtitle:
+                          'Recent completed and cancelled planned-job records',
+                      onTap: onClosedJobs,
+                    ),
+                  if (canSeeReports)
+                    _MoreDestinationTile(
+                      icon: Icons.bar_chart_rounded,
+                      color: BafColors.planned,
+                      title: 'Reports',
+                      subtitle: 'Fleet status and operational summaries',
+                      onTap: onReports,
+                    ),
+                ],
+              ),
+              if (appUser.canManageTemplateGovernance) ...[
+                const SizedBox(height: BafSpacing.xl),
+                _MoreSection(
+                  title: 'Governance',
+                  children: [
+                    _MoreDestinationTile(
+                      icon: Icons.architecture_outlined,
+                      color: BafColors.planned,
+                      title: 'Template authoring',
+                      subtitle: 'Build modules and governed template versions',
+                      onTap: onTemplateAuthoring,
+                    ),
+                    _MoreDestinationTile(
+                      icon: Icons.data_object_rounded,
+                      color: BafColors.textSecondary,
+                      title: 'Legacy template publisher',
+                      subtitle: 'Import or inspect historical snapshot JSON',
+                      badge: 'Legacy',
+                      onTap: onTemplatePublisher,
+                    ),
+                    _MoreDestinationTile(
+                      icon: Icons.schema_outlined,
+                      color: BafColors.audit,
+                      title: 'Knowledge governance',
+                      subtitle: 'BAF knowledge rows, tags and matrix versions',
+                      onTap: onKnowledgeGovernance,
+                    ),
+                  ],
+                ),
+              ],
+              if (appUser.canOpenAdminDataBrowser ||
+                  appUser.canViewAuditLogs ||
+                  appUser.canViewMaintenanceWorkflowDiagnostics) ...[
+                const SizedBox(height: BafSpacing.xl),
+                _MoreSection(
+                  title: 'Administration and support',
+                  children: [
+                    if (appUser.canOpenAdminDataBrowser)
+                      _MoreDestinationTile(
+                        icon: Icons.admin_panel_settings_outlined,
+                        color: BafColors.admin,
+                        title: 'Administration',
+                        subtitle: 'Users, roles and governed data controls',
+                        onTap: onAdmin,
+                      ),
+                    if (appUser.canViewAuditLogs)
+                      _MoreDestinationTile(
+                        icon: Icons.fact_check_outlined,
+                        color: BafColors.audit,
+                        title: 'Audit log',
+                        subtitle: 'Recent governed changes and evidence',
+                        onTap: onAuditLog,
+                      ),
+                    if (appUser.canViewMaintenanceWorkflowDiagnostics)
+                      _MoreDestinationTile(
+                        icon: Icons.troubleshoot_outlined,
+                        color: BafColors.admin,
+                        title: 'Support diagnostics',
+                        subtitle:
+                            'Sync inventory, runtime context and recovery',
+                        onTap: onLocalDiagnostics,
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         ),
-        children: [
-          const Text(
-            'More',
-            style: TextStyle(
-              color: BafColors.textPrimary,
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: BafSpacing.xs),
-          const Text(
-            'Tools, records and administrative access.',
-            style: TextStyle(color: BafColors.textSecondary, fontSize: 14),
-          ),
-          const SizedBox(height: BafSpacing.lg),
-          ModuleListTile(
-            number: 1,
-            module: BafModules.maintenance,
-            status: 'Raise',
-            statusColor: BafColors.maintenance,
-            onTap: onRaiseIssue,
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          ModuleListTile(
-            number: 2,
-            module: BafModules.assets,
-            status: canSeeOperationalData ? 'Open' : 'Limited',
-            statusColor: BafColors.assets,
-            onTap: onAssets,
-            enabled: canSeeOperationalData,
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          ModuleListTile(
-            number: 3,
-            module: BafModules.charges,
-            status: 'People',
-            statusColor: BafColors.charges,
-            onTap: onAssets,
-            enabled: canSeeOperationalData,
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          ModuleListTile(
-            number: 4,
-            module: const ModuleVisual(
-              title: 'Abnormalities',
-              description: 'Charge abnormality and RA operational memory',
-              icon: Icons.memory_rounded,
-              color: BafColors.charges,
-            ),
-            status: 'Charge log',
-            statusColor: BafColors.charges,
-            onTap: onAbnormalities,
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          ModuleListTile(
-            number: 5,
-            module: BafModules.audit,
-            status: canSeeClosed ? 'Closed' : 'Limited',
-            statusColor: BafColors.audit,
-            onTap: onClosed,
-            enabled: canSeeClosed,
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          ModuleListTile(
-            number: 6,
-            module: const ModuleVisual(
-              title: 'Reports',
-              description: 'Fleet status and operational summaries',
-              icon: Icons.bar_chart_rounded,
-              color: BafColors.planned,
-            ),
-            status: canSeeReports ? 'Open' : 'Limited',
-            statusColor: BafColors.planned,
-            onTap: onReports,
-            enabled: canSeeReports,
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          ModuleListTile(
-            number: 7,
-            module: BafModules.admin,
-            status: appUser.canOpenAdminDataBrowser ? 'Admin' : 'Limited',
-            statusColor: BafColors.admin,
-            onTap: onAdmin,
-            enabled: appUser.canOpenAdminDataBrowser,
-          ),
-          const SizedBox(height: BafSpacing.sm),
-          ModuleListTile(
-            number: 8,
-            module: const ModuleVisual(
-              title: 'Maintenance Workflow',
-              description: 'Lane acknowledgement, compliance and equipment availability',
-              icon: Icons.account_tree_outlined,
-              color: BafColors.planned,
-            ),
-            status: !appUser.canViewPlannedMaintenance
-                ? 'Limited'
-                : workflowAttentionCount > 0
-                    ? '$workflowAttentionCount pending'
-                    : 'Open',
-            statusColor: BafColors.planned,
-            onTap: onMaintenanceWorkflow,
-            enabled: appUser.canViewPlannedMaintenance,
-          ),
-          if (appUser.canManageTemplateGovernance) ...[
-            const SizedBox(height: BafSpacing.sm),
-            ModuleListTile(
-              number: 9,
-              module: const ModuleVisual(
-                title: 'Template Authoring',
-                description:
-                    'Build modules and publish governed template versions',
-                icon: Icons.architecture_rounded,
-                color: BafColors.planned,
+      ),
+    );
+  }
+}
+
+class _AttentionPanel extends StatelessWidget {
+  final int ticketCount;
+  final int executionCount;
+  final int directiveCount;
+  final int workflowAttentionCount;
+  final VoidCallback onIssues;
+  final VoidCallback onWork;
+  final VoidCallback onDirectives;
+
+  const _AttentionPanel({
+    required this.ticketCount,
+    required this.executionCount,
+    required this.directiveCount,
+    required this.workflowAttentionCount,
+    required this.onIssues,
+    required this.onWork,
+    required this.onDirectives,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <Widget>[
+      if (ticketCount > 0)
+        _AttentionRow(
+          icon: Icons.report_problem_outlined,
+          color: BafColors.maintenance,
+          title: 'Open issues',
+          detail: '$ticketCount requiring attention',
+          onTap: onIssues,
+        ),
+      if (executionCount > 0)
+        _AttentionRow(
+          icon: Icons.work_outline_rounded,
+          color: BafColors.planned,
+          title: 'Open planned jobs',
+          detail: '$executionCount active',
+          onTap: onWork,
+        ),
+      if (workflowAttentionCount > 0)
+        _AttentionRow(
+          icon: Icons.account_tree_outlined,
+          color: BafColors.warning,
+          title: 'Workflow obligations',
+          detail: '$workflowAttentionCount lane or compliance tasks',
+          onTap: onWork,
+        ),
+      if (directiveCount > 0)
+        _AttentionRow(
+          icon: Icons.assignment_late_outlined,
+          color: BafColors.directives,
+          title: 'Active directives',
+          detail: '$directiveCount visible to your role',
+          onTap: onDirectives,
+        ),
+    ];
+
+    if (rows.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: BafSpacing.xl),
+        child: Row(
+          children: [
+            Icon(Icons.task_alt_rounded, color: BafColors.success),
+            SizedBox(width: BafSpacing.md),
+            Expanded(
+              child: Text(
+                'No open work currently requires your attention.',
+                style: TextStyle(color: BafColors.textSecondary),
               ),
-              status: 'Module-first',
-              statusColor: BafColors.planned,
-              onTap: onTemplateAuthoring,
-            ),
-            const SizedBox(height: BafSpacing.sm),
-            ModuleListTile(
-              number: 10,
-              module: const ModuleVisual(
-                title: 'Template Publisher',
-                description:
-                    'Legacy JSON-paste publisher. Use when porting external '
-                    'content or debugging snapshot bytes.',
-                icon: Icons.verified_rounded,
-                color: BafColors.planned,
-              ),
-              status: 'Legacy',
-              statusColor: BafColors.textSecondary,
-              onTap: onTemplatePublisher,
-            ),
-            const SizedBox(height: BafSpacing.sm),
-            ModuleListTile(
-              number: 11,
-              module: const ModuleVisual(
-                title: 'Knowledge Governance',
-                description:
-                    'Govern BAF knowledge rows, tags and matrix versions',
-                icon: Icons.schema_rounded,
-                color: BafColors.audit,
-              ),
-              status: 'Admin/SI',
-              statusColor: BafColors.audit,
-              onTap: onKnowledgeGovernance,
-            ),
-            const SizedBox(height: BafSpacing.sm),
-            ModuleListTile(
-              number: 12,
-              module: const ModuleVisual(
-                title: 'Support Diagnostics',
-                description:
-                    'Local sync inventory, runtime support context and recovery export',
-                icon: Icons.troubleshoot_rounded,
-                color: BafColors.admin,
-              ),
-              status: 'Admin/SI',
-              statusColor: BafColors.admin,
-              onTap: onLocalDiagnostics,
             ),
           ],
-        ],
+        ),
+      );
+    }
+
+    return Column(
+      children: List<Widget>.generate(rows.length * 2 - 1, (index) {
+        return index.isEven
+            ? rows[index ~/ 2]
+            : const Divider(height: 1, color: BafColors.border);
+      }),
+    );
+  }
+}
+
+class _AttentionRow extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String detail;
+  final VoidCallback onTap;
+
+  const _AttentionRow({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.detail,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: color),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      subtitle: Text(detail),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
+    );
+  }
+}
+
+class _MoreSection extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+
+  const _MoreSection({required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: BafColors.textPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: BafSpacing.sm),
+        ...List<Widget>.generate(children.length * 2 - 1, (index) {
+          return index.isEven
+              ? children[index ~/ 2]
+              : const Divider(height: 1, color: BafColors.border);
+        }),
+      ],
+    );
+  }
+}
+
+class _MoreDestinationTile extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final String? badge;
+  final VoidCallback onTap;
+
+  const _MoreDestinationTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    this.badge,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(vertical: BafSpacing.xs),
+      leading: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(BafRadius.medium),
+        ),
+        child: Icon(icon, color: color, size: 22),
       ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
+      trailing:
+          badge == null
+              ? const Icon(Icons.chevron_right_rounded)
+              : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  StatusBadge(label: badge!, color: BafColors.textSecondary),
+                  const SizedBox(width: BafSpacing.xs),
+                  const Icon(Icons.chevron_right_rounded),
+                ],
+              ),
+      onTap: onTap,
     );
   }
 }
@@ -951,133 +1113,6 @@ class _UserAvatar extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final String subtitle;
-
-  const _SectionTitle({required this.title, required this.subtitle});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(
-          Icons.dashboard_customize_rounded,
-          color: BafColors.navySoft,
-          size: 22,
-        ),
-        const SizedBox(width: BafSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: BafColors.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: BafSpacing.xs),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: BafColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PrinciplesStrip extends StatelessWidget {
-  const _PrinciplesStrip();
-
-  @override
-  Widget build(BuildContext context) {
-    return const DashboardCard(
-      padding: EdgeInsets.all(BafSpacing.md),
-      child: Column(
-        children: [
-          _PrincipleRow(
-            icon: Icons.touch_app_rounded,
-            title: 'Easy to raise',
-            subtitle: 'Simple reporting, anytime.',
-          ),
-          Divider(height: BafSpacing.lg),
-          _PrincipleRow(
-            icon: Icons.assignment_turned_in_rounded,
-            title: 'Easy to attend',
-            subtitle: 'Everything needed in one place.',
-          ),
-          Divider(height: BafSpacing.lg),
-          _PrincipleRow(
-            icon: Icons.groups_rounded,
-            title: 'Clear ownership',
-            subtitle: 'Right people, clear accountability.',
-          ),
-          Divider(height: BafSpacing.lg),
-          _PrincipleRow(
-            icon: Icons.cloud_done_rounded,
-            title: 'Offline reliable',
-            subtitle: 'Work anywhere, sync when ready.',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PrincipleRow extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  const _PrincipleRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: BafColors.navySoft, size: 24),
-        const SizedBox(width: BafSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: BafColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: BafSpacing.xs),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: BafColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

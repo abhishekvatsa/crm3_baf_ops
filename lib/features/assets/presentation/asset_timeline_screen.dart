@@ -9,8 +9,9 @@ import '../models/timeline_entry.dart';
 import '../providers/asset_timeline_provider.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../auth/providers/auth_provider.dart';
 
-class AssetTimelineScreen extends ConsumerStatefulWidget {
+class AssetTimelineScreen extends ConsumerWidget {
   final AssetType? initialAssetType;
   final int? initialAssetNumber;
 
@@ -21,11 +22,46 @@ class AssetTimelineScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<AssetTimelineScreen> createState() =>
+  Widget build(BuildContext context, WidgetRef ref) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    return actorAsync.when(
+      loading:
+          () =>
+              const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error:
+          (_, _) => const Scaffold(
+            body: Center(child: Text('Could not verify asset access.')),
+          ),
+      data: (actor) {
+        if (actor == null || !actor.canViewOperationalAssets) {
+          return const Scaffold(
+            body: Center(child: Text('Approved access is required.')),
+          );
+        }
+        return _AssetTimelineBody(
+          initialAssetType: initialAssetType,
+          initialAssetNumber: initialAssetNumber,
+        );
+      },
+    );
+  }
+}
+
+class _AssetTimelineBody extends ConsumerStatefulWidget {
+  final AssetType? initialAssetType;
+  final int? initialAssetNumber;
+
+  const _AssetTimelineBody({
+    required this.initialAssetType,
+    required this.initialAssetNumber,
+  });
+
+  @override
+  ConsumerState<_AssetTimelineBody> createState() =>
       _AssetTimelineScreenState();
 }
 
-class _AssetTimelineScreenState extends ConsumerState<AssetTimelineScreen> {
+class _AssetTimelineScreenState extends ConsumerState<_AssetTimelineBody> {
   late final TextEditingController _assetNumberController;
 
   @override
@@ -86,12 +122,13 @@ class _AssetTimelineScreenState extends ConsumerState<AssetTimelineScreen> {
             onNumberChanged: (value) {
               ref.read(assetNumberQueryProvider.notifier).state = value.trim();
             },
-            onClearNumber: selectedNumber.isEmpty
-                ? null
-                : () {
-              _assetNumberController.clear();
-              ref.read(assetNumberQueryProvider.notifier).state = '';
-            },
+            onClearNumber:
+                selectedNumber.isEmpty
+                    ? null
+                    : () {
+                      _assetNumberController.clear();
+                      ref.read(assetNumberQueryProvider.notifier).state = '';
+                    },
           ),
           Expanded(
             child: timelineAsync.when(
@@ -206,7 +243,7 @@ class _TimelineFilterCard extends StatelessWidget {
                   onTap: () => onTypeSelected(null),
                 ),
                 ...AssetType.values.map(
-                      (type) => _AssetTypeChip(
+                  (type) => _AssetTypeChip(
                     label: _assetLabel(type),
                     selected: selectedType == type,
                     onTap: () => onTypeSelected(type),
@@ -223,12 +260,13 @@ class _TimelineFilterCard extends StatelessWidget {
             decoration: InputDecoration(
               hintText: 'Filter by asset number, e.g. 221',
               prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: onClearNumber == null
-                  ? null
-                  : IconButton(
-                icon: const Icon(Icons.clear_rounded),
-                onPressed: onClearNumber,
-              ),
+              suffixIcon:
+                  onClearNumber == null
+                      ? null
+                      : IconButton(
+                        icon: const Icon(Icons.clear_rounded),
+                        onPressed: onClearNumber,
+                      ),
               filled: true,
               fillColor: BafColors.background,
               isDense: true,
@@ -324,9 +362,7 @@ class _AssetTypeChip extends StatelessWidget {
         onSelected: (_) => onTap(),
         selectedColor: BafColors.assets,
         backgroundColor: BafColors.background,
-        side: BorderSide(
-          color: selected ? BafColors.assets : BafColors.border,
-        ),
+        side: BorderSide(color: selected ? BafColors.assets : BafColors.border),
         showCheckmark: false,
       ),
     );
@@ -342,20 +378,20 @@ class _TimelineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final (color, icon, typeLabel) = switch (entry.type) {
       TimelineEventType.maintenance => (
-          BafColors.maintenance,
-          Icons.report_problem_rounded,
-          'MAINTENANCE',
-        ),
+        BafColors.maintenance,
+        Icons.report_problem_rounded,
+        'MAINTENANCE',
+      ),
       TimelineEventType.plannedJob => (
-          BafColors.planned,
-          Icons.assignment_turned_in_rounded,
-          'PLANNED JOB',
-        ),
+        BafColors.planned,
+        Icons.assignment_turned_in_rounded,
+        'PLANNED JOB',
+      ),
       TimelineEventType.equipmentProjection => (
-          BafColors.assets,
-          Icons.precision_manufacturing_rounded,
-          'EQUIPMENT STATE',
-        ),
+        BafColors.assets,
+        Icons.precision_manufacturing_rounded,
+        'EQUIPMENT STATE',
+      ),
     };
 
     return Container(
@@ -435,16 +471,19 @@ class _TimelineCard extends StatelessWidget {
                               children: [
                                 StatusBadge(
                                   label: entry.isResolved ? 'CLOSED' : 'OPEN',
-                                  color: entry.isResolved
-                                      ? BafColors.sync
-                                      : BafColors.warning,
-                                  icon: entry.isResolved
-                                      ? Icons.check_circle_rounded
-                                      : Icons.pending_actions_rounded,
+                                  color:
+                                      entry.isResolved
+                                          ? BafColors.sync
+                                          : BafColors.warning,
+                                  icon:
+                                      entry.isResolved
+                                          ? Icons.check_circle_rounded
+                                          : Icons.pending_actions_rounded,
                                 ),
                                 StatusBadge(
-                                  label: DateFormat('dd MMM yyyy, HH:mm')
-                                      .format(entry.timestamp),
+                                  label: DateFormat(
+                                    'dd MMM yyyy, HH:mm',
+                                  ).format(entry.timestamp),
                                   color: BafColors.admin,
                                   icon: Icons.schedule_rounded,
                                 ),
@@ -540,9 +579,7 @@ class _ErrorState extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(BafRadius.large),
-            border: Border.all(
-              color: BafColors.danger.withValues(alpha: 0.18),
-            ),
+            border: Border.all(color: BafColors.danger.withValues(alpha: 0.18)),
             boxShadow: BafShadows.subtle,
           ),
           child: Row(

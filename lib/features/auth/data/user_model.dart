@@ -41,10 +41,10 @@ String? _cleanOptionalText(dynamic value) {
 
 String _normalisePermissionKey(String? value) {
   return value
-      ?.trim()
-      .toLowerCase()
-      .replaceAll('&', 'and')
-      .replaceAll(RegExp(r'[^a-z0-9]+'), '') ??
+          ?.trim()
+          .toLowerCase()
+          .replaceAll('&', 'and')
+          .replaceAll(RegExp(r'[^a-z0-9]+'), '') ??
       '';
 }
 
@@ -89,7 +89,6 @@ String _canonicalModuleDisciplinePermissionKey(String? value) {
   }
 }
 
-
 DateTime _parseDateTime(dynamic value) {
   if (value is Timestamp) return value.toDate();
   if (value is DateTime) return value;
@@ -127,32 +126,28 @@ class AppUser {
 
   bool get isAdmin => roles.contains(AppRole.admin);
   bool get isSI => roles.contains(AppRole.si);
-  bool get isContractSupervisor =>
-      roles.contains(AppRole.contractSupervisor);
-  bool get isShiftSupervisor =>
-      roles.contains(AppRole.shiftSupervisor);
+  bool get isContractSupervisor => roles.contains(AppRole.contractSupervisor);
+  bool get isShiftSupervisor => roles.contains(AppRole.shiftSupervisor);
   bool get isOperations => roles.contains(AppRole.operations);
 
   bool get isRefractory =>
       roles.contains(AppRole.refractory) ||
-          roles.contains(AppRole.seniorRefractory);
+      roles.contains(AppRole.seniorRefractory);
 
-  bool get isElectrical =>
-      roles.contains(AppRole.seniorElectrical);
+  bool get isElectrical => roles.contains(AppRole.seniorElectrical);
 
-  bool get isMechanical =>
-      roles.contains(AppRole.seniorMechanical);
+  bool get isMechanical => roles.contains(AppRole.seniorMechanical);
 
-  bool get isInstrumentation =>
-      roles.contains(AppRole.seniorInstrumentation);
+  bool get isInstrumentation => roles.contains(AppRole.seniorInstrumentation);
 
-  bool get isSeniorRole =>
-      roles.any((r) => [
-        AppRole.seniorElectrical,
-        AppRole.seniorMechanical,
-        AppRole.seniorInstrumentation,
-        AppRole.seniorRefractory,
-      ].contains(r));
+  bool get isSeniorRole => roles.any(
+    (r) => [
+      AppRole.seniorElectrical,
+      AppRole.seniorMechanical,
+      AppRole.seniorInstrumentation,
+      AppRole.seniorRefractory,
+    ].contains(r),
+  );
 
   // ───────────────────────────────────────────────────────────
   // TICKET PERMISSIONS
@@ -162,11 +157,11 @@ class AppUser {
   /// The same authority applies to ordinary and red/refractory tickets.
   bool get canCloseMaintenanceTicket =>
       isApproved &&
-          (isAdmin ||
-              isSI ||
-              isContractSupervisor ||
-              isShiftSupervisor ||
-              isSeniorRole);
+      (isAdmin ||
+          isSI ||
+          isContractSupervisor ||
+          isShiftSupervisor ||
+          isSeniorRole);
 
   bool get canCloseAnyTicket => canCloseMaintenanceTicket;
 
@@ -182,18 +177,27 @@ class AppUser {
 
   bool get canSoftDeleteMaintenanceTicket => isApproved && isAdmin;
 
-  bool get canLogRedRequest => roles.any((r) => [
-    AppRole.admin,
-    AppRole.si,
-    AppRole.operations,
-    AppRole.seniorElectrical,
-    AppRole.seniorMechanical,
-    AppRole.seniorInstrumentation,
-    AppRole.seniorRefractory,
-  ].contains(r));
+  bool get canLogRedRequest => roles.any(
+    (r) => [
+      AppRole.admin,
+      AppRole.si,
+      AppRole.operations,
+      AppRole.seniorElectrical,
+      AppRole.seniorMechanical,
+      AppRole.seniorInstrumentation,
+      AppRole.seniorRefractory,
+    ].contains(r),
+  );
 
-  bool get canSeeAllTickets =>
-      roles.any((r) => r != AppRole.operations);
+  bool get canSeeAllTickets => roles.any((r) => r != AppRole.operations);
+
+  /// Every approved user may inspect the cross-record equipment timeline.
+  /// Ticket visibility within that timeline remains repository/rules governed.
+  bool get canViewOperationalAssets => isApproved;
+
+  /// Closed-ticket history is operational reference data. Mutation controls
+  /// such as reopen and admin correction remain separately role-gated.
+  bool get canViewClosedMaintenanceTickets => isApproved;
 
   bool get canManageUsers => isApproved && isAdmin;
 
@@ -213,8 +217,7 @@ class AppUser {
 
   /// Legacy runtime JobTemplate creation/editing is still allowed for Admin/SI
   /// while the Template Governance publisher is being wired into assignment.
-  bool get canCreateLegacyJobTemplate =>
-      isApproved && (isAdmin || isSI);
+  bool get canCreateLegacyJobTemplate => isApproved && (isAdmin || isSI);
 
   bool get canEditLegacyJobTemplate => canCreateLegacyJobTemplate;
 
@@ -231,11 +234,11 @@ class AppUser {
   /// Refractory users cannot.
   bool get canAssignJobExecution =>
       isApproved &&
-          (isAdmin ||
-              isSI ||
-              isContractSupervisor ||
-              isShiftSupervisor ||
-              isSeniorRole);
+      (isAdmin ||
+          isSI ||
+          isContractSupervisor ||
+          isShiftSupervisor ||
+          isSeniorRole);
 
   /// Manual module addition changes the scope of an active planned job, so it
   /// follows the same authority as planned-job assignment.
@@ -251,16 +254,17 @@ class AppUser {
 
   bool get canCreateDirective =>
       isApproved &&
-          (isAdmin ||
-              isSI ||
-              isContractSupervisor ||
-              isShiftSupervisor ||
-              isOperations);
+      (isAdmin ||
+          isSI ||
+          isContractSupervisor ||
+          isShiftSupervisor ||
+          isOperations);
 
   /// Supervisory/Admin actors may close any directive. Creators and
   /// acknowledged recipients are handled by [canCloseDirectiveInstance].
   bool get canCloseDirective =>
-      isApproved && (isAdmin || isSI || isContractSupervisor || isShiftSupervisor);
+      isApproved &&
+      (isAdmin || isSI || isContractSupervisor || isShiftSupervisor);
 
   /// Supervisors are deliberately allowed to close/override directive
   /// lifecycle state. Editing/deleting directive records remains Admin-only
@@ -300,9 +304,7 @@ class AppUser {
 
   List<AppRole> get directiveTargets {
     if (isAdmin) {
-      return AppRole.values
-          .where((r) => r != AppRole.admin)
-          .toList();
+      return AppRole.values.where((r) => r != AppRole.admin).toList();
     }
 
     if (isSI) {
@@ -352,10 +354,7 @@ class AppUser {
     return [];
   }
 
-
-
-  Set<String> get _workflowRoleNames =>
-      roles.map((role) => role.name).toSet();
+  Set<String> get _workflowRoleNames => roles.map((role) => role.name).toSet();
 
   bool _hasAnyWorkflowRole(Iterable<String> allowedRoles) {
     final current = _workflowRoleNames;
@@ -385,21 +384,22 @@ class AppUser {
   /// planned work, but cannot mutate planned-maintenance module responses.
   bool get canSaveJobModuleWork =>
       isApproved &&
-      WorkflowPolicyGenerated.moduleDisciplineWorkRoles.values
-          .any(_hasAnyWorkflowRole);
+      WorkflowPolicyGenerated.moduleDisciplineWorkRoles.values.any(
+        _hasAnyWorkflowRole,
+      );
 
   /// Supervisors/Admin/SI can submit any module. Senior discipline users can
   /// submit only their own discipline lane. Operations users cannot submit
   /// planned-maintenance modules, including operations-discipline modules.
   bool canSubmitJobModule(String? moduleDisciplineName) {
     if (!isApproved) return false;
-    final discipline =
-        _canonicalModuleDisciplinePermissionKey(moduleDisciplineName);
+    final discipline = _canonicalModuleDisciplinePermissionKey(
+      moduleDisciplineName,
+    );
     final allowed =
         WorkflowPolicyGenerated.moduleDisciplineSubmitRoles[discipline];
     return allowed != null && _hasAnyWorkflowRole(allowed);
   }
-
 
   bool _canExecuteWorkflowCommand(String command) {
     if (!isApproved) return false;
@@ -421,6 +421,9 @@ class AppUser {
 
   bool get canMarkMaintenanceWorkflowConditionDue =>
       _canExecuteWorkflowCommand('markConditionDue');
+
+  bool get canDeployMaintenanceEquipment =>
+      _canExecuteWorkflowCommand('deployEquipment');
 
   bool canAcknowledgeOrWorkMaintenanceLane(String? laneName) {
     if (!isApproved) return false;
@@ -454,13 +457,13 @@ class AppUser {
 
   bool canSaveJobModuleWorkFor(String? moduleDisciplineName) {
     if (!isApproved) return false;
-    final discipline =
-        _canonicalModuleDisciplinePermissionKey(moduleDisciplineName);
+    final discipline = _canonicalModuleDisciplinePermissionKey(
+      moduleDisciplineName,
+    );
     final allowed =
         WorkflowPolicyGenerated.moduleDisciplineWorkRoles[discipline];
     return allowed != null && _hasAnyWorkflowRole(allowed);
   }
-
 
   // ───────────────────────────────────────────────────────────
   // JOB DIARY PERMISSIONS
@@ -468,11 +471,11 @@ class AppUser {
 
   bool get canCreateJobDiaryEntry =>
       isApproved &&
-          (isAdmin ||
-              isSI ||
-              isContractSupervisor ||
-              isShiftSupervisor ||
-              isSeniorRole);
+      (isAdmin ||
+          isSI ||
+          isContractSupervisor ||
+          isShiftSupervisor ||
+          isSeniorRole);
 
   bool canEditJobDiaryEntry({required String? createdByUid}) {
     if (!isApproved) return false;
@@ -488,16 +491,15 @@ class AppUser {
 
   bool get canLogChargeAbnormality =>
       isApproved &&
-          (isAdmin ||
-              isSI ||
-              isContractSupervisor ||
-              isShiftSupervisor ||
-              isOperations);
+      (isAdmin ||
+          isSI ||
+          isContractSupervisor ||
+          isShiftSupervisor ||
+          isOperations);
 
   bool get canEditChargeAbnormality => isApproved && isAdmin;
 
   bool get canSoftDeleteChargeAbnormality => isApproved && isAdmin;
-
 
   // ───────────────────────────────────────────────────────────
   // TEMPLATE GOVERNANCE PERMISSIONS

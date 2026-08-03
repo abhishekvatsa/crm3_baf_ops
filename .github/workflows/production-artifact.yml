@@ -220,7 +220,7 @@ jobs:
       - name: Set up Node 22
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: '22.15.0'
+          node-version: '22.23.1'
 
       - name: Set up Flutter 3.44.0
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2

@@ -4,14 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('66D local diagnostics visibility contract', () {
-    test('Home exposes Support Diagnostics directly for governance users', () {
+    test('More exposes support diagnostics directly for authorized users', () {
       final source = File('lib/home_screen.dart').readAsStringSync();
 
       expect(source, contains('local_diagnostics_screen.dart'));
       expect(source, contains('onLocalDiagnostics'));
       expect(source, contains('const LocalDiagnosticsScreen()'));
-      expect(source, contains("title: 'Support Diagnostics'"));
-      expect(source, contains('appUser.canManageTemplateGovernance'));
+      expect(source, contains("title: 'Administration and support'"));
+      expect(source, contains("title: 'Support diagnostics'"));
+      expect(source, contains('appUser.canViewMaintenanceWorkflowDiagnostics'));
     });
 
     test(

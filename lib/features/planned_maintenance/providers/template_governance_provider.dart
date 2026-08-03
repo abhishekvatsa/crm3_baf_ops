@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart' hide Query;
 
-import '../../../main.dart';
+import '../../../core/persistence/app_database.dart';
 import '../../auth/data/user_model.dart';
 import '../data/template_governance_model.dart';
 import '../domain/template_version_snapshot_contract.dart';
