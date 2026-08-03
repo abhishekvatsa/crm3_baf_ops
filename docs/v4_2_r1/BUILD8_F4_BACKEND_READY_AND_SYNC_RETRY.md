@@ -61,6 +61,15 @@ APK copies and their empty evidence directory were removed. The corrected
 harness captures native stderr for diagnostics while continuing to fail closed
 on every nonzero exit code.
 
+The next invocation passed executable, package, signer, device and installed-app
+preflight, then stopped before diagnostics or sync because its Home assertion
+still carried the pre-PR117 `Core modules` label. The current operational Home
+intentionally replaced that launcher grid with task-first navigation and the
+`Raise issue` / `Needs attention` surface. No forbidden authentication marker
+was present, all temporary UI and APK files were removed, and the empty evidence
+directory was removed. The Build 8 harness now binds its role-neutral markers
+to the current Home source so later UX changes cannot silently stale this check.
+
 ## Programme boundary
 
 The backend prerequisite is satisfied, but this source tranche does not close
