@@ -220,6 +220,7 @@ void main() {
         File(
           'tools/release/Invoke-Build8F4PhysicalSyncRetry.ps1',
         ).readAsStringSync();
+    final home = File('lib/home_screen.dart').readAsStringSync();
 
     for (final required in <String>[
       'EvidenceDirectory must be outside the repository.',
@@ -246,6 +247,21 @@ void main() {
     ]) {
       expect(script, contains(required), reason: required);
     }
+
+    for (final marker in <String>[
+      "'Home'",
+      "'Issues'",
+      "'Work'",
+      "'Directives'",
+      "'More'",
+      "'Raise issue'",
+      "'Needs attention'",
+    ]) {
+      expect(script, contains(marker), reason: marker);
+    }
+    expect(script, isNot(contains("'Core modules'")));
+    expect(home, contains("label: const Text('Raise issue')"));
+    expect(home, contains("'Needs attention'"));
 
     for (final forbidden in <String>[
       "'install'",

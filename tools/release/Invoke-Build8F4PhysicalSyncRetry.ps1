@@ -224,7 +224,15 @@ function Move-ToApprovedHome {
     [Parameter(Mandatory = $true)][string]$EvidenceRoot
   )
 
-  $required = @('Home', 'Issues', 'Work', 'Directives', 'More', 'Core modules')
+  $required = @(
+    'Home',
+    'Issues',
+    'Work',
+    'Directives',
+    'More',
+    'Raise issue',
+    'Needs attention'
+  )
   $forbidden = @(
     'Sign in with Google',
     'Awaiting Approval',
