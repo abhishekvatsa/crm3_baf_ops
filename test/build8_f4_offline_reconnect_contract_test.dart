@@ -202,4 +202,71 @@ void main() {
     expect(doc, contains('It does not close F4 or authorize distribution.'));
     expect(doc, contains('restores the exact initial Wi-Fi and mobile-data'));
   });
+
+  test('passing offline receipt is exact-bound without overstating method', () {
+    final evidence = _readJson(
+      'release/evidence/build-8-f4-offline-reconnect-adjudication.json',
+    );
+
+    expect(
+      evidence['decision'],
+      'PASS_BUILD8_F4_OFFLINE_RECONNECT_ADJUDICATED',
+    );
+    final receipt = _object(evidence['externalReceipt']);
+    expect(
+      receipt['sha256'],
+      'BE414FFFD556F0F5DEC741BF5598EFC9670524DF6DDCC68833572A192C8A3A77',
+    );
+    expect(receipt['bytes'], 6542);
+    expect(receipt['sourceCommit'], receipt['sourceOriginMain']);
+    expect(receipt['postMergeRunId'], 30932769330);
+    expect(
+      receipt['decision'],
+      'PASS_BUILD8_F4_OFFLINE_SAFE_EXACT_TRANSPORT_RESTORATION_AND_SYNC_RECOVERY',
+    );
+
+    final facts = _object(evidence['verifiedFacts']);
+    expect(facts['pendingLocalBusinessWritesBefore'], 0);
+    expect(facts['unresolvedLocalRejectionsBefore'], 0);
+    expect(facts['allTransportsDisabledDuringObservation'], isTrue);
+    expect(facts['falseSuccessObserved'], isFalse);
+    expect(facts['exactTransportStateRestored'], isTrue);
+    expect(facts['initialWifiOn'], facts['restoredWifiOn']);
+    expect(facts['initialMobileDataOn'], facts['restoredMobileDataOn']);
+    expect(facts['initialAirplaneModeOn'], facts['restoredAirplaneModeOn']);
+    expect(facts['postReconnectManualSyncOutcome'], 'SUCCESS');
+    expect(facts['pendingLocalBusinessWritesAfter'], 0);
+    expect(facts['unresolvedLocalRejectionsAfter'], 0);
+    expect(facts['failureReceiptPresent'], isFalse);
+    expect(facts['temporaryArtifactCountAfterExecution'], 0);
+
+    final method = _object(evidence['methodQualification']);
+    expect(method['offlineReconnectClaim'], 'PROVED');
+    expect(method['bandwidthOrLatencyDegradationClaim'], 'NOT_TESTED');
+    expect(method['nextMethodIsBandwidthThrottle'], isFalse);
+
+    final boundary = _object(evidence['programmeBoundary']);
+    expect(boundary['stage2dF4Status'], 'OPEN');
+    expect(boundary['approvedSignInCriterionProved'], isTrue);
+    expect(boundary['syncMarkerCriterionProved'], isTrue);
+    expect(boundary['offlineReconnectCriterionProved'], isTrue);
+    expect(boundary['weakNetworkCriterionProved'], isFalse);
+    expect(boundary['revocationCriterionProved'], isFalse);
+    expect(boundary['wrongRoleCriterionProved'], isFalse);
+    expect(boundary['stage2dF4ClosureAuthorized'], isFalse);
+    expect(boundary['pilotHandoutAuthorized'], isFalse);
+    expect(boundary['distributionAuthorized'], isFalse);
+
+    final evidenceText = jsonEncode(evidence);
+    expect(evidenceText, isNot(contains(r'C:\Users\')));
+    expect(evidenceText, isNot(contains('AppData')));
+
+    final doc =
+        File(
+          'docs/v4_2_r1/BUILD8_F4_OFFLINE_RECONNECT_RESULT.md',
+        ).readAsStringSync();
+    expect(doc, contains('Status: OFFLINE/RECONNECT PROVED; F4 REMAINS OPEN'));
+    expect(doc, contains('does not claim measured low bandwidth'));
+    expect(doc, contains('bandwidth-throttling result.'));
+  });
 }

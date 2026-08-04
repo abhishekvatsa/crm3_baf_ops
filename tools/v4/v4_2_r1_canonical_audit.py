@@ -2568,6 +2568,18 @@ build8_offline_doc_path = (
     / "docs/v4_2_r1/BUILD8_F4_SYNC_MARKER_AND_OFFLINE_RECONNECT.md"
 )
 build8_offline_doc = build8_offline_doc_path.read_text(encoding="utf-8")
+build8_offline_result_path = (
+    ROOT / "release/evidence/build-8-f4-offline-reconnect-adjudication.json"
+)
+build8_offline_result = data(
+    "release/evidence/build-8-f4-offline-reconnect-adjudication.json"
+)
+build8_offline_result_doc_path = (
+    ROOT / "docs/v4_2_r1/BUILD8_F4_OFFLINE_RECONNECT_RESULT.md"
+)
+build8_offline_result_doc = build8_offline_result_doc_path.read_text(
+    encoding="utf-8"
+)
 version_policy_approval = data(
     "release/approvals/version-policy-approval.json"
 )
@@ -3385,6 +3397,162 @@ check(
     and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
         == "STAGE2D-F4"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
+)
+check(
+    "Build 8 offline reconnect is evidence-proved without a throttle claim",
+    sha(build8_offline_result_path)
+        == "95A5B0C0524B98104E47A69EDA1EFC7D827D9A5E8125042F83C20A742D7A0394"
+    and sha(build8_offline_result_doc_path)
+        == "55F1CBD5163EC5C3C95F2EE8560C3CB04DEB9EB1E827A1E1DE8260A79B6BE1D0"
+    and build8_offline_result.get("decision")
+        == "PASS_BUILD8_F4_OFFLINE_RECONNECT_ADJUDICATED"
+    and build8_offline_result.get("externalReceipt", {}).get("sha256")
+        == "BE414FFFD556F0F5DEC741BF5598EFC9670524DF6DDCC68833572A192C8A3A77"
+    and build8_offline_result.get("externalReceipt", {}).get("bytes")
+        == 6542
+    and build8_offline_result.get("externalReceipt", {}).get("sourceCommit")
+        == build8_offline_result.get("externalReceipt", {}).get(
+            "sourceOriginMain"
+        )
+    and build8_offline_result.get("externalReceipt", {}).get(
+        "postMergeRunId"
+    )
+        == 30932769330
+    and build8_offline_result.get("externalReceipt", {}).get("decision")
+        == "PASS_BUILD8_F4_OFFLINE_SAFE_EXACT_TRANSPORT_RESTORATION_AND_SYNC_RECOVERY"
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "pendingLocalBusinessWritesBefore"
+    )
+        == 0
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "unresolvedLocalRejectionsBefore"
+    )
+        == 0
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "allTransportsDisabledDuringObservation"
+    )
+        is True
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "falseSuccessObserved"
+    )
+        is False
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "exactTransportStateRestored"
+    )
+        is True
+    and build8_offline_result.get("verifiedFacts", {}).get("initialWifiOn")
+        == build8_offline_result.get("verifiedFacts", {}).get(
+            "restoredWifiOn"
+        )
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "initialMobileDataOn"
+    )
+        == build8_offline_result.get("verifiedFacts", {}).get(
+            "restoredMobileDataOn"
+        )
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "initialAirplaneModeOn"
+    )
+        == build8_offline_result.get("verifiedFacts", {}).get(
+            "restoredAirplaneModeOn"
+        )
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "postReconnectManualSyncOutcome"
+    )
+        == "SUCCESS"
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "pendingLocalBusinessWritesAfter"
+    )
+        == 0
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "unresolvedLocalRejectionsAfter"
+    )
+        == 0
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "failureReceiptPresent"
+    )
+        is False
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "temporaryArtifactCountAfterExecution"
+    )
+        == 0
+    and build8_offline_result.get("executionBoundary", {}).get(
+        "networkStateTemporarilyChanged"
+    )
+        is True
+    and build8_offline_result.get("executionBoundary", {}).get(
+        "exactNetworkStateRestored"
+    )
+        is True
+    and all(
+        value is False
+        for key, value in build8_offline_result.get(
+            "executionBoundary", {}
+        ).items()
+        if key not in {
+            "networkStateTemporarilyChanged",
+            "exactNetworkStateRestored",
+        }
+    )
+    and all(
+        value is False
+        for value in build8_offline_result.get(
+            "privacyBoundary", {}
+        ).values()
+    )
+    and build8_offline_result.get("methodQualification", {}).get(
+        "offlineReconnectClaim"
+    )
+        == "PROVED"
+    and build8_offline_result.get("methodQualification", {}).get(
+        "bandwidthOrLatencyDegradationClaim"
+    )
+        == "NOT_TESTED"
+    and build8_offline_result.get("methodQualification", {}).get(
+        "nextMethodIsBandwidthThrottle"
+    )
+        is False
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "stage2dF4Status"
+    )
+        == "OPEN"
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "approvedSignInCriterionProved"
+    )
+        is True
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "syncMarkerCriterionProved"
+    )
+        is True
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "offlineReconnectCriterionProved"
+    )
+        is True
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "weakNetworkCriterionProved"
+    )
+        is False
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    )
+        is False
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "pilotHandoutAuthorized"
+    )
+        is False
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "distributionAuthorized"
+    )
+        is False
+    and "Status: OFFLINE/RECONNECT PROVED; F4 REMAINS OPEN"
+        in build8_offline_result_doc
+    and "does not claim measured low bandwidth"
+        in build8_offline_result_doc
+    and "bandwidth-throttling result." in build8_offline_result_doc
+    and len(build8_f4_gate_records) == 1
+    and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
