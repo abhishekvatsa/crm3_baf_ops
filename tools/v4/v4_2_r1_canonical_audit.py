@@ -5184,6 +5184,127 @@ check(
     and "`R-05` is closed" in r05_decision,
 )
 
+lr04_policy = data(
+    "release/lr04-firestore-recoverability-readback-policy.json"
+)
+lr04_collector = text(
+    "tools/release/collectFirestoreRecoverabilityReadback.js"
+)
+lr04_collector_test = text(
+    "tools/release/collectFirestoreRecoverabilityReadback.test.mjs"
+)
+lr04_contract_test = text(
+    "test/lr04_firestore_recoverability_readback_collector_contract_test.dart"
+)
+lr04_decision = text(
+    "docs/v4_2_r1/LR04_FIRESTORE_RECOVERABILITY_LIVE_READBACK.md"
+)
+lr04_restore_seal_path = (
+    ROOT / "release/evidence/production-prelive-restore-pack-seal.json"
+)
+lr04_gate_records = [
+    record
+    for record in programme_ledger.get("programmeGates", [])
+    if record.get("gateId") == "LR-04"
+]
+lr04_gate_record = lr04_gate_records[0] if len(lr04_gate_records) == 1 else {}
+p05_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "P-05"
+]
+p05_record = p05_records[0] if len(p05_records) == 1 else {}
+check(
+    "LR-04 Firestore recoverability live readback is target-bound, private and mutation-free",
+    lr04_policy.get("schemaVersion") == 1
+    and lr04_policy.get("policyId")
+        == "LR04-FIRESTORE-RECOVERABILITY-READBACK-POLICY-V1"
+    and lr04_policy.get("collectorStatus")
+        == "SOURCE_IMPLEMENTED_PENDING_MERGE_CI_AND_LIVE_EXECUTION"
+    and lr04_policy.get("productionProjectId") == "crm3-baf-ops-b8638"
+    and lr04_policy.get("productionDatabase") == "(default)"
+    and lr04_policy.get("productionLocation") == "asia-south1"
+    and lr04_policy.get("gateIds") == ["LR-04"]
+    and lr04_policy.get("findingIds") == ["P-05"]
+    and lr04_policy.get("operationInventoryLimit") == 1000
+    and lr04_policy.get("restoreSeal", {}).get("path")
+        == "release/evidence/production-prelive-restore-pack-seal.json"
+    and lr04_policy.get("restoreSeal", {}).get("sha256")
+        == "982040C70DD01325870E877378D74A8A705B1F64576A46B2C98FB244576AE599"
+    and lr04_policy.get("restoreSeal", {}).get("bytes") == 4440
+    and sha(lr04_restore_seal_path)
+        == lr04_policy.get("restoreSeal", {}).get("sha256")
+    and lr04_restore_seal_path.stat().st_size
+        == lr04_policy.get("restoreSeal", {}).get("bytes")
+    and lr04_policy.get("postureSemantics", {}).get(
+        "collectionPassMayContainAdversePosture"
+    ) is True
+    and lr04_policy.get("postureSemantics", {}).get(
+        "managedExportIsNotRepresentedAsNativeBackupOrRestoreProof"
+    ) is True
+    and len(lr04_policy.get("mutationBoundary", {})) == 11
+    and all(
+        value is False
+        for value in lr04_policy.get("mutationBoundary", {}).values()
+    )
+    and lr04_policy.get("privacyBoundary", {}).get(
+        "operatorAccountIdentityRetained"
+    ) is False
+    and lr04_policy.get("privacyBoundary", {}).get(
+        "firestoreDocumentOrBusinessPayloadRetained"
+    ) is False
+    and lr04_policy.get("privacyBoundary", {}).get(
+        "operationNamesOrOutputPrefixesRetained"
+    ) is False
+    and "PASS_FIRESTORE_RECOVERABILITY_LIVE_READBACK" in lr04_collector
+    and "HOLD_FIRESTORE_RECOVERABILITY_POSTURE" in lr04_collector
+    and "sourceCommitMatchesOriginMain" in lr04_collector
+    and "governedSourceClean" in lr04_collector
+    and 'collectorAuthorizesClosure: false' in lr04_collector
+    and 'sourceAndCiOnly: false' in lr04_collector
+    and 'flag: "wx"' in lr04_collector
+    and 'platformPath.join(sdkRoot, "lib", "gcloud.py")'
+        in lr04_collector
+    and all(
+        forbidden not in lr04_collector
+        for forbidden in (
+            '"databases",\n      "update"',
+            '"schedules",\n      "create"',
+            '"schedules",\n      "update"',
+            '"schedules",\n      "delete"',
+            '"backups",\n      "delete"',
+            '"operations",\n      "cancel"',
+            "firestore import",
+            "firestore export",
+            "shell: true",
+            "cmd.exe",
+        )
+    )
+    and "strict acquisition passes while adverse recoverability posture remains explicit"
+        in lr04_collector_test
+    and "summaries omit schedule, backup, operation and output identifiers"
+        in lr04_collector_test
+    and "operation inventory at the configured limit fails closed"
+        in lr04_collector_test
+    and "LR-04 collector is target-bound, private and mutation-free"
+        in lr04_contract_test
+    and root_package.get("scripts", {}).get(
+        "test:firestore-recoverability-readback-custody"
+    )
+        == "node --test tools/release/collectFirestoreRecoverabilityReadback.test.mjs"
+    and "npm run test:firestore-recoverability-readback-custody"
+        in release_gate_source
+    and "Collector status: SOURCE_IMPLEMENTED_PENDING_MERGE_CI_AND_LIVE_EXECUTION"
+        in lr04_decision
+    and "does not close `LR-04` or `P-05`" in lr04_decision
+    and len(lr04_gate_records) == 1
+    and lr04_gate_record.get("currentStatus") == "OPEN"
+    and lr04_gate_record.get("evidence") == []
+    and len(p05_records) == 1
+    and p05_record.get("currentStatus") == "OPEN"
+    and p05_record.get("evidence") == [],
+)
+
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
 if FAIL:
     for name, detail in FAIL:
