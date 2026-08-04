@@ -4580,6 +4580,28 @@ r04_records = [
     if record.get("findingId") == "R-04"
 ]
 r04_record = r04_records[0] if len(r04_records) == 1 else {}
+r04_history = [
+    entry.get("status")
+    for entry in r04_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+r04_evidence = r04_record.get("evidence", [])
+r04_closure_path = (
+    ROOT / "release/evidence/r04-notification-installation-source-and-ci-closure.json"
+)
+r04_closure = data(
+    "release/evidence/r04-notification-installation-source-and-ci-closure.json"
+)
+r04_source_authority = r04_closure.get("sourceAuthority", {})
+r04_pr_ci = r04_closure.get("pullRequestCi", {})
+r04_postmerge_ci = r04_closure.get("postMergeCi", {})
+r04_boundary = r04_closure.get("closureBoundary", {})
+r04_expected_jobs = {
+    "Android release APK + AAB packaging proof",
+    "Cloud Functions build + test",
+    "Firestore rules + governed transaction emulator",
+    "Flutter analyze + tests + no-loss spine",
+}
 r04_registry = text(
     "lib/features/auth/services/notification_installation_registry.dart"
 )
@@ -4622,13 +4644,92 @@ r04_remove_end = r04_registry.index(
 )
 r04_remove = r04_registry[r04_remove_start:r04_remove_end]
 check(
-    "R-04 notification registration is multi-installation, private and bounded",
+    "R-04 notification registration is source-and-CI closed, private and bounded",
     len(r04_records) == 1
     and r04_record.get("authorityType") == "SOURCE_AND_CI"
-    and r04_record.get("currentStatus") == "OPEN"
+    and r04_record.get("currentStatus") == "CLOSED"
+    and r04_history == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(r04_evidence) == 1
+    and r04_evidence[0].get("evidenceFile")
+        == "release/evidence/r04-notification-installation-source-and-ci-closure.json"
+    and r04_evidence[0].get("evidenceSha256") == sha(r04_closure_path)
+    and r04_evidence[0].get("pullRequest") == 134
+    and r04_evidence[0].get("headCommit")
+        == "55869a42aa48fd18e360c499a82825a00eaacd29"
+    and r04_evidence[0].get("sourceTree")
+        == "dc2ed437922d5f4ebe53def58e6098481687ff48"
+    and r04_evidence[0].get("mergeCommit")
+        == "0ca1e7610f6151e1bc50fefc699b2dc7f9403eb9"
+    and r04_evidence[0].get("mergeTree")
+        == "dc2ed437922d5f4ebe53def58e6098481687ff48"
+    and r04_evidence[0].get("pullRequestWorkflowRun") == 30880821675
+    and r04_evidence[0].get("postMergeWorkflowRun") == 30881331523
+    and r04_evidence[0].get("decision")
+        == "PASS_R04_NOTIFICATION_INSTALLATION_SOURCE_AND_CI_CLOSURE"
+    and r04_evidence[0].get("productionDeploymentPerformed") is False
+    and r04_evidence[0].get("deviceEvidenceClaimed") is False
+    and r04_evidence[0].get("notificationDeliveryClaimed") is False
+    and r04_evidence[0].get("pilotAuthorizationCreated") is False
+    and len(r04_record.get("requiredExitEvidence", [])) == 6
+    and len(r04_record.get("reArmTriggers", [])) == 6
+    and r04_closure.get("schemaVersion") == 1
+    and r04_closure.get("findingIds") == ["R-04"]
+    and r04_closure.get("authorityType") == "SOURCE_AND_CI"
+    and r04_closure.get("decision")
+        == "PASS_R04_NOTIFICATION_INSTALLATION_SOURCE_AND_CI_CLOSURE"
+    and r04_source_authority.get("repository")
+        == "abhishekvatsa/crm3_baf_ops"
+    and r04_source_authority.get("pullRequest") == 134
+    and r04_source_authority.get("headCommit")
+        == "55869a42aa48fd18e360c499a82825a00eaacd29"
+    and r04_source_authority.get("sourceTree")
+        == "dc2ed437922d5f4ebe53def58e6098481687ff48"
+    and r04_source_authority.get("mergeCommit")
+        == "0ca1e7610f6151e1bc50fefc699b2dc7f9403eb9"
+    and r04_source_authority.get("mergeTree")
+        == "dc2ed437922d5f4ebe53def58e6098481687ff48"
+    and r04_pr_ci.get("runId") == 30880821675
+    and r04_pr_ci.get("event") == "pull_request"
+    and r04_pr_ci.get("headSha")
+        == "55869a42aa48fd18e360c499a82825a00eaacd29"
+    and r04_pr_ci.get("conclusion") == "success"
+    and {
+        job.get("name")
+        for job in r04_pr_ci.get("jobs", [])
+        if isinstance(job, dict)
+    } == r04_expected_jobs
+    and all(
+        job.get("conclusion") == "success"
+        for job in r04_pr_ci.get("jobs", [])
+        if isinstance(job, dict)
+    )
+    and r04_postmerge_ci.get("runId") == 30881331523
+    and r04_postmerge_ci.get("event") == "push"
+    and r04_postmerge_ci.get("headSha")
+        == "0ca1e7610f6151e1bc50fefc699b2dc7f9403eb9"
+    and r04_postmerge_ci.get("conclusion") == "success"
+    and {
+        job.get("name")
+        for job in r04_postmerge_ci.get("jobs", [])
+        if isinstance(job, dict)
+    } == r04_expected_jobs
+    and all(
+        job.get("conclusion") == "success"
+        for job in r04_postmerge_ci.get("jobs", [])
+        if isinstance(job, dict)
+    )
+    and set(r04_boundary) == {
+        "productionDeploymentPerformed",
+        "runtimeActivationClaimed",
+        "deviceEvidenceClaimed",
+        "notificationDeliveryClaimed",
+        "pilotAuthorizationCreated",
+        "cutoverAuthorizationCreated",
+    }
+    and all(value is False for value in r04_boundary.values())
     and r04_policy.get("schemaVersion") == 1
     and r04_policy.get("findingId") == "R-04"
-    and r04_policy.get("sourceStatus") == "SOURCE_IMPLEMENTED"
+    and r04_policy.get("sourceStatus") == "SOURCE_AND_CI_CLOSED"
     and r04_policy.get("privacyAndAuthority", {}).get("clientReads")
         == "DENIED"
     and r04_policy.get("delivery", {}).get(
@@ -4677,9 +4778,12 @@ check(
     ]
     and "R-04 private notification installation registry" in r04_rules_test
     and "sign-out removes only this installation" in r04_client_test
-    and "R-04 policy is exact" in r04_contract_test
-    and "Status: SOURCE_IMPLEMENTED" in r04_decision
-    and "Merge and exact-head CI evidence: PENDING" in r04_decision
+    and "R-04 source and CI closure is exact" in r04_contract_test
+    and "Status: CLOSED" in r04_decision
+    and "Merge and exact-head CI evidence: PASS" in r04_decision
+    and "PASS_R04_NOTIFICATION_INSTALLATION_SOURCE_AND_CI_CLOSURE"
+        in r04_decision
+    and "`R-04` is closed" in r04_decision
     and "does not claim production Rules or Functions" in r04_decision,
 )
 
