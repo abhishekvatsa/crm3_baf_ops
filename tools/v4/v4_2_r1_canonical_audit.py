@@ -4023,16 +4023,122 @@ r03_history = [
     for entry in r03_record.get("statusHistory", [])
     if isinstance(entry, dict)
 ]
+r03_evidence = r03_record.get("evidence", [])
+r03_r05_closure_path = (
+    ROOT / "release/evidence/r03-r05-source-and-ci-closure.json"
+)
+r03_r05_closure = data(
+    "release/evidence/r03-r05-source-and-ci-closure.json"
+)
+r03_r05_source_authority = r03_r05_closure.get("sourceAuthority", {})
+r03_r05_finding_commits = {
+    entry.get("findingId"): (entry.get("commit"), entry.get("tree"))
+    for entry in r03_r05_source_authority.get("findingCommits", [])
+    if isinstance(entry, dict)
+}
+r03_r05_pr_ci = r03_r05_closure.get("pullRequestCi", {})
+r03_r05_postmerge_ci = r03_r05_closure.get("postMergeCi", {})
+r03_r05_boundary = r03_r05_closure.get("closureBoundary", {})
+r03_r05_expected_jobs = {
+    "Android release APK + AAB packaging proof",
+    "Cloud Functions build + test",
+    "Firestore rules + governed transaction emulator",
+    "Flutter analyze + tests + no-loss spine",
+}
 r03_sync_source = text("lib/core/services/sync_coordinator.dart")
 r03_auto_source = text("lib/core/services/auto_sync_service.dart")
 r03_indicator_source = text("lib/core/widgets/sync_status_indicator.dart")
 r03_decision = text("docs/v4_2_r1/R03_SYNC_REQUEST_OUTCOME_REMEDIATION.md")
 check(
-    "R-03 queued and throttled sync admission is distinct from failure",
+    "R-03 queued and throttled sync admission is distinct and source-and-CI closed",
     len(r03_records) == 1
-    and r03_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
-    and r03_history == ["OPEN", "SOURCE_IMPLEMENTED"]
-    and len(r03_record.get("evidence", [])) == 0
+    and r03_record.get("currentStatus") == "CLOSED"
+    and r03_history == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(r03_evidence) == 1
+    and r03_evidence[0].get("evidenceFile")
+        == "release/evidence/r03-r05-source-and-ci-closure.json"
+    and r03_evidence[0].get("evidenceSha256") == sha(r03_r05_closure_path)
+    and r03_evidence[0].get("pullRequest") == 117
+    and r03_evidence[0].get("headCommit")
+        == "946c414fee7605f590253dc630a0205095f3b44d"
+    and r03_evidence[0].get("sourceTree")
+        == "24487330756ea9933be5bf81181fde4d607e375d"
+    and r03_evidence[0].get("mergeCommit")
+        == "45ebd9c853798f88fedd2e4d72d6022dc389097f"
+    and r03_evidence[0].get("mergeTree")
+        == "24487330756ea9933be5bf81181fde4d607e375d"
+    and r03_evidence[0].get("pullRequestWorkflowRun") == 30795773566
+    and r03_evidence[0].get("postMergeWorkflowRun") == 30796250694
+    and r03_evidence[0].get("decision")
+        == "PASS_R03_R05_RELIABILITY_SOURCE_AND_CI_CLOSURE"
+    and r03_evidence[0].get("productionDeploymentPerformed") is False
+    and r03_evidence[0].get("deviceEvidenceClaimed") is False
+    and r03_evidence[0].get("pilotAuthorizationCreated") is False
+    and r03_r05_closure.get("schemaVersion") == 1
+    and r03_r05_closure.get("findingIds") == ["R-03", "R-05"]
+    and r03_r05_closure.get("authorityType") == "SOURCE_AND_CI"
+    and r03_r05_closure.get("decision")
+        == "PASS_R03_R05_RELIABILITY_SOURCE_AND_CI_CLOSURE"
+    and r03_r05_source_authority.get("repository")
+        == "abhishekvatsa/crm3_baf_ops"
+    and r03_r05_source_authority.get("pullRequest") == 117
+    and r03_r05_source_authority.get("headCommit")
+        == "946c414fee7605f590253dc630a0205095f3b44d"
+    and r03_r05_source_authority.get("sourceTree")
+        == "24487330756ea9933be5bf81181fde4d607e375d"
+    and r03_r05_source_authority.get("mergeCommit")
+        == "45ebd9c853798f88fedd2e4d72d6022dc389097f"
+    and r03_r05_source_authority.get("mergeTree")
+        == "24487330756ea9933be5bf81181fde4d607e375d"
+    and r03_r05_finding_commits == {
+        "R-03": (
+            "269e911c76ffd677d64b2dc99e3467056cb7ab48",
+            "573efd0813777e4a3ef7d5e21a4d0c3d977df5a7",
+        ),
+        "R-05": (
+            "e24f6f3c3885f345475ddb0c1faa3b597f1823a5",
+            "347988ff8a154138f7585b221784360b3b6376bb",
+        ),
+    }
+    and r03_r05_pr_ci.get("runId") == 30795773566
+    and r03_r05_pr_ci.get("event") == "pull_request"
+    and r03_r05_pr_ci.get("headSha")
+        == "946c414fee7605f590253dc630a0205095f3b44d"
+    and r03_r05_pr_ci.get("conclusion") == "success"
+    and {
+        job.get("name")
+        for job in r03_r05_pr_ci.get("jobs", [])
+        if isinstance(job, dict)
+    } == r03_r05_expected_jobs
+    and all(
+        job.get("conclusion") == "success"
+        for job in r03_r05_pr_ci.get("jobs", [])
+        if isinstance(job, dict)
+    )
+    and r03_r05_postmerge_ci.get("runId") == 30796250694
+    and r03_r05_postmerge_ci.get("event") == "push"
+    and r03_r05_postmerge_ci.get("headSha")
+        == "45ebd9c853798f88fedd2e4d72d6022dc389097f"
+    and r03_r05_postmerge_ci.get("conclusion") == "success"
+    and {
+        job.get("name")
+        for job in r03_r05_postmerge_ci.get("jobs", [])
+        if isinstance(job, dict)
+    } == r03_r05_expected_jobs
+    and all(
+        job.get("conclusion") == "success"
+        for job in r03_r05_postmerge_ci.get("jobs", [])
+        if isinstance(job, dict)
+    )
+    and set(r03_r05_boundary) == {
+        "productionDeploymentPerformed",
+        "runtimeActivationClaimed",
+        "deviceEvidenceClaimed",
+        "notificationDeliveryClaimed",
+        "pilotAuthorizationCreated",
+        "cutoverAuthorizationCreated",
+    }
+    and all(value is False for value in r03_r05_boundary.values())
     and len(r03_record.get("requiredExitEvidence", [])) >= 4
     and len(r03_record.get("reArmTriggers", [])) >= 4
     and "enum SyncRequestOutcome" in r03_sync_source
@@ -4043,9 +4149,10 @@ check(
     and "final SyncRequestOutcome? lastAutomaticOutcome" in r03_auto_source
     and "lastAutomaticSucceeded" not in r03_auto_source
     and "outcome.manualSyncMessage" in r03_indicator_source
-    and "Status: SOURCE_IMPLEMENTED" in r03_decision
-    and "Merge and exact-head CI evidence: PENDING" in r03_decision
-    and "No production deployment, device proof, F4 closure" in r03_decision,
+    and "Status: CLOSED" in r03_decision
+    and "Merge and exact-head CI evidence: PASS" in r03_decision
+    and "PASS_R03_R05_RELIABILITY_SOURCE_AND_CI_CLOSURE" in r03_decision
+    and "production deployment, device proof, F4 closure" in r03_decision,
 )
 
 ui_alignment_decision = text(
@@ -4219,6 +4326,7 @@ r05_history = [
     for entry in r05_record.get("statusHistory", [])
     if isinstance(entry, dict)
 ]
+r05_evidence = r05_record.get("evidence", [])
 r05_receipt_source = text("functions/src/notificationEventReceipt.ts")
 r05_index_source = text("functions/src/index.ts")
 r05_workflow_source = text(
@@ -4260,12 +4368,13 @@ r05_trigger_sections = [
     for start, end in zip(r05_trigger_starts, r05_trigger_ends)
 ]
 check(
-    "R-05 notification event idempotency is source-implemented and fail-closed",
+    "R-05 notification event idempotency is source-and-CI closed and fail-closed",
     len(r05_records) == 1
     and r05_record.get("authorityType") == "SOURCE_AND_CI"
-    and r05_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
-    and r05_history == ["OPEN", "SOURCE_IMPLEMENTED"]
-    and r05_record.get("evidence") == []
+    and r05_record.get("currentStatus") == "CLOSED"
+    and r05_history == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(r05_evidence) == 1
+    and r05_evidence[0] == r03_evidence[0]
     and len(r05_record.get("requiredExitEvidence", [])) == 6
     and len(r05_record.get("reArmTriggers", [])) == 6
     and all(
@@ -4308,7 +4417,7 @@ check(
     and "operator reporting failure cannot reopen" in r05_unit_test
     and "concurrent duplicate events perform one delivery" in r05_emulator_test
     and "ambiguous dispatch is quarantined" in r05_emulator_test
-    and "R-05 source status is exact" in r05_contract_test
+    and "R-05 source and CI closure is exact" in r05_contract_test
     and "notificationEventReceipt.firestoreEmulator.test.js"
         in r05_package["scripts"]["test:emulator:governed"]
     and "audit:notification-inventory"
@@ -4333,11 +4442,12 @@ check(
         in r05_inventory_test
     and "an aliased notification dispatcher remains discoverable"
         in r05_inventory_test
-    and "Status: SOURCE_IMPLEMENTED" in r05_decision
+    and "Status: CLOSED" in r05_decision
     and "This is not an exactly-once delivery claim." in r05_decision
     and "structured error-level signal" in r05_decision
     and "operator-queryable marker" in r05_decision
-    and "R-05 remains `SOURCE_IMPLEMENTED`." in r05_decision,
+    and "PASS_R03_R05_RELIABILITY_SOURCE_AND_CI_CLOSURE" in r05_decision
+    and "`R-05` is closed" in r05_decision,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

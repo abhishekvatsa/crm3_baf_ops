@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "R03-R05-SOURCE-AND-CI-CLOSURE-20260804",
+  "findingIds": [
+    "R-03",
+    "R-05"
+  ],
+  "authorityType": "SOURCE_AND_CI",
+  "decision": "PASS_R03_R05_RELIABILITY_SOURCE_AND_CI_CLOSURE",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "pullRequest": 117,
+    "headCommit": "946c414fee7605f590253dc630a0205095f3b44d",
+    "sourceTree": "24487330756ea9933be5bf81181fde4d607e375d",
+    "mergeCommit": "45ebd9c853798f88fedd2e4d72d6022dc389097f",
+    "mergeTree": "24487330756ea9933be5bf81181fde4d607e375d",
+    "findingCommits": [
+      {
+        "findingId": "R-03",
+        "commit": "269e911c76ffd677d64b2dc99e3467056cb7ab48",
+        "tree": "573efd0813777e4a3ef7d5e21a4d0c3d977df5a7"
+      },
+      {
+        "findingId": "R-05",
+        "commit": "e24f6f3c3885f345475ddb0c1faa3b597f1823a5",
+        "tree": "347988ff8a154138f7585b221784360b3b6376bb"
+      }
+    ]
+  },
+  "pullRequestCi": {
+    "runId": 30795773566,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30795773566",
+    "event": "pull_request",
+    "headSha": "946c414fee7605f590253dc630a0205095f3b44d",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 91628892144,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 91628892186,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 91628892083,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 91628892199,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "postMergeCi": {
+    "runId": 30796250694,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30796250694",
+    "event": "push",
+    "headSha": "45ebd9c853798f88fedd2e4d72d6022dc389097f",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 91630387222,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 91630387229,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 91630387208,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 91630387326,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "closureBoundary": {
+    "productionDeploymentPerformed": false,
+    "runtimeActivationClaimed": false,
+    "deviceEvidenceClaimed": false,
+    "notificationDeliveryClaimed": false,
+    "pilotAuthorizationCreated": false,
+    "cutoverAuthorizationCreated": false
+  }
+}
