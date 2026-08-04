@@ -1,6 +1,6 @@
 # S-01, D-01 and H2 Runtime Identity Live Finalization
 
-Status: DEPLOYED AND LIVE READBACK PASS; SOURCE/CI ADJUDICATION PENDING
+Status: CLOSED PASS
 
 The complete production Function fleet was deployed from exact clean `main`
 `bdc5c6ed870e7f947c40ea053cd587a56d77d48a` after four-job release-gate run
@@ -31,7 +31,7 @@ all nine external campaign receipts by both file SHA-256 and their canonical
 receipt SHA-256. The external receipts retain no user identity, business
 document ID or business payload.
 
-This live result makes `H2-IAM`, `S-01` and `D-01` closure-ready. Their ledger
-transition remains pending until this receipt and its contract test pass exact
-pull-request CI. It does not close `STAGE2D-F4`, authorize pilot handout, enable
-App Check or authorize distribution.
+PR #149 exact-head run `30922839115` passed all four release-gate jobs and binds
+the live result to source and CI authority. `H2-IAM`, `S-01` and `D-01` are
+therefore closed. This result does not close `STAGE2D-F4`, authorize pilot
+handout, enable App Check or authorize distribution.

@@ -1,13 +1,13 @@
 # S-01 Function Fleet Runtime Identity Campaign
 
-Status: SOURCE AND CAMPAIGN EXECUTOR IMPLEMENTED; IAM AND DEPLOYMENT PENDING
+Status: DEPLOYED, LEAST-PRIVILEGE IAM AND LIVE READBACK PROVED
 
 ## Purpose
 
 This tranche binds every admitted Cloud Function export to a unique,
-same-project runtime service account. It prepares the production fleet for
-removal of the unconditional `roles/editor` grant from the Default Compute
-service account without treating source configuration as deployed proof.
+same-project runtime service account. The governed campaign used that policy
+to remove the unconditional `roles/editor` grant from the Default Compute
+service account and then proved the resulting production posture live.
 
 The complete machine-readable authority is:
 
@@ -94,6 +94,26 @@ The executor:
 - restores Default Compute Editor automatically if final IAM or dependency
   adjudication fails after removal.
 
+## Completed live result
+
+The seven phases completed on 2026-08-04 from exact clean `main`
+`bdc5c6ed870e7f947c40ea053cd587a56d77d48a`, after four-job post-merge run
+`30913630958` passed. All 14 Generation 2 Functions are active under their
+exact dedicated identities, all eight callable probes passed safely, and the
+scheduler backlog remained zero.
+
+After a successful prefinal dependency readback, the finalizer removed Default
+Compute Editor, Eventarc Receiver and project Run Invoker. It also removed the
+obsolete logging and project Run Invoker grants from the global-pull
+identities. Final fleet and dependency readbacks both passed; automatic Editor
+restoration was armed but not needed. Default Compute now retains only
+`roles/cloudbuild.builds.builder`, and no deployed Function uses it.
+
+The privacy-minimised closure authority is
+`release/evidence/s01-d01-h2-runtime-identity-live-finalization.json`. It binds
+the nine campaign receipts, the exact predeployment main authority, and PR
+#149 exact-head run `30922839115`.
+
 ## Deployment order
 
 1. Merge and verify this source tranche at exact `main`.
@@ -119,7 +139,10 @@ requires immediate role restoration followed by incident adjudication.
 
 ## Closure boundary
 
-This source tranche does not create accounts, mutate IAM, deploy Functions,
-remove Editor, write Firestore data, deploy Rules or indexes, authorize a
-pilot, or authorize distribution. `S-01`, `H2-IAM`, and `D-01` remain open
-until post-deployment live readback proves their individual exit criteria.
+The campaign created only the policy-defined accounts and custom role, changed
+only the recorded IAM bindings, deployed the exact admitted Function fleet,
+and removed Editor after all preconditions passed. It did not write business
+data, deploy Rules or indexes, enable App Check, authorize a pilot, or
+authorize distribution. The sealed deployment, final IAM probe, dependency
+readback and exact-head CI close `S-01`, `H2-IAM`, and `D-01`; `STAGE2D-F4`
+remains open.

@@ -143,17 +143,43 @@
     "tokensRetained": false
   },
   "sourceAndCiAdjudication": {
-    "status": "PENDING_PULL_REQUEST_CI",
-    "pullRequest": null,
-    "workflowRun": null
+    "status": "PASS_EXACT_HEAD_PULL_REQUEST_CI",
+    "pullRequest": 149,
+    "workflowRun": 30922839115,
+    "workflowEvent": "pull_request",
+    "headCommit": "06658f8a2e5d1dca4624094da4938cda94095cf6",
+    "headTree": "3de31f1cae2fd91fe8def4d7d3fe72e2f3777ad5",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 92037560472,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 92037560487,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 92037560507,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 92037560592,
+        "conclusion": "success"
+      }
+    ]
   },
   "programmeBoundary": {
-    "h2IamClosureReady": true,
-    "s01ClosureReady": true,
-    "d01ClosureReady": true,
+    "h2IamClosed": true,
+    "s01Closed": true,
+    "d01Closed": true,
     "stage2dF4Status": "OPEN",
     "pilotHandoutAuthorized": false,
     "distributionAuthorized": false
   },
-  "decision": "PASS_H2_S01_D01_DEPLOYED_AND_LIVE_READBACK_PENDING_SOURCE_CI_ADJUDICATION"
+  "decision": "PASS_H2_S01_D01_RUNTIME_IDENTITY_AND_DEPENDENCY_CLOSURE"
 }

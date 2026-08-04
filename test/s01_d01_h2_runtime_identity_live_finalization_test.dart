@@ -7,7 +7,7 @@ Map<String, dynamic> _json(String path) =>
     jsonDecode(File(path).readAsStringSync()) as Map<String, dynamic>;
 
 void main() {
-  test('H2 live finalization is exact, least-privilege and closure-ready', () {
+  test('H2, S-01 and D-01 close on exact live and source authority', () {
     final evidence = _json(
       'release/evidence/s01-d01-h2-runtime-identity-live-finalization.json',
     );
@@ -85,17 +85,41 @@ void main() {
     expect(mutation['businessDataMutationPerformed'], isFalse);
     expect(privacy.values.every((value) => value == false), isTrue);
 
-    expect(adjudication['status'], 'PENDING_PULL_REQUEST_CI');
-    expect(adjudication['pullRequest'], isNull);
-    expect(boundary['h2IamClosureReady'], isTrue);
-    expect(boundary['s01ClosureReady'], isTrue);
-    expect(boundary['d01ClosureReady'], isTrue);
+    expect(adjudication['status'], 'PASS_EXACT_HEAD_PULL_REQUEST_CI');
+    expect(adjudication['pullRequest'], 149);
+    expect(adjudication['workflowRun'], 30922839115);
+    expect(adjudication['workflowEvent'], 'pull_request');
+    expect(
+      adjudication['headCommit'],
+      '06658f8a2e5d1dca4624094da4938cda94095cf6',
+    );
+    expect(
+      adjudication['headTree'],
+      '3de31f1cae2fd91fe8def4d7d3fe72e2f3777ad5',
+    );
+    expect(adjudication['conclusion'], 'success');
+    expect(
+      (adjudication['jobs'] as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map((job) => job['jobId'])
+          .toSet(),
+      <int>{92037560472, 92037560487, 92037560507, 92037560592},
+    );
+    expect(
+      (adjudication['jobs'] as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .every((job) => job['conclusion'] == 'success'),
+      isTrue,
+    );
+    expect(boundary['h2IamClosed'], isTrue);
+    expect(boundary['s01Closed'], isTrue);
+    expect(boundary['d01Closed'], isTrue);
     expect(boundary['stage2dF4Status'], 'OPEN');
     expect(boundary['pilotHandoutAuthorized'], isFalse);
     expect(boundary['distributionAuthorized'], isFalse);
     expect(
       evidence['decision'],
-      'PASS_H2_S01_D01_DEPLOYED_AND_LIVE_READBACK_PENDING_SOURCE_CI_ADJUDICATION',
+      'PASS_H2_S01_D01_RUNTIME_IDENTITY_AND_DEPENDENCY_CLOSURE',
     );
   });
 }
