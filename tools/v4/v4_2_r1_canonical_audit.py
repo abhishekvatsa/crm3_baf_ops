@@ -457,7 +457,7 @@ check(
     and "resourceShrinkReportSha256=" in c03_package_script
     and "package proof requires fresh nonempty shrinking evidence"
         in c06_contract_test
-    and "Status: SOURCE CANDIDATE" in c06_decision
+    and "Status: CLOSED" in c06_decision
     and "does not transfer its device evidence to a later build"
         in c06_decision,
 )
@@ -527,6 +527,100 @@ check(
     and all(value is False for value in c03_boundary.values())
     and len(c03_closure_record.get("requiredExitEvidence", [])) == 4
     and len(c03_closure_record.get("reArmTriggers", [])) >= 6,
+)
+c06_closure_records = [
+    record
+    for record in data("governance/programme-ledger.json")["technicalFindings"]
+    if record.get("findingId") == "C-06"
+]
+c06_closure_record = (
+    c06_closure_records[0] if len(c06_closure_records) == 1 else {}
+)
+c06_closure_evidence = c06_closure_record.get("evidence", [])
+c06_closure_history = [
+    entry.get("status")
+    for entry in c06_closure_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+c06_closure_receipt_path = (
+    ROOT / "release/evidence/c06-android-release-shrinking-closure.json"
+)
+c06_closure_receipt = data(
+    "release/evidence/c06-android-release-shrinking-closure.json"
+)
+c06_pr_ci = c06_closure_receipt.get("pullRequestCi", {})
+c06_postmerge_ci = c06_closure_receipt.get("postMergeCi", {})
+c06_boundaries = (
+    c06_closure_receipt.get("nonProductionBoundary", {}),
+    c06_closure_receipt.get("runtimeBoundary", {}),
+)
+check(
+    "C-06 Android release shrinking closure is exact and runtime-separated",
+    len(c06_closure_records) == 1
+    and c06_closure_record.get("currentStatus") == "CLOSED"
+    and len(c06_closure_evidence) == 1
+    and c06_closure_evidence[0].get("pullRequest") == 152
+    and c06_closure_evidence[0].get("headCommit")
+        == "6af4bd411a15611f790138c38e35f3918e9f807d"
+    and c06_closure_evidence[0].get("sourceTree")
+        == "b6c0129e14107d09ea8ffd822b305af177824691"
+    and c06_closure_evidence[0].get("mergeCommit")
+        == "cacab29a5cf79bdc723a80b9e4a33557f7a1eada"
+    and c06_closure_evidence[0].get("mergeTree")
+        == "b6c0129e14107d09ea8ffd822b305af177824691"
+    and c06_closure_evidence[0].get("pullRequestWorkflowRun")
+        == 30942169313
+    and c06_closure_evidence[0].get("pullRequestAndroidJob")
+        == 92103071831
+    and c06_closure_evidence[0].get("postMergeWorkflowRun")
+        == 30942876995
+    and c06_closure_evidence[0].get("postMergeAndroidJob")
+        == 92105447536
+    and c06_closure_evidence[0].get("evidenceFile")
+        == "release/evidence/c06-android-release-shrinking-closure.json"
+    and c06_closure_evidence[0].get("evidenceSha256")
+        == sha(c06_closure_receipt_path)
+    and c06_closure_history
+        == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and c06_closure_receipt.get("decision")
+        == "PASS_C06_ANDROID_RELEASE_SHRINKING_SOURCE_AND_CI_CLOSURE"
+    and c06_pr_ci.get("runId") == 30942169313
+    and c06_pr_ci.get("event") == "pull_request"
+    and c06_pr_ci.get("headSha")
+        == "6af4bd411a15611f790138c38e35f3918e9f807d"
+    and c06_pr_ci.get("conclusion") == "success"
+    and c06_postmerge_ci.get("runId") == 30942876995
+    and c06_postmerge_ci.get("event") == "push"
+    and c06_postmerge_ci.get("headSha")
+        == "cacab29a5cf79bdc723a80b9e4a33557f7a1eada"
+    and c06_postmerge_ci.get("conclusion") == "success"
+    and all(
+        job.get("conclusion") == "success"
+        for section in (c06_pr_ci, c06_postmerge_ci)
+        for job in section.get("jobs", [])
+    )
+    and len(c06_pr_ci.get("jobs", [])) == 4
+    and len(c06_postmerge_ci.get("jobs", [])) == 4
+    and all(
+        section.get("androidProofMarkers", {}).get("decision")
+            == "PASS_C06_ANDROID_RELEASE_SHRINKING_PROOF"
+        and section.get("androidProofMarkers", {}).get("r8MappingSha256")
+            == "21832BEEC5CD7E812C3559B4CBCDE950A3B9B760A2986217EDAE5B17CEF1E39F"
+        and len(
+            section.get("androidProofMarkers", {}).get(
+                "resourceShrinkReportSha256", ""
+            )
+        ) == 64
+        for section in (c06_pr_ci, c06_postmerge_ci)
+    )
+    and all(
+        boundary and all(value is False for value in boundary.values())
+        for boundary in c06_boundaries
+    )
+    and len(c06_closure_record.get("requiredExitEvidence", [])) == 4
+    and len(c06_closure_record.get("reArmTriggers", [])) >= 8
+    and "PASS_C06_ANDROID_RELEASE_SHRINKING_SOURCE_AND_CI_CLOSURE"
+        in c06_decision,
 )
 manual_workflows = (
     ".github/workflows/production-artifact.yml",

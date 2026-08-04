@@ -3146,7 +3146,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "CI/release",
       "pilotSeverity": "LOW",
       "unrestrictedSeverity": "MEDIUM",
@@ -3155,15 +3155,73 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 152,
+          "headCommit": "6af4bd411a15611f790138c38e35f3918e9f807d",
+          "sourceTree": "b6c0129e14107d09ea8ffd822b305af177824691",
+          "mergeCommit": "cacab29a5cf79bdc723a80b9e4a33557f7a1eada",
+          "mergeTree": "b6c0129e14107d09ea8ffd822b305af177824691",
+          "pullRequestWorkflowRun": 30942169313,
+          "pullRequestWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30942169313",
+          "pullRequestAndroidJob": 92103071831,
+          "postMergeWorkflowRun": 30942876995,
+          "postMergeWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30942876995",
+          "postMergeAndroidJob": 92105447536,
+          "evidenceFile": "release/evidence/c06-android-release-shrinking-closure.json",
+          "evidenceSha256": "245213ED55CB4B55D921386A9BA1F981D32E8EDF8BA10C1EFC57CFB173608458",
+          "decision": "PASS_C06_ANDROID_RELEASE_SHRINKING_SOURCE_AND_CI_CLOSURE",
+          "r8MappingSha256": "21832BEEC5CD7E812C3559B4CBCDE950A3B9B760A2986217EDAE5B17CEF1E39F",
+          "productionCertificateUsed": false,
+          "productionSecretsReferenced": false,
+          "artifactUploadPerformed": false,
+          "productionMutationPerformed": false,
+          "deviceEvidenceClaimed": false
+        }
+      ],
+      "requiredExitEvidence": [
+        "the Android release build enables R8 minification and optimization plus resource shrinking through optimized default rules and a repository-owned narrow rules file",
+        "the normal package proof removes prior shrinking outputs and requires fresh nonempty R8 mapping and resource reports before emitting their hashes",
+        "exact-head pull-request CI passes the Android shrinking proof and every governed release-gate job",
+        "post-merge release-gate CI passes the same shrinking proof and all governed jobs on the exact admitted main commit"
+      ],
+      "reArmTriggers": [
+        "release minification or resource shrinking is disabled",
+        "the optimized Android default ProGuard configuration is removed",
+        "app rules broadly disable shrinking, optimization or obfuscation, or add a blanket keep rule",
+        "the package proof stops deleting prior mapping or resource-report outputs before the release build",
+        "fresh nonempty mapping.txt or resources.txt evidence is no longer required",
+        "the C-06 proof marker or shrinking-evidence hashes are removed",
+        "the Android package job no longer runs on every pull request and admitted main commit",
+        "the proof gains a production environment, production secret reference or artifact upload",
+        "source-and-CI closure is used to claim inherited device evidence, pilot handout or runtime validation"
+      ],
+      "notes": [
+        "PR #152 enabled optimized R8 and resource shrinking and merged exact green head 6af4bd411a15611f790138c38e35f3918e9f807d to main as cacab29a5cf79bdc723a80b9e4a33557f7a1eada with identical tree b6c0129e14107d09ea8ffd822b305af177824691.",
+        "Exact-head run 30942169313 and exact-main run 30942876995 both passed the fresh nonempty shrinking proof plus every governed release-gate job.",
+        "C-06 source-and-CI closure does not mutate Build 8, inherit device evidence, construct a production artifact, authorize runtime validation or permit pilot handout."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-08-05",
+          "basis": "Optimized R8, resource shrinking, fresh nonempty shrinking evidence and focused contracts passed locally and in exact-head pull-request run 30942169313 at source commit 6af4bd411a15611f790138c38e35f3918e9f807d."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-08-05",
+          "basis": "PR #152 exact green head 6af4bd411a15611f790138c38e35f3918e9f807d merged to main as cacab29a5cf79bdc723a80b9e4a33557f7a1eada with identical tree b6c0129e14107d09ea8ffd822b305af177824691."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-05",
+          "basis": "PASS_C06_ANDROID_RELEASE_SHRINKING_SOURCE_AND_CI_CLOSURE closes C-06 after exact-head run 30942169313 and exact-main run 30942876995 passed; production artifact, device and distribution authority remain separate."
         }
       ]
     },
