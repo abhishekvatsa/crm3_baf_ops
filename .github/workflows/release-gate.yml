@@ -251,6 +251,7 @@ jobs:
           npm run test:firestore-live-readback-custody
           npm run test:firestore-recoverability-readback-custody
           npm run test:functions-live-readback-custody
+          npm run test:function-fleet-runtime-campaign
           npm run test:workflow-input-custody
           npm run test:workflow-action-custody
 

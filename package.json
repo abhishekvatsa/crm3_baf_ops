@@ -25,6 +25,7 @@
     "test:firestore-live-readback-custody": "node --test tools/release/collectFirestoreRulesIndexesReadback.test.mjs",
     "test:firestore-recoverability-readback-custody": "node --test tools/release/collectFirestoreRecoverabilityReadback.test.mjs",
     "test:functions-live-readback-custody": "node --test tools/release/collectFunctionsIamDependenciesReadback.test.mjs",
+    "test:function-fleet-runtime-campaign": "node --test tools/release/collectFunctionFleetRuntimeIdentityReadback.test.mjs tools/release/Invoke-FunctionFleetRuntimeIdentityCampaign.test.mjs",
     "test:workflow-input-custody": "node --test tools/release/workflow_dispatch_input_custody.test.mjs",
     "test:workflow-action-custody": "node --test tools/release/workflow_action_ref_custody.test.mjs",
     "workflow:policy:generate": "node tools/maintenance_workflow/generate_policy.mjs",

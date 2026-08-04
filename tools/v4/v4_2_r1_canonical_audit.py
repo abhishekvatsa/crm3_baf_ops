@@ -1286,6 +1286,18 @@ function_fleet_identity_test = text(
 function_fleet_identity_decision = text(
     "docs/v4_2_r1/S01_FUNCTION_FLEET_RUNTIME_IDENTITY_CAMPAIGN.md"
 )
+function_fleet_campaign_collector = text(
+    "tools/release/collectFunctionFleetRuntimeIdentityReadback.js"
+)
+function_fleet_campaign_collector_test = text(
+    "tools/release/collectFunctionFleetRuntimeIdentityReadback.test.mjs"
+)
+function_fleet_campaign_executor = text(
+    "tools/release/Invoke-FunctionFleetRuntimeIdentityCampaign.ps1"
+)
+function_fleet_campaign_executor_test = text(
+    "tools/release/Invoke-FunctionFleetRuntimeIdentityCampaign.test.mjs"
+)
 function_fleet_bindings = function_fleet_identity_policy.get(
     "functionBindings", {}
 )
@@ -1361,6 +1373,63 @@ check(
         record.get("currentStatus") == "OPEN"
         for record in functions_live_finding_records.values()
     ),
+)
+
+check(
+    "S-01 deployment campaign is phased, evidence-bound and rollback-safe",
+    root_package.get("scripts", {}).get(
+        "test:function-fleet-runtime-campaign"
+    )
+        == "node --test tools/release/collectFunctionFleetRuntimeIdentityReadback.test.mjs tools/release/Invoke-FunctionFleetRuntimeIdentityCampaign.test.mjs"
+    and "npm run test:function-fleet-runtime-campaign" in release_gate_source
+    and "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_${label}"
+        in function_fleet_campaign_collector
+    and "schedulerBacklogZero" in function_fleet_campaign_collector
+    and "sourceIsCleanMain" in function_fleet_campaign_collector
+    and "defaultComputeRolesReducedToBuildOnly"
+        in function_fleet_campaign_collector
+    and "unauthenticatedCallableProbesDoNotSucceed"
+        in function_fleet_campaign_collector
+    and 'flag: "wx"' in function_fleet_campaign_collector
+    and all(
+        forbidden not in function_fleet_campaign_collector
+        for forbidden in (
+            "add-iam-policy-binding",
+            "remove-iam-policy-binding",
+            "service-accounts create",
+            "functions deploy",
+            "scheduler jobs run",
+            "firebase deploy",
+        )
+    )
+    and "final phase proves exact fleet, IAM, scheduler and safe callable probes"
+        in function_fleet_campaign_collector_test
+    and "preflight and fleet phases stop on an overdue scheduler backlog"
+        in function_fleet_campaign_collector_test
+    and all(
+        f"'{phase}'" in function_fleet_campaign_executor
+        for phase in (
+            "Preflight",
+            "Provision",
+            "DeployCallables",
+            "DeployEvents",
+            "DeployScheduler",
+            "Finalize",
+            "RestoreEditor",
+        )
+    )
+    and "05-scheduler-preflight.json" in function_fleet_campaign_executor
+    and "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK=false"
+        in function_fleet_campaign_executor
+    and "Default Compute Editor was restored"
+        in function_fleet_campaign_executor
+    and "service-accounts delete" not in function_fleet_campaign_executor
+    and "functions delete" not in function_fleet_campaign_executor
+    and "Editor removal is final, reversible"
+        in function_fleet_campaign_executor_test
+    and "2026-08-04T10:32:19.779Z" in function_fleet_identity_decision
+    and "repeats the same three aggregate counts"
+        in function_fleet_identity_decision,
 )
 
 lr02_receipt_path = ROOT / "release/evidence/lr02-p04-firestore-live-readback.json"
