@@ -188,3 +188,46 @@ if ($object.name -cne 'object') { exit 23 }
   );
   assert.ok(source.includes("ConvertFrom-GcloudJson -Raw $raw"));
 });
+
+test("native stderr is governed by exit code and restores stop mode", () => {
+  const powershell = process.platform === "win32" ? "powershell.exe" : "pwsh";
+  const fixture = `
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+${extractPowerShellFunction("Invoke-ExternalText")}
+$successScript = '[Console]::Error.WriteLine("stderr-success"); exit 0'
+$success = Invoke-ExternalText -FilePath $env:CRM3_TEST_NATIVE_SHELL -Arguments @(
+  '-NoProfile', '-NonInteractive', '-Command', $successScript
+)
+if ($success -notmatch 'stderr-success') { exit 31 }
+if ($ErrorActionPreference -cne 'Stop') { exit 32 }
+$failureScript = '[Console]::Error.WriteLine("stderr-failure"); exit 7'
+$caught = $false
+try {
+  Invoke-ExternalText -FilePath $env:CRM3_TEST_NATIVE_SHELL -Arguments @(
+    '-NoProfile', '-NonInteractive', '-Command', $failureScript
+  ) | Out-Null
+} catch {
+  $caught = $_.Exception.Message -match 'External command failed \\(7\\)' -and
+    $_.Exception.Message -match 'stderr-failure'
+}
+if (-not $caught) { exit 33 }
+if ($ErrorActionPreference -cne 'Stop') { exit 34 }
+`;
+  const result = childProcess.spawnSync(
+    powershell,
+    ["-NoProfile", "-NonInteractive", "-Command", "-"],
+    {
+      input: fixture,
+      encoding: "utf8",
+      env: {...process.env, CRM3_TEST_NATIVE_SHELL: powershell},
+      timeout: 30000,
+      windowsHide: true,
+    },
+  );
+  assert.equal(
+    result.status,
+    0,
+    `PowerShell native-command fixture failed: ${result.error ?? ""}\n${result.stdout}\n${result.stderr}`,
+  );
+});
