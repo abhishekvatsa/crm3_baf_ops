@@ -964,6 +964,54 @@ check(
     and "No key rotation, API restriction mutation" in firebase_key_decision,
 )
 
+firestore_readback_source = text(
+    "tools/release/collectFirestoreRulesIndexesReadback.js"
+)
+firestore_readback_test = text(
+    "tools/release/collectFirestoreRulesIndexesReadback.test.mjs"
+)
+firestore_readback_decision = text(
+    "docs/v4_2_r1/FIRESTORE_RULES_INDEXES_LIVE_READBACK.md"
+)
+check(
+    "Firestore Rules and indexes have a read-only fail-closed live-readback collector",
+    "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK" in firestore_readback_source
+    and "OBSERVE_FIRESTORE_RULES_INDEXES_LIVE_READBACK"
+        in firestore_readback_source
+    and "getProjectDefaultAccount" in firestore_readback_source
+    and "/releases/cloud.firestore" in firestore_readback_source
+    and "collectionGroups/-/indexes" in firestore_readback_source
+    and '"firestore:indexes"' in firestore_readback_source
+    and "sourceCommitMatchesOriginMain" in firestore_readback_source
+    and "governedSourceClean" in firestore_readback_source
+    and "firestoreDocumentsRead: false" in firestore_readback_source
+    and all(
+        forbidden not in firestore_readback_source
+        for forbidden in (
+            ".post(",
+            ".put(",
+            ".patch(",
+            ".delete(",
+            "firebase deploy",
+            "firestore:delete",
+        )
+    )
+    and "Rules byte drift fails closed without retaining Rules content"
+        in firestore_readback_test
+    and "strict readback cannot pass from dirty, detached or stale source"
+        in firestore_readback_test
+    and "collector source contains no production mutation route"
+        in firestore_readback_test
+    and root_package.get("scripts", {}).get(
+        "test:firestore-live-readback-custody"
+    )
+        == "node --test tools/release/collectFirestoreRulesIndexesReadback.test.mjs"
+    and "npm run test:firestore-live-readback-custody" in release_gate_source
+    and "does not close `LR-02` or `P-04` by source assertion"
+        in firestore_readback_decision
+    and "It does not read Firestore documents." in firestore_readback_decision,
+)
+
 firebase_cli_package = data("tooling/firebase-cli/package.json")
 firebase_cli_lock = data("tooling/firebase-cli/package-lock.json")
 firebase_cli_packages = firebase_cli_lock.get("packages", {})

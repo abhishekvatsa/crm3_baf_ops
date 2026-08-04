@@ -248,6 +248,7 @@ jobs:
           npm --prefix tooling/firebase-cli ci --ignore-scripts
           npm run test:dependency-compat
           npm run test:firebase-client-key-custody
+          npm run test:firestore-live-readback-custody
           npm run test:workflow-input-custody
           npm run test:workflow-action-custody
 
