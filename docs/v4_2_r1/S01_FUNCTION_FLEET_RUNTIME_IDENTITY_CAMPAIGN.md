@@ -1,6 +1,6 @@
 # S-01 Function Fleet Runtime Identity Campaign
 
-Status: SOURCE IMPLEMENTED; IAM AND DEPLOYMENT PENDING
+Status: SOURCE AND CAMPAIGN EXECUTOR IMPLEMENTED; IAM AND DEPLOYMENT PENDING
 
 ## Purpose
 
@@ -35,6 +35,12 @@ The last fact is load-bearing. Default Compute must receive
 `roles/cloudbuild.builds.builder` before Editor is removed. It must not remain
 a Function runtime identity after cutover.
 
+A privacy-minimised aggregate read at `2026-08-04T10:32:19.779Z` found zero
+currently overdue lane acknowledgements, compliance acknowledgements, or
+compliance completions. This observation does not authorize the scheduler.
+The executor repeats the same three aggregate counts immediately before the
+scheduler cohort and stops unless the total is still zero.
+
 ## Source control
 
 `functions/src/functionFleetRuntimeIdentity.ts` owns one account ID for each
@@ -55,6 +61,38 @@ The build and test path loads the emitted Function endpoints and proves:
 Firebase Functions logging writes structured entries to stdout or stderr.
 Consequently, runtime accounts do not need `roles/logging.logWriter` merely
 for `firebase-functions/logger` calls.
+
+The strict LR-03/LR-06 policy now contains the expected account for all 14
+exports. Its collector fails acquisition when that binding inventory is
+partial, so post-deployment evidence cannot silently omit a newly dedicated
+identity.
+
+## Governed executor
+
+`tools/release/Invoke-FunctionFleetRuntimeIdentityCampaign.ps1` implements
+the deployment order below as seven explicit phases. Every mutating phase is
+bound to clean `main`, the exact production project and region, a successful
+four-job post-merge release gate, and the sealed receipt from its predecessor.
+
+`tools/release/collectFunctionFleetRuntimeIdentityReadback.js` is the
+adjudicator. Its control-plane and Firestore acquisition is read-only. In the
+post-deployment phases it also sends unauthenticated empty requests to the
+callable endpoints and requires every request to return no data. Its receipts
+retain IAM and runtime identity metadata, aggregate escalation counts,
+scheduler health, and privacy-minimised probe outcomes. They retain no
+Firestore document IDs, business payloads, user identity, or callable response
+body.
+
+The executor:
+
+- creates no project, user, business document, Rule, index, App Check policy,
+  or distribution resource;
+- never deletes a Function or service account;
+- keeps mutating-callable App Check at the governed `false` deployment value;
+- deploys callables, event triggers, and the scheduler as separate cohorts;
+- invokes the scheduler only after a fresh zero-candidate aggregate read;
+- restores Default Compute Editor automatically if final IAM or dependency
+  adjudication fails after removal.
 
 ## Deployment order
 
