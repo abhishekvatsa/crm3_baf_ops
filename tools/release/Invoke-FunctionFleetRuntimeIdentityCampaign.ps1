@@ -73,13 +73,29 @@ function Get-GcloudJson {
   return $raw | ConvertFrom-Json
 }
 
+function Test-IsUnconditionalIamBinding {
+  param([Parameter(Mandatory = $true)][object]$Binding)
+  return (
+    $Binding.PSObject.Properties.Name -notcontains 'condition' -or
+    $null -eq $Binding.condition
+  )
+}
+
+function Test-RequiresCloudRunServiceRole {
+  param([Parameter(Mandatory = $true)][object]$Binding)
+  return (
+    $Binding.PSObject.Properties.Name -contains 'requiredCloudRunServiceRoles' -and
+    $null -ne $Binding.requiredCloudRunServiceRoles
+  )
+}
+
 function Get-ProjectRoles {
   param([Parameter(Mandatory = $true)][string]$Email)
   $policy = Get-GcloudJson -Arguments @(
     'projects', 'get-iam-policy', $ProjectId
   )
   return @($policy.bindings | Where-Object {
-    $_.condition -eq $null -and
+    (Test-IsUnconditionalIamBinding -Binding $_) -and
     @($_.members) -contains "serviceAccount:$Email"
   } | ForEach-Object { [string]$_.role } | Sort-Object -Unique)
 }
@@ -244,7 +260,7 @@ function Ensure-ServiceInvoker {
     @()
   }
   $hasBinding = @($runBindings | Where-Object {
-    $_.condition -eq $null -and
+    (Test-IsUnconditionalIamBinding -Binding $_) -and
     $_.role -eq 'roles/run.invoker' -and
     @($_.members) -contains "serviceAccount:$Email"
   }).Count -gt 0
@@ -402,7 +418,7 @@ switch ($Phase) {
         $role = ([string]$rawRole).Replace('${PROJECT_ID}', $ProjectId)
         Ensure-ProjectRole -Email $email -Role $role
       }
-      if ($null -ne $property.Value.requiredCloudRunServiceRoles) {
+      if (Test-RequiresCloudRunServiceRole -Binding $property.Value) {
         Ensure-ProjectRole -Email $email -Role 'roles/run.invoker'
       }
     }

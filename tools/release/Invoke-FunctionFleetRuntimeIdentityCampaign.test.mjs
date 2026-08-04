@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import childProcess from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -12,6 +13,15 @@ const source = fs.readFileSync(path.join(
   "release",
   "Invoke-FunctionFleetRuntimeIdentityCampaign.ps1",
 ), "utf8");
+
+function extractPowerShellFunction(name) {
+  const match = source.match(new RegExp(
+    `function ${name} \\{[\\s\\S]*?\\r?\\n\\}`,
+    "u",
+  ));
+  assert.ok(match, `missing PowerShell function ${name}`);
+  return match[0];
+}
 
 test("campaign is exact-target, phased and clean-main bound", () => {
   for (const value of [
@@ -106,5 +116,47 @@ test("dependency posture gates removal and every post-removal collector failure 
   assert.ok(restoreEditor > finalDependencyCatch);
   assert.ok(final.includes(
     "Final dependency readback failed; Default Compute Editor was restored.",
+  ));
+});
+
+test("strict-mode helpers accept absent optional IAM and policy fields", () => {
+  const powershell = process.platform === "win32" ? "powershell.exe" : "pwsh";
+  const fixture = `
+Set-StrictMode -Version Latest
+${extractPowerShellFunction("Test-IsUnconditionalIamBinding")}
+${extractPowerShellFunction("Test-RequiresCloudRunServiceRole")}
+$absentCondition = [pscustomobject]@{ role = 'roles/viewer' }
+$nullCondition = [pscustomobject]@{ role = 'roles/viewer'; condition = $null }
+$conditional = [pscustomobject]@{
+  role = 'roles/viewer'
+  condition = [pscustomobject]@{ expression = 'true' }
+}
+$withoutRunRole = [pscustomobject]@{ workloadClass = 'CALLABLE' }
+$withRunRole = [pscustomobject]@{
+  workloadClass = 'EVENT'
+  requiredCloudRunServiceRoles = @('roles/run.invoker')
+}
+if (-not (Test-IsUnconditionalIamBinding -Binding $absentCondition)) { exit 11 }
+if (-not (Test-IsUnconditionalIamBinding -Binding $nullCondition)) { exit 12 }
+if (Test-IsUnconditionalIamBinding -Binding $conditional) { exit 13 }
+if (Test-RequiresCloudRunServiceRole -Binding $withoutRunRole) { exit 14 }
+if (-not (Test-RequiresCloudRunServiceRole -Binding $withRunRole)) { exit 15 }
+`;
+  const result = childProcess.spawnSync(
+    powershell,
+    ["-NoProfile", "-NonInteractive", "-Command", "-"],
+    {input: fixture, encoding: "utf8", timeout: 15000, windowsHide: true},
+  );
+  assert.equal(
+    result.status,
+    0,
+    `PowerShell fixture failed: ${result.error ?? ""}\n${result.stdout}\n${result.stderr}`,
+  );
+  assert.equal(
+    source.match(/Test-IsUnconditionalIamBinding -Binding \$_/gu)?.length,
+    2,
+  );
+  assert.ok(source.includes(
+    "Test-RequiresCloudRunServiceRole -Binding $property.Value",
   ));
 });
