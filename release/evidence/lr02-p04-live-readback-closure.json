@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "LR02-P04-FIRESTORE-LIVE-READBACK-CLOSURE-20260804",
+  "evidenceType": "lr02-p04-firestore-live-readback-closure",
+  "recordIds": [
+    "GATE:LR-02",
+    "FINDING:P-04"
+  ],
+  "authorityType": "LIVE_READBACK",
+  "decision": "PASS_LR02_P04_FIRESTORE_RULES_INDEXES_LIVE_READBACK_CLOSURE",
+  "collectorAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "pullRequest": 130,
+    "headCommit": "8a8525d6080e787aee3480b792411298e6b51cc5",
+    "sourceTree": "e9be9938cba1cf9b7d387f04d8f79614d8a1c627",
+    "mergeCommit": "b6f5838360f46d8f164338164f295b93fe3335ad",
+    "mergeTree": "e9be9938cba1cf9b7d387f04d8f79614d8a1c627",
+    "pullRequestCi": {
+      "runId": 30870605924,
+      "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30870605924",
+      "event": "pull_request",
+      "headSha": "8a8525d6080e787aee3480b792411298e6b51cc5",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Android release APK + AAB packaging proof",
+          "jobId": 91871659231,
+          "conclusion": "success"
+        },
+        {
+          "name": "Cloud Functions build + test",
+          "jobId": 91871659257,
+          "conclusion": "success"
+        },
+        {
+          "name": "Firestore rules + governed transaction emulator",
+          "jobId": 91871659165,
+          "conclusion": "success"
+        },
+        {
+          "name": "Flutter analyze + tests + no-loss spine",
+          "jobId": 91871659195,
+          "conclusion": "success"
+        }
+      ]
+    },
+    "postMergeCi": {
+      "runId": 30871016815,
+      "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30871016815",
+      "event": "push",
+      "headSha": "b6f5838360f46d8f164338164f295b93fe3335ad",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Android release APK + AAB packaging proof",
+          "jobId": 91872866691,
+          "conclusion": "success"
+        },
+        {
+          "name": "Cloud Functions build + test",
+          "jobId": 91872866697,
+          "conclusion": "success"
+        },
+        {
+          "name": "Firestore rules + governed transaction emulator",
+          "jobId": 91872866654,
+          "conclusion": "success"
+        },
+        {
+          "name": "Flutter analyze + tests + no-loss spine",
+          "jobId": 91872866685,
+          "conclusion": "success"
+        }
+      ]
+    }
+  },
+  "liveReceipt": {
+    "path": "release/evidence/lr02-p04-firestore-live-readback.json",
+    "fileSha256": "F2DB0F6491F427636D18E1CC4EF8C95FA03A8B0E738B74E175BF97C8ECC71815",
+    "fileBytes": 4330,
+    "receiptSha256": "9215a3d8a7f8b273a67d2088fc9d3121da5f6be1ae8972d8526e535b05d4fae4",
+    "capturedAtUtc": "2026-08-04T02:19:26.410Z",
+    "sourceCommit": "b6f5838360f46d8f164338164f295b93fe3335ad",
+    "sourceTree": "e9be9938cba1cf9b7d387f04d8f79614d8a1c627",
+    "projectId": "crm3-baf-ops-b8638",
+    "decision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK"
+  },
+  "provedState": {
+    "activeRulesByteExact": true,
+    "activeRulesSha256": "B1B50675EF479CA62E8841DDFF61D4CD7995F1B1C5E8E4A34AD4F2292B18096E",
+    "sourceIndexCount": 51,
+    "cliIndexCount": 51,
+    "apiIndexCount": 51,
+    "readyIndexCount": 51,
+    "indexSetsExact": true,
+    "fieldOverridesExact": true,
+    "fieldOverrideCount": 0
+  },
+  "closureBoundary": {
+    "firestoreRulesDeploymentPerformed": false,
+    "firestoreIndexesDeploymentPerformed": false,
+    "firestoreDocumentReadPerformed": false,
+    "firestoreDocumentWritePerformed": false,
+    "functionsMutationPerformed": false,
+    "iamMutationPerformed": false,
+    "appCheckMutationPerformed": false,
+    "businessDataMutationPerformed": false,
+    "deviceEvidenceClaimed": false,
+    "pilotAuthorizationCreated": false,
+    "distributionAuthorizationCreated": false,
+    "stage2dF4StatusChanged": false
+  },
+  "reArmConditions": [
+    "firestore.rules changes in source",
+    "firestore.indexes.json changes in source",
+    "the active Firebaserules release or deployed index state changes",
+    "the readback collector or its comparison policy changes",
+    "the strict receipt source commit ceases to be the admitted main authority"
+  ]
+}

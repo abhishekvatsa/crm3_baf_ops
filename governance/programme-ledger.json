@@ -768,21 +768,55 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/lr02-p04-firestore-live-readback.json",
+          "sha256": "F2DB0F6491F427636D18E1CC4EF8C95FA03A8B0E738B74E175BF97C8ECC71815",
+          "receiptSha256": "9215a3d8a7f8b273a67d2088fc9d3121da5f6be1ae8972d8526e535b05d4fae4",
+          "decision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+          "authority": "STRICT_CLEAN_MERGED_MAIN_LIVE_READBACK"
+        },
+        {
+          "fileName": "release/evidence/lr02-p04-live-readback-closure.json",
+          "sha256": "E8EBE9289F235C645AB791513F5EE394C3999E95801CFC4198C757FFD647E8C6",
+          "decision": "PASS_LR02_P04_FIRESTORE_RULES_INDEXES_LIVE_READBACK_CLOSURE",
+          "authority": "COLLECTOR_SOURCE_CI_AND_LIVE_RECEIPT_ADJUDICATION"
+        }
+      ],
       "requiredExitEvidence": [
         "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
       ],
-      "reArmTriggers": [],
-      "notes": [],
+      "reArmTriggers": [
+        "firestore.rules changes in source",
+        "firestore.indexes.json changes in source",
+        "the active Firebaserules release or deployed index state changes",
+        "the readback collector or its comparison policy changes",
+        "the strict receipt source commit ceases to be the admitted main authority"
+      ],
+      "notes": [
+        "The strict readback ran from clean main at b6f5838360f46d8f164338164f295b93fe3335ad with HEAD equal to fetched origin/main before and after all live reads.",
+        "Active Rules were byte-exact and source, CLI and API index views agreed at 51 indexes; all 51 API indexes were READY and field overrides were exact at zero.",
+        "The readback performed no Rules/index deployment, Firestore document read/write, Functions, IAM, App Check, business-data, device, distribution or pilot mutation."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep re-audit live-readback appendix"
+        },
+        {
+          "status": "LIVE_READBACK_PROVED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Strict clean-main receipt F2DB0F6491F427636D18E1CC4EF8C95FA03A8B0E738B74E175BF97C8ECC71815 proved byte-exact Rules and exact ready index state."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Closure adjudication E8EBE9289F235C645AB791513F5EE394C3999E95801CFC4198C757FFD647E8C6 binds PR #130 source/CI authority and the strict live receipt."
         }
       ]
     },
@@ -1220,7 +1254,7 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "HIGH",
       "unrestrictedSeverity": "BLOCKER",
@@ -1229,15 +1263,52 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/lr02-p04-firestore-live-readback.json",
+          "sha256": "F2DB0F6491F427636D18E1CC4EF8C95FA03A8B0E738B74E175BF97C8ECC71815",
+          "receiptSha256": "9215a3d8a7f8b273a67d2088fc9d3121da5f6be1ae8972d8526e535b05d4fae4",
+          "decision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+          "authority": "STRICT_CLEAN_MERGED_MAIN_LIVE_READBACK"
+        },
+        {
+          "fileName": "release/evidence/lr02-p04-live-readback-closure.json",
+          "sha256": "E8EBE9289F235C645AB791513F5EE394C3999E95801CFC4198C757FFD647E8C6",
+          "decision": "PASS_LR02_P04_FIRESTORE_RULES_INDEXES_LIVE_READBACK_CLOSURE",
+          "authority": "COLLECTOR_SOURCE_CI_AND_LIVE_RECEIPT_ADJUDICATION"
+        }
+      ],
+      "requiredExitEvidence": [
+        "fresh strict readback from clean merged main",
+        "byte-exact active Firestore Rules",
+        "source, CLI and API index parity with every API index READY"
+      ],
+      "reArmTriggers": [
+        "firestore.rules changes in source",
+        "firestore.indexes.json changes in source",
+        "the active Firebaserules release or deployed index state changes",
+        "the readback collector or its comparison policy changes",
+        "the strict receipt source commit ceases to be the admitted main authority"
+      ],
+      "notes": [
+        "The formerly missing fresh package is now committed as a privacy-safe, canonically sealed strict receipt captured from merged main.",
+        "The closure is live-state evidence only and does not authorize Stage 2D F4 closure, pilot handout or unrestricted distribution."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "LIVE_READBACK_PROVED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Strict clean-main receipt F2DB0F6491F427636D18E1CC4EF8C95FA03A8B0E738B74E175BF97C8ECC71815 supplied the previously missing fresh live package."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Closure adjudication E8EBE9289F235C645AB791513F5EE394C3999E95801CFC4198C757FFD647E8C6 binds the live receipt to exact collector source and CI authority."
         }
       ]
     },

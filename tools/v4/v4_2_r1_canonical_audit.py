@@ -1012,6 +1012,112 @@ check(
     and "It does not read Firestore documents." in firestore_readback_decision,
 )
 
+lr02_receipt_path = ROOT / "release/evidence/lr02-p04-firestore-live-readback.json"
+lr02_closure_path = ROOT / "release/evidence/lr02-p04-live-readback-closure.json"
+lr02_receipt = data("release/evidence/lr02-p04-firestore-live-readback.json")
+lr02_closure = data("release/evidence/lr02-p04-live-readback-closure.json")
+lr02_receipt_body = {
+    key: value for key, value in lr02_receipt.items() if key != "receiptSha256"
+}
+lr02_receipt_seal = hashlib.sha256(
+    json.dumps(
+        lr02_receipt_body,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+).hexdigest()
+lr02_ledger = data("governance/programme-ledger.json")
+lr02_records = [
+    record
+    for record in lr02_ledger.get("programmeGates", [])
+    if record.get("gateId") == "LR-02"
+]
+p04_records = [
+    record
+    for record in lr02_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "P-04"
+]
+lr02_record = lr02_records[0] if len(lr02_records) == 1 else {}
+p04_record = p04_records[0] if len(p04_records) == 1 else {}
+lr02_expected_evidence_hashes = {
+    "F2DB0F6491F427636D18E1CC4EF8C95FA03A8B0E738B74E175BF97C8ECC71815",
+    "E8EBE9289F235C645AB791513F5EE394C3999E95801CFC4198C757FFD647E8C6",
+}
+check(
+    "LR-02 and P-04 close on sealed strict clean-main live evidence",
+    lr02_receipt.get("mode") == "STRICT"
+    and lr02_receipt.get("projectId") == "crm3-baf-ops-b8638"
+    and lr02_receipt.get("decision")
+        == "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK"
+    and lr02_receipt.get("failedChecks") == []
+    and all(lr02_receipt.get("checks", {}).values())
+    and lr02_receipt_seal == lr02_receipt.get("receiptSha256")
+    and lr02_receipt_seal
+        == "9215a3d8a7f8b273a67d2088fc9d3121da5f6be1ae8972d8526e535b05d4fae4"
+    and all(
+        source.get("branch") == "main"
+        and source.get("commit")
+            == "b6f5838360f46d8f164338164f295b93fe3335ad"
+        and source.get("originMain") == source.get("commit")
+        and source.get("governedWorktreeClean") is True
+        and source.get("materialChangeCount") == 0
+        for source in lr02_receipt.get("source", {}).values()
+    )
+    and lr02_receipt.get("outputs", {}).get("rules", {}).get("byteExact") is True
+    and lr02_receipt.get("outputs", {}).get("rules", {}).get("sourceByteCount")
+        == 136651
+    and lr02_receipt.get("outputs", {}).get("indexes", {}).get("sourceCount")
+        == 51
+    and lr02_receipt.get("outputs", {}).get("indexes", {}).get("cliCount")
+        == 51
+    and lr02_receipt.get("outputs", {}).get("indexes", {}).get("apiCount")
+        == 51
+    and lr02_receipt.get("outputs", {}).get("indexes", {}).get("apiReadyCount")
+        == 51
+    and lr02_receipt.get("outputs", {}).get("indexes", {}).get(
+        "fieldOverridesMatchSource"
+    ) is True
+    and all(value is False for value in lr02_receipt.get("mutationBoundary", {}).values())
+    and lr02_closure.get("decision")
+        == "PASS_LR02_P04_FIRESTORE_RULES_INDEXES_LIVE_READBACK_CLOSURE"
+    and lr02_closure.get("collectorAuthority", {}).get("pullRequest") == 130
+    and lr02_closure.get("collectorAuthority", {}).get("sourceTree")
+        == lr02_closure.get("collectorAuthority", {}).get("mergeTree")
+    and lr02_closure.get("collectorAuthority", {}).get("pullRequestCi", {}).get(
+        "runId"
+    ) == 30870605924
+    and lr02_closure.get("collectorAuthority", {}).get("pullRequestCi", {}).get(
+        "conclusion"
+    ) == "success"
+    and lr02_closure.get("collectorAuthority", {}).get("postMergeCi", {}).get(
+        "runId"
+    ) == 30871016815
+    and lr02_closure.get("collectorAuthority", {}).get("postMergeCi", {}).get(
+        "conclusion"
+    ) == "success"
+    and sha(lr02_receipt_path)
+        == lr02_closure.get("liveReceipt", {}).get("fileSha256")
+    and lr02_receipt_path.stat().st_size
+        == lr02_closure.get("liveReceipt", {}).get("fileBytes")
+    and sha(lr02_closure_path)
+        == "E8EBE9289F235C645AB791513F5EE394C3999E95801CFC4198C757FFD647E8C6"
+    and all(
+        record.get("authorityType") == "LIVE_READBACK"
+        and record.get("currentStatus") == "CLOSED"
+        and [entry.get("status") for entry in record.get("statusHistory", [])]
+            == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"]
+        and {entry.get("sha256") for entry in record.get("evidence", [])}
+            == lr02_expected_evidence_hashes
+        and len(record.get("reArmTriggers", [])) == 5
+        for record in (lr02_record, p04_record)
+    )
+    and lr02_record.get("authorization") == "CLOSED_PASS"
+    and "Status: **CLOSED** for `LR-02` and `P-04`" in firestore_readback_decision
+    and "STAGE2D-F4` remains open" in firestore_readback_decision
+    and (ROOT / "test/lr02_p04_live_readback_closure_contract_test.dart").is_file(),
+)
+
 firebase_cli_package = data("tooling/firebase-cli/package.json")
 firebase_cli_lock = data("tooling/firebase-cli/package-lock.json")
 firebase_cli_packages = firebase_cli_lock.get("packages", {})
