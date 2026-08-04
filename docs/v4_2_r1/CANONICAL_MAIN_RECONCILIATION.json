@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 265,
-    "SUCCESSOR_MODIFIED": 145
+    "BYTE_IDENTICAL": 264,
+    "SUCCESSOR_MODIFIED": 146
   },
   "paths": [
     {
@@ -145,10 +145,10 @@
     {
       "path": "android/app/build.gradle.kts",
       "canonicalSha256": "5B04387D1042C0770E38315702F2A86B7DDA8C09D06987C98218A4B37A5A1A19",
-      "candidateSha256": "5B04387D1042C0770E38315702F2A86B7DDA8C09D06987C98218A4B37A5A1A19",
+      "candidateSha256": "AE97C674371C5E71DE598B646207DB84692993591BFCD4E8CA2FA0CB97FD6334",
       "canonicalBytes": 2536,
-      "candidateBytes": 2536,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 2687,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "android/app/src/debug/AndroidManifest.xml",

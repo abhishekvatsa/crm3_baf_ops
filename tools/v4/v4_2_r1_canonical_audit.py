@@ -352,20 +352,19 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 265
-    and counts.get("SUCCESSOR_MODIFIED") == 145
+    and counts.get("BYTE_IDENTICAL") == 264
+    and counts.get("SUCCESSOR_MODIFIED") == 146
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
 
 critical_exact = {
-    "android/app/build.gradle.kts",
     "android/settings.gradle.kts",
     "release/stage2d-f-internal-controlled-deployment-scope.json",
 }
 row_map = {row["path"]: row for row in rows}
 check(
-    "Android and immutable release authorities remain byte-identical",
+    "Android settings and immutable release authorities remain byte-identical",
     all(
         row_map.get(path, {}).get("disposition") == "BYTE_IDENTICAL"
         for path in critical_exact
@@ -391,6 +390,10 @@ c03_package_script = text(
 )
 c03_package_test = text("test/c03_android_packaging_ci_contract_test.dart")
 c03_package_decision = text("docs/v4_2_r1/C03_ANDROID_PR_PACKAGING.md")
+c06_android_build = text("android/app/build.gradle.kts")
+c06_proguard_rules = text("android/app/proguard-rules.pro")
+c06_contract_test = text("test/c06_android_release_shrinking_contract_test.dart")
+c06_decision = text("docs/v4_2_r1/C06_ANDROID_RELEASE_SHRINKING.md")
 c03_job_start = release_gate_source.find("\n  android-package:")
 c03_job_end = release_gate_source.find("\n  firestore-rules:", c03_job_start + 1)
 c03_job_source = (
@@ -411,7 +414,9 @@ check(
     and "upload-artifact" not in c03_job_source
     and "CI packaging proof refuses pre-existing signing input"
         in c03_package_script
-    and "RandomNumberGenerator]::GetBytes(24)" in c03_package_script
+    and "RandomNumberGenerator]::Create()" in c03_package_script
+    and "$generator.GetBytes($bytes)" in c03_package_script
+    and "New-Object byte[] 24" in c03_package_script
     and "'appbundle'" in c03_package_script
     and "'apk'" in c03_package_script
     and "'--release'" in c03_package_script
@@ -427,6 +432,34 @@ check(
     and "Status: CLOSED" in c03_package_decision
     and "PASS_C03_ANDROID_PR_PACKAGING_SOURCE_AND_CI_CLOSURE"
         in c03_package_decision,
+)
+check(
+    "C-06 Android release shrinking is enabled and continuously package-proved",
+    row_map.get("android/app/build.gradle.kts", {}).get("disposition")
+        == "SUCCESSOR_MODIFIED"
+    and "isMinifyEnabled = true" in c06_android_build
+    and "isShrinkResources = true" in c06_android_build
+    and "proguard-android-optimize.txt" in c06_android_build
+    and '"proguard-rules.pro"' in c06_android_build
+    and "isMinifyEnabled = false" not in c06_android_build
+    and "isShrinkResources = false" not in c06_android_build
+    and "-dontshrink" not in c06_proguard_rules.lower()
+    and "-dontoptimize" not in c06_proguard_rules.lower()
+    and "-dontobfuscate" not in c06_proguard_rules.lower()
+    and "-keep class **" not in c06_proguard_rules.lower()
+    and "outputs/mapping/release/mapping.txt" in c03_package_script
+    and "outputs/mapping/release/resources.txt" in c03_package_script
+    and "Expected release-shrinking evidence was not created"
+        in c03_package_script
+    and "Release-shrinking evidence is empty" in c03_package_script
+    and "PASS_C06_ANDROID_RELEASE_SHRINKING_PROOF" in c03_package_script
+    and "r8MappingSha256=" in c03_package_script
+    and "resourceShrinkReportSha256=" in c03_package_script
+    and "package proof requires fresh nonempty shrinking evidence"
+        in c06_contract_test
+    and "Status: SOURCE CANDIDATE" in c06_decision
+    and "does not transfer its device evidence to a later build"
+        in c06_decision,
 )
 c03_closure_records = [
     record
