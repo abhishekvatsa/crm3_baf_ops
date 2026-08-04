@@ -52,6 +52,9 @@ the versions of the policy's bounded package set.
 The collector cannot deploy or invoke a Function, change IAM, create or delete
 a service account, alter a Cloud Storage object, or read Firestore business
 data. Its local evidence output must be a new file outside the repository.
+On Windows, the governed `gcloud.cmd` path is resolved to the Cloud SDK's
+bundled Python and `lib/gcloud.py` entrypoint. Arguments remain discrete process
+arguments; no command shell is introduced.
 
 ## Governed Execution
 

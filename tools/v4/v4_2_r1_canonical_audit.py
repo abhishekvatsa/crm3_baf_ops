@@ -1105,6 +1105,9 @@ check(
     and "discoverFunctionExports" in functions_live_readback_source
     and "sourceExportInventoryMatchesPolicy"
         in functions_live_readback_source
+    and "resolveCommand" in functions_live_readback_source
+    and 'platformPath.join(sdkRoot, "lib", "gcloud.py")'
+        in functions_live_readback_source
     and "sourceProvenance?.resolvedStorageSource"
         in functions_live_readback_source
     and "--if-generation-match=" in functions_live_readback_source
@@ -1124,6 +1127,8 @@ check(
             '"projects", "add-iam-policy-binding"',
             '"projects", "remove-iam-policy-binding"',
             "firebase deploy",
+            "shell: true",
+            "cmd.exe",
         )
     )
     and "adverse posture does not corrupt a valid live-readback acquisition"
@@ -1131,6 +1136,8 @@ check(
     and "AST discovery binds the policy to all current Function exports"
         in functions_live_readback_test
     and "IAM evidence retains only deployed runtime service accounts"
+        in functions_live_readback_test
+    and "Windows gcloud uses the bundled Python entrypoint without a shell"
         in functions_live_readback_test
     and "collector source contains no production mutation command"
         in functions_live_readback_test

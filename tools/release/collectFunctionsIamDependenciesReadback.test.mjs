@@ -13,6 +13,7 @@ const {
   discoverFunctionExports,
   normalizeFunctionDescriptor,
   parseArgs,
+  resolveCommand,
   summarizeIam,
   summarizePackageState,
 } = require("./collectFunctionsIamDependenciesReadback.js");
@@ -406,6 +407,27 @@ test("arguments are exact-target and append-only output is explicit", () => {
   );
 });
 
+test("Windows gcloud uses the bundled Python entrypoint without a shell", () => {
+  const resolved = resolveCommand(
+    "C:\\Cloud SDK\\google-cloud-sdk\\bin\\gcloud.cmd",
+    ["functions", "list", "--format=json"],
+    "win32",
+  );
+  assert.equal(
+    resolved.command,
+    "C:\\Cloud SDK\\google-cloud-sdk\\platform\\bundledpython\\python.exe",
+  );
+  assert.deepEqual(resolved.args, [
+    "-S",
+    "C:\\Cloud SDK\\google-cloud-sdk\\lib\\gcloud.py",
+    "functions",
+    "list",
+    "--format=json",
+  ]);
+  assert.equal(resolved.environment.CLOUDSDK_ROOT_DIR, "C:\\Cloud SDK\\google-cloud-sdk");
+  assert.equal(resolved.environment.PYTHONHOME, "");
+});
+
 test("collector source contains no production mutation command", () => {
   const source = fs.readFileSync(
     path.join(
@@ -422,6 +444,8 @@ test("collector source contains no production mutation command", () => {
     '"iam", "service-accounts", "create"',
     '"iam", "service-accounts", "delete"',
     "firebase deploy",
+    "shell: true",
+    "cmd.exe",
   ]) {
     assert.equal(source.includes(forbidden), false, forbidden);
   }
@@ -429,4 +453,5 @@ test("collector source contains no production mutation command", () => {
   assert.ok(source.includes('"projects", "get-iam-policy"'));
   assert.ok(source.includes('"storage",\n      "cp"'));
   assert.ok(source.includes("--if-generation-match="));
+  assert.ok(source.includes('platformPath.join(sdkRoot, "lib", "gcloud.py")'));
 });
