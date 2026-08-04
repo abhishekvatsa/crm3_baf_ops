@@ -826,6 +826,144 @@ check(
     + (f" paths={implicit_text_io[:5]}" if implicit_text_io else ""),
 )
 
+firebase_key_policy = data("release/firebase-client-api-key-policy.json")
+firebase_key_source_audit = text(
+    "tools/security/firebase_client_api_key_custody.cjs"
+)
+firebase_key_source_test = text(
+    "tools/security/firebase_client_api_key_custody.test.mjs"
+)
+firebase_key_readback = text(
+    "tools/security/collect_firebase_client_api_key_readback.cjs"
+)
+firebase_key_readback_test = text(
+    "tools/security/collect_firebase_client_api_key_readback.test.mjs"
+)
+firebase_key_security_policy = text("SECURITY.md")
+firebase_key_decision = text(
+    "docs/v4_2_r1/FIREBASE_CLIENT_API_KEY_CUSTODY.md"
+)
+root_package = data("package.json")
+firebase_key_source_policy = firebase_key_policy.get("sourceCustody", {})
+firebase_key_live_policy = firebase_key_policy.get("liveReadback", {})
+firebase_key_expected_keys = firebase_key_live_policy.get("expectedKeys", [])
+firebase_key_expected_targets = firebase_key_live_policy.get(
+    "expectedApiTargets", []
+)
+firebase_key_approved_targets = [
+    "cloudconfig.googleapis.com",
+    "datastore.googleapis.com",
+    "fcmregistrations.googleapis.com",
+    "firebase.googleapis.com",
+    "firebaseappcheck.googleapis.com",
+    "firebaseappdistribution.googleapis.com",
+    "firebaseapphosting.googleapis.com",
+    "firebaseapptesters.googleapis.com",
+    "firebasedatabase.googleapis.com",
+    "firebasedataconnect.googleapis.com",
+    "firebasehosting.googleapis.com",
+    "firebaseinappmessaging.googleapis.com",
+    "firebaseinstallations.googleapis.com",
+    "firebaseml.googleapis.com",
+    "firebaseremoteconfig.googleapis.com",
+    "firebaseremoteconfigrealtime.googleapis.com",
+    "firebaserules.googleapis.com",
+    "firebasestorage.googleapis.com",
+    "firebasevertexai.googleapis.com",
+    "firestore.googleapis.com",
+    "fpnv.googleapis.com",
+    "identitytoolkit.googleapis.com",
+    "logging.googleapis.com",
+    "mlkit.googleapis.com",
+    "play.googleapis.com",
+    "securetoken.googleapis.com",
+    "sqladmin.googleapis.com",
+]
+check(
+    "Firebase client API keys are source-custodied and live-restriction bound",
+    firebase_key_policy.get("schemaVersion") == 1
+    and firebase_key_policy.get("firebaseProjectId") == "crm3-baf-ops-b8638"
+    and firebase_key_policy.get("projectNumber") == "894346496105"
+    and firebase_key_source_policy.get("allowedTrackedPaths")
+        == [
+            "android/app/google-services.json",
+            "lib/firebase_options.dart",
+        ]
+    and firebase_key_source_policy.get("expectedDistinctKeyCount") == 3
+    and firebase_key_source_policy.get("firebaseOptionsOccurrenceCount") == 5
+    and firebase_key_source_policy.get("googleServicesOccurrenceCount") == 2
+    and firebase_key_source_policy.get("googleServicesDistinctKeyCount") == 1
+    and sorted(
+        key.get("displayName")
+        for key in firebase_key_expected_keys
+        if isinstance(key, dict)
+    )
+        == [
+            "Android key (auto created by Firebase)",
+            "Browser key (auto created by Firebase)",
+            "iOS key (auto created by Firebase)",
+        ]
+    and sorted(
+        restriction.get("type")
+        for key in firebase_key_expected_keys
+        if isinstance(key, dict)
+        for restriction in key.get("applicationRestrictions", [])
+        if isinstance(restriction, dict)
+    ) == ["android", "browser", "ios"]
+    and all(
+        restriction.get("entryCount") == 0
+        for key in firebase_key_expected_keys
+        if isinstance(key, dict)
+        for restriction in key.get("applicationRestrictions", [])
+        if isinstance(restriction, dict)
+    )
+    and all(
+        restriction.get("valueSha256")
+            == "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A"
+        for key in firebase_key_expected_keys
+        if isinstance(key, dict)
+        for restriction in key.get("applicationRestrictions", [])
+        if isinstance(restriction, dict)
+    )
+    and firebase_key_expected_targets == firebase_key_approved_targets
+    and "generativelanguage.googleapis.com"
+        not in firebase_key_expected_targets
+    and firebase_key_live_policy.get("forbiddenApiTargets")
+        == ["generativelanguage.googleapis.com"]
+    and not (ROOT / "tools/direct_completion_denial_check.html").exists()
+    and not (ROOT / "tools/direct_completion_denial_check.mjs").exists()
+    and "PASS_FIREBASE_CLIENT_API_KEY_SOURCE_CUSTODY"
+        in firebase_key_source_audit
+    and "keyPathsExact" in firebase_key_source_audit
+    and "androidKeysBoundToFlutterOptions" in firebase_key_source_audit
+    and "rawKeyValuesEmitted: false" in firebase_key_source_audit
+    and "a key copied into any additional tracked file fails closed"
+        in firebase_key_source_test
+    and "PASS_FIREBASE_CLIENT_API_KEY_LIVE_CUSTODY"
+        in firebase_key_readback
+    and "OBSERVE_FIREBASE_CLIENT_API_KEY_LIVE_CUSTODY"
+        in firebase_key_readback
+    and "getProjectDefaultAccount" in firebase_key_readback
+    and "/keyString" in firebase_key_readback
+    and "governedSourceClean" in firebase_key_readback
+    and "rawKeyValuesRetained: false" in firebase_key_readback
+    and "a non-Firebase target or changed application restriction fails closed"
+        in firebase_key_readback_test
+    and "strict readback cannot pass from a materially dirty source tree"
+        in firebase_key_readback_test
+    and root_package.get("scripts", {}).get(
+        "test:firebase-client-key-custody"
+    )
+        == "node --test tools/security/firebase_client_api_key_custody.test.mjs tools/security/collect_firebase_client_api_key_readback.test.mjs && node tools/security/firebase_client_api_key_custody.cjs"
+    and "npm run test:firebase-client-key-custody" in release_gate_source
+    and "https://firebase.google.com/docs/projects/api-keys"
+        in firebase_key_security_policy
+    and "App Check is a separate anti-abuse control"
+        in firebase_key_security_policy
+    and "each with zero entries" in firebase_key_decision
+    and "No key rotation, API restriction mutation" in firebase_key_decision,
+)
+
 firebase_cli_package = data("tooling/firebase-cli/package.json")
 firebase_cli_lock = data("tooling/firebase-cli/package-lock.json")
 firebase_cli_packages = firebase_cli_lock.get("packages", {})

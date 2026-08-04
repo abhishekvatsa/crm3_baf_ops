@@ -105,9 +105,9 @@
     {
       "path": ".github/workflows/release-gate.yml",
       "canonicalSha256": "CE3A2B57B0A19DAC48F25587EAFFD8D3C0D57F00ECDE41703E10DECD31FC0561",
-      "candidateSha256": "D5097645E99666CFBBF94A646DDBBD519A0A5B88D9FD1BDFD8020D91BEE019F5",
+      "candidateSha256": "29C669C519567228645CE0FE9F987DD410DF391C59736266ECAFE209BFBF2E95",
       "canonicalBytes": 8984,
-      "candidateBytes": 10722,
+      "candidateBytes": 10773,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2433,9 +2433,9 @@
     {
       "path": "package.json",
       "canonicalSha256": "FA45934BAA0695024EA92A790D86B57D5B172788D855B610EB1163374FF4EC30",
-      "candidateSha256": "80D3F1A9F02E181D5877B8055815952FD404D416B3D5EE4E89A3F97DA1D5646D",
+      "candidateSha256": "8AB5ADA4180D62961AB618D96CC0A3E9937B56D252DF589A90101B9633D20C56",
       "canonicalBytes": 1103,
-      "candidateBytes": 3070,
+      "candidateBytes": 3305,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
