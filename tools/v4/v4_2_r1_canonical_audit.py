@@ -1336,6 +1336,7 @@ check(
         "role catalogue is identical across policy, Rules, Functions, and Dart",
         "HMAC pseudonyms are stable, namespaced, and omit raw identity data",
         "production reads require exact source, project, coverage, and custody",
+        "source custody ignores only bounded untracked operational paths",
         "classifier source contains no Firebase or Firestore mutation API",
         "Auth population, disabled approval, and custom claims fail closed",
         "duplicate canonical roles are a non-blocking data-quality warning",

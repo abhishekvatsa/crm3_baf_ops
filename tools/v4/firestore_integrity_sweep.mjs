@@ -16,6 +16,11 @@ import {fileURLToPath} from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const PRODUCTION_PROJECT = 'crm3-baf-ops-b8638';
 const DEFAULT_HMAC_KEY_ENV = 'CRM3_GATE1B_HMAC_KEY';
+const IGNORED_UNTRACKED_WORKTREE_PREFIXES = Object.freeze([
+  '.claude/',
+  'output/',
+  'tmp/',
+]);
 const POLICY_PATH = path.join(
   ROOT,
   'governance',
@@ -859,7 +864,19 @@ export function readGitSourceAuthority(root = ROOT) {
       return null;
     }
   };
-  const status = git('status', '--porcelain', '--untracked-files=all');
+  const statusLines = git('status', '--porcelain=v1', '--untracked-files=all')
+    .split(/\r?\n/)
+    .filter(Boolean);
+  const materialChanges = statusLines.filter((line) => {
+    const statusCode = line.slice(0, 2);
+    const relativePath = line.slice(3).trim().replaceAll('\\', '/');
+    return !(
+      statusCode === '??' &&
+      IGNORED_UNTRACKED_WORKTREE_PREFIXES.some(
+        (prefix) => relativePath.startsWith(prefix),
+      )
+    );
+  });
   return {
     commit: git('rev-parse', 'HEAD'),
     tree: git('rev-parse', 'HEAD^{tree}'),
@@ -869,7 +886,14 @@ export function readGitSourceAuthority(root = ROOT) {
       '--verify',
       'refs/remotes/origin/main',
     ),
-    cleanWorktree: status.length === 0,
+    cleanWorktree: materialChanges.length === 0,
+    materialChangeCount: materialChanges.length,
+    materialPathSha256: materialChanges.map((line) =>
+      createHash('sha256')
+        .update(line.slice(3).trim().replaceAll('\\', '/'), 'utf8')
+        .digest('hex'),
+    ),
+    ignoredUntrackedChangeCount: statusLines.length - materialChanges.length,
   };
 }
 

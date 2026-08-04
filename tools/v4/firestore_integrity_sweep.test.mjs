@@ -395,6 +395,56 @@ test('non-production source capture tolerates an absent origin/main ref', () => 
   }
 });
 
+test('source custody ignores only bounded untracked operational paths', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'crm3-gate1b-git-'));
+  const git = (...args) => execFileSync(
+    'git',
+    ['-C', directory, ...args],
+    {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']},
+  );
+  try {
+    git('init', '-b', 'main');
+    git('config', 'user.name', 'Gate 1B Test');
+    git('config', 'user.email', 'gate1b@example.invalid');
+    fs.writeFileSync(path.join(directory, 'source.txt'), 'source\n', 'utf8');
+    git('add', 'source.txt');
+    git('commit', '-m', 'test source');
+
+    for (const relativePath of [
+      '.claude/session.json',
+      'output/local.log',
+      'tmp/scratch.txt',
+    ]) {
+      const absolutePath = path.join(directory, relativePath);
+      fs.mkdirSync(path.dirname(absolutePath), {recursive: true});
+      fs.writeFileSync(absolutePath, 'local-only\n', 'utf8');
+    }
+
+    let source = readGitSourceAuthority(directory);
+    assert.equal(source.cleanWorktree, true);
+    assert.equal(source.materialChangeCount, 0);
+    assert.equal(source.ignoredUntrackedChangeCount, 3);
+
+    fs.writeFileSync(path.join(directory, 'material.txt'), 'material\n', 'utf8');
+    source = readGitSourceAuthority(directory);
+    assert.equal(source.cleanWorktree, false);
+    assert.equal(source.materialChangeCount, 1);
+    assert.equal(source.materialPathSha256.length, 1);
+    fs.unlinkSync(path.join(directory, 'material.txt'));
+
+    const trackedOutput = path.join(directory, 'output', 'tracked.txt');
+    fs.writeFileSync(trackedOutput, 'tracked\n', 'utf8');
+    git('add', '-f', 'output/tracked.txt');
+    git('commit', '-m', 'track output fixture');
+    fs.writeFileSync(trackedOutput, 'modified\n', 'utf8');
+    source = readGitSourceAuthority(directory);
+    assert.equal(source.cleanWorktree, false);
+    assert.equal(source.materialChangeCount, 1);
+  } finally {
+    fs.rmSync(directory, {recursive: true, force: true});
+  }
+});
+
 test('CLI rejects mutation-like and unknown arguments', () => {
   assert.throws(() => parseArgs(['--repair']), /Unknown argument/);
   assert.throws(() => parseArgs(['--project']), /requires a value/);

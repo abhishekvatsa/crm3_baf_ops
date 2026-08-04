@@ -115,6 +115,11 @@ the absence of emulator hosts. The checked-out branch must be `main`, and its
 HEAD must equal the locally fetched `origin/main` reference. Ambient
 Google/Firebase project IDs may not disagree with the production project.
 
+Local untracked files under `.claude/`, `output/`, and `tmp/` are excluded from
+the governed source-cleanliness decision. The exclusion applies only to
+untracked entries. A tracked modification under any of those paths, or any
+other tracked or untracked source change, fails custody before cloud access.
+
 ## Governed invocation template
 
 This template is documentation, not authorization to execute it:
