@@ -53,7 +53,9 @@ void main() {
         script,
         contains('CI packaging proof refuses pre-existing signing input'),
       );
-      expect(script, contains('RandomNumberGenerator]::GetBytes(24)'));
+      expect(script, contains('RandomNumberGenerator]::Create()'));
+      expect(script, contains(r'$generator.GetBytes($bytes)'));
+      expect(script, contains(r"New-Object byte[] 24"));
       expect(script, contains("'-genkeypair'"));
       expect(script, contains("'PKCS12'"));
       expect(script, contains("'crm3-ci-package-proof'"));

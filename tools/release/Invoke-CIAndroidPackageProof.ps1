@@ -53,6 +53,19 @@ function Get-CommandPath {
   $command.Source
 }
 
+function New-CryptographicPassword {
+  [byte[]]$bytes = New-Object byte[] 24
+  $generator = [Security.Cryptography.RandomNumberGenerator]::Create()
+  try {
+    $generator.GetBytes($bytes)
+  }
+  finally {
+    $generator.Dispose()
+  }
+
+  -join ($bytes | ForEach-Object { $_.ToString('X2') })
+}
+
 function Get-AndroidSdkRoot {
   $runningOnWindows = (
     [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
@@ -192,13 +205,20 @@ $apksigner = Get-LatestBuildTool `
   -AndroidSdkRoot $androidSdkRoot `
   -ToolName 'apksigner'
 $apkanalyzer = Get-ApkAnalyzer -AndroidSdkRoot $androidSdkRoot
+$r8MappingPath = Join-Path `
+  $root `
+  'build/app/outputs/mapping/release/mapping.txt'
+$resourceShrinkReportPath = Join-Path `
+  $root `
+  'build/app/outputs/mapping/release/resources.txt'
+foreach ($path in @($r8MappingPath, $resourceShrinkReportPath)) {
+  Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+}
 
 $temporaryStore = Join-Path (
   [IO.Path]::GetTempPath()
 ) "crm3-ci-package-proof-$([guid]::NewGuid().ToString('N')).p12"
-$temporaryPassword = [Convert]::ToHexString(
-  [Security.Cryptography.RandomNumberGenerator]::GetBytes(24)
-)
+$temporaryPassword = New-CryptographicPassword
 $temporaryAlias = 'crm3-ci-package-proof'
 $env:CRM_CI_PACKAGE_STORE_PASSWORD = $temporaryPassword
 
@@ -284,6 +304,14 @@ try {
       throw "Android package is empty: $path"
     }
   }
+  foreach ($path in @($r8MappingPath, $resourceShrinkReportPath)) {
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+      throw "Expected release-shrinking evidence was not created: $path"
+    }
+    if ((Get-Item -LiteralPath $path).Length -le 0) {
+      throw "Release-shrinking evidence is empty: $path"
+    }
+  }
 
   $apkSignerOutput = @(
     Invoke-Captured `
@@ -349,13 +377,22 @@ try {
   $aabSha256 = (
     Get-FileHash -LiteralPath $aabPath -Algorithm SHA256
   ).Hash.ToUpperInvariant()
+  $r8MappingSha256 = (
+    Get-FileHash -LiteralPath $r8MappingPath -Algorithm SHA256
+  ).Hash.ToUpperInvariant()
+  $resourceShrinkReportSha256 = (
+    Get-FileHash -LiteralPath $resourceShrinkReportPath -Algorithm SHA256
+  ).Hash.ToUpperInvariant()
 
   Write-Output 'PASS_C03_ANDROID_RELEASE_PACKAGING_PROOF'
+  Write-Output 'PASS_C06_ANDROID_RELEASE_SHRINKING_PROOF'
   Write-Output "applicationId=$applicationId"
   Write-Output "buildName=$BuildName"
   Write-Output "buildNumber=$BuildNumber"
   Write-Output "apkSha256=$apkSha256"
   Write-Output "aabSha256=$aabSha256"
+  Write-Output "r8MappingSha256=$r8MappingSha256"
+  Write-Output "resourceShrinkReportSha256=$resourceShrinkReportSha256"
   Write-Output "ciCertificateSha256=$ciCertificateSha256"
   Write-Output 'productionCertificateUsed=false'
   Write-Output 'productionSecretsReferenced=false'
