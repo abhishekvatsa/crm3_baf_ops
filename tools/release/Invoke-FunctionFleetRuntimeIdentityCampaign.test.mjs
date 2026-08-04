@@ -82,3 +82,29 @@ test("final phase requires both exact IAM and generation-pinned dependency postu
   assert.ok(source.includes("collectFunctionsIamDependenciesReadback.js"));
   assert.ok(source.includes("PASS_RUNTIME_IDENTITY_DEPENDENCY_POSTURE"));
 });
+
+test("dependency posture gates removal and every post-removal collector failure restores Editor", () => {
+  const final = source.slice(source.indexOf("  'Finalize' {"));
+  const preFinalDecision = final.indexOf("$preFinalDependencies.posture.decision");
+  const removeEditor = final.indexOf(
+    "Remove-ProjectRole -Email $defaultCompute -Role 'roles/editor'",
+  );
+  const finalReadbackCatch = final.indexOf("    } catch {", removeEditor);
+  const finalDependencyTry = final.indexOf("    try {", finalReadbackCatch);
+  const finalCollector = final.indexOf("$finalDependenciesPath", finalDependencyTry);
+  const finalDependencyCatch = final.indexOf("    } catch {", finalCollector);
+  const restoreEditor = final.indexOf(
+    "Ensure-ProjectRole -Email $defaultCompute -Role 'roles/editor'",
+    finalDependencyCatch,
+  );
+  assert.ok(preFinalDecision >= 0);
+  assert.ok(removeEditor > preFinalDecision);
+  assert.ok(finalReadbackCatch > removeEditor);
+  assert.ok(finalDependencyTry > finalReadbackCatch);
+  assert.ok(finalCollector > finalDependencyTry);
+  assert.ok(finalDependencyCatch > finalCollector);
+  assert.ok(restoreEditor > finalDependencyCatch);
+  assert.ok(final.includes(
+    "Final dependency readback failed; Default Compute Editor was restored.",
+  ));
+});
