@@ -249,6 +249,7 @@ jobs:
           npm run test:dependency-compat
           npm run test:firebase-client-key-custody
           npm run test:firestore-live-readback-custody
+          npm run test:functions-live-readback-custody
           npm run test:workflow-input-custody
           npm run test:workflow-action-custody
 

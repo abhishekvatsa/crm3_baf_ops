@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "policyId": "LR03-LR06-FUNCTIONS-LIVE-READBACK-POLICY-V1",
+  "collectorStatus": "SOURCE_IMPLEMENTED_PENDING_MERGE_CI_AND_LIVE_EXECUTION",
+  "productionProjectId": "crm3-baf-ops-b8638",
+  "productionRegion": "asia-south1",
+  "gateIds": [
+    "LR-03",
+    "LR-06"
+  ],
+  "sourceFunctionExports": [
+    "assignPublishedTemplateVersion",
+    "beginGlobalPullRun",
+    "completePlannedJobExecution",
+    "executeMaintenanceWorkflowCommand",
+    "getBackendReleaseIdentity",
+    "maintenanceWorkflowEscalationSweep",
+    "mutateChargeAbnormality",
+    "mutateRuntimeJobModulePopulation",
+    "mutateUserAuthority",
+    "onJobAssigned",
+    "onMaintenanceWorkflowEventCreated",
+    "onTicketCreated",
+    "onTicketResolved",
+    "stampGlobalPullServerClock"
+  ],
+  "sourceDeclaredRuntimeBindings": {
+    "beginGlobalPullRun": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "getBackendReleaseIdentity": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "stampGlobalPullServerClock": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com"
+  },
+  "forbiddenBroadProjectRoles": [
+    "roles/editor",
+    "roles/owner"
+  ],
+  "trackedRuntimePackages": [
+    "@grpc/grpc-js",
+    "brace-expansion",
+    "firebase-admin",
+    "firebase-functions",
+    "form-data",
+    "js-yaml",
+    "protobufjs",
+    "tar"
+  ],
+  "acquisitionRequirements": [
+    "strict execution is bound to a clean main commit equal to origin/main before and after collection",
+    "the complete Functions export inventory is AST-discovered from functions/src/index.ts and exactly matches this policy",
+    "every deployed Gen2 Function has an ACTIVE state, runtime identity and generation-pinned source archive",
+    "every generation-pinned archive yields valid package.json and package-lock.json dependency summaries",
+    "project IAM is reduced in memory to only deployed runtime service-account grants",
+    "the receipt is canonically sealed and written append-only outside the repository"
+  ],
+  "postureSemantics": {
+    "collectionPassMayContainAdversePosture": true,
+    "functionFleetMismatchClosesUnderlyingFinding": false,
+    "defaultComputeEditorClosesUnderlyingFinding": false,
+    "deployedDependencyDriftClosesUnderlyingFinding": false,
+    "advisoryAssessmentDerivedFromVersionsAlone": false
+  },
+  "mutationBoundary": {
+    "functionsDeployed": false,
+    "functionsInvoked": false,
+    "iamMutated": false,
+    "serviceAccountsCreatedOrDeleted": false,
+    "storageObjectsMutated": false,
+    "firestoreReadOrWritePerformed": false,
+    "businessDataReadOrWritten": false
+  },
+  "privacyBoundary": {
+    "operatorAccountIdentityRetained": false,
+    "userOrBusinessDocumentsRead": false,
+    "functionEnvironmentVariablesRetained": false,
+    "sourceArchiveContentRetained": false,
+    "packageManifestOrLockfileContentRetained": false,
+    "dependencyStateRepresentedByHashesCountsAndSelectedVersionsOnly": true
+  }
+}
