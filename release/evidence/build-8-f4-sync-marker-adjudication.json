@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "build-8-f4-sync-marker-adjudication",
+  "createdAtUtc": "2026-08-04T16:50:47.9924777Z",
+  "decision": "PASS_BUILD8_F4_SYNC_MARKER_ADJUDICATED",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "authoringBaselineCommit": "f038cbe90ef0d85d99dc4f6be28b06b893a5ed69",
+    "authoringBaselineTree": "d58aeabb1699822fc4d022020274eb131d53b91c",
+    "externalEvidencePathRetained": false,
+    "externalEvidenceDirectoryRetained": false
+  },
+  "externalReceipt": {
+    "fileName": "build8-f4-sync-retry-receipt.json",
+    "sha256": "304F9F4D9CBA6DAD71B2FBF9B26B17F32C2830C1AFD74316B283E44A83ED9E8E",
+    "bytes": 4775,
+    "schemaVersion": 1,
+    "evidenceType": "build-8-f4-post-activation-physical-sync-retry",
+    "capturedAtUtc": "2026-08-04T00:12:36.3857291Z",
+    "promotionSha256": "C453E38385A4405B0C44E66272DDC038C3E56C33F7793A7D7A17F89D11EF4E64",
+    "sourceCommit": "4dc54ad6a08029092b4aa90dcebd27b1864e8a6b",
+    "sourceOriginMain": "4dc54ad6a08029092b4aa90dcebd27b1864e8a6b",
+    "postMergeRunId": 30864309478,
+    "decision": "PASS_BUILD8_F4_POST_ACTIVATION_SYNC_MARKER"
+  },
+  "verifiedFacts": {
+    "trackedCleanMainMatchedOrigin": true,
+    "fourJobPostMergeReleaseGatePassed": true,
+    "backendDecision": "PASS_BUILD8_F4_BACKEND_READY",
+    "backendRuntimeContractState": "ACTIVE",
+    "backendInventoryMissing": 0,
+    "backendInventoryMalformed": 0,
+    "governedPackageSha256": "75362F9875CC5067012B4A5768720CB4AE0AD2C6A94B38C1F174E0FD1E1CA91F",
+    "installedApkSha256": "7F6CD741431230689193A0DD9505918B2E865C0A500649B7F242EA4747303CCD",
+    "installedVersionCode": 8,
+    "productionSignerVerified": true,
+    "physicalDeviceVerified": true,
+    "approvedSessionVerified": true,
+    "forbiddenUiMarkerCount": 0,
+    "pendingLocalBusinessWritesBefore": 0,
+    "unresolvedLocalRejectionsBefore": 0,
+    "manualSyncOutcome": "SUCCESS",
+    "pendingLocalBusinessWritesAfter": 0,
+    "unresolvedLocalRejectionsAfter": 0
+  },
+  "executionBoundary": {
+    "applicationInstalledUpgradedOrCleared": false,
+    "networkStateChanged": false,
+    "authenticationSessionChanged": false,
+    "backendDeploymentPerformed": false,
+    "distributionPerformed": false
+  },
+  "privacyBoundary": {
+    "rawReceiptCommitted": false,
+    "rawUiRetained": false,
+    "rawAdbSerialRetained": false,
+    "rawBuildFingerprintRetained": false,
+    "accountIdentityRetained": false,
+    "businessPayloadRetained": false
+  },
+  "programmeBoundary": {
+    "stage2dF4Status": "OPEN",
+    "syncMarkerCriterionProved": true,
+    "offlineReconnectCriterionProved": false,
+    "weakNetworkCriterionProved": false,
+    "revocationCriterionProved": false,
+    "wrongRoleCriterionProved": false,
+    "stage2dF4ClosureAuthorized": false,
+    "p07ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "distributionAuthorized": false,
+    "nextBoundedPhase": "BUILD8_F4_OFFLINE_RECONNECT"
+  }
+}
