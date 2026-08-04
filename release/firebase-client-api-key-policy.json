@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "policyId": "crm3-firebase-client-api-key-custody-v1",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "projectNumber": "894346496105",
+  "sourceCustody": {
+    "allowedTrackedPaths": [
+      "android/app/google-services.json",
+      "lib/firebase_options.dart"
+    ],
+    "expectedDistinctKeyCount": 3,
+    "firebaseOptionsOccurrenceCount": 5,
+    "googleServicesOccurrenceCount": 2,
+    "googleServicesDistinctKeyCount": 1
+  },
+  "liveReadback": {
+    "expectedKeys": [
+      {
+        "displayName": "Android key (auto created by Firebase)",
+        "applicationRestrictions": [
+          {
+            "type": "android",
+            "entryCount": 0,
+            "valueSha256": "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A"
+          }
+        ]
+      },
+      {
+        "displayName": "Browser key (auto created by Firebase)",
+        "applicationRestrictions": [
+          {
+            "type": "browser",
+            "entryCount": 0,
+            "valueSha256": "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A"
+          }
+        ]
+      },
+      {
+        "displayName": "iOS key (auto created by Firebase)",
+        "applicationRestrictions": [
+          {
+            "type": "ios",
+            "entryCount": 0,
+            "valueSha256": "44136FA355B3678A1146AD16F7E8649E94FB4FC21FE77E8310C060F61CAAFF8A"
+          }
+        ]
+      }
+    ],
+    "expectedApiTargets": [
+      "cloudconfig.googleapis.com",
+      "datastore.googleapis.com",
+      "fcmregistrations.googleapis.com",
+      "firebase.googleapis.com",
+      "firebaseappcheck.googleapis.com",
+      "firebaseappdistribution.googleapis.com",
+      "firebaseapphosting.googleapis.com",
+      "firebaseapptesters.googleapis.com",
+      "firebasedatabase.googleapis.com",
+      "firebasedataconnect.googleapis.com",
+      "firebasehosting.googleapis.com",
+      "firebaseinappmessaging.googleapis.com",
+      "firebaseinstallations.googleapis.com",
+      "firebaseml.googleapis.com",
+      "firebaseremoteconfig.googleapis.com",
+      "firebaseremoteconfigrealtime.googleapis.com",
+      "firebaserules.googleapis.com",
+      "firebasestorage.googleapis.com",
+      "firebasevertexai.googleapis.com",
+      "firestore.googleapis.com",
+      "fpnv.googleapis.com",
+      "identitytoolkit.googleapis.com",
+      "logging.googleapis.com",
+      "mlkit.googleapis.com",
+      "play.googleapis.com",
+      "securetoken.googleapis.com",
+      "sqladmin.googleapis.com"
+    ],
+    "forbiddenApiTargets": [
+      "generativelanguage.googleapis.com"
+    ]
+  }
+}
