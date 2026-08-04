@@ -1168,7 +1168,7 @@ check(
         in functions_live_readback_test
     and "collector source contains no production mutation command"
         in functions_live_readback_test
-    and "live closure closes evidence gates and preserves adverse findings"
+    and "live closure preserves adverse history after later remediation"
         in functions_live_readback_contract
     and "close on sealed acquisition, not posture fiction"
         in functions_live_readback_closure_contract
