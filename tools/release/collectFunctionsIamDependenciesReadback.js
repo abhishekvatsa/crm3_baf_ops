@@ -66,14 +66,44 @@ function parseArgs(argv) {
   return options;
 }
 
+function resolveCommand(command, args, platform = process.platform) {
+  const platformPath = platform === "win32" ? path.win32 : path;
+  if (
+    platform !== "win32" ||
+    platformPath.basename(command).toLowerCase() !== "gcloud.cmd"
+  ) {
+    return {command, args, environment: {}};
+  }
+  const sdkRoot = platformPath.resolve(platformPath.dirname(command), "..");
+  return {
+    command: platformPath.join(
+      sdkRoot,
+      "platform",
+      "bundledpython",
+      "python.exe",
+    ),
+    args: ["-S", platformPath.join(sdkRoot, "lib", "gcloud.py"), ...args],
+    environment: {
+      CLOUDSDK_ROOT_DIR: sdkRoot,
+      PYTHONHOME: "",
+      PATH:
+        platformPath.join(sdkRoot, "bin", "sdk") +
+        ";" +
+        (process.env.PATH ?? ""),
+    },
+  };
+}
+
 function runText(command, args, options = {}) {
-  const output = childProcess.execFileSync(command, args, {
+  const resolved = resolveCommand(command, args);
+  const output = childProcess.execFileSync(resolved.command, resolved.args, {
     cwd: options.cwd,
     encoding: "utf8",
     env: {
       ...process.env,
       CLOUDSDK_CORE_DISABLE_PROMPTS: "1",
       CLOUDSDK_CORE_DISABLE_USAGE_REPORTING: "1",
+      ...resolved.environment,
     },
     maxBuffer: 64 * 1024 * 1024,
     windowsHide: true,
@@ -785,6 +815,7 @@ module.exports = {
   discoverFunctionExports,
   normalizeFunctionDescriptor,
   parseArgs,
+  resolveCommand,
   safeRemoveTempDirectory,
   summarizeIam,
   summarizePackageState,

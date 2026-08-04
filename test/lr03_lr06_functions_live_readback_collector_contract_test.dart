@@ -82,6 +82,8 @@ void main() {
       'collectSourceBinding',
       'discoverFunctionExports',
       'sourceExportInventoryMatchesPolicy',
+      'resolveCommand',
+      'platformPath.join(sdkRoot, "lib", "gcloud.py")',
       'sourceProvenance?.resolvedStorageSource',
       '--if-generation-match=',
       'package-lock.json',
@@ -101,6 +103,8 @@ void main() {
       '"projects", "add-iam-policy-binding"',
       '"projects", "remove-iam-policy-binding"',
       'firebase deploy',
+      'shell: true',
+      'cmd.exe',
     ]) {
       expect(collector, isNot(contains(forbidden)), reason: forbidden);
     }
@@ -119,6 +123,12 @@ void main() {
     expect(
       collectorTests,
       contains('IAM evidence retains only deployed runtime service accounts'),
+    );
+    expect(
+      collectorTests,
+      contains(
+        'Windows gcloud uses the bundled Python entrypoint without a shell',
+      ),
     );
     expect(
       _object(package['scripts'])['test:functions-live-readback-custody'],
