@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "LR04-FIRESTORE-RECOVERABILITY-LIVE-READBACK-CLOSURE-20260804",
+  "evidenceType": "lr04-firestore-recoverability-live-readback-closure",
+  "recordIds": [
+    "GATE:LR-04",
+    "FINDING:P-05"
+  ],
+  "authorityType": "LIVE_READBACK",
+  "decision": "PASS_LR04_FIRESTORE_RECOVERABILITY_LIVE_READBACK_CLOSURE_WITH_ADVERSE_POSTURE",
+  "collectorAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "pullRequest": 139,
+    "headCommit": "6010f57acd2545d091687bc0c7a5e0223c833d2d",
+    "sourceTree": "fbdb9de46305d62af53fd764281fa577e2c94276",
+    "mergeCommit": "0d323449be267849e7043772dbfea0a7dc3bd107",
+    "mergeTree": "fbdb9de46305d62af53fd764281fa577e2c94276",
+    "pullRequestCi": {
+      "runId": 30892607011,
+      "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30892607011",
+      "event": "pull_request",
+      "headSha": "6010f57acd2545d091687bc0c7a5e0223c833d2d",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Android release APK + AAB packaging proof",
+          "jobId": 91937964947,
+          "conclusion": "success"
+        },
+        {
+          "name": "Cloud Functions build + test",
+          "jobId": 91937965025,
+          "conclusion": "success"
+        },
+        {
+          "name": "Firestore rules + governed transaction emulator",
+          "jobId": 91937964885,
+          "conclusion": "success"
+        },
+        {
+          "name": "Flutter analyze + tests + no-loss spine",
+          "jobId": 91937964943,
+          "conclusion": "success"
+        }
+      ]
+    },
+    "postMergeCi": {
+      "runId": 30893195416,
+      "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30893195416",
+      "event": "push",
+      "headSha": "0d323449be267849e7043772dbfea0a7dc3bd107",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Android release APK + AAB packaging proof",
+          "jobId": 91939866970,
+          "conclusion": "success"
+        },
+        {
+          "name": "Cloud Functions build + test",
+          "jobId": 91939866991,
+          "conclusion": "success"
+        },
+        {
+          "name": "Firestore rules + governed transaction emulator",
+          "jobId": 91939866941,
+          "conclusion": "success"
+        },
+        {
+          "name": "Flutter analyze + tests + no-loss spine",
+          "jobId": 91939866878,
+          "conclusion": "success"
+        }
+      ]
+    }
+  },
+  "liveReceipt": {
+    "path": "release/evidence/lr04-firestore-recoverability-live-readback.json",
+    "fileSha256": "E339FC49400BA1817084270E4E8503C12797A00A9095FE937A30EE48D8A0F18D",
+    "fileBytes": 6341,
+    "receiptSha256": "d346eb92a6dee4c7f55ad69a408226a8445ef46ba2711437598055899828be7c",
+    "capturedAtUtc": "2026-08-04T08:52:13.571Z",
+    "sourceCommit": "0d323449be267849e7043772dbfea0a7dc3bd107",
+    "sourceTree": "fbdb9de46305d62af53fd764281fa577e2c94276",
+    "projectId": "crm3-baf-ops-b8638",
+    "database": "(default)",
+    "location": "asia-south1",
+    "acquisitionDecision": "PASS_FIRESTORE_RECOVERABILITY_LIVE_READBACK",
+    "postureDecision": "HOLD_FIRESTORE_RECOVERABILITY_POSTURE"
+  },
+  "provedAcquisition": {
+    "databaseDescriptorExact": true,
+    "protectionStatesPresent": true,
+    "backupScheduleCount": 0,
+    "backupCount": 0,
+    "operationCount": 24,
+    "operationInventoryLimit": 1000,
+    "successfulManagedExportCount": 1,
+    "successfulImportCount": 0,
+    "sealedManagedExportReconfirmed": true,
+    "allChecksPassed": true,
+    "failedChecks": []
+  },
+  "observedAdversePosture": {
+    "pointInTimeRecoveryEnablement": "POINT_IN_TIME_RECOVERY_DISABLED",
+    "deleteProtectionState": "DELETE_PROTECTION_DISABLED",
+    "nativeBackupScheduleCount": 0,
+    "nativeBackupCount": 0,
+    "successfulRestoreImportCount": 0,
+    "holds": [
+      "pointInTimeRecoveryDisabled",
+      "deleteProtectionDisabled",
+      "noNativeBackupSchedule",
+      "noNativeBackup",
+      "noRestoreImportProof"
+    ],
+    "managedExportIsNativeBackup": false,
+    "managedExportIsRestoreProof": false,
+    "p05Closed": false
+  },
+  "recordTransitions": {
+    "lr04": "OPEN_TO_LIVE_READBACK_PROVED_TO_CLOSED",
+    "p05": "REMAINS_OPEN_WITH_EXACT_ADVERSE_LIVE_EVIDENCE"
+  },
+  "closureBoundary": {
+    "pointInTimeRecoveryChanged": false,
+    "deleteProtectionChanged": false,
+    "backupScheduleCreatedUpdatedOrDeleted": false,
+    "backupCreatedOrDeleted": false,
+    "firestoreExportOrImportPerformed": false,
+    "firestoreDocumentReadOrWritePerformed": false,
+    "storageObjectReadOrWritePerformed": false,
+    "functionsMutated": false,
+    "iamMutated": false,
+    "billingChanged": false,
+    "businessDataReadOrWritten": false,
+    "deviceEvidenceClaimed": false,
+    "pilotAuthorizationCreated": false,
+    "distributionAuthorizationCreated": false,
+    "stage2dF4StatusChanged": false,
+    "p05Closed": false
+  },
+  "p05RequiredRemediation": [
+    "approve and enable point-in-time recovery for the production database",
+    "approve and enable production database delete protection",
+    "approve and establish a native Firestore backup schedule",
+    "prove at least one ready native Firestore backup",
+    "execute and validate an isolated governed restore rehearsal without writing to the production database",
+    "repeat the strict LR-04 readback after recovery posture changes"
+  ],
+  "reArmConditions": [
+    "the production database protection configuration changes",
+    "a native backup schedule is created, changed or removed",
+    "native backup inventory or state changes",
+    "a Firestore export, import or restore operation is performed",
+    "the sealed managed-export or private restore-pack authority changes",
+    "the live-readback collector or policy changes",
+    "the strict receipt source commit ceases to be the admitted main authority"
+  ]
+}

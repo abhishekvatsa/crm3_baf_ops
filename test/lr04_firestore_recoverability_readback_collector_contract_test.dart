@@ -124,15 +124,18 @@ void main() {
     );
     expect(
       decision,
-      contains(
-        'Collector status: SOURCE_IMPLEMENTED_PENDING_MERGE_CI_AND_LIVE_EXECUTION',
-      ),
+      contains('Collector status: SOURCE_CI_AND_LIVE_READBACK_PROVED'),
     );
     expect(decision, contains('A strict acquisition may pass while posture'));
-    expect(decision, contains('does not close `LR-04` or `P-05`'));
+    expect(
+      decision,
+      contains('Live readback evidence: PASS acquisition / HOLD'),
+    );
+    expect(decision, contains('closes evidence gate `LR-04`'));
+    expect(decision, contains('does not close `P-05`'));
   });
 
-  test('source tranche preserves LR-04 and P-05 as open', () {
+  test('live closure closes LR-04 and preserves P-05 as open', () {
     final ledger = _object(
       jsonDecode(File('governance/programme-ledger.json').readAsStringSync()),
     );
@@ -140,9 +143,14 @@ void main() {
     final findings = _objects(ledger['technicalFindings']);
     final lr04 = gates.singleWhere((entry) => entry['gateId'] == 'LR-04');
     final p05 = findings.singleWhere((entry) => entry['findingId'] == 'P-05');
-    expect(lr04['currentStatus'], 'OPEN');
-    expect(_objects(lr04['evidence']), isEmpty);
+    expect(lr04['currentStatus'], 'CLOSED');
+    expect(_objects(lr04['evidence']), hasLength(2));
+    expect(
+      _objects(lr04['statusHistory']).map((entry) => entry['status']),
+      <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],
+    );
     expect(p05['currentStatus'], 'OPEN');
-    expect(_objects(p05['evidence']), isEmpty);
+    expect(_objects(p05['evidence']), hasLength(2));
+    expect(_strings(p05['requiredExitEvidence']), hasLength(6));
   });
 }

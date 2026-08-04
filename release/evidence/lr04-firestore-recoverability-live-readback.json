@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "firestore-recoverability-live-readback",
+  "mode": "STRICT",
+  "projectId": "crm3-baf-ops-b8638",
+  "database": "(default)",
+  "location": "asia-south1",
+  "gateIds": [
+    "LR-04"
+  ],
+  "findingIds": [
+    "P-05"
+  ],
+  "source": {
+    "before": {
+      "branch": "main",
+      "commit": "0d323449be267849e7043772dbfea0a7dc3bd107",
+      "tree": "fbdb9de46305d62af53fd764281fa577e2c94276",
+      "originMain": "0d323449be267849e7043772dbfea0a7dc3bd107",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0,
+      "materialPathSha256": []
+    },
+    "after": {
+      "branch": "main",
+      "commit": "0d323449be267849e7043772dbfea0a7dc3bd107",
+      "tree": "fbdb9de46305d62af53fd764281fa577e2c94276",
+      "originMain": "0d323449be267849e7043772dbfea0a7dc3bd107",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0,
+      "materialPathSha256": []
+    }
+  },
+  "commands": [
+    {
+      "kind": "LOCAL_READ",
+      "command": "git status/rev-parse"
+    },
+    {
+      "kind": "LOCAL_READ",
+      "command": "read exact sealed production restore-pack receipt"
+    },
+    {
+      "kind": "GCLOUD_READ",
+      "command": "firestore databases describe"
+    },
+    {
+      "kind": "GCLOUD_READ",
+      "command": "firestore backups schedules list"
+    },
+    {
+      "kind": "GCLOUD_READ",
+      "command": "firestore backups list"
+    },
+    {
+      "kind": "GCLOUD_READ",
+      "command": "firestore operations list",
+      "limit": 1000
+    },
+    {
+      "kind": "GCLOUD_READ",
+      "command": "firestore operations describe sealed export"
+    }
+  ],
+  "outputs": {
+    "database": {
+      "name": "projects/crm3-baf-ops-b8638/databases/(default)",
+      "locationId": "asia-south1",
+      "type": "FIRESTORE_NATIVE",
+      "databaseEdition": "STANDARD",
+      "pointInTimeRecoveryEnablement": "POINT_IN_TIME_RECOVERY_DISABLED",
+      "deleteProtectionState": "DELETE_PROTECTION_DISABLED",
+      "versionRetentionPeriod": "3600s",
+      "earliestVersionTime": "2026-08-04T07:52:08.205234Z"
+    },
+    "schedules": {
+      "count": 0,
+      "allNamesTargetDatabase": true,
+      "recurrenceTypeCounts": {},
+      "retentionDurations": []
+    },
+    "backups": {
+      "count": 0,
+      "allDatabasesTargetExact": true,
+      "stateCounts": {},
+      "latestSnapshotTime": null
+    },
+    "operations": {
+      "inventoryLimit": 1000,
+      "count": 24,
+      "inventoryBelowLimit": true,
+      "doneCount": 24,
+      "errorCount": 0,
+      "metadataTypeCounts": {
+        "type.googleapis.com/google.firestore.admin.v1.ExportDocumentsMetadata": 1,
+        "type.googleapis.com/google.firestore.admin.v1.IndexOperationMetadata": 23
+      },
+      "exportOperationCount": 1,
+      "successfulExportOperationCount": 1,
+      "importOperationCount": 0,
+      "successfulImportOperationCount": 0,
+      "sealedExport": {
+        "operationNameSha256": "3A62A3A265D40C16D1976D9F31BF0B2D11C0FEF5903ADC7B4B346E65EB225571",
+        "outputUriPrefixSha256": "E257D0BE3CBFA1453E215375D6E84E525AA2B3B09724CAFC455B39EB7018616D",
+        "appearsExactlyOnceInHistory": true,
+        "describedNameMatches": true,
+        "describedDone": true,
+        "describedErrorAbsent": true,
+        "describedOperationState": "SUCCESSFUL",
+        "describedMetadataType": "type.googleapis.com/google.firestore.admin.v1.ExportDocumentsMetadata",
+        "describedResponseType": "type.googleapis.com/google.firestore.admin.v1.ExportDocumentsResponse",
+        "describedOutputUriPrefixMatches": true,
+        "describedEndTimeMatches": true,
+        "exactSuccessfulExport": true
+      }
+    },
+    "restoreSeal": {
+      "path": "release/evidence/production-prelive-restore-pack-seal.json",
+      "fileSha256": "982040C70DD01325870E877378D74A8A705B1F64576A46B2C98FB244576AE599",
+      "expectedFileSha256": "982040C70DD01325870E877378D74A8A705B1F64576A46B2C98FB244576AE599",
+      "exactFile": true,
+      "decision": "PASS_PRIVATE_PRODUCTION_RESTORE_PACK_SEALED_AND_INDEPENDENTLY_VERIFIED",
+      "projectId": "crm3-baf-ops-b8638",
+      "region": "asia-south1",
+      "operationState": "SUCCESSFUL",
+      "privateCustodyCopyCount": 2,
+      "independentVerificationDecision": "PASS_INDEPENDENT_RESTORE_PACK_VERIFICATION",
+      "independentVerificationExact": true,
+      "mutationBoundaryAllFalse": true
+    }
+  },
+  "posture": {
+    "holds": [
+      "pointInTimeRecoveryDisabled",
+      "deleteProtectionDisabled",
+      "noNativeBackupSchedule",
+      "noNativeBackup",
+      "noRestoreImportProof"
+    ],
+    "decision": "HOLD_FIRESTORE_RECOVERABILITY_POSTURE"
+  },
+  "checks": {
+    "productionTargetExact": true,
+    "policyTargetExact": true,
+    "sourceBranchMain": true,
+    "sourceCommitMatchesOriginMain": true,
+    "sourceBindingStable": true,
+    "governedSourceClean": true,
+    "databaseDescriptorExact": true,
+    "databaseProtectionStatesPresent": true,
+    "scheduleInventoryTargetExact": true,
+    "backupInventoryTargetExact": true,
+    "operationInventoryComplete": true,
+    "restoreSealExact": true,
+    "sealedExportReconfirmed": true
+  },
+  "failedChecks": [],
+  "decision": "PASS_FIRESTORE_RECOVERABILITY_LIVE_READBACK",
+  "closureScope": {
+    "lr04Closed": false,
+    "p05Closed": false,
+    "collectorAuthorizesClosure": false,
+    "sourceAndCiOnly": false
+  },
+  "mutationBoundary": {
+    "pointInTimeRecoveryChanged": false,
+    "deleteProtectionChanged": false,
+    "backupScheduleCreatedUpdatedOrDeleted": false,
+    "backupCreatedOrDeleted": false,
+    "firestoreExportOrImportPerformed": false,
+    "firestoreDocumentReadOrWritePerformed": false,
+    "storageObjectReadOrWritePerformed": false,
+    "functionsMutated": false,
+    "iamMutated": false,
+    "billingChanged": false,
+    "businessDataReadOrWritten": false
+  },
+  "privacyBoundary": {
+    "operatorAccountIdentityRetained": false,
+    "firestoreDocumentOrBusinessPayloadRetained": false,
+    "databaseUidOrEtagRetained": false,
+    "backupScheduleOrBackupNamesRetained": false,
+    "operationNamesOrOutputPrefixesRetained": false,
+    "privateCustodyPathsRetained": false,
+    "operationalStateRepresentedByCountsStatesHashesAndTimesOnly": true
+  },
+  "capturedAtUtc": "2026-08-04T08:52:13.571Z",
+  "receiptSha256": "d346eb92a6dee4c7f55ad69a408226a8445ef46ba2711437598055899828be7c"
+}

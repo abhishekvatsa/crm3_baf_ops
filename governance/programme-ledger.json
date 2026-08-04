@@ -922,21 +922,55 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/lr04-firestore-recoverability-live-readback.json",
+          "sha256": "E339FC49400BA1817084270E4E8503C12797A00A9095FE937A30EE48D8A0F18D",
+          "decision": "PASS_FIRESTORE_RECOVERABILITY_LIVE_READBACK",
+          "authority": "EXACT_CLEAN_MAIN_READ_ONLY_LIVE_RECEIPT"
+        },
+        {
+          "fileName": "release/evidence/lr04-firestore-recoverability-live-readback-closure.json",
+          "sha256": "E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302",
+          "decision": "PASS_LR04_FIRESTORE_RECOVERABILITY_LIVE_READBACK_CLOSURE_WITH_ADVERSE_POSTURE",
+          "authority": "SOURCE_ADJUDICATION_OF_SEALED_LIVE_RECEIPT_AND_EXACT_CI"
+        }
+      ],
       "requiredExitEvidence": [
         "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
       ],
-      "reArmTriggers": [],
-      "notes": [],
+      "reArmTriggers": [
+        "the production database protection configuration changes",
+        "a native backup schedule is created, changed or removed",
+        "native backup inventory or state changes",
+        "a Firestore export, import or restore operation is performed",
+        "the sealed managed-export or private restore-pack authority changes",
+        "the live-readback collector or policy changes",
+        "the strict receipt source commit ceases to be the admitted main authority"
+      ],
+      "notes": [
+        "The strict clean-main receipt closes only the completeness and custody of the LR-04 live readback.",
+        "The observed production recovery posture remains adverse and is owned by open finding P-05; no recovery control or production data was mutated."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep re-audit live-readback appendix"
+        },
+        {
+          "status": "LIVE_READBACK_PROVED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Strict clean-main receipt E339FC49400BA1817084270E4E8503C12797A00A9095FE937A30EE48D8A0F18D passed all 13 acquisition checks and retained five exact adverse posture holds."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Closure adjudication E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302 binds PR #139 source and CI authority to the sealed live receipt while preserving P-05 as OPEN."
         }
       ]
     },
@@ -1418,7 +1452,7 @@
     {
       "recordId": "FINDING:P-05",
       "findingId": "P-05",
-      "title": "Firestore backup, PITR and restore status is unproved",
+      "title": "Production Firestore recovery posture lacks PITR, delete protection, native backups and restore proof",
       "track": "RECOVERABILITY",
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
@@ -1433,10 +1467,42 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/lr04-firestore-recoverability-live-readback.json",
+          "sha256": "E339FC49400BA1817084270E4E8503C12797A00A9095FE937A30EE48D8A0F18D",
+          "decision": "HOLD_FIRESTORE_RECOVERABILITY_POSTURE",
+          "authority": "EXACT_CLEAN_MAIN_READ_ONLY_LIVE_RECEIPT"
+        },
+        {
+          "fileName": "release/evidence/lr04-firestore-recoverability-live-readback-closure.json",
+          "sha256": "E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302",
+          "decision": "PRESERVE_P05_OPEN_WITH_EXACT_ADVERSE_LIVE_POSTURE",
+          "authority": "SOURCE_ADJUDICATION_OF_SEALED_LIVE_RECEIPT_AND_EXACT_CI"
+        }
+      ],
+      "requiredExitEvidence": [
+        "approved enablement and live readback of point-in-time recovery for the production database",
+        "approved enablement and live readback of production database delete protection",
+        "approved native Firestore backup schedule with exact live readback",
+        "at least one ready native Firestore backup proved by live readback",
+        "successful isolated governed restore rehearsal with validation and no write to the production database",
+        "repeat strict recoverability readback after the recovery posture changes"
+      ],
+      "reArmTriggers": [
+        "point-in-time recovery or delete protection is disabled",
+        "the native backup schedule is removed or materially changed",
+        "no ready native backup remains",
+        "a restore rehearsal expires under programme policy or its evidence becomes unverifiable",
+        "a Firestore export, import or restore operation changes the current evidence set",
+        "the live-readback collector or policy changes",
+        "the strict receipt source commit ceases to be the admitted main authority"
+      ],
+      "notes": [
+        "Strict readback proves the production database currently has point-in-time recovery and delete protection disabled, zero native backup schedules, zero native backups and zero successful import operations in the complete bounded inventory.",
+        "One successful managed export and its independently verified private custody pack exist, but neither is represented as a native backup or a successful restore rehearsal.",
+        "P-05 remains OPEN. Enabling billable or control-plane recovery features and executing an isolated restore require separate governed authorization."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
