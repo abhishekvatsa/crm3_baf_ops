@@ -5,6 +5,8 @@ import '../../../auth/providers/auth_provider.dart';
 import '../../../audit/presentation/audit_timeline_screen.dart';
 import '../../../maintenance/data/maintenance_model.dart';
 import '../../../maintenance/providers/maintenance_provider.dart';
+import '../../../planned_maintenance/data/job_module_model.dart';
+import '../../../planned_maintenance/providers/job_module_provider.dart';
 import '../../data/compliance_request_record.dart';
 import '../../data/job_lane_record.dart';
 import '../../data/workflow_event_record.dart';
@@ -16,6 +18,7 @@ import '../../providers/workflow_providers.dart';
 import '../../services/workflow_command_factory.dart';
 import '../screens/compliance_detail_screen.dart';
 import '../screens/lane_classification_screen.dart';
+import '../models/lane_closure_readiness.dart';
 import 'lane_strip.dart';
 import 'raise_compliance_dialog.dart';
 import 'workflow_timeline.dart';
@@ -83,6 +86,36 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
             final lanes = lanesAsync.value ?? const <JobLaneRecord>[];
             final compliances =
                 complianceAsync.value ?? const <ComplianceRequestRecord>[];
+            final moduleInventoryAsync = ref.watch(
+              jobModulesProvider(
+                JobModuleQueryKey(
+                  jobExecutionFirestoreId:
+                      workflow.jobExecutionFirestoreId.trim(),
+                  limit: 401,
+                ),
+              ),
+            );
+            final moduleInventory =
+                moduleInventoryAsync.value ?? const <JobModuleInstance>[];
+            final readinessInventoryComplete =
+                lanesAsync.hasValue &&
+                complianceAsync.hasValue &&
+                moduleInventoryAsync.hasValue &&
+                moduleInventory.length < 401;
+            final readinessByLaneId =
+                readinessInventoryComplete
+                    ? _buildLaneReadiness(
+                      lanes: lanes,
+                      modules: moduleInventory,
+                      compliances: compliances,
+                    )
+                    : null;
+            final readinessError = _readinessError(
+              lanesAsync: lanesAsync,
+              complianceAsync: complianceAsync,
+              moduleInventoryAsync: moduleInventoryAsync,
+              moduleInventoryCount: moduleInventory.length,
+            );
             final activeLanes = lanes
                 .where(
                   (lane) =>
@@ -211,6 +244,10 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                   else
                     WorkflowLaneStrip(
                       lanes: lanes,
+                      readinessByLaneId: readinessByLaneId,
+                      readinessLoading:
+                          !readinessInventoryComplete && readinessError == null,
+                      readinessError: readinessError,
                       onLaneTap:
                           workflowTerminal || commandState.isLoading
                               ? null
@@ -220,6 +257,11 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                                 workflow,
                                 lane,
                                 canManage: canManage,
+                                readiness:
+                                    lane.firestoreId == null
+                                        ? null
+                                        : readinessByLaneId?[lane.firestoreId!
+                                            .trim()],
                               ),
                     ),
                   const SizedBox(height: 12),
@@ -332,6 +374,7 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
     WorkflowAggregateRecord workflow,
     JobLaneRecord lane, {
     required bool canManage,
+    required LaneClosureReadiness? readiness,
   }) async {
     final actor = ref.read(currentAppUserProvider).value;
     final mayAcknowledge =
@@ -348,7 +391,11 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
               children: [
                 ListTile(
                   title: Text('${lane.laneKey.toUpperCase()} lane'),
-                  subtitle: Text('Current status: ${lane.statusKey}'),
+                  subtitle: Text(
+                    readiness == null
+                        ? 'Current status: ${lane.statusKey}'
+                        : readiness.summary,
+                  ),
                 ),
                 if (lane.statusKey == 'pending')
                   ListTile(
@@ -366,8 +413,10 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                     enabled: mayClose,
                     leading: const Icon(Icons.check_circle_outline),
                     title: const Text('Close lane'),
-                    subtitle: const Text(
-                      'The server will verify modules and blocking compliance.',
+                    subtitle: Text(
+                      readiness?.readyForClosure == true
+                          ? 'Local module and compliance checks are ready. The server will revalidate before closure.'
+                          : _laneCloseSubtitle(readiness),
                     ),
                     onTap: () => Navigator.pop(sheetContext, _LaneAction.close),
                   ),
@@ -478,6 +527,52 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
         );
         break;
     }
+  }
+
+  Map<String, LaneClosureReadiness> _buildLaneReadiness({
+    required List<JobLaneRecord> lanes,
+    required List<JobModuleInstance> modules,
+    required List<ComplianceRequestRecord> compliances,
+  }) {
+    return <String, LaneClosureReadiness>{
+      for (final lane in lanes)
+        if (lane.firestoreId?.trim().isNotEmpty == true)
+          lane.firestoreId!.trim(): LaneClosureReadiness.fromRecords(
+            lane: lane,
+            modules: modules,
+            complianceRequests: compliances,
+          ),
+    };
+  }
+
+  String? _readinessError({
+    required AsyncValue<List<JobLaneRecord>> lanesAsync,
+    required AsyncValue<List<ComplianceRequestRecord>> complianceAsync,
+    required AsyncValue<List<JobModuleInstance>> moduleInventoryAsync,
+    required int moduleInventoryCount,
+  }) {
+    if (lanesAsync.hasError) return 'Lane readiness could not be loaded.';
+    if (complianceAsync.hasError) {
+      return 'Compliance readiness could not be loaded.';
+    }
+    if (moduleInventoryAsync.hasError) {
+      return 'Module readiness could not be loaded.';
+    }
+    if (moduleInventoryCount >= 401) {
+      return 'Module inventory exceeds the governed display limit; server validation is required.';
+    }
+    return null;
+  }
+
+  String _laneCloseSubtitle(LaneClosureReadiness? readiness) {
+    if (readiness == null) {
+      return 'Local readiness is unavailable. The server will verify modules and blocking compliance.';
+    }
+    final reasons = readiness.blockingReasons;
+    if (reasons.isEmpty) {
+      return 'The server will verify modules and blocking compliance.';
+    }
+    return '${reasons.take(2).join('. ')}${reasons.length > 2 ? '. Additional blockers are shown in lane readiness.' : '.'}';
   }
 
   Future<void> _addLane(
