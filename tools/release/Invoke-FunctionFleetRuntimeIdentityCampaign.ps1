@@ -45,15 +45,18 @@ function Invoke-ExternalText {
     [string]$WorkingDirectory
   )
   $priorLocation = Get-Location
+  $priorErrorActionPreference = $ErrorActionPreference
   $output = @()
   $exitCode = -1
   try {
     if (-not [string]::IsNullOrWhiteSpace($WorkingDirectory)) {
       Set-Location -LiteralPath $WorkingDirectory
     }
+    $ErrorActionPreference = 'Continue'
     $output = & $FilePath @Arguments 2>&1
     $exitCode = $LASTEXITCODE
   } finally {
+    $ErrorActionPreference = $priorErrorActionPreference
     Set-Location -LiteralPath $priorLocation
   }
   $text = ($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
