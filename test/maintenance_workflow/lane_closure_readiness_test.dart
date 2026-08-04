@@ -92,7 +92,29 @@ void main() {
 
       expect(readiness.blockingReasons, isEmpty);
       expect(readiness.readyForClosure, isTrue);
+      expect(readiness.canOfferClosure(actorMayClose: true), isTrue);
+      expect(readiness.canOfferClosure(actorMayClose: false), isFalse);
       expect(readiness.summary, contains('ready to close'));
+    });
+
+    test('terminal lanes never advertise closure readiness', () {
+      final removed = LaneClosureReadiness.fromRecords(
+        lane: _lane(status: 'removed'),
+        modules: const [],
+        complianceRequests: const [],
+      );
+      final terminated = LaneClosureReadiness.fromRecords(
+        lane: _lane(status: 'terminated'),
+        modules: [_module(status: JobModuleStatus.accepted)],
+        complianceRequests: const [],
+      );
+
+      expect(removed.summary, 'Removed');
+      expect(removed.readyForClosure, isFalse);
+      expect(removed.blockingReasons, isEmpty);
+      expect(terminated.summary, 'Terminated - 1 module retained');
+      expect(terminated.readyForClosure, isFalse);
+      expect(terminated.canOfferClosure(actorMayClose: true), isFalse);
     });
   });
 

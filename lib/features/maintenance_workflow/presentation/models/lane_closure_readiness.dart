@@ -76,10 +76,16 @@ class LaneClosureReadiness {
 
   bool get isClosed => laneStatusKey == 'closed';
 
+  bool get isRemoved => laneStatusKey == 'removed';
+
+  bool get isTerminated => laneStatusKey == 'terminated';
+
+  bool get isTerminal => isClosed || isRemoved || isTerminated;
+
   bool get isAcknowledged => laneStatusKey == 'acknowledged' || isClosed;
 
   List<String> get blockingReasons {
-    if (isClosed) return const <String>[];
+    if (isTerminal) return const <String>[];
 
     final reasons = <String>[];
     if (!laneLinkageComplete) {
@@ -114,7 +120,10 @@ class LaneClosureReadiness {
   }
 
   bool get readyForClosure =>
-      !isClosed && laneLinkageComplete && blockingReasons.isEmpty;
+      !isTerminal && laneLinkageComplete && blockingReasons.isEmpty;
+
+  bool canOfferClosure({required bool actorMayClose}) =>
+      actorMayClose && readyForClosure;
 
   double? get moduleProgress {
     if (moduleCount == 0) return null;
@@ -126,6 +135,12 @@ class LaneClosureReadiness {
       return moduleCount == 0
           ? 'Closed'
           : 'Closed - $moduleCount ${moduleCount == 1 ? 'module' : 'modules'}';
+    }
+    if (isRemoved) return 'Removed';
+    if (isTerminated) {
+      return moduleCount == 0
+          ? 'Terminated'
+          : 'Terminated - $moduleCount ${moduleCount == 1 ? 'module' : 'modules'} retained';
     }
 
     final progress =

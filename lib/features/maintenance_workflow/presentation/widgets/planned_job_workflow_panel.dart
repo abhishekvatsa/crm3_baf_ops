@@ -99,8 +99,11 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                 moduleInventoryAsync.value ?? const <JobModuleInstance>[];
             final readinessInventoryComplete =
                 lanesAsync.hasValue &&
+                !lanesAsync.hasError &&
                 complianceAsync.hasValue &&
+                !complianceAsync.hasError &&
                 moduleInventoryAsync.hasValue &&
+                !moduleInventoryAsync.hasError &&
                 moduleInventory.length < 401;
             final readinessByLaneId =
                 readinessInventoryComplete
@@ -380,6 +383,8 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
     final mayAcknowledge =
         actor?.canAcknowledgeOrWorkMaintenanceLane(lane.laneKey) ?? false;
     final mayClose = actor?.canCloseMaintenanceLane(lane.laneKey) ?? false;
+    final mayOfferClosure =
+        readiness?.canOfferClosure(actorMayClose: mayClose) ?? false;
 
     final action = await showModalBottomSheet<_LaneAction>(
       context: context,
@@ -410,7 +415,7 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                   ),
                 if (lane.statusKey == 'acknowledged')
                   ListTile(
-                    enabled: mayClose,
+                    enabled: mayOfferClosure,
                     leading: const Icon(Icons.check_circle_outline),
                     title: const Text('Close lane'),
                     subtitle: Text(
@@ -418,7 +423,11 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                           ? 'Local module and compliance checks are ready. The server will revalidate before closure.'
                           : _laneCloseSubtitle(readiness),
                     ),
-                    onTap: () => Navigator.pop(sheetContext, _LaneAction.close),
+                    onTap:
+                        mayOfferClosure
+                            ? () =>
+                                Navigator.pop(sheetContext, _LaneAction.close)
+                            : null,
                   ),
                 if (canManage && lane.statusKey != 'closed') ...[
                   ListTile(
