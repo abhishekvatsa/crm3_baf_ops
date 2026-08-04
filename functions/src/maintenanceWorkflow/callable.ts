@@ -5,6 +5,7 @@ import {MaintenanceWorkflowCommandService} from "./dispatcher";
 import {WorkflowError} from "./errors";
 import {FirebaseWorkflowStore} from "./firebaseStore";
 import {MUTATING_CALLABLE_SECURITY_OPTIONS} from "../callableSecurityConfig";
+import {FUNCTION_RUNTIME_SERVICE_ACCOUNTS} from "../functionFleetRuntimeIdentity";
 import {canonicalApprovedUserAuthority} from "../userAuthority";
 import {
   CallableAbuseControlError,
@@ -120,6 +121,8 @@ export const executeMaintenanceWorkflowCommand = onCall(
     timeoutSeconds: 60,
     memory: "512MiB",
     concurrency: 20,
+    serviceAccount:
+      FUNCTION_RUNTIME_SERVICE_ACCOUNTS.executeMaintenanceWorkflowCommand,
     ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (request: CallableRequest<unknown>) => {

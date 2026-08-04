@@ -45,6 +45,9 @@ import {
   MUTATING_CALLABLE_SECURITY_OPTIONS,
 } from "./callableSecurityConfig";
 import {
+  FUNCTION_RUNTIME_SERVICE_ACCOUNTS,
+} from "./functionFleetRuntimeIdentity";
+import {
   GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS,
   GLOBAL_PULL_TRIGGER_SECURITY_OPTIONS,
 } from "./globalPullSecurityConfig";
@@ -155,6 +158,8 @@ export const completePlannedJobExecution = onCall(
     timeoutSeconds: 60,
     memory: "512MiB",
     concurrency: 20,
+    serviceAccount:
+      FUNCTION_RUNTIME_SERVICE_ACCOUNTS.completePlannedJobExecution,
     ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (request: CallableRequest<CompletePlannedJobRequest>) => {
@@ -207,6 +212,8 @@ export const assignPublishedTemplateVersion = onCall(
     timeoutSeconds: 60,
     memory: "512MiB",
     concurrency: 20,
+    serviceAccount:
+      FUNCTION_RUNTIME_SERVICE_ACCOUNTS.assignPublishedTemplateVersion,
     ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (
@@ -309,6 +316,8 @@ export const mutateRuntimeJobModulePopulation = onCall(
     timeoutSeconds: 60,
     memory: "512MiB",
     concurrency: 20,
+    serviceAccount:
+      FUNCTION_RUNTIME_SERVICE_ACCOUNTS.mutateRuntimeJobModulePopulation,
     ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (
@@ -386,6 +395,7 @@ export const mutateUserAuthority = onCall(
     timeoutSeconds: 60,
     memory: "256MiB",
     concurrency: 20,
+    serviceAccount: FUNCTION_RUNTIME_SERVICE_ACCOUNTS.mutateUserAuthority,
     ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (request: CallableRequest<MutateUserAuthorityRequest>) => {
@@ -434,6 +444,8 @@ export const mutateChargeAbnormality = onCall(
     timeoutSeconds: 60,
     memory: "256MiB",
     concurrency: 20,
+    serviceAccount:
+      FUNCTION_RUNTIME_SERVICE_ACCOUNTS.mutateChargeAbnormality,
     ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
   async (request: CallableRequest<MutateChargeAbnormalityRequest>) => {
@@ -523,6 +535,7 @@ export const onTicketCreated = onDocumentCreated(
     document: "maintenance_records/{ticketId}",
     region: NOTIFICATION_REGION,
     retry: true,
+    serviceAccount: FUNCTION_RUNTIME_SERVICE_ACCOUNTS.onTicketCreated,
   },
   async (event) => {
     const ticket = event.data?.data();
@@ -554,6 +567,7 @@ export const onTicketResolved = onDocumentUpdated(
     document: "maintenance_records/{ticketId}",
     region: NOTIFICATION_REGION,
     retry: true,
+    serviceAccount: FUNCTION_RUNTIME_SERVICE_ACCOUNTS.onTicketResolved,
   },
   async (event) => {
     const before = event.data?.before.data();
@@ -598,6 +612,7 @@ export const onJobAssigned = onDocumentCreated(
     document: "job_executions/{executionId}",
     region: NOTIFICATION_REGION,
     retry: true,
+    serviceAccount: FUNCTION_RUNTIME_SERVICE_ACCOUNTS.onJobAssigned,
   },
   async (event) => {
     const execution = event.data?.data();

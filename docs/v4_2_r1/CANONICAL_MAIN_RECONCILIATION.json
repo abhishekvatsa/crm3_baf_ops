@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 266,
-    "SUCCESSOR_MODIFIED": 144
+    "BYTE_IDENTICAL": 265,
+    "SUCCESSOR_MODIFIED": 145
   },
   "paths": [
     {
@@ -521,9 +521,9 @@
     {
       "path": "functions/src/index.ts",
       "canonicalSha256": "14EBFA6952BB20C137EEF408C1FB80C5706CC6CBCD5FA29F2E8699F8C04E3A48",
-      "candidateSha256": "C8F759B1BA155D143E267AD39D9AF7722E061C778E0A496A72D98005B6C1F86A",
+      "candidateSha256": "A3285CDBCE846993A6B849702AF30C0A82BD9A2A5D3F5536D5F3C9BD6F67B7D3",
       "canonicalBytes": 9674,
-      "candidateBytes": 19952,
+      "candidateBytes": 20686,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -569,10 +569,10 @@
     {
       "path": "functions/src/stage2dSecurityConfig.ts",
       "canonicalSha256": "506F350ECAFFDF534E29F42890E582854077DE18ACB4AB30B951770E9C393795",
-      "candidateSha256": "506F350ECAFFDF534E29F42890E582854077DE18ACB4AB30B951770E9C393795",
+      "candidateSha256": "1D46E7CDC200BA730AAD1F3BD30EF1C8D8E8509FC5EB7CB619A734077792A79F",
       "canonicalBytes": 323,
-      "candidateBytes": 323,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 799,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "functions/test/backendPostdeploymentAttestation.test.js",
@@ -673,9 +673,9 @@
     {
       "path": "functions/test/stage2dSecuritySource.test.js",
       "canonicalSha256": "9F1E409E912CAA5BD1DF7E8440F9E4CEC46EAB21A960320FA9EE89B7C6CA8FD1",
-      "candidateSha256": "9079E7933405AC830C07291A387E7BDEE05D356897EFEEA7E44A382168CC52A5",
+      "candidateSha256": "E85495E8FE3EC8689194B3CD165AF71B2FC02AB205563255FC45B850DA0FD35D",
       "canonicalBytes": 7726,
-      "candidateBytes": 7805,
+      "candidateBytes": 8212,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

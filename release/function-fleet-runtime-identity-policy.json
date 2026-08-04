@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "policyId": "FUNCTION-FLEET-RUNTIME-IDENTITY-POLICY-V1",
+  "declarationStatus": "SOURCE_IMPLEMENTED_PENDING_IAM_AND_DEPLOYMENT",
+  "productionProjectId": "crm3-baf-ops-b8638",
+  "targetProjectBinding": {
+    "builtInParameter": "PROJECT_ID",
+    "serviceAccountDomain": "iam.gserviceaccount.com",
+    "sameProjectRequired": true,
+    "crossProjectResolutionAllowed": false
+  },
+  "customRoles": {
+    "notificationSender": {
+      "roleId": "crm3NotificationSender",
+      "roleTemplate": "projects/${PROJECT_ID}/roles/crm3NotificationSender",
+      "includedPermissions": [
+        "cloudmessaging.messages.create"
+      ]
+    }
+  },
+  "functionBindings": {
+    "assignPublishedTemplateVersion": {
+      "runtimeServiceAccountId": "crm3-fn-assign-template",
+      "requiredProjectRoles": [
+        "roles/datastore.user"
+      ],
+      "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
+    },
+    "beginGlobalPullRun": {
+      "runtimeServiceAccountId": "crm3-global-pull-reader",
+      "requiredProjectRoles": [
+        "roles/datastore.viewer"
+      ],
+      "workloadClass": "CALLABLE_FIRESTORE_READ_ONLY"
+    },
+    "completePlannedJobExecution": {
+      "runtimeServiceAccountId": "crm3-fn-complete-job",
+      "requiredProjectRoles": [
+        "roles/datastore.user"
+      ],
+      "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
+    },
+    "executeMaintenanceWorkflowCommand": {
+      "runtimeServiceAccountId": "crm3-fn-workflow-command",
+      "requiredProjectRoles": [
+        "roles/datastore.user"
+      ],
+      "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
+    },
+    "getBackendReleaseIdentity": {
+      "runtimeServiceAccountId": "crm3-backend-identity-runtime",
+      "requiredProjectRoles": [
+        "roles/datastore.viewer",
+        "roles/firebaseappcheck.tokenVerifier"
+      ],
+      "workloadClass": "APP_CHECKED_CALLABLE_FIRESTORE_READ_ONLY"
+    },
+    "maintenanceWorkflowEscalationSweep": {
+      "runtimeServiceAccountId": "crm3-fn-workflow-sweep",
+      "requiredProjectRoles": [
+        "roles/datastore.user"
+      ],
+      "requiredCloudRunServiceRoles": [
+        "roles/run.invoker"
+      ],
+      "workloadClass": "SCHEDULED_FIRESTORE_MUTATION"
+    },
+    "mutateChargeAbnormality": {
+      "runtimeServiceAccountId": "crm3-fn-charge-abnormality",
+      "requiredProjectRoles": [
+        "roles/datastore.user"
+      ],
+      "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
+    },
+    "mutateRuntimeJobModulePopulation": {
+      "runtimeServiceAccountId": "crm3-fn-runtime-modules",
+      "requiredProjectRoles": [
+        "roles/datastore.user"
+      ],
+      "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
+    },
+    "mutateUserAuthority": {
+      "runtimeServiceAccountId": "crm3-fn-user-authority",
+      "requiredProjectRoles": [
+        "roles/datastore.user"
+      ],
+      "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
+    },
+    "onJobAssigned": {
+      "runtimeServiceAccountId": "crm3-fn-job-assigned",
+      "requiredProjectRoles": [
+        "projects/${PROJECT_ID}/roles/crm3NotificationSender",
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver"
+      ],
+      "requiredCloudRunServiceRoles": [
+        "roles/run.invoker"
+      ],
+      "workloadClass": "FIRESTORE_NOTIFICATION_TRIGGER"
+    },
+    "onMaintenanceWorkflowEventCreated": {
+      "runtimeServiceAccountId": "crm3-fn-workflow-event",
+      "requiredProjectRoles": [
+        "projects/${PROJECT_ID}/roles/crm3NotificationSender",
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver"
+      ],
+      "requiredCloudRunServiceRoles": [
+        "roles/run.invoker"
+      ],
+      "workloadClass": "FIRESTORE_NOTIFICATION_TRIGGER"
+    },
+    "onTicketCreated": {
+      "runtimeServiceAccountId": "crm3-fn-ticket-created",
+      "requiredProjectRoles": [
+        "projects/${PROJECT_ID}/roles/crm3NotificationSender",
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver"
+      ],
+      "requiredCloudRunServiceRoles": [
+        "roles/run.invoker"
+      ],
+      "workloadClass": "FIRESTORE_NOTIFICATION_TRIGGER"
+    },
+    "onTicketResolved": {
+      "runtimeServiceAccountId": "crm3-fn-ticket-resolved",
+      "requiredProjectRoles": [
+        "projects/${PROJECT_ID}/roles/crm3NotificationSender",
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver"
+      ],
+      "requiredCloudRunServiceRoles": [
+        "roles/run.invoker"
+      ],
+      "workloadClass": "FIRESTORE_NOTIFICATION_TRIGGER"
+    },
+    "stampGlobalPullServerClock": {
+      "runtimeServiceAccountId": "crm3-global-pull-writer",
+      "requiredProjectRoles": [
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver"
+      ],
+      "requiredCloudRunServiceRoles": [
+        "roles/run.invoker"
+      ],
+      "workloadClass": "FIRESTORE_PROTOCOL_TRIGGER"
+    }
+  },
+  "buildIdentity": {
+    "productionServiceAccount": "894346496105-compute@developer.gserviceaccount.com",
+    "requiredProjectRolesAfterCutover": [
+      "roles/cloudbuild.builds.builder"
+    ],
+    "runtimeUseAfterCutover": "PROHIBITED"
+  },
+  "forbiddenProjectRolesForRuntimeIdentities": [
+    "roles/owner",
+    "roles/editor",
+    "roles/iam.securityAdmin",
+    "roles/iam.serviceAccountAdmin",
+    "roles/iam.serviceAccountTokenCreator"
+  ],
+  "roleExactnessRequired": true,
+  "temporaryDeploymentProjectRoles": {
+    "eventAndScheduleRuntimeIdentities": [
+      "roles/run.invoker"
+    ],
+    "removalRequiredBeforeClosure": true
+  },
+  "deploymentOrder": [
+    "create the missing same-project service accounts and notification sender custom role",
+    "grant only each binding's requiredProjectRoles and temporary project-level Run Invoker where a new trigger needs it",
+    "grant roles/cloudbuild.builds.builder to Default Compute before removing Editor",
+    "deploy the exact admitted 14-function source fleet in bounded cohorts",
+    "prove every Function is active under its exact identity and current dependency inventory",
+    "bind Run Invoker on each trigger's own Cloud Run service and remove every temporary project-level Run Invoker grant",
+    "verify callable rejection and trigger or scheduler control-plane health",
+    "remove roles/editor from Default Compute only after every prior check passes",
+    "repeat the strict LR-03 and LR-06 readback"
+  ],
+  "stopConditions": [
+    "the source export inventory differs from functionBindings",
+    "a runtime identity resolves outside the target project",
+    "a required role or custom-role permission differs",
+    "a temporary project-level Run Invoker grant remains at closure",
+    "any deployment, callable smoke test, trigger health check or dependency comparison fails",
+    "Default Compute is observed on a non-Function runtime workload",
+    "the Cloud Build builder role is not effective before Editor removal"
+  ],
+  "sourceMutationBoundary": {
+    "serviceAccountsCreatedOrDeleted": false,
+    "projectIamMutated": false,
+    "functionsDeployed": false,
+    "defaultComputeEditorRemoved": false,
+    "firestoreDataMutated": false,
+    "rulesOrIndexesDeployed": false,
+    "distributionAuthorized": false,
+    "pilotAuthorized": false
+  }
+}

@@ -25,8 +25,19 @@
     "stampGlobalPullServerClock"
   ],
   "sourceDeclaredRuntimeBindings": {
+    "assignPublishedTemplateVersion": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "beginGlobalPullRun": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "completePlannedJobExecution": "crm3-fn-complete-job@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "executeMaintenanceWorkflowCommand": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "getBackendReleaseIdentity": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "maintenanceWorkflowEscalationSweep": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "mutateChargeAbnormality": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "mutateRuntimeJobModulePopulation": "crm3-fn-runtime-modules@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "mutateUserAuthority": "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "onJobAssigned": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "onMaintenanceWorkflowEventCreated": "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "onTicketCreated": "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "onTicketResolved": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "stampGlobalPullServerClock": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com"
   },
   "forbiddenBroadProjectRoles": [

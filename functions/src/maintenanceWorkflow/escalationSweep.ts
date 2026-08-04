@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import {onSchedule} from "firebase-functions/v2/scheduler";
+import {FUNCTION_RUNTIME_SERVICE_ACCOUNTS} from "../functionFleetRuntimeIdentity";
 import {eventPlan} from "./events";
 import {
   escalationEventId,
@@ -186,6 +187,8 @@ export const maintenanceWorkflowEscalationSweep = onSchedule(
     timeZone: "Asia/Kolkata",
     timeoutSeconds: 300,
     memory: "512MiB",
+    serviceAccount:
+      FUNCTION_RUNTIME_SERVICE_ACCOUNTS.maintenanceWorkflowEscalationSweep,
   },
   async () => {
     const db = admin.firestore();

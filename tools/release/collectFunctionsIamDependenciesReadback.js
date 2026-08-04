@@ -493,6 +493,9 @@ function adjudicateReadback({
   const policyNames = [...policy.sourceFunctionExports].sort();
   const actualSet = new Set(actualNames);
   const expectedSet = new Set(expectedNames);
+  const runtimeBindingNames = Object.keys(
+    policy.sourceDeclaredRuntimeBindings ?? {},
+  ).sort();
   const missingFromLive = expectedNames.filter((name) => !actualSet.has(name));
   const unexpectedLive = actualNames.filter((name) => !expectedSet.has(name));
   const duplicateFunctionNames = actualNames.filter(
@@ -558,6 +561,8 @@ function adjudicateReadback({
       canonicalJson(policy.gateIds) === canonicalJson(["LR-03", "LR-06"]),
     sourceExportInventoryMatchesPolicy:
       canonicalJson(expectedNames) === canonicalJson(policyNames),
+    sourceRuntimeBindingInventoryMatchesPolicy:
+      canonicalJson(expectedNames) === canonicalJson(runtimeBindingNames),
     sourceStable:
       sourceBefore.commit === sourceAfter.commit &&
       sourceBefore.tree === sourceAfter.tree,

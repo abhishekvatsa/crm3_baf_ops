@@ -144,13 +144,17 @@ void main() {
         globalPullSecuritySource,
         contains('GLOBAL_PULL_READER_RUNTIME_SERVICE_ACCOUNT'),
       );
+      final functionFleetRuntimeSource =
+          File(
+            'functions/src/functionFleetRuntimeIdentity.ts',
+          ).readAsStringSync();
       expect(
-        globalPullSecuritySource,
+        functionFleetRuntimeSource,
         contains('import {expr, projectID} from "firebase-functions/params"'),
       );
-      expect(globalPullSecuritySource, contains(r'@${projectID}'));
+      expect(functionFleetRuntimeSource, contains(r'@${projectID}'));
       expect(
-        globalPullSecuritySource,
+        functionFleetRuntimeSource,
         isNot(contains('@crm3-baf-ops-b8638.iam.gserviceaccount.com')),
       );
     },

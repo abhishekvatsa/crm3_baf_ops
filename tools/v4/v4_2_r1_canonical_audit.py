@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 266
-    and counts.get("SUCCESSOR_MODIFIED") == 144
+    and counts.get("BYTE_IDENTICAL") == 265
+    and counts.get("SUCCESSOR_MODIFIED") == 145
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -1104,11 +1104,7 @@ check(
         functions_live_readback_policy.get(
             "sourceDeclaredRuntimeBindings", {}
         )
-    ) == {
-        "beginGlobalPullRun",
-        "getBackendReleaseIdentity",
-        "stampGlobalPullServerClock",
-    }
+    ) == set(functions_live_expected_exports)
     and all(
         value is False
         for value in functions_live_readback_policy.get(
@@ -1133,6 +1129,8 @@ check(
         in functions_live_readback_source
     and "discoverFunctionExports" in functions_live_readback_source
     and "sourceExportInventoryMatchesPolicy"
+        in functions_live_readback_source
+    and "sourceRuntimeBindingInventoryMatchesPolicy"
         in functions_live_readback_source
     and "resolveCommand" in functions_live_readback_source
     and 'platformPath.join(sdkRoot, "lib", "gcloud.py")'
@@ -1274,6 +1272,95 @@ check(
         in functions_live_readback_decision
     and "`S-01` and `D-01` own remediation"
         in functions_live_readback_decision,
+)
+
+function_fleet_identity_policy = data(
+    "release/function-fleet-runtime-identity-policy.json"
+)
+function_fleet_identity_source = text(
+    "functions/src/functionFleetRuntimeIdentity.ts"
+)
+function_fleet_identity_test = text(
+    "functions/test/functionFleetRuntimeIdentitySource.test.js"
+)
+function_fleet_identity_decision = text(
+    "docs/v4_2_r1/S01_FUNCTION_FLEET_RUNTIME_IDENTITY_CAMPAIGN.md"
+)
+function_fleet_bindings = function_fleet_identity_policy.get(
+    "functionBindings", {}
+)
+function_fleet_account_ids = [
+    binding.get("runtimeServiceAccountId")
+    for binding in function_fleet_bindings.values()
+    if isinstance(binding, dict)
+]
+check(
+    "S-01 complete Function fleet has unique target-project identities",
+    function_fleet_identity_policy.get("schemaVersion") == 1
+    and function_fleet_identity_policy.get("declarationStatus")
+        == "SOURCE_IMPLEMENTED_PENDING_IAM_AND_DEPLOYMENT"
+    and function_fleet_identity_policy.get("productionProjectId")
+        == "crm3-baf-ops-b8638"
+    and function_fleet_identity_policy.get("targetProjectBinding") == {
+        "builtInParameter": "PROJECT_ID",
+        "serviceAccountDomain": "iam.gserviceaccount.com",
+        "sameProjectRequired": True,
+        "crossProjectResolutionAllowed": False,
+    }
+    and sorted(function_fleet_bindings) == functions_live_expected_exports
+    and len(function_fleet_account_ids) == 14
+    and len(set(function_fleet_account_ids)) == 14
+    and all(
+        isinstance(account_id, str)
+        and 6 <= len(account_id) <= 30
+        and account_id in function_fleet_identity_source
+        for account_id in function_fleet_account_ids
+    )
+    and function_fleet_identity_policy.get("customRoles", {}).get(
+        "notificationSender", {}
+    ).get("includedPermissions") == ["cloudmessaging.messages.create"]
+    and function_fleet_identity_policy.get("buildIdentity", {}).get(
+        "requiredProjectRolesAfterCutover"
+    ) == ["roles/cloudbuild.builds.builder"]
+    and function_fleet_identity_policy.get("buildIdentity", {}).get(
+        "runtimeUseAfterCutover"
+    ) == "PROHIBITED"
+    and function_fleet_identity_policy.get(
+        "temporaryDeploymentProjectRoles", {}
+    ) == {
+        "eventAndScheduleRuntimeIdentities": ["roles/run.invoker"],
+        "removalRequiredBeforeClosure": True,
+    }
+    and function_fleet_identity_policy.get("roleExactnessRequired") is True
+    and all(
+        "roles/editor" not in binding.get("requiredProjectRoles", [])
+        and "roles/logging.logWriter"
+            not in binding.get("requiredProjectRoles", [])
+        for binding in function_fleet_bindings.values()
+        if isinstance(binding, dict)
+    )
+    and all(
+        value is False
+        for value in function_fleet_identity_policy.get(
+            "sourceMutationBoundary", {}
+        ).values()
+    )
+    and 'import {expr, projectID} from "firebase-functions/params"'
+        in function_fleet_identity_source
+    and "@${projectID}.iam.gserviceaccount.com"
+        in function_fleet_identity_source
+    and "compute@developer.gserviceaccount.com"
+        not in function_fleet_identity_source
+    and "endpointServiceAccount" in function_fleet_identity_test
+    and "accountIds.size" in function_fleet_identity_test
+    and "Default Compute must receive" in function_fleet_identity_decision
+    and "Any failure before step 10 leaves Editor unchanged"
+        in function_fleet_identity_decision
+    and set(functions_live_finding_records) == {"S-01", "D-01"}
+    and all(
+        record.get("currentStatus") == "OPEN"
+        for record in functions_live_finding_records.values()
+    ),
 )
 
 lr02_receipt_path = ROOT / "release/evidence/lr02-p04-firestore-live-readback.json"
@@ -3733,6 +3820,9 @@ global_pull_governance = text("functions/tools/global-pull-server-clock.mjs")
 global_pull_runtime_security = text(
     "functions/src/globalPullSecurityConfig.ts"
 )
+function_fleet_runtime_security = text(
+    "functions/src/functionFleetRuntimeIdentity.ts"
+)
 global_pull_runtime_identity_policy = data(
     "release/global-pull-runtime-identity-policy.json"
 )
@@ -3774,17 +3864,17 @@ check(
     and '"--include-document-ids is valid only for inventory."'
         in global_pull_governance
     and "consoleContainsDocumentIds: false" in global_pull_governance
-    and '"crm3-global-pull-reader"' in global_pull_runtime_security
-    and '"crm3-global-pull-writer"' in global_pull_runtime_security
+    and '"crm3-global-pull-reader"' in function_fleet_runtime_security
+    and '"crm3-global-pull-writer"' in function_fleet_runtime_security
     and 'import {expr, projectID} from "firebase-functions/params"'
-        in global_pull_runtime_security
+        in function_fleet_runtime_security
     and "@${projectID}.iam.gserviceaccount.com"
-        in global_pull_runtime_security
+        in function_fleet_runtime_security
     and "@crm3-baf-ops-b8638.iam.gserviceaccount.com"
-        not in global_pull_runtime_security
+        not in function_fleet_runtime_security
     and "compute@developer.gserviceaccount.com"
-        not in global_pull_runtime_security
-    and global_pull_runtime_identity_policy.get("schemaVersion") == 2
+        not in function_fleet_runtime_security
+    and global_pull_runtime_identity_policy.get("schemaVersion") == 3
     and global_pull_runtime_identity_policy.get("targetProjectBinding") == {
         "builtInParameter": "PROJECT_ID",
         "serviceAccountDomain": "iam.gserviceaccount.com",
@@ -3815,16 +3905,19 @@ check(
     and global_pull_runtime_identity_policy.get(
         "functionBindings", {}
     ).get("beginGlobalPullRun", {}).get("requiredProjectRoles")
-        == ["roles/datastore.viewer", "roles/logging.logWriter"]
+        == ["roles/datastore.viewer"]
     and global_pull_runtime_identity_policy.get(
         "functionBindings", {}
     ).get("stampGlobalPullServerClock", {}).get("requiredProjectRoles")
         == [
             "roles/datastore.user",
             "roles/eventarc.eventReceiver",
-            "roles/run.invoker",
-            "roles/logging.logWriter",
         ]
+    and global_pull_runtime_identity_policy.get(
+        "functionBindings", {}
+    ).get("stampGlobalPullServerClock", {}).get(
+        "requiredCloudRunServiceRoles"
+    ) == ["roles/run.invoker"]
     and global_pull_runtime_identity_policy.get(
         "existingFunctionFleetMutationAuthorized"
     ) is False
