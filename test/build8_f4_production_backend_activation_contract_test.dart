@@ -261,6 +261,9 @@ void main() {
     }
     expect(script, isNot(contains("'Core modules'")));
     expect(script, contains(r'$homeEvidence = Move-ToApprovedHome'));
+    expect(script, contains("'Support diagnostics'"));
+    expect(home, contains("title: 'Support diagnostics'"));
+    expect(script, isNot(contains("'Support Diagnostics'")));
     expect(
       RegExp(
         r'^\s*\$home\s*=',

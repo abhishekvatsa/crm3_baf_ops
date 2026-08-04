@@ -38,8 +38,9 @@ release candidates and are not authorized for installation or distribution.
 
 ## Workflow
 
-`.github/workflows/release-gate.yml` runs the proof on every push and pull
-request in a separate `android-package` job. The job has repository read
+`.github/workflows/release-gate.yml` runs the proof once for every pull request
+and once after admission to `main`, in a separate `android-package` job. Branch
+pushes do not duplicate the pull-request run. The job has repository read
 permission only, names no GitHub environment, references no secret, and uses
 SHA-pinned setup actions.
 

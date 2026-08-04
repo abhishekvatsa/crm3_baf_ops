@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "resolvedAtUtc": "2026-06-23T16:04:51.9833669Z",
+  "resolvedAtUtc": "2026-08-03T23:38:21.197Z",
   "actions": {
     "checkout": {
       "repository": "actions/checkout",
-      "tag": "v4",
-      "commitSha": "34e114876b0b11c390a56381ad16ebd13914f8d5"
+      "tag": "v7.0.1",
+      "commitSha": "3d3c42e5aac5ba805825da76410c181273ba90b1"
     },
     "setupJava": {
       "repository": "actions/setup-java",
-      "tag": "v4",
-      "commitSha": "c1e323688fd81a25caa38c78aa6df2d33d3e20d9"
+      "tag": "v5.7.0",
+      "commitSha": "b6effb05e454b25005698d916606bdc6ffcbf961"
     },
     "setupNode": {
       "repository": "actions/setup-node",
-      "tag": "v4",
-      "commitSha": "49933ea5288caeca8642d1e84afbd3f7d6820020"
+      "tag": "v7.0.0",
+      "commitSha": "820762786026740c76f36085b0efc47a31fe5020"
     },
     "flutterAction": {
       "repository": "subosito/flutter-action",
@@ -24,8 +24,8 @@
     },
     "uploadArtifact": {
       "repository": "actions/upload-artifact",
-      "tag": "v4",
-      "commitSha": "ea165f8d65b6e75b540449e92b4886f43607fa02"
+      "tag": "v7.0.1",
+      "commitSha": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
     }
   }
 }

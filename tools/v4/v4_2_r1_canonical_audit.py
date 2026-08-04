@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 267
-    and counts.get("SUCCESSOR_MODIFIED") == 143
+    and counts.get("BYTE_IDENTICAL") == 266
+    and counts.get("SUCCESSOR_MODIFIED") == 144
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -402,6 +402,9 @@ check(
     "C-03 every-PR Android release packaging is secret-isolated and complete",
     "pull_request:" in release_gate_source
     and "push:" in release_gate_source
+    and 'push:\n    branches: ["main"]' in release_gate_source
+    and 'pull_request:\n    branches: ["**"]' in release_gate_source
+    and 'push:\n    branches: ["**"]' not in release_gate_source
     and "Invoke-CIAndroidPackageProof.ps1" in c03_job_source
     and "${{ secrets." not in c03_job_source
     and "\n    environment:" not in c03_job_source
@@ -1965,9 +1968,9 @@ check(
     sha(build8_sync_promotion_path)
         == "C453E38385A4405B0C44E66272DDC038C3E56C33F7793A7D7A17F89D11EF4E64"
     and sha(build8_sync_harness_path)
-        == "DAC9B0F408F2232E38EA5F980FFE8A54DF91BC97800AFAB0E36E075FB02FB4A9"
+        == "C8381F1A6547924B14DD8B72258116A8756C8153700F7200D0B81B340FC9401E"
     and sha(build8_sync_doc_path)
-        == "1DE8BBE999F236CE5B3A8C1D1AECF3761E5A09A5FB85398006E635EE81A6EBC9"
+        == "3D87B906FBD9714849D26FF8B7BCCA7E2079545B1E440239BCD26095A0A507D7"
     and "Status: BACKEND READY; ONE EXACT-TARGET SYNC RETRY PROPOSED"
         in build8_sync_doc
     and sha(build8_backend_readiness_path)
