@@ -12,6 +12,10 @@ const policy = JSON.parse(fs.readFileSync(
   path.join(root, "release", "function-fleet-runtime-identity-policy.json"),
   "utf8",
 ));
+const liveReadbackPolicy = JSON.parse(fs.readFileSync(
+  path.join(root, "release", "lr03-lr06-functions-live-readback-policy.json"),
+  "utf8",
+));
 
 function endpointServiceAccount(endpoint) {
   const value = endpoint.__endpoint.serviceAccountEmail;
@@ -44,6 +48,10 @@ describe("complete Function fleet runtime identity source policy", () => {
       );
     }
     expect(accountIds.size).toBe(governedNames.length);
+
+    expect(liveReadbackPolicy.sourceDeclaredRuntimeBindings).toEqual(
+      functionRuntimeServiceAccountsForProject(policy.productionProjectId),
+    );
   });
 
   test("resolves the full fleet only inside the selected deployment project", () => {

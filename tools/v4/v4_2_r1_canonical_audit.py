@@ -1104,11 +1104,7 @@ check(
         functions_live_readback_policy.get(
             "sourceDeclaredRuntimeBindings", {}
         )
-    ) == {
-        "beginGlobalPullRun",
-        "getBackendReleaseIdentity",
-        "stampGlobalPullServerClock",
-    }
+    ) == set(functions_live_expected_exports)
     and all(
         value is False
         for value in functions_live_readback_policy.get(
@@ -1133,6 +1129,8 @@ check(
         in functions_live_readback_source
     and "discoverFunctionExports" in functions_live_readback_source
     and "sourceExportInventoryMatchesPolicy"
+        in functions_live_readback_source
+    and "sourceRuntimeBindingInventoryMatchesPolicy"
         in functions_live_readback_source
     and "resolveCommand" in functions_live_readback_source
     and 'platformPath.join(sdkRoot, "lib", "gcloud.py")'

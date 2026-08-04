@@ -98,12 +98,14 @@ function functionEvidence({name, identity, dependencies = currentDependencies}) 
 }
 
 function policy(overrides = {}) {
+  const alpha = "alpha@crm3-baf-ops-b8638.iam.gserviceaccount.com";
+  const beta = "beta@crm3-baf-ops-b8638.iam.gserviceaccount.com";
   return {
     productionProjectId: PRODUCTION_PROJECT_ID,
     productionRegion: PRODUCTION_REGION,
     gateIds: ["LR-03", "LR-06"],
     sourceFunctionExports: ["alpha", "beta"],
-    sourceDeclaredRuntimeBindings: {},
+    sourceDeclaredRuntimeBindings: {alpha, beta},
     forbiddenBroadProjectRoles: ["roles/editor", "roles/owner"],
     trackedRuntimePackages: trackedPackages,
     mutationBoundary: {
@@ -203,7 +205,10 @@ test("adverse posture does not corrupt a valid live-readback acquisition", () =>
   const result = adjudicate({
     functions,
     policyValue: policy({
-      sourceDeclaredRuntimeBindings: {beta},
+      sourceDeclaredRuntimeBindings: {
+        alpha: "alpha@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        beta,
+      },
     }),
     bindings: [
       {role: "roles/editor", members: [`serviceAccount:${defaultCompute}`]},
@@ -286,6 +291,19 @@ test("strict acquisition fails closed on dirty, detached or incomplete source", 
   });
   assert.ok(
     unownedExport.failedChecks.includes("sourceExportInventoryMatchesPolicy"),
+  );
+
+  const missingRuntimeBinding = adjudicate({
+    policyValue: policy({
+      sourceDeclaredRuntimeBindings: {
+        alpha: "alpha@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+      },
+    }),
+  });
+  assert.ok(
+    missingRuntimeBinding.failedChecks.includes(
+      "sourceRuntimeBindingInventoryMatchesPolicy",
+    ),
   );
 });
 
