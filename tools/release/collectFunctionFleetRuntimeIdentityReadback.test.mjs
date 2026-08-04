@@ -184,6 +184,16 @@ test("final phase fails closed on Editor, a wrong runtime identity or extra role
   assert.ok(result.failedChecks.includes("defaultComputeRolesReducedToBuildOnly"));
 });
 
+test("final phase rejects an extra service-level role on a trigger identity", () => {
+  const state = live();
+  state.cloudRunBindings[0].roles.push("roles/run.viewer");
+  state.cloudRunBindings[0].roles.sort();
+  const result = adjudicate("final", state);
+  assert.ok(
+    result.failedChecks.includes("requiredCloudRunInvokerBindingsReady"),
+  );
+});
+
 test("preflight and fleet phases stop on an overdue scheduler backlog", () => {
   const state = live();
   state.backlog = {

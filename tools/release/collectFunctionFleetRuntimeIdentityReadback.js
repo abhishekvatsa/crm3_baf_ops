@@ -532,7 +532,7 @@ function adjudicateReadback({
   const runBindingsReady = triggerNames.every((name) => {
     if (!requiredNames.includes(name)) return true;
     const observed = cloudRunByFunction.get(name)?.roles ?? [];
-    return includesAll(
+    return sameValues(
       observed,
       policy.functionBindings[name].requiredCloudRunServiceRoles,
     );
