@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "policyId": "LR04-FIRESTORE-RECOVERABILITY-READBACK-POLICY-V1",
+  "collectorStatus": "SOURCE_IMPLEMENTED_PENDING_MERGE_CI_AND_LIVE_EXECUTION",
+  "productionProjectId": "crm3-baf-ops-b8638",
+  "productionDatabase": "(default)",
+  "productionLocation": "asia-south1",
+  "gateIds": [
+    "LR-04"
+  ],
+  "findingIds": [
+    "P-05"
+  ],
+  "operationInventoryLimit": 1000,
+  "restoreSeal": {
+    "path": "release/evidence/production-prelive-restore-pack-seal.json",
+    "sha256": "982040C70DD01325870E877378D74A8A705B1F64576A46B2C98FB244576AE599",
+    "bytes": 4440,
+    "decision": "PASS_PRIVATE_PRODUCTION_RESTORE_PACK_SEALED_AND_INDEPENDENTLY_VERIFIED"
+  },
+  "acquisitionRequirements": [
+    "strict execution is bound to a clean main commit equal to origin/main before and after collection",
+    "the production project, database and location match this policy exactly",
+    "database protection states and complete backup schedule, backup and operation inventories are obtained by read-only gcloud commands",
+    "the exact sealed managed-export operation is independently described and reconfirmed successful",
+    "the receipt is canonically sealed and written append-only outside the repository"
+  ],
+  "postureSemantics": {
+    "collectionPassMayContainAdversePosture": true,
+    "pointInTimeRecoveryDisabledClosesUnderlyingFinding": false,
+    "deleteProtectionDisabledClosesUnderlyingFinding": false,
+    "missingNativeBackupScheduleClosesUnderlyingFinding": false,
+    "missingNativeBackupClosesUnderlyingFinding": false,
+    "missingRestoreImportProofClosesUnderlyingFinding": false,
+    "managedExportIsNotRepresentedAsNativeBackupOrRestoreProof": true
+  },
+  "mutationBoundary": {
+    "pointInTimeRecoveryChanged": false,
+    "deleteProtectionChanged": false,
+    "backupScheduleCreatedUpdatedOrDeleted": false,
+    "backupCreatedOrDeleted": false,
+    "firestoreExportOrImportPerformed": false,
+    "firestoreDocumentReadOrWritePerformed": false,
+    "storageObjectReadOrWritePerformed": false,
+    "functionsMutated": false,
+    "iamMutated": false,
+    "billingChanged": false,
+    "businessDataReadOrWritten": false
+  },
+  "privacyBoundary": {
+    "operatorAccountIdentityRetained": false,
+    "firestoreDocumentOrBusinessPayloadRetained": false,
+    "databaseUidOrEtagRetained": false,
+    "backupScheduleOrBackupNamesRetained": false,
+    "operationNamesOrOutputPrefixesRetained": false,
+    "privateCustodyPathsRetained": false,
+    "operationalStateRepresentedByCountsStatesHashesAndTimesOnly": true
+  }
+}

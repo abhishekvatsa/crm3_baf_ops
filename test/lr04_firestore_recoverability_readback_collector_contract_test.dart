@@ -1,0 +1,148 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+
+Map<String, dynamic> _object(dynamic value) =>
+    Map<String, dynamic>.from(value as Map);
+
+List<Map<String, dynamic>> _objects(dynamic value) =>
+    (value as List<dynamic>).map(_object).toList(growable: false);
+
+List<String> _strings(dynamic value) => (value as List<dynamic>).cast<String>();
+
+void main() {
+  test('LR-04 collector is target-bound, private and mutation-free', () {
+    final policy = _object(
+      jsonDecode(
+        File(
+          'release/lr04-firestore-recoverability-readback-policy.json',
+        ).readAsStringSync(),
+      ),
+    );
+    final collector =
+        File(
+          'tools/release/collectFirestoreRecoverabilityReadback.js',
+        ).readAsStringSync();
+    final collectorTests =
+        File(
+          'tools/release/collectFirestoreRecoverabilityReadback.test.mjs',
+        ).readAsStringSync();
+    final package = _object(
+      jsonDecode(File('package.json').readAsStringSync()),
+    );
+    final workflow =
+        File('.github/workflows/release-gate.yml').readAsStringSync();
+    final decision =
+        File(
+          'docs/v4_2_r1/LR04_FIRESTORE_RECOVERABILITY_LIVE_READBACK.md',
+        ).readAsStringSync();
+
+    expect(policy['schemaVersion'], 1);
+    expect(
+      policy['policyId'],
+      'LR04-FIRESTORE-RECOVERABILITY-READBACK-POLICY-V1',
+    );
+    expect(policy['productionProjectId'], 'crm3-baf-ops-b8638');
+    expect(policy['productionDatabase'], '(default)');
+    expect(policy['productionLocation'], 'asia-south1');
+    expect(_strings(policy['gateIds']), <String>['LR-04']);
+    expect(_strings(policy['findingIds']), <String>['P-05']);
+    expect(policy['operationInventoryLimit'], 1000);
+    final restoreSeal = _object(policy['restoreSeal']);
+    expect(
+      restoreSeal['sha256'],
+      '982040C70DD01325870E877378D74A8A705B1F64576A46B2C98FB244576AE599',
+    );
+    expect(restoreSeal['bytes'], 4440);
+    expect(_object(policy['mutationBoundary']).values, everyElement(isFalse));
+    final privacy = _object(policy['privacyBoundary']);
+    expect(privacy['operatorAccountIdentityRetained'], isFalse);
+    expect(privacy['firestoreDocumentOrBusinessPayloadRetained'], isFalse);
+    expect(privacy['operationNamesOrOutputPrefixesRetained'], isFalse);
+
+    for (final marker in <String>[
+      'collectSourceBinding',
+      'sourceCommitMatchesOriginMain',
+      'governedSourceClean',
+      'resolveCommand',
+      'platformPath.join(sdkRoot, "lib", "gcloud.py")',
+      'firestore",\n      "databases",\n      "describe',
+      'firestore",\n      "backups",\n      "schedules",\n      "list',
+      'firestore",\n      "backups",\n      "list',
+      'firestore",\n      "operations",\n      "list',
+      'firestore",\n      "operations",\n      "describe',
+      'PASS_FIRESTORE_RECOVERABILITY_LIVE_READBACK',
+      'HOLD_FIRESTORE_RECOVERABILITY_POSTURE',
+      'collectorAuthorizesClosure: false',
+      'sourceAndCiOnly: false',
+      'flag: "wx"',
+    ]) {
+      expect(collector, contains(marker), reason: 'Missing $marker');
+    }
+    for (final forbidden in <String>[
+      '"databases",\n      "update"',
+      '"schedules",\n      "create"',
+      '"schedules",\n      "update"',
+      '"schedules",\n      "delete"',
+      '"backups",\n      "delete"',
+      '"operations",\n      "cancel"',
+      'firestore import',
+      'firestore export',
+      'shell: true',
+      'cmd.exe',
+    ]) {
+      expect(collector, isNot(contains(forbidden)), reason: forbidden);
+    }
+    expect(
+      collectorTests,
+      contains(
+        'strict acquisition passes while adverse recoverability posture remains explicit',
+      ),
+    );
+    expect(
+      collectorTests,
+      contains(
+        'summaries omit schedule, backup, operation and output identifiers',
+      ),
+    );
+    expect(
+      collectorTests,
+      contains(
+        'Windows gcloud uses the bundled Python entrypoint without a shell',
+      ),
+    );
+    expect(
+      _object(
+        package['scripts'],
+      )['test:firestore-recoverability-readback-custody'],
+      'node --test tools/release/collectFirestoreRecoverabilityReadback.test.mjs',
+    );
+    expect(
+      workflow,
+      contains('npm run test:firestore-recoverability-readback-custody'),
+    );
+    expect(
+      decision,
+      contains(
+        'Collector status: SOURCE_IMPLEMENTED_PENDING_MERGE_CI_AND_LIVE_EXECUTION',
+      ),
+    );
+    expect(decision, contains('A strict acquisition may pass while posture'));
+    expect(decision, contains('does not close `LR-04` or `P-05`'));
+  });
+
+  test('source tranche preserves LR-04 and P-05 as open', () {
+    final ledger = _object(
+      jsonDecode(File('governance/programme-ledger.json').readAsStringSync()),
+    );
+    final gates = _objects(ledger['programmeGates']);
+    final findings = _objects(ledger['technicalFindings']);
+    final lr04 = gates.singleWhere((entry) => entry['gateId'] == 'LR-04');
+    final p05 = findings.singleWhere((entry) => entry['findingId'] == 'P-05');
+    expect(lr04['currentStatus'], 'OPEN');
+    expect(_objects(lr04['evidence']), isEmpty);
+    expect(p05['currentStatus'], 'OPEN');
+    expect(_objects(p05['evidence']), isEmpty);
+  });
+}
