@@ -831,6 +831,8 @@ firebase_cli_lock = data("tooling/firebase-cli/package-lock.json")
 firebase_cli_packages = firebase_cli_lock.get("packages", {})
 hono = firebase_cli_packages.get("node_modules/@hono/node-server", {})
 fast_uri = firebase_cli_packages.get("node_modules/fast-uri", {})
+hono_runtime = firebase_cli_packages.get("node_modules/hono", {})
+ip_address = firebase_cli_packages.get("node_modules/ip-address", {})
 brace_expansion = firebase_cli_packages.get("node_modules/brace-expansion", {})
 brace_expansion_upstream = firebase_cli_packages.get("node_modules/brace-expansion-modern", {})
 tar = firebase_cli_packages.get("node_modules/tar", {})
@@ -841,7 +843,9 @@ check(
     "Firebase CLI tooling pins only the bounded patched dependency versions",
     firebase_cli_package.get("dependencies", {}).get("firebase-tools") == "15.22.4"
     and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.0.10"
-    and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.4"
+    and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.5"
+    and firebase_cli_package.get("overrides", {}).get("hono") == "4.12.34"
+    and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.4.0"
     and firebase_cli_package.get("dependencies", {}).get("brace-expansion") == "file:../brace-expansion-compat"
     and firebase_cli_package.get("overrides", {}).get("brace-expansion") == "$brace-expansion"
     and firebase_cli_package.get("overrides", {}).get("tar") == "7.5.21"
@@ -850,15 +854,21 @@ check(
     and hono.get("version") == "2.0.10"
     and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
     and hono.get("integrity") == "sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA=="
-    and fast_uri.get("version") == "3.1.4"
-    and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.4.tgz"
-    and fast_uri.get("integrity") == "sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw=="
-    and brace_expansion.get("version") == "5.0.8"
+    and fast_uri.get("version") == "3.1.5"
+    and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.5.tgz"
+    and fast_uri.get("integrity") == "sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw=="
+    and hono_runtime.get("version") == "4.12.34"
+    and hono_runtime.get("resolved") == "https://registry.npmjs.org/hono/-/hono-4.12.34.tgz"
+    and hono_runtime.get("integrity") == "sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA=="
+    and ip_address.get("version") == "10.4.0"
+    and ip_address.get("resolved") == "https://registry.npmjs.org/ip-address/-/ip-address-10.4.0.tgz"
+    and ip_address.get("integrity") == "sha512-oSK96Grm3aP6OrS263xVxbNDGVL7rzBtYdpGqlDG8iQdoenDoTs/nkki+DflYbAEE8Xl6o5YxhxlrKvI3nqKXQ=="
+    and brace_expansion.get("version") == "5.0.9"
     and brace_expansion.get("resolved") == "file:../brace-expansion-compat"
     and brace_expansion_upstream.get("name") == "brace-expansion"
-    and brace_expansion_upstream.get("version") == "5.0.8"
-    and brace_expansion_upstream.get("resolved") == "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.8.tgz"
-    and brace_expansion_upstream.get("integrity") == "sha512-JZyDyq3D4AUifKTPOB7DELf6XsB3WdPuNxCtob1vFXPsSXhdAiHBWJ/tJ8HAc9aH84BK+5JFZLNkJKx3G9kzQg=="
+    and brace_expansion_upstream.get("version") == "5.0.9"
+    and brace_expansion_upstream.get("resolved") == "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.9.tgz"
+    and brace_expansion_upstream.get("integrity") == "sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg=="
     and tar.get("version") == "7.5.21"
     and tar.get("resolved") == "https://registry.npmjs.org/tar/-/tar-7.5.21.tgz"
     and tar.get("integrity") == "sha512-XdhtCvlMywwxpCW8YEq3lOXBJpUPTR2OHHcwLPO3HwsJqOHa2Ok/oJ7ruGzp+JrKoRPVCzJwAdEjqLW/vNRPHA=="
@@ -874,8 +884,8 @@ brace_compat_smoke = text("tools/dependencies/verify_brace_expansion_compat.mjs"
 check(
     "Patched brace-expansion adapter preserves legacy and modern interfaces",
     brace_adapter_package.get("name") == "brace-expansion"
-    and brace_adapter_package.get("version") == "5.0.8"
-    and brace_adapter_package.get("dependencies", {}).get("brace-expansion-modern") == "npm:brace-expansion@5.0.8"
+    and brace_adapter_package.get("version") == "5.0.9"
+    and brace_adapter_package.get("dependencies", {}).get("brace-expansion-modern") == "npm:brace-expansion@5.0.9"
     and "module.exports = Object.assign(upstream.expand, upstream)" in brace_adapter_cjs
     and "export default expand" in brace_adapter_esm
     and "PASS_BRACE_EXPANSION_COMPAT" in brace_compat_smoke
@@ -918,8 +928,10 @@ check(
         "HOLD_FIREBASE_CLI_DEPENDENCY_VERSION",
         "HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT",
         "2.0.10",
-        "3.1.4",
-        "5.0.8",
+        "3.1.5",
+        "4.12.34",
+        "10.4.0",
+        "5.0.9",
         "1.25.2",
         "7.5.21",
         "verify_brace_expansion_compat.mjs",

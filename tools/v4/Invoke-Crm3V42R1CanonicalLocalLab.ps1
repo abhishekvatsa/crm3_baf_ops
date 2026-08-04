@@ -42,8 +42,10 @@ $expected = [ordered]@{
   javaPrefix = '21.0.11'
   firebaseTools = '15.22.4'
   honoNodeServer = '2.0.10'
-  fastUri = '3.1.4'
-  braceExpansion = '5.0.8'
+  fastUri = '3.1.5'
+  honoRuntime = '4.12.34'
+  ipAddress = '10.4.0'
+  braceExpansion = '5.0.9'
   re2 = '1.25.2'
   tar = '7.5.21'
   isarFlutterLibs = '3.1.0+1'
@@ -253,6 +255,8 @@ function Assert-FirebaseCliLockPolicy {
   $braceExpansionDeclared = [string](Get-JsonPropertyValue -Object $package.dependencies -Name 'brace-expansion')
   $honoOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name '@hono/node-server')
   $fastUriOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'fast-uri')
+  $honoRuntimeOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'hono')
+  $ipAddressOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'ip-address')
   $braceExpansionOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'brace-expansion')
   $re2Override = [string](Get-JsonPropertyValue -Object $package.overrides -Name 're2')
   $tarOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'tar')
@@ -263,6 +267,8 @@ function Assert-FirebaseCliLockPolicy {
   }
   $honoLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/@hono/node-server'
   $fastUriLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/fast-uri'
+  $honoRuntimeLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/hono'
+  $ipAddressLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/ip-address'
   $braceExpansionLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/brace-expansion'
   $braceExpansionUpstreamLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/brace-expansion-modern'
   $re2Lock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/re2'
@@ -283,16 +289,24 @@ function Assert-FirebaseCliLockPolicy {
     honoNaturalRange = ($mcpHonoRange -eq '^1.19.9')
     fastUriOverride = ($fastUriOverride -eq $expected.fastUri)
     fastUriLocked = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version') -eq $expected.fastUri)
-    fastUriResolved = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'resolved') -eq 'https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.4.tgz')
-    fastUriIntegrity = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'integrity') -eq 'sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw==')
+    fastUriResolved = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'resolved') -eq 'https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.5.tgz')
+    fastUriIntegrity = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'integrity') -eq 'sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw==')
+    honoRuntimeOverride = ($honoRuntimeOverride -eq $expected.honoRuntime)
+    honoRuntimeLocked = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'version') -eq $expected.honoRuntime)
+    honoRuntimeResolved = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'resolved') -eq 'https://registry.npmjs.org/hono/-/hono-4.12.34.tgz')
+    honoRuntimeIntegrity = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'integrity') -eq 'sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA==')
+    ipAddressOverride = ($ipAddressOverride -eq $expected.ipAddress)
+    ipAddressLocked = ($null -ne $ipAddressLock -and [string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'version') -eq $expected.ipAddress)
+    ipAddressResolved = ($null -ne $ipAddressLock -and [string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'resolved') -eq 'https://registry.npmjs.org/ip-address/-/ip-address-10.4.0.tgz')
+    ipAddressIntegrity = ($null -ne $ipAddressLock -and [string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'integrity') -eq 'sha512-oSK96Grm3aP6OrS263xVxbNDGVL7rzBtYdpGqlDG8iQdoenDoTs/nkki+DflYbAEE8Xl6o5YxhxlrKvI3nqKXQ==')
     braceExpansionDeclared = ($braceExpansionDeclared -eq 'file:../brace-expansion-compat')
     braceExpansionOverride = ($braceExpansionOverride -eq '$brace-expansion')
     braceExpansionAdapterLocked = ($null -ne $braceExpansionLock -and [string](Get-JsonPropertyValue -Object $braceExpansionLock -Name 'version') -eq $expected.braceExpansion)
     braceExpansionAdapterResolved = ($null -ne $braceExpansionLock -and [string](Get-JsonPropertyValue -Object $braceExpansionLock -Name 'resolved') -eq 'file:../brace-expansion-compat')
     braceExpansionUpstreamNamed = ($null -ne $braceExpansionUpstreamLock -and [string](Get-JsonPropertyValue -Object $braceExpansionUpstreamLock -Name 'name') -eq 'brace-expansion')
     braceExpansionUpstreamLocked = ($null -ne $braceExpansionUpstreamLock -and [string](Get-JsonPropertyValue -Object $braceExpansionUpstreamLock -Name 'version') -eq $expected.braceExpansion)
-    braceExpansionUpstreamResolved = ($null -ne $braceExpansionUpstreamLock -and [string](Get-JsonPropertyValue -Object $braceExpansionUpstreamLock -Name 'resolved') -eq 'https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.8.tgz')
-    braceExpansionUpstreamIntegrity = ($null -ne $braceExpansionUpstreamLock -and [string](Get-JsonPropertyValue -Object $braceExpansionUpstreamLock -Name 'integrity') -eq 'sha512-JZyDyq3D4AUifKTPOB7DELf6XsB3WdPuNxCtob1vFXPsSXhdAiHBWJ/tJ8HAc9aH84BK+5JFZLNkJKx3G9kzQg==')
+    braceExpansionUpstreamResolved = ($null -ne $braceExpansionUpstreamLock -and [string](Get-JsonPropertyValue -Object $braceExpansionUpstreamLock -Name 'resolved') -eq 'https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.9.tgz')
+    braceExpansionUpstreamIntegrity = ($null -ne $braceExpansionUpstreamLock -and [string](Get-JsonPropertyValue -Object $braceExpansionUpstreamLock -Name 'integrity') -eq 'sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==')
     re2Override = ($re2Override -eq $expected.re2)
     re2Locked = ($null -ne $re2Lock -and [string](Get-JsonPropertyValue -Object $re2Lock -Name 'version') -eq $expected.re2)
     re2Resolved = ($null -ne $re2Lock -and [string](Get-JsonPropertyValue -Object $re2Lock -Name 'resolved') -eq 'https://registry.npmjs.org/re2/-/re2-1.25.2.tgz')
@@ -309,6 +323,8 @@ function Assert-FirebaseCliLockPolicy {
       firebaseTools = $expected.firebaseTools
       honoNodeServer = $expected.honoNodeServer
       fastUri = $expected.fastUri
+      honoRuntime = $expected.honoRuntime
+      ipAddress = $expected.ipAddress
       braceExpansion = $expected.braceExpansion
       re2 = $expected.re2
       tar = $expected.tar
@@ -321,12 +337,16 @@ function Assert-FirebaseCliLockPolicy {
       tarOverride = $tarOverride
       honoNodeServerOverride = $honoOverride
       fastUriOverride = $fastUriOverride
+      honoRuntimeOverride = $honoRuntimeOverride
+      ipAddressOverride = $ipAddressOverride
       mcpHonoRange = $mcpHonoRange
     }
     locked = [ordered]@{
       firebaseTools = if ($null -ne $firebaseToolsLock) {[string](Get-JsonPropertyValue -Object $firebaseToolsLock -Name 'version')} else {$null}
       honoNodeServer = if ($null -ne $honoLock) {[string](Get-JsonPropertyValue -Object $honoLock -Name 'version')} else {$null}
       fastUri = if ($null -ne $fastUriLock) {[string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version')} else {$null}
+      honoRuntime = if ($null -ne $honoRuntimeLock) {[string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'version')} else {$null}
+      ipAddress = if ($null -ne $ipAddressLock) {[string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'version')} else {$null}
       braceExpansion = if ($null -ne $braceExpansionLock) {[string](Get-JsonPropertyValue -Object $braceExpansionLock -Name 'version')} else {$null}
       braceExpansionUpstream = if ($null -ne $braceExpansionUpstreamLock) {[string](Get-JsonPropertyValue -Object $braceExpansionUpstreamLock -Name 'version')} else {$null}
       re2 = if ($null -ne $re2Lock) {[string](Get-JsonPropertyValue -Object $re2Lock -Name 'version')} else {$null}
@@ -340,7 +360,7 @@ function Assert-FirebaseCliLockPolicy {
     $script:failureStatus = 'HOLD_FIREBASE_CLI_LOCK_POLICY'
     throw "Firebase CLI lock policy failed: $($failed -join ', ')"
   }
-  Write-Output "PASS_FIREBASE_CLI_LOCK_POLICY: firebase-tools=$firebaseToolsDeclared brace-expansion=$braceExpansionDeclared re2=$re2Override tar=$tarOverride @hono/node-server=$honoOverride fast-uri=$fastUriOverride"
+  Write-Output "PASS_FIREBASE_CLI_LOCK_POLICY: firebase-tools=$firebaseToolsDeclared brace-expansion=$braceExpansionDeclared re2=$re2Override tar=$tarOverride @hono/node-server=$honoOverride fast-uri=$fastUriOverride hono=$honoRuntimeOverride ip-address=$ipAddressOverride"
 }
 
 function Assert-FirebaseCliInstalledVersions {
@@ -348,6 +368,8 @@ function Assert-FirebaseCliInstalledVersions {
     firebaseTools = Join-Path $workspace 'tooling/firebase-cli/node_modules/firebase-tools/package.json'
     honoNodeServer = Join-Path $workspace 'tooling/firebase-cli/node_modules/@hono/node-server/package.json'
     fastUri = Join-Path $workspace 'tooling/firebase-cli/node_modules/fast-uri/package.json'
+    honoRuntime = Join-Path $workspace 'tooling/firebase-cli/node_modules/hono/package.json'
+    ipAddress = Join-Path $workspace 'tooling/firebase-cli/node_modules/ip-address/package.json'
     braceExpansion = Join-Path $workspace 'tooling/firebase-cli/node_modules/brace-expansion/package.json'
     braceExpansionUpstream = Join-Path $workspace 'tooling/firebase-cli/node_modules/brace-expansion-modern/package.json'
     re2 = Join-Path $workspace 'tooling/firebase-cli/node_modules/re2/package.json'
@@ -366,6 +388,8 @@ function Assert-FirebaseCliInstalledVersions {
     firebaseTools = $expected.firebaseTools
     honoNodeServer = $expected.honoNodeServer
     fastUri = $expected.fastUri
+    honoRuntime = $expected.honoRuntime
+    ipAddress = $expected.ipAddress
     braceExpansion = $expected.braceExpansion
     braceExpansionUpstream = $expected.braceExpansion
     re2 = $expected.re2
@@ -386,7 +410,7 @@ function Assert-FirebaseCliInstalledVersions {
     $script:failureStatus = 'HOLD_FIREBASE_CLI_DEPENDENCY_VERSION'
     throw "Installed Firebase CLI dependency version mismatch: $($mismatches -join '; ')"
   }
-  Write-Output "PASS_FIREBASE_CLI_INSTALLED_VERSIONS: firebase-tools=$($actual.firebaseTools) brace-expansion=$($actual.braceExpansion) re2=$($actual.re2) tar=$($actual.tar) @hono/node-server=$($actual.honoNodeServer) fast-uri=$($actual.fastUri)"
+  Write-Output "PASS_FIREBASE_CLI_INSTALLED_VERSIONS: firebase-tools=$($actual.firebaseTools) brace-expansion=$($actual.braceExpansion) re2=$($actual.re2) tar=$($actual.tar) @hono/node-server=$($actual.honoNodeServer) fast-uri=$($actual.fastUri) hono=$($actual.honoRuntime) ip-address=$($actual.ipAddress)"
 }
 
 function Invoke-NpmCiStep {

@@ -212,6 +212,8 @@ tooling_versions = {
     "tar": lock_version("tooling/firebase-cli/package-lock.json", "tar"),
     "@hono/node-server": lock_version("tooling/firebase-cli/package-lock.json", "@hono/node-server"),
     "fast-uri": lock_version("tooling/firebase-cli/package-lock.json", "fast-uri"),
+    "hono": lock_version("tooling/firebase-cli/package-lock.json", "hono"),
+    "ip-address": lock_version("tooling/firebase-cli/package-lock.json", "ip-address"),
     "re2": lock_version("tooling/firebase-cli/package-lock.json", "re2"),
 }
 check(
@@ -219,8 +221,8 @@ check(
     root_versions["protobufjs"] == "7.6.5"
     and functions_versions["protobufjs"] == "7.6.5"
     and functions_versions["body-parser"] == "1.20.6"
-    and root_versions["brace-expansion"] == "5.0.8"
-    and functions_versions["brace-expansion"] == "5.0.8",
+    and root_versions["brace-expansion"] == "5.0.9"
+    and functions_versions["brace-expansion"] == "5.0.9",
     f"root={root_versions}; functions={functions_versions}",
 )
 check(
@@ -228,9 +230,11 @@ check(
     tooling_versions["protobufjs"] == "7.6.5"
     and tooling_versions["body-parser"] == "1.20.6"
     and tooling_versions["tar"] == "7.5.21"
-    and tooling_versions["brace-expansion"] == "5.0.8"
+    and tooling_versions["brace-expansion"] == "5.0.9"
     and tooling_versions["@hono/node-server"] == "2.0.10"
-    and tooling_versions["fast-uri"] == "3.1.4"
+    and tooling_versions["fast-uri"] == "3.1.5"
+    and tooling_versions["hono"] == "4.12.34"
+    and tooling_versions["ip-address"] == "10.4.0"
     and tooling_versions["re2"] == "1.25.2",
     str(tooling_versions),
 )
