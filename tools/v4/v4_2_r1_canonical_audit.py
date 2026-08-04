@@ -2545,6 +2545,29 @@ build8_sync_doc_path = (
     ROOT / "docs/v4_2_r1/BUILD8_F4_BACKEND_READY_AND_SYNC_RETRY.md"
 )
 build8_sync_doc = build8_sync_doc_path.read_text(encoding="utf-8")
+build8_sync_adjudication_path = (
+    ROOT / "release/evidence/build-8-f4-sync-marker-adjudication.json"
+)
+build8_sync_adjudication = data(
+    "release/evidence/build-8-f4-sync-marker-adjudication.json"
+)
+build8_offline_promotion_path = (
+    ROOT / "release/approvals/build-8-f4-offline-reconnect-promotion.json"
+)
+build8_offline_promotion = data(
+    "release/approvals/build-8-f4-offline-reconnect-promotion.json"
+)
+build8_offline_harness_path = (
+    ROOT / "tools/release/Invoke-Build8F4OfflineReconnect.ps1"
+)
+build8_offline_harness = build8_offline_harness_path.read_text(
+    encoding="utf-8"
+)
+build8_offline_doc_path = (
+    ROOT
+    / "docs/v4_2_r1/BUILD8_F4_SYNC_MARKER_AND_OFFLINE_RECONNECT.md"
+)
+build8_offline_doc = build8_offline_doc_path.read_text(encoding="utf-8")
 version_policy_approval = data(
     "release/approvals/version-policy-approval.json"
 )
@@ -3179,6 +3202,191 @@ check(
             "appdistribution:distribute",
         ]
     ),
+)
+build8_f4_gate_records = [
+    record
+    for record in programme_ledger.get("programmeGates", [])
+    if record.get("gateId") == "STAGE2D-F4"
+]
+check(
+    "Build 8 sync is adjudicated and offline reconnect restores exact transport",
+    sha(build8_sync_adjudication_path)
+        == "A165DFD44ED2B2BE9DDC27F20D4D982585EA7C0DC5749915BEE1C545DFAB5F5C"
+    and sha(build8_offline_promotion_path)
+        == "84B42ED1950AE31717410DBB8ACFE210B30ED12D8D5DC844B43A7E8D99B3F2DE"
+    and sha(build8_offline_harness_path)
+        == "E2E966760A9E29E0E1C1487B1D236D5A66B2EC2647C89730D6305E57F948DC42"
+    and sha(build8_offline_doc_path)
+        == "55D55F28FB38C4B42B0486FB4521129240CC11E60F01289C287389FE494438E6"
+    and build8_sync_adjudication.get("decision")
+        == "PASS_BUILD8_F4_SYNC_MARKER_ADJUDICATED"
+    and build8_sync_adjudication.get("externalReceipt", {}).get("sha256")
+        == "304F9F4D9CBA6DAD71B2FBF9B26B17F32C2830C1AFD74316B283E44A83ED9E8E"
+    and build8_sync_adjudication.get("externalReceipt", {}).get("bytes")
+        == 4775
+    and build8_sync_adjudication.get("externalReceipt", {}).get(
+        "sourceCommit"
+    )
+        == build8_sync_adjudication.get("externalReceipt", {}).get(
+            "sourceOriginMain"
+        )
+    and build8_sync_adjudication.get("externalReceipt", {}).get(
+        "postMergeRunId"
+    )
+        == 30864309478
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "backendInventoryMissing"
+    )
+        == 0
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "backendInventoryMalformed"
+    )
+        == 0
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "installedVersionCode"
+    )
+        == 8
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "manualSyncOutcome"
+    )
+        == "SUCCESS"
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "pendingLocalBusinessWritesBefore"
+    )
+        == 0
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "pendingLocalBusinessWritesAfter"
+    )
+        == 0
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "unresolvedLocalRejectionsBefore"
+    )
+        == 0
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "unresolvedLocalRejectionsAfter"
+    )
+        == 0
+    and all(
+        value is False
+        for value in build8_sync_adjudication.get(
+            "privacyBoundary", {}
+        ).values()
+    )
+    and build8_sync_adjudication.get("programmeBoundary", {}).get(
+        "stage2dF4Status"
+    )
+        == "OPEN"
+    and build8_sync_adjudication.get("programmeBoundary", {}).get(
+        "syncMarkerCriterionProved"
+    )
+        is True
+    and build8_sync_adjudication.get("programmeBoundary", {}).get(
+        "offlineReconnectCriterionProved"
+    )
+        is False
+    and build8_offline_promotion.get("approved") is True
+    and build8_offline_promotion.get("approvalClass")
+        == "CONTROLLED_EXACT_TARGET_BUILD8_OFFLINE_RECONNECT"
+    and build8_offline_promotion.get("approvalAuthority", {}).get(
+        "baselineCommit"
+    )
+        == "f038cbe90ef0d85d99dc4f6be28b06b893a5ed69"
+    and build8_offline_promotion.get("syncAuthority", {}).get(
+        "adjudicationSha256"
+    )
+        == sha(build8_sync_adjudication_path)
+    and build8_offline_promotion.get("syncAuthority", {}).get(
+        "externalReceiptSha256"
+    )
+        == build8_sync_adjudication.get("externalReceipt", {}).get("sha256")
+    and build8_offline_promotion.get("artifactAuthority", {})
+        .get("apk", {})
+        .get("versionCode")
+        == 8
+    and build8_offline_promotion.get("targetAuthority", {}).get(
+        "maxTargetCount"
+    )
+        == 1
+    and build8_offline_promotion.get("authorizedMutations", {}).get(
+        "wifiAndMobileData"
+    )
+        == "TEMPORARY_DISABLE_THEN_EXACT_RESTORE"
+    and build8_offline_promotion.get("authorizedMutations", {}).get(
+        "airplaneMode"
+    )
+        == "READ_ONLY_UNCHANGED"
+    and build8_offline_promotion.get("authorizedMutations", {}).get(
+        "firebaseBackend"
+    )
+        == "PROHIBITED"
+    and build8_offline_promotion.get("authorizedMutations", {}).get(
+        "deviceDataClearOrUninstall"
+    )
+        == "PROHIBITED"
+    and build8_offline_promotion.get("authorizedMutations", {}).get(
+        "distribution"
+    )
+        == "PROHIBITED"
+    and build8_offline_promotion.get("passCriteria", {}).get(
+        "offlineManualSyncMustNotReportSuccess"
+    )
+        is True
+    and build8_offline_promotion.get("passCriteria", {}).get(
+        "exactInitialTransportStateRestored"
+    )
+        is True
+    and build8_offline_promotion.get("programmeBoundary", {}).get(
+        "offlineReconnectAuthorized"
+    )
+        is True
+    and build8_offline_promotion.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    )
+        is False
+    and build8_offline_promotion.get("programmeBoundary", {}).get(
+        "weakNetworkAuthorized"
+    )
+        is False
+    and build8_offline_promotion.get("failurePolicy", {}).get(
+        "restoreTransportInFinally"
+    )
+        is True
+    and all(
+        marker in build8_offline_harness
+        for marker in [
+            "External sync-marker receipt SHA-256",
+            "Pre-offline pending local business writes",
+            "FALSE_SUCCESS_WHILE_ALL_TRANSPORTS_DISABLED",
+            "TRANSPORT_RESTORATION_FAILED",
+            "POST_RECONNECT_VALIDATION_FAILED",
+            "failedPhaseMayNotBeRelabelledPass = $true",
+            "PASS_BUILD8_F4_OFFLINE_SAFE_EXACT_TRANSPORT_RESTORATION_AND_SYNC_RECOVERY",
+            "stage2dF4Status = 'OPEN'",
+            "stage2dF4ClosureAuthorized = $false",
+            "pilotHandoutAuthorized = $false",
+            "rawUiRetained = $false",
+        ]
+    )
+    and all(
+        marker not in build8_offline_harness.lower()
+        for marker in [
+            "'pm', 'clear'",
+            "'uninstall'",
+            "firebase deploy",
+            "appdistribution:distribute",
+            "'svc', 'airplane'",
+        ]
+    )
+    and "Status: SYNC MARKER PROVED; EXACT-TARGET OFFLINE/RECONNECT PROPOSED"
+        in build8_offline_doc
+    and "It does not close F4 or authorize distribution."
+        in build8_offline_doc
+    and len(build8_f4_gate_records) == 1
+    and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F4"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
 )
 build7_f4_compatibility = data(
     "release/approvals/build-7-f4-firestore-compatibility-promotion.json"
