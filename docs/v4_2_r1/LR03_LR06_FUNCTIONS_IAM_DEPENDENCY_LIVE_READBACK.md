@@ -1,10 +1,11 @@
 # LR-03 / LR-06 Functions, IAM And Dependency Live Readback
 
-Collector status: SOURCE_IMPLEMENTED
+Collector status: SOURCE_CI_AND_LIVE_READBACK_PROVED
 
-Merge and exact-head CI evidence: PENDING
+Merge and exact-head CI evidence: PASS - PRs #136 and #137, including both
+post-merge `main` runs
 
-Live readback evidence: PENDING
+Live readback evidence: PASS acquisition / HOLD runtime posture
 
 ## Purpose
 
@@ -73,9 +74,34 @@ node tools/release/collectFunctionsIamDependenciesReadback.js `
 The strict receipt must then be copied into `release/evidence/` without
 modification, hash-bound to a closure record, and adjudicated in a separate PR.
 
+## Adjudicated Live Result
+
+The strict receipt was captured on 2026-08-04 from clean `main` at
+`b194dfe1a137256c3bfe0e113753a37f796a2e32`, equal to `origin/main` before
+and after collection. All acquisition checks passed. The receipt and closure
+record are:
+
+- `release/evidence/lr03-lr06-functions-iam-dependency-live-readback.json`
+- `release/evidence/lr03-lr06-live-readback-closure.json`
+
+The readback discovered 14 source exports and 9 active deployed Functions, and
+successfully read every deployed generation-pinned archive. It also confirmed
+the following adverse live posture:
+
+- five source exports are not deployed;
+- seven deployed Functions use the Default Compute service account;
+- Default Compute retains unconditional `roles/editor`;
+- one source-declared dedicated runtime binding is not deployed; and
+- all nine deployed dependency inventories differ from current source.
+
+The complete, sealed acquisition closes the evidence gates `LR-03` and
+`LR-06`. It does not resolve the adverse state: `S-01` and `D-01` remain open
+and now carry exact live evidence for their remediation campaigns.
+
 ## Remaining Boundary
 
-This source tranche does not claim that production IAM is least privilege,
-that every source export is deployed, that deployed dependencies match current
-repository locks, or that any production mutation is authorized. `LR-03`,
-`LR-06`, `S-01`, and `D-01` remain open until later evidence says otherwise.
+This closure does not claim that production IAM is least privilege, that every
+source export is deployed, that deployed dependencies match current repository
+locks, or that any production mutation is authorized. `S-01` and `D-01`
+remain open. No Stage 2D F4, device, pilot, distribution, deployment or IAM
+authorization is created.

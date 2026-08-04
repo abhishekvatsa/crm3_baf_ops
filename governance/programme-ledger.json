@@ -861,21 +861,56 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/lr03-lr06-functions-iam-dependency-live-readback.json",
+          "sha256": "6B7AE10D01DB8141F0403BE6563AA49C4557A980282BFFAB65DD1548D8B9DDB5",
+          "receiptSha256": "7077afc11478848c2b400afab6e86622a40cc7510fd1abcf24eee3f128f239df",
+          "decision": "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK",
+          "authority": "STRICT_CLEAN_MERGED_MAIN_LIVE_READBACK"
+        },
+        {
+          "fileName": "release/evidence/lr03-lr06-live-readback-closure.json",
+          "sha256": "6BCD937E7AD77A2C54F532C82C1D8CA681190498F17650C321DAAA8EAA23E7B4",
+          "decision": "PASS_LR03_LR06_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK_CLOSURE_WITH_ADVERSE_POSTURE",
+          "authority": "COLLECTOR_SOURCE_CI_AND_LIVE_RECEIPT_ADJUDICATION"
+        }
+      ],
       "requiredExitEvidence": [
         "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
       ],
-      "reArmTriggers": [],
-      "notes": [],
+      "reArmTriggers": [
+        "the source Functions export inventory changes",
+        "a deployed Function generation, runtime identity, state or fleet membership changes",
+        "project IAM grants to any deployed runtime identity change",
+        "the current Functions package manifest or lockfile changes",
+        "the live-readback collector or policy changes",
+        "the strict receipt source commit ceases to be the admitted main authority"
+      ],
+      "notes": [
+        "The strict readback ran from clean main at b194dfe1a137256c3bfe0e113753a37f796a2e32 with HEAD equal to fetched origin/main before and after every live read.",
+        "All nine active deployed Gen2 Functions yielded generation-pinned archives and exact runtime-identity evidence; source discovery found fourteen exports.",
+        "Closing this evidence gate does not approve the observed IAM posture: seven Functions use Default Compute, which retains unconditional roles/editor, and S-01 remains OPEN."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep re-audit live-readback appendix"
+        },
+        {
+          "status": "LIVE_READBACK_PROVED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Strict clean-main receipt 6B7AE10D01DB8141F0403BE6563AA49C4557A980282BFFAB65DD1548D8B9DDB5 proved complete Functions and runtime-IAM acquisition."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Closure adjudication 6BCD937E7AD77A2C54F532C82C1D8CA681190498F17650C321DAAA8EAA23E7B4 binds PRs #136 and #137 source/CI authority and preserves adverse posture under S-01."
         }
       ]
     },
@@ -961,21 +996,56 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/lr03-lr06-functions-iam-dependency-live-readback.json",
+          "sha256": "6B7AE10D01DB8141F0403BE6563AA49C4557A980282BFFAB65DD1548D8B9DDB5",
+          "receiptSha256": "7077afc11478848c2b400afab6e86622a40cc7510fd1abcf24eee3f128f239df",
+          "decision": "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK",
+          "authority": "STRICT_CLEAN_MERGED_MAIN_LIVE_READBACK"
+        },
+        {
+          "fileName": "release/evidence/lr03-lr06-live-readback-closure.json",
+          "sha256": "6BCD937E7AD77A2C54F532C82C1D8CA681190498F17650C321DAAA8EAA23E7B4",
+          "decision": "PASS_LR03_LR06_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK_CLOSURE_WITH_ADVERSE_POSTURE",
+          "authority": "COLLECTOR_SOURCE_CI_AND_LIVE_RECEIPT_ADJUDICATION"
+        }
+      ],
       "requiredExitEvidence": [
         "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
       ],
-      "reArmTriggers": [],
-      "notes": [],
+      "reArmTriggers": [
+        "the source Functions export inventory changes",
+        "a deployed Function generation, runtime identity, state or fleet membership changes",
+        "project IAM grants to any deployed runtime identity change",
+        "the current Functions package manifest or lockfile changes",
+        "the live-readback collector or policy changes",
+        "the strict receipt source commit ceases to be the admitted main authority"
+      ],
+      "notes": [
+        "Every active deployed Function archive was downloaded by exact generation and reduced to sealed package and lockfile hashes, counts and selected versions.",
+        "All nine deployed dependency inventories differ from current source; closure proves the readback exists and leaves remediation finding D-01 OPEN.",
+        "The readback performed no deployment, Function invocation, IAM mutation, storage mutation or Firestore business-data access."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep re-audit live-readback appendix"
+        },
+        {
+          "status": "LIVE_READBACK_PROVED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Strict clean-main receipt 6B7AE10D01DB8141F0403BE6563AA49C4557A980282BFFAB65DD1548D8B9DDB5 proved complete generation-pinned deployed dependency acquisition."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Closure adjudication 6BCD937E7AD77A2C54F532C82C1D8CA681190498F17650C321DAAA8EAA23E7B4 binds PRs #136 and #137 source/CI authority and preserves dependency drift under D-01."
         }
       ]
     },
@@ -1469,10 +1539,38 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/lr03-lr06-functions-iam-dependency-live-readback.json",
+          "sha256": "6B7AE10D01DB8141F0403BE6563AA49C4557A980282BFFAB65DD1548D8B9DDB5",
+          "receiptSha256": "7077afc11478848c2b400afab6e86622a40cc7510fd1abcf24eee3f128f239df",
+          "decision": "HOLD_RUNTIME_IDENTITY_DEPENDENCY_POSTURE",
+          "authority": "STRICT_CLEAN_MERGED_MAIN_LIVE_READBACK"
+        },
+        {
+          "fileName": "release/evidence/lr03-lr06-live-readback-closure.json",
+          "sha256": "6BCD937E7AD77A2C54F532C82C1D8CA681190498F17650C321DAAA8EAA23E7B4",
+          "decision": "PASS_LR03_LR06_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK_CLOSURE_WITH_ADVERSE_POSTURE",
+          "authority": "COLLECTOR_SOURCE_CI_AND_LIVE_RECEIPT_ADJUDICATION"
+        }
+      ],
+      "requiredExitEvidence": [
+        "dedicated least-privilege runtime identities are deployed for the complete admitted Function fleet",
+        "live readback proves no deployed Function uses Default Compute with a forbidden broad project role",
+        "staged deployment and runtime verification preserve callable and trigger behavior",
+        "exact-head pull request, post-deployment and live-readback evidence are recorded"
+      ],
+      "reArmTriggers": [
+        "the source Functions export inventory changes",
+        "a deployed Function generation, runtime identity, state or fleet membership changes",
+        "project IAM grants to any deployed runtime identity change",
+        "the runtime-identity source policy changes"
+      ],
+      "notes": [
+        "Strict live evidence found nine deployed Functions, seven using the Default Compute service account; Default Compute retains unconditional roles/editor.",
+        "The source-declared crm3-backend-identity-runtime binding for getBackendReleaseIdentity is not deployed; only the dedicated global-pull reader and writer bindings match source.",
+        "LR-03 closes because the required live readback is complete. S-01 remains OPEN until runtime identities and broad IAM grants are actually remediated and re-read."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
@@ -2988,10 +3086,36 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/lr03-lr06-functions-iam-dependency-live-readback.json",
+          "sha256": "6B7AE10D01DB8141F0403BE6563AA49C4557A980282BFFAB65DD1548D8B9DDB5",
+          "receiptSha256": "7077afc11478848c2b400afab6e86622a40cc7510fd1abcf24eee3f128f239df",
+          "decision": "HOLD_RUNTIME_IDENTITY_DEPENDENCY_POSTURE",
+          "authority": "STRICT_CLEAN_MERGED_MAIN_LIVE_READBACK"
+        },
+        {
+          "fileName": "release/evidence/lr03-lr06-live-readback-closure.json",
+          "sha256": "6BCD937E7AD77A2C54F532C82C1D8CA681190498F17650C321DAAA8EAA23E7B4",
+          "decision": "PASS_LR03_LR06_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK_CLOSURE_WITH_ADVERSE_POSTURE",
+          "authority": "COLLECTOR_SOURCE_CI_AND_LIVE_RECEIPT_ADJUDICATION"
+        }
+      ],
+      "requiredExitEvidence": [
+        "the admitted production Function fleet is deployed from the current governed dependency manifest and lockfile",
+        "generation-pinned live readback proves every deployed dependency inventory matches current source",
+        "exact-head pull request, deployment and post-deployment evidence are recorded"
+      ],
+      "reArmTriggers": [
+        "the current Functions package manifest or lockfile changes",
+        "a deployed Function source generation or fleet membership changes",
+        "the dependency comparison policy or collector changes"
+      ],
+      "notes": [
+        "Strict generation-pinned live evidence found that all nine deployed Function dependency inventories differ from the current source lockfile inventory.",
+        "The receipt intentionally makes no vulnerability or exploitability inference from versions alone; it proves deployment drift, not advisory status.",
+        "LR-06 closes because the required live readback is complete. D-01 remains OPEN until a governed deployment and repeat readback prove exact dependency parity."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",

@@ -1026,11 +1026,40 @@ functions_live_readback_test = text(
 functions_live_readback_contract = text(
     "test/lr03_lr06_functions_live_readback_collector_contract_test.dart"
 )
+functions_live_readback_closure_contract = text(
+    "test/lr03_lr06_live_readback_closure_contract_test.dart"
+)
 functions_live_readback_decision = text(
     "docs/v4_2_r1/LR03_LR06_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK.md"
 )
 functions_live_readback_index = text("functions/src/index.ts")
 functions_live_ledger = data("governance/programme-ledger.json")
+functions_live_receipt_path = (
+    ROOT
+    / "release/evidence/lr03-lr06-functions-iam-dependency-live-readback.json"
+)
+functions_live_closure_path = (
+    ROOT / "release/evidence/lr03-lr06-live-readback-closure.json"
+)
+functions_live_receipt = data(
+    "release/evidence/lr03-lr06-functions-iam-dependency-live-readback.json"
+)
+functions_live_closure = data(
+    "release/evidence/lr03-lr06-live-readback-closure.json"
+)
+functions_live_receipt_body = {
+    key: value
+    for key, value in functions_live_receipt.items()
+    if key != "receiptSha256"
+}
+functions_live_receipt_seal = hashlib.sha256(
+    json.dumps(
+        functions_live_receipt_body,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+).hexdigest()
 functions_live_expected_exports = [
     "assignPublishedTemplateVersion",
     "beginGlobalPullRun",
@@ -1058,10 +1087,10 @@ functions_live_finding_records = {
     if record.get("findingId") in {"S-01", "D-01"}
 }
 check(
-    "LR-03 and LR-06 have a complete privacy-safe mutation-free live collector",
+    "LR-03 and LR-06 close on sealed acquisition while adverse posture stays open",
     functions_live_readback_policy.get("schemaVersion") == 1
     and functions_live_readback_policy.get("collectorStatus")
-        == "SOURCE_IMPLEMENTED_PENDING_MERGE_CI_AND_LIVE_EXECUTION"
+        == "SOURCE_CI_AND_LIVE_READBACK_PROVED"
     and functions_live_readback_policy.get("productionProjectId")
         == "crm3-baf-ops-b8638"
     and functions_live_readback_policy.get("productionRegion")
@@ -1141,28 +1170,108 @@ check(
         in functions_live_readback_test
     and "collector source contains no production mutation command"
         in functions_live_readback_test
-    and "collector source tranche leaves live gates and findings open"
+    and "live closure closes evidence gates and preserves adverse findings"
         in functions_live_readback_contract
+    and "close on sealed acquisition, not posture fiction"
+        in functions_live_readback_closure_contract
     and root_package.get("scripts", {}).get(
         "test:functions-live-readback-custody"
     )
         == "node --test tools/release/collectFunctionsIamDependenciesReadback.test.mjs"
     and "npm run test:functions-live-readback-custody" in release_gate_source
+    and functions_live_receipt_path.exists()
+    and functions_live_closure_path.exists()
+    and sha(functions_live_receipt_path)
+        == "6B7AE10D01DB8141F0403BE6563AA49C4557A980282BFFAB65DD1548D8B9DDB5"
+    and sha(functions_live_closure_path)
+        == "6BCD937E7AD77A2C54F532C82C1D8CA681190498F17650C321DAAA8EAA23E7B4"
+    and functions_live_receipt_seal
+        == functions_live_receipt.get("receiptSha256")
+        == "7077afc11478848c2b400afab6e86622a40cc7510fd1abcf24eee3f128f239df"
+    and functions_live_receipt.get("mode") == "STRICT"
+    and functions_live_receipt.get("projectId") == "crm3-baf-ops-b8638"
+    and functions_live_receipt.get("region") == "asia-south1"
+    and functions_live_receipt.get("decision")
+        == "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK"
+    and functions_live_receipt.get("failedChecks") == []
+    and all(functions_live_receipt.get("checks", {}).values())
+    and all(
+        source.get("branch") == "main"
+        and source.get("commit")
+            == "b194dfe1a137256c3bfe0e113753a37f796a2e32"
+        and source.get("originMain") == source.get("commit")
+        and source.get("governedWorktreeClean") is True
+        and source.get("materialChangeCount") == 0
+        for source in (
+            functions_live_receipt.get("source", {}).get("before", {}),
+            functions_live_receipt.get("source", {}).get("after", {}),
+        )
+    )
+    and functions_live_receipt.get("posture", {}).get("sourceFunctionCount")
+        == 14
+    and functions_live_receipt.get("posture", {}).get(
+        "deployedFunctionCount"
+    ) == 9
+    and len(
+        functions_live_receipt.get("posture", {}).get(
+            "defaultComputeFunctionNames", []
+        )
+    ) == 7
+    and len(
+        functions_live_receipt.get("posture", {}).get(
+            "dependencyDriftFunctionNames", []
+        )
+    ) == 9
+    and functions_live_receipt.get("posture", {}).get("decision")
+        == "HOLD_RUNTIME_IDENTITY_DEPENDENCY_POSTURE"
+    and functions_live_receipt.get("outputs", {}).get("iam", {}).get(
+        "defaultComputeHasUnconditionalEditor"
+    ) is True
+    and all(
+        value is False
+        for value in functions_live_receipt.get("mutationBoundary", {}).values()
+    )
+    and functions_live_closure.get("decision")
+        == "PASS_LR03_LR06_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK_CLOSURE_WITH_ADVERSE_POSTURE"
+    and functions_live_closure.get("liveReceipt", {}).get("fileSha256")
+        == "6B7AE10D01DB8141F0403BE6563AA49C4557A980282BFFAB65DD1548D8B9DDB5"
+    and functions_live_closure.get("liveReceipt", {}).get("receiptSha256")
+        == functions_live_receipt.get("receiptSha256")
+    and [
+        authority.get("pullRequest")
+        for authority in functions_live_closure.get("sourceAuthorities", [])
+    ] == [136, 137]
+    and all(
+        value is False
+        for value in functions_live_closure.get("closureBoundary", {}).values()
+    )
     and set(functions_live_gate_records) == {"LR-03", "LR-06"}
     and all(
-        record.get("currentStatus") == "OPEN"
-        and record.get("evidence") == []
+        record.get("currentStatus") == "CLOSED"
+        and record.get("authorization") == "CLOSED_PASS"
+        and [entry.get("status") for entry in record.get("statusHistory", [])]
+            == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"]
+        and {
+            entry.get("sha256") for entry in record.get("evidence", [])
+        } == {
+            "6B7AE10D01DB8141F0403BE6563AA49C4557A980282BFFAB65DD1548D8B9DDB5",
+            "6BCD937E7AD77A2C54F532C82C1D8CA681190498F17650C321DAAA8EAA23E7B4",
+        }
         for record in functions_live_gate_records.values()
     )
     and set(functions_live_finding_records) == {"S-01", "D-01"}
     and all(
         record.get("currentStatus") == "OPEN"
-        and record.get("evidence") == []
+        and [entry.get("status") for entry in record.get("statusHistory", [])]
+            == ["OPEN"]
+        and len(record.get("evidence", [])) == 2
+        and len(record.get("requiredExitEvidence", [])) > 0
         for record in functions_live_finding_records.values()
     )
-    and "Collector status: SOURCE_IMPLEMENTED"
+    and "Collector status: SOURCE_CI_AND_LIVE_READBACK_PROVED"
         in functions_live_readback_decision
-    and "Live readback evidence: PENDING" in functions_live_readback_decision
+    and "Live readback evidence: PASS acquisition / HOLD runtime posture"
+        in functions_live_readback_decision
     and "`S-01` and `D-01` own remediation"
         in functions_live_readback_decision,
 )

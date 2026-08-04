@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "policyId": "LR03-LR06-FUNCTIONS-LIVE-READBACK-POLICY-V1",
-  "collectorStatus": "SOURCE_IMPLEMENTED_PENDING_MERGE_CI_AND_LIVE_EXECUTION",
+  "collectorStatus": "SOURCE_CI_AND_LIVE_READBACK_PROVED",
   "productionProjectId": "crm3-baf-ops-b8638",
   "productionRegion": "asia-south1",
   "gateIds": [
