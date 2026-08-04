@@ -1379,6 +1379,7 @@ check(
         not in function_fleet_identity_source
     and "endpointServiceAccount" in function_fleet_identity_test
     and "accountIds.size" in function_fleet_identity_test
+    and "DEPLOYED_AND_LIVE_READBACK_PROVED" in function_fleet_identity_test
     and "Default Compute must receive" in function_fleet_identity_decision
     and "Any failure before step 10 leaves Editor unchanged"
         in function_fleet_identity_decision
