@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "LR03-LR06-FUNCTIONS-IAM-DEPENDENCY-LIVE-READBACK-CLOSURE-20260804",
+  "evidenceType": "lr03-lr06-functions-iam-dependency-live-readback-closure",
+  "recordIds": [
+    "GATE:LR-03",
+    "GATE:LR-06",
+    "FINDING:S-01",
+    "FINDING:D-01"
+  ],
+  "authorityType": "LIVE_READBACK",
+  "decision": "PASS_LR03_LR06_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK_CLOSURE_WITH_ADVERSE_POSTURE",
+  "sourceAuthorities": [
+    {
+      "purpose": "collector-source-and-custody",
+      "repository": "abhishekvatsa/crm3_baf_ops",
+      "pullRequest": 136,
+      "headCommit": "37ef3cfed8614777189371bcd151af320d52c6cf",
+      "sourceTree": "b29438e8afc0905fa0f5e8a77455a521f99f7c6f",
+      "mergeCommit": "4f46d3ceeee45ca29e5c7b38541ee80d2802eed3",
+      "mergeTree": "b29438e8afc0905fa0f5e8a77455a521f99f7c6f",
+      "pullRequestCi": {
+        "runId": 30885081117,
+        "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30885081117",
+        "event": "pull_request",
+        "headSha": "37ef3cfed8614777189371bcd151af320d52c6cf",
+        "conclusion": "success",
+        "jobs": [
+          {"name": "Android release APK + AAB packaging proof", "jobId": 91914381328, "conclusion": "success"},
+          {"name": "Cloud Functions build + test", "jobId": 91914381405, "conclusion": "success"},
+          {"name": "Firestore rules + governed transaction emulator", "jobId": 91914381264, "conclusion": "success"},
+          {"name": "Flutter analyze + tests + no-loss spine", "jobId": 91914381329, "conclusion": "success"}
+        ]
+      },
+      "postMergeCi": {
+        "runId": 30885486289,
+        "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30885486289",
+        "event": "push",
+        "headSha": "4f46d3ceeee45ca29e5c7b38541ee80d2802eed3",
+        "conclusion": "success",
+        "jobs": [
+          {"name": "Android release APK + AAB packaging proof", "jobId": 91915646735, "conclusion": "success"},
+          {"name": "Cloud Functions build + test", "jobId": 91915646648, "conclusion": "success"},
+          {"name": "Firestore rules + governed transaction emulator", "jobId": 91915646630, "conclusion": "success"},
+          {"name": "Flutter analyze + tests + no-loss spine", "jobId": 91915646725, "conclusion": "success"}
+        ]
+      }
+    },
+    {
+      "purpose": "windows-shell-free-launcher",
+      "repository": "abhishekvatsa/crm3_baf_ops",
+      "pullRequest": 137,
+      "headCommit": "52e15c9faebf01fe606a8c1bd80c84c2d302abe7",
+      "sourceTree": "ea2240b23d6ebbcd071ccfa670d7baaadf9d1bc1",
+      "mergeCommit": "b194dfe1a137256c3bfe0e113753a37f796a2e32",
+      "mergeTree": "ea2240b23d6ebbcd071ccfa670d7baaadf9d1bc1",
+      "pullRequestCi": {
+        "runId": 30887358479,
+        "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30887358479",
+        "event": "pull_request",
+        "headSha": "52e15c9faebf01fe606a8c1bd80c84c2d302abe7",
+        "conclusion": "success",
+        "jobs": [
+          {"name": "Android release APK + AAB packaging proof", "jobId": 91921408861, "conclusion": "success"},
+          {"name": "Cloud Functions build + test", "jobId": 91921408888, "conclusion": "success"},
+          {"name": "Firestore rules + governed transaction emulator", "jobId": 91921408865, "conclusion": "success"},
+          {"name": "Flutter analyze + tests + no-loss spine", "jobId": 91921408810, "conclusion": "success"}
+        ]
+      },
+      "postMergeCi": {
+        "runId": 30887896661,
+        "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30887896661",
+        "event": "push",
+        "headSha": "b194dfe1a137256c3bfe0e113753a37f796a2e32",
+        "conclusion": "success",
+        "jobs": [
+          {"name": "Android release APK + AAB packaging proof", "jobId": 91923070718, "conclusion": "success"},
+          {"name": "Cloud Functions build + test", "jobId": 91923070682, "conclusion": "success"},
+          {"name": "Firestore rules + governed transaction emulator", "jobId": 91923070954, "conclusion": "success"},
+          {"name": "Flutter analyze + tests + no-loss spine", "jobId": 91923070750, "conclusion": "success"}
+        ]
+      }
+    }
+  ],
+  "liveReceipt": {
+    "path": "release/evidence/lr03-lr06-functions-iam-dependency-live-readback.json",
+    "fileSha256": "6B7AE10D01DB8141F0403BE6563AA49C4557A980282BFFAB65DD1548D8B9DDB5",
+    "fileBytes": 31802,
+    "receiptSha256": "7077afc11478848c2b400afab6e86622a40cc7510fd1abcf24eee3f128f239df",
+    "capturedAtUtc": "2026-08-04T07:35:56.694Z",
+    "sourceCommit": "b194dfe1a137256c3bfe0e113753a37f796a2e32",
+    "sourceTree": "ea2240b23d6ebbcd071ccfa670d7baaadf9d1bc1",
+    "projectId": "crm3-baf-ops-b8638",
+    "region": "asia-south1",
+    "acquisitionDecision": "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK",
+    "postureDecision": "HOLD_RUNTIME_IDENTITY_DEPENDENCY_POSTURE"
+  },
+  "provedAcquisition": {
+    "sourceFunctionCount": 14,
+    "deployedFunctionCount": 9,
+    "activeGenerationPinnedArchiveCount": 9,
+    "runtimeIdentityCount": 3,
+    "allChecksPassed": true,
+    "failedChecks": []
+  },
+  "observedAdversePosture": {
+    "missingFromLive": [
+      "executeMaintenanceWorkflowCommand",
+      "maintenanceWorkflowEscalationSweep",
+      "mutateChargeAbnormality",
+      "mutateUserAuthority",
+      "onMaintenanceWorkflowEventCreated"
+    ],
+    "defaultComputeFunctionCount": 7,
+    "defaultComputeHasUnconditionalEditor": true,
+    "sourceDeclaredRuntimeBindingMismatchCount": 1,
+    "dependencyDriftFunctionCount": 9,
+    "holds": [
+      "deployedFunctionFleetDiffersFromSource",
+      "sourceDeclaredRuntimeBindingNotDeployed",
+      "functionsStillUseDefaultComputeIdentity",
+      "runtimeIdentityHasBroadProjectRole",
+      "deployedDependencyInventoryDiffersFromCurrentSource"
+    ],
+    "s01Closed": false,
+    "d01Closed": false
+  },
+  "closureBoundary": {
+    "functionsDeployed": false,
+    "functionsInvoked": false,
+    "iamMutated": false,
+    "serviceAccountsCreatedOrDeleted": false,
+    "storageObjectsMutated": false,
+    "firestoreReadOrWritePerformed": false,
+    "businessDataReadOrWritten": false,
+    "deviceEvidenceClaimed": false,
+    "pilotAuthorizationCreated": false,
+    "distributionAuthorizationCreated": false,
+    "stage2dF4StatusChanged": false,
+    "s01Closed": false,
+    "d01Closed": false
+  },
+  "reArmConditions": [
+    "the source Functions export inventory changes",
+    "a deployed Function generation, runtime identity, state or fleet membership changes",
+    "project IAM grants to any deployed runtime identity change",
+    "the current Functions package manifest or lockfile changes",
+    "the live-readback collector or policy changes",
+    "the strict receipt source commit ceases to be the admitted main authority"
+  ]
+}

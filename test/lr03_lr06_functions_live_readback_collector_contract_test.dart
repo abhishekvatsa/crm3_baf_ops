@@ -135,12 +135,20 @@ void main() {
       'node --test tools/release/collectFunctionsIamDependenciesReadback.test.mjs',
     );
     expect(workflow, contains('npm run test:functions-live-readback-custody'));
-    expect(decision, contains('Collector status: SOURCE_IMPLEMENTED'));
-    expect(decision, contains('Live readback evidence: PENDING'));
+    expect(
+      decision,
+      contains('Collector status: SOURCE_CI_AND_LIVE_READBACK_PROVED'),
+    );
+    expect(
+      decision,
+      contains(
+        'Live readback evidence: PASS acquisition / HOLD runtime posture',
+      ),
+    );
     expect(decision, contains('`S-01` and `D-01` own remediation'));
   });
 
-  test('collector source tranche leaves live gates and findings open', () {
+  test('live closure closes evidence gates and preserves adverse findings', () {
     final ledger = _object(
       jsonDecode(File('governance/programme-ledger.json').readAsStringSync()),
     );
@@ -148,15 +156,15 @@ void main() {
     final findings = _objects(ledger['technicalFindings']);
     for (final gateId in <String>['LR-03', 'LR-06']) {
       final record = gates.singleWhere((entry) => entry['gateId'] == gateId);
-      expect(record['currentStatus'], 'OPEN');
-      expect(_objects(record['evidence']), isEmpty);
+      expect(record['currentStatus'], 'CLOSED');
+      expect(_objects(record['evidence']), hasLength(2));
     }
     for (final findingId in <String>['S-01', 'D-01']) {
       final record = findings.singleWhere(
         (entry) => entry['findingId'] == findingId,
       );
       expect(record['currentStatus'], 'OPEN');
-      expect(_objects(record['evidence']), isEmpty);
+      expect(_objects(record['evidence']), hasLength(2));
     }
   });
 }
