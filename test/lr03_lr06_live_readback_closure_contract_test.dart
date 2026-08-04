@@ -174,7 +174,12 @@ void main() {
       expect(_strings(record['requiredExitEvidence']), isNotEmpty);
     }
     final p05 = findings.singleWhere((entry) => entry['findingId'] == 'P-05');
-    expect(_objects(p05['evidence']), isEmpty);
+    expect(p05['currentStatus'], 'OPEN');
+    expect(
+      _objects(p05['statusHistory']).map((entry) => entry['status']),
+      <String>['OPEN'],
+    );
+    expect(_objects(p05['evidence']), hasLength(2));
     expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F4');
     expect(
       _object(ledger['programmeDecision'])['pilotHandout'],

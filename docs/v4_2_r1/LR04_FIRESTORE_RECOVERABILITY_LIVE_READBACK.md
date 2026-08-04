@@ -1,10 +1,11 @@
 # LR-04 Firestore Recoverability Live Readback
 
-Collector status: SOURCE_IMPLEMENTED_PENDING_MERGE_CI_AND_LIVE_EXECUTION
+Collector status: SOURCE_CI_AND_LIVE_READBACK_PROVED
 
-Merge and exact-head CI evidence: PENDING
+Merge and exact-head CI evidence: PASS - PR #139 and post-merge run
+`30893195416`
 
-Live readback evidence: PENDING
+Live readback evidence: PASS acquisition / HOLD recoverability posture
 
 ## Purpose
 
@@ -69,18 +70,37 @@ node tools/release/collectFirestoreRecoverabilityReadback.js `
 The strict receipt must then be copied into `release/evidence/` without
 modification, hash-bound to a closure record, and adjudicated in a separate PR.
 
-## Pre-Execution Observation
+## Adjudicated Live Result
 
-A read-only planning observation indicated disabled point-in-time recovery and
-delete protection, no native backup schedule or native backup, and no observed
-successful import operation. It also reconfirmed one successful managed export
-already bound to the sealed private restore pack. That observation is not a
-governed receipt and has no closure authority.
+The strict receipt was captured on 2026-08-04 from clean `main` at
+`0d323449be267849e7043772dbfea0a7dc3bd107`, equal to `origin/main` before
+and after collection. All 13 acquisition checks passed. The receipt and
+closure record are:
+
+- `release/evidence/lr04-firestore-recoverability-live-readback.json`
+- `release/evidence/lr04-firestore-recoverability-live-readback-closure.json`
+
+The complete operation inventory contained 24 finished operations: 23 index
+operations and one successful managed export. The exact export already bound
+to the sealed private restore pack was independently described and matched.
+No successful import operation was present.
+
+The readback also proved the following adverse production posture:
+
+- point-in-time recovery is disabled;
+- delete protection is disabled;
+- no native Firestore backup schedule exists;
+- no native Firestore backup exists; and
+- no successful restore or import is proved.
+
+The complete, sealed acquisition closes evidence gate `LR-04`. It does not
+resolve the adverse state, which remains open under `P-05` with exact exit
+evidence.
 
 ## Remaining Boundary
 
-This source tranche does not close `LR-04` or `P-05`, authorize a recovery
-control change, incur a new backup cost, or authorize a restore against
-production. `LR-04` remains open until a strict receipt is adjudicated. `P-05`
-remains open until adverse posture is remediated and an isolated governed
-restore rehearsal is proved.
+This closure does not close `P-05`, authorize a recovery-control change, incur
+a new backup cost, or authorize a restore against production. `P-05` remains
+open until the adverse posture is remediated and an isolated governed restore
+rehearsal is proved. No Stage 2D F4, device, pilot, distribution, deployment,
+IAM or billing authorization is created.

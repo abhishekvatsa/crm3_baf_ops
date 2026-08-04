@@ -5202,6 +5202,32 @@ lr04_decision = text(
 lr04_restore_seal_path = (
     ROOT / "release/evidence/production-prelive-restore-pack-seal.json"
 )
+lr04_receipt_path = (
+    ROOT / "release/evidence/lr04-firestore-recoverability-live-readback.json"
+)
+lr04_receipt = data(
+    "release/evidence/lr04-firestore-recoverability-live-readback.json"
+)
+lr04_receipt_body = dict(lr04_receipt)
+lr04_receipt_body.pop("receiptSha256", None)
+lr04_receipt_canonical_sha = hashlib.sha256(
+    json.dumps(
+        lr04_receipt_body,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+).hexdigest()
+lr04_closure_path = (
+    ROOT
+    / "release/evidence/lr04-firestore-recoverability-live-readback-closure.json"
+)
+lr04_closure = data(
+    "release/evidence/lr04-firestore-recoverability-live-readback-closure.json"
+)
+lr04_closure_contract = text(
+    "test/lr04_firestore_recoverability_live_readback_closure_contract_test.dart"
+)
 lr04_gate_records = [
     record
     for record in programme_ledger.get("programmeGates", [])
@@ -5215,12 +5241,12 @@ p05_records = [
 ]
 p05_record = p05_records[0] if len(p05_records) == 1 else {}
 check(
-    "LR-04 Firestore recoverability live readback is target-bound, private and mutation-free",
+    "LR-04 Firestore recoverability readback is evidence-closed while adverse posture stays open",
     lr04_policy.get("schemaVersion") == 1
     and lr04_policy.get("policyId")
         == "LR04-FIRESTORE-RECOVERABILITY-READBACK-POLICY-V1"
     and lr04_policy.get("collectorStatus")
-        == "SOURCE_IMPLEMENTED_PENDING_MERGE_CI_AND_LIVE_EXECUTION"
+        == "SOURCE_CI_AND_LIVE_READBACK_PROVED"
     and lr04_policy.get("productionProjectId") == "crm3-baf-ops-b8638"
     and lr04_policy.get("productionDatabase") == "(default)"
     and lr04_policy.get("productionLocation") == "asia-south1"
@@ -5288,21 +5314,116 @@ check(
         in lr04_collector_test
     and "LR-04 collector is target-bound, private and mutation-free"
         in lr04_contract_test
+    and "LR-04 closes only on sealed strict clean-main evidence"
+        in lr04_closure_contract
     and root_package.get("scripts", {}).get(
         "test:firestore-recoverability-readback-custody"
     )
         == "node --test tools/release/collectFirestoreRecoverabilityReadback.test.mjs"
     and "npm run test:firestore-recoverability-readback-custody"
         in release_gate_source
-    and "Collector status: SOURCE_IMPLEMENTED_PENDING_MERGE_CI_AND_LIVE_EXECUTION"
+    and "Collector status: SOURCE_CI_AND_LIVE_READBACK_PROVED"
         in lr04_decision
-    and "does not close `LR-04` or `P-05`" in lr04_decision
+    and "Live readback evidence: PASS acquisition / HOLD recoverability posture"
+        in lr04_decision
+    and "closes evidence gate `LR-04`" in lr04_decision
+    and "does not close `P-05`" in lr04_decision
+    and sha(lr04_receipt_path)
+        == "E339FC49400BA1817084270E4E8503C12797A00A9095FE937A30EE48D8A0F18D"
+    and lr04_receipt_path.stat().st_size == 6341
+    and lr04_receipt.get("receiptSha256") == lr04_receipt_canonical_sha
+    and lr04_receipt.get("decision")
+        == "PASS_FIRESTORE_RECOVERABILITY_LIVE_READBACK"
+    and lr04_receipt.get("mode") == "STRICT"
+    and lr04_receipt.get("projectId") == "crm3-baf-ops-b8638"
+    and lr04_receipt.get("database") == "(default)"
+    and lr04_receipt.get("location") == "asia-south1"
+    and lr04_receipt.get("failedChecks") == []
+    and all(value is True for value in lr04_receipt.get("checks", {}).values())
+    and lr04_receipt.get("source", {}).get("before", {}).get("commit")
+        == "0d323449be267849e7043772dbfea0a7dc3bd107"
+    and lr04_receipt.get("source", {}).get("before", {}).get("tree")
+        == "fbdb9de46305d62af53fd764281fa577e2c94276"
+    and lr04_receipt.get("source", {}).get("before")
+        == lr04_receipt.get("source", {}).get("after")
+    and lr04_receipt.get("outputs", {}).get("database", {}).get(
+        "pointInTimeRecoveryEnablement"
+    ) == "POINT_IN_TIME_RECOVERY_DISABLED"
+    and lr04_receipt.get("outputs", {}).get("database", {}).get(
+        "deleteProtectionState"
+    ) == "DELETE_PROTECTION_DISABLED"
+    and lr04_receipt.get("outputs", {}).get("schedules", {}).get("count") == 0
+    and lr04_receipt.get("outputs", {}).get("backups", {}).get("count") == 0
+    and lr04_receipt.get("outputs", {}).get("operations", {}).get("count")
+        == 24
+    and lr04_receipt.get("outputs", {}).get("operations", {}).get(
+        "successfulExportOperationCount"
+    ) == 1
+    and lr04_receipt.get("outputs", {}).get("operations", {}).get(
+        "successfulImportOperationCount"
+    ) == 0
+    and lr04_receipt.get("outputs", {}).get("operations", {}).get(
+        "sealedExport", {}
+    ).get("exactSuccessfulExport") is True
+    and lr04_receipt.get("posture", {}).get("decision")
+        == "HOLD_FIRESTORE_RECOVERABILITY_POSTURE"
+    and lr04_receipt.get("posture", {}).get("holds") == [
+        "pointInTimeRecoveryDisabled",
+        "deleteProtectionDisabled",
+        "noNativeBackupSchedule",
+        "noNativeBackup",
+        "noRestoreImportProof",
+    ]
+    and all(
+        value is False
+        for value in lr04_receipt.get("mutationBoundary", {}).values()
+    )
+    and sha(lr04_closure_path)
+        == "E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302"
+    and lr04_closure_path.stat().st_size == 5881
+    and lr04_closure.get("decision")
+        == "PASS_LR04_FIRESTORE_RECOVERABILITY_LIVE_READBACK_CLOSURE_WITH_ADVERSE_POSTURE"
+    and lr04_closure.get("liveReceipt", {}).get("fileSha256")
+        == sha(lr04_receipt_path)
+    and lr04_closure.get("liveReceipt", {}).get("receiptSha256")
+        == lr04_receipt.get("receiptSha256")
+    and lr04_closure.get("collectorAuthority", {}).get("pullRequest") == 139
+    and lr04_closure.get("collectorAuthority", {}).get("sourceTree")
+        == lr04_closure.get("collectorAuthority", {}).get("mergeTree")
+    and lr04_closure.get("collectorAuthority", {}).get(
+        "pullRequestCi", {}
+    ).get("runId") == 30892607011
+    and lr04_closure.get("collectorAuthority", {}).get(
+        "postMergeCi", {}
+    ).get("runId") == 30893195416
+    and all(
+        value is False
+        for value in lr04_closure.get("closureBoundary", {}).values()
+    )
     and len(lr04_gate_records) == 1
-    and lr04_gate_record.get("currentStatus") == "OPEN"
-    and lr04_gate_record.get("evidence") == []
+    and lr04_gate_record.get("currentStatus") == "CLOSED"
+    and lr04_gate_record.get("authorization") == "CLOSED_PASS"
+    and [
+        entry.get("status")
+        for entry in lr04_gate_record.get("statusHistory", [])
+    ] == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"]
+    and {
+        entry.get("sha256") for entry in lr04_gate_record.get("evidence", [])
+    } == {
+        "E339FC49400BA1817084270E4E8503C12797A00A9095FE937A30EE48D8A0F18D",
+        "E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302",
+    }
     and len(p05_records) == 1
     and p05_record.get("currentStatus") == "OPEN"
-    and p05_record.get("evidence") == [],
+    and p05_record.get("title")
+        == "Production Firestore recovery posture lacks PITR, delete protection, native backups and restore proof"
+    and len(p05_record.get("evidence", [])) == 2
+    and len(p05_record.get("requiredExitEvidence", [])) == 6
+    and len(p05_record.get("reArmTriggers", [])) == 7
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F4"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
