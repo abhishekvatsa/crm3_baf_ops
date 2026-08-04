@@ -629,7 +629,9 @@ check(
     "Canonical authority returns its validated map and consumers use that narrowed result",
     "readonly data: UserAuthorityJsonMap" in user_authority
     and "return {data, roles: capsule.roles}" in user_authority
-    and "authority.data.fcmToken" in text("functions/src/notifications.ts")
+    and "tokenLookupsForApprovedUser(db, uid, authority.data)"
+        in text("functions/src/notifications.ts")
+    and "authorityData.fcmToken" in text("functions/src/notifications.ts")
     and "return {userData: authority.data, roles}" in text("functions/src/runtimeJobModulePopulation.ts")
     and "expect(authority.data).toBe(data)" in text("functions/test/userAuthority.test.js"),
 )
@@ -4570,6 +4572,115 @@ check(
         in functionality_representation_test
     and "entity audit rejects non-admin before the audit read"
         in functionality_representation_test,
+)
+
+r04_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "R-04"
+]
+r04_record = r04_records[0] if len(r04_records) == 1 else {}
+r04_registry = text(
+    "lib/features/auth/services/notification_installation_registry.dart"
+)
+r04_auth = text("lib/features/auth/providers/auth_provider.dart")
+r04_main = text("lib/main.dart")
+r04_notifications = text("functions/src/notifications.ts")
+r04_notification_test = text("functions/test/notifications.test.js")
+r04_rules = text("firestore.rules")
+r04_rules_test = text("test/firestore.rules.test.js")
+r04_client_test = text("test/notification_installation_registry_test.dart")
+r04_contract_test = text(
+    "test/r04_notification_installation_registry_contract_test.dart"
+)
+r04_policy = data(
+    "release/r04-notification-installation-registry-policy.json"
+)
+r04_decision = text(
+    "docs/v4_2_r1/R04_NOTIFICATION_INSTALLATION_REGISTRY.md"
+)
+r04_pending_payload_start = r04_auth.index(
+    "Map<String, dynamic> _pendingUserPayload"
+)
+r04_pending_payload_end = r04_auth.index(
+    "String _cleanProfileText",
+    r04_pending_payload_start,
+)
+r04_pending_payload = r04_auth[
+    r04_pending_payload_start:r04_pending_payload_end
+]
+r04_sign_out_start = r04_auth.index("Future<void> signOut()")
+r04_sign_out_end = r04_auth.index(
+    "Map<String, dynamic> _pendingUserPayload",
+    r04_sign_out_start,
+)
+r04_sign_out = r04_auth[r04_sign_out_start:r04_sign_out_end]
+r04_remove_start = r04_registry.index("Future<void> remove({")
+r04_remove_end = r04_registry.index(
+    "abstract interface class NotificationTokenSource",
+    r04_remove_start,
+)
+r04_remove = r04_registry[r04_remove_start:r04_remove_end]
+check(
+    "R-04 notification registration is multi-installation, private and bounded",
+    len(r04_records) == 1
+    and r04_record.get("authorityType") == "SOURCE_AND_CI"
+    and r04_record.get("currentStatus") == "OPEN"
+    and r04_policy.get("schemaVersion") == 1
+    and r04_policy.get("findingId") == "R-04"
+    and r04_policy.get("sourceStatus") == "SOURCE_IMPLEMENTED"
+    and r04_policy.get("privacyAndAuthority", {}).get("clientReads")
+        == "DENIED"
+    and r04_policy.get("delivery", {}).get(
+        "maximumInstallationsReadPerUser"
+    ) == 8
+    and len(r04_policy.get("reArmTriggers", [])) == 6
+    and r04_policy.get("evidenceBoundary", {}).get(
+        "productionDeploymentPerformed"
+    ) is False
+    and "notification_installations" in r04_registry
+    and "crm3.notificationInstallationId.v1" in r04_registry
+    and "_uuid.v4()" in r04_registry
+    and "FieldValue.serverTimestamp()" in r04_registry
+    and "registerCurrentToken" in r04_registry
+    and "registerToken" in r04_registry
+    and "removeCurrentInstallation" in r04_registry
+    and "retireMessagingToken" in r04_registry
+    and "transaction.delete(installationRef)" in r04_remove
+    and "transaction.get(installationRef)" not in r04_remove
+    and "registry.tokenRefreshes.listen" in r04_auth
+    and "FCM token refresh subscription unavailable" in r04_auth
+    and "notificationInstallationSyncProvider" in r04_auth
+    and "'fcmToken'" not in r04_pending_payload
+    and r04_sign_out.index(
+        "await _notificationRegistry.removeCurrentInstallation"
+    ) < r04_sign_out.index("await _auth.signOut()")
+    and r04_sign_out.index("await _auth.signOut()")
+        < r04_sign_out.index("await _googleSignIn.signOut()")
+    and "ref.watch(notificationInstallationSyncProvider)" in r04_main
+    and "MAX_NOTIFICATION_INSTALLATIONS_PER_USER = 8"
+        in r04_notifications
+    and '.orderBy("updatedAt", "desc")' in r04_notifications
+    and ".limit(MAX_NOTIFICATION_INSTALLATIONS_PER_USER)"
+        in r04_notifications
+    and "isFirestoreTimestamp" in r04_notifications
+    and "tokenToRegistrations" in r04_notifications
+    and "txn.delete(ref)" in r04_notifications
+    and "does not delete an installation refreshed"
+        in r04_notification_test
+    and "wrongTimestamp" in r04_notification_test
+    and "validNotificationInstallationWrite" in r04_rules
+    and "match /notification_installations/{installationId}" in r04_rules
+    and "allow read: if false;" in r04_rules[
+        r04_rules.index("match /notification_installations/{installationId}"):
+        r04_rules.index("match /audit_logs/{docId}")
+    ]
+    and "R-04 private notification installation registry" in r04_rules_test
+    and "sign-out removes only this installation" in r04_client_test
+    and "R-04 policy is exact" in r04_contract_test
+    and "Status: SOURCE_IMPLEMENTED" in r04_decision
+    and "Merge and exact-head CI evidence: PENDING" in r04_decision
+    and "does not claim production Rules or Functions" in r04_decision,
 )
 
 r05_records = [

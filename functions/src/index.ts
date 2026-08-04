@@ -72,7 +72,7 @@ import {
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
   buildTicketResolvedNotification,
-  getTokenLookupForUser,
+  getTokenLookupsForUser,
   getTokenLookupsForRoles,
   sendNotification,
 } from "./notifications";
@@ -573,11 +573,11 @@ export const onTicketResolved = onDocumentUpdated(
         const roleRecipients = await getTokenLookupsForRoles(db, plan.roles);
         const recipients = [...roleRecipients];
         if (plan.loggedByUid != null) {
-          const loggedByLookup = await getTokenLookupForUser(
+          const loggedByLookups = await getTokenLookupsForUser(
             db,
             plan.loggedByUid,
           );
-          if (loggedByLookup != null) recipients.push(loggedByLookup);
+          recipients.push(...loggedByLookups);
         }
         return {recipients};
       },

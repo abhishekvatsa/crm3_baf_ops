@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "findingId": "R-04",
+  "sourceStatus": "SOURCE_IMPLEMENTED",
+  "registry": {
+    "collectionPath": "users/{uid}/notification_installations",
+    "documentId": "lowercase UUID v4 persisted per app installation",
+    "requiredFields": [
+      "schemaVersion",
+      "token",
+      "platform",
+      "updatedAt"
+    ],
+    "installationSchemaVersion": 1,
+    "updatedAtAuthority": "Firestore server timestamp"
+  },
+  "privacyAndAuthority": {
+    "clientReads": "DENIED",
+    "clientWrites": "canonical owner only",
+    "parentProfileRequirement": "canonical users/{uid} document",
+    "tokenLogging": "PROHIBITED"
+  },
+  "lifecycle": {
+    "sessionStart": "upsert current token",
+    "tokenRefresh": "replace token on the same installation document",
+    "signOut": "remove only the current installation and retire its local FCM token",
+    "installationIdentitySurvivesSignOut": true
+  },
+  "delivery": {
+    "maximumInstallationsReadPerUser": 8,
+    "legacyMigrationRead": "users/{uid}.fcmToken",
+    "deduplicateByToken": true,
+    "staleCleanup": "delete or clear only the exact rejected registration after transactional reread"
+  },
+  "reArmTriggers": [
+    "installation document schema or path changes",
+    "notification token lifecycle changes",
+    "notification recipient resolution changes",
+    "client read or write authority changes",
+    "legacy fcmToken migration behavior changes",
+    "maximum per-user installation read bound changes"
+  ],
+  "evidenceBoundary": {
+    "productionDeploymentPerformed": false,
+    "deviceDeliveryEvidenceClaimed": false,
+    "pilotAuthorizationCreated": false
+  }
+}

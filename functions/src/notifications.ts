@@ -31,15 +31,19 @@ export interface DocumentRefLike {
   readonly path?: string;
   get(): Promise<DocumentSnapshotLike>;
   update(data: Record<string, unknown>): Promise<unknown>;
+  collection(name: string): CollectionRefLike;
 }
 
 export interface TransactionLike {
   get(ref: DocumentRefLike): Promise<DocumentSnapshotLike>;
   update(ref: DocumentRefLike, data: Record<string, unknown>): void;
+  delete(ref: DocumentRefLike): void;
 }
 
 export interface QueryLike {
   where(field: string, op: string, value: unknown): QueryLike;
+  orderBy(field: string, direction: "asc" | "desc"): QueryLike;
+  limit(count: number): QueryLike;
   get(): Promise<QuerySnapshotLike>;
 }
 
@@ -148,13 +152,95 @@ export function agenciesToRoles(
 export interface UserTokenLookup {
   uid: string;
   fcmToken: string;
+  installationId?: string;
+}
+
+export const NOTIFICATION_INSTALLATIONS_COLLECTION =
+  "notification_installations";
+export const NOTIFICATION_INSTALLATION_SCHEMA_VERSION = 1;
+export const MAX_NOTIFICATION_INSTALLATIONS_PER_USER = 8;
+
+const NOTIFICATION_PLATFORMS = new Set([
+  "android",
+  "ios",
+  "macos",
+  "windows",
+  "linux",
+  "fuchsia",
+  "web",
+]);
+
+function isFirestoreTimestamp(value: unknown): boolean {
+  if (typeof value !== "object" || value == null) return false;
+  const toMillis = (value as {toMillis?: unknown}).toMillis;
+  if (typeof toMillis !== "function") return false;
+  try {
+    const milliseconds = toMillis.call(value);
+    return typeof milliseconds === "number" && Number.isFinite(milliseconds);
+  } catch (_) {
+    return false;
+  }
+}
+
+function canonicalInstallationToken(
+  data: Record<string, unknown> | undefined,
+): string | null {
+  if (data == null) return null;
+  const keys = Object.keys(data);
+  const expectedKeys = new Set([
+    "schemaVersion",
+    "token",
+    "platform",
+    "updatedAt",
+  ]);
+  if (
+    keys.length !== expectedKeys.size ||
+    keys.some((key) => !expectedKeys.has(key)) ||
+    data.schemaVersion !== NOTIFICATION_INSTALLATION_SCHEMA_VERSION ||
+    typeof data.token !== "string" ||
+    data.token.length === 0 ||
+    data.token.length > 4096 ||
+    typeof data.platform !== "string" ||
+    !NOTIFICATION_PLATFORMS.has(data.platform) ||
+    !isFirestoreTimestamp(data.updatedAt)
+  ) {
+    return null;
+  }
+  return data.token;
+}
+
+async function tokenLookupsForApprovedUser(
+  db: FirestoreLike,
+  uid: string,
+  authorityData: Record<string, unknown>,
+): Promise<UserTokenLookup[]> {
+  const out: UserTokenLookup[] = [];
+  const legacyToken = typeof authorityData.fcmToken === "string" ?
+    authorityData.fcmToken :
+    null;
+  if (legacyToken != null && legacyToken.length > 0) {
+    out.push({uid, fcmToken: legacyToken});
+  }
+
+  const installations = await db
+    .collection("users")
+    .doc(uid)
+    .collection(NOTIFICATION_INSTALLATIONS_COLLECTION)
+    .orderBy("updatedAt", "desc")
+    .limit(MAX_NOTIFICATION_INSTALLATIONS_PER_USER)
+    .get();
+  for (const installation of installations.docs) {
+    const token = canonicalInstallationToken(installation.data());
+    if (token == null) continue;
+    out.push({uid, fcmToken: token, installationId: installation.id});
+  }
+  return out;
 }
 
 /**
- * Returns approved users that hold any of the requested roles AND have an
- * fcmToken on file. Token uniqueness is enforced by callers because the
- * same token may legitimately appear under different uids (e.g. a tablet
- * shared between two accounts — we still notify, but only once).
+ * Returns every bounded installation for approved users holding a requested
+ * role. The legacy single-token field remains readable during migration.
+ * Token uniqueness is enforced by the sender.
  */
 export async function getTokenLookupsForRoles(
   db: FirestoreLike,
@@ -167,35 +253,32 @@ export async function getTokenLookupsForRoles(
     .where("isApproved", "==", true)
     .get();
 
-  const out: UserTokenLookup[] = [];
+  const eligible: Array<{
+    uid: string;
+    authorityData: Record<string, unknown>;
+  }> = [];
   snapshot.forEach((doc) => {
     const data = doc.data();
     const authority = canonicalApprovedUserAuthority(data);
     if (authority == null) return;
     const hasRole = [...authority.roles].some((role) => roles.includes(role));
     if (!hasRole) return;
-    const token = typeof authority.data.fcmToken === "string" ?
-      authority.data.fcmToken :
-      null;
-    if (token == null || token.length === 0) return;
-    out.push({uid: doc.id, fcmToken: token});
+    eligible.push({uid: doc.id, authorityData: authority.data});
   });
-  return out;
+  return (await Promise.all(eligible.map(({uid, authorityData}) =>
+    tokenLookupsForApprovedUser(db, uid, authorityData)
+  ))).flat();
 }
 
-export async function getTokenLookupForUser(
+export async function getTokenLookupsForUser(
   db: FirestoreLike,
   uid: string,
-): Promise<UserTokenLookup | null> {
+): Promise<UserTokenLookup[]> {
   const result = await db.collection("users").doc(uid).get();
-  if (!result.exists) return null;
+  if (!result.exists) return [];
   const authority = canonicalApprovedUserAuthority(result.data());
-  if (authority == null) return null;
-  const token = typeof authority.data.fcmToken === "string" ?
-    authority.data.fcmToken :
-    null;
-  if (token == null || token.length === 0) return null;
-  return {uid, fcmToken: token};
+  if (authority == null) return [];
+  return tokenLookupsForApprovedUser(db, uid, authority.data);
 }
 
 // ─── Send + stale-token cleanup ──────────────────────────────────────────────
@@ -223,7 +306,7 @@ export interface SendOutcome {
 
 /**
  * Sends a single notification to a set of users, batching FCM calls at 500,
- * and clears fcmToken on any user whose token is reported dead.
+ * and clears each exact legacy or installation registration reported dead.
  *
  * Returns counts for logging/observability. Never throws on FCM errors;
  * partial failure is normal and acceptable for fan-out notifications.
@@ -254,16 +337,22 @@ export async function sendNotification(args: {
   // can exist on multiple user records (shared tablets are common in
   // shift work), and we want to clear it from all of them — not just
   // the first one we saw.
-  const tokenToUids = new Map<string, string[]>();
+  const tokenToRegistrations = new Map<string, UserTokenLookup[]>();
   for (const r of recipients) {
-    const existing = tokenToUids.get(r.fcmToken);
+    const existing = tokenToRegistrations.get(r.fcmToken);
     if (existing == null) {
-      tokenToUids.set(r.fcmToken, [r.uid]);
-    } else if (!existing.includes(r.uid)) {
-      existing.push(r.uid);
+      tokenToRegistrations.set(r.fcmToken, [r]);
+      continue;
+    }
+    const alreadyPresent = existing.some((registration) =>
+      registration.uid === r.uid &&
+      registration.installationId === r.installationId
+    );
+    if (!alreadyPresent) {
+      existing.push(r);
     }
   }
-  const dedupedTokens = [...tokenToUids.keys()];
+  const dedupedTokens = [...tokenToRegistrations.keys()];
   if (dedupedTokens.length === 0) {
     return {
       attempted: 0,
@@ -303,24 +392,32 @@ export async function sendNotification(args: {
     });
   }
 
-  // Clear dead tokens — but RACE-SAFE. Between our initial lookup and now,
-  // a user's app may have registered a fresh token. If we blindly null-out
-  // fcmToken, we'd wipe a valid current registration. Read inside a
-  // transaction and only clear if the stored token still matches the dead
-  // one we just learned about. Best-effort; cleanup never blocks delivery.
+  // Clear dead registrations race-safely. The legacy field is nulled only
+  // while it still matches, and an installation document is deleted only
+  // while that exact installation still carries the rejected token.
   let cleared = 0;
   for (const deadToken of staleTokens) {
-    const uids = tokenToUids.get(deadToken) ?? [];
-    for (const uid of uids) {
+    const registrations = tokenToRegistrations.get(deadToken) ?? [];
+    for (const registration of registrations) {
       try {
         const didClear = await db.runTransaction(async (txn) => {
-          const ref = db.collection("users").doc(uid);
+          const userRef = db.collection("users").doc(registration.uid);
+          const ref = registration.installationId == null ?
+            userRef :
+            userRef
+              .collection(NOTIFICATION_INSTALLATIONS_COLLECTION)
+              .doc(registration.installationId);
           const snap = await txn.get(ref);
           if (!snap.exists) return false;
           const current = snap.data();
           if (current == null) return false;
-          if (current.fcmToken !== deadToken) return false;
-          txn.update(ref, {fcmToken: null});
+          if (registration.installationId == null) {
+            if (current.fcmToken !== deadToken) return false;
+            txn.update(ref, {fcmToken: null});
+          } else {
+            if (current.token !== deadToken) return false;
+            txn.delete(ref);
+          }
           return true;
         });
         if (didClear) cleared += 1;

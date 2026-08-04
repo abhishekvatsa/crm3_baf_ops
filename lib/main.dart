@@ -721,6 +721,7 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp> {
   Widget build(BuildContext context) {
     if (_startupFailure == null) {
       ref.watch(crashlyticsIdentitySyncProvider);
+      ref.watch(notificationInstallationSyncProvider);
     }
 
     return MaterialApp(
