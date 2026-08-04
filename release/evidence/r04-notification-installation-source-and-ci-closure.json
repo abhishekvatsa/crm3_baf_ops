@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "R04-NOTIFICATION-INSTALLATION-SOURCE-AND-CI-CLOSURE-20260804",
+  "findingIds": [
+    "R-04"
+  ],
+  "authorityType": "SOURCE_AND_CI",
+  "decision": "PASS_R04_NOTIFICATION_INSTALLATION_SOURCE_AND_CI_CLOSURE",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "pullRequest": 134,
+    "headCommit": "55869a42aa48fd18e360c499a82825a00eaacd29",
+    "sourceTree": "dc2ed437922d5f4ebe53def58e6098481687ff48",
+    "mergeCommit": "0ca1e7610f6151e1bc50fefc699b2dc7f9403eb9",
+    "mergeTree": "dc2ed437922d5f4ebe53def58e6098481687ff48"
+  },
+  "pullRequestCi": {
+    "runId": 30880821675,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30880821675",
+    "event": "pull_request",
+    "headSha": "55869a42aa48fd18e360c499a82825a00eaacd29",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 91901680834,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 91901680868,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 91901680925,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 91901680846,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "postMergeCi": {
+    "runId": 30881331523,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30881331523",
+    "event": "push",
+    "headSha": "0ca1e7610f6151e1bc50fefc699b2dc7f9403eb9",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 91903177259,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 91903177236,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 91903177210,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 91903177217,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "verifiedControls": {
+    "stableOpaqueInstallationIdentity": true,
+    "sessionAndTokenRefreshRegistration": true,
+    "deviceScopedSignOut": true,
+    "clientTokenReadsDenied": true,
+    "canonicalOwnerWritesOnly": true,
+    "perUserInstallationReadBound": 8,
+    "legacyTokenMigrationRetained": true,
+    "malformedInstallationFailsClosed": true,
+    "raceSafeExactStaleCleanup": true
+  },
+  "closureBoundary": {
+    "productionDeploymentPerformed": false,
+    "runtimeActivationClaimed": false,
+    "deviceEvidenceClaimed": false,
+    "notificationDeliveryClaimed": false,
+    "pilotAuthorizationCreated": false,
+    "cutoverAuthorizationCreated": false
+  }
+}

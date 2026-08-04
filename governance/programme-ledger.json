@@ -2296,22 +2296,74 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "Reliability/data",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "MEDIUM",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "evidenceFile": "release/evidence/r04-notification-installation-source-and-ci-closure.json",
+          "evidenceSha256": "D89C452B41DFF63F5714263515067F056D0E2B838746E7D37D375D510CA4B002",
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 134,
+          "headCommit": "55869a42aa48fd18e360c499a82825a00eaacd29",
+          "sourceTree": "dc2ed437922d5f4ebe53def58e6098481687ff48",
+          "mergeCommit": "0ca1e7610f6151e1bc50fefc699b2dc7f9403eb9",
+          "mergeTree": "dc2ed437922d5f4ebe53def58e6098481687ff48",
+          "pullRequestWorkflowRun": 30880821675,
+          "postMergeWorkflowRun": 30881331523,
+          "decision": "PASS_R04_NOTIFICATION_INSTALLATION_SOURCE_AND_CI_CLOSURE",
+          "productionDeploymentPerformed": false,
+          "deviceEvidenceClaimed": false,
+          "notificationDeliveryClaimed": false,
+          "pilotAuthorizationCreated": false
+        }
+      ],
+      "requiredExitEvidence": [
+        "a stable random installation identity survives relaunch and token refresh without deriving from device, user or token identity",
+        "authenticated-session startup and token-refresh registration repair one installation while sign-out removes only that installation",
+        "Firestore Rules deny every client token read and allow only exact canonical-owner writes with server timestamps",
+        "notification fan-out reads at most eight freshest installation documents per approved user while retaining the legacy profile token during migration",
+        "malformed installation records fail closed and permanent FCM rejection clears only the exact registration after a transactional token reread",
+        "exact-head pull-request CI and post-merge CI pass the Flutter, Functions, Rules, emulator, Android packaging and canonical governance contracts"
+      ],
+      "reArmTriggers": [
+        "installation document schema, path or stable identity changes",
+        "session-start, token-refresh or sign-out notification lifecycle changes",
+        "clients gain notification-installation read access or cross-user write authority",
+        "the per-user installation read bound or legacy fcmToken migration behavior changes",
+        "stale-token cleanup can delete a refreshed or unrelated registration",
+        "the focused client, Functions, Firestore Rules, emulator or canonical R-04 contracts are removed or weakened"
+      ],
+      "notes": [
+        "PR #134 replaces the single profile token lifecycle with one private installation document per app installation, synchronized at authenticated profile availability and token refresh.",
+        "Server recipient resolution is bounded to eight freshest installation documents per approved user, retains the legacy profile token during migration and deduplicates before dispatch.",
+        "Source-and-CI closure is bound to PR #134's identical tested and merged tree and successful pull-request and post-merge release-gate runs.",
+        "This closure does not claim production Rules or Functions deployment, device notification delivery, Stage 2D-F4 progress, pilot authorization or cutover."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Private installation registry, token-refresh synchronization, bounded server fan-out, strict Rules and focused local regression proof implemented; merge and exact-head CI remained pending."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-08-04",
+          "basis": "PR #134 exact green head 55869a42aa48fd18e360c499a82825a00eaacd29 merged as 0ca1e7610f6151e1bc50fefc699b2dc7f9403eb9 with identical source tree dc2ed437922d5f4ebe53def58e6098481687ff48."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-04",
+          "basis": "PASS_R04_NOTIFICATION_INSTALLATION_SOURCE_AND_CI_CLOSURE closes R-04 after exact-head run 30880821675 and post-merge run 30881331523 passed; production deployment and notification-delivery evidence remain separate."
         }
       ]
     },

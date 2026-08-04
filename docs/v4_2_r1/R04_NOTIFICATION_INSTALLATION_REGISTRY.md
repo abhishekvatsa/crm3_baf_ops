@@ -1,8 +1,10 @@
 # R-04 Notification Installation Registry
 
-Status: SOURCE_IMPLEMENTED
+Status: CLOSED
 
-Merge and exact-head CI evidence: PENDING
+Merge and exact-head CI evidence: PASS
+
+Closure decision: PASS_R04_NOTIFICATION_INSTALLATION_SOURCE_AND_CI_CLOSURE
 
 ## Finding
 
@@ -74,9 +76,14 @@ The source tranche includes:
 - a source contract and canonical audit check binding these controls to this
   policy.
 
+PR #134's tested head `55869a42aa48fd18e360c499a82825a00eaacd29`
+and merge commit `0ca1e7610f6151e1bc50fefc699b2dc7f9403eb9`
+have the identical source tree
+`dc2ed437922d5f4ebe53def58e6098481687ff48`. Pull-request release-gate run
+`30880821675` and post-merge release-gate run `30881331523` both passed all
+four governed jobs.
+
 ## Remaining Boundary
 
-This source implementation does not claim production Rules or Functions
-deployment, device notification delivery, pilot authorization, or cutover.
-`R-04` can close under its `SOURCE_AND_CI` authority only after exact-head PR
-CI, merge-tree identity, and post-merge CI evidence are recorded.
+`R-04` is closed under its `SOURCE_AND_CI` authority. This closure does not claim production Rules or Functions
+deployment, runtime activation, device notification delivery, pilot authorization, or cutover.

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "findingId": "R-04",
-  "sourceStatus": "SOURCE_IMPLEMENTED",
+  "sourceStatus": "SOURCE_AND_CI_CLOSED",
   "registry": {
     "collectionPath": "users/{uid}/notification_installations",
     "documentId": "lowercase UUID v4 persisted per app installation",
