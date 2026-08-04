@@ -163,6 +163,8 @@ describe("global pull runtime identity source policy", () => {
       requiredProjectRoles: [
         "roles/datastore.user",
         "roles/eventarc.eventReceiver",
+      ],
+      requiredCloudRunServiceRoles: [
         "roles/run.invoker",
       ],
       firestoreAccess:
@@ -175,6 +177,7 @@ describe("global pull runtime identity source policy", () => {
     ]);
     expect(policy.existingFunctionFleetMutationAuthorized).toBe(false);
     expect(policy.defaultComputeRoleMutationAuthorized).toBe(false);
+    expect(policy.temporaryProjectRunInvokerRemovalRequired).toBe(true);
     expect(policy.crossProjectGrantAuthorized).toBe(false);
     expect(policy.deploymentTargetRequirements).toHaveLength(4);
   });

@@ -58,7 +58,9 @@
     "maintenanceWorkflowEscalationSweep": {
       "runtimeServiceAccountId": "crm3-fn-workflow-sweep",
       "requiredProjectRoles": [
-        "roles/datastore.user",
+        "roles/datastore.user"
+      ],
+      "requiredCloudRunServiceRoles": [
         "roles/run.invoker"
       ],
       "workloadClass": "SCHEDULED_FIRESTORE_MUTATION"
@@ -89,7 +91,9 @@
       "requiredProjectRoles": [
         "projects/${PROJECT_ID}/roles/crm3NotificationSender",
         "roles/datastore.user",
-        "roles/eventarc.eventReceiver",
+        "roles/eventarc.eventReceiver"
+      ],
+      "requiredCloudRunServiceRoles": [
         "roles/run.invoker"
       ],
       "workloadClass": "FIRESTORE_NOTIFICATION_TRIGGER"
@@ -99,7 +103,9 @@
       "requiredProjectRoles": [
         "projects/${PROJECT_ID}/roles/crm3NotificationSender",
         "roles/datastore.user",
-        "roles/eventarc.eventReceiver",
+        "roles/eventarc.eventReceiver"
+      ],
+      "requiredCloudRunServiceRoles": [
         "roles/run.invoker"
       ],
       "workloadClass": "FIRESTORE_NOTIFICATION_TRIGGER"
@@ -109,7 +115,9 @@
       "requiredProjectRoles": [
         "projects/${PROJECT_ID}/roles/crm3NotificationSender",
         "roles/datastore.user",
-        "roles/eventarc.eventReceiver",
+        "roles/eventarc.eventReceiver"
+      ],
+      "requiredCloudRunServiceRoles": [
         "roles/run.invoker"
       ],
       "workloadClass": "FIRESTORE_NOTIFICATION_TRIGGER"
@@ -119,7 +127,9 @@
       "requiredProjectRoles": [
         "projects/${PROJECT_ID}/roles/crm3NotificationSender",
         "roles/datastore.user",
-        "roles/eventarc.eventReceiver",
+        "roles/eventarc.eventReceiver"
+      ],
+      "requiredCloudRunServiceRoles": [
         "roles/run.invoker"
       ],
       "workloadClass": "FIRESTORE_NOTIFICATION_TRIGGER"
@@ -128,7 +138,9 @@
       "runtimeServiceAccountId": "crm3-global-pull-writer",
       "requiredProjectRoles": [
         "roles/datastore.user",
-        "roles/eventarc.eventReceiver",
+        "roles/eventarc.eventReceiver"
+      ],
+      "requiredCloudRunServiceRoles": [
         "roles/run.invoker"
       ],
       "workloadClass": "FIRESTORE_PROTOCOL_TRIGGER"
@@ -149,12 +161,19 @@
     "roles/iam.serviceAccountTokenCreator"
   ],
   "roleExactnessRequired": true,
+  "temporaryDeploymentProjectRoles": {
+    "eventAndScheduleRuntimeIdentities": [
+      "roles/run.invoker"
+    ],
+    "removalRequiredBeforeClosure": true
+  },
   "deploymentOrder": [
     "create the missing same-project service accounts and notification sender custom role",
-    "grant only each binding's requiredProjectRoles",
+    "grant only each binding's requiredProjectRoles and temporary project-level Run Invoker where a new trigger needs it",
     "grant roles/cloudbuild.builds.builder to Default Compute before removing Editor",
     "deploy the exact admitted 14-function source fleet in bounded cohorts",
     "prove every Function is active under its exact identity and current dependency inventory",
+    "bind Run Invoker on each trigger's own Cloud Run service and remove every temporary project-level Run Invoker grant",
     "verify callable rejection and trigger or scheduler control-plane health",
     "remove roles/editor from Default Compute only after every prior check passes",
     "repeat the strict LR-03 and LR-06 readback"
@@ -163,6 +182,7 @@
     "the source export inventory differs from functionBindings",
     "a runtime identity resolves outside the target project",
     "a required role or custom-role permission differs",
+    "a temporary project-level Run Invoker grant remains at closure",
     "any deployment, callable smoke test, trigger health check or dependency comparison fails",
     "Default Compute is observed on a non-Function runtime workload",
     "the Cloud Build builder role is not effective before Editor removal"

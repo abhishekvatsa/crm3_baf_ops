@@ -79,6 +79,10 @@ describe("complete Function fleet runtime identity source policy", () => {
     expect(policy.buildIdentity.requiredProjectRolesAfterCutover)
       .toEqual(["roles/cloudbuild.builds.builder"]);
     expect(policy.buildIdentity.runtimeUseAfterCutover).toBe("PROHIBITED");
+    expect(policy.temporaryDeploymentProjectRoles).toEqual({
+      eventAndScheduleRuntimeIdentities: ["roles/run.invoker"],
+      removalRequiredBeforeClosure: true,
+    });
     expect(policy.forbiddenProjectRolesForRuntimeIdentities)
       .toContain("roles/editor");
     expect(policy.deploymentOrder.at(-2)).toContain(
@@ -93,6 +97,14 @@ describe("complete Function fleet runtime identity source policy", () => {
       expect(binding.requiredProjectRoles).not.toContain(
         "roles/logging.logWriter",
       );
+    }
+    for (const binding of Object.values(policy.functionBindings)) {
+      if (binding.requiredCloudRunServiceRoles != null) {
+        expect(binding.requiredCloudRunServiceRoles)
+          .toEqual(["roles/run.invoker"]);
+        expect(binding.requiredProjectRoles)
+          .not.toContain("roles/run.invoker");
+      }
     }
   });
 });

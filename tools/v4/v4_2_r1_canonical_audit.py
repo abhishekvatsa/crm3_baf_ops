@@ -1327,6 +1327,12 @@ check(
     and function_fleet_identity_policy.get("buildIdentity", {}).get(
         "runtimeUseAfterCutover"
     ) == "PROHIBITED"
+    and function_fleet_identity_policy.get(
+        "temporaryDeploymentProjectRoles", {}
+    ) == {
+        "eventAndScheduleRuntimeIdentities": ["roles/run.invoker"],
+        "removalRequiredBeforeClosure": True,
+    }
     and function_fleet_identity_policy.get("roleExactnessRequired") is True
     and all(
         "roles/editor" not in binding.get("requiredProjectRoles", [])
@@ -1350,7 +1356,7 @@ check(
     and "endpointServiceAccount" in function_fleet_identity_test
     and "accountIds.size" in function_fleet_identity_test
     and "Default Compute must receive" in function_fleet_identity_decision
-    and "Any failure before step 8 leaves Editor unchanged"
+    and "Any failure before step 10 leaves Editor unchanged"
         in function_fleet_identity_decision
     and set(functions_live_finding_records) == {"S-01", "D-01"}
     and all(
@@ -3908,8 +3914,12 @@ check(
         == [
             "roles/datastore.user",
             "roles/eventarc.eventReceiver",
-            "roles/run.invoker",
         ]
+    and global_pull_runtime_identity_policy.get(
+        "functionBindings", {}
+    ).get("stampGlobalPullServerClock", {}).get(
+        "requiredCloudRunServiceRoles"
+    ) == ["roles/run.invoker"]
     and global_pull_runtime_identity_policy.get(
         "existingFunctionFleetMutationAuthorized"
     ) is False

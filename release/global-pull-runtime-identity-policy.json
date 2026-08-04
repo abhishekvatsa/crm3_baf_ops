@@ -26,7 +26,9 @@
       "productionResolvedRuntimeServiceAccount": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
       "requiredProjectRoles": [
         "roles/datastore.user",
-        "roles/eventarc.eventReceiver",
+        "roles/eventarc.eventReceiver"
+      ],
+      "requiredCloudRunServiceRoles": [
         "roles/run.invoker"
       ],
       "firestoreAccess": "READ_WRITE_PROTOCOL_COLLECTIONS_ENFORCED_BY_SOURCE"
@@ -45,6 +47,7 @@
   ],
   "existingFunctionFleetMutationAuthorized": false,
   "defaultComputeRoleMutationAuthorized": false,
+  "temporaryProjectRunInvokerRemovalRequired": true,
   "crossProjectGrantAuthorized": false,
   "deploymentTargetRequirements": [
     "Resolve PROJECT_ID from the Firebase deployment target without an operator-supplied override.",

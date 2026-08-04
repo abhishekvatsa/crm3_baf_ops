@@ -64,15 +64,19 @@ for `firebase-functions/logger` calls.
 3. Grant each identity only the roles recorded in the policy.
 4. Grant Default Compute `roles/cloudbuild.builds.builder` while Editor is
    still present.
-5. Deploy the exact 14-function source fleet in bounded cohorts.
-6. Verify every Function is active under its exact account, all five missing
+5. Use project-level Run Invoker only as a temporary deployment bridge for
+   event and schedule identities.
+6. Deploy the exact 14-function source fleet in bounded cohorts.
+7. Bind Run Invoker on each trigger's own Cloud Run service and remove every
+   temporary project-level grant.
+8. Verify every Function is active under its exact account, all five missing
    exports are present, and dependencies match current source.
-7. Exercise authenticated or negative callable checks and verify trigger and
+9. Exercise authenticated or negative callable checks and verify trigger and
    scheduler control-plane health without manufacturing business state.
-8. Remove Default Compute Editor only after all prior checks pass.
-9. Repeat the strict LR-03/LR-06 collector and record exact-head evidence.
+10. Remove Default Compute Editor only after all prior checks pass.
+11. Repeat the strict LR-03/LR-06 collector and record exact-head evidence.
 
-Any failure before step 8 leaves Editor unchanged. Any failure after step 8
+Any failure before step 10 leaves Editor unchanged. Any failure after step 10
 requires immediate role restoration followed by incident adjudication.
 
 ## Closure boundary
