@@ -39,8 +39,10 @@ writer:
 * couples the mutation to immutable audit and idempotency evidence;
 * protects the last-approved-Admin invariant.
 
-The notification cleanup writer is independently field-bounded to clearing
-`fcmToken`.
+The legacy notification cleanup writer remains field-bounded to clearing
+`fcmToken`. R-04 server stale-token cleanup additionally permits deletion of
+one exact private `notification_installations` child after a transactional
+token-match reread; it does not widen parent user-authority mutation.
 
 ## Read-authority policy
 

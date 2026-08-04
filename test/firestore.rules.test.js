@@ -45,6 +45,16 @@ function pendingUserPayload(email) {
   };
 }
 
+function notificationInstallationPayload(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    token: "installation-token",
+    platform: "android",
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
 async function seedUser(uid, roles, isApproved = true) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(
@@ -3094,6 +3104,135 @@ describe("P-02 pending-user Firebase token identity binding", () => {
       updateDoc(doc(adminDb, "users/pending1"), {
         email: "corrected@test.local",
       })
+    );
+  });
+});
+
+describe("R-04 private notification installation registry", () => {
+  const installationId = "55cf69a1-8a5d-4c80-a5af-7d1c2a744207";
+
+  test("owner may create, refresh, and delete an exact installation record", async () => {
+    await seedUser("owner1", ["operations"]);
+    const ref = doc(
+      dbAs("owner1"),
+      `users/owner1/notification_installations/${installationId}`
+    );
+
+    await assertSucceeds(setDoc(ref, notificationInstallationPayload()));
+    await assertSucceeds(
+      updateDoc(ref, {
+        token: "refreshed-token",
+        updatedAt: serverTimestamp(),
+      })
+    );
+    await assertSucceeds(deleteDoc(ref));
+  });
+
+  test("installation tokens cannot be read by the owner or another user", async () => {
+    await seedUser("owner1", ["operations"]);
+    await seedUser("other1", ["operations"]);
+    await seedDoc(
+      `users/owner1/notification_installations/${installationId}`,
+      {
+        schemaVersion: 1,
+        token: "private-token",
+        platform: "android",
+        updatedAt: Timestamp.now(),
+      }
+    );
+
+    await assertFails(
+      getDoc(
+        doc(
+          dbAs("owner1"),
+          `users/owner1/notification_installations/${installationId}`
+        )
+      )
+    );
+    await assertFails(
+      getDoc(
+        doc(
+          dbAs("other1"),
+          `users/owner1/notification_installations/${installationId}`
+        )
+      )
+    );
+  });
+
+  test("one user cannot create or delete another user's installation", async () => {
+    await seedUser("owner1", ["operations"]);
+    await seedUser("other1", ["operations"]);
+    const ref = doc(
+      dbAs("other1"),
+      `users/owner1/notification_installations/${installationId}`
+    );
+
+    await assertFails(setDoc(ref, notificationInstallationPayload()));
+    await seedDoc(
+      `users/owner1/notification_installations/${installationId}`,
+      {
+        schemaVersion: 1,
+        token: "private-token",
+        platform: "android",
+        updatedAt: Timestamp.now(),
+      }
+    );
+    await assertFails(deleteDoc(ref));
+  });
+
+  test("malformed IDs and document shapes fail closed", async () => {
+    await seedUser("owner1", ["operations"]);
+    const db = dbAs("owner1");
+    const validRef = doc(
+      db,
+      `users/owner1/notification_installations/${installationId}`
+    );
+
+    await assertFails(
+      setDoc(
+        doc(db, "users/owner1/notification_installations/not-a-uuid"),
+        notificationInstallationPayload()
+      )
+    );
+    await assertFails(
+      setDoc(validRef, notificationInstallationPayload({ schemaVersion: 2 }))
+    );
+    await assertFails(
+      setDoc(validRef, notificationInstallationPayload({ platform: "other" }))
+    );
+    await assertFails(
+      setDoc(
+        validRef,
+        notificationInstallationPayload({ unexpectedField: true })
+      )
+    );
+    await assertFails(
+      setDoc(
+        validRef,
+        notificationInstallationPayload({ updatedAt: Timestamp.now() })
+      )
+    );
+  });
+
+  test("missing or malformed parent profiles cannot register installations", async () => {
+    const missingRef = doc(
+      dbAs("missing1"),
+      `users/missing1/notification_installations/${installationId}`
+    );
+    await assertFails(
+      setDoc(missingRef, notificationInstallationPayload())
+    );
+
+    await seedDoc("users/malformed1", {
+      roles: ["operations"],
+      isApproved: true,
+    });
+    const malformedRef = doc(
+      dbAs("malformed1"),
+      `users/malformed1/notification_installations/${installationId}`
+    );
+    await assertFails(
+      setDoc(malformedRef, notificationInstallationPayload())
     );
   });
 });

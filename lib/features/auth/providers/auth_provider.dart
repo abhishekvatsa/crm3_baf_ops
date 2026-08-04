@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../data/user_model.dart';
+import '../services/notification_installation_registry.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../../core/providers/sync_providers.dart';
 import '../../../core/services/app_logger.dart';
@@ -153,13 +154,107 @@ final crashlyticsIdentitySyncProvider = Provider<void>((ref) {
   );
 });
 
+final notificationInstallationRegistryProvider =
+    Provider<NotificationInstallationRegistry>((ref) {
+      return NotificationInstallationRegistry(
+        idStore: SharedPreferencesNotificationInstallationIdStore(),
+        documentStore: FirestoreNotificationInstallationDocumentStore(
+          FirebaseFirestore.instance,
+        ),
+        tokenSource: FirebaseMessagingNotificationTokenSource(
+          FirebaseMessaging.instance,
+        ),
+        platform: currentNotificationInstallationPlatform(),
+      );
+    });
+
+final notificationInstallationSyncProvider = Provider<void>((ref) {
+  final auth = ref.watch(firebaseAuthProvider);
+  final registry = ref.watch(notificationInstallationRegistryProvider);
+
+  ref.listen<AsyncValue<AppUser?>>(currentAppUserProvider, (previous, next) {
+    next.whenData((user) {
+      if (user == null) {
+        registry.observeSignedOut();
+        return;
+      }
+      unawaited(
+        _syncNotificationInstallation(registry: registry, uid: user.uid),
+      );
+    });
+  }, fireImmediately: true);
+
+  try {
+    final tokenRefreshSubscription = registry.tokenRefreshes.listen(
+      (token) {
+        final uid = auth.currentUser?.uid;
+        if (uid == null) return;
+        unawaited(
+          _syncNotificationInstallation(
+            registry: registry,
+            uid: uid,
+            token: token,
+          ),
+        );
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        AppLogger.warning(
+          'FCM token refresh stream failed',
+          error: error,
+          stackTrace: stackTrace,
+          context: const {
+            'app_area': 'auth',
+            'auth_stage': 'notification_token_refresh_stream',
+          },
+        );
+      },
+    );
+    ref.onDispose(() => unawaited(tokenRefreshSubscription.cancel()));
+  } catch (error, stackTrace) {
+    AppLogger.warning(
+      'FCM token refresh subscription unavailable',
+      error: error,
+      stackTrace: stackTrace,
+      context: const {
+        'app_area': 'auth',
+        'auth_stage': 'notification_token_refresh_subscription',
+      },
+    );
+  }
+});
+
+Future<void> _syncNotificationInstallation({
+  required NotificationInstallationRegistry registry,
+  required String uid,
+  String? token,
+}) async {
+  try {
+    if (token == null) {
+      await registry.registerCurrentToken(uid: uid);
+    } else {
+      await registry.registerToken(uid: uid, token: token);
+    }
+  } catch (error, stackTrace) {
+    AppLogger.warning(
+      'Notification installation registration failed',
+      error: error,
+      stackTrace: stackTrace,
+      context: const {
+        'app_area': 'auth',
+        'auth_stage': 'notification_installation_registration',
+      },
+    );
+  }
+}
+
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   final Ref _ref;
+  final NotificationInstallationRegistry _notificationRegistry;
 
-  AuthService(this._ref);
+  AuthService(this._ref, this._notificationRegistry);
 
   Future<void> signInWithGoogle() async {
     final googleUser = await _googleSignIn.signIn();
@@ -194,14 +289,13 @@ class AuthService {
     final user = firebaseUser ?? _auth.currentUser;
     if (user == null) return;
 
-    final fcmToken = await _readFcmToken();
     final userRef = _firestore.collection('users').doc(user.uid);
 
     await _firestore.runTransaction((transaction) async {
       final snapshot = await transaction.get(userRef);
 
       if (!snapshot.exists) {
-        transaction.set(userRef, _pendingUserPayload(user, fcmToken));
+        transaction.set(userRef, _pendingUserPayload(user));
         return;
       }
 
@@ -211,12 +305,13 @@ class AuthService {
         'photoUrl': _cleanOptionalText(user.photoURL),
       };
 
-      if (fcmToken != null) {
-        updateMap['fcmToken'] = fcmToken;
-      }
-
       transaction.update(userRef, updateMap);
     });
+
+    await _syncNotificationInstallation(
+      registry: _notificationRegistry,
+      uid: user.uid,
+    );
   }
 
   Future<void> signOut() async {
@@ -225,73 +320,68 @@ class AuthService {
     final user = _auth.currentUser;
     if (user != null) {
       try {
-        await _firestore.collection('users').doc(user.uid).update({
-          'fcmToken': null,
-        });
+        await _notificationRegistry.removeCurrentInstallation(uid: user.uid);
       } catch (e, st) {
-        debugPrint('⚠️ Could not clear FCM token during sign out: $e');
+        debugPrint(
+          'Could not remove notification installation during sign out: $e',
+        );
         AppLogger.warning(
-          'Could not clear FCM token during sign out',
+          'Could not remove notification installation during sign out',
           error: e,
           stackTrace: st,
           context: const {
             'app_area': 'auth',
-            'auth_stage': 'sign_out_clear_fcm',
+            'auth_stage': 'sign_out_remove_notification_installation',
           },
         );
       }
     }
 
+    await _auth.signOut();
+
     try {
       await _googleSignIn.signOut();
     } catch (e, st) {
-      debugPrint('⚠️ Google sign-out failed, continuing Firebase sign-out: $e');
+      debugPrint('Google sign-out cleanup failed after Firebase sign-out: $e');
       AppLogger.warning(
-        'Google sign-out failed; continuing Firebase sign-out',
+        'Google sign-out cleanup failed after Firebase sign-out',
+        error: e,
+        stackTrace: st,
+        context: const {'app_area': 'auth', 'auth_stage': 'google_sign_out'},
+      );
+    }
+
+    try {
+      await _notificationRegistry.retireMessagingToken();
+    } catch (e, st) {
+      debugPrint('Could not retire the local messaging token: $e');
+      AppLogger.warning(
+        'Could not retire the local messaging token',
         error: e,
         stackTrace: st,
         context: const {
           'app_area': 'auth',
-          'auth_stage': 'google_sign_out',
+          'auth_stage': 'sign_out_retire_notification_token',
         },
       );
+    } finally {
+      _notificationRegistry.observeSignedOut();
     }
-
-    await _auth.signOut();
 
     try {
       _ref.read(syncOnceProvider.notifier).state = false;
     } catch (_) {}
   }
 
-  Map<String, dynamic> _pendingUserPayload(User user, String? fcmToken) {
+  Map<String, dynamic> _pendingUserPayload(User user) {
     return {
       'name': _cleanProfileText(user.displayName),
       'email': _cleanProfileText(user.email),
       'photoUrl': _cleanOptionalText(user.photoURL),
       'roles': [AppRole.operations.name],
       'isApproved': false,
-      'fcmToken': fcmToken,
       'createdAt': FieldValue.serverTimestamp(),
     };
-  }
-
-  Future<String?> _readFcmToken() async {
-    try {
-      return await FirebaseMessaging.instance.getToken();
-    } catch (e, st) {
-      debugPrint('⚠️ FCM token fetch failed: $e');
-      AppLogger.warning(
-        'FCM token fetch failed',
-        error: e,
-        stackTrace: st,
-        context: const {
-          'app_area': 'auth',
-          'auth_stage': 'fcm_token_fetch',
-        },
-      );
-      return null;
-    }
   }
 
   String _cleanProfileText(String? value) => value?.trim() ?? '';
@@ -302,4 +392,7 @@ class AuthService {
   }
 }
 
-final authServiceProvider = Provider<AuthService>((ref) => AuthService(ref));
+final authServiceProvider = Provider<AuthService>(
+  (ref) =>
+      AuthService(ref, ref.watch(notificationInstallationRegistryProvider)),
+);

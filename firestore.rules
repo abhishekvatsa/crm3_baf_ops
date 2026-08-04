@@ -243,6 +243,53 @@ service cloud.firestore {
         && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null);
     }
 
+    function validNotificationInstallation(data, installationId) {
+      return installationId.matches(
+          '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+        )
+        && data.keys().hasAll([
+          'schemaVersion',
+          'token',
+          'platform',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'schemaVersion',
+          'token',
+          'platform',
+          'updatedAt'
+        ])
+        && data.get('schemaVersion', 0) == 1
+        && data.get('token', null) is string
+        && data.get('token', '').size() > 0
+        && data.get('token', '').size() <= 4096
+        && data.get('platform', '') in [
+          'android',
+          'ios',
+          'macos',
+          'windows',
+          'linux',
+          'fuchsia',
+          'web'
+        ]
+        && data.get('updatedAt', null) is timestamp;
+    }
+
+    function canWriteOwnNotificationInstallation(userId) {
+      return isSelf(userId) && hasUserDoc()
+        ? validUserDocumentShape(userDoc().data)
+        : false;
+    }
+
+    function validNotificationInstallationWrite(userId, installationId) {
+      return canWriteOwnNotificationInstallation(userId)
+        && validNotificationInstallation(
+          request.resource.data,
+          installationId
+        )
+        && request.resource.data.get('updatedAt', null) == request.time;
+    }
+
     // ─────────────────────────────────────────────
     // 🔀 MAINTENANCE WORKFLOW CONTROL-PLANE HELPERS
     // ─────────────────────────────────────────────
@@ -2856,6 +2903,15 @@ service cloud.firestore {
         : false;
 
       allow delete: if false;
+
+      match /notification_installations/{installationId} {
+        allow read: if false;
+        allow create, update: if validNotificationInstallationWrite(
+          userId,
+          installationId
+        );
+        allow delete: if canWriteOwnNotificationInstallation(userId);
+      }
     }
 
     // ─────────────────────────────────────────────

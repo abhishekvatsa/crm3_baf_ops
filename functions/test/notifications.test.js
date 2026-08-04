@@ -5,21 +5,71 @@ const {
   buildTicketCreatedNotification,
   buildTicketResolvedNotification,
   FCM_DEAD_TOKEN_CODES,
+  getTokenLookupsForUser,
   getTokenLookupsForRoles,
+  MAX_NOTIFICATION_INSTALLATIONS_PER_USER,
   sendNotification,
 } = require('../lib/notifications');
 
 // ─── Test harness: minimal Firestore double with transactions ────────────────
 
-function buildFirestoreDouble(initialUsers = {}) {
-  const users = JSON.parse(JSON.stringify(initialUsers));
-  const docUpdates = [];
+function cloneValue(value) {
+  if (Array.isArray(value)) return value.map(cloneValue);
+  if (value != null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [key, cloneValue(nested)]),
+    );
+  }
+  return value;
+}
 
-  function makeDocRef(collectionName, id) {
+function fakeTimestamp(iso) {
+  const milliseconds = Date.parse(iso);
+  return {
+    seconds: Math.floor(milliseconds / 1000),
+    nanoseconds: 0,
+    toMillis: () => milliseconds,
+  };
+}
+
+function buildFirestoreDouble(initialUsers = {}, initialInstallations = {}) {
+  const users = cloneValue(initialUsers);
+  const installations = cloneValue(initialInstallations);
+  const docUpdates = [];
+  const docDeletes = [];
+
+  function dataAtPath(path) {
+    const segments = path.split('/');
+    if (segments.length === 2 && segments[0] === 'users') {
+      return users[segments[1]];
+    }
+    if (
+      segments.length === 4 &&
+      segments[0] === 'users' &&
+      segments[2] === 'notification_installations'
+    ) {
+      return installations[segments[1]]?.[segments[3]];
+    }
+    return undefined;
+  }
+
+  function deleteAtPath(path) {
+    const segments = path.split('/');
+    if (
+      segments.length === 4 &&
+      segments[0] === 'users' &&
+      segments[2] === 'notification_installations'
+    ) {
+      delete installations[segments[1]]?.[segments[3]];
+    }
+  }
+
+  function makeDocRef(path) {
+    const id = path.split('/').at(-1);
     return {
-      path: `${collectionName}/${id}`,
+      path,
       async get() {
-        const data = collectionName === 'users' ? users[id] : undefined;
+        const data = dataAtPath(path);
         return {
           id,
           exists: data != null,
@@ -27,23 +77,67 @@ function buildFirestoreDouble(initialUsers = {}) {
         };
       },
       async update(patch) {
-        docUpdates.push({path: `${collectionName}/${id}`, patch: {...patch}});
-        if (collectionName === 'users' && users[id] != null) {
-          Object.assign(users[id], patch);
+        docUpdates.push({path, patch: {...patch}});
+        const data = dataAtPath(path);
+        if (data != null) {
+          Object.assign(data, patch);
         }
+      },
+      async delete() {
+        docDeletes.push(path);
+        deleteAtPath(path);
+      },
+      collection(name) {
+        return makeCollection(`${path}/${name}`);
       },
     };
   }
 
-  function makeQuery(collectionName) {
+  function makeQuery(collectionPath) {
+    let order = null;
+    let maximum = null;
     const q = {
       where: () => q,
+      orderBy(field, direction) {
+        order = {field, direction};
+        return q;
+      },
+      limit(count) {
+        maximum = count;
+        return q;
+      },
       async get() {
-        if (collectionName !== 'users') {
-          return {docs: [], forEach: () => {}};
+        let entries = [];
+        if (collectionPath === 'users') {
+          entries = Object.entries(users);
+        } else {
+          const segments = collectionPath.split('/');
+          if (
+            segments.length === 3 &&
+            segments[0] === 'users' &&
+            segments[2] === 'notification_installations'
+          ) {
+            entries = Object.entries(installations[segments[1]] ?? {});
+          }
         }
-        const docs = Object.entries(users).map(([uid, data]) => ({
-          id: uid,
+        if (order != null) {
+          entries.sort((left, right) => {
+            const leftValue = left[1][order.field];
+            const rightValue = right[1][order.field];
+            const leftSortable = typeof leftValue?.toMillis === 'function' ?
+              leftValue.toMillis() : leftValue;
+            const rightSortable = typeof rightValue?.toMillis === 'function' ?
+              rightValue.toMillis() : rightValue;
+            const comparison = leftSortable < rightSortable ?
+              -1 : leftSortable > rightSortable ? 1 : 0;
+            return order.direction === 'desc' ? -comparison : comparison;
+          });
+        }
+        if (maximum != null) {
+          entries = entries.slice(0, maximum);
+        }
+        const docs = entries.map(([id, data]) => ({
+          id,
           exists: true,
           data: () => ({...data}),
         }));
@@ -53,29 +147,40 @@ function buildFirestoreDouble(initialUsers = {}) {
     return q;
   }
 
+  function makeCollection(path) {
+    return {
+      ...makeQuery(path),
+      doc: (id) => makeDocRef(`${path}/${id}`),
+    };
+  }
+
   return {
     db: {
       collection(name) {
-        return {
-          ...makeQuery(name),
-          doc: (id) => makeDocRef(name, id),
-        };
+        return makeCollection(name);
       },
       async runTransaction(fn) {
         const stagedUpdates = [];
+        const stagedDeletes = [];
         const txn = {
           async get(ref) { return ref.get(); },
           update(ref, patch) { stagedUpdates.push({ref, patch}); },
+          delete(ref) { stagedDeletes.push(ref); },
         };
         const result = await fn(txn);
         for (const {ref, patch} of stagedUpdates) {
           await ref.update(patch);
         }
+        for (const ref of stagedDeletes) {
+          await ref.delete();
+        }
         return result;
       },
     },
     users,
+    installations,
     docUpdates,
+    docDeletes,
   };
 }
 
@@ -301,6 +406,147 @@ describe('getTokenLookupsForRoles', () => {
     expect(await getTokenLookupsForRoles(db, [])).toEqual([]);
     expect(called).toBe(false);
   });
+
+  test('returns every canonical installation and the legacy migration token', async () => {
+    const {db} = buildFirestoreDouble(
+      {
+        u1: {isApproved: true, roles: ['admin'], fcmToken: 'legacy'},
+      },
+      {
+        u1: {
+          phone: {
+            schemaVersion: 1,
+            token: 'phone-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T01:00:00Z'),
+          },
+          tablet: {
+            schemaVersion: 1,
+            token: 'tablet-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T02:00:00Z'),
+          },
+        },
+      },
+    );
+
+    const result = await getTokenLookupsForRoles(db, ['admin']);
+    expect(result).toEqual(expect.arrayContaining([
+      {uid: 'u1', fcmToken: 'legacy'},
+      {uid: 'u1', fcmToken: 'phone-token', installationId: 'phone'},
+      {uid: 'u1', fcmToken: 'tablet-token', installationId: 'tablet'},
+    ]));
+    expect(result).toHaveLength(3);
+  });
+
+  test('fails closed for malformed installation documents', async () => {
+    const {db} = buildFirestoreDouble(
+      {u1: {isApproved: true, roles: ['admin']}},
+      {
+        u1: {
+          valid: {
+            schemaVersion: 1,
+            token: 'valid-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T03:00:00Z'),
+          },
+          wrongSchema: {
+            schemaVersion: 2,
+            token: 'wrong-schema',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T02:00:00Z'),
+          },
+          extraField: {
+            schemaVersion: 1,
+            token: 'extra-field',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T01:00:00Z'),
+            uid: 'u1',
+          },
+          wrongTimestamp: {
+            schemaVersion: 1,
+            token: 'wrong-timestamp',
+            platform: 'android',
+            updatedAt: '2026-08-04T04:00:00Z',
+          },
+        },
+      },
+    );
+
+    expect(await getTokenLookupsForRoles(db, ['admin'])).toEqual([
+      {uid: 'u1', fcmToken: 'valid-token', installationId: 'valid'},
+    ]);
+  });
+
+  test('bounds each user to the eight most recently refreshed installations', async () => {
+    const installationDocs = Object.fromEntries(
+      Array.from({length: 10}, (_, index) => [
+        `device-${index}`,
+        {
+          schemaVersion: 1,
+          token: `token-${index}`,
+          platform: 'android',
+          updatedAt: fakeTimestamp(
+            `2026-08-04T${String(index).padStart(2, '0')}:00:00Z`,
+          ),
+        },
+      ]),
+    );
+    const {db} = buildFirestoreDouble(
+      {u1: {isApproved: true, roles: ['admin']}},
+      {u1: installationDocs},
+    );
+
+    const result = await getTokenLookupsForRoles(db, ['admin']);
+    expect(MAX_NOTIFICATION_INSTALLATIONS_PER_USER).toBe(8);
+    expect(result).toHaveLength(8);
+    expect(result.map((entry) => entry.fcmToken)).toEqual([
+      'token-9',
+      'token-8',
+      'token-7',
+      'token-6',
+      'token-5',
+      'token-4',
+      'token-3',
+      'token-2',
+    ]);
+  });
+
+  test('direct-user lookup returns installations only for approved authority', async () => {
+    const {db} = buildFirestoreDouble(
+      {
+        approved: {isApproved: true, roles: ['operations']},
+        pending: {isApproved: false, roles: ['operations']},
+      },
+      {
+        approved: {
+          phone: {
+            schemaVersion: 1,
+            token: 'approved-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T01:00:00Z'),
+          },
+        },
+        pending: {
+          phone: {
+            schemaVersion: 1,
+            token: 'pending-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T01:00:00Z'),
+          },
+        },
+      },
+    );
+
+    expect(await getTokenLookupsForUser(db, 'approved')).toEqual([
+      {
+        uid: 'approved',
+        fcmToken: 'approved-token',
+        installationId: 'phone',
+      },
+    ]);
+    expect(await getTokenLookupsForUser(db, 'pending')).toEqual([]);
+  });
 });
 
 // ─── sendNotification + V2 cleanup behaviour ─────────────────────────────────
@@ -333,6 +579,89 @@ describe('sendNotification', () => {
     expect(outcome.staleTokensCleared).toBe(1);
     expect(users.u2.fcmToken).toBe(null);
     expect(docUpdates).toContainEqual({path: 'users/u2', patch: {fcmToken: null}});
+  });
+
+  test('deletes only the exact stale installation and preserves sibling devices', async () => {
+    const {db, installations, docDeletes} = buildFirestoreDouble(
+      {u1: {isApproved: true, roles: ['admin']}},
+      {
+        u1: {
+          stale: {
+            schemaVersion: 1,
+            token: 'dead-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T01:00:00Z'),
+          },
+          current: {
+            schemaVersion: 1,
+            token: 'live-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T02:00:00Z'),
+          },
+        },
+      },
+    );
+    const messaging = buildFakeFcm([
+      {
+        success: false,
+        error: {code: 'messaging/registration-token-not-registered'},
+      },
+      {success: true},
+    ]);
+
+    const outcome = await sendNotification({
+      db,
+      messaging,
+      recipients: [
+        {uid: 'u1', fcmToken: 'dead-token', installationId: 'stale'},
+        {uid: 'u1', fcmToken: 'live-token', installationId: 'current'},
+      ],
+      title: 'T',
+      body: 'B',
+    });
+
+    expect(outcome.staleTokensCleared).toBe(1);
+    expect(installations.u1.stale).toBeUndefined();
+    expect(installations.u1.current.token).toBe('live-token');
+    expect(docDeletes).toEqual([
+      'users/u1/notification_installations/stale',
+    ]);
+  });
+
+  test('does not delete an installation refreshed during FCM delivery', async () => {
+    const {db, installations, docDeletes} = buildFirestoreDouble(
+      {u1: {isApproved: true, roles: ['admin']}},
+      {
+        u1: {
+          phone: {
+            schemaVersion: 1,
+            token: 'fresh-token',
+            platform: 'android',
+            updatedAt: fakeTimestamp('2026-08-04T02:00:00Z'),
+          },
+        },
+      },
+    );
+    const messaging = buildFakeFcm([
+      {
+        success: false,
+        error: {code: 'messaging/registration-token-not-registered'},
+      },
+    ]);
+
+    const outcome = await sendNotification({
+      db,
+      messaging,
+      recipients: [
+        {uid: 'u1', fcmToken: 'old-token', installationId: 'phone'},
+      ],
+      title: 'T',
+      body: 'B',
+    });
+
+    expect(outcome.staleTokensCleared).toBe(0);
+    expect(installations.u1.phone.token).toBe('fresh-token');
+    expect(docDeletes).toEqual([]);
   });
 
   test('does NOT clear token on transient/unknown errors', async () => {
