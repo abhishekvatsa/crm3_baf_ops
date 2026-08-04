@@ -731,7 +731,7 @@ void main() {
       expect(mutationBoundary[field], isFalse, reason: field);
     }
 
-    for (final id in <String>['STAGE2D-F4', 'LR-01']) {
+    for (final id in <String>['STAGE2D-F4']) {
       final gate = gates.singleWhere((item) => item['gateId'] == id);
       expect(gate['currentStatus'], 'OPEN', reason: id);
       expect(_objects(gate['evidence']), isEmpty, reason: id);

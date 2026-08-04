@@ -742,21 +742,54 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/lr01-auth-roster-live-readback.json",
+          "sha256": "6D7FFAA78A77E2B5A413AB5CCFBF9C4DEF90C00FCFB4133355B0A6E97C6334AC",
+          "decision": "PASS_GATE_1B_READ_ONLY_AUTHORITY_INTEGRITY",
+          "authority": "STRICT_CLEAN_MERGED_MAIN_FIRESTORE_AUTH_READBACK"
+        },
+        {
+          "fileName": "release/evidence/lr01-auth-roster-live-readback-closure.json",
+          "sha256": "9B30CDD3403A596510F3FE2AF4370E5AB05F8584D28EDCC7A8A89C555A52B05A",
+          "decision": "PASS_LR01_AUTH_ROSTER_LIVE_READBACK_CLOSURE",
+          "authority": "COLLECTOR_SOURCE_CI_AND_LIVE_RECEIPT_ADJUDICATION"
+        }
+      ],
       "requiredExitEvidence": [
         "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
       ],
-      "reArmTriggers": [],
-      "notes": [],
+      "reArmTriggers": [
+        "the production Firestore users roster or Firebase Auth population changes",
+        "approval, role, enabled or disabled state changes for any roster subject",
+        "custom claims policy or observed custom claims state changes",
+        "the authority classifier, workflow role policy or source-custody policy changes",
+        "the strict receipt source commit ceases to be the admitted main authority"
+      ],
+      "notes": [
+        "The strict readback ran from clean main at 5af6d8d3a6f8d7b1c5176b82f1dff68234920371 with HEAD equal to fetched origin/main and zero material source changes.",
+        "Complete Firestore, Firebase Auth and custom-claims coverage joined three subjects with zero blocking findings and two enabled approved administrators.",
+        "The readback emitted no raw identity or custom-claim values and performed no Firestore/Auth mutation, deployment, IAM, App Check, device, distribution or pilot action."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep re-audit live-readback appendix"
+        },
+        {
+          "status": "LIVE_READBACK_PROVED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Strict clean-main receipt 6D7FFAA78A77E2B5A413AB5CCFBF9C4DEF90C00FCFB4133355B0A6E97C6334AC proved complete production roster and Auth authority integrity."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Closure adjudication 9B30CDD3403A596510F3FE2AF4370E5AB05F8584D28EDCC7A8A89C555A52B05A binds PR #132 source/CI authority and the strict live receipt."
         }
       ]
     },
