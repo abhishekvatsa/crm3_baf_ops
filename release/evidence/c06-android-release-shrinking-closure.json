@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "C06-ANDROID-RELEASE-SHRINKING-CLOSURE-20260805",
+  "findingId": "C-06",
+  "authorityType": "SOURCE_AND_CI",
+  "decision": "PASS_C06_ANDROID_RELEASE_SHRINKING_SOURCE_AND_CI_CLOSURE",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "pullRequest": 152,
+    "headCommit": "6af4bd411a15611f790138c38e35f3918e9f807d",
+    "sourceTree": "b6c0129e14107d09ea8ffd822b305af177824691",
+    "mergeCommit": "cacab29a5cf79bdc723a80b9e4a33557f7a1eada",
+    "mergeTree": "b6c0129e14107d09ea8ffd822b305af177824691"
+  },
+  "sourceControls": {
+    "androidReleaseBuild": {
+      "path": "android/app/build.gradle.kts",
+      "sha256": "AE97C674371C5E71DE598B646207DB84692993591BFCD4E8CA2FA0CB97FD6334"
+    },
+    "proguardRules": {
+      "path": "android/app/proguard-rules.pro",
+      "sha256": "5E0ECD847C6519F00BF29ADE09F9B0C54927ED258A71A10B869BCED783BF72CA"
+    },
+    "packageProof": {
+      "path": "tools/release/Invoke-CIAndroidPackageProof.ps1",
+      "sha256": "125E2531E85B1F9E99C291D9B3F40CD879FC5A60FF0D30B74B1C6E614B0BEEC7"
+    },
+    "contractTest": {
+      "path": "test/c06_android_release_shrinking_contract_test.dart",
+      "sha256": "581E6B1F45B8E019C99C83B8511F80ADE76B0031AE3149A3A92E7BC5D3CCD769"
+    },
+    "sourceDecision": {
+      "path": "docs/v4_2_r1/C06_ANDROID_RELEASE_SHRINKING.md",
+      "sha256": "22C1D6237CF924796262944DA70FF1C125F6AA5C89B702D4F8817CF0AF6FDF5C"
+    }
+  },
+  "pullRequestCi": {
+    "runId": 30942169313,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30942169313",
+    "event": "pull_request",
+    "headSha": "6af4bd411a15611f790138c38e35f3918e9f807d",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 92103071831,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 92103071969,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 92103071760,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 92103071798,
+        "conclusion": "success"
+      }
+    ],
+    "androidProofMarkers": {
+      "decision": "PASS_C06_ANDROID_RELEASE_SHRINKING_PROOF",
+      "applicationId": "in.co.sail.bsl.crm3.bafops",
+      "apkSha256": "ECF2296CA7FF77497163D7B970E2A25FEE9D94DA169DF453734A901FAE063C5F",
+      "aabSha256": "EE0F026557167768F1ACC96D94B6EDEC808B9AE8D3D5670C29EE588464319D9E",
+      "r8MappingSha256": "21832BEEC5CD7E812C3559B4CBCDE950A3B9B760A2986217EDAE5B17CEF1E39F",
+      "resourceShrinkReportSha256": "D8D201EA1F504DA131271CD373D738995B4A237DD0ACA8596D2E4B6CE5AE860D",
+      "ciCertificateSha256": "6743F39CF4353E9DF31C85EA534AB37F896949EF2E31B691121FEAC8840D6820",
+      "productionCertificateUsed": false,
+      "productionSecretsReferenced": false,
+      "artifactUploadPerformed": false
+    }
+  },
+  "postMergeCi": {
+    "runId": 30942876995,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30942876995",
+    "event": "push",
+    "headSha": "cacab29a5cf79bdc723a80b9e4a33557f7a1eada",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 92105447536,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 92105447578,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 92105447458,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 92105447572,
+        "conclusion": "success"
+      }
+    ],
+    "androidProofMarkers": {
+      "decision": "PASS_C06_ANDROID_RELEASE_SHRINKING_PROOF",
+      "applicationId": "in.co.sail.bsl.crm3.bafops",
+      "apkSha256": "7A52ECBE7A042F90FB8390720F383A3029E13586B9DD958B1EEB3425CEEA4E0A",
+      "aabSha256": "2356649BBAF17769EA066A77675B8CCFB8D483D472F4EAEA5C12B93B9B458FD1",
+      "r8MappingSha256": "21832BEEC5CD7E812C3559B4CBCDE950A3B9B760A2986217EDAE5B17CEF1E39F",
+      "resourceShrinkReportSha256": "AD3EC4A7B32A48209C7CBA92A4B91000A1845DD5BFC56D96F20245441BC75823",
+      "ciCertificateSha256": "04D30C7756B9F5A1D48F28DA5DABE959FB5830BAA1A03D28DCB89C6FBE9A287D",
+      "productionCertificateUsed": false,
+      "productionSecretsReferenced": false,
+      "artifactUploadPerformed": false
+    }
+  },
+  "nonProductionBoundary": {
+    "productionEnvironmentNamed": false,
+    "productionSecretsReferenced": false,
+    "productionCertificateUsed": false,
+    "artifactUploaded": false,
+    "artifactDistributed": false,
+    "productionWorkflowDispatched": false,
+    "firebaseMutationPerformed": false,
+    "deploymentPerformed": false,
+    "deviceEvidenceClaimed": false,
+    "pilotAuthorizationCreated": false
+  },
+  "runtimeBoundary": {
+    "build8Mutated": false,
+    "deviceEvidenceInherited": false,
+    "productionArtifactConstructed": false,
+    "runtimeValidationClaimed": false,
+    "pilotHandoutAuthorized": false
+  }
+}
