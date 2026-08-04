@@ -446,11 +446,11 @@ switch ($Phase) {
   'DeployCallables' {
     Assert-Receipt -Path $provisionedPath `
       -Decision 'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_PROVISIONED' | Out-Null
-    $callables = Get-FunctionNamesByClass -Classes @(
+    $callables = @(Get-FunctionNamesByClass -Classes @(
       'CALLABLE_FIRESTORE_MUTATION',
       'CALLABLE_FIRESTORE_READ_ONLY',
       'APP_CHECKED_CALLABLE_FIRESTORE_READ_ONLY'
-    )
+    ))
     Invoke-FunctionDeployment -FunctionNames $callables
     Invoke-Readback -ReadbackPhase 'callables' -OutputPath $callablesPath `
       -ProbeCallables
@@ -459,10 +459,10 @@ switch ($Phase) {
   'DeployEvents' {
     Assert-Receipt -Path $callablesPath `
       -Decision 'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_CALLABLES' | Out-Null
-    $events = Get-FunctionNamesByClass -Classes @(
+    $events = @(Get-FunctionNamesByClass -Classes @(
       'FIRESTORE_NOTIFICATION_TRIGGER',
       'FIRESTORE_PROTOCOL_TRIGGER'
-    )
+    ))
     Invoke-FunctionDeployment -FunctionNames $events
     foreach ($name in $events) {
       $binding = $policy.functionBindings.$name
@@ -479,9 +479,9 @@ switch ($Phase) {
       -Decision 'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_EVENTS' | Out-Null
     Invoke-Readback -ReadbackPhase 'events' `
       -OutputPath $schedulerPreflightPath -ProbeCallables
-    $scheduler = Get-FunctionNamesByClass -Classes @(
+    $scheduler = @(Get-FunctionNamesByClass -Classes @(
       'SCHEDULED_FIRESTORE_MUTATION'
-    )
+    ))
     Invoke-FunctionDeployment -FunctionNames $scheduler
     $schedulerName = $scheduler[0]
     $binding = $policy.functionBindings.$schedulerName

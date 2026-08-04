@@ -189,6 +189,40 @@ if ($object.name -cne 'object') { exit 23 }
   assert.ok(source.includes("ConvertFrom-GcloudJson -Raw $raw"));
 });
 
+test("deployment cohort selection preserves a singleton as one full name", () => {
+  const powershell = process.platform === "win32" ? "powershell.exe" : "pwsh";
+  const fixture = `
+Set-StrictMode -Version Latest
+${extractPowerShellFunction("Get-FunctionNamesByClass")}
+$policy = [pscustomobject]@{
+  functionBindings = [pscustomobject]@{
+    maintenanceWorkflowEscalationSweep = [pscustomobject]@{
+      workloadClass = 'SCHEDULED_FIRESTORE_MUTATION'
+    }
+    beginGlobalPullRun = [pscustomobject]@{
+      workloadClass = 'CALLABLE_FIRESTORE_READ_ONLY'
+    }
+  }
+}
+$selected = @(Get-FunctionNamesByClass -Classes @('SCHEDULED_FIRESTORE_MUTATION'))
+if ($selected.Count -ne 1) { exit 41 }
+if ($selected[0] -cne 'maintenanceWorkflowEscalationSweep') { exit 42 }
+`;
+  const result = childProcess.spawnSync(
+    powershell,
+    ["-NoProfile", "-NonInteractive", "-Command", "-"],
+    {input: fixture, encoding: "utf8", timeout: 15000, windowsHide: true},
+  );
+  assert.equal(
+    result.status,
+    0,
+    `PowerShell fixture failed: ${result.error ?? ""}\n${result.stdout}\n${result.stderr}`,
+  );
+  assert.ok(source.includes(
+    "$scheduler = @(Get-FunctionNamesByClass -Classes @(",
+  ));
+});
+
 test("native stderr is governed by exit code and restores stop mode", () => {
   const powershell = process.platform === "win32" ? "powershell.exe" : "pwsh";
   const fixture = `
