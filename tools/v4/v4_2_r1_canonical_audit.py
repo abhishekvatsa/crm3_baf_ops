@@ -1354,6 +1354,108 @@ check(
     )),
 )
 
+lr01_receipt_path = ROOT / "release/evidence/lr01-auth-roster-live-readback.json"
+lr01_closure_path = ROOT / "release/evidence/lr01-auth-roster-live-readback-closure.json"
+lr01_receipt = data("release/evidence/lr01-auth-roster-live-readback.json")
+lr01_closure = data("release/evidence/lr01-auth-roster-live-readback-closure.json")
+lr01_receipt_text = text("release/evidence/lr01-auth-roster-live-readback.json")
+lr01_ledger = data("governance/programme-ledger.json")
+lr01_records = [
+    record
+    for record in lr01_ledger.get("programmeGates", [])
+    if record.get("gateId") == "LR-01"
+]
+lr01_record = lr01_records[0] if len(lr01_records) == 1 else {}
+lr01_expected_evidence_hashes = {
+    "6D7FFAA78A77E2B5A413AB5CCFBF9C4DEF90C00FCFB4133355B0A6E97C6334AC",
+    "9B30CDD3403A596510F3FE2AF4370E5AB05F8584D28EDCC7A8A89C555A52B05A",
+}
+lr01_coverage = lr01_receipt.get("coverage", {})
+lr01_summary = lr01_receipt.get("summary", {})
+lr01_source = lr01_receipt.get("sourceAuthority", {})
+lr01_project = lr01_receipt.get("project", {})
+lr01_privacy = lr01_receipt.get("privacy", {})
+check(
+    "LR-01 closes on complete privacy-safe strict clean-main roster evidence",
+    len(lr01_records) == 1
+    and sha(lr01_receipt_path)
+        == "6D7FFAA78A77E2B5A413AB5CCFBF9C4DEF90C00FCFB4133355B0A6E97C6334AC"
+    and lr01_receipt_path.stat().st_size == 4272
+    and lr01_receipt.get("decision")
+        == "PASS_GATE_1B_READ_ONLY_AUTHORITY_INTEGRITY"
+    and lr01_receipt.get("readOnly") is True
+    and lr01_receipt.get("cloudMutationCapability") == "NONE"
+    and lr01_project.get("projectId") == "crm3-baf-ops-b8638"
+    and lr01_project.get("production") is True
+    and lr01_project.get("firestoreEmulator") is None
+    and lr01_project.get("authEmulator") is None
+    and lr01_source.get("commit")
+        == "5af6d8d3a6f8d7b1c5176b82f1dff68234920371"
+    and lr01_source.get("tree")
+        == "dcf3a6a4349b29188d715e268f1b6c8394b2367a"
+    and lr01_source.get("branch") == "main"
+    and lr01_source.get("originMainCommit") == lr01_source.get("commit")
+    and lr01_source.get("cleanWorktree") is True
+    and lr01_source.get("materialChangeCount") == 0
+    and lr01_source.get("materialPathSha256") == []
+    and lr01_coverage.get("firestoreUsers") == "COMPLETE"
+    and lr01_coverage.get("firebaseAuthUsers") == "COMPLETE"
+    and lr01_coverage.get("customClaims") == "COMPLETE"
+    and lr01_coverage.get("firestoreUserCount") == 3
+    and lr01_coverage.get("firebaseAuthUserCount") == 3
+    and lr01_coverage.get("joinedSubjectCount") == 3
+    and lr01_summary.get("blockingFindingCount") == 0
+    and lr01_summary.get("blockingSubjectCount") == 0
+    and lr01_summary.get("canonicalApprovedAdminCount") == 2
+    and lr01_summary.get("enabledApprovedAdminCount") == 2
+    and lr01_privacy.get("rawIdentifiersEmitted") is False
+    and lr01_privacy.get("customClaimValuesEmitted") is False
+    and "@" not in lr01_receipt_text
+    and all(
+        not {"uid", "email", "name"}.intersection(subject)
+        for subject in lr01_receipt.get("subjects", [])
+    )
+    and lr01_closure.get("decision")
+        == "PASS_LR01_AUTH_ROSTER_LIVE_READBACK_CLOSURE"
+    and lr01_closure.get("collectorAuthority", {}).get("pullRequest") == 132
+    and lr01_closure.get("collectorAuthority", {}).get("sourceTree")
+        == lr01_closure.get("collectorAuthority", {}).get("mergeTree")
+    and lr01_closure.get("collectorAuthority", {}).get("pullRequestCi", {}).get(
+        "runId"
+    ) == 30873830850
+    and lr01_closure.get("collectorAuthority", {}).get("pullRequestCi", {}).get(
+        "conclusion"
+    ) == "success"
+    and lr01_closure.get("collectorAuthority", {}).get("postMergeCi", {}).get(
+        "runId"
+    ) == 30874252831
+    and lr01_closure.get("collectorAuthority", {}).get("postMergeCi", {}).get(
+        "conclusion"
+    ) == "success"
+    and lr01_closure.get("liveReceipt", {}).get("fileSha256")
+        == sha(lr01_receipt_path)
+    and lr01_closure.get("liveReceipt", {}).get("fileBytes")
+        == lr01_receipt_path.stat().st_size
+    and sha(lr01_closure_path)
+        == "9B30CDD3403A596510F3FE2AF4370E5AB05F8584D28EDCC7A8A89C555A52B05A"
+    and all(value is False for value in lr01_closure.get("closureBoundary", {}).values())
+    and lr01_record.get("authorityType") == "LIVE_READBACK"
+    and lr01_record.get("currentStatus") == "CLOSED"
+    and lr01_record.get("authorization") == "CLOSED_PASS"
+    and [entry.get("status") for entry in lr01_record.get("statusHistory", [])]
+        == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"]
+    and {entry.get("sha256") for entry in lr01_record.get("evidence", [])}
+        == lr01_expected_evidence_hashes
+    and len(lr01_record.get("reArmTriggers", [])) == 5
+    and "Status: **CLOSED** for `LR-01`" in text(
+        "docs/v4_2_r1/GATE_1B_READ_ONLY_AUTHORITY_CLASSIFIER.md"
+    )
+    and "STAGE2D-F4` remains open" in text(
+        "docs/v4_2_r1/GATE_1B_READ_ONLY_AUTHORITY_CLASSIFIER.md"
+    )
+    and (ROOT / "test/lr01_auth_roster_live_readback_closure_contract_test.dart").is_file(),
+)
+
 source_reconciliation = text("docs/v4_2/CURRENT_PRE_V4_SOURCE_AUTHORITY_RECONCILIATION.md")
 check(
     "Erroneous v4.1-only path count is corrected to file-level count",

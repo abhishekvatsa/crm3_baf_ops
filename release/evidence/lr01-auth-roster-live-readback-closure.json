@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "LR01-AUTH-ROSTER-LIVE-READBACK-CLOSURE-20260804",
+  "evidenceType": "lr01-auth-roster-live-readback-closure",
+  "recordIds": [
+    "GATE:LR-01"
+  ],
+  "authorityType": "LIVE_READBACK",
+  "decision": "PASS_LR01_AUTH_ROSTER_LIVE_READBACK_CLOSURE",
+  "collectorAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "pullRequest": 132,
+    "headCommit": "6c9797317226bf05e6d655cc78f78ccc58cccb75",
+    "sourceTree": "dcf3a6a4349b29188d715e268f1b6c8394b2367a",
+    "mergeCommit": "5af6d8d3a6f8d7b1c5176b82f1dff68234920371",
+    "mergeTree": "dcf3a6a4349b29188d715e268f1b6c8394b2367a",
+    "pullRequestCi": {
+      "runId": 30873830850,
+      "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30873830850",
+      "event": "pull_request",
+      "headSha": "6c9797317226bf05e6d655cc78f78ccc58cccb75",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Android release APK + AAB packaging proof",
+          "jobId": 91881082543,
+          "conclusion": "success"
+        },
+        {
+          "name": "Cloud Functions build + test",
+          "jobId": 91881082576,
+          "conclusion": "success"
+        },
+        {
+          "name": "Firestore rules + governed transaction emulator",
+          "jobId": 91881082633,
+          "conclusion": "success"
+        },
+        {
+          "name": "Flutter analyze + tests + no-loss spine",
+          "jobId": 91881082641,
+          "conclusion": "success"
+        }
+      ]
+    },
+    "postMergeCi": {
+      "runId": 30874252831,
+      "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30874252831",
+      "event": "push",
+      "headSha": "5af6d8d3a6f8d7b1c5176b82f1dff68234920371",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Android release APK + AAB packaging proof",
+          "jobId": 91882369263,
+          "conclusion": "success"
+        },
+        {
+          "name": "Cloud Functions build + test",
+          "jobId": 91882369305,
+          "conclusion": "success"
+        },
+        {
+          "name": "Firestore rules + governed transaction emulator",
+          "jobId": 91882369213,
+          "conclusion": "success"
+        },
+        {
+          "name": "Flutter analyze + tests + no-loss spine",
+          "jobId": 91882369253,
+          "conclusion": "success"
+        }
+      ]
+    }
+  },
+  "liveReceipt": {
+    "path": "release/evidence/lr01-auth-roster-live-readback.json",
+    "fileSha256": "6D7FFAA78A77E2B5A413AB5CCFBF9C4DEF90C00FCFB4133355B0A6E97C6334AC",
+    "fileBytes": 4272,
+    "startedAtUtc": "2026-08-04T03:25:18.729Z",
+    "completedAtUtc": "2026-08-04T03:25:23.670Z",
+    "sourceCommit": "5af6d8d3a6f8d7b1c5176b82f1dff68234920371",
+    "sourceTree": "dcf3a6a4349b29188d715e268f1b6c8394b2367a",
+    "projectId": "crm3-baf-ops-b8638",
+    "decision": "PASS_GATE_1B_READ_ONLY_AUTHORITY_INTEGRITY"
+  },
+  "provedState": {
+    "readOnly": true,
+    "cloudMutationCapability": "NONE",
+    "firestoreCoverage": "COMPLETE",
+    "firebaseAuthCoverage": "COMPLETE",
+    "customClaimsCoverage": "COMPLETE",
+    "firestoreUserCount": 3,
+    "firebaseAuthUserCount": 3,
+    "joinedSubjectCount": 3,
+    "blockingFindingCount": 0,
+    "canonicalApprovedAdminCount": 2,
+    "enabledApprovedAdminCount": 2,
+    "rawIdentifiersEmitted": false,
+    "customClaimValuesEmitted": false
+  },
+  "closureBoundary": {
+    "firestoreDocumentWritePerformed": false,
+    "firebaseAuthMutationPerformed": false,
+    "customClaimsMutationPerformed": false,
+    "functionsMutationPerformed": false,
+    "deploymentPerformed": false,
+    "iamMutationPerformed": false,
+    "appCheckMutationPerformed": false,
+    "businessDataMutationPerformed": false,
+    "deviceEvidenceClaimed": false,
+    "pilotAuthorizationCreated": false,
+    "distributionAuthorizationCreated": false,
+    "stage2dF4StatusChanged": false
+  },
+  "reArmConditions": [
+    "the production Firestore users roster or Firebase Auth population changes",
+    "approval, role, enabled or disabled state changes for any roster subject",
+    "custom claims policy or observed custom claims state changes",
+    "the authority classifier, workflow role policy or source-custody policy changes",
+    "the strict receipt source commit ceases to be the admitted main authority"
+  ]
+}

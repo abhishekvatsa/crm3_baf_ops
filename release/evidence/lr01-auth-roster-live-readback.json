@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 2,
+  "evidenceType": "GATE_1B_READ_ONLY_AUTHORITY_INVENTORY",
+  "readOnly": true,
+  "cloudMutationCapability": "NONE",
+  "startedAt": "2026-08-04T03:25:18.729Z",
+  "completedAt": "2026-08-04T03:25:23.670Z",
+  "project": {
+    "projectId": "crm3-baf-ops-b8638",
+    "production": true,
+    "exactProductionConfirmation": "crm3-baf-ops-b8638",
+    "firestoreEmulator": null,
+    "authEmulator": null
+  },
+  "sourceAuthority": {
+    "commit": "5af6d8d3a6f8d7b1c5176b82f1dff68234920371",
+    "tree": "dcf3a6a4349b29188d715e268f1b6c8394b2367a",
+    "branch": "main",
+    "originMainCommit": "5af6d8d3a6f8d7b1c5176b82f1dff68234920371",
+    "cleanWorktree": true,
+    "materialChangeCount": 0,
+    "materialPathSha256": [],
+    "ignoredUntrackedChangeCount": 99
+  },
+  "policy": {
+    "policyId": "crm3-maintenance-workflow-v2",
+    "policySchemaVersion": 2,
+    "policySha256": "06d751fd1af40dd3a5730d756b8ef104653903cc434d8a7d581929937cda747a",
+    "canonicalRoles": [
+      "admin",
+      "contractSupervisor",
+      "operations",
+      "refractory",
+      "seniorElectrical",
+      "seniorInstrumentation",
+      "seniorMechanical",
+      "seniorRefractory",
+      "shiftSupervisor",
+      "si"
+    ],
+    "maximumRoleCount": 10,
+    "unapprovedRolePolicy": "MODEL_B_CANONICAL_INTENDED_ROLES_RETAINED_NON_AUTHORIZING",
+    "customClaimsPolicy": "ABSENCE_ASSERTION_NO_TRACKED_WRITER"
+  },
+  "privacy": {
+    "subjectIdentifier": "HMAC_SHA256",
+    "hmacKeyEnvironmentVariable": "CRM3_GATE1B_HMAC_KEY",
+    "rawIdentifiersEmitted": false,
+    "customClaimValuesEmitted": false
+  },
+  "coverage": {
+    "firestoreUsers": "COMPLETE",
+    "firebaseAuthUsers": "COMPLETE",
+    "customClaims": "COMPLETE",
+    "firestoreUserCount": 3,
+    "firebaseAuthUserCount": 3,
+    "joinedSubjectCount": 3
+  },
+  "classificationCounts": {
+    "CANONICAL_APPROVED": 3
+  },
+  "summary": {
+    "authorityDefectSubjectCount": 0,
+    "reconciliationDefectSubjectCount": 0,
+    "profileOnlyCorruptionCount": 0,
+    "dataQualityWarningCount": 0,
+    "canonicalApprovedAdminCount": 2,
+    "enabledApprovedAdminCount": 2,
+    "blockingSubjectCount": 0,
+    "populationBlockerCount": 0,
+    "blockingFindingCount": 0
+  },
+  "subjects": [
+    {
+      "subjectPseudonym": "hmac256:01582240d31b48bbe626863ef96ce627c10433a888a39863ba89a62537da077b",
+      "presence": {
+        "firestore": true,
+        "firebaseAuth": true
+      },
+      "authority": {
+        "canonical": true,
+        "classifications": [
+          "CANONICAL_APPROVED"
+        ]
+      },
+      "authReconciliation": {
+        "coverage": "COMPLETE",
+        "classifications": [],
+        "unexpectedCustomClaimCount": 0
+      },
+      "profile": {
+        "classification": "CANONICAL_PROFILE",
+        "findingCount": 0,
+        "findings": []
+      },
+      "dataQualityWarnings": []
+    },
+    {
+      "subjectPseudonym": "hmac256:bd10accb6aa1c4666faddb03f99c329c0b6fbb4a87b54442838384048fc53973",
+      "presence": {
+        "firestore": true,
+        "firebaseAuth": true
+      },
+      "authority": {
+        "canonical": true,
+        "classifications": [
+          "CANONICAL_APPROVED"
+        ]
+      },
+      "authReconciliation": {
+        "coverage": "COMPLETE",
+        "classifications": [],
+        "unexpectedCustomClaimCount": 0
+      },
+      "profile": {
+        "classification": "CANONICAL_PROFILE",
+        "findingCount": 0,
+        "findings": []
+      },
+      "dataQualityWarnings": []
+    },
+    {
+      "subjectPseudonym": "hmac256:e6809fd2a6917653371d58936d86ee1ac54ba3d35c2347d220a9806276fb382b",
+      "presence": {
+        "firestore": true,
+        "firebaseAuth": true
+      },
+      "authority": {
+        "canonical": true,
+        "classifications": [
+          "CANONICAL_APPROVED"
+        ]
+      },
+      "authReconciliation": {
+        "coverage": "COMPLETE",
+        "classifications": [],
+        "unexpectedCustomClaimCount": 0
+      },
+      "profile": {
+        "classification": "CANONICAL_PROFILE",
+        "findingCount": 0,
+        "findings": []
+      },
+      "dataQualityWarnings": []
+    }
+  ],
+  "affectedRuleCategories": [],
+  "writerCorrelationHypotheses": [],
+  "decision": "PASS_GATE_1B_READ_ONLY_AUTHORITY_INTEGRITY",
+  "operationalIntegrity": null
+}

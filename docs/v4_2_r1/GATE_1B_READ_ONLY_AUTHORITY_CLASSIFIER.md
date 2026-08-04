@@ -214,3 +214,33 @@ IAM change
 App Check enforcement
 pilot or cutover
 ```
+
+## LR-01 closure
+
+Status: **CLOSED** for `LR-01` on 2026-08-04.
+
+PR #132 merged collector head
+`6c9797317226bf05e6d655cc78f78ccc58cccb75` as
+`5af6d8d3a6f8d7b1c5176b82f1dff68234920371`; both exact trees are
+`dcf3a6a4349b29188d715e268f1b6c8394b2367a`. Pull-request run
+`30873830850` and post-merge run `30874252831` passed all four release-gate
+jobs.
+
+The strict receipt at
+`release/evidence/lr01-auth-roster-live-readback.json` has file SHA-256
+`6D7FFAA78A77E2B5A413AB5CCFBF9C4DEF90C00FCFB4133355B0A6E97C6334AC`.
+It was captured from clean merged `main` with fetched `origin/main` parity,
+zero material source changes and no emulator routing.
+
+The admitted live state is:
+
+- complete Firestore users, Firebase Auth and custom-claims coverage;
+- three Firestore users, three Auth users and three joined subjects;
+- zero blocking authority or reconciliation findings;
+- two canonical approved administrators, both enabled in Firebase Auth;
+- no raw identity fields or custom-claim values in evidence.
+
+The readback performed no Firestore document write, Firebase Auth or custom
+claims mutation, deployment, Functions, IAM, App Check, business-data, device,
+distribution or pilot mutation. `STAGE2D-F4` remains open and `pilotHandout`
+remains `NOT_AUTHORIZED`.
