@@ -5,6 +5,8 @@ const path = require("path");
 const {
   BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS,
   BACKEND_IDENTITY_RUNTIME_SERVICE_ACCOUNT,
+  BACKEND_IDENTITY_RUNTIME_SERVICE_ACCOUNT_ID,
+  backendIdentityRuntimeServiceAccountForProject,
 } = require("../lib/stage2dSecurityConfig");
 
 function readJson(relativePath) {
@@ -156,8 +158,17 @@ describe("Stage 2D source security candidate", () => {
     "utf8",
   );
 
-  test("binds only the identity callable to the dedicated source identity", () => {
-    expect(BACKEND_IDENTITY_RUNTIME_SERVICE_ACCOUNT).toBe(
+  test("binds the identity callable to its target-project identity", () => {
+    expect(BACKEND_IDENTITY_RUNTIME_SERVICE_ACCOUNT_ID).toBe(
+      "crm3-backend-identity-runtime",
+    );
+    expect(BACKEND_IDENTITY_RUNTIME_SERVICE_ACCOUNT.toCEL()).toBe(
+      "crm3-backend-identity-runtime@{{ params.PROJECT_ID }}" +
+      ".iam.gserviceaccount.com",
+    );
+    expect(backendIdentityRuntimeServiceAccountForProject(
+      "crm3-baf-ops-b8638",
+    )).toBe(
       "crm3-backend-identity-runtime@" +
       "crm3-baf-ops-b8638.iam.gserviceaccount.com",
     );
@@ -189,7 +200,7 @@ describe("Stage 2D source security candidate", () => {
       expect(block).not.toContain(
         "BACKEND_IDENTITY_CALLABLE_SECURITY_OPTIONS",
       );
-      expect(block).not.toContain("serviceAccount:");
+      expect(block).toContain("serviceAccount:");
       expect(block).toContain("...MUTATING_CALLABLE_SECURITY_OPTIONS");
     }
   });

@@ -1,7 +1,8 @@
 {
-  "schemaVersion": 2,
-  "policyId": "GLOBAL-PULL-RUNTIME-IDENTITY-POLICY-V2",
-  "declarationStatus": "SOURCE_IMPLEMENTED_PENDING_IAM_AND_DEPLOYMENT",
+  "schemaVersion": 3,
+  "policyId": "GLOBAL-PULL-RUNTIME-IDENTITY-POLICY-V3",
+  "declarationStatus": "DEPLOYED_SUBSET_PENDING_FLEET_IAM_RECONCILIATION",
+  "completeFleetPolicy": "release/function-fleet-runtime-identity-policy.json",
   "productionProjectId": "crm3-baf-ops-b8638",
   "targetProjectBinding": {
     "builtInParameter": "PROJECT_ID",
@@ -15,8 +16,7 @@
       "runtimeServiceAccountTemplate": "crm3-global-pull-reader@${PROJECT_ID}.iam.gserviceaccount.com",
       "productionResolvedRuntimeServiceAccount": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
       "requiredProjectRoles": [
-        "roles/datastore.viewer",
-        "roles/logging.logWriter"
+        "roles/datastore.viewer"
       ],
       "firestoreAccess": "READ_ONLY"
     },
@@ -27,8 +27,7 @@
       "requiredProjectRoles": [
         "roles/datastore.user",
         "roles/eventarc.eventReceiver",
-        "roles/run.invoker",
-        "roles/logging.logWriter"
+        "roles/run.invoker"
       ],
       "firestoreAccess": "READ_WRITE_PROTOCOL_COLLECTIONS_ENFORCED_BY_SOURCE"
     }

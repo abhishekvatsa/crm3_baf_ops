@@ -1,6 +1,7 @@
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import {FUNCTION_RUNTIME_SERVICE_ACCOUNTS} from "../functionFleetRuntimeIdentity";
 import {
   executeIdempotentNotificationEvent,
 } from "../notificationEventReceipt";
@@ -44,6 +45,8 @@ export const onMaintenanceWorkflowEventCreated = onDocumentCreated(
     document: "maintenance_workflow_events/{eventId}",
     region: REGION,
     retry: true,
+    serviceAccount:
+      FUNCTION_RUNTIME_SERVICE_ACCOUNTS.onMaintenanceWorkflowEventCreated,
   },
   async (event) => {
     const data = event.data?.data();

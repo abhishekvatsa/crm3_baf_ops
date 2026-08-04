@@ -126,10 +126,13 @@ describe("global pull runtime identity source policy", () => {
   });
 
   test("policy grants only the admitted roles and excludes the old fleet", () => {
-    expect(policy.schemaVersion).toBe(2);
-    expect(policy.policyId).toBe("GLOBAL-PULL-RUNTIME-IDENTITY-POLICY-V2");
+    expect(policy.schemaVersion).toBe(3);
+    expect(policy.policyId).toBe("GLOBAL-PULL-RUNTIME-IDENTITY-POLICY-V3");
     expect(policy.declarationStatus).toBe(
-      "SOURCE_IMPLEMENTED_PENDING_IAM_AND_DEPLOYMENT",
+      "DEPLOYED_SUBSET_PENDING_FLEET_IAM_RECONCILIATION",
+    );
+    expect(policy.completeFleetPolicy).toBe(
+      "release/function-fleet-runtime-identity-policy.json",
     );
     expect(policy.productionProjectId).toBe("crm3-baf-ops-b8638");
     expect(policy.targetProjectBinding).toEqual({
@@ -147,7 +150,6 @@ describe("global pull runtime identity source policy", () => {
           .reader,
       requiredProjectRoles: [
         "roles/datastore.viewer",
-        "roles/logging.logWriter",
       ],
       firestoreAccess: "READ_ONLY",
     });
@@ -162,7 +164,6 @@ describe("global pull runtime identity source policy", () => {
         "roles/datastore.user",
         "roles/eventarc.eventReceiver",
         "roles/run.invoker",
-        "roles/logging.logWriter",
       ],
       firestoreAccess:
         "READ_WRITE_PROTOCOL_COLLECTIONS_ENFORCED_BY_SOURCE",
