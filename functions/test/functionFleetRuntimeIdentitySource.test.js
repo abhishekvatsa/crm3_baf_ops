@@ -79,7 +79,7 @@ describe("complete Function fleet runtime identity source policy", () => {
   test("keeps runtime roles exact and the Editor removal ordered last", () => {
     expect(policy.schemaVersion).toBe(1);
     expect(policy.declarationStatus).toBe(
-      "SOURCE_IMPLEMENTED_PENDING_IAM_AND_DEPLOYMENT",
+      "DEPLOYED_AND_LIVE_READBACK_PROVED",
     );
     expect(policy.roleExactnessRequired).toBe(true);
     expect(policy.customRoles.notificationSender.includedPermissions)

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "policyId": "FUNCTION-FLEET-RUNTIME-IDENTITY-POLICY-V1",
-  "declarationStatus": "SOURCE_IMPLEMENTED_PENDING_IAM_AND_DEPLOYMENT",
+  "declarationStatus": "DEPLOYED_AND_LIVE_READBACK_PROVED",
   "productionProjectId": "crm3-baf-ops-b8638",
   "targetProjectBinding": {
     "builtInParameter": "PROJECT_ID",

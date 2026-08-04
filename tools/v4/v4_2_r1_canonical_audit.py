@@ -1087,7 +1087,7 @@ functions_live_finding_records = {
     if record.get("findingId") in {"S-01", "D-01"}
 }
 check(
-    "LR-03 and LR-06 close on sealed acquisition while adverse posture stays open",
+    "LR-03 and LR-06 preserve sealed adverse acquisition after remediation",
     functions_live_readback_policy.get("schemaVersion") == 1
     and functions_live_readback_policy.get("collectorStatus")
         == "SOURCE_CI_AND_LIVE_READBACK_PROVED"
@@ -1168,7 +1168,7 @@ check(
         in functions_live_readback_test
     and "collector source contains no production mutation command"
         in functions_live_readback_test
-    and "live closure closes evidence gates and preserves adverse findings"
+    and "live closure preserves adverse history after later remediation"
         in functions_live_readback_contract
     and "close on sealed acquisition, not posture fiction"
         in functions_live_readback_closure_contract
@@ -1259,13 +1259,27 @@ check(
     )
     and set(functions_live_finding_records) == {"S-01", "D-01"}
     and all(
-        record.get("currentStatus") == "OPEN"
-        and [entry.get("status") for entry in record.get("statusHistory", [])]
-            == ["OPEN"]
-        and len(record.get("evidence", [])) == 2
+        record.get("currentStatus") == "CLOSED"
+        and {
+            entry.get("sha256") for entry in record.get("evidence", [])
+        } == {
+            "6B7AE10D01DB8141F0403BE6563AA49C4557A980282BFFAB65DD1548D8B9DDB5",
+            "6BCD937E7AD77A2C54F532C82C1D8CA681190498F17650C321DAAA8EAA23E7B4",
+            "B9862804EA98080FC4BCD74DC92717C0D47A3DEE8A8DD5B17F20A23E584FC5FA",
+        }
         and len(record.get("requiredExitEvidence", [])) > 0
         for record in functions_live_finding_records.values()
     )
+    and {
+        finding_id: [
+            entry.get("status")
+            for entry in record.get("statusHistory", [])
+        ]
+        for finding_id, record in functions_live_finding_records.items()
+    } == {
+        "S-01": ["OPEN", "CLOSED"],
+        "D-01": ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"],
+    }
     and "Collector status: SOURCE_CI_AND_LIVE_READBACK_PROVED"
         in functions_live_readback_decision
     and "Live readback evidence: PASS acquisition / HOLD runtime posture"
@@ -1310,7 +1324,7 @@ check(
     "S-01 complete Function fleet has unique target-project identities",
     function_fleet_identity_policy.get("schemaVersion") == 1
     and function_fleet_identity_policy.get("declarationStatus")
-        == "SOURCE_IMPLEMENTED_PENDING_IAM_AND_DEPLOYMENT"
+        == "DEPLOYED_AND_LIVE_READBACK_PROVED"
     and function_fleet_identity_policy.get("productionProjectId")
         == "crm3-baf-ops-b8638"
     and function_fleet_identity_policy.get("targetProjectBinding") == {
@@ -1365,12 +1379,13 @@ check(
         not in function_fleet_identity_source
     and "endpointServiceAccount" in function_fleet_identity_test
     and "accountIds.size" in function_fleet_identity_test
+    and "DEPLOYED_AND_LIVE_READBACK_PROVED" in function_fleet_identity_test
     and "Default Compute must receive" in function_fleet_identity_decision
     and "Any failure before step 10 leaves Editor unchanged"
         in function_fleet_identity_decision
     and set(functions_live_finding_records) == {"S-01", "D-01"}
     and all(
-        record.get("currentStatus") == "OPEN"
+        record.get("currentStatus") == "CLOSED"
         for record in functions_live_finding_records.values()
     ),
 )
@@ -1430,6 +1445,213 @@ check(
     and "2026-08-04T10:32:19.779Z" in function_fleet_identity_decision
     and "repeats the same three aggregate counts"
         in function_fleet_identity_decision,
+)
+
+function_fleet_finalization_path = (
+    ROOT / "release/evidence/s01-d01-h2-runtime-identity-live-finalization.json"
+)
+function_fleet_finalization = data(
+    "release/evidence/s01-d01-h2-runtime-identity-live-finalization.json"
+)
+function_fleet_finalization_doc = text(
+    "docs/v4_2_r1/S01_D01_H2_RUNTIME_IDENTITY_LIVE_FINALIZATION.md"
+)
+function_fleet_final_receipts = {
+    receipt.get("file"): receipt
+    for receipt in function_fleet_finalization.get("campaign", {}).get(
+        "receipts", []
+    )
+}
+function_fleet_h2_records = [
+    record
+    for record in functions_live_ledger.get("programmeGates", [])
+    if record.get("gateId") == "H2-IAM"
+]
+function_fleet_h2_record = (
+    function_fleet_h2_records[0]
+    if len(function_fleet_h2_records) == 1
+    else {}
+)
+check(
+    "H2-IAM, S-01 and D-01 close on exact deployment and live authority",
+    function_fleet_finalization_path.exists()
+    and sha(function_fleet_finalization_path)
+        == "B9862804EA98080FC4BCD74DC92717C0D47A3DEE8A8DD5B17F20A23E584FC5FA"
+    and function_fleet_finalization.get("schemaVersion") == 1
+    and function_fleet_finalization.get("evidenceType")
+        == "s01-d01-h2-runtime-identity-live-finalization"
+    and function_fleet_finalization.get("authority", {}).get("commit")
+        == "bdc5c6ed870e7f947c40ea053cd587a56d77d48a"
+    and function_fleet_finalization.get("authority", {}).get("tree")
+        == "379353df082bae7fda7f808d1830dc797117513d"
+    and function_fleet_finalization.get("authority", {}).get(
+        "postMergeWorkflowRun"
+    ) == 30913630958
+    and function_fleet_finalization.get("authority", {}).get(
+        "postMergeWorkflowConclusion"
+    ) == "success"
+    and {
+        (job.get("name"), job.get("jobId"), job.get("conclusion"))
+        for job in function_fleet_finalization.get("authority", {}).get(
+            "postMergeJobs", []
+        )
+    } == {
+        ("Android release APK + AAB packaging proof", 92006167814, "success"),
+        ("Firestore rules + governed transaction emulator", 92006167927, "success"),
+        ("Flutter analyze + tests + no-loss spine", 92006167987, "success"),
+        ("Cloud Functions build + test", 92006168127, "success"),
+    }
+    and function_fleet_finalization.get("campaign", {}).get(
+        "externalEvidenceDirectory"
+    ) == "CRM3_FUNCTION_FLEET_RUNTIME_IDENTITY_CAMPAIGN_20260804_133140Z"
+    and {
+        name: (
+            receipt.get("fileSha256"),
+            receipt.get("receiptSha256"),
+            receipt.get("decision"),
+        )
+        for name, receipt in function_fleet_final_receipts.items()
+    } == {
+        "01-preflight.json": (
+            "DA0D4616B2C24A9D48779E58E8811997A60C256A2542FC7FCCCA638B10F3B26D",
+            "2d353857ada89d71264e113f44ab60d51ebe3b7c7bbd83190f3a96bdabb358d1",
+            "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_PREFLIGHT",
+        ),
+        "02-provisioned.json": (
+            "EAE52AC08DF4B3133748205D99ABD7580B616AECC02789EDDC999173C301CBA4",
+            "d076a7932eb85880bc4d029ddbcbc98b1a11a9239d044f3a7e9aeb6a75601d33",
+            "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_PROVISIONED",
+        ),
+        "03-callables.json": (
+            "BE226CC4AA092E32CE5F31C922E24BAD76A4249A3F3058CF903DD81BD17101A2",
+            "456c2f38be606474d3da0813ff4b492c5c368b587fa75b7ca5de7f5228f1e23d",
+            "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_CALLABLES",
+        ),
+        "04-events.json": (
+            "68CE4726322F858F6C1040D2D51D562C37A6CA651303A0434FF75D6762837D2E",
+            "c35ffc89811db13a6756cab2724fef018fd340f36e38be2f3601f4ca791d0e1d",
+            "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_EVENTS",
+        ),
+        "05-scheduler-preflight.json": (
+            "14EF1AE72C326111F813502E9AF17BCDED3A5CDC9418463E89DF8F0022740CEB",
+            "1c66b25361377bfea1a32d184d2c9a935bf5b67466e75ca13fd26a4657149ee3",
+            "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_EVENTS",
+        ),
+        "06-fleet.json": (
+            "EDCD2EF459D836DA4B497FFA9AA7EFD3914AE01DBD27A0DF31D3C10BE47A3175",
+            "a6b6a117da5893fd836298efc1d8a890c4be5302cbb162ec855f38f5efd7356a",
+            "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FLEET",
+        ),
+        "07-lr03-lr06-prefinal.json": (
+            "9C04590A41DBA1AE6084A3F53D3546E948BFD94B8681785FED803E306A82D624",
+            "f8be48192c02c5be4373fe27e6dd87e17d0d9268a6b1a695292987db83beed9a",
+            "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK",
+        ),
+        "08-final.json": (
+            "7D3D66F91CBF446D0763E7FB85F3C12D1453CCF1C447DD23D3178E0BCE7E67E7",
+            "468675024ae849570255c2d3f17da4067af5176331c3d21c65a7c516fcd8707c",
+            "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL",
+        ),
+        "09-lr03-lr06-final.json": (
+            "3BF52BBB50BEF9FE412161AC36385D2498D14D3F51CDDE8F402F51CE9A52F1CD",
+            "51b0244c43120cca074974890f3a5eac0166beb44b4ce6c0c2346b57bfd76eab",
+            "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK",
+        ),
+    }
+    and function_fleet_finalization.get("finalPosture") == {
+        "deployedFunctionCount": 14,
+        "allFunctionsActiveGeneration2": True,
+        "allRuntimeIdentitiesExact": True,
+        "defaultComputeFunctionCount": 0,
+        "broadRuntimeProjectGrantCount": 0,
+        "callableProbeCount": 8,
+        "schedulerBacklogCount": 0,
+        "defaultComputeProjectRoles": ["roles/cloudbuild.builds.builder"],
+        "globalPullReaderProjectRoles": ["roles/datastore.viewer"],
+        "globalPullWriterProjectRoles": [
+            "roles/datastore.user",
+            "roles/eventarc.eventReceiver",
+        ],
+        "dependencyInventoryMatchesCurrentFunctionCount": 14,
+        "dependencyVersionMatchesCurrentFunctionCount": 14,
+        "dependencyPostureDecision": "PASS_RUNTIME_IDENTITY_DEPENDENCY_POSTURE",
+        "dependencyPostureHoldCount": 0,
+    }
+    and all(function_fleet_finalization.get("checks", {}).values())
+    and function_fleet_finalization.get("mutationBoundary", {}).get(
+        "defaultComputeEditorRollbackNeeded"
+    ) is False
+    and function_fleet_finalization.get("mutationBoundary", {}).get(
+        "businessDataMutationPerformed"
+    ) is False
+    and all(
+        value is False
+        for value in function_fleet_finalization.get(
+            "privacyBoundary", {}
+        ).values()
+    )
+    and function_fleet_finalization.get("sourceAndCiAdjudication") == {
+        "status": "PASS_EXACT_HEAD_PULL_REQUEST_CI",
+        "pullRequest": 149,
+        "workflowRun": 30922839115,
+        "workflowEvent": "pull_request",
+        "headCommit": "06658f8a2e5d1dca4624094da4938cda94095cf6",
+        "headTree": "3de31f1cae2fd91fe8def4d7d3fe72e2f3777ad5",
+        "conclusion": "success",
+        "jobs": [
+            {
+                "name": "Android release APK + AAB packaging proof",
+                "jobId": 92037560472,
+                "conclusion": "success",
+            },
+            {
+                "name": "Cloud Functions build + test",
+                "jobId": 92037560487,
+                "conclusion": "success",
+            },
+            {
+                "name": "Flutter analyze + tests + no-loss spine",
+                "jobId": 92037560507,
+                "conclusion": "success",
+            },
+            {
+                "name": "Firestore rules + governed transaction emulator",
+                "jobId": 92037560592,
+                "conclusion": "success",
+            },
+        ],
+    }
+    and function_fleet_finalization.get("programmeBoundary") == {
+        "h2IamClosed": True,
+        "s01Closed": True,
+        "d01Closed": True,
+        "stage2dF4Status": "OPEN",
+        "pilotHandoutAuthorized": False,
+        "distributionAuthorized": False,
+    }
+    and function_fleet_finalization.get("decision")
+        == "PASS_H2_S01_D01_RUNTIME_IDENTITY_AND_DEPENDENCY_CLOSURE"
+    and len(function_fleet_h2_records) == 1
+    and function_fleet_h2_record.get("currentStatus") == "CLOSED"
+    and function_fleet_h2_record.get("authorization") == "CLOSED_PASS"
+    and [
+        entry.get("status")
+        for entry in function_fleet_h2_record.get("statusHistory", [])
+    ] == ["OPEN", "CLOSED"]
+    and {
+        entry.get("sha256")
+        for entry in function_fleet_h2_record.get("evidence", [])
+    } == {
+        "B9862804EA98080FC4BCD74DC92717C0D47A3DEE8A8DD5B17F20A23E584FC5FA"
+    }
+    and functions_live_ledger.get("programmeDecision", {}).get(
+        "leastPrivilegeIam"
+    ) == "CLOSED_PASS"
+    and functions_live_ledger.get("programmeDecision", {}).get(
+        "nextMutation"
+    ) == "STAGE2D-F4"
+    and "Status: CLOSED PASS" in function_fleet_finalization_doc
+    and "does not close `STAGE2D-F4`" in function_fleet_finalization_doc,
 )
 
 lr02_receipt_path = ROOT / "release/evidence/lr02-p04-firestore-live-readback.json"
@@ -2323,6 +2545,41 @@ build8_sync_doc_path = (
     ROOT / "docs/v4_2_r1/BUILD8_F4_BACKEND_READY_AND_SYNC_RETRY.md"
 )
 build8_sync_doc = build8_sync_doc_path.read_text(encoding="utf-8")
+build8_sync_adjudication_path = (
+    ROOT / "release/evidence/build-8-f4-sync-marker-adjudication.json"
+)
+build8_sync_adjudication = data(
+    "release/evidence/build-8-f4-sync-marker-adjudication.json"
+)
+build8_offline_promotion_path = (
+    ROOT / "release/approvals/build-8-f4-offline-reconnect-promotion.json"
+)
+build8_offline_promotion = data(
+    "release/approvals/build-8-f4-offline-reconnect-promotion.json"
+)
+build8_offline_harness_path = (
+    ROOT / "tools/release/Invoke-Build8F4OfflineReconnect.ps1"
+)
+build8_offline_harness = build8_offline_harness_path.read_text(
+    encoding="utf-8"
+)
+build8_offline_doc_path = (
+    ROOT
+    / "docs/v4_2_r1/BUILD8_F4_SYNC_MARKER_AND_OFFLINE_RECONNECT.md"
+)
+build8_offline_doc = build8_offline_doc_path.read_text(encoding="utf-8")
+build8_offline_result_path = (
+    ROOT / "release/evidence/build-8-f4-offline-reconnect-adjudication.json"
+)
+build8_offline_result = data(
+    "release/evidence/build-8-f4-offline-reconnect-adjudication.json"
+)
+build8_offline_result_doc_path = (
+    ROOT / "docs/v4_2_r1/BUILD8_F4_OFFLINE_RECONNECT_RESULT.md"
+)
+build8_offline_result_doc = build8_offline_result_doc_path.read_text(
+    encoding="utf-8"
+)
 version_policy_approval = data(
     "release/approvals/version-policy-approval.json"
 )
@@ -2957,6 +3214,347 @@ check(
             "appdistribution:distribute",
         ]
     ),
+)
+build8_f4_gate_records = [
+    record
+    for record in programme_ledger.get("programmeGates", [])
+    if record.get("gateId") == "STAGE2D-F4"
+]
+check(
+    "Build 8 sync is adjudicated and offline reconnect restores exact transport",
+    sha(build8_sync_adjudication_path)
+        == "A165DFD44ED2B2BE9DDC27F20D4D982585EA7C0DC5749915BEE1C545DFAB5F5C"
+    and sha(build8_offline_promotion_path)
+        == "84B42ED1950AE31717410DBB8ACFE210B30ED12D8D5DC844B43A7E8D99B3F2DE"
+    and sha(build8_offline_harness_path)
+        == "E2E966760A9E29E0E1C1487B1D236D5A66B2EC2647C89730D6305E57F948DC42"
+    and sha(build8_offline_doc_path)
+        == "55D55F28FB38C4B42B0486FB4521129240CC11E60F01289C287389FE494438E6"
+    and build8_sync_adjudication.get("decision")
+        == "PASS_BUILD8_F4_SYNC_MARKER_ADJUDICATED"
+    and build8_sync_adjudication.get("externalReceipt", {}).get("sha256")
+        == "304F9F4D9CBA6DAD71B2FBF9B26B17F32C2830C1AFD74316B283E44A83ED9E8E"
+    and build8_sync_adjudication.get("externalReceipt", {}).get("bytes")
+        == 4775
+    and build8_sync_adjudication.get("externalReceipt", {}).get(
+        "sourceCommit"
+    )
+        == build8_sync_adjudication.get("externalReceipt", {}).get(
+            "sourceOriginMain"
+        )
+    and build8_sync_adjudication.get("externalReceipt", {}).get(
+        "postMergeRunId"
+    )
+        == 30864309478
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "backendInventoryMissing"
+    )
+        == 0
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "backendInventoryMalformed"
+    )
+        == 0
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "installedVersionCode"
+    )
+        == 8
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "manualSyncOutcome"
+    )
+        == "SUCCESS"
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "pendingLocalBusinessWritesBefore"
+    )
+        == 0
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "pendingLocalBusinessWritesAfter"
+    )
+        == 0
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "unresolvedLocalRejectionsBefore"
+    )
+        == 0
+    and build8_sync_adjudication.get("verifiedFacts", {}).get(
+        "unresolvedLocalRejectionsAfter"
+    )
+        == 0
+    and all(
+        value is False
+        for value in build8_sync_adjudication.get(
+            "privacyBoundary", {}
+        ).values()
+    )
+    and build8_sync_adjudication.get("programmeBoundary", {}).get(
+        "stage2dF4Status"
+    )
+        == "OPEN"
+    and build8_sync_adjudication.get("programmeBoundary", {}).get(
+        "syncMarkerCriterionProved"
+    )
+        is True
+    and build8_sync_adjudication.get("programmeBoundary", {}).get(
+        "offlineReconnectCriterionProved"
+    )
+        is False
+    and build8_offline_promotion.get("approved") is True
+    and build8_offline_promotion.get("approvalClass")
+        == "CONTROLLED_EXACT_TARGET_BUILD8_OFFLINE_RECONNECT"
+    and build8_offline_promotion.get("approvalAuthority", {}).get(
+        "baselineCommit"
+    )
+        == "f038cbe90ef0d85d99dc4f6be28b06b893a5ed69"
+    and build8_offline_promotion.get("syncAuthority", {}).get(
+        "adjudicationSha256"
+    )
+        == sha(build8_sync_adjudication_path)
+    and build8_offline_promotion.get("syncAuthority", {}).get(
+        "externalReceiptSha256"
+    )
+        == build8_sync_adjudication.get("externalReceipt", {}).get("sha256")
+    and build8_offline_promotion.get("artifactAuthority", {})
+        .get("apk", {})
+        .get("versionCode")
+        == 8
+    and build8_offline_promotion.get("targetAuthority", {}).get(
+        "maxTargetCount"
+    )
+        == 1
+    and build8_offline_promotion.get("authorizedMutations", {}).get(
+        "wifiAndMobileData"
+    )
+        == "TEMPORARY_DISABLE_THEN_EXACT_RESTORE"
+    and build8_offline_promotion.get("authorizedMutations", {}).get(
+        "airplaneMode"
+    )
+        == "READ_ONLY_UNCHANGED"
+    and build8_offline_promotion.get("authorizedMutations", {}).get(
+        "firebaseBackend"
+    )
+        == "PROHIBITED"
+    and build8_offline_promotion.get("authorizedMutations", {}).get(
+        "deviceDataClearOrUninstall"
+    )
+        == "PROHIBITED"
+    and build8_offline_promotion.get("authorizedMutations", {}).get(
+        "distribution"
+    )
+        == "PROHIBITED"
+    and build8_offline_promotion.get("passCriteria", {}).get(
+        "offlineManualSyncMustNotReportSuccess"
+    )
+        is True
+    and build8_offline_promotion.get("passCriteria", {}).get(
+        "exactInitialTransportStateRestored"
+    )
+        is True
+    and build8_offline_promotion.get("programmeBoundary", {}).get(
+        "offlineReconnectAuthorized"
+    )
+        is True
+    and build8_offline_promotion.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    )
+        is False
+    and build8_offline_promotion.get("programmeBoundary", {}).get(
+        "weakNetworkAuthorized"
+    )
+        is False
+    and build8_offline_promotion.get("failurePolicy", {}).get(
+        "restoreTransportInFinally"
+    )
+        is True
+    and all(
+        marker in build8_offline_harness
+        for marker in [
+            "External sync-marker receipt SHA-256",
+            "Pre-offline pending local business writes",
+            "FALSE_SUCCESS_WHILE_ALL_TRANSPORTS_DISABLED",
+            "TRANSPORT_RESTORATION_FAILED",
+            "POST_RECONNECT_VALIDATION_FAILED",
+            "failedPhaseMayNotBeRelabelledPass = $true",
+            "PASS_BUILD8_F4_OFFLINE_SAFE_EXACT_TRANSPORT_RESTORATION_AND_SYNC_RECOVERY",
+            "stage2dF4Status = 'OPEN'",
+            "stage2dF4ClosureAuthorized = $false",
+            "pilotHandoutAuthorized = $false",
+            "rawUiRetained = $false",
+        ]
+    )
+    and all(
+        marker not in build8_offline_harness.lower()
+        for marker in [
+            "'pm', 'clear'",
+            "'uninstall'",
+            "firebase deploy",
+            "appdistribution:distribute",
+            "'svc', 'airplane'",
+        ]
+    )
+    and "Status: SYNC MARKER PROVED; EXACT-TARGET OFFLINE/RECONNECT PROPOSED"
+        in build8_offline_doc
+    and "It does not close F4 or authorize distribution."
+        in build8_offline_doc
+    and len(build8_f4_gate_records) == 1
+    and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F4"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
+)
+check(
+    "Build 8 offline reconnect is evidence-proved without a throttle claim",
+    sha(build8_offline_result_path)
+        == "95A5B0C0524B98104E47A69EDA1EFC7D827D9A5E8125042F83C20A742D7A0394"
+    and sha(build8_offline_result_doc_path)
+        == "55F1CBD5163EC5C3C95F2EE8560C3CB04DEB9EB1E827A1E1DE8260A79B6BE1D0"
+    and build8_offline_result.get("decision")
+        == "PASS_BUILD8_F4_OFFLINE_RECONNECT_ADJUDICATED"
+    and build8_offline_result.get("externalReceipt", {}).get("sha256")
+        == "BE414FFFD556F0F5DEC741BF5598EFC9670524DF6DDCC68833572A192C8A3A77"
+    and build8_offline_result.get("externalReceipt", {}).get("bytes")
+        == 6542
+    and build8_offline_result.get("externalReceipt", {}).get("sourceCommit")
+        == build8_offline_result.get("externalReceipt", {}).get(
+            "sourceOriginMain"
+        )
+    and build8_offline_result.get("externalReceipt", {}).get(
+        "postMergeRunId"
+    )
+        == 30932769330
+    and build8_offline_result.get("externalReceipt", {}).get("decision")
+        == "PASS_BUILD8_F4_OFFLINE_SAFE_EXACT_TRANSPORT_RESTORATION_AND_SYNC_RECOVERY"
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "pendingLocalBusinessWritesBefore"
+    )
+        == 0
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "unresolvedLocalRejectionsBefore"
+    )
+        == 0
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "allTransportsDisabledDuringObservation"
+    )
+        is True
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "falseSuccessObserved"
+    )
+        is False
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "exactTransportStateRestored"
+    )
+        is True
+    and build8_offline_result.get("verifiedFacts", {}).get("initialWifiOn")
+        == build8_offline_result.get("verifiedFacts", {}).get(
+            "restoredWifiOn"
+        )
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "initialMobileDataOn"
+    )
+        == build8_offline_result.get("verifiedFacts", {}).get(
+            "restoredMobileDataOn"
+        )
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "initialAirplaneModeOn"
+    )
+        == build8_offline_result.get("verifiedFacts", {}).get(
+            "restoredAirplaneModeOn"
+        )
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "postReconnectManualSyncOutcome"
+    )
+        == "SUCCESS"
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "pendingLocalBusinessWritesAfter"
+    )
+        == 0
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "unresolvedLocalRejectionsAfter"
+    )
+        == 0
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "failureReceiptPresent"
+    )
+        is False
+    and build8_offline_result.get("verifiedFacts", {}).get(
+        "temporaryArtifactCountAfterExecution"
+    )
+        == 0
+    and build8_offline_result.get("executionBoundary", {}).get(
+        "networkStateTemporarilyChanged"
+    )
+        is True
+    and build8_offline_result.get("executionBoundary", {}).get(
+        "exactNetworkStateRestored"
+    )
+        is True
+    and all(
+        value is False
+        for key, value in build8_offline_result.get(
+            "executionBoundary", {}
+        ).items()
+        if key not in {
+            "networkStateTemporarilyChanged",
+            "exactNetworkStateRestored",
+        }
+    )
+    and all(
+        value is False
+        for value in build8_offline_result.get(
+            "privacyBoundary", {}
+        ).values()
+    )
+    and build8_offline_result.get("methodQualification", {}).get(
+        "offlineReconnectClaim"
+    )
+        == "PROVED"
+    and build8_offline_result.get("methodQualification", {}).get(
+        "bandwidthOrLatencyDegradationClaim"
+    )
+        == "NOT_TESTED"
+    and build8_offline_result.get("methodQualification", {}).get(
+        "nextMethodIsBandwidthThrottle"
+    )
+        is False
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "stage2dF4Status"
+    )
+        == "OPEN"
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "approvedSignInCriterionProved"
+    )
+        is True
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "syncMarkerCriterionProved"
+    )
+        is True
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "offlineReconnectCriterionProved"
+    )
+        is True
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "weakNetworkCriterionProved"
+    )
+        is False
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    )
+        is False
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "pilotHandoutAuthorized"
+    )
+        is False
+    and build8_offline_result.get("programmeBoundary", {}).get(
+        "distributionAuthorized"
+    )
+        is False
+    and "Status: OFFLINE/RECONNECT PROVED; F4 REMAINS OPEN"
+        in build8_offline_result_doc
+    and "does not claim measured low bandwidth"
+        in build8_offline_result_doc
+    and "bandwidth-throttling result." in build8_offline_result_doc
+    and len(build8_f4_gate_records) == 1
+    and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
 )
 build7_f4_compatibility = data(
     "release/approvals/build-7-f4-firestore-compatibility-promotion.json"
