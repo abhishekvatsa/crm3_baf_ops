@@ -21,7 +21,7 @@
     "internalControlledPilot": "GO_WITH_GATES",
     "pilotHandout": "NOT_AUTHORIZED",
     "playIntegrityAndAppCheck": "GOVERNED_DEFERRAL",
-    "leastPrivilegeIam": "ACTIVE_INDEPENDENT_TRACK",
+    "leastPrivilegeIam": "CLOSED_PASS",
     "broadFeatureExpansion": "HOLD",
     "section71Implementation": "HOLD_CONCEPT_PRESERVED",
     "unrestrictedDistribution": "NO_GO",
@@ -681,23 +681,44 @@
       "authorityType": "DEPLOYED_RUNTIME",
       "transitionProfile": "DEPLOYED_CONTROL",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "ACTIVE_INDEPENDENT_TRACK",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/s01-d01-h2-runtime-identity-live-finalization.json",
+          "sha256": "B9862804EA98080FC4BCD74DC92717C0D47A3DEE8A8DD5B17F20A23E584FC5FA",
+          "decision": "PASS_H2_S01_D01_RUNTIME_IDENTITY_AND_DEPENDENCY_CLOSURE",
+          "authority": "EXACT_MAIN_DEPLOYMENT_LIVE_READBACK_AND_PULL_REQUEST_CI"
+        }
+      ],
       "requiredExitEvidence": [
         "LR-03",
         "per-function runtime identities",
         "default Compute Editor removal after safe cutover"
       ],
-      "reArmTriggers": [],
-      "notes": [],
+      "reArmTriggers": [
+        "the admitted Function export or runtime-identity policy inventory changes",
+        "a deployed Function runtime identity or project IAM binding changes",
+        "Default Compute receives a forbidden broad project role or becomes a Function runtime identity",
+        "the exact live-readback or campaign collector policy changes"
+      ],
+      "notes": [
+        "The governed seven-phase campaign deployed all 14 Generation 2 Functions under exact dedicated identities and preserved callable, trigger and scheduler behavior.",
+        "Finalization removed Default Compute Editor, Eventarc Receiver and project Run Invoker, plus obsolete global-pull logging and project Run Invoker grants.",
+        "The final fleet probe and strict dependency readback passed; automatic Editor restoration was armed but was not needed."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Not deferred by roster size"
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-04",
+          "basis": "Exact clean-main deployment, final least-privilege IAM probe, strict dependency readback and PR #149 exact-head CI satisfy every H2-IAM exit criterion."
         }
       ]
     },
@@ -1596,7 +1617,7 @@
       "authorityType": "DEPLOYED_RUNTIME",
       "transitionProfile": "DEPLOYED_CONTROL",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "HIGH",
       "unrestrictedSeverity": "BLOCKER",
@@ -1618,6 +1639,12 @@
           "sha256": "6BCD937E7AD77A2C54F532C82C1D8CA681190498F17650C321DAAA8EAA23E7B4",
           "decision": "PASS_LR03_LR06_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK_CLOSURE_WITH_ADVERSE_POSTURE",
           "authority": "COLLECTOR_SOURCE_CI_AND_LIVE_RECEIPT_ADJUDICATION"
+        },
+        {
+          "fileName": "release/evidence/s01-d01-h2-runtime-identity-live-finalization.json",
+          "sha256": "B9862804EA98080FC4BCD74DC92717C0D47A3DEE8A8DD5B17F20A23E584FC5FA",
+          "decision": "PASS_H2_S01_D01_RUNTIME_IDENTITY_AND_DEPENDENCY_CLOSURE",
+          "authority": "EXACT_MAIN_DEPLOYMENT_LIVE_READBACK_AND_PULL_REQUEST_CI"
         }
       ],
       "requiredExitEvidence": [
@@ -1633,15 +1660,20 @@
         "the runtime-identity source policy changes"
       ],
       "notes": [
-        "Strict live evidence found nine deployed Functions, seven using the Default Compute service account; Default Compute retains unconditional roles/editor.",
-        "The source-declared crm3-backend-identity-runtime binding for getBackendReleaseIdentity is not deployed; only the dedicated global-pull reader and writer bindings match source.",
-        "LR-03 closes because the required live readback is complete. S-01 remains OPEN until runtime identities and broad IAM grants are actually remediated and re-read."
+        "The original strict live evidence found nine deployed Functions, seven using Default Compute while it retained unconditional roles/editor; that adverse acquisition remains preserved as historical authority.",
+        "The governed campaign subsequently deployed all 14 admitted Functions under their exact dedicated identities and proved callable, trigger and scheduler behavior.",
+        "Final readback proves zero Functions use Default Compute, zero deployed runtime identities hold broad project grants, and Default Compute retains only roles/cloudbuild.builds.builder."
       ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-04",
+          "basis": "The 14-function dedicated-identity deployment, final least-privilege IAM probe and PR #149 exact-head CI satisfy every S-01 exit criterion."
         }
       ]
     },
@@ -3143,7 +3175,7 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
@@ -3165,6 +3197,12 @@
           "sha256": "6BCD937E7AD77A2C54F532C82C1D8CA681190498F17650C321DAAA8EAA23E7B4",
           "decision": "PASS_LR03_LR06_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK_CLOSURE_WITH_ADVERSE_POSTURE",
           "authority": "COLLECTOR_SOURCE_CI_AND_LIVE_RECEIPT_ADJUDICATION"
+        },
+        {
+          "fileName": "release/evidence/s01-d01-h2-runtime-identity-live-finalization.json",
+          "sha256": "B9862804EA98080FC4BCD74DC92717C0D47A3DEE8A8DD5B17F20A23E584FC5FA",
+          "decision": "PASS_H2_S01_D01_RUNTIME_IDENTITY_AND_DEPENDENCY_CLOSURE",
+          "authority": "EXACT_MAIN_DEPLOYMENT_LIVE_READBACK_AND_PULL_REQUEST_CI"
         }
       ],
       "requiredExitEvidence": [
@@ -3178,15 +3216,25 @@
         "the dependency comparison policy or collector changes"
       ],
       "notes": [
-        "Strict generation-pinned live evidence found that all nine deployed Function dependency inventories differ from the current source lockfile inventory.",
-        "The receipt intentionally makes no vulnerability or exploitability inference from versions alone; it proves deployment drift, not advisory status.",
-        "LR-06 closes because the required live readback is complete. D-01 remains OPEN until a governed deployment and repeat readback prove exact dependency parity."
+        "The original generation-pinned live evidence found all nine then-deployed Function dependency inventories differed from current source; that adverse acquisition remains preserved as historical authority.",
+        "The governed campaign deployed the current source fleet and the final strict readback proved dependency inventory and selected-version parity for all 14 Functions.",
+        "The receipts make no vulnerability or exploitability inference from versions alone; closure rests on exact deployment parity, live readback and source/CI custody."
       ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "LIVE_READBACK_PROVED",
+          "effectiveDate": "2026-08-04",
+          "basis": "The final generation-pinned strict readback proves exact dependency inventory and selected-version parity for all 14 deployed Functions."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-04",
+          "basis": "PR #149 exact-head CI binds the successful deployment and final live readback to the governed source authority."
         }
       ]
     },

@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "s01-d01-h2-runtime-identity-live-finalization",
+  "capturedAtUtc": "2026-08-04T15:03:41.351Z",
+  "authority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "branch": "main",
+    "commit": "bdc5c6ed870e7f947c40ea053cd587a56d77d48a",
+    "tree": "379353df082bae7fda7f808d1830dc797117513d",
+    "postMergeWorkflowRun": 30913630958,
+    "postMergeWorkflowEvent": "push",
+    "postMergeWorkflowConclusion": "success",
+    "postMergeJobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 92006167814,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 92006167927,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 92006167987,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 92006168127,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "campaign": {
+    "externalEvidenceDirectory": "CRM3_FUNCTION_FLEET_RUNTIME_IDENTITY_CAMPAIGN_20260804_133140Z",
+    "receipts": [
+      {
+        "file": "01-preflight.json",
+        "fileSha256": "DA0D4616B2C24A9D48779E58E8811997A60C256A2542FC7FCCCA638B10F3B26D",
+        "receiptSha256": "2d353857ada89d71264e113f44ab60d51ebe3b7c7bbd83190f3a96bdabb358d1",
+        "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_PREFLIGHT"
+      },
+      {
+        "file": "02-provisioned.json",
+        "fileSha256": "EAE52AC08DF4B3133748205D99ABD7580B616AECC02789EDDC999173C301CBA4",
+        "receiptSha256": "d076a7932eb85880bc4d029ddbcbc98b1a11a9239d044f3a7e9aeb6a75601d33",
+        "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_PROVISIONED"
+      },
+      {
+        "file": "03-callables.json",
+        "fileSha256": "BE226CC4AA092E32CE5F31C922E24BAD76A4249A3F3058CF903DD81BD17101A2",
+        "receiptSha256": "456c2f38be606474d3da0813ff4b492c5c368b587fa75b7ca5de7f5228f1e23d",
+        "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_CALLABLES"
+      },
+      {
+        "file": "04-events.json",
+        "fileSha256": "68CE4726322F858F6C1040D2D51D562C37A6CA651303A0434FF75D6762837D2E",
+        "receiptSha256": "c35ffc89811db13a6756cab2724fef018fd340f36e38be2f3601f4ca791d0e1d",
+        "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_EVENTS"
+      },
+      {
+        "file": "05-scheduler-preflight.json",
+        "fileSha256": "14EF1AE72C326111F813502E9AF17BCDED3A5CDC9418463E89DF8F0022740CEB",
+        "receiptSha256": "1c66b25361377bfea1a32d184d2c9a935bf5b67466e75ca13fd26a4657149ee3",
+        "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_EVENTS"
+      },
+      {
+        "file": "06-fleet.json",
+        "fileSha256": "EDCD2EF459D836DA4B497FFA9AA7EFD3914AE01DBD27A0DF31D3C10BE47A3175",
+        "receiptSha256": "a6b6a117da5893fd836298efc1d8a890c4be5302cbb162ec855f38f5efd7356a",
+        "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FLEET"
+      },
+      {
+        "file": "07-lr03-lr06-prefinal.json",
+        "fileSha256": "9C04590A41DBA1AE6084A3F53D3546E948BFD94B8681785FED803E306A82D624",
+        "receiptSha256": "f8be48192c02c5be4373fe27e6dd87e17d0d9268a6b1a695292987db83beed9a",
+        "decision": "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK"
+      },
+      {
+        "file": "08-final.json",
+        "fileSha256": "7D3D66F91CBF446D0763E7FB85F3C12D1453CCF1C447DD23D3178E0BCE7E67E7",
+        "receiptSha256": "468675024ae849570255c2d3f17da4067af5176331c3d21c65a7c516fcd8707c",
+        "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL"
+      },
+      {
+        "file": "09-lr03-lr06-final.json",
+        "fileSha256": "3BF52BBB50BEF9FE412161AC36385D2498D14D3F51CDDE8F402F51CE9A52F1CD",
+        "receiptSha256": "51b0244c43120cca074974890f3a5eac0166beb44b4ce6c0c2346b57bfd76eab",
+        "decision": "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK"
+      }
+    ]
+  },
+  "finalPosture": {
+    "deployedFunctionCount": 14,
+    "allFunctionsActiveGeneration2": true,
+    "allRuntimeIdentitiesExact": true,
+    "defaultComputeFunctionCount": 0,
+    "broadRuntimeProjectGrantCount": 0,
+    "callableProbeCount": 8,
+    "schedulerBacklogCount": 0,
+    "defaultComputeProjectRoles": [
+      "roles/cloudbuild.builds.builder"
+    ],
+    "globalPullReaderProjectRoles": [
+      "roles/datastore.viewer"
+    ],
+    "globalPullWriterProjectRoles": [
+      "roles/datastore.user",
+      "roles/eventarc.eventReceiver"
+    ],
+    "dependencyInventoryMatchesCurrentFunctionCount": 14,
+    "dependencyVersionMatchesCurrentFunctionCount": 14,
+    "dependencyPostureDecision": "PASS_RUNTIME_IDENTITY_DEPENDENCY_POSTURE",
+    "dependencyPostureHoldCount": 0
+  },
+  "checks": {
+    "exactCleanMainAndFourJobCi": true,
+    "completeFleetDeployed": true,
+    "dedicatedRuntimeIdentitiesExact": true,
+    "callableAndTriggerBehaviorPreserved": true,
+    "defaultComputeRunsNoFunction": true,
+    "defaultComputeEditorRemoved": true,
+    "defaultComputeEventarcReceiverRemoved": true,
+    "defaultComputeProjectRunInvokerRemoved": true,
+    "obsoleteGlobalPullLoggingAndProjectInvokerRemoved": true,
+    "dependenciesMatchCurrentSource": true
+  },
+  "mutationBoundary": {
+    "functionRedeploymentPerformedDuringFinalization": false,
+    "defaultComputeEditorRemoved": true,
+    "defaultComputeEditorRollbackNeeded": false,
+    "businessDataMutationPerformed": false,
+    "firestoreRulesOrIndexesChanged": false,
+    "appCheckChanged": false,
+    "distributionPerformed": false
+  },
+  "privacyBoundary": {
+    "businessDocumentIdsRetained": false,
+    "businessPayloadsRetained": false,
+    "userUidsRetained": false,
+    "tokensRetained": false
+  },
+  "sourceAndCiAdjudication": {
+    "status": "PASS_EXACT_HEAD_PULL_REQUEST_CI",
+    "pullRequest": 149,
+    "workflowRun": 30922839115,
+    "workflowEvent": "pull_request",
+    "headCommit": "06658f8a2e5d1dca4624094da4938cda94095cf6",
+    "headTree": "3de31f1cae2fd91fe8def4d7d3fe72e2f3777ad5",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 92037560472,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 92037560487,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 92037560507,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 92037560592,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "programmeBoundary": {
+    "h2IamClosed": true,
+    "s01Closed": true,
+    "d01Closed": true,
+    "stage2dF4Status": "OPEN",
+    "pilotHandoutAuthorized": false,
+    "distributionAuthorized": false
+  },
+  "decision": "PASS_H2_S01_D01_RUNTIME_IDENTITY_AND_DEPENDENCY_CLOSURE"
+}

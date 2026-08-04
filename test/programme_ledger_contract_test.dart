@@ -264,7 +264,7 @@ void main() {
     expect(decision['internalControlledPilot'], 'GO_WITH_GATES');
     expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
     expect(decision['playIntegrityAndAppCheck'], 'GOVERNED_DEFERRAL');
-    expect(decision['leastPrivilegeIam'], 'ACTIVE_INDEPENDENT_TRACK');
+    expect(decision['leastPrivilegeIam'], 'CLOSED_PASS');
     expect(decision['broadFeatureExpansion'], 'HOLD');
     expect(decision['unrestrictedDistribution'], 'NO_GO');
     expect(decision['nextMutation'], 'STAGE2D-F4');
@@ -555,6 +555,64 @@ void main() {
       expect(evidenceShas, contains(mergeEvidenceSha));
       expect(evidenceShas, contains(closureEvidenceSha));
     }
+  });
+
+  test('H2, S-01 and D-01 close only on sealed final authority', () {
+    const evidencePath =
+        'release/evidence/s01-d01-h2-runtime-identity-live-finalization.json';
+    const evidenceSha =
+        'B9862804EA98080FC4BCD74DC92717C0D47A3DEE8A8DD5B17F20A23E584FC5FA';
+
+    final payload = _readJson('governance/programme-ledger.json');
+    final evidence = _readJson(evidencePath);
+    final gates = _objects(payload['programmeGates']);
+    final findings = _objects(payload['technicalFindings']);
+    final h2 = gates.singleWhere((item) => item['gateId'] == 'H2-IAM');
+    final f4 = gates.singleWhere((item) => item['gateId'] == 'STAGE2D-F4');
+    final s01 = findings.singleWhere((item) => item['findingId'] == 'S-01');
+    final d01 = findings.singleWhere((item) => item['findingId'] == 'D-01');
+
+    expect(_sha256(evidencePath), evidenceSha);
+    expect(
+      evidence['decision'],
+      'PASS_H2_S01_D01_RUNTIME_IDENTITY_AND_DEPENDENCY_CLOSURE',
+    );
+    expect(
+      _object(evidence['sourceAndCiAdjudication'])['status'],
+      'PASS_EXACT_HEAD_PULL_REQUEST_CI',
+    );
+
+    expect(
+      _object(payload['programmeDecision'])['leastPrivilegeIam'],
+      'CLOSED_PASS',
+    );
+    expect(_object(payload['programmeDecision'])['nextMutation'], 'STAGE2D-F4');
+    expect(f4['currentStatus'], 'OPEN');
+    expect(
+      _object(payload['programmeDecision'])['pilotHandout'],
+      'NOT_AUTHORIZED',
+    );
+
+    for (final record in <Map<String, dynamic>>[h2, s01, d01]) {
+      expect(record['currentStatus'], 'CLOSED');
+      expect(
+        _objects(record['evidence']).map((entry) => entry['sha256']),
+        contains(evidenceSha),
+      );
+    }
+    expect(h2['authorization'], 'CLOSED_PASS');
+    expect(
+      _objects(h2['statusHistory']).map((entry) => entry['status']).toList(),
+      <String>['OPEN', 'CLOSED'],
+    );
+    expect(
+      _objects(s01['statusHistory']).map((entry) => entry['status']).toList(),
+      <String>['OPEN', 'CLOSED'],
+    );
+    expect(
+      _objects(d01['statusHistory']).map((entry) => entry['status']).toList(),
+      <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],
+    );
   });
 
   test('Build 5 runtime adjudication closes only P-01 and F3', () {

@@ -148,7 +148,7 @@ void main() {
     expect(decision, contains('`S-01` and `D-01` own remediation'));
   });
 
-  test('live closure closes evidence gates and preserves adverse findings', () {
+  test('live closure preserves adverse history after later remediation', () {
     final ledger = _object(
       jsonDecode(File('governance/programme-ledger.json').readAsStringSync()),
     );
@@ -163,8 +163,20 @@ void main() {
       final record = findings.singleWhere(
         (entry) => entry['findingId'] == findingId,
       );
-      expect(record['currentStatus'], 'OPEN');
-      expect(_objects(record['evidence']), hasLength(2));
+      expect(record['currentStatus'], 'CLOSED');
+      expect(_objects(record['evidence']), hasLength(3));
+      expect(
+        _objects(record['evidence']).map((entry) => entry['sha256']),
+        contains(
+          'B9862804EA98080FC4BCD74DC92717C0D47A3DEE8A8DD5B17F20A23E584FC5FA',
+        ),
+      );
+      expect(
+        _objects(record['statusHistory']).map((entry) => entry['status']),
+        findingId == 'S-01'
+            ? <String>['OPEN', 'CLOSED']
+            : <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],
+      );
     }
   });
 }

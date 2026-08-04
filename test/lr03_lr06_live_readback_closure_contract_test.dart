@@ -165,12 +165,20 @@ void main() {
       final record = findings.singleWhere(
         (entry) => entry['findingId'] == findingId,
       );
-      expect(record['currentStatus'], 'OPEN');
+      expect(record['currentStatus'], 'CLOSED');
       expect(
         _objects(record['statusHistory']).map((entry) => entry['status']),
-        <String>['OPEN'],
+        findingId == 'S-01'
+            ? <String>['OPEN', 'CLOSED']
+            : <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],
       );
-      expect(_objects(record['evidence']), hasLength(2));
+      expect(_objects(record['evidence']), hasLength(3));
+      expect(
+        _objects(record['evidence']).map((entry) => entry['sha256']),
+        contains(
+          'B9862804EA98080FC4BCD74DC92717C0D47A3DEE8A8DD5B17F20A23E584FC5FA',
+        ),
+      );
       expect(_strings(record['requiredExitEvidence']), isNotEmpty);
     }
     final p05 = findings.singleWhere((entry) => entry['findingId'] == 'P-05');
