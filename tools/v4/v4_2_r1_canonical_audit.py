@@ -1014,6 +1014,152 @@ check(
     and "It does not read Firestore documents." in firestore_readback_decision,
 )
 
+functions_live_readback_policy = data(
+    "release/lr03-lr06-functions-live-readback-policy.json"
+)
+functions_live_readback_source = text(
+    "tools/release/collectFunctionsIamDependenciesReadback.js"
+)
+functions_live_readback_test = text(
+    "tools/release/collectFunctionsIamDependenciesReadback.test.mjs"
+)
+functions_live_readback_contract = text(
+    "test/lr03_lr06_functions_live_readback_collector_contract_test.dart"
+)
+functions_live_readback_decision = text(
+    "docs/v4_2_r1/LR03_LR06_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK.md"
+)
+functions_live_readback_index = text("functions/src/index.ts")
+functions_live_ledger = data("governance/programme-ledger.json")
+functions_live_expected_exports = [
+    "assignPublishedTemplateVersion",
+    "beginGlobalPullRun",
+    "completePlannedJobExecution",
+    "executeMaintenanceWorkflowCommand",
+    "getBackendReleaseIdentity",
+    "maintenanceWorkflowEscalationSweep",
+    "mutateChargeAbnormality",
+    "mutateRuntimeJobModulePopulation",
+    "mutateUserAuthority",
+    "onJobAssigned",
+    "onMaintenanceWorkflowEventCreated",
+    "onTicketCreated",
+    "onTicketResolved",
+    "stampGlobalPullServerClock",
+]
+functions_live_gate_records = {
+    record.get("gateId"): record
+    for record in functions_live_ledger.get("programmeGates", [])
+    if record.get("gateId") in {"LR-03", "LR-06"}
+}
+functions_live_finding_records = {
+    record.get("findingId"): record
+    for record in functions_live_ledger.get("technicalFindings", [])
+    if record.get("findingId") in {"S-01", "D-01"}
+}
+check(
+    "LR-03 and LR-06 have a complete privacy-safe mutation-free live collector",
+    functions_live_readback_policy.get("schemaVersion") == 1
+    and functions_live_readback_policy.get("collectorStatus")
+        == "SOURCE_IMPLEMENTED_PENDING_MERGE_CI_AND_LIVE_EXECUTION"
+    and functions_live_readback_policy.get("productionProjectId")
+        == "crm3-baf-ops-b8638"
+    and functions_live_readback_policy.get("productionRegion")
+        == "asia-south1"
+    and functions_live_readback_policy.get("gateIds") == ["LR-03", "LR-06"]
+    and functions_live_readback_policy.get("sourceFunctionExports")
+        == functions_live_expected_exports
+    and len(functions_live_readback_policy.get("trackedRuntimePackages", []))
+        == 8
+    and set(
+        functions_live_readback_policy.get(
+            "sourceDeclaredRuntimeBindings", {}
+        )
+    ) == {
+        "beginGlobalPullRun",
+        "getBackendReleaseIdentity",
+        "stampGlobalPullServerClock",
+    }
+    and all(
+        value is False
+        for value in functions_live_readback_policy.get(
+            "mutationBoundary", {}
+        ).values()
+    )
+    and functions_live_readback_policy.get("privacyBoundary", {}).get(
+        "operatorAccountIdentityRetained"
+    ) is False
+    and functions_live_readback_policy.get("privacyBoundary", {}).get(
+        "sourceArchiveContentRetained"
+    ) is False
+    and all(
+        name in functions_live_readback_index
+        for name in functions_live_expected_exports
+    )
+    and "PASS_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK"
+        in functions_live_readback_source
+    and "OBSERVE_FUNCTIONS_IAM_DEPENDENCY_LIVE_READBACK"
+        in functions_live_readback_source
+    and "HOLD_RUNTIME_IDENTITY_DEPENDENCY_POSTURE"
+        in functions_live_readback_source
+    and "discoverFunctionExports" in functions_live_readback_source
+    and "sourceExportInventoryMatchesPolicy"
+        in functions_live_readback_source
+    and "sourceProvenance?.resolvedStorageSource"
+        in functions_live_readback_source
+    and "--if-generation-match=" in functions_live_readback_source
+    and '"package-lock.json"' in functions_live_readback_source
+    and "runtimeIamReducedToDeployedIdentities"
+        in functions_live_readback_source
+    and "advisoryAssessmentPerformed: false"
+        in functions_live_readback_source
+    and "s01Closed: false" in functions_live_readback_source
+    and "d01Closed: false" in functions_live_readback_source
+    and 'flag: "wx"' in functions_live_readback_source
+    and all(
+        forbidden not in functions_live_readback_source
+        for forbidden in (
+            '"functions", "deploy"',
+            '"functions", "delete"',
+            '"projects", "add-iam-policy-binding"',
+            '"projects", "remove-iam-policy-binding"',
+            "firebase deploy",
+        )
+    )
+    and "adverse posture does not corrupt a valid live-readback acquisition"
+        in functions_live_readback_test
+    and "AST discovery binds the policy to all current Function exports"
+        in functions_live_readback_test
+    and "IAM evidence retains only deployed runtime service accounts"
+        in functions_live_readback_test
+    and "collector source contains no production mutation command"
+        in functions_live_readback_test
+    and "collector source tranche leaves live gates and findings open"
+        in functions_live_readback_contract
+    and root_package.get("scripts", {}).get(
+        "test:functions-live-readback-custody"
+    )
+        == "node --test tools/release/collectFunctionsIamDependenciesReadback.test.mjs"
+    and "npm run test:functions-live-readback-custody" in release_gate_source
+    and set(functions_live_gate_records) == {"LR-03", "LR-06"}
+    and all(
+        record.get("currentStatus") == "OPEN"
+        and record.get("evidence") == []
+        for record in functions_live_gate_records.values()
+    )
+    and set(functions_live_finding_records) == {"S-01", "D-01"}
+    and all(
+        record.get("currentStatus") == "OPEN"
+        and record.get("evidence") == []
+        for record in functions_live_finding_records.values()
+    )
+    and "Collector status: SOURCE_IMPLEMENTED"
+        in functions_live_readback_decision
+    and "Live readback evidence: PENDING" in functions_live_readback_decision
+    and "`S-01` and `D-01` own remediation"
+        in functions_live_readback_decision,
+)
+
 lr02_receipt_path = ROOT / "release/evidence/lr02-p04-firestore-live-readback.json"
 lr02_closure_path = ROOT / "release/evidence/lr02-p04-live-readback-closure.json"
 lr02_receipt = data("release/evidence/lr02-p04-firestore-live-readback.json")
