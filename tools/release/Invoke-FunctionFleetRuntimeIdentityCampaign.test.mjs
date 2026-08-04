@@ -15,12 +15,15 @@ const source = fs.readFileSync(path.join(
 ), "utf8");
 
 function extractPowerShellFunction(name) {
-  const match = source.match(new RegExp(
-    `function ${name} \\{[\\s\\S]*?\\r?\\n\\}`,
-    "u",
-  ));
-  assert.ok(match, `missing PowerShell function ${name}`);
-  return match[0];
+  const start = source.indexOf(`function ${name} {`);
+  assert.ok(start >= 0, `missing PowerShell function ${name}`);
+  let depth = 0;
+  for (let index = source.indexOf("{", start); index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") depth -= 1;
+    if (depth === 0) return source.slice(start, index + 1);
+  }
+  assert.fail(`unterminated PowerShell function ${name}`);
 }
 
 test("campaign is exact-target, phased and clean-main bound", () => {
@@ -159,4 +162,29 @@ if (-not (Test-RequiresCloudRunServiceRole -Binding $withRunRole)) { exit 15 }
   assert.ok(source.includes(
     "Test-RequiresCloudRunServiceRole -Binding $property.Value",
   ));
+});
+
+test("gcloud JSON conversion streams empty and populated collections exactly", () => {
+  const powershell = process.platform === "win32" ? "powershell.exe" : "pwsh";
+  const fixture = `
+Set-StrictMode -Version Latest
+${extractPowerShellFunction("ConvertFrom-GcloudJson")}
+$empty = @(ConvertFrom-GcloudJson -Raw '[]')
+$single = @(ConvertFrom-GcloudJson -Raw '[{"name":"one"}]')
+$object = ConvertFrom-GcloudJson -Raw '{"name":"object"}'
+if ($empty.Count -ne 0) { exit 21 }
+if ($single.Count -ne 1 -or $single[0].name -cne 'one') { exit 22 }
+if ($object.name -cne 'object') { exit 23 }
+`;
+  const result = childProcess.spawnSync(
+    powershell,
+    ["-NoProfile", "-NonInteractive", "-Command", "-"],
+    {input: fixture, encoding: "utf8", timeout: 15000, windowsHide: true},
+  );
+  assert.equal(
+    result.status,
+    0,
+    `PowerShell JSON fixture failed: ${result.error ?? ""}\n${result.stdout}\n${result.stderr}`,
+  );
+  assert.ok(source.includes("ConvertFrom-GcloudJson -Raw $raw"));
 });

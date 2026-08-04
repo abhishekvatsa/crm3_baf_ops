@@ -66,11 +66,23 @@ function Invoke-ExternalText {
   return $text.Trim()
 }
 
+function ConvertFrom-GcloudJson {
+  param([Parameter(Mandatory = $true)][string]$Raw)
+  $parsed = $Raw | ConvertFrom-Json
+  if ($parsed -is [System.Array]) {
+    foreach ($item in $parsed) {
+      $item
+    }
+    return
+  }
+  return $parsed
+}
+
 function Get-GcloudJson {
   param([Parameter(Mandatory = $true)][string[]]$Arguments)
   $raw = Invoke-ExternalText -FilePath $script:gcloud -WorkingDirectory $root `
     -Arguments ($Arguments + '--format=json')
-  return $raw | ConvertFrom-Json
+  ConvertFrom-GcloudJson -Raw $raw
 }
 
 function Test-IsUnconditionalIamBinding {
