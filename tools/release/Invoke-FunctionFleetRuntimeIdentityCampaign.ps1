@@ -482,6 +482,14 @@ switch ($Phase) {
       '--gcloud', $script:gcloud,
       '--tar', 'tar'
     ) | Out-Null
+    $preFinalDependencies = Get-Content -LiteralPath $preFinalDependenciesPath -Raw |
+      ConvertFrom-Json
+    if (
+      $preFinalDependencies.posture.decision -cne
+      'PASS_RUNTIME_IDENTITY_DEPENDENCY_POSTURE'
+    ) {
+      throw 'Pre-final dependency posture did not pass; Editor was not removed.'
+    }
 
     $reader = "crm3-global-pull-reader@$ProjectId.iam.gserviceaccount.com"
     $writer = "crm3-global-pull-writer@$ProjectId.iam.gserviceaccount.com"
@@ -499,20 +507,28 @@ switch ($Phase) {
       Ensure-ProjectRole -Email $defaultCompute -Role 'roles/editor'
       throw 'Final readback failed; Default Compute Editor was restored.'
     }
-    Invoke-ExternalText -FilePath 'node' -WorkingDirectory $root -Arguments @(
-      'tools/release/collectFunctionsIamDependenciesReadback.js',
-      '--repository-root', $root,
-      '--project-id', $ProjectId,
-      '--region', $Region,
-      '--output', $finalDependenciesPath,
-      '--gcloud', $script:gcloud,
-      '--tar', 'tar'
-    ) | Out-Null
-    $dependencies = Get-Content -LiteralPath $finalDependenciesPath -Raw |
-      ConvertFrom-Json
-    if ($dependencies.posture.decision -cne 'PASS_RUNTIME_IDENTITY_DEPENDENCY_POSTURE') {
+    try {
+      Invoke-ExternalText -FilePath 'node' -WorkingDirectory $root -Arguments @(
+        'tools/release/collectFunctionsIamDependenciesReadback.js',
+        '--repository-root', $root,
+        '--project-id', $ProjectId,
+        '--region', $Region,
+        '--output', $finalDependenciesPath,
+        '--gcloud', $script:gcloud,
+        '--tar', 'tar'
+      ) | Out-Null
+      $dependencies = Get-Content -LiteralPath $finalDependenciesPath -Raw |
+        ConvertFrom-Json
+      if (
+        $dependencies.posture.decision -cne
+        'PASS_RUNTIME_IDENTITY_DEPENDENCY_POSTURE'
+      ) {
+        throw 'Final dependency posture did not pass.'
+      }
+    } catch {
+      $dependencyError = $_.Exception.Message
       Ensure-ProjectRole -Email $defaultCompute -Role 'roles/editor'
-      throw 'Dependency posture did not pass; Default Compute Editor was restored.'
+      throw "Final dependency readback failed; Default Compute Editor was restored. $dependencyError"
     }
   }
 
