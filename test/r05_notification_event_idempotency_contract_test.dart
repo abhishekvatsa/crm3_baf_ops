@@ -20,7 +20,7 @@ String _section(String source, String start, String end) {
 }
 
 void main() {
-  test('R-05 source status is exact and does not claim merge or deployment', () {
+  test('R-05 source and CI closure is exact without delivery overclaim', () {
     final ledger =
         jsonDecode(File('governance/programme-ledger.json').readAsStringSync())
             as Map<String, dynamic>;
@@ -29,17 +29,37 @@ void main() {
     ).singleWhere((item) => item['findingId'] == 'R-05');
 
     expect(finding['authorityType'], 'SOURCE_AND_CI');
-    expect(finding['currentStatus'], 'SOURCE_IMPLEMENTED');
-    expect(finding['evidence'], isEmpty);
+    expect(finding['currentStatus'], 'CLOSED');
+    final evidence = _objects(finding['evidence']).single;
+    expect(evidence['pullRequest'], 117);
+    expect(
+      evidence['headCommit'],
+      '946c414fee7605f590253dc630a0205095f3b44d',
+    );
+    expect(
+      evidence['mergeCommit'],
+      '45ebd9c853798f88fedd2e4d72d6022dc389097f',
+    );
+    expect(evidence['pullRequestWorkflowRun'], 30795773566);
+    expect(evidence['postMergeWorkflowRun'], 30796250694);
+    expect(
+      evidence['decision'],
+      'PASS_R03_R05_RELIABILITY_SOURCE_AND_CI_CLOSURE',
+    );
+    expect(evidence['productionDeploymentPerformed'], isFalse);
+    expect(evidence['deviceEvidenceClaimed'], isFalse);
+    expect(evidence['pilotAuthorizationCreated'], isFalse);
     expect(
       _objects(finding['statusHistory']).map((entry) => entry['status']),
-      <String>['OPEN', 'SOURCE_IMPLEMENTED'],
+      <String>['OPEN', 'SOURCE_IMPLEMENTED', 'MERGED', 'CLOSED'],
     );
     expect(_strings(finding['requiredExitEvidence']), hasLength(6));
     expect(_strings(finding['reArmTriggers']), hasLength(6));
     expect(
       _strings(finding['notes']).join('\n'),
-      contains('It is not merge, deployment, notification-delivery, pilot or cutover evidence.'),
+      contains(
+        'It is not deployment, notification-delivery, device, pilot or cutover evidence.',
+      ),
     );
   });
 
@@ -138,7 +158,7 @@ void main() {
     final decision = File(
       'docs/v4_2_r1/R05_NOTIFICATION_EVENT_IDEMPOTENCY.md',
     ).readAsStringSync();
-    expect(decision, contains('Status: SOURCE_IMPLEMENTED'));
+    expect(decision, contains('Status: CLOSED'));
     expect(decision, contains('This is not an exactly-once delivery claim.'));
     expect(decision, contains('structured error-level signal'));
     expect(decision, contains('operator-queryable marker'));
@@ -146,6 +166,10 @@ void main() {
       decision,
       contains('A reporting failure cannot reopen or resend the event.'),
     );
-    expect(decision, contains('R-05 remains `SOURCE_IMPLEMENTED`.'));
+    expect(
+      decision,
+      contains('PASS_R03_R05_RELIABILITY_SOURCE_AND_CI_CLOSURE'),
+    );
+    expect(decision, contains('`R-05` is closed'));
   });
 }

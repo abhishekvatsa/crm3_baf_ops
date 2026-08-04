@@ -1,8 +1,10 @@
 # R-03 Sync Request Outcome Remediation
 
-Status: SOURCE_IMPLEMENTED
+Status: CLOSED
 
-Merge and exact-head CI evidence: PENDING
+Merge and exact-head CI evidence: PASS
+
+Closure decision: PASS_R03_R05_RELIABILITY_SOURCE_AND_CI_CLOSURE
 
 ## Finding
 
@@ -69,11 +71,14 @@ contracts, mounted-context safety, and Composer save/sync/refresh behavior.
 
 ## Remaining Boundary
 
-`R-03` remains `SOURCE_IMPLEMENTED`. Closure requires the exact pull-request
-head and the admitted post-merge main commit to pass the governed CI matrix.
-The first available run after implementation did not execute any job steps
-because GitHub reported an account payment or spending-limit condition. That
-external condition is not source evidence and is not bypassed here.
+`R-03` is closed under its `SOURCE_AND_CI` authority. PR #117 head
+`946c414fee7605f590253dc630a0205095f3b44d` passed release-gate run
+`30795773566` and merged as
+`45ebd9c853798f88fedd2e4d72d6022dc389097f` with the identical source tree.
+Post-merge release-gate run `30796250694` passed all four jobs. The exact
+evidence is sealed in
+`release/evidence/r03-r05-source-and-ci-closure.json`.
 
-No production deployment, device proof, F4 closure, pilot authorization, or
+This closes the diagnosed source defect and its CI obligation only. No
+production deployment, device proof, F4 closure, pilot authorization or
 cutover is claimed by this document.

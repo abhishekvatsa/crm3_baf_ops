@@ -1,8 +1,10 @@
 # R-05 Notification Event Idempotency
 
-Status: SOURCE_IMPLEMENTED
+Status: CLOSED
 
-Merge and post-merge CI evidence: PENDING
+Merge and post-merge CI evidence: PASS
+
+Closure decision: PASS_R03_R05_RELIABILITY_SOURCE_AND_CI_CLOSURE
 
 Deployment, delivery and pilot evidence: NOT CLAIMED
 
@@ -124,7 +126,14 @@ failed dispatch is quarantined without a second delivery attempt.
 
 ## Closure Boundary
 
-R-05 remains `SOURCE_IMPLEMENTED`. Closure requires exact-head pull-request CI,
-merge evidence and passing post-merge CI for the admitted source. This record
-does not authorize deployment, assert receipt data exists in production, prove
-FCM delivery, authorize pilot handout or advance a programme gate.
+`R-05` is closed under its `SOURCE_AND_CI` authority. PR #117 head
+`946c414fee7605f590253dc630a0205095f3b44d` passed release-gate run
+`30795773566` and merged as
+`45ebd9c853798f88fedd2e4d72d6022dc389097f` with the identical source tree.
+Post-merge release-gate run `30796250694` passed all four jobs. The exact
+evidence is sealed in
+`release/evidence/r03-r05-source-and-ci-closure.json`.
+
+This closes the diagnosed source defect and its CI obligation only. It does
+not authorize deployment, assert receipt data exists in production, prove FCM
+delivery, authorize pilot handout or advance a programme gate.
