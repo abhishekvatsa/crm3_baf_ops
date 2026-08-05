@@ -10,6 +10,7 @@ import 'package:isar/isar.dart' hide Query;
 
 import '../../features/auth/data/user_model.dart';
 import '../../features/maintenance/data/maintenance_model.dart';
+import '../../features/planned_maintenance/models/component_action_model.dart';
 import 'app_logger.dart';
 import 'sync_remote_freshness_policy.dart';
 
@@ -593,10 +594,9 @@ class LiveRemoteSyncService {
     final data = doc.data();
     if (data == null) return;
 
-    final remote = _mapTicket(doc, data);
-    if (remote.firestoreId == null) return;
-
     try {
+      final remote = _mapTicket(doc, data);
+      if (remote.firestoreId == null) return;
       var applied = false;
       var skippedUnsynced = false;
 
@@ -761,6 +761,18 @@ class LiveRemoteSyncService {
     DocumentSnapshot<Map<String, dynamic>> doc,
     Map<String, dynamic> d,
   ) {
+    final source = 'maintenance/${doc.id}';
+    final actionsJson = ComponentAction.readEncodedPayload(
+      d['actionsJson'],
+      field: 'actionsJson',
+      source: source,
+    );
+    ComponentAction.decode(actionsJson, source: source);
+    final resolutionHistoryJson = readEncodedResolutionHistoryPayload(
+      d['resolutionHistoryJson'],
+      source: source,
+    );
+
     return MaintenanceRecord()
       ..firestoreId = doc.id
       ..version = _intValue(d['version'], fallback: 1)
@@ -834,8 +846,8 @@ class LiveRemoteSyncService {
       ..updatedAt =
           _parseTimestamp(d['updatedAt'] ?? d['createdAt']) ?? DateTime.now()
       ..metadataJson = _cleanOptionalText(d['metadataJson']?.toString())
-      ..actionsJson = d['actionsJson']?.toString() ?? '[]'
-      ..resolutionHistoryJson = d['resolutionHistoryJson']?.toString() ?? '[]'
+      ..actionsJson = actionsJson
+      ..resolutionHistoryJson = resolutionHistoryJson
       ..isDeleted = d['isDeleted'] == true
       ..deletedAt = _parseTimestamp(d['deletedAt'])
       ..deletedByUid = _cleanOptionalText(d['deletedByUid']?.toString())

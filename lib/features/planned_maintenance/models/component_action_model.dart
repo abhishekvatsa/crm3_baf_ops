@@ -1,97 +1,81 @@
 import 'dart:convert';
 
-T _enumByNameOr<T extends Enum>(
-    List<T> values,
-    dynamic value,
-    T fallback,
-    ) {
-  if (value is! String) return fallback;
-  for (final item in values) {
-    if (item.name == value) return item;
-  }
-  return fallback;
-}
-
-T? _enumByNameOrNull<T extends Enum>(List<T> values, dynamic value) {
-  if (value is! String) return null;
-  for (final item in values) {
-    if (item.name == value) return item;
-  }
-  return null;
-}
-
-// ─────────────────────────────────────────────────────────────
-// ACTION TYPE (WHAT WAS DONE)
-// ─────────────────────────────────────────────────────────────
+import '../../../core/serialization/persisted_data_reader.dart';
 
 enum ActionType { issue, repair, replacement, inspection }
 
-// ─────────────────────────────────────────────────────────────
-// REPLACEMENT TYPE
-// ─────────────────────────────────────────────────────────────
-
 enum ReplacementType { newPart, repaired, revised }
-
-// ─────────────────────────────────────────────────────────────
-// SEVERITY (ALREADY PRESENT)
-// ─────────────────────────────────────────────────────────────
 
 enum ActionSeverity { low, medium, high, critical }
 
-// ─────────────────────────────────────────────────────────────
-// 🔥 NEW (NON-BREAKING): LIFECYCLE STATUS
-// ─────────────────────────────────────────────────────────────
-
 enum ActionStatus { issue, inProgress, resolved }
 
-// ─────────────────────────────────────────────────────────────
-// COMPONENT ACTION MODEL
-// ─────────────────────────────────────────────────────────────
+class ComponentActionReadResult {
+  final List<ComponentAction> entries;
+  final FormatException? error;
+
+  const ComponentActionReadResult._({
+    required this.entries,
+    required this.error,
+  });
+
+  bool get isValid => error == null;
+}
 
 class ComponentAction {
-  // ── Identity ───────────────────────────────────────────────
-  final String? id;
+  static const Set<String> _knownFields = <String>{
+    'id',
+    'asset',
+    'component',
+    'hierarchyPath',
+    'system',
+    'subsystem',
+    'subComponent',
+    'tag',
+    'instance',
+    'actionType',
+    'replacement',
+    'issue',
+    'resolution',
+    'remarks',
+    'templateFieldKey',
+    'isAutoResolved',
+    'status',
+    'createdAt',
+    'severity',
+    'performedBy',
+    'updatedAt',
+    'version',
+    'metadataJson',
+  };
 
-  // ── Core ───────────────────────────────────────────────────
+  final String? id;
   final String asset;
   final String component;
-
-  // ── Hierarchy ──────────────────────────────────────────────
   final List<String>? hierarchyPath;
-
-  // ── Context ────────────────────────────────────────────────
   final String? system;
   final String? subsystem;
   final String? subComponent;
   final String? tag;
   final String? instance;
-
-  // ── Action ─────────────────────────────────────────────────
   final ActionType actionType;
   final ReplacementType? replacement;
-
-  // ── Description ────────────────────────────────────────────
   final String? issue;
   final String? resolution;
   final String? remarks;
-
-  // ── Linkage ────────────────────────────────────────────────
   final String? templateFieldKey;
-
-  // ── Intelligence ───────────────────────────────────────────
   final bool isAutoResolved;
-
-  // ── Lifecycle ──────────────────────────────────────────────
-  final ActionStatus? status; // 🔥 upgraded (was String?)
-
+  final ActionStatus? status;
   final DateTime createdAt;
-
-  // ── Extended (existing) ────────────────────────────────────
   final ActionSeverity severity;
   final String? performedBy;
   final DateTime? updatedAt;
   final int version;
   final String? metadataJson;
+
+  /// Unknown persisted keys are retained so a read/rewrite by this version does
+  /// not erase extensions written by another governed version.
+  final Map<String, dynamic> extensions;
 
   ComponentAction({
     this.id,
@@ -117,13 +101,14 @@ class ComponentAction {
     this.updatedAt,
     this.version = 1,
     this.metadataJson,
-  }) : createdAt = createdAt ?? DateTime.now();
+    Map<String, dynamic>? extensions,
+  }) : createdAt = createdAt ?? DateTime.now(),
+       extensions = Map<String, dynamic>.unmodifiable(
+         extensions ?? const <String, dynamic>{},
+       );
 
-  // ─────────────────────────────────────────────
-  // SERIALIZATION
-  // ─────────────────────────────────────────────
-
-  Map<String, dynamic> toMap() => {
+  Map<String, dynamic> toMap() => <String, dynamic>{
+    ...extensions,
     'id': id,
     'asset': asset,
     'component': component,
@@ -140,13 +125,8 @@ class ComponentAction {
     'remarks': remarks,
     'templateFieldKey': templateFieldKey,
     'isAutoResolved': isAutoResolved,
-
-    // 🔥 NEW STRUCTURED STATUS
     'status': status?.name,
-
     'createdAt': createdAt.toIso8601String(),
-
-    // existing extended fields
     'severity': severity.name,
     'performedBy': performedBy,
     'updatedAt': updatedAt?.toIso8601String(),
@@ -154,80 +134,200 @@ class ComponentAction {
     'metadataJson': metadataJson,
   };
 
-  factory ComponentAction.fromMap(Map<String, dynamic> map) {
+  factory ComponentAction.fromMap(Map<String, dynamic> map, {String? source}) {
+    final extensions = <String, dynamic>{
+      for (final entry in map.entries)
+        if (!_knownFields.contains(entry.key)) entry.key: entry.value,
+    };
+
     return ComponentAction(
-      id: map['id'],
-      asset: map['asset'] ?? '',
-      component: map['component'] ?? '',
-
-      hierarchyPath: (map['hierarchyPath'] as List?)
-          ?.map((e) => e.toString())
-          .toList(),
-
-      system: map['system'],
-      subsystem: map['subsystem'],
-      subComponent: map['subComponent'],
-      tag: map['tag'],
-      instance: map['instance'],
-
-      actionType: _enumByNameOr(
+      id: _readOptionalRawString(map['id'], field: 'id', source: source),
+      asset: readRequiredPersistedString(
+        map['asset'],
+        field: 'asset',
+        source: source,
+      ),
+      component: readRequiredPersistedString(
+        map['component'],
+        field: 'component',
+        source: source,
+      ),
+      hierarchyPath: readNullablePersistedStringList(
+        map['hierarchyPath'],
+        field: 'hierarchyPath',
+        source: source,
+      ),
+      system: _readOptionalRawString(
+        map['system'],
+        field: 'system',
+        source: source,
+      ),
+      subsystem: _readOptionalRawString(
+        map['subsystem'],
+        field: 'subsystem',
+        source: source,
+      ),
+      subComponent: _readOptionalRawString(
+        map['subComponent'],
+        field: 'subComponent',
+        source: source,
+      ),
+      tag: _readOptionalRawString(map['tag'], field: 'tag', source: source),
+      instance: _readOptionalRawString(
+        map['instance'],
+        field: 'instance',
+        source: source,
+      ),
+      actionType: readRequiredPersistedEnum(
         ActionType.values,
         map['actionType'],
-        ActionType.issue,
+        field: 'actionType',
+        source: source,
       ),
-
-      replacement: _enumByNameOrNull(
+      replacement: readOptionalPersistedEnum(
         ReplacementType.values,
         map['replacement'],
+        field: 'replacement',
+        source: source,
       ),
-
-      issue: map['issue'],
-      resolution: map['resolution'],
-      remarks: map['remarks'],
-      templateFieldKey: map['templateFieldKey'],
-      isAutoResolved: map['isAutoResolved'] ?? false,
-
-      // 🔥 SAFE STATUS PARSING
-      status: _enumByNameOrNull(ActionStatus.values, map['status']),
-
-      createdAt:
-      DateTime.tryParse(map['createdAt'] ?? '') ?? DateTime.now(),
-
-      // existing safe parsing
-      severity: _enumByNameOr(
+      issue: _readOptionalRawString(
+        map['issue'],
+        field: 'issue',
+        source: source,
+      ),
+      resolution: _readOptionalRawString(
+        map['resolution'],
+        field: 'resolution',
+        source: source,
+      ),
+      remarks: _readOptionalRawString(
+        map['remarks'],
+        field: 'remarks',
+        source: source,
+      ),
+      templateFieldKey: _readOptionalRawString(
+        map['templateFieldKey'],
+        field: 'templateFieldKey',
+        source: source,
+      ),
+      isAutoResolved: readRequiredPersistedBool(
+        map['isAutoResolved'],
+        field: 'isAutoResolved',
+        source: source,
+      ),
+      status: readOptionalPersistedEnum(
+        ActionStatus.values,
+        map['status'],
+        field: 'status',
+        source: source,
+      ),
+      createdAt: readRequiredPersistedDateTime(
+        map['createdAt'],
+        field: 'createdAt',
+        source: source,
+      ),
+      severity: readRequiredPersistedEnum(
         ActionSeverity.values,
         map['severity'],
-        ActionSeverity.medium,
+        field: 'severity',
+        source: source,
       ),
-
-      performedBy: map['performedBy'],
-
-      updatedAt: map['updatedAt'] != null
-          ? DateTime.tryParse(map['updatedAt'])
-          : null,
-
-      version: map['version'] ?? 1,
-      metadataJson: map['metadataJson'],
+      performedBy: _readOptionalRawString(
+        map['performedBy'],
+        field: 'performedBy',
+        source: source,
+      ),
+      updatedAt: readOptionalPersistedDateTime(
+        map['updatedAt'],
+        field: 'updatedAt',
+        source: source,
+      ),
+      version: readRequiredPersistedInt(
+        map['version'],
+        field: 'version',
+        source: source,
+        minimum: 1,
+      ),
+      metadataJson: _readOptionalRawString(
+        map['metadataJson'],
+        field: 'metadataJson',
+        source: source,
+      ),
+      extensions: extensions,
     );
   }
 
-  // ─────────────────────────────────────────────
-  // JSON HELPERS
-  // ─────────────────────────────────────────────
-
   static String encode(List<ComponentAction> actions) =>
-      jsonEncode(actions.map((e) => e.toMap()).toList());
+      jsonEncode(actions.map((action) => action.toMap()).toList());
 
-  static List<ComponentAction> decode(String? jsonStr) {
-    if (jsonStr == null || jsonStr.isEmpty) return [];
+  static List<ComponentAction> decode(String? jsonStr, {String? source}) {
+    if (jsonStr == null) {
+      throw PersistedDataFormatException(
+        field: 'actionsJson',
+        source: source,
+        detail: 'required JSON array (Null)',
+      );
+    }
+    final rows = readRequiredJsonObjectList(
+      jsonStr,
+      field: 'actionsJson',
+      source: source,
+    );
+    return <ComponentAction>[
+      for (var index = 0; index < rows.length; index++)
+        ComponentAction.fromMap(
+          rows[index],
+          source:
+              source == null
+                  ? 'actionsJson[$index]'
+                  : '$source actionsJson[$index]',
+        ),
+    ];
+  }
 
+  static ComponentActionReadResult tryDecode(
+    String? jsonStr, {
+    String? source,
+  }) {
     try {
-      final List data = jsonDecode(jsonStr);
-      return data
-          .map((e) => ComponentAction.fromMap(e))
-          .toList();
-    } catch (_) {
-      return [];
+      return ComponentActionReadResult._(
+        entries: decode(jsonStr, source: source),
+        error: null,
+      );
+    } on FormatException catch (error) {
+      return ComponentActionReadResult._(
+        entries: const <ComponentAction>[],
+        error: error,
+      );
     }
   }
+
+  /// Canonical action payloads are strings. Missing fields remain compatible
+  /// with records created before actions were introduced, but wrong types are
+  /// rejected instead of being silently rewritten as an empty list.
+  static String readEncodedPayload(
+    dynamic value, {
+    required String field,
+    String? source,
+  }) {
+    if (value == null) return '[]';
+    if (value is String) return value;
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'expected a JSON string (${value.runtimeType})',
+    );
+  }
 }
+
+String? _readOptionalRawString(
+  dynamic value, {
+  required String field,
+  String? source,
+}) => readOptionalPersistedString(
+  value,
+  field: field,
+  source: source,
+  emptyAsNull: false,
+  trim: false,
+);

@@ -48,6 +48,20 @@ extension _SyncServiceTicketsTemplates on SyncService {
           continue;
         }
 
+        final evidenceError = _maintenanceEvidenceIntegrityError(record);
+        if (evidenceError != null) {
+          lastFailureCount++;
+          _recordPushFailureDetail(
+            entityType: 'maintenance_ticket',
+            entityId: record.firestoreId!,
+            error: evidenceError,
+          );
+          debugPrint(
+            'Blocked ticket sync for ${record.id}: $evidenceError',
+          );
+          continue;
+        }
+
         _checkClockDrift(record.updatedAt, 'ticket ${record.id}');
 
         final remote = remoteMap[record.firestoreId];
@@ -137,6 +151,18 @@ extension _SyncServiceTicketsTemplates on SyncService {
         await _maintenanceRepo.markTicketsSyncedIfUnchanged(snapshotsToMark);
       }
     }
+  }
+
+  String? _maintenanceEvidenceIntegrityError(MaintenanceRecord record) {
+    final actions = record.actionsReadResult;
+    if (!actions.isValid) {
+      return 'Saved action evidence needs repair before synchronization.';
+    }
+    final history = record.resolutionHistoryReadResult;
+    if (!history.isValid) {
+      return 'Saved resolution history needs repair before synchronization.';
+    }
+    return null;
   }
 
   Future<bool> _tryPushDecomposedMaintenanceTicket(

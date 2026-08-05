@@ -150,6 +150,7 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final actionRead = module.actionsReadResult;
     final closureSatisfied =
         !module.requiredForClosure ||
         module.status == JobModuleStatus.accepted ||
@@ -279,7 +280,14 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
             emptyText:
                 'No structured responses were captured for this module before closure.',
           ),
-          if (module.actions.isNotEmpty) ...[
+          if (!actionRead.isValid) ...[
+            const SizedBox(height: BafSpacing.md),
+            const PersistedDataIntegrityNotice(
+              title: 'Module actions need repair',
+              message:
+                  'Saved action evidence is malformed, so no action count or detail is inferred.',
+            ),
+          ] else if (actionRead.entries.isNotEmpty) ...[
             const SizedBox(height: BafSpacing.md),
             const Text(
               'Module actions / observations',
@@ -290,7 +298,7 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: BafSpacing.sm),
-            ...module.actions.map(_ActionDossierCard.new),
+            ...actionRead.entries.map(_ActionDossierCard.new),
           ],
           if (_moduleText(module.draftNote) != null ||
               _moduleText(module.submissionNote) != null ||

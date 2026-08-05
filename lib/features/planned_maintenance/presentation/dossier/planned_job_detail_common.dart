@@ -299,7 +299,7 @@ class _LegacyModuleCard extends StatelessWidget {
     final statusColor =
         execution.isCompleted ? BafColors.sync : BafColors.warning;
     final responseCount = execution.responses.where(_isRealResponse).length;
-    final actionCount = execution.actions.length;
+    final actionRead = execution.actionsReadResult;
 
     return Container(
       padding: const EdgeInsets.all(BafSpacing.md),
@@ -360,11 +360,19 @@ class _LegacyModuleCard extends StatelessWidget {
                 color: BafColors.planned,
                 icon: Icons.fact_check_rounded,
               ),
-              StatusBadge(
-                label: '$actionCount action${actionCount == 1 ? '' : 's'}',
-                color: BafColors.assets,
-                icon: Icons.build_rounded,
-              ),
+              if (actionRead.isValid)
+                StatusBadge(
+                  label:
+                      '${actionRead.entries.length} action${actionRead.entries.length == 1 ? '' : 's'}',
+                  color: BafColors.assets,
+                  icon: Icons.build_rounded,
+                )
+              else
+                const StatusBadge(
+                  label: 'Actions need repair',
+                  color: BafColors.danger,
+                  icon: Icons.warning_amber_rounded,
+                ),
             ],
           ),
         ],

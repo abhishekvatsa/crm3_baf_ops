@@ -23,7 +23,7 @@ class JobModuleCard extends StatelessWidget {
     final statusColor = _statusColor(module.status);
     final synced = module.isSynced;
     final responseCount = module.responses.length;
-    final actionCount = module.actions.length;
+    final actionRead = module.actionsReadResult;
     final hasPendingIssue = _text(module.pendingIssue) != null;
     final needsClosureEvidence =
         module.requiredForClosure && responseCount == 0;
@@ -176,14 +176,22 @@ class JobModuleCard extends StatelessWidget {
                             ? BafColors.sync
                             : BafColors.textSecondary,
                   ),
-                  _ModuleMetricPill(
-                    icon: Icons.build_circle_rounded,
-                    label: '$actionCount action${actionCount == 1 ? '' : 's'}',
-                    color:
-                        actionCount > 0
-                            ? BafColors.planned
-                            : BafColors.textSecondary,
-                  ),
+                  if (actionRead.isValid)
+                    _ModuleMetricPill(
+                      icon: Icons.build_circle_rounded,
+                      label:
+                          '${actionRead.entries.length} action${actionRead.entries.length == 1 ? '' : 's'}',
+                      color:
+                          actionRead.entries.isNotEmpty
+                              ? BafColors.planned
+                              : BafColors.textSecondary,
+                    )
+                  else
+                    const _ModuleMetricPill(
+                      icon: Icons.warning_amber_rounded,
+                      label: 'Actions need repair',
+                      color: BafColors.danger,
+                    ),
                   if (_lifecycleActorLine(module) != null)
                     _ModuleMetricPill(
                       icon: _lifecycleIcon(module.status),

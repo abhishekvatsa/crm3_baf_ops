@@ -234,6 +234,19 @@ void _requireMaintenanceWorkflowAllowsAction(
   );
 }
 
+void _requireValidMaintenanceEvidence(MaintenanceRecord record) {
+  if (!record.actionsReadResult.isValid) {
+    throw StateError(
+      'Saved action evidence needs repair before this ticket can be changed.',
+    );
+  }
+  if (!record.resolutionHistoryReadResult.isValid) {
+    throw StateError(
+      'Saved resolution history needs repair before this ticket can be changed.',
+    );
+  }
+}
+
 void _requireMaintenanceWorkflowMapAllowsAction(
   Map<String, dynamic> data,
   String action,
@@ -260,6 +273,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
 
   @override
   Future<void> saveTicket(MaintenanceRecord record) async {
+    _requireValidMaintenanceEvidence(record);
     record.updatedAt = DateTime.now();
     record.version += 1;
     record.isSynced = false;
@@ -510,6 +524,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
   }) async {
     _requireCanAdminEditMaintenanceTicket(actor);
     _requireMaintenanceWorkflowAllowsAction(record, 'edit this ticket');
+    _requireValidMaintenanceEvidence(record);
     final now = DateTime.now();
     _normalizeManualMaintenanceUpdate(record, now);
     record.updatedAt = now;
@@ -653,6 +668,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
       final t = await isar.maintenanceRecords.get(ticketId);
       if (t != null && !t.isResolved && !t.isDeleted) {
         _requireMaintenanceWorkflowAllowsAction(t, 'resolve this ticket');
+        _requireValidMaintenanceEvidence(t);
         t.isResolved = true;
         t.status = TicketStatus.resolved;
         t.endDate = endDate ?? DateTime.now();
@@ -685,6 +701,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
       final t = await isar.maintenanceRecords.get(ticketId);
       if (t != null && t.isResolved && t.endDate != null && !t.isDeleted) {
         _requireMaintenanceWorkflowAllowsAction(t, 'reopen this ticket');
+        _requireValidMaintenanceEvidence(t);
         final hoursSinceClosure = DateTime.now().difference(t.endDate!).inHours;
         if (hoursSinceClosure > 4) {
           throw Exception('Cannot reopen: closed more than 4 hours ago');
@@ -1120,6 +1137,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
 
   @override
   Future<void> saveTicket(MaintenanceRecord record) async {
+    _requireValidMaintenanceEvidence(record);
     if (record.firestoreId == null) {
       throw Exception('firestoreId cannot be null');
     }
@@ -1231,6 +1249,9 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       current.data()!,
       'edit this ticket',
     );
+    final currentRecord = _mapTicket(current);
+    _requireValidMaintenanceEvidence(currentRecord);
+    _requireValidMaintenanceEvidence(record);
     final now = DateTime.now();
     _normalizeManualMaintenanceUpdate(record, now);
 
@@ -1251,6 +1272,8 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
         record.otherDepartment,
       ),
       'remarks': _nullableTextForFirestoreUpdate(record.remarks),
+      'actionsJson': record.actionsJson,
+      'resolutionHistoryJson': record.resolutionHistoryJson,
       'updatedAt': now.toIso8601String(),
       'version': FieldValue.increment(1),
     };
@@ -1262,7 +1285,6 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
         'closedByName': record.closedByName,
         'downtimeHours': record.downtimeHours,
         'teamsInvolved': record.teamsInvolved,
-        'actionsJson': record.actionsJson,
       });
       updateMap.removeWhere((key, value) => value == null);
     } else {
@@ -1272,7 +1294,6 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
         'closedByName': FieldValue.delete(),
         'downtimeHours': FieldValue.delete(),
         'teamsInvolved': [],
-        'actionsJson': '[]',
       });
     }
 
@@ -1372,6 +1393,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       current.data()!,
       'resolve this ticket',
     );
+    _requireValidMaintenanceEvidence(_mapTicket(current));
     final now = (endDate ?? DateTime.now()).toIso8601String();
     final updateData = <String, dynamic>{
       'isResolved': true,
@@ -1405,6 +1427,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     if (!doc.exists || doc.data() == null) throw Exception('Ticket not found');
     final data = doc.data()!;
     _requireMaintenanceWorkflowMapAllowsAction(data, 'reopen this ticket');
+    _requireValidMaintenanceEvidence(_mapTicket(doc));
     final isResolved = data['isResolved'] ?? false;
     final endDateStr = data['endDate'];
     if (!isResolved || endDateStr == null) {

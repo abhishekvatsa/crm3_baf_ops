@@ -505,7 +505,22 @@ class JobExecution {
   String actionsJson = '[]';
 
   @ignore
-  List<ComponentAction> get actions => ComponentAction.decode(actionsJson);
+  List<ComponentAction> get actions => ComponentAction.decode(
+    actionsJson,
+    source:
+        firestoreId == null
+            ? 'local job execution $id'
+            : 'job execution $firestoreId',
+  );
+
+  @ignore
+  ComponentActionReadResult get actionsReadResult => ComponentAction.tryDecode(
+    actionsJson,
+    source:
+        firestoreId == null
+            ? 'local job execution $id'
+            : 'job execution $firestoreId',
+  );
 
   set actions(List<ComponentAction> value) {
     actionsJson = ComponentAction.encode(value);
@@ -681,7 +696,11 @@ class JobExecution {
       ..remarks = map['remarks']
       ..teamsInvolved = List<String>.from(map['teamsInvolved'] ?? [])
       ..chargeNoAtEvent = map['chargeNoAtEvent']
-      ..actionsJson = map['actionsJson'] ?? '[]'
+      ..actionsJson = ComponentAction.readEncodedPayload(
+        map['actionsJson'],
+        field: 'actionsJson',
+        source: 'job execution $documentId',
+      )
       ..version = map['version'] ?? 1
       ..metadataJson = map['metadataJson']
       ..isDeleted = map['isDeleted'] ?? false

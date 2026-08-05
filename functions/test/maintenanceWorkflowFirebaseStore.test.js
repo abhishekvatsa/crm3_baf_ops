@@ -9,6 +9,7 @@ const {
 } = require('../lib/maintenanceWorkflow/firebaseStore');
 const {
   maintenanceProjectionForAwaitingConfirmation,
+  maintenanceProjectionForCorrection,
 } = require('../lib/maintenanceWorkflow/maintenanceBridge');
 const {
   equipmentProjectionWrite,
@@ -122,6 +123,83 @@ describe('maintenance workflow Firestore persistence adapter', () => {
     expect(converted.priorEvidence.observedAt).toBe(inherited);
     expect(converted.createdAt).toBeInstanceOf(admin.firestore.Timestamp);
     expect(converted.updatedAt).toBeInstanceOf(admin.firestore.Timestamp);
+  });
+
+  test('workflow correction preserves history extensions and normalizes closure time', () => {
+    const closedAt = admin.firestore.Timestamp.fromDate(
+      new Date('2026-07-21T05:00:00.000Z'),
+    );
+    const action = {
+      asset: 'furnace-1',
+      component: 'burner',
+      actionType: 'inspection',
+      isAutoResolved: false,
+      createdAt: '2026-07-21T04:30:00.000Z',
+      severity: 'medium',
+      version: 1,
+      futureActionField: {retained: true},
+    };
+    const projection = maintenanceProjectionForCorrection({
+      maintenance: {
+        version: 7,
+        isResolved: true,
+        endDate: closedAt,
+        closedByUid: 'ops-1',
+        closedByName: 'Operations',
+        actionsJson: JSON.stringify([action]),
+        teamsInvolved: ['operations'],
+        resolutionHistoryJson: JSON.stringify([{
+          resolvedAt: '2026-07-20T05:00:00.000Z',
+          actionsJson: '[]',
+          futureHistoryField: {retained: true},
+        }]),
+      },
+      reason: 'Further correction required',
+      actorUid: 'elec-1',
+      actorName: 'Electrical',
+      at: new Date('2026-07-21T05:15:00.000Z'),
+    });
+
+    const rows = JSON.parse(projection.resolutionHistoryJson);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].futureHistoryField).toEqual({retained: true});
+    expect(rows[1].resolvedAt).toBe('2026-07-21T05:00:00.000Z');
+    expect(JSON.parse(rows[1].actionsJson)[0].futureActionField).toEqual({
+      retained: true,
+    });
+  });
+
+  test.each([
+    ['malformed JSON', '{not-json', new Date('2026-07-21T05:00:00.000Z')],
+    ['wrong root', '{}', new Date('2026-07-21T05:00:00.000Z')],
+    ['non-object row', '["lost"]', new Date('2026-07-21T05:00:00.000Z')],
+    ['missing closure time', '[]', null],
+  ])('workflow correction fails closed for %s', (_label, history, endDate) => {
+    let caught;
+    try {
+      maintenanceProjectionForCorrection({
+        maintenance: {
+          version: 7,
+          isResolved: true,
+          endDate,
+          actionsJson: '[]',
+          teamsInvolved: [],
+          resolutionHistoryJson: history,
+        },
+        reason: 'Further correction required',
+        actorUid: 'elec-1',
+        actorName: 'Electrical',
+        at: new Date('2026-07-21T05:15:00.000Z'),
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'maintenance-resolution-history-invalid',
+      }),
+    });
   });
 
 });

@@ -240,7 +240,12 @@ describe('maintenance workflow command integration', () => {
     });
     seedRedSuccessorTemplate(store, 'furnace');
     const service = serviceFor(store);
-    const receipt = await service.execute({commandId: 'final-red', commandType: 'finalizeJob', aggregateId: 'wf1', expectedVersion: 8, payload: {redRequired: true, preparationRequired: true, remarks: 'Mechanical work complete', teamsInvolved: ['mechanical'], responsesJson: '[{"key":"final","value":"ok"}]', actionsJson: '[{"component":"burner","action":"checked"}]'}}, {actor: admin, serverNow: at('2026-07-20T05:00:00Z')});
+    const actionsJson = JSON.stringify([{
+      asset: 'furnace-7', component: 'burner', actionType: 'inspection',
+      isAutoResolved: false, createdAt: '2026-07-20T04:55:00.000Z',
+      severity: 'medium', version: 1,
+    }]);
+    const receipt = await service.execute({commandId: 'final-red', commandType: 'finalizeJob', aggregateId: 'wf1', expectedVersion: 8, payload: {redRequired: true, preparationRequired: true, remarks: 'Mechanical work complete', teamsInvolved: ['mechanical'], responsesJson: '[{"key":"final","value":"ok"}]', actionsJson}}, {actor: admin, serverNow: at('2026-07-20T05:00:00Z')});
     const successorWorkflowId = receipt.result.successorWorkflowId;
     const successorExecutionId = receipt.result.successorExecutionId;
     expect(store.read(`maintenance_workflows/${successorWorkflowId}`)).toMatchObject({status: 'awaitingCompliance', activeRedWork: false, awaitingPreparation: true});
@@ -249,7 +254,7 @@ describe('maintenance workflow command integration', () => {
     expect(store.read('job_executions/wf1-exec')).toMatchObject({
       isCompleted: true, remarks: 'Mechanical work complete', teamsInvolved: ['mechanical'],
       responsesJson: '[{"key":"final","value":"ok"}]',
-      actionsJson: '[{"component":"burner","action":"checked"}]',
+      actionsJson,
       spawnedRedExecutionFirestoreId: successorExecutionId,
     });
     expect(store.read('equipment_status/furnace_7').state).toBe('awaitingPreparation');

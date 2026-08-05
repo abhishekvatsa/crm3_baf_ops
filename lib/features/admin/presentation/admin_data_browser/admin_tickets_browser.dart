@@ -376,6 +376,9 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
   Widget build(BuildContext context) {
     final ticket = widget.ticket;
     final statusColor = _adminTicketStatusColor(ticket.status);
+    final evidenceIsValid =
+        ticket.actionsReadResult.isValid &&
+        ticket.resolutionHistoryReadResult.isValid;
 
     return Card(
       color: BafColors.card,
@@ -398,12 +401,28 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: BafSpacing.xs),
-          child: Text(
-            'Logged: ${DateFormat('dd MMM yyyy, HH:mm').format(ticket.createdAt)} | By: ${ticket.loggedByName ?? ticket.reportedBy ?? 'Unknown'}',
-            style: const TextStyle(
-              color: BafColors.textSecondary,
-              fontSize: 12,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Logged: ${DateFormat('dd MMM yyyy, HH:mm').format(ticket.createdAt)} | By: ${ticket.loggedByName ?? ticket.reportedBy ?? 'Unknown'}',
+                style: const TextStyle(
+                  color: BafColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+              if (!evidenceIsValid) ...[
+                const SizedBox(height: 4),
+                const Text(
+                  'Saved evidence needs repair before editing',
+                  style: TextStyle(
+                    color: BafColors.danger,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         leading: Container(
@@ -432,9 +451,18 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
             ),
             const SizedBox(width: BafSpacing.xs),
             IconButton(
-              tooltip: 'Edit ticket',
-              icon: const Icon(Icons.edit, color: BafColors.planned),
-              onPressed: () => _showEditDialog(ticket),
+              tooltip:
+                  evidenceIsValid
+                      ? 'Edit ticket'
+                      : 'Repair saved evidence before editing',
+              icon: Icon(
+                Icons.edit,
+                color:
+                    evidenceIsValid
+                        ? BafColors.planned
+                        : BafColors.textSecondary,
+              ),
+              onPressed: evidenceIsValid ? () => _showEditDialog(ticket) : null,
             ),
             if (!ticket.isDeleted)
               IconButton(

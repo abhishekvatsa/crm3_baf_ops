@@ -453,7 +453,22 @@ class JobModuleInstance {
   }
 
   @ignore
-  List<ComponentAction> get actions => ComponentAction.decode(actionsJson);
+  List<ComponentAction> get actions => ComponentAction.decode(
+    actionsJson,
+    source:
+        firestoreId == null
+            ? 'local job module $id'
+            : 'job module $firestoreId',
+  );
+
+  @ignore
+  ComponentActionReadResult get actionsReadResult => ComponentAction.tryDecode(
+    actionsJson,
+    source:
+        firestoreId == null
+            ? 'local job module $id'
+            : 'job module $firestoreId',
+  );
 
   set actions(List<ComponentAction> value) {
     actionsJson = ComponentAction.encode(value);
@@ -660,7 +675,11 @@ class JobModuleInstance {
             map['operationalStatePreconditions'],
           )
           ..responsesJson = _safeJsonList(map['responsesJson'])
-          ..actionsJson = _safeJsonList(map['actionsJson'])
+          ..actionsJson = ComponentAction.readEncodedPayload(
+            map['actionsJson'],
+            field: 'actionsJson',
+            source: 'job module $documentId',
+          )
           ..draftNote = _cleanOptionalText(map['draftNote'])
           ..submissionNote = _cleanOptionalText(map['submissionNote'])
           ..acceptanceNote = _cleanOptionalText(map['acceptanceNote'])

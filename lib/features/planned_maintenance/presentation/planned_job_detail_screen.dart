@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -492,10 +493,12 @@ class _PlannedJobDetailScreenState
   @override
   Widget build(BuildContext context) {
     final execution = widget.execution;
+    final actionRead = execution.actionsReadResult;
     final actor = ref.watch(currentAppUserProvider).value;
     final canAddDiaryEntry = actor?.canCreateJobDiaryEntry ?? false;
     final canAddModule = actor?.canAddJobModuleDuringExecution ?? false;
-    final canCompleteJob = actor?.canCompleteJobExecution ?? false;
+    final canCompleteJob =
+        (actor?.canCompleteJobExecution ?? false) && actionRead.isValid;
     final showBottomActions =
         !execution.isCompleted && (canAddDiaryEntry || canCompleteJob);
     final statusColor =
@@ -544,6 +547,14 @@ class _PlannedJobDetailScreenState
             template: _template,
             statusColor: statusColor,
           ),
+          if (!actionRead.isValid) ...[
+            const SizedBox(height: BafSpacing.lg),
+            const PersistedDataIntegrityNotice(
+              title: 'Saved action evidence needs repair',
+              message:
+                  'Action counts and details are hidden, and job completion is blocked. No saved actions were discarded or replaced.',
+            ),
+          ],
           if (execution.workflowSchemaVersion == 1 &&
               _hasText(execution.firestoreId)) ...[
             const SizedBox(height: BafSpacing.lg),
@@ -735,14 +746,20 @@ class _PlannedJobDetailScreenState
                     : 'Cross-module observations and work to record at completion.',
             icon: Icons.build_circle_rounded,
             children: [
-              if (execution.actions.isEmpty)
+              if (!actionRead.isValid)
+                const PersistedDataIntegrityNotice(
+                  title: 'Actions unavailable',
+                  message:
+                      'This saved action payload is malformed and must be repaired before its evidence can be displayed.',
+                )
+              else if (actionRead.entries.isEmpty)
                 const _EmptyInlineState(
                   icon: Icons.add_task_rounded,
                   text: 'No component actions or observations were recorded.',
                   color: BafColors.planned,
                 )
               else
-                ...execution.actions.map(_ActionDossierCard.new),
+                ...actionRead.entries.map(_ActionDossierCard.new),
             ],
           ),
           const SizedBox(height: BafSpacing.lg),

@@ -789,4 +789,19 @@ describe('runtime planned-job module population mutation', () => {
     });
     expect(writes).toEqual([]);
   });
+
+  test('rejects structurally incomplete component-action evidence', async () => {
+    const {db, writes} = fakeDb({
+      'users/supervisor1': user(),
+      'job_executions/exec1': execution(),
+    });
+    await expect(invoke(db, {
+      operation: 'create',
+      module: modulePayload({actionsJson: '[{}]'}),
+    })).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: expect.objectContaining({reasonCode: 'action-payload-invalid'}),
+    });
+    expect(writes).toEqual([]);
+  });
 });

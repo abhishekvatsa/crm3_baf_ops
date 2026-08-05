@@ -19,6 +19,7 @@ import '../widgets/action_mini_card.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../maintenance_workflow/data/job_lane_record.dart';
 import '../../maintenance_workflow/data/workflow_aggregate_record.dart';
@@ -56,6 +57,10 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
   @override
   void initState() {
     super.initState();
+    final actionRead = widget.execution.actionsReadResult;
+    if (actionRead.isValid) {
+      _actions.addAll(actionRead.entries);
+    }
     _loadTemplate();
   }
 
@@ -102,6 +107,15 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('You are not authorized to complete planned jobs.'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
+    if (!widget.execution.actionsReadResult.isValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot complete: saved action evidence needs repair.'),
           backgroundColor: BafColors.danger,
         ),
       );
@@ -598,6 +612,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
     final moduleGate = _ModuleClosureGateResult.fromAsyncValue(modulesAsync);
     final appUser = ref.watch(currentAppUserProvider).value;
     final hasCompletionAuthority = appUser?.canCompleteJobExecution ?? false;
+    final actionRead = widget.execution.actionsReadResult;
     final workflowId = widget.execution.firestoreId?.trim();
     final workflowAsync =
         widget.execution.workflowSchemaVersion == 1 &&
@@ -636,6 +651,14 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
           ),
           children: [
             _JobContextCard(execution: widget.execution),
+            if (!actionRead.isValid) ...[
+              const SizedBox(height: BafSpacing.lg),
+              const PersistedDataIntegrityNotice(
+                title: 'Saved action evidence needs repair',
+                message:
+                    'Completion is blocked until this payload is repaired. No saved actions were discarded or replaced.',
+              ),
+            ],
             const SizedBox(height: BafSpacing.lg),
             _CompletionAuthorityCard(hasAuthority: hasCompletionAuthority),
             const SizedBox(height: BafSpacing.lg),
@@ -688,7 +711,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: _addAction,
+                    onPressed: actionRead.isValid ? _addAction : null,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: BafColors.planned,
                       side: BorderSide(
@@ -761,7 +784,10 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
         isSubmitting: _isSubmitting,
         completionPhase: _completionPhase,
         hasCompletionAuthority: hasCompletionAuthority,
-        onSubmit: _isSubmitting || !hasCompletionAuthority ? null : _submit,
+        onSubmit:
+            _isSubmitting || !hasCompletionAuthority || !actionRead.isValid
+                ? null
+                : _submit,
       ),
     );
   }
