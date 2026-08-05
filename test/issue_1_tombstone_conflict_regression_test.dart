@@ -458,4 +458,131 @@ void main() {
       );
     },
   );
+
+  test(
+    'A-05 incomplete remote tombstones fail before changing local evidence',
+    () async {
+      await _withTestIsar((isar) async {
+        final createdAt = DateTime.utc(2026, 8, 5, 10);
+        final localUpdatedAt = DateTime.utc(2026, 8, 5, 10, 5);
+        final remoteUpdatedAt = DateTime.utc(2026, 8, 5, 10, 10);
+
+        await isar.writeTxn(() async {
+          await isar.maintenanceRecords.put(
+            _maintenanceRecord(
+              firestoreId: 'ticket_incomplete',
+              createdAt: createdAt,
+              updatedAt: localUpdatedAt,
+              isSynced: true,
+            ),
+          );
+          await isar.jobExecutions.put(
+            _jobExecution(
+              firestoreId: 'execution_incomplete',
+              createdAt: createdAt,
+              updatedAt: localUpdatedAt,
+              isSynced: true,
+            ),
+          );
+          await isar.jobModuleInstances.put(
+            _jobModule(
+              firestoreId: 'module_incomplete',
+              createdAt: createdAt,
+              updatedAt: localUpdatedAt,
+              isSynced: true,
+            ),
+          );
+          await isar.jobDiaryEntrys.put(
+            _diaryEntry(
+              firestoreId: 'diary_incomplete',
+              createdAt: createdAt,
+              updatedAt: localUpdatedAt,
+              isSynced: true,
+            ),
+          );
+        });
+
+        await expectLater(
+          IsarMaintenanceRepository().applyTombstoneFromMaintenanceRemote(
+            _maintenanceRecord(
+              firestoreId: 'ticket_incomplete',
+              createdAt: createdAt,
+              updatedAt: remoteUpdatedAt,
+              isSynced: true,
+              isDeleted: true,
+              version: 2,
+            ),
+          ),
+          throwsA(isA<RemoteTombstoneIntegrityException>()),
+        );
+        await expectLater(
+          IsarPlannedRepository().applyTombstoneFromExecutionRemote(
+            _jobExecution(
+              firestoreId: 'execution_incomplete',
+              createdAt: createdAt,
+              updatedAt: remoteUpdatedAt,
+              isSynced: true,
+              isDeleted: true,
+              version: 2,
+            ),
+          ),
+          throwsA(isA<RemoteTombstoneIntegrityException>()),
+        );
+        await expectLater(
+          IsarJobModuleRepository().applyTombstoneFromRemote(
+            _jobModule(
+              firestoreId: 'module_incomplete',
+              createdAt: createdAt,
+              updatedAt: remoteUpdatedAt,
+              isSynced: true,
+              isDeleted: true,
+              version: 2,
+            ),
+          ),
+          throwsA(isA<RemoteTombstoneIntegrityException>()),
+        );
+        await expectLater(
+          IsarJobDiaryRepository().applyTombstoneFromRemote(
+            _diaryEntry(
+              firestoreId: 'diary_incomplete',
+              createdAt: createdAt,
+              updatedAt: remoteUpdatedAt,
+              isSynced: true,
+              isDeleted: true,
+              version: 2,
+            ),
+          ),
+          throwsA(isA<RemoteTombstoneIntegrityException>()),
+        );
+
+        final ticket =
+            await isar.maintenanceRecords
+                .filter()
+                .firestoreIdEqualTo('ticket_incomplete')
+                .findFirst();
+        final execution =
+            await isar.jobExecutions
+                .filter()
+                .firestoreIdEqualTo('execution_incomplete')
+                .findFirst();
+        final module =
+            await isar.jobModuleInstances
+                .filter()
+                .firestoreIdEqualTo('module_incomplete')
+                .findFirst();
+        final diary =
+            await isar.jobDiaryEntrys
+                .filter()
+                .firestoreIdEqualTo('diary_incomplete')
+                .findFirst();
+
+        for (final record in <dynamic>[ticket, execution, module, diary]) {
+          expect(record, isNotNull);
+          expect(record.isDeleted, isFalse);
+          expect(record.updatedAt.toUtc(), localUpdatedAt);
+          expect(record.version, 1);
+        }
+      });
+    },
+  );
 }

@@ -610,6 +610,11 @@ class IsarDirectiveRepository implements DirectiveRepository {
     if (!remote.isDeleted) {
       return const RemoteTombstoneApplyResult.notDeletedRemote();
     }
+    final remoteDeleteTime = requireRemoteTombstoneDeletedAt(
+      remote.deletedAt,
+      entityLabel: 'operational directive',
+      firestoreId: remote.firestoreId,
+    );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
       final local =
@@ -623,7 +628,6 @@ class IsarDirectiveRepository implements DirectiveRepository {
         return RemoteTombstoneApplyResult.alreadyDeleted(local);
       }
 
-      final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
       if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
         debugPrint(
           '🛡️ Preserved fresher unsynced local directive against remote tombstone: '
@@ -635,7 +639,7 @@ class IsarDirectiveRepository implements DirectiveRepository {
 
       local
         ..isDeleted = true
-        ..deletedAt = remote.deletedAt ?? DateTime.now()
+        ..deletedAt = remoteDeleteTime
         ..deletedByUid = remote.deletedByUid
         ..deletedByName = remote.deletedByName
         ..deleteReason = remote.deleteReason
@@ -740,6 +744,14 @@ class IsarDirectiveRepository implements DirectiveRepository {
   @override
   Future<void> updateFromRemote(OperationalDirective remote) async {
     if (remote.firestoreId == null) return;
+    final remoteDeleteTime =
+        remote.isDeleted
+            ? requireRemoteTombstoneDeletedAt(
+              remote.deletedAt,
+              entityLabel: 'operational directive',
+              firestoreId: remote.firestoreId,
+            )
+            : null;
     await isar.writeTxn(() async {
       final local =
           await isar.operationalDirectives
@@ -750,8 +762,7 @@ class IsarDirectiveRepository implements DirectiveRepository {
 
       // 🔥 FIXED: replaced hard delete with tombstone copy
       if (remote.isDeleted) {
-        final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
+        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
           debugPrint(
             '🛡️ Preserved fresher unsynced directive against remote tombstone in updateFromRemote: '
             'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
@@ -762,7 +773,7 @@ class IsarDirectiveRepository implements DirectiveRepository {
 
         if (!local.isDeleted) {
           local.isDeleted = true;
-          local.deletedAt = remote.deletedAt ?? DateTime.now();
+          local.deletedAt = remoteDeleteTime;
           local.deletedByUid = remote.deletedByUid;
           local.deletedByName = remote.deletedByName;
           local.deleteReason = remote.deleteReason;
@@ -1377,6 +1388,13 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
               DateTime.now()
           ..version = data['version'] ?? 1
           ..isSynced = true;
+    if (directive.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        directive.deletedAt,
+        entityLabel: 'operational directive',
+        firestoreId: directive.firestoreId,
+      );
+    }
     _normalizeDirectiveFromRemote(directive);
     return directive;
   }

@@ -1057,12 +1057,19 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   @override
   Future<void> updatePackageFromRemote(TemplatePackage remote) async {
     if (remote.firestoreId == null) return;
+    final remoteDeleteTime =
+        remote.isDeleted
+            ? requireRemoteTombstoneDeletedAt(
+              remote.deletedAt,
+              entityLabel: 'template package',
+              firestoreId: remote.firestoreId,
+            )
+            : null;
     await isar.writeTxn(() async {
       final local = await getPackageByFirestoreId(remote.firestoreId!);
       if (local == null) return;
       if (remote.isDeleted) {
-        final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
+        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
           debugPrint(
             '🛡️ Preserved fresher unsynced template package against remote tombstone in updatePackageFromRemote: '
             'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
@@ -1089,6 +1096,11 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
     if (!remote.isDeleted) {
       return const RemoteTombstoneApplyResult.notDeletedRemote();
     }
+    final remoteDeleteTime = requireRemoteTombstoneDeletedAt(
+      remote.deletedAt,
+      entityLabel: 'template package',
+      firestoreId: remote.firestoreId,
+    );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
       final local = await getPackageByFirestoreId(remote.firestoreId!);
@@ -1097,7 +1109,6 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
         return RemoteTombstoneApplyResult.alreadyDeleted(local);
       }
 
-      final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
       if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
         debugPrint(
           '🛡️ Preserved fresher unsynced template package against remote tombstone: '
@@ -1109,7 +1120,7 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
 
       local
         ..isDeleted = true
-        ..deletedAt = remote.deletedAt ?? DateTime.now()
+        ..deletedAt = remoteDeleteTime
         ..deletedByUid = remote.deletedByUid
         ..deletedByName = remote.deletedByName
         ..deleteReason = remote.deleteReason
@@ -1179,12 +1190,19 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   @override
   Future<void> updateVersionFromRemote(TemplateVersion remote) async {
     if (remote.firestoreId == null) return;
+    final remoteDeleteTime =
+        remote.isDeleted
+            ? requireRemoteTombstoneDeletedAt(
+              remote.deletedAt,
+              entityLabel: 'template version',
+              firestoreId: remote.firestoreId,
+            )
+            : null;
     await isar.writeTxn(() async {
       final local = await getVersionByFirestoreId(remote.firestoreId!);
       if (local == null) return;
       if (remote.isDeleted) {
-        final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
+        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
           debugPrint(
             '🛡️ Preserved fresher unsynced template version against remote tombstone in updateVersionFromRemote: '
             'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
@@ -1211,6 +1229,11 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
     if (!remote.isDeleted) {
       return const RemoteTombstoneApplyResult.notDeletedRemote();
     }
+    final remoteDeleteTime = requireRemoteTombstoneDeletedAt(
+      remote.deletedAt,
+      entityLabel: 'template version',
+      firestoreId: remote.firestoreId,
+    );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
       final local = await getVersionByFirestoreId(remote.firestoreId!);
@@ -1219,7 +1242,6 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
         return RemoteTombstoneApplyResult.alreadyDeleted(local);
       }
 
-      final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
       if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
         debugPrint(
           '🛡️ Preserved fresher unsynced template version against remote tombstone: '
@@ -1231,7 +1253,7 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
 
       local
         ..isDeleted = true
-        ..deletedAt = remote.deletedAt ?? DateTime.now()
+        ..deletedAt = remoteDeleteTime
         ..deletedByUid = remote.deletedByUid
         ..deletedByName = remote.deletedByName
         ..deleteReason = remote.deleteReason

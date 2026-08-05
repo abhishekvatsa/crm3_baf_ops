@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 240
-    and counts.get("SUCCESSOR_MODIFIED") == 170
+    and counts.get("BYTE_IDENTICAL") == 237
+    and counts.get("SUCCESSOR_MODIFIED") == 173
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -6719,6 +6719,41 @@ a05_template_test = text("test/a05_template_composer_integrity_test.dart")
 a05_decision_4 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_4.md"
 )
+a05_tombstone_guard = text(
+    "lib/core/services/remote_tombstone_apply_result.dart"
+)
+a05_tombstone_models = "\n".join(
+    text(path)
+    for path in (
+        "lib/core/services/live_remote_sync_service.dart",
+        "lib/features/abnormalities/data/abnormality_model.dart",
+        "lib/features/directives/providers/operational_directive_provider.dart",
+        "lib/features/maintenance/providers/maintenance_provider.dart",
+        "lib/features/planned_maintenance/data/job_diary_model.dart",
+        "lib/features/planned_maintenance/data/job_module_model.dart",
+        "lib/features/planned_maintenance/data/job_template_model.dart",
+        "lib/features/planned_maintenance/data/template_governance_model.dart",
+    )
+)
+a05_tombstone_provider_paths = (
+    "lib/features/abnormalities/providers/abnormality_provider.dart",
+    "lib/features/directives/providers/operational_directive_provider.dart",
+    "lib/features/maintenance/providers/maintenance_provider.dart",
+    "lib/features/planned_maintenance/providers/job_diary_provider.dart",
+    "lib/features/planned_maintenance/providers/job_module_provider.dart",
+    "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",
+    "lib/features/planned_maintenance/providers/template_governance_provider.dart",
+)
+a05_tombstone_providers = "\n".join(
+    text(path) for path in a05_tombstone_provider_paths
+)
+a05_tombstone_test = text("test/a05_remote_tombstone_integrity_test.dart")
+a05_tombstone_conflict_test = text(
+    "test/issue_1_tombstone_conflict_regression_test.dart"
+)
+a05_decision_5 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_5.md"
+)
 a05_records = [
     record
     for record in programme_ledger.get("technicalFindings", [])
@@ -6733,6 +6768,7 @@ a05_reconciliation_corrections = {
     "test/runtime_module_population_no_loss_test.dart",
 }
 a05_source_delta_paths = {
+    "firestore.rules",
     "functions/src/plannedJobClosure.ts",
     "functions/src/publishedTemplateAssignment.ts",
     "functions/src/runtimeJobModulePopulation.ts",
@@ -6740,20 +6776,26 @@ a05_source_delta_paths = {
     "functions/test/publishedTemplateAssignment.test.js",
     "functions/test/runtimeJobModulePopulation.test.js",
     "lib/core/services/live_remote_sync_service.dart",
+    "lib/core/services/remote_tombstone_apply_result.dart",
     "lib/core/services/sync_service.executions.dart",
     "lib/core/services/sync_service.job_modules.dart",
     "lib/core/services/sync_service.tickets_templates.dart",
     "lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart",
     "lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart",
     "lib/features/admin/utils/admin_ticket_helpers.dart",
+    "lib/features/abnormalities/data/abnormality_model.dart",
+    "lib/features/abnormalities/providers/abnormality_provider.dart",
     "lib/features/audit/models/audit_event_model.dart",
     "lib/features/audit/repositories/audit_repository.dart",
     "lib/features/auth/providers/auth_provider.dart",
+    "lib/features/directives/providers/operational_directive_provider.dart",
     "lib/features/maintenance/data/maintenance_model.dart",
     "lib/features/maintenance/presentation/resolve_form.dart",
     "lib/features/maintenance/providers/maintenance_provider.dart",
     "lib/features/planned_maintenance/data/job_module_model.dart",
+    "lib/features/planned_maintenance/data/job_diary_model.dart",
     "lib/features/planned_maintenance/data/job_template_model.dart",
+    "lib/features/planned_maintenance/data/template_governance_model.dart",
     "lib/features/planned_maintenance/domain/planned_job_closure_attestation.dart",
     "lib/features/planned_maintenance/domain/planned_job_closure_guard.dart",
     "lib/features/planned_maintenance/domain/module_composer_models.dart",
@@ -6773,7 +6815,10 @@ a05_source_delta_paths = {
     "lib/features/planned_maintenance/presentation/widgets/job_module_card.dart",
     "lib/features/planned_maintenance/presentation/widgets/job_module_response_summary.dart",
     "lib/features/planned_maintenance/providers/job_module_provider.dart",
+    "lib/features/planned_maintenance/providers/job_diary_provider.dart",
     "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",
+    "lib/features/planned_maintenance/providers/template_governance_provider.dart",
+    "test/firestore.rules.test.js",
     "test/complete_job_screen_server_gate_test.dart",
     "test/planned_job_closure_guard_test.dart",
 }
@@ -6884,8 +6929,33 @@ check(
     and "decoded before the current recovery draft is" in a05_decision_4
     and "`A-05` remains open" in a05_decision_4
     and "does not inspect or mutate production documents" in a05_decision_4
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 240
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 170
+    and "class RemoteTombstoneIntegrityException" in a05_tombstone_guard
+    and "DateTime requireRemoteTombstoneDeletedAt(" in a05_tombstone_guard
+    and a05_tombstone_models.count("requireRemoteTombstoneDeletedAt(") >= 11
+    and all(
+        "requireRemoteTombstoneDeletedAt(" in text(path)
+        for path in a05_tombstone_provider_paths
+    )
+    and "remote.deletedAt ??" not in a05_tombstone_providers
+    and "function targetTombstoneHasDeletionAuthority()" in rules_source
+    and rules_source.count("targetTombstoneHasDeletionAuthority()") >= 6
+    and "all deletedAt-bearing remote model decoders fail closed"
+        in a05_tombstone_test
+    and "provider source contains no remote deletion-time substitution"
+        in a05_tombstone_test
+    and "incomplete remote tombstones fail before changing local evidence"
+        in a05_tombstone_conflict_test
+    and "abnormality type tombstone requires an authoritative deletion time"
+        in firestore_rules_test
+    and "admin directive tombstone requires an authoritative deletion time"
+        in firestore_rules_test
+    and "job_templates tombstone authority" in firestore_rules_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_5
+    and "cursor cannot advance past the invalid record" in a05_decision_5
+    and "`A-05` remains open" in a05_decision_5
+    and "does not inspect or mutate production documents" in a05_decision_5
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 237
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 173
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

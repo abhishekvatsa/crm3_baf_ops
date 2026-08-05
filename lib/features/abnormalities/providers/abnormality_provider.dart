@@ -429,6 +429,11 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     if (!remote.isDeleted) {
       return const RemoteTombstoneApplyResult.notDeletedRemote();
     }
+    final remoteDeleteTime = requireRemoteTombstoneDeletedAt(
+      remote.deletedAt,
+      entityLabel: 'abnormality type',
+      firestoreId: remote.firestoreId,
+    );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
       final local =
@@ -442,7 +447,6 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
         return RemoteTombstoneApplyResult.alreadyDeleted(local);
       }
 
-      final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
       if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
         debugPrint(
           '🛡️ Preserved fresher unsynced abnormality type against remote tombstone: '
@@ -455,7 +459,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
       local
         ..isDeleted = true
         ..isActive = false
-        ..deletedAt = remote.deletedAt ?? DateTime.now()
+        ..deletedAt = remoteDeleteTime
         ..deletedByUid = remote.deletedByUid
         ..deletedByName = remote.deletedByName
         ..deleteReason = remote.deleteReason
@@ -706,6 +710,11 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     if (!remote.isDeleted) {
       return const RemoteTombstoneApplyResult.notDeletedRemote();
     }
+    final remoteDeleteTime = requireRemoteTombstoneDeletedAt(
+      remote.deletedAt,
+      entityLabel: 'charge abnormality',
+      firestoreId: remote.firestoreId,
+    );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
       final local =
@@ -719,7 +728,6 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
         return RemoteTombstoneApplyResult.alreadyDeleted(local);
       }
 
-      final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
       if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
         debugPrint(
           '🛡️ Preserved fresher unsynced charge abnormality against remote tombstone: '
@@ -731,7 +739,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
 
       local
         ..isDeleted = true
-        ..deletedAt = remote.deletedAt ?? DateTime.now()
+        ..deletedAt = remoteDeleteTime
         ..deletedByUid = remote.deletedByUid
         ..deletedByName = remote.deletedByName
         ..deleteReason = remote.deleteReason
@@ -959,6 +967,14 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
   @override
   Future<void> updateTypeFromRemote(AbnormalityType remote) async {
     if (remote.firestoreId == null) return;
+    final remoteDeleteTime =
+        remote.isDeleted
+            ? requireRemoteTombstoneDeletedAt(
+              remote.deletedAt,
+              entityLabel: 'abnormality type',
+              firestoreId: remote.firestoreId,
+            )
+            : null;
 
     await isar.writeTxn(() async {
       final local =
@@ -970,8 +986,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
       if (local == null) return;
 
       if (remote.isDeleted) {
-        final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
+        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
           debugPrint(
             '🛡️ Preserved fresher unsynced abnormality type against remote tombstone in updateTypeFromRemote: '
             'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
@@ -983,7 +998,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
         local
           ..isDeleted = true
           ..isActive = false
-          ..deletedAt = remote.deletedAt ?? DateTime.now()
+          ..deletedAt = remoteDeleteTime
           ..deletedByUid = remote.deletedByUid
           ..deletedByName = remote.deletedByName
           ..deleteReason = remote.deleteReason
@@ -1045,6 +1060,14 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
   @override
   Future<void> updateAbnormalityFromRemote(ChargeAbnormality remote) async {
     if (remote.firestoreId == null) return;
+    final remoteDeleteTime =
+        remote.isDeleted
+            ? requireRemoteTombstoneDeletedAt(
+              remote.deletedAt,
+              entityLabel: 'charge abnormality',
+              firestoreId: remote.firestoreId,
+            )
+            : null;
 
     await isar.writeTxn(() async {
       final local =
@@ -1056,8 +1079,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
       if (local == null) return;
 
       if (remote.isDeleted) {
-        final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
+        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
           debugPrint(
             '🛡️ Preserved fresher unsynced charge abnormality against remote tombstone in updateAbnormalityFromRemote: '
             'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
@@ -1068,7 +1090,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
 
         local
           ..isDeleted = true
-          ..deletedAt = remote.deletedAt ?? DateTime.now()
+          ..deletedAt = remoteDeleteTime
           ..deletedByUid = remote.deletedByUid
           ..deletedByName = remote.deletedByName
           ..deleteReason = remote.deleteReason

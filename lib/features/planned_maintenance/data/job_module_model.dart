@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:isar/isar.dart';
 
+import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../models/component_action_model.dart';
 import 'job_template_model.dart'
@@ -744,6 +745,14 @@ class JobModuleInstance {
       instance.responsesJson = FieldResponse.encodeLegacyPayload(
         rawResponses,
         source: 'job module $documentId',
+      );
+    }
+
+    if (instance.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        instance.deletedAt,
+        entityLabel: 'job module',
+        firestoreId: instance.firestoreId,
       );
     }
 
