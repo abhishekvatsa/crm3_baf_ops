@@ -24,7 +24,10 @@ void main() {
       expect(workflow, contains('push:\n    branches: ["main"]'));
       expect(workflow, contains('pull_request:\n    branches: ["**"]'));
       expect(workflow, isNot(contains('push:\n    branches: ["**"]')));
-      expect(job, contains('Android release APK + AAB packaging proof'));
+      expect(
+        job,
+        contains('Android release package construction (no install)'),
+      );
       expect(
         job,
         contains('actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961'),

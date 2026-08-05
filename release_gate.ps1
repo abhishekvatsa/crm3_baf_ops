@@ -1,7 +1,8 @@
 <#
   release_gate.ps1 — CRM-III BAF Ops repeatable local release gate
   ----------------------------------------------------------------
-  Runs source-level gates and stops at the first failure.
+  Runs source, host-runtime, emulator, and package gates and stops at the
+  first failure. Each level remains distinct from physical-device evidence.
 
   Field gates are intentionally manual and remain outside this script:
     - signed APK install on a physical Android device
@@ -82,15 +83,22 @@ Run-Gate "production policy and composite backend authority" {
     )
 }
 
+Run-Gate "test evidence taxonomy and critical-path coverage" {
+  python tools/testing/verify_test_evidence_taxonomy.py `
+    2>&1 | Tee-Object -FilePath (
+      Join-Path $EvidenceDir "test_evidence_taxonomy.log"
+    )
+}
+
 Run-Gate "flutter analyze" {
   flutter analyze 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_analyze.log")
 }
 
-Run-Gate "flutter test (full suite)" {
+Run-Gate "flutter host suite (source contracts + unit + widget)" {
   flutter test 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_test_full.log")
 }
 
-Run-Gate "no-loss regression spine" {
+Run-Gate "no-loss host regression contracts" {
   flutter test `
     test/issue_1_tombstone_conflict_regression_test.dart `
     test/sync_remote_freshness_policy_test.dart `
@@ -110,7 +118,7 @@ Run-Gate "no-loss regression spine" {
 }
 
 if (-not $SkipRules) {
-  Run-Gate "firestore rules + governed assignment/closure/population emulator" {
+  Run-Gate "Firestore Rules + governed callable emulator" {
     if (Test-Path ".\firestore-debug.log") { Remove-Item ".\firestore-debug.log" -Force }
     npm run emulator:test:governed 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "release_gate_governed_firestore.log")
   }
@@ -135,7 +143,7 @@ if (-not $SkipRules) {
 }
 
 if (-not $SkipFunctions) {
-  Run-Gate "functions build + test" {
+  Run-Gate "Functions host build + non-emulator tests" {
     Push-Location functions
     try {
       npm run build 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "functions_build.log")
@@ -148,7 +156,7 @@ if (-not $SkipFunctions) {
 }
 
 if (-not $SkipBuild) {
-  Run-Gate "flutter build apk --release" {
+  Run-Gate "Android release APK construction (no install)" {
     flutter build apk --release 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_build_apk_release.log")
   }
 
@@ -166,7 +174,7 @@ git status --short --untracked-files=all | Tee-Object -FilePath (Join-Path $Evid
 $elapsed = (Get-Date) - $startedAt
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Green
-Write-Host "ALL SOURCE GATES GREEN  ($([int]$elapsed.TotalSeconds)s)" -ForegroundColor Green
+Write-Host "ALL AUTOMATED LOCAL GATES GREEN  ($([int]$elapsed.TotalSeconds)s)" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
 Write-Host "Evidence directory: $EvidenceDir" -ForegroundColor Green
 Write-Host ""

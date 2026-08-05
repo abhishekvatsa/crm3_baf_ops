@@ -3105,7 +3105,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "CI/release",
       "pilotSeverity": "LOW_MEDIUM",
       "unrestrictedSeverity": "MEDIUM",
@@ -3113,14 +3113,37 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "a machine-readable taxonomy distinguishes source contracts, host tests, Firebase emulators, package construction, Android emulators, live readbacks and physical devices",
+        "a validated critical-path matrix publishes executable witnesses and still-open evidence without promoting one level into another",
+        "a pinned Android emulator job executes the integration_test app-shell suite on every pull request and admitted main commit without production credentials or backend use",
+        "exact-head pull-request and post-merge CI pass every governed job, including the Android emulator integration suite"
+      ],
+      "reArmTriggers": [
+        "the test-evidence taxonomy or validator is removed or bypassed",
+        "a CI headline again conflates source contracts, host tests, package construction, emulator execution or physical-device evidence",
+        "a critical business path loses its executable witnesses or explicit open-evidence declaration",
+        "the Android integration suite is removed or no longer executes on every pull request and admitted main commit",
+        "the Android emulator runner stops using its exact governed commit pin",
+        "the emulator suite gains production credentials or production-backend access",
+        "Android emulator evidence is relabelled as physical-device, distribution, pilot or cutover evidence",
+        "the C-04 regression contract or canonical audit check is removed or weakened"
+      ],
+      "notes": [
+        "The former broad test headlines did not expose the different authority carried by source, host, emulator, package, live-readback and physical-device results.",
+        "The source correction adds a validated eight-level taxonomy, eight-path coverage matrix and an Android API 33 integration suite for recovery, sign-in and role-scoped work navigation.",
+        "SOURCE_IMPLEMENTED does not claim Android-emulator CI success, physical-device evidence, production runtime, distribution or pilot authority; exact CI evidence remains pending."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-08-05",
+          "basis": "The source now defines and validates distinct test-evidence levels, publishes critical-path coverage, and adds a pinned Android emulator integration suite; exact-head and admitted-main CI remain pending."
         }
       ]
     },
