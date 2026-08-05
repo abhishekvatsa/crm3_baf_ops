@@ -89,6 +89,7 @@
     "verify the merged promotion, offline/reconnect adjudication, external offline receipt, Build 8 finalization, backend readiness and one exact successful five-job post-merge release-gate run",
     "verify the governed package, embedded APK, production signer, remote built tag, bound physical target, installed APK and preserved install times",
     "verify the approved session and stop unless pending local business writes and unresolved local rejections are both zero",
+    "permit a separate read-only preflight invocation that stops after all source, evidence, artifact, target, session and local-diagnostics checks and performs no transport mutation",
     "capture the current Wi-Fi, mobile-data and airplane-mode settings and stop unless airplane mode is off and at least one transport is enabled",
     "run exactly three cycles that temporarily disable Wi-Fi and mobile data, leave airplane mode unchanged, hold disconnected for at least five seconds and reject any false successful sync",
     "restore the exact initial Wi-Fi and mobile-data settings in a finally block after every cycle with readback of all three settings",
@@ -99,6 +100,7 @@
   "authorizedMutations": {
     "applicationInstallOrUpgrade": "PROHIBITED_ALREADY_EXACT",
     "applicationLaunchAndNavigation": "BOUND_PACKAGE_ONLY",
+    "preflightOnly": "READ_ONLY_NO_TRANSPORT_MUTATION",
     "disconnectedInAppManualSync": "ONE_BOUNDED_OBSERVATION_PER_CYCLE",
     "postReconnectInAppManualSync": "AT_MOST_ONE_NEW_INVOCATION_PER_CYCLE_IF_NO_EXISTING_SUCCESS",
     "localDatabase": "ORDINARY_SYNC_EFFECTS_ONLY",

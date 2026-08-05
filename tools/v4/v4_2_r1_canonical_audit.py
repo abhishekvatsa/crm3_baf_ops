@@ -4020,11 +4020,11 @@ check(
 check(
     "Build 8 intermittent-connectivity source is exact, bounded and non-closing",
     sha(build8_intermittent_promotion_path)
-        == "03FFD20D45F43B9F9E8613D5BB25D0F0B17509BDD1E35E5AD33E76FE2C079AE3"
+        == "2EFA140B00BBC1D0FD6901026A4781FC2862C3C8C1DB9C19BB5EADE23520DB23"
     and sha(build8_intermittent_harness_path)
-        == "33053F4CA2656EA3C2FBC66FDBD63D1EB3DB5DE7B7B5FBBA49118A5B0529017D"
+        == "DDFD77FF2172622AB727B77D61840FD386C8F11993D589338F6912347E440BA9"
     and sha(build8_intermittent_doc_path)
-        == "F5BF1CA9F5D9E30F3403F56802B91E2C7CD1A36D083890C4D2BD0EE4F8C75CBB"
+        == "0636958ABE378C20CE16B99C82A913CFD574D68CD11AE5E4163F55F85F01BE22"
     and build8_intermittent_promotion.get("approved") is True
     and build8_intermittent_promotion.get("approvalClass")
         == "CONTROLLED_EXACT_TARGET_BUILD8_INTERMITTENT_CONNECTIVITY"
@@ -4079,6 +4079,10 @@ check(
     )
         == "THREE_TEMPORARY_DISABLE_AND_EXACT_RESTORE_CYCLES"
     and build8_intermittent_promotion.get("authorizedMutations", {}).get(
+        "preflightOnly"
+    )
+        == "READ_ONLY_NO_TRANSPORT_MUTATION"
+    and build8_intermittent_promotion.get("authorizedMutations", {}).get(
         "bandwidthLatencyPacketLossInjection"
     )
         == "PROHIBITED_NOT_THIS_METHOD"
@@ -4108,6 +4112,7 @@ check(
             "Post-merge release-gate must contain exactly five successful jobs.",
             "Android emulator app-shell integration (not physical-device evidence)",
             "External offline receipt SHA-256",
+            "PASS_BUILD8_F4_INTERMITTENT_CONNECTIVITY_PREFLIGHT_READ_ONLY",
             "FALSE_SUCCESS_WHILE_ALL_TRANSPORTS_DISABLED",
             "TRANSPORT_RESTORATION_FAILED",
             "INTERMITTENT_PROFILE_DURATION_EXCEEDED",

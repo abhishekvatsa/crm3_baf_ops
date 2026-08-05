@@ -55,6 +55,7 @@ void main() {
     expect(profile['falseDisconnectedSuccessFailsClosed'], isTrue);
 
     final mutations = _object(promotion['authorizedMutations']);
+    expect(mutations['preflightOnly'], 'READ_ONLY_NO_TRANSPORT_MUTATION');
     expect(
       mutations['wifiAndMobileData'],
       'THREE_TEMPORARY_DISABLE_AND_EXACT_RESTORE_CYCLES',
@@ -95,6 +96,7 @@ void main() {
       'External offline receipt SHA-256',
       'External offline transport restoration',
       'Installed APK SHA-256',
+      'PASS_BUILD8_F4_INTERMITTENT_CONNECTIVITY_PREFLIGHT_READ_ONLY',
       'Pre-intermittent pending local business writes',
       'Pre-intermittent unresolved local rejections',
       'FALSE_SUCCESS_WHILE_ALL_TRANSPORTS_DISABLED',
@@ -122,12 +124,20 @@ void main() {
       ),
     );
     expect(
+      script.indexOf('if (\$PreflightOnly)'),
+      lessThan(script.indexOf(r'$null = Set-TransportState')),
+    );
+    expect(
       RegExp(r'Set-TransportState').allMatches(script).length,
       greaterThanOrEqualTo(3),
     );
     expect(script, contains('-WifiOn \$initialTransport.wifiOn'));
     expect(script, contains('-MobileDataOn \$initialTransport.mobileDataOn'));
     expect(script, contains('failedPhaseMayNotBeRelabelledPass = \$true'));
+    expect(
+      script,
+      contains("foreach (\$temporary in @(\$temporaryApk, \$installedApk))"),
+    );
 
     final lower = script.toLowerCase();
     for (final forbidden in <String>[

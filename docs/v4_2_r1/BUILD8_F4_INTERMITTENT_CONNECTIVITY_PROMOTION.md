@@ -34,6 +34,11 @@ state in a `finally` block. Restoration is read back before the next cycle.
 After each restoration the harness requires a successful sync and returns to
 zero pending writes and zero unresolved rejections.
 
+A `PreflightOnly` mode performs every source, CI, evidence, artifact, signer,
+target, installed-app, session and local-diagnostics check without changing
+network state. Temporary governed and installed APK copies are covered by the
+outer cleanup boundary even when artifact or device preflight stops early.
+
 One privacy-minimized pass or failure receipt is written outside the
 repository with create-new semantics. Temporary APK and raw UI files are
 removed. Any restoration, source, artifact, receipt, session, duration, or

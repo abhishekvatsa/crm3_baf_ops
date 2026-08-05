@@ -19,6 +19,8 @@ param(
   [ValidateRange(1, [long]::MaxValue)]
   [long]$PostMergeRunId,
 
+  [switch]$PreflightOnly,
+
   [string]$PromotionPath =
     'release/approvals/build-8-f4-intermittent-connectivity-promotion.json'
 )
@@ -761,6 +763,8 @@ Assert-Equal (Get-Sha256 $packageFile) `
   $promotion.artifactAuthority.governedPackage.sha256 `
   'Governed package SHA-256'
 $temporaryApk = Join-Path $evidenceRoot '.governed-build8.apk'
+$installedApk = Join-Path $evidenceRoot '.installed-build8.apk'
+try {
 $archive = [IO.Compression.ZipFile]::OpenRead($packageFile)
 try {
   $entries = @($archive.Entries | Where-Object {
@@ -842,7 +846,6 @@ $basePaths = @($paths -split "`n" | Where-Object {
 if ($basePaths.Count -ne 1) {
   throw 'The installed Build 8 base APK path is not unique.'
 }
-$installedApk = Join-Path $evidenceRoot '.installed-build8.apk'
 $null = Invoke-ExternalText -FilePath $adb -Arguments @(
   '-s', $DeviceSerial, 'pull',
   $basePaths[0].Substring('package:'.Length), $installedApk
@@ -900,7 +903,6 @@ $transportDisabledAt = $null
 $transportRestoreStartedAt = $null
 $transportDisabledDurationSeconds = 0.0
 $cycleResults = [Collections.Generic.List[object]]::new()
-try {
   $null = Invoke-ExternalText -FilePath $adb -Arguments @(
     '-s', $DeviceSerial, 'shell', 'monkey',
     '-p', $applicationId, '-c', 'android.intent.category.LAUNCHER', '1'
@@ -915,6 +917,32 @@ try {
     'Pre-intermittent pending local business writes'
   Assert-Equal $before.unresolvedRejections 0 `
     'Pre-intermittent unresolved local rejections'
+
+  if ($PreflightOnly) {
+    $preflight = [ordered]@{
+      schemaVersion = 1
+      evidenceType = 'build-8-f4-intermittent-connectivity-preflight'
+      capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+      decision = 'PASS_BUILD8_F4_INTERMITTENT_CONNECTIVITY_PREFLIGHT_READ_ONLY'
+      sourceCommit = $head
+      postMergeRunId = $PostMergeRunId
+      promotionSha256 = Get-Sha256 $promotionFile
+      offlineReceiptSha256 = Get-Sha256 $priorOfflineReceiptFile
+      governedPackageSha256 = Get-Sha256 $packageFile
+      installedApkSha256 = $promotion.artifactAuthority.apk.sha256
+      approvedHomeReached = $true
+      forbiddenMarkerCount = $homeEvidence.forbiddenMarkerCount
+      pendingLocalBusinessWrites = $before.unsyncedRows
+      unresolvedLocalRejections = $before.unresolvedRejections
+      initialTransport = $initialTransport
+      networkStateChanged = $false
+      authenticationSessionChanged = $false
+      rawUiRetained = $false
+      rawIdentifiersRetained = $false
+    }
+    $preflight | ConvertTo-Json -Depth 20
+    return
+  }
 
   $profileStartedAt = [DateTimeOffset]::UtcNow
   for ($cycleNumber = 1;
