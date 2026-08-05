@@ -1,7 +1,6 @@
 // FILE: lib/features/planned_maintenance/presentation/complete_job_screen.dart
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -60,6 +59,12 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
     final actionRead = widget.execution.actionsReadResult;
     if (actionRead.isValid) {
       _actions.addAll(actionRead.entries);
+    }
+    final responseRead = widget.execution.responsesReadResult;
+    if (responseRead.isValid) {
+      for (final response in responseRead.entries) {
+        _responses[response.key] = response.value;
+      }
     }
     _loadTemplate();
   }
@@ -121,6 +126,17 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
       );
       return;
     }
+    if (!widget.execution.responsesReadResult.isValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cannot complete: saved response evidence needs repair.',
+          ),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
 
     final moduleGate = _ModuleClosureGateResult.fromAsyncValue(
       ref.read(jobModulesProvider(_moduleQueryKey)),
@@ -159,20 +175,35 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
 
       final remarks = _remarksController.text.trim();
 
+      final existingResponses = widget.execution.responsesReadResult.entries;
+      final existingByKey = <String, FieldResponse>{
+        for (final response in existingResponses) response.key: response,
+      };
+      final editableFields =
+          _template == null
+              ? const <TemplateField>[]
+              : _orderedFields(
+                _template!,
+              ).where((field) => !_isDisplayOnlyField(field)).toList();
+      final editableKeys = editableFields.map((field) => field.key).toSet();
       final fieldResponses =
           _template == null
               ? null
-              : _orderedFields(_template!)
-                  .where((field) => !_isDisplayOnlyField(field))
-                  .map(
-                    (field) => FieldResponse(
-                      key: field.key,
-                      fieldLabel: field.label,
-                      fieldType: field.type,
-                      value: _responses[field.key] ?? '',
-                    ),
-                  )
-                  .toList();
+              : <FieldResponse>[
+                ...editableFields.map((field) {
+                  final existing = existingByKey[field.key];
+                  return FieldResponse(
+                    key: field.key,
+                    fieldLabel: field.label,
+                    fieldType: field.type,
+                    value: _responses[field.key] ?? '',
+                    extensions: existing?.extensions,
+                  );
+                }),
+                ...existingResponses.where(
+                  (response) => !editableKeys.contains(response.key),
+                ),
+              ];
 
       final id = kIsWeb ? widget.execution.firestoreId : widget.execution.id;
       if (id == null) throw Exception('Execution ID missing');
@@ -241,11 +272,10 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
           payload: <String, Object?>{
             'remarks': remarks,
             'teamsInvolved': _teamsInvolved.toList(growable: false),
-            'responsesJson': jsonEncode(
-              (fieldResponses ?? const <FieldResponse>[])
-                  .map((response) => response.toMap())
-                  .toList(growable: false),
-            ),
+            'responsesJson':
+                fieldResponses == null
+                    ? widget.execution.responsesJson
+                    : FieldResponse.encode(fieldResponses),
             'actionsJson': ComponentAction.encode(_actions),
             if (redAnswers != null) 'redRequired': redAnswers.redRequired,
             if (redAnswers?.preparationRequired != null)
@@ -613,6 +643,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
     final appUser = ref.watch(currentAppUserProvider).value;
     final hasCompletionAuthority = appUser?.canCompleteJobExecution ?? false;
     final actionRead = widget.execution.actionsReadResult;
+    final responseRead = widget.execution.responsesReadResult;
     final workflowId = widget.execution.firestoreId?.trim();
     final workflowAsync =
         widget.execution.workflowSchemaVersion == 1 &&
@@ -657,6 +688,14 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                 title: 'Saved action evidence needs repair',
                 message:
                     'Completion is blocked until this payload is repaired. No saved actions were discarded or replaced.',
+              ),
+            ],
+            if (!responseRead.isValid) ...[
+              const SizedBox(height: BafSpacing.lg),
+              const PersistedDataIntegrityNotice(
+                title: 'Saved response evidence needs repair',
+                message:
+                    'Completion is blocked until this payload is repaired. No saved responses were discarded or replaced.',
               ),
             ],
             const SizedBox(height: BafSpacing.lg),
@@ -785,7 +824,11 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
         completionPhase: _completionPhase,
         hasCompletionAuthority: hasCompletionAuthority,
         onSubmit:
-            _isSubmitting || !hasCompletionAuthority || !actionRead.isValid
+            _isSubmitting ||
+                    !hasCompletionAuthority ||
+                    !actionRead.isValid ||
+                    !responseRead.isValid ||
+                    !moduleGate.canComplete
                 ? null
                 : _submit,
       ),
@@ -1071,6 +1114,7 @@ class _ModuleClosureGateResult {
   final List<JobModuleInstance> waitingAcceptanceModules;
   final List<JobModuleInstance> missingResponseModules;
   final List<JobModuleInstance> attentionModules;
+  final List<JobModuleInstance> invalidPayloadModules;
 
   const _ModuleClosureGateResult({
     required this.isLoading,
@@ -1081,6 +1125,7 @@ class _ModuleClosureGateResult {
     required this.waitingAcceptanceModules,
     required this.missingResponseModules,
     required this.attentionModules,
+    required this.invalidPayloadModules,
   });
 
   factory _ModuleClosureGateResult.fromAsyncValue(
@@ -1097,6 +1142,7 @@ class _ModuleClosureGateResult {
             waitingAcceptanceModules: [],
             missingResponseModules: [],
             attentionModules: [],
+            invalidPayloadModules: [],
           ),
       error:
           (error, _) => _ModuleClosureGateResult(
@@ -1108,6 +1154,7 @@ class _ModuleClosureGateResult {
             waitingAcceptanceModules: const [],
             missingResponseModules: const [],
             attentionModules: const [],
+            invalidPayloadModules: const [],
           ),
       data: (records) {
         final modules =
@@ -1123,10 +1170,20 @@ class _ModuleClosureGateResult {
             requiredModules
                 .where((module) => module.status == JobModuleStatus.submitted)
                 .toList();
+        final invalidPayloadModules =
+            modules
+                .where(
+                  (module) =>
+                      !module.fieldDefinitionsReadResult.isValid ||
+                      !module.responsesReadResult.isValid ||
+                      !module.actionsReadResult.isValid,
+                )
+                .toList();
         final missingResponseModules =
             requiredModules
                 .where(
                   (module) =>
+                      !invalidPayloadModules.contains(module) &&
                       module.status != JobModuleStatus.notApplicable &&
                       _moduleMissingRequiredEvidence(module),
                 )
@@ -1150,6 +1207,7 @@ class _ModuleClosureGateResult {
           waitingAcceptanceModules: waitingAcceptanceModules,
           missingResponseModules: missingResponseModules,
           attentionModules: attentionModules,
+          invalidPayloadModules: invalidPayloadModules,
         );
       },
     );
@@ -1166,7 +1224,8 @@ class _ModuleClosureGateResult {
     return openRequiredModules.isEmpty &&
         waitingAcceptanceModules.isEmpty &&
         missingResponseModules.isEmpty &&
-        attentionModules.isEmpty;
+        attentionModules.isEmpty &&
+        invalidPayloadModules.isEmpty;
   }
 
   String get statusLabel {
@@ -1230,6 +1289,10 @@ class _ModuleClosureGateResult {
     addSection(
       'Required modules with pending issue/follow-up:',
       attentionModules,
+    );
+    addSection(
+      'Modules with saved evidence that needs repair:',
+      invalidPayloadModules,
     );
     return lines.join('\n');
   }
@@ -1322,6 +1385,10 @@ class _ModuleClosureGateCard extends StatelessWidget {
                 label: '${gate.attentionModules.length}',
                 caption: 'attention',
               ),
+              _GateMetric(
+                label: '${gate.invalidPayloadModules.length}',
+                caption: 'needs repair',
+              ),
             ],
           ),
         ],
@@ -1378,7 +1445,7 @@ bool _isOpenRequiredStatus(JobModuleStatus status) {
 }
 
 bool _moduleMissingRequiredEvidence(JobModuleInstance module) {
-  final definitions = _fieldDefinitions(module.fieldDefinitionsJson);
+  final definitions = module.fieldDefinitionsReadResult.entries;
   final ordinaryRequiredKeys =
       definitions
           .where(
@@ -1392,7 +1459,8 @@ bool _moduleMissingRequiredEvidence(JobModuleInstance module) {
           .toList();
 
   final responsesByKey = {
-    for (final response in module.responses) response.key: response.value,
+    for (final response in module.responsesReadResult.entries)
+      response.key: response.value,
   };
 
   if (ordinaryRequiredKeys.isNotEmpty) {
@@ -1404,21 +1472,8 @@ bool _moduleMissingRequiredEvidence(JobModuleInstance module) {
   final hasAnyOrdinaryField = definitions.any(
     (definition) => !_isSafetyGateDefinition(definition),
   );
-  if (hasAnyOrdinaryField) return !module.hasResponses;
+  if (hasAnyOrdinaryField) return module.responsesReadResult.entries.isEmpty;
   return false;
-}
-
-List<Map<String, dynamic>> _fieldDefinitions(String jsonText) {
-  try {
-    final decoded = jsonDecode(jsonText);
-    if (decoded is! List) return const [];
-    return decoded
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
-  } catch (_) {
-    return const [];
-  }
 }
 
 bool _fieldRequired(Map<String, dynamic> definition) {
@@ -1469,6 +1524,9 @@ String _compactGateWarning(_ModuleClosureGateResult gate) {
   }
   if (gate.attentionModules.isNotEmpty) {
     issues.add('${gate.attentionModules.length} with pending issue/follow-up');
+  }
+  if (gate.invalidPayloadModules.isNotEmpty) {
+    issues.add('${gate.invalidPayloadModules.length} needing evidence repair');
   }
   return issues.join(' • ');
 }

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 3,
   "policyId": "GLOBAL-PULL-RUNTIME-IDENTITY-POLICY-V3",
-  "declarationStatus": "DEPLOYED_SUBSET_PENDING_FLEET_IAM_RECONCILIATION",
+  "declarationStatus": "DEPLOYED_SUBSET_SUBSUMED_BY_PROVED_COMPLETE_FLEET",
   "completeFleetPolicy": "release/function-fleet-runtime-identity-policy.json",
   "productionProjectId": "crm3-baf-ops-b8638",
   "targetProjectBinding": {

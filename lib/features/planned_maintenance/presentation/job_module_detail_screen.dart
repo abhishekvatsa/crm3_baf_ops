@@ -527,14 +527,19 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
   Widget build(BuildContext context) {
     final module = _module;
     final standardItems = _standardItemsFromSnapshot(module.moduleSnapshotJson);
-    final fields = _fieldDefinitions(module.fieldDefinitionsJson);
+    final fieldRead = module.fieldDefinitionsReadResult;
+    final responseRead = module.responsesReadResult;
+    final fields = fieldRead.entries;
+    final responses = responseRead.entries;
     final actor = ref.watch(currentAppUserProvider).asData?.value;
     final lineage = RuntimeModuleLineageInfo.fromModule(module);
     final actionRead = module.actionsReadResult;
+    final workPayloadsValid =
+        fieldRead.isValid && responseRead.isValid && actionRead.isValid;
     final canSaveWork =
         !widget.execution.isCompleted &&
         module.isOpenForWork &&
-        actionRead.isValid &&
+        workPayloadsValid &&
         (actor?.canSaveJobModuleWorkFor(module.discipline.name) ?? false);
     final canSubmitModule =
         canSaveWork &&
@@ -544,14 +549,14 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     final canAcceptModule =
         !widget.execution.isCompleted &&
         module.status == JobModuleStatus.submitted &&
-        actionRead.isValid &&
+        workPayloadsValid &&
         (actor?.canAcceptJobModule ?? false);
     final canReopenModule =
         !widget.execution.isCompleted &&
         (module.status == JobModuleStatus.submitted ||
             module.status == JobModuleStatus.accepted ||
             module.status == JobModuleStatus.notApplicable) &&
-        actionRead.isValid &&
+        workPayloadsValid &&
         (actor?.canReopenJobModule ?? false);
 
     return Scaffold(
@@ -575,6 +580,22 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
         ),
         children: [
           _ModuleHeaderCard(module: module),
+          if (!fieldRead.isValid) ...[
+            const SizedBox(height: BafSpacing.lg),
+            const PersistedDataIntegrityNotice(
+              title: 'Saved field definitions need repair',
+              message:
+                  'Dynamic fields are hidden and module changes are blocked. The saved definition payload was preserved exactly.',
+            ),
+          ],
+          if (!responseRead.isValid) ...[
+            const SizedBox(height: BafSpacing.lg),
+            const PersistedDataIntegrityNotice(
+              title: 'Saved module responses need repair',
+              message:
+                  'Response counts and details are hidden and module changes are blocked. No saved response evidence was discarded or replaced.',
+            ),
+          ],
           if (!actionRead.isValid) ...[
             const SizedBox(height: BafSpacing.lg),
             const PersistedDataIntegrityNotice(
@@ -700,7 +721,13 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
                 )
               else
                 ...standardItems.map(_StandardItemTile.new),
-              if (fields.isNotEmpty) ...[
+              if (!fieldRead.isValid)
+                const PersistedDataIntegrityNotice(
+                  title: 'Field definitions unavailable',
+                  message:
+                      'This saved definition payload must be repaired before dynamic work fields can be displayed.',
+                )
+              else if (fields.isNotEmpty) ...[
                 const SizedBox(height: BafSpacing.md),
                 const Text(
                   'Dynamic field definitions',
@@ -722,10 +749,17 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
                 'Read-only dossier view of responses already saved into responsesJson.',
             icon: Icons.fact_check_rounded,
             children: [
-              JobModuleResponseSummary(
-                responses: module.responses,
-                fieldDefinitions: fields,
-              ),
+              if (!responseRead.isValid)
+                const PersistedDataIntegrityNotice(
+                  title: 'Responses unavailable',
+                  message:
+                      'This saved response payload must be repaired before its evidence can be displayed.',
+                )
+              else
+                JobModuleResponseSummary(
+                  responses: responses,
+                  fieldDefinitions: fields,
+                ),
             ],
           ),
           const SizedBox(height: BafSpacing.lg),
@@ -737,17 +771,24 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
                     : 'Dynamic fields rendered from the module snapshot and saved into responsesJson.',
             icon: Icons.dynamic_form_rounded,
             children: [
-              JobModuleResponseForm(
-                fieldDefinitions: fields,
-                initialResponses: module.responses,
-                isEditable: canSaveWork,
-                isBusy: _isBusy,
-                saveButtonLabel:
-                    module.status == JobModuleStatus.notStarted
-                        ? 'Save Responses as Draft'
-                        : 'Save Structured Responses',
-                onSave: _saveStructuredResponses,
-              ),
+              if (!fieldRead.isValid || !responseRead.isValid)
+                const PersistedDataIntegrityNotice(
+                  title: 'Structured response editing blocked',
+                  message:
+                      'Repair the saved field definitions and responses before editing this module.',
+                )
+              else
+                JobModuleResponseForm(
+                  fieldDefinitions: fields,
+                  initialResponses: responses,
+                  isEditable: canSaveWork,
+                  isBusy: _isBusy,
+                  saveButtonLabel:
+                      module.status == JobModuleStatus.notStarted
+                          ? 'Save Responses as Draft'
+                          : 'Save Structured Responses',
+                  onSave: _saveStructuredResponses,
+                ),
             ],
           ),
           const SizedBox(height: BafSpacing.lg),
@@ -794,7 +835,10 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
                 ),
               _InfoRow(
                 label: 'Response count',
-                value: module.responses.length.toString(),
+                value:
+                    responseRead.isValid
+                        ? responseRead.entries.length.toString()
+                        : 'Needs repair',
               ),
               _InfoRow(
                 label: 'Action count',
@@ -1663,14 +1707,6 @@ List<Map<String, dynamic>> _standardItemsFromSnapshot(String snapshotJson) {
       .toList();
 }
 
-List<Map<String, dynamic>> _fieldDefinitions(String fieldsJson) {
-  final decoded = _decodeList(fieldsJson);
-  return decoded
-      .whereType<Map>()
-      .map((item) => Map<String, dynamic>.from(item))
-      .toList();
-}
-
 Map<String, dynamic> _decodeMap(String value) {
   try {
     final decoded = jsonDecode(value);
@@ -1679,16 +1715,6 @@ Map<String, dynamic> _decodeMap(String value) {
     // Ignore malformed snapshot JSON.
   }
   return <String, dynamic>{};
-}
-
-List<dynamic> _decodeList(String value) {
-  try {
-    final decoded = jsonDecode(value);
-    if (decoded is List) return decoded;
-  } catch (_) {
-    // Ignore malformed field JSON.
-  }
-  return <dynamic>[];
 }
 
 String _formatDateTime(DateTime value) {

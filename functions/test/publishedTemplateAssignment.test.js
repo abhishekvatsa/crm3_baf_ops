@@ -912,6 +912,37 @@ describe("published TemplateVersion server assignment", () => {
     });
     expect(duplicateFieldDb.writes).toHaveLength(0);
 
+    const invalidFieldTypeVersion = versionFixture({
+      fieldDefinitionsJson: JSON.stringify([
+        {
+          moduleCode: "M-01",
+          key: "vibration",
+          label: "Vibration",
+          type: "telepathy",
+        },
+      ]),
+    });
+    invalidFieldTypeVersion.contentHash = computeTemplateVersionContentHash(
+      invalidFieldTypeVersion,
+    );
+    const invalidFieldTypeDb = fakeAssignmentDb({
+      versionData: invalidFieldTypeVersion,
+      audits: [auditFixture({afterHash: invalidFieldTypeVersion.contentHash})],
+    });
+    await expect(
+      assignPublishedTemplateVersionWithDb({
+        db: invalidFieldTypeDb.db,
+        authUid: "supervisor1",
+        data: requestFixture({
+          expectedContentHash: invalidFieldTypeVersion.contentHash,
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: {reasonCode: "field-definition-payload-invalid"},
+    });
+    expect(invalidFieldTypeDb.writes).toHaveLength(0);
+
     const modules = Array.from({length: 101}, (_, index) => ({
       moduleCode: `M-${String(index + 1).padStart(3, "0")}`,
       moduleTitle: `Module ${index + 1}`,

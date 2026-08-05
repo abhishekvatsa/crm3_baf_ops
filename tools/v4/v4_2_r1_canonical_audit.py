@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 251
-    and counts.get("SUCCESSOR_MODIFIED") == 159
+    and counts.get("BYTE_IDENTICAL") == 245
+    and counts.get("SUCCESSOR_MODIFIED") == 165
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -6662,6 +6662,41 @@ a05_action_server_test = text("functions/test/persistedActionPayload.test.js")
 a05_decision_2 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_2.md"
 )
+a05_work_payload_server = text("functions/src/persistedWorkPayload.ts")
+a05_work_payload_server_test = text(
+    "functions/test/persistedWorkPayload.test.js"
+)
+a05_job_model = text(
+    "lib/features/planned_maintenance/data/job_template_model.dart"
+)
+a05_module_model = text(
+    "lib/features/planned_maintenance/data/job_module_model.dart"
+)
+a05_execution_sync = text("lib/core/services/sync_service.executions.dart")
+a05_module_sync = text("lib/core/services/sync_service.job_modules.dart")
+a05_completion = text(
+    "lib/features/planned_maintenance/presentation/complete_job_screen.dart"
+)
+a05_job_history = text(
+    "lib/features/planned_maintenance/presentation/job_history_screen.dart"
+)
+a05_closure_guard = text(
+    "lib/features/planned_maintenance/domain/planned_job_closure_guard.dart"
+)
+a05_finalize_handler = text(
+    "functions/src/maintenanceWorkflow/finalizeJobHandler.ts"
+)
+a05_red_resolver = text(
+    "functions/src/maintenanceWorkflow/redSuccessorTemplateResolver.ts"
+)
+a05_assignment = text("functions/src/publishedTemplateAssignment.ts")
+a05_response_test = text("test/a05_response_payload_integrity_test.dart")
+a05_lane_readiness_test = text(
+    "test/maintenance_workflow/lane_closure_readiness_test.dart"
+)
+a05_decision_3 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_3.md"
+)
 a05_records = [
     record
     for record in programme_ledger.get("technicalFindings", [])
@@ -6677,8 +6712,10 @@ a05_reconciliation_corrections = {
 }
 a05_source_delta_paths = {
     "functions/src/plannedJobClosure.ts",
+    "functions/src/publishedTemplateAssignment.ts",
     "functions/src/runtimeJobModulePopulation.ts",
     "functions/test/plannedJobClosure.test.js",
+    "functions/test/publishedTemplateAssignment.test.js",
     "functions/test/runtimeJobModulePopulation.test.js",
     "lib/core/services/live_remote_sync_service.dart",
     "lib/core/services/sync_service.executions.dart",
@@ -6694,15 +6731,21 @@ a05_source_delta_paths = {
     "lib/features/maintenance/providers/maintenance_provider.dart",
     "lib/features/planned_maintenance/data/job_module_model.dart",
     "lib/features/planned_maintenance/data/job_template_model.dart",
+    "lib/features/planned_maintenance/domain/planned_job_closure_attestation.dart",
+    "lib/features/planned_maintenance/domain/planned_job_closure_guard.dart",
     "lib/features/planned_maintenance/models/component_action_model.dart",
     "lib/features/planned_maintenance/presentation/complete_job_screen.dart",
     "lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart",
     "lib/features/planned_maintenance/presentation/dossier/planned_job_module_dossier.dart",
+    "lib/features/planned_maintenance/presentation/job_history_screen.dart",
     "lib/features/planned_maintenance/presentation/job_module_detail_screen.dart",
     "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart",
     "lib/features/planned_maintenance/presentation/widgets/job_module_card.dart",
+    "lib/features/planned_maintenance/presentation/widgets/job_module_response_summary.dart",
     "lib/features/planned_maintenance/providers/job_module_provider.dart",
     "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",
+    "test/complete_job_screen_server_gate_test.dart",
+    "test/planned_job_closure_guard_test.dart",
 }
 check(
     "A-05 persisted-state tranche fails closed without claiming finding closure",
@@ -6757,8 +6800,40 @@ check(
     and "`A-05` remains open" in a05_decision_2
     and "governed legacy-data inventory and repair path" in a05_decision_2
     and "inspect or mutate production documents" in a05_decision_2
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 251
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 159
+    and "class PersistedWorkPayloadError" in a05_work_payload_server
+    and "readFieldDefinitionPayload" in a05_work_payload_server
+    and "readFieldResponsePayload" in a05_work_payload_server
+    and "only an entirely missing legacy payload may initialize empty"
+        in a05_work_payload_server_test
+    and "class FieldResponseReadResult" in a05_job_model
+    and "class PersistedFieldDefinitionPayload" in a05_job_model
+    and "allowMissing: !map.containsKey('actionsJson')" in a05_job_model
+    and "fieldDefinitionsReadResult" in a05_module_model
+    and "responsesReadResult" in a05_module_model
+    and "_safeJsonList" not in a05_module_model
+    and "Remote responses or actions need repair" in a05_execution_sync
+    and "Remote field definitions, responses, or actions need repair"
+        in a05_module_sync
+    and "Saved response evidence needs repair" in a05_completion
+    and "Saved responses need repair" in a05_job_history
+    and "invalidPersistedEvidence" in a05_closure_guard
+    and "readFieldResponsePayload" in a05_finalize_handler
+    and "readFieldDefinitionPayload" in a05_red_resolver
+    and "fieldDefinitionsJson must contain a JSON array when present"
+        in a05_red_resolver
+    and "readFieldDefinitionPayload" in a05_assignment
+    and "canonicalizes aliases and retains unknown response extensions"
+        in a05_response_test
+    and "only an absent pre-feature action field initializes empty"
+        in a05_response_test
+    and "malformed saved evidence becomes a visible closure blocker"
+        in a05_lane_readiness_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_3
+    and "a genuinely absent pre-feature field" in a05_decision_3
+    and "`A-05` remains open" in a05_decision_3
+    and "does not inspect or mutate production documents" in a05_decision_3
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 245
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 165
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

@@ -1,6 +1,10 @@
 import {createHash} from "crypto";
 
 import {canonicalModuleDiscipline, laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
+import {
+  PersistedWorkPayloadError,
+  readFieldDefinitionPayload,
+} from "./persistedWorkPayload";
 import {canonicalUserHasAnyRole} from "./userAuthority";
 export type AssignmentHttpsErrorCode =
   | "invalid-argument"
@@ -653,6 +657,32 @@ function fieldsForModule(
   }
 
   return hasLinkedGlobalFields ? [] : bundle.fieldDefinitions;
+}
+
+function validatedFieldsForModule(
+  bundle: ParsedSnapshotBundle,
+  module: AssignmentJsonMap,
+): AssignmentJsonMap[] {
+  const code = moduleCode(module) ?? "unknown";
+  const fields = fieldsForModule(bundle, module);
+  try {
+    return [...readFieldDefinitionPayload(JSON.stringify(fields), {
+      field: `fieldDefinitionsJson for module ${code}`,
+    }).rows];
+  } catch (error) {
+    if (error instanceof PersistedWorkPayloadError) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        `Field definitions for module ${code} are invalid.`,
+        {
+          reasonCode: "field-definition-payload-invalid",
+          moduleCode: code,
+          field: error.field,
+        },
+      );
+    }
+    throw error;
+  }
 }
 
 function validateSnapshotBundle(bundle: ParsedSnapshotBundle): void {
@@ -1529,7 +1559,7 @@ function buildCanonicalAssignment(args: {
       `generated module ID #${index + 1}`,
     );
     const code = moduleCode(snapshot);
-    const fields = fieldsForModule(bundle, snapshot);
+    const fields = validatedFieldsForModule(bundle, snapshot);
     const discipline = parseDiscipline(
       stringFrom(snapshot, [
         "discipline",

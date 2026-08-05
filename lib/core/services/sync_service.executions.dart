@@ -51,6 +51,29 @@ extension _SyncServiceExecutions on SyncService {
         _checkClockDrift(record.updatedAt, 'execution ${record.id}');
 
         final remote = remoteMap[record.firestoreId];
+        final localResponseRead = record.responsesReadResult;
+        final localActionRead = record.actionsReadResult;
+        if (!localResponseRead.isValid || !localActionRead.isValid) {
+          lastFailureCount++;
+          _recordPushFailureDetail(
+            entityType: 'job_execution',
+            entityId: _syncEntityId(record),
+            error: 'Saved responses or actions need repair before sync.',
+          );
+          continue;
+        }
+        if (remote != null &&
+            (!remote.responsesReadResult.isValid ||
+                !remote.actionsReadResult.isValid)) {
+          lastFailureCount++;
+          _recordPushFailureDetail(
+            entityType: 'job_execution',
+            entityId: _syncEntityId(record),
+            error:
+                'Remote responses or actions need repair before they can be overwritten.',
+          );
+          continue;
+        }
 
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {
@@ -474,7 +497,8 @@ extension _SyncServiceExecutions on SyncService {
     // Do not silently discard actual dossier content. These tombstones are
     // safe to rebase only when no local checklist responses/actions are waiting
     // to be recovered. If this guard fails, diagnostics stay loud.
-    if (local.responses.isNotEmpty) {
+    final localResponseRead = local.responsesReadResult;
+    if (!localResponseRead.isValid || localResponseRead.entries.isNotEmpty) {
       return false;
     }
     final localActionRead = local.actionsReadResult;
@@ -515,6 +539,8 @@ extension _SyncServiceExecutions on SyncService {
     final currentUid = FirebaseAuth.instance.currentUser?.uid ?? 'null';
     final localActionRead = local.actionsReadResult;
     final remoteActionRead = remote?.actionsReadResult;
+    final localResponseRead = local.responsesReadResult;
+    final remoteResponseRead = remote?.responsesReadResult;
     final buffer =
         StringBuffer()
           ..writeln('  currentAuthUid: $currentUid')
@@ -548,12 +574,16 @@ extension _SyncServiceExecutions on SyncService {
           ..writeln('  remote updatedAt: ${_date(remote?.updatedAt)}')
           ..writeln(
             '  local response/action counts: '
-            '${local.responses.length}/'
+            '${localResponseRead.isValid ? localResponseRead.entries.length : 'invalid'}/'
             '${localActionRead.isValid ? localActionRead.entries.length : 'invalid'}',
           )
           ..writeln(
             '  remote response/action counts: '
-            '${remote?.responses.length.toString() ?? 'missing'}/'
+            '${remoteResponseRead == null
+                ? 'missing'
+                : remoteResponseRead.isValid
+                ? remoteResponseRead.entries.length
+                : 'invalid'}/'
             '${remoteActionRead == null
                 ? 'missing'
                 : remoteActionRead.isValid

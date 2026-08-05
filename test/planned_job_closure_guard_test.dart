@@ -46,24 +46,30 @@ FieldResponse _response(String key, dynamic value) {
 
 void main() {
   group('PlannedJobClosureGuard', () {
-    test('allows completion when no active required-for-closure modules exist', () {
-      final modules = [
-        _module(
-          id: 'optional-open',
-          requiredForClosure: false,
-          status: JobModuleStatus.notStarted,
-        ),
-        _module(
-          id: 'deleted-required',
-          requiredForClosure: true,
-          status: JobModuleStatus.notStarted,
-          isDeleted: true,
-        ),
-      ];
+    test(
+      'allows completion when no active required-for-closure modules exist',
+      () {
+        final modules = [
+          _module(
+            id: 'optional-open',
+            requiredForClosure: false,
+            status: JobModuleStatus.notStarted,
+          ),
+          _module(
+            id: 'deleted-required',
+            requiredForClosure: true,
+            status: JobModuleStatus.notStarted,
+            isDeleted: true,
+          ),
+        ];
 
-      expect(PlannedJobClosureGuard.collectIssues(modules), isEmpty);
-      expect(() => PlannedJobClosureGuard.assertReady(modules), returnsNormally);
-    });
+        expect(PlannedJobClosureGuard.collectIssues(modules), isEmpty);
+        expect(
+          () => PlannedJobClosureGuard.assertReady(modules),
+          returnsNormally,
+        );
+      },
+    );
 
     test('blocks open required modules', () {
       final issues = PlannedJobClosureGuard.collectIssues([
@@ -123,6 +129,33 @@ void main() {
       expect(
         issues.single.type,
         PlannedJobClosureIssueType.missingRequiredEvidence,
+      );
+    });
+
+    test('reports malformed saved evidence as a blocking issue', () {
+      final module = _module(
+        id: 'accepted-corrupt-evidence',
+        requiredForClosure: true,
+        status: JobModuleStatus.accepted,
+      )..responsesJson = '[{"key":"pressure"}]';
+
+      final issues = PlannedJobClosureGuard.collectIssues([module]);
+
+      expect(
+        issues.where(
+          (issue) =>
+              issue.type == PlannedJobClosureIssueType.invalidPersistedEvidence,
+        ),
+        hasLength(1),
+      );
+      expect(
+        issues.first.moduleFirestoreIds,
+        contains('accepted-corrupt-evidence'),
+      );
+      expect(PlannedJobClosureGuard.isReady([module]), isFalse);
+      expect(
+        () => PlannedJobClosureGuard.assertReady([module]),
+        throwsA(isA<StateError>()),
       );
     });
 

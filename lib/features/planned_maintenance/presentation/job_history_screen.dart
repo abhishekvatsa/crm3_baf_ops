@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/job_template_model.dart';
 import '../providers/planned_maintenance_provider.dart';
@@ -212,8 +213,10 @@ class _ExecutionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ex = execution;
-    final hasResponses = ex.responses.isNotEmpty;
-    final visibleResponses = ex.responses
+    final responseRead = ex.responsesReadResult;
+    final responses = responseRead.entries;
+    final hasResponses = responseRead.isValid && responses.isNotEmpty;
+    final visibleResponses = responses
         .where(
           (r) =>
       r.fieldType != FieldType.sectionHeader &&
@@ -347,6 +350,15 @@ class _ExecutionCard extends StatelessWidget {
                           child: _RemarksBox(text: ex.remarks!.trim()),
                         ),
 
+                      if (!responseRead.isValid) ...[
+                        const SizedBox(height: 12),
+                        const PersistedDataIntegrityNotice(
+                          title: 'Saved responses need repair',
+                          message:
+                              'Response preview and counts are hidden. No saved evidence was discarded or replaced.',
+                        ),
+                      ],
+
                       if (ex.isCompleted && visibleResponses.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Container(
@@ -419,15 +431,22 @@ class _ExecutionCard extends StatelessWidget {
                             const SizedBox(width: 8),
                             Expanded(
                               child: FilledButton.icon(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          CompleteJobScreen(execution: ex),
-                                    ),
-                                  );
-                                },
+                                onPressed:
+                                    responseRead.isValid &&
+                                            ex.actionsReadResult.isValid
+                                        ? () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder:
+                                                  (context) =>
+                                                      CompleteJobScreen(
+                                                        execution: ex,
+                                                      ),
+                                            ),
+                                          );
+                                        }
+                                        : null,
                                 style: FilledButton.styleFrom(
                                   backgroundColor: BafColors.sync,
                                   foregroundColor: Colors.white,
@@ -614,6 +633,8 @@ class _ResponseDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ex = execution;
+    final responseRead = ex.responsesReadResult;
+    final responses = responseRead.entries;
     final templateFields = List<TemplateField>.from(template.parsedFields)
       ..sort((a, b) => a.order.compareTo(b.order));
 
@@ -692,7 +713,13 @@ class _ResponseDetailSheet extends StatelessWidget {
                   controller: scrollController,
                   padding: const EdgeInsets.fromLTRB(20, 14, 20, 26),
                   children: [
-                    if (templateFields.isNotEmpty)
+                    if (!responseRead.isValid)
+                      const PersistedDataIntegrityNotice(
+                        title: 'Responses unavailable',
+                        message:
+                            'This saved response payload must be repaired before its evidence can be displayed.',
+                      )
+                    else if (templateFields.isNotEmpty)
                       ...templateFields.map((field) {
                         if (field.type == FieldType.sectionHeader) {
                           return _SectionHeaderWidget(field.label);
@@ -702,7 +729,7 @@ class _ResponseDetailSheet extends StatelessWidget {
                         }
 
                         final response = _firstResponseForKey(
-                          ex.responses,
+                          responses,
                           field.key,
                         );
 
@@ -722,7 +749,7 @@ class _ResponseDetailSheet extends StatelessWidget {
                         );
                       })
                     else
-                      ...ex.responses
+                      ...responses
                           .where(
                             (r) =>
                         r.fieldType != FieldType.sectionHeader &&

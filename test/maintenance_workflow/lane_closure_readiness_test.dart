@@ -97,6 +97,26 @@ void main() {
       expect(readiness.summary, contains('ready to close'));
     });
 
+    test('malformed saved evidence becomes a visible closure blocker', () {
+      final module = _module(
+        status: JobModuleStatus.accepted,
+        requiredForClosure: true,
+      )..responsesJson = '[{"key":"pressure"}]';
+
+      final readiness = LaneClosureReadiness.fromRecords(
+        lane: _lane(),
+        modules: [module],
+        complianceRequests: const [],
+      );
+
+      expect(readiness.readyForClosure, isFalse);
+      expect(
+        readiness.blockingReasons,
+        contains('1 module has saved evidence that needs repair'),
+      );
+      expect(readiness.summary, contains('needs repair'));
+    });
+
     test('terminal lanes never advertise closure readiness', () {
       final removed = LaneClosureReadiness.fromRecords(
         lane: _lane(status: 'removed'),

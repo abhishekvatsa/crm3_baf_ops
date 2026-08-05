@@ -197,7 +197,17 @@ void _requireCanSaveModuleWork(
   }
 }
 
-void _requireValidModuleActionEvidence(JobModuleInstance module) {
+void _requireValidModulePersistedEvidence(JobModuleInstance module) {
+  if (!module.fieldDefinitionsReadResult.isValid) {
+    throw StateError(
+      'Saved module field definitions need repair before this module can be changed.',
+    );
+  }
+  if (!module.responsesReadResult.isValid) {
+    throw StateError(
+      'Saved module responses need repair before this module can be changed.',
+    );
+  }
   if (!module.actionsReadResult.isValid) {
     throw StateError(
       'Saved module action evidence needs repair before this module can be changed.',
@@ -206,21 +216,21 @@ void _requireValidModuleActionEvidence(JobModuleInstance module) {
 }
 
 void _requireOpenForWork(JobModuleInstance module, String actionLabel) {
-  _requireValidModuleActionEvidence(module);
+  _requireValidModulePersistedEvidence(module);
   if (!module.isOpenForWork) {
     throw StateError('Only open modules can be used to $actionLabel.');
   }
 }
 
 void _requireSubmitted(JobModuleInstance module, String actionLabel) {
-  _requireValidModuleActionEvidence(module);
+  _requireValidModulePersistedEvidence(module);
   if (module.status != JobModuleStatus.submitted) {
     throw StateError('Only submitted modules can be used to $actionLabel.');
   }
 }
 
 void _requireReopenable(JobModuleInstance module) {
-  _requireValidModuleActionEvidence(module);
+  _requireValidModulePersistedEvidence(module);
   final reopenable =
       module.status == JobModuleStatus.submitted ||
       module.status == JobModuleStatus.accepted ||
@@ -239,7 +249,7 @@ void _normaliseModuleForUserSave(
   bool preserveCreatedAt = true,
   bool incrementVersion = false,
 }) {
-  _requireValidModuleActionEvidence(module);
+  _requireValidModulePersistedEvidence(module);
   final now = DateTime.now();
 
   module.firestoreId ??= _newModuleFirestoreId();

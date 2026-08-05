@@ -260,6 +260,63 @@ describe('maintenance workflow command integration', () => {
     expect(store.read('equipment_status/furnace_7').state).toBe('awaitingPreparation');
   });
 
+  test('RED successor creation rejects malformed published field definitions', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-red-invalid', 'readyForClosure', 3);
+    store.seed('maintenance_workflows/wf-red-invalid', {
+      jobExecutionId: 'wf-red-invalid-exec', status: 'readyForClosure', version: 3,
+      assetTypeKey: 'furnace', assetNumber: 7,
+      laneSetFinalizedAt: '2026-07-20T00:00:00Z', cancelled: false,
+    });
+    store.seed('job_lanes/wf-red-invalid_mech_1', {
+      workflowId: 'wf-red-invalid', jobExecutionId: 'wf-red-invalid-exec',
+      laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 2,
+    });
+    store.seed('equipment_status/furnace_7', {
+      state: 'underMaintenance', activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 2,
+    });
+    seedRedSuccessorTemplate(store, 'furnace');
+    const version = store.read('template_versions/ver-red-furnace');
+    store.seed('template_versions/ver-red-furnace', {
+      ...version,
+      fieldDefinitionsJson: JSON.stringify([{
+        moduleCode: 'RED-01', label: 'Missing key', type: 'longText',
+      }]),
+    });
+
+    const service = serviceFor(store);
+    await expect(service.execute({
+      commandId: 'reject-red-invalid', commandType: 'finalizeJob',
+      aggregateId: 'wf-red-invalid', expectedVersion: 3,
+      payload: {redRequired: true, preparationRequired: true},
+    }, {actor: admin, serverNow: at('2026-07-20T05:05:00Z')}))
+      .rejects.toMatchObject({
+        code: 'red-successor-template-unconfigured',
+        details: expect.objectContaining({
+          reasonCode: 'field-definition-payload-invalid',
+        }),
+      });
+
+    store.seed('template_versions/ver-red-furnace', {
+      ...version,
+      fieldDefinitionsJson: null,
+    });
+    await expect(service.execute({
+      commandId: 'reject-red-null', commandType: 'finalizeJob',
+      aggregateId: 'wf-red-invalid', expectedVersion: 3,
+      payload: {redRequired: true, preparationRequired: true},
+    }, {actor: admin, serverNow: at('2026-07-20T05:06:00Z')}))
+      .rejects.toMatchObject({
+        code: 'red-successor-template-unconfigured',
+        details: expect.objectContaining({
+          reasonCode: 'field-definition-payload-invalid',
+        }),
+      });
+    expect(store.read('job_executions/wf-red-invalid-exec').isCompleted)
+      .toBe(false);
+  });
+
   test('base RED successor starts in situ without preparation compliance', async () => {
     const store = new MemoryWorkflowStore(); seedWorkflow(store, 'wf-base', 'readyForClosure', 2, 'base', 101);
     store.seed('maintenance_workflows/wf-base', {jobExecutionId: 'wf-base-exec', status: 'readyForClosure', version: 2, assetTypeKey: 'base', assetNumber: 101, laneSetFinalizedAt: '2026-07-20T00:00:00Z'});
@@ -844,6 +901,111 @@ describe('maintenance workflow command integration', () => {
       .toBe(receipt.result.closureAttestationHash);
     expect(store.read('audit_logs/server_closure_wf-canonical-close-exec_3'))
       .toMatchObject({workflowAggregateId: 'wf-canonical-close'});
+  });
+
+  test('workflow finalization rejects malformed saved execution responses', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-bad-responses', 'readyForClosure', 2, 'forceCooler', 9);
+    store.seed('maintenance_workflows/wf-bad-responses', {
+      jobExecutionId: 'wf-bad-responses-exec', status: 'readyForClosure', version: 2,
+      assetTypeKey: 'forceCooler', assetNumber: 9,
+      laneSetFinalizedAt: '2026-07-20T00:00:00.000Z', cancelled: false,
+    });
+    store.seed('job_executions/wf-bad-responses-exec', {
+      version: 1, isCompleted: false, responsesJson: '[{"key":"pressure"}]',
+      actionsJson: '[]',
+    });
+    store.seed('job_lanes/wf-bad-responses_mech_1', {
+      workflowId: 'wf-bad-responses', jobExecutionId: 'wf-bad-responses-exec',
+      laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 1,
+    });
+    store.seed('equipment_status/forceCooler_9', {
+      state: 'underMaintenance', activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 1,
+    });
+
+    const service = serviceFor(store);
+    await expect(service.execute({
+      commandId: 'reject-bad-saved-responses', commandType: 'finalizeJob',
+      aggregateId: 'wf-bad-responses', expectedVersion: 2, payload: {},
+    }, {actor: admin, serverNow: at('2026-07-20T18:12:00Z')}))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: expect.objectContaining({
+          reasonCode: 'execution-response-payload-invalid',
+        }),
+      });
+    expect(store.read('job_executions/wf-bad-responses-exec').isCompleted)
+      .toBe(false);
+  });
+
+  test('workflow finalization rejects explicitly null saved execution actions', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-null-actions', 'readyForClosure', 2, 'forceCooler', 11);
+    store.seed('maintenance_workflows/wf-null-actions', {
+      jobExecutionId: 'wf-null-actions-exec', status: 'readyForClosure', version: 2,
+      assetTypeKey: 'forceCooler', assetNumber: 11,
+      laneSetFinalizedAt: '2026-07-20T00:00:00.000Z', cancelled: false,
+    });
+    store.seed('job_executions/wf-null-actions-exec', {
+      version: 1, isCompleted: false, responsesJson: '[]', actionsJson: null,
+    });
+    store.seed('job_lanes/wf-null-actions_mech_1', {
+      workflowId: 'wf-null-actions', jobExecutionId: 'wf-null-actions-exec',
+      laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 1,
+    });
+    store.seed('equipment_status/forceCooler_11', {
+      state: 'underMaintenance', activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 1,
+    });
+
+    const service = serviceFor(store);
+    await expect(service.execute({
+      commandId: 'reject-null-saved-actions', commandType: 'finalizeJob',
+      aggregateId: 'wf-null-actions', expectedVersion: 2, payload: {},
+    }, {actor: admin, serverNow: at('2026-07-20T18:12:30Z')}))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: expect.objectContaining({
+          reasonCode: 'action-payload-invalid',
+        }),
+      });
+    expect(store.read('job_executions/wf-null-actions-exec').isCompleted)
+      .toBe(false);
+  });
+
+  test('workflow finalization rejects malformed requested responses', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-bad-request', 'readyForClosure', 2, 'forceCooler', 10);
+    store.seed('maintenance_workflows/wf-bad-request', {
+      jobExecutionId: 'wf-bad-request-exec', status: 'readyForClosure', version: 2,
+      assetTypeKey: 'forceCooler', assetNumber: 10,
+      laneSetFinalizedAt: '2026-07-20T00:00:00.000Z', cancelled: false,
+    });
+    store.seed('job_executions/wf-bad-request-exec', {
+      version: 1, isCompleted: false, responsesJson: '[]', actionsJson: '[]',
+    });
+    store.seed('job_lanes/wf-bad-request_mech_1', {
+      workflowId: 'wf-bad-request', jobExecutionId: 'wf-bad-request-exec',
+      laneKey: 'mech', status: 'closed', activationGeneration: 1, version: 1,
+    });
+    store.seed('equipment_status/forceCooler_10', {
+      state: 'underMaintenance', activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0, awaitingPreparationCount: 0, version: 1,
+    });
+
+    const service = serviceFor(store);
+    await expect(service.execute({
+      commandId: 'reject-bad-request-responses', commandType: 'finalizeJob',
+      aggregateId: 'wf-bad-request', expectedVersion: 2,
+      payload: {responsesJson: '[{"key":"pressure"}]'},
+    }, {actor: admin, serverNow: at('2026-07-20T18:13:00Z')}))
+      .rejects.toMatchObject({
+        code: 'invalid-argument',
+        details: expect.objectContaining({reasonCode: 'response-payload-invalid'}),
+      });
+    expect(store.read('job_executions/wf-bad-request-exec').isCompleted)
+      .toBe(false);
   });
 
   test('workflow finalization rejects modules still awaiting acceptance', async () => {

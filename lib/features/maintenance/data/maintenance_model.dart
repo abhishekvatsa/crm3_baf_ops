@@ -79,6 +79,7 @@ class ResolutionHistory {
       map['actionsJson'],
       field: 'actionsJson',
       source: source,
+      allowMissing: !map.containsKey('actionsJson'),
     );
     ComponentAction.decode(actionsJson, source: source);
 

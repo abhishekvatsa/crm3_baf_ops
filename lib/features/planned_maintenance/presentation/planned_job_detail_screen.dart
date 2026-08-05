@@ -494,11 +494,14 @@ class _PlannedJobDetailScreenState
   Widget build(BuildContext context) {
     final execution = widget.execution;
     final actionRead = execution.actionsReadResult;
+    final responseRead = execution.responsesReadResult;
     final actor = ref.watch(currentAppUserProvider).value;
     final canAddDiaryEntry = actor?.canCreateJobDiaryEntry ?? false;
     final canAddModule = actor?.canAddJobModuleDuringExecution ?? false;
     final canCompleteJob =
-        (actor?.canCompleteJobExecution ?? false) && actionRead.isValid;
+        (actor?.canCompleteJobExecution ?? false) &&
+        actionRead.isValid &&
+        responseRead.isValid;
     final showBottomActions =
         !execution.isCompleted && (canAddDiaryEntry || canCompleteJob);
     final statusColor =
@@ -553,6 +556,14 @@ class _PlannedJobDetailScreenState
               title: 'Saved action evidence needs repair',
               message:
                   'Action counts and details are hidden, and job completion is blocked. No saved actions were discarded or replaced.',
+            ),
+          ],
+          if (!responseRead.isValid) ...[
+            const SizedBox(height: BafSpacing.lg),
+            const PersistedDataIntegrityNotice(
+              title: 'Saved response evidence needs repair',
+              message:
+                  'Response counts and details are hidden, and job completion is blocked. No saved responses were discarded or replaced.',
             ),
           ],
           if (execution.workflowSchemaVersion == 1 &&
@@ -726,11 +737,18 @@ class _PlannedJobDetailScreenState
                       : 'Template fields and submitted responses for this job.',
               icon: Icons.fact_check_rounded,
               children: [
-                _ChecklistDossier(
-                  template: _template,
-                  responses: execution.responses,
-                  isLoadingTemplate: _isLoadingTemplate,
-                ),
+                if (!responseRead.isValid)
+                  const PersistedDataIntegrityNotice(
+                    title: 'Checklist responses unavailable',
+                    message:
+                        'This saved response payload must be repaired before its evidence can be displayed.',
+                  )
+                else
+                  _ChecklistDossier(
+                    template: _template,
+                    responses: responseRead.entries,
+                    isLoadingTemplate: _isLoadingTemplate,
+                  ),
               ],
             ),
           ],

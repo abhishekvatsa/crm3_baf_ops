@@ -151,10 +151,15 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actionRead = module.actionsReadResult;
+    final fieldRead = module.fieldDefinitionsReadResult;
+    final responseRead = module.responsesReadResult;
+    final payloadsValid =
+        fieldRead.isValid && responseRead.isValid && actionRead.isValid;
     final closureSatisfied =
-        !module.requiredForClosure ||
-        module.status == JobModuleStatus.accepted ||
-        module.status == JobModuleStatus.notApplicable;
+        payloadsValid &&
+        (!module.requiredForClosure ||
+            module.status == JobModuleStatus.accepted ||
+            module.status == JobModuleStatus.notApplicable);
     final lifecycleRows = _moduleLifecycleRows(module);
     final hasTechnicalContext =
         _hasTextList(module.procedureRefs) ||
@@ -274,12 +279,25 @@ class _ClosedModuleEvidenceCard extends StatelessWidget {
             _ClosedModuleContextBlock(module: module),
           ],
           const SizedBox(height: BafSpacing.md),
-          JobModuleResponseSummary(
-            responses: module.responses,
-            fieldDefinitionsJson: module.fieldDefinitionsJson,
-            emptyText:
-                'No structured responses were captured for this module before closure.',
-          ),
+          if (!fieldRead.isValid)
+            const PersistedDataIntegrityNotice(
+              title: 'Module field definitions need repair',
+              message:
+                  'Saved dynamic-field metadata is malformed, so no field or evidence interpretation is inferred.',
+            )
+          else if (!responseRead.isValid)
+            const PersistedDataIntegrityNotice(
+              title: 'Module responses need repair',
+              message:
+                  'Saved response evidence is malformed, so no response count or detail is inferred.',
+            )
+          else
+            JobModuleResponseSummary(
+              responses: responseRead.entries,
+              fieldDefinitions: fieldRead.entries,
+              emptyText:
+                  'No structured responses were captured for this module before closure.',
+            ),
           if (!actionRead.isValid) ...[
             const SizedBox(height: BafSpacing.md),
             const PersistedDataIntegrityNotice(
@@ -486,14 +504,30 @@ class _ModuleDossierOverview extends StatelessWidget {
             .where((module) => module.status == JobModuleStatus.notApplicable)
             .length;
     final open = modules.where((module) => module.isOpenForWork).length;
+    final invalidPayloads =
+        modules
+            .where(
+              (module) =>
+                  !module.fieldDefinitionsReadResult.isValid ||
+                  !module.responsesReadResult.isValid ||
+                  !module.actionsReadResult.isValid,
+            )
+            .length;
     final responseCount = modules.fold<int>(
       0,
-      (sum, module) => sum + module.responses.length,
+      (sum, module) =>
+          sum +
+          (module.responsesReadResult.isValid
+              ? module.responsesReadResult.entries.length
+              : 0),
     );
     final requiredWithoutResponses =
         modules
             .where(
-              (module) => module.requiredForClosure && !module.hasResponses,
+              (module) =>
+                  module.requiredForClosure &&
+                  module.responsesReadResult.isValid &&
+                  module.responsesReadResult.entries.isEmpty,
             )
             .length;
     final requiredStillOpen =
@@ -609,8 +643,16 @@ class _ModuleDossierOverview extends StatelessWidget {
           ),
           if (requiredWithoutResponses > 0 ||
               requiredStillOpen > 0 ||
-              followUps > 0) ...[
+              followUps > 0 ||
+              invalidPayloads > 0) ...[
             const SizedBox(height: BafSpacing.md),
+            if (invalidPayloads > 0)
+              _ModuleOverviewWarning(
+                icon: Icons.warning_amber_rounded,
+                color: BafColors.danger,
+                text:
+                    '$invalidPayloads module${invalidPayloads == 1 ? '' : 's'} ${invalidPayloads == 1 ? 'has' : 'have'} saved evidence that needs repair.',
+              ),
             if (requiredWithoutResponses > 0)
               _ModuleOverviewWarning(
                 icon: Icons.assignment_late_rounded,

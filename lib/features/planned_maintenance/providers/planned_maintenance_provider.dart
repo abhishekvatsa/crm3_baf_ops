@@ -795,6 +795,11 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
         'Saved planned-job action evidence needs repair before this job can be completed.',
       );
     }
+    if (!local.responsesReadResult.isValid) {
+      throw StateError(
+        'Saved planned-job responses need repair before this job can be completed.',
+      );
+    }
 
     final executionFirestoreId = local.firestoreId?.trim();
     if (executionFirestoreId == null || executionFirestoreId.isEmpty) {
@@ -812,6 +817,23 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
     }
 
     final localModules = await _loadModulesForExecution(local);
+    for (final module in localModules) {
+      if (!module.fieldDefinitionsReadResult.isValid) {
+        throw StateError(
+          'Saved field definitions for ${module.moduleTitle} need repair before this job can be completed.',
+        );
+      }
+      if (!module.responsesReadResult.isValid) {
+        throw StateError(
+          'Saved responses for ${module.moduleTitle} need repair before this job can be completed.',
+        );
+      }
+      if (!module.actionsReadResult.isValid) {
+        throw StateError(
+          'Saved actions for ${module.moduleTitle} need repair before this job can be completed.',
+        );
+      }
+    }
     final unsyncedModules =
         localModules.where((module) => !module.isSynced).toList();
     if (unsyncedModules.isNotEmpty) {
