@@ -1282,6 +1282,13 @@ class IsarJobModuleRepository implements JobModuleRepository {
   @override
   Future<void> updateModuleFromRemote(JobModuleInstance remote) async {
     if (remote.firestoreId == null) return;
+    final remoteDeleteTime = remote.isDeleted
+        ? requireRemoteTombstoneDeletedAt(
+            remote.deletedAt,
+            entityLabel: 'job module',
+            firestoreId: remote.firestoreId,
+          )
+        : null;
 
     await isar.writeTxn(() async {
       final local =
@@ -1293,8 +1300,7 @@ class IsarJobModuleRepository implements JobModuleRepository {
       if (local == null) return;
 
       if (remote.isDeleted) {
-        final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
+        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
           debugPrint(
             '🛡️ Preserved fresher unsynced module against remote tombstone in updateModuleFromRemote: '
             'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
@@ -1360,6 +1366,11 @@ class IsarJobModuleRepository implements JobModuleRepository {
     if (!remote.isDeleted) {
       return const RemoteTombstoneApplyResult.notDeletedRemote();
     }
+    final remoteDeleteTime = requireRemoteTombstoneDeletedAt(
+      remote.deletedAt,
+      entityLabel: 'job module',
+      firestoreId: remote.firestoreId,
+    );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
       final local =
@@ -1373,7 +1384,6 @@ class IsarJobModuleRepository implements JobModuleRepository {
         return RemoteTombstoneApplyResult.alreadyDeleted(local);
       }
 
-      final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
       if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
         debugPrint(
           '🛡️ Preserved fresher unsynced module against remote tombstone: '

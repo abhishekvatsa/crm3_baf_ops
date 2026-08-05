@@ -405,6 +405,11 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
     if (!remote.isDeleted) {
       return const RemoteTombstoneApplyResult.notDeletedRemote();
     }
+    final remoteDeleteTime = requireRemoteTombstoneDeletedAt(
+      remote.deletedAt,
+      entityLabel: 'job template',
+      firestoreId: remote.firestoreId,
+    );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
       final local =
@@ -418,7 +423,6 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
         return RemoteTombstoneApplyResult.alreadyDeleted(local);
       }
 
-      final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
       if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
         debugPrint(
           '🛡️ Preserved fresher unsynced local template against remote tombstone: '
@@ -430,7 +434,7 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
 
       local
         ..isDeleted = true
-        ..deletedAt = remote.deletedAt ?? DateTime.now()
+        ..deletedAt = remoteDeleteTime
         ..deletedByUid = remote.deletedByUid
         ..deletedByName = remote.deletedByName
         ..deleteReason = remote.deleteReason
@@ -568,6 +572,11 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
     if (!remote.isDeleted) {
       return const RemoteTombstoneApplyResult.notDeletedRemote();
     }
+    final remoteDeleteTime = requireRemoteTombstoneDeletedAt(
+      remote.deletedAt,
+      entityLabel: 'job execution',
+      firestoreId: remote.firestoreId,
+    );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
       final local =
@@ -581,7 +590,6 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
         return RemoteTombstoneApplyResult.alreadyDeleted(local);
       }
 
-      final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
       if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
         debugPrint(
           '🛡️ Preserved fresher unsynced local execution against remote tombstone: '
@@ -593,7 +601,7 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
 
       local
         ..isDeleted = true
-        ..deletedAt = remote.deletedAt ?? DateTime.now()
+        ..deletedAt = remoteDeleteTime
         ..deletedByUid = remote.deletedByUid
         ..deletedByName = remote.deletedByName
         ..deleteReason = remote.deleteReason
@@ -972,6 +980,14 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
   @override
   Future<void> updateTemplateFromRemote(JobTemplate remote) async {
     if (remote.firestoreId == null) return;
+    final remoteDeleteTime =
+        remote.isDeleted
+            ? requireRemoteTombstoneDeletedAt(
+              remote.deletedAt,
+              entityLabel: 'job template',
+              firestoreId: remote.firestoreId,
+            )
+            : null;
     await isar.writeTxn(() async {
       final local =
           await isar.jobTemplates
@@ -981,8 +997,7 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
       if (local == null) return;
 
       if (remote.isDeleted) {
-        final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
+        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
           debugPrint(
             '🛡️ Preserved fresher unsynced local template against remote tombstone in updateTemplateFromRemote: '
             'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
@@ -993,7 +1008,7 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
 
         if (!local.isDeleted) {
           local.isDeleted = true;
-          local.deletedAt = remote.deletedAt ?? DateTime.now();
+          local.deletedAt = remoteDeleteTime;
           local.deletedByUid = remote.deletedByUid;
           local.deletedByName = remote.deletedByName;
           local.deleteReason = remote.deleteReason;
@@ -1111,6 +1126,14 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
   @override
   Future<void> updateExecutionFromRemote(JobExecution remote) async {
     if (remote.firestoreId == null) return;
+    final remoteDeleteTime =
+        remote.isDeleted
+            ? requireRemoteTombstoneDeletedAt(
+              remote.deletedAt,
+              entityLabel: 'job execution',
+              firestoreId: remote.firestoreId,
+            )
+            : null;
     await isar.writeTxn(() async {
       final local =
           await isar.jobExecutions
@@ -1120,8 +1143,7 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
       if (local == null) return;
 
       if (remote.isDeleted) {
-        final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
+        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
           debugPrint(
             '🛡️ Preserved fresher unsynced local execution against remote tombstone in updateExecutionFromRemote: '
             'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
@@ -1132,7 +1154,7 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
 
         if (!local.isDeleted) {
           local.isDeleted = true;
-          local.deletedAt = remote.deletedAt ?? DateTime.now();
+          local.deletedAt = remoteDeleteTime;
           local.deletedByUid = remote.deletedByUid;
           local.deletedByName = remote.deletedByName;
           local.deleteReason = remote.deleteReason;

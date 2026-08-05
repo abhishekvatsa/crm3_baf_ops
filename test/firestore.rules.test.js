@@ -161,6 +161,34 @@ describe("global pull server clock custody", () => {
     const replaced = await getDoc(ref);
     expect(replaced.data()._globalPullServerUpdatedAt).toBeUndefined();
   });
+
+  test("abnormality type tombstone requires an authoritative deletion time", async () => {
+    await seedUser("admin1", ["admin"]);
+    await seedDoc("abnormality_types/typeDelete", {
+      title: "Duplicate type",
+      isDeleted: false,
+      version: 1,
+    });
+    const ref = doc(dbAs("admin1"), "abnormality_types/typeDelete");
+
+    await assertFails(
+      updateDoc(ref, {isDeleted: true, version: 2})
+    );
+    await assertFails(
+      updateDoc(ref, {
+        isDeleted: true,
+        deletedAt: Timestamp.now(),
+        version: 2,
+      })
+    );
+    await assertSucceeds(
+      updateDoc(ref, {
+        isDeleted: true,
+        deletedAt: new Date().toISOString(),
+        version: 2,
+      })
+    );
+  });
 });
 
 describe("charge abnormality governed admin mutations", () => {
@@ -687,6 +715,24 @@ describe("maintenance_records", () => {
 
     const db = dbAs("admin1");
 
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketDelete"), {
+        isDeleted: true,
+        deletedByUid: "admin1",
+        updatedAt: new Date().toISOString(),
+        version: 2,
+      })
+    );
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketDelete"), {
+        isDeleted: true,
+        deletedAt: Timestamp.now(),
+        deletedByUid: "admin1",
+        updatedAt: new Date().toISOString(),
+        version: 2,
+      })
+    );
+
     await assertSucceeds(
       updateDoc(doc(db, "maintenance_records/ticketDelete"), {
         isDeleted: true,
@@ -1067,6 +1113,39 @@ describe("maintenance_records", () => {
 
 });
 
+
+describe("job_templates tombstone authority", () => {
+  test("admin delete requires an authoritative deletion time", async () => {
+    await seedUser("admin1", ["admin"]);
+    const ref = doc(dbAs("admin1"), "job_templates/templateDelete");
+    await assertSucceeds(
+      setDoc(ref, {
+        firestoreId: "templateDelete",
+        jobName: "Legacy template",
+        isDeleted: false,
+        version: 1,
+      })
+    );
+
+    await assertFails(
+      updateDoc(ref, {isDeleted: true, version: 2})
+    );
+    await assertFails(
+      updateDoc(ref, {
+        isDeleted: true,
+        deletedAt: Timestamp.now(),
+        version: 2,
+      })
+    );
+    await assertSucceeds(
+      updateDoc(ref, {
+        isDeleted: true,
+        deletedAt: new Date().toISOString(),
+        version: 2,
+      })
+    );
+  });
+});
 
 describe("template_packages", () => {
   beforeEach(async () => {
@@ -2007,6 +2086,7 @@ describe("job_diary_entries", () => {
 
 describe("directives", () => {
   beforeEach(async () => {
+    await seedUser("admin1", ["admin"]);
     await seedUser("supervisor1", ["shiftSupervisor"]);
     await seedUser("ops1", ["operations"]);
     await seedUser("seniorMech", ["seniorMechanical"]);
@@ -2105,6 +2185,41 @@ describe("directives", () => {
         closedByUid: "supervisor1",
         closedAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
+        version: 2,
+      })
+    );
+  });
+
+  test("admin directive tombstone requires an authoritative deletion time", async () => {
+    await seedDoc("directives/dirDelete", {
+      ...directiveBase,
+      firestoreId: "dirDelete",
+    });
+    const ref = doc(dbAs("admin1"), "directives/dirDelete");
+
+    await assertFails(
+      updateDoc(ref, {
+        isDeleted: true,
+        deletedByUid: "admin1",
+        updatedAt: new Date().toISOString(),
+        version: 2,
+      })
+    );
+    await assertFails(
+      updateDoc(ref, {
+        isDeleted: true,
+        deletedAt: Timestamp.now(),
+        deletedByUid: "admin1",
+        updatedAt: new Date().toISOString(),
+        version: 2,
+      })
+    );
+    await assertSucceeds(
+      updateDoc(ref, {
+        isDeleted: true,
+        deletedAt: new Date().toISOString(),
+        deletedByUid: "admin1",
+        updatedAt: new Date().toISOString(),
         version: 2,
       })
     );

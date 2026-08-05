@@ -1,5 +1,30 @@
 // FILE: lib/core/services/remote_tombstone_apply_result.dart
 
+class RemoteTombstoneIntegrityException extends FormatException {
+  final String entityLabel;
+  final String? firestoreId;
+
+  RemoteTombstoneIntegrityException({
+    required this.entityLabel,
+    required this.firestoreId,
+  }) : super(
+         'Remote $entityLabel${firestoreId == null ? '' : ' $firestoreId'} '
+         'is marked deleted but has no authoritative deletedAt timestamp.',
+       );
+}
+
+DateTime requireRemoteTombstoneDeletedAt(
+  DateTime? deletedAt, {
+  required String entityLabel,
+  required String? firestoreId,
+}) {
+  if (deletedAt != null) return deletedAt;
+  throw RemoteTombstoneIntegrityException(
+    entityLabel: entityLabel,
+    firestoreId: firestoreId,
+  );
+}
+
 /// Outcome from applying a remote tombstone to the local Isar cache.
 ///
 /// This lets pull orchestration distinguish a genuinely applied delete from a

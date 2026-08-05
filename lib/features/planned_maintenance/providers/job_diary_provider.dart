@@ -517,6 +517,14 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
   @override
   Future<void> updateEntryFromRemote(JobDiaryEntry remote) async {
     if (remote.firestoreId == null) return;
+    final remoteDeleteTime =
+        remote.isDeleted
+            ? requireRemoteTombstoneDeletedAt(
+              remote.deletedAt,
+              entityLabel: 'job diary entry',
+              firestoreId: remote.firestoreId,
+            )
+            : null;
 
     await isar.writeTxn(() async {
       final local =
@@ -528,8 +536,7 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
       if (local == null) return;
 
       if (remote.isDeleted) {
-        final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
+        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
           debugPrint(
             '🛡️ Preserved fresher unsynced diary entry against remote tombstone in updateEntryFromRemote: '
             'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
@@ -567,6 +574,11 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
     if (!remote.isDeleted) {
       return const RemoteTombstoneApplyResult.notDeletedRemote();
     }
+    final remoteDeleteTime = requireRemoteTombstoneDeletedAt(
+      remote.deletedAt,
+      entityLabel: 'job diary entry',
+      firestoreId: remote.firestoreId,
+    );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
       final local =
@@ -580,7 +592,6 @@ class IsarJobDiaryRepository implements JobDiaryRepository {
         return RemoteTombstoneApplyResult.alreadyDeleted(local);
       }
 
-      final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
       if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
         debugPrint(
           '🛡️ Preserved fresher unsynced diary entry against remote tombstone: '

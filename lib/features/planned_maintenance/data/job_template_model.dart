@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:isar/isar.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../models/component_action_model.dart';
 
@@ -976,6 +977,14 @@ class JobTemplate {
       template.setFields(const <TemplateField>[]);
     }
 
+    if (template.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        template.deletedAt,
+        entityLabel: 'job template',
+        firestoreId: template.firestoreId,
+      );
+    }
+
     return template;
   }
 }
@@ -1353,6 +1362,14 @@ class JobExecution {
       } else {
         execution.responsesJson = '[]';
       }
+    }
+
+    if (execution.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        execution.deletedAt,
+        entityLabel: 'job execution',
+        firestoreId: execution.firestoreId,
+      );
     }
 
     return execution;

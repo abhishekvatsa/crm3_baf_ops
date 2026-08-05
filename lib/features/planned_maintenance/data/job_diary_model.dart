@@ -3,6 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:isar/isar.dart';
 
+import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
 
 part 'job_diary_model.g.dart';
@@ -370,7 +371,7 @@ class JobDiaryEntry {
     final created = _parseTimestamp(map['createdAt']) ?? DateTime.now();
     final updated = _parseTimestamp(map['updatedAt']) ?? created;
 
-    return JobDiaryEntry()
+    final entry = JobDiaryEntry()
       ..firestoreId = documentId
       ..jobExecutionFirestoreId = _cleanOptionalText(
         map['jobExecutionFirestoreId'],
@@ -435,5 +436,15 @@ class JobDiaryEntry {
               : int.tryParse(map['version']?.toString() ?? '') ?? 1
       ..metadataJson = _cleanOptionalText(map['metadataJson'])
       ..isSynced = true;
+
+    if (entry.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        entry.deletedAt,
+        entityLabel: 'job diary entry',
+        firestoreId: entry.firestoreId,
+      );
+    }
+
+    return entry;
   }
 }

@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 240,
-    "SUCCESSOR_MODIFIED": 170
+    "BYTE_IDENTICAL": 237,
+    "SUCCESSOR_MODIFIED": 173
   },
   "paths": [
     {
@@ -465,9 +465,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "8484164BD42F8F694D102718B393FC73FE15EBEAA2ECC83D13E1F1E8E3929A84",
+      "candidateSha256": "DACBC9A3C0C8754F82CA50394D485A64B6B91258D66DDF068F51A9F566C9D93C",
       "canonicalBytes": 111981,
-      "candidateBytes": 138329,
+      "candidateBytes": 138827,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -965,9 +965,9 @@
     {
       "path": "lib/core/services/live_remote_sync_service.dart",
       "canonicalSha256": "8D95DAEC7D28CB7280836F8A697248C4650A4063B68BB3F00D1C2C0CC853CCF0",
-      "candidateSha256": "2F47E1889B0617C54C9425867E92F63CAEB4FB1B737C408612257C5A95DA0479",
+      "candidateSha256": "44BBF8C0469CAB51ECEC7EBE7261721F2D833C629DD367FFE407E12B8071151B",
       "canonicalBytes": 27419,
-      "candidateBytes": 30653,
+      "candidateBytes": 30919,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -981,10 +981,10 @@
     {
       "path": "lib/core/services/remote_tombstone_apply_result.dart",
       "canonicalSha256": "DDFCEE1575F1D70695744F43D7F5A834BC3C81D670D0674F4FA36D132250A2FA",
-      "candidateSha256": "DDFCEE1575F1D70695744F43D7F5A834BC3C81D670D0674F4FA36D132250A2FA",
+      "candidateSha256": "710B5FC5B6D8E5F4F2C4E001E67974C1A9FCF1545DFBD3D55F1B1F782121727A",
       "canonicalBytes": 1384,
-      "candidateBytes": 1384,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 2077,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/core/services/sync_coordinator.dart",
@@ -1141,10 +1141,10 @@
     {
       "path": "lib/features/abnormalities/data/abnormality_model.dart",
       "canonicalSha256": "98430D484984B5151BD3F0B261E76C1176AC183EE679401E357EFCE2A88D5CFC",
-      "candidateSha256": "98430D484984B5151BD3F0B261E76C1176AC183EE679401E357EFCE2A88D5CFC",
+      "candidateSha256": "ECB4A5AD3A00A00B6D93EBF5426C76AA6472DF204EF3611BF071FF8B566A2162",
       "canonicalBytes": 27472,
-      "candidateBytes": 27472,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 27934,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/abnormalities/data/abnormality_model.g.dart",
@@ -1189,9 +1189,9 @@
     {
       "path": "lib/features/abnormalities/providers/abnormality_provider.dart",
       "canonicalSha256": "B0ED8D3927D445D9C5FEB676B38B648F7802269AC2C762F8A2B8912857D9DD51",
-      "candidateSha256": "FC8E6B43BD42E32BCF136D13CDC84BB7DDB368CAF72A000E11F52F85D206A661",
+      "candidateSha256": "7B078DEAC9AFACBF87D57590B29B9D237CB92F2304905CF3614473ACA9A0FB4C",
       "canonicalBytes": 67050,
-      "candidateBytes": 67863,
+      "candidateBytes": 68381,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1493,9 +1493,9 @@
     {
       "path": "lib/features/directives/providers/operational_directive_provider.dart",
       "canonicalSha256": "3FABB196E495ACEBF304CA5E644E278E47AD5364770F6BEE5F3635F59EBECC08",
-      "candidateSha256": "AEB257E9566D9A969FDC4B241DD79DACA4987DB3C60C5176AC6CC457F4D6B47B",
+      "candidateSha256": "6C9DCCE55FECFF2EF8BCEA4174E55A252FA318725E1F4C34213247C30D156587",
       "canonicalBytes": 51726,
-      "candidateBytes": 52051,
+      "candidateBytes": 52522,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1549,9 +1549,9 @@
     {
       "path": "lib/features/maintenance/providers/maintenance_provider.dart",
       "canonicalSha256": "A9ECCD861BAE74BDAE1BD898D9DA47222C003487ECFB5A6C6E134BADB72A5597",
-      "candidateSha256": "2AD5C6B6BEE393A35F1A6C4A25941A85D9722DB203331D3E8D141362D43E0E7A",
+      "candidateSha256": "7F67C2C588B38AB9B8504519C0D98D4786BBAE4FECD5024E841C60785251341C",
       "canonicalBytes": 54587,
-      "candidateBytes": 61315,
+      "candidateBytes": 61773,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1597,9 +1597,9 @@
     {
       "path": "lib/features/planned_maintenance/data/job_diary_model.dart",
       "canonicalSha256": "3BF90C8719ECE71C8C234B11AD5A38FA2275FFF2E6EFD44A520354AA4D2FB1D8",
-      "candidateSha256": "A699605D9E91AAFABA02EC1BE76D18CBF3D1A44CA52E7254B19C00F8715A9D0B",
+      "candidateSha256": "B3EDD6C1770E17E7C5E6B3E6AF5D9077193426B00ADC0DD537BA11C6A01F5087",
       "canonicalBytes": 14482,
-      "candidateBytes": 15283,
+      "candidateBytes": 15564,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1613,9 +1613,9 @@
     {
       "path": "lib/features/planned_maintenance/data/job_module_model.dart",
       "canonicalSha256": "F69E042D92FD509E16FE7195CA1606CC45A1C6D4999223C629F02E9D046075CD",
-      "candidateSha256": "36A36BDC505820E2F275E23AE1311B858CD905B5F6AA9866F111A72BA37D5C42",
+      "candidateSha256": "F1FB1EA1CD6525A69FD91CD185D1B062878D251FE0E392CEA933B9E865C37863",
       "canonicalBytes": 23544,
-      "candidateBytes": 26592,
+      "candidateBytes": 26851,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1629,9 +1629,9 @@
     {
       "path": "lib/features/planned_maintenance/data/job_template_model.dart",
       "canonicalSha256": "4DA077FD5E7F9DF3A44515FBC86FA2BE75DC7603E05B5DF45EB6FDCB1065B751",
-      "candidateSha256": "8D840CD2087CE655CB90DC4A3FE836AA2F9C1DB2FE32FA17F836C0961A66BF23",
+      "candidateSha256": "B4C36E517360937B6FC3940E80C446E16A83F252D7E03C69B14A7B140EC80E00",
       "canonicalBytes": 21464,
-      "candidateBytes": 41856,
+      "candidateBytes": 42314,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1653,10 +1653,10 @@
     {
       "path": "lib/features/planned_maintenance/data/template_governance_model.dart",
       "canonicalSha256": "03FF33A0F4AE8143B3140CEF1C91AAE6D0EE79DA82F280B4842656266459651E",
-      "candidateSha256": "03FF33A0F4AE8143B3140CEF1C91AAE6D0EE79DA82F280B4842656266459651E",
+      "candidateSha256": "B1208CAEFCAE1FE845E15D86C282C0CB4B0ADD4BB6510239C7FAE3505C00AAD0",
       "canonicalBytes": 29143,
-      "candidateBytes": 29143,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 29740,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/planned_maintenance/data/template_governance_model.g.dart",
@@ -2237,17 +2237,17 @@
     {
       "path": "lib/features/planned_maintenance/providers/job_diary_provider.dart",
       "canonicalSha256": "B57DA6E133C4BB28614798CCBB68E6DE194E49B749C379134F2B342FF625AD6C",
-      "candidateSha256": "3F3A30532A3008C27665E20903B335AED5C736F2D915FD394A7990560887EDD7",
+      "candidateSha256": "A64AD3991CE7F2E9007CDC4453B286DFBF74317CEDACAC2E7B43E731341382F2",
       "canonicalBytes": 30087,
-      "candidateBytes": 30412,
+      "candidateBytes": 30703,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/planned_maintenance/providers/job_module_provider.dart",
       "canonicalSha256": "63416A789E4EC07F88448ADB718D1B5A48413FEFBFA0920C13BC9EF7133F216E",
-      "candidateSha256": "E0F354B4CB18927499A51CEFA1ED9ED1E83945FFD6266D2E1D3331587AB17922",
+      "candidateSha256": "BAAE89D92DA106857022BC921241A243C3015588592EAF5C5AC52C2FC70378B7",
       "canonicalBytes": 65503,
-      "candidateBytes": 68240,
+      "candidateBytes": 68497,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2269,17 +2269,17 @@
     {
       "path": "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",
       "canonicalSha256": "276EE9444D28EEE42CE8219C5CF66698680D95D597C961B0AF6F2992F814D4D2",
-      "candidateSha256": "772D7B4B2AF69A21DCB6EFDE17964261F1ECA772486A07EF015DC766F652151F",
+      "candidateSha256": "2412B0714E2E08250D3B9C78D6D1313D70CC4980D1DBFBA4B801E4C35CCE068E",
       "canonicalBytes": 64065,
-      "candidateBytes": 66721,
+      "candidateBytes": 67221,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/planned_maintenance/providers/template_governance_provider.dart",
       "canonicalSha256": "40DC00B4BE17D0E32DF10085293ECEA22CB839DEC18F8DEEAA34676ED8D9A6FF",
-      "candidateSha256": "64C22AD0C18EC0B113AE32B1770E1E67B9E14A47F07C97BCB0C8C36AC47530D9",
+      "candidateSha256": "4CA4B835B999764474E953E9BD3D6A856B2C1E6C8BA32B9B3E956935D6C95EC6",
       "canonicalBytes": 76024,
-      "candidateBytes": 78773,
+      "candidateBytes": 79323,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2729,9 +2729,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "DCDE89E7ACD440A3102142682BA28B39BD5067DEE51036830945EF97587EF2B7",
+      "candidateSha256": "A58C3A90E5B3C2F5A1BF37687208FA71156B059BDD0E6E042FF70FADA3B375C6",
       "canonicalBytes": 78841,
-      "candidateBytes": 93303,
+      "candidateBytes": 96270,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2769,9 +2769,9 @@
     {
       "path": "test/issue_1_tombstone_conflict_regression_test.dart",
       "canonicalSha256": "2B908BB02106BE488C60AB2CEE1A39702851A8371E5436F3A2AEA6CDACEF23C0",
-      "candidateSha256": "9460B9E68EC6587DF3CEABD63D084B5D08B1F168F39B84E70731EEE16D1B5518",
+      "candidateSha256": "BFD3F95A95081EB2FCC9EED78536BA59929BF6AC8CE5491CEA1AD158CB0E72D8",
       "canonicalBytes": 15285,
-      "candidateBytes": 15289,
+      "candidateBytes": 19416,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

@@ -12,6 +12,7 @@ import '../../features/auth/data/user_model.dart';
 import '../../features/maintenance/data/maintenance_model.dart';
 import '../../features/planned_maintenance/models/component_action_model.dart';
 import 'app_logger.dart';
+import 'remote_tombstone_apply_result.dart';
 import 'sync_remote_freshness_policy.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
@@ -774,7 +775,7 @@ class LiveRemoteSyncService {
       source: source,
     );
 
-    return MaintenanceRecord()
+    final ticket = MaintenanceRecord()
       ..firestoreId = doc.id
       ..version = _intValue(d['version'], fallback: 1)
       ..assetType = _parseEnum(d['assetType'], AssetType.values, AssetType.base)
@@ -855,6 +856,16 @@ class LiveRemoteSyncService {
       ..deletedByName = _cleanOptionalText(d['deletedByName']?.toString())
       ..deleteReason = _cleanOptionalText(d['deleteReason']?.toString())
       ..isSynced = true;
+
+    if (ticket.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        ticket.deletedAt,
+        entityLabel: 'maintenance ticket',
+        firestoreId: ticket.firestoreId,
+      );
+    }
+
+    return ticket;
   }
 
   T _parseEnum<T extends Enum>(dynamic value, List<T> values, T fallback) {

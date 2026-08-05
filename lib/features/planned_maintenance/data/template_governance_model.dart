@@ -6,6 +6,8 @@ import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:isar/isar.dart';
 
+import '../../../core/services/remote_tombstone_apply_result.dart';
+
 part 'template_governance_model.g.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -328,7 +330,7 @@ class TemplatePackage {
   };
 
   factory TemplatePackage.fromMap(Map<String, dynamic> map, String documentId) {
-    return TemplatePackage()
+    final templatePackage = TemplatePackage()
       ..firestoreId = documentId
       ..packageCode = _cleanRequiredText(map['packageCode'], '')
       ..title = _cleanRequiredText(map['title'], '')
@@ -379,6 +381,16 @@ class TemplatePackage {
       )
       ..metadataJson = _cleanOptionalText(map['metadataJson'])
       ..isSynced = true;
+
+    if (templatePackage.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        templatePackage.deletedAt,
+        entityLabel: 'template package',
+        firestoreId: templatePackage.firestoreId,
+      );
+    }
+
+    return templatePackage;
   }
 }
 
@@ -625,7 +637,7 @@ class TemplateVersion {
       moduleSnapshotsJson: moduleSnapshotsJson,
     );
 
-    return TemplateVersion()
+    final templateVersion = TemplateVersion()
       ..firestoreId = documentId
       ..packageFirestoreId = _cleanOptionalText(map['packageFirestoreId'])
       ..versionNumber =
@@ -699,6 +711,16 @@ class TemplateVersion {
       )
       ..metadataJson = _cleanOptionalText(map['metadataJson'])
       ..isSynced = true;
+
+    if (templateVersion.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        templateVersion.deletedAt,
+        entityLabel: 'template version',
+        firestoreId: templateVersion.firestoreId,
+      );
+    }
+
+    return templateVersion;
   }
 }
 

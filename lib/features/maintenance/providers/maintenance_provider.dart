@@ -612,6 +612,11 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
     if (!remote.isDeleted) {
       return const RemoteTombstoneApplyResult.notDeletedRemote();
     }
+    final remoteDeleteTime = requireRemoteTombstoneDeletedAt(
+      remote.deletedAt,
+      entityLabel: 'maintenance ticket',
+      firestoreId: remote.firestoreId,
+    );
 
     return isar.writeTxn<RemoteTombstoneApplyResult>(() async {
       final local =
@@ -625,7 +630,6 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
         return RemoteTombstoneApplyResult.alreadyDeleted(local);
       }
 
-      final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
       if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
         debugPrint(
           '🛡️ Preserved fresher unsynced local ticket against remote tombstone: '
@@ -637,7 +641,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
 
       local
         ..isDeleted = true
-        ..deletedAt = remote.deletedAt ?? DateTime.now()
+        ..deletedAt = remoteDeleteTime
         ..deletedByUid = remote.deletedByUid
         ..deletedByName = remote.deletedByName
         ..deleteReason = remote.deleteReason
@@ -811,6 +815,13 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
   @override
   Future<void> updateFromRemote(MaintenanceRecord remote) async {
     if (remote.firestoreId == null) return;
+    final remoteDeleteTime = remote.isDeleted
+        ? requireRemoteTombstoneDeletedAt(
+            remote.deletedAt,
+            entityLabel: 'maintenance ticket',
+            firestoreId: remote.firestoreId,
+          )
+        : null;
     await isar.writeTxn(() async {
       final local =
           await isar.maintenanceRecords
@@ -821,8 +832,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
 
       // 🔥 FIXED: replaced hard delete with soft tombstone copy
       if (remote.isDeleted) {
-        final remoteDeleteTime = remote.deletedAt ?? remote.updatedAt;
-        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime)) {
+        if (!local.isSynced && local.updatedAt.isAfter(remoteDeleteTime!)) {
           debugPrint(
             '🛡️ Preserved fresher unsynced local ticket against remote tombstone in updateFromRemote: '
             'firestoreId=${remote.firestoreId}, local.updatedAt=${local.updatedAt}, '
@@ -833,7 +843,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
 
         if (!local.isDeleted) {
           local.isDeleted = true;
-          local.deletedAt = remote.deletedAt ?? DateTime.now();
+          local.deletedAt = remoteDeleteTime;
           local.deletedByUid = remote.deletedByUid;
           local.deletedByName = remote.deletedByName;
           local.deleteReason = remote.deleteReason;
@@ -1634,7 +1644,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
 
   MaintenanceRecord _mapTicket(DocumentSnapshot doc) {
     final d = doc.data() as Map<String, dynamic>;
-    return MaintenanceRecord()
+    final ticket = MaintenanceRecord()
       ..firestoreId = doc.id
       ..version = d['version'] ?? 1
       ..assetType = _parseEnum(d['assetType'], AssetType.values, AssetType.base)
@@ -1739,6 +1749,16 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       ..deletedByUid = d['deletedByUid']
       ..deletedByName = d['deletedByName']
       ..deleteReason = d['deleteReason'];
+
+    if (ticket.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        ticket.deletedAt,
+        entityLabel: 'maintenance ticket',
+        firestoreId: ticket.firestoreId,
+      );
+    }
+
+    return ticket;
   }
 
   T _parseEnum<T extends Enum>(String? value, List<T> values, T fallback) {

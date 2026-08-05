@@ -44,6 +44,11 @@ service cloud.firestore {
         );
     }
 
+    function targetTombstoneHasDeletionAuthority() {
+      return request.resource.data.get('isDeleted', false) == false
+        || request.resource.data.get('deletedAt', null) is string;
+    }
+
     function hasUserDoc() {
       return isSignedIn()
         ? exists(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -338,15 +343,18 @@ service cloud.firestore {
     }
 
     function validLegacyJobTemplateUpdate() {
-      return (
-          isAdminOrSI()
-          && request.resource.data.get('isDeleted', false) ==
-            resource.data.get('isDeleted', false)
-        )
-        || (
-          isAdmin()
-          && resource.data.get('isDeleted', false) == false
-          && request.resource.data.get('isDeleted', false) == true
+      return targetTombstoneHasDeletionAuthority()
+        && (
+          (
+            isAdminOrSI()
+            && request.resource.data.get('isDeleted', false) ==
+              resource.data.get('isDeleted', false)
+          )
+          || (
+            isAdmin()
+            && resource.data.get('isDeleted', false) == false
+            && request.resource.data.get('isDeleted', false) == true
+          )
         );
     }
 
@@ -1142,7 +1150,8 @@ service cloud.firestore {
     }
 
     function validDirectiveUpdate() {
-      return hasUserDoc()
+      return targetTombstoneHasDeletionAuthority()
+        && hasUserDoc()
         ? (validApprovedUserAuthority(userDoc().data)
           ? validDirectiveUpdateForRoles(userDoc().data.get('roles', []))
           : false)
@@ -2520,13 +2529,14 @@ service cloud.firestore {
       let targetDeleted = request.resource.data.get('isDeleted', false);
       let sourceResolved = resource.data.get('isResolved', false);
       let targetResolved = request.resource.data.get('isResolved', false);
-      return targetDeleted != sourceDeleted
+      return targetTombstoneHasDeletionAuthority()
+        && (targetDeleted != sourceDeleted
         ? validMaintenanceSoftDeleteUpdate()
         : (targetResolved != sourceResolved
           ? (targetResolved
             ? validMaintenanceCloseUpdate()
             : validMaintenanceReopenUpdate())
-          : validMaintenanceAdminEditUpdate());
+          : validMaintenanceAdminEditUpdate()));
     }
 
     function maintenanceAdminEditChangedFieldsOnly(affected) {
@@ -3132,8 +3142,12 @@ service cloud.firestore {
 
     match /abnormality_types/{docId} {
       allow read: if isApprovedUser();
-      allow create: if globalPullStampAbsentOnCreate() && isAdmin();
-      allow update: if globalPullStampValidOnUpdate() && isAdmin();
+      allow create: if globalPullStampAbsentOnCreate()
+        && isAdmin()
+        && targetTombstoneHasDeletionAuthority();
+      allow update: if globalPullStampValidOnUpdate()
+        && isAdmin()
+        && targetTombstoneHasDeletionAuthority();
       allow delete: if false;
     }
 

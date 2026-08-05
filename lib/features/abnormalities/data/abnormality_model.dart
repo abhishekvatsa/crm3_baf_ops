@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:isar/isar.dart';
 
+import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
 
 part 'abnormality_model.g.dart';
@@ -311,6 +312,14 @@ class AbnormalityType {
 
     type.applicableAssetTypes =
         _assetTypesFromValue(map['applicableAssetTypes']);
+
+    if (type.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        type.deletedAt,
+        entityLabel: 'abnormality type',
+        firestoreId: type.firestoreId,
+      );
+    }
 
     return type;
   }
@@ -656,6 +665,14 @@ class ChargeAbnormality {
         decodeAffectedAssetsFromDynamic(map['affectedAssets']);
 
     abnormality.normalizeReannealingState();
+
+    if (abnormality.isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        abnormality.deletedAt,
+        entityLabel: 'charge abnormality',
+        firestoreId: abnormality.firestoreId,
+      );
+    }
 
     return abnormality;
   }
