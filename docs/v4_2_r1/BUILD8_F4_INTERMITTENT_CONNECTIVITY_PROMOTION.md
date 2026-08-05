@@ -44,6 +44,22 @@ repository with create-new semantics. Temporary APK and raw UI files are
 removed. Any restoration, source, artifact, receipt, session, duration, or
 diagnostic mismatch fails closed and cannot be relabelled as a pass.
 
+## Controlled duration stop
+
+The first merged execution from `e91dedde967fbe79d3f80d3375b299d79d5d8c77`
+completed all three cycles and restored exact `Wi-Fi on / mobile data off /
+airplane mode off` transport, but correctly stopped because the measured
+233.35-second profile exceeded the original 180-second ceiling. The external
+820-byte failure receipt remains a failure and is bound by SHA-256
+`C2104E26DA8C827DC4743CCCF5586F036B26FAB79041F00AFE31B0F6DA9F0435`.
+
+The original total ceiling was internally inconsistent with three cycles that
+each allowed up to 120 seconds for a new recovery sync. The append-only
+amendment raises only the total ceiling to 300 seconds, records each cycle's
+duration, includes cycle summaries in any duration failure, and requires the
+exact prior failure receipt for read-only preflight and retry. This does not
+convert the stopped run into a pass or expand runtime or programme authority.
+
 ## Boundary
 
 This source does not install, upgrade, clear, downgrade or uninstall the app.
