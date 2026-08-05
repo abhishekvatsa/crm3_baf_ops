@@ -2936,7 +2936,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "CI/release",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "MEDIUM",
@@ -2946,14 +2946,34 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "both governed artifact builders hash-bind release_gate.ps1 and jest.config.js from canonical Git-archive bytes",
+        "both governed artifact builders hash-bind the programme ledger and governed Firebase CLI package manifest and lockfile",
+        "both package-only verifiers fail closed when any audit-critical source entry or the governed Firebase CLI dependency lockfile is absent",
+        "exact-head pull-request and post-merge release-gate evidence pass"
+      ],
+      "reArmTriggers": [
+        "either governed artifact builder stops using a canonical Git source archive",
+        "an audit-critical source path is removed from production or verification manifest custody",
+        "the governed Firebase CLI lockfile is removed from dependency custody",
+        "either package-only verifier stops rejecting omitted audit coverage",
+        "the audit-package coverage regression contract is removed or bypassed"
+      ],
+      "notes": [
+        "The canonical Git archive already carried tracked repository content, but the verification manifest did not bind the governed Firebase CLI lockfile and neither package verifier required the complete audit-critical set.",
+        "The source correction binds release_gate.ps1, jest.config.js, governance/programme-ledger.json and the governed Firebase CLI package and lockfile in both production and verification manifests.",
+        "SOURCE_IMPLEMENTED does not claim merge or exact-main CI authority; closure requires a separate evidence adjudication."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-08-05",
+          "basis": "Production and verification packages now hash-bind every audit-critical source entry named by C-02, and package-only verification fails closed on omission; merge and exact-main CI evidence remain pending."
         }
       ]
     },

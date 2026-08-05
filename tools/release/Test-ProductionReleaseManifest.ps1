@@ -411,6 +411,25 @@ if ($manifest.qualityGates.executed -ne $true -or
   throw 'Quality gates or SOURCE_ARCHIVE_SHA256 identity were skipped.'
 }
 
+$requiredAuditConfiguration = @(
+  'release_gate.ps1'
+  'jest.config.js'
+  'governance/programme-ledger.json'
+  'tooling/firebase-cli/package.json'
+  'tooling/firebase-cli/package-lock.json'
+)
+foreach ($path in $requiredAuditConfiguration) {
+  if ($null -eq $manifest.configuration.hashes.PSObject.Properties[$path]) {
+    throw "Audit-critical source entry is absent from configuration custody: $path"
+  }
+}
+if ($null -eq
+    $manifest.dependencies.lockfiles.PSObject.Properties[
+      'tooling/firebase-cli/package-lock.json'
+    ]) {
+  throw 'Governed Firebase CLI lockfile is absent from dependency custody.'
+}
+
 if ([string]$manifest.ciAuthority.provider -ne 'github-actions' -or
     [string]$manifest.ciAuthority.ref -ne 'refs/heads/main' -or
     [string]$manifest.ciAuthority.refName -ne 'main' -or
