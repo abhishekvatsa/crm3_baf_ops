@@ -515,6 +515,7 @@ foreach ($path in @(
   'pubspec.lock'
   'package-lock.json'
   'functions/package-lock.json'
+  'tooling/firebase-cli/package-lock.json'
 )) {
   $lockfiles[$path] = Get-ZipEntrySha256 `
     -ArchivePath $sourceArchivePath `
@@ -529,6 +530,11 @@ foreach ($path in @(
   'android/settings.gradle.kts'
   'android/gradle/wrapper/gradle-wrapper.properties'
   'pubspec.yaml'
+  'release_gate.ps1'
+  'jest.config.js'
+  'governance/programme-ledger.json'
+  'tooling/firebase-cli/package.json'
+  'tooling/firebase-cli/package-lock.json'
 )) {
   $configHashes[$path] = Get-ZipEntrySha256 `
     -ArchivePath $sourceArchivePath `

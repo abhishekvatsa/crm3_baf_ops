@@ -385,6 +385,71 @@ check(
     ),
 )
 release_gate_source = text(".github/workflows/release-gate.yml")
+c02_verification_builder = text(
+    "tools/release/New-VerificationArtifact.ps1"
+)
+c02_production_builder = text(
+    "tools/release/New-ProductionArtifact.ps1"
+)
+c02_verification_verifier = text(
+    "tools/release/Test-ReleaseManifest.ps1"
+)
+c02_production_verifier = text(
+    "tools/release/Test-ProductionReleaseManifest.ps1"
+)
+c02_contract_test = text(
+    "test/c02_audit_package_coverage_contract_test.dart"
+)
+c02_decision = text("docs/v4_2_r1/C02_AUDIT_PACKAGE_COVERAGE.md")
+c02_records = [
+    record
+    for record in data("governance/programme-ledger.json")["technicalFindings"]
+    if record.get("findingId") == "C-02"
+]
+c02_record = c02_records[0] if len(c02_records) == 1 else {}
+c02_required_paths = (
+    "release_gate.ps1",
+    "jest.config.js",
+    "governance/programme-ledger.json",
+    "tooling/firebase-cli/package.json",
+    "tooling/firebase-cli/package-lock.json",
+)
+check(
+    "C-02 governed artifacts bind complete audit-critical source coverage",
+    all(
+        f"'{path}'" in source
+        for path in c02_required_paths
+        for source in (
+            c02_verification_builder,
+            c02_production_builder,
+            c02_verification_verifier,
+            c02_production_verifier,
+        )
+    )
+    and c02_verification_builder.count(
+        "'tooling/firebase-cli/package-lock.json'"
+    ) >= 2
+    and c02_production_builder.count(
+        "'tooling/firebase-cli/package-lock.json'"
+    ) >= 2
+    and all(
+        "Audit-critical source entry is absent from configuration custody"
+            in verifier
+        and "Governed Firebase CLI lockfile is absent from dependency custody."
+            in verifier
+        for verifier in (
+            c02_verification_verifier,
+            c02_production_verifier,
+        )
+    )
+    and "both artifact builders hash-bind every audit-critical source entry"
+        in c02_contract_test
+    and len(c02_records) == 1
+    and c02_record.get("currentStatus") in ("SOURCE_IMPLEMENTED", "CLOSED")
+    and len(c02_record.get("requiredExitEvidence", [])) == 4
+    and len(c02_record.get("reArmTriggers", [])) >= 5
+    and "Status: SOURCE_IMPLEMENTED" in c02_decision,
+)
 c03_package_script = text(
     "tools/release/Invoke-CIAndroidPackageProof.ps1"
 )
