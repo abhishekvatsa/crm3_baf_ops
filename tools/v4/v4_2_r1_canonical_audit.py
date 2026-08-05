@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 262
-    and counts.get("SUCCESSOR_MODIFIED") == 148
+    and counts.get("BYTE_IDENTICAL") == 255
+    and counts.get("SUCCESSOR_MODIFIED") == 155
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -6622,6 +6622,90 @@ check(
         == "STAGE2D-F4"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
+)
+
+a05_reader = text("lib/core/serialization/persisted_data_reader.dart")
+a05_audit_model = text("lib/features/audit/models/audit_event_model.dart")
+a05_audit_repository = text(
+    "lib/features/audit/repositories/audit_repository.dart"
+)
+a05_auth_provider = text("lib/features/auth/providers/auth_provider.dart")
+a05_maintenance_model = text(
+    "lib/features/maintenance/data/maintenance_model.dart"
+)
+a05_maintenance_provider = text(
+    "lib/features/maintenance/providers/maintenance_provider.dart"
+)
+a05_resolve_form = text(
+    "lib/features/maintenance/presentation/resolve_form.dart"
+)
+a05_test = text("test/a05_maintenance_audit_integrity_test.dart")
+a05_decision = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_1.md"
+)
+a05_records = [
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "A-05"
+]
+a05_record = a05_records[0] if len(a05_records) == 1 else {}
+a05_reconciliation_corrections = {
+    "lib/features/admin/presentation/local_diagnostics_screen.dart",
+    "lib/features/audit/repositories/audit_repository.dart",
+    "test/issue_1_tombstone_conflict_regression_test.dart",
+    "test/planned_job_server_completion_no_loss_test.dart",
+    "test/runtime_module_population_no_loss_test.dart",
+}
+a05_source_delta_paths = {
+    "lib/features/admin/utils/admin_ticket_helpers.dart",
+    "lib/features/audit/models/audit_event_model.dart",
+    "lib/features/audit/repositories/audit_repository.dart",
+    "lib/features/auth/providers/auth_provider.dart",
+    "lib/features/maintenance/data/maintenance_model.dart",
+    "lib/features/maintenance/presentation/resolve_form.dart",
+    "lib/features/maintenance/providers/maintenance_provider.dart",
+}
+check(
+    "A-05 persisted-state tranche fails closed without claiming finding closure",
+    len(a05_records) == 1
+    and a05_record.get("currentStatus") == "OPEN"
+    and a05_record.get("title")
+        == "Empty catches and DateTime.now fallbacks manufacture or suppress state"
+    and "class PersistedDataFormatException" in a05_reader
+    and "readRequiredPersistedDateTime" in a05_reader
+    and "readRequiredJsonObjectList" in a05_reader
+    and "readOptionalJsonObject" in a05_reader
+    and "decodeResolutionHistoryJson" in a05_maintenance_model
+    and "resolutionHistoryReadResult" in a05_maintenance_model
+    and "readValidatedResolutionHistoryPayload("
+        in a05_maintenance_provider
+    and "historyPayload.rows.add(" in a05_maintenance_provider
+    and "decodePersistedAuditEvent(" in a05_audit_repository
+    and a05_audit_repository.count("on PersistedDataFormatException") == 3
+    and "_safeDecode" not in a05_audit_repository
+    and "readOptionalJsonObject(" in a05_audit_model
+    and "catch (_)" not in a05_audit_model
+    and "Could not reset the one-shot sync marker after sign-out"
+        in a05_auth_provider
+    and "Resolution history needs repair" in a05_resolve_form
+    and "No history entries were discarded or replaced." in a05_resolve_form
+    and "remote audit records require their persisted authority fields"
+        in a05_test
+    and "local audit snapshots do not erase malformed state" in a05_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision
+    and "component-action timestamps and broad JSON decoding" in a05_decision
+    and "governed legacy-data inventory" in a05_decision
+    and "does not inspect or mutate production documents" in a05_decision
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 255
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 155
+    and all(
+        row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
+        for path in a05_reconciliation_corrections
+    )
+    and all(
+        row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
+        for path in a05_source_delta_paths
+    ),
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

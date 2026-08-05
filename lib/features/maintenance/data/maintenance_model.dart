@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:isar/isar.dart';
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 
 part 'maintenance_model.g.dart';
@@ -20,7 +21,7 @@ enum RoutedTo {
   refractory,
   emd,
   shiftInCharge,
-  others
+  others,
 }
 
 enum AppRole {
@@ -53,13 +54,12 @@ class ResolutionHistory {
   ResolutionHistory({
     this.resolvedByUid,
     this.resolvedByName,
-    DateTime? resolvedAt,
+    this.resolvedAt,
     String? actionsJson,
     this.remarks,
     this.downtimeHours,
     this.teamsInvolved = const [],
-  })  : resolvedAt = resolvedAt ?? DateTime.now(),
-        actionsJson = actionsJson ?? '[]';
+  }) : actionsJson = actionsJson ?? '[]';
 
   Map<String, dynamic> toMap() => {
     'resolvedByUid': resolvedByUid,
@@ -71,16 +71,100 @@ class ResolutionHistory {
     'teamsInvolved': teamsInvolved,
   };
 
-  factory ResolutionHistory.fromMap(Map<String, dynamic> map) => ResolutionHistory(
-    resolvedByUid: map['resolvedByUid'],
-    resolvedByName: map['resolvedByName'],
-    resolvedAt: map['resolvedAt'] != null ? DateTime.parse(map['resolvedAt']) : null,
-    actionsJson: map['actionsJson'] ?? '[]',
-    remarks: map['remarks'],
-    downtimeHours: map['downtimeHours'],
-    teamsInvolved: List<String>.from(map['teamsInvolved'] ?? []),
+  factory ResolutionHistory.fromMap(
+    Map<String, dynamic> map, {
+    String? source,
+  }) => ResolutionHistory(
+    resolvedByUid: readOptionalPersistedString(
+      map['resolvedByUid'],
+      field: 'resolvedByUid',
+      source: source,
+    ),
+    resolvedByName: readOptionalPersistedString(
+      map['resolvedByName'],
+      field: 'resolvedByName',
+      source: source,
+    ),
+    resolvedAt: readRequiredPersistedDateTime(
+      map['resolvedAt'],
+      field: 'resolvedAt',
+      source: source,
+    ),
+    actionsJson:
+        readOptionalPersistedString(
+          map['actionsJson'],
+          field: 'actionsJson',
+          source: source,
+          emptyAsNull: false,
+        ) ??
+        '[]',
+    remarks: readOptionalPersistedString(
+      map['remarks'],
+      field: 'remarks',
+      source: source,
+      emptyAsNull: false,
+    ),
+    downtimeHours: readOptionalPersistedDouble(
+      map['downtimeHours'],
+      field: 'downtimeHours',
+      source: source,
+    ),
+    teamsInvolved: readOptionalPersistedStringList(
+      map['teamsInvolved'],
+      field: 'teamsInvolved',
+      source: source,
+    ),
   );
 }
+
+class ResolutionHistoryReadResult {
+  final List<ResolutionHistory> entries;
+  final FormatException? error;
+
+  const ResolutionHistoryReadResult._({
+    required this.entries,
+    required this.error,
+  });
+
+  bool get isValid => error == null;
+}
+
+class ValidatedResolutionHistoryPayload {
+  final List<Map<String, dynamic>> rows;
+  final List<ResolutionHistory> entries;
+
+  const ValidatedResolutionHistoryPayload({
+    required this.rows,
+    required this.entries,
+  });
+}
+
+ValidatedResolutionHistoryPayload readValidatedResolutionHistoryPayload(
+  String value, {
+  String? source,
+}) {
+  final rows = readRequiredJsonObjectList(
+    value,
+    field: 'resolutionHistoryJson',
+    source: source,
+  );
+  final entries = <ResolutionHistory>[
+    for (var index = 0; index < rows.length; index++)
+      ResolutionHistory.fromMap(
+        rows[index],
+        source:
+            source == null
+                ? 'resolutionHistoryJson[$index]'
+                : '$source resolutionHistoryJson[$index]',
+      ),
+  ];
+  return ValidatedResolutionHistoryPayload(rows: rows, entries: entries);
+}
+
+List<ResolutionHistory> decodeResolutionHistoryJson(
+  String value, {
+  String? source,
+}) => readValidatedResolutionHistoryPayload(value, source: source).entries;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN MODEL
@@ -228,12 +312,26 @@ class MaintenanceRecord {
   String resolutionHistoryJson = '[]';
 
   @ignore
-  List<ResolutionHistory> get resolutionHistory {
+  List<ResolutionHistory> get resolutionHistory => decodeResolutionHistoryJson(
+    resolutionHistoryJson,
+    source:
+        firestoreId == null
+            ? 'local maintenance $id'
+            : 'maintenance $firestoreId',
+  );
+
+  @ignore
+  ResolutionHistoryReadResult get resolutionHistoryReadResult {
     try {
-      final list = jsonDecode(resolutionHistoryJson) as List;
-      return list.map((e) => ResolutionHistory.fromMap(Map<String, dynamic>.from(e))).toList();
-    } catch (_) {
-      return [];
+      return ResolutionHistoryReadResult._(
+        entries: resolutionHistory,
+        error: null,
+      );
+    } on FormatException catch (error) {
+      return ResolutionHistoryReadResult._(
+        entries: const <ResolutionHistory>[],
+        error: error,
+      );
     }
   }
 
@@ -282,7 +380,7 @@ class MaintenanceRecord {
 
   bool get hasComponentContext =>
       (component != null && component!.trim().isNotEmpty) ||
-          (tag != null && tag!.trim().isNotEmpty);
+      (tag != null && tag!.trim().isNotEmpty);
 
   String get debugLabel =>
       '${assetType.name.toUpperCase()}-$assetNumber | ${status.name}';

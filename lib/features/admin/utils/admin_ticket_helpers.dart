@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../maintenance/data/maintenance_model.dart';
 
 String? cleanAdminOptionalText(String value) {
@@ -27,7 +30,18 @@ MaintenanceRecord copyTicketForAdminEdit({
   final wasResolved =
       source.isResolved || source.status == TicketStatus.resolved;
   final willBeResolved = status == TicketStatus.resolved;
-  final resolvedAt = source.endDate ?? now;
+  final sourceResolvedAt = source.endDate;
+  if (wasResolved && sourceResolvedAt == null) {
+    throw PersistedDataFormatException(
+      field: 'endDate',
+      source:
+          source.firestoreId == null
+              ? 'local maintenance ${source.id}'
+              : 'maintenance ${source.firestoreId}',
+      detail: 'resolved ticket has no closure timestamp',
+    );
+  }
+  final resolvedAt = sourceResolvedAt ?? now;
   final downtimeHours =
       source.downtimeHours ??
       resolvedAt.difference(source.startDate).inMinutes / 60.0;
@@ -86,19 +100,25 @@ MaintenanceRecord copyTicketForAdminEdit({
         ..resolutionHistoryJson = source.resolutionHistoryJson;
 
   if (wasResolved && !willBeResolved) {
-    final history = source.resolutionHistory;
-    history.add(
+    final historyPayload = readValidatedResolutionHistoryPayload(
+      source.resolutionHistoryJson,
+      source:
+          source.firestoreId == null
+              ? 'local maintenance ${source.id}'
+              : 'maintenance ${source.firestoreId}',
+    );
+    historyPayload.rows.add(
       ResolutionHistory(
         resolvedByUid: source.closedByUid,
         resolvedByName: source.closedByName,
-        resolvedAt: source.endDate,
+        resolvedAt: sourceResolvedAt,
         actionsJson: source.actionsJson,
         remarks: source.remarks,
         downtimeHours: source.downtimeHours,
         teamsInvolved: List<String>.from(source.teamsInvolved),
-      ),
+      ).toMap(),
     );
-    edited.resolutionHistory = history;
+    edited.resolutionHistoryJson = jsonEncode(historyPayload.rows);
   }
 
   return edited;
