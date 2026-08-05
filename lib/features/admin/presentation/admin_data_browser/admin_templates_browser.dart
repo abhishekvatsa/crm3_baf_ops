@@ -121,7 +121,7 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
   @override
   Widget build(BuildContext context) {
     final template = widget.template;
-    final fieldCount = template.parsedFields.length;
+    final fieldRead = template.fieldsReadResult;
     final scopeLabel = templateScopeLabel(template);
 
     return Card(
@@ -174,8 +174,14 @@ class _TemplateCardState extends ConsumerState<_TemplateCard> {
                 runSpacing: BafSpacing.xs,
                 children: [
                   AdminChip(
-                    label: '$fieldCount fields',
-                    color: BafColors.planned,
+                    label:
+                        fieldRead.isValid
+                            ? '${fieldRead.entries.length} fields'
+                            : 'FIELDS NEED REPAIR',
+                    color:
+                        fieldRead.isValid
+                            ? BafColors.planned
+                            : BafColors.danger,
                   ),
                   if (scopeLabel != null)
                     AdminChip(label: scopeLabel, color: BafColors.assets),

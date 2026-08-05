@@ -16,21 +16,19 @@ import 'planned_job_detail_screen.dart';
 class JobHistoryScreen extends ConsumerWidget {
   final JobTemplate template;
 
-  const JobHistoryScreen({
-    super.key,
-    required this.template,
-  });
+  const JobHistoryScreen({super.key, required this.template});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final templateFirestoreId = template.firestoreId?.trim();
     final hasValidTemplateFirestoreId =
         templateFirestoreId != null && templateFirestoreId.isNotEmpty;
-    final executionsFuture = hasValidTemplateFirestoreId
-        ? ref
-        .read(plannedRepositoryProvider)
-        .getExecutionsForTemplate(templateFirestoreId)
-        : Future<List<JobExecution>>.value([]);
+    final executionsFuture =
+        hasValidTemplateFirestoreId
+            ? ref
+                .read(plannedRepositoryProvider)
+                .getExecutionsForTemplate(templateFirestoreId)
+            : Future<List<JobExecution>>.value([]);
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -67,9 +65,15 @@ class JobHistoryScreen extends ConsumerWidget {
           final pending = executions.length - completed;
 
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(BafSpacing.lg, BafSpacing.md, BafSpacing.lg, BafSpacing.xl),
+            padding: const EdgeInsets.fromLTRB(
+              BafSpacing.lg,
+              BafSpacing.md,
+              BafSpacing.lg,
+              BafSpacing.xl,
+            ),
             itemCount: executions.length + 1,
-            separatorBuilder: (_, index) => const SizedBox(height: BafSpacing.md),
+            separatorBuilder:
+                (_, index) => const SizedBox(height: BafSpacing.md),
             itemBuilder: (context, index) {
               if (index == 0) {
                 return _HistoryHeader(
@@ -81,10 +85,7 @@ class JobHistoryScreen extends ConsumerWidget {
               }
 
               final execution = executions[index - 1];
-              return _ExecutionCard(
-                execution: execution,
-                template: template,
-              );
+              return _ExecutionCard(execution: execution, template: template);
             },
           );
         },
@@ -113,9 +114,7 @@ class _HistoryHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF7FBFF),
         borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(
-          color: BafColors.planned.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: BafColors.planned.withValues(alpha: 0.18)),
         boxShadow: BafShadows.subtle,
       ),
       child: Row(
@@ -205,10 +204,7 @@ class _ExecutionCard extends StatelessWidget {
   final JobExecution execution;
   final JobTemplate template;
 
-  const _ExecutionCard({
-    required this.execution,
-    required this.template,
-  });
+  const _ExecutionCard({required this.execution, required this.template});
 
   @override
   Widget build(BuildContext context) {
@@ -216,13 +212,14 @@ class _ExecutionCard extends StatelessWidget {
     final responseRead = ex.responsesReadResult;
     final responses = responseRead.entries;
     final hasResponses = responseRead.isValid && responses.isNotEmpty;
-    final visibleResponses = responses
-        .where(
-          (r) =>
-      r.fieldType != FieldType.sectionHeader &&
-          r.fieldType != FieldType.instruction,
-    )
-        .toList();
+    final visibleResponses =
+        responses
+            .where(
+              (r) =>
+                  r.fieldType != FieldType.sectionHeader &&
+                  r.fieldType != FieldType.instruction,
+            )
+            .toList();
 
     final statusColor = ex.isCompleted ? BafColors.sync : BafColors.warning;
 
@@ -230,9 +227,7 @@ class _ExecutionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(
-          color: statusColor.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: statusColor.withValues(alpha: 0.22)),
         boxShadow: BafShadows.subtle,
       ),
       child: ClipRRect(
@@ -285,15 +280,16 @@ class _ExecutionCard extends StatelessWidget {
                                   runSpacing: 8,
                                   children: [
                                     StatusBadge(
-                                      label: ex.isCompleted
-                                          ? 'Completed'
-                                          : 'Pending',
+                                      label:
+                                          ex.isCompleted
+                                              ? 'Completed'
+                                              : 'Pending',
                                       color: statusColor,
                                     ),
                                     if (ex.teamsInvolved.isNotEmpty)
                                       StatusBadge(
                                         label:
-                                        '${ex.teamsInvolved.length} team${ex.teamsInvolved.length == 1 ? '' : 's'}',
+                                            '${ex.teamsInvolved.length} team${ex.teamsInvolved.length == 1 ? '' : 's'}',
                                         color: BafColors.charges,
                                         icon: Icons.groups_rounded,
                                       ),
@@ -309,14 +305,14 @@ class _ExecutionCard extends StatelessWidget {
                       _MetaLine(
                         icon: Icons.event_available_rounded,
                         text:
-                        'Assigned ${DateFormat('dd MMM yyyy, HH:mm').format(ex.createdAt)}',
+                            'Assigned ${DateFormat('dd MMM yyyy, HH:mm').format(ex.createdAt)}',
                       ),
                       if (ex.isCompleted && ex.completedAt != null) ...[
                         const SizedBox(height: 6),
                         _MetaLine(
                           icon: Icons.task_alt_rounded,
                           text:
-                          'Completed ${DateFormat('dd MMM yyyy, HH:mm').format(ex.completedAt!)}',
+                              'Completed ${DateFormat('dd MMM yyyy, HH:mm').format(ex.completedAt!)}',
                         ),
                       ],
                       if (ex.completedByName != null &&
@@ -333,14 +329,15 @@ class _ExecutionCard extends StatelessWidget {
                         Wrap(
                           spacing: 6,
                           runSpacing: 6,
-                          children: ex.teamsInvolved
-                              .map(
-                                (team) => StatusBadge(
-                              label: team.toUpperCase(),
-                              color: BafColors.charges,
-                            ),
-                          )
-                              .toList(),
+                          children:
+                              ex.teamsInvolved
+                                  .map(
+                                    (team) => StatusBadge(
+                                      label: team.toUpperCase(),
+                                      color: BafColors.charges,
+                                    ),
+                                  )
+                                  .toList(),
                         ),
                       ],
 
@@ -366,8 +363,9 @@ class _ExecutionCard extends StatelessWidget {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: BafColors.background,
-                            borderRadius:
-                            BorderRadius.circular(BafRadius.medium),
+                            borderRadius: BorderRadius.circular(
+                              BafRadius.medium,
+                            ),
                             border: Border.all(color: BafColors.border),
                           ),
                           child: Column(
@@ -389,8 +387,8 @@ class _ExecutionCard extends StatelessWidget {
                                 Align(
                                   alignment: Alignment.centerLeft,
                                   child: TextButton.icon(
-                                    onPressed: () =>
-                                        _showResponseSheet(context, ex),
+                                    onPressed:
+                                        () => _showResponseSheet(context, ex),
                                     icon: const Icon(
                                       Icons.expand_more_rounded,
                                       size: 18,
@@ -414,7 +412,9 @@ class _ExecutionCard extends StatelessWidget {
                                 onPressed: () => _openJobDetail(context, ex),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: BafColors.planned,
-                                  side: const BorderSide(color: BafColors.border),
+                                  side: const BorderSide(
+                                    color: BafColors.border,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(
                                       BafRadius.medium,
@@ -476,7 +476,9 @@ class _ExecutionCard extends StatelessWidget {
                                 onPressed: () => _openJobDetail(context, ex),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: BafColors.planned,
-                                  side: const BorderSide(color: BafColors.border),
+                                  side: const BorderSide(
+                                    color: BafColors.border,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(
                                       BafRadius.medium,
@@ -493,10 +495,13 @@ class _ExecutionCard extends StatelessWidget {
                             const SizedBox(width: 8),
                             Expanded(
                               child: OutlinedButton.icon(
-                                onPressed: () => _showResponseSheet(context, ex),
+                                onPressed:
+                                    () => _showResponseSheet(context, ex),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: BafColors.planned,
-                                  side: const BorderSide(color: BafColors.border),
+                                  side: const BorderSide(
+                                    color: BafColors.border,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(
                                       BafRadius.medium,
@@ -548,10 +553,9 @@ class _ExecutionCard extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => PlannedJobDetailScreen(
-          execution: ex,
-          template: template,
-        ),
+        builder:
+            (context) =>
+                PlannedJobDetailScreen(execution: ex, template: template),
       ),
     );
   }
@@ -561,10 +565,8 @@ class _ExecutionCard extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _ResponseDetailSheet(
-        execution: ex,
-        template: template,
-      ),
+      builder:
+          (context) => _ResponseDetailSheet(execution: ex, template: template),
     );
   }
 
@@ -610,10 +612,7 @@ class _ResponsePreviewRow extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             flex: 3,
-            child: _ResponseValueWidget(
-              response: response,
-              compact: true,
-            ),
+            child: _ResponseValueWidget(response: response, compact: true),
           ),
         ],
       ),
@@ -625,17 +624,15 @@ class _ResponseDetailSheet extends StatelessWidget {
   final JobExecution execution;
   final JobTemplate template;
 
-  const _ResponseDetailSheet({
-    required this.execution,
-    required this.template,
-  });
+  const _ResponseDetailSheet({required this.execution, required this.template});
 
   @override
   Widget build(BuildContext context) {
     final ex = execution;
     final responseRead = ex.responsesReadResult;
     final responses = responseRead.entries;
-    final templateFields = List<TemplateField>.from(template.parsedFields)
+    final templateFieldRead = template.fieldsReadResult;
+    final templateFields = List<TemplateField>.from(templateFieldRead.entries)
       ..sort((a, b) => a.order.compareTo(b.order));
 
     return DraggableScrollableSheet(
@@ -719,13 +716,21 @@ class _ResponseDetailSheet extends StatelessWidget {
                         message:
                             'This saved response payload must be repaired before its evidence can be displayed.',
                       )
+                    else if (!templateFieldRead.isValid)
+                      const PersistedDataIntegrityNotice(
+                        title: 'Template fields unavailable',
+                        message:
+                            'This saved template field payload must be repaired before its response labels can be displayed.',
+                      )
                     else if (templateFields.isNotEmpty)
                       ...templateFields.map((field) {
                         if (field.type == FieldType.sectionHeader) {
                           return _SectionHeaderWidget(field.label);
                         }
                         if (field.type == FieldType.instruction) {
-                          return _InstructionBox(text: field.instructionText ?? field.label);
+                          return _InstructionBox(
+                            text: field.instructionText ?? field.label,
+                          );
                         }
 
                         final response = _firstResponseForKey(
@@ -735,37 +740,39 @@ class _ResponseDetailSheet extends StatelessWidget {
 
                         return _FieldRow(
                           label: field.label,
-                          child: response == null
-                              ? const Text(
-                            '—',
-                            style: TextStyle(
-                              color: BafColors.textSecondary,
-                            ),
-                          )
-                              : _ResponseValueWidget(
-                            response: response,
-                            compact: false,
-                          ),
+                          child:
+                              response == null
+                                  ? const Text(
+                                    '—',
+                                    style: TextStyle(
+                                      color: BafColors.textSecondary,
+                                    ),
+                                  )
+                                  : _ResponseValueWidget(
+                                    response: response,
+                                    compact: false,
+                                  ),
                         );
                       })
                     else
                       ...responses
                           .where(
                             (r) =>
-                        r.fieldType != FieldType.sectionHeader &&
-                            r.fieldType != FieldType.instruction,
-                      )
+                                r.fieldType != FieldType.sectionHeader &&
+                                r.fieldType != FieldType.instruction,
+                          )
                           .map(
                             (r) => _FieldRow(
-                          label: r.fieldLabel,
-                          child: _ResponseValueWidget(
-                            response: r,
-                            compact: false,
+                              label: r.fieldLabel,
+                              child: _ResponseValueWidget(
+                                response: r,
+                                compact: false,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
 
-                    if (ex.remarks != null && ex.remarks!.trim().isNotEmpty) ...[
+                    if (ex.remarks != null &&
+                        ex.remarks!.trim().isNotEmpty) ...[
                       const _SectionHeaderWidget('Remarks'),
                       _RemarksBox(text: ex.remarks!.trim()),
                     ],
@@ -789,9 +796,9 @@ class _ResponseDetailSheet extends StatelessWidget {
   }
 
   FieldResponse? _firstResponseForKey(
-      List<FieldResponse> responses,
-      String key,
-      ) {
+    List<FieldResponse> responses,
+    String key,
+  ) {
     for (final response in responses) {
       if (response.key == key) {
         return response;
@@ -828,9 +835,7 @@ class _SectionHeaderWidget extends StatelessWidget {
       decoration: BoxDecoration(
         color: BafColors.planned.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(
-          color: BafColors.planned.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: BafColors.planned.withValues(alpha: 0.16)),
       ),
       child: Text(
         label.toUpperCase(),
@@ -890,10 +895,7 @@ class _FieldRow extends StatelessWidget {
   final String label;
   final Widget child;
 
-  const _FieldRow({
-    required this.label,
-    required this.child,
-  });
+  const _FieldRow({required this.label, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -926,10 +928,7 @@ class _ResponseValueWidget extends StatelessWidget {
   final FieldResponse response;
   final bool compact;
 
-  const _ResponseValueWidget({
-    required this.response,
-    required this.compact,
-  });
+  const _ResponseValueWidget({required this.response, required this.compact});
 
   @override
   Widget build(BuildContext context) {
@@ -938,7 +937,8 @@ class _ResponseValueWidget extends StatelessWidget {
     switch (response.fieldType) {
       case FieldType.checkbox:
       case FieldType.yesNo:
-        final isTrue = value == true ||
+        final isTrue =
+            value == true ||
             value?.toString().trim().toLowerCase() == 'true' ||
             value?.toString().trim().toLowerCase() == 'yes';
 
@@ -978,10 +978,7 @@ class _ResponseValueWidget extends StatelessWidget {
         if (_isEmpty(value)) return _Dash(compact: compact);
         return Align(
           alignment: Alignment.centerLeft,
-          child: StatusBadge(
-            label: value.toString(),
-            color: BafColors.planned,
-          ),
+          child: StatusBadge(label: value.toString(), color: BafColors.planned),
         );
 
       case FieldType.multiSelect:
@@ -991,14 +988,13 @@ class _ResponseValueWidget extends StatelessWidget {
         return Wrap(
           spacing: 5,
           runSpacing: 5,
-          children: items
-              .map(
-                (item) => StatusBadge(
-              label: item,
-              color: BafColors.planned,
-            ),
-          )
-              .toList(),
+          children:
+              items
+                  .map(
+                    (item) =>
+                        StatusBadge(label: item, color: BafColors.planned),
+                  )
+                  .toList(),
         );
 
       case FieldType.dateTime:
@@ -1047,7 +1043,10 @@ class _ResponseValueWidget extends StatelessWidget {
   List<String> _multiSelectItems(Object? value) {
     if (value == null) return [];
     if (value is List) {
-      return value.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList();
+      return value
+          .map((e) => e.toString())
+          .where((e) => e.trim().isNotEmpty)
+          .toList();
     }
     return value
         .toString()
@@ -1079,10 +1078,7 @@ class _MetaLine extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _MetaLine({
-    required this.icon,
-    required this.text,
-  });
+  const _MetaLine({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -1157,7 +1153,7 @@ class _MissingTemplateIdState extends StatelessWidget {
       iconColor: BafColors.danger,
       title: 'Template ID missing',
       message:
-      'This template is missing its local sync ID, so its execution history cannot be loaded.',
+          'This template is missing its local sync ID, so its execution history cannot be loaded.',
     );
   }
 }
@@ -1174,7 +1170,7 @@ class _EmptyHistoryState extends StatelessWidget {
       iconColor: BafColors.planned,
       title: 'No executions yet',
       message:
-      'Assign ${template.jobName} to an asset to start building its history.',
+          'Assign ${template.jobName} to an asset to start building its history.',
     );
   }
 }

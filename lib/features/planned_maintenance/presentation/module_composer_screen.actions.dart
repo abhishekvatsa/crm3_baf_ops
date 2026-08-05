@@ -334,21 +334,30 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       }
     }
 
-    await _clearRecoveryDraft();
-    if (!mounted) {
+    late final TemplateComposerDraft selectedDraft;
+    try {
+      selectedDraft = TemplateComposerDraft.fromPayloads(
+        jobTemplateSnapshotJson: selected.version.jobTemplateSnapshotJson,
+        moduleSnapshotsJson: selected.version.moduleSnapshotsJson,
+        fieldDefinitionsJson: selected.version.fieldDefinitionsJson,
+        checklistJson: selected.version.checklistJson,
+      );
+    } on FormatException catch (error) {
+      _showSnack(
+        'Saved draft needs repair and was not opened: ${error.message}',
+        BafColors.danger,
+      );
       return;
     }
+
+    await _clearRecoveryDraft();
+    if (!mounted) return;
 
     _suppressRecoverySave = true;
     try {
       setState(() {
         _editingTemplateVersion = selected.version;
-        _draft = TemplateComposerDraft.fromPayloads(
-          jobTemplateSnapshotJson: selected.version.jobTemplateSnapshotJson,
-          moduleSnapshotsJson: selected.version.moduleSnapshotsJson,
-          fieldDefinitionsJson: selected.version.fieldDefinitionsJson,
-          checklistJson: selected.version.checklistJson,
-        );
+        _draft = selectedDraft;
         _draft.localId = selected.version.firestoreId ?? _stableDraftLocalId();
         _applyMatrixMetaToDraft();
         _synchronizeTitleControllerFromDraft();

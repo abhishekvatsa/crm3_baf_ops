@@ -12,6 +12,7 @@ import '../../audit/models/audit_event_model.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import 'assign_job_screen.dart';
 import 'job_history_screen.dart';
 import 'template_designer_screen.dart';
@@ -31,6 +32,7 @@ class TemplateDetailScreen extends ConsumerWidget {
     final canAssignJob = appUser?.canAssignJobExecution ?? false;
     final canEditTemplate = appUser?.canEditLegacyJobTemplate ?? false;
     final canDeleteTemplate = appUser?.canDeleteLegacyJobTemplate ?? false;
+    final fieldsValid = template.fieldsReadResult.isValid;
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -50,6 +52,14 @@ class TemplateDetailScreen extends ConsumerWidget {
         ),
         children: [
           _TemplateSummaryCard(template: template),
+          if (!fieldsValid) ...[
+            const SizedBox(height: BafSpacing.md),
+            const PersistedDataIntegrityNotice(
+              title: 'Saved template fields need repair',
+              message:
+                  'No fields were discarded or replaced. Assignment and editing are blocked until the saved payload is repaired.',
+            ),
+          ],
           const SizedBox(height: BafSpacing.lg),
           _FieldsPreviewCard(template: template),
           const SizedBox(height: BafSpacing.lg),
@@ -62,9 +72,20 @@ class TemplateDetailScreen extends ConsumerWidget {
             _ActionTile(
               icon: Icons.assignment_turned_in_rounded,
               label: 'Assign Job',
-              subtitle: 'Create a new job execution for a specific asset.',
+              subtitle:
+                  fieldsValid
+                      ? 'Create a new job execution for a specific asset.'
+                      : 'Repair saved fields before assigning this template.',
               color: BafColors.planned,
               onTap: () {
+                if (!fieldsValid) {
+                  _showTemplateDetailSnack(
+                    context,
+                    'Saved template fields need repair before assignment.',
+                    color: BafColors.danger,
+                  );
+                  return;
+                }
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -95,9 +116,20 @@ class TemplateDetailScreen extends ConsumerWidget {
               _ActionTile(
                 icon: Icons.edit_note_rounded,
                 label: 'Edit Template',
-                subtitle: 'Modify fields, structure, and template details.',
+                subtitle:
+                    fieldsValid
+                        ? 'Modify fields, structure, and template details.'
+                        : 'Repair saved fields before editing this template.',
                 color: BafColors.warning,
                 onTap: () {
+                  if (!fieldsValid) {
+                    _showTemplateDetailSnack(
+                      context,
+                      'Saved template fields need repair before editing.',
+                      color: BafColors.danger,
+                    );
+                    return;
+                  }
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -162,16 +194,16 @@ class TemplateDetailScreen extends ConsumerWidget {
       final syncCoordinator = ref.read(syncCoordinatorProvider);
 
       await repository.deleteTemplate(
-            id,
-            actor: appUser,
-            auditContext: AuditContext(
-              performedByUid: actorUid,
-              performedByName: actorName,
-              reason: decision.reason,
-              reasonNotes: decision.notes,
-              before: template.toAuditMap(),
-            ),
-          );
+        id,
+        actor: appUser,
+        auditContext: AuditContext(
+          performedByUid: actorUid,
+          performedByName: actorName,
+          reason: decision.reason,
+          reasonNotes: decision.notes,
+          before: template.toAuditMap(),
+        ),
+      );
 
       unawaited(
         syncCoordinator.runFullSync(reason: 'template_deleted', force: true),
@@ -323,6 +355,7 @@ class _TemplateSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fieldRead = template.fieldsReadResult;
     return Container(
       padding: const EdgeInsets.all(BafSpacing.lg),
       decoration: BoxDecoration(
@@ -386,9 +419,15 @@ class _TemplateSummaryCard extends StatelessWidget {
                 icon: Icons.precision_manufacturing_rounded,
               ),
               StatusBadge(
-                label: '${template.parsedFields.length} fields',
-                color: BafColors.planned,
-                icon: Icons.list_alt_rounded,
+                label:
+                    fieldRead.isValid
+                        ? '${fieldRead.entries.length} fields'
+                        : 'Fields need repair',
+                color: fieldRead.isValid ? BafColors.planned : BafColors.danger,
+                icon:
+                    fieldRead.isValid
+                        ? Icons.list_alt_rounded
+                        : Icons.warning_amber_rounded,
               ),
               ...template.assignedAgencies.map(
                 (agency) => StatusBadge(
@@ -422,7 +461,8 @@ class _FieldsPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fields = template.parsedFields;
+    final fieldRead = template.fieldsReadResult;
+    final fields = fieldRead.entries;
 
     return Container(
       padding: const EdgeInsets.all(BafSpacing.lg),
@@ -441,7 +481,13 @@ class _FieldsPreviewCard extends StatelessWidget {
                 'Checklist and response fields captured during completion.',
           ),
           const SizedBox(height: BafSpacing.md),
-          if (fields.isEmpty)
+          if (!fieldRead.isValid)
+            const PersistedDataIntegrityNotice(
+              title: 'Template fields unavailable',
+              message:
+                  'This saved field payload must be repaired before its checklist can be displayed.',
+            )
+          else if (fields.isEmpty)
             const Text(
               'No custom fields configured.',
               style: TextStyle(color: BafColors.textSecondary, fontSize: 13),

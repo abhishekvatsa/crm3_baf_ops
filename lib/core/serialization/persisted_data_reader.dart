@@ -246,6 +246,39 @@ List<Map<String, dynamic>> readRequiredJsonObjectList(
   return result;
 }
 
+Map<String, dynamic> readRequiredJsonObject(
+  String value, {
+  required String field,
+  String? source,
+}) {
+  dynamic decoded;
+  try {
+    decoded = jsonDecode(value);
+  } on FormatException {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'malformed JSON',
+    );
+  }
+  if (decoded is! Map) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'expected a JSON object',
+    );
+  }
+  try {
+    return Map<String, dynamic>.from(decoded);
+  } on TypeError {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'object keys must be strings',
+    );
+  }
+}
+
 Map<String, dynamic>? readOptionalJsonObject(
   dynamic value, {
   required String field,

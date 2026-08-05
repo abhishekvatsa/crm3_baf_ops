@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 245,
-    "SUCCESSOR_MODIFIED": 165
+    "BYTE_IDENTICAL": 240,
+    "SUCCESSOR_MODIFIED": 170
   },
   "paths": [
     {
@@ -1253,10 +1253,10 @@
     {
       "path": "lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart",
       "canonicalSha256": "9741A2C01DC56D42F80F4F81C1EA600801486B550390924C915760536283AEAA",
-      "candidateSha256": "9741A2C01DC56D42F80F4F81C1EA600801486B550390924C915760536283AEAA",
+      "candidateSha256": "D94E86F2C3A7095F498ECAF917AABC0DB32F06DF42B33721FC2AE4FB83741BB8",
       "canonicalBytes": 9728,
-      "candidateBytes": 9728,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 9982,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart",
@@ -1629,9 +1629,9 @@
     {
       "path": "lib/features/planned_maintenance/data/job_template_model.dart",
       "canonicalSha256": "4DA077FD5E7F9DF3A44515FBC86FA2BE75DC7603E05B5DF45EB6FDCB1065B751",
-      "candidateSha256": "23543F53DB5D8CAA41C5B9C6B1EBF53738FAEFDB56BD91CD8D184818A2681563",
+      "candidateSha256": "8D840CD2087CE655CB90DC4A3FE836AA2F9C1DB2FE32FA17F836C0961A66BF23",
       "canonicalBytes": 21464,
-      "candidateBytes": 37394,
+      "candidateBytes": 41856,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1741,9 +1741,9 @@
     {
       "path": "lib/features/planned_maintenance/domain/module_composer_models.dart",
       "canonicalSha256": "D3FB1B82FA41F640F8ADDB5F6C39CC69B083772B46DB38D454ACF290DF77F81F",
-      "candidateSha256": "9D81E8BD2A7CF52993AD7D4FFE4247EEC0F57AF11D205A1F6CF8720008B73634",
+      "candidateSha256": "CC843EE4F79ECE23BDF87553ACC01E3C53FD8AFF1B88DC1DF704413E47BE3DA7",
       "canonicalBytes": 54975,
-      "candidateBytes": 55222,
+      "candidateBytes": 55093,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1893,9 +1893,9 @@
     {
       "path": "lib/features/planned_maintenance/presentation/complete_job_screen.dart",
       "canonicalSha256": "F73CBD7E9879A7830768692ABFAA90C99442124FD7B7EB7227822C4A53ED58D6",
-      "candidateSha256": "A6F3906DA18C75CDFEB0DC6DA1F033B84500E71F9249389A96DB3404D69EF34A",
+      "candidateSha256": "DFC444A9EC7C4BE297C48DA0E08906FAFDAC3654A5AD716AB2B4DCC1C58349E5",
       "canonicalBytes": 56983,
-      "candidateBytes": 67510,
+      "candidateBytes": 68425,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1909,9 +1909,9 @@
     {
       "path": "lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart",
       "canonicalSha256": "3077AC82D2A682FC42706979478120ECCD8E8D75DCE011AF92D9C89851E43C9E",
-      "candidateSha256": "4A6441CA3E537F61AF74FEF435E41604D52B742AD5D0762B501C99558702A794",
+      "candidateSha256": "758C038EFCBCFE7E7FD93920DF3EB307F6B3BF4FB09A08A4D4D9646F2DE21158",
       "canonicalBytes": 49743,
-      "candidateBytes": 51661,
+      "candidateBytes": 51945,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1933,9 +1933,9 @@
     {
       "path": "lib/features/planned_maintenance/presentation/job_history_screen.dart",
       "canonicalSha256": "3837F224BC698A2C7F69A042697777312FAD14B6B46E4CF91A7C35FD8A5E6F1E",
-      "candidateSha256": "F99B1EC5A3388B57A0718884D6B5D66A49728C30B7EFB2D3792CED2C842E977D",
+      "candidateSha256": "3858A2DA1D230863A37D404CBAE8B07D9E192D8B91C53990306A7D1567160033",
       "canonicalBytes": 41236,
-      "candidateBytes": 42729,
+      "candidateBytes": 43741,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1965,10 +1965,10 @@
     {
       "path": "lib/features/planned_maintenance/presentation/module_composer_screen.actions.dart",
       "canonicalSha256": "F6DB0B96063B74E9BDF1DB97D3947CE84C37E98949310488B1E685A213E89458",
-      "candidateSha256": "F6DB0B96063B74E9BDF1DB97D3947CE84C37E98949310488B1E685A213E89458",
+      "candidateSha256": "9F4AD97760513A9400C41BE83C86BC7CC3B93F696148EE336BF0FA020CD52298",
       "canonicalBytes": 40429,
-      "candidateBytes": 40429,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 40692,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/planned_maintenance/presentation/module_composer_screen.builders.dart",
@@ -1981,10 +1981,10 @@
     {
       "path": "lib/features/planned_maintenance/presentation/module_composer_screen.dart",
       "canonicalSha256": "377798F2D16B3747F1CB0B0931883BA57DF1FC8D83231BCC4FBA658E4C40EC62",
-      "candidateSha256": "377798F2D16B3747F1CB0B0931883BA57DF1FC8D83231BCC4FBA658E4C40EC62",
+      "candidateSha256": "BEFDC3433E04B51CA23D7C70B9725D02D4226F2639FBCEEFF072820C0917A702",
       "canonicalBytes": 7390,
-      "candidateBytes": 7390,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 8748,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/planned_maintenance/presentation/module_composer_screen.helpers.dart",
@@ -1997,9 +1997,9 @@
     {
       "path": "lib/features/planned_maintenance/presentation/module_composer_screen.support.dart",
       "canonicalSha256": "E89FA746E8CC5DAFBAC72CF2478ECD930F1E0F78555E48A6B08D138B686E0209",
-      "candidateSha256": "5021B3EA9D48B410127E668A2361CE63539C69460468448897D85EBDBD0584D6",
+      "candidateSha256": "FF0BF1B23DD9E2EAFCC6C274AB662B525E2FBF99F4481AB7B63D5F7954D9ED0E",
       "canonicalBytes": 13500,
-      "candidateBytes": 13764,
+      "candidateBytes": 14548,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2061,18 +2061,18 @@
     {
       "path": "lib/features/planned_maintenance/presentation/template_designer_screen.dart",
       "canonicalSha256": "65B80474C80678CC73E76AD806E43BD962E50ADE9C335C985C73295682D740B0",
-      "candidateSha256": "65B80474C80678CC73E76AD806E43BD962E50ADE9C335C985C73295682D740B0",
+      "candidateSha256": "0EA770E53771A577373FCD14C1596BCA1D7FF14AC23EFC4C5ACFF5B62FD4C06B",
       "canonicalBytes": 29616,
-      "candidateBytes": 29616,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 31976,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/planned_maintenance/presentation/template_detail_screen.dart",
       "canonicalSha256": "F9F0B975B232E88765DE6BE3E387B0DBC2251EE5197AD511D8942FBFFE63F62C",
-      "candidateSha256": "F9F0B975B232E88765DE6BE3E387B0DBC2251EE5197AD511D8942FBFFE63F62C",
+      "candidateSha256": "11102BF9F199D817B147EA3FBEE28C06CEC3730E7AD4C1CC944C54436C04FA2F",
       "canonicalBytes": 20455,
-      "candidateBytes": 20455,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 22422,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/planned_maintenance/presentation/template_publisher_json_panel.dart",
@@ -2157,9 +2157,9 @@
     {
       "path": "lib/features/planned_maintenance/presentation/templates_screen.dart",
       "canonicalSha256": "34C0F24030389E4AEBE73FE4344DAEA4D017BC7A87EB4A8A05BD94CF628E4676",
-      "candidateSha256": "D5731FB16D5E36CEB9E0597EDC67E7B2A920033009F9BB27B75F25A4740D0CC0",
+      "candidateSha256": "DEF64D739F1C223D9E109772AA35956779E48D21B7BF67034AE9F866DF1DDB67",
       "canonicalBytes": 22566,
-      "candidateBytes": 24121,
+      "candidateBytes": 24559,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

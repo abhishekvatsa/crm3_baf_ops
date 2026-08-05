@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/job_module_model.dart';
 
@@ -422,10 +423,27 @@ class TemplateComposerDraft {
     required String fieldDefinitionsJson,
     required String checklistJson,
   }) {
-    final jobSnapshot = _decodeObject(jobTemplateSnapshotJson);
-    final moduleSnapshots = _decodeObjectList(moduleSnapshotsJson);
-    final fieldDefinitions = _decodeObjectList(fieldDefinitionsJson);
-    final checklistItems = _decodeObjectList(checklistJson);
+    const source = 'Template Composer payload';
+    final jobSnapshot = readRequiredJsonObject(
+      jobTemplateSnapshotJson,
+      field: 'jobTemplateSnapshotJson',
+      source: source,
+    );
+    final moduleSnapshots = readRequiredJsonObjectList(
+      moduleSnapshotsJson,
+      field: 'moduleSnapshotsJson',
+      source: source,
+    );
+    final fieldDefinitions = readRequiredJsonObjectList(
+      fieldDefinitionsJson,
+      field: 'fieldDefinitionsJson',
+      source: source,
+    );
+    final checklistItems = readRequiredJsonObjectList(
+      checklistJson,
+      field: 'checklistJson',
+      source: source,
+    );
     final title =
         _stringFrom(jobSnapshot, const [
           'title',
@@ -1662,29 +1680,6 @@ String _fieldTypeName(ComposerFieldType type) {
     case ComposerFieldType.dateTime:
       return 'dateTime';
   }
-}
-
-Map<String, dynamic> _decodeObject(String raw) {
-  try {
-    final decoded = jsonDecode(raw.trim());
-    if (decoded is Map) {
-      return Map<String, dynamic>.from(decoded);
-    }
-  } catch (_) {}
-  return <String, dynamic>{};
-}
-
-List<Map<String, dynamic>> _decodeObjectList(String raw) {
-  try {
-    final decoded = jsonDecode(raw.trim());
-    if (decoded is List) {
-      return decoded
-          .whereType<Map>()
-          .map((entry) => Map<String, dynamic>.from(entry))
-          .toList();
-    }
-  } catch (_) {}
-  return <Map<String, dynamic>>[];
 }
 
 String? _stringFrom(Map<String, dynamic> map, List<String> keys) {

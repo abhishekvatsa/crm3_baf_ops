@@ -36,11 +36,7 @@ DateTime? _parseTimestamp(dynamic value) {
   return null;
 }
 
-T _enumByNameOr<T extends Enum>(
-    List<T> values,
-    dynamic value,
-    T fallback,
-    ) {
+T _enumByNameOr<T extends Enum>(List<T> values, dynamic value, T fallback) {
   if (value is! String) return fallback;
   for (final item in values) {
     if (item.name == value) return item;
@@ -58,11 +54,12 @@ String? _cleanOptionalText(dynamic value) {
 List<String>? _cleanOptionalStringList(dynamic value) {
   if (value == null) return null;
   if (value is! List) return null;
-  final cleaned = value
-      .whereType<String>()
-      .map((item) => item.trim())
-      .where((item) => item.isNotEmpty)
-      .toList();
+  final cleaned =
+      value
+          .whereType<String>()
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
   return cleaned.isEmpty ? null : cleaned;
 }
 
@@ -92,10 +89,8 @@ const _responseKeyAliases = <String>[
   'name',
 ];
 
-String _normalisePayloadKey(String value) => value
-    .trim()
-    .toLowerCase()
-    .replaceAll(RegExp(r'[^a-z0-9]+'), '');
+String _normalisePayloadKey(String value) =>
+    value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
 
 String _readAliasedRequiredText(
   Map<String, dynamic> map,
@@ -211,11 +206,7 @@ void _validateFieldDefinition(
   }
   for (final key in const ['type', 'fieldType']) {
     if (map[key] != null) {
-      _readPersistedFieldType(
-        map[key],
-        field: '$field.$key',
-        source: source,
-      );
+      _readPersistedFieldType(map[key], field: '$field.$key', source: source);
     }
   }
   for (final key in const ['required', 'isRequired']) {
@@ -254,11 +245,7 @@ void _validateFieldDefinition(
   }
   for (final key in const ['validation', 'meta']) {
     if (map.containsKey(key)) {
-      readOptionalJsonObject(
-        map[key],
-        field: '$field.$key',
-        source: source,
-      );
+      readOptionalJsonObject(map[key], field: '$field.$key', source: source);
     }
   }
   if (map.containsKey('validationJson')) {
@@ -301,32 +288,33 @@ class PersistedFieldDefinitionPayload {
   static List<Map<String, dynamic>> decode(
     String? jsonStr, {
     String? source,
+    String field = 'fieldDefinitionsJson',
   }) {
     if (jsonStr == null) {
       throw PersistedDataFormatException(
-        field: 'fieldDefinitionsJson',
+        field: field,
         source: source,
         detail: 'required JSON array (Null)',
       );
     }
     final rows = readRequiredJsonObjectList(
       jsonStr,
-      field: 'fieldDefinitionsJson',
+      field: field,
       source: source,
     );
     final keys = <String>{};
     for (var index = 0; index < rows.length; index++) {
-      final field = 'fieldDefinitionsJson[$index]';
-      _validateFieldDefinition(rows[index], field: field, source: source);
+      final entryField = '$field[$index]';
+      _validateFieldDefinition(rows[index], field: entryField, source: source);
       final key = _readAliasedRequiredText(
         rows[index],
         _fieldKeyAliases,
-        field: '$field.key',
+        field: '$entryField.key',
         source: source,
       );
       if (!keys.add(_normalisePayloadKey(key))) {
         throw PersistedDataFormatException(
-          field: '$field.key',
+          field: '$entryField.key',
           source: source,
           detail: 'duplicate key $key',
         );
@@ -338,10 +326,11 @@ class PersistedFieldDefinitionPayload {
   static FieldDefinitionReadResult tryDecode(
     String? jsonStr, {
     String? source,
+    String field = 'fieldDefinitionsJson',
   }) {
     try {
       return FieldDefinitionReadResult._(
-        entries: decode(jsonStr, source: source),
+        entries: decode(jsonStr, source: source, field: field),
         error: null,
       );
     } on FormatException catch (error) {
@@ -372,7 +361,38 @@ class PersistedFieldDefinitionPayload {
 // TEMPLATE FIELD
 // ─────────────────────────────────────────────────────────────
 
+class TemplateFieldReadResult {
+  final List<TemplateField> entries;
+  final FormatException? error;
+
+  const TemplateFieldReadResult._({required this.entries, required this.error});
+
+  bool get isValid => error == null;
+}
+
 class TemplateField {
+  static const _knownFields = <String>{
+    'key',
+    'fieldKey',
+    'fieldId',
+    'id',
+    'name',
+    'label',
+    'title',
+    'type',
+    'fieldType',
+    'required',
+    'isRequired',
+    'unit',
+    'options',
+    'version',
+    'validation',
+    'validationJson',
+    'instructionText',
+    'order',
+    'meta',
+  };
+
   late String key;
   late String label;
   late FieldType type;
@@ -389,6 +409,7 @@ class TemplateField {
   String? instructionText;
   int order = 0;
   Map<String, dynamic>? meta;
+  Map<String, dynamic> extensions = <String, dynamic>{};
 
   TemplateField({
     String? key,
@@ -403,13 +424,18 @@ class TemplateField {
     this.instructionText,
     this.order = 0,
     this.meta,
+    Map<String, dynamic>? extensions,
   }) {
     this.key = key ?? '';
     this.label = label ?? '';
     this.type = type ?? FieldType.text;
+    this.extensions = Map<String, dynamic>.from(
+      extensions ?? const <String, dynamic>{},
+    );
   }
 
   Map<String, dynamic> toMap() => {
+    ...extensions,
     'key': key,
     'label': label,
     'type': type.name,
@@ -417,33 +443,124 @@ class TemplateField {
     'unit': unit,
     'options': options,
     'version': version,
-    'validationJson': validationJson ?? (validation != null ? jsonEncode(validation) : null),
+    'validationJson':
+        validationJson ?? (validation != null ? jsonEncode(validation) : null),
     'instructionText': instructionText,
     'order': order,
     'meta': meta,
   };
 
-  static TemplateField fromMap(Map<String, dynamic> map) {
-    final rawValidation = map['validationJson'];
-    Map<String, dynamic>? parsedValidation;
-    if (rawValidation != null) {
-      try {
-        parsedValidation = jsonDecode(rawValidation);
-      } catch (_) {}
+  factory TemplateField.fromMap(Map<String, dynamic> map, {String? source}) {
+    _validateFieldDefinition(map, field: 'field', source: source);
+    final structuredValidation =
+        map.containsKey('validation')
+            ? readOptionalJsonObject(
+              map['validation'],
+              field: 'field.validation',
+              source: source,
+            )
+            : null;
+    final encodedValidation =
+        map.containsKey('validationJson')
+            ? readOptionalJsonObject(
+              map['validationJson'],
+              field: 'field.validationJson',
+              source: source,
+            )
+            : null;
+    final validation = structuredValidation ?? encodedValidation;
+    final extensions = <String, dynamic>{
+      for (final entry in map.entries)
+        if (!_knownFields.contains(entry.key)) entry.key: entry.value,
+    };
+    return TemplateField(
+      key: _readAliasedRequiredText(
+        map,
+        _fieldKeyAliases,
+        field: 'field.key',
+        source: source,
+      ),
+      label:
+          _readAliasedOptionalText(
+            map,
+            const ['label', 'title'],
+            field: 'field.label',
+            source: source,
+          ) ??
+          _readAliasedRequiredText(
+            map,
+            _fieldKeyAliases,
+            field: 'field.key',
+            source: source,
+          ),
+      type: _readPersistedFieldType(
+        map['type'] ?? map['fieldType'],
+        field: 'field.type',
+        source: source,
+      ),
+      isRequired:
+          (map['isRequired'] as bool?) ?? (map['required'] as bool?) ?? false,
+      unit: readOptionalPersistedString(
+        map['unit'],
+        field: 'field.unit',
+        source: source,
+      ),
+      options: readNullablePersistedStringList(
+        map['options'],
+        field: 'field.options',
+        source: source,
+      ),
+      version: map['version'] as int? ?? 1,
+      validation: validation,
+      validationJson: validation == null ? null : jsonEncode(validation),
+      instructionText: readOptionalPersistedString(
+        map['instructionText'],
+        field: 'field.instructionText',
+        source: source,
+      ),
+      order: map['order'] as int? ?? 0,
+      meta:
+          map.containsKey('meta')
+              ? readOptionalJsonObject(
+                map['meta'],
+                field: 'field.meta',
+                source: source,
+              )
+              : null,
+      extensions: extensions,
+    );
+  }
+
+  static List<TemplateField> decode(String? jsonStr, {String? source}) {
+    final rows = PersistedFieldDefinitionPayload.decode(
+      jsonStr,
+      source: source,
+      field: 'fieldsJson',
+    );
+    return <TemplateField>[
+      for (var index = 0; index < rows.length; index++)
+        TemplateField.fromMap(
+          rows[index],
+          source:
+              source == null
+                  ? 'fieldsJson[$index]'
+                  : '$source fieldsJson[$index]',
+        ),
+    ];
+  }
+
+  static TemplateFieldReadResult tryDecode(String? jsonStr, {String? source}) {
+    try {
+      return TemplateFieldReadResult._(
+        entries: decode(jsonStr, source: source),
+        error: null,
+      );
+    } on FormatException catch (error) {
+      return TemplateFieldReadResult._(
+        entries: const <TemplateField>[],
+        error: error,
+      );
     }
-    return TemplateField()
-      ..key = map['key'] ?? ''
-      ..label = map['label'] ?? ''
-      ..type = _enumByNameOr(FieldType.values, map['type'], FieldType.text)
-      ..isRequired = map['isRequired'] ?? false
-      ..unit = map['unit']
-      ..options = map['options'] != null ? List<String>.from(map['options']) : null
-      ..version = map['version'] ?? 1
-      ..validationJson = rawValidation
-      ..validation = parsedValidation
-      ..instructionText = map['instructionText']
-      ..order = map['order'] ?? 0
-      ..meta = map['meta'] != null ? Map<String, dynamic>.from(map['meta']) : null;
   }
 }
 
@@ -455,10 +572,7 @@ class FieldResponseReadResult {
   final List<FieldResponse> entries;
   final FormatException? error;
 
-  const FieldResponseReadResult._({
-    required this.entries,
-    required this.error,
-  });
+  const FieldResponseReadResult._({required this.entries, required this.error});
 
   bool get isValid => error == null;
 }
@@ -503,10 +617,7 @@ class FieldResponse {
     'value': value,
   };
 
-  factory FieldResponse.fromMap(
-    Map<String, dynamic> map, {
-    String? source,
-  }) {
+  factory FieldResponse.fromMap(Map<String, dynamic> map, {String? source}) {
     final key = _readAliasedRequiredText(
       map,
       _responseKeyAliases,
@@ -600,10 +711,7 @@ class FieldResponse {
     return response;
   }
 
-  static FieldResponseReadResult tryDecode(
-    String? jsonStr, {
-    String? source,
-  }) {
+  static FieldResponseReadResult tryDecode(String? jsonStr, {String? source}) {
     try {
       return FieldResponseReadResult._(
         entries: decode(jsonStr, source: source),
@@ -723,33 +831,36 @@ class JobTemplate {
   @ignore
   List<TemplateField> get parsedFields {
     if (fields.isNotEmpty) return fields;
-    try {
-      final decoded = jsonDecode(fieldsJson);
-      if (decoded is List) {
-        fields = decoded
-            .whereType<Map>()
-            .map((e) => TemplateField.fromMap(Map<String, dynamic>.from(e)))
-            .toList();
-      } else {
-        fields = [];
-      }
-    } catch (_) {
-      fields = [];
-    }
+    fields = TemplateField.decode(fieldsJson, source: _fieldSourceLabel);
     return fields;
   }
 
-  void setFields(List<TemplateField> newFields) {
-    fields = newFields;
-    for (int i = 0; i < fields.length; i++) {
-      fields[i].order = i;
+  @ignore
+  TemplateFieldReadResult get fieldsReadResult {
+    if (fields.isNotEmpty) {
+      return TemplateFieldReadResult._(entries: fields, error: null);
     }
-    fieldsJson = jsonEncode(newFields.map((f) => f.toMap()).toList());
+    return TemplateField.tryDecode(fieldsJson, source: _fieldSourceLabel);
+  }
+
+  String get _fieldSourceLabel =>
+      firestoreId == null
+          ? 'local job template $id'
+          : 'job template $firestoreId';
+
+  void setFields(List<TemplateField> newFields) {
+    for (int i = 0; i < newFields.length; i++) {
+      newFields[i].order = i;
+    }
+    final encoded = jsonEncode(newFields.map((f) => f.toMap()).toList());
+    TemplateField.decode(encoded, source: _fieldSourceLabel);
+    fields = newFields;
+    fieldsJson = encoded;
   }
 
   bool get hasComponentScope =>
       _cleanOptionalText(component) != null ||
-          _cleanOptionalStringList(hierarchyPath) != null;
+      _cleanOptionalStringList(hierarchyPath) != null;
 
   String get debugLabel => '$jobName (${applicableAssetType.name})';
 
@@ -770,7 +881,7 @@ class JobTemplate {
   // compatibility with both v1 clients and historical v2 documents.
   Map<String, dynamic> toMap() {
     final List<Map<String, dynamic>> fieldsArray =
-    parsedFields.map((f) => f.toMap()).toList();
+        parsedFields.map((f) => f.toMap()).toList();
     return {
       'firestoreId': firestoreId,
       'jobName': jobName,
@@ -803,48 +914,66 @@ class JobTemplate {
   // (legacy). Tolerates both ISO-8601 strings and Firestore Timestamp instances
   // for all date fields.
   factory JobTemplate.fromMap(Map<String, dynamic> map, String documentId) {
-    final template = JobTemplate()
-      ..firestoreId = documentId
-      ..jobName = map['jobName'] ?? ''
-      ..description = _cleanOptionalText(map['description'])
-      ..applicableAssetType = _enumByNameOr(AssetType.values, map['applicableAssetType'], AssetType.base)
-      ..assignedAgencies = List<String>.from(map['assignedAgencies'] ?? [])
-      ..component = _cleanOptionalText(map['component'])
-      ..subsystem = _cleanOptionalText(map['subsystem'])
-      ..hierarchyPath = _cleanOptionalStringList(map['hierarchyPath'])
-      ..createdByUid = _cleanOptionalText(map['createdByUid'])
-      ..createdByName = _cleanOptionalText(map['createdByName'])
-      ..isActive = map['isActive'] ?? true
-      ..isDeprecated = map['isDeprecated'] ?? false
-      ..isDeleted = map['isDeleted'] ?? false
-      ..deletedAt = _parseTimestamp(map['deletedAt'])
-      ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
-      ..deletedByName = _cleanOptionalText(map['deletedByName'])
-      ..deleteReason = _cleanOptionalText(map['deleteReason'])
-      ..version = map['version'] ?? 1
-      ..createdAt = _parseTimestamp(map['createdAt']) ?? DateTime.now()
-      ..updatedAt = _parseTimestamp(map['updatedAt']) ??
-          _parseTimestamp(map['createdAt']) ??
-          DateTime.now()
-      ..metadataJson = _cleanOptionalText(map['metadataJson']);
+    final template =
+        JobTemplate()
+          ..firestoreId = documentId
+          ..jobName = map['jobName'] ?? ''
+          ..description = _cleanOptionalText(map['description'])
+          ..applicableAssetType = _enumByNameOr(
+            AssetType.values,
+            map['applicableAssetType'],
+            AssetType.base,
+          )
+          ..assignedAgencies = List<String>.from(map['assignedAgencies'] ?? [])
+          ..component = _cleanOptionalText(map['component'])
+          ..subsystem = _cleanOptionalText(map['subsystem'])
+          ..hierarchyPath = _cleanOptionalStringList(map['hierarchyPath'])
+          ..createdByUid = _cleanOptionalText(map['createdByUid'])
+          ..createdByName = _cleanOptionalText(map['createdByName'])
+          ..isActive = map['isActive'] ?? true
+          ..isDeprecated = map['isDeprecated'] ?? false
+          ..isDeleted = map['isDeleted'] ?? false
+          ..deletedAt = _parseTimestamp(map['deletedAt'])
+          ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
+          ..deletedByName = _cleanOptionalText(map['deletedByName'])
+          ..deleteReason = _cleanOptionalText(map['deleteReason'])
+          ..version = map['version'] ?? 1
+          ..createdAt = _parseTimestamp(map['createdAt']) ?? DateTime.now()
+          ..updatedAt =
+              _parseTimestamp(map['updatedAt']) ??
+              _parseTimestamp(map['createdAt']) ??
+              DateTime.now()
+          ..metadataJson = _cleanOptionalText(map['metadataJson']);
 
-    // Prefer structured 'fields' array if present; else fall back to
-    // 'fieldsJson' string. setFields() (re)builds fieldsJson from fields,
-    // so the in-memory representation is always coherent.
-    final rawFields = map['fields'];
-    if (rawFields is List) {
-      try {
-        template.setFields(
-          rawFields
-              .whereType<Map>()
-              .map((e) => TemplateField.fromMap(Map<String, dynamic>.from(e)))
-              .toList(),
+    // Structured fields are canonical when present. A malformed canonical
+    // field set must never fall through to a different legacy payload.
+    if (map.containsKey('fields')) {
+      final rawFields = map['fields'];
+      if (rawFields is! List) {
+        throw PersistedDataFormatException(
+          field: 'fields',
+          source: 'job template $documentId',
+          detail: 'expected an array (${rawFields.runtimeType})',
         );
-      } catch (_) {
-        template.fieldsJson = (map['fieldsJson'] is String) ? map['fieldsJson'] : '[]';
       }
+      final encoded = jsonEncode(rawFields);
+      template.setFields(
+        TemplateField.decode(encoded, source: 'job template $documentId'),
+      );
+    } else if (map.containsKey('fieldsJson')) {
+      final rawFieldsJson = map['fieldsJson'];
+      if (rawFieldsJson is! String) {
+        throw PersistedDataFormatException(
+          field: 'fieldsJson',
+          source: 'job template $documentId',
+          detail: 'expected a JSON string (${rawFieldsJson.runtimeType})',
+        );
+      }
+      template.setFields(
+        TemplateField.decode(rawFieldsJson, source: 'job template $documentId'),
+      );
     } else {
-      template.fieldsJson = (map['fieldsJson'] is String) ? map['fieldsJson'] : '[]';
+      template.setFields(const <TemplateField>[]);
     }
 
     return template;
@@ -928,9 +1057,14 @@ class JobExecution {
   String? redAnswerJson;
 
   @ignore
-  RoutedTo get assignedAgency => assignedAgencies.isNotEmpty
-      ? _enumByNameOr(RoutedTo.values, assignedAgencies.first, RoutedTo.mechanical)
-      : RoutedTo.mechanical;
+  RoutedTo get assignedAgency =>
+      assignedAgencies.isNotEmpty
+          ? _enumByNameOr(
+            RoutedTo.values,
+            assignedAgencies.first,
+            RoutedTo.mechanical,
+          )
+          : RoutedTo.mechanical;
 
   set assignedAgency(RoutedTo value) {
     assignedAgencies = [value.name];
@@ -1049,53 +1183,53 @@ class JobExecution {
   // responsesJson is the canonical Firestore payload. Do not also write the
   // legacy structured 'responses' array.
   Map<String, dynamic> toMap() => {
-      'firestoreId': firestoreId,
-      'templateFirestoreId': templateFirestoreId,
-      'templateName': templateName,
-      'templatePackageId': _cleanOptionalText(templatePackageId),
-      'templateVersionId': _cleanOptionalText(templateVersionId),
-      'templateVersionNumber': templateVersionNumber,
-      'templateVersionLabel': _cleanOptionalText(templateVersionLabel),
-      'templateContentHash': _cleanOptionalText(templateContentHash),
-      'templatePackageCode': _cleanOptionalText(templatePackageCode),
-      'assetType': assetType.name,
-      'assetNumber': assetNumber,
-      'isCompleted': isCompleted,
-      'isCancelled': isCancelled,
-      'cancelledAt': cancelledAt?.toIso8601String(),
-      'cancelledByUid': cancelledByUid,
-      'cancelledByName': cancelledByName,
-      'cancellationReason': cancellationReason,
-      'assignedByUid': assignedByUid,
-      'assignedByName': assignedByName,
-      'assignedAgencies': assignedAgencies,
-      'workflowSchemaVersion': workflowSchemaVersion,
-      'laneSetVersion': laneSetVersion,
-      'laneSetFinalizedAt': laneSetFinalizedAt?.toIso8601String(),
-      'laneSetFinalizedByUid': laneSetFinalizedByUid,
-      'laneSetFinalizedByName': laneSetFinalizedByName,
-      'laneMappingReview': laneMappingReview,
-      'parentExecutionFirestoreId': parentExecutionFirestoreId,
-      'spawnedRedExecutionFirestoreId': spawnedRedExecutionFirestoreId,
-      'redAnswerJson': redAnswerJson,
-      'completedByUid': completedByUid,
-      'completedByName': completedByName,
-      'remarks': remarks,
-      'teamsInvolved': teamsInvolved,
-      'chargeNoAtEvent': chargeNoAtEvent,
-      'responsesJson': responsesJson,
-      'actionsJson': actionsJson,
-      'version': version,
-      'metadataJson': metadataJson,
-      'isDeleted': isDeleted,
-      'deletedAt': deletedAt?.toIso8601String(),
-      'deletedByUid': deletedByUid,
-      'deletedByName': deletedByName,
-      'deleteReason': deleteReason,
-      'createdAt': createdAt.toIso8601String(),
-      'completedAt': completedAt?.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
+    'firestoreId': firestoreId,
+    'templateFirestoreId': templateFirestoreId,
+    'templateName': templateName,
+    'templatePackageId': _cleanOptionalText(templatePackageId),
+    'templateVersionId': _cleanOptionalText(templateVersionId),
+    'templateVersionNumber': templateVersionNumber,
+    'templateVersionLabel': _cleanOptionalText(templateVersionLabel),
+    'templateContentHash': _cleanOptionalText(templateContentHash),
+    'templatePackageCode': _cleanOptionalText(templatePackageCode),
+    'assetType': assetType.name,
+    'assetNumber': assetNumber,
+    'isCompleted': isCompleted,
+    'isCancelled': isCancelled,
+    'cancelledAt': cancelledAt?.toIso8601String(),
+    'cancelledByUid': cancelledByUid,
+    'cancelledByName': cancelledByName,
+    'cancellationReason': cancellationReason,
+    'assignedByUid': assignedByUid,
+    'assignedByName': assignedByName,
+    'assignedAgencies': assignedAgencies,
+    'workflowSchemaVersion': workflowSchemaVersion,
+    'laneSetVersion': laneSetVersion,
+    'laneSetFinalizedAt': laneSetFinalizedAt?.toIso8601String(),
+    'laneSetFinalizedByUid': laneSetFinalizedByUid,
+    'laneSetFinalizedByName': laneSetFinalizedByName,
+    'laneMappingReview': laneMappingReview,
+    'parentExecutionFirestoreId': parentExecutionFirestoreId,
+    'spawnedRedExecutionFirestoreId': spawnedRedExecutionFirestoreId,
+    'redAnswerJson': redAnswerJson,
+    'completedByUid': completedByUid,
+    'completedByName': completedByName,
+    'remarks': remarks,
+    'teamsInvolved': teamsInvolved,
+    'chargeNoAtEvent': chargeNoAtEvent,
+    'responsesJson': responsesJson,
+    'actionsJson': actionsJson,
+    'version': version,
+    'metadataJson': metadataJson,
+    'isDeleted': isDeleted,
+    'deletedAt': deletedAt?.toIso8601String(),
+    'deletedByUid': deletedByUid,
+    'deletedByName': deletedByName,
+    'deleteReason': deleteReason,
+    'createdAt': createdAt.toIso8601String(),
+    'completedAt': completedAt?.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 
   /// Client-originated Firestore shape. Server-owned workflow fields are
   /// deliberately omitted so merge writes cannot overwrite lane, RED or
@@ -1124,65 +1258,82 @@ class JobExecution {
   // 'responsesJson' (legacy). Tolerates both ISO-8601 strings and Firestore
   // Timestamp instances for all date fields.
   factory JobExecution.fromMap(Map<String, dynamic> map, String documentId) {
-    final execution = JobExecution()
-      ..firestoreId = documentId
-      ..templateFirestoreId = map['templateFirestoreId'] ?? ''
-      ..templateName = _cleanOptionalText(map['templateName'])
-      ..templatePackageId = _cleanOptionalText(map['templatePackageId'])
-      ..templateVersionId = _cleanOptionalText(map['templateVersionId'])
-      ..templateVersionNumber = map['templateVersionNumber'] is int
-          ? map['templateVersionNumber'] as int
-          : null
-      ..templateVersionLabel = _cleanOptionalText(map['templateVersionLabel'])
-      ..templateContentHash = _cleanOptionalText(map['templateContentHash'])
-      ..templatePackageCode = _cleanOptionalText(map['templatePackageCode'])
-      ..assetType = _enumByNameOr(AssetType.values, map['assetType'], AssetType.base)
-      ..assetNumber = map['assetNumber'] ?? 0
-      ..isCompleted = map['isCompleted'] ?? false
-      ..isCancelled = map['isCancelled'] == true
-      ..cancelledAt = _parseTimestamp(map['cancelledAt'])
-      ..cancelledByUid = _cleanOptionalText(map['cancelledByUid'])
-      ..cancelledByName = _cleanOptionalText(map['cancelledByName'])
-      ..cancellationReason = _cleanOptionalText(map['cancellationReason'])
-      ..assignedByUid = map['assignedByUid']
-      ..assignedByName = map['assignedByName']
-      ..assignedAgencies = List<String>.from(map['assignedAgencies'] ?? [])
-      ..workflowSchemaVersion = map['workflowSchemaVersion'] is int
-          ? map['workflowSchemaVersion'] as int
-          : 0
-      ..laneSetVersion = map['laneSetVersion'] is int
-          ? map['laneSetVersion'] as int
-          : 0
-      ..laneSetFinalizedAt = _parseTimestamp(map['laneSetFinalizedAt'])
-      ..laneSetFinalizedByUid = _cleanOptionalText(map['laneSetFinalizedByUid'])
-      ..laneSetFinalizedByName = _cleanOptionalText(map['laneSetFinalizedByName'])
-      ..laneMappingReview = map['laneMappingReview'] == true
-      ..parentExecutionFirestoreId = _cleanOptionalText(map['parentExecutionFirestoreId'])
-      ..spawnedRedExecutionFirestoreId = _cleanOptionalText(map['spawnedRedExecutionFirestoreId'])
-      ..redAnswerJson = _cleanOptionalText(map['redAnswerJson'])
-      ..completedByUid = map['completedByUid']
-      ..completedByName = map['completedByName']
-      ..remarks = map['remarks']
-      ..teamsInvolved = List<String>.from(map['teamsInvolved'] ?? [])
-      ..chargeNoAtEvent = map['chargeNoAtEvent']
-      ..actionsJson = ComponentAction.readEncodedPayload(
-        map['actionsJson'],
-        field: 'actionsJson',
-        source: 'job execution $documentId',
-        allowMissing: !map.containsKey('actionsJson'),
-      )
-      ..version = map['version'] ?? 1
-      ..metadataJson = map['metadataJson']
-      ..isDeleted = map['isDeleted'] ?? false
-      ..deletedAt = _parseTimestamp(map['deletedAt'])
-      ..deletedByUid = map['deletedByUid']
-      ..deletedByName = map['deletedByName']
-      ..deleteReason = map['deleteReason']
-      ..createdAt = _parseTimestamp(map['createdAt']) ?? DateTime.now()
-      ..completedAt = _parseTimestamp(map['completedAt'])
-      ..updatedAt = _parseTimestamp(map['updatedAt']) ??
-          _parseTimestamp(map['createdAt']) ??
-          DateTime.now();
+    final execution =
+        JobExecution()
+          ..firestoreId = documentId
+          ..templateFirestoreId = map['templateFirestoreId'] ?? ''
+          ..templateName = _cleanOptionalText(map['templateName'])
+          ..templatePackageId = _cleanOptionalText(map['templatePackageId'])
+          ..templateVersionId = _cleanOptionalText(map['templateVersionId'])
+          ..templateVersionNumber =
+              map['templateVersionNumber'] is int
+                  ? map['templateVersionNumber'] as int
+                  : null
+          ..templateVersionLabel = _cleanOptionalText(
+            map['templateVersionLabel'],
+          )
+          ..templateContentHash = _cleanOptionalText(map['templateContentHash'])
+          ..templatePackageCode = _cleanOptionalText(map['templatePackageCode'])
+          ..assetType = _enumByNameOr(
+            AssetType.values,
+            map['assetType'],
+            AssetType.base,
+          )
+          ..assetNumber = map['assetNumber'] ?? 0
+          ..isCompleted = map['isCompleted'] ?? false
+          ..isCancelled = map['isCancelled'] == true
+          ..cancelledAt = _parseTimestamp(map['cancelledAt'])
+          ..cancelledByUid = _cleanOptionalText(map['cancelledByUid'])
+          ..cancelledByName = _cleanOptionalText(map['cancelledByName'])
+          ..cancellationReason = _cleanOptionalText(map['cancellationReason'])
+          ..assignedByUid = map['assignedByUid']
+          ..assignedByName = map['assignedByName']
+          ..assignedAgencies = List<String>.from(map['assignedAgencies'] ?? [])
+          ..workflowSchemaVersion =
+              map['workflowSchemaVersion'] is int
+                  ? map['workflowSchemaVersion'] as int
+                  : 0
+          ..laneSetVersion =
+              map['laneSetVersion'] is int ? map['laneSetVersion'] as int : 0
+          ..laneSetFinalizedAt = _parseTimestamp(map['laneSetFinalizedAt'])
+          ..laneSetFinalizedByUid = _cleanOptionalText(
+            map['laneSetFinalizedByUid'],
+          )
+          ..laneSetFinalizedByName = _cleanOptionalText(
+            map['laneSetFinalizedByName'],
+          )
+          ..laneMappingReview = map['laneMappingReview'] == true
+          ..parentExecutionFirestoreId = _cleanOptionalText(
+            map['parentExecutionFirestoreId'],
+          )
+          ..spawnedRedExecutionFirestoreId = _cleanOptionalText(
+            map['spawnedRedExecutionFirestoreId'],
+          )
+          ..redAnswerJson = _cleanOptionalText(map['redAnswerJson'])
+          ..completedByUid = map['completedByUid']
+          ..completedByName = map['completedByName']
+          ..remarks = map['remarks']
+          ..teamsInvolved = List<String>.from(map['teamsInvolved'] ?? [])
+          ..chargeNoAtEvent = map['chargeNoAtEvent']
+          ..actionsJson = ComponentAction.readEncodedPayload(
+            map['actionsJson'],
+            field: 'actionsJson',
+            source: 'job execution $documentId',
+            allowMissing: !map.containsKey('actionsJson'),
+          )
+          ..version = map['version'] ?? 1
+          ..metadataJson = map['metadataJson']
+          ..isDeleted = map['isDeleted'] ?? false
+          ..deletedAt = _parseTimestamp(map['deletedAt'])
+          ..deletedByUid = map['deletedByUid']
+          ..deletedByName = map['deletedByName']
+          ..deleteReason = map['deleteReason']
+          ..createdAt = _parseTimestamp(map['createdAt']) ?? DateTime.now()
+          ..completedAt = _parseTimestamp(map['completedAt'])
+          ..updatedAt =
+              _parseTimestamp(map['updatedAt']) ??
+              _parseTimestamp(map['createdAt']) ??
+              DateTime.now();
 
     // responsesJson is canonical. Only fall back to the legacy structured
     // 'responses' array for old records that do not contain responsesJson.

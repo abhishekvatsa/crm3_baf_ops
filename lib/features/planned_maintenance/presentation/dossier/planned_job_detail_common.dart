@@ -423,11 +423,17 @@ class _ChecklistDossier extends StatelessWidget {
       return const _InlineLoadingRow(label: 'Loading template fields');
     }
 
-    final fields =
-        template == null
-            ? <TemplateField>[]
-            : (List<TemplateField>.from(template!.parsedFields)
-              ..sort((a, b) => a.order.compareTo(b.order)));
+    final fieldRead = template?.fieldsReadResult;
+    if (fieldRead != null && !fieldRead.isValid) {
+      return const PersistedDataIntegrityNotice(
+        title: 'Template fields unavailable',
+        message:
+            'This saved template field payload must be repaired before checklist labels can be displayed.',
+      );
+    }
+    final fields = List<TemplateField>.from(
+      fieldRead?.entries ?? const <TemplateField>[],
+    )..sort((a, b) => a.order.compareTo(b.order));
 
     if (fields.isEmpty && responses.where(_isRealResponse).isEmpty) {
       return const _EmptyInlineState(
