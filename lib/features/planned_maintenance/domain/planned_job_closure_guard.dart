@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../data/job_module_model.dart';
 import 'planned_job_closure_attestation.dart';
 
@@ -18,6 +16,16 @@ class PlannedJobClosureGuard {
     final activeModules = modules.where((module) => !module.isDeleted).toList();
     if (activeModules.isEmpty) return const <PlannedJobClosureIssue>[];
 
+    final invalidPayloadModules =
+        activeModules
+            .where(
+              (module) =>
+                  !module.fieldDefinitionsReadResult.isValid ||
+                  !module.responsesReadResult.isValid ||
+                  !module.actionsReadResult.isValid,
+            )
+            .toList();
+
     final requiredModules =
         activeModules.where((module) => module.requiredForClosure).toList();
     if (requiredModules.isEmpty) return const <PlannedJobClosureIssue>[];
@@ -34,6 +42,7 @@ class PlannedJobClosureGuard {
         requiredModules
             .where(
               (module) =>
+                  !invalidPayloadModules.contains(module) &&
                   module.status != JobModuleStatus.notApplicable &&
                   _moduleMissingRequiredClosureEvidence(module),
             )
@@ -49,6 +58,14 @@ class PlannedJobClosureGuard {
             .toList();
 
     return <PlannedJobClosureIssue>[
+      if (invalidPayloadModules.isNotEmpty)
+        PlannedJobClosureIssue(
+          type: PlannedJobClosureIssueType.invalidPersistedEvidence,
+          count: invalidPayloadModules.length,
+          message:
+              '${invalidPayloadModules.length} ${invalidPayloadModules.length == 1 ? 'module has' : 'modules have'} saved evidence that needs repair',
+          moduleFirestoreIds: _moduleFirestoreIds(invalidPayloadModules),
+        ),
       if (openRequiredModules.isNotEmpty)
         PlannedJobClosureIssue(
           type: PlannedJobClosureIssueType.openRequiredModule,
@@ -152,7 +169,7 @@ class PlannedJobClosureGuard {
   }
 
   static bool _moduleMissingRequiredClosureEvidence(JobModuleInstance module) {
-    final definitions = _moduleFieldDefinitions(module.fieldDefinitionsJson);
+    final definitions = module.fieldDefinitionsReadResult.entries;
     final ordinaryRequiredKeys =
         definitions
             .where(
@@ -166,7 +183,8 @@ class PlannedJobClosureGuard {
             .toList();
 
     final responsesByKey = {
-      for (final response in module.responses) response.key: response.value,
+      for (final response in module.responsesReadResult.entries)
+        response.key: response.value,
     };
 
     if (ordinaryRequiredKeys.isNotEmpty) {
@@ -178,21 +196,8 @@ class PlannedJobClosureGuard {
     final hasAnyOrdinaryField = definitions.any(
       (definition) => !_isSafetyGateDefinition(definition),
     );
-    if (hasAnyOrdinaryField) return !module.hasResponses;
+    if (hasAnyOrdinaryField) return module.responsesReadResult.entries.isEmpty;
     return false;
-  }
-
-  static List<Map<String, dynamic>> _moduleFieldDefinitions(String jsonText) {
-    try {
-      final decoded = jsonDecode(jsonText);
-      if (decoded is! List) return const [];
-      return decoded
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList();
-    } catch (_) {
-      return const [];
-    }
   }
 
   static bool _fieldDefinitionRequired(Map<String, dynamic> definition) {
@@ -225,6 +230,7 @@ class PlannedJobClosureGuard {
 }
 
 enum PlannedJobClosureIssueType {
+  invalidPersistedEvidence,
   openRequiredModule,
   waitingAcceptance,
   missingRequiredEvidence,

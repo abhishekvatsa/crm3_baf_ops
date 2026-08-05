@@ -766,6 +766,7 @@ class LiveRemoteSyncService {
       d['actionsJson'],
       field: 'actionsJson',
       source: source,
+      allowMissing: !d.containsKey('actionsJson'),
     );
     ComponentAction.decode(actionsJson, source: source);
     final resolutionHistoryJson = readEncodedResolutionHistoryPayload(

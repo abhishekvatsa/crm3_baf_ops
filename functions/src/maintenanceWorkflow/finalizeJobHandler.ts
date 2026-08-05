@@ -3,6 +3,10 @@ import {
   PersistedActionPayloadError,
   readComponentActionPayload,
 } from "../persistedActionPayload";
+import {
+  PersistedWorkPayloadError,
+  readFieldResponsePayload,
+} from "../persistedWorkPayload";
 import {buildCanonicalClosurePlan} from "./canonicalClosure";
 import {activeLanes, assertExpectedVersion, openBlockingCompliance, requireWorkflow} from "./documents";
 import {
@@ -26,17 +30,30 @@ import {
 } from "./redSuccessorTemplateResolver";
 import {cleanText, iso, optionalText, plusMinutes, stringArray} from "./utils";
 
-const jsonArrayText = (value: unknown, field: string, fallback: string): string => {
-  if (value == null) return fallback;
-  if (typeof value !== "string") {
-    throw new WorkflowError("invalid-argument", `${field} must be a JSON array string.`);
-  }
+const responseArrayText = (
+  value: unknown,
+  field: string,
+  code: "invalid-argument" | "failed-precondition",
+  allowMissing = false,
+): string => {
   try {
-    const parsed = JSON.parse(value);
-    if (!Array.isArray(parsed)) throw new Error("not-array");
-    return JSON.stringify(parsed);
-  } catch {
-    throw new WorkflowError("invalid-argument", `${field} must contain a valid JSON array.`);
+    return readFieldResponsePayload(value, {field, allowMissing}).text;
+  } catch (error) {
+    if (error instanceof PersistedWorkPayloadError) {
+      throw new WorkflowError(
+        code,
+        code === "invalid-argument"
+          ? "responsesJson contains invalid structured response evidence."
+          : "Saved planned-job responses need repair before closure.",
+        {
+          reasonCode: code === "invalid-argument"
+            ? "response-payload-invalid"
+            : "execution-response-payload-invalid",
+          field: error.field,
+        },
+      );
+    }
+    throw error;
   }
 };
 
@@ -163,16 +180,24 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
   const teamsInvolved = command.payload.teamsInvolved == null
     ? Array.isArray(currentExecution.teamsInvolved) ? currentExecution.teamsInvolved : []
     : stringArray(command.payload.teamsInvolved, "teamsInvolved");
-  const responsesJson = jsonArrayText(
-    command.payload.responsesJson,
-    "responsesJson",
-    typeof currentExecution.responsesJson === "string" ? currentExecution.responsesJson : "[]",
+  const currentResponsesJson = responseArrayText(
+    currentExecution.responsesJson,
+    "execution.responsesJson",
+    "failed-precondition",
+    !Object.prototype.hasOwnProperty.call(currentExecution, "responsesJson"),
   );
+  const responsesJson = command.payload.responsesJson == null
+    ? currentResponsesJson
+    : responseArrayText(
+      command.payload.responsesJson,
+      "responsesJson",
+      "invalid-argument",
+    );
   const currentActionsJson = actionArrayText(
     currentExecution.actionsJson,
     "execution.actionsJson",
     "failed-precondition",
-    true,
+    !Object.prototype.hasOwnProperty.call(currentExecution, "actionsJson"),
   );
   const actionsJson = command.payload.actionsJson == null
     ? currentActionsJson

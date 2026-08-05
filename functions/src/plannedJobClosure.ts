@@ -3,6 +3,11 @@ import {
   PersistedActionPayloadError,
   readComponentActionPayload,
 } from "./persistedActionPayload";
+import {
+  PersistedWorkPayloadError,
+  readFieldDefinitionPayload,
+  readFieldResponsePayload,
+} from "./persistedWorkPayload";
 import {canonicalUserHasAnyRole} from "./userAuthority";
 
 export type HttpsErrorCode =
@@ -175,18 +180,6 @@ export function cleanStringList(value: unknown): string[] {
     .filter((item) => item.length > 0);
 }
 
-export function parseJsonArray(value: unknown): unknown[] {
-  if (Array.isArray(value)) return value;
-  const cleaned = cleanOptionalText(value);
-  if (cleaned == null) return [];
-  try {
-    const decoded = JSON.parse(cleaned);
-    return Array.isArray(decoded) ? decoded : [];
-  } catch (_) {
-    return [];
-  }
-}
-
 function parseJsonObject(value: unknown): JsonMap {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     return {...(value as JsonMap)};
@@ -203,10 +196,54 @@ function parseJsonObject(value: unknown): JsonMap {
   }
 }
 
-function moduleFieldDefinitions(jsonText: unknown): JsonMap[] {
-  return parseJsonArray(jsonText).filter(
-    (item): item is JsonMap => item != null && typeof item === "object" && !Array.isArray(item),
-  );
+function savedModuleFieldDefinitions(moduleData: JsonMap): JsonMap[] {
+  try {
+    return [...readFieldDefinitionPayload(moduleData.fieldDefinitionsJson, {
+      field: "fieldDefinitionsJson",
+      allowMissing: !Object.prototype.hasOwnProperty.call(
+        moduleData,
+        "fieldDefinitionsJson",
+      ),
+    }).rows];
+  } catch (error) {
+    if (error instanceof PersistedWorkPayloadError) {
+      throw new ClosureValidationError(
+        "failed-precondition",
+        "Saved module field definitions need repair before closure.",
+        {
+          reasonCode: "module-field-definition-payload-invalid",
+          moduleFirestoreId: cleanOptionalText(moduleData.firestoreId),
+          field: error.field,
+        },
+      );
+    }
+    throw error;
+  }
+}
+
+function savedModuleResponses(moduleData: JsonMap): JsonMap[] {
+  try {
+    return [...readFieldResponsePayload(moduleData.responsesJson, {
+      field: "responsesJson",
+      allowMissing: !Object.prototype.hasOwnProperty.call(
+        moduleData,
+        "responsesJson",
+      ),
+    }).rows];
+  } catch (error) {
+    if (error instanceof PersistedWorkPayloadError) {
+      throw new ClosureValidationError(
+        "failed-precondition",
+        "Saved module responses need repair before closure.",
+        {
+          reasonCode: "module-response-payload-invalid",
+          moduleFirestoreId: cleanOptionalText(moduleData.firestoreId),
+          field: error.field,
+        },
+      );
+    }
+    throw error;
+  }
 }
 
 function fieldDefinitionRequired(definition: JsonMap): boolean {
@@ -214,7 +251,7 @@ function fieldDefinitionRequired(definition: JsonMap): boolean {
 }
 
 function fieldDefinitionKey(definition: JsonMap): string | null {
-  for (const key of ["fieldId", "key", "id", "name"]) {
+  for (const key of ["key", "fieldKey", "fieldId", "id", "name"]) {
     const raw = definition[key];
     if (typeof raw === "string" && raw.trim().length > 0) {
       return raw.trim();
@@ -237,7 +274,7 @@ function responseKey(response: unknown): string | null {
     return null;
   }
   const map = response as JsonMap;
-  for (const key of ["key", "fieldId", "id", "name"]) {
+  for (const key of ["key", "fieldId", "fieldKey", "id", "name"]) {
     const raw = map[key];
     if (typeof raw === "string" && raw.trim().length > 0) {
       return raw.trim();
@@ -258,7 +295,7 @@ function responseValue(response: unknown): unknown {
 
 function responsesByKey(moduleData: JsonMap): JsonMap {
   const result: JsonMap = {};
-  for (const response of parseJsonArray(moduleData.responsesJson)) {
+  for (const response of savedModuleResponses(moduleData)) {
     const key = responseKey(response);
     if (key != null) {
       result[key] = responseValue(response);
@@ -276,7 +313,7 @@ export function hasEvidenceValue(value: unknown): boolean {
 }
 
 export function ordinaryRequiredKeysForModule(moduleData: JsonMap): string[] {
-  const definitions = moduleFieldDefinitions(moduleData.fieldDefinitionsJson);
+  const definitions = savedModuleFieldDefinitions(moduleData);
   return definitions
     .filter(
       (definition) =>
@@ -288,7 +325,7 @@ export function ordinaryRequiredKeysForModule(moduleData: JsonMap): string[] {
 }
 
 function moduleHasAnyOrdinaryField(moduleData: JsonMap): boolean {
-  return moduleFieldDefinitions(moduleData.fieldDefinitionsJson).some(
+  return savedModuleFieldDefinitions(moduleData).some(
     (definition) => !isSafetyGateDefinition(definition),
   );
 }
@@ -302,7 +339,7 @@ export function moduleMissingRequiredClosureEvidence(moduleData: JsonMap): boole
   }
 
   if (moduleHasAnyOrdinaryField(moduleData)) {
-    return parseJsonArray(moduleData.responsesJson).length === 0;
+    return savedModuleResponses(moduleData).length === 0;
   }
 
   return false;
@@ -390,10 +427,15 @@ function issueCountsByType(issues: JsonMap[]): JsonMap {
 
 export function assertClosureReady(modules: JsonMap[]): JsonMap {
   for (const moduleData of modules.filter((module) => module.isDeleted !== true)) {
+    savedModuleFieldDefinitions(moduleData);
+    savedModuleResponses(moduleData);
     try {
       readComponentActionPayload(moduleData.actionsJson, {
         field: "actionsJson",
-        allowMissing: true,
+        allowMissing: !Object.prototype.hasOwnProperty.call(
+          moduleData,
+          "actionsJson",
+        ),
       });
     } catch (error) {
       if (error instanceof PersistedActionPayloadError) {
@@ -553,7 +595,7 @@ function moduleSnapshot(moduleData: JsonMap): JsonMap {
     requiresFollowUp: moduleData.requiresFollowUp === true,
     hasPendingIssue,
     pendingIssueHash: hasPendingIssue ? sha256Hex(cleanOptionalText(moduleData.pendingIssue) ?? "") : null,
-    hasResponses: parseJsonArray(moduleData.responsesJson).length > 0,
+    hasResponses: savedModuleResponses(moduleData).length > 0,
     hasAnyOrdinaryField: moduleHasAnyOrdinaryField(moduleData),
     ordinaryRequiredFieldKeys,
     missingRequiredEvidenceKeys,
@@ -704,14 +746,47 @@ function requestedActionsJson(data: JsonMap): string | null {
   }
 }
 
+function requestedResponsesJson(data: JsonMap): string | null {
+  let raw: unknown = null;
+  if (data.responsesJson != null) {
+    raw = data.responsesJson;
+  } else if (data.responses != null) {
+    if (!Array.isArray(data.responses)) {
+      throw new ClosureValidationError(
+        "invalid-argument",
+        "responses must be an array when provided.",
+        {reasonCode: "response-payload-invalid", field: "responses"},
+      );
+    }
+    raw = JSON.stringify(data.responses);
+  }
+  if (raw == null) return null;
+
+  try {
+    return readFieldResponsePayload(raw, {field: "responsesJson"}).text;
+  } catch (error) {
+    if (error instanceof PersistedWorkPayloadError) {
+      throw new ClosureValidationError(
+        "invalid-argument",
+        "responsesJson contains invalid structured response evidence.",
+        {reasonCode: "response-payload-invalid", field: error.field},
+      );
+    }
+    throw error;
+  }
+}
+
 function assertExecutionActionsValid(
-  value: unknown,
+  execution: JsonMap,
   executionId: string,
 ): void {
   try {
-    readComponentActionPayload(value, {
+    readComponentActionPayload(execution.actionsJson, {
       field: "actionsJson",
-      allowMissing: true,
+      allowMissing: !Object.prototype.hasOwnProperty.call(
+        execution,
+        "actionsJson",
+      ),
     });
   } catch (error) {
     if (error instanceof PersistedActionPayloadError) {
@@ -720,6 +795,34 @@ function assertExecutionActionsValid(
         "Saved planned-job action evidence needs repair before closure.",
         {
           reasonCode: "execution-action-payload-invalid",
+          executionId,
+          field: error.field,
+        },
+      );
+    }
+    throw error;
+  }
+}
+
+function assertExecutionResponsesValid(
+  execution: JsonMap,
+  executionId: string,
+): void {
+  try {
+    readFieldResponsePayload(execution.responsesJson, {
+      field: "responsesJson",
+      allowMissing: !Object.prototype.hasOwnProperty.call(
+        execution,
+        "responsesJson",
+      ),
+    });
+  } catch (error) {
+    if (error instanceof PersistedWorkPayloadError) {
+      throw new ClosureValidationError(
+        "failed-precondition",
+        "Saved planned-job responses need repair before closure.",
+        {
+          reasonCode: "execution-response-payload-invalid",
           executionId,
           field: error.field,
         },
@@ -764,7 +867,7 @@ export async function completePlannedJobWithDb(params: {
 
   const remarks = cleanOptionalText(data.remarks);
   const teamsInvolved = cleanStringList(data.teamsInvolved);
-  const responsesJson = cleanOptionalText(data.responsesJson) ?? (data.responses == null ? null : JSON.stringify(parseJsonArray(data.responses)));
+  const responsesJson = requestedResponsesJson(data);
   const actionsJson = requestedActionsJson(data);
   const expectedCompletionVersion = parseExpectedCompletionVersion(
     data.expectedCompletionVersion,
@@ -800,7 +903,8 @@ export async function completePlannedJobWithDb(params: {
     }
 
     const beforeData = executionSnap.data() ?? {};
-    assertExecutionActionsValid(beforeData.actionsJson, executionId);
+    assertExecutionActionsValid(beforeData, executionId);
+    assertExecutionResponsesValid(beforeData, executionId);
     if (beforeData.isDeleted === true) {
       throw new ClosureValidationError(
         "failed-precondition",

@@ -804,4 +804,34 @@ describe('runtime planned-job module population mutation', () => {
     });
     expect(writes).toEqual([]);
   });
+
+  test('rejects structurally incomplete field definitions', async () => {
+    const {db, writes} = fakeDb({
+      'users/supervisor1': user(),
+      'job_executions/exec1': execution(),
+    });
+    await expect(invoke(db, {
+      operation: 'create',
+      module: modulePayload({fieldDefinitionsJson: '[{"type":"text"}]'}),
+    })).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: expect.objectContaining({reasonCode: 'work-payload-invalid'}),
+    });
+    expect(writes).toEqual([]);
+  });
+
+  test('rejects structurally incomplete response evidence', async () => {
+    const {db, writes} = fakeDb({
+      'users/supervisor1': user(),
+      'job_executions/exec1': execution(),
+    });
+    await expect(invoke(db, {
+      operation: 'create',
+      module: modulePayload({responsesJson: '[{"key":"pressure"}]'}),
+    })).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: expect.objectContaining({reasonCode: 'work-payload-invalid'}),
+    });
+    expect(writes).toEqual([]);
+  });
 });

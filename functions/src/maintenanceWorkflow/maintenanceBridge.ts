@@ -248,7 +248,7 @@ const historyTeams = (value: unknown, field: string): string[] => {
 const actionPayloadText = (
   value: unknown,
   field: string,
-  allowMissing = true,
+  allowMissing: boolean,
 ): string => {
   try {
     return readComponentActionPayload(value, {field, allowMissing}).text;
@@ -292,7 +292,11 @@ const readResolutionHistory = (value: unknown): JsonMap[] => {
       return maintenanceHistoryError(`${field}.downtimeHours`);
     }
     historyTeams(row.teamsInvolved, `${field}.teamsInvolved`);
-    actionPayloadText(row.actionsJson, `${field}.actionsJson`);
+    actionPayloadText(
+      row.actionsJson,
+      `${field}.actionsJson`,
+      !Object.prototype.hasOwnProperty.call(row, "actionsJson"),
+    );
     return row;
   });
 };
@@ -314,7 +318,11 @@ const resolutionHistoryWithCurrentClosure = (maintenance: JsonMap): string => {
       resolvedByUid: maintenance.closedByUid ?? null,
       resolvedByName: maintenance.closedByName ?? null,
       resolvedAt: persistedInstant(maintenance.endDate, "endDate"),
-      actionsJson: actionPayloadText(maintenance.actionsJson, "actionsJson"),
+      actionsJson: actionPayloadText(
+        maintenance.actionsJson,
+        "actionsJson",
+        !Object.prototype.hasOwnProperty.call(maintenance, "actionsJson"),
+      ),
       remarks: maintenance.remarks ?? null,
       downtimeHours: maintenance.downtimeHours ?? null,
       teamsInvolved: historyTeams(maintenance.teamsInvolved, "teamsInvolved"),

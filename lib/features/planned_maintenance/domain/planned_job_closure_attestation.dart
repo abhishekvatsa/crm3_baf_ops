@@ -115,7 +115,16 @@ class PlannedJobClosureAttestation {
   }
 
   static Map<String, dynamic> _moduleSnapshot(JobModuleInstance module) {
-    final definitions = _moduleFieldDefinitions(module.fieldDefinitionsJson);
+    final fieldRead = module.fieldDefinitionsReadResult;
+    final responseRead = module.responsesReadResult;
+    final actionRead = module.actionsReadResult;
+    if (!fieldRead.isValid || !responseRead.isValid || !actionRead.isValid) {
+      throw StateError(
+        'Cannot attest closure: saved module evidence for '
+        '${module.moduleTitle} needs repair.',
+      );
+    }
+    final definitions = fieldRead.entries;
     final ordinaryRequiredKeys =
         definitions
             .where(
@@ -134,7 +143,7 @@ class PlannedJobClosureAttestation {
     );
 
     final responsesByKey = <String, dynamic>{
-      for (final response in module.responses) response.key: response.value,
+      for (final response in responseRead.entries) response.key: response.value,
     };
 
     final missingRequiredKeys =
@@ -169,7 +178,7 @@ class PlannedJobClosureAttestation {
       'hasPendingIssue': hasPendingIssue,
       'pendingIssueHash':
           hasPendingIssue ? _sha256Hex(module.pendingIssue!.trim()) : null,
-      'hasResponses': module.hasResponses,
+      'hasResponses': responseRead.entries.isNotEmpty,
       'hasAnyOrdinaryField': hasAnyOrdinaryField,
       'ordinaryRequiredFieldKeys': ordinaryRequiredKeys,
       'missingRequiredEvidenceKeys': missingRequiredKeys,
@@ -200,19 +209,6 @@ class PlannedJobClosureAttestation {
       'hasEvidence': hasEvidence,
       'valueHash': hasEvidence ? _sha256Hex(_canonicalJson(value)) : null,
     };
-  }
-
-  static List<Map<String, dynamic>> _moduleFieldDefinitions(String jsonText) {
-    try {
-      final decoded = jsonDecode(jsonText);
-      if (decoded is! List) return const <Map<String, dynamic>>[];
-      return decoded
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList();
-    } catch (_) {
-      return const <Map<String, dynamic>>[];
-    }
   }
 
   static bool _fieldDefinitionRequired(Map<String, dynamic> definition) {

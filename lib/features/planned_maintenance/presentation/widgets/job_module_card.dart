@@ -22,8 +22,13 @@ class JobModuleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _statusColor(module.status);
     final synced = module.isSynced;
-    final responseCount = module.responses.length;
+    final fieldRead = module.fieldDefinitionsReadResult;
+    final responseRead = module.responsesReadResult;
+    final responseCount =
+        responseRead.isValid ? responseRead.entries.length : null;
     final actionRead = module.actionsReadResult;
+    final needsPayloadRepair =
+        !fieldRead.isValid || !responseRead.isValid || !actionRead.isValid;
     final hasPendingIssue = _text(module.pendingIssue) != null;
     final needsClosureEvidence =
         module.requiredForClosure && responseCount == 0;
@@ -45,6 +50,7 @@ class JobModuleCard extends StatelessWidget {
             border: Border.all(
               color: _borderColor(
                 statusColor: statusColor,
+                needsPayloadRepair: needsPayloadRepair,
                 needsClosureEvidence: needsClosureEvidence,
                 hasFollowUp: hasFollowUp,
               ),
@@ -170,12 +176,22 @@ class JobModuleCard extends StatelessWidget {
                   _ModuleMetricPill(
                     icon: Icons.fact_check_rounded,
                     label:
-                        '$responseCount structured response${responseCount == 1 ? '' : 's'}',
+                        responseCount == null
+                            ? 'Responses need repair'
+                            : '$responseCount structured response${responseCount == 1 ? '' : 's'}',
                     color:
-                        responseCount > 0
+                        responseCount == null
+                            ? BafColors.danger
+                            : responseCount > 0
                             ? BafColors.sync
                             : BafColors.textSecondary,
                   ),
+                  if (!fieldRead.isValid)
+                    const _ModuleMetricPill(
+                      icon: Icons.warning_amber_rounded,
+                      label: 'Fields need repair',
+                      color: BafColors.danger,
+                    ),
                   if (actionRead.isValid)
                     _ModuleMetricPill(
                       icon: Icons.build_circle_rounded,
@@ -200,8 +216,15 @@ class JobModuleCard extends StatelessWidget {
                     ),
                 ],
               ),
-              if (needsClosureEvidence || hasFollowUp) ...[
+              if (needsPayloadRepair || needsClosureEvidence || hasFollowUp) ...[
                 const SizedBox(height: BafSpacing.sm),
+                if (needsPayloadRepair)
+                  const _ModuleAttentionBox(
+                    icon: Icons.warning_amber_rounded,
+                    text:
+                        'Saved module evidence needs repair. Counts are hidden and changes are blocked.',
+                    color: BafColors.danger,
+                  ),
                 if (needsClosureEvidence)
                   const _ModuleAttentionBox(
                     icon: Icons.assignment_late_rounded,
@@ -270,9 +293,11 @@ class JobModuleCard extends StatelessWidget {
 
   static Color _borderColor({
     required Color statusColor,
+    required bool needsPayloadRepair,
     required bool needsClosureEvidence,
     required bool hasFollowUp,
   }) {
+    if (needsPayloadRepair) return BafColors.danger.withValues(alpha: 0.55);
     if (needsClosureEvidence) return BafColors.danger.withValues(alpha: 0.45);
     if (hasFollowUp) return BafColors.warning.withValues(alpha: 0.45);
     return statusColor.withValues(alpha: 0.22);

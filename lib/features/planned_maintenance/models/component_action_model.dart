@@ -309,8 +309,9 @@ class ComponentAction {
     dynamic value, {
     required String field,
     String? source,
+    bool allowMissing = false,
   }) {
-    if (value == null) return '[]';
+    if (value == null && allowMissing) return '[]';
     if (value is String) return value;
     throw PersistedDataFormatException(
       field: field,

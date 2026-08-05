@@ -7,7 +7,12 @@ import 'package:isar/isar.dart';
 
 import '../../maintenance/data/maintenance_model.dart';
 import '../models/component_action_model.dart';
-import 'job_template_model.dart' show FieldResponse;
+import 'job_template_model.dart'
+    show
+        FieldDefinitionReadResult,
+        FieldResponse,
+        FieldResponseReadResult,
+        PersistedFieldDefinitionPayload;
 
 part 'job_module_model.g.dart';
 
@@ -134,17 +139,6 @@ String _safeJsonObject(dynamic value) {
   }
   if (value is Map) return jsonEncode(value);
   return '{}';
-}
-
-String _safeJsonList(dynamic value) {
-  if (value == null) return '[]';
-  if (value is String) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return '[]';
-    return trimmed;
-  }
-  if (value is List) return jsonEncode(value);
-  return '[]';
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -431,25 +425,35 @@ class JobModuleInstance {
       status != JobModuleStatus.notApplicable;
 
   @ignore
-  List<FieldResponse> get responses {
-    try {
-      final decoded = jsonDecode(responsesJson);
-      if (decoded is! List) return [];
-      return decoded
-          .whereType<Map>()
-          .map(
-            (entry) => FieldResponse.fromMap(Map<String, dynamic>.from(entry)),
-          )
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
+  List<FieldResponse> get responses => FieldResponse.decode(
+    responsesJson,
+    source:
+        firestoreId == null
+            ? 'local job module $id'
+            : 'job module $firestoreId',
+  );
+
+  @ignore
+  FieldResponseReadResult get responsesReadResult => FieldResponse.tryDecode(
+    responsesJson,
+    source:
+        firestoreId == null
+            ? 'local job module $id'
+            : 'job module $firestoreId',
+  );
+
+  @ignore
+  FieldDefinitionReadResult get fieldDefinitionsReadResult =>
+      PersistedFieldDefinitionPayload.tryDecode(
+        fieldDefinitionsJson,
+        source:
+            firestoreId == null
+                ? 'local job module $id'
+                : 'job module $firestoreId',
+      );
 
   set responses(List<FieldResponse> value) {
-    responsesJson = jsonEncode(
-      value.map((response) => response.toMap()).toList(),
-    );
+    responsesJson = FieldResponse.encode(value);
   }
 
   @ignore
@@ -631,7 +635,14 @@ class JobModuleInstance {
           ..templateModuleId = _cleanOptionalText(map['templateModuleId'])
           ..moduleCode = _cleanOptionalText(map['moduleCode'])
           ..moduleSnapshotJson = _safeJsonObject(map['moduleSnapshotJson'])
-          ..fieldDefinitionsJson = _safeJsonList(map['fieldDefinitionsJson'])
+          ..fieldDefinitionsJson =
+              map.containsKey('fieldDefinitionsJson')
+                  ? PersistedFieldDefinitionPayload.readEncodedPayload(
+                    map['fieldDefinitionsJson'],
+                    field: 'fieldDefinitionsJson',
+                    source: 'job module $documentId',
+                  )
+                  : '[]'
           ..assetType = _enumByNameOr(
             AssetType.values,
             map['assetType'],
@@ -674,11 +685,19 @@ class JobModuleInstance {
           ..operationalStatePreconditions = _cleanStringList(
             map['operationalStatePreconditions'],
           )
-          ..responsesJson = _safeJsonList(map['responsesJson'])
+          ..responsesJson =
+              map.containsKey('responsesJson')
+                  ? FieldResponse.readEncodedPayload(
+                    map['responsesJson'],
+                    field: 'responsesJson',
+                    source: 'job module $documentId',
+                  )
+                  : '[]'
           ..actionsJson = ComponentAction.readEncodedPayload(
             map['actionsJson'],
             field: 'actionsJson',
             source: 'job module $documentId',
+            allowMissing: !map.containsKey('actionsJson'),
           )
           ..draftNote = _cleanOptionalText(map['draftNote'])
           ..submissionNote = _cleanOptionalText(map['submissionNote'])
@@ -720,24 +739,12 @@ class JobModuleInstance {
 
     // responsesJson is canonical. Only fall back to the legacy structured
     // 'responses' array for old records that do not contain responsesJson.
-    final rawCanonicalResponsesJson = map['responsesJson'];
-    final hasCanonicalResponsesJson =
-        rawCanonicalResponsesJson is String &&
-        rawCanonicalResponsesJson.trim().isNotEmpty;
     final rawResponses = map['responses'];
-    if (!hasCanonicalResponsesJson && rawResponses is List) {
-      try {
-        instance.responses =
-            rawResponses
-                .whereType<Map>()
-                .map(
-                  (entry) =>
-                      FieldResponse.fromMap(Map<String, dynamic>.from(entry)),
-                )
-                .toList();
-      } catch (_) {
-        instance.responsesJson = _safeJsonList(map['responsesJson']);
-      }
+    if (!map.containsKey('responsesJson') && rawResponses is List) {
+      instance.responsesJson = FieldResponse.encodeLegacyPayload(
+        rawResponses,
+        source: 'job module $documentId',
+      );
     }
 
     return instance;

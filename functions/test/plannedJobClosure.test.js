@@ -109,6 +109,54 @@ describe('planned job server closure validation', () => {
     });
   });
 
+  test('rejects malformed saved module field definitions before closure', () => {
+    expect(() => assertClosureReady([
+      baseModule({fieldDefinitionsJson: '[{"type":"text"}]'}),
+    ])).toThrow(expect.objectContaining({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'module-field-definition-payload-invalid',
+        moduleFirestoreId: 'module_1',
+      }),
+    }));
+  });
+
+  test('rejects malformed saved module responses before closure', () => {
+    expect(() => assertClosureReady([
+      baseModule({responsesJson: '[{"key":"vt_reading"}]'}),
+    ])).toThrow(expect.objectContaining({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'module-response-payload-invalid',
+        moduleFirestoreId: 'module_1',
+      }),
+    }));
+  });
+
+  test('rejects explicitly null saved module work payloads', () => {
+    expect(() => assertClosureReady([
+      baseModule({actionsJson: null}),
+    ])).toThrow(expect.objectContaining({
+      details: expect.objectContaining({
+        reasonCode: 'module-action-payload-invalid',
+      }),
+    }));
+    expect(() => assertClosureReady([
+      baseModule({fieldDefinitionsJson: null}),
+    ])).toThrow(expect.objectContaining({
+      details: expect.objectContaining({
+        reasonCode: 'module-field-definition-payload-invalid',
+      }),
+    }));
+    expect(() => assertClosureReady([
+      baseModule({responsesJson: null}),
+    ])).toThrow(expect.objectContaining({
+      details: expect.objectContaining({
+        reasonCode: 'module-response-payload-invalid',
+      }),
+    }));
+  });
+
   test('rejects open required modules', () => {
     const issues = collectClosureIssues([baseModule({status: 'inProgress'})]);
     expect(issues).toHaveLength(1);
@@ -450,6 +498,22 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
     });
   });
 
+  test('malformed requested responses reject before DB or transaction work', async () => {
+    const db = {
+      collection() { throw new Error('db should not be touched'); },
+      async runTransaction() { throw new Error('transaction should not run'); },
+    };
+
+    await expect(completePlannedJobWithDb({
+      db,
+      authUid: 'supervisor1',
+      data: {executionId: 'job_1', responses: [{key: 'pressure'}]},
+    })).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: expect.objectContaining({reasonCode: 'response-payload-invalid'}),
+    });
+  });
+
   test('unapproved user rejects transactionally before execution or module reads', async () => {
     const {db, writes} = fakeCompletionDb({
       userData: {isApproved: false, roles: ['shiftSupervisor']},
@@ -545,6 +609,87 @@ describe('completePlannedJobWithDb unhappy paths do not write', () => {
       code: 'failed-precondition',
       details: expect.objectContaining({
         reasonCode: 'execution-action-payload-invalid',
+      }),
+    });
+
+    expect(writes.moduleQueryReads).toBe(0);
+    expect(writes.updates).toHaveLength(0);
+    expect(writes.sets).toHaveLength(0);
+  });
+
+  test('explicitly null existing execution actions reject without module query or writes', async () => {
+    const {db, writes} = fakeCompletionDb({
+      userData: {
+        isApproved: true,
+        roles: ['shiftSupervisor'],
+        name: 'Supervisor',
+      },
+      executionData: baseExecution({actionsJson: null}),
+      modules: [baseModule()],
+    });
+
+    await expect(completePlannedJobWithDb({
+      db,
+      authUid: 'supervisor1',
+      data: {executionId: 'job_1', expectedCompletionVersion: 7},
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'execution-action-payload-invalid',
+      }),
+    });
+
+    expect(writes.moduleQueryReads).toBe(0);
+    expect(writes.updates).toHaveLength(0);
+    expect(writes.sets).toHaveLength(0);
+  });
+
+  test('malformed existing execution responses reject without module query or writes', async () => {
+    const {db, writes} = fakeCompletionDb({
+      userData: {
+        isApproved: true,
+        roles: ['shiftSupervisor'],
+        name: 'Supervisor',
+      },
+      executionData: baseExecution({responsesJson: '[{"key":"pressure"}]'}),
+      modules: [baseModule()],
+    });
+
+    await expect(completePlannedJobWithDb({
+      db,
+      authUid: 'supervisor1',
+      data: {executionId: 'job_1', expectedCompletionVersion: 7},
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'execution-response-payload-invalid',
+      }),
+    });
+
+    expect(writes.moduleQueryReads).toBe(0);
+    expect(writes.updates).toHaveLength(0);
+    expect(writes.sets).toHaveLength(0);
+  });
+
+  test('explicitly null existing execution responses reject without module query or writes', async () => {
+    const {db, writes} = fakeCompletionDb({
+      userData: {
+        isApproved: true,
+        roles: ['shiftSupervisor'],
+        name: 'Supervisor',
+      },
+      executionData: baseExecution({responsesJson: null}),
+      modules: [baseModule()],
+    });
+
+    await expect(completePlannedJobWithDb({
+      db,
+      authUid: 'supervisor1',
+      data: {executionId: 'job_1', expectedCompletionVersion: 7},
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'execution-response-payload-invalid',
       }),
     });
 

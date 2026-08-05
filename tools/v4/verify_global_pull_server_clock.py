@@ -87,8 +87,13 @@ pull_shell = source("lib/core/services/global_pull_service.dart")
 rules = source("firestore.rules")
 governance_tool = source("functions/tools/global-pull-server-clock.mjs")
 runtime_security = source("functions/src/globalPullSecurityConfig.ts")
-runtime_identity_policy = json.loads(
-    source("release/global-pull-runtime-identity-policy.json")
+runtime_identity_source = source("functions/src/functionFleetRuntimeIdentity.ts")
+runtime_identity_policy_source = source(
+    "release/global-pull-runtime-identity-policy.json"
+)
+runtime_identity_policy = json.loads(runtime_identity_policy_source)
+function_fleet_policy = json.loads(
+    source("release/function-fleet-runtime-identity-policy.json")
 )
 
 backend_collections = quoted_list_after(
@@ -237,15 +242,28 @@ check(
     "Global-pull functions use separate least-privilege runtime identities",
     "GLOBAL_PULL_CALLABLE_SECURITY_OPTIONS" in backend_index
     and "GLOBAL_PULL_TRIGGER_SECURITY_OPTIONS" in backend_index
-    and '"crm3-global-pull-reader"' in runtime_security
-    and '"crm3-global-pull-writer"' in runtime_security
-    and 'import {expr, projectID} from "firebase-functions/params"'
+    and "FUNCTION_RUNTIME_SERVICE_ACCOUNT_IDS.beginGlobalPullRun"
         in runtime_security
-    and "@${projectID}.iam.gserviceaccount.com" in runtime_security
+    and "FUNCTION_RUNTIME_SERVICE_ACCOUNT_IDS.stampGlobalPullServerClock"
+        in runtime_security
+    and 'beginGlobalPullRun: "crm3-global-pull-reader"'
+        in runtime_identity_source
+    and 'stampGlobalPullServerClock: "crm3-global-pull-writer"'
+        in runtime_identity_source
+    and 'import {expr, projectID} from "firebase-functions/params"'
+        in runtime_identity_source
+    and "@${projectID}.iam.gserviceaccount.com" in runtime_identity_source
     and "@crm3-baf-ops-b8638.iam.gserviceaccount.com"
-        not in runtime_security
-    and "compute@developer.gserviceaccount.com" not in runtime_security
-    and runtime_identity_policy.get("schemaVersion") == 2
+        not in runtime_security + runtime_identity_source
+    and "compute@developer.gserviceaccount.com"
+        not in runtime_security + runtime_identity_source
+    and runtime_identity_policy.get("schemaVersion") == 3
+    and runtime_identity_policy.get("policyId")
+        == "GLOBAL-PULL-RUNTIME-IDENTITY-POLICY-V3"
+    and runtime_identity_policy.get("declarationStatus")
+        == "DEPLOYED_SUBSET_SUBSUMED_BY_PROVED_COMPLETE_FLEET"
+    and runtime_identity_policy.get("completeFleetPolicy")
+        == "release/function-fleet-runtime-identity-policy.json"
     and runtime_identity_policy.get("targetProjectBinding") == {
         "builtInParameter": "PROJECT_ID",
         "serviceAccountDomain": "iam.gserviceaccount.com",
@@ -271,15 +289,37 @@ check(
         == "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com"
     and runtime_identity_policy.get("functionBindings", {})
         .get("beginGlobalPullRun", {}).get("requiredProjectRoles")
-        == ["roles/datastore.viewer", "roles/logging.logWriter"]
+        == ["roles/datastore.viewer"]
     and runtime_identity_policy.get("functionBindings", {})
         .get("stampGlobalPullServerClock", {}).get("requiredProjectRoles")
         == [
             "roles/datastore.user",
             "roles/eventarc.eventReceiver",
-            "roles/run.invoker",
-            "roles/logging.logWriter",
         ]
+    and runtime_identity_policy.get("functionBindings", {})
+        .get("stampGlobalPullServerClock", {})
+        .get("requiredCloudRunServiceRoles") == ["roles/run.invoker"]
+    and "roles/logging.logWriter" not in runtime_identity_policy_source
+    and function_fleet_policy.get("schemaVersion") == 1
+    and function_fleet_policy.get("declarationStatus")
+        == "DEPLOYED_AND_LIVE_READBACK_PROVED"
+    and function_fleet_policy.get("productionProjectId")
+        == runtime_identity_policy.get("productionProjectId")
+    and function_fleet_policy.get("functionBindings", {})
+        .get("beginGlobalPullRun", {}).get("runtimeServiceAccountId")
+        == "crm3-global-pull-reader"
+    and function_fleet_policy.get("functionBindings", {})
+        .get("beginGlobalPullRun", {}).get("requiredProjectRoles")
+        == ["roles/datastore.viewer"]
+    and function_fleet_policy.get("functionBindings", {})
+        .get("stampGlobalPullServerClock", {}).get("runtimeServiceAccountId")
+        == "crm3-global-pull-writer"
+    and function_fleet_policy.get("functionBindings", {})
+        .get("stampGlobalPullServerClock", {}).get("requiredProjectRoles")
+        == ["roles/datastore.user", "roles/eventarc.eventReceiver"]
+    and function_fleet_policy.get("functionBindings", {})
+        .get("stampGlobalPullServerClock", {})
+        .get("requiredCloudRunServiceRoles") == ["roles/run.invoker"]
     and runtime_identity_policy.get("existingFunctionFleetMutationAuthorized")
         is False
     and runtime_identity_policy.get("defaultComputeRoleMutationAuthorized")

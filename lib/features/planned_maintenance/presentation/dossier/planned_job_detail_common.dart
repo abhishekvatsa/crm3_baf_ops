@@ -298,7 +298,11 @@ class _LegacyModuleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor =
         execution.isCompleted ? BafColors.sync : BafColors.warning;
-    final responseCount = execution.responses.where(_isRealResponse).length;
+    final responseRead = execution.responsesReadResult;
+    final responseCount =
+        responseRead.isValid
+            ? responseRead.entries.where(_isRealResponse).length
+            : null;
     final actionRead = execution.actionsReadResult;
 
     return Container(
@@ -356,9 +360,17 @@ class _LegacyModuleCard extends StatelessWidget {
               ),
               StatusBadge(
                 label:
-                    '$responseCount response${responseCount == 1 ? '' : 's'}',
-                color: BafColors.planned,
-                icon: Icons.fact_check_rounded,
+                    responseCount == null
+                        ? 'Responses need repair'
+                        : '$responseCount response${responseCount == 1 ? '' : 's'}',
+                color:
+                    responseCount == null
+                        ? BafColors.danger
+                        : BafColors.planned,
+                icon:
+                    responseCount == null
+                        ? Icons.warning_amber_rounded
+                        : Icons.fact_check_rounded,
               ),
               if (actionRead.isValid)
                 StatusBadge(
@@ -375,6 +387,14 @@ class _LegacyModuleCard extends StatelessWidget {
                 ),
             ],
           ),
+          if (!responseRead.isValid) ...[
+            const SizedBox(height: BafSpacing.md),
+            const PersistedDataIntegrityNotice(
+              title: 'Legacy responses need repair',
+              message:
+                  'Saved response evidence is malformed, so no response count or detail is inferred.',
+            ),
+          ],
         ],
       ),
     );

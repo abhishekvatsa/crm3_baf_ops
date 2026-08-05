@@ -129,7 +129,7 @@ describe("global pull runtime identity source policy", () => {
     expect(policy.schemaVersion).toBe(3);
     expect(policy.policyId).toBe("GLOBAL-PULL-RUNTIME-IDENTITY-POLICY-V3");
     expect(policy.declarationStatus).toBe(
-      "DEPLOYED_SUBSET_PENDING_FLEET_IAM_RECONCILIATION",
+      "DEPLOYED_SUBSET_SUBSUMED_BY_PROVED_COMPLETE_FLEET",
     );
     expect(policy.completeFleetPolicy).toBe(
       "release/function-fleet-runtime-identity-policy.json",

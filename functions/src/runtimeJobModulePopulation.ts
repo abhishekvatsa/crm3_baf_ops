@@ -4,6 +4,11 @@ import {
   PersistedActionPayloadError,
   readComponentActionPayload,
 } from "./persistedActionPayload";
+import {
+  PersistedWorkPayloadError,
+  readFieldDefinitionPayload,
+  readFieldResponsePayload,
+} from "./persistedWorkPayload";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
 
 export type RuntimePopulationHttpsErrorCode =
@@ -1046,6 +1051,23 @@ function validateCreateShape(module: RuntimePopulationJsonMap): void {
     "array",
   );
   assertJsonText(module.responsesJson, "module.responsesJson", "array");
+  try {
+    readFieldDefinitionPayload(module.fieldDefinitionsJson, {
+      field: "module.fieldDefinitionsJson",
+    });
+    readFieldResponsePayload(module.responsesJson, {
+      field: "module.responsesJson",
+    });
+  } catch (error) {
+    if (error instanceof PersistedWorkPayloadError) {
+      throw new RuntimePopulationValidationError(
+        "invalid-argument",
+        "Module field definitions and responses must preserve valid structured evidence.",
+        {reasonCode: "work-payload-invalid", field: error.field},
+      );
+    }
+    throw error;
+  }
   assertJsonText(module.actionsJson, "module.actionsJson", "array");
   try {
     readComponentActionPayload(module.actionsJson, {

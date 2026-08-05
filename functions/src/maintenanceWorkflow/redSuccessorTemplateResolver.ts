@@ -1,5 +1,9 @@
 import {createHash} from "crypto";
 
+import {
+  PersistedWorkPayloadError,
+  readFieldDefinitionPayload,
+} from "../persistedWorkPayload";
 import {WorkflowError} from "./errors";
 import {WorkflowTransaction} from "./store";
 import {JsonMap} from "./types";
@@ -175,7 +179,24 @@ export const resolveRedSuccessorTemplate = async (
 
   const jobSnapshot = objectValue(versionData.jobTemplateSnapshotJson);
   const snapshots = objectList(versionData.moduleSnapshotsJson, "moduleSnapshotsJson");
-  const allFields = objectList(versionData.fieldDefinitionsJson ?? "[]", "fieldDefinitionsJson");
+  const hasFieldDefinitions = Object.prototype.hasOwnProperty.call(
+    versionData,
+    "fieldDefinitionsJson",
+  );
+  if (hasFieldDefinitions && versionData.fieldDefinitionsJson == null) {
+    throw new WorkflowError(
+      "red-successor-template-unconfigured",
+      "fieldDefinitionsJson must contain a JSON array when present.",
+      {
+        reasonCode: "field-definition-payload-invalid",
+        field: "fieldDefinitionsJson",
+      },
+    );
+  }
+  const allFields = objectList(
+    hasFieldDefinitions ? versionData.fieldDefinitionsJson : "[]",
+    "fieldDefinitionsJson",
+  );
   if (snapshots.length === 0) {
     throw new WorkflowError("red-successor-template-unconfigured", "RED successor template has no modules.");
   }
@@ -184,7 +205,27 @@ export const resolveRedSuccessorTemplate = async (
   const templateName = firstText(jobSnapshot, ["jobName", "templateName", "title", "name"]) ?? packageTitle;
   const modules = snapshots.map((snapshot, index) => {
     const code = moduleCode(snapshot, index);
-    const fields = fieldsForModule(allFields, snapshot, code);
+    const candidateFields = fieldsForModule(allFields, snapshot, code);
+    let fields: readonly JsonMap[];
+    try {
+      readFieldDefinitionPayload(JSON.stringify(candidateFields), {
+        field: `fieldDefinitionsJson for RED module ${code}`,
+      });
+      fields = candidateFields;
+    } catch (error) {
+      if (error instanceof PersistedWorkPayloadError) {
+        throw new WorkflowError(
+          "red-successor-template-unconfigured",
+          `Field definitions for RED module ${code} are invalid.`,
+          {
+            reasonCode: "field-definition-payload-invalid",
+            moduleCode: code,
+            field: error.field,
+          },
+        );
+      }
+      throw error;
+    }
     return {
       templateModuleId: firstText(snapshot, ["templateModuleId", "moduleId", "id", "key"]),
       moduleCode: code,

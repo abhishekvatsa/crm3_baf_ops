@@ -51,6 +51,34 @@ extension _SyncServiceJobModules on SyncService {
         _checkClockDrift(record.updatedAt, 'job module ${record.id}');
 
         final remote = remoteMap[record.firestoreId];
+        final localFieldRead = record.fieldDefinitionsReadResult;
+        final localResponseRead = record.responsesReadResult;
+        final localActionRead = record.actionsReadResult;
+        if (!localFieldRead.isValid ||
+            !localResponseRead.isValid ||
+            !localActionRead.isValid) {
+          lastFailureCount++;
+          _recordPushFailureDetail(
+            entityType: 'job_module',
+            entityId: _syncEntityId(record),
+            error:
+                'Saved field definitions, responses, or actions need repair before sync.',
+          );
+          continue;
+        }
+        if (remote != null &&
+            (!remote.fieldDefinitionsReadResult.isValid ||
+                !remote.responsesReadResult.isValid ||
+                !remote.actionsReadResult.isValid)) {
+          lastFailureCount++;
+          _recordPushFailureDetail(
+            entityType: 'job_module',
+            entityId: _syncEntityId(record),
+            error:
+                'Remote field definitions, responses, or actions need repair before they can be overwritten.',
+          );
+          continue;
+        }
 
         if (record.isDeleted) {
           if (remote != null && remote.isDeleted) {
@@ -291,6 +319,10 @@ extension _SyncServiceJobModules on SyncService {
     }
     final localActionRead = local.actionsReadResult;
     final remoteActionRead = remote?.actionsReadResult;
+    final localResponseRead = local.responsesReadResult;
+    final remoteResponseRead = remote?.responsesReadResult;
+    final localFieldRead = local.fieldDefinitionsReadResult;
+    final remoteFieldRead = remote?.fieldDefinitionsReadResult;
     final buffer =
         StringBuffer()
           ..writeln('  currentAuthUid: $currentUid')
@@ -341,13 +373,23 @@ extension _SyncServiceJobModules on SyncService {
             '${_date(remote?.createdAt)}/${_date(remote?.updatedAt)}',
           )
           ..writeln(
-            '  local response/action counts: '
-            '${local.responses.length}/'
+            '  local field/response/action counts: '
+            '${localFieldRead.isValid ? localFieldRead.entries.length : 'invalid'}/'
+            '${localResponseRead.isValid ? localResponseRead.entries.length : 'invalid'}/'
             '${localActionRead.isValid ? localActionRead.entries.length : 'invalid'}',
           )
           ..writeln(
-            '  remote response/action counts: '
-            '${remote?.responses.length.toString() ?? 'missing'}/'
+            '  remote field/response/action counts: '
+            '${remoteFieldRead == null
+                ? 'missing'
+                : remoteFieldRead.isValid
+                ? remoteFieldRead.entries.length
+                : 'invalid'}/'
+            '${remoteResponseRead == null
+                ? 'missing'
+                : remoteResponseRead.isValid
+                ? remoteResponseRead.entries.length
+                : 'invalid'}/'
             '${remoteActionRead == null
                 ? 'missing'
                 : remoteActionRead.isValid

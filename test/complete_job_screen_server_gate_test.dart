@@ -141,6 +141,71 @@ Future<void> _pumpFrames(
 }
 
 void main() {
+  testWidgets('malformed saved execution responses block completion visibly', (
+    tester,
+  ) async {
+    final execution = _execution()..responsesJson = '[{"key":"pressure"}]';
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_supervisor()),
+          ),
+          plannedRepositoryProvider.overrideWithValue(
+            _GateRejectingPlannedRepository(),
+          ),
+          jobModuleRepositoryProvider.overrideWithValue(
+            _StaticJobModuleRepository([_acceptedModule()]),
+          ),
+        ],
+        child: MaterialApp(home: CompleteJobScreen(execution: execution)),
+      ),
+    );
+
+    await _pumpFrames(tester);
+
+    expect(find.text('Saved response evidence needs repair'), findsOneWidget);
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Mark Job Completed'),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('malformed module definitions become a closure repair blocker', (
+    tester,
+  ) async {
+    final module =
+        _acceptedModule()
+          ..fieldDefinitionsJson = '[{"type":"text","required":true}]';
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_supervisor()),
+          ),
+          plannedRepositoryProvider.overrideWithValue(
+            _GateRejectingPlannedRepository(),
+          ),
+          jobModuleRepositoryProvider.overrideWithValue(
+            _StaticJobModuleRepository([module]),
+          ),
+        ],
+        child: MaterialApp(home: CompleteJobScreen(execution: _execution())),
+      ),
+    );
+
+    await _pumpFrames(tester);
+
+    expect(find.textContaining('needing evidence repair'), findsOneWidget);
+    expect(find.text('1', skipOffstage: false), findsWidgets);
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Mark Job Completed'),
+    );
+    expect(button.onPressed, isNull);
+  });
+
   testWidgets('server closure-gate rejection shows actionable dialog', (
     tester,
   ) async {

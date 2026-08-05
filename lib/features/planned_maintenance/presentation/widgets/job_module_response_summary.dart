@@ -1,7 +1,5 @@
 // FILE: lib/features/planned_maintenance/presentation/widgets/job_module_response_summary.dart
 
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
@@ -13,20 +11,17 @@ import '../../data/job_template_model.dart';
 /// This widget is deliberately small and reusable: it is used first inside the
 /// module workspace and can later be reused by the final closed-job dossier.
 ///
-/// It preserves the existing [fieldDefinitions] API used by the module workspace
-/// and adds [fieldDefinitionsJson] for historical/closed dossier rendering,
-/// where the module stores its field definition snapshot as JSON.
+/// Callers validate and decode the persisted field-definition payload before
+/// constructing this presentation-only widget.
 class JobModuleResponseSummary extends StatelessWidget {
   final List<FieldResponse> responses;
   final List<Map<String, dynamic>> fieldDefinitions;
-  final String? fieldDefinitionsJson;
   final String emptyText;
 
   const JobModuleResponseSummary({
     super.key,
     required this.responses,
     this.fieldDefinitions = const [],
-    this.fieldDefinitionsJson,
     this.emptyText = 'No structured responses have been saved yet.',
   });
 
@@ -34,7 +29,6 @@ class JobModuleResponseSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final metadataByKey = _metadataByFieldKey(
       fieldDefinitions: fieldDefinitions,
-      fieldDefinitionsJson: fieldDefinitionsJson,
     );
 
     final visibleResponses = responses
@@ -258,7 +252,6 @@ class _FieldMetadata {
 
 Map<String, _FieldMetadata> _metadataByFieldKey({
   required List<Map<String, dynamic>> fieldDefinitions,
-  required String? fieldDefinitionsJson,
 }) {
   final result = <String, _FieldMetadata>{};
 
@@ -268,31 +261,6 @@ Map<String, _FieldMetadata> _metadataByFieldKey({
     if (metadata != null) {
       result[metadata.key] = metadata;
     }
-  }
-
-  // Add snapshot JSON support for closed-job dossiers without overriding
-  // explicit live definitions already passed by the caller.
-  final trimmed = fieldDefinitionsJson?.trim();
-  if (trimmed == null || trimmed.isEmpty) return result;
-
-  try {
-    final decoded = jsonDecode(trimmed);
-    if (decoded is! List) return result;
-
-    for (var i = 0; i < decoded.length; i++) {
-      final item = decoded[i];
-      if (item is! Map) continue;
-      final metadata = _metadataFromMap(
-        Map<String, dynamic>.from(item),
-        fallbackOrder: i,
-      );
-      if (metadata != null) {
-        result.putIfAbsent(metadata.key, () => metadata);
-      }
-    }
-  } catch (_) {
-    // Keep rendering responses even if a historical field definition snapshot
-    // cannot be decoded.
   }
 
   return result;

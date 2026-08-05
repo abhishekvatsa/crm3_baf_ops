@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:isar/isar.dart';
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../models/component_action_model.dart';
 
@@ -80,6 +81,291 @@ enum FieldType {
   dateTime,
   sectionHeader,
   instruction,
+}
+
+const _fieldKeyAliases = <String>['key', 'fieldKey', 'fieldId', 'id', 'name'];
+const _responseKeyAliases = <String>[
+  'key',
+  'fieldId',
+  'fieldKey',
+  'id',
+  'name',
+];
+
+String _normalisePayloadKey(String value) => value
+    .trim()
+    .toLowerCase()
+    .replaceAll(RegExp(r'[^a-z0-9]+'), '');
+
+String _readAliasedRequiredText(
+  Map<String, dynamic> map,
+  List<String> aliases, {
+  required String field,
+  String? source,
+}) {
+  for (final alias in aliases) {
+    final value = map[alias];
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+  }
+  throw PersistedDataFormatException(
+    field: field,
+    source: source,
+    detail: 'required non-empty string (${aliases.join('/')})',
+  );
+}
+
+String? _readAliasedOptionalText(
+  Map<String, dynamic> map,
+  List<String> aliases, {
+  required String field,
+  String? source,
+}) {
+  for (final alias in aliases) {
+    if (!map.containsKey(alias) || map[alias] == null) continue;
+    return readOptionalPersistedString(
+      map[alias],
+      field: '$field.$alias',
+      source: source,
+    );
+  }
+  return null;
+}
+
+FieldType _readPersistedFieldType(
+  dynamic value, {
+  required String field,
+  String? source,
+}) {
+  if (value == null) return FieldType.text;
+  if (value is! String || value.trim().isEmpty) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'expected a supported field type',
+    );
+  }
+
+  switch (_normalisePayloadKey(value)) {
+    case 'text':
+    case 'string':
+    case 'plaintext':
+      return FieldType.text;
+    case 'longtext':
+    case 'textarea':
+      return FieldType.longText;
+    case 'number':
+    case 'numeric':
+    case 'numericwithunit':
+      return FieldType.number;
+    case 'boolean':
+    case 'yesno':
+    case 'passfail':
+      return FieldType.yesNo;
+    case 'checkbox':
+      return FieldType.checkbox;
+    case 'enum':
+    case 'dropdown':
+    case 'devicetagpicklist':
+    case 'procedureref':
+    case 'targetrule':
+      return FieldType.dropdown;
+    case 'multiselect':
+    case 'multitag':
+      return FieldType.multiSelect;
+    case 'datetime':
+    case 'date':
+      return FieldType.dateTime;
+    case 'sectionheader':
+      return FieldType.sectionHeader;
+    case 'instruction':
+    case 'safetygate':
+    case 'safetyconfirmation':
+      return FieldType.instruction;
+  }
+  throw PersistedDataFormatException(
+    field: field,
+    source: source,
+    detail: 'unknown field type "$value"',
+  );
+}
+
+void _validateFieldDefinition(
+  Map<String, dynamic> map, {
+  required String field,
+  String? source,
+}) {
+  _readAliasedRequiredText(
+    map,
+    _fieldKeyAliases,
+    field: '$field.key',
+    source: source,
+  );
+  for (final key in const ['label', 'title']) {
+    if (map.containsKey(key)) {
+      readOptionalPersistedString(
+        map[key],
+        field: '$field.$key',
+        source: source,
+      );
+    }
+  }
+  for (final key in const ['type', 'fieldType']) {
+    if (map[key] != null) {
+      _readPersistedFieldType(
+        map[key],
+        field: '$field.$key',
+        source: source,
+      );
+    }
+  }
+  for (final key in const ['required', 'isRequired']) {
+    if (map[key] != null && map[key] is! bool) {
+      throw PersistedDataFormatException(
+        field: '$field.$key',
+        source: source,
+        detail: 'expected a boolean or null',
+      );
+    }
+  }
+  if (map['required'] is bool &&
+      map['isRequired'] is bool &&
+      map['required'] != map['isRequired']) {
+    throw PersistedDataFormatException(
+      field: '$field.required',
+      source: source,
+      detail: 'conflicts with isRequired',
+    );
+  }
+  for (final key in const ['unit', 'instructionText']) {
+    if (map.containsKey(key)) {
+      readOptionalPersistedString(
+        map[key],
+        field: '$field.$key',
+        source: source,
+      );
+    }
+  }
+  if (map.containsKey('options')) {
+    readNullablePersistedStringList(
+      map['options'],
+      field: '$field.options',
+      source: source,
+    );
+  }
+  for (final key in const ['validation', 'meta']) {
+    if (map.containsKey(key)) {
+      readOptionalJsonObject(
+        map[key],
+        field: '$field.$key',
+        source: source,
+      );
+    }
+  }
+  if (map.containsKey('validationJson')) {
+    readOptionalJsonObject(
+      map['validationJson'],
+      field: '$field.validationJson',
+      source: source,
+    );
+  }
+  if (map['order'] != null && map['order'] is! int) {
+    throw PersistedDataFormatException(
+      field: '$field.order',
+      source: source,
+      detail: 'expected an integer or null',
+    );
+  }
+  if (map['version'] != null &&
+      (map['version'] is! int || (map['version'] as int) < 1)) {
+    throw PersistedDataFormatException(
+      field: '$field.version',
+      source: source,
+      detail: 'expected an integer >= 1 or null',
+    );
+  }
+}
+
+class FieldDefinitionReadResult {
+  final List<Map<String, dynamic>> entries;
+  final FormatException? error;
+
+  const FieldDefinitionReadResult._({
+    required this.entries,
+    required this.error,
+  });
+
+  bool get isValid => error == null;
+}
+
+class PersistedFieldDefinitionPayload {
+  static List<Map<String, dynamic>> decode(
+    String? jsonStr, {
+    String? source,
+  }) {
+    if (jsonStr == null) {
+      throw PersistedDataFormatException(
+        field: 'fieldDefinitionsJson',
+        source: source,
+        detail: 'required JSON array (Null)',
+      );
+    }
+    final rows = readRequiredJsonObjectList(
+      jsonStr,
+      field: 'fieldDefinitionsJson',
+      source: source,
+    );
+    final keys = <String>{};
+    for (var index = 0; index < rows.length; index++) {
+      final field = 'fieldDefinitionsJson[$index]';
+      _validateFieldDefinition(rows[index], field: field, source: source);
+      final key = _readAliasedRequiredText(
+        rows[index],
+        _fieldKeyAliases,
+        field: '$field.key',
+        source: source,
+      );
+      if (!keys.add(_normalisePayloadKey(key))) {
+        throw PersistedDataFormatException(
+          field: '$field.key',
+          source: source,
+          detail: 'duplicate key $key',
+        );
+      }
+    }
+    return rows;
+  }
+
+  static FieldDefinitionReadResult tryDecode(
+    String? jsonStr, {
+    String? source,
+  }) {
+    try {
+      return FieldDefinitionReadResult._(
+        entries: decode(jsonStr, source: source),
+        error: null,
+      );
+    } on FormatException catch (error) {
+      return FieldDefinitionReadResult._(
+        entries: const <Map<String, dynamic>>[],
+        error: error,
+      );
+    }
+  }
+
+  static String readEncodedPayload(
+    dynamic value, {
+    required String field,
+    String? source,
+    bool allowMissing = false,
+  }) {
+    if (value == null && allowMissing) return '[]';
+    if (value is String) return value;
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'expected a JSON string (${value.runtimeType})',
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -165,32 +451,214 @@ class TemplateField {
 // FIELD RESPONSE
 // ─────────────────────────────────────────────────────────────
 
+class FieldResponseReadResult {
+  final List<FieldResponse> entries;
+  final FormatException? error;
+
+  const FieldResponseReadResult._({
+    required this.entries,
+    required this.error,
+  });
+
+  bool get isValid => error == null;
+}
+
 class FieldResponse {
+  static const _knownFields = <String>{
+    'key',
+    'fieldId',
+    'fieldKey',
+    'id',
+    'name',
+    'fieldLabel',
+    'label',
+    'title',
+    'fieldType',
+    'type',
+    'value',
+    'answer',
+  };
+
   final String key;
   final String fieldLabel;
   final FieldType fieldType;
   final dynamic value;
+  final Map<String, dynamic> extensions;
 
   FieldResponse({
     required this.key,
     required this.fieldLabel,
     required this.fieldType,
     required this.value,
-  });
+    Map<String, dynamic>? extensions,
+  }) : extensions = Map<String, dynamic>.unmodifiable(
+         extensions ?? const <String, dynamic>{},
+       );
 
   Map<String, dynamic> toMap() => {
+    ...extensions,
     'key': key,
     'fieldLabel': fieldLabel,
     'fieldType': fieldType.name,
     'value': value,
   };
 
-  static FieldResponse fromMap(Map<String, dynamic> map) => FieldResponse(
-    key: map['key'] ?? '',
-    fieldLabel: map['fieldLabel'] ?? '',
-    fieldType: _enumByNameOr(FieldType.values, map['fieldType'], FieldType.text),
-    value: map['value'],
-  );
+  factory FieldResponse.fromMap(
+    Map<String, dynamic> map, {
+    String? source,
+  }) {
+    final key = _readAliasedRequiredText(
+      map,
+      _responseKeyAliases,
+      field: 'key',
+      source: source,
+    );
+    if (!map.containsKey('value') && !map.containsKey('answer')) {
+      throw PersistedDataFormatException(
+        field: 'value',
+        source: source,
+        detail: 'required value/answer field',
+      );
+    }
+    final value = map.containsKey('value') ? map['value'] : map['answer'];
+    try {
+      jsonEncode(value);
+    } on JsonUnsupportedObjectError {
+      throw PersistedDataFormatException(
+        field: 'value',
+        source: source,
+        detail: 'value is not JSON serializable',
+      );
+    }
+    final extensions = <String, dynamic>{
+      for (final entry in map.entries)
+        if (!_knownFields.contains(entry.key)) entry.key: entry.value,
+    };
+    return FieldResponse(
+      key: key,
+      fieldLabel:
+          _readAliasedOptionalText(
+            map,
+            const ['fieldLabel', 'label', 'title'],
+            field: 'fieldLabel',
+            source: source,
+          ) ??
+          key,
+      fieldType: _readPersistedFieldType(
+        map['fieldType'] ?? map['type'],
+        field: 'fieldType',
+        source: source,
+      ),
+      value: value,
+      extensions: extensions,
+    );
+  }
+
+  static String encode(List<FieldResponse> responses) =>
+      jsonEncode(responses.map((response) => response.toMap()).toList());
+
+  static List<FieldResponse> decode(String? jsonStr, {String? source}) {
+    if (jsonStr == null) {
+      throw PersistedDataFormatException(
+        field: 'responsesJson',
+        source: source,
+        detail: 'required JSON array (Null)',
+      );
+    }
+    final rows = readRequiredJsonObjectList(
+      jsonStr,
+      field: 'responsesJson',
+      source: source,
+    );
+    final keys = <String>{};
+    return <FieldResponse>[
+      for (var index = 0; index < rows.length; index++)
+        _decodeRow(rows[index], index, keys, source),
+    ];
+  }
+
+  static FieldResponse _decodeRow(
+    Map<String, dynamic> row,
+    int index,
+    Set<String> keys,
+    String? source,
+  ) {
+    final response = FieldResponse.fromMap(
+      row,
+      source:
+          source == null
+              ? 'responsesJson[$index]'
+              : '$source responsesJson[$index]',
+    );
+    if (!keys.add(_normalisePayloadKey(response.key))) {
+      throw PersistedDataFormatException(
+        field: 'responsesJson[$index].key',
+        source: source,
+        detail: 'duplicate key ${response.key}',
+      );
+    }
+    return response;
+  }
+
+  static FieldResponseReadResult tryDecode(
+    String? jsonStr, {
+    String? source,
+  }) {
+    try {
+      return FieldResponseReadResult._(
+        entries: decode(jsonStr, source: source),
+        error: null,
+      );
+    } on FormatException catch (error) {
+      return FieldResponseReadResult._(
+        entries: const <FieldResponse>[],
+        error: error,
+      );
+    }
+  }
+
+  static String readEncodedPayload(
+    dynamic value, {
+    required String field,
+    String? source,
+    bool allowMissing = false,
+  }) {
+    if (value == null && allowMissing) return '[]';
+    if (value is String) return value;
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'expected a JSON string (${value.runtimeType})',
+    );
+  }
+
+  static String encodeLegacyPayload(dynamic value, {String? source}) {
+    if (value is! List) {
+      throw PersistedDataFormatException(
+        field: 'responses',
+        source: source,
+        detail: 'expected an array (${value.runtimeType})',
+      );
+    }
+    final responses = <FieldResponse>[];
+    for (var index = 0; index < value.length; index++) {
+      final entry = value[index];
+      if (entry is! Map) {
+        throw PersistedDataFormatException(
+          field: 'responses[$index]',
+          source: source,
+          detail: 'expected an object (${entry.runtimeType})',
+        );
+      }
+      responses.add(
+        FieldResponse.fromMap(
+          Map<String, dynamic>.from(entry),
+          source: '$source responses[$index]',
+        ),
+      );
+    }
+    return encode(responses);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -479,27 +947,32 @@ class JobExecution {
   String responsesJson = '[]';
 
   @ignore
-  List<FieldResponse> get responses {
-    try {
-      final list = jsonDecode(responsesJson) as List;
-      return list
-          .map((e) => FieldResponse.fromMap(e as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
+  List<FieldResponse> get responses => FieldResponse.decode(
+    responsesJson,
+    source:
+        firestoreId == null
+            ? 'local job execution $id'
+            : 'job execution $firestoreId',
+  );
+
+  @ignore
+  FieldResponseReadResult get responsesReadResult => FieldResponse.tryDecode(
+    responsesJson,
+    source:
+        firestoreId == null
+            ? 'local job execution $id'
+            : 'job execution $firestoreId',
+  );
 
   set responses(List<FieldResponse> value) {
-    responsesJson = jsonEncode(value.map((r) => r.toMap()).toList());
+    responsesJson = FieldResponse.encode(value);
   }
 
   dynamic getResponse(String key) {
-    try {
-      return responses.firstWhere((r) => r.key == key).value;
-    } catch (_) {
-      return null;
+    for (final response in responses) {
+      if (response.key == key) return response.value;
     }
+    return null;
   }
 
   String actionsJson = '[]';
@@ -575,10 +1048,7 @@ class JobExecution {
   // 🔥 toMap for Firestore serialization.
   // responsesJson is the canonical Firestore payload. Do not also write the
   // legacy structured 'responses' array.
-  Map<String, dynamic> toMap() {
-    final List<Map<String, dynamic>> responsesArray =
-    responses.map((r) => r.toMap()).toList();
-    return {
+  Map<String, dynamic> toMap() => {
       'firestoreId': firestoreId,
       'templateFirestoreId': templateFirestoreId,
       'templateName': templateName,
@@ -613,7 +1083,7 @@ class JobExecution {
       'remarks': remarks,
       'teamsInvolved': teamsInvolved,
       'chargeNoAtEvent': chargeNoAtEvent,
-      'responsesJson': jsonEncode(responsesArray),
+      'responsesJson': responsesJson,
       'actionsJson': actionsJson,
       'version': version,
       'metadataJson': metadataJson,
@@ -626,7 +1096,6 @@ class JobExecution {
       'completedAt': completedAt?.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
-  }
 
   /// Client-originated Firestore shape. Server-owned workflow fields are
   /// deliberately omitted so merge writes cannot overwrite lane, RED or
@@ -700,6 +1169,7 @@ class JobExecution {
         map['actionsJson'],
         field: 'actionsJson',
         source: 'job execution $documentId',
+        allowMissing: !map.containsKey('actionsJson'),
       )
       ..version = map['version'] ?? 1
       ..metadataJson = map['metadataJson']
@@ -716,21 +1186,19 @@ class JobExecution {
 
     // responsesJson is canonical. Only fall back to the legacy structured
     // 'responses' array for old records that do not contain responsesJson.
-    final rawCanonicalResponsesJson = map['responsesJson'];
-    if (rawCanonicalResponsesJson is String &&
-        rawCanonicalResponsesJson.trim().isNotEmpty) {
-      execution.responsesJson = rawCanonicalResponsesJson;
+    if (map.containsKey('responsesJson')) {
+      execution.responsesJson = FieldResponse.readEncodedPayload(
+        map['responsesJson'],
+        field: 'responsesJson',
+        source: 'job execution $documentId',
+      );
     } else {
       final rawResponses = map['responses'];
       if (rawResponses is List) {
-        try {
-          execution.responses = rawResponses
-              .whereType<Map>()
-              .map((e) => FieldResponse.fromMap(Map<String, dynamic>.from(e)))
-              .toList();
-        } catch (_) {
-          execution.responsesJson = '[]';
-        }
+        execution.responsesJson = FieldResponse.encodeLegacyPayload(
+          rawResponses,
+          source: 'job execution $documentId',
+        );
       } else {
         execution.responsesJson = '[]';
       }
