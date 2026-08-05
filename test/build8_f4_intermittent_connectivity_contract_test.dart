@@ -206,4 +206,128 @@ void main() {
     expect(doc, contains('raises only the total ceiling to 300 seconds'));
     expect(doc, contains('Revocation and wrong-role evidence remain separate'));
   });
+
+  test('passing result is exact-bound without overstating method or closure', () {
+    final evidence = _readJson(
+      'release/evidence/build-8-f4-intermittent-connectivity-adjudication.json',
+    );
+
+    expect(
+      evidence['decision'],
+      'PASS_BUILD8_F4_INTERMITTENT_CONNECTIVITY_ADJUDICATED',
+    );
+    final receipt = _object(evidence['externalReceipt']);
+    expect(
+      receipt['sha256'],
+      '4BD8332FBCF80B6E809B5A3FFE94EDD7560C482D898B6B9E2F37D6F63422BCEC',
+    );
+    expect(receipt['bytes'], 8119);
+    expect(receipt['sourceCommit'], receipt['sourceOriginMain']);
+    expect(receipt['postMergeRunId'], 31030200224);
+    expect(
+      receipt['decision'],
+      'PASS_BUILD8_F4_BOUNDED_THREE_CYCLE_INTERMITTENT_CONNECTIVITY_RECOVERY',
+    );
+
+    final lineage = _object(evidence['prerequisiteLineage']);
+    expect(
+      lineage['controlledStopFailureReceiptSha256'],
+      'C2104E26DA8C827DC4743CCCF5586F036B26FAB79041F00AFE31B0F6DA9F0435',
+    );
+    expect(lineage['controlledStopFailureReceiptRelabelled'], isFalse);
+    expect(lineage['controlledStopCompletedCycles'], 3);
+    expect(lineage['controlledStopExactTransportStateRestored'], isTrue);
+
+    final facts = _object(evidence['verifiedFacts']);
+    expect(facts['fiveJobPostMergeReleaseGatePassed'], isTrue);
+    expect(facts['pendingLocalBusinessWritesBefore'], 0);
+    expect(facts['unresolvedLocalRejectionsBefore'], 0);
+    expect(facts['cycleCount'], 3);
+    expect(facts['requiredCycleCount'], 3);
+    expect(facts['profileDurationSeconds'], 234.083);
+    expect(facts['maximumProfileSeconds'], 300);
+    final cycles = (facts['cycles'] as List<dynamic>).map(_object).toList();
+    expect(cycles, hasLength(3));
+    expect(cycles.map((cycle) => cycle['cycle']), <int>[1, 2, 3]);
+    for (final cycle in cycles) {
+      expect(cycle['allTransportsDisabled'], isTrue);
+      expect(
+        cycle['disconnectedManualSyncOutcome'],
+        'TIMEOUT_WITHOUT_SUCCESS_MARKER',
+      );
+      expect(cycle['falseSuccessObserved'], isFalse);
+      expect(cycle['exactTransportStateRestored'], isTrue);
+      expect(cycle['restoredWifiOn'], facts['initialWifiOn']);
+      expect(cycle['restoredMobileDataOn'], facts['initialMobileDataOn']);
+      expect(cycle['restoredAirplaneModeOn'], facts['initialAirplaneModeOn']);
+      expect(cycle['reconnectSyncOutcome'], 'SUCCESS');
+      expect(cycle['pendingLocalBusinessWritesAfter'], 0);
+      expect(cycle['unresolvedLocalRejectionsAfter'], 0);
+    }
+    expect(facts['everyCycleRestoredExactly'], isTrue);
+    expect(facts['everyCycleRecoveredSync'], isTrue);
+    expect(facts['falseSuccessObserved'], isFalse);
+    expect(facts['pendingLocalBusinessWritesAfter'], 0);
+    expect(facts['unresolvedLocalRejectionsAfter'], 0);
+    expect(facts['failureReceiptPresent'], isFalse);
+    expect(facts['retainedReceiptCount'], 1);
+    expect(facts['temporaryArtifactCountAfterExecution'], 0);
+
+    final execution = _object(evidence['executionBoundary']);
+    expect(execution['networkStateTemporarilyChanged'], isTrue);
+    expect(execution['exactNetworkStateRestored'], isTrue);
+    expect(execution['applicationInstalledUpgradedOrCleared'], isFalse);
+    expect(execution['authenticationSessionChanged'], isFalse);
+    expect(execution['productionBusinessWriteAttempted'], isFalse);
+    expect(execution['backendDeploymentPerformed'], isFalse);
+    expect(execution['distributionPerformed'], isFalse);
+
+    final privacy = _object(evidence['privacyBoundary']);
+    expect(privacy.values, everyElement(isFalse));
+
+    final method = _object(evidence['methodQualification']);
+    expect(
+      method['acceptedGateMethod'],
+      'BOUNDED_THREE_CYCLE_INTERMITTENT_CONNECTIVITY',
+    );
+    expect(method['intermittentConnectivityClaim'], 'PROVED');
+    expect(
+      method['weakNetworkCriterionClaim'],
+      'PROVED_BY_ACCEPTED_INTERMITTENT_METHOD',
+    );
+    expect(method['measuredLowBandwidth'], isFalse);
+    expect(method['addedLatency'], isFalse);
+    expect(method['injectedPacketLoss'], isFalse);
+    expect(method['bandwidthLatencyOrPacketLossClaim'], 'NOT_TESTED');
+
+    final boundary = _object(evidence['programmeBoundary']);
+    expect(boundary['stage2dF4Status'], 'OPEN');
+    expect(boundary['approvedSignInCriterionProved'], isTrue);
+    expect(boundary['syncMarkerCriterionProved'], isTrue);
+    expect(boundary['offlineReconnectCriterionProved'], isTrue);
+    expect(boundary['intermittentConnectivityCriterionProved'], isTrue);
+    expect(boundary['weakNetworkCriterionProved'], isTrue);
+    expect(boundary['revocationCriterionProved'], isFalse);
+    expect(boundary['wrongRoleCriterionProved'], isFalse);
+    expect(boundary['stage2dF4ClosureAuthorized'], isFalse);
+    expect(boundary['p07ClosureAuthorized'], isFalse);
+    expect(boundary['pilotHandoutAuthorized'], isFalse);
+    expect(boundary['distributionAuthorized'], isFalse);
+
+    final evidenceText = jsonEncode(evidence);
+    expect(evidenceText, isNot(contains(r'C:\Users\')));
+    expect(evidenceText, isNot(contains('AppData')));
+
+    final doc =
+        File(
+          'docs/v4_2_r1/BUILD8_F4_INTERMITTENT_CONNECTIVITY_RESULT.md',
+        ).readAsStringSync();
+    expect(
+      doc,
+      contains('Status: INTERMITTENT CONNECTIVITY PROVED; F4 REMAINS OPEN'),
+    );
+    expect(doc, contains('does not claim measured low bandwidth'));
+    expect(doc, contains('bandwidth-throttling result.'));
+    expect(doc, contains('wrong-role denials remain outstanding'));
+  });
 }

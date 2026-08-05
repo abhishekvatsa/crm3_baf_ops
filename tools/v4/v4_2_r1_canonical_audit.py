@@ -3041,6 +3041,23 @@ build8_intermittent_doc_path = (
 build8_intermittent_doc = build8_intermittent_doc_path.read_text(
     encoding="utf-8"
 )
+build8_intermittent_result_path = (
+    ROOT
+    / "release/evidence/"
+    / "build-8-f4-intermittent-connectivity-adjudication.json"
+)
+build8_intermittent_result = data(
+    "release/evidence/"
+    "build-8-f4-intermittent-connectivity-adjudication.json"
+)
+build8_intermittent_result_doc_path = (
+    ROOT
+    / "docs/v4_2_r1/"
+    / "BUILD8_F4_INTERMITTENT_CONNECTIVITY_RESULT.md"
+)
+build8_intermittent_result_doc = build8_intermittent_result_doc_path.read_text(
+    encoding="utf-8"
+)
 version_policy_approval = data(
     "release/approvals/version-policy-approval.json"
 )
@@ -4178,6 +4195,211 @@ check(
         in build8_intermittent_doc
     and "Revocation and wrong-role evidence remain separate"
         in build8_intermittent_doc
+    and len(build8_f4_gate_records) == 1
+    and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F4"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
+)
+check(
+    "Build 8 intermittent connectivity is evidence-proved without throttle overclaim",
+    sha(build8_intermittent_result_path)
+        == "45B90B3F0C3D711FEA82B3514669B0C25FEDD2EF320AF4872EC8B102535678F6"
+    and sha(build8_intermittent_result_doc_path)
+        == "6C34809BAC4CE025D19CCBF9A52AC4B519E3CC977ABA81E34110B467FCF417B6"
+    and build8_intermittent_result.get("decision")
+        == "PASS_BUILD8_F4_INTERMITTENT_CONNECTIVITY_ADJUDICATED"
+    and build8_intermittent_result.get("externalReceipt", {}).get("sha256")
+        == "4BD8332FBCF80B6E809B5A3FFE94EDD7560C482D898B6B9E2F37D6F63422BCEC"
+    and build8_intermittent_result.get("externalReceipt", {}).get("bytes")
+        == 8119
+    and build8_intermittent_result.get("externalReceipt", {}).get(
+        "promotionSha256"
+    )
+        == sha(build8_intermittent_promotion_path)
+    and build8_intermittent_result.get("externalReceipt", {}).get(
+        "sourceCommit"
+    )
+        == build8_intermittent_result.get("externalReceipt", {}).get(
+            "sourceOriginMain"
+        )
+    and build8_intermittent_result.get("externalReceipt", {}).get(
+        "postMergeRunId"
+    )
+        == 31030200224
+    and build8_intermittent_result.get("externalReceipt", {}).get("decision")
+        == "PASS_BUILD8_F4_BOUNDED_THREE_CYCLE_INTERMITTENT_CONNECTIVITY_RECOVERY"
+    and build8_intermittent_result.get("prerequisiteLineage", {}).get(
+        "offlineAdjudicationSha256"
+    )
+        == sha(build8_offline_result_path)
+    and build8_intermittent_result.get("prerequisiteLineage", {}).get(
+        "controlledStopFailureReceiptSha256"
+    )
+        == "C2104E26DA8C827DC4743CCCF5586F036B26FAB79041F00AFE31B0F6DA9F0435"
+    and build8_intermittent_result.get("prerequisiteLineage", {}).get(
+        "controlledStopFailureReceiptRelabelled"
+    )
+        is False
+    and build8_intermittent_result.get("verifiedFacts", {}).get(
+        "fiveJobPostMergeReleaseGatePassed"
+    )
+        is True
+    and build8_intermittent_result.get("verifiedFacts", {}).get("cycleCount")
+        == 3
+    and build8_intermittent_result.get("verifiedFacts", {}).get(
+        "requiredCycleCount"
+    )
+        == 3
+    and build8_intermittent_result.get("verifiedFacts", {}).get(
+        "profileDurationSeconds"
+    )
+        == 234.083
+    and build8_intermittent_result.get("verifiedFacts", {}).get(
+        "maximumProfileSeconds"
+    )
+        == 300
+    and [
+        cycle.get("cycle")
+        for cycle in build8_intermittent_result.get("verifiedFacts", {}).get(
+            "cycles", []
+        )
+    ]
+        == [1, 2, 3]
+    and all(
+        cycle.get("allTransportsDisabled") is True
+        and cycle.get("disconnectedManualSyncOutcome")
+        == "TIMEOUT_WITHOUT_SUCCESS_MARKER"
+        and cycle.get("falseSuccessObserved") is False
+        and cycle.get("exactTransportStateRestored") is True
+        and cycle.get("restoredWifiOn") == 1
+        and cycle.get("restoredMobileDataOn") == 0
+        and cycle.get("restoredAirplaneModeOn") == 0
+        and cycle.get("reconnectSyncOutcome") == "SUCCESS"
+        and cycle.get("pendingLocalBusinessWritesAfter") == 0
+        and cycle.get("unresolvedLocalRejectionsAfter") == 0
+        for cycle in build8_intermittent_result.get("verifiedFacts", {}).get(
+            "cycles", []
+        )
+    )
+    and build8_intermittent_result.get("verifiedFacts", {}).get(
+        "everyCycleRestoredExactly"
+    )
+        is True
+    and build8_intermittent_result.get("verifiedFacts", {}).get(
+        "everyCycleRecoveredSync"
+    )
+        is True
+    and build8_intermittent_result.get("verifiedFacts", {}).get(
+        "falseSuccessObserved"
+    )
+        is False
+    and build8_intermittent_result.get("verifiedFacts", {}).get(
+        "pendingLocalBusinessWritesAfter"
+    )
+        == 0
+    and build8_intermittent_result.get("verifiedFacts", {}).get(
+        "unresolvedLocalRejectionsAfter"
+    )
+        == 0
+    and build8_intermittent_result.get("verifiedFacts", {}).get(
+        "failureReceiptPresent"
+    )
+        is False
+    and build8_intermittent_result.get("verifiedFacts", {}).get(
+        "retainedReceiptCount"
+    )
+        == 1
+    and build8_intermittent_result.get("verifiedFacts", {}).get(
+        "temporaryArtifactCountAfterExecution"
+    )
+        == 0
+    and build8_intermittent_result.get("executionBoundary", {}).get(
+        "networkStateTemporarilyChanged"
+    )
+        is True
+    and build8_intermittent_result.get("executionBoundary", {}).get(
+        "exactNetworkStateRestored"
+    )
+        is True
+    and all(
+        value is False
+        for key, value in build8_intermittent_result.get(
+            "executionBoundary", {}
+        ).items()
+        if key
+        not in {
+            "networkStateTemporarilyChanged",
+            "exactNetworkStateRestored",
+        }
+    )
+    and all(
+        value is False
+        for value in build8_intermittent_result.get(
+            "privacyBoundary", {}
+        ).values()
+    )
+    and build8_intermittent_result.get("methodQualification", {}).get(
+        "acceptedGateMethod"
+    )
+        == "BOUNDED_THREE_CYCLE_INTERMITTENT_CONNECTIVITY"
+    and build8_intermittent_result.get("methodQualification", {}).get(
+        "weakNetworkCriterionClaim"
+    )
+        == "PROVED_BY_ACCEPTED_INTERMITTENT_METHOD"
+    and build8_intermittent_result.get("methodQualification", {}).get(
+        "measuredLowBandwidth"
+    )
+        is False
+    and build8_intermittent_result.get("methodQualification", {}).get(
+        "addedLatency"
+    )
+        is False
+    and build8_intermittent_result.get("methodQualification", {}).get(
+        "injectedPacketLoss"
+    )
+        is False
+    and build8_intermittent_result.get("programmeBoundary", {}).get(
+        "stage2dF4Status"
+    )
+        == "OPEN"
+    and build8_intermittent_result.get("programmeBoundary", {}).get(
+        "weakNetworkCriterionProved"
+    )
+        is True
+    and build8_intermittent_result.get("programmeBoundary", {}).get(
+        "revocationCriterionProved"
+    )
+        is False
+    and build8_intermittent_result.get("programmeBoundary", {}).get(
+        "wrongRoleCriterionProved"
+    )
+        is False
+    and build8_intermittent_result.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    )
+        is False
+    and build8_intermittent_result.get("programmeBoundary", {}).get(
+        "p07ClosureAuthorized"
+    )
+        is False
+    and build8_intermittent_result.get("programmeBoundary", {}).get(
+        "pilotHandoutAuthorized"
+    )
+        is False
+    and build8_intermittent_result.get("programmeBoundary", {}).get(
+        "distributionAuthorized"
+    )
+        is False
+    and "Status: INTERMITTENT CONNECTIVITY PROVED; F4 REMAINS OPEN"
+        in build8_intermittent_result_doc
+    and "does not claim measured low bandwidth"
+        in build8_intermittent_result_doc
+    and "bandwidth-throttling result."
+        in build8_intermittent_result_doc
+    and "Revocation next-operation denial and"
+        in build8_intermittent_result_doc
     and len(build8_f4_gate_records) == 1
     and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
