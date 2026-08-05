@@ -1,6 +1,6 @@
 # C-04 Test Evidence Taxonomy
 
-Status: SOURCE_IMPLEMENTED
+Status: CLOSED
 
 ## Finding
 
@@ -91,6 +91,14 @@ credentials, contact a production backend from the Android suite, deploy,
 mutate cloud state, claim physical-device evidence, close F4, or authorize
 pilot handout.
 
-C-04 remains `SOURCE_IMPLEMENTED` until the Android integration job and every
-other governed job pass on the exact pull-request head and the exact admitted
-main commit, followed by a separate closure adjudication.
+C-04 closed after all five governed jobs passed on exact pull-request head
+`f332f4e780ca1ff4e63d696a549020de85c0e3f8` in run `30976162718` and on
+exact admitted main commit `cf85476e924fe9941a7170d2bd4f4fa68bafc76d`
+in run `30976649141`. The source and merge trees are identical at
+`e645b8adf71b35c5c7a8901081efcca46c48cb53`.
+
+The closure authority is
+`PASS_C04_TEST_EVIDENCE_TAXONOMY_SOURCE_AND_CI_CLOSURE`. It closes only the
+test-evidence classification and continuously executed Android-emulator gap.
+Every production, physical-device, deployment, distribution, F4, and pilot
+boundary stated above remains outside this decision.

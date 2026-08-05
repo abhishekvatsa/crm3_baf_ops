@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "C04-TEST-EVIDENCE-TAXONOMY-CLOSURE-20260805",
+  "findingId": "C-04",
+  "authorityType": "SOURCE_AND_CI",
+  "decision": "PASS_C04_TEST_EVIDENCE_TAXONOMY_SOURCE_AND_CI_CLOSURE",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "pullRequest": 156,
+    "headCommit": "f332f4e780ca1ff4e63d696a549020de85c0e3f8",
+    "sourceTree": "e645b8adf71b35c5c7a8901081efcca46c48cb53",
+    "mergeCommit": "cf85476e924fe9941a7170d2bd4f4fa68bafc76d",
+    "mergeTree": "e645b8adf71b35c5c7a8901081efcca46c48cb53"
+  },
+  "sourceControls": {
+    "workflow": {
+      "path": ".github/workflows/release-gate.yml",
+      "sha256": "6645809EE26F3E78A937D26D14254AD6A6F3797D3EE3EDD488F4C5DAEC17741E"
+    },
+    "gradleMemoryProfile": {
+      "path": "android/gradle.properties",
+      "sha256": "297F55C83D1A2DEBC0037E2D5F7676734104A024F14766720F2ED70E1FBEAE97"
+    },
+    "sourceDecisionAtMerge": {
+      "path": "docs/v4_2_r1/C04_TEST_EVIDENCE_TAXONOMY.md",
+      "sha256": "D91D0FD7E14E4099748D64E4F6FE5CF38B8A4C102235889DF05B4EF786011894"
+    },
+    "taxonomy": {
+      "path": "governance/test-evidence-taxonomy.json",
+      "sha256": "9EE7137FDD9F2D933AD4ADF0BEE332DF3F36C56D0E6F8E57D2B1AB931DE7A5E1"
+    },
+    "androidIntegration": {
+      "path": "integration_test/c04_operational_shell_android_test.dart",
+      "sha256": "F171A9597A41F59AF447355614A84B385B752CFCF52D798CE3B85C31AE9A1C39"
+    },
+    "actionPins": {
+      "path": "release/github-actions-pins.json",
+      "sha256": "05F5F0FE9F97CBE859C1490947AE7458ED7897C290CE512E2FE26C24D0EDB57D"
+    },
+    "contractTest": {
+      "path": "test/c04_test_evidence_taxonomy_contract_test.dart",
+      "sha256": "B5262C5B5B1E5AFA51AEDD052AF1BD4F4075E57C478BC239531824C83F35833B"
+    },
+    "taxonomyValidator": {
+      "path": "tools/testing/verify_test_evidence_taxonomy.py",
+      "sha256": "09EDC5A5D10606646B0979EED93DD8F21483A55AF3C797696BC7E21D7B5ECAB9"
+    },
+    "productionPolicyVerifier": {
+      "path": "tools/release/Test-ProductionReleasePolicy.ps1",
+      "sha256": "4DE6956CC9FEBD99ABB62E66975D9ED58F62D6C398927A3015B550FF7B3BF0CB"
+    }
+  },
+  "pullRequestCi": {
+    "runId": 30976162718,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30976162718",
+    "event": "pull_request",
+    "headSha": "f332f4e780ca1ff4e63d696a549020de85c0e3f8",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Flutter host analysis + tests + no-loss contracts",
+        "jobId": 92210470832,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore Rules + governed callable emulator",
+        "jobId": 92210470837,
+        "conclusion": "success"
+      },
+      {
+        "name": "Android emulator app-shell integration (not physical-device evidence)",
+        "jobId": 92210470843,
+        "conclusion": "success"
+      },
+      {
+        "name": "Android release package construction (no install)",
+        "jobId": 92210470862,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions host build + non-emulator tests",
+        "jobId": 92210470871,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "postMergeCi": {
+    "runId": 30976649141,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30976649141",
+    "event": "push",
+    "headSha": "cf85476e924fe9941a7170d2bd4f4fa68bafc76d",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Flutter host analysis + tests + no-loss contracts",
+        "jobId": 92211922569,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions host build + non-emulator tests",
+        "jobId": 92211922575,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore Rules + governed callable emulator",
+        "jobId": 92211922582,
+        "conclusion": "success"
+      },
+      {
+        "name": "Android release package construction (no install)",
+        "jobId": 92211922590,
+        "conclusion": "success"
+      },
+      {
+        "name": "Android emulator app-shell integration (not physical-device evidence)",
+        "jobId": 92211922597,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "androidIntegrationBoundary": {
+    "suite": "integration_test/c04_operational_shell_android_test.dart",
+    "platform": "Android API 33 google_apis x86_64 emulator",
+    "timeoutMinutes": 30,
+    "productionCredentialsUsed": false,
+    "productionBackendUsed": false,
+    "physicalDeviceEvidence": false
+  },
+  "nonProductionBoundary": {
+    "productionArtifactConstructed": false,
+    "productionSecretsReferenced": false,
+    "productionCertificateUsed": false,
+    "artifactUploaded": false,
+    "artifactDistributed": false,
+    "productionWorkflowDispatched": false,
+    "firebaseMutationPerformed": false,
+    "deploymentPerformed": false,
+    "physicalDeviceEvidenceClaimed": false,
+    "pilotHandoutAuthorized": false
+  },
+  "runtimeBoundary": {
+    "build8Mutated": false,
+    "deviceEvidenceInherited": false,
+    "productionRuntimeValidated": false,
+    "weakNetworkValidated": false,
+    "offlineReconnectValidated": false,
+    "pilotReadinessClaimed": false
+  }
+}

@@ -3105,14 +3105,38 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "CI/release",
       "pilotSeverity": "LOW_MEDIUM",
       "unrestrictedSeverity": "MEDIUM",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 156,
+          "headCommit": "f332f4e780ca1ff4e63d696a549020de85c0e3f8",
+          "sourceTree": "e645b8adf71b35c5c7a8901081efcca46c48cb53",
+          "mergeCommit": "cf85476e924fe9941a7170d2bd4f4fa68bafc76d",
+          "mergeTree": "e645b8adf71b35c5c7a8901081efcca46c48cb53",
+          "pullRequestWorkflowRun": 30976162718,
+          "pullRequestWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30976162718",
+          "pullRequestAndroidEmulatorJob": 92210470843,
+          "postMergeWorkflowRun": 30976649141,
+          "postMergeWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30976649141",
+          "postMergeAndroidEmulatorJob": 92211922597,
+          "evidenceFile": "release/evidence/c04-test-evidence-taxonomy-closure.json",
+          "evidenceSha256": "DB04111C0C93242722E7783CA2BD684ADFC76B760B4EAA121679CB14E7584C83",
+          "decision": "PASS_C04_TEST_EVIDENCE_TAXONOMY_SOURCE_AND_CI_CLOSURE",
+          "productionCredentialsUsed": false,
+          "productionBackendUsed": false,
+          "productionArtifactConstructed": false,
+          "productionMutationPerformed": false,
+          "deviceEvidenceClaimed": false,
+          "pilotHandoutAuthorized": false
+        }
+      ],
       "requiredExitEvidence": [
         "a machine-readable taxonomy distinguishes source contracts, host tests, Firebase emulators, package construction, Android emulators, live readbacks and physical devices",
         "a validated critical-path matrix publishes executable witnesses and still-open evidence without promoting one level into another",
@@ -3130,9 +3154,9 @@
         "the C-04 regression contract or canonical audit check is removed or weakened"
       ],
       "notes": [
-        "The former broad test headlines did not expose the different authority carried by source, host, emulator, package, live-readback and physical-device results.",
-        "The source correction adds a validated eight-level taxonomy, eight-path coverage matrix and an Android API 33 integration suite for recovery, sign-in and role-scoped work navigation.",
-        "SOURCE_IMPLEMENTED does not claim Android-emulator CI success, physical-device evidence, production runtime, distribution or pilot authority; exact CI evidence remains pending."
+        "PR #156 added a validated eight-level taxonomy, eight-path coverage matrix and an Android API 33 integration suite for recovery, sign-in and role-scoped work navigation.",
+        "Exact-head run 30976162718 and exact-main run 30976649141 passed all five governed jobs, including Android emulator execution, on identical source and merge tree e645b8adf71b35c5c7a8901081efcca46c48cb53.",
+        "C-04 source-and-CI closure does not claim production credentials or backend use, a production artifact, physical-device evidence, deployment, distribution, F4 closure or pilot handout authority."
       ],
       "statusHistory": [
         {
@@ -3144,6 +3168,16 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-08-05",
           "basis": "The source now defines and validates distinct test-evidence levels, publishes critical-path coverage, and adds a pinned Android emulator integration suite; exact-head and admitted-main CI remain pending."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-08-05",
+          "basis": "PR #156 exact green head f332f4e780ca1ff4e63d696a549020de85c0e3f8 merged to main as cf85476e924fe9941a7170d2bd4f4fa68bafc76d with identical tree e645b8adf71b35c5c7a8901081efcca46c48cb53."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-05",
+          "basis": "PASS_C04_TEST_EVIDENCE_TAXONOMY_SOURCE_AND_CI_CLOSURE closes C-04 after exact-head run 30976162718 and exact-main run 30976649141 passed all five jobs; physical-device, production, F4 and pilot authority remain separate."
         }
       ]
     },
