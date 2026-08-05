@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 264
-    and counts.get("SUCCESSOR_MODIFIED") == 146
+    and counts.get("BYTE_IDENTICAL") == 262
+    and counts.get("SUCCESSOR_MODIFIED") == 148
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -514,6 +514,90 @@ check(
     and c02_boundary
     and all(value is False for value in c02_boundary.values())
     and "Status: CLOSED" in c02_decision,
+)
+c04_catalog = data("governance/test-evidence-taxonomy.json")
+c04_validator = text("tools/testing/verify_test_evidence_taxonomy.py")
+c04_contract = text("test/c04_test_evidence_taxonomy_contract_test.dart")
+c04_integration = text(
+    "integration_test/c04_operational_shell_android_test.dart"
+)
+c04_decision = text("docs/v4_2_r1/C04_TEST_EVIDENCE_TAXONOMY.md")
+c04_local_gate = text("release_gate.ps1")
+c04_production_policy = text(
+    "tools/release/Test-ProductionReleasePolicy.ps1"
+)
+c04_action_registry = data("release/github-actions-pins.json")
+c04_records = [
+    record
+    for record in data("governance/programme-ledger.json")["technicalFindings"]
+    if record.get("findingId") == "C-04"
+]
+c04_record = c04_records[0] if len(c04_records) == 1 else {}
+c04_levels = c04_catalog.get("levels", [])
+c04_jobs = c04_catalog.get("ciJobs", [])
+c04_critical_paths = c04_catalog.get("criticalPaths", [])
+c04_emulator_action = c04_action_registry.get("actions", {}).get(
+    "androidEmulatorRunner", {}
+)
+check(
+    "C-04 test levels, critical paths and Android integration are explicit",
+    c04_catalog.get("schemaVersion") == 1
+    and c04_catalog.get("authority") == "C04_TEST_EVIDENCE_TAXONOMY"
+    and len(c04_levels) == 8
+    and len({item.get("id") for item in c04_levels}) == 8
+    and len(c04_jobs) == 5
+    and len({item.get("id") for item in c04_jobs}) == 5
+    and len(c04_critical_paths) == 8
+    and len({item.get("id") for item in c04_critical_paths}) == 8
+    and all(len(item.get("evidence", [])) >= 2 for item in c04_critical_paths)
+    and all(
+        isinstance(item.get("openEvidenceLevels"), list)
+        for item in c04_critical_paths
+    )
+    and c04_catalog.get("deviceIntegration", {}).get("physicalDeviceEvidence")
+        is False
+    and c04_catalog.get("deviceIntegration", {}).get("productionCredentialsUsed")
+        is False
+    and c04_catalog.get("deviceIntegration", {}).get("productionBackendUsed")
+        is False
+    and "IntegrationTestWidgetsFlutterBinding.ensureInitialized()"
+        in c04_integration
+    and "TargetPlatform.android" in c04_integration
+    and "Templates" in c04_integration
+    and "Assign Published" in c04_integration
+    and "PASS_C04_TEST_EVIDENCE_TAXONOMY" in c04_validator
+    and "GITHUB_STEP_SUMMARY" in c04_validator
+    and "levels and critical paths are explicit and evidence-bound"
+        in c04_contract
+    and "tools/testing/verify_test_evidence_taxonomy.py"
+        in release_gate_source
+    and "integration_test/c04_operational_shell_android_test.dart"
+        in release_gate_source
+    and "ReactiveCircus/android-emulator-runner@"
+        "a421e43855164a8197daf9d8d40fe71c6996bb0d"
+        in release_gate_source
+    and "Android emulator app-shell integration (not physical-device evidence)"
+        in release_gate_source
+    and "Android release package construction (no install)"
+        in release_gate_source
+    and "Cloud Functions host build + non-emulator tests"
+        in release_gate_source
+    and "test evidence taxonomy and critical-path coverage" in c04_local_gate
+    and "Properties).Count -ne 5" not in c04_production_policy
+    and "$requiredProductionActionRepositories" in c04_production_policy
+    and "$productionActionReferences" in c04_production_policy
+    and c04_emulator_action.get("repository")
+        == "ReactiveCircus/android-emulator-runner"
+    and c04_emulator_action.get("commitSha")
+        == "a421e43855164a8197daf9d8d40fe71c6996bb0d"
+    and len(c04_records) == 1
+    and c04_record.get("currentStatus") in ("SOURCE_IMPLEMENTED", "CLOSED")
+    and len(c04_record.get("requiredExitEvidence", [])) == 4
+    and len(c04_record.get("reArmTriggers", [])) >= 8
+    and any(
+        status in c04_decision
+        for status in ("Status: SOURCE_IMPLEMENTED", "Status: CLOSED")
+    ),
 )
 c03_package_script = text(
     "tools/release/Invoke-CIAndroidPackageProof.ps1"
@@ -801,7 +885,7 @@ mutable_workflow_action_refs = [
 check(
     "Workflow action references are immutable and repository-wide custody is CI-enforced",
     not mutable_workflow_action_refs
-    and len(workflow_action_refs) == 21
+    and len(workflow_action_refs) == 25
     and "test:workflow-action-custody" in text("package.json")
     and "npm run test:workflow-action-custody"
         in text(".github/workflows/release-gate.yml")

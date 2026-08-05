@@ -772,9 +772,19 @@ if ([string]$firebaseReceipt.receiptType -ne 'firebase-android-registration' -or
 
 $actionPins = Get-Content -LiteralPath $policy.toolchain.githubActionPinsFile -Raw |
   ConvertFrom-Json
-if ($actionPins.schemaVersion -ne 1 -or
-    @($actionPins.actions.PSObject.Properties).Count -ne 5) {
+if ($actionPins.schemaVersion -ne 1 -or $null -eq $actionPins.actions) {
   throw 'GitHub Actions pin authority is incomplete.'
+}
+$actionPinsByRepository = @{}
+foreach ($pin in @($actionPins.actions.PSObject.Properties)) {
+  $repository = [string]$pin.Value.repository
+  $commitSha = [string]$pin.Value.commitSha
+  if ([string]::IsNullOrWhiteSpace($repository) -or
+      $commitSha -notmatch '^[0-9a-fA-F]{40}$' -or
+      $actionPinsByRepository.ContainsKey($repository)) {
+    throw "GitHub Actions pin authority is malformed: $($pin.Name)"
+  }
+  $actionPinsByRepository[$repository] = $commitSha
 }
 
 $ledger = Get-Content -LiteralPath $policy.versionPolicy.ledgerFile -Raw |
@@ -1180,13 +1190,34 @@ if ([string]$isarReceipt.receiptType -ne
 $workflow = Get-Content `
   -LiteralPath '.github/workflows/production-artifact.yml' `
   -Raw
-foreach ($pin in $actionPins.actions.PSObject.Properties) {
-  $entry = $pin.Value
-  if ([string]$entry.commitSha -notmatch '^[0-9a-fA-F]{40}$' -or
-      -not $workflow.Contains(
-        "$([string]$entry.repository)@$([string]$entry.commitSha)"
-      )) {
-    throw "Workflow action pin differs from authority: $($pin.Name)"
+$productionActionReferences = @{}
+$productionActionPattern = '(?m)^\s*(?:-\s*)?uses:\s*([^@\s]+)@([^\s#]+)\s*$'
+foreach ($match in [regex]::Matches($workflow, $productionActionPattern)) {
+  $repository = [string]$match.Groups[1].Value
+  $reference = [string]$match.Groups[2].Value
+  if ($repository.StartsWith('./')) {
+    continue
+  }
+  if (-not $actionPinsByRepository.ContainsKey($repository) -or
+      [string]$actionPinsByRepository[$repository] -ne $reference) {
+    throw "Production workflow action pin differs from authority: $repository"
+  }
+  $productionActionReferences[$repository] = $reference
+}
+$requiredProductionActionRepositories = @(
+  'actions/checkout'
+  'actions/setup-java'
+  'actions/setup-node'
+  'subosito/flutter-action'
+  'actions/upload-artifact'
+)
+if ($productionActionReferences.Count -ne
+      $requiredProductionActionRepositories.Count) {
+  throw 'Production workflow action set is incomplete or contains extras.'
+}
+foreach ($repository in $requiredProductionActionRepositories) {
+  if (-not $productionActionReferences.ContainsKey($repository)) {
+    throw "Production workflow required action is absent: $repository"
   }
 }
 foreach ($required in @(

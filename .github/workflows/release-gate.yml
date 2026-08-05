@@ -1,6 +1,6 @@
 name: release-gate
 
-# Source-level CI gate for CRM-III BAF Ops.
+# Source, host-runtime, emulator, and package CI gates for CRM-III BAF Ops.
 # Mirrors the local release_gate.ps1 source gates:
 #   format warning -> analyze -> full Flutter test -> no-loss spine
 #   -> secret-isolated Android release packaging -> Firestore rules/Jest
@@ -8,6 +8,8 @@ name: release-gate
 #
 # Field gates remain manual: signed APK install, physical-device smoke,
 # weak-network/offline drill, rollback/recovery, dependency/security triage.
+# Android-emulator integration is runtime evidence, but it is never physical-
+# device, production-backend, distribution, or pilot-handout evidence.
 
 on:
   push:
@@ -24,13 +26,16 @@ permissions:
 
 jobs:
   flutter-gates:
-    name: Flutter analyze + tests + no-loss spine
+    name: Flutter host analysis + tests + no-loss contracts
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
+
+      - name: Validate and publish test evidence taxonomy
+        run: python3 tools/testing/verify_test_evidence_taxonomy.py
 
       - name: Canonical source and authority audit
         run: python3 tools/v4/v4_2_r1_canonical_audit.py --phase post-codegen
@@ -187,7 +192,7 @@ jobs:
             test/job_module_population_replay_equivalence_test.dart
 
   android-package:
-    name: Android release APK + AAB packaging proof
+    name: Android release package construction (no install)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -214,8 +219,52 @@ jobs:
             -BuildName '0.0.0-ci' `
             -BuildNumber 1
 
+  android-emulator:
+    name: Android emulator app-shell integration (not physical-device evidence)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Java 21 for Android integration
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Flutter 3.44.0
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          channel: stable
+          flutter-version: "3.44.0"
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Android app-shell integration suite
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          cores: 2
+          ram-size: 1536M
+          heap-size: 256M
+          script: flutter test integration_test/c04_operational_shell_android_test.dart -d emulator-5554 --reporter expanded
+
   firestore-rules:
-    name: Firestore rules + governed transaction emulator
+    name: Firestore Rules + governed callable emulator
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -292,7 +341,7 @@ jobs:
           if-no-files-found: ignore
 
   functions:
-    name: Cloud Functions build + test
+    name: Cloud Functions host build + non-emulator tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -309,6 +358,6 @@ jobs:
         working-directory: functions
         run: npm ci
 
-      - name: Build + test functions
+      - name: Build + host-test functions (emulator cases excluded)
         working-directory: functions
         run: npm test

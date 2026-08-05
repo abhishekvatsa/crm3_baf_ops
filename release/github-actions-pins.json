@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "resolvedAtUtc": "2026-08-03T23:38:21.197Z",
+  "resolvedAtUtc": "2026-08-05T04:14:09.922Z",
   "actions": {
     "checkout": {
       "repository": "actions/checkout",
@@ -26,6 +26,11 @@
       "repository": "actions/upload-artifact",
       "tag": "v7.0.1",
       "commitSha": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+    },
+    "androidEmulatorRunner": {
+      "repository": "ReactiveCircus/android-emulator-runner",
+      "tag": "v2",
+      "commitSha": "a421e43855164a8197daf9d8d40fe71c6996bb0d"
     }
   }
 }
