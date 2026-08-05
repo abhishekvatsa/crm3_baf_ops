@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "C02-AUDIT-PACKAGE-COVERAGE-CLOSURE-20260805",
+  "findingId": "C-02",
+  "authorityType": "SOURCE_AND_CI",
+  "decision": "PASS_C02_AUDIT_PACKAGE_COVERAGE_SOURCE_AND_CI_CLOSURE",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "pullRequest": 154,
+    "headCommit": "06dac6a5b2048592652005f83324b5dc0009dc77",
+    "sourceTree": "18f1c9881c971132a16a5f092dbc7fc3cd7d40b2",
+    "mergeCommit": "a3d3a95c44ab788a44952b8de9260fa39b96f462",
+    "mergeTree": "18f1c9881c971132a16a5f092dbc7fc3cd7d40b2"
+  },
+  "auditCriticalPaths": [
+    "release_gate.ps1",
+    "jest.config.js",
+    "governance/programme-ledger.json",
+    "tooling/firebase-cli/package.json",
+    "tooling/firebase-cli/package-lock.json"
+  ],
+  "sourceControls": {
+    "productionBuilder": {
+      "path": "tools/release/New-ProductionArtifact.ps1",
+      "sha256": "7C25DD546C5ACCF4AB1B513DD06805ECA138413AB96412BD2040473A844FFDDE"
+    },
+    "verificationBuilder": {
+      "path": "tools/release/New-VerificationArtifact.ps1",
+      "sha256": "EF0CDCA1B1CE2CBFD30284689CC6FF4BFA195FD42535E68154F9122798479138"
+    },
+    "productionVerifier": {
+      "path": "tools/release/Test-ProductionReleaseManifest.ps1",
+      "sha256": "D34F7989907D7F29E62F0B01B882C366D4B0267CF707C9381CEFD39D212F4988"
+    },
+    "verificationVerifier": {
+      "path": "tools/release/Test-ReleaseManifest.ps1",
+      "sha256": "4558F5232DAEE55D0CC5B341ED513340CDB586AD8973E99855A76AADABC33222"
+    },
+    "contractTest": {
+      "path": "test/c02_audit_package_coverage_contract_test.dart",
+      "sha256": "15495B48C2901EEFDEC51BB50081EBCE6B45314DD71E63C2275B2AF2572CD8F4"
+    },
+    "decisionRecord": {
+      "path": "docs/v4_2_r1/C02_AUDIT_PACKAGE_COVERAGE.md",
+      "sha256": "B259A70F453BF28F4E2A1EEFE18F23BEE2F0B37639A92B604B8D67E4773B26DB"
+    }
+  },
+  "pullRequestCi": {
+    "runId": 30971588062,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30971588062",
+    "event": "pull_request",
+    "headSha": "06dac6a5b2048592652005f83324b5dc0009dc77",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 92196894105,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 92196894113,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 92196894118,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 92196894150,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "postMergeCi": {
+    "runId": 30972062651,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30972062651",
+    "event": "push",
+    "headSha": "a3d3a95c44ab788a44952b8de9260fa39b96f462",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android release APK + AAB packaging proof",
+        "jobId": 92198357582,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions build + test",
+        "jobId": 92198357586,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore rules + governed transaction emulator",
+        "jobId": 92198357545,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter analyze + tests + no-loss spine",
+        "jobId": 92198357656,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "operationalBoundary": {
+    "productionArtifactConstructed": false,
+    "buildNumberReserved": false,
+    "artifactDistributed": false,
+    "firebaseMutationPerformed": false,
+    "deploymentPerformed": false,
+    "physicalDeviceEvidenceClaimed": false,
+    "pilotHandoutAuthorized": false
+  }
+}
