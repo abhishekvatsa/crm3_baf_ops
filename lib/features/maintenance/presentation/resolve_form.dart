@@ -127,8 +127,19 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
     if (_isSubmitting) return;
+    if (!widget.ticket.resolutionHistoryReadResult.isValid) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cannot resolve: previous resolution history needs repair.',
+          ),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
+    if (!_formKey.currentState!.validate()) return;
     if (widget.ticket.workflowDeferred) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(
@@ -207,23 +218,25 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       final remarks = _remarksController.text.trim();
 
       final repository = ref.read(maintenanceRepositoryProvider);
-      final refreshClosedTickets = ref.read(refreshClosedTicketsProvider.notifier);
+      final refreshClosedTickets = ref.read(
+        refreshClosedTicketsProvider.notifier,
+      );
       final syncCoordinator = ref.read(syncCoordinatorProvider);
 
       await repository.resolveTicket(
-            id,
-            actor: appUser,
-            closedByUid: appUser.uid,
-            closedByName:
-                appUser.name.isNotEmpty
-                    ? appUser.name
-                    : (firebaseUser?.displayName ?? firebaseUser?.email),
-            remarks: remarks,
-            downtimeHours: double.parse(_downtimeHours.toStringAsFixed(2)),
-            endDate: _endTime,
-            teamsInvolved: _teamsInvolved.toList(),
-            actions: _actions.isEmpty ? null : _actions,
-          );
+        id,
+        actor: appUser,
+        closedByUid: appUser.uid,
+        closedByName:
+            appUser.name.isNotEmpty
+                ? appUser.name
+                : (firebaseUser?.displayName ?? firebaseUser?.email),
+        remarks: remarks,
+        downtimeHours: double.parse(_downtimeHours.toStringAsFixed(2)),
+        endDate: _endTime,
+        teamsInvolved: _teamsInvolved.toList(),
+        actions: _actions.isEmpty ? null : _actions,
+      );
 
       refreshClosedTickets.state++;
 
@@ -257,7 +270,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
     final appUser = ref.watch(currentAppUserProvider).value;
     final actingAsName = appUser?.name;
     final fmt = DateFormat('dd MMM yyyy, HH:mm');
-    final hasHistory = widget.ticket.resolutionHistory.isNotEmpty;
+    final historyRead = widget.ticket.resolutionHistoryReadResult;
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -284,8 +297,11 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
           children: [
             _TicketSummaryCard(ticket: widget.ticket, fmt: fmt),
             const SizedBox(height: BafSpacing.lg),
-            if (hasHistory) ...[
-              _HistorySection(ticket: widget.ticket),
+            if (!historyRead.isValid) ...[
+              const _HistoryIntegrityNotice(),
+              const SizedBox(height: BafSpacing.lg),
+            ] else if (historyRead.entries.isNotEmpty) ...[
+              _HistorySection(history: historyRead.entries),
               const SizedBox(height: BafSpacing.lg),
             ],
             _SectionCard(
@@ -744,9 +760,9 @@ class _TicketSummaryCard extends StatelessWidget {
 }
 
 class _HistorySection extends StatelessWidget {
-  final MaintenanceRecord ticket;
+  final List<ResolutionHistory> history;
 
-  const _HistorySection({required this.ticket});
+  const _HistorySection({required this.history});
 
   @override
   Widget build(BuildContext context) {
@@ -755,7 +771,7 @@ class _HistorySection extends StatelessWidget {
       subtitle: 'Read-only history from earlier closures/reopens.',
       icon: Icons.history_rounded,
       children:
-          ticket.resolutionHistory.map((history) {
+          history.map((history) {
             final resolvedAt =
                 history.resolvedAt == null
                     ? 'Unknown'
@@ -843,6 +859,31 @@ class _HistorySection extends StatelessWidget {
               ),
             );
           }).toList(),
+    );
+  }
+}
+
+class _HistoryIntegrityNotice extends StatelessWidget {
+  const _HistoryIntegrityNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _SectionCard(
+      title: 'Resolution history needs repair',
+      subtitle:
+          'This issue cannot be changed until its saved history is valid.',
+      icon: Icons.warning_amber_rounded,
+      children: [
+        Text(
+          'No history entries were discarded or replaced.',
+          style: TextStyle(
+            color: BafColors.textSecondary,
+            fontSize: 12,
+            height: 1.35,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

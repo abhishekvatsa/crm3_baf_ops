@@ -226,9 +226,8 @@ void _requireMaintenanceWorkflowAllowsAction(
 ) {
   if (!record.workflowDeferred) return;
   final lane = record.workflowTargetLaneKey?.trim();
-  final suffix = lane == null || lane.isEmpty
-      ? ''
-      : ' for ${lane.toUpperCase()}';
+  final suffix =
+      lane == null || lane.isEmpty ? '' : ' for ${lane.toUpperCase()}';
   throw StateError(
     'Cannot $action while this ticket is deferred by maintenance workflow$suffix. '
     'Use the linked compliance request to reactivate or release it.',
@@ -241,9 +240,8 @@ void _requireMaintenanceWorkflowMapAllowsAction(
 ) {
   if (data['workflowDeferred'] != true) return;
   final lane = data['workflowTargetLaneKey']?.toString().trim();
-  final suffix = lane == null || lane.isEmpty
-      ? ''
-      : ' for ${lane.toUpperCase()}';
+  final suffix =
+      lane == null || lane.isEmpty ? '' : ' for ${lane.toUpperCase()}';
   throw StateError(
     'Cannot $action while this ticket is deferred by maintenance workflow$suffix. '
     'Use the linked compliance request to reactivate or release it.',
@@ -702,10 +700,12 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
           teamsInvolved: t.teamsInvolved,
         );
 
-        final newHistory = List<ResolutionHistory>.from(t.resolutionHistory)
-          ..add(historyEntry);
-
-        t.resolutionHistory = newHistory;
+        final historyPayload = readValidatedResolutionHistoryPayload(
+          t.resolutionHistoryJson,
+          source: 'local maintenance ${t.id}',
+        );
+        historyPayload.rows.add(historyEntry.toMap());
+        t.resolutionHistoryJson = jsonEncode(historyPayload.rows);
 
         t.isResolved = false;
         t.status = TicketStatus.open;
@@ -1418,26 +1418,28 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       throw Exception('Cannot reopen: closed more than 4 hours ago');
     }
 
-    final historyEntry = {
-      'resolvedByUid': data['closedByUid'],
-      'resolvedByName': data['closedByName'],
-      'resolvedAt': endDateStr,
-      'actionsJson': data['actionsJson'] ?? '[]',
-      'remarks': data['remarks'],
-      'downtimeHours': data['downtimeHours'],
-      'teamsInvolved': data['teamsInvolved'] ?? [],
-    };
     final currentHistory = data['resolutionHistoryJson'];
-    List<dynamic> historyList = [];
-    if (currentHistory != null &&
-        currentHistory is String &&
-        currentHistory.isNotEmpty) {
-      try {
-        historyList = jsonDecode(currentHistory) as List;
-      } catch (_) {}
+    if (currentHistory is! String || currentHistory.trim().isEmpty) {
+      throw const FormatException(
+        'Ticket resolution history is absent or is not serialized JSON.',
+      );
     }
-    historyList.add(historyEntry);
-    final newHistoryJson = jsonEncode(historyList);
+    final historyPayload = readValidatedResolutionHistoryPayload(
+      currentHistory,
+      source: 'maintenance/$docId',
+    );
+    historyPayload.rows.add(
+      ResolutionHistory.fromMap({
+        'resolvedByUid': data['closedByUid'],
+        'resolvedByName': data['closedByName'],
+        'resolvedAt': closedAt,
+        'actionsJson': data['actionsJson'] ?? '[]',
+        'remarks': data['remarks'],
+        'downtimeHours': data['downtimeHours'],
+        'teamsInvolved': data['teamsInvolved'] ?? const <String>[],
+      }, source: 'maintenance/$docId current closure').toMap(),
+    );
+    final newHistoryJson = jsonEncode(historyPayload.rows);
 
     await _collection.doc(docId).update({
       'isResolved': false,
@@ -1639,23 +1641,50 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       ..status = _parseEnum(d['status'], TicketStatus.values, TicketStatus.open)
       ..isResolved = d['isResolved'] ?? false
       ..workflowDeferred = d['workflowDeferred'] == true
-      ..workflowQueueState = d['workflowQueueState']?.toString() ?? 'independent'
-      ..workflowAggregateId = _cleanOptionalMaintenanceText(d['workflowAggregateId']?.toString())
-      ..workflowComplianceId = _cleanOptionalMaintenanceText(d['workflowComplianceId']?.toString())
-      ..workflowOriginLaneKey = _cleanOptionalMaintenanceText(d['workflowOriginLaneKey']?.toString())
-      ..workflowTargetLaneKey = _cleanOptionalMaintenanceText(d['workflowTargetLaneKey']?.toString())
-      ..workflowConditionTypeKey = _cleanOptionalMaintenanceText(d['workflowConditionTypeKey']?.toString())
-      ..workflowConditionRef = _cleanOptionalMaintenanceText(d['workflowConditionRef']?.toString())
+      ..workflowQueueState =
+          d['workflowQueueState']?.toString() ?? 'independent'
+      ..workflowAggregateId = _cleanOptionalMaintenanceText(
+        d['workflowAggregateId']?.toString(),
+      )
+      ..workflowComplianceId = _cleanOptionalMaintenanceText(
+        d['workflowComplianceId']?.toString(),
+      )
+      ..workflowOriginLaneKey = _cleanOptionalMaintenanceText(
+        d['workflowOriginLaneKey']?.toString(),
+      )
+      ..workflowTargetLaneKey = _cleanOptionalMaintenanceText(
+        d['workflowTargetLaneKey']?.toString(),
+      )
+      ..workflowConditionTypeKey = _cleanOptionalMaintenanceText(
+        d['workflowConditionTypeKey']?.toString(),
+      )
+      ..workflowConditionRef = _cleanOptionalMaintenanceText(
+        d['workflowConditionRef']?.toString(),
+      )
       ..workflowDeferredAt = _parseTimestamp(d['workflowDeferredAt'])
-      ..workflowDeferredByUid = _cleanOptionalMaintenanceText(d['workflowDeferredByUid']?.toString())
-      ..workflowDeferredByName = _cleanOptionalMaintenanceText(d['workflowDeferredByName']?.toString())
+      ..workflowDeferredByUid = _cleanOptionalMaintenanceText(
+        d['workflowDeferredByUid']?.toString(),
+      )
+      ..workflowDeferredByName = _cleanOptionalMaintenanceText(
+        d['workflowDeferredByName']?.toString(),
+      )
       ..workflowReactivatedAt = _parseTimestamp(d['workflowReactivatedAt'])
-      ..workflowReactivatedByUid = _cleanOptionalMaintenanceText(d['workflowReactivatedByUid']?.toString())
-      ..workflowReactivatedByName = _cleanOptionalMaintenanceText(d['workflowReactivatedByName']?.toString())
+      ..workflowReactivatedByUid = _cleanOptionalMaintenanceText(
+        d['workflowReactivatedByUid']?.toString(),
+      )
+      ..workflowReactivatedByName = _cleanOptionalMaintenanceText(
+        d['workflowReactivatedByName']?.toString(),
+      )
       ..workflowReleasedAt = _parseTimestamp(d['workflowReleasedAt'])
-      ..workflowReleasedByUid = _cleanOptionalMaintenanceText(d['workflowReleasedByUid']?.toString())
-      ..workflowReleasedByName = _cleanOptionalMaintenanceText(d['workflowReleasedByName']?.toString())
-      ..workflowCorrectionReason = _cleanOptionalMaintenanceText(d['workflowCorrectionReason']?.toString())
+      ..workflowReleasedByUid = _cleanOptionalMaintenanceText(
+        d['workflowReleasedByUid']?.toString(),
+      )
+      ..workflowReleasedByName = _cleanOptionalMaintenanceText(
+        d['workflowReleasedByName']?.toString(),
+      )
+      ..workflowCorrectionReason = _cleanOptionalMaintenanceText(
+        d['workflowCorrectionReason']?.toString(),
+      )
       ..workflowUpdatedAt = _parseTimestamp(d['workflowUpdatedAt'])
       ..isCritical = d['isCritical'] == true
       ..loggedByUid = d['loggedByUid']

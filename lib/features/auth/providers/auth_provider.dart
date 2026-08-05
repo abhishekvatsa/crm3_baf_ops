@@ -118,40 +118,36 @@ Stream<AppUser?> _watchCurrentAppUser({
 /// Do not send email, display name, ticket text, module responses, or plant
 /// evidence to Crashlytics.
 final crashlyticsIdentitySyncProvider = Provider<void>((ref) {
-  ref.listen<AsyncValue<AppUser?>>(
-    currentAppUserProvider,
-    (previous, next) {
-      next.when(
-        loading: () {},
-        error: (error, stackTrace) {
-          AppLogger.warning(
-            'Current app user stream failed',
-            error: error,
-            stackTrace: stackTrace,
-            context: const {
-              'app_area': 'auth',
-              'auth_stage': 'current_app_user_stream',
-            },
-          );
-        },
-        data: (user) {
-          if (user == null) {
-            unawaited(AppLogger.clearUserContext());
-            return;
-          }
+  ref.listen<AsyncValue<AppUser?>>(currentAppUserProvider, (previous, next) {
+    next.when(
+      loading: () {},
+      error: (error, stackTrace) {
+        AppLogger.warning(
+          'Current app user stream failed',
+          error: error,
+          stackTrace: stackTrace,
+          context: const {
+            'app_area': 'auth',
+            'auth_stage': 'current_app_user_stream',
+          },
+        );
+      },
+      data: (user) {
+        if (user == null) {
+          unawaited(AppLogger.clearUserContext());
+          return;
+        }
 
-          unawaited(
-            AppLogger.setUserContext(
-              uid: user.uid,
-              roles: user.roles.map((role) => role.name),
-              isApproved: user.isApproved,
-            ),
-          );
-        },
-      );
-    },
-    fireImmediately: true,
-  );
+        unawaited(
+          AppLogger.setUserContext(
+            uid: user.uid,
+            roles: user.roles.map((role) => role.name),
+            isApproved: user.isApproved,
+          ),
+        );
+      },
+    );
+  }, fireImmediately: true);
 });
 
 final notificationInstallationRegistryProvider =
@@ -370,7 +366,17 @@ class AuthService {
 
     try {
       _ref.read(syncOnceProvider.notifier).state = false;
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLogger.warning(
+        'Could not reset the one-shot sync marker after sign-out',
+        error: error,
+        stackTrace: stackTrace,
+        context: const {
+          'app_area': 'auth',
+          'auth_stage': 'sign_out_reset_sync_marker',
+        },
+      );
+    }
   }
 
   Map<String, dynamic> _pendingUserPayload(User user) {

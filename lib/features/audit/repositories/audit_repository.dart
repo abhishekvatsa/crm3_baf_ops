@@ -1,61 +1,87 @@
 // FILE: lib/features/audit/repositories/audit_repository.dart
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:isar/isar.dart';
 
 import '../../../core/services/app_logger.dart';
 import '../../../core/persistence/app_database.dart';
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../models/audit_event_model.dart';
 
-T _enumByNameOr<T extends Enum>(
-    List<T> values,
-    dynamic value,
-    T fallback,
-    ) {
-  if (value is! String) return fallback;
-  for (final item in values) {
-    if (item.name == value) return item;
-  }
-  return fallback;
-}
-
-T? _enumByNameOrNull<T extends Enum>(List<T> values, dynamic value) {
-  if (value is! String) return null;
-  for (final item in values) {
-    if (item.name == value) return item;
-  }
-  return null;
-}
-
-String _cleanRequiredAuditText(dynamic value, String fallback) {
-  if (value is String) {
-    final cleaned = value.trim();
-    if (cleaned.isNotEmpty) return cleaned;
-  }
-  return fallback;
-}
-
-String? _cleanOptionalAuditText(dynamic value) {
-  if (value is! String) return null;
-  final cleaned = value.trim();
-  return cleaned.isEmpty ? null : cleaned;
-}
-
-DateTime _readAuditTimestamp(dynamic value) {
-  if (value is Timestamp) return value.toDate();
-  if (value is DateTime) return value;
-  if (value is int) {
-    try {
-      return DateTime.fromMillisecondsSinceEpoch(value);
-    } catch (_) {
-      return DateTime.now();
-    }
-  }
-  if (value is String) {
-    return DateTime.tryParse(value) ?? DateTime.now();
-  }
-  return DateTime.now();
+AuditEvent decodePersistedAuditEvent(
+  Map<String, dynamic> data, {
+  required String documentId,
+}) {
+  final source = 'audit_logs/$documentId';
+  final event =
+      AuditEvent(
+          entityType: readRequiredPersistedString(
+            data['entityType'],
+            field: 'entityType',
+            source: source,
+          ),
+          entityId: readRequiredPersistedString(
+            data['entityId'],
+            field: 'entityId',
+            source: source,
+          ),
+          action: readRequiredPersistedEnum(
+            AuditAction.values,
+            data['action'],
+            field: 'action',
+            source: source,
+          ),
+          performedByUid: readRequiredPersistedString(
+            data['performedByUid'],
+            field: 'performedByUid',
+            source: source,
+          ),
+          performedByName: readOptionalPersistedString(
+            data['performedByName'],
+            field: 'performedByName',
+            source: source,
+          ),
+          reason: readOptionalPersistedEnum(
+            AuditReason.values,
+            data['reason'],
+            field: 'reason',
+            source: source,
+          ),
+          reasonNotes: readOptionalPersistedString(
+            data['reasonNotes'],
+            field: 'reasonNotes',
+            source: source,
+          ),
+          summary: readOptionalPersistedString(
+            data['summary'],
+            field: 'summary',
+            source: source,
+          ),
+          severity: readRequiredPersistedEnum(
+            AuditSeverity.values,
+            data['severity'],
+            field: 'severity',
+            source: source,
+          ),
+          before: readOptionalJsonObject(
+            data['beforeJson'] ?? data['before'],
+            field: 'beforeJson',
+            source: source,
+          ),
+          after: readOptionalJsonObject(
+            data['afterJson'] ?? data['after'],
+            field: 'afterJson',
+            source: source,
+          ),
+        )
+        ..timestamp = readRequiredPersistedDateTime(
+          data['timestamp'],
+          field: 'timestamp',
+          source: source,
+          allowEpochMilliseconds: true,
+        )
+        ..isSynced = true;
+  return event;
 }
 
 class AuditSyncResult {
@@ -104,24 +130,27 @@ class AuditRepository {
   }
 
   Future<List<AuditEvent>> getLocalEventsForEntity(
-      String entityType,
-      String entityId,
-      ) async {
+    String entityType,
+    String entityId,
+  ) async {
     if (kIsWeb) {
       return _getAllRemoteEventsForEntity(entityType, entityId);
     }
 
-    final local = await isar.auditEvents
-        .filter()
-        .entityTypeEqualTo(entityType)
-        .and()
-        .entityIdEqualTo(entityId)
-        .sortByTimestampDesc()
-        .findAll();
+    final local =
+        await isar.auditEvents
+            .filter()
+            .entityTypeEqualTo(entityType)
+            .and()
+            .entityIdEqualTo(entityId)
+            .sortByTimestampDesc()
+            .findAll();
 
     try {
       final remote = await _getAllRemoteEventsForEntity(entityType, entityId);
       return _mergeAuditEvents(local, remote);
+    } on PersistedDataFormatException {
+      rethrow;
     } catch (e) {
       debugPrint(
         '⚠️ Remote audit timeline unavailable for $entityType/$entityId; using local history only: $e',
@@ -135,22 +164,29 @@ class AuditRepository {
       return getRecentRemoteEvents(limit: limit);
     }
 
-    final local = await isar.auditEvents
-        .where()
-        .sortByTimestampDesc()
-        .limit(limit)
-        .findAll();
+    final local =
+        await isar.auditEvents
+            .where()
+            .sortByTimestampDesc()
+            .limit(limit)
+            .findAll();
 
     try {
       final remote = await getRecentRemoteEvents(limit: limit);
       return _mergeAuditEvents(local, remote).take(limit).toList();
+    } on PersistedDataFormatException {
+      rethrow;
     } catch (e) {
-      debugPrint('⚠️ Remote recent audit events unavailable; using local only: $e');
+      debugPrint(
+        '⚠️ Remote recent audit events unavailable; using local only: $e',
+      );
       return local;
     }
   }
 
-  Future<List<AuditEvent>> getRecentSyncConflictEvents({int limit = 100}) async {
+  Future<List<AuditEvent>> getRecentSyncConflictEvents({
+    int limit = 100,
+  }) async {
     final scanLimit = (limit * 5).clamp(limit, 500).toInt();
 
     final localCandidates = <AuditEvent>[];
@@ -167,10 +203,12 @@ class AuditRepository {
 
     try {
       final remoteCandidates = await getRecentRemoteEvents(limit: scanLimit);
-      return _mergeAuditEvents(localCandidates, remoteCandidates)
-          .where(_isSyncConflictEvent)
-          .take(limit)
-          .toList();
+      return _mergeAuditEvents(
+        localCandidates,
+        remoteCandidates,
+      ).where(_isSyncConflictEvent).take(limit).toList();
+    } on PersistedDataFormatException {
+      rethrow;
     } catch (e) {
       debugPrint('⚠️ Remote sync-conflict audit scan unavailable: $e');
       return localCandidates.where(_isSyncConflictEvent).take(limit).toList();
@@ -197,11 +235,11 @@ class AuditRepository {
   }
 
   Future<List<AuditEvent>> getRemoteEventsForEntity(
-      String entityType,
-      String entityId, {
-        int limit = 50,
-        DocumentSnapshot? startAfter,
-      }) async {
+    String entityType,
+    String entityId, {
+    int limit = 50,
+    DocumentSnapshot? startAfter,
+  }) async {
     var query = _collection
         .where('entityType', isEqualTo: entityType)
         .where('entityId', isEqualTo: entityId)
@@ -217,10 +255,11 @@ class AuditRepository {
   }
 
   Future<List<AuditEvent>> getRecentRemoteEvents({int limit = 100}) async {
-    final snap = await _collection
-        .orderBy('timestamp', descending: true)
-        .limit(limit)
-        .get();
+    final snap =
+        await _collection
+            .orderBy('timestamp', descending: true)
+            .limit(limit)
+            .get();
 
     return snap.docs.map(_mapEvent).toList();
   }
@@ -232,7 +271,9 @@ class AuditRepository {
   Future<void> log(AuditEvent event, {bool syncToRemote = true}) async {
     if (kIsWeb) {
       if (!syncToRemote) {
-        debugPrint('ℹ️ Skipping audit log on web because syncToRemote is false');
+        debugPrint(
+          'ℹ️ Skipping audit log on web because syncToRemote is false',
+        );
         return;
       }
 
@@ -260,16 +301,12 @@ class AuditRepository {
   // SYNC RETRY (CRITICAL)
   // ─────────────────────────────────────────────
 
-  Future<AuditSyncResult> syncPendingAuditEvents({
-    int batchSize = 450,
-  }) async {
+  Future<AuditSyncResult> syncPendingAuditEvents({int batchSize = 450}) async {
     if (kIsWeb) return AuditSyncResult.empty;
 
     final effectiveBatchSize = batchSize.clamp(1, 450).toInt();
-    final unsynced = await isar.auditEvents
-        .filter()
-        .isSyncedEqualTo(false)
-        .findAll();
+    final unsynced =
+        await isar.auditEvents.filter().isSyncedEqualTo(false).findAll();
 
     if (unsynced.isEmpty) return AuditSyncResult.empty;
 
@@ -336,8 +373,8 @@ class AuditRepository {
   }
 
   Future<AuditSyncResult> _syncPendingAuditEventsIndividually(
-      List<AuditEvent> events,
-      ) async {
+    List<AuditEvent> events,
+  ) async {
     var synced = 0;
     var failed = 0;
 
@@ -350,7 +387,7 @@ class AuditRepository {
         failed++;
         debugPrint(
           '⚠️ Pending audit event sync failed for '
-              '${event.entityType}/${event.entityId}: $error',
+          '${event.entityType}/${event.entityId}: $error',
         );
         AppLogger.warning(
           'Pending audit event sync failed',
@@ -406,37 +443,13 @@ class AuditRepository {
   }
 
   // ─────────────────────────────────────────────
-  // SAFE JSON HELPERS
-  // ─────────────────────────────────────────────
-
-  Map<String, dynamic>? _safeDecode(dynamic value) {
-    try {
-      if (value == null) return null;
-      if (value is Map) {
-        return Map<String, dynamic>.from(value);
-      }
-      if (value is String) {
-        final cleaned = value.trim();
-        if (cleaned.isEmpty) return null;
-        final decoded = jsonDecode(cleaned);
-        if (decoded is Map) {
-          return Map<String, dynamic>.from(decoded);
-        }
-      }
-      return null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // ─────────────────────────────────────────────
   // WEB FALLBACK HELPERS
   // ─────────────────────────────────────────────
 
   Future<List<AuditEvent>> _getAllRemoteEventsForEntity(
-      String entityType,
-      String entityId,
-      ) async {
+    String entityType,
+    String entityId,
+  ) async {
     final events = <AuditEvent>[];
     DocumentSnapshot? startAfter;
 
@@ -470,17 +483,18 @@ class AuditRepository {
   }
 
   List<AuditEvent> _mergeAuditEvents(
-      List<AuditEvent> primary,
-      List<AuditEvent> secondary,
-      ) {
+    List<AuditEvent> primary,
+    List<AuditEvent> secondary,
+  ) {
     final byKey = <String, AuditEvent>{};
 
     for (final event in [...primary, ...secondary]) {
       byKey[_eventMergeKey(event)] = event;
     }
 
-    final merged = byKey.values.toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final merged =
+        byKey.values.toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     return merged;
   }
@@ -565,36 +579,6 @@ class AuditRepository {
     'afterJson': e.afterJson,
   };
 
-  AuditEvent _mapEvent(DocumentSnapshot doc) {
-    final raw = doc.data();
-    final d = raw is Map<String, dynamic> ? raw : <String, dynamic>{};
-
-    final event = AuditEvent(
-      entityType: _cleanRequiredAuditText(d['entityType'], 'unknown'),
-      entityId: _cleanRequiredAuditText(d['entityId'], doc.id),
-      action: _enumByNameOr(
-        AuditAction.values,
-        d['action'],
-        AuditAction.update,
-      ),
-      performedByUid: _cleanRequiredAuditText(
-        d['performedByUid'],
-        'unknown',
-      ),
-      performedByName: _cleanOptionalAuditText(d['performedByName']),
-      reason: _enumByNameOrNull(AuditReason.values, d['reason']),
-      reasonNotes: _cleanOptionalAuditText(d['reasonNotes']),
-      summary: _cleanOptionalAuditText(d['summary']),
-      severity: _enumByNameOr(
-        AuditSeverity.values,
-        d['severity'],
-        AuditSeverity.low,
-      ),
-      before: _safeDecode(d['beforeJson'] ?? d['before']),
-      after: _safeDecode(d['afterJson'] ?? d['after']),
-    )..timestamp = _readAuditTimestamp(d['timestamp']);
-
-    event.isSynced = true;
-    return event;
-  }
+  AuditEvent _mapEvent(DocumentSnapshot<Map<String, dynamic>> doc) =>
+      decodePersistedAuditEvent(doc.data()!, documentId: doc.id);
 }

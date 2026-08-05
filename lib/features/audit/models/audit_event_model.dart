@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:isar/isar.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
+
 part 'audit_event_model.g.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -15,7 +17,7 @@ enum AuditReason {
   merged,
   invalid,
   manualOverride,
-  other
+  other,
 }
 
 enum AuditSeverity { low, medium, high }
@@ -150,43 +152,29 @@ class AuditEvent {
   }
 
   // ─────────────────────────────────────────────
-  // SAFE JSON HELPERS (CRASH-PROOF)
+  // STRICT JSON SNAPSHOT ACCESS
   // ─────────────────────────────────────────────
 
   @ignore
-  Map<String, dynamic>? get before {
-    try {
-      if (beforeJson == null) return null;
-      return jsonDecode(beforeJson!) as Map<String, dynamic>;
-    } catch (_) {
-      return null;
-    }
-  }
+  Map<String, dynamic>? get before => readOptionalJsonObject(
+    beforeJson,
+    field: 'beforeJson',
+    source: 'local audit event $id',
+  );
 
   set before(Map<String, dynamic>? value) {
-    try {
-      beforeJson = value != null ? jsonEncode(value) : null;
-    } catch (_) {
-      beforeJson = null;
-    }
+    beforeJson = value == null ? null : jsonEncode(value);
   }
 
   @ignore
-  Map<String, dynamic>? get after {
-    try {
-      if (afterJson == null) return null;
-      return jsonDecode(afterJson!) as Map<String, dynamic>;
-    } catch (_) {
-      return null;
-    }
-  }
+  Map<String, dynamic>? get after => readOptionalJsonObject(
+    afterJson,
+    field: 'afterJson',
+    source: 'local audit event $id',
+  );
 
   set after(Map<String, dynamic>? value) {
-    try {
-      afterJson = value != null ? jsonEncode(value) : null;
-    } catch (_) {
-      afterJson = null;
-    }
+    afterJson = value == null ? null : jsonEncode(value);
   }
 
   // ─────────────────────────────────────────────
