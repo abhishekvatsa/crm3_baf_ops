@@ -2936,7 +2936,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "CI/release",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "MEDIUM",
@@ -2945,7 +2945,33 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 154,
+          "headCommit": "06dac6a5b2048592652005f83324b5dc0009dc77",
+          "sourceTree": "18f1c9881c971132a16a5f092dbc7fc3cd7d40b2",
+          "mergeCommit": "a3d3a95c44ab788a44952b8de9260fa39b96f462",
+          "mergeTree": "18f1c9881c971132a16a5f092dbc7fc3cd7d40b2",
+          "pullRequestWorkflowRun": 30971588062,
+          "pullRequestWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30971588062",
+          "pullRequestAndroidJob": 92196894105,
+          "pullRequestFunctionsJob": 92196894113,
+          "pullRequestFirestoreJob": 92196894118,
+          "pullRequestFlutterJob": 92196894150,
+          "postMergeWorkflowRun": 30972062651,
+          "postMergeWorkflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/30972062651",
+          "postMergeAndroidJob": 92198357582,
+          "postMergeFunctionsJob": 92198357586,
+          "postMergeFirestoreJob": 92198357545,
+          "postMergeFlutterJob": 92198357656,
+          "evidenceFile": "release/evidence/c02-audit-package-coverage-closure.json",
+          "evidenceSha256": "D3AE14FB91F6004F67F501E151733474DD9A8D28447851D8EF2662A79AA18C9B",
+          "decision": "PASS_C02_AUDIT_PACKAGE_COVERAGE_SOURCE_AND_CI_CLOSURE",
+          "productionMutationPerformed": false,
+          "deviceEvidenceClaimed": false
+        }
+      ],
       "requiredExitEvidence": [
         "both governed artifact builders hash-bind release_gate.ps1 and jest.config.js from canonical Git-archive bytes",
         "both governed artifact builders hash-bind the programme ledger and governed Firebase CLI package manifest and lockfile",
@@ -2962,7 +2988,10 @@
       "notes": [
         "The canonical Git archive already carried tracked repository content, but the verification manifest did not bind the governed Firebase CLI lockfile and neither package verifier required the complete audit-critical set.",
         "The source correction binds release_gate.ps1, jest.config.js, governance/programme-ledger.json and the governed Firebase CLI package and lockfile in both production and verification manifests.",
-        "SOURCE_IMPLEMENTED does not claim merge or exact-main CI authority; closure requires a separate evidence adjudication."
+        "SOURCE_IMPLEMENTED did not claim merge or exact-main CI authority; closure was adjudicated only after both evidence layers passed.",
+        "PR #154 merged exact green head 06dac6a5b2048592652005f83324b5dc0009dc77 to main as a3d3a95c44ab788a44952b8de9260fa39b96f462 with identical tree 18f1c9881c971132a16a5f092dbc7fc3cd7d40b2.",
+        "Exact-head run 30971588062 and exact-main run 30972062651 each passed all four governed release-gate jobs.",
+        "C-02 source-and-CI closure does not construct or distribute a production artifact, deploy Firebase, claim physical-device evidence or authorize pilot handout."
       ],
       "statusHistory": [
         {
@@ -2974,6 +3003,16 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-08-05",
           "basis": "Production and verification packages now hash-bind every audit-critical source entry named by C-02, and package-only verification fails closed on omission; merge and exact-main CI evidence remain pending."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-08-05",
+          "basis": "PR #154 exact green head 06dac6a5b2048592652005f83324b5dc0009dc77 merged to main as a3d3a95c44ab788a44952b8de9260fa39b96f462 with identical tree 18f1c9881c971132a16a5f092dbc7fc3cd7d40b2."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-05",
+          "basis": "PASS_C02_AUDIT_PACKAGE_COVERAGE_SOURCE_AND_CI_CLOSURE closes C-02 after exact-head run 30971588062 and exact-main run 30972062651 passed all governed jobs."
         }
       ]
     },

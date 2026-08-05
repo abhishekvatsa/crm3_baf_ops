@@ -448,7 +448,72 @@ check(
     and c02_record.get("currentStatus") in ("SOURCE_IMPLEMENTED", "CLOSED")
     and len(c02_record.get("requiredExitEvidence", [])) == 4
     and len(c02_record.get("reArmTriggers", [])) >= 5
-    and "Status: SOURCE_IMPLEMENTED" in c02_decision,
+    and any(
+        status in c02_decision
+        for status in ("Status: SOURCE_IMPLEMENTED", "Status: CLOSED")
+    ),
+)
+c02_closure_evidence = c02_record.get("evidence", [])
+c02_closure_history = [
+    entry.get("status")
+    for entry in c02_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+c02_closure_receipt_path = (
+    ROOT / "release/evidence/c02-audit-package-coverage-closure.json"
+)
+c02_closure_receipt = data(
+    "release/evidence/c02-audit-package-coverage-closure.json"
+)
+c02_pr_ci = c02_closure_receipt.get("pullRequestCi", {})
+c02_postmerge_ci = c02_closure_receipt.get("postMergeCi", {})
+c02_boundary = c02_closure_receipt.get("operationalBoundary", {})
+check(
+    "C-02 audit-package coverage closure is exact and runtime-separated",
+    len(c02_records) == 1
+    and c02_record.get("currentStatus") == "CLOSED"
+    and len(c02_closure_evidence) == 1
+    and c02_closure_evidence[0].get("pullRequest") == 154
+    and c02_closure_evidence[0].get("headCommit")
+        == "06dac6a5b2048592652005f83324b5dc0009dc77"
+    and c02_closure_evidence[0].get("sourceTree")
+        == "18f1c9881c971132a16a5f092dbc7fc3cd7d40b2"
+    and c02_closure_evidence[0].get("mergeCommit")
+        == "a3d3a95c44ab788a44952b8de9260fa39b96f462"
+    and c02_closure_evidence[0].get("mergeTree")
+        == "18f1c9881c971132a16a5f092dbc7fc3cd7d40b2"
+    and c02_closure_evidence[0].get("pullRequestWorkflowRun")
+        == 30971588062
+    and c02_closure_evidence[0].get("postMergeWorkflowRun")
+        == 30972062651
+    and c02_closure_evidence[0].get("evidenceFile")
+        == "release/evidence/c02-audit-package-coverage-closure.json"
+    and c02_closure_evidence[0].get("evidenceSha256")
+        == sha(c02_closure_receipt_path)
+    and c02_closure_history
+        == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and c02_closure_receipt.get("decision")
+        == "PASS_C02_AUDIT_PACKAGE_COVERAGE_SOURCE_AND_CI_CLOSURE"
+    and c02_pr_ci.get("runId") == 30971588062
+    and c02_pr_ci.get("event") == "pull_request"
+    and c02_pr_ci.get("headSha")
+        == "06dac6a5b2048592652005f83324b5dc0009dc77"
+    and c02_pr_ci.get("conclusion") == "success"
+    and c02_postmerge_ci.get("runId") == 30972062651
+    and c02_postmerge_ci.get("event") == "push"
+    and c02_postmerge_ci.get("headSha")
+        == "a3d3a95c44ab788a44952b8de9260fa39b96f462"
+    and c02_postmerge_ci.get("conclusion") == "success"
+    and all(
+        job.get("conclusion") == "success"
+        for section in (c02_pr_ci, c02_postmerge_ci)
+        for job in section.get("jobs", [])
+    )
+    and len(c02_pr_ci.get("jobs", [])) == 4
+    and len(c02_postmerge_ci.get("jobs", [])) == 4
+    and c02_boundary
+    and all(value is False for value in c02_boundary.values())
+    and "Status: CLOSED" in c02_decision,
 )
 c03_package_script = text(
     "tools/release/Invoke-CIAndroidPackageProof.ps1"
