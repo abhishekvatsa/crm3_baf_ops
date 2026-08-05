@@ -3018,6 +3018,29 @@ build8_offline_result_doc_path = (
 build8_offline_result_doc = build8_offline_result_doc_path.read_text(
     encoding="utf-8"
 )
+build8_intermittent_promotion_path = (
+    ROOT
+    / "release/approvals/"
+    / "build-8-f4-intermittent-connectivity-promotion.json"
+)
+build8_intermittent_promotion = data(
+    "release/approvals/"
+    "build-8-f4-intermittent-connectivity-promotion.json"
+)
+build8_intermittent_harness_path = (
+    ROOT / "tools/release/Invoke-Build8F4IntermittentConnectivity.ps1"
+)
+build8_intermittent_harness = build8_intermittent_harness_path.read_text(
+    encoding="utf-8"
+)
+build8_intermittent_doc_path = (
+    ROOT
+    / "docs/v4_2_r1/"
+    / "BUILD8_F4_INTERMITTENT_CONNECTIVITY_PROMOTION.md"
+)
+build8_intermittent_doc = build8_intermittent_doc_path.read_text(
+    encoding="utf-8"
+)
 version_policy_approval = data(
     "release/approvals/version-policy-approval.json"
 )
@@ -3991,6 +4014,137 @@ check(
     and "bandwidth-throttling result." in build8_offline_result_doc
     and len(build8_f4_gate_records) == 1
     and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
+)
+check(
+    "Build 8 intermittent-connectivity source is exact, bounded and non-closing",
+    sha(build8_intermittent_promotion_path)
+        == "2EFA140B00BBC1D0FD6901026A4781FC2862C3C8C1DB9C19BB5EADE23520DB23"
+    and sha(build8_intermittent_harness_path)
+        == "DDFD77FF2172622AB727B77D61840FD386C8F11993D589338F6912347E440BA9"
+    and sha(build8_intermittent_doc_path)
+        == "0636958ABE378C20CE16B99C82A913CFD574D68CD11AE5E4163F55F85F01BE22"
+    and build8_intermittent_promotion.get("approved") is True
+    and build8_intermittent_promotion.get("approvalClass")
+        == "CONTROLLED_EXACT_TARGET_BUILD8_INTERMITTENT_CONNECTIVITY"
+    and build8_intermittent_promotion.get("approvalAuthority", {}).get(
+        "baselineCommit"
+    )
+        == "de76c8e67e7e3693d12b6965f1d0589a9b1a7a50"
+    and build8_intermittent_promotion.get("approvalAuthority", {}).get(
+        "baselineTree"
+    )
+        == "80fa29d2bf165f918b0adee0fcc8d2d8bbe2964d"
+    and "five-job"
+        in build8_intermittent_promotion.get("effectiveCondition", "")
+    and build8_intermittent_promotion.get("offlineAuthority", {}).get(
+        "adjudicationSha256"
+    )
+        == sha(build8_offline_result_path)
+    and build8_intermittent_promotion.get("offlineAuthority", {}).get(
+        "externalReceiptSha256"
+    )
+        == build8_offline_result.get("externalReceipt", {}).get("sha256")
+    and build8_intermittent_promotion.get("offlineAuthority", {}).get(
+        "externalReceiptBytes"
+    )
+        == build8_offline_result.get("externalReceipt", {}).get("bytes")
+    and build8_intermittent_promotion.get("artifactAuthority", {})
+        .get("apk", {})
+        .get("versionCode")
+        == 8
+    and build8_intermittent_promotion.get("intermittentProfile", {}).get(
+        "cycleCount"
+    )
+        == 3
+    and build8_intermittent_promotion.get("intermittentProfile", {}).get(
+        "minimumDisconnectedHoldSecondsPerCycle"
+    )
+        == 5
+    and build8_intermittent_promotion.get("intermittentProfile", {}).get(
+        "minimumRestoredHoldSecondsPerCycle"
+    )
+        == 10
+    and build8_intermittent_promotion.get("intermittentProfile", {}).get(
+        "maximumProfileSeconds"
+    )
+        == 180
+    and build8_intermittent_promotion.get("intermittentProfile", {}).get(
+        "restoreAndReadBackAfterEveryCycle"
+    )
+        is True
+    and build8_intermittent_promotion.get("authorizedMutations", {}).get(
+        "wifiAndMobileData"
+    )
+        == "THREE_TEMPORARY_DISABLE_AND_EXACT_RESTORE_CYCLES"
+    and build8_intermittent_promotion.get("authorizedMutations", {}).get(
+        "preflightOnly"
+    )
+        == "READ_ONLY_NO_TRANSPORT_MUTATION"
+    and build8_intermittent_promotion.get("authorizedMutations", {}).get(
+        "bandwidthLatencyPacketLossInjection"
+    )
+        == "PROHIBITED_NOT_THIS_METHOD"
+    and build8_intermittent_promotion.get("authorizedMutations", {}).get(
+        "userApprovalRevocationOrRoleMutation"
+    )
+        == "PROHIBITED"
+    and build8_intermittent_promotion.get("programmeBoundary", {}).get(
+        "intermittentConnectivityAuthorized"
+    )
+        is True
+    and build8_intermittent_promotion.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    )
+        is False
+    and build8_intermittent_promotion.get("programmeBoundary", {}).get(
+        "revocationAuthorized"
+    )
+        is False
+    and build8_intermittent_promotion.get("programmeBoundary", {}).get(
+        "wrongRoleExecutionAuthorized"
+    )
+        is False
+    and all(
+        marker in build8_intermittent_harness
+        for marker in [
+            "Post-merge release-gate must contain exactly five successful jobs.",
+            "Android emulator app-shell integration (not physical-device evidence)",
+            "External offline receipt SHA-256",
+            "PASS_BUILD8_F4_INTERMITTENT_CONNECTIVITY_PREFLIGHT_READ_ONLY",
+            "FALSE_SUCCESS_WHILE_ALL_TRANSPORTS_DISABLED",
+            "TRANSPORT_RESTORATION_FAILED",
+            "INTERMITTENT_PROFILE_DURATION_EXCEEDED",
+            "FAIL_BUILD8_INTERMITTENT_CONNECTIVITY_REQUIRES_ADJUDICATION",
+            "PASS_BUILD8_F4_BOUNDED_THREE_CYCLE_INTERMITTENT_CONNECTIVITY_RECOVERY",
+            "stage2dF4Status = 'OPEN'",
+            "stage2dF4ClosureAuthorized = $false",
+            "bandwidthThrottleClaimAuthorized = $false",
+            "rawUiRetained = $false",
+        ]
+    )
+    and build8_intermittent_harness.count("Set-TransportState") >= 3
+    and all(
+        marker not in build8_intermittent_harness.lower()
+        for marker in [
+            "'pm', 'clear'",
+            "'uninstall'",
+            "firebase deploy",
+            "appdistribution:distribute",
+            "'svc', 'airplane'",
+            " tc qdisc ",
+        ]
+    )
+    and "Status: SOURCE AUTHORIZED; PHYSICAL EXECUTION PENDING"
+        in build8_intermittent_doc
+    and "does not claim low bandwidth" in build8_intermittent_doc
+    and "Revocation and wrong-role evidence remain separate"
+        in build8_intermittent_doc
+    and len(build8_f4_gate_records) == 1
+    and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F4"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
