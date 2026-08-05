@@ -49,6 +49,14 @@ service cloud.firestore {
         || request.resource.data.get('deletedAt', null) is string;
     }
 
+    function isPersistedTimestamp(value) {
+      return value is timestamp || value is string;
+    }
+
+    function isOptionalPersistedTimestamp(value) {
+      return value == null || isPersistedTimestamp(value);
+    }
+
     function hasUserDoc() {
       return isSignedIn()
         ? exists(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -1194,7 +1202,21 @@ service cloud.firestore {
         && request.resource.data.get('version', -1) is int
         && request.resource.data.get('version', -1) >= 1
         && request.resource.data.get('schemaVersion', -1) is int
-        && request.resource.data.get('isDeleted', null) == false;
+        && request.resource.data.get('isDeleted', null) == false
+        && validTemplatePackageTimeline();
+    }
+
+    function validTemplatePackageTimeline() {
+      let status = request.resource.data.get('lifecycleStatus', null);
+      let retiredAt = request.resource.data.get('retiredAt', null);
+      return isPersistedTimestamp(
+          request.resource.data.get('createdAt', null)
+        )
+        && isPersistedTimestamp(
+          request.resource.data.get('updatedAt', null)
+        )
+        && isOptionalPersistedTimestamp(retiredAt)
+        && (status != 'retired' || isPersistedTimestamp(retiredAt));
     }
 
     function validTemplatePackageActivePointer(docId) {
@@ -1237,7 +1259,55 @@ service cloud.firestore {
         && request.resource.data.get('version', -1) is int
         && resource.data.get('version', -1) is int
         && request.resource.data.get('version', -1) > resource.data.get('version', -1)
+        && validTemplatePackageTimeline()
         && validTemplatePackageActivePointer(docId);
+    }
+
+    function validTemplateVersionTimeline() {
+      let status = request.resource.data.get('status', null);
+      let publishedAt = request.resource.data.get('publishedAt', null);
+      let retiredAt = request.resource.data.get('retiredAt', null);
+      let closureConfirmed = request.resource.data.get(
+        'closureReviewConfirmed',
+        false
+      );
+      return isPersistedTimestamp(
+          request.resource.data.get('createdAt', null)
+        )
+        && isPersistedTimestamp(
+          request.resource.data.get('updatedAt', null)
+        )
+        && isOptionalPersistedTimestamp(
+          request.resource.data.get('closureReviewConfirmedAt', null)
+        )
+        && isOptionalPersistedTimestamp(publishedAt)
+        && isOptionalPersistedTimestamp(retiredAt)
+        && closureConfirmed is bool
+        && (
+          closureConfirmed != true
+          || isPersistedTimestamp(
+            request.resource.data.get('closureReviewConfirmedAt', null)
+          )
+        )
+        && (
+          status == 'draft'
+            ? (publishedAt == null && retiredAt == null)
+            : (status == 'published'
+              ? (isPersistedTimestamp(publishedAt) && retiredAt == null)
+              : (status == 'retired'
+                ? (
+                  isPersistedTimestamp(publishedAt)
+                  && isPersistedTimestamp(retiredAt)
+                )
+                : (status == 'archived'
+                  && (
+                    (publishedAt == null && retiredAt == null)
+                    || (
+                      isPersistedTimestamp(publishedAt)
+                      && isPersistedTimestamp(retiredAt)
+                    )
+                  ))))
+        );
     }
 
     function validTemplateVersionCreate(docId) {
@@ -1271,7 +1341,8 @@ service cloud.firestore {
           && request.resource.data.get('version', -1) is int
           && request.resource.data.get('version', -1) >= 1
           && request.resource.data.get('schemaVersion', -1) is int
-          && request.resource.data.get('isDeleted', null) == false)
+          && request.resource.data.get('isDeleted', null) == false
+          && validTemplateVersionTimeline())
         : false;
     }
 
@@ -1332,7 +1403,8 @@ service cloud.firestore {
         && request.resource.data.get('updatedByUid', null) == request.auth.uid
         && request.resource.data.get('version', -1) is int
         && resource.data.get('version', -1) is int
-        && request.resource.data.get('version', -1) > resource.data.get('version', -1);
+        && request.resource.data.get('version', -1) > resource.data.get('version', -1)
+        && validTemplateVersionTimeline();
     }
 
     function validDraftTemplateVersionUpdateDelta() {
@@ -1550,8 +1622,12 @@ service cloud.firestore {
         && validArchivedTemplateAudit()
         && validRestoredTemplateAudit()
         && request.resource.data.get('performedByUid', null) == request.auth.uid
-        && request.resource.data.get('performedAt', null) != null
-        && request.resource.data.get('updatedAt', null) != null
+        && isPersistedTimestamp(
+          request.resource.data.get('performedAt', null)
+        )
+        && isPersistedTimestamp(
+          request.resource.data.get('updatedAt', null)
+        )
         && request.resource.data.get('version', -1) is int
         && request.resource.data.get('version', -1) >= 1
         && request.resource.data.get('isDeleted', null) == false;
@@ -1589,6 +1665,46 @@ service cloud.firestore {
     function moduleRegistryContentHashLooksValid() {
       return request.resource.data.get('contentHash', null) is string
         && request.resource.data.get('contentHash', null).matches('^mrg1-sha256:[0-9a-f]{64}$');
+    }
+
+    function validModuleRegistryFamilyTimeline() {
+      let status = request.resource.data.get('status', null);
+      let retiredAt = request.resource.data.get('retiredAt', null);
+      return isPersistedTimestamp(
+          request.resource.data.get('createdAt', null)
+        )
+        && isPersistedTimestamp(
+          request.resource.data.get('updatedAt', null)
+        )
+        && isOptionalPersistedTimestamp(retiredAt)
+        && (
+          status == 'active'
+            ? retiredAt == null
+            : (status == 'retired' && isPersistedTimestamp(retiredAt))
+        );
+    }
+
+    function validModuleRegistryRevisionTimeline() {
+      let status = request.resource.data.get('revisionStatus', null);
+      let publishedAt = request.resource.data.get('publishedAt', null);
+      let retiredAt = request.resource.data.get('retiredAt', null);
+      return isPersistedTimestamp(
+          request.resource.data.get('createdAt', null)
+        )
+        && isPersistedTimestamp(
+          request.resource.data.get('updatedAt', null)
+        )
+        && isOptionalPersistedTimestamp(publishedAt)
+        && isOptionalPersistedTimestamp(retiredAt)
+        && (
+          status == 'draft'
+            ? (publishedAt == null && retiredAt == null)
+            : (status == 'published'
+              ? (isPersistedTimestamp(publishedAt) && retiredAt == null)
+              : (status == 'retired'
+                && isPersistedTimestamp(publishedAt)
+                && isPersistedTimestamp(retiredAt)))
+        );
     }
 
     function validModuleRegistryFamilyFields() {
@@ -1675,7 +1791,8 @@ service cloud.firestore {
         && request.resource.data.get('version', -1) is int
         && request.resource.data.get('version', -1) >= 1
         && request.resource.data.get('schemaVersion', -1) == 1
-        && request.resource.data.get('isDeleted', null) == false;
+        && request.resource.data.get('isDeleted', null) == false
+        && validModuleRegistryFamilyTimeline();
     }
 
     function validModuleRegistryFamilyCreate(docId) {
@@ -1974,7 +2091,8 @@ service cloud.firestore {
         && request.resource.data.get('version', -1) is int
         && request.resource.data.get('version', -1) >= 1
         && request.resource.data.get('schemaVersion', -1) == 1
-        && request.resource.data.get('isDeleted', null) == false;
+        && request.resource.data.get('isDeleted', null) == false
+        && validModuleRegistryRevisionTimeline();
     }
 
     function validModuleRegistryRevisionCreate(registryModuleId, revisionId) {
@@ -2131,7 +2249,9 @@ service cloud.firestore {
           || request.resource.data.get('revisionNumber', null) is int
         )
         && moduleRegistryOptionalString(request.resource.data.get('performedByName', null))
-        && request.resource.data.get('performedAt', null) != null
+        && isPersistedTimestamp(
+          request.resource.data.get('performedAt', null)
+        )
         && moduleRegistryOptionalString(request.resource.data.get('reasonNotes', null))
         && moduleRegistryOptionalString(request.resource.data.get('beforeHash', null))
         && moduleRegistryOptionalString(request.resource.data.get('afterHash', null))

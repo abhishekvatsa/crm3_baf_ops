@@ -223,8 +223,9 @@ class _AccessDeniedScaffold extends StatelessWidget {
 
 class _ErrorScaffold extends StatelessWidget {
   final String message;
+  final String? title;
 
-  const _ErrorScaffold({required this.message});
+  const _ErrorScaffold({required this.message, this.title});
 
   @override
   Widget build(BuildContext context) {
@@ -233,12 +234,18 @@ class _ErrorScaffold extends StatelessWidget {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(BafSpacing.xl),
-          child: _Panel(
-            child: Text(
-              message,
-              style: const TextStyle(color: BafColors.danger),
-            ),
-          ),
+          child:
+              title == null
+                  ? _Panel(
+                    child: Text(
+                      message,
+                      style: const TextStyle(color: BafColors.danger),
+                    ),
+                  )
+                  : PersistedDataIntegrityNotice(
+                    title: title!,
+                    message: message,
+                  ),
         ),
       ),
     );

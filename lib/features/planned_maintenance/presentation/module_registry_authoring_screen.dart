@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../auth/data/user_model.dart';
 import '../data/module_registry_model.dart';
 import '../domain/module_composer_models.dart';
@@ -53,8 +55,10 @@ class _ModuleRegistryAuthoringScreenState
   List<ModuleRegistryRevision> _draftRevisions = const [];
   List<PublishedRegistryModuleSource> _publishedSources = const [];
   String? _error;
+  bool _integrityError = false;
 
   bool get _canGovern => widget.actor.canManageTemplateGovernance;
+  bool get _canMutate => _canGovern && _error == null;
 
   ComposerModuleDraft? get _selectedComposerModule {
     if (widget.draftModules.isEmpty) {
@@ -77,6 +81,7 @@ class _ModuleRegistryAuthoringScreenState
     setState(() {
       _loading = true;
       _error = null;
+      _integrityError = false;
     });
     try {
       final drafts = await widget.loadDraftRevisions();
@@ -89,12 +94,23 @@ class _ModuleRegistryAuthoringScreenState
         _publishedSources = published;
         _loading = false;
       });
+    } on PersistedDataFormatException {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error =
+            'A registry governance record has missing, malformed, or inconsistent lifecycle history. Actions are disabled until the source record is repaired and this view reloads cleanly.';
+        _integrityError = true;
+        _loading = false;
+      });
     } catch (e) {
       if (!mounted) {
         return;
       }
       setState(() {
         _error = e.toString();
+        _integrityError = false;
         _loading = false;
       });
     }
@@ -105,6 +121,13 @@ class _ModuleRegistryAuthoringScreenState
       _showSnack('Registry authoring is Admin/SI-only.', BafColors.danger);
       return false;
     }
+    if (_error != null) {
+      _showSnack(
+        'Registry data must load cleanly before governance actions are enabled.',
+        BafColors.danger,
+      );
+      return false;
+    }
     setState(() => _busy = true);
     try {
       await action();
@@ -113,6 +136,9 @@ class _ModuleRegistryAuthoringScreenState
       }
       await _load();
       if (!mounted) {
+        return false;
+      }
+      if (_error != null) {
         return false;
       }
       return true;
@@ -318,7 +344,13 @@ class _ModuleRegistryAuthoringScreenState
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: BafSpacing.md),
-                      _WarningPanel(message: _error!),
+                      if (_integrityError)
+                        PersistedDataIntegrityNotice(
+                          title: 'Governance timeline needs repair',
+                          message: _error!,
+                        )
+                      else
+                        _WarningPanel(message: _error!),
                     ],
                     const SizedBox(height: BafSpacing.lg),
                     _CurrentDraftModulePanel(
@@ -328,7 +360,7 @@ class _ModuleRegistryAuthoringScreenState
                           (index) =>
                               setState(() => _selectedDraftModuleIndex = index),
                       onCreateDraft:
-                          _busy || !_canGovern
+                          _busy || !_canMutate
                               ? null
                               : _createDraftFromSelectedModule,
                     ),
@@ -337,7 +369,7 @@ class _ModuleRegistryAuthoringScreenState
                       draftRevisions: _draftRevisions,
                       selectedComposerModule: _selectedComposerModule,
                       busy: _busy,
-                      canGovern: _canGovern,
+                      canGovern: _canMutate,
                       onUpdateFromComposer: _updateDraftFromSelectedModule,
                       onPublish: _publishDraft,
                     ),
@@ -345,7 +377,7 @@ class _ModuleRegistryAuthoringScreenState
                     _PublishedRegistryPanel(
                       sources: _publishedSources,
                       busy: _busy,
-                      canGovern: _canGovern,
+                      canGovern: _canMutate,
                       onRetireRevision: _retireRevision,
                       onRetireFamily: _retireFamily,
                     ),

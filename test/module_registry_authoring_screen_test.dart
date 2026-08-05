@@ -1,3 +1,4 @@
+import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
@@ -153,6 +154,51 @@ void main() {
     expect(createButton.onPressed, isNull);
     expect(createCalled, isFalse);
   });
+
+  testWidgets(
+    'malformed governance timeline is visible and blocks authoring actions',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 1200));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+
+      bool createCalled = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ModuleRegistryAuthoringScreen(
+            actor: _admin(),
+            draftModules: [_module()],
+            loadDraftRevisions: () async {
+              throw PersistedDataFormatException(
+                field: 'updatedAt',
+                source: 'module_registry/family-1',
+              );
+            },
+            loadPublishedSources:
+                () async => const <PublishedRegistryModuleSource>[],
+            createDraft: (module, reason) async {
+              createCalled = true;
+            },
+            updateDraft: (revision, module, reason) async {},
+            publishDraft: (revision, reason) async {},
+            retireRevision: (revision, reason) async {},
+            retireFamily: (family, reason) async {},
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Governance timeline needs repair'), findsOneWidget);
+      expect(find.textContaining('Actions are disabled'), findsOneWidget);
+      final createButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Create registry draft'),
+      );
+      expect(createButton.onPressed, isNull);
+      expect(createCalled, isFalse);
+    },
+  );
 }
 
 AppUser _admin() => AppUser(

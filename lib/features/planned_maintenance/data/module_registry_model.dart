@@ -1,7 +1,6 @@
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
-
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../auth/data/user_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import 'job_module_model.dart';
@@ -11,29 +10,31 @@ import '../domain/module_workshop_actions.dart';
 
 const JsonEncoder _prettyJson = JsonEncoder.withIndent('  ');
 
-DateTime? _parseTimestamp(dynamic value) {
-  if (value == null) {
-    return null;
-  }
-  if (value is DateTime) {
-    return value;
-  }
-  if (value is Timestamp) {
-    return value.toDate();
-  }
-  if (value is String) {
-    return DateTime.tryParse(value);
-  }
-  try {
-    final dynamic maybeTimestamp = value;
-    final converted = maybeTimestamp.toDate();
-    if (converted is DateTime) {
-      return converted;
-    }
-  } catch (_) {
-    // Fall through to null.
-  }
-  return null;
+void _requireRegistryTimestamp(
+  DateTime? value, {
+  required String field,
+  required String source,
+  required String detail,
+}) {
+  if (value != null) return;
+  throw PersistedDataFormatException(
+    field: field,
+    source: source,
+    detail: detail,
+  );
+}
+
+void _rejectUnsupportedRegistryTombstone(
+  bool isDeleted, {
+  required String source,
+}) {
+  if (!isDeleted) return;
+  throw PersistedDataFormatException(
+    field: 'isDeleted',
+    source: source,
+    detail:
+        'registry tombstones have no authoritative deletion-time field and require governed repair',
+  );
 }
 
 T _enumByNameOr<T extends Enum>(List<T> values, dynamic value, T fallback) {
@@ -271,6 +272,49 @@ class ModuleRegistryFamily {
   }
 
   factory ModuleRegistryFamily.fromMap(Map<String, dynamic> map, String docId) {
+    final source = 'module_registry/$docId';
+    final status = readRequiredPersistedEnum(
+      ModuleRegistryFamilyStatus.values,
+      map['status'],
+      field: 'status',
+      source: source,
+    );
+    final isDeleted = readRequiredPersistedBool(
+      map['isDeleted'],
+      field: 'isDeleted',
+      source: source,
+    );
+    _rejectUnsupportedRegistryTombstone(isDeleted, source: source);
+    final createdAt = readRequiredPersistedDateTime(
+      map['createdAt'],
+      field: 'createdAt',
+      source: source,
+    );
+    final updatedAt = readRequiredPersistedDateTime(
+      map['updatedAt'],
+      field: 'updatedAt',
+      source: source,
+    );
+    final retiredAt = readOptionalPersistedDateTime(
+      map['retiredAt'],
+      field: 'retiredAt',
+      source: source,
+    );
+    if (status == ModuleRegistryFamilyStatus.retired) {
+      _requireRegistryTimestamp(
+        retiredAt,
+        field: 'retiredAt',
+        source: source,
+        detail: 'retired registry families require a retirement timestamp',
+      );
+    } else if (retiredAt != null) {
+      throw PersistedDataFormatException(
+        field: 'retiredAt',
+        source: source,
+        detail: 'active registry families cannot carry retirement history',
+      );
+    }
+
     return ModuleRegistryFamily(
       registryModuleId: _cleanRequiredText(map['registryModuleId'], docId),
       moduleCode: _cleanRequiredText(map['moduleCode'], 'MODULE'),
@@ -278,11 +322,7 @@ class ModuleRegistryFamily {
         map['canonicalTitle'],
         'Registry module',
       ),
-      status: _enumByNameOr(
-        ModuleRegistryFamilyStatus.values,
-        map['status'],
-        ModuleRegistryFamilyStatus.active,
-      ),
+      status: status,
       discipline: _enumByNameOr(
         JobModuleDiscipline.values,
         map['discipline'],
@@ -312,18 +352,18 @@ class ModuleRegistryFamily {
       ),
       createdByUid: _cleanOptionalText(map['createdByUid']),
       createdByName: _cleanOptionalText(map['createdByName']),
-      createdAt: _parseTimestamp(map['createdAt']),
+      createdAt: createdAt,
       updatedByUid: _cleanOptionalText(map['updatedByUid']),
       updatedByName: _cleanOptionalText(map['updatedByName']),
-      updatedAt: _parseTimestamp(map['updatedAt']),
+      updatedAt: updatedAt,
       retiredByUid: _cleanOptionalText(map['retiredByUid']),
       retiredByName: _cleanOptionalText(map['retiredByName']),
-      retiredAt: _parseTimestamp(map['retiredAt']),
+      retiredAt: retiredAt,
       retireReason: _cleanOptionalText(map['retireReason']),
       version: map['version'] is int ? map['version'] as int : 1,
       schemaVersion:
           map['schemaVersion'] is int ? map['schemaVersion'] as int : 1,
-      isDeleted: map['isDeleted'] == true,
+      isDeleted: isDeleted,
     );
   }
 
@@ -499,16 +539,86 @@ class ModuleRegistryRevision {
     Map<String, dynamic> map,
     String docId,
   ) {
+    final source = 'module_registry_revisions/$docId';
+    final revisionStatus = readRequiredPersistedEnum(
+      ModuleRegistryRevisionStatus.values,
+      map['revisionStatus'],
+      field: 'revisionStatus',
+      source: source,
+    );
+    final isDeleted = readRequiredPersistedBool(
+      map['isDeleted'],
+      field: 'isDeleted',
+      source: source,
+    );
+    _rejectUnsupportedRegistryTombstone(isDeleted, source: source);
+    final createdAt = readRequiredPersistedDateTime(
+      map['createdAt'],
+      field: 'createdAt',
+      source: source,
+    );
+    final updatedAt = readRequiredPersistedDateTime(
+      map['updatedAt'],
+      field: 'updatedAt',
+      source: source,
+    );
+    final publishedAt = readOptionalPersistedDateTime(
+      map['publishedAt'],
+      field: 'publishedAt',
+      source: source,
+    );
+    final retiredAt = readOptionalPersistedDateTime(
+      map['retiredAt'],
+      field: 'retiredAt',
+      source: source,
+    );
+    switch (revisionStatus) {
+      case ModuleRegistryRevisionStatus.draft:
+        if (publishedAt != null || retiredAt != null) {
+          throw PersistedDataFormatException(
+            field: publishedAt != null ? 'publishedAt' : 'retiredAt',
+            source: source,
+            detail: 'draft registry revisions cannot carry lifecycle history',
+          );
+        }
+        break;
+      case ModuleRegistryRevisionStatus.published:
+        _requireRegistryTimestamp(
+          publishedAt,
+          field: 'publishedAt',
+          source: source,
+          detail: 'published registry revisions require a publication timestamp',
+        );
+        if (retiredAt != null) {
+          throw PersistedDataFormatException(
+            field: 'retiredAt',
+            source: source,
+            detail: 'published registry revisions cannot carry retirement history',
+          );
+        }
+        break;
+      case ModuleRegistryRevisionStatus.retired:
+        _requireRegistryTimestamp(
+          publishedAt,
+          field: 'publishedAt',
+          source: source,
+          detail: 'retired registry revisions require publication history',
+        );
+        _requireRegistryTimestamp(
+          retiredAt,
+          field: 'retiredAt',
+          source: source,
+          detail: 'retired registry revisions require a retirement timestamp',
+        );
+        break;
+    }
+
     return ModuleRegistryRevision(
       registryModuleId: _cleanRequiredText(map['registryModuleId'], ''),
       revisionId: _cleanRequiredText(map['revisionId'], docId),
       revisionNumber:
           map['revisionNumber'] is int ? map['revisionNumber'] as int : 0,
-      revisionStatus: _enumByNameOr(
-        ModuleRegistryRevisionStatus.values,
-        map['revisionStatus'],
-        ModuleRegistryRevisionStatus.draft,
-      ),
+      revisionStatus: revisionStatus,
       moduleSnapshotJson: _cleanRequiredText(map['moduleSnapshotJson'], '{}'),
       fieldDefinitionsJson: _cleanRequiredText(
         map['fieldDefinitionsJson'],
@@ -519,21 +629,21 @@ class ModuleRegistryRevision {
       lineageJson: _cleanRequiredText(map['lineageJson'], '{}'),
       createdByUid: _cleanOptionalText(map['createdByUid']),
       createdByName: _cleanOptionalText(map['createdByName']),
-      createdAt: _parseTimestamp(map['createdAt']),
+      createdAt: createdAt,
       updatedByUid: _cleanOptionalText(map['updatedByUid']),
       updatedByName: _cleanOptionalText(map['updatedByName']),
-      updatedAt: _parseTimestamp(map['updatedAt']),
+      updatedAt: updatedAt,
       publishedByUid: _cleanOptionalText(map['publishedByUid']),
       publishedByName: _cleanOptionalText(map['publishedByName']),
-      publishedAt: _parseTimestamp(map['publishedAt']),
+      publishedAt: publishedAt,
       retiredByUid: _cleanOptionalText(map['retiredByUid']),
       retiredByName: _cleanOptionalText(map['retiredByName']),
-      retiredAt: _parseTimestamp(map['retiredAt']),
+      retiredAt: retiredAt,
       retireReason: _cleanOptionalText(map['retireReason']),
       version: map['version'] is int ? map['version'] as int : 1,
       schemaVersion:
           map['schemaVersion'] is int ? map['schemaVersion'] as int : 1,
-      isDeleted: map['isDeleted'] == true,
+      isDeleted: isDeleted,
     );
   }
 

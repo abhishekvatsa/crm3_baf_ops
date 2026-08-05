@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 237
-    and counts.get("SUCCESSOR_MODIFIED") == 173
+    and counts.get("BYTE_IDENTICAL") == 232
+    and counts.get("SUCCESSOR_MODIFIED") == 178
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -6754,6 +6754,23 @@ a05_tombstone_conflict_test = text(
 a05_decision_5 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_5.md"
 )
+a05_timeline_template_model = text(
+    "lib/features/planned_maintenance/data/template_governance_model.dart"
+)
+a05_timeline_registry_model = text(
+    "lib/features/planned_maintenance/data/module_registry_model.dart"
+)
+a05_registry_authoring_screen = text(
+    "lib/features/planned_maintenance/presentation/module_registry_authoring_screen.dart"
+)
+a05_template_publisher_screen = text(
+    "lib/features/planned_maintenance/presentation/template_publisher_screen.dart"
+)
+a05_timeline_test = text("test/a05_governance_timeline_integrity_test.dart")
+a05_registry_screen_test = text("test/module_registry_authoring_screen_test.dart")
+a05_decision_6 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_6.md"
+)
 a05_records = [
     record
     for record in programme_ledger.get("technicalFindings", [])
@@ -6795,6 +6812,7 @@ a05_source_delta_paths = {
     "lib/features/planned_maintenance/data/job_module_model.dart",
     "lib/features/planned_maintenance/data/job_diary_model.dart",
     "lib/features/planned_maintenance/data/job_template_model.dart",
+    "lib/features/planned_maintenance/data/module_registry_model.dart",
     "lib/features/planned_maintenance/data/template_governance_model.dart",
     "lib/features/planned_maintenance/domain/planned_job_closure_attestation.dart",
     "lib/features/planned_maintenance/domain/planned_job_closure_guard.dart",
@@ -6808,7 +6826,10 @@ a05_source_delta_paths = {
     "lib/features/planned_maintenance/presentation/module_composer_screen.actions.dart",
     "lib/features/planned_maintenance/presentation/module_composer_screen.dart",
     "lib/features/planned_maintenance/presentation/module_composer_screen.support.dart",
+    "lib/features/planned_maintenance/presentation/module_registry_authoring_screen.dart",
     "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart",
+    "lib/features/planned_maintenance/presentation/template_publisher_screen.dart",
+    "lib/features/planned_maintenance/presentation/template_publisher_widgets.dart",
     "lib/features/planned_maintenance/presentation/template_designer_screen.dart",
     "lib/features/planned_maintenance/presentation/template_detail_screen.dart",
     "lib/features/planned_maintenance/presentation/templates_screen.dart",
@@ -6820,6 +6841,7 @@ a05_source_delta_paths = {
     "lib/features/planned_maintenance/providers/template_governance_provider.dart",
     "test/firestore.rules.test.js",
     "test/complete_job_screen_server_gate_test.dart",
+    "test/module_registry_authoring_screen_test.dart",
     "test/planned_job_closure_guard_test.dart",
 }
 check(
@@ -6954,8 +6976,38 @@ check(
     and "cursor cannot advance past the invalid record" in a05_decision_5
     and "`A-05` remains open" in a05_decision_5
     and "does not inspect or mutate production documents" in a05_decision_5
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 237
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 173
+    and "readRequiredPersistedDateTime(" in a05_timeline_template_model
+    and "_parseTimestamp(map['createdAt'])"
+        not in a05_timeline_template_model
+    and "_parseTimestamp(map['updatedAt'])"
+        not in a05_timeline_template_model
+    and "readRequiredPersistedDateTime(" in a05_timeline_registry_model
+    and "DateTime? _parseTimestamp" not in a05_timeline_registry_model
+    and "_rejectUnsupportedRegistryTombstone"
+        in a05_timeline_registry_model
+    and "function validTemplateVersionTimeline()" in rules_source
+    and "function validModuleRegistryRevisionTimeline()" in rules_source
+    and "isPersistedTimestamp(" in rules_source
+    and "Governance timeline needs repair" in a05_registry_authoring_screen
+    and "_canMutate => _canGovern && _error == null"
+        in a05_registry_authoring_screen
+    and "Governance timeline needs repair" in a05_template_publisher_screen
+    and "Publishing is blocked" in a05_template_publisher_screen
+    and "version lifecycle history must be complete and state-consistent"
+        in a05_timeline_test
+    and "governance decoders do not manufacture timeline timestamps"
+        in a05_timeline_test
+    and "malformed governance timeline is visible and blocks authoring actions"
+        in a05_registry_screen_test
+    and "template versions and publication audits reject incomplete timelines"
+        in firestore_rules_test
+    and "registry family, revision, and audit timelines fail closed"
+        in firestore_rules_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_6
+    and "`A-05` remains open" in a05_decision_6
+    and "does not inspect or mutate production documents" in a05_decision_6
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 232
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 178
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections
