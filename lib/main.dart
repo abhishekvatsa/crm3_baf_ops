@@ -44,6 +44,7 @@ import 'features/auth/providers/auth_provider.dart';
 // ── SERVICES / PROVIDERS ─────────────────────────────────────
 import 'core/providers/sync_providers.dart';
 import 'core/persistence/app_database.dart';
+import 'core/serialization/persisted_data_reader.dart';
 import 'core/services/auto_sync_service.dart';
 import 'core/services/app_logger.dart';
 import 'core/security/app_check_bootstrap.dart';
@@ -905,9 +906,16 @@ class AuthGate extends ConsumerWidget {
                 message: 'Loading your BAF profile and approval status…',
                 showProgress: true,
               ),
-          error:
-              (e, _) =>
-                  _AuthErrorScreen(title: 'User profile error', message: '$e'),
+          error: (e, _) {
+            if (e is PersistedDataFormatException) {
+              return const _AuthErrorScreen(
+                title: 'Profile needs repair',
+                message:
+                    'Your access profile has incomplete or malformed identity history. No app access was granted. Ask an administrator to repair the profile, then reopen the app.',
+              );
+            }
+            return _AuthErrorScreen(title: 'User profile error', message: '$e');
+          },
           data: (user) {
             if (user == null) {
               return _ProfileBootstrapScreen(firebaseUser: firebaseUser);

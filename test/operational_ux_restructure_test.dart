@@ -57,15 +57,17 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(320, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
+    var templateReads = 0;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           currentAppUserProvider.overrideWith(
             (ref) => Stream<AppUser?>.value(_actor(AppRole.operations)),
           ),
-          activeTemplatesProvider.overrideWith(
-            (ref) => Stream<List<JobTemplate>>.value(const []),
-          ),
+          activeTemplatesProvider.overrideWith((ref) {
+            templateReads++;
+            return Stream<List<JobTemplate>>.value(const []);
+          }),
           openExecutionsProvider.overrideWith(
             (ref) => Stream<List<JobExecution>>.value(const []),
           ),
@@ -85,6 +87,7 @@ void main() {
     expect(find.text('Workflow'), findsOneWidget);
     expect(find.text('Templates'), findsNothing);
     expect(find.text('Assign Published'), findsNothing);
+    expect(templateReads, 0);
 
     await tester.tap(find.text('Workflow'));
     await tester.pumpAndSettle();

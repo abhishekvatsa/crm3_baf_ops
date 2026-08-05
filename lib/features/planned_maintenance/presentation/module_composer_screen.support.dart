@@ -126,8 +126,11 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
   }
 
   String get _recoveryKey {
+    final liveActor = ref.read(currentAppUserProvider).asData?.value;
     final actor = _safeKeySegment(
-      widget.actorUid.trim().isEmpty ? 'unknown_actor' : widget.actorUid,
+      liveActor?.canManageTemplateGovernance == true
+          ? liveActor!.uid
+          : 'unverified_actor',
     );
     final scope = _safeKeySegment(
       widget.recoveryScopeId.trim().isEmpty
@@ -183,7 +186,17 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
     return hash.toRadixString(16).padLeft(8, '0');
   }
 
+  bool _hasLiveComposerAuthority({String? expectedUid}) {
+    final actor = ref.read(currentAppUserProvider).asData?.value;
+    return actor != null &&
+        actor.canManageTemplateGovernance &&
+        (expectedUid == null || actor.uid == expectedUid);
+  }
+
   Future<void> _loadKnowledgeRows() async {
+    if (!_hasLiveComposerAuthority()) {
+      return;
+    }
     _setStateWithoutRecoverySave(() => _isLoadingKnowledge = true);
     BafKnowledgeBundle? bundle;
     Object? loadError;
@@ -198,7 +211,7 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
     } catch (e) {
       loadError = e;
     }
-    if (!mounted) {
+    if (!mounted || !_hasLiveComposerAuthority()) {
       return;
     }
 
@@ -246,12 +259,14 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
   }
 
   void _setClosureReviewConfirmed(bool value) {
-    _draft.closureReviewConfirmed = value;
-    if (value) {
+    final actor = ref.read(currentAppUserProvider).asData?.value;
+    final canConfirm = actor?.canManageTemplateGovernance == true;
+    _draft.closureReviewConfirmed = value && canConfirm;
+    if (value && canConfirm) {
       _draft.metadata['closureReviewConfirmedAt'] =
           DateTime.now().toIso8601String();
-      _draft.metadata['closureReviewConfirmedByUid'] = widget.actorUid;
-      _draft.metadata['closureReviewConfirmedByName'] = widget.actorName;
+      _draft.metadata['closureReviewConfirmedByUid'] = actor!.uid;
+      _draft.metadata['closureReviewConfirmedByName'] = actor.name;
     } else {
       _draft.metadata.remove('closureReviewConfirmedAt');
       _draft.metadata.remove('closureReviewConfirmedByUid');
@@ -300,7 +315,7 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
   }
 
   Future<void> _saveRecoveryDraft() async {
-    if (!mounted || _draft.modules.isEmpty) {
+    if (!mounted || !_hasLiveComposerAuthority() || _draft.modules.isEmpty) {
       return;
     }
     try {
@@ -327,15 +342,24 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
   }
 
   Future<void> _clearRecoveryDraft() async {
+    if (!_hasLiveComposerAuthority()) {
+      return;
+    }
     _recoverySaveDebounce?.cancel();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_recoveryKey);
   }
 
   Future<void> _checkForRecoverableDraft() async {
+    if (!_hasLiveComposerAuthority()) {
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_recoveryKey);
-    if (raw == null || raw.trim().isEmpty || !mounted) {
+    if (raw == null ||
+        raw.trim().isEmpty ||
+        !mounted ||
+        !_hasLiveComposerAuthority()) {
       return;
     }
     Map<String, dynamic> decoded;
@@ -349,7 +373,7 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
       return;
     }
     final savedAt = decoded['savedAt']?.toString() ?? 'unknown time';
-    if (!mounted) {
+    if (!mounted || !_hasLiveComposerAuthority()) {
       return;
     }
     final restore = await showDialog<bool>(
@@ -372,7 +396,7 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
             ],
           ),
     );
-    if (!mounted) {
+    if (!mounted || !_hasLiveComposerAuthority()) {
       return;
     }
     if (restore != true) {

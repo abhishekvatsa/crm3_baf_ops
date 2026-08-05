@@ -15,11 +15,18 @@ void main() {
   });
 
   test('67B.3 registry action wrapper reports success/failure explicitly', () {
-    expect(source, contains('Future<bool> _runAction'));
-    expect(compact, contains('if (!_canGovern)'));
+    expect(
+      source,
+      contains(
+        'Future<bool> _runAction(Future<void> Function(AppUser actor) action)',
+      ),
+    );
+    expect(compact, contains('final actor = _liveGovernanceActor;'));
+    expect(compact, contains('if (actor == null)'));
     expect(compact, contains('return false;'));
-    expect(compact, contains('await action();'));
-    expect(compact, contains('await _load();'));
+    expect(compact, contains('await action(actor);'));
+    expect(compact, contains('_hasLiveGovernanceActor(actor.uid)'));
+    expect(compact, contains('await _load(expectedActorUid: actor.uid);'));
     expect(compact, contains('return true;'));
     expect(compact, contains('catch (e)'));
     expect(compact, contains('_showSnack(e.toString(), BafColors.danger);'));
@@ -45,35 +52,35 @@ void main() {
     expect(
       compact,
       contains(
-        'final success = await _runAction(() => widget.createDraft(module, reason)); '
+        'final success = await _runAction( (actor) => widget.createDraft(actor, module, reason), ); '
         'if (!mounted || !success)',
       ),
     );
     expect(
       compact,
       contains(
-        'final success = await _runAction( () => widget.updateDraft(revision, module, reason), ); '
+        'final success = await _runAction( (actor) => widget.updateDraft(actor, revision, module, reason), ); '
         'if (!mounted || !success)',
       ),
     );
     expect(
       compact,
       contains(
-        'final success = await _runAction( () => widget.publishDraft(revision, reason), ); '
+        'final success = await _runAction( (actor) => widget.publishDraft(actor, revision, reason), ); '
         'if (!mounted || !success)',
       ),
     );
     expect(
       compact,
       contains(
-        'final success = await _runAction( () => widget.retireRevision(source.revision, reason), ); '
+        'final success = await _runAction( (actor) => widget.retireRevision(actor, source.revision, reason), ); '
         'if (!mounted || !success)',
       ),
     );
     expect(
       compact,
       contains(
-        'final success = await _runAction(() => widget.retireFamily(family, reason)); '
+        'final success = await _runAction( (actor) => widget.retireFamily(actor, family, reason), ); '
         'if (!mounted || !success)',
       ),
     );
@@ -116,7 +123,12 @@ void main() {
   });
 
   test('67B.3 reload and snackbar paths are guarded', () {
-    expect(source, contains('onPressed: _busy || _loading ? null : _load'));
+    expect(
+      compact,
+      contains(
+        'onPressed: _busy || _loading ? null : () => _load(expectedActorUid: actor.uid)',
+      ),
+    );
     expect(source, contains('void _showSnack(String message, Color color)'));
     expect(
       compact,

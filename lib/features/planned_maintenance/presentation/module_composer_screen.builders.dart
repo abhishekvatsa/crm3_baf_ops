@@ -377,7 +377,7 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
           _KnowledgeSourceBanner(
             meta: _matrixMeta,
             onSeedCloud:
-                widget.canSeedCloudKnowledge
+                widget.canSeedCloudKnowledge && _hasLiveComposerAuthority()
                     ? _seedCloudKnowledgeBaseline
                     : null,
             isSeeding: _isSeedingCloud,

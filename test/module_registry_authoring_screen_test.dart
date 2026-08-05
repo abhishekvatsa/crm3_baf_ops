@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
+import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/module_registry_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/module_composer_models.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/module_registry_authoring_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -19,23 +23,25 @@ void main() {
 
       ComposerModuleDraft? createdModule;
       String? createReason;
+      AppUser? mutationActor;
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: ModuleRegistryAuthoringScreen(
-            actor: _admin(),
+        _withActor(
+          _admin(),
+          ModuleRegistryAuthoringScreen(
             draftModules: [_module()],
             loadDraftRevisions: () async => const <ModuleRegistryRevision>[],
             loadPublishedSources:
                 () async => const <PublishedRegistryModuleSource>[],
-            createDraft: (module, reason) async {
+            createDraft: (actor, module, reason) async {
+              mutationActor = actor;
               createdModule = module;
               createReason = reason;
             },
-            updateDraft: (revision, module, reason) async {},
-            publishDraft: (revision, reason) async {},
-            retireRevision: (revision, reason) async {},
-            retireFamily: (family, reason) async {},
+            updateDraft: (actor, revision, module, reason) async {},
+            publishDraft: (actor, revision, reason) async {},
+            retireRevision: (actor, revision, reason) async {},
+            retireFamily: (actor, family, reason) async {},
           ),
         ),
       );
@@ -56,6 +62,7 @@ void main() {
 
       expect(createdModule?.moduleCode, 'PSL13-CLAMP');
       expect(createReason, contains('PSL13-CLAMP'));
+      expect(mutationActor?.uid, _admin().uid);
     },
   );
 
@@ -79,21 +86,21 @@ void main() {
     String? publishReason;
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: ModuleRegistryAuthoringScreen(
-          actor: actor,
+      _withActor(
+        actor,
+        ModuleRegistryAuthoringScreen(
           draftModules: [_module()],
           loadDraftRevisions: () async => [draft],
           loadPublishedSources:
               () async => const <PublishedRegistryModuleSource>[],
-          createDraft: (module, reason) async {},
-          updateDraft: (revision, module, reason) async {},
-          publishDraft: (revision, reason) async {
+          createDraft: (actor, module, reason) async {},
+          updateDraft: (actor, revision, module, reason) async {},
+          publishDraft: (actor, revision, reason) async {
             publishedRevision = revision;
             publishReason = reason;
           },
-          retireRevision: (revision, reason) async {},
-          retireFamily: (family, reason) async {},
+          retireRevision: (actor, revision, reason) async {},
+          retireFamily: (actor, family, reason) async {},
         ),
       ),
     );
@@ -121,37 +128,37 @@ void main() {
     });
 
     bool createCalled = false;
+    var registryReads = 0;
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: ModuleRegistryAuthoringScreen(
-          actor: _operator(),
+      _withActor(
+        _operator(),
+        ModuleRegistryAuthoringScreen(
           draftModules: [_module()],
-          loadDraftRevisions: () async => const <ModuleRegistryRevision>[],
-          loadPublishedSources:
-              () async => const <PublishedRegistryModuleSource>[],
-          createDraft: (module, reason) async {
+          loadDraftRevisions: () async {
+            registryReads++;
+            return const <ModuleRegistryRevision>[];
+          },
+          loadPublishedSources: () async {
+            registryReads++;
+            return const <PublishedRegistryModuleSource>[];
+          },
+          createDraft: (actor, module, reason) async {
             createCalled = true;
           },
-          updateDraft: (revision, module, reason) async {},
-          publishDraft: (revision, reason) async {},
-          retireRevision: (revision, reason) async {},
-          retireFamily: (family, reason) async {},
+          updateDraft: (actor, revision, module, reason) async {},
+          publishDraft: (actor, revision, reason) async {},
+          retireRevision: (actor, revision, reason) async {},
+          retireFamily: (actor, family, reason) async {},
         ),
       ),
     );
 
     await tester.pumpAndSettle();
 
-    expect(
-      find.textContaining('cannot author registry modules'),
-      findsOneWidget,
-    );
-
-    final createButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Create registry draft'),
-    );
-    expect(createButton.onPressed, isNull);
+    expect(find.text('Registry authoring access required'), findsOneWidget);
+    expect(find.text('Create registry draft'), findsNothing);
+    expect(registryReads, 0);
     expect(createCalled, isFalse);
   });
 
@@ -165,9 +172,9 @@ void main() {
 
       bool createCalled = false;
       await tester.pumpWidget(
-        MaterialApp(
-          home: ModuleRegistryAuthoringScreen(
-            actor: _admin(),
+        _withActor(
+          _admin(),
+          ModuleRegistryAuthoringScreen(
             draftModules: [_module()],
             loadDraftRevisions: () async {
               throw PersistedDataFormatException(
@@ -177,13 +184,13 @@ void main() {
             },
             loadPublishedSources:
                 () async => const <PublishedRegistryModuleSource>[],
-            createDraft: (module, reason) async {
+            createDraft: (actor, module, reason) async {
               createCalled = true;
             },
-            updateDraft: (revision, module, reason) async {},
-            publishDraft: (revision, reason) async {},
-            retireRevision: (revision, reason) async {},
-            retireFamily: (family, reason) async {},
+            updateDraft: (actor, revision, module, reason) async {},
+            publishDraft: (actor, revision, reason) async {},
+            retireRevision: (actor, revision, reason) async {},
+            retireFamily: (actor, family, reason) async {},
           ),
         ),
       );
@@ -198,6 +205,66 @@ void main() {
       expect(createButton.onPressed, isNull);
       expect(createCalled, isFalse);
     },
+  );
+
+  testWidgets('live role downgrade closes loaded registry data', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final actors = StreamController<AppUser?>();
+    addTearDown(actors.close);
+    actors.add(_admin());
+    var registryReads = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => actors.stream),
+        ],
+        child: MaterialApp(
+          home: ModuleRegistryAuthoringScreen(
+            draftModules: [_module()],
+            loadDraftRevisions: () async {
+              registryReads++;
+              return const <ModuleRegistryRevision>[];
+            },
+            loadPublishedSources: () async {
+              registryReads++;
+              return const <PublishedRegistryModuleSource>[];
+            },
+            createDraft: (actor, module, reason) async {},
+            updateDraft: (actor, revision, module, reason) async {},
+            publishDraft: (actor, revision, reason) async {},
+            retireRevision: (actor, revision, reason) async {},
+            retireFamily: (actor, family, reason) async {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    expect(find.text('Create registry draft'), findsOneWidget);
+    expect(registryReads, 2);
+
+    actors.add(_operator());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Registry authoring access required'), findsOneWidget);
+    expect(find.text('Create registry draft'), findsNothing);
+    expect(registryReads, 2);
+  });
+}
+
+Widget _withActor(AppUser actor, Widget home) {
+  return ProviderScope(
+    overrides: [
+      currentAppUserProvider.overrideWith(
+        (ref) => Stream<AppUser?>.value(actor),
+      ),
+    ],
+    child: MaterialApp(home: home),
   );
 }
 

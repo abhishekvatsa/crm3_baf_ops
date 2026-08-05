@@ -1,7 +1,6 @@
 // FILE: lib/features/auth/data/user_model.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance_workflow/domain/workflow_policy_generated.dart';
 
@@ -26,17 +25,6 @@ List<AppRole> _parseRoles(dynamic value) {
   }
 
   return List<AppRole>.unmodifiable(roles);
-}
-
-String _cleanText(dynamic value) {
-  if (value is! String) return '';
-  return value.trim();
-}
-
-String? _cleanOptionalText(dynamic value) {
-  if (value is! String) return null;
-  final trimmed = value.trim();
-  return trimmed.isEmpty ? null : trimmed;
 }
 
 String _normalisePermissionKey(String? value) {
@@ -87,16 +75,6 @@ String _canonicalModuleDisciplinePermissionKey(String? value) {
     default:
       return 'shared';
   }
-}
-
-DateTime _parseDateTime(dynamic value) {
-  if (value is Timestamp) return value.toDate();
-  if (value is DateTime) return value;
-  if (value is String) {
-    final parsed = DateTime.tryParse(value);
-    if (parsed != null) return parsed;
-  }
-  return DateTime.now();
 }
 
 class AppUser {
@@ -532,16 +510,37 @@ class AppUser {
 
   factory AppUser.fromFirestore(Map<String, dynamic> data, String uid) {
     final parsedRoles = _parseRoles(data['roles']);
+    final source = 'users/$uid';
     return AppUser(
       uid: uid,
-      name: _cleanText(data['name']),
-      email: _cleanText(data['email']),
-      photoUrl: _cleanOptionalText(data['photoUrl']),
+      name: readRequiredPersistedString(
+        data['name'],
+        field: 'name',
+        source: source,
+      ),
+      email: readRequiredPersistedString(
+        data['email'],
+        field: 'email',
+        source: source,
+      ),
+      photoUrl: readOptionalPersistedString(
+        data['photoUrl'],
+        field: 'photoUrl',
+        source: source,
+      ),
       roles: parsedRoles,
       // A malformed role payload cannot remain an approved local authority.
       isApproved: data['isApproved'] == true && parsedRoles.isNotEmpty,
-      fcmToken: _cleanOptionalText(data['fcmToken']),
-      createdAt: _parseDateTime(data['createdAt']),
+      fcmToken: readOptionalPersistedString(
+        data['fcmToken'],
+        field: 'fcmToken',
+        source: source,
+      ),
+      createdAt: readRequiredPersistedDateTime(
+        data['createdAt'],
+        field: 'createdAt',
+        source: source,
+      ),
     );
   }
 

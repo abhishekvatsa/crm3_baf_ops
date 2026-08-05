@@ -386,8 +386,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               initialModuleSnapshotsJson: '[]',
               initialFieldDefinitionsJson: '[]',
               initialChecklistJson: '[]',
-              actorUid: appUser.uid,
-              actorName: appUser.name,
               canSeedCloudKnowledge: appUser.canManageTemplateGovernance,
               showSaveToPublisher: false,
             ),
