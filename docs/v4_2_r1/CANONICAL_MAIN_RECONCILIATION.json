@@ -3381,9 +3381,9 @@
     {
       "path": "tools/release/Test-ProductionReleasePolicy.ps1",
       "canonicalSha256": "6A7A51C91BCF2276ACEE8FE48AEC70783808F687E6539B600273178CD8FDF7D6",
-      "candidateSha256": "8006D611F411DB5F2791A85767E1C88169E37EAC21049B679ED4C1C9354182DA",
+      "candidateSha256": "4DE6956CC9FEBD99ABB62E66975D9ED58F62D6C398927A3015B550FF7B3BF0CB",
       "canonicalBytes": 15649,
-      "candidateBytes": 60664,
+      "candidateBytes": 61933,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

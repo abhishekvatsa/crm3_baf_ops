@@ -523,6 +523,9 @@ c04_integration = text(
 )
 c04_decision = text("docs/v4_2_r1/C04_TEST_EVIDENCE_TAXONOMY.md")
 c04_local_gate = text("release_gate.ps1")
+c04_production_policy = text(
+    "tools/release/Test-ProductionReleasePolicy.ps1"
+)
 c04_action_registry = data("release/github-actions-pins.json")
 c04_records = [
     record
@@ -580,6 +583,9 @@ check(
     and "Cloud Functions host build + non-emulator tests"
         in release_gate_source
     and "test evidence taxonomy and critical-path coverage" in c04_local_gate
+    and "Properties).Count -ne 5" not in c04_production_policy
+    and "$requiredProductionActionRepositories" in c04_production_policy
+    and "$productionActionReferences" in c04_production_policy
     and c04_emulator_action.get("repository")
         == "ReactiveCircus/android-emulator-runner"
     and c04_emulator_action.get("commitSha")

@@ -139,6 +139,17 @@ void main() {
       expect(emulator['repository'], 'ReactiveCircus/android-emulator-runner');
       expect(emulator['commitSha'], 'a421e43855164a8197daf9d8d40fe71c6996bb0d');
 
+      final productionPolicy = File(
+        'tools/release/Test-ProductionReleasePolicy.ps1',
+      ).readAsStringSync();
+      expect(productionPolicy, isNot(contains('Properties).Count -ne 5')));
+      expect(
+        productionPolicy,
+        contains(r'$requiredProductionActionRepositories'),
+      );
+      expect(productionPolicy, contains(r'$actionPinsByRepository'));
+      expect(productionPolicy, contains(r'$productionActionReferences'));
+
       final pubspec = File('pubspec.yaml').readAsStringSync();
       expect(pubspec, contains('integration_test:'));
       expect(pubspec, contains('sdk: flutter'));

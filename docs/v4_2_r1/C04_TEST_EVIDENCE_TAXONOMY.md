@@ -55,6 +55,13 @@ The runner action is pinned to exact commit
 `a421e43855164a8197daf9d8d40fe71c6996bb0d` and is registered in
 `release/github-actions-pins.json`.
 
+The pin registry is shared authority for production and CI-only workflows.
+The production-policy verifier requires the production workflow's exact five
+actions while permitting additional governed registry entries that are used
+only by other workflows. A CI-only action therefore cannot be mistaken for a
+production-build dependency or make production verification fail merely by
+being present in the shared registry.
+
 The first local Android run reproduced the workstation JVM crash: Gradle was
 allowed an 8 GB heap, 4 GB metaspace, a 512 MB code cache, and unconstrained
 workers while the emulator was resident on a 16 GB host. The repository now
