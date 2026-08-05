@@ -4020,11 +4020,11 @@ check(
 check(
     "Build 8 intermittent-connectivity source is exact, bounded and non-closing",
     sha(build8_intermittent_promotion_path)
-        == "2EFA140B00BBC1D0FD6901026A4781FC2862C3C8C1DB9C19BB5EADE23520DB23"
+        == "D840BA1D4BB290C21F002D70333D77DB35E641CA007EA0D2B7190877498EAA14"
     and sha(build8_intermittent_harness_path)
-        == "DDFD77FF2172622AB727B77D61840FD386C8F11993D589338F6912347E440BA9"
+        == "EFC2DBF0232804C6C3E5754BD2D38AA22E5770E2410EAA2322866F171648880A"
     and sha(build8_intermittent_doc_path)
-        == "0636958ABE378C20CE16B99C82A913CFD574D68CD11AE5E4163F55F85F01BE22"
+        == "5C25B3B1226EFD17B7AAEC7041D39D4E4872EF4CD5B43B5DAEA132B8592F4B98"
     and build8_intermittent_promotion.get("approved") is True
     and build8_intermittent_promotion.get("approvalClass")
         == "CONTROLLED_EXACT_TARGET_BUILD8_INTERMITTENT_CONNECTIVITY"
@@ -4069,7 +4069,37 @@ check(
     and build8_intermittent_promotion.get("intermittentProfile", {}).get(
         "maximumProfileSeconds"
     )
-        == 180
+        == 300
+    and build8_intermittent_promotion.get(
+        "durationBoundControlledStopAmendment", {}
+    ).get("priorPromotionSha256")
+        == "2EFA140B00BBC1D0FD6901026A4781FC2862C3C8C1DB9C19BB5EADE23520DB23"
+    and build8_intermittent_promotion.get(
+        "durationBoundControlledStopAmendment", {}
+    ).get("externalFailureReceipt", {}).get("sha256")
+        == "C2104E26DA8C827DC4743CCCF5586F036B26FAB79041F00AFE31B0F6DA9F0435"
+    and build8_intermittent_promotion.get(
+        "durationBoundControlledStopAmendment", {}
+    ).get("externalFailureReceipt", {}).get("bytes")
+        == 820
+    and build8_intermittent_promotion.get(
+        "durationBoundControlledStopAmendment", {}
+    ).get("observedResult", {}).get("completedCycles")
+        == 3
+    and build8_intermittent_promotion.get(
+        "durationBoundControlledStopAmendment", {}
+    ).get("observedResult", {}).get("profileDurationSeconds")
+        == 233.35
+    and build8_intermittent_promotion.get(
+        "durationBoundControlledStopAmendment", {}
+    ).get("observedResult", {}).get("exactTransportStateRestored")
+        is True
+    and all(
+        value is False
+        for value in build8_intermittent_promotion.get(
+            "durationBoundControlledStopAmendment", {}
+        ).get("authorityExpansion", {}).values()
+    )
     and build8_intermittent_promotion.get("intermittentProfile", {}).get(
         "restoreAndReadBackAfterEveryCycle"
     )
@@ -4112,6 +4142,8 @@ check(
             "Post-merge release-gate must contain exactly five successful jobs.",
             "Android emulator app-shell integration (not physical-device evidence)",
             "External offline receipt SHA-256",
+            "External controlled-stop receipt SHA-256",
+            "Controlled-stop observed profile duration",
             "PASS_BUILD8_F4_INTERMITTENT_CONNECTIVITY_PREFLIGHT_READ_ONLY",
             "FALSE_SUCCESS_WHILE_ALL_TRANSPORTS_DISABLED",
             "TRANSPORT_RESTORATION_FAILED",
@@ -4121,6 +4153,8 @@ check(
             "stage2dF4Status = 'OPEN'",
             "stage2dF4ClosureAuthorized = $false",
             "bandwidthThrottleClaimAuthorized = $false",
+            "priorFailureReceiptSha256 = Get-Sha256 $priorFailureReceiptFile",
+            "cycleDurationSeconds = $cycleDurationSeconds",
             "rawUiRetained = $false",
         ]
     )
@@ -4139,6 +4173,9 @@ check(
     and "Status: SOURCE AUTHORIZED; PHYSICAL EXECUTION PENDING"
         in build8_intermittent_doc
     and "does not claim low bandwidth" in build8_intermittent_doc
+    and "233.35-second profile exceeded" in build8_intermittent_doc
+    and "raises only the total ceiling to 300 seconds"
+        in build8_intermittent_doc
     and "Revocation and wrong-role evidence remain separate"
         in build8_intermittent_doc
     and len(build8_f4_gate_records) == 1

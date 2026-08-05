@@ -13,6 +13,46 @@
     "humanApprovalReference": "CODEX_TASK_REMAINING_GATES_CONNECTED_PHONE_20260805",
     "requestBasis": "The repository owner directed continued work against remaining gates, stated that the bound phone is connected, and asked Codex to inspect and use it in the best sequence. This phase temporarily changes only Wi-Fi and mobile-data enablement, requires exact restoration after every cycle, and preserves the installed app, session, local data and production authority."
   },
+  "durationBoundControlledStopAmendment": {
+    "createdAtUtc": "2026-08-05T17:08:00.0000000Z",
+    "priorPromotionSha256": "2EFA140B00BBC1D0FD6901026A4781FC2862C3C8C1DB9C19BB5EADE23520DB23",
+    "priorHarnessSha256": "DDFD77FF2172622AB727B77D61840FD386C8F11993D589338F6912347E440BA9",
+    "executionSourceMergeCommit": "e91dedde967fbe79d3f80d3375b299d79d5d8c77",
+    "executionSourceTree": "fee548cadebba4d31a180591f3acfb7f79b604ad",
+    "postMergeRunId": 31026883699,
+    "externalFailureReceipt": {
+      "fileName": "build8-f4-intermittent-connectivity-failure-receipt.json",
+      "sha256": "C2104E26DA8C827DC4743CCCF5586F036B26FAB79041F00AFE31B0F6DA9F0435",
+      "bytes": 820,
+      "evidenceType": "build-8-f4-intermittent-connectivity-failure",
+      "failureClass": "INTERMITTENT_PROFILE_DURATION_EXCEEDED",
+      "decision": "FAIL_BUILD8_INTERMITTENT_CONNECTIVITY_REQUIRES_ADJUDICATION"
+    },
+    "observedResult": {
+      "completedCycles": 3,
+      "profileDurationSeconds": 233.35,
+      "priorMaximumProfileSeconds": 180,
+      "exactTransportStateRestored": true,
+      "restoredWifiOn": 1,
+      "restoredMobileDataOn": 0,
+      "restoredAirplaneModeOn": 0,
+      "temporaryArtifactCountAfterExecution": 0,
+      "failedReceiptMayNotBeRelabelledPass": true
+    },
+    "reason": "The 180-second total ceiling was internally inconsistent with three cycles that each permitted up to 120 seconds for a new recovery sync. The target completed all three cycles and restored exact transport in 233.35 seconds, so the stop demonstrates a method-bound defect rather than an unsafe transport or sync outcome.",
+    "scopeChange": "Raise only the total intermittent-profile ceiling from 180 to 300 seconds, record each cycle duration, include privacy-minimized cycle summaries in any duration failure, and require the exact prior failure receipt during preflight and retry.",
+    "retryAuthority": "One retry after owner-reviewed merge, one exact successful five-job post-merge release-gate run, read-only preflight, and unchanged artifact, receipt, target, session and zero-pending-work checks.",
+    "authorityExpansion": {
+      "revocation": false,
+      "wrongRole": false,
+      "businessWrites": false,
+      "backendDeployment": false,
+      "applicationInstallOrClear": false,
+      "pilotHandout": false,
+      "distribution": false,
+      "stage2dF4Closure": false
+    }
+  },
   "offlineAuthority": {
     "adjudicationPath": "release/evidence/build-8-f4-offline-reconnect-adjudication.json",
     "adjudicationSha256": "95A5B0C0524B98104E47A69EDA1EFC7D827D9A5E8125042F83C20A742D7A0394",
@@ -121,7 +161,7 @@
     "minimumRestoredHoldSecondsPerCycle": 10,
     "existingSuccessObservationSecondsPerCycle": 8,
     "newSyncTimeoutSecondsPerCycle": 120,
-    "maximumProfileSeconds": 180,
+    "maximumProfileSeconds": 300,
     "recordActualDisabledDurations": true,
     "restoreAndReadBackAfterEveryCycle": true,
     "falseDisconnectedSuccessFailsClosed": true

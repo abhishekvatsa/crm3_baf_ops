@@ -50,9 +50,34 @@ void main() {
     expect(profile['minimumDisconnectedHoldSecondsPerCycle'], 5);
     expect(profile['disconnectedSyncObservationTimeoutSecondsPerCycle'], 8);
     expect(profile['minimumRestoredHoldSecondsPerCycle'], 10);
-    expect(profile['maximumProfileSeconds'], 180);
+    expect(profile['maximumProfileSeconds'], 300);
     expect(profile['restoreAndReadBackAfterEveryCycle'], isTrue);
     expect(profile['falseDisconnectedSuccessFailsClosed'], isTrue);
+
+    final amendment = _object(
+      promotion['durationBoundControlledStopAmendment'],
+    );
+    expect(
+      amendment['priorPromotionSha256'],
+      '2EFA140B00BBC1D0FD6901026A4781FC2862C3C8C1DB9C19BB5EADE23520DB23',
+    );
+    final failure = _object(amendment['externalFailureReceipt']);
+    expect(
+      failure['sha256'],
+      'C2104E26DA8C827DC4743CCCF5586F036B26FAB79041F00AFE31B0F6DA9F0435',
+    );
+    expect(failure['bytes'], 820);
+    expect(failure['failureClass'], 'INTERMITTENT_PROFILE_DURATION_EXCEEDED');
+    final observed = _object(amendment['observedResult']);
+    expect(observed['completedCycles'], 3);
+    expect(observed['profileDurationSeconds'], 233.35);
+    expect(observed['priorMaximumProfileSeconds'], 180);
+    expect(observed['exactTransportStateRestored'], isTrue);
+    expect(observed['temporaryArtifactCountAfterExecution'], 0);
+    expect(
+      _object(amendment['authorityExpansion']).values,
+      everyElement(isFalse),
+    );
 
     final mutations = _object(promotion['authorizedMutations']);
     expect(mutations['preflightOnly'], 'READ_ONLY_NO_TRANSPORT_MUTATION');
@@ -90,11 +115,14 @@ void main() {
 
     for (final required in <String>[
       'PriorOfflineReceiptPath must be outside the repository.',
+      'PriorFailureReceiptPath must be outside the repository.',
       'Intermittent connectivity requires exact tracked-clean main equal to origin/main.',
       'Post-merge release-gate must contain exactly five successful jobs.',
       'Android emulator app-shell integration (not physical-device evidence)',
       'External offline receipt SHA-256',
       'External offline transport restoration',
+      'External controlled-stop receipt SHA-256',
+      'Controlled-stop observed profile duration',
       'Installed APK SHA-256',
       'PASS_BUILD8_F4_INTERMITTENT_CONNECTIVITY_PREFLIGHT_READ_ONLY',
       'Pre-intermittent pending local business writes',
@@ -112,6 +140,8 @@ void main() {
       'bandwidthThrottleClaimAuthorized = \$false',
       'rawUiRetained = \$false',
       'businessPayloadRetained = \$false',
+      'priorFailureReceiptSha256 = Get-Sha256 \$priorFailureReceiptFile',
+      'cycleDurationSeconds = \$cycleDurationSeconds',
       '[IO.FileMode]::CreateNew',
     ]) {
       expect(script, contains(required), reason: required);
@@ -172,6 +202,8 @@ void main() {
       contains('Status: SOURCE AUTHORIZED; PHYSICAL EXECUTION PENDING'),
     );
     expect(doc, contains('does not claim low bandwidth'));
+    expect(doc, contains('233.35-second profile exceeded'));
+    expect(doc, contains('raises only the total ceiling to 300 seconds'));
     expect(doc, contains('Revocation and wrong-role evidence remain separate'));
   });
 }

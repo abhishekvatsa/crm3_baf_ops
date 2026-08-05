@@ -16,6 +16,9 @@ param(
   [string]$PriorOfflineReceiptPath,
 
   [Parameter(Mandatory = $true)]
+  [string]$PriorFailureReceiptPath,
+
+  [Parameter(Mandatory = $true)]
   [ValidateRange(1, [long]::MaxValue)]
   [long]$PostMergeRunId,
 
@@ -592,6 +595,18 @@ Assert-Equal $promotion.intermittentProfile.restoreAndReadBackAfterEveryCycle `
   $true 'Per-cycle restoration boundary'
 Assert-Equal $promotion.intermittentProfile.falseDisconnectedSuccessFailsClosed `
   $true 'Disconnected false-success boundary'
+Assert-Equal $promotion.intermittentProfile.maximumProfileSeconds 300 `
+  'Amended intermittent profile ceiling'
+Assert-Equal `
+  $promotion.durationBoundControlledStopAmendment.observedResult.completedCycles `
+  3 'Controlled-stop completed cycle count'
+Assert-Equal `
+  $promotion.durationBoundControlledStopAmendment.observedResult.exactTransportStateRestored `
+  $true 'Controlled-stop transport restoration'
+if (@($promotion.durationBoundControlledStopAmendment.authorityExpansion.PSObject.Properties |
+      Where-Object { $_.Value -ne $false }).Count -ne 0) {
+  throw 'The duration amendment must not expand runtime or programme authority.'
+}
 
 $null = Invoke-ExternalText -FilePath 'git' -WorkingDirectory $root -Arguments @(
   'fetch', '--quiet', 'origin', 'main', '--tags'
@@ -720,6 +735,39 @@ Assert-Equal `
   $priorOfflineReceipt.programmeBoundary.stage2dF4ClosureAuthorized `
   $false `
   'External offline closure boundary'
+
+$priorFailureReceiptFile = (Resolve-Path -LiteralPath $PriorFailureReceiptPath).Path
+if ($priorFailureReceiptFile.Equals(
+      $root, [StringComparison]::OrdinalIgnoreCase
+    ) -or $priorFailureReceiptFile.StartsWith(
+      $rootPrefix, [StringComparison]::OrdinalIgnoreCase
+    )) {
+  throw 'PriorFailureReceiptPath must be outside the repository.'
+}
+$failureAuthority =
+  $promotion.durationBoundControlledStopAmendment.externalFailureReceipt
+Assert-Equal (Get-Sha256 $priorFailureReceiptFile) `
+  $failureAuthority.sha256 'External controlled-stop receipt SHA-256'
+Assert-Equal (Get-Item -LiteralPath $priorFailureReceiptFile).Length `
+  $failureAuthority.bytes 'External controlled-stop receipt bytes'
+$priorFailureReceipt = Get-Content -LiteralPath $priorFailureReceiptFile -Raw |
+  ConvertFrom-Json
+Assert-Equal $priorFailureReceipt.evidenceType `
+  $failureAuthority.evidenceType 'Controlled-stop evidence type'
+Assert-Equal $priorFailureReceipt.failureClass `
+  $failureAuthority.failureClass 'Controlled-stop failure class'
+Assert-Equal $priorFailureReceipt.decision `
+  $failureAuthority.decision 'Controlled-stop decision'
+Assert-Equal $priorFailureReceipt.completedCycles 3 `
+  'Controlled-stop completed cycles'
+Assert-Equal $priorFailureReceipt.profileDurationSeconds 233.35 `
+  'Controlled-stop observed profile duration'
+Assert-Equal $priorFailureReceipt.maximumProfileSeconds 180 `
+  'Controlled-stop prior profile ceiling'
+Assert-Equal $priorFailureReceipt.exactTransportStateRestored $true `
+  'Controlled-stop exact transport restoration'
+Assert-Equal $priorFailureReceipt.failedPhaseMayNotBeRelabelledPass $true `
+  'Controlled-stop relabelling boundary'
 
 $backendFile = (Resolve-Path -LiteralPath (
   Join-Path $root $promotion.backendAuthority.evidencePath
@@ -928,6 +976,7 @@ $cycleResults = [Collections.Generic.List[object]]::new()
       postMergeRunId = $PostMergeRunId
       promotionSha256 = Get-Sha256 $promotionFile
       offlineReceiptSha256 = Get-Sha256 $priorOfflineReceiptFile
+      priorFailureReceiptSha256 = Get-Sha256 $priorFailureReceiptFile
       governedPackageSha256 = Get-Sha256 $packageFile
       installedApkSha256 = $promotion.artifactAuthority.apk.sha256
       approvedHomeReached = $true
@@ -959,6 +1008,7 @@ $cycleResults = [Collections.Generic.List[object]]::new()
     $transportDisabledAt = $null
     $transportRestoreStartedAt = $null
     $transportDisabledDurationSeconds = 0.0
+    $cycleStartedAt = [DateTimeOffset]::UtcNow
 
   try {
     $null = Set-TransportState `
@@ -1041,6 +1091,7 @@ $cycleResults = [Collections.Generic.List[object]]::new()
       capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
       promotionSha256 = Get-Sha256 $promotionFile
       offlineReceiptSha256 = Get-Sha256 $priorOfflineReceiptFile
+      priorFailureReceiptSha256 = Get-Sha256 $priorFailureReceiptFile
       installedApkSha256 = $promotion.artifactAuthority.apk.sha256
       failedCycle = $cycleNumber
       failureClass = if ($null -ne $restorationError) {
@@ -1107,6 +1158,7 @@ $cycleResults = [Collections.Generic.List[object]]::new()
         capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
         promotionSha256 = Get-Sha256 $promotionFile
         offlineReceiptSha256 = Get-Sha256 $priorOfflineReceiptFile
+        priorFailureReceiptSha256 = Get-Sha256 $priorFailureReceiptFile
         installedApkSha256 = $promotion.artifactAuthority.apk.sha256
         failedCycle = $cycleNumber
         failureClass = 'POST_RECONNECT_VALIDATION_FAILED'
@@ -1134,8 +1186,13 @@ $cycleResults = [Collections.Generic.List[object]]::new()
     throw 'Intermittent connectivity stopped: POST_RECONNECT_VALIDATION_FAILED'
   }
 
+    $cycleDurationSeconds = [math]::Round(
+      ([DateTimeOffset]::UtcNow - $cycleStartedAt).TotalSeconds,
+      3
+    )
     $cycleResults.Add([ordered]@{
       cycle = $cycleNumber
+      cycleDurationSeconds = $cycleDurationSeconds
       allTransportsDisabled = $true
       disconnectedHoldMinimumSeconds =
         $promotion.intermittentProfile.minimumDisconnectedHoldSecondsPerCycle
@@ -1173,13 +1230,18 @@ $cycleResults = [Collections.Generic.List[object]]::new()
       capturedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
       promotionSha256 = Get-Sha256 $promotionFile
       offlineReceiptSha256 = Get-Sha256 $priorOfflineReceiptFile
+      priorFailureReceiptSha256 = Get-Sha256 $priorFailureReceiptFile
       installedApkSha256 = $promotion.artifactAuthority.apk.sha256
       failureClass = 'INTERMITTENT_PROFILE_DURATION_EXCEEDED'
       completedCycles = $cycleResults.Count
+      cycles = @($cycleResults)
       profileDurationSeconds = $profileDurationSeconds
       maximumProfileSeconds =
         $promotion.intermittentProfile.maximumProfileSeconds
       exactTransportStateRestored = $transportRestored
+      everyCycleRestoredExactly = @($cycleResults | Where-Object {
+        -not $_.exactTransportStateRestored
+      }).Count -eq 0
       rawUiRetained = $false
       rawNetworkIdentifiersRetained = $false
       failedPhaseMayNotBeRelabelledPass = $true
@@ -1205,6 +1267,16 @@ $cycleResults = [Collections.Generic.List[object]]::new()
       adjudicationSha256 = Get-Sha256 $offlineAdjudicationFile
       externalReceiptSha256 = Get-Sha256 $priorOfflineReceiptFile
       decision = $priorOfflineReceipt.decision
+    }
+    controlledStop = [ordered]@{
+      externalFailureReceiptSha256 = Get-Sha256 $priorFailureReceiptFile
+      failureClass = $priorFailureReceipt.failureClass
+      completedCycles = $priorFailureReceipt.completedCycles
+      observedProfileDurationSeconds =
+        $priorFailureReceipt.profileDurationSeconds
+      exactTransportStateRestored =
+        $priorFailureReceipt.exactTransportStateRestored
+      failedReceiptRelabelled = $false
     }
     backend = [ordered]@{
       evidenceSha256 = Get-Sha256 $backendFile
