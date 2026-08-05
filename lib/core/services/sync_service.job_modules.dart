@@ -289,6 +289,8 @@ extension _SyncServiceJobModules on SyncService {
     } catch (_) {
       currentUid = 'firebase-auth-unavailable';
     }
+    final localActionRead = local.actionsReadResult;
+    final remoteActionRead = remote?.actionsReadResult;
     final buffer =
         StringBuffer()
           ..writeln('  currentAuthUid: $currentUid')
@@ -340,12 +342,17 @@ extension _SyncServiceJobModules on SyncService {
           )
           ..writeln(
             '  local response/action counts: '
-            '${local.responses.length}/${local.actions.length}',
+            '${local.responses.length}/'
+            '${localActionRead.isValid ? localActionRead.entries.length : 'invalid'}',
           )
           ..writeln(
             '  remote response/action counts: '
             '${remote?.responses.length.toString() ?? 'missing'}/'
-            '${remote?.actions.length.toString() ?? 'missing'}',
+            '${remoteActionRead == null
+                ? 'missing'
+                : remoteActionRead.isValid
+                ? remoteActionRead.entries.length
+                : 'invalid'}',
           )
           ..writeln(
             '  payload comparison: ${_jobModulePayloadDiff(local, remote)}',

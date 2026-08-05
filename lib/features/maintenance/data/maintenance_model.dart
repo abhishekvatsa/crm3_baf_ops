@@ -74,47 +74,49 @@ class ResolutionHistory {
   factory ResolutionHistory.fromMap(
     Map<String, dynamic> map, {
     String? source,
-  }) => ResolutionHistory(
-    resolvedByUid: readOptionalPersistedString(
-      map['resolvedByUid'],
-      field: 'resolvedByUid',
+  }) {
+    final actionsJson = ComponentAction.readEncodedPayload(
+      map['actionsJson'],
+      field: 'actionsJson',
       source: source,
-    ),
-    resolvedByName: readOptionalPersistedString(
-      map['resolvedByName'],
-      field: 'resolvedByName',
-      source: source,
-    ),
-    resolvedAt: readRequiredPersistedDateTime(
-      map['resolvedAt'],
-      field: 'resolvedAt',
-      source: source,
-    ),
-    actionsJson:
-        readOptionalPersistedString(
-          map['actionsJson'],
-          field: 'actionsJson',
-          source: source,
-          emptyAsNull: false,
-        ) ??
-        '[]',
-    remarks: readOptionalPersistedString(
-      map['remarks'],
-      field: 'remarks',
-      source: source,
-      emptyAsNull: false,
-    ),
-    downtimeHours: readOptionalPersistedDouble(
-      map['downtimeHours'],
-      field: 'downtimeHours',
-      source: source,
-    ),
-    teamsInvolved: readOptionalPersistedStringList(
-      map['teamsInvolved'],
-      field: 'teamsInvolved',
-      source: source,
-    ),
-  );
+    );
+    ComponentAction.decode(actionsJson, source: source);
+
+    return ResolutionHistory(
+      resolvedByUid: readOptionalPersistedString(
+        map['resolvedByUid'],
+        field: 'resolvedByUid',
+        source: source,
+      ),
+      resolvedByName: readOptionalPersistedString(
+        map['resolvedByName'],
+        field: 'resolvedByName',
+        source: source,
+      ),
+      resolvedAt: readRequiredPersistedDateTime(
+        map['resolvedAt'],
+        field: 'resolvedAt',
+        source: source,
+      ),
+      actionsJson: actionsJson,
+      remarks: readOptionalPersistedString(
+        map['remarks'],
+        field: 'remarks',
+        source: source,
+        emptyAsNull: false,
+      ),
+      downtimeHours: readOptionalPersistedDouble(
+        map['downtimeHours'],
+        field: 'downtimeHours',
+        source: source,
+      ),
+      teamsInvolved: readOptionalPersistedStringList(
+        map['teamsInvolved'],
+        field: 'teamsInvolved',
+        source: source,
+      ),
+    );
+  }
 }
 
 class ResolutionHistoryReadResult {
@@ -159,6 +161,22 @@ ValidatedResolutionHistoryPayload readValidatedResolutionHistoryPayload(
       ),
   ];
   return ValidatedResolutionHistoryPayload(rows: rows, entries: entries);
+}
+
+String readEncodedResolutionHistoryPayload(
+  dynamic value, {
+  String? source,
+}) {
+  if (value == null) return '[]';
+  if (value is! String) {
+    throw PersistedDataFormatException(
+      field: 'resolutionHistoryJson',
+      source: source,
+      detail: 'expected a JSON string (${value.runtimeType})',
+    );
+  }
+  readValidatedResolutionHistoryPayload(value, source: source);
+  return value;
 }
 
 List<ResolutionHistory> decodeResolutionHistoryJson(
@@ -302,7 +320,22 @@ class MaintenanceRecord {
   String actionsJson = '[]';
 
   @ignore
-  List<ComponentAction> get actions => ComponentAction.decode(actionsJson);
+  List<ComponentAction> get actions => ComponentAction.decode(
+    actionsJson,
+    source:
+        firestoreId == null
+            ? 'local maintenance $id'
+            : 'maintenance $firestoreId',
+  );
+
+  @ignore
+  ComponentActionReadResult get actionsReadResult => ComponentAction.tryDecode(
+    actionsJson,
+    source:
+        firestoreId == null
+            ? 'local maintenance $id'
+            : 'maintenance $firestoreId',
+  );
 
   set actions(List<ComponentAction> value) {
     actionsJson = ComponentAction.encode(value);

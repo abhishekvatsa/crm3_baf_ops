@@ -35,6 +35,7 @@ String? readOptionalPersistedString(
   required String field,
   String? source,
   bool emptyAsNull = true,
+  bool trim = true,
 }) {
   if (value == null) return null;
   if (value is! String) {
@@ -45,7 +46,38 @@ String? readOptionalPersistedString(
     );
   }
   final cleaned = value.trim();
-  return emptyAsNull && cleaned.isEmpty ? null : cleaned;
+  if (emptyAsNull && cleaned.isEmpty) return null;
+  return trim ? cleaned : value;
+}
+
+bool readRequiredPersistedBool(
+  dynamic value, {
+  required String field,
+  String? source,
+}) {
+  if (value is bool) return value;
+  throw PersistedDataFormatException(
+    field: field,
+    source: source,
+    detail: 'required boolean (${value.runtimeType})',
+  );
+}
+
+int readRequiredPersistedInt(
+  dynamic value, {
+  required String field,
+  String? source,
+  int? minimum,
+}) {
+  if (value is int && (minimum == null || value >= minimum)) return value;
+  throw PersistedDataFormatException(
+    field: field,
+    source: source,
+    detail:
+        minimum == null
+            ? 'required integer (${value.runtimeType})'
+            : 'required integer >= $minimum (${value.runtimeType})',
+  );
 }
 
 double? readOptionalPersistedDouble(
@@ -88,6 +120,15 @@ List<String> readOptionalPersistedStringList(
     result.add(entry.trim());
   }
   return result;
+}
+
+List<String>? readNullablePersistedStringList(
+  dynamic value, {
+  required String field,
+  String? source,
+}) {
+  if (value == null) return null;
+  return readOptionalPersistedStringList(value, field: field, source: source);
 }
 
 T readRequiredPersistedEnum<T extends Enum>(
@@ -141,6 +182,21 @@ DateTime readRequiredPersistedDateTime(
     field: field,
     source: source,
     detail: 'required timestamp (${value.runtimeType})',
+  );
+}
+
+DateTime? readOptionalPersistedDateTime(
+  dynamic value, {
+  required String field,
+  String? source,
+  bool allowEpochMilliseconds = false,
+}) {
+  if (value == null) return null;
+  return readRequiredPersistedDateTime(
+    value,
+    field: field,
+    source: source,
+    allowEpochMilliseconds: allowEpochMilliseconds,
   );
 }
 

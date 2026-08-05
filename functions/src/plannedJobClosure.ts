@@ -1,4 +1,8 @@
 import {createHash} from "crypto";
+import {
+  PersistedActionPayloadError,
+  readComponentActionPayload,
+} from "./persistedActionPayload";
 import {canonicalUserHasAnyRole} from "./userAuthority";
 
 export type HttpsErrorCode =
@@ -385,6 +389,27 @@ function issueCountsByType(issues: JsonMap[]): JsonMap {
 }
 
 export function assertClosureReady(modules: JsonMap[]): JsonMap {
+  for (const moduleData of modules.filter((module) => module.isDeleted !== true)) {
+    try {
+      readComponentActionPayload(moduleData.actionsJson, {
+        field: "actionsJson",
+        allowMissing: true,
+      });
+    } catch (error) {
+      if (error instanceof PersistedActionPayloadError) {
+        throw new ClosureValidationError(
+          "failed-precondition",
+          "Saved module action evidence needs repair before closure.",
+          {
+            reasonCode: "module-action-payload-invalid",
+            moduleFirestoreId: cleanOptionalText(moduleData.firestoreId),
+            field: error.field,
+          },
+        );
+      }
+      throw error;
+    }
+  }
   const issues = collectClosureIssues(modules);
   if (issues.length > 0) {
     throw new ClosureValidationError(
@@ -650,6 +675,60 @@ function asDocumentSnapshot(value: DocumentSnapshotLike | QuerySnapshotLike): Do
 
 export type AuditTimestampFactory = (date: Date) => unknown;
 
+function requestedActionsJson(data: JsonMap): string | null {
+  let raw: unknown = null;
+  if (data.actionsJson != null) {
+    raw = data.actionsJson;
+  } else if (data.actions != null) {
+    if (!Array.isArray(data.actions)) {
+      throw new ClosureValidationError(
+        "invalid-argument",
+        "actions must be an array when provided.",
+      );
+    }
+    raw = JSON.stringify(data.actions);
+  }
+  if (raw == null) return null;
+
+  try {
+    return readComponentActionPayload(raw, {field: "actionsJson"}).text;
+  } catch (error) {
+    if (error instanceof PersistedActionPayloadError) {
+      throw new ClosureValidationError(
+        "invalid-argument",
+        "actionsJson contains invalid component-action evidence.",
+        {reasonCode: "action-payload-invalid", field: error.field},
+      );
+    }
+    throw error;
+  }
+}
+
+function assertExecutionActionsValid(
+  value: unknown,
+  executionId: string,
+): void {
+  try {
+    readComponentActionPayload(value, {
+      field: "actionsJson",
+      allowMissing: true,
+    });
+  } catch (error) {
+    if (error instanceof PersistedActionPayloadError) {
+      throw new ClosureValidationError(
+        "failed-precondition",
+        "Saved planned-job action evidence needs repair before closure.",
+        {
+          reasonCode: "execution-action-payload-invalid",
+          executionId,
+          field: error.field,
+        },
+      );
+    }
+    throw error;
+  }
+}
+
 export async function completePlannedJobWithDb(params: {
   db: FirestoreLike;
   authUid: string | null;
@@ -686,7 +765,7 @@ export async function completePlannedJobWithDb(params: {
   const remarks = cleanOptionalText(data.remarks);
   const teamsInvolved = cleanStringList(data.teamsInvolved);
   const responsesJson = cleanOptionalText(data.responsesJson) ?? (data.responses == null ? null : JSON.stringify(parseJsonArray(data.responses)));
-  const actionsJson = cleanOptionalText(data.actionsJson) ?? (data.actions == null ? null : JSON.stringify(parseJsonArray(data.actions)));
+  const actionsJson = requestedActionsJson(data);
   const expectedCompletionVersion = parseExpectedCompletionVersion(
     data.expectedCompletionVersion,
   );
@@ -721,6 +800,7 @@ export async function completePlannedJobWithDb(params: {
     }
 
     const beforeData = executionSnap.data() ?? {};
+    assertExecutionActionsValid(beforeData.actionsJson, executionId);
     if (beforeData.isDeleted === true) {
       throw new ClosureValidationError(
         "failed-precondition",

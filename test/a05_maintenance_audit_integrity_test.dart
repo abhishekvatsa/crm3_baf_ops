@@ -9,6 +9,7 @@ import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/presentation/resolve_form.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -88,6 +89,22 @@ void main() {
     });
 
     test('malformed or incomplete resolution history fails closed', () {
+      expect(readEncodedResolutionHistoryPayload(null), '[]');
+      for (final wrongType in <dynamic>[
+        <dynamic>[],
+        <String, dynamic>{},
+        3,
+        true,
+      ]) {
+        expect(
+          () => readEncodedResolutionHistoryPayload(
+            wrongType,
+            source: 'maintenance/ticket-2',
+          ),
+          throwsA(isA<PersistedDataFormatException>()),
+          reason: wrongType.runtimeType.toString(),
+        );
+      }
       for (final raw in <String>[
         '{not-json',
         '{}',
@@ -168,6 +185,90 @@ void main() {
       });
 
       source.endDate = null;
+      expect(
+        () => copyTicketForAdminEdit(
+          source: source,
+          assetType: source.assetType,
+          assetNumber: source.assetNumber,
+          description: source.description,
+          routedTo: source.routedTo,
+          maintenanceType: source.maintenanceType,
+          status: TicketStatus.open,
+          component: source.component,
+          tag: source.tag,
+          remarks: source.remarks,
+          editedByUid: 'admin-user',
+          editedByName: 'Admin User',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    });
+
+    test('admin edits preserve open actions and reject malformed evidence', () {
+      final now = DateTime.utc(2026, 8, 5, 7, 30);
+      final source =
+          MaintenanceRecord()
+            ..firestoreId = 'ticket-admin-open'
+            ..assetType = AssetType.base
+            ..assetNumber = 3
+              ..maintenanceType = MaintenanceType.inspection
+            ..description = 'Inspection in progress'
+            ..routedTo = RoutedTo.operations
+            ..status = TicketStatus.open
+            ..isResolved = false
+            ..startDate = now.subtract(const Duration(hours: 1))
+            ..createdAt = now.subtract(const Duration(days: 1))
+            ..updatedAt = now
+            ..actions = <ComponentAction>[
+              ComponentAction(
+                asset: 'Base 3',
+                component: 'Cooling pump',
+                actionType: ActionType.inspection,
+                issue: 'Temperature trend under review',
+                createdAt: now,
+              ),
+            ];
+
+      final edited = copyTicketForAdminEdit(
+        source: source,
+        assetType: source.assetType,
+        assetNumber: source.assetNumber,
+        description: source.description,
+        routedTo: source.routedTo,
+        maintenanceType: source.maintenanceType,
+        status: TicketStatus.open,
+        component: source.component,
+        tag: source.tag,
+        remarks: 'Continue observation',
+        editedByUid: 'admin-user',
+        editedByName: 'Admin User',
+      );
+
+      expect(edited.actionsJson, source.actionsJson);
+      expect(edited.actions, hasLength(1));
+      expect(edited.actions.single.component, 'Cooling pump');
+
+      source.actionsJson = '[{"asset":"Base 3"}]';
+      expect(
+        () => copyTicketForAdminEdit(
+          source: source,
+          assetType: source.assetType,
+          assetNumber: source.assetNumber,
+          description: source.description,
+          routedTo: source.routedTo,
+          maintenanceType: source.maintenanceType,
+          status: TicketStatus.open,
+          component: source.component,
+          tag: source.tag,
+          remarks: source.remarks,
+          editedByUid: 'admin-user',
+          editedByName: 'Admin User',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+
+      source.actionsJson = '[]';
+      source.resolutionHistoryJson = '{not-json';
       expect(
         () => copyTicketForAdminEdit(
           source: source,
@@ -315,6 +416,22 @@ void main() {
           File(
             'lib/features/maintenance/presentation/resolve_form.dart',
           ).readAsStringSync();
+      final adminHelpers =
+          File(
+            'lib/features/admin/utils/admin_ticket_helpers.dart',
+          ).readAsStringSync();
+      final adminBrowser =
+          File(
+            'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
+          ).readAsStringSync();
+      final liveRemoteSync =
+          File(
+            'lib/core/services/live_remote_sync_service.dart',
+          ).readAsStringSync();
+      final ticketSync =
+          File(
+            'lib/core/services/sync_service.tickets_templates.dart',
+          ).readAsStringSync();
 
       expect(maintenanceProvider, isNot(contains('catch (_) {}')));
       expect(
@@ -333,6 +450,66 @@ void main() {
       expect(
         resolveForm,
         contains('No history entries were discarded or replaced.'),
+      );
+      expect(
+        maintenanceProvider,
+        contains("'actionsJson': record.actionsJson,"),
+      );
+      expect(
+        maintenanceProvider,
+        contains("'resolutionHistoryJson': record.resolutionHistoryJson,"),
+      );
+      expect(
+        maintenanceProvider,
+        contains('_requireValidMaintenanceEvidence(_mapTicket(current));'),
+      );
+      expect(
+        adminHelpers,
+        contains(
+          'wasResolved && !willBeResolved ? \'[]\' : source.actionsJson',
+        ),
+      );
+      expect(
+        adminBrowser,
+        contains('Saved evidence needs repair before editing'),
+      );
+      expect(
+        liveRemoteSync,
+        isNot(contains("d['actionsJson']?.toString()")),
+      );
+      expect(
+        liveRemoteSync,
+        isNot(contains("d['resolutionHistoryJson']?.toString()")),
+      );
+      expect(liveRemoteSync, contains('ComponentAction.readEncodedPayload('));
+      expect(
+        liveRemoteSync,
+        contains('readEncodedResolutionHistoryPayload('),
+      );
+      final applyStart = liveRemoteSync.indexOf(
+        'Future<void> _applyMaintenanceDoc(',
+      );
+      final errorBoundary = liveRemoteSync.indexOf('try {', applyStart);
+      final mapCall = liveRemoteSync.indexOf(
+        'final remote = _mapTicket(doc, data);',
+        applyStart,
+      );
+      expect(applyStart, greaterThanOrEqualTo(0));
+      expect(errorBoundary, greaterThan(applyStart));
+      expect(mapCall, greaterThan(errorBoundary));
+      expect(
+        ticketSync,
+        contains('_maintenanceEvidenceIntegrityError(record)'),
+      );
+      expect(
+        ticketSync,
+        contains('Saved action evidence needs repair before synchronization.'),
+      );
+      expect(
+        ticketSync,
+        contains(
+          'Saved resolution history needs repair before synchronization.',
+        ),
       );
     });
   });

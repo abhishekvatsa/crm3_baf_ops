@@ -26,6 +26,26 @@ MaintenanceRecord copyTicketForAdminEdit({
   required String editedByUid,
   required String editedByName,
 }) {
+  if (!source.actionsReadResult.isValid) {
+    throw PersistedDataFormatException(
+      field: 'actionsJson',
+      source:
+          source.firestoreId == null
+              ? 'local maintenance ${source.id}'
+              : 'maintenance ${source.firestoreId}',
+      detail: 'saved action evidence needs repair',
+    );
+  }
+  if (!source.resolutionHistoryReadResult.isValid) {
+    throw PersistedDataFormatException(
+      field: 'resolutionHistoryJson',
+      source:
+          source.firestoreId == null
+              ? 'local maintenance ${source.id}'
+              : 'maintenance ${source.firestoreId}',
+      detail: 'saved resolution history needs repair',
+    );
+  }
   final now = DateTime.now();
   final wasResolved =
       source.isResolved || source.status == TicketStatus.resolved;
@@ -96,7 +116,8 @@ MaintenanceRecord copyTicketForAdminEdit({
         ..createdAt = source.createdAt
         ..updatedAt = now
         ..metadataJson = source.metadataJson
-        ..actionsJson = willBeResolved ? source.actionsJson : '[]'
+        ..actionsJson =
+            wasResolved && !willBeResolved ? '[]' : source.actionsJson
         ..resolutionHistoryJson = source.resolutionHistoryJson;
 
   if (wasResolved && !willBeResolved) {

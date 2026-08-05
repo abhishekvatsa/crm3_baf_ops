@@ -18,6 +18,7 @@ import '../../../core/providers/refresh_providers.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../../core/widgets/persisted_data_integrity_notice.dart';
 
 class ResolveForm extends ConsumerStatefulWidget {
   final MaintenanceRecord ticket;
@@ -39,6 +40,10 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
   @override
   void initState() {
     super.initState();
+    final actionRead = widget.ticket.actionsReadResult;
+    if (actionRead.isValid) {
+      _actions.addAll(actionRead.entries);
+    }
     final now = DateTime.now();
     if (widget.ticket.startDate.isAfter(now)) {
       _endTime = now;
@@ -128,6 +133,15 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
 
   Future<void> _submit() async {
     if (_isSubmitting) return;
+    if (!widget.ticket.actionsReadResult.isValid) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Cannot resolve: saved action evidence needs repair.'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
     if (!widget.ticket.resolutionHistoryReadResult.isValid) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         const SnackBar(
@@ -271,6 +285,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
     final actingAsName = appUser?.name;
     final fmt = DateFormat('dd MMM yyyy, HH:mm');
     final historyRead = widget.ticket.resolutionHistoryReadResult;
+    final actionRead = widget.ticket.actionsReadResult;
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -406,7 +421,13 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
               subtitle: 'Capture action details for traceability.',
               icon: Icons.handyman_rounded,
               children: [
-                if (_actions.isEmpty)
+                if (!actionRead.isValid)
+                  const PersistedDataIntegrityNotice(
+                    title: 'Saved action evidence needs repair',
+                    message:
+                        'No actions were discarded or replaced. Resolution is blocked until this saved payload is repaired.',
+                  )
+                else if (_actions.isEmpty)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(BafSpacing.md),
@@ -428,7 +449,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
                   ..._actions.map((action) => ActionMiniCard(action: action)),
                 const SizedBox(height: BafSpacing.md),
                 OutlinedButton.icon(
-                  onPressed: _addAction,
+                  onPressed: actionRead.isValid ? _addAction : null,
                   icon: const Icon(Icons.add_rounded),
                   label: const Text(
                     'Add repair / replacement / inspection action',

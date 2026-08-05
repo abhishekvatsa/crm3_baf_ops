@@ -790,6 +790,11 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
     if (local == null || local.isDeleted) {
       throw StateError('Planned job execution not found.');
     }
+    if (!local.actionsReadResult.isValid) {
+      throw StateError(
+        'Saved planned-job action evidence needs repair before this job can be completed.',
+      );
+    }
 
     final executionFirestoreId = local.firestoreId?.trim();
     if (executionFirestoreId == null || executionFirestoreId.isEmpty) {

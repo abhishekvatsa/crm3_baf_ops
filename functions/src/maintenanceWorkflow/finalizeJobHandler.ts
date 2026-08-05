@@ -1,4 +1,8 @@
 import {mayFinalizeJob} from "./authority";
+import {
+  PersistedActionPayloadError,
+  readComponentActionPayload,
+} from "../persistedActionPayload";
 import {buildCanonicalClosurePlan} from "./canonicalClosure";
 import {activeLanes, assertExpectedVersion, openBlockingCompliance, requireWorkflow} from "./documents";
 import {
@@ -33,6 +37,28 @@ const jsonArrayText = (value: unknown, field: string, fallback: string): string 
     return JSON.stringify(parsed);
   } catch {
     throw new WorkflowError("invalid-argument", `${field} must contain a valid JSON array.`);
+  }
+};
+
+const actionArrayText = (
+  value: unknown,
+  field: string,
+  code: "invalid-argument" | "failed-precondition",
+  allowMissing = false,
+): string => {
+  try {
+    return readComponentActionPayload(value, {field, allowMissing}).text;
+  } catch (error) {
+    if (error instanceof PersistedActionPayloadError) {
+      throw new WorkflowError(
+        code,
+        code === "invalid-argument"
+          ? "actionsJson contains invalid component-action evidence."
+          : "Saved planned-job action evidence needs repair before closure.",
+        {reasonCode: "action-payload-invalid", field: error.field},
+      );
+    }
+    throw error;
   }
 };
 
@@ -142,11 +168,19 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
     "responsesJson",
     typeof currentExecution.responsesJson === "string" ? currentExecution.responsesJson : "[]",
   );
-  const actionsJson = jsonArrayText(
-    command.payload.actionsJson,
-    "actionsJson",
-    typeof currentExecution.actionsJson === "string" ? currentExecution.actionsJson : "[]",
+  const currentActionsJson = actionArrayText(
+    currentExecution.actionsJson,
+    "execution.actionsJson",
+    "failed-precondition",
+    true,
   );
+  const actionsJson = command.payload.actionsJson == null
+    ? currentActionsJson
+    : actionArrayText(
+      command.payload.actionsJson,
+      "actionsJson",
+      "invalid-argument",
+    );
   const remarks = command.payload.remarks == null
     ? typeof currentExecution.remarks === "string" ? currentExecution.remarks : null
     : optionalText(command.payload.remarks);

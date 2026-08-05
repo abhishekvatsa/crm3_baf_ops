@@ -1,4 +1,8 @@
 import {WorkflowError} from "./errors";
+import {
+  PersistedActionPayloadError,
+  readComponentActionPayload,
+} from "../persistedActionPayload";
 import {DocSnapshot} from "./store";
 import {JsonMap} from "./types";
 import {iso} from "./utils";
@@ -193,25 +197,127 @@ export const maintenanceProjectionForAwaitingConfirmation = (args: {
   version: maintenanceVersion(args.maintenance) + 1,
 });
 
-const resolutionHistoryWithCurrentClosure = (maintenance: JsonMap): string => {
-  let history: unknown[] = [];
-  if (typeof maintenance.resolutionHistoryJson === "string" && maintenance.resolutionHistoryJson.length > 0) {
+const maintenanceHistoryError = (field: string): never => {
+  throw new WorkflowError(
+    "failed-precondition",
+    "Saved maintenance resolution history needs repair before workflow correction.",
+    {reasonCode: "maintenance-resolution-history-invalid", field},
+  );
+};
+
+const persistedInstant = (value: unknown, field: string): string => {
+  let date: Date | null = null;
+  if (value instanceof Date) {
+    date = value;
+  } else if (typeof value === "string" && value.trim().length > 0) {
+    date = new Date(value);
+  } else if (
+    value != null &&
+    typeof value === "object" &&
+    "toDate" in value &&
+    typeof (value as {toDate?: unknown}).toDate === "function"
+  ) {
     try {
-      const parsed = JSON.parse(maintenance.resolutionHistoryJson);
-      if (Array.isArray(parsed)) history = parsed;
+      const converted = (value as {toDate: () => unknown}).toDate();
+      if (converted instanceof Date) date = converted;
     } catch (_) {
-      history = [];
+      date = null;
     }
   }
+  if (date == null || Number.isNaN(date.getTime())) {
+    return maintenanceHistoryError(field);
+  }
+  return date.toISOString();
+};
+
+const optionalHistoryText = (value: unknown, field: string): void => {
+  if (value != null && typeof value !== "string") maintenanceHistoryError(field);
+};
+
+const historyTeams = (value: unknown, field: string): string[] => {
+  if (value == null) return [];
+  if (
+    !Array.isArray(value) ||
+    value.some((item) => typeof item !== "string" || item.trim().length === 0)
+  ) {
+    return maintenanceHistoryError(field);
+  }
+  return [...value] as string[];
+};
+
+const actionPayloadText = (
+  value: unknown,
+  field: string,
+  allowMissing = true,
+): string => {
+  try {
+    return readComponentActionPayload(value, {field, allowMissing}).text;
+  } catch (error) {
+    if (error instanceof PersistedActionPayloadError) {
+      return maintenanceHistoryError(error.field);
+    }
+    throw error;
+  }
+};
+
+const readResolutionHistory = (value: unknown): JsonMap[] => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return maintenanceHistoryError("resolutionHistoryJson");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch (_) {
+    return maintenanceHistoryError("resolutionHistoryJson");
+  }
+  if (!Array.isArray(parsed)) {
+    return maintenanceHistoryError("resolutionHistoryJson");
+  }
+
+  return parsed.map((value, index) => {
+    const field = `resolutionHistoryJson[${index}]`;
+    if (value == null || typeof value !== "object" || Array.isArray(value)) {
+      return maintenanceHistoryError(field);
+    }
+    const row = value as JsonMap;
+    persistedInstant(row.resolvedAt, `${field}.resolvedAt`);
+    optionalHistoryText(row.resolvedByUid, `${field}.resolvedByUid`);
+    optionalHistoryText(row.resolvedByName, `${field}.resolvedByName`);
+    optionalHistoryText(row.remarks, `${field}.remarks`);
+    if (
+      row.downtimeHours != null &&
+      (typeof row.downtimeHours !== "number" ||
+        !Number.isFinite(row.downtimeHours))
+    ) {
+      return maintenanceHistoryError(`${field}.downtimeHours`);
+    }
+    historyTeams(row.teamsInvolved, `${field}.teamsInvolved`);
+    actionPayloadText(row.actionsJson, `${field}.actionsJson`);
+    return row;
+  });
+};
+
+const resolutionHistoryWithCurrentClosure = (maintenance: JsonMap): string => {
+  const history = readResolutionHistory(maintenance.resolutionHistoryJson);
   if (maintenance.isResolved === true) {
+    if (
+      maintenance.downtimeHours != null &&
+      (typeof maintenance.downtimeHours !== "number" ||
+        !Number.isFinite(maintenance.downtimeHours))
+    ) {
+      return maintenanceHistoryError("downtimeHours");
+    }
+    optionalHistoryText(maintenance.closedByUid, "closedByUid");
+    optionalHistoryText(maintenance.closedByName, "closedByName");
+    optionalHistoryText(maintenance.remarks, "remarks");
     history.push({
       resolvedByUid: maintenance.closedByUid ?? null,
       resolvedByName: maintenance.closedByName ?? null,
-      resolvedAt: maintenance.endDate ?? null,
-      actionsJson: maintenance.actionsJson ?? "[]",
+      resolvedAt: persistedInstant(maintenance.endDate, "endDate"),
+      actionsJson: actionPayloadText(maintenance.actionsJson, "actionsJson"),
       remarks: maintenance.remarks ?? null,
       downtimeHours: maintenance.downtimeHours ?? null,
-      teamsInvolved: Array.isArray(maintenance.teamsInvolved) ? maintenance.teamsInvolved : [],
+      teamsInvolved: historyTeams(maintenance.teamsInvolved, "teamsInvolved"),
       reopenedByWorkflow: true,
     });
   }

@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 255
-    and counts.get("SUCCESSOR_MODIFIED") == 155
+    and counts.get("BYTE_IDENTICAL") == 251
+    and counts.get("SUCCESSOR_MODIFIED") == 159
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -6643,6 +6643,25 @@ a05_test = text("test/a05_maintenance_audit_integrity_test.dart")
 a05_decision = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_1.md"
 )
+a05_action_model = text(
+    "lib/features/planned_maintenance/models/component_action_model.dart"
+)
+a05_action_server = text("functions/src/persistedActionPayload.ts")
+a05_maintenance_bridge = text(
+    "functions/src/maintenanceWorkflow/maintenanceBridge.ts"
+)
+a05_planned_closure = text("functions/src/plannedJobClosure.ts")
+a05_runtime_population = text("functions/src/runtimeJobModulePopulation.ts")
+a05_live_sync = text("lib/core/services/live_remote_sync_service.dart")
+a05_ticket_sync = text("lib/core/services/sync_service.tickets_templates.dart")
+a05_admin_browser = text(
+    "lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart"
+)
+a05_action_test = text("test/a05_component_action_integrity_test.dart")
+a05_action_server_test = text("functions/test/persistedActionPayload.test.js")
+a05_decision_2 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_2.md"
+)
 a05_records = [
     record
     for record in programme_ledger.get("technicalFindings", [])
@@ -6657,6 +6676,15 @@ a05_reconciliation_corrections = {
     "test/runtime_module_population_no_loss_test.dart",
 }
 a05_source_delta_paths = {
+    "functions/src/plannedJobClosure.ts",
+    "functions/src/runtimeJobModulePopulation.ts",
+    "functions/test/plannedJobClosure.test.js",
+    "functions/test/runtimeJobModulePopulation.test.js",
+    "lib/core/services/live_remote_sync_service.dart",
+    "lib/core/services/sync_service.executions.dart",
+    "lib/core/services/sync_service.job_modules.dart",
+    "lib/core/services/sync_service.tickets_templates.dart",
+    "lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart",
     "lib/features/admin/utils/admin_ticket_helpers.dart",
     "lib/features/audit/models/audit_event_model.dart",
     "lib/features/audit/repositories/audit_repository.dart",
@@ -6664,6 +6692,17 @@ a05_source_delta_paths = {
     "lib/features/maintenance/data/maintenance_model.dart",
     "lib/features/maintenance/presentation/resolve_form.dart",
     "lib/features/maintenance/providers/maintenance_provider.dart",
+    "lib/features/planned_maintenance/data/job_module_model.dart",
+    "lib/features/planned_maintenance/data/job_template_model.dart",
+    "lib/features/planned_maintenance/models/component_action_model.dart",
+    "lib/features/planned_maintenance/presentation/complete_job_screen.dart",
+    "lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart",
+    "lib/features/planned_maintenance/presentation/dossier/planned_job_module_dossier.dart",
+    "lib/features/planned_maintenance/presentation/job_module_detail_screen.dart",
+    "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart",
+    "lib/features/planned_maintenance/presentation/widgets/job_module_card.dart",
+    "lib/features/planned_maintenance/providers/job_module_provider.dart",
+    "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",
 }
 check(
     "A-05 persisted-state tranche fails closed without claiming finding closure",
@@ -6696,8 +6735,30 @@ check(
     and "component-action timestamps and broad JSON decoding" in a05_decision
     and "governed legacy-data inventory" in a05_decision
     and "does not inspect or mutate production documents" in a05_decision
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 255
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 155
+    and "class ComponentActionReadResult" in a05_action_model
+    and "createdAt: readRequiredPersistedDateTime(" in a05_action_model
+    and "version: readRequiredPersistedInt(" in a05_action_model
+    and "return [];" not in a05_action_model
+    and "class PersistedActionPayloadError" in a05_action_server
+    and "readComponentActionPayload" in a05_action_server
+    and "action-payload-invalid" in a05_planned_closure
+    and "readComponentActionPayload" in a05_runtime_population
+    and "maintenance-resolution-history-invalid" in a05_maintenance_bridge
+    and "history = [];" not in a05_maintenance_bridge
+    and "ComponentAction.readEncodedPayload(" in a05_live_sync
+    and "readEncodedResolutionHistoryPayload(" in a05_live_sync
+    and "d['actionsJson']?.toString()" not in a05_live_sync
+    and "_maintenanceEvidenceIntegrityError(record)" in a05_ticket_sync
+    and "Saved evidence needs repair before editing" in a05_admin_browser
+    and "malformed or incomplete saved actions fail closed" in a05_action_test
+    and "only an entirely missing legacy payload may initialize empty"
+        in a05_action_server_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_2
+    and "`A-05` remains open" in a05_decision_2
+    and "governed legacy-data inventory and repair path" in a05_decision_2
+    and "inspect or mutate production documents" in a05_decision_2
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 251
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 159
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

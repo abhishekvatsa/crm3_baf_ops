@@ -1,5 +1,9 @@
 import {createHash} from "crypto";
 import {laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
+import {
+  PersistedActionPayloadError,
+  readComponentActionPayload,
+} from "./persistedActionPayload";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
 
 export type RuntimePopulationHttpsErrorCode =
@@ -1043,6 +1047,20 @@ function validateCreateShape(module: RuntimePopulationJsonMap): void {
   );
   assertJsonText(module.responsesJson, "module.responsesJson", "array");
   assertJsonText(module.actionsJson, "module.actionsJson", "array");
+  try {
+    readComponentActionPayload(module.actionsJson, {
+      field: "module.actionsJson",
+    });
+  } catch (error) {
+    if (error instanceof PersistedActionPayloadError) {
+      throw new RuntimePopulationValidationError(
+        "invalid-argument",
+        "module.actionsJson contains invalid component-action evidence.",
+        {reasonCode: "action-payload-invalid", field: error.field},
+      );
+    }
+    throw error;
+  }
   assertJsonText(module.metadataJson, "module.metadataJson", "object", true);
   assertJsonText(
     module.pairedEquipmentJson,

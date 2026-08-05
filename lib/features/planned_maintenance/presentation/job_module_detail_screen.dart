@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -102,7 +103,8 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     final actor = await _readActor();
     if (!mounted) return;
 
-    if (actor == null || !actor.canSaveJobModuleWorkFor(_module.discipline.name)) {
+    if (actor == null ||
+        !actor.canSaveJobModuleWorkFor(_module.discipline.name)) {
       _showSnack(
         'You are not authorized to save module responses.',
         isError: true,
@@ -152,7 +154,8 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     final actor = await _readActor();
     if (!mounted) return;
 
-    if (actor == null || !actor.canSaveJobModuleWorkFor(_module.discipline.name)) {
+    if (actor == null ||
+        !actor.canSaveJobModuleWorkFor(_module.discipline.name)) {
       _showSnack(
         'You are not authorized to save module progress.',
         isError: true,
@@ -527,9 +530,11 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     final fields = _fieldDefinitions(module.fieldDefinitionsJson);
     final actor = ref.watch(currentAppUserProvider).asData?.value;
     final lineage = RuntimeModuleLineageInfo.fromModule(module);
+    final actionRead = module.actionsReadResult;
     final canSaveWork =
         !widget.execution.isCompleted &&
         module.isOpenForWork &&
+        actionRead.isValid &&
         (actor?.canSaveJobModuleWorkFor(module.discipline.name) ?? false);
     final canSubmitModule =
         canSaveWork &&
@@ -539,12 +544,14 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     final canAcceptModule =
         !widget.execution.isCompleted &&
         module.status == JobModuleStatus.submitted &&
+        actionRead.isValid &&
         (actor?.canAcceptJobModule ?? false);
     final canReopenModule =
         !widget.execution.isCompleted &&
         (module.status == JobModuleStatus.submitted ||
             module.status == JobModuleStatus.accepted ||
             module.status == JobModuleStatus.notApplicable) &&
+        actionRead.isValid &&
         (actor?.canReopenJobModule ?? false);
 
     return Scaffold(
@@ -568,6 +575,14 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
         ),
         children: [
           _ModuleHeaderCard(module: module),
+          if (!actionRead.isValid) ...[
+            const SizedBox(height: BafSpacing.lg),
+            const PersistedDataIntegrityNotice(
+              title: 'Saved module actions need repair',
+              message:
+                  'Action counts are hidden and module changes are blocked. No saved action evidence was discarded or replaced.',
+            ),
+          ],
           const SizedBox(height: BafSpacing.lg),
           _ModuleSectionCard(
             title: 'Module context',
@@ -783,7 +798,10 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
               ),
               _InfoRow(
                 label: 'Action count',
-                value: module.actions.length.toString(),
+                value:
+                    actionRead.isValid
+                        ? actionRead.entries.length.toString()
+                        : 'Needs repair',
               ),
             ],
           ),
