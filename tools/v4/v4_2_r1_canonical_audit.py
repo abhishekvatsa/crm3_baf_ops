@@ -599,6 +599,103 @@ check(
         for status in ("Status: SOURCE_IMPLEMENTED", "Status: CLOSED")
     ),
 )
+c04_closure_evidence = c04_record.get("evidence", [])
+c04_closure_history = [
+    entry.get("status")
+    for entry in c04_record.get("statusHistory", [])
+    if isinstance(entry, dict)
+]
+c04_closure_receipt_path = (
+    ROOT / "release/evidence/c04-test-evidence-taxonomy-closure.json"
+)
+c04_closure_receipt = data(
+    "release/evidence/c04-test-evidence-taxonomy-closure.json"
+)
+c04_pr_ci = c04_closure_receipt.get("pullRequestCi", {})
+c04_postmerge_ci = c04_closure_receipt.get("postMergeCi", {})
+c04_source_controls = c04_closure_receipt.get("sourceControls", {})
+c04_job_names = {
+    "Flutter host analysis + tests + no-loss contracts",
+    "Android release package construction (no install)",
+    "Android emulator app-shell integration (not physical-device evidence)",
+    "Firestore Rules + governed callable emulator",
+    "Cloud Functions host build + non-emulator tests",
+}
+c04_nonproduction_boundary = c04_closure_receipt.get(
+    "nonProductionBoundary", {}
+)
+c04_runtime_boundary = c04_closure_receipt.get("runtimeBoundary", {})
+c04_android_boundary = c04_closure_receipt.get(
+    "androidIntegrationBoundary", {}
+)
+check(
+    "C-04 test evidence taxonomy closure is exact and runtime-separated",
+    c04_record.get("currentStatus") == "CLOSED"
+    and len(c04_closure_evidence) == 1
+    and c04_closure_evidence[0].get("pullRequest") == 156
+    and c04_closure_evidence[0].get("headCommit")
+        == "f332f4e780ca1ff4e63d696a549020de85c0e3f8"
+    and c04_closure_evidence[0].get("sourceTree")
+        == "e645b8adf71b35c5c7a8901081efcca46c48cb53"
+    and c04_closure_evidence[0].get("mergeCommit")
+        == "cf85476e924fe9941a7170d2bd4f4fa68bafc76d"
+    and c04_closure_evidence[0].get("mergeTree")
+        == "e645b8adf71b35c5c7a8901081efcca46c48cb53"
+    and c04_closure_evidence[0].get("pullRequestWorkflowRun")
+        == 30976162718
+    and c04_closure_evidence[0].get("pullRequestAndroidEmulatorJob")
+        == 92210470843
+    and c04_closure_evidence[0].get("postMergeWorkflowRun")
+        == 30976649141
+    and c04_closure_evidence[0].get("postMergeAndroidEmulatorJob")
+        == 92211922597
+    and c04_closure_evidence[0].get("evidenceFile")
+        == "release/evidence/c04-test-evidence-taxonomy-closure.json"
+    and c04_closure_evidence[0].get("evidenceSha256")
+        == sha(c04_closure_receipt_path)
+    and c04_closure_history
+        == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and c04_closure_receipt.get("decision")
+        == "PASS_C04_TEST_EVIDENCE_TAXONOMY_SOURCE_AND_CI_CLOSURE"
+    and c04_pr_ci.get("runId") == 30976162718
+    and c04_pr_ci.get("event") == "pull_request"
+    and c04_pr_ci.get("headSha")
+        == "f332f4e780ca1ff4e63d696a549020de85c0e3f8"
+    and c04_pr_ci.get("conclusion") == "success"
+    and c04_postmerge_ci.get("runId") == 30976649141
+    and c04_postmerge_ci.get("event") == "push"
+    and c04_postmerge_ci.get("headSha")
+        == "cf85476e924fe9941a7170d2bd4f4fa68bafc76d"
+    and c04_postmerge_ci.get("conclusion") == "success"
+    and all(
+        len(section.get("jobs", [])) == 5
+        and {job.get("name") for job in section.get("jobs", [])}
+            == c04_job_names
+        and all(
+            job.get("conclusion") == "success"
+            for job in section.get("jobs", [])
+        )
+        for section in (c04_pr_ci, c04_postmerge_ci)
+    )
+    and all(
+        control.get("sha256") == sha(ROOT / control.get("path", ""))
+        for name, control in c04_source_controls.items()
+        if name != "sourceDecisionAtMerge"
+    )
+    and c04_source_controls.get("sourceDecisionAtMerge", {}).get("sha256")
+        == "D91D0FD7E14E4099748D64E4F6FE5CF38B8A4C102235889DF05B4EF786011894"
+    and c04_android_boundary.get("timeoutMinutes") == 30
+    and c04_android_boundary.get("productionCredentialsUsed") is False
+    and c04_android_boundary.get("productionBackendUsed") is False
+    and c04_android_boundary.get("physicalDeviceEvidence") is False
+    and c04_nonproduction_boundary
+    and all(value is False for value in c04_nonproduction_boundary.values())
+    and c04_runtime_boundary
+    and all(value is False for value in c04_runtime_boundary.values())
+    and "Status: CLOSED" in c04_decision
+    and "PASS_C04_TEST_EVIDENCE_TAXONOMY_SOURCE_AND_CI_CLOSURE"
+        in c04_decision,
+)
 c03_package_script = text(
     "tools/release/Invoke-CIAndroidPackageProof.ps1"
 )
