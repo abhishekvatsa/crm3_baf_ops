@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 245
-    and counts.get("SUCCESSOR_MODIFIED") == 165
+    and counts.get("BYTE_IDENTICAL") == 240
+    and counts.get("SUCCESSOR_MODIFIED") == 170
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -5922,7 +5922,7 @@ check(
         in ui_workflow_provider_source
     and "final showBottomActions =" in ui_planned_detail_source
     and "if (!execution.isGovernedTemplateAssignment)" in ui_planned_detail_source
-    and "if (!widget.execution.isGovernedTemplateAssignment)"
+    and "if (!widget.execution.isGovernedTemplateAssignment"
         in ui_completion_source
     and "canManageTypes: canManageTypes" in ui_abnormality_source
     and "!actor.canReviewSyncConflicts" in ui_audit_source
@@ -6697,6 +6697,28 @@ a05_lane_readiness_test = text(
 a05_decision_3 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_3.md"
 )
+a05_composer_model = text(
+    "lib/features/planned_maintenance/domain/module_composer_models.dart"
+)
+a05_composer_screen = text(
+    "lib/features/planned_maintenance/presentation/module_composer_screen.dart"
+)
+a05_composer_actions = text(
+    "lib/features/planned_maintenance/presentation/module_composer_screen.actions.dart"
+)
+a05_composer_support = text(
+    "lib/features/planned_maintenance/presentation/module_composer_screen.support.dart"
+)
+a05_template_detail = text(
+    "lib/features/planned_maintenance/presentation/template_detail_screen.dart"
+)
+a05_template_designer = text(
+    "lib/features/planned_maintenance/presentation/template_designer_screen.dart"
+)
+a05_template_test = text("test/a05_template_composer_integrity_test.dart")
+a05_decision_4 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_4.md"
+)
 a05_records = [
     record
     for record in programme_ledger.get("technicalFindings", [])
@@ -6722,6 +6744,7 @@ a05_source_delta_paths = {
     "lib/core/services/sync_service.job_modules.dart",
     "lib/core/services/sync_service.tickets_templates.dart",
     "lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart",
+    "lib/features/admin/presentation/admin_data_browser/admin_templates_browser.dart",
     "lib/features/admin/utils/admin_ticket_helpers.dart",
     "lib/features/audit/models/audit_event_model.dart",
     "lib/features/audit/repositories/audit_repository.dart",
@@ -6733,13 +6756,20 @@ a05_source_delta_paths = {
     "lib/features/planned_maintenance/data/job_template_model.dart",
     "lib/features/planned_maintenance/domain/planned_job_closure_attestation.dart",
     "lib/features/planned_maintenance/domain/planned_job_closure_guard.dart",
+    "lib/features/planned_maintenance/domain/module_composer_models.dart",
     "lib/features/planned_maintenance/models/component_action_model.dart",
     "lib/features/planned_maintenance/presentation/complete_job_screen.dart",
     "lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart",
     "lib/features/planned_maintenance/presentation/dossier/planned_job_module_dossier.dart",
     "lib/features/planned_maintenance/presentation/job_history_screen.dart",
     "lib/features/planned_maintenance/presentation/job_module_detail_screen.dart",
+    "lib/features/planned_maintenance/presentation/module_composer_screen.actions.dart",
+    "lib/features/planned_maintenance/presentation/module_composer_screen.dart",
+    "lib/features/planned_maintenance/presentation/module_composer_screen.support.dart",
     "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart",
+    "lib/features/planned_maintenance/presentation/template_designer_screen.dart",
+    "lib/features/planned_maintenance/presentation/template_detail_screen.dart",
+    "lib/features/planned_maintenance/presentation/templates_screen.dart",
     "lib/features/planned_maintenance/presentation/widgets/job_module_card.dart",
     "lib/features/planned_maintenance/presentation/widgets/job_module_response_summary.dart",
     "lib/features/planned_maintenance/providers/job_module_provider.dart",
@@ -6756,6 +6786,7 @@ check(
     and "class PersistedDataFormatException" in a05_reader
     and "readRequiredPersistedDateTime" in a05_reader
     and "readRequiredJsonObjectList" in a05_reader
+    and "readRequiredJsonObject" in a05_reader
     and "readOptionalJsonObject" in a05_reader
     and "decodeResolutionHistoryJson" in a05_maintenance_model
     and "resolutionHistoryReadResult" in a05_maintenance_model
@@ -6832,8 +6863,29 @@ check(
     and "a genuinely absent pre-feature field" in a05_decision_3
     and "`A-05` remains open" in a05_decision_3
     and "does not inspect or mutate production documents" in a05_decision_3
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 245
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 165
+    and "class TemplateFieldReadResult" in a05_job_model
+    and "TemplateFieldReadResult get fieldsReadResult" in a05_job_model
+    and "A malformed canonical" in a05_job_model
+    and "readRequiredJsonObject(" in a05_composer_model
+    and "readRequiredJsonObjectList(" in a05_composer_model
+    and "_decodeObject(" not in a05_composer_model
+    and "Saved composer payload needs repair" in a05_composer_screen
+    and a05_composer_actions.index(
+        "selectedDraft = TemplateComposerDraft.fromPayloads"
+    ) < a05_composer_actions.index("await _clearRecoveryDraft()")
+    and "needs repair and was left untouched" in a05_composer_support
+    and "Saved template fields need repair" in a05_template_detail
+    and "Saved template fields need repair" in a05_template_designer
+    and "malformed canonical fields never fall through" in a05_template_test
+    and "each malformed payload root fails closed" in a05_template_test
+    and "saved-version decode precedes recovery-draft deletion"
+        in a05_template_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_4
+    and "decoded before the current recovery draft is" in a05_decision_4
+    and "`A-05` remains open" in a05_decision_4
+    and "does not inspect or mutate production documents" in a05_decision_4
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 240
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 170
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

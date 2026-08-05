@@ -342,7 +342,10 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
     try {
       decoded = Map<String, dynamic>.from(jsonDecode(raw) as Map);
     } catch (_) {
-      await prefs.remove(_recoveryKey);
+      _showSnack(
+        'Saved recovery draft needs repair and was left untouched.',
+        BafColors.danger,
+      );
       return;
     }
     final savedAt = decoded['savedAt']?.toString() ?? 'unknown time';
@@ -376,18 +379,35 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
       await prefs.remove(_recoveryKey);
       return;
     }
+    late final TemplateComposerDraft recoveredDraft;
+    try {
+      recoveredDraft = TemplateComposerDraft.fromPayloads(
+        jobTemplateSnapshotJson: _requiredRecoveryPayload(
+          decoded,
+          'jobTemplateSnapshotJson',
+        ),
+        moduleSnapshotsJson: _requiredRecoveryPayload(
+          decoded,
+          'moduleSnapshotsJson',
+        ),
+        fieldDefinitionsJson: _requiredRecoveryPayload(
+          decoded,
+          'fieldDefinitionsJson',
+        ),
+        checklistJson: _requiredRecoveryPayload(decoded, 'checklistJson'),
+      );
+    } on FormatException catch (error) {
+      _showSnack(
+        'Saved recovery draft needs repair and was left untouched: ${error.message}',
+        BafColors.danger,
+      );
+      return;
+    }
+
     _suppressRecoverySave = true;
     try {
       setState(() {
-        _draft = TemplateComposerDraft.fromPayloads(
-          jobTemplateSnapshotJson:
-              decoded['jobTemplateSnapshotJson']?.toString() ?? '{}',
-          moduleSnapshotsJson:
-              decoded['moduleSnapshotsJson']?.toString() ?? '[]',
-          fieldDefinitionsJson:
-              decoded['fieldDefinitionsJson']?.toString() ?? '[]',
-          checklistJson: decoded['checklistJson']?.toString() ?? '[]',
-        );
+        _draft = recoveredDraft;
         if (_draft.localId.trim().isEmpty) {
           _draft.localId = _stableDraftLocalId();
         }
@@ -399,5 +419,15 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
       _suppressRecoverySave = false;
     }
     _showSnack('Recovered unsaved Module Composer draft.', BafColors.sync);
+  }
+
+  String _requiredRecoveryPayload(Map<String, dynamic> payload, String field) {
+    final value = payload[field];
+    if (value is String) return value;
+    throw PersistedDataFormatException(
+      field: field,
+      source: 'Module Composer recovery draft',
+      detail: 'required JSON string (${value.runtimeType})',
+    );
   }
 }

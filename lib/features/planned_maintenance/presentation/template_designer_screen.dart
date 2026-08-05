@@ -12,28 +12,30 @@ import '../../auth/providers/auth_provider.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../../core/widgets/persisted_data_integrity_notice.dart';
 
 class TemplateDesignerScreen extends ConsumerStatefulWidget {
   final JobTemplate template;
 
-  const TemplateDesignerScreen({
-    super.key,
-    required this.template,
-  });
+  const TemplateDesignerScreen({super.key, required this.template});
 
   @override
   ConsumerState<TemplateDesignerScreen> createState() =>
       _TemplateDesignerScreenState();
 }
 
-class _TemplateDesignerScreenState extends ConsumerState<TemplateDesignerScreen> {
+class _TemplateDesignerScreenState
+    extends ConsumerState<TemplateDesignerScreen> {
   late List<TemplateField> _fields;
+  FormatException? _fieldLoadError;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _fields = List<TemplateField>.from(widget.template.parsedFields)
+    final fieldRead = widget.template.fieldsReadResult;
+    _fieldLoadError = fieldRead.error;
+    _fields = List<TemplateField>.from(fieldRead.entries)
       ..sort((a, b) => a.order.compareTo(b.order));
   }
 
@@ -92,18 +94,21 @@ class _TemplateDesignerScreenState extends ConsumerState<TemplateDesignerScreen>
             options: f.options == null ? null : List<String>.from(f.options!),
             instructionText: f.instructionText,
             meta: f.meta == null ? null : Map<String, dynamic>.from(f.meta!),
-            validation: f.validation == null
-                ? null
-                : Map<String, dynamic>.from(f.validation!),
+            validation:
+                f.validation == null
+                    ? null
+                    : Map<String, dynamic>.from(f.validation!),
             validationJson: f.validationJson,
             version: f.version,
+            extensions: Map<String, dynamic>.from(f.extensions),
           ),
         );
       }
 
-      final updatedTemplate = widget.template
-        ..updatedAt = DateTime.now()
-        ..isSynced = false;
+      final updatedTemplate =
+          widget.template
+            ..updatedAt = DateTime.now()
+            ..isSynced = false;
       updatedTemplate.setFields(orderedFields);
 
       final repo = ref.read(plannedRepositoryProvider);
@@ -111,10 +116,7 @@ class _TemplateDesignerScreenState extends ConsumerState<TemplateDesignerScreen>
       await repo.saveTemplate(updatedTemplate, actor: appUser);
 
       unawaited(
-        syncCoordinator.runFullSync(
-          reason: 'template_updated',
-          force: true,
-        ),
+        syncCoordinator.runFullSync(reason: 'template_updated', force: true),
       );
 
       if (!mounted) return;
@@ -170,90 +172,115 @@ class _TemplateDesignerScreenState extends ConsumerState<TemplateDesignerScreen>
         surfaceTintColor: BafColors.card,
         actions: [
           IconButton(
-            icon: _isSaving
-                ? const SizedBox(
-              height: 18,
-              width: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-                : const Icon(Icons.save_rounded),
+            icon:
+                _isSaving
+                    ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Icon(Icons.save_rounded),
             tooltip: 'Save template',
-            onPressed: _isSaving ? null : _save,
+            onPressed: _isSaving || _fieldLoadError != null ? null : _save,
           ),
         ],
       ),
-      floatingActionButton: SafeArea(
-        minimum: EdgeInsets.only(bottom: bottomSafeInset > 0 ? BafSpacing.sm : 0),
-        child: FloatingActionButton.extended(
-          heroTag: 'designer_fab',
-          backgroundColor: BafColors.planned,
-          foregroundColor: Colors.white,
-          onPressed: _addField,
-          icon: const Icon(Icons.add_rounded),
-          label: const Text(
-            'Add Field',
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-        ),
-      ),
-      body: CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(BafSpacing.lg, BafSpacing.sm, BafSpacing.lg, BafSpacing.sm),
-            sliver: SliverToBoxAdapter(
-              child: _DesignerHeader(
-                templateName: widget.template.jobName,
-                assetType: widget.template.applicableAssetType.name.toUpperCase(),
-                fieldCount: _fields.length,
-              ),
-            ),
-          ),
-          if (_fields.isEmpty)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: _EmptyFieldsState(),
-            )
-          else
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                BafSpacing.lg,
-                BafSpacing.xs,
-                BafSpacing.lg,
-                listBottomPadding,
-              ),
-              sliver: SliverToBoxAdapter(
-                child: ReorderableListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _fields.length,
-                  buildDefaultDragHandles: false,
-                  onReorderItem: (oldIndex, newIndex) {
-                    setState(() {
-                      final item = _fields.removeAt(oldIndex);
-                      _fields.insert(newIndex, item);
-                    });
-                  },
-                  itemBuilder: (context, index) {
-                    final field = _fields[index];
-                    final isDisplayOnly =
-                        field.type == FieldType.sectionHeader ||
-                            field.type == FieldType.instruction;
-
-                    return _FieldCard(
-                      key: ValueKey(field.key),
-                      index: index,
-                      field: field,
-                      subtitle: _fieldSubtitle(field),
-                      isDisplayOnly: isDisplayOnly,
-                      onTap: () => _editField(index),
-                      onDelete: () => _removeField(index),
-                    );
-                  },
+      floatingActionButton:
+          _fieldLoadError == null
+              ? SafeArea(
+                minimum: EdgeInsets.only(
+                  bottom: bottomSafeInset > 0 ? BafSpacing.sm : 0,
                 ),
+                child: FloatingActionButton.extended(
+                  heroTag: 'designer_fab',
+                  backgroundColor: BafColors.planned,
+                  foregroundColor: Colors.white,
+                  onPressed: _addField,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text(
+                    'Add Field',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              )
+              : null,
+      body:
+          _fieldLoadError != null
+              ? ListView(
+                padding: const EdgeInsets.all(BafSpacing.lg),
+                children: const [
+                  PersistedDataIntegrityNotice(
+                    title: 'Saved template fields need repair',
+                    message:
+                        'No fields were discarded or replaced. Editing is blocked until the saved field payload is repaired.',
+                  ),
+                ],
+              )
+              : CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      BafSpacing.lg,
+                      BafSpacing.sm,
+                      BafSpacing.lg,
+                      BafSpacing.sm,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: _DesignerHeader(
+                        templateName: widget.template.jobName,
+                        assetType:
+                            widget.template.applicableAssetType.name
+                                .toUpperCase(),
+                        fieldCount: _fields.length,
+                      ),
+                    ),
+                  ),
+                  if (_fields.isEmpty)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyFieldsState(),
+                    )
+                  else
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        BafSpacing.lg,
+                        BafSpacing.xs,
+                        BafSpacing.lg,
+                        listBottomPadding,
+                      ),
+                      sliver: SliverToBoxAdapter(
+                        child: ReorderableListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _fields.length,
+                          buildDefaultDragHandles: false,
+                          onReorderItem: (oldIndex, newIndex) {
+                            setState(() {
+                              final item = _fields.removeAt(oldIndex);
+                              _fields.insert(newIndex, item);
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            final field = _fields[index];
+                            final isDisplayOnly =
+                                field.type == FieldType.sectionHeader ||
+                                field.type == FieldType.instruction;
+
+                            return _FieldCard(
+                              key: ValueKey(field.key),
+                              index: index,
+                              field: field,
+                              subtitle: _fieldSubtitle(field),
+                              isDisplayOnly: isDisplayOnly,
+                              onTap: () => _editField(index),
+                              onDelete: () => _removeField(index),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ),
-        ],
-      ),
     );
   }
 
@@ -301,9 +328,7 @@ class _DesignerHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF7FBFF),
         borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(
-          color: BafColors.planned.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: BafColors.planned.withValues(alpha: 0.18)),
         boxShadow: BafShadows.subtle,
       ),
       child: Row(
@@ -501,7 +526,7 @@ class _FieldCard extends StatelessWidget {
                           color: BafColors.textPrimary,
                           fontSize: 15,
                           fontWeight:
-                          isDisplayOnly ? FontWeight.w700 : FontWeight.w900,
+                              isDisplayOnly ? FontWeight.w700 : FontWeight.w900,
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -581,15 +606,9 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
   bool _isRequired = false;
   List<String> _options = [];
 
-  static const _displayTypes = {
-    FieldType.sectionHeader,
-    FieldType.instruction,
-  };
+  static const _displayTypes = {FieldType.sectionHeader, FieldType.instruction};
 
-  static const _optionTypes = {
-    FieldType.dropdown,
-    FieldType.multiSelect,
-  };
+  static const _optionTypes = {FieldType.dropdown, FieldType.multiSelect};
 
   static const _unitTypes = {FieldType.number};
 
@@ -652,14 +671,29 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
       type: _type,
       isRequired: _displayTypes.contains(_type) ? false : _isRequired,
       order: widget.field?.order ?? DateTime.now().millisecondsSinceEpoch,
-      unit: _unitTypes.contains(_type) && _unitController.text.trim().isNotEmpty
-          ? _unitController.text.trim()
-          : null,
+      unit:
+          _unitTypes.contains(_type) && _unitController.text.trim().isNotEmpty
+              ? _unitController.text.trim()
+              : null,
       options: _optionTypes.contains(_type) ? _options : [],
-      instructionText: _instructionTypes.contains(_type) &&
-          _instructionController.text.trim().isNotEmpty
-          ? _instructionController.text.trim()
-          : null,
+      instructionText:
+          _instructionTypes.contains(_type) &&
+                  _instructionController.text.trim().isNotEmpty
+              ? _instructionController.text.trim()
+              : null,
+      validation:
+          widget.field?.validation == null
+              ? null
+              : Map<String, dynamic>.from(widget.field!.validation!),
+      validationJson: widget.field?.validationJson,
+      meta:
+          widget.field?.meta == null
+              ? null
+              : Map<String, dynamic>.from(widget.field!.meta!),
+      version: widget.field?.version ?? 1,
+      extensions: Map<String, dynamic>.from(
+        widget.field?.extensions ?? const <String, dynamic>{},
+      ),
     );
 
     Navigator.pop(context, field);
@@ -720,17 +754,18 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
               initialValue: _type,
               isExpanded: true,
               decoration: _dialogDecoration('Field type'),
-              items: FieldType.values
-                  .map(
-                    (type) => DropdownMenuItem<FieldType>(
-                  value: type,
-                  child: Text(
-                    _typeLabel(type),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
-                  .toList(),
+              items:
+                  FieldType.values
+                      .map(
+                        (type) => DropdownMenuItem<FieldType>(
+                          value: type,
+                          child: Text(
+                            _typeLabel(type),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
               onChanged: (value) {
                 if (value == null) return;
                 setState(() {
@@ -744,9 +779,10 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
               controller: _labelController,
               decoration: _dialogDecoration(
                 isDisplayOnly ? 'Header / label' : 'Field label',
-                hint: isDisplayOnly
-                    ? 'e.g. Safety checks'
-                    : 'e.g. Zone 3 temperature',
+                hint:
+                    isDisplayOnly
+                        ? 'e.g. Safety checks'
+                        : 'e.g. Zone 3 temperature',
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) return 'Required';
@@ -789,18 +825,19 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
-                  children: _options
-                      .map(
-                        (option) => Chip(
-                      label: Text(
-                        option,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      deleteIcon: const Icon(Icons.close, size: 14),
-                      onDeleted: () => _removeOption(option),
-                    ),
-                  )
-                      .toList(),
+                  children:
+                      _options
+                          .map(
+                            (option) => Chip(
+                              label: Text(
+                                option,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              deleteIcon: const Icon(Icons.close, size: 14),
+                              onDeleted: () => _removeOption(option),
+                            ),
+                          )
+                          .toList(),
                 ),
               const SizedBox(height: 8),
               Row(
@@ -833,8 +870,8 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
               const SizedBox(height: 12),
               CheckboxListTile(
                 value: _isRequired,
-                onChanged: (value) =>
-                    setState(() => _isRequired = value ?? false),
+                onChanged:
+                    (value) => setState(() => _isRequired = value ?? false),
                 title: const Text('Required field'),
                 subtitle: const Text(
                   'Technician must fill this before completing',
@@ -881,10 +918,10 @@ class _FieldEditorDialogState extends State<_FieldEditorDialog> {
   }
 
   InputDecoration _dialogDecoration(
-      String label, {
-        String? hint,
-        bool dense = false,
-      }) {
+    String label, {
+    String? hint,
+    bool dense = false,
+  }) {
     return InputDecoration(
       labelText: label,
       hintText: hint,

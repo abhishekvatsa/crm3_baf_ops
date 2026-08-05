@@ -137,6 +137,15 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
       );
       return;
     }
+    if (_template != null && !_template!.fieldsReadResult.isValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot complete: saved template fields need repair.'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
 
     final moduleGate = _ModuleClosureGateResult.fromAsyncValue(
       ref.read(jobModulesProvider(_moduleQueryKey)),
@@ -364,7 +373,7 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
   }
 
   List<TemplateField> _orderedFields(JobTemplate template) {
-    return List<TemplateField>.from(template.parsedFields)
+    return List<TemplateField>.from(template.fieldsReadResult.entries)
       ..sort((a, b) => a.order.compareTo(b.order));
   }
 
@@ -636,8 +645,11 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
       );
     }
 
+    final templateFieldRead = _template?.fieldsReadResult;
     final fields =
-        _template == null ? <TemplateField>[] : _orderedFields(_template!);
+        templateFieldRead == null || !templateFieldRead.isValid
+            ? <TemplateField>[]
+            : _orderedFields(_template!);
     final modulesAsync = ref.watch(jobModulesProvider(_moduleQueryKey));
     final moduleGate = _ModuleClosureGateResult.fromAsyncValue(modulesAsync);
     final appUser = ref.watch(currentAppUserProvider).value;
@@ -698,6 +710,14 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                     'Completion is blocked until this payload is repaired. No saved responses were discarded or replaced.',
               ),
             ],
+            if (templateFieldRead != null && !templateFieldRead.isValid) ...[
+              const SizedBox(height: BafSpacing.lg),
+              const PersistedDataIntegrityNotice(
+                title: 'Saved template fields need repair',
+                message:
+                    'Completion is blocked until this payload is repaired. No saved fields were discarded or replaced.',
+              ),
+            ],
             const SizedBox(height: BafSpacing.lg),
             _CompletionAuthorityCard(hasAuthority: hasCompletionAuthority),
             const SizedBox(height: BafSpacing.lg),
@@ -709,7 +729,8 @@ class _CompleteJobScreenState extends ConsumerState<CompleteJobScreen> {
                 lanesAsync: workflowLanesAsync,
               ),
             ],
-            if (!widget.execution.isGovernedTemplateAssignment) ...[
+            if (!widget.execution.isGovernedTemplateAssignment &&
+                templateFieldRead?.isValid != false) ...[
               const SizedBox(height: BafSpacing.lg),
               _SectionCard(
                 title: 'Checklist responses',

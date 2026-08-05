@@ -454,7 +454,7 @@ class _TemplateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fieldCount = template.parsedFields.length;
+    final fieldRead = template.fieldsReadResult;
     final agencies =
         template.assignedAgencies
             .where((agency) => agency.trim().isNotEmpty)
@@ -533,9 +533,18 @@ class _TemplateCard extends StatelessWidget {
                       runSpacing: BafSpacing.sm,
                       children: [
                         StatusBadge(
-                          label: '$fieldCount fields',
-                          color: BafColors.planned,
-                          icon: Icons.list_alt_rounded,
+                          label:
+                              fieldRead.isValid
+                                  ? '${fieldRead.entries.length} fields'
+                                  : 'Fields need repair',
+                          color:
+                              fieldRead.isValid
+                                  ? BafColors.planned
+                                  : BafColors.danger,
+                          icon:
+                              fieldRead.isValid
+                                  ? Icons.list_alt_rounded
+                                  : Icons.warning_amber_rounded,
                         ),
                         if (template.hasComponentScope)
                           const StatusBadge(

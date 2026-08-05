@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/baf_module_catalogue_seed.dart';
@@ -73,6 +75,7 @@ class ModuleComposerScreen extends ConsumerStatefulWidget {
 
 class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
   late TemplateComposerDraft _draft;
+  String? _initialPayloadError;
   TemplateVersion? _editingTemplateVersion;
   String? _editingTemplateDraftFingerprint;
   int _selectedModuleIndex = -1;
@@ -95,12 +98,17 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
   @override
   void initState() {
     super.initState();
-    _draft = TemplateComposerDraft.fromPayloads(
-      jobTemplateSnapshotJson: widget.initialJobTemplateJson,
-      moduleSnapshotsJson: widget.initialModuleSnapshotsJson,
-      fieldDefinitionsJson: widget.initialFieldDefinitionsJson,
-      checklistJson: widget.initialChecklistJson,
-    );
+    try {
+      _draft = TemplateComposerDraft.fromPayloads(
+        jobTemplateSnapshotJson: widget.initialJobTemplateJson,
+        moduleSnapshotsJson: widget.initialModuleSnapshotsJson,
+        fieldDefinitionsJson: widget.initialFieldDefinitionsJson,
+        checklistJson: widget.initialChecklistJson,
+      );
+    } on FormatException catch (error) {
+      _initialPayloadError = error.message;
+      _draft = TemplateComposerDraft.empty();
+    }
     _titleController = TextEditingController(text: _draft.title);
     _editingTemplateVersion = widget.initialTemplateVersion;
     _draft.localId =
@@ -113,10 +121,12 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
     if (_draft.modules.isNotEmpty) {
       _selectedModuleIndex = 0;
     }
-    _loadKnowledgeRows();
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _checkForRecoverableDraft(),
-    );
+    if (_initialPayloadError == null) {
+      _loadKnowledgeRows();
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _checkForRecoverableDraft(),
+      );
+    }
   }
 
   @override
@@ -147,6 +157,33 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final initialPayloadError = _initialPayloadError;
+    if (initialPayloadError != null) {
+      return Scaffold(
+        backgroundColor: BafColors.background,
+        appBar: AppBar(
+          backgroundColor: BafColors.card,
+          foregroundColor: BafColors.textPrimary,
+          elevation: 0.4,
+          title: const Text('Module Composer'),
+        ),
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: Padding(
+                padding: const EdgeInsets.all(BafSpacing.lg),
+                child: PersistedDataIntegrityNotice(
+                  title: 'Saved composer payload needs repair',
+                  message:
+                      'The saved template was left unchanged and authoring is blocked until its payload is repaired. $initialPayloadError',
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final validation = ModuleComposerValidator.validate(_draft);
     final actor = ref.watch(currentAppUserProvider).value;
     final canManageRegistry = actor?.canManageTemplateGovernance == true;
