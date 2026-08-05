@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 
@@ -18,10 +19,10 @@ void main() {
       'u1',
     );
     expect(user.isApproved, isTrue);
-    expect(user.roles, containsAll(<AppRole>[
-      AppRole.seniorMechanical,
-      AppRole.shiftSupervisor,
-    ]));
+    expect(
+      user.roles,
+      containsAll(<AppRole>[AppRole.seniorMechanical, AppRole.shiftSupervisor]),
+    );
   });
 
   test('unknown roles fail closed instead of becoming Operations', () {
@@ -50,5 +51,51 @@ void main() {
       'status': 'approved',
     }, 'u4');
     expect(user.isApproved, isFalse);
+  });
+
+  test('missing or malformed profile history fails closed', () {
+    final missingCreatedAt = baseUser(roles: <String>['admin'])
+      ..remove('createdAt');
+
+    expect(
+      () => AppUser.fromFirestore(missingCreatedAt, 'u5'),
+      throwsA(
+        isA<PersistedDataFormatException>().having(
+          (error) => error.fieldName,
+          'fieldName',
+          'createdAt',
+        ),
+      ),
+    );
+    expect(
+      () => AppUser.fromFirestore(<String, dynamic>{
+        ...baseUser(roles: <String>['admin']),
+        'createdAt': 'not-a-timestamp',
+      }, 'u6'),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+  });
+
+  test('required identity and optional profile fields reject wrong types', () {
+    for (final entry in <MapEntry<String, dynamic>>[
+      const MapEntry('name', null),
+      const MapEntry('email', 42),
+      const MapEntry('photoUrl', <String>[]),
+      const MapEntry('fcmToken', true),
+    ]) {
+      expect(
+        () => AppUser.fromFirestore(<String, dynamic>{
+          ...baseUser(roles: <String>['admin']),
+          entry.key: entry.value,
+        }, 'u-${entry.key}'),
+        throwsA(
+          isA<PersistedDataFormatException>().having(
+            (error) => error.fieldName,
+            'fieldName',
+            entry.key,
+          ),
+        ),
+      );
+    }
   });
 }

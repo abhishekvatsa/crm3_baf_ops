@@ -50,8 +50,6 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
               recoveryScopeId:
                   _selectedPackage?.firestoreId ??
                   _packageCodeController.text.trim(),
-              actorUid: actor.uid,
-              actorName: actor.name,
               canSeedCloudKnowledge: actor.canManageTemplateGovernance,
             ),
       ),

@@ -58,8 +58,6 @@ void main() {
               initialFieldDefinitionsJson: '[]',
               initialChecklistJson: '[]',
               recoveryScopeId: '70f3-title-rehydration-test',
-              actorUid: actor.uid,
-              actorName: actor.name,
               showSaveToPublisher: false,
               knowledgeBundleLoader: _loadStaticKnowledgeBundle,
             ),

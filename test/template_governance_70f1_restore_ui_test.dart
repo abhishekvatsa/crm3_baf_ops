@@ -53,15 +53,13 @@ void main() {
             ),
             templateGovernanceRepositoryProvider.overrideWithValue(repository),
           ],
-          child: MaterialApp(
+          child: const MaterialApp(
             home: ModuleComposerScreen(
               initialJobTemplateJson: '{}',
               initialModuleSnapshotsJson: '[]',
               initialFieldDefinitionsJson: '[]',
               initialChecklistJson: '[]',
               recoveryScopeId: '70f1-thin-ui-test',
-              actorUid: actor.uid,
-              actorName: actor.name,
               showSaveToPublisher: false,
               knowledgeBundleLoader: _loadStaticKnowledgeBundle,
             ),

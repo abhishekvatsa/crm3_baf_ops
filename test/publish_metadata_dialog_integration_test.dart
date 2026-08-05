@@ -89,20 +89,15 @@ void main() {
     expect(find.text('Preview JSON'), findsOneWidget);
   });
 
-  testWidgets('composer hides prepare publish path for non-governors', (
+  testWidgets('composer closes all authoring paths for non-governors', (
     tester,
   ) async {
     await _pumpComposer(tester, _user(AppRole.operations));
 
-    expect(find.byTooltip('More composer actions'), findsOneWidget);
+    expect(find.text('Template authoring access required'), findsOneWidget);
+    expect(find.byTooltip('More composer actions'), findsNothing);
     expect(find.text('Prepare Publish'), findsNothing);
     expect(find.text('Save to Publisher'), findsNothing);
-
-    await tester.tap(find.byTooltip('More composer actions'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Prepare Publish'), findsNothing);
-    expect(find.text('Save to Publisher'), findsOneWidget);
   });
 }
 
@@ -124,8 +119,6 @@ Future<void> _pumpComposer(
           initialFieldDefinitionsJson: '[]',
           initialChecklistJson: '[]',
           recoveryScopeId: 'publish-metadata-integration-test',
-          actorUid: 'test-actor',
-          actorName: 'Test Actor',
           canSeedCloudKnowledge: canSeedCloudKnowledge,
           showSaveToPublisher: showSaveToPublisher,
           knowledgeBundleLoader: _loadStaticKnowledgeBundle,

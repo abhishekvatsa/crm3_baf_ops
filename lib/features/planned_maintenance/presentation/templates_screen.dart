@@ -30,8 +30,6 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final templatesAsync = ref.watch(activeTemplatesProvider);
-    final executionsAsync = ref.watch(openExecutionsProvider);
     final appUser = ref.watch(currentAppUserProvider).value;
     final canCreateTemplate = appUser?.canCreateLegacyJobTemplate ?? false;
     final canAssignJob = appUser?.canAssignJobExecution ?? false;
@@ -39,6 +37,15 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
         canCreateTemplate ||
         canAssignJob ||
         (appUser?.canManageTemplateGovernance ?? false);
+    final templatesAsync =
+        canSeeTemplates
+            ? ref.watch(activeTemplatesProvider)
+            : const AsyncData<List<JobTemplate>>(<JobTemplate>[]);
+    final executionsAsync = ref.watch(openExecutionsProvider);
+    final selectedView =
+        !canSeeTemplates && _selectedView == _PlannedWorkView.templates
+            ? _PlannedWorkView.openJobs
+            : _selectedView;
     final filteredExecutions = _filterExecutions(
       executionsAsync.value ?? const <JobExecution>[],
       _query,
@@ -50,9 +57,9 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
     final bottomSafeInset = MediaQuery.of(context).viewPadding.bottom;
     final fabBottomGap = BafSpacing.lg + bottomSafeInset;
     final showCreateTemplateFab =
-        canCreateTemplate && _selectedView == _PlannedWorkView.templates;
+        canCreateTemplate && selectedView == _PlannedWorkView.templates;
     final showAssignFab =
-        canAssignJob && _selectedView == _PlannedWorkView.openJobs;
+        canAssignJob && selectedView == _PlannedWorkView.openJobs;
     final hasAnyFab = showCreateTemplateFab || showAssignFab;
     final listBottomPadding =
         hasAnyFab ? 132 + bottomSafeInset + BafSpacing.xl : BafSpacing.xl;
@@ -68,7 +75,7 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
               child: Column(
                 children: [
                   _PlannedWorkSelector(
-                    selectedView: _selectedView,
+                    selectedView: selectedView,
                     openJobCount: executionsAsync.value?.length,
                     templateCount: templatesAsync.value?.length,
                     canSeeTemplates: canSeeTemplates,
@@ -82,7 +89,7 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
                   Expanded(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 180),
-                      child: switch (_selectedView) {
+                      child: switch (selectedView) {
                         _PlannedWorkView.openJobs => KeyedSubtree(
                           key: const ValueKey('planned-work-open-jobs'),
                           child: executionsAsync.when(

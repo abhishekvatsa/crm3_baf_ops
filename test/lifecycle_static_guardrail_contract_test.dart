@@ -292,8 +292,10 @@ void main() {
 
         _expectContains(
           registry,
-          'Future<bool> _runAction(Future<void> Function() action) async',
+          'Future<bool> _runAction(Future<void> Function(AppUser actor) action)',
         );
+        _expectContains(registry, 'final actor = _liveGovernanceActor;');
+        _expectContains(registry, 'await action(actor);');
         _expectContains(registry, 'final success = await _runAction');
         _expectContains(registry, 'if (!mounted || !success) { return; }');
         _expectContains(

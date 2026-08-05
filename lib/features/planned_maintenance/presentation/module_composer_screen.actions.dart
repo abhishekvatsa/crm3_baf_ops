@@ -11,7 +11,10 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
   }
 
   Future<void> _seedCloudKnowledgeBaseline() async {
-    if (!widget.canSeedCloudKnowledge || widget.actorUid.trim().isEmpty) {
+    final actor = ref.read(currentAppUserProvider).asData?.value;
+    if (!widget.canSeedCloudKnowledge ||
+        actor == null ||
+        !actor.canManageTemplateGovernance) {
       _showSnack(
         'Only Admin/SI governance users can seed cloud knowledge.',
         BafColors.danger,
@@ -35,8 +38,8 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
     try {
       await (_knowledgeRepository ??= BafKnowledgeRepository())
           .seedCloudBaseline(
-            actorUid: widget.actorUid,
-            actorName: widget.actorName,
+            actorUid: actor.uid,
+            actorName: actor.name,
             changeSummary: reason.trim(),
           );
       await _loadKnowledgeRows();
@@ -527,16 +530,15 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
       MaterialPageRoute(
         builder:
             (_) => ModuleRegistryAuthoringScreen(
-              actor: actor,
               draftModules: _draft.modules
                   .map(cloneComposerModuleDraft)
                   .toList(growable: false),
               loadDraftRevisions: repository.getDraftRevisions,
               loadPublishedSources: repository.getPublishedSources,
-              createDraft: (module, reason) {
+              createDraft: (liveActor, module, reason) {
                 return repository.createDraftFromModule(
                   module: module,
-                  actor: actor,
+                  actor: liveActor,
                   sourceType: 'moduleComposerDraft',
                   lineage: <String, dynamic>{
                     'sourceModuleCode': module.moduleCode,
@@ -546,11 +548,11 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
                   reason: reason,
                 );
               },
-              updateDraft: (revision, module, reason) {
+              updateDraft: (liveActor, revision, module, reason) {
                 return repository.updateDraftRevision(
                   revision: revision,
                   module: module,
-                  actor: actor,
+                  actor: liveActor,
                   sourceType: 'moduleComposerDraft',
                   lineage: <String, dynamic>{
                     'sourceModuleCode': module.moduleCode,
@@ -560,25 +562,25 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
                   reason: reason,
                 );
               },
-              publishDraft: (revision, reason) {
+              publishDraft: (liveActor, revision, reason) {
                 return repository.publishDraftRevision(
                   registryModuleId: revision.registryModuleId,
                   revisionId: revision.revisionId,
-                  actor: actor,
+                  actor: liveActor,
                   reason: reason,
                 );
               },
-              retireRevision: (revision, reason) {
+              retireRevision: (liveActor, revision, reason) {
                 return repository.retirePublishedRevision(
                   revision: revision,
-                  actor: actor,
+                  actor: liveActor,
                   reason: reason,
                 );
               },
-              retireFamily: (family, reason) {
+              retireFamily: (liveActor, family, reason) {
                 return repository.retireFamily(
                   family: family,
-                  actor: actor,
+                  actor: liveActor,
                   reason: reason,
                 );
               },

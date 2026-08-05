@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
+import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
+import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/module_composer_models.dart';
@@ -153,8 +155,13 @@ void main() {
       'malformed initial composer payload shows a blocking repair state',
       (tester) async {
         await tester.pumpWidget(
-          const ProviderScope(
-            child: MaterialApp(
+          ProviderScope(
+            overrides: [
+              currentAppUserProvider.overrideWith(
+                (ref) => Stream<AppUser?>.value(_adminActor()),
+              ),
+            ],
+            child: const MaterialApp(
               home: ModuleComposerScreen(
                 initialJobTemplateJson: '{}',
                 initialModuleSnapshotsJson: '["not-an-object"]',
@@ -164,6 +171,7 @@ void main() {
             ),
           ),
         );
+        await tester.pumpAndSettle();
 
         expect(
           find.text('Saved composer payload needs repair'),
@@ -208,4 +216,15 @@ void main() {
       expect(clearIndex, greaterThan(decodeIndex));
     });
   });
+}
+
+AppUser _adminActor() {
+  return AppUser(
+    uid: 'composer-integrity-admin',
+    name: 'Composer Integrity Admin',
+    email: 'composer.integrity@example.com',
+    roles: const <AppRole>[AppRole.admin],
+    isApproved: true,
+    createdAt: DateTime.utc(2026, 8, 5),
+  );
 }

@@ -46,8 +46,6 @@ class ModuleComposerScreen extends ConsumerStatefulWidget {
   final String initialFieldDefinitionsJson;
   final String initialChecklistJson;
   final String recoveryScopeId;
-  final String actorUid;
-  final String actorName;
   final bool canSeedCloudKnowledge;
   final bool showSaveToPublisher;
   final TemplateVersion? initialTemplateVersion;
@@ -60,8 +58,6 @@ class ModuleComposerScreen extends ConsumerStatefulWidget {
     required this.initialFieldDefinitionsJson,
     required this.initialChecklistJson,
     this.recoveryScopeId = 'default',
-    this.actorUid = '',
-    this.actorName = '',
     this.canSeedCloudKnowledge = false,
     this.showSaveToPublisher = true,
     this.initialTemplateVersion,
@@ -91,6 +87,8 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
   bool _isLoadingKnowledge = true;
   bool _isSeedingCloud = false;
   bool _suppressRecoverySave = false;
+  String? _initializingForActorUid;
+  String? _initializedForActorUid;
   Timer? _recoverySaveDebounce;
   List<BafKnowledgeEntry> _knowledgeRows = BafKnowledgeLayer.entries;
   BafKnowledgeMatrixMeta _matrixMeta = BafKnowledgeMatrixMeta.staticFallback();
@@ -121,12 +119,31 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
     if (_draft.modules.isNotEmpty) {
       _selectedModuleIndex = 0;
     }
-    if (_initialPayloadError == null) {
-      _loadKnowledgeRows();
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _checkForRecoverableDraft(),
-      );
+  }
+
+  void _scheduleAuthorizedInitialization(String actorUid) {
+    if (_initialPayloadError != null ||
+        _initializedForActorUid == actorUid ||
+        _initializingForActorUid == actorUid) {
+      return;
     }
+    _initializingForActorUid = actorUid;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || !_hasLiveComposerAuthority(expectedUid: actorUid)) {
+        _initializingForActorUid = null;
+        return;
+      }
+      await _loadKnowledgeRows();
+      if (!mounted || !_hasLiveComposerAuthority(expectedUid: actorUid)) {
+        _initializingForActorUid = null;
+        return;
+      }
+      _setStateWithoutRecoverySave(() {
+        _initializedForActorUid = actorUid;
+        _initializingForActorUid = null;
+      });
+      await _checkForRecoverableDraft();
+    });
   }
 
   @override
@@ -157,6 +174,31 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return const _ComposerAuthorityState(
+        message: 'Checking template-authoring access...',
+        showProgress: true,
+      );
+    }
+    if (actorAsync.hasError) {
+      _initializedForActorUid = null;
+      return const _ComposerAuthorityState(
+        title: 'Authoring access could not be verified',
+        message:
+            'The live access profile is unavailable. The composer stayed closed.',
+      );
+    }
+    final actor = actorAsync.asData?.value;
+    if (actor == null || !actor.canManageTemplateGovernance) {
+      _initializedForActorUid = null;
+      return const _ComposerAuthorityState(
+        title: 'Template authoring access required',
+        message:
+            'This workspace is available only to approved Admin and SI users.',
+      );
+    }
+
     final initialPayloadError = _initialPayloadError;
     if (initialPayloadError != null) {
       return Scaffold(
@@ -184,10 +226,16 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
         ),
       );
     }
+    if (_initializedForActorUid != actor.uid) {
+      _scheduleAuthorizedInitialization(actor.uid);
+      return const _ComposerAuthorityState(
+        message: 'Preparing the governed authoring workspace...',
+        showProgress: true,
+      );
+    }
     final validation = ModuleComposerValidator.validate(_draft);
-    final actor = ref.watch(currentAppUserProvider).value;
-    final canManageRegistry = actor?.canManageTemplateGovernance == true;
-    final canPreparePublish = actor?.canPublishTemplateVersion == true;
+    final canManageRegistry = actor.canManageTemplateGovernance;
+    final canPreparePublish = actor.canPublishTemplateVersion;
     final compactAppBar = MediaQuery.sizeOf(context).width < 720;
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -236,6 +284,64 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerAuthorityState extends StatelessWidget {
+  final String title;
+  final String message;
+  final bool showProgress;
+
+  const _ComposerAuthorityState({
+    this.title = 'Module Composer',
+    required this.message,
+    this.showProgress = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: BafColors.background,
+      appBar: AppBar(
+        backgroundColor: BafColors.card,
+        foregroundColor: BafColors.textPrimary,
+        elevation: 0.4,
+        title: const Text('Module Composer'),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Padding(
+              padding: const EdgeInsets.all(BafSpacing.lg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showProgress) ...[
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: BafSpacing.lg),
+                  ],
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: BafColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: BafSpacing.sm),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: BafColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

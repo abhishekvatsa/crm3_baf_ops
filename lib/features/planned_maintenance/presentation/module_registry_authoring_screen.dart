@@ -1,37 +1,54 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../auth/data/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../data/module_registry_model.dart';
 import '../domain/module_composer_models.dart';
 import '../domain/module_registry_concurrency.dart';
 
-class ModuleRegistryAuthoringScreen extends StatefulWidget {
-  final AppUser actor;
+class ModuleRegistryAuthoringScreen extends ConsumerStatefulWidget {
   final List<ComposerModuleDraft> draftModules;
   final Future<List<ModuleRegistryRevision>> Function() loadDraftRevisions;
   final Future<List<PublishedRegistryModuleSource>> Function()
   loadPublishedSources;
-  final Future<void> Function(ComposerModuleDraft module, String reason)
+  final Future<void> Function(
+    AppUser actor,
+    ComposerModuleDraft module,
+    String reason,
+  )
   createDraft;
   final Future<void> Function(
+    AppUser actor,
     ModuleRegistryRevision revision,
     ComposerModuleDraft module,
     String reason,
   )
   updateDraft;
-  final Future<void> Function(ModuleRegistryRevision revision, String reason)
+  final Future<void> Function(
+    AppUser actor,
+    ModuleRegistryRevision revision,
+    String reason,
+  )
   publishDraft;
-  final Future<void> Function(ModuleRegistryRevision revision, String reason)
+  final Future<void> Function(
+    AppUser actor,
+    ModuleRegistryRevision revision,
+    String reason,
+  )
   retireRevision;
-  final Future<void> Function(ModuleRegistryFamily family, String reason)
+  final Future<void> Function(
+    AppUser actor,
+    ModuleRegistryFamily family,
+    String reason,
+  )
   retireFamily;
 
   const ModuleRegistryAuthoringScreen({
     super.key,
-    required this.actor,
     required this.draftModules,
     required this.loadDraftRevisions,
     required this.loadPublishedSources,
@@ -43,22 +60,28 @@ class ModuleRegistryAuthoringScreen extends StatefulWidget {
   });
 
   @override
-  State<ModuleRegistryAuthoringScreen> createState() =>
+  ConsumerState<ModuleRegistryAuthoringScreen> createState() =>
       _ModuleRegistryAuthoringScreenState();
 }
 
 class _ModuleRegistryAuthoringScreenState
-    extends State<ModuleRegistryAuthoringScreen> {
+    extends ConsumerState<ModuleRegistryAuthoringScreen> {
   bool _loading = true;
   bool _busy = false;
+  String? _loadedForActorUid;
+  String? _loadingForActorUid;
   int _selectedDraftModuleIndex = 0;
   List<ModuleRegistryRevision> _draftRevisions = const [];
   List<PublishedRegistryModuleSource> _publishedSources = const [];
   String? _error;
   bool _integrityError = false;
 
-  bool get _canGovern => widget.actor.canManageTemplateGovernance;
-  bool get _canMutate => _canGovern && _error == null;
+  AppUser? get _liveGovernanceActor {
+    final actor = ref.read(currentAppUserProvider).asData?.value;
+    return actor?.canManageTemplateGovernance == true ? actor : null;
+  }
+
+  bool get _canMutate => _liveGovernanceActor != null && _error == null;
 
   ComposerModuleDraft? get _selectedComposerModule {
     if (widget.draftModules.isEmpty) {
@@ -71,31 +94,54 @@ class _ModuleRegistryAuthoringScreenState
     return widget.draftModules[safeIndex];
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _load();
+  bool _hasLiveGovernanceActor(String expectedUid) {
+    return _liveGovernanceActor?.uid == expectedUid;
   }
 
-  Future<void> _load() async {
+  void _scheduleLoad(String actorUid) {
+    if (_loadedForActorUid == actorUid || _loadingForActorUid == actorUid) {
+      return;
+    }
+    _loadingForActorUid = actorUid;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _load(expectedActorUid: actorUid);
+      }
+    });
+  }
+
+  Future<void> _load({String? expectedActorUid}) async {
+    final actor = _liveGovernanceActor;
+    if (actor == null ||
+        (expectedActorUid != null && actor.uid != expectedActorUid)) {
+      _loadingForActorUid = null;
+      return;
+    }
+    final actorUid = actor.uid;
     setState(() {
       _loading = true;
+      _loadingForActorUid = actorUid;
+      _loadedForActorUid = null;
       _error = null;
       _integrityError = false;
     });
     try {
       final drafts = await widget.loadDraftRevisions();
       final published = await widget.loadPublishedSources();
-      if (!mounted) {
+      if (!mounted || !_hasLiveGovernanceActor(actorUid)) {
+        _loadingForActorUid = null;
         return;
       }
       setState(() {
         _draftRevisions = drafts;
         _publishedSources = published;
         _loading = false;
+        _loadedForActorUid = actorUid;
+        _loadingForActorUid = null;
       });
     } on PersistedDataFormatException {
-      if (!mounted) {
+      if (!mounted || !_hasLiveGovernanceActor(actorUid)) {
+        _loadingForActorUid = null;
         return;
       }
       setState(() {
@@ -103,21 +149,27 @@ class _ModuleRegistryAuthoringScreenState
             'A registry governance record has missing, malformed, or inconsistent lifecycle history. Actions are disabled until the source record is repaired and this view reloads cleanly.';
         _integrityError = true;
         _loading = false;
+        _loadedForActorUid = actorUid;
+        _loadingForActorUid = null;
       });
     } catch (e) {
-      if (!mounted) {
+      if (!mounted || !_hasLiveGovernanceActor(actorUid)) {
+        _loadingForActorUid = null;
         return;
       }
       setState(() {
         _error = e.toString();
         _integrityError = false;
         _loading = false;
+        _loadedForActorUid = actorUid;
+        _loadingForActorUid = null;
       });
     }
   }
 
-  Future<bool> _runAction(Future<void> Function() action) async {
-    if (!_canGovern) {
+  Future<bool> _runAction(Future<void> Function(AppUser actor) action) async {
+    final actor = _liveGovernanceActor;
+    if (actor == null) {
       _showSnack('Registry authoring is Admin/SI-only.', BafColors.danger);
       return false;
     }
@@ -130,11 +182,11 @@ class _ModuleRegistryAuthoringScreenState
     }
     setState(() => _busy = true);
     try {
-      await action();
-      if (!mounted) {
+      await action(actor);
+      if (!mounted || !_hasLiveGovernanceActor(actor.uid)) {
         return false;
       }
-      await _load();
+      await _load(expectedActorUid: actor.uid);
       if (!mounted) {
         return false;
       }
@@ -146,7 +198,7 @@ class _ModuleRegistryAuthoringScreenState
       if (!mounted) {
         return false;
       }
-      await _load();
+      await _load(expectedActorUid: actor.uid);
       if (!mounted) {
         return false;
       }
@@ -180,7 +232,9 @@ class _ModuleRegistryAuthoringScreenState
     if (!mounted || reason == null) {
       return;
     }
-    final success = await _runAction(() => widget.createDraft(module, reason));
+    final success = await _runAction(
+      (actor) => widget.createDraft(actor, module, reason),
+    );
     if (!mounted || !success) {
       return;
     }
@@ -208,7 +262,7 @@ class _ModuleRegistryAuthoringScreenState
       return;
     }
     final success = await _runAction(
-      () => widget.updateDraft(revision, module, reason),
+      (actor) => widget.updateDraft(actor, revision, module, reason),
     );
     if (!mounted || !success) {
       return;
@@ -232,7 +286,7 @@ class _ModuleRegistryAuthoringScreenState
       return;
     }
     final success = await _runAction(
-      () => widget.publishDraft(revision, reason),
+      (actor) => widget.publishDraft(actor, revision, reason),
     );
     if (!mounted || !success) {
       return;
@@ -256,7 +310,7 @@ class _ModuleRegistryAuthoringScreenState
       return;
     }
     final success = await _runAction(
-      () => widget.retireRevision(source.revision, reason),
+      (actor) => widget.retireRevision(actor, source.revision, reason),
     );
     if (!mounted || !success) {
       return;
@@ -277,7 +331,9 @@ class _ModuleRegistryAuthoringScreenState
     if (!mounted || reason == null) {
       return;
     }
-    final success = await _runAction(() => widget.retireFamily(family, reason));
+    final success = await _runAction(
+      (actor) => widget.retireFamily(actor, family, reason),
+    );
     if (!mounted || !success) {
       return;
     }
@@ -316,6 +372,38 @@ class _ModuleRegistryAuthoringScreenState
 
   @override
   Widget build(BuildContext context) {
+    final actorAsync = ref.watch(currentAppUserProvider);
+    if (actorAsync.isLoading) {
+      return const _RegistryAuthorityState(
+        message: 'Checking registry-authoring access...',
+        showProgress: true,
+      );
+    }
+    if (actorAsync.hasError) {
+      _loadedForActorUid = null;
+      return const _RegistryAuthorityState(
+        title: 'Registry access could not be verified',
+        message:
+            'The live access profile is unavailable. Registry data stayed closed.',
+      );
+    }
+    final actor = actorAsync.asData?.value;
+    if (actor == null || !actor.canManageTemplateGovernance) {
+      _loadedForActorUid = null;
+      return const _RegistryAuthorityState(
+        title: 'Registry authoring access required',
+        message:
+            'This workspace is available only to approved Admin and SI users.',
+      );
+    }
+    if (_loadedForActorUid != actor.uid) {
+      _scheduleLoad(actor.uid);
+      return const _RegistryAuthorityState(
+        message: 'Loading governed registry records...',
+        showProgress: true,
+      );
+    }
+
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
@@ -326,7 +414,10 @@ class _ModuleRegistryAuthoringScreenState
         actions: [
           IconButton(
             tooltip: 'Reload registry authoring data',
-            onPressed: _busy || _loading ? null : _load,
+            onPressed:
+                _busy || _loading
+                    ? null
+                    : () => _load(expectedActorUid: actor.uid),
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
@@ -338,10 +429,7 @@ class _ModuleRegistryAuthoringScreenState
                 : ListView(
                   padding: const EdgeInsets.all(BafSpacing.lg),
                   children: [
-                    _GovernanceBanner(
-                      actor: widget.actor,
-                      canGovern: _canGovern,
-                    ),
+                    _GovernanceBanner(actor: actor, canGovern: true),
                     if (_error != null) ...[
                       const SizedBox(height: BafSpacing.md),
                       if (_integrityError)
@@ -383,6 +471,64 @@ class _ModuleRegistryAuthoringScreenState
                     ),
                   ],
                 ),
+      ),
+    );
+  }
+}
+
+class _RegistryAuthorityState extends StatelessWidget {
+  final String title;
+  final String message;
+  final bool showProgress;
+
+  const _RegistryAuthorityState({
+    this.title = 'Registry Authoring',
+    required this.message,
+    this.showProgress = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: BafColors.background,
+      appBar: AppBar(
+        backgroundColor: BafColors.card,
+        foregroundColor: BafColors.textPrimary,
+        elevation: 0.4,
+        title: const Text('Registry Authoring'),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Padding(
+              padding: const EdgeInsets.all(BafSpacing.lg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showProgress) ...[
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: BafSpacing.lg),
+                  ],
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: BafColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: BafSpacing.sm),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: BafColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

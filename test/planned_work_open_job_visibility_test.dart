@@ -4,6 +4,8 @@ import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/templates_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/planned_maintenance_provider.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,6 +102,48 @@ void main() {
     expect(find.text('Legacy preventive template'), findsOneWidget);
     expect(find.text('70F Runtime Archive Test 2026-06-15'), findsNothing);
   });
+
+  testWidgets(
+    'live role downgrade leaves the hidden template view immediately',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final actors = StreamController<AppUser?>();
+      addTearDown(actors.close);
+      actors.add(_adminActor());
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((ref) => actors.stream),
+            activeTemplatesProvider.overrideWith(
+              (ref) => Stream<List<JobTemplate>>.value(<JobTemplate>[
+                _legacyTemplate(),
+              ]),
+            ),
+            openExecutionsProvider.overrideWith(
+              (ref) => Stream<List<JobExecution>>.value(const <JobExecution>[]),
+            ),
+          ],
+          child: const MaterialApp(home: Scaffold(body: TemplatesScreen())),
+        ),
+      );
+
+      await _pumpFrames(tester, count: 6);
+      await tester.tap(find.text('Templates'));
+      await _pumpFrames(tester, count: 4);
+      expect(find.text('Legacy preventive template'), findsOneWidget);
+
+      actors.add(_operationsActor());
+      await _pumpFrames(tester, count: 6);
+
+      expect(find.text('Templates'), findsNothing);
+      expect(find.text('Legacy preventive template'), findsNothing);
+      expect(find.text('Open assigned jobs'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 class _RecordingNavigatorObserver extends NavigatorObserver {
@@ -166,6 +210,17 @@ AppUser _adminActor() {
     name: 'Runtime Verification Admin',
     email: 'runtime.admin@example.com',
     roles: const <AppRole>[AppRole.admin],
+    isApproved: true,
+    createdAt: DateTime.utc(2026, 6, 16),
+  );
+}
+
+AppUser _operationsActor() {
+  return AppUser(
+    uid: 'operations-visible',
+    name: 'Runtime Operations',
+    email: 'runtime.operations@example.com',
+    roles: const <AppRole>[AppRole.operations],
     isApproved: true,
     createdAt: DateTime.utc(2026, 6, 16),
   );

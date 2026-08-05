@@ -352,8 +352,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 232
-    and counts.get("SUCCESSOR_MODIFIED") == 178
+    and counts.get("BYTE_IDENTICAL") == 225
+    and counts.get("SUCCESSOR_MODIFIED") == 185
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -6771,6 +6771,19 @@ a05_registry_screen_test = text("test/module_registry_authoring_screen_test.dart
 a05_decision_6 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_6.md"
 )
+a05_user_model = text("lib/features/auth/data/user_model.dart")
+a05_auth_gate = text("lib/main.dart")
+a05_planned_work_screen = text(
+    "lib/features/planned_maintenance/presentation/templates_screen.dart"
+)
+a05_planned_work_test = text("test/operational_ux_restructure_test.dart")
+a05_planned_work_downgrade_test = text(
+    "test/planned_work_open_job_visibility_test.dart"
+)
+a05_composer_live_test = text("test/module_composer_live_authority_test.dart")
+a05_decision_7 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_7.md"
+)
 a05_records = [
     record
     for record in programme_ledger.get("technicalFindings", [])
@@ -6989,7 +7002,7 @@ check(
     and "function validModuleRegistryRevisionTimeline()" in rules_source
     and "isPersistedTimestamp(" in rules_source
     and "Governance timeline needs repair" in a05_registry_authoring_screen
-    and "_canMutate => _canGovern && _error == null"
+    and "_canMutate => _liveGovernanceActor != null && _error == null"
         in a05_registry_authoring_screen
     and "Governance timeline needs repair" in a05_template_publisher_screen
     and "Publishing is blocked" in a05_template_publisher_screen
@@ -7006,8 +7019,30 @@ check(
     and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_6
     and "`A-05` remains open" in a05_decision_6
     and "does not inspect or mutate production documents" in a05_decision_6
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 232
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 178
+    and "readRequiredPersistedString(" in a05_user_model
+    and "readRequiredPersistedDateTime(" in a05_user_model
+    and "DateTime _parseDateTime" not in a05_user_model
+    and "Profile needs repair" in a05_auth_gate
+    and "canSeeTemplates" in a05_planned_work_screen
+    and "const AsyncData<List<JobTemplate>>" in a05_planned_work_screen
+    and "_hasLiveComposerAuthority" in a05_composer_support
+    and "_liveGovernanceActor" in a05_registry_authoring_screen
+    and "widget.actor" not in a05_registry_authoring_screen
+    and "operations Work is task-first and hides governance templates"
+        in a05_planned_work_test
+    and "live role downgrade leaves the hidden template view immediately"
+        in a05_planned_work_downgrade_test
+    and "non-governor cannot load composer knowledge data"
+        in a05_composer_live_test
+    and "live role downgrade closes an initialized composer"
+        in a05_composer_live_test
+    and "live role downgrade closes loaded registry data"
+        in a05_registry_screen_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_7
+    and "`A-05` remains open" in a05_decision_7
+    and "does not inspect or mutate production documents" in a05_decision_7
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 225
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 185
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections
