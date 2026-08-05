@@ -1152,7 +1152,7 @@ describe("template_packages", () => {
     await seedUser("si1", ["si"]);
   });
 
-  test("SI can update template package lifecycle fields", async () => {
+  test("SI retirement requires complete template package timeline fields", async () => {
     await seedDoc("template_packages/pkgEvidence", {
       firestoreId: "pkgEvidence",
       packageCode: "PKG-EVIDENCE",
@@ -1170,9 +1170,19 @@ describe("template_packages", () => {
 
     const db = dbAs("si1");
 
+    await assertFails(
+      updateDoc(doc(db, "template_packages/pkgEvidence"), {
+        lifecycleStatus: "retired",
+        updatedByUid: "si1",
+        updatedAt: new Date().toISOString(),
+        version: 2,
+      })
+    );
+
     await assertSucceeds(
       updateDoc(doc(db, "template_packages/pkgEvidence"), {
         lifecycleStatus: "retired",
+        retiredAt: new Date().toISOString(),
         updatedByUid: "si1",
         updatedAt: new Date().toISOString(),
         version: 2,
@@ -1220,6 +1230,45 @@ describe("template_versions", () => {
         firestoreId: "verBad",
         createdByUid: "ops1",
         updatedByUid: "ops1",
+      })
+    );
+  });
+
+  test("template versions and publication audits reject incomplete timelines", async () => {
+    const db = dbAs("si1");
+
+    await assertFails(
+      setDoc(doc(db, "template_versions/verMissingUpdated"), {
+        ...draftVersion,
+        firestoreId: "verMissingUpdated",
+        updatedAt: null,
+      })
+    );
+    await assertFails(
+      setDoc(doc(db, "template_versions/verDraftWithHistory"), {
+        ...draftVersion,
+        firestoreId: "verDraftWithHistory",
+        publishedAt: Timestamp.now(),
+      })
+    );
+    await assertFails(
+      setDoc(doc(db, "template_versions/verBadClosureTime"), {
+        ...draftVersion,
+        firestoreId: "verBadClosureTime",
+        closureReviewConfirmedAt: 42,
+      })
+    );
+    await assertFails(
+      setDoc(doc(db, "template_publish_audits/auditBadTimeline"), {
+        firestoreId: "auditBadTimeline",
+        packageFirestoreId: "pkg1",
+        versionFirestoreId: "ver1",
+        action: "created",
+        performedByUid: "si1",
+        performedAt: 42,
+        updatedAt: new Date().toISOString(),
+        version: 1,
+        isDeleted: false,
       })
     );
   });
@@ -2586,6 +2635,38 @@ describe("module_registry", () => {
 
     await assertSucceeds(
       setDoc(doc(db, "module_registry_audits/audit1"), registryAudit())
+    );
+  });
+
+  test("registry family, revision, and audit timelines fail closed", async () => {
+    const db = dbAs("si1");
+
+    await assertFails(
+      setDoc(
+        doc(db, "module_registry/baf.module.missing_time"),
+        registryFamily({
+          registryModuleId: "baf.module.missing_time",
+          updatedAt: null,
+        })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "module_registry/baf.module.base_fan_vibration/revisions/draftHistory"),
+        registryRevision({
+          revisionId: "draftHistory",
+          publishedAt: new Date().toISOString(),
+        })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "module_registry_audits/auditBadTimeline"),
+        registryAudit({
+          firestoreId: "auditBadTimeline",
+          performedAt: 42,
+        })
+      )
     );
   });
 

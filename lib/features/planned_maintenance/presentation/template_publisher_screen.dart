@@ -5,16 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../auth/data/user_model.dart';
-import '../../auth/providers/auth_provider.dart';
-import '../data/template_governance_model.dart';
-import '../providers/template_governance_provider.dart';
-import '../domain/module_composer_models.dart';
-import '../domain/template_version_snapshot_contract.dart';
-import 'module_composer_screen.dart';
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../../core/widgets/persisted_data_integrity_notice.dart';
+import '../../auth/data/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../data/template_governance_model.dart';
+import '../domain/module_composer_models.dart';
+import '../domain/template_version_snapshot_contract.dart';
+import '../providers/template_governance_provider.dart';
+import 'module_composer_screen.dart';
 
 part 'template_publisher_screen.builders.dart';
 part 'template_publisher_screen.actions.dart';
@@ -143,7 +145,14 @@ class _TemplatePublisherScreenState
                 body: Center(child: CircularProgressIndicator()),
               ),
           error:
-              (e, _) => _ErrorScaffold(message: 'Template package error: $e'),
+              (e, _) =>
+                  e is PersistedDataFormatException
+                      ? const _ErrorScaffold(
+                        title: 'Governance timeline needs repair',
+                        message:
+                            'A template package or version has missing, malformed, or inconsistent lifecycle history. Publishing is blocked until the source record is repaired and this view reloads cleanly.',
+                      )
+                      : _ErrorScaffold(message: 'Template package error: $e'),
           data: (packages) => _buildPublisher(context, actor, packages),
         );
       },

@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:isar/isar.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 
 part 'template_governance_model.g.dart';
@@ -35,14 +36,6 @@ DateTime? _parseTimestamp(dynamic value) {
   return null;
 }
 
-T _enumByNameOr<T extends Enum>(List<T> values, dynamic value, T fallback) {
-  if (value is! String) return fallback;
-  for (final item in values) {
-    if (item.name == value) return item;
-  }
-  return fallback;
-}
-
 String? _cleanOptionalText(dynamic value) {
   if (value == null || value is! String) return null;
   final trimmed = value.trim();
@@ -52,6 +45,20 @@ String? _cleanOptionalText(dynamic value) {
 String _cleanRequiredText(dynamic value, String fallback) {
   final cleaned = _cleanOptionalText(value);
   return cleaned ?? fallback;
+}
+
+void _requireGovernanceTimestamp(
+  DateTime? value, {
+  required String field,
+  required String source,
+  required String detail,
+}) {
+  if (value != null) return;
+  throw PersistedDataFormatException(
+    field: field,
+    source: source,
+    detail: detail,
+  );
 }
 
 List<String> _cleanStringList(dynamic value) {
@@ -330,6 +337,45 @@ class TemplatePackage {
   };
 
   factory TemplatePackage.fromMap(Map<String, dynamic> map, String documentId) {
+    final source = 'template_packages/$documentId';
+    final isDeleted = readRequiredPersistedBool(
+      map['isDeleted'],
+      field: 'isDeleted',
+      source: source,
+    );
+    final deletedAt = readOptionalPersistedDateTime(
+      map['deletedAt'],
+      field: 'deletedAt',
+      source: source,
+    );
+    if (isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        deletedAt,
+        entityLabel: 'template package',
+        firestoreId: documentId,
+      );
+    }
+
+    final lifecycleStatus = readRequiredPersistedEnum(
+      TemplatePackageLifecycleStatus.values,
+      map['lifecycleStatus'],
+      field: 'lifecycleStatus',
+      source: source,
+    );
+    final retiredAt = readOptionalPersistedDateTime(
+      map['retiredAt'],
+      field: 'retiredAt',
+      source: source,
+    );
+    if (lifecycleStatus == TemplatePackageLifecycleStatus.retired) {
+      _requireGovernanceTimestamp(
+        retiredAt,
+        field: 'retiredAt',
+        source: source,
+        detail: 'retired packages require a retirement timestamp',
+      );
+    }
+
     final templatePackage = TemplatePackage()
       ..firestoreId = documentId
       ..packageCode = _cleanRequiredText(map['packageCode'], '')
@@ -338,11 +384,7 @@ class TemplatePackage {
       ..assetType = _cleanOptionalText(map['assetType'])
       ..assetNumberScope = _cleanOptionalText(map['assetNumberScope'])
       ..disciplineScope = _cleanOptionalText(map['disciplineScope'])
-      ..lifecycleStatus = _enumByNameOr(
-        TemplatePackageLifecycleStatus.values,
-        map['lifecycleStatus'],
-        TemplatePackageLifecycleStatus.active,
-      )
+      ..lifecycleStatus = lifecycleStatus
       ..activeVersionFirestoreId = _cleanOptionalText(
         map['activeVersionFirestoreId'],
       )
@@ -356,21 +398,26 @@ class TemplatePackage {
       ..updatedByName = _cleanOptionalText(map['updatedByName'])
       ..retiredByUid = _cleanOptionalText(map['retiredByUid'])
       ..retiredByName = _cleanOptionalText(map['retiredByName'])
-      ..retiredAt = _parseTimestamp(map['retiredAt'])
+      ..retiredAt = retiredAt
       ..retireReason = _cleanOptionalText(map['retireReason'])
-      ..isDeleted = map['isDeleted'] == true
-      ..deletedAt = _parseTimestamp(map['deletedAt'])
+      ..isDeleted = isDeleted
+      ..deletedAt = deletedAt
       ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
       ..deletedByName = _cleanOptionalText(map['deletedByName'])
       ..deleteReason = _cleanOptionalText(map['deleteReason'])
       ..version = map['version'] is int ? map['version'] as int : 1
       ..schemaVersion =
           map['schemaVersion'] is int ? map['schemaVersion'] as int : 1
-      ..createdAt = _parseTimestamp(map['createdAt']) ?? DateTime.now()
-      ..updatedAt =
-          _parseTimestamp(map['updatedAt']) ??
-          _parseTimestamp(map['createdAt']) ??
-          DateTime.now()
+      ..createdAt = readRequiredPersistedDateTime(
+        map['createdAt'],
+        field: 'createdAt',
+        source: source,
+      )
+      ..updatedAt = readRequiredPersistedDateTime(
+        map['updatedAt'],
+        field: 'updatedAt',
+        source: source,
+      )
       ..targetRefs = _cleanStringList(map['targetRefs'])
       ..deviceTagRefs = _cleanStringList(map['deviceTagRefs'])
       ..safetyClass = _cleanOptionalText(map['safetyClass'])
@@ -381,14 +428,6 @@ class TemplatePackage {
       )
       ..metadataJson = _cleanOptionalText(map['metadataJson'])
       ..isSynced = true;
-
-    if (templatePackage.isDeleted) {
-      requireRemoteTombstoneDeletedAt(
-        templatePackage.deletedAt,
-        entityLabel: 'template package',
-        firestoreId: templatePackage.firestoreId,
-      );
-    }
 
     return templatePackage;
   }
@@ -624,6 +663,25 @@ class TemplateVersion {
   };
 
   factory TemplateVersion.fromMap(Map<String, dynamic> map, String documentId) {
+    final source = 'template_versions/$documentId';
+    final isDeleted = readRequiredPersistedBool(
+      map['isDeleted'],
+      field: 'isDeleted',
+      source: source,
+    );
+    final deletedAt = readOptionalPersistedDateTime(
+      map['deletedAt'],
+      field: 'deletedAt',
+      source: source,
+    );
+    if (isDeleted) {
+      requireRemoteTombstoneDeletedAt(
+        deletedAt,
+        entityLabel: 'template version',
+        firestoreId: documentId,
+      );
+    }
+
     final jobTemplateSnapshotJson = _cleanRequiredText(
       map['jobTemplateSnapshotJson'],
       '{}',
@@ -636,6 +694,96 @@ class TemplateVersion {
       jobTemplateSnapshotJson: jobTemplateSnapshotJson,
       moduleSnapshotsJson: moduleSnapshotsJson,
     );
+    final status = readRequiredPersistedEnum(
+      TemplateVersionStatus.values,
+      map['status'],
+      field: 'status',
+      source: source,
+    );
+    final closureReviewConfirmed =
+        map.containsKey('closureReviewConfirmed')
+            ? readRequiredPersistedBool(
+              map['closureReviewConfirmed'],
+              field: 'closureReviewConfirmed',
+              source: source,
+            )
+            : inferredClosureState.confirmed;
+    final closureReviewConfirmedAt =
+        readOptionalPersistedDateTime(
+          map['closureReviewConfirmedAt'],
+          field: 'closureReviewConfirmedAt',
+          source: source,
+        ) ??
+        inferredClosureState.confirmedAt;
+    final publishedAt = readOptionalPersistedDateTime(
+      map['publishedAt'],
+      field: 'publishedAt',
+      source: source,
+    );
+    final retiredAt = readOptionalPersistedDateTime(
+      map['retiredAt'],
+      field: 'retiredAt',
+      source: source,
+    );
+
+    if (closureReviewConfirmed) {
+      _requireGovernanceTimestamp(
+        closureReviewConfirmedAt,
+        field: 'closureReviewConfirmedAt',
+        source: source,
+        detail: 'confirmed closure review requires a confirmation timestamp',
+      );
+    }
+    switch (status) {
+      case TemplateVersionStatus.draft:
+        if (publishedAt != null || retiredAt != null) {
+          throw PersistedDataFormatException(
+            field: publishedAt != null ? 'publishedAt' : 'retiredAt',
+            source: source,
+            detail: 'draft versions cannot carry publication history',
+          );
+        }
+        break;
+      case TemplateVersionStatus.published:
+        _requireGovernanceTimestamp(
+          publishedAt,
+          field: 'publishedAt',
+          source: source,
+          detail: 'published versions require a publication timestamp',
+        );
+        if (retiredAt != null) {
+          throw PersistedDataFormatException(
+            field: 'retiredAt',
+            source: source,
+            detail: 'published versions cannot carry retirement history',
+          );
+        }
+        break;
+      case TemplateVersionStatus.retired:
+        _requireGovernanceTimestamp(
+          publishedAt,
+          field: 'publishedAt',
+          source: source,
+          detail: 'retired versions require publication history',
+        );
+        _requireGovernanceTimestamp(
+          retiredAt,
+          field: 'retiredAt',
+          source: source,
+          detail: 'retired versions require a retirement timestamp',
+        );
+        break;
+      case TemplateVersionStatus.archived:
+        if ((publishedAt == null) != (retiredAt == null)) {
+          throw PersistedDataFormatException(
+            field: publishedAt == null ? 'publishedAt' : 'retiredAt',
+            source: source,
+            detail:
+                'archived versions require either complete retired history or no publication history',
+          );
+        }
+        break;
+    }
 
     final templateVersion = TemplateVersion()
       ..firestoreId = documentId
@@ -643,11 +791,7 @@ class TemplateVersion {
       ..versionNumber =
           map['versionNumber'] is int ? map['versionNumber'] as int : 1
       ..versionLabel = _cleanOptionalText(map['versionLabel'])
-      ..status = _enumByNameOr(
-        TemplateVersionStatus.values,
-        map['status'],
-        TemplateVersionStatus.draft,
-      )
+      ..status = status
       ..sourceVersionFirestoreId = _cleanOptionalText(
         map['sourceVersionFirestoreId'],
       )
@@ -661,9 +805,7 @@ class TemplateVersion {
       ..checklistJson = _cleanRequiredText(map['checklistJson'], '[]')
       ..releaseNotes = _cleanOptionalText(map['releaseNotes'])
       ..changeSummary = _cleanOptionalText(map['changeSummary'])
-      ..closureReviewConfirmed =
-          _parseBool(map['closureReviewConfirmed']) ??
-          inferredClosureState.confirmed
+      ..closureReviewConfirmed = closureReviewConfirmed
       ..closureCriticalModuleCount =
           _parseInt(map['closureCriticalModuleCount']) ??
           inferredClosureState.criticalModuleCount
@@ -673,34 +815,37 @@ class TemplateVersion {
       ..closureReviewConfirmedByName =
           _cleanOptionalText(map['closureReviewConfirmedByName']) ??
           inferredClosureState.confirmedByName
-      ..closureReviewConfirmedAt =
-          _parseTimestamp(map['closureReviewConfirmedAt']) ??
-          inferredClosureState.confirmedAt
+      ..closureReviewConfirmedAt = closureReviewConfirmedAt
       ..createdByUid = _cleanOptionalText(map['createdByUid'])
       ..createdByName = _cleanOptionalText(map['createdByName'])
       ..updatedByUid = _cleanOptionalText(map['updatedByUid'])
       ..updatedByName = _cleanOptionalText(map['updatedByName'])
       ..publishedByUid = _cleanOptionalText(map['publishedByUid'])
       ..publishedByName = _cleanOptionalText(map['publishedByName'])
-      ..publishedAt = _parseTimestamp(map['publishedAt'])
+      ..publishedAt = publishedAt
       ..retiredByUid = _cleanOptionalText(map['retiredByUid'])
       ..retiredByName = _cleanOptionalText(map['retiredByName'])
-      ..retiredAt = _parseTimestamp(map['retiredAt'])
+      ..retiredAt = retiredAt
       ..retireReason = _cleanOptionalText(map['retireReason'])
       ..minAppVersion = _cleanOptionalText(map['minAppVersion'])
-      ..isDeleted = map['isDeleted'] == true
-      ..deletedAt = _parseTimestamp(map['deletedAt'])
+      ..isDeleted = isDeleted
+      ..deletedAt = deletedAt
       ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
       ..deletedByName = _cleanOptionalText(map['deletedByName'])
       ..deleteReason = _cleanOptionalText(map['deleteReason'])
       ..version = map['version'] is int ? map['version'] as int : 1
       ..schemaVersion =
           map['schemaVersion'] is int ? map['schemaVersion'] as int : 1
-      ..createdAt = _parseTimestamp(map['createdAt']) ?? DateTime.now()
-      ..updatedAt =
-          _parseTimestamp(map['updatedAt']) ??
-          _parseTimestamp(map['createdAt']) ??
-          DateTime.now()
+      ..createdAt = readRequiredPersistedDateTime(
+        map['createdAt'],
+        field: 'createdAt',
+        source: source,
+      )
+      ..updatedAt = readRequiredPersistedDateTime(
+        map['updatedAt'],
+        field: 'updatedAt',
+        source: source,
+      )
       ..targetRefs = _cleanStringList(map['targetRefs'])
       ..deviceTagRefs = _cleanStringList(map['deviceTagRefs'])
       ..safetyClass = _cleanOptionalText(map['safetyClass'])
@@ -711,14 +856,6 @@ class TemplateVersion {
       )
       ..metadataJson = _cleanOptionalText(map['metadataJson'])
       ..isSynced = true;
-
-    if (templateVersion.isDeleted) {
-      requireRemoteTombstoneDeletedAt(
-        templateVersion.deletedAt,
-        entityLabel: 'template version',
-        firestoreId: templateVersion.firestoreId,
-      );
-    }
 
     return templateVersion;
   }
@@ -804,24 +941,32 @@ class TemplatePublishAudit {
     Map<String, dynamic> map,
     String documentId,
   ) {
-    final performedAt =
-        _parseTimestamp(map['performedAt']) ??
-        _parseTimestamp(map['updatedAt']) ??
-        DateTime.now();
+    final source = 'template_publish_audits/$documentId';
+    final performedAt = readRequiredPersistedDateTime(
+      map['performedAt'],
+      field: 'performedAt',
+      source: source,
+    );
+    final updatedAt = readRequiredPersistedDateTime(
+      map['updatedAt'],
+      field: 'updatedAt',
+      source: source,
+    );
 
     return TemplatePublishAudit()
       ..firestoreId = documentId
       ..packageFirestoreId = _cleanOptionalText(map['packageFirestoreId'])
       ..versionFirestoreId = _cleanOptionalText(map['versionFirestoreId'])
-      ..action = _enumByNameOr(
+      ..action = readRequiredPersistedEnum(
         TemplatePublishAuditAction.values,
         map['action'],
-        TemplatePublishAuditAction.edited,
+        field: 'action',
+        source: source,
       )
       ..performedByUid = _cleanOptionalText(map['performedByUid'])
       ..performedByName = _cleanOptionalText(map['performedByName'])
       ..performedAt = performedAt
-      ..updatedAt = _parseTimestamp(map['updatedAt']) ?? performedAt
+      ..updatedAt = updatedAt
       ..reason = _cleanOptionalText(map['reason'])
       ..beforeHash = _cleanOptionalText(map['beforeHash'])
       ..afterHash = _cleanOptionalText(map['afterHash'])
@@ -830,7 +975,11 @@ class TemplatePublishAudit {
       ..version = map['version'] is int ? map['version'] as int : 1
       ..schemaVersion =
           map['schemaVersion'] is int ? map['schemaVersion'] as int : 1
-      ..isDeleted = map['isDeleted'] == true
+      ..isDeleted = readRequiredPersistedBool(
+        map['isDeleted'],
+        field: 'isDeleted',
+        source: source,
+      )
       ..isSynced = true;
   }
 }
