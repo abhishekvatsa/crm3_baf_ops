@@ -2,7 +2,6 @@
 
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:isar/isar.dart';
 
@@ -18,23 +17,6 @@ part 'template_governance_model.g.dart';
 // JobExecution runtime layer. Runtime jobs keep their own frozen snapshots;
 // published TemplateVersion records are immutable source records for future
 // assignment only.
-
-DateTime? _parseTimestamp(dynamic value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  if (value is Timestamp) return value.toDate();
-  if (value is String) return DateTime.tryParse(value);
-
-  try {
-    final dynamic maybeTimestamp = value;
-    final converted = maybeTimestamp.toDate();
-    if (converted is DateTime) return converted;
-  } catch (_) {
-    // Fall through to null.
-  }
-
-  return null;
-}
 
 String? _cleanOptionalText(dynamic value) {
   if (value == null || value is! String) return null;
@@ -157,6 +139,7 @@ class _TemplateClosureReviewState {
 _TemplateClosureReviewState _deriveClosureReviewState({
   required String jobTemplateSnapshotJson,
   required String moduleSnapshotsJson,
+  String source = 'template closure-review snapshot',
 }) {
   final jobSnapshot = _decodeJsonObjectSafely(jobTemplateSnapshotJson);
   final composer = _mapFrom(jobSnapshot['composer']);
@@ -176,7 +159,11 @@ _TemplateClosureReviewState _deriveClosureReviewState({
     confirmedByName: _cleanOptionalText(
       composer['closureReviewConfirmedByName'],
     ),
-    confirmedAt: _parseTimestamp(composer['closureReviewConfirmedAt']),
+    confirmedAt: readOptionalPersistedDateTime(
+      composer['closureReviewConfirmedAt'],
+      field: 'closureReviewConfirmedAt',
+      source: source,
+    ),
   );
 }
 
@@ -693,6 +680,7 @@ class TemplateVersion {
     final inferredClosureState = _deriveClosureReviewState(
       jobTemplateSnapshotJson: jobTemplateSnapshotJson,
       moduleSnapshotsJson: moduleSnapshotsJson,
+      source: source,
     );
     final status = readRequiredPersistedEnum(
       TemplateVersionStatus.values,

@@ -12,30 +12,44 @@ import 'package:crm3_baf_ops/features/planned_maintenance/data/template_governan
 void main() {
   group('A-05 remote tombstone authority', () {
     test('all deletedAt-bearing remote model decoders fail closed', () {
+      const createdAt = '2026-08-05T10:00:00.000Z';
+      const updatedAt = '2026-08-05T11:00:00.000Z';
       final decoders = <String, Object? Function()>{
         'abnormality type':
             () => AbnormalityType.fromMap(const <String, dynamic>{
               'isDeleted': true,
+              'createdAt': createdAt,
+              'updatedAt': updatedAt,
             }, 'type-1'),
         'charge abnormality':
             () => ChargeAbnormality.fromMap(const <String, dynamic>{
               'isDeleted': true,
+              'loggedAt': createdAt,
+              'updatedAt': updatedAt,
             }, 'abnormality-1'),
         'job template':
             () => JobTemplate.fromMap(const <String, dynamic>{
               'isDeleted': true,
+              'createdAt': createdAt,
+              'updatedAt': updatedAt,
             }, 'template-1'),
         'job execution':
             () => JobExecution.fromMap(const <String, dynamic>{
               'isDeleted': true,
+              'createdAt': createdAt,
+              'updatedAt': updatedAt,
             }, 'execution-1'),
         'job module':
             () => JobModuleInstance.fromMap(const <String, dynamic>{
               'isDeleted': true,
+              'createdAt': createdAt,
+              'updatedAt': updatedAt,
             }, 'module-1'),
         'job diary entry':
             () => JobDiaryEntry.fromMap(const <String, dynamic>{
               'isDeleted': true,
+              'createdAt': createdAt,
+              'updatedAt': updatedAt,
             }, 'diary-1'),
         'template package':
             () => TemplatePackage.fromMap(const <String, dynamic>{

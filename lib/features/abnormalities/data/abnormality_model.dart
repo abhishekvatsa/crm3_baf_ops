@@ -2,11 +2,11 @@
 
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:isar/isar.dart';
 
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import 'remote_abnormality_timestamps.dart';
 
 part 'abnormality_model.g.dart';
 
@@ -21,7 +21,6 @@ enum AbnormalityCategory {
   reannealing,
   other,
 }
-
 enum AbnormalitySeverity {
   low,
   medium,
@@ -275,7 +274,10 @@ class AbnormalityType {
       Map<String, dynamic> map,
       String documentId,
       ) {
-    final now = DateTime.now();
+    final timestamps = readRemoteAbnormalityTypeTimestamps(
+      map,
+      source: 'abnormality type $documentId',
+    );
 
     final type = AbnormalityType()
       ..firestoreId = _safeString(map['firestoreId']) ?? documentId
@@ -295,16 +297,14 @@ class AbnormalityType {
       ..suggestsReannealing = _safeBool(map['suggestsReannealing']) ?? false
       ..isActive = _safeBool(map['isActive']) ?? true
       ..isDeleted = _safeBool(map['isDeleted']) ?? false
-      ..deletedAt = _parseTimestamp(map['deletedAt'])
+      ..deletedAt = timestamps.deletedAt
       ..deletedByUid = _safeString(map['deletedByUid'])
       ..deletedByName = _safeString(map['deletedByName'])
       ..deleteReason = _safeString(map['deleteReason'])
       ..version = _safeInt(map['version']) ?? 1
       ..isSynced = true
-      ..createdAt = _parseTimestamp(map['createdAt']) ?? now
-      ..updatedAt = _parseTimestamp(map['updatedAt']) ??
-          _parseTimestamp(map['createdAt']) ??
-          now
+      ..createdAt = timestamps.createdAt
+      ..updatedAt = timestamps.updatedAt
       ..createdByUid = _safeString(map['createdByUid'])
       ..createdByName = _safeString(map['createdByName'])
       ..lastEditedByUid = _safeString(map['lastEditedByUid'])
@@ -604,7 +604,10 @@ class ChargeAbnormality {
       Map<String, dynamic> map,
       String documentId,
       ) {
-    final now = DateTime.now();
+    final timestamps = readRemoteChargeAbnormalityTimestamps(
+      map,
+      source: 'charge abnormality $documentId',
+    );
 
     final abnormality = ChargeAbnormality()
       ..firestoreId = _safeString(map['firestoreId']) ?? documentId
@@ -642,10 +645,8 @@ class ChargeAbnormality {
         ReannealingStatus.notApplicable,
       )
       ..reannealedToChargeNo = _safeInt(map['reannealedToChargeNo'])
-      ..loggedAt = _parseTimestamp(map['loggedAt']) ?? now
-      ..updatedAt = _parseTimestamp(map['updatedAt']) ??
-          _parseTimestamp(map['loggedAt']) ??
-          now
+      ..loggedAt = timestamps.loggedAt
+      ..updatedAt = timestamps.updatedAt
       ..loggedByUid = _safeString(map['loggedByUid'])
       ..loggedByName = _safeString(map['loggedByName'])
       ..updatedByUid = _safeString(map['updatedByUid'])
@@ -656,7 +657,7 @@ class ChargeAbnormality {
       ..version = _safeInt(map['version']) ?? 1
       ..isSynced = true
       ..isDeleted = _safeBool(map['isDeleted']) ?? false
-      ..deletedAt = _parseTimestamp(map['deletedAt'])
+      ..deletedAt = timestamps.deletedAt
       ..deletedByUid = _safeString(map['deletedByUid'])
       ..deletedByName = _safeString(map['deletedByName'])
       ..deleteReason = _safeString(map['deleteReason']);
@@ -767,28 +768,6 @@ List<AffectedAssetRef> decodeAffectedAssetsFromDynamic(dynamic value) {
 // ─────────────────────────────────────────────────────────────
 // SAFE PARSERS
 // ─────────────────────────────────────────────────────────────
-
-DateTime? _parseTimestamp(dynamic value) {
-  if (value == null) return null;
-
-  if (value is DateTime) return value;
-
-  if (value is Timestamp) return value.toDate();
-
-  if (value is String) {
-    return DateTime.tryParse(value);
-  }
-
-  try {
-    final dynamic maybeTimestamp = value;
-    final converted = maybeTimestamp.toDate();
-    if (converted is DateTime) return converted;
-  } catch (_) {
-    // Ignore malformed timestamp-like object.
-  }
-
-  return null;
-}
 
 String? _safeString(dynamic value) {
   if (value == null) return null;

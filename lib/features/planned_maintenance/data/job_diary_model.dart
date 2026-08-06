@@ -1,33 +1,16 @@
 // FILE: lib/features/planned_maintenance/data/job_diary_model.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:isar/isar.dart';
 
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import 'remote_job_timestamps.dart';
 
 part 'job_diary_model.g.dart';
 
 // ─────────────────────────────────────────────────────────────
 // FIRESTORE-SHAPE PARSING HELPERS
 // ─────────────────────────────────────────────────────────────
-
-DateTime? _parseTimestamp(dynamic value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  if (value is Timestamp) return value.toDate();
-  if (value is String) return DateTime.tryParse(value);
-
-  try {
-    final dynamic maybeTimestamp = value;
-    final converted = maybeTimestamp.toDate();
-    if (converted is DateTime) return converted;
-  } catch (_) {
-    // Fall through to null.
-  }
-
-  return null;
-}
 
 String? _cleanOptionalText(dynamic value) {
   if (value == null) return null;
@@ -368,8 +351,10 @@ class JobDiaryEntry {
       map['blockerStatus'],
     );
 
-    final created = _parseTimestamp(map['createdAt']) ?? DateTime.now();
-    final updated = _parseTimestamp(map['updatedAt']) ?? created;
+    final timestamps = readRemoteJobDiaryTimestamps(
+      map,
+      source: 'job diary entry $documentId',
+    );
 
     final entry = JobDiaryEntry()
       ..firestoreId = documentId
@@ -421,12 +406,12 @@ class JobDiaryEntry {
       ..requiresFollowUp = map['requiresFollowUp'] == true
       ..createdByUid = _cleanOptionalText(map['createdByUid'])
       ..createdByName = _cleanOptionalText(map['createdByName'])
-      ..createdAt = created
+      ..createdAt = timestamps.createdAt
       ..updatedByUid = _cleanOptionalText(map['updatedByUid'])
       ..updatedByName = _cleanOptionalText(map['updatedByName'])
-      ..updatedAt = updated
+      ..updatedAt = timestamps.updatedAt
       ..isDeleted = map['isDeleted'] == true
-      ..deletedAt = _parseTimestamp(map['deletedAt'])
+      ..deletedAt = timestamps.deletedAt
       ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
       ..deletedByName = _cleanOptionalText(map['deletedByName'])
       ..deleteReason = _cleanOptionalText(map['deleteReason'])

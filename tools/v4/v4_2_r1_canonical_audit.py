@@ -7,6 +7,7 @@ import ast
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -7222,6 +7223,30 @@ a05_timestamp_test = text("test/a05_maintenance_timestamp_integrity_test.dart")
 a05_decision_8 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_8.md"
 )
+a05_timestamp_inventory_manifest = data(
+    "governance/a05-persisted-timestamp-surface-v1.json"
+)
+a05_timestamp_inventory_tool = text(
+    "tools/v4/a05_persisted_timestamp_inventory.py"
+)
+a05_operational_timestamp_test = text(
+    "test/a05_operational_timestamp_integrity_test.dart"
+)
+a05_decision_9 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_9.md"
+)
+a05_timestamp_inventory_process = subprocess.run(
+    [sys.executable, str(ROOT / "tools/v4/a05_persisted_timestamp_inventory.py")],
+    cwd=ROOT,
+    capture_output=True,
+    text=True,
+)
+try:
+    a05_timestamp_inventory_report = json.loads(
+        a05_timestamp_inventory_process.stdout
+    )
+except json.JSONDecodeError:
+    a05_timestamp_inventory_report = {}
 a02_a05_exit_decision = text(
     "docs/v4_2_r1/A02_A05_ARCHITECTURE_EXIT_CRITERIA.md"
 )
@@ -7322,6 +7347,30 @@ check(
         in a02_a05_exit_decision
     and "governed read-only inventory" in a02_a05_exit_decision
     and "finding status. Closure still requires" in a02_a05_exit_decision,
+)
+check(
+    "A-05 persisted timestamp inventory is exact and source-enforced",
+    a05_timestamp_inventory_process.returncode == 0
+    and a05_timestamp_inventory_report.get("result") == "PASS"
+    and a05_timestamp_inventory_report.get("decoderCount") == 9
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 15
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 19
+    and a05_timestamp_inventory_report.get("unclassifiedRiskSites") == []
+    and a05_timestamp_inventory_manifest.get("schemaVersion") == 1
+    and len(a05_timestamp_inventory_manifest.get("decoders", [])) == 9
+    and "sourceCommit" in a05_timestamp_inventory_tool
+    and "decoderSha256" in a05_timestamp_inventory_tool
+    and "unclassifiedRiskSites" in a05_timestamp_inventory_tool
+    and "workflow receipts require their persisted application time"
+        in a05_operational_timestamp_test
+    and "malformed present optional timestamps fail closed"
+        in a05_operational_timestamp_test
+    and "The inventory contains nine persisted decoder surfaces"
+        in a05_decision_9
+    and "`WorkflowCommandReceipt.fromMap`" in a05_decision_9
+    and "`A-05` remains open" in a05_decision_9
+    and "does not inspect or mutate production documents" in a05_decision_9,
+    a05_timestamp_inventory_process.stderr.strip(),
 )
 check(
     "A-05 persisted-state tranche fails closed without claiming finding closure",
