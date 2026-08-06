@@ -557,6 +557,57 @@ void main() {
     }
   });
 
+  test('A-02 to A-05 remain open with explicit exit constraints', () {
+    final payload = _readJson('governance/programme-ledger.json');
+    final findings = _objects(payload['technicalFindings']);
+    final architecture = <String, Map<String, dynamic>>{
+      for (final finding in findings)
+        if (<String>{
+          'A-02',
+          'A-03',
+          'A-04',
+          'A-05',
+        }.contains(finding['findingId']))
+          finding['findingId'] as String: finding,
+    };
+
+    expect(architecture.keys, <String>{'A-02', 'A-03', 'A-04', 'A-05'});
+    for (final finding in architecture.values) {
+      expect(finding['currentStatus'], 'OPEN');
+      expect(_objects(finding['evidence']), isEmpty);
+      expect(_strings(finding['requiredExitEvidence']), hasLength(5));
+      expect(_strings(finding['reArmTriggers']), hasLength(3));
+      expect(_strings(finding['notes']), isNotEmpty);
+      expect(
+        _objects(
+          finding['statusHistory'],
+        ).map((entry) => entry['status']).toList(growable: false),
+        <String>['OPEN'],
+      );
+    }
+
+    expect(
+      _strings(architecture['A-02']!['requiredExitEvidence']).join(' '),
+      contains('machine-generated inventory'),
+    );
+    expect(
+      _strings(architecture['A-03']!['requiredExitEvidence']).join(' '),
+      contains('read-only diagnostic adapters'),
+    );
+    expect(
+      _strings(architecture['A-04']!['requiredExitEvidence']).join(' '),
+      contains('supported-local-generation inventory'),
+    );
+    expect(
+      _strings(architecture['A-05']!['requiredExitEvidence']).join(' '),
+      contains('without advancing a synchronization cursor'),
+    );
+    expect(
+      _strings(architecture['A-05']!['reArmTriggers']).join(' '),
+      contains('DateTime.now'),
+    );
+  });
+
   test('H2, S-01 and D-01 close only on sealed final authority', () {
     const evidencePath =
         'release/evidence/s01-d01-h2-runtime-identity-live-finalization.json';

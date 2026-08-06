@@ -689,9 +689,9 @@
     {
       "path": "governance/programme-ledger.json",
       "canonicalSha256": "30FC5520D44172C2F6E0AD3E954AC7482C350292464AA972CE929D2740B02C56",
-      "candidateSha256": "E92B9CF7F9BABA13A7D257FF52142A357568DD7A22EE6C8E639579A748B8C228",
+      "candidateSha256": "F6B82941D6E0CA2DB3C749A9A2B794D9D5CA38665C1D9C864DE3DD3B0706E4CF",
       "canonicalBytes": 73391,
-      "candidateBytes": 174457,
+      "candidateBytes": 179876,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -877,9 +877,9 @@
     {
       "path": "lib/core/services/global_pull_service.maintenance.dart",
       "canonicalSha256": "D84BC4722102FFC6D12255A32AEB42089F54B68C73E370A7018888F4DAAFF067",
-      "candidateSha256": "E169E99593C76DAC9AF4998133BD60C4D1AE8D42D2823FB29CCF059B4B8EA2C3",
+      "candidateSha256": "E61854411345004939189713A237A62EA61E70CDE274234AC9DB6A0B8704F778",
       "canonicalBytes": 2965,
-      "candidateBytes": 3021,
+      "candidateBytes": 3350,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -965,9 +965,9 @@
     {
       "path": "lib/core/services/live_remote_sync_service.dart",
       "canonicalSha256": "8D95DAEC7D28CB7280836F8A697248C4650A4063B68BB3F00D1C2C0CC853CCF0",
-      "candidateSha256": "44BBF8C0469CAB51ECEC7EBE7261721F2D833C629DD367FFE407E12B8071151B",
+      "candidateSha256": "D6908E67DF2C84EF8C326CEB7A0B1D8801D2D01E858F198B2E473F38B47F0E80",
       "canonicalBytes": 27419,
-      "candidateBytes": 30919,
+      "candidateBytes": 30653,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1549,9 +1549,9 @@
     {
       "path": "lib/features/maintenance/providers/maintenance_provider.dart",
       "canonicalSha256": "A9ECCD861BAE74BDAE1BD898D9DA47222C003487ECFB5A6C6E134BADB72A5597",
-      "candidateSha256": "7F67C2C588B38AB9B8504519C0D98D4786BBAE4FECD5024E841C60785251341C",
+      "candidateSha256": "6F194DDA6B8CFEF6AC05AB6869E0A28DDA6E5D22DD4882BA5043F388E35E58DA",
       "canonicalBytes": 54587,
-      "candidateBytes": 61773,
+      "candidateBytes": 62170,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3085,9 +3085,9 @@
     {
       "path": "test/programme_ledger_contract_test.dart",
       "canonicalSha256": "DC917915EE0EA58C4B7B5A794AF361AEDCCA8927DE1420BA3A98A18D59024491",
-      "candidateSha256": "DBE3587BA0B628ADF378C95AF4BF60E28F327F5A3477A827F115A45F9556B9D4",
+      "candidateSha256": "06B6778FB74D2DCF1ADCF7E677AE71867E1AC7C7D347B1F19549073EC4AA943D",
       "canonicalBytes": 18375,
-      "candidateBytes": 28453,
+      "candidateBytes": 30238,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
