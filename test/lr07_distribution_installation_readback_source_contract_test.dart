@@ -109,7 +109,7 @@ void main() {
     expect(source, isNot(contains(r'actions/runs/${artifact.id}')));
   });
 
-  test('strict readback fails closed and does not self-close the gate', () {
+  test('strict readback fails closed and requires separate adjudication', () {
     final source = read(
       'tools/release/collectDistributionInstallationReadback.js',
     );
@@ -130,11 +130,12 @@ void main() {
     expect(source, contains('productionWorkflowRuns'));
     expect(source, contains('collectorAuthorizesClosure: false'));
     expect(source, contains('flag: "wx"'));
-    expect(decision, contains('does not close `LR-07`'));
-    expect(lr07['currentStatus'], 'OPEN');
-    expect(lr07['evidence'], isEmpty);
+    expect(decision, contains('collector still does not close `LR-07`'));
+    expect(lr07['currentStatus'], 'CLOSED');
+    expect(lr07['authorization'], 'CLOSED_PASS');
+    expect(lr07['evidence'], hasLength(3));
     expect(lr07['requiredExitEvidence'], hasLength(6));
     expect(lr07['reArmTriggers'], hasLength(7));
-    expect(lr07['statusHistory'], hasLength(1));
+    expect(lr07['statusHistory'], hasLength(3));
   });
 }

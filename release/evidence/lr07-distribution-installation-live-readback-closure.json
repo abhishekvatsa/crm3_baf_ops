@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "LR07-DISTRIBUTION-INSTALLATION-LIVE-READBACK-CLOSURE-20260806",
+  "evidenceType": "lr07-distribution-installation-live-readback-closure",
+  "recordIds": [
+    "GATE:LR-07"
+  ],
+  "authorityType": "LIVE_READBACK",
+  "decision": "PASS_LR07_DISTRIBUTION_INSTALLATION_LIVE_READBACK_CLOSURE",
+  "collectorAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "pullRequest": 169,
+    "headCommit": "51bb0866c867aee94c4d784092a4c52fbe171581",
+    "sourceTree": "44f657df6ffe54b885f5c994d8a604c7255089c4",
+    "mergeCommit": "02731af8a79f0da4a731ff9f28eb96df10458eef",
+    "mergeTree": "44f657df6ffe54b885f5c994d8a604c7255089c4",
+    "pullRequestCi": {
+      "runId": 31087258758,
+      "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/31087258758",
+      "event": "pull_request",
+      "headSha": "51bb0866c867aee94c4d784092a4c52fbe171581",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Android release package construction (no install)",
+          "jobId": 92569551426,
+          "conclusion": "success"
+        },
+        {
+          "name": "Android emulator app-shell integration (not physical-device evidence)",
+          "jobId": 92569551429,
+          "conclusion": "success"
+        },
+        {
+          "name": "Firestore Rules + governed callable emulator",
+          "jobId": 92569551430,
+          "conclusion": "success"
+        },
+        {
+          "name": "Cloud Functions host build + non-emulator tests",
+          "jobId": 92569551474,
+          "conclusion": "success"
+        },
+        {
+          "name": "Flutter host analysis + tests + no-loss contracts",
+          "jobId": 92569552887,
+          "conclusion": "success"
+        }
+      ]
+    },
+    "postMergeCi": {
+      "runId": 31088013593,
+      "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/31088013593",
+      "event": "push",
+      "headSha": "02731af8a79f0da4a731ff9f28eb96df10458eef",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Firestore Rules + governed callable emulator",
+          "jobId": 92571995528,
+          "conclusion": "success"
+        },
+        {
+          "name": "Android emulator app-shell integration (not physical-device evidence)",
+          "jobId": 92571995544,
+          "conclusion": "success"
+        },
+        {
+          "name": "Android release package construction (no install)",
+          "jobId": 92571995552,
+          "conclusion": "success"
+        },
+        {
+          "name": "Flutter host analysis + tests + no-loss contracts",
+          "jobId": 92571995557,
+          "conclusion": "success"
+        },
+        {
+          "name": "Cloud Functions host build + non-emulator tests",
+          "jobId": 92571995695,
+          "conclusion": "success"
+        }
+      ]
+    }
+  },
+  "admittedEvidence": {
+    "containment": {
+      "path": "release/evidence/lr07-public-production-artifact-containment.json",
+      "fileSha256": "B4124F0EF65CD07D6F3F4093FA0EF7672A69421724E11A3A4CD1CEF734DD27FD",
+      "fileBytes": 3487,
+      "decision": "PASS_LR07_PUBLIC_PRODUCTION_ARTIFACTS_CONTAINED",
+      "externalContainmentReceiptSha256": "8d94450b826356ca8716d0819087c9ebc94bc79d2498b3c84d3b491e15bfeec7"
+    },
+    "liveReadback": {
+      "path": "release/evidence/lr07-distribution-installation-live-readback.json",
+      "fileSha256": "27D77748B060959D0508209911A700E5267A5218F776347543F215B837850854",
+      "fileBytes": 5141,
+      "decision": "PASS_LR07_DISTRIBUTION_INSTALLATION_LIVE_READBACK",
+      "externalReadbackReceiptSha256": "5eb021d7367f0ded7f544ec78700e8bd8036f4b9780ad8378d57d5d304fc1db6"
+    }
+  },
+  "provedContainment": {
+    "authorizedExactArtifactDeleteCount": 5,
+    "authorizedExactArtifactBytesRemoved": 765143034,
+    "remainingProductionArtifactCount": 0,
+    "workflowRunsPreserved": true,
+    "githubReleaseCount": 0,
+    "repositoryVisibilityUnchanged": true,
+    "sourceFirebaseAndDeviceUnchanged": true
+  },
+  "provedReadback": {
+    "sourceBranchMain": true,
+    "sourceCommitMatchesOriginMain": true,
+    "sourceBindingStable": true,
+    "governedSourceClean": true,
+    "productionWorkflowRunCount": 9,
+    "productionArtifactCount": 0,
+    "productionArtifactTotalBytes": 0,
+    "githubReleaseCount": 0,
+    "build8PhysicalInstallationReceiptExact": true,
+    "build8ProductionSignerVerified": true,
+    "build8ApprovedSessionVerified": true,
+    "allChecksPassed": true,
+    "failedChecks": []
+  },
+  "recordTransitions": {
+    "lr07": "OPEN_TO_LIVE_READBACK_PROVED_TO_CLOSED"
+  },
+  "closureBoundary": {
+    "additionalGitHubArtifactDeleted": false,
+    "workflowRunDeleted": false,
+    "githubReleaseChanged": false,
+    "repositoryVisibilityChanged": false,
+    "tagChanged": false,
+    "runtimeSourceChanged": false,
+    "deviceChanged": false,
+    "firebaseChanged": false,
+    "businessDataReadOrWritten": false,
+    "pilotAuthorizationCreated": false,
+    "distributionAuthorizationCreated": false,
+    "stage2dF4StatusChanged": false,
+    "p07Closed": false,
+    "p05Closed": false,
+    "seventyKRecoveryClosed": false
+  },
+  "qualification": "Closure proves the present controlled distribution and installation readback. It does not assert that no retained public artifact was downloaded before containment.",
+  "reArmConditions": [
+    "a production-signed workflow artifact or GitHub Release is created or retained beyond the governed finalization window",
+    "a production artifact, credential or installation package is distributed beyond the sealed roster or admitted target",
+    "Play Console, Play Store, Firebase App Distribution, web or another distribution channel is introduced or changed",
+    "a new client platform or physical installation target is promoted",
+    "the exact external installation receipt or its repository adjudication becomes absent, unverifiable or superseded",
+    "repository visibility, artifact retention, production workflow upload behavior or release-scope policy changes",
+    "a newer governed production build supersedes Build 8"
+  ]
+}

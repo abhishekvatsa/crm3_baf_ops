@@ -7577,6 +7577,18 @@ lr07_workflow = text(".github/workflows/production-artifact.yml")
 lr07_release_gate = text(".github/workflows/release-gate.yml")
 lr07_package = data("package.json")
 lr07_ledger = data("governance/programme-ledger.json")
+lr07_containment_evidence_path = (
+    "release/evidence/lr07-public-production-artifact-containment.json"
+)
+lr07_readback_evidence_path = (
+    "release/evidence/lr07-distribution-installation-live-readback.json"
+)
+lr07_closure_evidence_path = (
+    "release/evidence/lr07-distribution-installation-live-readback-closure.json"
+)
+lr07_containment_evidence = data(lr07_containment_evidence_path)
+lr07_readback_evidence = data(lr07_readback_evidence_path)
+lr07_closure_evidence = data(lr07_closure_evidence_path)
 lr07_records = [
     record
     for record in lr07_ledger.get("programmeGates", [])
@@ -7586,7 +7598,7 @@ lr07_record = lr07_records[0] if len(lr07_records) == 1 else {}
 lr07_artifacts = lr07_policy.get("expectedArtifactsForContainment", [])
 lr07_source_evidence = lr07_policy.get("sourceEvidence", [])
 check(
-    "LR-07 public artifact containment and strict readback are exact but do not self-close",
+    "LR-07 exact containment and strict live readback close only through separate adjudication",
     lr07_policy.get("schemaVersion") == 1
     and lr07_policy.get("policyId")
         == "LR07-DISTRIBUTION-INSTALLATION-READBACK-POLICY-V1"
@@ -7665,15 +7677,113 @@ check(
         in lr07_collector_test
     and "sealed exact preflight" in lr07_containment_test
     and "strict readback fails closed" in lr07_contract
-    and "does not close `LR-07`" in lr07_decision
+    and "collector still does not close `LR-07`" in lr07_decision
+    and "Status: CLOSED - EXACT CONTAINMENT AND STRICT LIVE READBACK ADMITTED"
+        in lr07_decision
+    and lr07_containment_evidence.get("decision")
+        == "PASS_LR07_PUBLIC_PRODUCTION_ARTIFACTS_CONTAINED"
+    and lr07_containment_evidence.get("source", {}).get("commit")
+        == "02731af8a79f0da4a731ff9f28eb96df10458eef"
+    and lr07_containment_evidence.get("source", {}).get("tree")
+        == "44f657df6ffe54b885f5c994d8a604c7255089c4"
+    and lr07_containment_evidence.get("inventoryBefore", {}).get("count")
+        == 5
+    and lr07_containment_evidence.get("inventoryBefore", {}).get(
+        "totalBytes"
+    ) == 765143034
+    and lr07_containment_evidence.get("result", {}).get("deletedNow")
+        == [8711253816, 8730747624, 8771948980, 8836687771, 8866525607]
+    and lr07_containment_evidence.get("result", {}).get(
+        "remainingProductionArtifactCount"
+    ) == 0
+    and lr07_containment_evidence.get("result", {}).get(
+        "ownerApprovalAcknowledged"
+    ) is True
+    and lr07_containment_evidence.get("result", {}).get(
+        "workflowRunsPreserved"
+    ) is True
+    and lr07_containment_evidence.get("externalReceipts", {}).get(
+        "preflight", {}
+    ).get("fileSha256")
+        == "374DE3E58E368545F4806B069F5D0DBEF109D51786AD0E1466C1464EF8585820"
+    and lr07_containment_evidence.get("externalReceipts", {}).get(
+        "containment", {}
+    ).get("fileSha256")
+        == "07EA164C0B2D7E281DAAFFD3BCB7B3E1921702D7E3769AEBAD8192AD3E2A55CD"
+    and lr07_readback_evidence.get("decision")
+        == "PASS_LR07_DISTRIBUTION_INSTALLATION_LIVE_READBACK"
+    and lr07_readback_evidence.get("mode") == "STRICT"
+    and lr07_readback_evidence.get("externalReceipt", {}).get("fileSha256")
+        == "1EEE0A26D02E73BB4F26090E18CDFC4709C37FF6BB7ABF4F53C8D43181AA3AB2"
+    and lr07_readback_evidence.get("source", {}).get("before")
+        == lr07_readback_evidence.get("source", {}).get("after")
+    and lr07_readback_evidence.get("outputs", {}).get("live", {}).get(
+        "productionWorkflowRunCount"
+    ) == 9
+    and lr07_readback_evidence.get("outputs", {}).get("live", {}).get(
+        "productionArtifactCount"
+    ) == 0
+    and lr07_readback_evidence.get("outputs", {}).get("live", {}).get(
+        "githubReleaseCount"
+    ) == 0
+    and lr07_readback_evidence.get("outputs", {}).get("installation", {}).get(
+        "fileSha256"
+    ) == "4BD8332FBCF80B6E809B5A3FFE94EDD7560C482D898B6B9E2F37D6F63422BCEC"
+    and lr07_readback_evidence.get("outputs", {}).get("installation", {}).get(
+        "physicalDevice"
+    ) is True
+    and all(lr07_readback_evidence.get("checks", {}).values())
+    and lr07_readback_evidence.get("failedChecks") == []
+    and lr07_readback_evidence.get("closureScope", {}).get(
+        "collectorAuthorizesClosure"
+    ) is False
+    and lr07_readback_evidence.get("closureScope", {}).get(
+        "separateAdjudicationRequired"
+    ) is True
+    and lr07_closure_evidence.get("decision")
+        == "PASS_LR07_DISTRIBUTION_INSTALLATION_LIVE_READBACK_CLOSURE"
+    and lr07_closure_evidence.get("collectorAuthority", {}).get(
+        "pullRequest"
+    ) == 169
+    and lr07_closure_evidence.get("collectorAuthority", {}).get(
+        "sourceTree"
+    ) == lr07_closure_evidence.get("collectorAuthority", {}).get("mergeTree")
+    and lr07_closure_evidence.get("collectorAuthority", {}).get(
+        "pullRequestCi", {}
+    ).get("runId") == 31087258758
+    and lr07_closure_evidence.get("collectorAuthority", {}).get(
+        "postMergeCi", {}
+    ).get("runId") == 31088013593
+    and sha(ROOT / lr07_containment_evidence_path)
+        == "B4124F0EF65CD07D6F3F4093FA0EF7672A69421724E11A3A4CD1CEF734DD27FD"
+    and sha(ROOT / lr07_readback_evidence_path)
+        == "27D77748B060959D0508209911A700E5267A5218F776347543F215B837850854"
+    and sha(ROOT / lr07_closure_evidence_path)
+        == "7E440D6DCB826607FED4D7F4FF5332A816302571F294D3F6620206EFC5AD4089"
+    and all(
+        value is False
+        for value in lr07_closure_evidence.get("closureBoundary", {}).values()
+    )
     and len(lr07_records) == 1
-    and lr07_record.get("currentStatus") == "OPEN"
-    and lr07_record.get("evidence") == []
+    and lr07_record.get("currentStatus") == "CLOSED"
+    and lr07_record.get("authorization") == "CLOSED_PASS"
+    and len(lr07_record.get("evidence", [])) == 3
+    and {
+        entry.get("sha256") for entry in lr07_record.get("evidence", [])
+    } == {
+        "B4124F0EF65CD07D6F3F4093FA0EF7672A69421724E11A3A4CD1CEF734DD27FD",
+        "27D77748B060959D0508209911A700E5267A5218F776347543F215B837850854",
+        "7E440D6DCB826607FED4D7F4FF5332A816302571F294D3F6620206EFC5AD4089",
+    }
     and len(lr07_record.get("requiredExitEvidence", [])) == 6
     and len(lr07_record.get("reArmTriggers", [])) == 7
-    and len(lr07_record.get("notes", [])) == 3
+    and len(lr07_record.get("notes", [])) == 4
     and [entry.get("status") for entry in lr07_record.get("statusHistory", [])]
-        == ["OPEN"],
+        == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"]
+    and lr07_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F4"
+    and lr07_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

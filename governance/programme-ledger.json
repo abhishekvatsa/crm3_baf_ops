@@ -1112,11 +1112,30 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "LIVE_STATE_EVIDENCE_REQUIRED",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/lr07-public-production-artifact-containment.json",
+          "sha256": "B4124F0EF65CD07D6F3F4093FA0EF7672A69421724E11A3A4CD1CEF734DD27FD",
+          "decision": "PASS_LR07_PUBLIC_PRODUCTION_ARTIFACTS_CONTAINED",
+          "authority": "EXPLICIT_OWNER_AUTHORIZED_EXACT_ARTIFACT_CONTAINMENT"
+        },
+        {
+          "fileName": "release/evidence/lr07-distribution-installation-live-readback.json",
+          "sha256": "27D77748B060959D0508209911A700E5267A5218F776347543F215B837850854",
+          "decision": "PASS_LR07_DISTRIBUTION_INSTALLATION_LIVE_READBACK",
+          "authority": "STRICT_CLEAN_MERGED_MAIN_LIVE_READBACK"
+        },
+        {
+          "fileName": "release/evidence/lr07-distribution-installation-live-readback-closure.json",
+          "sha256": "7E440D6DCB826607FED4D7F4FF5332A816302571F294D3F6620206EFC5AD4089",
+          "decision": "PASS_LR07_DISTRIBUTION_INSTALLATION_LIVE_READBACK_CLOSURE",
+          "authority": "SOURCE_CI_CONTAINMENT_AND_LIVE_RECEIPT_ADJUDICATION"
+        }
+      ],
       "requiredExitEvidence": [
         "exact-head and post-merge CI for the one-day production-artifact retention and LR-07 collector/containment source",
         "explicit owner-authorized containment receipt proving every exact retained production artifact was deleted while workflow runs, tags and repository visibility were preserved",
@@ -1135,15 +1154,26 @@
         "a newer governed production build supersedes Build 8"
       ],
       "notes": [
-        "Read-only inventory on 2026-08-06 found five publicly downloadable production workflow artifacts for consumed Builds 4 through 8 and no GitHub Releases; LR-07 remains OPEN until exact containment and strict post-containment readback are admitted.",
-        "The exact external Build 8 physical installation receipt remains available and matches its admitted SHA-256 and byte length.",
-        "Deletion of exact GitHub artifact archives is irreversible and requires explicit owner approval after merged-source preflight."
+        "Read-only inventory on 2026-08-06 found five publicly downloadable production workflow artifacts for consumed Builds 4 through 8; explicit owner-authorized containment deleted those five exact artifact archives and no others.",
+        "Strict post-containment inventory found zero live production artifacts and zero GitHub Releases while preserving all production workflow runs, tags and repository visibility.",
+        "The exact external Build 8 physical installation receipt remains available and matches its admitted SHA-256, byte length and privacy-minimized semantics.",
+        "Closure proves the current controlled surface and installation receipt, not that no artifact was downloaded before containment."
       ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep re-audit live-readback appendix"
+        },
+        {
+          "status": "LIVE_READBACK_PROVED",
+          "effectiveDate": "2026-08-06",
+          "basis": "Exact containment B4124F0EF65CD07D6F3F4093FA0EF7672A69421724E11A3A4CD1CEF734DD27FD and strict readback 27D77748B060959D0508209911A700E5267A5218F776347543F215B837850854 prove zero live production artifacts, zero GitHub Releases and exact Build 8 physical installation authority."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-06",
+          "basis": "Closure adjudication 7E440D6DCB826607FED4D7F4FF5332A816302571F294D3F6620206EFC5AD4089 binds PR #169 source and CI authority, owner-authorized containment and strict clean-main live readback."
         }
       ]
     }
