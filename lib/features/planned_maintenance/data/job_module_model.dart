@@ -2,7 +2,6 @@
 
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:isar/isar.dart';
 
 import '../../../core/services/remote_tombstone_apply_result.dart';
@@ -14,29 +13,13 @@ import 'job_template_model.dart'
         FieldResponse,
         FieldResponseReadResult,
         PersistedFieldDefinitionPayload;
+import 'remote_job_timestamps.dart';
 
 part 'job_module_model.g.dart';
 
 // ─────────────────────────────────────────────────────────────
 // FIRESTORE-SHAPE PARSING HELPERS
 // ─────────────────────────────────────────────────────────────
-
-DateTime? _parseTimestamp(dynamic value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  if (value is Timestamp) return value.toDate();
-  if (value is String) return DateTime.tryParse(value);
-
-  try {
-    final dynamic maybeTimestamp = value;
-    final converted = maybeTimestamp.toDate();
-    if (converted is DateTime) return converted;
-  } catch (_) {
-    // Fall through to null.
-  }
-
-  return null;
-}
 
 String? _cleanOptionalText(dynamic value) {
   if (value == null) return null;
@@ -609,9 +592,10 @@ class JobModuleInstance {
     Map<String, dynamic> map,
     String documentId,
   ) {
-    final created = _parseTimestamp(map['createdAt']) ?? DateTime.now();
-    final updated = _parseTimestamp(map['updatedAt']) ?? created;
-    final added = _parseTimestamp(map['addedAt']);
+    final timestamps = readRemoteJobModuleTimestamps(
+      map,
+      source: 'job module $documentId',
+    );
 
     final instance =
         JobModuleInstance()
@@ -709,28 +693,28 @@ class JobModuleInstance {
           ..requiresFollowUp = map['requiresFollowUp'] == true
           ..addedByUid = _cleanOptionalText(map['addedByUid'])
           ..addedByName = _cleanOptionalText(map['addedByName'])
-          ..addedAt = added
+          ..addedAt = timestamps.addedAt
           ..addReason = _cleanOptionalText(map['addReason'])
           ..createdByUid = _cleanOptionalText(map['createdByUid'])
           ..createdByName = _cleanOptionalText(map['createdByName'])
-          ..createdAt = created
+          ..createdAt = timestamps.createdAt
           ..updatedByUid = _cleanOptionalText(map['updatedByUid'])
           ..updatedByName = _cleanOptionalText(map['updatedByName'])
-          ..updatedAt = updated
+          ..updatedAt = timestamps.updatedAt
           ..submittedByUid = _cleanOptionalText(map['submittedByUid'])
           ..submittedByName = _cleanOptionalText(map['submittedByName'])
-          ..submittedAt = _parseTimestamp(map['submittedAt'])
+          ..submittedAt = timestamps.submittedAt
           ..acceptedByUid = _cleanOptionalText(map['acceptedByUid'])
           ..acceptedByName = _cleanOptionalText(map['acceptedByName'])
-          ..acceptedAt = _parseTimestamp(map['acceptedAt'])
+          ..acceptedAt = timestamps.acceptedAt
           ..reopenedByUid = _cleanOptionalText(map['reopenedByUid'])
           ..reopenedByName = _cleanOptionalText(map['reopenedByName'])
-          ..reopenedAt = _parseTimestamp(map['reopenedAt'])
+          ..reopenedAt = timestamps.reopenedAt
           ..notApplicableByUid = _cleanOptionalText(map['notApplicableByUid'])
           ..notApplicableByName = _cleanOptionalText(map['notApplicableByName'])
-          ..notApplicableAt = _parseTimestamp(map['notApplicableAt'])
+          ..notApplicableAt = timestamps.notApplicableAt
           ..isDeleted = map['isDeleted'] == true
-          ..deletedAt = _parseTimestamp(map['deletedAt'])
+          ..deletedAt = timestamps.deletedAt
           ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
           ..deletedByName = _cleanOptionalText(map['deletedByName'])
           ..deleteReason = _cleanOptionalText(map['deleteReason'])

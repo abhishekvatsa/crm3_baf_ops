@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
@@ -89,6 +90,18 @@ void main() {
           'publishedAt': 'not-a-time',
         }, 'version-malformed-optional-time'),
         _invalidField('publishedAt'),
+      );
+      expect(
+        () => TemplateVersion.fromMap(<String, dynamic>{
+          ...draft,
+          'jobTemplateSnapshotJson': jsonEncode(<String, dynamic>{
+            'composer': <String, dynamic>{
+              'closureReviewConfirmed': false,
+              'closureReviewConfirmedAt': 'not-a-time',
+            },
+          }),
+        }, 'version-malformed-nested-closure-time'),
+        _invalidField('closureReviewConfirmedAt'),
       );
 
       final retiredAt = DateTime.utc(2026, 8, 1, 13);

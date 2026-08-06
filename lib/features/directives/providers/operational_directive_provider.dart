@@ -8,6 +8,7 @@ import 'package:isar/isar.dart';
 
 import '../../../core/persistence/app_database.dart';
 import '../data/operational_directive_model.dart';
+import '../data/remote_operational_directive_timestamps.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../auth/data/user_model.dart';
 import '../../audit/models/audit_event_model.dart';
@@ -1329,6 +1330,10 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
 
   OperationalDirective _mapDirective(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final timestamps = readRemoteOperationalDirectiveTimestamps(
+      data,
+      source: 'operational directive ${doc.id}',
+    );
     final directive =
         OperationalDirective()
           ..firestoreId = doc.id
@@ -1362,14 +1367,14 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
           ..createdByName = data['createdByName']
           ..issuedByUid = data['issuedByUid']
           ..issuedByName = data['issuedByName']
-          ..issuedAt = _parseTimestamp(data['issuedAt'])
+          ..issuedAt = timestamps.issuedAt
           ..isActive = data['isActive'] ?? true
           ..acknowledgedByUid = data['acknowledgedByUid']
           ..acknowledgedByName = data['acknowledgedByName']
-          ..acknowledgedAt = _parseTimestamp(data['acknowledgedAt'])
+          ..acknowledgedAt = timestamps.acknowledgedAt
           ..closedByUid = data['closedByUid']
           ..closedByName = data['closedByName']
-          ..closedAt = _parseTimestamp(data['closedAt'])
+          ..closedAt = timestamps.closedAt
           ..closedWithoutAcknowledgement =
               data['closedWithoutAcknowledgement'] ?? false
           ..remarks = data['remarks']
@@ -1377,15 +1382,12 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
           ..linkedExecutionFirestoreId = data['linkedExecutionFirestoreId']
           ..metadataJson = data['metadataJson']
           ..isDeleted = data['isDeleted'] ?? false
-          ..deletedAt = _parseTimestamp(data['deletedAt'])
+          ..deletedAt = timestamps.deletedAt
           ..deletedByUid = data['deletedByUid']
           ..deletedByName = data['deletedByName']
           ..deleteReason = data['deleteReason']
-          ..createdAt = _parseTimestamp(data['createdAt']) ?? DateTime.now()
-          ..updatedAt =
-              _parseTimestamp(data['updatedAt']) ??
-              _parseTimestamp(data['createdAt']) ??
-              DateTime.now()
+          ..createdAt = timestamps.createdAt
+          ..updatedAt = timestamps.updatedAt
           ..version = data['version'] ?? 1
           ..isSynced = true;
     if (directive.isDeleted) {
@@ -1397,23 +1399,6 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
     }
     _normalizeDirectiveFromRemote(directive);
     return directive;
-  }
-
-  DateTime? _parseTimestamp(dynamic value) {
-    if (value == null) return null;
-    if (value is DateTime) return value;
-    if (value is Timestamp) return value.toDate();
-    if (value is String) return DateTime.tryParse(value);
-
-    try {
-      final dynamic maybeTimestamp = value;
-      final converted = maybeTimestamp.toDate();
-      if (converted is DateTime) return converted;
-    } catch (_) {
-      // Unknown timestamp shape. Fall through to null.
-    }
-
-    return null;
   }
 }
 

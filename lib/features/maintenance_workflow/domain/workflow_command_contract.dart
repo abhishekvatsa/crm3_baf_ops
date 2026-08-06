@@ -1,3 +1,4 @@
+import '../../../core/serialization/persisted_data_reader.dart';
 import 'workflow_error.dart';
 import 'workflow_types.dart';
 
@@ -17,7 +18,9 @@ class WorkflowCommand {
   }) : commandId = commandId.trim(),
        aggregateId = aggregateId.trim(),
        payload = Map.unmodifiable(payload) {
-    if (this.commandId.isEmpty || this.aggregateId.isEmpty || expectedVersion < 0) {
+    if (this.commandId.isEmpty ||
+        this.aggregateId.isEmpty ||
+        expectedVersion < 0) {
       throw const WorkflowException(
         WorkflowErrorCode.invalidArgument,
         'Command ID, aggregate ID and non-negative version are required.',
@@ -50,13 +53,19 @@ class WorkflowCommandReceipt {
   });
 
   factory WorkflowCommandReceipt.fromMap(Map<String, dynamic> map) {
-    final appliedAt = DateTime.tryParse('${map['appliedAt'] ?? ''}');
+    final appliedAt = readRequiredPersistedDateTime(
+      map['appliedAt'],
+      field: 'appliedAt',
+      source: 'workflow command receipt',
+    );
     return WorkflowCommandReceipt(
       commandId: '${map['commandId'] ?? ''}',
       resultKey: '${map['resultKey'] ?? ''}',
       aggregateVersion: (map['aggregateVersion'] as num?)?.toInt() ?? 0,
-      result: Map<String, Object?>.from((map['result'] as Map?) ?? const <String, Object?>{}),
-      appliedAt: (appliedAt ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true)).toUtc(),
+      result: Map<String, Object?>.from(
+        (map['result'] as Map?) ?? const <String, Object?>{},
+      ),
+      appliedAt: appliedAt.toUtc(),
     );
   }
 }

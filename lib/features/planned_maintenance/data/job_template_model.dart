@@ -1,41 +1,18 @@
 // FILE: lib/features/planned_maintenance/data/job_template_model.dart
 
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:isar/isar.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../models/component_action_model.dart';
+import 'remote_job_timestamps.dart';
 
 part 'job_template_model.g.dart';
 
 // ─────────────────────────────────────────────────────────────
 // FIRESTORE-SHAPE PARSING HELPERS
 // ─────────────────────────────────────────────────────────────
-
-/// Tolerant timestamp parser for Firestore-shaped maps. Accepts ISO-8601
-/// strings (the format we write), Firestore Timestamps (written by the
-/// Firebase console, Cloud Functions, or serverTimestamp()), and DateTime
-/// instances (defensive). Returns null for anything else.
-DateTime? _parseTimestamp(dynamic value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  if (value is Timestamp) return value.toDate();
-  if (value is String) return DateTime.tryParse(value);
-
-  // Defensive fallback for Firestore-like timestamp objects that expose
-  // toDate() but are not statically typed as Timestamp.
-  try {
-    final dynamic maybeTimestamp = value;
-    final converted = maybeTimestamp.toDate();
-    if (converted is DateTime) return converted;
-  } catch (_) {
-    // Fall through to null.
-  }
-
-  return null;
-}
 
 T _enumByNameOr<T extends Enum>(List<T> values, dynamic value, T fallback) {
   if (value is! String) return fallback;
@@ -915,6 +892,10 @@ class JobTemplate {
   // (legacy). Tolerates both ISO-8601 strings and Firestore Timestamp instances
   // for all date fields.
   factory JobTemplate.fromMap(Map<String, dynamic> map, String documentId) {
+    final timestamps = readRemoteJobTemplateTimestamps(
+      map,
+      source: 'job template $documentId',
+    );
     final template =
         JobTemplate()
           ..firestoreId = documentId
@@ -934,16 +915,13 @@ class JobTemplate {
           ..isActive = map['isActive'] ?? true
           ..isDeprecated = map['isDeprecated'] ?? false
           ..isDeleted = map['isDeleted'] ?? false
-          ..deletedAt = _parseTimestamp(map['deletedAt'])
+          ..deletedAt = timestamps.deletedAt
           ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
           ..deletedByName = _cleanOptionalText(map['deletedByName'])
           ..deleteReason = _cleanOptionalText(map['deleteReason'])
           ..version = map['version'] ?? 1
-          ..createdAt = _parseTimestamp(map['createdAt']) ?? DateTime.now()
-          ..updatedAt =
-              _parseTimestamp(map['updatedAt']) ??
-              _parseTimestamp(map['createdAt']) ??
-              DateTime.now()
+          ..createdAt = timestamps.createdAt
+          ..updatedAt = timestamps.updatedAt
           ..metadataJson = _cleanOptionalText(map['metadataJson']);
 
     // Structured fields are canonical when present. A malformed canonical
@@ -1267,6 +1245,10 @@ class JobExecution {
   // 'responsesJson' (legacy). Tolerates both ISO-8601 strings and Firestore
   // Timestamp instances for all date fields.
   factory JobExecution.fromMap(Map<String, dynamic> map, String documentId) {
+    final timestamps = readRemoteJobExecutionTimestamps(
+      map,
+      source: 'job execution $documentId',
+    );
     final execution =
         JobExecution()
           ..firestoreId = documentId
@@ -1291,7 +1273,7 @@ class JobExecution {
           ..assetNumber = map['assetNumber'] ?? 0
           ..isCompleted = map['isCompleted'] ?? false
           ..isCancelled = map['isCancelled'] == true
-          ..cancelledAt = _parseTimestamp(map['cancelledAt'])
+          ..cancelledAt = timestamps.cancelledAt
           ..cancelledByUid = _cleanOptionalText(map['cancelledByUid'])
           ..cancelledByName = _cleanOptionalText(map['cancelledByName'])
           ..cancellationReason = _cleanOptionalText(map['cancellationReason'])
@@ -1304,7 +1286,7 @@ class JobExecution {
                   : 0
           ..laneSetVersion =
               map['laneSetVersion'] is int ? map['laneSetVersion'] as int : 0
-          ..laneSetFinalizedAt = _parseTimestamp(map['laneSetFinalizedAt'])
+          ..laneSetFinalizedAt = timestamps.laneSetFinalizedAt
           ..laneSetFinalizedByUid = _cleanOptionalText(
             map['laneSetFinalizedByUid'],
           )
@@ -1333,16 +1315,13 @@ class JobExecution {
           ..version = map['version'] ?? 1
           ..metadataJson = map['metadataJson']
           ..isDeleted = map['isDeleted'] ?? false
-          ..deletedAt = _parseTimestamp(map['deletedAt'])
+          ..deletedAt = timestamps.deletedAt
           ..deletedByUid = map['deletedByUid']
           ..deletedByName = map['deletedByName']
           ..deleteReason = map['deleteReason']
-          ..createdAt = _parseTimestamp(map['createdAt']) ?? DateTime.now()
-          ..completedAt = _parseTimestamp(map['completedAt'])
-          ..updatedAt =
-              _parseTimestamp(map['updatedAt']) ??
-              _parseTimestamp(map['createdAt']) ??
-              DateTime.now();
+          ..createdAt = timestamps.createdAt
+          ..completedAt = timestamps.completedAt
+          ..updatedAt = timestamps.updatedAt;
 
     // responsesJson is canonical. Only fall back to the legacy structured
     // 'responses' array for old records that do not contain responsesJson.
