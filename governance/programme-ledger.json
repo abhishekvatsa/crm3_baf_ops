@@ -1118,10 +1118,27 @@
       "supersededBy": null,
       "evidence": [],
       "requiredExitEvidence": [
-        "SHA-sealed readback package with project, timestamp, commands, outputs and mutation boundary"
+        "exact-head and post-merge CI for the one-day production-artifact retention and LR-07 collector/containment source",
+        "explicit owner-authorized containment receipt proving every exact retained production artifact was deleted while workflow runs, tags and repository visibility were preserved",
+        "strict complete GitHub inventory proving zero live production artifacts and zero GitHub Releases",
+        "exact SHA and semantic validation of the privacy-minimized external Build 8 physical installation receipt",
+        "SHA-sealed readback package with repository, project, timestamp, commands, outputs, source binding and mutation boundary",
+        "separate closure adjudication binding source authority, containment, strict readback and admitted-main CI"
       ],
-      "reArmTriggers": [],
-      "notes": [],
+      "reArmTriggers": [
+        "a production-signed workflow artifact or GitHub Release is created or retained beyond the governed finalization window",
+        "a production artifact, credential or installation package is distributed beyond the sealed roster or admitted target",
+        "Play Console, Play Store, Firebase App Distribution, web or another distribution channel is introduced or changed",
+        "a new client platform or physical installation target is promoted",
+        "the exact external installation receipt or its repository adjudication becomes absent, unverifiable or superseded",
+        "repository visibility, artifact retention, production workflow upload behavior or release-scope policy changes",
+        "a newer governed production build supersedes Build 8"
+      ],
+      "notes": [
+        "Read-only inventory on 2026-08-06 found five publicly downloadable production workflow artifacts for consumed Builds 4 through 8 and no GitHub Releases; LR-07 remains OPEN until exact containment and strict post-containment readback are admitted.",
+        "The exact external Build 8 physical installation receipt remains available and matches its admitted SHA-256 and byte length.",
+        "Deletion of exact GitHub artifact archives is irreversible and requires explicit owner approval after merged-source preflight."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
