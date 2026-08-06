@@ -1,6 +1,6 @@
 # LR-07 Distribution and Installation Readback
 
-Status: SOURCE CONTAINMENT PROPOSED; LIVE ARTIFACT DELETION AND STRICT READBACK PENDING
+Status: CLOSED - EXACT CONTAINMENT AND STRICT LIVE READBACK ADMITTED
 
 ## Live finding
 
@@ -53,23 +53,32 @@ matching the admitted adjudication. It proves the production signer, version 8
 APK hash, physical target and approved session without retaining raw device or
 account identity.
 
-## Exact sequence
+## Completed sequence
 
-1. Merge this source tranche after exact-head CI and require a successful
-   post-merge release-gate run.
-2. From clean `main` equal to `origin/main`, create the append-only containment
-   preflight receipt. It must observe all five exact artifacts and no extras.
-3. Obtain explicit owner approval for irreversible deletion of those five
-   artifact archives, then supply the policy's exact approval phrase to the
-   containment command.
-4. Run the containment phase. It is retry-safe for an already absent expected
-   artifact, rejects any changed or unexpected production artifact, and passes
-   only when a complete post-delete inventory is empty.
-5. Run strict LR-07 readback with the exact external Build 8 installation
-   receipt. Zero live production artifacts and zero GitHub Releases are
-   mandatory.
-6. Admit the sealed containment and readback receipts through a separate
-   closure change. Only that adjudication may move `LR-07` to `CLOSED`.
+1. PR #169 merged the one-day retention, containment and strict-readback source
+   after exact-head release-gate run `31087258758`; post-merge run
+   `31088013593` also passed all five jobs.
+2. Clean merged `main` at `02731af8a79f0da4a731ff9f28eb96df10458eef`
+   produced a sealed preflight that observed the five exact artifacts, no
+   mismatch and no unexpected production artifact.
+3. The owner explicitly approved irreversible deletion of those exact five
+   artifact archives. Containment removed all five and no other artifact while
+   preserving workflow runs, tags, Releases, repository visibility, source,
+   Firebase and the device.
+4. Strict post-containment readback observed nine preserved production workflow
+   runs, zero live production artifacts, zero artifact bytes and zero GitHub
+   Releases. It also re-hashed and semantically validated the exact external
+   Build 8 physical installation receipt.
+5. The separate closure adjudication admitted the privacy-minimized containment
+   and strict-readback records and moved `LR-07` through
+   `OPEN -> LIVE_READBACK_PROVED -> CLOSED`.
+
+The collector still does not close `LR-07`; it records facts and requires a
+separate adjudication. The repository evidence is:
+
+- `release/evidence/lr07-public-production-artifact-containment.json`
+- `release/evidence/lr07-distribution-installation-live-readback.json`
+- `release/evidence/lr07-distribution-installation-live-readback-closure.json`
 
 ## Qualification
 
@@ -81,6 +90,7 @@ installation target is admitted, the exact installation evidence becomes
 unverifiable, repository visibility or workflow retention changes, or a newer
 production build supersedes Build 8.
 
-This source tranche does not close `LR-07`, `STAGE2D-F4`, `P-07`, `P-05` or
-`70K-RECOVERY`; authorize pilot handout; change Firebase; alter a device; or
-claim that a public artifact was never previously downloaded.
+This adjudication closes only `LR-07`. It does not close `STAGE2D-F4`, `P-07`,
+`P-05` or `70K-RECOVERY`; authorize pilot handout; change Firebase; alter a
+device; create distribution authority; or claim that a public artifact was
+never previously downloaded.

@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "LR07-PUBLIC-PRODUCTION-ARTIFACT-CONTAINMENT-20260806",
+  "evidenceType": "lr07-public-production-artifact-containment",
+  "recordIds": [
+    "GATE:LR-07"
+  ],
+  "authorityType": "LIVE_READBACK",
+  "decision": "PASS_LR07_PUBLIC_PRODUCTION_ARTIFACTS_CONTAINED",
+  "policy": {
+    "policyId": "LR07-DISTRIBUTION-INSTALLATION-READBACK-POLICY-V1",
+    "sha256": "792B6B020C70ECED2B88DAF1B88C6A9B3CFDEB65510853E8B873A967B774D667"
+  },
+  "repository": "abhishekvatsa/crm3_baf_ops",
+  "source": {
+    "branch": "main",
+    "commit": "02731af8a79f0da4a731ff9f28eb96df10458eef",
+    "tree": "44f657df6ffe54b885f5c994d8a604c7255089c4",
+    "originMain": "02731af8a79f0da4a731ff9f28eb96df10458eef",
+    "governedWorktreeClean": true,
+    "materialChangeCount": 0
+  },
+  "externalReceipts": {
+    "preflight": {
+      "fileName": "lr07-public-artifact-containment-preflight-20260806T092140Z.json",
+      "fileBytes": 1919,
+      "fileSha256": "374DE3E58E368545F4806B069F5D0DBEF109D51786AD0E1466C1464EF8585820",
+      "receiptSha256": "7e56236755ccde123e4dcf65a17965799a6b30dd9aafbba8dbb01d08ade8d3bc",
+      "capturedAtUtc": "2026-08-06T09:21:45.07Z",
+      "decision": "PASS_LR07_PUBLIC_ARTIFACT_CONTAINMENT_PREFLIGHT",
+      "custody": "PRIVATE_EXTERNAL_CUSTODY"
+    },
+    "containment": {
+      "fileName": "lr07-public-artifact-containment-20260806T093033Z.json",
+      "fileBytes": 1814,
+      "fileSha256": "07EA164C0B2D7E281DAAFFD3BCB7B3E1921702D7E3769AEBAD8192AD3E2A55CD",
+      "receiptSha256": "8d94450b826356ca8716d0819087c9ebc94bc79d2498b3c84d3b491e15bfeec7",
+      "capturedAtUtc": "2026-08-06T09:30:46.626Z",
+      "decision": "PASS_LR07_PUBLIC_PRODUCTION_ARTIFACTS_CONTAINED",
+      "custody": "PRIVATE_EXTERNAL_CUSTODY"
+    }
+  },
+  "inventoryBefore": {
+    "count": 5,
+    "totalBytes": 765143034,
+    "artifactIds": [
+      8711253816,
+      8730747624,
+      8771948980,
+      8836687771,
+      8866525607
+    ],
+    "exact": true,
+    "mismatched": [],
+    "unexpected": []
+  },
+  "result": {
+    "deletedNow": [
+      8711253816,
+      8730747624,
+      8771948980,
+      8836687771,
+      8866525607
+    ],
+    "alreadyAbsent": [],
+    "remainingProductionArtifactCount": 0,
+    "ownerApprovalAcknowledged": true,
+    "ownerApprovalPhraseSha256": "F8AD14597B9FDF79FA64DCDCE38D401077E0ABB05FB57D1D8D43BDF41EF12502",
+    "workflowRunsPreserved": true,
+    "repositoryVisibilityChanged": false
+  },
+  "mutationBoundary": {
+    "githubArtifactsDeleted": true,
+    "githubArtifactDeleteCount": 5,
+    "workflowRunsDeleted": false,
+    "repositoryVisibilityChanged": false,
+    "releasesChanged": false,
+    "tagsChanged": false,
+    "sourceChanged": false,
+    "firebaseChanged": false,
+    "deviceChanged": false
+  },
+  "privacyBoundary": {
+    "ownerApprovalPhraseRetained": false,
+    "secretNamesOrValuesRetained": false,
+    "accountIdentityRetained": false,
+    "rawDeviceIdentifiersRetained": false,
+    "businessPayloadRetained": false,
+    "privateCustodyPathsRetained": false
+  },
+  "qualification": "Containment proves the current public artifact surface is empty; it does not prove that no earlier download occurred.",
+  "reArmConditions": [
+    "a production-signed workflow artifact or GitHub Release is created or retained beyond the governed finalization window",
+    "repository visibility, artifact retention or production workflow upload behavior changes",
+    "a newer governed production build supersedes Build 8"
+  ]
+}
