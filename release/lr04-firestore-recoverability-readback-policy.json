@@ -18,11 +18,21 @@
     "bytes": 4440,
     "decision": "PASS_PRIVATE_PRODUCTION_RESTORE_PACK_SEALED_AND_INDEPENDENTLY_VERIFIED"
   },
+  "isolatedRestore": {
+    "databaseId": "p05-restore-20260806",
+    "location": "asia-south1",
+    "operationNameSha256": "7794A14E1ACA86B86009C644B8EABE8EE01786A909FC327C9747E600DF2C4AB6",
+    "inputUriPrefixSha256": "787CD0B6BD458AF7965D5F8128B6D6EB6715591B2FAFE71F6F8A7AC6938F8E65",
+    "expectedDocumentCount": 81,
+    "requiredDeleteProtectionState": "DELETE_PROTECTION_ENABLED"
+  },
   "acquisitionRequirements": [
     "strict execution is bound to a clean main commit equal to origin/main before and after collection",
     "the production project, database and location match this policy exactly",
     "database protection states and complete backup schedule, backup and operation inventories are obtained by read-only gcloud commands",
     "the exact sealed managed-export operation is independently described and reconfirmed successful",
+    "the exact isolated restore database and import operation are independently described and privacy-minimized",
+    "only a READY native backup and an exact successful isolated import clear the P-05 posture holds",
     "the receipt is canonically sealed and written append-only outside the repository"
   ],
   "postureSemantics": {

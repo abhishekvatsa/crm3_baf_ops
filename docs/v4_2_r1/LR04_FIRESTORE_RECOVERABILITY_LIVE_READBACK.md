@@ -19,6 +19,12 @@ database, lists native backup schedules and backups, lists a bounded inventory
 of database operations, and independently describes the managed-export
 operation already bound by the sealed production restore-pack receipt.
 
+For P-05 closure, the collector can additionally describe one policy-bound,
+delete-protected isolated database and its exact import operation. The
+isolated operation is supplied at execution time and must match the SHA-256
+authority in the policy. Its raw resource name and Cloud Storage prefix are
+not retained in evidence.
+
 ## Evidence Semantics
 
 The receipt has two independent decisions:
@@ -31,6 +37,11 @@ The receipt has two independent decisions:
 A strict acquisition may pass while posture remains on hold. This is required
 behavior. A disabled control, absent backup, or missing restore rehearsal must
 remain visible without corrupting an otherwise complete live readback.
+
+A native backup clears the posture hold only in `READY` state. A restore clears
+its hold only when the isolated database, location, type, delete-protection
+state, operation and input hashes, successful terminal state, response type,
+and completed/estimated document counts all match policy.
 
 The existing managed export and its independently verified private custody
 pack are reconfirmed as evidence of export recoverability. They are not
@@ -63,12 +74,18 @@ node tools/release/collectFirestoreRecoverabilityReadback.js `
   --project-id crm3-baf-ops-b8638 `
   --database "(default)" `
   --location asia-south1 `
+  --isolated-restore-operation "<exact isolated import operation resource>" `
   --gcloud "C:\Users\abhis\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd" `
   --output "C:\Users\abhis\Downloads\crm3-lr04-firestore-recoverability-readback.json"
 ```
 
 The strict receipt must then be copied into `release/evidence/` without
 modification, hash-bound to a closure record, and adjudicated in a separate PR.
+
+Omitting `--isolated-restore-operation` remains valid for an adverse posture
+readback, but it cannot clear `noRestoreImportProof`. The collector performs no
+import and reads no Firestore document or business payload; it describes only
+the isolated database and service-authored import operation metadata.
 
 ## Adjudicated Live Result
 

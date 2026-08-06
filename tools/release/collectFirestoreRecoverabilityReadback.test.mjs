@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {createHash} from "node:crypto";
 import fs from "node:fs";
 import {createRequire} from "node:module";
 import path from "node:path";
@@ -10,12 +11,14 @@ const {
   PRODUCTION_DATABASE,
   PRODUCTION_LOCATION,
   PRODUCTION_PROJECT_ID,
+  ISOLATED_RESTORE_DATABASE,
   adjudicateReadback,
   loadRestoreSeal,
   parseArgs,
   resolveCommand,
   summarizeBackups,
   summarizeDatabase,
+  summarizeIsolatedRestore,
   summarizeOperations,
   summarizeSchedules,
 } = require("./collectFirestoreRecoverabilityReadback.js");
@@ -131,6 +134,33 @@ function restoreSealSummary(overrides = {}) {
   };
 }
 
+function isolatedRestoreSummary(overrides = {}) {
+  return {
+    database: {
+      databaseId: ISOLATED_RESTORE_DATABASE,
+      nameExact: true,
+      locationId: PRODUCTION_LOCATION,
+      type: "FIRESTORE_NATIVE",
+      deleteProtectionState: "DELETE_PROTECTION_ENABLED",
+    },
+    operation: {
+      operationNameSha256: policy.isolatedRestore.operationNameSha256,
+      inputUriPrefixSha256: policy.isolatedRestore.inputUriPrefixSha256,
+      done: true,
+      errorAbsent: true,
+      operationState: "SUCCESSFUL",
+      metadataType:
+        "type.googleapis.com/google.firestore.admin.v1.ImportDocumentsMetadata",
+      responseType: "type.googleapis.com/google.protobuf.Empty",
+      completedDocuments: 81,
+      estimatedDocuments: 81,
+      endTime: "2026-08-06T17:34:01.363059Z",
+    },
+    exactSuccessfulImportAndValidation: true,
+    ...overrides,
+  };
+}
+
 function adjudicate(overrides = {}) {
   return adjudicateReadback({
     projectId: PRODUCTION_PROJECT_ID,
@@ -164,7 +194,7 @@ test("strict acquisition passes while adverse recoverability posture remains exp
     "pointInTimeRecoveryDisabled",
     "deleteProtectionDisabled",
     "noNativeBackupSchedule",
-    "noNativeBackup",
+    "noReadyNativeBackup",
     "noRestoreImportProof",
   ]);
   assert.equal(result.evidence.closureScope.lr04Closed, false);
@@ -180,10 +210,7 @@ test("healthy fixture clears every posture hold without weakening acquisition", 
     }),
     schedules: scheduleSummary({count: 1}),
     backups: backupSummary({count: 1, stateCounts: {READY: 1}}),
-    operations: operationSummary({
-      importOperationCount: 1,
-      successfulImportOperationCount: 1,
-    }),
+    isolatedRestore: isolatedRestoreSummary(),
   });
   assert.deepEqual(result.failedChecks, []);
   assert.deepEqual(result.evidence.posture.holds, []);
@@ -191,6 +218,107 @@ test("healthy fixture clears every posture hold without weakening acquisition", 
     result.evidence.posture.decision,
     "PASS_FIRESTORE_RECOVERABILITY_POSTURE",
   );
+});
+
+test("a non-ready native backup cannot clear the P-05 hold", () => {
+  const result = adjudicate({
+    database: databaseSummary({
+      pointInTimeRecoveryEnablement: "POINT_IN_TIME_RECOVERY_ENABLED",
+      deleteProtectionState: "DELETE_PROTECTION_ENABLED",
+    }),
+    schedules: scheduleSummary({count: 1}),
+    backups: backupSummary({count: 1, stateCounts: {CREATING: 1}}),
+    isolatedRestore: isolatedRestoreSummary(),
+  });
+  assert.deepEqual(result.evidence.posture.holds, ["noReadyNativeBackup"]);
+});
+
+test("malformed isolated restore evidence fails acquisition and posture", () => {
+  const result = adjudicate({
+    database: databaseSummary({
+      pointInTimeRecoveryEnablement: "POINT_IN_TIME_RECOVERY_ENABLED",
+      deleteProtectionState: "DELETE_PROTECTION_ENABLED",
+    }),
+    schedules: scheduleSummary({count: 1}),
+    backups: backupSummary({count: 1, stateCounts: {READY: 1}}),
+    isolatedRestore: isolatedRestoreSummary({
+      exactSuccessfulImportAndValidation: false,
+    }),
+  });
+  assert.ok(result.failedChecks.includes("isolatedRestoreEvidenceExact"));
+  assert.deepEqual(result.evidence.posture.holds, ["noRestoreImportProof"]);
+});
+
+test("isolated restore summary binds exact service evidence without raw identifiers", () => {
+  const operationName =
+    `projects/${PRODUCTION_PROJECT_ID}/databases/${ISOLATED_RESTORE_DATABASE}` +
+    "/operations/private-operation";
+  const inputUriPrefix = "gs://private-bucket/private-prefix";
+  const isolated = summarizeIsolatedRestore({
+    database: {
+      name:
+        `projects/${PRODUCTION_PROJECT_ID}/databases/${ISOLATED_RESTORE_DATABASE}`,
+      locationId: PRODUCTION_LOCATION,
+      type: "FIRESTORE_NATIVE",
+      deleteProtectionState: "DELETE_PROTECTION_ENABLED",
+    },
+    operation: {
+      name: operationName,
+      done: true,
+      metadata: {
+        "@type":
+          "type.googleapis.com/google.firestore.admin.v1.ImportDocumentsMetadata",
+        operationState: "SUCCESSFUL",
+        inputUriPrefix,
+        progressDocuments: {completedWork: "81", estimatedWork: "81"},
+        endTime: "2026-08-06T17:34:01.363059Z",
+      },
+      response: {"@type": "type.googleapis.com/google.protobuf.Empty"},
+    },
+    policy: {
+      ...policy.isolatedRestore,
+      operationNameSha256: createHash("sha256")
+        .update(operationName)
+        .digest("hex")
+        .toUpperCase(),
+      inputUriPrefixSha256: createHash("sha256")
+        .update(inputUriPrefix)
+        .digest("hex")
+        .toUpperCase(),
+    },
+  });
+  assert.equal(isolated.exactSuccessfulImportAndValidation, true);
+  const rendered = JSON.stringify(isolated);
+  assert.equal(rendered.includes(operationName), false);
+  assert.equal(rendered.includes(inputUriPrefix), false);
+
+  const incomplete = summarizeIsolatedRestore({
+    database: {
+      name:
+        `projects/${PRODUCTION_PROJECT_ID}/databases/${ISOLATED_RESTORE_DATABASE}`,
+      locationId: PRODUCTION_LOCATION,
+      type: "FIRESTORE_NATIVE",
+      deleteProtectionState: "DELETE_PROTECTION_ENABLED",
+    },
+    operation: {
+      name: operationName,
+      done: true,
+      metadata: {
+        "@type":
+          "type.googleapis.com/google.firestore.admin.v1.ImportDocumentsMetadata",
+        operationState: "SUCCESSFUL",
+        inputUriPrefix,
+        progressDocuments: {completedWork: "80", estimatedWork: "81"},
+      },
+      response: {"@type": "type.googleapis.com/google.protobuf.Empty"},
+    },
+    policy: {
+      ...policy.isolatedRestore,
+      operationNameSha256: isolated.operation.operationNameSha256,
+      inputUriPrefixSha256: isolated.operation.inputUriPrefixSha256,
+    },
+  });
+  assert.equal(incomplete.exactSuccessfulImportAndValidation, false);
 });
 
 test("strict acquisition fails from dirty, detached, stale or changing source", () => {
