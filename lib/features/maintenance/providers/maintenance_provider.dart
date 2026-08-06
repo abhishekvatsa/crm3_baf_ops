@@ -18,6 +18,7 @@ import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/services/global_pull_protocol.dart';
+import '../data/remote_maintenance_timestamps.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -35,8 +36,28 @@ bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
 class PaginatedMaintenanceResult {
   final List<MaintenanceRecord> records;
   final DocumentSnapshot? lastDoc;
+  final int sourceDocumentCount;
+  final int decodeErrorCount;
 
-  PaginatedMaintenanceResult({required this.records, this.lastDoc});
+  PaginatedMaintenanceResult({
+    required this.records,
+    this.lastDoc,
+    int? sourceDocumentCount,
+    this.decodeErrorCount = 0,
+  }) : sourceDocumentCount = sourceDocumentCount ?? records.length {
+    if (decodeErrorCount < 0 ||
+        this.sourceDocumentCount != records.length + decodeErrorCount) {
+      throw ArgumentError(
+        'Every maintenance source document must be accounted for as decoded '
+        'or rejected.',
+      );
+    }
+    if ((this.sourceDocumentCount == 0) != (lastDoc == null)) {
+      throw ArgumentError(
+        'A non-empty maintenance source page must retain its Firestore cursor.',
+      );
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1217,9 +1238,24 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     query = query.limit(limit);
     if (startAfter != null) query = query.startAfterDocument(startAfter);
     final snap = await query.get();
+    final records = <MaintenanceRecord>[];
+    var decodeErrorCount = 0;
+    for (final doc in snap.docs) {
+      try {
+        records.add(_mapTicket(doc));
+      } catch (error) {
+        decodeErrorCount++;
+        debugPrint(
+          'Rejected malformed maintenance document ${doc.id} during global '
+          'pull (${error.runtimeType}).',
+        );
+      }
+    }
     return PaginatedMaintenanceResult(
-      records: snap.docs.map(_mapTicket).toList(),
+      records: records,
       lastDoc: snap.docs.isEmpty ? null : snap.docs.last,
+      sourceDocumentCount: snap.docs.length,
+      decodeErrorCount: decodeErrorCount,
     );
   }
 
@@ -1437,15 +1473,11 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     if (!doc.exists || doc.data() == null) throw Exception('Ticket not found');
     final data = doc.data()!;
     _requireMaintenanceWorkflowMapAllowsAction(data, 'reopen this ticket');
-    _requireValidMaintenanceEvidence(_mapTicket(doc));
-    final isResolved = data['isResolved'] ?? false;
-    final endDateStr = data['endDate'];
-    if (!isResolved || endDateStr == null) {
+    final current = _mapTicket(doc);
+    _requireValidMaintenanceEvidence(current);
+    final closedAt = current.endDate;
+    if (!current.isResolved || closedAt == null) {
       throw Exception('Ticket is not resolved or has no end date');
-    }
-    final closedAt = _parseTimestamp(endDateStr);
-    if (closedAt == null) {
-      throw Exception('Ticket has an invalid end date');
     }
     if (DateTime.now().difference(closedAt).inHours > 4) {
       throw Exception('Cannot reopen: closed more than 4 hours ago');
@@ -1644,6 +1676,10 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
 
   MaintenanceRecord _mapTicket(DocumentSnapshot doc) {
     final d = doc.data() as Map<String, dynamic>;
+    final timestamps = readRemoteMaintenanceTimestamps(
+      d,
+      source: 'maintenance/${doc.id}',
+    );
     final ticket = MaintenanceRecord()
       ..firestoreId = doc.id
       ..version = d['version'] ?? 1
@@ -1694,21 +1730,21 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       ..workflowConditionRef = _cleanOptionalMaintenanceText(
         d['workflowConditionRef']?.toString(),
       )
-      ..workflowDeferredAt = _parseTimestamp(d['workflowDeferredAt'])
+      ..workflowDeferredAt = timestamps.workflowDeferredAt
       ..workflowDeferredByUid = _cleanOptionalMaintenanceText(
         d['workflowDeferredByUid']?.toString(),
       )
       ..workflowDeferredByName = _cleanOptionalMaintenanceText(
         d['workflowDeferredByName']?.toString(),
       )
-      ..workflowReactivatedAt = _parseTimestamp(d['workflowReactivatedAt'])
+      ..workflowReactivatedAt = timestamps.workflowReactivatedAt
       ..workflowReactivatedByUid = _cleanOptionalMaintenanceText(
         d['workflowReactivatedByUid']?.toString(),
       )
       ..workflowReactivatedByName = _cleanOptionalMaintenanceText(
         d['workflowReactivatedByName']?.toString(),
       )
-      ..workflowReleasedAt = _parseTimestamp(d['workflowReleasedAt'])
+      ..workflowReleasedAt = timestamps.workflowReleasedAt
       ..workflowReleasedByUid = _cleanOptionalMaintenanceText(
         d['workflowReleasedByUid']?.toString(),
       )
@@ -1718,34 +1754,33 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       ..workflowCorrectionReason = _cleanOptionalMaintenanceText(
         d['workflowCorrectionReason']?.toString(),
       )
-      ..workflowUpdatedAt = _parseTimestamp(d['workflowUpdatedAt'])
+      ..workflowUpdatedAt = timestamps.workflowUpdatedAt
       ..isCritical = d['isCritical'] == true
       ..loggedByUid = d['loggedByUid']
       ..loggedByName = d['loggedByName']
       ..reportedBy = d['reportedBy']
       ..acknowledgedByUid = d['acknowledgedByUid']
       ..acknowledgedByName = d['acknowledgedByName']
-      ..acknowledgedAt = _parseTimestamp(d['acknowledgedAt'])
+      ..acknowledgedAt = timestamps.acknowledgedAt
       ..closedByUid = d['closedByUid']
       ..closedByName = d['closedByName']
       ..teamsInvolved = List<String>.from(d['teamsInvolved'] ?? [])
       ..performedBy = d['performedBy']
       ..remarks = _cleanOptionalMaintenanceText(d['remarks']?.toString())
-      ..startDate = _parseTimestamp(d['startDate']) ?? DateTime.now()
-      ..endDate = _parseTimestamp(d['endDate'])
+      ..startDate = timestamps.startDate
+      ..endDate = timestamps.endDate
       ..downtimeHours =
           (d['downtimeHours'] is num)
               ? (d['downtimeHours'] as num).toDouble()
               : null
       ..chargeNoAtEvent = d['chargeNoAtEvent']
-      ..createdAt = _parseTimestamp(d['createdAt']) ?? DateTime.now()
-      ..updatedAt =
-          _parseTimestamp(d['updatedAt'] ?? d['createdAt']) ?? DateTime.now()
+      ..createdAt = timestamps.createdAt
+      ..updatedAt = timestamps.updatedAt
       ..metadataJson = d['metadataJson']
       ..actionsJson = d['actionsJson'] ?? '[]'
       ..resolutionHistoryJson = d['resolutionHistoryJson'] ?? '[]'
       ..isDeleted = d['isDeleted'] ?? false
-      ..deletedAt = _parseTimestamp(d['deletedAt'])
+      ..deletedAt = timestamps.deletedAt
       ..deletedByUid = d['deletedByUid']
       ..deletedByName = d['deletedByName']
       ..deleteReason = d['deleteReason'];
@@ -1768,23 +1803,6 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     } catch (_) {
       return fallback;
     }
-  }
-
-  DateTime? _parseTimestamp(dynamic value) {
-    if (value == null) return null;
-    if (value is DateTime) return value;
-    if (value is Timestamp) return value.toDate();
-    if (value is String) return DateTime.tryParse(value);
-
-    try {
-      final dynamic maybeTimestamp = value;
-      final converted = maybeTimestamp.toDate();
-      if (converted is DateTime) return converted;
-    } catch (_) {
-      // Unknown timestamp shape. Fall through to null.
-    }
-
-    return null;
   }
 }
 

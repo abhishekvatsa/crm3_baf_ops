@@ -7197,6 +7197,26 @@ a05_composer_live_test = text("test/module_composer_live_authority_test.dart")
 a05_decision_7 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_7.md"
 )
+a05_maintenance_timestamps = text(
+    "lib/features/maintenance/data/remote_maintenance_timestamps.dart"
+)
+a05_global_pull_maintenance = text(
+    "lib/core/services/global_pull_service.maintenance.dart"
+)
+a05_sync_status_indicator = text("lib/core/widgets/sync_status_indicator.dart")
+a05_timestamp_test = text("test/a05_maintenance_timestamp_integrity_test.dart")
+a05_decision_8 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_8.md"
+)
+a02_a05_exit_decision = text(
+    "docs/v4_2_r1/A02_A05_ARCHITECTURE_EXIT_CRITERIA.md"
+)
+a02_a05_ids = {"A-02", "A-03", "A-04", "A-05"}
+a02_a05_records = {
+    record.get("findingId"): record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") in a02_a05_ids
+}
 a05_records = [
     record
     for record in programme_ledger.get("technicalFindings", [])
@@ -7270,6 +7290,25 @@ a05_source_delta_paths = {
     "test/module_registry_authoring_screen_test.dart",
     "test/planned_job_closure_guard_test.dart",
 }
+check(
+    "A-02 to A-05 carry explicit architecture exit and re-arm constraints",
+    set(a02_a05_records) == a02_a05_ids
+    and all(
+        record.get("currentStatus") == "OPEN"
+        and record.get("evidence") == []
+        and len(record.get("requiredExitEvidence", [])) == 5
+        and len(record.get("reArmTriggers", [])) == 3
+        and [entry.get("status") for entry in record.get("statusHistory", [])]
+        == ["OPEN"]
+        for record in a02_a05_records.values()
+    )
+    and "Inventories must be machine-generated" in a02_a05_exit_decision
+    and "Broad exemptions for `metadataJson`" in a02_a05_exit_decision
+    and "registered, authority-gated, read-only diagnostic adapters"
+        in a02_a05_exit_decision
+    and "governed read-only inventory" in a02_a05_exit_decision
+    and "finding status. Closure still requires" in a02_a05_exit_decision,
+)
 check(
     "A-05 persisted-state tranche fails closed without claiming finding closure",
     len(a05_records) == 1
@@ -7454,6 +7493,39 @@ check(
     and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_7
     and "`A-05` remains open" in a05_decision_7
     and "does not inspect or mutate production documents" in a05_decision_7
+    and "class RemoteMaintenanceTimestamps" in a05_maintenance_timestamps
+    and a05_maintenance_timestamps.count("readRequiredPersistedDateTime(") == 3
+    and a05_maintenance_timestamps.count("readOptionalPersistedDateTime(") == 7
+    and "readRemoteMaintenanceTimestamps(" in a05_maintenance_provider
+    and "readRemoteMaintenanceTimestamps(" in a05_live_sync
+    and "DateTime? _parseTimestamp" not in a05_maintenance_provider
+    and "DateTime? _parseTimestamp" not in a05_live_sync
+    and "final int sourceDocumentCount;" in a05_maintenance_provider
+    and "final int decodeErrorCount;" in a05_maintenance_provider
+    and "Every maintenance source document must be accounted for"
+        in a05_maintenance_provider
+    and "A non-empty maintenance source page must retain its Firestore cursor"
+        in a05_maintenance_provider
+    and "sourceDocumentCount: snap.docs.length" in a05_maintenance_provider
+    and "decodeErrorCount: decodeErrorCount" in a05_maintenance_provider
+    and "lastSkipped += result.decodeErrorCount" in a05_global_pull_maintenance
+    and "_hadRecordProcessingError = true" in a05_global_pull_maintenance
+    and "result.sourceDocumentCount == 0" in a05_global_pull_maintenance
+    and "result.sourceDocumentCount < GlobalPullService._pageSize"
+        in a05_global_pull_maintenance
+    and "Last live error" in a05_sync_status_indicator
+    and "missing or malformed required timestamps fail closed"
+        in a05_timestamp_test
+    and "malformed present optional timestamps fail closed"
+        in a05_timestamp_test
+    and "page accounting rejects inconsistent counts and cursors"
+        in a05_timestamp_test
+    and "source paths share strict decoding and contain bad pull pages"
+        in a05_timestamp_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_8
+    and "cannot advance past a quarantined document" in a05_decision_8
+    and "`A-05` remains open" in a05_decision_8
+    and "does not inspect or mutate production documents" in a05_decision_8
     and recon.get("counts", {}).get("BYTE_IDENTICAL") == 225
     and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 185
     and all(

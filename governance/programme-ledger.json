@@ -2762,9 +2762,21 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "exact-commit machine-generated inventory of providers and presentation files above the governed size or mixed-responsibility threshold, with every admitted hotspot classified by owned responsibilities",
+        "source decomposition or an evidence-bound exception for every admitted hotspot, with presentation, orchestration, persistence and transaction ownership made explicit",
+        "focused regression tests proving extracted boundaries preserve authority ordering, loading and error states, offline behavior and cross-aggregate transaction invariants",
+        "source audit that fails on an unclassified new hotspot or recombination of responsibilities already decomposed under A-02",
+        "exact-head pull-request CI and admitted-main post-merge CI for the complete A-02 inventory and regression suite"
+      ],
+      "reArmTriggers": [
+        "a new or materially expanded provider or presentation file crosses the governed hotspot threshold without classification",
+        "an A-02 exception loses its named owner, bounded responsibility or regression coverage",
+        "presentation code reacquires persistence, cross-aggregate transaction or broad orchestration ownership removed by an admitted decomposition"
+      ],
+      "notes": [
+        "Text-search counts are orientation only; closure requires the exact-commit machine-generated inventory named in requiredExitEvidence. Criteria authoring does not change OPEN status."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
@@ -2789,9 +2801,21 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "exact-commit inventory of direct Firestore and Isar access classified by layer, operation, authority boundary and read-only versus mutating behavior",
+        "removal of presentation-layer database access except explicitly registered authority-gated read-only diagnostic adapters",
+        "repository or service ownership for every cross-source and mutating persistence path, including transaction and offline reconciliation semantics",
+        "focused regression tests proving authorization-before-read, stable loading and error states, offline behavior and denial behavior at every retained boundary",
+        "source audit plus exact-head pull-request and admitted-main post-merge CI that reject new unclassified direct persistence access"
+      ],
+      "reArmTriggers": [
+        "new direct Firestore or Isar access appears in presentation code",
+        "new provider persistence access is not classified in the governed A-03 inventory",
+        "a registered diagnostic exception becomes mutating, loses authority-first admission or bypasses its read-only adapter"
+      ],
+      "notes": [
+        "The currently observed presentation hits do not determine severity or closure; the structured operation-level inventory is authoritative. Criteria authoring does not change OPEN status."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
@@ -2816,9 +2840,21 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "exact-commit structured inventory of persisted dynamic map and JSON fields classified as schema-bearing payloads or bounded extension bags",
+        "typed or versioned strict decoders plus explicit migration or reconciliation handling for every schema-bearing payload",
+        "evidence that extension bags are bounded, cannot carry authority or business invariants, and reject malformed present values when read",
+        "governed read-only production and supported-local-generation inventory with reconciliation or repair disposition before pilot or cutover",
+        "focused compatibility and malformed-state regressions plus source audit, exact-head pull-request CI and admitted-main post-merge CI"
+      ],
+      "reArmTriggers": [
+        "a new persisted JSON or dynamic-map field is introduced without A-04 classification",
+        "a schema-bearing payload changes shape without a version, migration and compatibility adjudication",
+        "a decoder silently defaults, erases or stringifies malformed persisted structure"
+      ],
+      "notes": [
+        "Field-name and grep counts are not schema classifications. metadataJson and similarly named fields require field-specific evidence rather than blanket exemption. Criteria authoring does not change OPEN status."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
@@ -2843,9 +2879,21 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "exact-commit inventory of persisted-state catches, timestamp parsers and fallback sites, with every admitted site classified by required, optional or repairable semantics",
+        "shared strict readers or evidence-bound exceptions proving required persisted values are never manufactured and malformed present optional values fail closed",
+        "batch, pagination and listener containment proving a malformed record is quarantined or aborts safely without advancing a synchronization cursor past it, with a stable operator repair state",
+        "governed read-only production and supported-local-generation inventory, reconciliation and repair evidence before pilot or cutover",
+        "focused compatibility, malformed-state, cursor and UI regressions plus source audit, exact-head pull-request CI and admitted-main post-merge CI"
+      ],
+      "reArmTriggers": [
+        "a persisted decoder introduces DateTime.now, zero, empty text or default-enum substitution for absent or malformed authority-bearing state",
+        "a catch suppresses a persisted format failure without a counted quarantine, durable rejection or failed cursor boundary",
+        "JSON or timestamp decoding is introduced outside an approved strict reader or evidence-bound compatibility adapter"
+      ],
+      "notes": [
+        "A-05 remains open after each bounded source tranche until the complete inventory, repair path and operational reconciliation evidence are admitted. Criteria authoring does not change OPEN status."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",

@@ -10,6 +10,7 @@ import 'package:isar/isar.dart' hide Query;
 
 import '../../features/auth/data/user_model.dart';
 import '../../features/maintenance/data/maintenance_model.dart';
+import '../../features/maintenance/data/remote_maintenance_timestamps.dart';
 import '../../features/planned_maintenance/models/component_action_model.dart';
 import 'app_logger.dart';
 import 'remote_tombstone_apply_result.dart';
@@ -763,6 +764,7 @@ class LiveRemoteSyncService {
     Map<String, dynamic> d,
   ) {
     final source = 'maintenance/${doc.id}';
+    final timestamps = readRemoteMaintenanceTimestamps(d, source: source);
     final actionsJson = ComponentAction.readEncodedPayload(
       d['actionsJson'],
       field: 'actionsJson',
@@ -808,17 +810,17 @@ class LiveRemoteSyncService {
       ..workflowTargetLaneKey = _cleanOptionalText(d['workflowTargetLaneKey']?.toString())
       ..workflowConditionTypeKey = _cleanOptionalText(d['workflowConditionTypeKey']?.toString())
       ..workflowConditionRef = _cleanOptionalText(d['workflowConditionRef']?.toString())
-      ..workflowDeferredAt = _parseTimestamp(d['workflowDeferredAt'])
+      ..workflowDeferredAt = timestamps.workflowDeferredAt
       ..workflowDeferredByUid = _cleanOptionalText(d['workflowDeferredByUid']?.toString())
       ..workflowDeferredByName = _cleanOptionalText(d['workflowDeferredByName']?.toString())
-      ..workflowReactivatedAt = _parseTimestamp(d['workflowReactivatedAt'])
+      ..workflowReactivatedAt = timestamps.workflowReactivatedAt
       ..workflowReactivatedByUid = _cleanOptionalText(d['workflowReactivatedByUid']?.toString())
       ..workflowReactivatedByName = _cleanOptionalText(d['workflowReactivatedByName']?.toString())
-      ..workflowReleasedAt = _parseTimestamp(d['workflowReleasedAt'])
+      ..workflowReleasedAt = timestamps.workflowReleasedAt
       ..workflowReleasedByUid = _cleanOptionalText(d['workflowReleasedByUid']?.toString())
       ..workflowReleasedByName = _cleanOptionalText(d['workflowReleasedByName']?.toString())
       ..workflowCorrectionReason = _cleanOptionalText(d['workflowCorrectionReason']?.toString())
-      ..workflowUpdatedAt = _parseTimestamp(d['workflowUpdatedAt'])
+      ..workflowUpdatedAt = timestamps.workflowUpdatedAt
       ..loggedByUid = _cleanOptionalText(d['loggedByUid']?.toString())
       ..loggedByName = _cleanOptionalText(d['loggedByName']?.toString())
       ..reportedBy = _cleanOptionalText(d['reportedBy']?.toString())
@@ -828,14 +830,14 @@ class LiveRemoteSyncService {
       ..acknowledgedByName = _cleanOptionalText(
         d['acknowledgedByName']?.toString(),
       )
-      ..acknowledgedAt = _parseTimestamp(d['acknowledgedAt'])
+      ..acknowledgedAt = timestamps.acknowledgedAt
       ..closedByUid = _cleanOptionalText(d['closedByUid']?.toString())
       ..closedByName = _cleanOptionalText(d['closedByName']?.toString())
       ..teamsInvolved = _stringList(d['teamsInvolved']) ?? <String>[]
       ..performedBy = _cleanOptionalText(d['performedBy']?.toString())
       ..remarks = _cleanOptionalText(d['remarks']?.toString())
-      ..startDate = _parseTimestamp(d['startDate']) ?? DateTime.now()
-      ..endDate = _parseTimestamp(d['endDate'])
+      ..startDate = timestamps.startDate
+      ..endDate = timestamps.endDate
       ..downtimeHours =
           d['downtimeHours'] is num
               ? (d['downtimeHours'] as num).toDouble()
@@ -844,14 +846,13 @@ class LiveRemoteSyncService {
           d['chargeNoAtEvent'] is num
               ? (d['chargeNoAtEvent'] as num).toInt()
               : int.tryParse(d['chargeNoAtEvent']?.toString() ?? '')
-      ..createdAt = _parseTimestamp(d['createdAt']) ?? DateTime.now()
-      ..updatedAt =
-          _parseTimestamp(d['updatedAt'] ?? d['createdAt']) ?? DateTime.now()
+      ..createdAt = timestamps.createdAt
+      ..updatedAt = timestamps.updatedAt
       ..metadataJson = _cleanOptionalText(d['metadataJson']?.toString())
       ..actionsJson = actionsJson
       ..resolutionHistoryJson = resolutionHistoryJson
       ..isDeleted = d['isDeleted'] == true
-      ..deletedAt = _parseTimestamp(d['deletedAt'])
+      ..deletedAt = timestamps.deletedAt
       ..deletedByUid = _cleanOptionalText(d['deletedByUid']?.toString())
       ..deletedByName = _cleanOptionalText(d['deletedByName']?.toString())
       ..deleteReason = _cleanOptionalText(d['deleteReason']?.toString())
@@ -875,13 +876,6 @@ class LiveRemoteSyncService {
       if (item.name == raw) return item;
     }
     return fallback;
-  }
-
-  DateTime? _parseTimestamp(dynamic value) {
-    if (value == null) return null;
-    if (value is DateTime) return value;
-    if (value is Timestamp) return value.toDate();
-    return DateTime.tryParse(value.toString());
   }
 
   int _intValue(dynamic value, {int fallback = 0}) {

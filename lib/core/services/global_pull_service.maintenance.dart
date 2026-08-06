@@ -20,7 +20,16 @@ extension _GlobalPullMaintenance on GlobalPullService {
       _validateFetchedServerBoundary(result.lastDoc, through);
       startAfter = result.lastDoc;
 
-      if (remoteRecords.isEmpty) break;
+      if (result.decodeErrorCount > 0) {
+        lastSkipped += result.decodeErrorCount;
+        _hadRecordProcessingError = true;
+        debugPrint(
+          'Maintenance pull quarantined ${result.decodeErrorCount} malformed '
+          'document(s); this domain cursor will not advance.',
+        );
+      }
+
+      if (result.sourceDocumentCount == 0) break;
 
       final inserts = <MaintenanceRecord>[];
       final updates = <MaintenanceRecord>[];
@@ -88,7 +97,7 @@ extension _GlobalPullMaintenance on GlobalPullService {
         lastUpdated++;
       }
 
-      if (remoteRecords.length < GlobalPullService._pageSize) break;
+      if (result.sourceDocumentCount < GlobalPullService._pageSize) break;
       if (startAfter == null) break;
     }
   }
