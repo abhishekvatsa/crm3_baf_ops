@@ -13,6 +13,7 @@ const {
 const PRODUCTION_PROJECT_ID = "crm3-baf-ops-b8638";
 const PRODUCTION_DATABASE = "(default)";
 const PRODUCTION_LOCATION = "asia-south1";
+const ISOLATED_RESTORE_DATABASE = "p05-restore-20260806";
 const POLICY_PATH = "release/lr04-firestore-recoverability-readback-policy.json";
 const RESTORE_SEAL_PATH =
   "release/evidence/production-prelive-restore-pack-seal.json";
@@ -36,6 +37,7 @@ function parseArgs(argv) {
       "--location": "location",
       "--output": "outputPath",
       "--gcloud": "gcloudCommand",
+      "--isolated-restore-operation": "isolatedRestoreOperation",
     };
     const field = fields[argument];
     if (field == null) fail(`Unsupported argument: ${argument}`);
@@ -228,6 +230,77 @@ function summarizeBackups(backups, expectedDatabaseName) {
   };
 }
 
+function exactProgressCount(value) {
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function summarizeIsolatedRestore({database, operation, policy}) {
+  const expectedDatabaseName =
+    `projects/${PRODUCTION_PROJECT_ID}/databases/${ISOLATED_RESTORE_DATABASE}`;
+  const importType =
+    "type.googleapis.com/google.firestore.admin.v1.ImportDocumentsMetadata";
+  const emptyResponseType = "type.googleapis.com/google.protobuf.Empty";
+  const operationName = typeof operation?.name === "string" ? operation.name : "";
+  const inputUriPrefix =
+    typeof operation?.metadata?.inputUriPrefix === "string"
+      ? operation.metadata.inputUriPrefix
+      : "";
+  const completedDocuments = exactProgressCount(
+    operation?.metadata?.progressDocuments?.completedWork,
+  );
+  const estimatedDocuments = exactProgressCount(
+    operation?.metadata?.progressDocuments?.estimatedWork,
+  );
+  const summary = {
+    database: {
+      databaseId: ISOLATED_RESTORE_DATABASE,
+      nameExact: database?.name === expectedDatabaseName,
+      locationId:
+        typeof database?.locationId === "string" ? database.locationId : null,
+      type: typeof database?.type === "string" ? database.type : null,
+      deleteProtectionState:
+        typeof database?.deleteProtectionState === "string"
+          ? database.deleteProtectionState
+          : null,
+    },
+    operation: {
+      operationNameSha256: sha256(operationName),
+      inputUriPrefixSha256: sha256(inputUriPrefix),
+      done: operation?.done === true,
+      errorAbsent: operation?.error == null,
+      operationState: operation?.metadata?.operationState ?? null,
+      metadataType: operationType(operation),
+      responseType: operation?.response?.["@type"] ?? null,
+      completedDocuments,
+      estimatedDocuments,
+      endTime:
+        typeof operation?.metadata?.endTime === "string"
+          ? operation.metadata.endTime
+          : null,
+    },
+  };
+  return {
+    ...summary,
+    exactSuccessfulImportAndValidation:
+      summary.database.nameExact &&
+      summary.database.locationId === PRODUCTION_LOCATION &&
+      summary.database.type === "FIRESTORE_NATIVE" &&
+      summary.database.deleteProtectionState ===
+        policy?.requiredDeleteProtectionState &&
+      summary.operation.operationNameSha256 === policy?.operationNameSha256 &&
+      summary.operation.inputUriPrefixSha256 === policy?.inputUriPrefixSha256 &&
+      summary.operation.done &&
+      summary.operation.errorAbsent &&
+      summary.operation.operationState === "SUCCESSFUL" &&
+      summary.operation.metadataType === importType &&
+      summary.operation.responseType === emptyResponseType &&
+      completedDocuments === policy?.expectedDocumentCount &&
+      estimatedDocuments === policy?.expectedDocumentCount,
+  };
+}
+
 function operationType(operation) {
   return typeof operation?.metadata?.["@type"] === "string"
     ? operation.metadata["@type"]
@@ -354,6 +427,7 @@ function adjudicateReadback({
   backups,
   operations,
   restoreSeal,
+  isolatedRestore,
   observe,
 }) {
   const expectedDatabaseName =
@@ -400,6 +474,17 @@ function adjudicateReadback({
       policy?.postureSemantics?.collectionPassMayContainAdversePosture === true &&
       policy?.postureSemantics
         ?.managedExportIsNotRepresentedAsNativeBackupOrRestoreProof === true &&
+      policy?.isolatedRestore?.databaseId === ISOLATED_RESTORE_DATABASE &&
+      policy?.isolatedRestore?.location === PRODUCTION_LOCATION &&
+      /^[0-9A-F]{64}$/.test(
+        policy?.isolatedRestore?.operationNameSha256 ?? "",
+      ) &&
+      /^[0-9A-F]{64}$/.test(
+        policy?.isolatedRestore?.inputUriPrefixSha256 ?? "",
+      ) &&
+      policy?.isolatedRestore?.expectedDocumentCount === 81 &&
+      policy?.isolatedRestore?.requiredDeleteProtectionState ===
+        "DELETE_PROTECTION_ENABLED" &&
       hasExactKeys(policy?.mutationBoundary, mutationKeys) &&
       mutationKeys.every((key) => policy.mutationBoundary[key] === false) &&
       hasExactKeys(policy?.privacyBoundary, privacyKeys) &&
@@ -448,6 +533,9 @@ function adjudicateReadback({
     sealedExportReconfirmed:
       operations.sealedExport.appearsExactlyOnceInHistory &&
       operations.sealedExport.exactSuccessfulExport,
+    isolatedRestoreEvidenceExact:
+      isolatedRestore == null ||
+      isolatedRestore.exactSuccessfulImportAndValidation === true,
   };
   const failedChecks = Object.entries(checks)
     .filter(([, value]) => value !== true)
@@ -462,8 +550,8 @@ function adjudicateReadback({
     holds.push("deleteProtectionDisabled");
   }
   if (schedules.count === 0) holds.push("noNativeBackupSchedule");
-  if (backups.count === 0) holds.push("noNativeBackup");
-  if (operations.successfulImportOperationCount === 0) {
+  if ((backups.stateCounts.READY ?? 0) === 0) holds.push("noReadyNativeBackup");
+  if (isolatedRestore?.exactSuccessfulImportAndValidation !== true) {
     holds.push("noRestoreImportProof");
   }
   const decision = observe
@@ -507,8 +595,27 @@ function adjudicateReadback({
           kind: "GCLOUD_READ",
           command: "firestore operations describe sealed export",
         },
+        ...(isolatedRestore == null
+          ? []
+          : [
+              {
+                kind: "GCLOUD_READ",
+                command: "firestore databases describe isolated restore",
+              },
+              {
+                kind: "GCLOUD_READ",
+                command: "firestore operations describe isolated import",
+              },
+            ]),
       ],
-      outputs: {database, schedules, backups, operations, restoreSeal},
+      outputs: {
+        database,
+        schedules,
+        backups,
+        operations,
+        restoreSeal,
+        isolatedRestore: isolatedRestore ?? {present: false},
+      },
       posture: {
         holds,
         decision:
@@ -621,6 +728,42 @@ function collectLiveState(options, policy) {
     ],
     options.repositoryRoot,
   );
+  let isolatedRestore = null;
+  if (options.isolatedRestoreOperation != null) {
+    if (
+      sha256(options.isolatedRestoreOperation) !==
+      policy?.isolatedRestore?.operationNameSha256
+    ) {
+      fail("The isolated restore operation does not match policy authority.");
+    }
+    const isolatedDatabaseRaw = gcloudJson(
+      options.gcloudCommand,
+      [
+        "firestore",
+        "databases",
+        "describe",
+        `--database=${policy.isolatedRestore.databaseId}`,
+        ...common,
+      ],
+      options.repositoryRoot,
+    );
+    const isolatedOperationRaw = gcloudJson(
+      options.gcloudCommand,
+      [
+        "firestore",
+        "operations",
+        "describe",
+        options.isolatedRestoreOperation,
+        ...common,
+      ],
+      options.repositoryRoot,
+    );
+    isolatedRestore = summarizeIsolatedRestore({
+      database: isolatedDatabaseRaw,
+      operation: isolatedOperationRaw,
+      policy: policy.isolatedRestore,
+    });
+  }
   return {
     database: summarizeDatabase(databaseRaw),
     schedules: summarizeSchedules(schedulesRaw, expectedDatabaseName),
@@ -634,6 +777,7 @@ function collectLiveState(options, policy) {
       inventoryLimit: operationLimit,
     }),
     restoreSeal: restoreSeal.summary,
+    isolatedRestore,
   };
 }
 
@@ -687,12 +831,14 @@ module.exports = {
   PRODUCTION_LOCATION,
   PRODUCTION_PROJECT_ID,
   RESTORE_SEAL_PATH,
+  ISOLATED_RESTORE_DATABASE,
   adjudicateReadback,
   loadRestoreSeal,
   parseArgs,
   resolveCommand,
   summarizeBackups,
   summarizeDatabase,
+  summarizeIsolatedRestore,
   summarizeOperations,
   summarizeSchedules,
 };
