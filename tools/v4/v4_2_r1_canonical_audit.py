@@ -680,8 +680,22 @@ check(
     and all(
         control.get("sha256") == sha(ROOT / control.get("path", ""))
         for name, control in c04_source_controls.items()
-        if name != "sourceDecisionAtMerge"
+        if name not in {
+            "sourceDecisionAtMerge",
+            "workflow",
+            "productionPolicyVerifier",
+        }
     )
+    and c04_source_controls.get("workflow", {}).get("sha256")
+        == "6645809EE26F3E78A937D26D14254AD6A6F3797D3EE3EDD488F4C5DAEC17741E"
+    and c04_source_controls.get("productionPolicyVerifier", {}).get(
+        "sha256"
+    ) == "4DE6956CC9FEBD99ABB62E66975D9ED58F62D6C398927A3015B550FF7B3BF0CB"
+    and "Validate and publish test evidence taxonomy" in release_gate_source
+    and "Android emulator app-shell integration (not physical-device evidence)"
+        in release_gate_source
+    and "Production policy and package-verifier runtime gate"
+        in release_gate_source
     and c04_source_controls.get("sourceDecisionAtMerge", {}).get("sha256")
         == "D91D0FD7E14E4099748D64E4F6FE5CF38B8A4C102235889DF05B4EF786011894"
     and c04_android_boundary.get("timeoutMinutes") == 30
@@ -7536,6 +7550,130 @@ check(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_source_delta_paths
     ),
+)
+
+lr07_policy = data(
+    "release/lr07-distribution-installation-readback-policy.json"
+)
+lr07_collector = text(
+    "tools/release/collectDistributionInstallationReadback.js"
+)
+lr07_containment = text(
+    "tools/release/containGitHubProductionArtifacts.js"
+)
+lr07_collector_test = text(
+    "tools/release/collectDistributionInstallationReadback.test.mjs"
+)
+lr07_containment_test = text(
+    "tools/release/containGitHubProductionArtifacts.test.mjs"
+)
+lr07_contract = text(
+    "test/lr07_distribution_installation_readback_source_contract_test.dart"
+)
+lr07_decision = text(
+    "docs/v4_2_r1/LR07_DISTRIBUTION_INSTALLATION_READBACK.md"
+)
+lr07_workflow = text(".github/workflows/production-artifact.yml")
+lr07_release_gate = text(".github/workflows/release-gate.yml")
+lr07_package = data("package.json")
+lr07_ledger = data("governance/programme-ledger.json")
+lr07_records = [
+    record
+    for record in lr07_ledger.get("programmeGates", [])
+    if record.get("gateId") == "LR-07"
+]
+lr07_record = lr07_records[0] if len(lr07_records) == 1 else {}
+lr07_artifacts = lr07_policy.get("expectedArtifactsForContainment", [])
+lr07_source_evidence = lr07_policy.get("sourceEvidence", [])
+check(
+    "LR-07 public artifact containment and strict readback are exact but do not self-close",
+    lr07_policy.get("schemaVersion") == 1
+    and lr07_policy.get("policyId")
+        == "LR07-DISTRIBUTION-INSTALLATION-READBACK-POLICY-V1"
+    and lr07_policy.get("repository") == "abhishekvatsa/crm3_baf_ops"
+    and lr07_policy.get("productionProjectId") == "crm3-baf-ops-b8638"
+    and lr07_policy.get("expectedRepositoryVisibility") == "PUBLIC"
+    and lr07_policy.get("workflow", {}).get(
+        "requiredArtifactRetentionDays"
+    ) == 1
+    and len(lr07_artifacts) == 5
+    and [entry.get("buildNumber") for entry in lr07_artifacts]
+        == [4, 5, 6, 7, 8]
+    and {entry.get("id") for entry in lr07_artifacts}
+        == {8711253816, 8730747624, 8771948980, 8836687771, 8866525607}
+    and sum(entry.get("sizeBytes", 0) for entry in lr07_artifacts)
+        == 765143034
+    and sum(
+        1
+        for entry in lr07_artifacts
+        if entry.get("dualCustodyCompleted") is True
+    ) == 4
+    and lr07_policy.get("installationReceipt", {}).get("bytes") == 8119
+    and lr07_policy.get("installationReceipt", {}).get("sha256")
+        == "4BD8332FBCF80B6E809B5A3FFE94EDD7560C482D898B6B9E2F37D6F63422BCEC"
+    and lr07_policy.get("strictReadback", {}).get(
+        "requiredGitHubReleaseCount"
+    ) == 0
+    and lr07_policy.get("strictReadback", {}).get(
+        "requiredLiveProductionArtifactCount"
+    ) == 0
+    and lr07_policy.get("executionAuthority", {}).get(
+        "artifactDeletionRequiresExplicitOwnerApproval"
+    ) is True
+    and lr07_policy.get("executionAuthority", {}).get(
+        "requiredOwnerApprovalPhrase"
+    )
+        == "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-8711253816-8730747624-8771948980-8836687771-8866525607"
+    and lr07_policy.get("executionAuthority", {}).get(
+        "deleteOnlyExactArtifactIds"
+    ) is True
+    and any(
+        entry.get("path") == ".github/workflows/production-artifact.yml"
+        for entry in lr07_source_evidence
+    )
+    and all(
+        (ROOT / entry.get("path", "")).is_file()
+        and (ROOT / entry["path"]).stat().st_size == entry.get("bytes")
+        and sha(ROOT / entry["path"]) == entry.get("sha256")
+        for entry in lr07_source_evidence
+    )
+    and "retention-days: 1" in lr07_workflow
+    and "retention-days: 90" not in lr07_workflow
+    and "npm run test:distribution-readback-custody" in lr07_release_gate
+    and "collectDistributionInstallationReadback.test.mjs"
+        in lr07_package.get("scripts", {}).get(
+            "test:distribution-readback-custody", ""
+        )
+    and "containGitHubProductionArtifacts.test.mjs"
+        in lr07_package.get("scripts", {}).get(
+            "test:distribution-readback-custody", ""
+        )
+    and "liveProductionArtifactInventoryEmpty" in lr07_collector
+    and "githubReleaseInventoryEmpty" in lr07_collector
+    and "externalInstallationReceiptExact" in lr07_collector
+    and "selectProductionArtifacts" in lr07_collector
+    and "productionWorkflowRuns" in lr07_collector
+    and "collectorAuthorizesClosure: false" in lr07_collector
+    and 'flag: "wx"' in lr07_collector
+    and "artifactDeletionRequiresExplicitOwnerApproval" in lr07_containment
+    and "--owner-approval" in lr07_containment
+    and "actions/artifacts/${artifact.id}" in lr07_containment
+    and "inventoryAfter.length !== 0" in lr07_containment
+    and "actions/runs/${artifact.id}" not in lr07_containment
+    and "strict readback passes only" in lr07_collector_test
+    and "discovered by workflow run instead of filename"
+        in lr07_collector_test
+    and "sealed exact preflight" in lr07_containment_test
+    and "strict readback fails closed" in lr07_contract
+    and "does not close `LR-07`" in lr07_decision
+    and len(lr07_records) == 1
+    and lr07_record.get("currentStatus") == "OPEN"
+    and lr07_record.get("evidence") == []
+    and len(lr07_record.get("requiredExitEvidence", [])) == 6
+    and len(lr07_record.get("reArmTriggers", [])) == 7
+    and len(lr07_record.get("notes", [])) == 3
+    and [entry.get("status") for entry in lr07_record.get("statusHistory", [])]
+        == ["OPEN"],
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

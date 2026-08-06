@@ -576,4 +576,4 @@ jobs:
             ${{ env.CRM_PRODUCTION_OUTPUT }}/*-GOVERNED-PACKAGE.zip
             ${{ env.CRM_PRODUCTION_OUTPUT }}/*-GOVERNED-PACKAGE.zip.sha256.txt
           if-no-files-found: error
-          retention-days: 90
+          retention-days: 1

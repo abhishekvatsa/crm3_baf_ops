@@ -1268,6 +1268,7 @@ foreach ($required in @(
   './gradlew :app:compileReleaseSources --no-daemon --stacktrace'
   'New-ProductionArtifact.ps1'
   '-ExpectedApprovalReference $env:CRM_DISPATCH_APPROVAL_REFERENCE'
+  'retention-days: 1'
 )) {
   if (-not $workflow.Contains($required)) {
     throw "Production workflow contract is missing: $required"
