@@ -291,6 +291,34 @@ test("isolated restore summary binds exact service evidence without raw identifi
   const rendered = JSON.stringify(isolated);
   assert.equal(rendered.includes(operationName), false);
   assert.equal(rendered.includes(inputUriPrefix), false);
+
+  const incomplete = summarizeIsolatedRestore({
+    database: {
+      name:
+        `projects/${PRODUCTION_PROJECT_ID}/databases/${ISOLATED_RESTORE_DATABASE}`,
+      locationId: PRODUCTION_LOCATION,
+      type: "FIRESTORE_NATIVE",
+      deleteProtectionState: "DELETE_PROTECTION_ENABLED",
+    },
+    operation: {
+      name: operationName,
+      done: true,
+      metadata: {
+        "@type":
+          "type.googleapis.com/google.firestore.admin.v1.ImportDocumentsMetadata",
+        operationState: "SUCCESSFUL",
+        inputUriPrefix,
+        progressDocuments: {completedWork: "80", estimatedWork: "81"},
+      },
+      response: {"@type": "type.googleapis.com/google.protobuf.Empty"},
+    },
+    policy: {
+      ...policy.isolatedRestore,
+      operationNameSha256: isolated.operation.operationNameSha256,
+      inputUriPrefixSha256: isolated.operation.inputUriPrefixSha256,
+    },
+  });
+  assert.equal(incomplete.exactSuccessfulImportAndValidation, false);
 });
 
 test("strict acquisition fails from dirty, detached, stale or changing source", () => {
