@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 225,
-    "SUCCESSOR_MODIFIED": 185
+    "BYTE_IDENTICAL": 224,
+    "SUCCESSOR_MODIFIED": 186
   },
   "paths": [
     {
@@ -1573,9 +1573,9 @@
     {
       "path": "lib/features/planned_maintenance/data/baf_knowledge_model.dart",
       "canonicalSha256": "34C22528879534999B2E7C912F385E96CB6A8756A57D1CFFEB3474E9E5A77615",
-      "candidateSha256": "0FD3CCCECEEDBF6D499EB1F9539D846129A675D8BED4A282D3819F9D7A31B015",
+      "candidateSha256": "18D9363A576FE310D865C13BDB8A6C5138AC11814E277F1976B2C1FDEBBA6769",
       "canonicalBytes": 16201,
-      "candidateBytes": 17551,
+      "candidateBytes": 11937,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1677,9 +1677,9 @@
     {
       "path": "lib/features/planned_maintenance/domain/baf_knowledge_repository.dart",
       "canonicalSha256": "8B7AE630CB205E37250CC1F2A3DD546C5C4DA1792F7A0F9BF507D2EAE787BE4D",
-      "candidateSha256": "AB69D503BD1DCDA687CB47A85B220B20950463F6E8AC758BAA547A991F1F1E2A",
+      "candidateSha256": "9581568B97DA26DE4EEE0BF8E21166A0A3EE426C31BEB48A156BBDE09843377A",
       "canonicalBytes": 25985,
-      "candidateBytes": 26125,
+      "candidateBytes": 24934,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2253,10 +2253,10 @@
     {
       "path": "lib/features/planned_maintenance/providers/knowledge_governance_provider.dart",
       "canonicalSha256": "82FB4A7C9BE63D75C4A733947667FC684B8CF9BF4D63357C68E1BC080814EE44",
-      "candidateSha256": "82FB4A7C9BE63D75C4A733947667FC684B8CF9BF4D63357C68E1BC080814EE44",
+      "candidateSha256": "947B5740BFD8275DFA2B873689C7C2C6848E0E3DAFDF29EE64860EC9EFEBD14B",
       "canonicalBytes": 23059,
-      "candidateBytes": 23059,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 23198,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/planned_maintenance/providers/module_registry_provider.dart",

@@ -78,9 +78,9 @@ class KnowledgeGovernanceController {
     FirebaseFirestore? firestore,
     BafKnowledgeRepository? knowledgeRepository,
     AuditRepository? auditRepository,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _knowledge = knowledgeRepository ?? BafKnowledgeRepository(),
-        _audit = auditRepository ?? AuditRepository();
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _knowledge = knowledgeRepository ?? BafKnowledgeRepository(),
+       _audit = auditRepository ?? AuditRepository();
 
   final FirebaseFirestore _firestore;
   final BafKnowledgeRepository _knowledge;
@@ -95,19 +95,23 @@ class KnowledgeGovernanceController {
   Future<KnowledgeGovernanceWriteResult> createRow({
     required KnowledgeRowDraft draft,
     required AppUser actor,
-    KnowledgeGovernanceAction governanceAction = KnowledgeGovernanceAction.created,
+    KnowledgeGovernanceAction governanceAction =
+        KnowledgeGovernanceAction.created,
   }) async {
     _assertCanWrite(actor);
     final validation = draft.validateForSave(isCreate: true);
     if (!validation.canSave) {
       throw KnowledgeGovernanceException(
-        'Validation failed', errors: validation.errors,
+        'Validation failed',
+        errors: validation.errors,
       );
     }
     final ref = _firestore.collection(_collectionPath).doc(draft.rowCode);
     final diff = KnowledgeGovernanceDiff.between(before: null, after: draft);
     final reason = draft.changeSummary.trim();
-    final versionAfter = await _firestore.runTransaction<int>((transaction) async {
+    final versionAfter = await _firestore.runTransaction<int>((
+      transaction,
+    ) async {
       final existing = await transaction.get(ref);
       final data = existing.data();
       if (existing.exists && data?['isDeleted'] != true) {
@@ -155,7 +159,8 @@ class KnowledgeGovernanceController {
     final validation = draft.validateForSave(isCreate: false);
     if (!validation.canSave) {
       throw KnowledgeGovernanceException(
-        'Validation failed', errors: validation.errors,
+        'Validation failed',
+        errors: validation.errors,
       );
     }
     if (draft.rowCode != before.rowCode) {
@@ -177,7 +182,9 @@ class KnowledgeGovernanceController {
       );
     }
     final ref = _firestore.collection(_collectionPath).doc(before.rowCode);
-    final newVersion = await _firestore.runTransaction<int>((transaction) async {
+    final newVersion = await _firestore.runTransaction<int>((
+      transaction,
+    ) async {
       final current = await transaction.get(ref);
       final data = current.data();
       if (!current.exists || data == null) {
@@ -185,12 +192,13 @@ class KnowledgeGovernanceController {
           'Row ${before.rowCode} no longer exists in cloud. Refresh before editing.',
         );
       }
-      if (data['isDeleted'] == true) {
+      final cloudRow = BafKnowledgeRow.fromCloudMap(data, before.rowCode);
+      if (cloudRow.isDeleted) {
         throw KnowledgeGovernanceException(
           'Row ${before.rowCode} was deleted in cloud. Refresh before editing.',
         );
       }
-      final cloudVersion = _cloudVersionFrom(data);
+      final cloudVersion = cloudRow.version;
       if (cloudVersion != before.version) {
         throw KnowledgeGovernanceException(
           'Row ${before.rowCode} changed in cloud from v${before.version} to v$cloudVersion. Refresh before editing.',
@@ -209,10 +217,9 @@ class KnowledgeGovernanceController {
     });
     await _knowledge.pullCloudToLocal();
 
-    final action = governanceAction ?? _resolveLifecycleAction(
-      before: before,
-      after: draft,
-    );
+    final action =
+        governanceAction ??
+        _resolveLifecycleAction(before: before, after: draft);
     final result = KnowledgeGovernanceWriteResult(
       rowCode: before.rowCode,
       versionAfter: newVersion,
@@ -221,10 +228,11 @@ class KnowledgeGovernanceController {
       performedAt: DateTime.now(),
     );
     await _logAudit(
-      action: action == KnowledgeGovernanceAction.retired ||
-          action == KnowledgeGovernanceAction.archived
-          ? AuditAction.delete
-          : AuditAction.update,
+      action:
+          action == KnowledgeGovernanceAction.retired ||
+                  action == KnowledgeGovernanceAction.archived
+              ? AuditAction.delete
+              : AuditAction.update,
       result: result,
       actor: actor,
       reason: reason,
@@ -237,37 +245,34 @@ class KnowledgeGovernanceController {
     required BafKnowledgeRow before,
     required AppUser actor,
     required String reason,
-  }) =>
-      _changeLifecycle(
-        before: before,
-        actor: actor,
-        reason: reason,
-        next: KnowledgeLifecycleStatus.retired,
-      );
+  }) => _changeLifecycle(
+    before: before,
+    actor: actor,
+    reason: reason,
+    next: KnowledgeLifecycleStatus.retired,
+  );
 
   Future<KnowledgeGovernanceWriteResult> archiveRow({
     required BafKnowledgeRow before,
     required AppUser actor,
     required String reason,
-  }) =>
-      _changeLifecycle(
-        before: before,
-        actor: actor,
-        reason: reason,
-        next: KnowledgeLifecycleStatus.archived,
-      );
+  }) => _changeLifecycle(
+    before: before,
+    actor: actor,
+    reason: reason,
+    next: KnowledgeLifecycleStatus.archived,
+  );
 
   Future<KnowledgeGovernanceWriteResult> restoreRow({
     required BafKnowledgeRow before,
     required AppUser actor,
     required String reason,
-  }) =>
-      _changeLifecycle(
-        before: before,
-        actor: actor,
-        reason: reason,
-        next: KnowledgeLifecycleStatus.active,
-      );
+  }) => _changeLifecycle(
+    before: before,
+    actor: actor,
+    reason: reason,
+    next: KnowledgeLifecycleStatus.active,
+  );
 
   /// Promote a tag-resolver correction harvested from a published template
   /// version into a brand-new governed knowledge row. Fails cleanly if the
@@ -284,7 +289,8 @@ class KnowledgeGovernanceController {
         'Tag ${correction.normalizedTag} has already been promoted to ${correction.alreadyPromotedTo!.rowCode}.',
       );
     }
-    final draft = overrideDraft ??
+    final draft =
+        overrideDraft ??
         KnowledgeCorrectionPromoter.buildDraft(
           correction,
           defaultMatrixVersion: BafKnowledgeLayer.matrixVersion,
@@ -325,18 +331,21 @@ class KnowledgeGovernanceController {
       }
       try {
         final existing = byCode[draft.rowCode];
-        final result = existing == null
-            ? await createRow(
-          draft: draft,
-          actor: actor,
-          governanceAction: KnowledgeGovernanceAction.importedFromExternal,
-        )
-            : await updateRow(
-          before: existing,
-          draft: draft,
-          actor: actor,
-          governanceAction: KnowledgeGovernanceAction.importedFromExternal,
-        );
+        final result =
+            existing == null
+                ? await createRow(
+                  draft: draft,
+                  actor: actor,
+                  governanceAction:
+                      KnowledgeGovernanceAction.importedFromExternal,
+                )
+                : await updateRow(
+                  before: existing,
+                  draft: draft,
+                  actor: actor,
+                  governanceAction:
+                      KnowledgeGovernanceAction.importedFromExternal,
+                );
         writes.add(result);
       } catch (e) {
         rejected++;
@@ -371,23 +380,27 @@ class KnowledgeGovernanceController {
     for (final local in unsynced) {
       try {
         final cloud =
-        await _firestore.collection(_collectionPath).doc(local.rowCode).get();
+            await _firestore
+                .collection(_collectionPath)
+                .doc(local.rowCode)
+                .get();
         final data = cloud.data();
         if (data == null) continue;
-        final cloudVersion = (data['version'] is num)
-            ? (data['version'] as num).toInt()
-            : 0;
+        final cloudRow = BafKnowledgeRow.fromCloudMap(data, local.rowCode);
+        final cloudVersion = cloudRow.version;
         if (cloudVersion >= local.version) {
-          conflicts.add(KnowledgeSyncConflict(
-            rowCode: local.rowCode,
-            localVersion: local.version,
-            cloudVersion: cloudVersion,
-            cloudUpdatedByName: (data['updatedByName'] ?? '').toString(),
-            cloudChangeSummary: (data['changeSummary'] ?? '').toString(),
-            local: local,
-          ));
+          conflicts.add(
+            KnowledgeSyncConflict(
+              rowCode: local.rowCode,
+              localVersion: local.version,
+              cloudVersion: cloudVersion,
+              cloudUpdatedByName: cloudRow.updatedByName,
+              cloudChangeSummary: cloudRow.changeSummary,
+              local: local,
+            ),
+          );
         }
-      } catch (_) {
+      } on FirebaseException {
         // Network/permission errors are not conflicts.
       }
     }
@@ -417,13 +430,6 @@ class KnowledgeGovernanceController {
     draft.lifecycleStatus = next;
     draft.changeSummary = composedReason;
     return updateRow(before: before, draft: draft, actor: actor);
-  }
-
-  int _cloudVersionFrom(Map<String, dynamic> data) {
-    final value = data['version'];
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim()) ?? 0;
-    return 0;
   }
 
   Map<String, dynamic> _draftToCloudMap({
@@ -472,14 +478,19 @@ class KnowledgeGovernanceController {
   }
 
   AuditSeverity _severityFor(
-      KnowledgeRowDraft draft, {
-        required bool isCreate,
-        KnowledgeGovernanceAction? lifecycle,
-      }) {
-    if (lifecycle == KnowledgeGovernanceAction.archived) return AuditSeverity.high;
-    if (lifecycle == KnowledgeGovernanceAction.retired) return AuditSeverity.medium;
+    KnowledgeRowDraft draft, {
+    required bool isCreate,
+    KnowledgeGovernanceAction? lifecycle,
+  }) {
+    if (lifecycle == KnowledgeGovernanceAction.archived) {
+      return AuditSeverity.high;
+    }
+    if (lifecycle == KnowledgeGovernanceAction.retired) {
+      return AuditSeverity.medium;
+    }
     if (draft.requiredForClosure == 'yes' &&
-        draft.composerReadiness.name == ComposerReadinessProxy.readyPreset.name) {
+        draft.composerReadiness.name ==
+            ComposerReadinessProxy.readyPreset.name) {
       return AuditSeverity.medium;
     }
     return AuditSeverity.low;
@@ -501,7 +512,7 @@ class KnowledgeGovernanceController {
       reason: AuditReason.manualOverride,
       reasonNotes: reason,
       summary:
-      '${result.action.displayLabel} ${result.rowCode} (v${result.versionAfter})',
+          '${result.action.displayLabel} ${result.rowCode} (v${result.versionAfter})',
       severity: severity,
       after: <String, dynamic>{
         'governanceAction': result.action.name,
@@ -527,9 +538,7 @@ class KnowledgeGovernanceController {
 
   Future<Map<String, BafKnowledgeRow>> _localRowsByCode() async {
     final rows = await _knowledge.getAllLocalRows();
-    return <String, BafKnowledgeRow>{
-      for (final row in rows) row.rowCode: row,
-    };
+    return <String, BafKnowledgeRow>{for (final row in rows) row.rowCode: row};
   }
 }
 
@@ -567,8 +576,9 @@ class KnowledgeSyncConflict {
 /// Tiny shim so we don't have to import module_composer_models from the
 /// audit-severity helper above. (The string is the only thing we need.)
 class ComposerReadinessProxy {
-  static const ComposerReadinessProxy readyPreset =
-  ComposerReadinessProxy._('readyPreset');
+  static const ComposerReadinessProxy readyPreset = ComposerReadinessProxy._(
+    'readyPreset',
+  );
   final String name;
   const ComposerReadinessProxy._(this.name);
 }
@@ -578,12 +588,12 @@ class ComposerReadinessProxy {
 // ─────────────────────────────────────────────────────────────
 
 final knowledgeGovernanceControllerProvider =
-Provider<KnowledgeGovernanceController>((ref) {
-  return KnowledgeGovernanceController(
-    knowledgeRepository: ref.watch(bafKnowledgeRepositoryProvider),
-    auditRepository: ref.read(auditRepositoryProvider),
-  );
-});
+    Provider<KnowledgeGovernanceController>((ref) {
+      return KnowledgeGovernanceController(
+        knowledgeRepository: ref.watch(bafKnowledgeRepositoryProvider),
+        auditRepository: ref.read(auditRepositoryProvider),
+      );
+    });
 
 class KnowledgeRowsView {
   final List<BafKnowledgeRow> rows;
@@ -611,20 +621,14 @@ final knowledgeRowsViewProvider = StreamProvider<KnowledgeRowsView>((ref) {
     controller.add(KnowledgeRowsView(rows: rows, meta: meta));
   }
 
-  final rowsSub = repository.watchAllKnowledgeRows().listen(
-        (rows) {
-      latestRows = rows;
-      emitIfReady();
-    },
-    onError: controller.addError,
-  );
-  final metaSub = repository.watchMatrixMeta().listen(
-        (meta) {
-      latestMeta = meta;
-      emitIfReady();
-    },
-    onError: controller.addError,
-  );
+  final rowsSub = repository.watchAllKnowledgeRows().listen((rows) {
+    latestRows = rows;
+    emitIfReady();
+  }, onError: controller.addError);
+  final metaSub = repository.watchMatrixMeta().listen((meta) {
+    latestMeta = meta;
+    emitIfReady();
+  }, onError: controller.addError);
 
   ref.onDispose(() async {
     await rowsSub.cancel();
@@ -636,8 +640,10 @@ final knowledgeRowsViewProvider = StreamProvider<KnowledgeRowsView>((ref) {
 });
 
 /// Synthesised export bundle of the currently visible rows.
-final knowledgeExportBundleProvider = Provider.family<KnowledgeBundleExport,
-    KnowledgeBundleFormat>((ref, format) {
+final knowledgeExportBundleProvider = Provider.family<
+  KnowledgeBundleExport,
+  KnowledgeBundleFormat
+>((ref, format) {
   final view = ref.watch(knowledgeRowsViewProvider).valueOrNull;
   final rows = view?.rows ?? const <BafKnowledgeRow>[];
   return KnowledgeGovernanceExport.export(
@@ -649,19 +655,23 @@ final knowledgeExportBundleProvider = Provider.family<KnowledgeBundleExport,
 
 /// Recent governance audit log entries (knowledge_base only).
 final knowledgeGovernanceAuditFeedProvider =
-FutureProvider.autoDispose<List<AuditEvent>>((ref) async {
-  return ref.watch(knowledgeGovernanceControllerProvider).recentKnowledgeBaseAudits();
-});
+    FutureProvider.autoDispose<List<AuditEvent>>((ref) async {
+      return ref
+          .watch(knowledgeGovernanceControllerProvider)
+          .recentKnowledgeBaseAudits();
+    });
 
 /// Currently outstanding sync conflicts on knowledge rows.
 final knowledgeGovernanceSyncConflictsProvider =
-FutureProvider.autoDispose<List<KnowledgeSyncConflict>>((ref) async {
-  return ref.watch(knowledgeGovernanceControllerProvider).findSyncConflicts();
-});
+    FutureProvider.autoDispose<List<KnowledgeSyncConflict>>((ref) async {
+      return ref
+          .watch(knowledgeGovernanceControllerProvider)
+          .findSyncConflicts();
+    });
 
 /// Filter state for the Knowledge Governance screen. UI-owned, so the
 /// screen can update it freely without rebuilding the Firestore query.
 final knowledgeGovernanceFilterProvider =
-StateProvider<KnowledgeGovernanceFilter>((ref) {
-  return KnowledgeGovernanceFilter.allActive();
-});
+    StateProvider<KnowledgeGovernanceFilter>((ref) {
+      return KnowledgeGovernanceFilter.allActive();
+    });

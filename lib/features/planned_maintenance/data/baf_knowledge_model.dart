@@ -7,6 +7,7 @@ import 'package:isar/isar.dart';
 import '../../../core/services/global_pull_protocol.dart';
 import '../domain/baf_knowledge_layer.dart';
 import '../domain/module_composer_models.dart';
+import 'remote_baf_knowledge_reader.dart';
 
 part 'baf_knowledge_model.g.dart';
 
@@ -89,10 +90,12 @@ class BafKnowledgeRow {
     row.partRefs = List<String>.from(entry.partRefs);
     row.deviceTags = List<String>.from(entry.deviceTags);
     row.targetRefs = List<String>.from(entry.targetRefs);
-    row.suggestedFields = entry.suggestedFields.map((field) => field.label).toList();
-    row.requiredForClosure = entry.requiredForClosureSuggestion == null
-        ? 'consult'
-        : entry.requiredForClosureSuggestion == true
+    row.suggestedFields =
+        entry.suggestedFields.map((field) => field.label).toList();
+    row.requiredForClosure =
+        entry.requiredForClosureSuggestion == null
+            ? 'consult'
+            : entry.requiredForClosureSuggestion == true
             ? 'yes'
             : 'no';
     row.moduleCandidateCode = entry.moduleCandidateCode;
@@ -113,9 +116,8 @@ class BafKnowledgeRow {
     row.changeSummary = changeSummary;
     row.rawJson = jsonEncode(<String, dynamic>{
       ...entry.raw,
-      'suggestedFieldPresets': entry.suggestedFields
-          .map((field) => field.toMap())
-          .toList(),
+      'suggestedFieldPresets':
+          entry.suggestedFields.map((field) => field.toMap()).toList(),
     });
     row.isSynced = isSynced;
     row.isDeleted = false;
@@ -127,47 +129,47 @@ class BafKnowledgeRow {
     String docId, {
     int? localId,
   }) {
-    final now = DateTime.now();
+    final decoded = readRemoteBafKnowledgeRow(map, docId);
     final row = BafKnowledgeRow();
     if (localId != null) row.id = localId;
-    row.rowCode = _clean(map['rowCode']).isEmpty ? docId : _clean(map['rowCode']);
-    row.sourceManual = _clean(map['sourceManual']);
-    row.sourcePage = _clean(map['sourcePage']);
-    row.sourceType = _clean(map['sourceType']);
-    row.assetFamily = _clean(map['assetFamily']);
-    row.functionalSection = _clean(map['functionalSection']);
-    row.componentGroup = _clean(map['componentGroup']);
-    row.taskType = _clean(map['taskType']);
-    row.taskText = _clean(map['taskText']);
-    row.frequency = _clean(map['frequency']).isEmpty ? 'unknown' : _clean(map['frequency']);
-    row.discipline = _clean(map['discipline']).isEmpty ? 'mechanical' : _clean(map['discipline']);
-    row.ownerDisciplines = _stringList(map['ownerDisciplines']);
-    row.safetyClasses = _stringList(map['safetyClasses'] ?? map['safetyClass']);
-    row.procedureRefs = _stringList(map['procedureRefs']);
-    row.partRefs = _stringList(map['partRefs']);
-    row.deviceTags = _stringList(map['deviceTags']).map((tag) => tag.toUpperCase()).toList();
-    row.targetRefs = _stringList(map['targetRefs']);
-    row.suggestedFields = _suggestedFieldLabels(map);
-    row.requiredForClosure = _clean(map['requiredForClosure']).isEmpty ? 'consult' : _clean(map['requiredForClosure']);
-    row.moduleCandidateCode = _clean(map['moduleCandidateCode']).isEmpty ? row.rowCode : _clean(map['moduleCandidateCode']);
-    row.resolverImpact = _clean(map['resolverImpact']);
-    row.composerReadiness = _clean(map['composerReadiness']).isEmpty ? 'needsReview' : _clean(map['composerReadiness']);
-    row.confidence = _clean(map['confidence']).isEmpty ? 'inferredNeedsReview' : _clean(map['confidence']);
-    row.consultQuestion = _clean(map['consultQuestion']);
-    row.lifecycleStatus = _clean(map['lifecycleStatus']).isEmpty ? 'active' : _clean(map['lifecycleStatus']);
-    row.matrixVersion = _clean(map['matrixVersion']).isEmpty ? BafKnowledgeLayer.matrixVersion : _clean(map['matrixVersion']);
-    row.schemaVersion = _int(map['schemaVersion'], 1);
-    row.version = _int(map['version'], 1);
-    row.createdByUid = _clean(map['createdByUid']);
-    row.createdByName = _clean(map['createdByName']);
-    row.createdAt = _date(map['createdAt']) ?? now;
-    row.updatedByUid = _clean(map['updatedByUid']);
-    row.updatedByName = _clean(map['updatedByName']);
-    row.updatedAt = _date(map['updatedAt']) ?? now;
-    row.changeSummary = _clean(map['changeSummary']);
-    row.rawJson = jsonEncode(_entryMapFromCloud(map, row.rowCode));
+    row.rowCode = decoded.rowCode;
+    row.sourceManual = decoded.sourceManual;
+    row.sourcePage = decoded.sourcePage;
+    row.sourceType = decoded.sourceType;
+    row.assetFamily = decoded.assetFamily;
+    row.functionalSection = decoded.functionalSection;
+    row.componentGroup = decoded.componentGroup;
+    row.taskType = decoded.taskType;
+    row.taskText = decoded.taskText;
+    row.frequency = decoded.frequency;
+    row.discipline = decoded.discipline;
+    row.ownerDisciplines = decoded.ownerDisciplines;
+    row.safetyClasses = decoded.safetyClasses;
+    row.procedureRefs = decoded.procedureRefs;
+    row.partRefs = decoded.partRefs;
+    row.deviceTags = decoded.deviceTags;
+    row.targetRefs = decoded.targetRefs;
+    row.suggestedFields = decoded.suggestedFields;
+    row.requiredForClosure = decoded.requiredForClosure;
+    row.moduleCandidateCode = decoded.moduleCandidateCode;
+    row.resolverImpact = decoded.resolverImpact;
+    row.composerReadiness = decoded.composerReadiness;
+    row.confidence = decoded.confidence;
+    row.consultQuestion = decoded.consultQuestion;
+    row.lifecycleStatus = decoded.lifecycleStatus;
+    row.matrixVersion = decoded.matrixVersion;
+    row.schemaVersion = decoded.schemaVersion;
+    row.version = decoded.version;
+    row.createdByUid = decoded.createdByUid;
+    row.createdByName = decoded.createdByName;
+    row.createdAt = decoded.createdAt;
+    row.updatedByUid = decoded.updatedByUid;
+    row.updatedByName = decoded.updatedByName;
+    row.updatedAt = decoded.updatedAt;
+    row.changeSummary = decoded.changeSummary;
+    row.rawJson = jsonEncode(decoded.rawMap);
     row.isSynced = true;
-    row.isDeleted = map['isDeleted'] == true;
+    row.isDeleted = decoded.isDeleted;
     return row;
   }
 
@@ -176,7 +178,10 @@ class BafKnowledgeRow {
   }
 
   Map<String, dynamic> toEntryMap() {
-    final decoded = _decodeRaw(rawJson)..remove(globalPullServerUpdatedAtField);
+    final decoded = readBafKnowledgeRawJson(
+      rawJson,
+      source: 'local knowledge_base/$rowCode',
+    )..remove(globalPullServerUpdatedAtField);
     final map = <String, dynamic>{
       ...decoded,
       'rowCode': rowCode,
@@ -271,7 +276,8 @@ class BafKnowledgeMatrixMetaStore {
     meta.sourceLabel = BafKnowledgeLayer.sourceLabel;
     meta.source = 'staticFallback';
     meta.maintenanceManualRef = BafKnowledgeLayer.maintenanceManualRef;
-    meta.safetyOperationsManualRef = BafKnowledgeLayer.safetyOperationsManualRef;
+    meta.safetyOperationsManualRef =
+        BafKnowledgeLayer.safetyOperationsManualRef;
     meta.knowledgeRowCount = BafKnowledgeLayer.knowledgeRowCount;
     meta.tagRowCount = BafKnowledgeLayer.tagRowCount;
     meta.cloudUpdatedAt = null;
@@ -288,97 +294,53 @@ class BafKnowledgeMatrixMetaStore {
     return meta;
   }
 
-  factory BafKnowledgeMatrixMetaStore.fromCloudMap(Map<String, dynamic> map) {
-    final now = DateTime.now();
+  factory BafKnowledgeMatrixMetaStore.fromCloudMap(
+    Map<String, dynamic> map, {
+    required DateTime localCachedAt,
+  }) {
+    final decoded = readRemoteBafKnowledgeMeta(map);
     final meta = BafKnowledgeMatrixMetaStore();
     meta.metaKey = 'current';
-    meta.matrixVersion = _clean(map['matrixVersion']).isEmpty ? BafKnowledgeLayer.matrixVersion : _clean(map['matrixVersion']);
-    meta.sourceLabel = _clean(map['sourceLabel']).isEmpty ? 'Cloud Knowledge Base' : _clean(map['sourceLabel']);
-    meta.source = _clean(map['source']).isEmpty ? 'cloud' : _clean(map['source']);
-    meta.maintenanceManualRef = _clean(map['maintenanceManualRef']).isEmpty ? BafKnowledgeLayer.maintenanceManualRef : _clean(map['maintenanceManualRef']);
-    meta.safetyOperationsManualRef = _clean(map['safetyOperationsManualRef']).isEmpty ? BafKnowledgeLayer.safetyOperationsManualRef : _clean(map['safetyOperationsManualRef']);
-    meta.knowledgeRowCount = _int(map['knowledgeRowCount'], BafKnowledgeLayer.knowledgeRowCount);
-    meta.tagRowCount = _int(map['tagRowCount'], BafKnowledgeLayer.tagRowCount);
-    meta.cloudUpdatedAt = _date(map['updatedAt'] ?? map['cloudUpdatedAt']);
-    meta.localCachedAt = now;
-    meta.updatedAt = _date(map['updatedAt']) ?? now;
-    meta.updatedByUid = _clean(map['updatedByUid']);
-    meta.updatedByName = _clean(map['updatedByName']);
-    meta.changeSummary = _clean(map['changeSummary']);
-    meta.note = _clean(map['note']);
-    meta.schemaVersion = _int(map['schemaVersion'], 1);
-    meta.version = _int(map['version'], 1);
+    meta.matrixVersion = decoded.matrixVersion;
+    meta.sourceLabel = decoded.sourceLabel;
+    meta.source = decoded.source;
+    meta.maintenanceManualRef = decoded.maintenanceManualRef;
+    meta.safetyOperationsManualRef = decoded.safetyOperationsManualRef;
+    meta.knowledgeRowCount = decoded.knowledgeRowCount;
+    meta.tagRowCount = decoded.tagRowCount;
+    meta.cloudUpdatedAt = decoded.updatedAt;
+    meta.localCachedAt = localCachedAt;
+    meta.updatedAt = decoded.updatedAt;
+    meta.updatedByUid = decoded.updatedByUid;
+    meta.updatedByName = decoded.updatedByName;
+    meta.changeSummary = decoded.changeSummary;
+    meta.note = decoded.note;
+    meta.schemaVersion = decoded.schemaVersion;
+    meta.version = decoded.version;
     meta.isSynced = true;
-    meta.isDeleted = map['isDeleted'] == true;
+    meta.isDeleted = decoded.isDeleted;
     return meta;
   }
-}
-
-String _clean(Object? value) => value?.toString().trim() ?? '';
-
-int _int(Object? value, int fallback) {
-  if (value is int) return value;
-  if (value is num) return value.round();
-  return int.tryParse(_clean(value)) ?? fallback;
-}
-
-DateTime? _date(Object? value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  try {
-    final dynamic maybeTimestamp = value;
-    final dynamic converted = maybeTimestamp.toDate();
-    if (converted is DateTime) return converted;
-  } catch (_) {
-    // Not a Firestore timestamp-like object.
-  }
-  return DateTime.tryParse(_clean(value));
-}
-
-List<String> _stringList(Object? value) {
-  if (value == null) return <String>[];
-  if (value is Iterable) {
-    return value.map((item) => _clean(item)).where((item) => item.isNotEmpty).toList();
-  }
-  final text = _clean(value);
-  if (text.isEmpty) return <String>[];
-  return text.split(RegExp(r'[;,]')).map((item) => item.trim()).where((item) => item.isNotEmpty).toList();
-}
-
-List<String> _suggestedFieldLabels(Map<String, dynamic> map) {
-  final suggestedFields = map['suggestedFields'];
-  if (suggestedFields is Iterable && suggestedFields.any((item) => item is Map)) {
-    final labels = suggestedFields
-        .whereType<Map>()
-        .map((item) => _clean(item['label'] ?? item['title'] ?? item['name']))
-        .where((item) => item.isNotEmpty)
-        .toList();
-    if (labels.isNotEmpty) return labels;
-  }
-  final legacy = _stringList(suggestedFields);
-  if (legacy.isNotEmpty) return legacy;
-  final presets = _suggestedFieldPresetMaps(
-    map['suggestedFieldPresets'] ?? map['fieldPresets'] ?? map['suggestedFieldDefinitions'],
-  );
-  return presets
-      .map((item) => _clean(item['label'] ?? item['title'] ?? item['name']))
-      .where((item) => item.isNotEmpty)
-      .toList();
 }
 
 List<Map<String, dynamic>> _suggestedFieldPresetsFromRaw(
   Map<String, dynamic> decoded, {
   List<String> fallbackLabels = const <String>[],
 }) {
-  final presets = _suggestedFieldPresetMaps(
-    decoded['suggestedFieldPresets'] ?? decoded['fieldPresets'] ?? decoded['suggestedFieldDefinitions'],
+  final field =
+      decoded.containsKey('suggestedFieldPresets')
+          ? 'suggestedFieldPresets'
+          : decoded.containsKey('fieldPresets')
+          ? 'fieldPresets'
+          : 'suggestedFieldDefinitions';
+  final presets = readBafKnowledgeSuggestedFieldPresets(
+    decoded[field],
+    field: field,
+    source: 'local knowledge row rawJson',
   );
   if (presets.isNotEmpty) return presets;
-  final labels = _stringList(decoded['suggestedFields']).isNotEmpty
-      ? _stringList(decoded['suggestedFields'])
-      : fallbackLabels;
   return [
-    for (final label in labels)
+    for (final label in fallbackLabels)
       <String, dynamic>{
         'key': label
             .trim()
@@ -390,81 +352,4 @@ List<Map<String, dynamic>> _suggestedFieldPresetsFromRaw(
         'sourceText': label,
       },
   ];
-}
-
-List<Map<String, dynamic>> _suggestedFieldPresetMaps(Object? value) {
-  if (value is Iterable) {
-    return value
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList(growable: false);
-  }
-  if (value is String && value.trim().isNotEmpty) {
-    try {
-      final decoded = jsonDecode(value);
-      if (decoded is Iterable) {
-        return decoded
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList(growable: false);
-      }
-    } catch (_) {
-      // Legacy suggestedFields may be a comma-separated string; keep label fallback.
-    }
-  }
-  return <Map<String, dynamic>>[];
-}
-
-Map<String, dynamic> _decodeRaw(String rawJson) {
-  if (rawJson.trim().isEmpty) return <String, dynamic>{};
-  try {
-    final decoded = jsonDecode(rawJson);
-    if (decoded is Map) return Map<String, dynamic>.from(decoded);
-  } catch (_) {
-    // Ignore corrupt local raw payload and rebuild from indexed fields.
-  }
-  return <String, dynamic>{};
-}
-
-Map<String, dynamic> _entryMapFromCloud(Map<String, dynamic> map, String rowCode) {
-  final retained = <String, dynamic>{
-    for (final entry in map.entries)
-      if (entry.key != globalPullServerUpdatedAtField) entry.key: entry.value,
-  };
-  return _jsonSafeCloudMap(<String, dynamic>{
-    ...retained,
-    'rowCode': rowCode,
-    'moduleCandidateCode': _clean(map['moduleCandidateCode']).isEmpty ? rowCode : _clean(map['moduleCandidateCode']),
-    'safetyClass': _stringList(map['safetyClasses'] ?? map['safetyClass']),
-    'suggestedFields': _suggestedFieldLabels(map),
-    'suggestedFieldPresets': _suggestedFieldPresetMaps(map['suggestedFieldPresets'] ?? map['fieldPresets']),
-  });
-}
-
-Map<String, dynamic> _jsonSafeCloudMap(Map<String, dynamic> map) {
-  return map.map((key, value) => MapEntry(key, _jsonSafeCloudValue(value)));
-}
-
-Object? _jsonSafeCloudValue(Object? value) {
-  if (value == null || value is bool || value is String) {
-    return value;
-  }
-  if (value is num) return value.isFinite ? value : value.toString();
-  if (value is DateTime) return value.toUtc().toIso8601String();
-  if (value is Map) {
-    return value.map((key, mapValue) => MapEntry(key.toString(), _jsonSafeCloudValue(mapValue)));
-  }
-  if (value is Iterable) {
-    return value.map(_jsonSafeCloudValue).toList(growable: false);
-  }
-  try {
-    final dynamic timestampLike = value;
-    final dynamic converted = timestampLike.toDate();
-    if (converted is DateTime) {
-      return converted.toUtc().toIso8601String();
-    }
-  } catch (_) {
-    // Preserve other cloud-native values as readable JSON instead of failing.
-  }
-  return value.toString();
 }

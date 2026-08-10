@@ -109,6 +109,46 @@
       "binding": null,
       "requiredFields": [],
       "optionalFields": ["closureReviewConfirmedAt"]
+    },
+    {
+      "id": "baf-knowledge-row",
+      "decoderFile": "lib/features/planned_maintenance/data/baf_knowledge_model.dart",
+      "decoderMarker": "factory BafKnowledgeRow.fromCloudMap",
+      "readerFile": "lib/features/planned_maintenance/data/remote_baf_knowledge_reader.dart",
+      "readerFunction": "readRemoteBafKnowledgeRow",
+      "binding": null,
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": []
+    },
+    {
+      "id": "baf-knowledge-meta",
+      "decoderFile": "lib/features/planned_maintenance/data/baf_knowledge_model.dart",
+      "decoderMarker": "factory BafKnowledgeMatrixMetaStore.fromCloudMap",
+      "readerFile": "lib/features/planned_maintenance/data/remote_baf_knowledge_reader.dart",
+      "readerFunction": "readRemoteBafKnowledgeMeta",
+      "binding": null,
+      "requiredFields": ["updatedAt"],
+      "optionalFields": []
+    },
+    {
+      "id": "workflow-pull-quarantine",
+      "decoderFile": "lib/features/maintenance_workflow/services/workflow_pull_service.dart",
+      "decoderMarker": "factory WorkflowPullQuarantineRecord.fromJson",
+      "readerFile": "lib/features/maintenance_workflow/services/workflow_pull_service.dart",
+      "readerFunction": "factory WorkflowPullQuarantineRecord.fromJson",
+      "binding": null,
+      "requiredFields": ["quarantinedAt"],
+      "optionalFields": ["observedAt"]
+    },
+    {
+      "id": "global-pull-domain-cursor",
+      "decoderFile": "lib/core/services/global_pull_cursor_store.dart",
+      "decoderMarker": "factory GlobalPullDomainCursor.fromJson",
+      "readerFile": "lib/core/services/global_pull_cursor_store.dart",
+      "readerFunction": "factory GlobalPullDomainCursor.fromJson",
+      "binding": null,
+      "requiredFields": [],
+      "optionalFields": ["cursor"]
     }
   ]
 }

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../repositories/firestore_workflow_read_repository.dart';
 import '../repositories/workflow_repository.dart';
 
@@ -32,16 +33,40 @@ class WorkflowPullQuarantineRecord {
   };
 
   factory WorkflowPullQuarantineRecord.fromJson(Map<String, dynamic> json) {
+    const source = 'workflow pull quarantine record';
     return WorkflowPullQuarantineRecord(
-      collection: json['collection']?.toString() ?? 'unknown',
-      documentId: json['documentId']?.toString() ?? 'unknown',
-      stage: json['stage']?.toString() ?? 'unknown',
-      error: json['error']?.toString() ?? 'Unknown workflow pull failure',
+      collection: readRequiredPersistedString(
+        json['collection'],
+        field: 'collection',
+        source: source,
+      ),
+      documentId: readRequiredPersistedString(
+        json['documentId'],
+        field: 'documentId',
+        source: source,
+      ),
+      stage: readRequiredPersistedString(
+        json['stage'],
+        field: 'stage',
+        source: source,
+      ),
+      error: readRequiredPersistedString(
+        json['error'],
+        field: 'error',
+        source: source,
+      ),
       observedAt:
-          DateTime.tryParse(json['observedAt']?.toString() ?? '')?.toUtc(),
+          readOptionalPersistedDateTime(
+            json['observedAt'],
+            field: 'observedAt',
+            source: source,
+          )?.toUtc(),
       quarantinedAt:
-          DateTime.tryParse(json['quarantinedAt']?.toString() ?? '')?.toUtc() ??
-          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+          readRequiredPersistedDateTime(
+            json['quarantinedAt'],
+            field: 'quarantinedAt',
+            source: source,
+          ).toUtc(),
     );
   }
 }
