@@ -68,7 +68,10 @@ the repository.
    app process.
 3. The Admin approves the subject through a distinct request.
    `CaptureRevocationRestored` must prove the exact role preimage and SI surface
-   are restored before the campaign continues.
+   are restored before the campaign continues. Because the approved shell is
+   rebuilt asynchronously after the authority listener observes restoration,
+   navigation capture waits for a bounded 60-second window rather than treating
+   one transitional frame as a failed restoration.
 4. The Admin replaces the subject role set with Operations only.
    `CaptureWrongRole` must observe the role-limited physical UI in the same
    process and bind it to the deployed server-denial witnesses.
