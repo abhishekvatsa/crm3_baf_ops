@@ -10,18 +10,50 @@
   "collectorAuthority": {
     "repository": "abhishekvatsa/crm3_baf_ops",
     "pullRequest": 172,
+    "sourceHeadCommit": "954c307490d6e87979a5ba96d19888e35f55e7f6",
     "mergeCommit": "1e9803109844eaede717337317e82865c74bbd6f",
     "mergeTree": "bfec7cbbea7599887d7c7a1e8ae0b530f2d4861d",
     "remoteCi": {
-      "status": "NOT_CREATED_ACCOUNT_ACTIONS_CAPACITY",
-      "pullRequestRunCreated": false,
-      "postMergeRunCreated": false
+      "status": "CREATED_AND_CANCELLED_NO_SUCCESS_AUTHORITY",
+      "pullRequestRun": {
+        "runId": 31124450098,
+        "event": "pull_request",
+        "headSha": "954c307490d6e87979a5ba96d19888e35f55e7f6",
+        "conclusion": "cancelled"
+      },
+      "postMergeRun": {
+        "runId": 31124445219,
+        "event": "push",
+        "headSha": "1e9803109844eaede717337317e82865c74bbd6f",
+        "conclusion": "cancelled"
+      }
     },
     "localValidation": {
       "canonicalAudit": "118/118 PASS",
       "focusedTests": "14/14 PASS",
       "flutterAnalyze": "PASS",
       "flutterTests": "727 PASS"
+    }
+  },
+  "closureCiAuthority": {
+    "pullRequest": 173,
+    "headCommit": "551df6931ff94571d2035864bd4537cca8c9d9e9",
+    "mergeCommit": "2585f1e82c7442bd957a86092db26f8da4594703",
+    "pullRequestRun": {
+      "runId": 31394196080,
+      "event": "pull_request",
+      "headSha": "551df6931ff94571d2035864bd4537cca8c9d9e9",
+      "conclusion": "success",
+      "requiredJobCount": 5,
+      "allRequiredJobsSuccessful": true
+    },
+    "postMergeRun": {
+      "runId": 31395073297,
+      "event": "push",
+      "headSha": "2585f1e82c7442bd957a86092db26f8da4594703",
+      "conclusion": "success",
+      "requiredJobCount": 5,
+      "allRequiredJobsSuccessful": true
     }
   },
   "liveReceipt": {
@@ -62,7 +94,7 @@
     "productionDocumentMutationPerformedByFinalReadback": false,
     "productionRestorePerformed": false,
     "isolatedRestoreDatabaseDeleted": false,
-    "remoteCiSuccessClaimed": false
+    "remoteCiSuccessFabricated": false
   },
   "qualification": "Closure proves the captured live posture and exact isolated restore rehearsal. The finding re-arms if a declared recovery control, ready backup, restore proof or admitted source authority ceases to satisfy the ledger triggers."
 }

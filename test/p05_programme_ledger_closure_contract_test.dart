@@ -116,9 +116,9 @@ void main() {
 
     expect(
       _fileSha256(closurePath),
-      '67F6D0AED71DE697EE7F44E823EEC261B661155073C5B7C12BD8B38B7D4D4632',
+      '176A143BACD196701A782F8959B96B69FC11CE401DB6D122E4F16DE2C1B4EE79',
     );
-    expect(File(closurePath).lengthSync(), 2824);
+    expect(File(closurePath).lengthSync(), 3878);
     expect(closure['decision'], 'PASS_P05_FIRESTORE_RECOVERABILITY_CLOSED');
     expect(
       closure['recordTransition'],
@@ -132,9 +132,37 @@ void main() {
     final remoteCi = _object(
       _object(closure['collectorAuthority'])['remoteCi'],
     );
-    expect(remoteCi['status'], 'NOT_CREATED_ACCOUNT_ACTIONS_CAPACITY');
-    expect(remoteCi['pullRequestRunCreated'], isFalse);
-    expect(remoteCi['postMergeRunCreated'], isFalse);
+    expect(remoteCi['status'], 'CREATED_AND_CANCELLED_NO_SUCCESS_AUTHORITY');
+    expect(_object(remoteCi['pullRequestRun']), <String, dynamic>{
+      'runId': 31124450098,
+      'event': 'pull_request',
+      'headSha': '954c307490d6e87979a5ba96d19888e35f55e7f6',
+      'conclusion': 'cancelled',
+    });
+    expect(_object(remoteCi['postMergeRun']), <String, dynamic>{
+      'runId': 31124445219,
+      'event': 'push',
+      'headSha': '1e9803109844eaede717337317e82865c74bbd6f',
+      'conclusion': 'cancelled',
+    });
+    final closureCi = _object(closure['closureCiAuthority']);
+    expect(closureCi['pullRequest'], 173);
+    expect(
+      _object(closureCi['pullRequestRun']),
+      containsPair('runId', 31394196080),
+    );
+    expect(
+      _object(closureCi['pullRequestRun']),
+      containsPair('conclusion', 'success'),
+    );
+    expect(
+      _object(closureCi['postMergeRun']),
+      containsPair('runId', 31395073297),
+    );
+    expect(
+      _object(closureCi['postMergeRun']),
+      containsPair('conclusion', 'success'),
+    );
     expect(_object(closure['closureBoundary']).values, everyElement(isFalse));
     expect(
       _object(closure['historicalBoundary']).values,
@@ -156,7 +184,7 @@ void main() {
         'E339FC49400BA1817084270E4E8503C12797A00A9095FE937A30EE48D8A0F18D',
         'E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302',
         '4DDA4B23DA7F12AC958B92B7196513A7DA301D19505A489A9D88626A20BD9FCA',
-        '67F6D0AED71DE697EE7F44E823EEC261B661155073C5B7C12BD8B38B7D4D4632',
+        '176A143BACD196701A782F8959B96B69FC11CE401DB6D122E4F16DE2C1B4EE79',
       },
     );
     expect(_strings(p05['requiredExitEvidence']), hasLength(6));
