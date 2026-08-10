@@ -365,6 +365,25 @@ function Move-ToMore {
   Start-Sleep -Seconds 2
 }
 
+function Get-UiMarkers {
+  param([Parameter(Mandatory)][string]$UiText)
+
+  [xml]$document = $UiText
+  @($document.SelectNodes('//node') | ForEach-Object {
+      foreach ($value in @(
+          [string]$_.text,
+          [string]$_.'content-desc'
+        )) {
+        foreach ($line in $value -split '\r?\n') {
+          $marker = $line.Trim()
+          if (-not [string]::IsNullOrWhiteSpace($marker)) {
+            $marker
+          }
+        }
+      }
+    } | Sort-Object -Unique)
+}
+
 function Get-MoreSurfaceEvidence {
   param(
     [Parameter(Mandatory)][string]$Adb,
@@ -375,13 +394,17 @@ function Get-MoreSurfaceEvidence {
 
   Move-ToMore -Adb $Adb -Serial $Serial `
     -EvidenceRoot $EvidenceRoot -Label $Label
-  $combined = ''
   $hashes = [Collections.Generic.List[string]]::new()
+  $markers = [Collections.Generic.HashSet[string]]::new(
+    [StringComparer]::OrdinalIgnoreCase
+  )
   for ($attempt = 0; $attempt -le 8; $attempt++) {
     $ui = Get-UiEvidence -Adb $Adb -Serial $Serial `
       -EvidenceRoot $EvidenceRoot -Label "$Label-more-$attempt"
-    $combined += "`n$($ui.text)"
     $hashes.Add($ui.sha256)
+    foreach ($marker in Get-UiMarkers $ui.text) {
+      $null = $markers.Add($marker)
+    }
     if ($attempt -lt 8) {
       $null = Invoke-ExternalText -FilePath $Adb -Arguments @(
         '-s', $Serial, 'shell', 'input', 'swipe',
@@ -390,17 +413,17 @@ function Get-MoreSurfaceEvidence {
       Start-Sleep -Milliseconds 700
     }
   }
-  $lower = $combined.ToLowerInvariant()
   [pscustomobject]@{
     uiSha256 = Get-TextSha256 ($hashes -join '|')
-    approvedShell = $lower.Contains('more')
-    templateAuthoring = $lower.Contains('template authoring')
-    legacyTemplatePublisher = $lower.Contains('legacy template publisher') -or
-      $lower.Contains('template publisher')
-    knowledgeGovernance = $lower.Contains('knowledge governance')
-    supportDiagnostics = $lower.Contains('support diagnostics')
-    administration = $lower.Contains('administration')
-    auditLog = $lower.Contains('audit log')
+    approvedShell = $markers.Contains('More')
+    templateAuthoring = $markers.Contains('Template authoring')
+    legacyTemplatePublisher =
+      $markers.Contains('Legacy template publisher') -or
+      $markers.Contains('Template publisher')
+    knowledgeGovernance = $markers.Contains('Knowledge governance')
+    supportDiagnostics = $markers.Contains('Support diagnostics')
+    administration = $markers.Contains('Administration')
+    auditLog = $markers.Contains('Audit log')
     rawUiRetained = $false
   }
 }

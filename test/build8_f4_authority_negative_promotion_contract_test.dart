@@ -139,6 +139,11 @@ void main() {
       'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL',
       'ConvertFrom-CanonicalUtcTimestamp',
       'Get-AuthorizedDeviceSerials',
+      'Get-UiMarkers',
+      '[Collections.Generic.HashSet[string]]::new(',
+      '[StringComparer]::OrdinalIgnoreCase',
+      r"$markers.Contains('Administration')",
+      r"$markers.Contains('Audit log')",
       r'$DevicesOutput -split "`r?`n"',
       r'$attachedSerials -notcontains $serial',
       r'$paths = @(',
@@ -193,6 +198,7 @@ void main() {
 
     final lower = script.toLowerCase();
     expect(lower, isNot(contains(r'$pid =')));
+    expect(lower, isNot(contains("\$lower.contains('administration')")));
     for (final forbidden in <String>[
       "'uninstall'",
       "'pm', 'clear'",
