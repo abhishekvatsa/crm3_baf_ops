@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../serialization/persisted_data_reader.dart';
 import 'global_pull_protocol.dart';
 
 enum GlobalPullRunState {
@@ -106,10 +107,22 @@ class GlobalPullDomainCursor {
           reasonCode: 'domain-cursor-timestamp-invalid',
         );
       }
-      cursor = DateTime.tryParse(rawCursor)?.toUtc();
-      if (cursor == null) {
+      try {
+        cursor =
+            readOptionalPersistedDateTime(
+              data['cursor'],
+              field: 'cursor',
+              source: 'global pull domain cursor',
+            )?.toUtc();
+      } on PersistedDataFormatException {
         throw const GlobalPullCursorException(
           'A global pull domain cursor cannot be parsed.',
+          reasonCode: 'domain-cursor-timestamp-invalid',
+        );
+      }
+      if (cursor == null || cursor.toIso8601String() != rawCursor) {
+        throw const GlobalPullCursorException(
+          'A global pull domain cursor is not a canonical UTC instant.',
           reasonCode: 'domain-cursor-timestamp-invalid',
         );
       }

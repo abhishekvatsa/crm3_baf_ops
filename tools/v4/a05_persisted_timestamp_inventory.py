@@ -61,7 +61,7 @@ def _function_body(path: Path, marker: str) -> str:
 
 def _reader_fields(body: str, reader: str) -> list[str]:
     pattern = re.compile(
-        rf"{reader}\(\s*(?:map|data|composer)\['([^']+)'\]\s*,"
+        rf"{reader}\(\s*(?:map|data|composer|json)\['([^']+)'\]\s*,"
         rf".*?field:\s*'([^']+)'",
         re.DOTALL,
     )
@@ -149,7 +149,9 @@ def main() -> int:
         )
 
     unclassified_risk_sites: list[dict[str, str]] = []
-    factory_pattern = re.compile(r"factory\s+([A-Za-z_]\w*)\.fromMap\s*\(")
+    factory_pattern = re.compile(
+        r"factory\s+([A-Za-z_]\w*)\.(fromMap|fromCloudMap|fromJson)\s*\("
+    )
     for path in sorted((ROOT / "lib").rglob("*.dart")):
         if path.name.endswith(".g.dart"):
             continue
@@ -157,7 +159,7 @@ def main() -> int:
         source = path.read_text(encoding="utf-8")
         cleaned = strip_strings_and_comments(source)
         for match in factory_pattern.finditer(cleaned):
-            marker = f"factory {match.group(1)}.fromMap"
+            marker = f"factory {match.group(1)}.{match.group(2)}"
             body = _function_body(path, marker)
             risks = [
                 token
@@ -171,7 +173,7 @@ def main() -> int:
 
     if unclassified_risk_sites:
         failures.append(
-            "unclassified fromMap timestamp-risk sites remain: "
+            "unclassified persisted factory timestamp-risk sites remain: "
             + ", ".join(
                 f"{item['file']}::{item['decoderMarker']}"
                 for item in unclassified_risk_sites

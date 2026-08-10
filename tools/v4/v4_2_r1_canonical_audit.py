@@ -353,8 +353,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 225
-    and counts.get("SUCCESSOR_MODIFIED") == 185
+    and counts.get("BYTE_IDENTICAL") == 224
+    and counts.get("SUCCESSOR_MODIFIED") == 186
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -7420,6 +7420,25 @@ a05_operational_timestamp_test = text(
 a05_decision_9 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_9.md"
 )
+a05_baf_reader = text(
+    "lib/features/planned_maintenance/data/remote_baf_knowledge_reader.dart"
+)
+a05_baf_model = text(
+    "lib/features/planned_maintenance/data/baf_knowledge_model.dart"
+)
+a05_baf_repository = text(
+    "lib/features/planned_maintenance/domain/baf_knowledge_repository.dart"
+)
+a05_baf_provider = text(
+    "lib/features/planned_maintenance/providers/knowledge_governance_provider.dart"
+)
+a05_workflow_pull = text(
+    "lib/features/maintenance_workflow/services/workflow_pull_service.dart"
+)
+a05_baf_test = text("test/a05_baf_knowledge_integrity_test.dart")
+a05_decision_10 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_10.md"
+)
 a05_timestamp_inventory_process = subprocess.run(
     [sys.executable, str(ROOT / "tools/v4/a05_persisted_timestamp_inventory.py")],
     cwd=ROOT,
@@ -7482,11 +7501,13 @@ a05_source_delta_paths = {
     "lib/features/planned_maintenance/data/job_module_model.dart",
     "lib/features/planned_maintenance/data/job_diary_model.dart",
     "lib/features/planned_maintenance/data/job_template_model.dart",
+    "lib/features/planned_maintenance/data/baf_knowledge_model.dart",
     "lib/features/planned_maintenance/data/module_registry_model.dart",
     "lib/features/planned_maintenance/data/template_governance_model.dart",
     "lib/features/planned_maintenance/domain/planned_job_closure_attestation.dart",
     "lib/features/planned_maintenance/domain/planned_job_closure_guard.dart",
     "lib/features/planned_maintenance/domain/module_composer_models.dart",
+    "lib/features/planned_maintenance/domain/baf_knowledge_repository.dart",
     "lib/features/planned_maintenance/models/component_action_model.dart",
     "lib/features/planned_maintenance/presentation/complete_job_screen.dart",
     "lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart",
@@ -7507,6 +7528,7 @@ a05_source_delta_paths = {
     "lib/features/planned_maintenance/presentation/widgets/job_module_response_summary.dart",
     "lib/features/planned_maintenance/providers/job_module_provider.dart",
     "lib/features/planned_maintenance/providers/job_diary_provider.dart",
+    "lib/features/planned_maintenance/providers/knowledge_governance_provider.dart",
     "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",
     "lib/features/planned_maintenance/providers/template_governance_provider.dart",
     "test/firestore.rules.test.js",
@@ -7537,25 +7559,61 @@ check(
     "A-05 persisted timestamp inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("decoderCount") == 9
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 15
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 19
+    and a05_timestamp_inventory_report.get("decoderCount") == 13
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 19
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 21
     and a05_timestamp_inventory_report.get("unclassifiedRiskSites") == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 1
-    and len(a05_timestamp_inventory_manifest.get("decoders", [])) == 9
+    and len(a05_timestamp_inventory_manifest.get("decoders", [])) == 13
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "decoderSha256" in a05_timestamp_inventory_tool
     and "unclassifiedRiskSites" in a05_timestamp_inventory_tool
+    and "fromMap|fromCloudMap|fromJson" in a05_timestamp_inventory_tool
     and "workflow receipts require their persisted application time"
         in a05_operational_timestamp_test
     and "malformed present optional timestamps fail closed"
         in a05_operational_timestamp_test
-    and "The inventory contains nine persisted decoder surfaces"
-        in a05_decision_9
     and "`WorkflowCommandReceipt.fromMap`" in a05_decision_9
     and "`A-05` remains open" in a05_decision_9
     and "does not inspect or mutate production documents" in a05_decision_9,
     a05_timestamp_inventory_process.stderr.strip(),
+)
+check(
+    "A-05 BAF knowledge and alternate factory decoders fail closed",
+    "readRemoteBafKnowledgeRow(map, docId)" in a05_baf_model
+    and "readRemoteBafKnowledgeMeta(map)" in a05_baf_model
+    and "readBafKnowledgeRawJson(" in a05_baf_model
+    and "class RemoteBafKnowledgeRowData" in a05_baf_reader
+    and "rowCode != documentId" in a05_baf_reader
+    and "unsupported schema version" in a05_baf_reader
+    and "cannot precede createdAt" in a05_baf_reader
+    and "non-finite numbers are not supported" in a05_baf_reader
+    and "unsupported persisted value" in a05_baf_reader
+    and a05_baf_repository.count("on FirebaseException") == 2
+    and ".catchError((_) => null)" not in a05_baf_repository
+    and a05_baf_repository.index("final metaDoc = await metaFuture;")
+        < a05_baf_repository.index(
+            "if (docs.isEmpty) return const BafKnowledgePullResult"
+        )
+    and "BafKnowledgeRow.fromCloudMap(doc.data(), doc.id).toEntry(i)"
+        in a05_baf_repository
+    and a05_baf_repository.index("final remotes = [")
+        < a05_baf_repository.index("await _isar.writeTxn(() async {")
+    and a05_baf_repository.index("final metaStore =")
+        < a05_baf_repository.index("await _isar.writeTxn(() async {")
+    and a05_baf_provider.count("BafKnowledgeRow.fromCloudMap(") == 2
+    and "int _cloudVersionFrom(" not in a05_baf_provider
+    and "DateTime.fromMillisecondsSinceEpoch(0" not in a05_workflow_pull
+    and "readRequiredPersistedDateTime(" in a05_workflow_pull
+    and "cursor.toIso8601String() != rawCursor" in global_pull_cursor
+    and "every authority-critical field is required" in a05_baf_test
+    and "workflow quarantine requires identity" in a05_baf_test
+    and "repository and governance paths decode before mutation"
+        in a05_baf_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_10
+    and "13 classified decoder surfaces" in a05_decision_10
+    and "durable counted quarantine and operator repair" in a05_decision_10
+    and "does not inspect or mutate production documents" in a05_decision_10,
 )
 check(
     "A-05 persisted-state tranche fails closed without claiming finding closure",
@@ -7774,8 +7832,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 225
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 185
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 224
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 186
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

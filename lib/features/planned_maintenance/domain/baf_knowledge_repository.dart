@@ -47,11 +47,14 @@ class BafKnowledgeMatrixMeta {
     this.isStaticFallback = false,
     this.cloudUnavailable = false,
     this.maintenanceManualRef = BafKnowledgeLayer.maintenanceManualRef,
-    this.safetyOperationsManualRef = BafKnowledgeLayer.safetyOperationsManualRef,
+    this.safetyOperationsManualRef =
+        BafKnowledgeLayer.safetyOperationsManualRef,
     this.note = '',
   });
 
-  factory BafKnowledgeMatrixMeta.staticFallback({bool cloudUnavailable = false}) {
+  factory BafKnowledgeMatrixMeta.staticFallback({
+    bool cloudUnavailable = false,
+  }) {
     return BafKnowledgeMatrixMeta(
       matrixVersion: BafKnowledgeLayer.matrixVersion,
       sourceLabel: BafKnowledgeLayer.sourceLabel,
@@ -60,18 +63,19 @@ class BafKnowledgeMatrixMeta {
       tagRowCount: BafKnowledgeLayer.tagRowCount,
       isStaticFallback: true,
       cloudUnavailable: cloudUnavailable,
-      note: cloudUnavailable
-          ? 'Cloud/local knowledge source unavailable; using embedded safety baseline.'
-          : 'Using embedded safety baseline.',
+      note:
+          cloudUnavailable
+              ? 'Cloud/local knowledge source unavailable; using embedded safety baseline.'
+              : 'Using embedded safety baseline.',
     );
   }
 
   factory BafKnowledgeMatrixMeta.fromStore(
-      BafKnowledgeMatrixMetaStore store, {
-        String? sourceOverride,
-        int? rowCountOverride,
-        int? tagCountOverride,
-      }) {
+    BafKnowledgeMatrixMetaStore store, {
+    String? sourceOverride,
+    int? rowCountOverride,
+    int? tagCountOverride,
+  }) {
     return BafKnowledgeMatrixMeta(
       matrixVersion: store.matrixVersion,
       sourceLabel: store.sourceLabel,
@@ -87,28 +91,16 @@ class BafKnowledgeMatrixMeta {
     );
   }
 
-  factory BafKnowledgeMatrixMeta.fromMap(Map<String, dynamic> map) {
-    return BafKnowledgeMatrixMeta(
-      matrixVersion: _text(map['matrixVersion']).isEmpty
-          ? BafKnowledgeLayer.matrixVersion
-          : _text(map['matrixVersion']),
-      sourceLabel: _text(map['sourceLabel']).isEmpty
-          ? BafKnowledgeLayer.sourceLabel
-          : _text(map['sourceLabel']),
-      source: _text(map['source']).isEmpty ? 'unknown' : _text(map['source']),
-      cloudUpdatedAt: _date(map['cloudUpdatedAt'] ?? map['updatedAt']),
-      localCachedAt: _date(map['localCachedAt']),
-      knowledgeRowCount: _int(map['knowledgeRowCount'], BafKnowledgeLayer.knowledgeRowCount),
-      tagRowCount: _int(map['tagRowCount'], BafKnowledgeLayer.tagRowCount),
-      isStaticFallback: map['isStaticFallback'] == true,
-      cloudUnavailable: map['cloudUnavailable'] == true,
-      maintenanceManualRef: _text(map['maintenanceManualRef']).isEmpty
-          ? BafKnowledgeLayer.maintenanceManualRef
-          : _text(map['maintenanceManualRef']),
-      safetyOperationsManualRef: _text(map['safetyOperationsManualRef']).isEmpty
-          ? BafKnowledgeLayer.safetyOperationsManualRef
-          : _text(map['safetyOperationsManualRef']),
-      note: _text(map['note']),
+  factory BafKnowledgeMatrixMeta.fromMap(
+    Map<String, dynamic> map, {
+    required DateTime localCachedAt,
+  }) {
+    return BafKnowledgeMatrixMeta.fromStore(
+      BafKnowledgeMatrixMetaStore.fromCloudMap(
+        map,
+        localCachedAt: localCachedAt,
+      ),
+      sourceOverride: 'cloud',
     );
   }
 
@@ -158,8 +150,8 @@ class BafKnowledgePullResult {
 
 class BafKnowledgeRepository {
   BafKnowledgeRepository({FirebaseFirestore? firestore, Isar? localIsar})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _isar = localIsar ?? (kIsWeb ? null : isar);
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _isar = localIsar ?? (kIsWeb ? null : isar);
 
   static const String collectionPath = 'knowledge_base';
   static const String metaPath = 'knowledge_base_meta/current';
@@ -169,8 +161,10 @@ class BafKnowledgeRepository {
   final FirebaseFirestore _firestore;
   final Isar? _isar;
 
-  IsarCollection<BafKnowledgeRow>? get _rows => _isar?.collection<BafKnowledgeRow>();
-  IsarCollection<BafKnowledgeMatrixMetaStore>? get _meta => _isar?.collection<BafKnowledgeMatrixMetaStore>();
+  IsarCollection<BafKnowledgeRow>? get _rows =>
+      _isar?.collection<BafKnowledgeRow>();
+  IsarCollection<BafKnowledgeMatrixMetaStore>? get _meta =>
+      _isar?.collection<BafKnowledgeMatrixMetaStore>();
 
   Future<BafKnowledgeBundle> load({bool preferCloud = true}) async {
     if (kIsWeb || _isar == null) {
@@ -180,7 +174,7 @@ class BafKnowledgeRepository {
     if (preferCloud) {
       try {
         await pullCloudToLocal();
-      } catch (_) {
+      } on FirebaseException {
         // Offline/permission/cloud-empty; continue with Isar/static fallback.
       }
     }
@@ -194,7 +188,9 @@ class BafKnowledgeRepository {
 
     return BafKnowledgeBundle(
       entries: BafKnowledgeLayer.entries,
-      meta: BafKnowledgeMatrixMeta.staticFallback(cloudUnavailable: preferCloud),
+      meta: BafKnowledgeMatrixMeta.staticFallback(
+        cloudUnavailable: preferCloud,
+      ),
       source: BafKnowledgeSource.staticFallback,
     );
   }
@@ -208,14 +204,12 @@ class BafKnowledgeRepository {
           .map((snap) => _entriesFromCloudDocs(snap.docs));
     }
 
-    return _rows!
-        .where()
-        .watch(fireImmediately: true)
-        .asyncMap((rows) async {
-      final activeRows = rows
-          .where((row) => !row.isDeleted && row.lifecycleStatus == 'active')
-          .toList()
-        ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
+    return _rows!.where().watch(fireImmediately: true).asyncMap((rows) async {
+      final activeRows =
+          rows
+              .where((row) => !row.isDeleted && row.lifecycleStatus == 'active')
+              .toList()
+            ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
       if (activeRows.isEmpty) {
         await seedStaticFallbackIntoLocal();
         final seeded = await _rows!.where().findAll();
@@ -225,19 +219,21 @@ class BafKnowledgeRepository {
     });
   }
 
-
   /// Governance-facing stream of every local knowledge row, including retired
   /// and archived rows. This intentionally watches Isar first on mobile so
   /// Knowledge Governance remains offline-first; Firestore pulls refresh Isar,
   /// and the stream reflects the local write automatically.
-  Stream<List<BafKnowledgeRow>> watchAllKnowledgeRows({bool includeDeleted = false}) {
+  Stream<List<BafKnowledgeRow>> watchAllKnowledgeRows({
+    bool includeDeleted = false,
+  }) {
     if (kIsWeb || _isar == null) {
       return _firestore.collection(collectionPath).snapshots().map((snap) {
-        final rows = snap.docs
-            .map((doc) => BafKnowledgeRow.fromCloudMap(doc.data(), doc.id))
-            .where((row) => includeDeleted || !row.isDeleted)
-            .toList()
-          ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
+        final rows =
+            snap.docs
+                .map((doc) => BafKnowledgeRow.fromCloudMap(doc.data(), doc.id))
+                .where((row) => includeDeleted || !row.isDeleted)
+                .toList()
+              ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
         return rows;
       });
     }
@@ -249,7 +245,9 @@ class BafKnowledgeRepository {
   }
 
   /// Snapshot helper used by import/conflict/governance flows.
-  Future<List<BafKnowledgeRow>> getAllLocalRows({bool includeDeleted = false}) async {
+  Future<List<BafKnowledgeRow>> getAllLocalRows({
+    bool includeDeleted = false,
+  }) async {
     if (kIsWeb || _isar == null) {
       final snap = await _firestore.collection(collectionPath).get();
       return snap.docs
@@ -271,22 +269,21 @@ class BafKnowledgeRepository {
         return BafKnowledgeMatrixMeta.fromMap(<String, dynamic>{
           ...data,
           'source': 'cloud',
-        });
+        }, localCachedAt: DateTime.now());
       });
     }
 
-    return _meta!
-        .where()
-        .watch(fireImmediately: true)
-        .asyncMap((items) async {
+    return _meta!.where().watch(fireImmediately: true).asyncMap((items) async {
       if (items.isEmpty) {
         await seedStaticFallbackIntoLocal();
         final seeded = await _meta!.where().findAll();
-        if (seeded.isNotEmpty) return BafKnowledgeMatrixMeta.fromStore(seeded.first);
+        if (seeded.isNotEmpty) {
+          return BafKnowledgeMatrixMeta.fromStore(seeded.first);
+        }
         return BafKnowledgeMatrixMeta.staticFallback();
       }
       final current = items.firstWhere(
-            (item) => item.metaKey == 'current',
+        (item) => item.metaKey == 'current',
         orElse: () => items.first,
       );
       final rowCount = await _activeLocalRowsCount();
@@ -312,28 +309,28 @@ class BafKnowledgeRepository {
       );
     }
     final collection = _firestore.collection(collectionPath);
-    final Query<Map<String, dynamic>> baseQuery = through == null
-        ? collection
-            .orderBy(FieldPath.documentId)
-            .limit(_knowledgePullPageSize)
-        : globalPullServerWindowQuery(
-            collection,
-            afterInclusive: since,
-            throughInclusive: through,
-          ).limit(_knowledgePullPageSize);
+    final Query<Map<String, dynamic>> baseQuery =
+        through == null
+            ? collection
+                .orderBy(FieldPath.documentId)
+                .limit(_knowledgePullPageSize)
+            : globalPullServerWindowQuery(
+              collection,
+              afterInclusive: since,
+              throughInclusive: through,
+            ).limit(_knowledgePullPageSize);
 
-    final Future<DocumentSnapshot<Map<String, dynamic>>?> metaFuture = _firestore
-        .doc(metaPath)
-        .get()
-        .then<DocumentSnapshot<Map<String, dynamic>>?>((doc) => doc)
-        .catchError((_) => null);
+    final Future<DocumentSnapshot<Map<String, dynamic>>?> metaFuture =
+        _firestore
+            .doc(metaPath)
+            .get()
+            .then<DocumentSnapshot<Map<String, dynamic>>?>((doc) => doc);
 
     final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
     QueryDocumentSnapshot<Map<String, dynamic>>? lastDoc;
     while (true) {
-      final pageQuery = lastDoc == null
-          ? baseQuery
-          : baseQuery.startAfterDocument(lastDoc);
+      final pageQuery =
+          lastDoc == null ? baseQuery : baseQuery.startAfterDocument(lastDoc);
       final page = await pageQuery.get();
       if (page.docs.isEmpty) break;
       if (through != null) {
@@ -345,25 +342,22 @@ class BafKnowledgeRepository {
       if (page.docs.length < _knowledgePullPageSize) break;
       lastDoc = page.docs.last;
     }
+    final metaDoc = await metaFuture;
+    final metaData = metaDoc?.data();
+    final metaStore =
+        metaData == null
+            ? null
+            : BafKnowledgeMatrixMetaStore.fromCloudMap(<String, dynamic>{
+              ...metaData,
+              'source': 'cloud',
+            }, localCachedAt: DateTime.now());
+
     if (docs.isEmpty) return const BafKnowledgePullResult(skipped: 1);
 
     final remotes = [
-      for (final doc in docs)
-        BafKnowledgeRow.fromCloudMap(
-          doc.data(),
-          doc.id,
-        ),
+      for (final doc in docs) BafKnowledgeRow.fromCloudMap(doc.data(), doc.id),
     ];
     final maxFetchedUpdatedAt = _maxUpdatedAt(remotes);
-
-    final metaDoc = await metaFuture;
-    final metaData = metaDoc?.data();
-    final metaStore = metaData == null
-        ? null
-        : BafKnowledgeMatrixMetaStore.fromCloudMap(<String, dynamic>{
-      ...metaData,
-      'source': 'cloud',
-    });
 
     var inserted = 0;
     var updated = 0;
@@ -371,10 +365,8 @@ class BafKnowledgeRepository {
 
     await _isar.writeTxn(() async {
       for (final remote in remotes) {
-        final current = await _rows!
-            .where()
-            .rowCodeEqualTo(remote.rowCode)
-            .findFirst();
+        final current =
+            await _rows!.where().rowCodeEqualTo(remote.rowCode).findFirst();
 
         if (current == null) {
           inserted++;
@@ -382,7 +374,8 @@ class BafKnowledgeRepository {
           continue;
         }
 
-        final remoteWins = remote.version > current.version ||
+        final remoteWins =
+            remote.version > current.version ||
             (remote.version == current.version &&
                 remote.updatedAt.isAfter(current.updatedAt));
         if (!remoteWins) {
@@ -435,18 +428,19 @@ class BafKnowledgeRepository {
     if (existing.isNotEmpty) return;
 
     final now = DateTime.now();
-    final rows = BafKnowledgeLayer.entries
-        .map(
-          (entry) => BafKnowledgeRow.fromEntry(
-        entry,
-        actorUid: 'staticFallback',
-        actorName: 'Embedded safety baseline',
-        now: now,
-        changeSummary: 'Embedded BAF Knowledge Matrix safety baseline.',
-        isSynced: true,
-      ),
-    )
-        .toList();
+    final rows =
+        BafKnowledgeLayer.entries
+            .map(
+              (entry) => BafKnowledgeRow.fromEntry(
+                entry,
+                actorUid: 'staticFallback',
+                actorName: 'Embedded safety baseline',
+                now: now,
+                changeSummary: 'Embedded BAF Knowledge Matrix safety baseline.',
+                isSynced: true,
+              ),
+            )
+            .toList();
     final meta = BafKnowledgeMatrixMetaStore.staticFallback();
 
     await _isar.writeTxn(() async {
@@ -462,10 +456,14 @@ class BafKnowledgeRepository {
   }) async {
     final reason = changeSummary.trim();
     if (reason.length < changeReasonMinLength) {
-      throw StateError('Knowledge baseline seed requires a change reason of at least $changeReasonMinLength characters.');
+      throw StateError(
+        'Knowledge baseline seed requires a change reason of at least $changeReasonMinLength characters.',
+      );
     }
     if (actorUid.trim().isEmpty) {
-      throw StateError('Cannot seed cloud knowledge without an authenticated actor.');
+      throw StateError(
+        'Cannot seed cloud knowledge without an authenticated actor.',
+      );
     }
 
     final batch = _firestore.batch();
@@ -548,10 +546,7 @@ class BafKnowledgeRepository {
     return pushed;
   }
 
-
-  Future<void> _markLocalRowSyncedIfUnchanged(
-      SyncPushSnapshot snapshot,
-      ) async {
+  Future<void> _markLocalRowSyncedIfUnchanged(SyncPushSnapshot snapshot) async {
     if (_isar == null || _rows == null) return;
 
     await _isar.writeTxn(() async {
@@ -575,47 +570,52 @@ class BafKnowledgeRepository {
       try {
         final cloud = await _loadFromCloudOnly();
         if (cloud.entries.isNotEmpty) return cloud;
-      } catch (_) {
+      } on FirebaseException {
         // Continue to static fallback.
       }
     }
     return BafKnowledgeBundle(
       entries: BafKnowledgeLayer.entries,
-      meta: BafKnowledgeMatrixMeta.staticFallback(cloudUnavailable: preferCloud),
+      meta: BafKnowledgeMatrixMeta.staticFallback(
+        cloudUnavailable: preferCloud,
+      ),
       source: BafKnowledgeSource.staticFallback,
     );
   }
 
   Future<BafKnowledgeBundle> _loadFromCloudOnly() async {
-    final rowsSnap = await _firestore
-        .collection(collectionPath)
-        .where('lifecycleStatus', isEqualTo: 'active')
-        .get();
+    final rowsSnap =
+        await _firestore
+            .collection(collectionPath)
+            .where('lifecycleStatus', isEqualTo: 'active')
+            .get();
     final entries = _entriesFromCloudDocs(rowsSnap.docs);
-    final meta = await fetchCloudMeta() ??
+    final meta =
+        await fetchCloudMeta() ??
         BafKnowledgeMatrixMeta(
           matrixVersion: 'cloud-unversioned',
           sourceLabel: 'Cloud Knowledge Base',
           source: 'cloud',
           knowledgeRowCount: entries.length,
-          tagRowCount: entries.where((entry) => entry.deviceTags.isNotEmpty).length,
+          tagRowCount:
+              entries.where((entry) => entry.deviceTags.isNotEmpty).length,
           note: 'Cloud rows loaded but metadata document was not found.',
         );
-    return BafKnowledgeBundle(entries: entries, meta: meta, source: BafKnowledgeSource.cloud);
+    return BafKnowledgeBundle(
+      entries: entries,
+      meta: meta,
+      source: BafKnowledgeSource.cloud,
+    );
   }
 
   Future<BafKnowledgeMatrixMeta?> fetchCloudMeta() async {
-    try {
-      final doc = await _firestore.doc(metaPath).get();
-      final data = doc.data();
-      if (data == null) return null;
-      return BafKnowledgeMatrixMeta.fromMap(<String, dynamic>{
-        ...data,
-        'source': 'cloud',
-      });
-    } catch (_) {
-      return null;
-    }
+    final doc = await _firestore.doc(metaPath).get();
+    final data = doc.data();
+    if (data == null) return null;
+    return BafKnowledgeMatrixMeta.fromMap(<String, dynamic>{
+      ...data,
+      'source': 'cloud',
+    }, localCachedAt: DateTime.now());
   }
 
   Future<BafKnowledgeBundle> _loadFromIsar() async {
@@ -629,43 +629,45 @@ class BafKnowledgeRepository {
     final rows = await _rows!.where().findAll();
     final entries = _entriesFromRows(rows);
     final metaStore = await _currentMetaStore();
-    final meta = metaStore == null
-        ? BafKnowledgeMatrixMeta.staticFallback()
-        : BafKnowledgeMatrixMeta.fromStore(
-      metaStore,
-      sourceOverride: 'isarCache',
-      rowCountOverride: entries.length,
-      tagCountOverride: entries.where((entry) => entry.deviceTags.isNotEmpty).length,
+    final meta =
+        metaStore == null
+            ? BafKnowledgeMatrixMeta.staticFallback()
+            : BafKnowledgeMatrixMeta.fromStore(
+              metaStore,
+              sourceOverride: 'isarCache',
+              rowCountOverride: entries.length,
+              tagCountOverride:
+                  entries.where((entry) => entry.deviceTags.isNotEmpty).length,
+            );
+    return BafKnowledgeBundle(
+      entries: entries,
+      meta: meta,
+      source: BafKnowledgeSource.isarCache,
     );
-    return BafKnowledgeBundle(entries: entries, meta: meta, source: BafKnowledgeSource.isarCache);
   }
 
   List<BafKnowledgeEntry> _entriesFromRows(List<BafKnowledgeRow> rows) {
-    final activeRows = rows
-        .where((row) => !row.isDeleted && row.lifecycleStatus == 'active')
-        .toList()
-      ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
+    final activeRows =
+        rows
+            .where((row) => !row.isDeleted && row.lifecycleStatus == 'active')
+            .toList()
+          ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
     return [
       for (var i = 0; i < activeRows.length; i++) activeRows[i].toEntry(i),
     ];
   }
 
   List<BafKnowledgeEntry> _entriesFromCloudDocs(
-      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-      ) {
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
     final entries = <BafKnowledgeEntry>[];
     for (var i = 0; i < docs.length; i++) {
       final doc = docs[i];
-      final data = doc.data();
-      entries.add(BafKnowledgeEntry.fromMap(<String, dynamic>{
-        ...data,
-        'rowCode': doc.id,
-        'moduleCandidateCode': _text(data['moduleCandidateCode']).isEmpty
-            ? doc.id
-            : data['moduleCandidateCode'],
-      }, i));
+      entries.add(BafKnowledgeRow.fromCloudMap(doc.data(), doc.id).toEntry(i));
     }
-    entries.sort((a, b) => a.moduleCandidateCode.compareTo(b.moduleCandidateCode));
+    entries.sort(
+      (a, b) => a.moduleCandidateCode.compareTo(b.moduleCandidateCode),
+    );
     return entries;
   }
 
@@ -680,12 +682,21 @@ class BafKnowledgeRepository {
 
   Future<int> _activeLocalRowsCount() async {
     final rows = await _rows!.where().findAll();
-    return rows.where((row) => !row.isDeleted && row.lifecycleStatus == 'active').length;
+    return rows
+        .where((row) => !row.isDeleted && row.lifecycleStatus == 'active')
+        .length;
   }
 
   Future<int> _activeLocalTagRowsCount() async {
     final rows = await _rows!.where().findAll();
-    return rows.where((row) => !row.isDeleted && row.lifecycleStatus == 'active' && row.deviceTags.isNotEmpty).length;
+    return rows
+        .where(
+          (row) =>
+              !row.isDeleted &&
+              row.lifecycleStatus == 'active' &&
+              row.deviceTags.isNotEmpty,
+        )
+        .length;
   }
 
   Future<void> _pushLocalRow(BafKnowledgeRow row) async {
@@ -693,7 +704,10 @@ class BafKnowledgeRepository {
     final map = row.toCloudMap();
     map['updatedAt'] = FieldValue.serverTimestamp();
     if (isCreate) map['createdAt'] = FieldValue.serverTimestamp();
-    await _firestore.collection(collectionPath).doc(row.rowCode).set(map, SetOptions(merge: !isCreate));
+    await _firestore
+        .collection(collectionPath)
+        .doc(row.rowCode)
+        .set(map, SetOptions(merge: !isCreate));
   }
 
   Map<String, dynamic> _entryToCloudMap(BafKnowledgeEntry entry) {
@@ -718,15 +732,16 @@ class BafKnowledgeRepository {
       'partRefs': entry.partRefs,
       'deviceTags': entry.deviceTags,
       'targetRefs': entry.targetRefs,
-      'suggestedFields': entry.suggestedFields.map((field) => field.label).toList(),
-      'suggestedFieldPresets': entry.suggestedFields
-          .map((field) => field.toMap())
-          .toList(),
-      'requiredForClosure': entry.requiredForClosureSuggestion == null
-          ? 'consult'
-          : entry.requiredForClosureSuggestion == true
-          ? 'yes'
-          : 'no',
+      'suggestedFields':
+          entry.suggestedFields.map((field) => field.label).toList(),
+      'suggestedFieldPresets':
+          entry.suggestedFields.map((field) => field.toMap()).toList(),
+      'requiredForClosure':
+          entry.requiredForClosureSuggestion == null
+              ? 'consult'
+              : entry.requiredForClosureSuggestion == true
+              ? 'yes'
+              : 'no',
       'resolverImpact': entry.resolverImpact,
       'composerReadiness': entry.composerReadiness.name,
       'confidence': entry.confidence.name,
@@ -734,7 +749,6 @@ class BafKnowledgeRepository {
     };
   }
 }
-
 
 final bafKnowledgeRepositoryProvider = Provider<BafKnowledgeRepository>((ref) {
   return BafKnowledgeRepository();
@@ -747,24 +761,3 @@ final bafKnowledgeRowsProvider = StreamProvider<List<BafKnowledgeEntry>>((ref) {
 final bafKnowledgeMetaProvider = StreamProvider<BafKnowledgeMatrixMeta>((ref) {
   return ref.watch(bafKnowledgeRepositoryProvider).watchMatrixMeta();
 });
-
-String _text(Object? value) => value?.toString().trim() ?? '';
-
-int _int(Object? value, int fallback) {
-  if (value is int) return value;
-  if (value is num) return value.round();
-  return int.tryParse(_text(value)) ?? fallback;
-}
-
-DateTime? _date(Object? value) {
-  if (value == null) return null;
-  if (value is DateTime) return value;
-  try {
-    final dynamic maybeTimestamp = value;
-    final dynamic converted = maybeTimestamp.toDate();
-    if (converted is DateTime) return converted;
-  } catch (_) {
-    // Not a Firestore timestamp-like object.
-  }
-  return DateTime.tryParse(_text(value));
-}
