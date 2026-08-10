@@ -60,6 +60,9 @@ the repository.
    The simultaneous ADB inventory parses authorized serials independently of
    Windows or Unix line endings. Installed-package paths are retained as an
    explicit collection so a valid single APK cannot collapse into a scalar.
+   Capability checks use exact accessibility-label segments; section headings
+   such as `Administration and support` cannot satisfy the `Administration`
+   command marker.
 2. The separate Admin revokes the subject through User Management.
    `CaptureRevoked` must observe **Awaiting Approval** in the original physical
    app process.
