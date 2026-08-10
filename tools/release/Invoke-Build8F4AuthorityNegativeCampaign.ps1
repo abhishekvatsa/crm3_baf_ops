@@ -438,11 +438,13 @@ function Get-InstalledAppEvidence {
     [Parameter(Mandatory)]$ArtifactAuthority
   )
 
-  $paths = (Invoke-ExternalText -FilePath $Adb -Arguments @(
-    '-s', $Serial, 'shell', 'pm', 'path',
-    [string]$ArtifactAuthority.applicationId
-  )).output -split "`r?`n" | Where-Object { $_ -like 'package:*' }
-  if (@($paths).Count -ne 1) {
+  $paths = @(
+    (Invoke-ExternalText -FilePath $Adb -Arguments @(
+      '-s', $Serial, 'shell', 'pm', 'path',
+      [string]$ArtifactAuthority.applicationId
+    )).output -split '\r?\n' | Where-Object { $_ -like 'package:*' }
+  )
+  if ($paths.Count -ne 1) {
     throw 'Installed application is absent or split unexpectedly.'
   }
   $remoteApk = ([string]$paths[0]).Substring('package:'.Length)
@@ -472,18 +474,18 @@ function Get-InstalledAppEvidence {
     ([int]$ArtifactAuthority.versionCode) "$Label version code"
   Assert-Equal $versionName.Groups[1].Value `
     ([string]$ArtifactAuthority.versionName) "$Label version name"
-  $pid = (Invoke-ExternalText -FilePath $Adb -Arguments @(
+  $appProcessId = (Invoke-ExternalText -FilePath $Adb -Arguments @(
     '-s', $Serial, 'shell', 'pidof',
     [string]$ArtifactAuthority.applicationId
   ) -AllowFailure).output.Trim()
-  if ($pid -notmatch '^\d+$') {
+  if ($appProcessId -notmatch '^\d+$') {
     throw "$Label application process is not running."
   }
   [pscustomobject]@{
     apkSha256 = $apkSha256
     versionCode = [int]$versionCode.Groups[1].Value
     versionName = $versionName.Groups[1].Value
-    processId = [int]$pid
+    processId = [int]$appProcessId
   }
 }
 
