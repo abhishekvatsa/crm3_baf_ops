@@ -6,6 +6,9 @@ const {
   FUNCTION_RUNTIME_SERVICE_ACCOUNT_IDS,
   functionRuntimeServiceAccountsForProject,
 } = require("../lib/functionFleetRuntimeIdentity");
+const {
+  normalizeFunctions,
+} = require("../../tools/release/collectFunctionFleetRuntimeIdentityReadback");
 
 const root = path.resolve(__dirname, "../..");
 const policy = JSON.parse(fs.readFileSync(
@@ -114,5 +117,30 @@ describe("complete Function fleet runtime identity source policy", () => {
           .not.toContain("roles/run.invoker");
       }
     }
+  });
+
+  test("retains the deployed Firebase source hash in fleet readbacks", () => {
+    const [record] = normalizeFunctions([{
+      name: "projects/crm3-baf-ops-b8638/locations/asia-south1/" +
+        "functions/mutateUserAuthority",
+      state: "ACTIVE",
+      environment: "GEN_2",
+      labels: {"firebase-functions-hash": "source-hash-1"},
+      serviceConfig: {
+        serviceAccountEmail:
+          "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        service:
+          "projects/crm3-baf-ops-b8638/locations/asia-south1/" +
+          "services/mutateuserauthority",
+      },
+      updateTime: "2026-08-04T13:38:07.912476676Z",
+    }], "crm3-baf-ops-b8638", "asia-south1");
+
+    expect(record).toEqual(expect.objectContaining({
+      name: "mutateUserAuthority",
+      firebaseFunctionsHash: "source-hash-1",
+      state: "ACTIVE",
+      environment: "GEN_2",
+    }));
   });
 });
