@@ -347,22 +347,30 @@ function Move-ToMore {
     [Parameter(Mandatory)][string]$Adb,
     [Parameter(Mandatory)][string]$Serial,
     [Parameter(Mandatory)][string]$EvidenceRoot,
-    [Parameter(Mandatory)][string]$Label
+    [Parameter(Mandatory)][string]$Label,
+    [int]$TimeoutSeconds = 60
   )
 
-  $ui = Get-UiEvidence -Adb $Adb -Serial $Serial `
-    -EvidenceRoot $EvidenceRoot -Label "$Label-navigation"
-  $lower = $ui.text.ToLowerInvariant()
-  if ($lower.Contains('awaiting approval') -or
-      $lower.Contains('sign in with google')) {
-    throw 'Approved application shell is not active.'
-  }
-  if (-not $lower.Contains('more')) {
-    throw 'Approved application navigation is not visible.'
-  }
-  $center = Get-NodeCenter -UiText $ui.text -Marker 'More'
-  Invoke-UiTap -Adb $Adb -Serial $Serial -Center $center
-  Start-Sleep -Seconds 2
+  $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
+  $attempt = 0
+  do {
+    $ui = Get-UiEvidence -Adb $Adb -Serial $Serial `
+      -EvidenceRoot $EvidenceRoot -Label "$Label-navigation-$attempt"
+    $lower = $ui.text.ToLowerInvariant()
+    if ($lower.Contains('sign in with google')) {
+      throw 'Approved application shell is not active.'
+    }
+    if ($lower.Contains('more')) {
+      $center = Get-NodeCenter -UiText $ui.text -Marker 'More'
+      Invoke-UiTap -Adb $Adb -Serial $Serial -Center $center
+      Start-Sleep -Seconds 2
+      return
+    }
+    $attempt++
+    Start-Sleep -Seconds 2
+  } while ([DateTimeOffset]::UtcNow -lt $deadline)
+
+  throw 'Approved application navigation did not become visible within the bounded window.'
 }
 
 function Get-UiMarkers {
