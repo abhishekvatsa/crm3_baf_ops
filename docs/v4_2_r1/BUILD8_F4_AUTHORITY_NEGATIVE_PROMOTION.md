@@ -58,7 +58,8 @@ the repository.
    Fleet-finalization, function-update and receipt-capture timestamps are
    canonical UTC values parsed independently of the operator machine's locale.
    The simultaneous ADB inventory parses authorized serials independently of
-   Windows or Unix line endings.
+   Windows or Unix line endings. Installed-package paths are retained as an
+   explicit collection so a valid single APK cannot collapse into a scalar.
 2. The separate Admin revokes the subject through User Management.
    `CaptureRevoked` must observe **Awaiting Approval** in the original physical
    app process.

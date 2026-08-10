@@ -141,6 +141,10 @@ void main() {
       'Get-AuthorizedDeviceSerials',
       r'$DevicesOutput -split "`r?`n"',
       r'$attachedSerials -notcontains $serial',
+      r'$paths = @(',
+      r".output -split '\r?\n'",
+      r'$paths.Count -ne 1',
+      r'$appProcessId = (Invoke-ExternalText',
       '[Globalization.CultureInfo]::InvariantCulture',
       '[Globalization.DateTimeStyles]::RoundtripKind',
       r'$Value -is [DateTimeOffset]',
@@ -188,6 +192,7 @@ void main() {
     }
 
     final lower = script.toLowerCase();
+    expect(lower, isNot(contains(r'$pid =')));
     for (final forbidden in <String>[
       "'uninstall'",
       "'pm', 'clear'",
