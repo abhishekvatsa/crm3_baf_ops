@@ -102,13 +102,14 @@ void main() {
     expect(boundary['separateEvidenceAdjudicationRequired'], isTrue);
 
     final decision = _object(ledger['programmeDecision']);
-    expect(decision['nextMutation'], 'STAGE2D-F4');
+    expect(decision['nextMutation'], 'STAGE2D-F5');
     expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
     final f4 = (ledger['programmeGates'] as List<dynamic>)
         .cast<Map<String, dynamic>>()
         .singleWhere((record) => record['gateId'] == 'STAGE2D-F4');
-    expect(f4['currentStatus'], 'OPEN');
-    expect(f4['evidence'], isEmpty);
+    expect(f4['currentStatus'], 'CLOSED');
+    expect(f4['authorization'], 'CLOSED_PASS');
+    expect(f4['evidence'], hasLength(4));
   });
 
   test('authority-negative collector is byte-bound and restoration-gated', () {

@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "build-8-f4-authority-negative-adjudication-and-f4-p07-closure",
+  "createdAtUtc": "2026-08-10T19:24:51.3735347Z",
+  "decision": "PASS_BUILD8_F4_AND_P07_DEVICE_EVIDENCE_CLOSURE",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "campaignSourceCommit": "56dfe3b5c3c5a9903a13008f1836d819a93422bf",
+    "promotionPath": "release/approvals/build-8-f4-authority-negative-promotion.json",
+    "promotionSha256": "32246DD50AAA790AC89FAFE26F687C18BAB9F7A28B4E76C3BE8213B3B9A6BCBE",
+    "collectorPath": "tools/release/Invoke-Build8F4AuthorityNegativeCampaign.ps1",
+    "collectorSha256": "F3E4F998C086442696BE859A33247CDDAFDD761AB4619AB471E015086452970D",
+    "externalEvidencePathRetained": false,
+    "externalEvidenceDirectoryRetained": false
+  },
+  "artifactAuthority": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b8",
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "versionName": "1.0.0-rc.1",
+    "versionCode": 8,
+    "sourceCommit": "731a02980d38e4e3a8f61ff2bca74a1e85771478",
+    "governedPackageSha256": "75362F9875CC5067012B4A5768720CB4AE0AD2C6A94B38C1F174E0FD1E1CA91F",
+    "apkSha256": "7F6CD741431230689193A0DD9505918B2E865C0A500649B7F242EA4747303CCD",
+    "signerCertificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C"
+  },
+  "backendAuthority": {
+    "deployedFleetCommit": "bdc5c6ed870e7f947c40ea053cd587a56d77d48a",
+    "liveFunctionFleetReadbackSha256": "464B50A53CF544C6FD1ED3D52595217ADBDDCAA43DF6B50F60D7ADAE94D6FE6A",
+    "liveFunctionFleetDecision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL",
+    "governedAuthorityWriter": "mutateUserAuthority",
+    "serverDenialWitnessCount": 3
+  },
+  "priorCriterionAdjudications": [
+    {
+      "path": "release/evidence/build-8-f4-sync-marker-adjudication.json",
+      "sha256": "A165DFD44ED2B2BE9DDC27F20D4D982585EA7C0DC5749915BEE1C545DFAB5F5C",
+      "decision": "PASS_BUILD8_F4_SYNC_MARKER_ADJUDICATED",
+      "criteria": [
+        "approved sign-in",
+        "sync marker"
+      ]
+    },
+    {
+      "path": "release/evidence/build-8-f4-offline-reconnect-adjudication.json",
+      "sha256": "95A5B0C0524B98104E47A69EDA1EFC7D827D9A5E8125042F83C20A742D7A0394",
+      "decision": "PASS_BUILD8_F4_OFFLINE_RECONNECT_ADJUDICATED",
+      "criteria": [
+        "offline/reconnect"
+      ]
+    },
+    {
+      "path": "release/evidence/build-8-f4-intermittent-connectivity-adjudication.json",
+      "sha256": "45B90B3F0C3D711FEA82B3514669B0C25FEDD2EF320AF4872EC8B102535678F6",
+      "decision": "PASS_BUILD8_F4_INTERMITTENT_CONNECTIVITY_ADJUDICATED",
+      "criteria": [
+        "weak-network through the accepted bounded three-cycle intermittent-connectivity method"
+      ]
+    }
+  ],
+  "successfulCampaign": {
+    "attempt": 9,
+    "receiptCount": 5,
+    "receipts": [
+      {
+        "fileName": "01-preflight.json",
+        "bytes": 2767,
+        "sha256": "EB1CB909ADC2FA9700D76F377FC73FF5C14D204FB8F130C3E6ACAEF05248141F",
+        "phase": "Preflight",
+        "decision": "PASS_BUILD8_F4_AUTHORITY_NEGATIVE_PREFLIGHT"
+      },
+      {
+        "fileName": "02-revoked.json",
+        "bytes": 1929,
+        "sha256": "53C986827A331B29E95AD8C120AB88EE6951D694011696652F728D051F2D33DA",
+        "phase": "CaptureRevoked",
+        "decision": "PASS_BUILD8_F4_REVOCATION_NEXT_OPERATION_DENIAL_CAPTURED"
+      },
+      {
+        "fileName": "03-revocation-restored.json",
+        "bytes": 2697,
+        "sha256": "E389AF6C6A2364151A2079A279A320560205D606C939E7F06824089D167D0D27",
+        "phase": "CaptureRevocationRestored",
+        "decision": "PASS_BUILD8_F4_REVOCATION_EXACTLY_RESTORED"
+      },
+      {
+        "fileName": "04-wrong-role.json",
+        "bytes": 3362,
+        "sha256": "6C676003484A2BF0F13A4C1FB62C29864D3BBA83776C274F27130DE6BF3D0B5A",
+        "phase": "CaptureWrongRole",
+        "decision": "PASS_BUILD8_F4_WRONG_ROLE_PHYSICAL_COMPONENT_CAPTURED"
+      },
+      {
+        "fileName": "05-final-restoration.json",
+        "bytes": 2988,
+        "sha256": "14DBA5CDE999B16DDD2491D56ABA646D6264FA0CB18047403A60C325601B53A1",
+        "phase": "CaptureFinalRestoration",
+        "decision": "PASS_BUILD8_F4_AUTHORITY_NEGATIVE_CAPTURE_READY_FOR_ADJUDICATION"
+      }
+    ],
+    "chainAdjudication": {
+      "phaseOrderExact": true,
+      "receiptHashLinksExact": true,
+      "oneCampaignSourceCommit": true,
+      "onePromotionAuthority": true,
+      "oneGovernedPackage": true,
+      "oneInstalledApk": true,
+      "oneLiveBackendReadback": true,
+      "onePhysicalApplicationProcess": true,
+      "oneOperatorApplicationProcess": true,
+      "subjectAndOperatorDistinct": true
+    }
+  },
+  "failedClosedLineage": {
+    "receiptCount": 8,
+    "failedAttemptsRelabelledPass": false,
+    "receipts": [
+      {
+        "attempt": 1,
+        "fileName": "01-preflight-failure.json",
+        "bytes": 627,
+        "sha256": "12DC4B94BCA3B2E85967DC746113BE1CC4F38AE8D635742EAFE33607998AFC5D",
+        "phase": "Preflight",
+        "authorityMutationOccurred": false
+      },
+      {
+        "attempt": 2,
+        "fileName": "01-preflight-failure.json",
+        "bytes": 627,
+        "sha256": "ABE688E35F98C931A2E72A4258D2EF038ABB9FD1682E73192836EF50FC6A91CD",
+        "phase": "Preflight",
+        "authorityMutationOccurred": false
+      },
+      {
+        "attempt": 3,
+        "fileName": "01-preflight-failure.json",
+        "bytes": 627,
+        "sha256": "5B6A8199DEC253FD32DF126FD569DF3067A1D7707F6F4C83896D5883746F4CDF",
+        "phase": "Preflight",
+        "authorityMutationOccurred": false
+      },
+      {
+        "attempt": 4,
+        "fileName": "01-preflight-failure.json",
+        "bytes": 627,
+        "sha256": "07305CFFFE2D401426742C3B3DF6F526EC53B28D865CDA629D9E54D38B81A74E",
+        "phase": "Preflight",
+        "authorityMutationOccurred": false
+      },
+      {
+        "attempt": 5,
+        "fileName": "01-preflight-failure.json",
+        "bytes": 627,
+        "sha256": "F6211984C1CEA1680722C5730B5D933CA6FE573988C12FE3D8A8AAA5924038A5",
+        "phase": "Preflight",
+        "authorityMutationOccurred": false
+      },
+      {
+        "attempt": 6,
+        "fileName": "01-preflight-failure.json",
+        "bytes": 627,
+        "sha256": "051247161A46A3902CBA11048C6036D6E7E7FB9CEB3BAC29D8E2C8240F14F151",
+        "phase": "Preflight",
+        "authorityMutationOccurred": false
+      },
+      {
+        "attempt": 7,
+        "fileName": "03-revocation-restored-failure.json",
+        "bytes": 642,
+        "sha256": "64E1F7FC95D27C5ECBDF72F9DA3E3C692FDDA6823BA737880F968F9F0B3C39A2",
+        "phase": "CaptureRevocationRestored",
+        "authorityMutationOccurred": true,
+        "restorationRequired": true,
+        "restorationVerifiedBeforeNextMutation": true
+      },
+      {
+        "attempt": 8,
+        "fileName": "01-preflight-failure.json",
+        "bytes": 627,
+        "sha256": "00A4572B4B729B16CD4F687B58FEEA6C50159F527327D1E5B84FC88B814F4016",
+        "phase": "Preflight",
+        "authorityMutationOccurred": false
+      }
+    ],
+    "attempt7RestorationBasis": "Attempt 9 preflight proved the original approved SI-only preimage before any new authority mutation, and attempt 9 final restoration proved the same preimage after the complete successful sequence.",
+    "successfulAttemptStartedFromRestoredPreimage": true
+  },
+  "criterionAdjudication": [
+    {
+      "criterion": "approved sign-in",
+      "status": "PROVED",
+      "method": "tracked sync-marker adjudication plus attempt 9 exact approved SI preflight"
+    },
+    {
+      "criterion": "sync marker",
+      "status": "PROVED",
+      "method": "tracked Build 8 physical sync-marker adjudication"
+    },
+    {
+      "criterion": "offline/reconnect",
+      "status": "PROVED",
+      "method": "tracked Build 8 offline/reconnect adjudication"
+    },
+    {
+      "criterion": "weak-network",
+      "status": "PROVED",
+      "method": "accepted bounded three-cycle intermittent-connectivity adjudication"
+    },
+    {
+      "criterion": "revocation next-operation denial",
+      "status": "PROVED",
+      "method": "same-process physical session reached Awaiting Approval with no privileged surface after governed revoke"
+    },
+    {
+      "criterion": "wrong-role denials",
+      "status": "PROVED",
+      "method": "same-process Operations-only physical capability removal combined with three exact deployed server-denial witnesses and zero synthetic production writes"
+    }
+  ],
+  "authorityTransitionAdjudication": {
+    "initialApproval": true,
+    "initialRoleProfile": [
+      "si"
+    ],
+    "revocationDeniedNextOperation": true,
+    "revocationRestoredExactlyBeforeContinuation": true,
+    "wrongRoleProfile": [
+      "operations"
+    ],
+    "siOnlyAndAdminSurfacesAbsentUnderWrongRole": true,
+    "livePhysicalMutationDenialClaimed": false,
+    "syntheticProductionMutationAttempted": false,
+    "finalApprovalRestored": true,
+    "finalRoleProfile": [
+      "si"
+    ],
+    "sameProcessAcrossEntireCampaign": true,
+    "operatorRemainedApprovedAdmin": true
+  },
+  "privacyBoundary": {
+    "rawReceiptsCommitted": false,
+    "rawUiRetained": false,
+    "rawDeviceIdentifiersRetained": false,
+    "rawAccountIdentifiersRetained": false,
+    "tokensRetained": false,
+    "businessPayloadRetained": false,
+    "hashesBooleansAndNonidentifyingOutcomesOnly": true
+  },
+  "programmeTransition": {
+    "stage2dF4": "OPEN_TO_CLOSED",
+    "p07": "OPEN_TO_CLOSED",
+    "completedCriteria": 6,
+    "requiredCriteria": 6,
+    "nextMutation": "STAGE2D-F5",
+    "stage2dF5Status": "OPEN",
+    "pilotHandout": "NOT_AUTHORIZED",
+    "unrestrictedDistribution": "NO_GO"
+  },
+  "reArmTriggers": [
+    "the production-signed pilot artifact changes package, version, source, signer or installed bytes from the adjudicated Build 8 authority",
+    "approved-session, revocation propagation or role-surface behavior changes",
+    "user authority roles, canonicalization, mutation semantics or client authority listeners change",
+    "the deployed authority-function fleet or any admitted wrong-role server-denial path changes",
+    "a revoked session retains privileged navigation or requires process restart before denial",
+    "final approval or the exact pre-campaign role set is not restored after a governed authority test"
+  ]
+}

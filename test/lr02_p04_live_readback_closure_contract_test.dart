@@ -134,7 +134,7 @@ void main() {
       expect(_strings(record['reArmTriggers']), hasLength(5));
     }
     expect(lr02['authorization'], 'CLOSED_PASS');
-    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F4');
+    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F5');
     expect(
       _object(ledger['programmeDecision'])['pilotHandout'],
       'NOT_AUTHORIZED',
