@@ -198,11 +198,13 @@ check(
 root_versions = {
     "protobufjs": lock_version("package-lock.json", "protobufjs"),
     "brace-expansion": lock_version("package-lock.json", "brace-expansion"),
+    "js-yaml": lock_version("package-lock.json", "js-yaml"),
 }
 functions_versions = {
     "protobufjs": lock_version("functions/package-lock.json", "protobufjs"),
     "body-parser": lock_version("functions/package-lock.json", "body-parser"),
     "brace-expansion": lock_version("functions/package-lock.json", "brace-expansion"),
+    "js-yaml": lock_version("functions/package-lock.json", "js-yaml"),
 }
 tooling_versions = {
     "firebase-tools": lock_version("tooling/firebase-cli/package-lock.json", "firebase-tools"),
@@ -214,6 +216,7 @@ tooling_versions = {
     "fast-uri": lock_version("tooling/firebase-cli/package-lock.json", "fast-uri"),
     "hono": lock_version("tooling/firebase-cli/package-lock.json", "hono"),
     "ip-address": lock_version("tooling/firebase-cli/package-lock.json", "ip-address"),
+    "js-yaml": lock_version("tooling/firebase-cli/package-lock.json", "js-yaml"),
     "re2": lock_version("tooling/firebase-cli/package-lock.json", "re2"),
 }
 check(
@@ -222,7 +225,9 @@ check(
     and functions_versions["protobufjs"] == "7.6.5"
     and functions_versions["body-parser"] == "1.20.6"
     and root_versions["brace-expansion"] == "5.0.9"
-    and functions_versions["brace-expansion"] == "5.0.9",
+    and functions_versions["brace-expansion"] == "5.0.9"
+    and root_versions["js-yaml"] == "3.15.1"
+    and functions_versions["js-yaml"] == "3.15.1",
     f"root={root_versions}; functions={functions_versions}",
 )
 check(
@@ -235,7 +240,8 @@ check(
     and tooling_versions["fast-uri"] == "3.1.5"
     and tooling_versions["hono"] == "4.12.34"
     and tooling_versions["ip-address"] == "10.4.0"
-    and tooling_versions["re2"] == "1.25.2",
+    and tooling_versions["js-yaml"] == "4.3.1"
+    and tooling_versions["re2"] == "1.26.1",
     str(tooling_versions),
 )
 
