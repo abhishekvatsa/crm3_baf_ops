@@ -182,30 +182,37 @@ void main() {
     }
   });
 
-  test('source tranche leaves F4 and distribution unauthorized', () {
-    final ledger = _readJson('governance/programme-ledger.json');
-    final gate = (ledger['programmeGates'] as List<dynamic>)
-        .map(_object)
-        .singleWhere((record) => record['gateId'] == 'STAGE2D-F4');
-    expect(gate['currentStatus'], 'OPEN');
+  test(
+    'separate adjudication closes F4 while distribution stays unauthorized',
+    () {
+      final ledger = _readJson('governance/programme-ledger.json');
+      final gate = (ledger['programmeGates'] as List<dynamic>)
+          .map(_object)
+          .singleWhere((record) => record['gateId'] == 'STAGE2D-F4');
+      expect(gate['currentStatus'], 'CLOSED');
+      expect(gate['authorization'], 'CLOSED_PASS');
 
-    final decision = _object(ledger['programmeDecision']);
-    expect(decision['nextMutation'], 'STAGE2D-F4');
-    expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
+      final decision = _object(ledger['programmeDecision']);
+      expect(decision['nextMutation'], 'STAGE2D-F5');
+      expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
 
-    final doc =
-        File(
-          'docs/v4_2_r1/BUILD8_F4_INTERMITTENT_CONNECTIVITY_PROMOTION.md',
-        ).readAsStringSync();
-    expect(
-      doc,
-      contains('Status: SOURCE AUTHORIZED; PHYSICAL EXECUTION PENDING'),
-    );
-    expect(doc, contains('does not claim low bandwidth'));
-    expect(doc, contains('233.35-second profile exceeded'));
-    expect(doc, contains('raises only the total ceiling to 300 seconds'));
-    expect(doc, contains('Revocation and wrong-role evidence remain separate'));
-  });
+      final doc =
+          File(
+            'docs/v4_2_r1/BUILD8_F4_INTERMITTENT_CONNECTIVITY_PROMOTION.md',
+          ).readAsStringSync();
+      expect(
+        doc,
+        contains('Status: SOURCE AUTHORIZED; PHYSICAL EXECUTION PENDING'),
+      );
+      expect(doc, contains('does not claim low bandwidth'));
+      expect(doc, contains('233.35-second profile exceeded'));
+      expect(doc, contains('raises only the total ceiling to 300 seconds'));
+      expect(
+        doc,
+        contains('Revocation and wrong-role evidence remain separate'),
+      );
+    },
+  );
 
   test('passing result is exact-bound without overstating method or closure', () {
     final evidence = _readJson(

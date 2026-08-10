@@ -176,7 +176,7 @@ void main() {
     }
   });
 
-  test('source tranche leaves F4 and pilot handout closed to execution', () {
+  test('separate adjudication closes F4 while pilot handout stays closed', () {
     final ledger = _readJson('governance/programme-ledger.json');
     final gates =
         (ledger['programmeGates'] as List<dynamic>)
@@ -184,9 +184,10 @@ void main() {
             .where((gate) => gate['gateId'] == 'STAGE2D-F4')
             .toList();
     expect(gates, hasLength(1));
-    expect(gates.single['currentStatus'], 'OPEN');
+    expect(gates.single['currentStatus'], 'CLOSED');
+    expect(gates.single['authorization'], 'CLOSED_PASS');
     final decision = _object(ledger['programmeDecision']);
-    expect(decision['nextMutation'], 'STAGE2D-F4');
+    expect(decision['nextMutation'], 'STAGE2D-F5');
     expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
 
     final doc =

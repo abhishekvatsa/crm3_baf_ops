@@ -131,8 +131,9 @@ void main() {
     final f4 = (ledger['programmeGates'] as List<dynamic>)
         .cast<Map<String, dynamic>>()
         .singleWhere((record) => record['gateId'] == 'STAGE2D-F4');
-    expect(f4['currentStatus'], 'OPEN');
-    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F4');
+    expect(f4['currentStatus'], 'CLOSED');
+    expect(f4['authorization'], 'CLOSED_PASS');
+    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F5');
     expect(
       _object(ledger['programmeDecision'])['pilotHandout'],
       'NOT_AUTHORIZED',

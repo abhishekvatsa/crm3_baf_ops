@@ -122,12 +122,13 @@ void main() {
     expect(programme['decisionMayBeUsedAsPassBuild6F4BackendReady'], isFalse);
 
     final ledgerDecision = _object(ledger['programmeDecision']);
-    expect(ledgerDecision['nextMutation'], 'STAGE2D-F4');
+    expect(ledgerDecision['nextMutation'], 'STAGE2D-F5');
     expect(ledgerDecision['pilotHandout'], 'NOT_AUTHORIZED');
     final f4 = (ledger['programmeGates'] as List<dynamic>)
         .cast<Map<String, dynamic>>()
         .singleWhere((record) => record['gateId'] == 'STAGE2D-F4');
-    expect(f4['currentStatus'], 'OPEN');
+    expect(f4['currentStatus'], 'CLOSED');
+    expect(f4['authorization'], 'CLOSED_PASS');
   });
 
   test('staging report retains the production and device stop boundary', () {

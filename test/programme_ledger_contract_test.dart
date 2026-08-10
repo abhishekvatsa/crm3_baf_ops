@@ -267,7 +267,7 @@ void main() {
     expect(decision['leastPrivilegeIam'], 'CLOSED_PASS');
     expect(decision['broadFeatureExpansion'], 'HOLD');
     expect(decision['unrestrictedDistribution'], 'NO_GO');
-    expect(decision['nextMutation'], 'STAGE2D-F4');
+    expect(decision['nextMutation'], 'STAGE2D-F5');
 
     expect(_strings(payload['severityVocabulary']).toSet(), <String>{
       'BLOCKER',
@@ -637,8 +637,9 @@ void main() {
       _object(payload['programmeDecision'])['leastPrivilegeIam'],
       'CLOSED_PASS',
     );
-    expect(_object(payload['programmeDecision'])['nextMutation'], 'STAGE2D-F4');
-    expect(f4['currentStatus'], 'OPEN');
+    expect(_object(payload['programmeDecision'])['nextMutation'], 'STAGE2D-F5');
+    expect(f4['currentStatus'], 'CLOSED');
+    expect(f4['authorization'], 'CLOSED_PASS');
     expect(
       _object(payload['programmeDecision'])['pilotHandout'],
       'NOT_AUTHORIZED',
@@ -840,16 +841,14 @@ void main() {
       expect(mutationBoundary[field], isFalse, reason: field);
     }
 
-    for (final id in <String>['STAGE2D-F4']) {
-      final gate = gates.singleWhere((item) => item['gateId'] == id);
-      expect(gate['currentStatus'], 'OPEN', reason: id);
-      expect(_objects(gate['evidence']), isEmpty, reason: id);
-      expect(
-        _objects(gate['statusHistory']).map((entry) => entry['status']),
-        <String>['OPEN'],
-        reason: id,
-      );
-    }
+    final f4 = gates.singleWhere((item) => item['gateId'] == 'STAGE2D-F4');
+    expect(f4['currentStatus'], 'CLOSED');
+    expect(f4['authorization'], 'CLOSED_PASS');
+    expect(_objects(f4['evidence']), hasLength(4));
+    expect(
+      _objects(f4['statusHistory']).map((entry) => entry['status']),
+      <String>['OPEN', 'CLOSED'],
+    );
   });
 
   test('scope severity, deferral and ledger ownership stay aligned', () {

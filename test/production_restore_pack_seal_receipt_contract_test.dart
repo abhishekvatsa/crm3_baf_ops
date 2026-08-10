@@ -143,11 +143,12 @@ void main() {
     expect(programme['heldPullRequests87Through93ReAdjudicated'], isFalse);
 
     final decision = _object(ledger['programmeDecision']);
-    expect(decision['nextMutation'], 'STAGE2D-F4');
+    expect(decision['nextMutation'], 'STAGE2D-F5');
     expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
     final f4 = (ledger['programmeGates'] as List<dynamic>)
         .cast<Map<String, dynamic>>()
         .singleWhere((record) => record['gateId'] == 'STAGE2D-F4');
-    expect(f4['currentStatus'], 'OPEN');
+    expect(f4['currentStatus'], 'CLOSED');
+    expect(f4['authorization'], 'CLOSED_PASS');
   });
 }

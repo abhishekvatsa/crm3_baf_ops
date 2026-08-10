@@ -2102,7 +2102,7 @@ check(
     ) == "CLOSED_PASS"
     and functions_live_ledger.get("programmeDecision", {}).get(
         "nextMutation"
-    ) == "STAGE2D-F4"
+    ) == "STAGE2D-F5"
     and "Status: CLOSED PASS" in function_fleet_finalization_doc
     and "does not close `STAGE2D-F4`" in function_fleet_finalization_doc,
 )
@@ -2885,7 +2885,7 @@ check(
         for entry in f3_runtime_record.get("evidence", [])
     )
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F4"
+        == "STAGE2D-F5"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -3887,9 +3887,9 @@ check(
     and "It does not close F4 or authorize distribution."
         in build8_offline_doc
     and len(build8_f4_gate_records) == 1
-    and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
+    and build8_f4_gate_records[0].get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F4"
+        == "STAGE2D-F5"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -4045,7 +4045,7 @@ check(
         in build8_offline_result_doc
     and "bandwidth-throttling result." in build8_offline_result_doc
     and len(build8_f4_gate_records) == 1
-    and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
+    and build8_f4_gate_records[0].get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -4211,9 +4211,9 @@ check(
     and "Revocation and wrong-role evidence remain separate"
         in build8_intermittent_doc
     and len(build8_f4_gate_records) == 1
-    and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
+    and build8_f4_gate_records[0].get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F4"
+        == "STAGE2D-F5"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -4416,9 +4416,9 @@ check(
     and "Revocation next-operation denial and"
         in build8_intermittent_result_doc
     and len(build8_f4_gate_records) == 1
-    and build8_f4_gate_records[0].get("currentStatus") == "OPEN"
+    and build8_f4_gate_records[0].get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F4"
+        == "STAGE2D-F5"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -4535,9 +4535,9 @@ check(
         "pilotHandoutAuthorized"
     )
         is False
-    and build7_f4_gate.get("currentStatus") == "OPEN"
+    and build7_f4_gate.get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F4",
+        == "STAGE2D-F5",
 )
 build7_f4_locator_recovery_path = (
     "release/approvals/build-7-f4-prove-read-locator-recovery.json"
@@ -4739,10 +4739,14 @@ check(
         "pilotHandoutAuthorized"
     )
         is False
-    and f4_rehearsal_gate.get("currentStatus") == "OPEN"
-    and f4_rehearsal_gate.get("evidence") == []
+    and f4_rehearsal_gate.get("currentStatus") == "CLOSED"
+    and any(
+        entry.get("sha256")
+            == "9FF79718C48C3B169C512433FED292FA69EA1A6BDBF9183EA7036E8EC9B78461"
+        for entry in f4_rehearsal_gate.get("evidence", [])
+    )
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F4"
+        == "STAGE2D-F5"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -5330,10 +5334,14 @@ check(
         "pilotHandoutAuthorized"
     )
         is False
-    and f4_rehearsal_gate.get("currentStatus") == "OPEN"
-    and f4_rehearsal_gate.get("evidence") == []
+    and f4_rehearsal_gate.get("currentStatus") == "CLOSED"
+    and any(
+        entry.get("sha256")
+            == "9FF79718C48C3B169C512433FED292FA69EA1A6BDBF9183EA7036E8EC9B78461"
+        for entry in f4_rehearsal_gate.get("evidence", [])
+    )
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F4"
+        == "STAGE2D-F5"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -7051,7 +7059,7 @@ check(
     and len(p05_record.get("requiredExitEvidence", [])) == 6
     and len(p05_record.get("reArmTriggers", [])) == 7
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F4"
+        == "STAGE2D-F5"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -7209,7 +7217,7 @@ check(
         for entry in p05_record.get("statusHistory", [])
     ] == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"]
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F4"
+        == "STAGE2D-F5"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED"
     and "These facts satisfy all six P-05 exit-evidence requirements"
@@ -7994,7 +8002,7 @@ check(
     and [entry.get("status") for entry in lr07_record.get("statusHistory", [])]
         == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"]
     and lr07_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F4"
+        == "STAGE2D-F5"
     and lr07_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -8011,13 +8019,32 @@ build8_f4_authority_doc = text(
 build8_f4_authority_test = text(
     "test/build8_f4_authority_negative_promotion_contract_test.dart"
 )
+build8_f4_authority_adjudication = data(
+    "release/evidence/build-8-f4-authority-negative-adjudication.json"
+)
+build8_f4_authority_result = text(
+    "docs/v4_2_r1/BUILD8_F4_AUTHORITY_NEGATIVE_RESULT.md"
+)
+build8_f4_authority_adjudication_test = text(
+    "test/build8_f4_authority_negative_adjudication_contract_test.dart"
+)
 build8_f4_gate = next(
     record
     for record in programme_ledger.get("programmeGates", [])
     if record.get("gateId") == "STAGE2D-F4"
 )
+build8_f5_gate = next(
+    record
+    for record in programme_ledger.get("programmeGates", [])
+    if record.get("gateId") == "STAGE2D-F5"
+)
+build8_p07_finding = next(
+    record
+    for record in programme_ledger.get("technicalFindings", [])
+    if record.get("findingId") == "P-07"
+)
 check(
-    "Build 8 F4 authority-negative campaign is two-session, restorative and non-closing",
+    "Build 8 F4 authority-negative campaign is two-session, restorative and non-closing by itself",
     build8_f4_authority_promotion.get("approvalClass")
         == "CONTROLLED_BUILD8_F4_AUTHORITY_NEGATIVE_EVIDENCE"
     and build8_f4_authority_promotion.get(
@@ -8091,12 +8118,93 @@ check(
     and "Why the wrong-role proof is composite" in build8_f4_authority_doc
     and "authority-negative collector is byte-bound"
         in build8_f4_authority_test
-    and build8_f4_gate.get("currentStatus") == "OPEN"
-    and build8_f4_gate.get("evidence") == []
-    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F4"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
+)
+check(
+    "Build 8 six-criterion adjudication closes only F4 and P-07 and advances to F5",
+    sha(ROOT / "release/evidence/build-8-f4-authority-negative-adjudication.json")
+        == "9FF79718C48C3B169C512433FED292FA69EA1A6BDBF9183EA7036E8EC9B78461"
+    and build8_f4_authority_adjudication.get("decision")
+        == "PASS_BUILD8_F4_AND_P07_DEVICE_EVIDENCE_CLOSURE"
+    and len(build8_f4_authority_adjudication.get(
+        "priorCriterionAdjudications", []
+    )) == 3
+    and build8_f4_authority_adjudication.get("successfulCampaign", {}).get(
+        "receiptCount"
+    ) == 5
+    and [
+        receipt.get("sha256")
+        for receipt in build8_f4_authority_adjudication.get(
+            "successfulCampaign", {}
+        ).get("receipts", [])
+    ] == [
+        "EB1CB909ADC2FA9700D76F377FC73FF5C14D204FB8F130C3E6ACAEF05248141F",
+        "53C986827A331B29E95AD8C120AB88EE6951D694011696652F728D051F2D33DA",
+        "E389AF6C6A2364151A2079A279A320560205D606C939E7F06824089D167D0D27",
+        "6C676003484A2BF0F13A4C1FB62C29864D3BBA83776C274F27130DE6BF3D0B5A",
+        "14DBA5CDE999B16DDD2491D56ABA646D6264FA0CB18047403A60C325601B53A1",
+    ]
+    and build8_f4_authority_adjudication.get("failedClosedLineage", {}).get(
+        "receiptCount"
+    ) == 8
+    and build8_f4_authority_adjudication.get("failedClosedLineage", {}).get(
+        "failedAttemptsRelabelledPass"
+    ) is False
+    and all(
+        criterion.get("status") == "PROVED"
+        for criterion in build8_f4_authority_adjudication.get(
+            "criterionAdjudication", []
+        )
+    )
+    and len(build8_f4_authority_adjudication.get(
+        "criterionAdjudication", []
+    )) == 6
+    and build8_f4_authority_adjudication.get(
+        "authorityTransitionAdjudication", {}
+    ).get("revocationDeniedNextOperation") is True
+    and build8_f4_authority_adjudication.get(
+        "authorityTransitionAdjudication", {}
+    ).get("sameProcessAcrossEntireCampaign") is True
+    and build8_f4_authority_adjudication.get(
+        "authorityTransitionAdjudication", {}
+    ).get("syntheticProductionMutationAttempted") is False
+    and build8_f4_authority_adjudication.get(
+        "authorityTransitionAdjudication", {}
+    ).get("finalRoleProfile") == ["si"]
+    and build8_f4_gate.get("currentStatus") == "CLOSED"
+    and build8_f4_gate.get("authorization") == "CLOSED_PASS"
+    and len(build8_f4_gate.get("evidence", [])) == 4
+    and {
+        evidence.get("sha256") for evidence in build8_f4_gate.get("evidence", [])
+    } == {
+        "A165DFD44ED2B2BE9DDC27F20D4D982585EA7C0DC5749915BEE1C545DFAB5F5C",
+        "95A5B0C0524B98104E47A69EDA1EFC7D827D9A5E8125042F83C20A742D7A0394",
+        "45B90B3F0C3D711FEA82B3514669B0C25FEDD2EF320AF4872EC8B102535678F6",
+        "9FF79718C48C3B169C512433FED292FA69EA1A6BDBF9183EA7036E8EC9B78461",
+    }
+    and len(build8_f4_gate.get("reArmTriggers", [])) == 6
+    and [entry.get("status") for entry in build8_f4_gate.get(
+        "statusHistory", []
+    )] == ["OPEN", "CLOSED"]
+    and build8_p07_finding.get("currentStatus") == "CLOSED"
+    and len(build8_p07_finding.get("evidence", [])) == 1
+    and build8_p07_finding.get("evidence", [])[0].get("sha256")
+        == "9FF79718C48C3B169C512433FED292FA69EA1A6BDBF9183EA7036E8EC9B78461"
+    and len(build8_p07_finding.get("requiredExitEvidence", [])) == 6
+    and len(build8_p07_finding.get("reArmTriggers", [])) == 6
+    and [entry.get("status") for entry in build8_p07_finding.get(
+        "statusHistory", []
+    )] == ["OPEN", "CLOSED"]
+    and build8_f5_gate.get("currentStatus") == "OPEN"
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F5"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED"
+    and "F4 AND P-07 DEVICE EVIDENCE CLOSED" in build8_f4_authority_result
+    and "all eight failed-closed receipts" in build8_f4_authority_result
+    and "authority-negative adjudication binds the complete receipt lineage"
+        in build8_f4_authority_adjudication_test,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")

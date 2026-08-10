@@ -25,7 +25,7 @@
     "broadFeatureExpansion": "HOLD",
     "section71Implementation": "HOLD_CONCEPT_PRESERVED",
     "unrestrictedDistribution": "NO_GO",
-    "nextMutation": "STAGE2D-F4"
+    "nextMutation": "STAGE2D-F5"
   },
   "statusVocabulary": [
     "OPEN",
@@ -589,11 +589,38 @@
       "authorityType": "DEVICE_EVIDENCE",
       "transitionProfile": "DEVICE_EVIDENCE",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "BLOCKS_PILOT_HANDOUT",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/build-8-f4-sync-marker-adjudication.json",
+          "sha256": "A165DFD44ED2B2BE9DDC27F20D4D982585EA7C0DC5749915BEE1C545DFAB5F5C",
+          "decision": "PASS_BUILD8_F4_SYNC_MARKER_ADJUDICATED",
+          "authority": "BUILD8_PHYSICAL_APPROVED_SIGN_IN_AND_SYNC_MARKER"
+        },
+        {
+          "fileName": "release/evidence/build-8-f4-offline-reconnect-adjudication.json",
+          "sha256": "95A5B0C0524B98104E47A69EDA1EFC7D827D9A5E8125042F83C20A742D7A0394",
+          "decision": "PASS_BUILD8_F4_OFFLINE_RECONNECT_ADJUDICATED",
+          "authority": "BUILD8_PHYSICAL_OFFLINE_RECONNECT"
+        },
+        {
+          "fileName": "release/evidence/build-8-f4-intermittent-connectivity-adjudication.json",
+          "sha256": "45B90B3F0C3D711FEA82B3514669B0C25FEDD2EF320AF4872EC8B102535678F6",
+          "decision": "PASS_BUILD8_F4_INTERMITTENT_CONNECTIVITY_ADJUDICATED",
+          "authority": "BUILD8_BOUNDED_INTERMITTENT_CONNECTIVITY_WEAK_NETWORK_METHOD"
+        },
+        {
+          "fileName": "release/evidence/build-8-f4-authority-negative-adjudication.json",
+          "sha256": "9FF79718C48C3B169C512433FED292FA69EA1A6BDBF9183EA7036E8EC9B78461",
+          "decision": "PASS_BUILD8_F4_AND_P07_DEVICE_EVIDENCE_CLOSURE",
+          "authority": "BUILD8_PHYSICAL_REVOCATION_WRONG_ROLE_AND_EXACT_RESTORATION",
+          "completedExitCriteria": 6,
+          "requiredExitCriteria": 6
+        }
+      ],
       "requiredExitEvidence": [
         "approved sign-in",
         "sync marker",
@@ -602,13 +629,31 @@
         "revocation next-operation denial",
         "wrong-role denials"
       ],
-      "reArmTriggers": [],
-      "notes": [],
+      "reArmTriggers": [
+        "the production-signed pilot artifact changes package, version, source, signer or installed bytes from the adjudicated Build 8 authority",
+        "approved-session, revocation propagation or role-surface behavior changes",
+        "user authority roles, canonicalization, mutation semantics or client authority listeners change",
+        "the deployed authority-function fleet or any admitted wrong-role server-denial path changes",
+        "a revoked session retains privileged navigation or requires process restart before denial",
+        "final approval or the exact pre-campaign role set is not restored after a governed authority test"
+      ],
+      "notes": [
+        "Build 8 separately adjudicates approved sign-in and sync marker, offline/reconnect, and the accepted bounded intermittent-connectivity weak-network method.",
+        "The authority-negative campaign proves same-process revocation next-operation denial and Operations-only capability removal, bound to three exact deployed server-denial witnesses without a synthetic production write.",
+        "All eight failed-closed receipts remain failures; attempt 9 starts from and ends at the exact approved SI-only preimage.",
+        "All six required F4 criteria are proved; STAGE2D-F4 is CLOSED with authorization CLOSED_PASS.",
+        "Pilot handout remains NOT_AUTHORIZED; STAGE2D-F5 is the next governed mutation."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Required after F3"
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-11",
+          "basis": "All six physical-device criteria passed separate adjudication; repository-safe F4/P-07 closure SHA-256 9FF79718C48C3B169C512433FED292FA69EA1A6BDBF9183EA7036E8EC9B78461 binds the successful five-receipt chain, failed-closed lineage and exact final SI-only restoration."
         }
       ]
     },
@@ -1656,7 +1701,7 @@
       "authorityType": "DEVICE_EVIDENCE",
       "transitionProfile": "DEVICE_EVIDENCE",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "BLOCKER",
       "unrestrictedSeverity": "BLOCKER",
@@ -1666,15 +1711,45 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/build-8-f4-authority-negative-adjudication.json",
+          "sha256": "9FF79718C48C3B169C512433FED292FA69EA1A6BDBF9183EA7036E8EC9B78461",
+          "decision": "PASS_BUILD8_F4_AND_P07_DEVICE_EVIDENCE_CLOSURE",
+          "authority": "BUILD8_COMPLETE_PHYSICAL_SYNC_REVOCATION_AND_ROLE_NEGATIVE_MATRIX"
+        }
+      ],
+      "requiredExitEvidence": [
+        "approved sign-in",
+        "sync marker",
+        "offline/reconnect",
+        "weak-network",
+        "revocation next-operation denial",
+        "wrong-role denials"
+      ],
+      "reArmTriggers": [
+        "the production-signed pilot artifact changes package, version, source, signer or installed bytes from the adjudicated Build 8 authority",
+        "approved-session, revocation propagation or role-surface behavior changes",
+        "user authority roles, canonicalization, mutation semantics or client authority listeners change",
+        "the deployed authority-function fleet or any admitted wrong-role server-denial path changes",
+        "a revoked session retains privileged navigation or requires process restart before denial",
+        "final approval or the exact pre-campaign role set is not restored after a governed authority test"
+      ],
+      "notes": [
+        "The complete Build 8 physical matrix proves approved sign-in, sync, offline/reconnect, accepted weak-network behavior, revocation denial and wrong-role capability removal.",
+        "Wrong-role server denial uses the admitted zero-write composite method and does not claim a live physical mutation denial.",
+        "P-07 is CLOSED on the same separate device-evidence adjudication as STAGE2D-F4; STAGE2D-F5 remains open."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-11",
+          "basis": "The six-criterion Build 8 physical-device matrix and exact restoration passed separate adjudication; repository-safe closure SHA-256 9FF79718C48C3B169C512433FED292FA69EA1A6BDBF9183EA7036E8EC9B78461."
         }
       ]
     },

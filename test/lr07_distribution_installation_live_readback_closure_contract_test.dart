@@ -231,7 +231,7 @@ void main() {
       _strings(lr07['reArmTriggers']),
     );
     final programmeDecision = _object(ledger['programmeDecision']);
-    expect(programmeDecision['nextMutation'], 'STAGE2D-F4');
+    expect(programmeDecision['nextMutation'], 'STAGE2D-F5');
     expect(programmeDecision['pilotHandout'], 'NOT_AUTHORIZED');
     expect(programmeDecision['unrestrictedDistribution'], 'NO_GO');
   });
