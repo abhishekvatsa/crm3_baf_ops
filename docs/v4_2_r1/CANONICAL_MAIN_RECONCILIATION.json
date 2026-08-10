@@ -2729,9 +2729,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "3A876FFD6C900E7D7805CB5FF606E8A8F97B6BDDBD38D7073D2DBAEBBAE501DA",
+      "candidateSha256": "5F8E866BC2BD4F2F4C9C41525F7541D9F0F7BAFC5760BE013A33C415A8EBEA37",
       "canonicalBytes": 78841,
-      "candidateBytes": 98529,
+      "candidateBytes": 100548,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
