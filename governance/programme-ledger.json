@@ -1525,7 +1525,7 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "HIGH",
       "unrestrictedSeverity": "BLOCKER",
@@ -1547,6 +1547,18 @@
           "sha256": "E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302",
           "decision": "PRESERVE_P05_OPEN_WITH_EXACT_ADVERSE_LIVE_POSTURE",
           "authority": "SOURCE_ADJUDICATION_OF_SEALED_LIVE_RECEIPT_AND_EXACT_CI"
+        },
+        {
+          "fileName": "release/evidence/p05-firestore-recoverability-final-live-readback.json",
+          "sha256": "4DDA4B23DA7F12AC958B92B7196513A7DA301D19505A489A9D88626A20BD9FCA",
+          "decision": "PASS_FIRESTORE_RECOVERABILITY_POSTURE",
+          "authority": "EXACT_CLEAN_MAIN_STRICT_LIVE_RECEIPT"
+        },
+        {
+          "fileName": "release/evidence/p05-firestore-recoverability-closure.json",
+          "sha256": "67F6D0AED71DE697EE7F44E823EEC261B661155073C5B7C12BD8B38B7D4D4632",
+          "decision": "PASS_P05_FIRESTORE_RECOVERABILITY_CLOSED",
+          "authority": "LIVE_READBACK_CLOSURE_ADJUDICATION"
         }
       ],
       "requiredExitEvidence": [
@@ -1567,15 +1579,25 @@
         "the strict receipt source commit ceases to be the admitted main authority"
       ],
       "notes": [
-        "Strict readback proves the production database currently has point-in-time recovery and delete protection disabled, zero native backup schedules, zero native backups and zero successful import operations in the complete bounded inventory.",
-        "One successful managed export and its independently verified private custody pack exist, but neither is represented as a native backup or a successful restore rehearsal.",
-        "P-05 remains OPEN. Enabling billable or control-plane recovery features and executing an isolated restore require separate governed authorization."
+        "The 2026-08-04 adverse live receipt and adjudication remain immutable historical evidence; they are not rewritten by this closure.",
+        "The final strict clean-main readback proves production point-in-time recovery and delete protection enabled, two native backup schedules, five READY native backups and no production import operation.",
+        "The delete-protected isolated database p05-restore-20260806 proves an exact successful 81-document import from the sealed pre-purge export. P-05 is CLOSED and remains subject to its exact re-arm triggers."
       ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "LIVE_READBACK_PROVED",
+          "effectiveDate": "2026-08-10",
+          "basis": "Strict clean-main receipt 4DDA4B23DA7F12AC958B92B7196513A7DA301D19505A489A9D88626A20BD9FCA passed every acquisition and recoverability-posture check, including five READY native backups and exact isolated restore proof."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-10",
+          "basis": "Closure adjudication 67F6D0AED71DE697EE7F44E823EEC261B661155073C5B7C12BD8B38B7D4D4632 binds the exact live receipt to all six required exit-evidence obligations without moving Stage 2D F4 or pilot authorization."
         }
       ]
     },
