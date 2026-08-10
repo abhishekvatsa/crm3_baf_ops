@@ -146,11 +146,15 @@ has no import operation in the bounded history; the rehearsal did not restore
 into production.
 
 PR #172 merged the exact isolated-restore collector and policy corrections.
-GitHub did not create PR or post-merge workflow runs because the account's
-Actions capacity was unavailable. This limitation is recorded rather than
-represented as successful remote CI. Equivalent local validation passed the
-canonical audit (118/118), focused tests (14/14), Flutter analysis, and all 727
-Flutter tests before the final strict readback.
+GitHub created PR run `31124450098` and post-merge run `31124445219`, but both
+were cancelled and therefore supply no successful CI authority. Equivalent
+local validation passed the canonical audit (118/118), focused tests (14/14),
+Flutter analysis, and all 727 Flutter tests before the final strict readback.
+
+The closure itself was then admitted through PR #173. Exact-head run
+`31394196080` and exact-main run `31395073297` each passed all five required
+release-gate jobs. The closure evidence records both the cancelled collector
+runs and the successful closure runs without conflating their authority.
 
 These facts satisfy all six P-05 exit-evidence requirements and move P-05
 through `OPEN -> LIVE_READBACK_PROVED -> CLOSED`. They do not close Stage 2D

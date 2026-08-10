@@ -1556,7 +1556,7 @@
         },
         {
           "fileName": "release/evidence/p05-firestore-recoverability-closure.json",
-          "sha256": "67F6D0AED71DE697EE7F44E823EEC261B661155073C5B7C12BD8B38B7D4D4632",
+          "sha256": "176A143BACD196701A782F8959B96B69FC11CE401DB6D122E4F16DE2C1B4EE79",
           "decision": "PASS_P05_FIRESTORE_RECOVERABILITY_CLOSED",
           "authority": "LIVE_READBACK_CLOSURE_ADJUDICATION"
         }
@@ -1597,7 +1597,7 @@
         {
           "status": "CLOSED",
           "effectiveDate": "2026-08-10",
-          "basis": "Closure adjudication 67F6D0AED71DE697EE7F44E823EEC261B661155073C5B7C12BD8B38B7D4D4632 binds the exact live receipt to all six required exit-evidence obligations without moving Stage 2D F4 or pilot authorization."
+          "basis": "Closure adjudication 176A143BACD196701A782F8959B96B69FC11CE401DB6D122E4F16DE2C1B4EE79 binds the exact live receipt and successful PR #173 exact-head and exact-main CI to all six required exit-evidence obligations without moving Stage 2D F4 or pilot authorization."
         }
       ]
     },

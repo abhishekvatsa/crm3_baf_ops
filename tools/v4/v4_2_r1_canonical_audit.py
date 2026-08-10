@@ -7139,8 +7139,8 @@ check(
         for value in p05_receipt.get("mutationBoundary", {}).values()
     )
     and sha(p05_closure_path)
-        == "67F6D0AED71DE697EE7F44E823EEC261B661155073C5B7C12BD8B38B7D4D4632"
-    and p05_closure_path.stat().st_size == 2824
+        == "176A143BACD196701A782F8959B96B69FC11CE401DB6D122E4F16DE2C1B4EE79"
+    and p05_closure_path.stat().st_size == 3878
     and p05_closure.get("decision")
         == "PASS_P05_FIRESTORE_RECOVERABILITY_CLOSED"
     and p05_closure.get("recordTransition")
@@ -7151,7 +7151,36 @@ check(
         == p05_receipt.get("receiptSha256")
     and p05_closure.get("collectorAuthority", {}).get("remoteCi", {}).get(
         "status"
-    ) == "NOT_CREATED_ACCOUNT_ACTIONS_CAPACITY"
+    ) == "CREATED_AND_CANCELLED_NO_SUCCESS_AUTHORITY"
+    and p05_closure.get("collectorAuthority", {}).get("remoteCi", {}).get(
+        "pullRequestRun", {}
+    ) == {
+        "runId": 31124450098,
+        "event": "pull_request",
+        "headSha": "954c307490d6e87979a5ba96d19888e35f55e7f6",
+        "conclusion": "cancelled",
+    }
+    and p05_closure.get("collectorAuthority", {}).get("remoteCi", {}).get(
+        "postMergeRun", {}
+    ) == {
+        "runId": 31124445219,
+        "event": "push",
+        "headSha": "1e9803109844eaede717337317e82865c74bbd6f",
+        "conclusion": "cancelled",
+    }
+    and p05_closure.get("closureCiAuthority", {}).get("pullRequest") == 173
+    and p05_closure.get("closureCiAuthority", {}).get("pullRequestRun", {}).get(
+        "runId"
+    ) == 31394196080
+    and p05_closure.get("closureCiAuthority", {}).get("pullRequestRun", {}).get(
+        "conclusion"
+    ) == "success"
+    and p05_closure.get("closureCiAuthority", {}).get("postMergeRun", {}).get(
+        "runId"
+    ) == 31395073297
+    and p05_closure.get("closureCiAuthority", {}).get("postMergeRun", {}).get(
+        "conclusion"
+    ) == "success"
     and all(
         value is False
         for value in p05_closure.get("closureBoundary", {}).values()
@@ -7173,7 +7202,7 @@ check(
         "E339FC49400BA1817084270E4E8503C12797A00A9095FE937A30EE48D8A0F18D",
         "E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302",
         "4DDA4B23DA7F12AC958B92B7196513A7DA301D19505A489A9D88626A20BD9FCA",
-        "67F6D0AED71DE697EE7F44E823EEC261B661155073C5B7C12BD8B38B7D4D4632",
+        "176A143BACD196701A782F8959B96B69FC11CE401DB6D122E4F16DE2C1B4EE79",
     }
     and [
         entry.get("status")
