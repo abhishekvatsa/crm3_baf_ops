@@ -81,6 +81,16 @@ function Invoke-ExternalText {
   }
 }
 
+function Get-AuthorizedDeviceSerials {
+  param([Parameter(Mandatory)][string]$DevicesOutput)
+
+  @($DevicesOutput -split "`r?`n" | ForEach-Object {
+      if ($_ -match '^(\S+)\s+device\s*$') {
+        $Matches[1]
+      }
+    })
+}
+
 function Assert-Equal {
   param(
     [Parameter(Mandatory)]$Actual,
@@ -659,8 +669,9 @@ try {
   $attached = (Invoke-ExternalText -FilePath $adb -Arguments @(
     'devices'
   )).output
+  $attachedSerials = Get-AuthorizedDeviceSerials $attached
   foreach ($serial in @($SubjectSerial, $OperatorSerial)) {
-    if ($attached -notmatch "(?m)^$([regex]::Escape($serial))\s+device$") {
+    if ($attachedSerials -notcontains $serial) {
       throw 'A required target is not attached and authorized.'
     }
   }
