@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "P05-FIRESTORE-RECOVERABILITY-CLOSURE-20260810",
+  "evidenceType": "p05-firestore-recoverability-closure",
+  "recordIds": [
+    "FINDING:P-05"
+  ],
+  "authorityType": "LIVE_READBACK",
+  "decision": "PASS_P05_FIRESTORE_RECOVERABILITY_CLOSED",
+  "collectorAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "pullRequest": 172,
+    "mergeCommit": "1e9803109844eaede717337317e82865c74bbd6f",
+    "mergeTree": "bfec7cbbea7599887d7c7a1e8ae0b530f2d4861d",
+    "remoteCi": {
+      "status": "NOT_CREATED_ACCOUNT_ACTIONS_CAPACITY",
+      "pullRequestRunCreated": false,
+      "postMergeRunCreated": false
+    },
+    "localValidation": {
+      "canonicalAudit": "118/118 PASS",
+      "focusedTests": "14/14 PASS",
+      "flutterAnalyze": "PASS",
+      "flutterTests": "727 PASS"
+    }
+  },
+  "liveReceipt": {
+    "path": "release/evidence/p05-firestore-recoverability-final-live-readback.json",
+    "fileSha256": "4DDA4B23DA7F12AC958B92B7196513A7DA301D19505A489A9D88626A20BD9FCA",
+    "fileBytes": 7492,
+    "receiptSha256": "38faf40444959fb208295a9cdfa752519bd0da5afd8ce77d0f2c9930c198fb79",
+    "capturedAtUtc": "2026-08-10T13:22:33.603Z",
+    "sourceCommit": "1e9803109844eaede717337317e82865c74bbd6f",
+    "sourceTree": "bfec7cbbea7599887d7c7a1e8ae0b530f2d4861d",
+    "acquisitionDecision": "PASS_FIRESTORE_RECOVERABILITY_LIVE_READBACK",
+    "postureDecision": "PASS_FIRESTORE_RECOVERABILITY_POSTURE"
+  },
+  "provedRecoveryPosture": {
+    "pointInTimeRecovery": "POINT_IN_TIME_RECOVERY_ENABLED",
+    "deleteProtection": "DELETE_PROTECTION_ENABLED",
+    "nativeBackupScheduleCount": 2,
+    "dailyScheduleCount": 1,
+    "weeklyScheduleCount": 1,
+    "readyNativeBackupCount": 5,
+    "isolatedRestoreDatabase": "p05-restore-20260806",
+    "isolatedRestoreDeleteProtection": "DELETE_PROTECTION_ENABLED",
+    "isolatedImportOperationState": "SUCCESSFUL",
+    "isolatedImportCompletedDocuments": 81,
+    "isolatedImportEstimatedDocuments": 81,
+    "isolatedImportExact": true,
+    "productionImportOperationCount": 0
+  },
+  "recordTransition": "OPEN_TO_LIVE_READBACK_PROVED_TO_CLOSED",
+  "historicalBoundary": {
+    "adverse20260804ReceiptPreserved": true,
+    "adverse20260804ClosurePreserved": true,
+    "priorAdversePostureRewritten": false
+  },
+  "closureBoundary": {
+    "stage2dF4Closed": false,
+    "pilotHandoutAuthorized": false,
+    "productionDocumentMutationPerformedByFinalReadback": false,
+    "productionRestorePerformed": false,
+    "isolatedRestoreDatabaseDeleted": false,
+    "remoteCiSuccessClaimed": false
+  },
+  "qualification": "Closure proves the captured live posture and exact isolated restore rehearsal. The finding re-arms if a declared recovery control, ready backup, restore proof or admitted source authority ceases to satisfy the ledger triggers."
+}

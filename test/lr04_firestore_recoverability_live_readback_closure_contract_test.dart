@@ -153,25 +153,33 @@ void main() {
       _objects(lr04['statusHistory']).map((entry) => entry['status']),
       <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],
     );
-    expect(p05['currentStatus'], 'OPEN');
+    expect(p05['currentStatus'], 'CLOSED');
     expect(
       p05['title'],
       'Production Firestore recovery posture lacks PITR, delete protection, native backups and restore proof',
     );
     expect(
       _objects(p05['statusHistory']).map((entry) => entry['status']),
-      <String>['OPEN'],
+      <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],
     );
-    for (final record in <Map<String, dynamic>>[lr04, p05]) {
-      expect(_objects(record['evidence']), hasLength(2));
-      expect(
-        _objects(record['evidence']).map((entry) => entry['sha256']).toSet(),
-        <String>{
-          'E339FC49400BA1817084270E4E8503C12797A00A9095FE937A30EE48D8A0F18D',
-          'E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302',
-        },
-      );
-    }
+    expect(_objects(lr04['evidence']), hasLength(2));
+    expect(
+      _objects(lr04['evidence']).map((entry) => entry['sha256']).toSet(),
+      <String>{
+        'E339FC49400BA1817084270E4E8503C12797A00A9095FE937A30EE48D8A0F18D',
+        'E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302',
+      },
+    );
+    expect(_objects(p05['evidence']), hasLength(4));
+    expect(
+      _objects(p05['evidence']).map((entry) => entry['sha256']).toSet(),
+      <String>{
+        'E339FC49400BA1817084270E4E8503C12797A00A9095FE937A30EE48D8A0F18D',
+        'E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302',
+        '4DDA4B23DA7F12AC958B92B7196513A7DA301D19505A489A9D88626A20BD9FCA',
+        '67F6D0AED71DE697EE7F44E823EEC261B661155073C5B7C12BD8B38B7D4D4632',
+      },
+    );
     expect(_strings(lr04['reArmTriggers']), hasLength(7));
     expect(_strings(p05['requiredExitEvidence']), hasLength(6));
     expect(_strings(p05['reArmTriggers']), hasLength(7));

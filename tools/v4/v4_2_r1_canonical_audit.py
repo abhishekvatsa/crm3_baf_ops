@@ -6867,7 +6867,7 @@ p05_records = [
 ]
 p05_record = p05_records[0] if len(p05_records) == 1 else {}
 check(
-    "LR-04 Firestore recoverability readback is evidence-closed while adverse posture stays open",
+    "LR-04 Firestore recoverability readback preserves its exact historical adverse posture",
     lr04_policy.get("schemaVersion") == 1
     and lr04_policy.get("policyId")
         == "LR04-FIRESTORE-RECOVERABILITY-READBACK-POLICY-V1"
@@ -7040,16 +7040,151 @@ check(
         "E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302",
     }
     and len(p05_records) == 1
-    and p05_record.get("currentStatus") == "OPEN"
+    and p05_record.get("currentStatus") == "CLOSED"
     and p05_record.get("title")
         == "Production Firestore recovery posture lacks PITR, delete protection, native backups and restore proof"
-    and len(p05_record.get("evidence", [])) == 2
+    and len(p05_record.get("evidence", [])) == 4
+    and [
+        entry.get("status")
+        for entry in p05_record.get("statusHistory", [])
+    ] == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"]
     and len(p05_record.get("requiredExitEvidence", [])) == 6
     and len(p05_record.get("reArmTriggers", [])) == 7
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
         == "STAGE2D-F4"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
+)
+
+p05_receipt_path = (
+    ROOT / "release/evidence/p05-firestore-recoverability-final-live-readback.json"
+)
+p05_receipt = data(
+    "release/evidence/p05-firestore-recoverability-final-live-readback.json"
+)
+p05_receipt_body = dict(p05_receipt)
+p05_receipt_body.pop("receiptSha256", None)
+p05_receipt_canonical_sha = hashlib.sha256(
+    json.dumps(
+        p05_receipt_body,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+).hexdigest()
+p05_closure_path = (
+    ROOT / "release/evidence/p05-firestore-recoverability-closure.json"
+)
+p05_closure = data(
+    "release/evidence/p05-firestore-recoverability-closure.json"
+)
+p05_contract = text("test/p05_programme_ledger_closure_contract_test.dart")
+check(
+    "P-05 Firestore recoverability is closed by exact live controls, READY backup and isolated restore proof",
+    sha(p05_receipt_path)
+        == "4DDA4B23DA7F12AC958B92B7196513A7DA301D19505A489A9D88626A20BD9FCA"
+    and p05_receipt_path.stat().st_size == 7492
+    and p05_receipt.get("receiptSha256") == p05_receipt_canonical_sha
+    and p05_receipt.get("receiptSha256")
+        == "38faf40444959fb208295a9cdfa752519bd0da5afd8ce77d0f2c9930c198fb79"
+    and p05_receipt.get("decision")
+        == "PASS_FIRESTORE_RECOVERABILITY_LIVE_READBACK"
+    and p05_receipt.get("posture", {}).get("decision")
+        == "PASS_FIRESTORE_RECOVERABILITY_POSTURE"
+    and p05_receipt.get("posture", {}).get("holds") == []
+    and p05_receipt.get("failedChecks") == []
+    and all(value is True for value in p05_receipt.get("checks", {}).values())
+    and p05_receipt.get("source", {}).get("before")
+        == p05_receipt.get("source", {}).get("after")
+    and p05_receipt.get("source", {}).get("before", {}).get("commit")
+        == "1e9803109844eaede717337317e82865c74bbd6f"
+    and p05_receipt.get("source", {}).get("before", {}).get("tree")
+        == "bfec7cbbea7599887d7c7a1e8ae0b530f2d4861d"
+    and p05_receipt.get("outputs", {}).get("database", {}).get(
+        "pointInTimeRecoveryEnablement"
+    ) == "POINT_IN_TIME_RECOVERY_ENABLED"
+    and p05_receipt.get("outputs", {}).get("database", {}).get(
+        "deleteProtectionState"
+    ) == "DELETE_PROTECTION_ENABLED"
+    and p05_receipt.get("outputs", {}).get("schedules", {}).get("count") == 2
+    and p05_receipt.get("outputs", {}).get("schedules", {}).get(
+        "recurrenceTypeCounts"
+    ) == {"DAILY": 1, "WEEKLY": 1}
+    and p05_receipt.get("outputs", {}).get("backups", {}).get("count") == 5
+    and p05_receipt.get("outputs", {}).get("backups", {}).get("stateCounts")
+        == {"READY": 5}
+    and p05_receipt.get("outputs", {}).get("operations", {}).get(
+        "successfulImportOperationCount"
+    ) == 0
+    and p05_receipt.get("outputs", {}).get("isolatedRestore", {}).get(
+        "database", {}
+    ).get("databaseId") == "p05-restore-20260806"
+    and p05_receipt.get("outputs", {}).get("isolatedRestore", {}).get(
+        "database", {}
+    ).get("deleteProtectionState") == "DELETE_PROTECTION_ENABLED"
+    and p05_receipt.get("outputs", {}).get("isolatedRestore", {}).get(
+        "operation", {}
+    ).get("operationState") == "SUCCESSFUL"
+    and p05_receipt.get("outputs", {}).get("isolatedRestore", {}).get(
+        "operation", {}
+    ).get("completedDocuments") == 81
+    and p05_receipt.get("outputs", {}).get("isolatedRestore", {}).get(
+        "operation", {}
+    ).get("estimatedDocuments") == 81
+    and p05_receipt.get("outputs", {}).get("isolatedRestore", {}).get(
+        "exactSuccessfulImportAndValidation"
+    ) is True
+    and all(
+        value is False
+        for value in p05_receipt.get("mutationBoundary", {}).values()
+    )
+    and sha(p05_closure_path)
+        == "67F6D0AED71DE697EE7F44E823EEC261B661155073C5B7C12BD8B38B7D4D4632"
+    and p05_closure_path.stat().st_size == 2824
+    and p05_closure.get("decision")
+        == "PASS_P05_FIRESTORE_RECOVERABILITY_CLOSED"
+    and p05_closure.get("recordTransition")
+        == "OPEN_TO_LIVE_READBACK_PROVED_TO_CLOSED"
+    and p05_closure.get("liveReceipt", {}).get("fileSha256")
+        == sha(p05_receipt_path)
+    and p05_closure.get("liveReceipt", {}).get("receiptSha256")
+        == p05_receipt.get("receiptSha256")
+    and p05_closure.get("collectorAuthority", {}).get("remoteCi", {}).get(
+        "status"
+    ) == "NOT_CREATED_ACCOUNT_ACTIONS_CAPACITY"
+    and all(
+        value is False
+        for value in p05_closure.get("closureBoundary", {}).values()
+    )
+    and p05_closure.get("historicalBoundary", {}).get(
+        "adverse20260804ReceiptPreserved"
+    ) is True
+    and p05_closure.get("historicalBoundary", {}).get(
+        "adverse20260804ClosurePreserved"
+    ) is True
+    and p05_closure.get("historicalBoundary", {}).get(
+        "priorAdversePostureRewritten"
+    ) is False
+    and "P-05 closes only on exact clean-main recovery proof" in p05_contract
+    and p05_record.get("currentStatus") == "CLOSED"
+    and {
+        entry.get("sha256") for entry in p05_record.get("evidence", [])
+    } == {
+        "E339FC49400BA1817084270E4E8503C12797A00A9095FE937A30EE48D8A0F18D",
+        "E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302",
+        "4DDA4B23DA7F12AC958B92B7196513A7DA301D19505A489A9D88626A20BD9FCA",
+        "67F6D0AED71DE697EE7F44E823EEC261B661155073C5B7C12BD8B38B7D4D4632",
+    }
+    and [
+        entry.get("status")
+        for entry in p05_record.get("statusHistory", [])
+    ] == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"]
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F4"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED"
+    and "These facts satisfy all six P-05 exit-evidence requirements"
+        in lr04_decision,
 )
 
 a05_reader = text("lib/core/serialization/persisted_data_reader.dart")

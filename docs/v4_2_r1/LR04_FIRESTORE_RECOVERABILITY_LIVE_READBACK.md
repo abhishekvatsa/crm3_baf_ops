@@ -121,3 +121,40 @@ a new backup cost, or authorize a restore against production. `P-05` remains
 open until the adverse posture is remediated and an isolated governed restore
 rehearsal is proved. No Stage 2D F4, device, pilot, distribution, deployment,
 IAM or billing authorization is created.
+
+## P-05 Closure Readback
+
+The adverse result above remains the exact historical state observed on
+2026-08-04. It was subsequently remediated under governed control-plane and
+isolated-restore work. A new strict receipt was captured on 2026-08-10 from
+clean `main` at `1e9803109844eaede717337317e82865c74bbd6f`, equal to
+`origin/main` before and after collection:
+
+- `release/evidence/p05-firestore-recoverability-final-live-readback.json`
+- `release/evidence/p05-firestore-recoverability-closure.json`
+
+The final receipt passed every acquisition check and returned
+`PASS_FIRESTORE_RECOVERABILITY_POSTURE`. It proves production point-in-time
+recovery and delete protection enabled, one daily and one weekly native backup
+schedule, and five native backups in `READY` state.
+
+The same receipt binds the delete-protected isolated database
+`p05-restore-20260806` to the policy-pinned successful import operation. The
+operation imported all 81 expected documents from the sealed pre-purge export,
+with completed and estimated counts both equal to 81. The production database
+has no import operation in the bounded history; the rehearsal did not restore
+into production.
+
+PR #172 merged the exact isolated-restore collector and policy corrections.
+GitHub did not create PR or post-merge workflow runs because the account's
+Actions capacity was unavailable. This limitation is recorded rather than
+represented as successful remote CI. Equivalent local validation passed the
+canonical audit (118/118), focused tests (14/14), Flutter analysis, and all 727
+Flutter tests before the final strict readback.
+
+These facts satisfy all six P-05 exit-evidence requirements and move P-05
+through `OPEN -> LIVE_READBACK_PROVED -> CLOSED`. They do not close Stage 2D
+F4, authorize pilot handout, or weaken any re-arm trigger. The finding re-arms
+if protection is disabled, schedules or backup readiness cease to satisfy the
+declared posture, restore evidence becomes unverifiable, the evidence set or
+collector changes, or its clean-main source authority is no longer admitted.

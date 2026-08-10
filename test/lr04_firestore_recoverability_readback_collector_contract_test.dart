@@ -135,7 +135,7 @@ void main() {
     expect(decision, contains('does not close `P-05`'));
   });
 
-  test('live closure closes LR-04 and preserves P-05 as open', () {
+  test('LR-04 closure preserves its historical P-05 boundary', () {
     final ledger = _object(
       jsonDecode(File('governance/programme-ledger.json').readAsStringSync()),
     );
@@ -149,8 +149,12 @@ void main() {
       _objects(lr04['statusHistory']).map((entry) => entry['status']),
       <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],
     );
-    expect(p05['currentStatus'], 'OPEN');
-    expect(_objects(p05['evidence']), hasLength(2));
+    expect(p05['currentStatus'], 'CLOSED');
+    expect(_objects(p05['evidence']), hasLength(4));
+    expect(
+      _objects(p05['statusHistory']).map((entry) => entry['status']),
+      <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],
+    );
     expect(_strings(p05['requiredExitEvidence']), hasLength(6));
   });
 }
