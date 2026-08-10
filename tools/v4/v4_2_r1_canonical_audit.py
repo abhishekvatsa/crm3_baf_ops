@@ -2220,6 +2220,7 @@ hono = firebase_cli_packages.get("node_modules/@hono/node-server", {})
 fast_uri = firebase_cli_packages.get("node_modules/fast-uri", {})
 hono_runtime = firebase_cli_packages.get("node_modules/hono", {})
 ip_address = firebase_cli_packages.get("node_modules/ip-address", {})
+js_yaml = firebase_cli_packages.get("node_modules/js-yaml", {})
 brace_expansion = firebase_cli_packages.get("node_modules/brace-expansion", {})
 brace_expansion_upstream = firebase_cli_packages.get("node_modules/brace-expansion-modern", {})
 tar = firebase_cli_packages.get("node_modules/tar", {})
@@ -2233,10 +2234,11 @@ check(
     and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.5"
     and firebase_cli_package.get("overrides", {}).get("hono") == "4.12.34"
     and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.4.0"
+    and firebase_cli_package.get("overrides", {}).get("js-yaml") == "4.3.1"
     and firebase_cli_package.get("dependencies", {}).get("brace-expansion") == "file:../brace-expansion-compat"
     and firebase_cli_package.get("overrides", {}).get("brace-expansion") == "$brace-expansion"
     and firebase_cli_package.get("overrides", {}).get("tar") == "7.5.21"
-    and firebase_cli_package.get("overrides", {}).get("re2") == "1.25.2"
+    and firebase_cli_package.get("overrides", {}).get("re2") == "1.26.1"
     and firebase_tools.get("version") == "15.22.4"
     and hono.get("version") == "2.0.10"
     and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
@@ -2250,6 +2252,9 @@ check(
     and ip_address.get("version") == "10.4.0"
     and ip_address.get("resolved") == "https://registry.npmjs.org/ip-address/-/ip-address-10.4.0.tgz"
     and ip_address.get("integrity") == "sha512-oSK96Grm3aP6OrS263xVxbNDGVL7rzBtYdpGqlDG8iQdoenDoTs/nkki+DflYbAEE8Xl6o5YxhxlrKvI3nqKXQ=="
+    and js_yaml.get("version") == "4.3.1"
+    and js_yaml.get("resolved") == "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.1.tgz"
+    and js_yaml.get("integrity") == "sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ=="
     and brace_expansion.get("version") == "5.0.9"
     and brace_expansion.get("resolved") == "file:../brace-expansion-compat"
     and brace_expansion_upstream.get("name") == "brace-expansion"
@@ -2259,9 +2264,9 @@ check(
     and tar.get("version") == "7.5.21"
     and tar.get("resolved") == "https://registry.npmjs.org/tar/-/tar-7.5.21.tgz"
     and tar.get("integrity") == "sha512-XdhtCvlMywwxpCW8YEq3lOXBJpUPTR2OHHcwLPO3HwsJqOHa2Ok/oJ7ruGzp+JrKoRPVCzJwAdEjqLW/vNRPHA=="
-    and re2.get("version") == "1.25.2"
-    and re2.get("resolved") == "https://registry.npmjs.org/re2/-/re2-1.25.2.tgz"
-    and re2.get("integrity") == "sha512-t75KS05wrPM0S7IRbM0l/WUYlHftJj3WAzQJAcSH8CrDP/jFYicZbMYTKohJ8w/3kFGwkY/G8/dGtC6CdShDlw=="
+    and re2.get("version") == "1.26.1"
+    and re2.get("resolved") == "https://registry.npmjs.org/re2/-/re2-1.26.1.tgz"
+    and re2.get("integrity") == "sha512-oi79a4h6EO3PAwNsDMWgeCcsRGQEUa52DIgOiFTZGDEZocEXG9h+oXy0qZqndo47huUeJuVWSoOJIEhOupqOcg=="
     and mcp_sdk.get("dependencies", {}).get("@hono/node-server") == "^1.19.9",
 )
 brace_adapter_package = data("tooling/brace-expansion-compat/package.json")
@@ -2294,6 +2299,13 @@ check(
     ),
 )
 check(
+    "Release gate audits all three npm dependency domains",
+    "npm audit --audit-level=low" in release_gate_source
+    and "npm --prefix functions audit --audit-level=low" in release_gate_source
+    and "npm --prefix tooling/firebase-cli audit --audit-level=low"
+        in release_gate_source,
+)
+check(
     "Firebase CLI lock-policy parser supports npm's empty root-package key",
     "ConvertFrom-Json -AsHashTable" in harness
     and "[System.Collections.IDictionary]" in harness
@@ -2318,8 +2330,9 @@ check(
         "3.1.5",
         "4.12.34",
         "10.4.0",
+        "4.3.1",
         "5.0.9",
-        "1.25.2",
+        "1.26.1",
         "7.5.21",
         "verify_brace_expansion_compat.mjs",
     )),
@@ -7869,7 +7882,26 @@ check(
         and (ROOT / entry["path"]).stat().st_size == entry.get("bytes")
         and sha(ROOT / entry["path"]) == entry.get("sha256")
         for entry in lr07_source_evidence
+        if entry.get("path") != "release/production-release-policy.json"
     )
+    and any(
+        entry.get("path") == "release/production-release-policy.json"
+        and entry.get("bytes") == 10190
+        and entry.get("sha256")
+            == "C620D933AD02AEFAD3B2435213D51B83178B358278945AB2A99491A438408383"
+        for entry in lr07_source_evidence
+    )
+    and combined_policy.get("distribution", {}).get("authority")
+        == "production-signed-pre-release-candidate"
+    and combined_policy.get("distribution", {}).get("approved") is False
+    and combined_policy.get("distribution", {}).get(
+        "unrestrictedPlantReleaseApproved"
+    ) is False
+    and combined_policy.get("distribution", {}).get(
+        "postBuildPromotionRequiredForAnyDistribution"
+    ) is True
+    and combined_policy.get("distribution", {}).get("scope")
+        == "Artifact construction, verification and custody only; no distribution approval is created by this campaign."
     and "retention-days: 1" in lr07_workflow
     and "retention-days: 90" not in lr07_workflow
     and "npm run test:distribution-readback-custody" in lr07_release_gate
