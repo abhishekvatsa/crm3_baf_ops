@@ -55,6 +55,22 @@ function notificationInstallationPayload(overrides = {}) {
   };
 }
 
+function auditEventPayload(overrides = {}) {
+  return {
+    entityType: "maintenance",
+    entityId: "ticket1",
+    action: "update",
+    performedByUid: "ops1",
+    performedByName: "Operations User",
+    timestamp: Timestamp.now(),
+    severity: "low",
+    summary: "Updated ticket",
+    beforeJson: "{}",
+    afterJson: "{}",
+    ...overrides,
+  };
+}
+
 async function seedUser(uid, roles, isApproved = true) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(
@@ -2431,6 +2447,51 @@ describe("audit_logs", () => {
   beforeEach(async () => {
     await seedUser("ops1", ["operations"]);
     await seedUser("admin1", ["admin"]);
+  });
+
+  test("Admin can read and list shared audit events", async () => {
+    await seedDoc("audit_logs/sharedAudit", auditEventPayload());
+    const db = dbAs("admin1");
+
+    await assertSucceeds(getDoc(doc(db, "audit_logs/sharedAudit")));
+    await assertSucceeds(getDocs(collection(db, "audit_logs")));
+  });
+
+  test("audit visibility rejects non-Admin and malformed authority", async () => {
+    await seedDoc("audit_logs/sharedAudit", auditEventPayload());
+    await seedUser("unapprovedAdmin", ["admin"], false);
+    await seedDoc("users/malformedAdmin", {
+      isApproved: true,
+      roles: ["admin", "unknownRole"],
+    });
+
+    for (const uid of [
+      "ops1",
+      "unapprovedAdmin",
+      "malformedAdmin",
+      "missingProfile",
+    ]) {
+      const db = dbAs(uid);
+      await assertFails(getDoc(doc(db, "audit_logs/sharedAudit")));
+      await assertFails(getDocs(collection(db, "audit_logs")));
+    }
+
+    const unauthenticatedDb = testEnv.unauthenticatedContext().firestore();
+    await assertFails(
+      getDoc(doc(unauthenticatedDb, "audit_logs/sharedAudit"))
+    );
+    await assertFails(getDocs(collection(unauthenticatedDb, "audit_logs")));
+  });
+
+  test("revocation denies the next audit read on the existing session", async () => {
+    await seedUser("revokedAdmin", ["admin"]);
+    await seedDoc("audit_logs/sharedAudit", auditEventPayload());
+    const db = dbAs("revokedAdmin");
+
+    await assertSucceeds(getDoc(doc(db, "audit_logs/sharedAudit")));
+    await seedUser("revokedAdmin", ["admin"], false);
+    await assertFails(getDoc(doc(db, "audit_logs/sharedAudit")));
+    await assertFails(getDocs(collection(db, "audit_logs")));
   });
 
   test("approved user can create well-formed audit event for self", async () => {
