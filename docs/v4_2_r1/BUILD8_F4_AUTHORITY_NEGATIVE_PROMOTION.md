@@ -57,6 +57,8 @@ the repository.
    collector can prove that all four surfaces share one admitted deployment.
    Fleet-finalization, function-update and receipt-capture timestamps are
    canonical UTC values parsed independently of the operator machine's locale.
+   The simultaneous ADB inventory parses authorized serials independently of
+   Windows or Unix line endings.
 2. The separate Admin revokes the subject through User Management.
    `CaptureRevoked` must observe **Awaiting Approval** in the original physical
    app process.
