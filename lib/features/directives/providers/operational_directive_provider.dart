@@ -8,8 +8,7 @@ import 'package:isar/isar.dart';
 
 import '../../../core/persistence/app_database.dart';
 import '../data/operational_directive_model.dart';
-import '../data/remote_operational_directive_timestamps.dart';
-import '../../maintenance/data/maintenance_model.dart';
+import '../data/remote_operational_directive_reader.dart';
 import '../../auth/data/user_model.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../audit/repositories/audit_repository.dart';
@@ -18,22 +17,6 @@ import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/services/global_pull_protocol.dart';
-
-T _enumByNameOr<T extends Enum>(List<T> values, dynamic value, T fallback) {
-  if (value is! String) return fallback;
-  for (final item in values) {
-    if (item.name == value) return item;
-  }
-  return fallback;
-}
-
-T? _enumByNameOrNull<T extends Enum>(List<T> values, dynamic value) {
-  if (value is! String) return null;
-  for (final item in values) {
-    if (item.name == value) return item;
-  }
-  return null;
-}
 
 String? _cleanOptionalDirectiveText(String? value) {
   if (value == null) return null;
@@ -50,14 +33,6 @@ List<String>? _cleanDirectivePath(List<String>? value) {
       .where((item) => item.isNotEmpty)
       .toList(growable: false);
   return cleaned.isEmpty ? null : cleaned;
-}
-
-int? _directiveIntOrNull(dynamic value) {
-  if (value == null) return null;
-  if (value is int) return value;
-  if (value is num) return value.toInt();
-  if (value is String) return int.tryParse(value.trim());
-  return null;
 }
 
 DateTime _readDirectiveDate(DateTime Function() read, DateTime fallback) {
@@ -279,20 +254,6 @@ void _normalizeDirectiveForLocalWrite(
   if (directive.version < 1) directive.version = 1;
   if (bumpVersion) directive.version += 1;
   if (markUnsynced) directive.isSynced = false;
-  _normalizeDirectiveIdentity(directive);
-  _normalizeDirectiveTextFields(directive);
-  _normalizeDirectiveLifecycle(directive);
-}
-
-void _normalizeDirectiveFromRemote(OperationalDirective directive) {
-  final now = DateTime.now();
-  directive.createdAt = _readDirectiveDate(() => directive.createdAt, now);
-  directive.updatedAt = _readDirectiveDate(
-    () => directive.updatedAt,
-    directive.createdAt,
-  );
-  if (directive.version < 1) directive.version = 1;
-  directive.isSynced = true;
   _normalizeDirectiveIdentity(directive);
   _normalizeDirectiveTextFields(directive);
   _normalizeDirectiveLifecycle(directive);
@@ -736,7 +697,7 @@ class IsarDirectiveRepository implements DirectiveRepository {
   @override
   Future<void> insertFromRemote(OperationalDirective remote) async {
     if (remote.isDeleted) return;
-    _normalizeDirectiveFromRemote(remote);
+    remote.isSynced = true;
     await isar.writeTxn(() async {
       await isar.operationalDirectives.put(remote);
     });
@@ -831,7 +792,6 @@ class IsarDirectiveRepository implements DirectiveRepository {
         ..createdAt = remote.createdAt
         ..updatedAt = remote.updatedAt
         ..isSynced = true;
-      _normalizeDirectiveFromRemote(local);
       await isar.operationalDirectives.put(local);
     });
   }
@@ -1288,7 +1248,13 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
     _normalizeDirectiveIdentity(d);
     _normalizeDirectiveTextFields(d);
     _normalizeDirectiveLifecycle(d);
+    final firestoreId = _cleanOptionalDirectiveText(d.firestoreId);
+    if (firestoreId == null) {
+      throw StateError('Directive firestoreId is required for persistence.');
+    }
+    d.firestoreId = firestoreId;
     return {
+      'firestoreId': firestoreId,
       'title': d.title,
       'description': d.description,
       'assetType': d.assetType?.name,
@@ -1330,75 +1296,10 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
 
   OperationalDirective _mapDirective(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    final timestamps = readRemoteOperationalDirectiveTimestamps(
+    return readRemoteOperationalDirective(
       data,
-      source: 'operational directive ${doc.id}',
+      documentId: doc.id,
     );
-    final directive =
-        OperationalDirective()
-          ..firestoreId = doc.id
-          ..title = data['title'] ?? ''
-          ..description = data['description'] ?? ''
-          ..assetType = _enumByNameOrNull(AssetType.values, data['assetType'])
-          ..assetNumber = _directiveIntOrNull(data['assetNumber'])
-          ..component = data['component']
-          ..subsystem = data['subsystem']
-          ..tag = data['tag']
-          ..hierarchyPath =
-              data['hierarchyPath'] != null
-                  ? List<String>.from(data['hierarchyPath'])
-                  : null
-          ..directedTo = _enumByNameOr(
-            AppRole.values,
-            data['directedTo'],
-            AppRole.operations,
-          )
-          ..status = _enumByNameOr(
-            DirectiveStatus.values,
-            data['status'],
-            DirectiveStatus.open,
-          )
-          ..priority = _enumByNameOr(
-            DirectivePriority.values,
-            data['priority'],
-            DirectivePriority.medium,
-          )
-          ..createdByUid = data['createdByUid']
-          ..createdByName = data['createdByName']
-          ..issuedByUid = data['issuedByUid']
-          ..issuedByName = data['issuedByName']
-          ..issuedAt = timestamps.issuedAt
-          ..isActive = data['isActive'] ?? true
-          ..acknowledgedByUid = data['acknowledgedByUid']
-          ..acknowledgedByName = data['acknowledgedByName']
-          ..acknowledgedAt = timestamps.acknowledgedAt
-          ..closedByUid = data['closedByUid']
-          ..closedByName = data['closedByName']
-          ..closedAt = timestamps.closedAt
-          ..closedWithoutAcknowledgement =
-              data['closedWithoutAcknowledgement'] ?? false
-          ..remarks = data['remarks']
-          ..linkedMaintenanceFirestoreId = data['linkedMaintenanceFirestoreId']
-          ..linkedExecutionFirestoreId = data['linkedExecutionFirestoreId']
-          ..metadataJson = data['metadataJson']
-          ..isDeleted = data['isDeleted'] ?? false
-          ..deletedAt = timestamps.deletedAt
-          ..deletedByUid = data['deletedByUid']
-          ..deletedByName = data['deletedByName']
-          ..deleteReason = data['deleteReason']
-          ..createdAt = timestamps.createdAt
-          ..updatedAt = timestamps.updatedAt
-          ..version = data['version'] ?? 1
-          ..isSynced = true;
-    if (directive.isDeleted) {
-      requireRemoteTombstoneDeletedAt(
-        directive.deletedAt,
-        entityLabel: 'operational directive',
-        firestoreId: directive.firestoreId,
-      );
-    }
-    _normalizeDirectiveFromRemote(directive);
-    return directive;
   }
 }
 

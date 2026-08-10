@@ -50,8 +50,8 @@
     },
     {
       "id": "operational-directive",
-      "decoderFile": "lib/features/directives/providers/operational_directive_provider.dart",
-      "decoderMarker": "OperationalDirective _mapDirective(",
+      "decoderFile": "lib/features/directives/data/remote_operational_directive_reader.dart",
+      "decoderMarker": "OperationalDirective readRemoteOperationalDirective(",
       "readerFile": "lib/features/directives/data/remote_operational_directive_timestamps.dart",
       "readerFunction": "readRemoteOperationalDirectiveTimestamps",
       "binding": "timestamps",
