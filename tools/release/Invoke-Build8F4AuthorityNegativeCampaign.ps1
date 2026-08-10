@@ -93,6 +93,40 @@ function Assert-Equal {
   }
 }
 
+function ConvertFrom-CanonicalUtcTimestamp {
+  param([Parameter(Mandatory)][object]$Value)
+
+  if ($Value -is [DateTimeOffset]) {
+    if ($Value.Offset -ne [TimeSpan]::Zero) {
+      throw 'A canonical UTC timestamp is required.'
+    }
+    return $Value
+  }
+  if ($Value -is [DateTime]) {
+    if ($Value.Kind -ne [DateTimeKind]::Utc) {
+      throw 'A canonical UTC timestamp is required.'
+    }
+    return [DateTimeOffset]::new($Value)
+  }
+  if ($Value -isnot [string]) {
+    throw 'A canonical UTC timestamp is required.'
+  }
+
+  if ($Value -notmatch `
+      '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$') {
+    throw 'A canonical UTC timestamp is required.'
+  }
+  try {
+    [DateTimeOffset]::Parse(
+      $Value,
+      [Globalization.CultureInfo]::InvariantCulture,
+      [Globalization.DateTimeStyles]::RoundtripKind
+    )
+  } catch {
+    throw 'A canonical UTC timestamp is required.'
+  }
+}
+
 function Assert-TrackedEvidence {
   param(
     [Parameter(Mandatory)]$Record,
@@ -163,15 +197,15 @@ function Assert-LiveBackendReadback {
       }).Count -ne 0) {
     throw 'Fresh function-fleet readback contains an inactive function.'
   }
-  $finalizedAt = [DateTimeOffset]::Parse(
-    [string]$BackendAuthority.fleetFinalizedAtUtc
-  )
+  $finalizedAt = ConvertFrom-CanonicalUtcTimestamp `
+    $BackendAuthority.fleetFinalizedAtUtc
   if (@($authorityFunctions | Where-Object {
-        [DateTimeOffset]::Parse([string]$_.updateTime) -gt $finalizedAt
+        (ConvertFrom-CanonicalUtcTimestamp $_.updateTime) `
+          -gt $finalizedAt
       }).Count -ne 0) {
     throw 'Authority-function deployment changed after the admitted fleet finalization.'
   }
-  $capturedAt = [DateTimeOffset]::Parse([string]$Receipt.capturedAtUtc)
+  $capturedAt = ConvertFrom-CanonicalUtcTimestamp $Receipt.capturedAtUtc
   $age = [DateTimeOffset]::UtcNow - $capturedAt
   if ($age.TotalMinutes -lt -5 -or $age.TotalHours -gt 12) {
     throw 'Function-fleet readback is not fresh for this campaign.'

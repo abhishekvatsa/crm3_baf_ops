@@ -55,6 +55,8 @@ the repository.
    separation, and binds a fresh function-fleet readback. The readback must
    retain the deployed Firebase source hash for every authority function so the
    collector can prove that all four surfaces share one admitted deployment.
+   Fleet-finalization, function-update and receipt-capture timestamps are
+   canonical UTC values parsed independently of the operator machine's locale.
 2. The separate Admin revokes the subject through User Management.
    `CaptureRevoked` must observe **Awaiting Approval** in the original physical
    app process.
