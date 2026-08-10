@@ -198,6 +198,8 @@ function normalizeFunctions(rawFunctions, projectId, region) {
       name,
       state: record.state ?? null,
       environment: record.environment ?? null,
+      firebaseFunctionsHash:
+        record.labels?.["firebase-functions-hash"] ?? null,
       serviceAccountEmail,
       runService: runService.length === 0 ? null : runService,
       uri: typeof uri === "string" && uri.startsWith("https://") ? uri : null,
@@ -770,6 +772,7 @@ module.exports = {
   accountEmailMap,
   adjudicateReadback,
   expectedProjectRoles,
+  normalizeFunctions,
   parseArgs,
   phaseRequiredNames,
   projectRolesByIdentity,

@@ -116,6 +116,16 @@ void main() {
         File(
           'tools/release/Invoke-Build8F4AuthorityNegativeCampaign.ps1',
         ).readAsStringSync();
+    final fleetCollector =
+        File(
+          'tools/release/collectFunctionFleetRuntimeIdentityReadback.js',
+        ).readAsStringSync();
+
+    expect(
+      fleetCollector,
+      contains('record.labels?.["firebase-functions-hash"] ?? null'),
+    );
+    expect(fleetCollector, contains('normalizeFunctions,'));
 
     for (final required in <String>[
       "'Preflight'",

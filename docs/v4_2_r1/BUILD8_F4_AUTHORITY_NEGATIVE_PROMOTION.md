@@ -52,7 +52,9 @@ the repository.
 
 1. `Preflight` verifies both installed APKs byte-for-byte, confirms device
    separation, captures the subject's exact role preimage, checks SI/Admin UI
-   separation, and binds a fresh function-fleet readback.
+   separation, and binds a fresh function-fleet readback. The readback must
+   retain the deployed Firebase source hash for every authority function so the
+   collector can prove that all four surfaces share one admitted deployment.
 2. The separate Admin revokes the subject through User Management.
    `CaptureRevoked` must observe **Awaiting Approval** in the original physical
    app process.
