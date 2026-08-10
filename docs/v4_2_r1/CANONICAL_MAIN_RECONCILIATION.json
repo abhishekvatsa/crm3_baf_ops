@@ -1493,9 +1493,9 @@
     {
       "path": "lib/features/directives/providers/operational_directive_provider.dart",
       "canonicalSha256": "3FABB196E495ACEBF304CA5E644E278E47AD5364770F6BEE5F3635F59EBECC08",
-      "candidateSha256": "1889CEE3A256CAB3093C1130E48F19CFEA2733953EE5D08BF9D550FE30C4970B",
+      "candidateSha256": "6373F5F94D219F10E35BDFDD922AB11404694BC1293E1A06C6A088C40D0C298F",
       "canonicalBytes": 51726,
-      "candidateBytes": 52029,
+      "candidateBytes": 48321,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

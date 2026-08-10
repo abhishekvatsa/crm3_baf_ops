@@ -7439,6 +7439,18 @@ a05_baf_test = text("test/a05_baf_knowledge_integrity_test.dart")
 a05_decision_10 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_10.md"
 )
+a05_directive_reader = text(
+    "lib/features/directives/data/remote_operational_directive_reader.dart"
+)
+a05_directive_provider = text(
+    "lib/features/directives/providers/operational_directive_provider.dart"
+)
+a05_directive_test = text(
+    "test/a05_operational_directive_integrity_test.dart"
+)
+a05_decision_11 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_11.md"
+)
 a05_timestamp_inventory_process = subprocess.run(
     [sys.executable, str(ROOT / "tools/v4/a05_persisted_timestamp_inventory.py")],
     cwd=ROOT,
@@ -7614,6 +7626,43 @@ check(
     and "13 classified decoder surfaces" in a05_decision_10
     and "durable counted quarantine and operator repair" in a05_decision_10
     and "does not inspect or mutate production documents" in a05_decision_10,
+)
+check(
+    "A-05 operational directives retain exact persisted authority",
+    "OperationalDirective readRemoteOperationalDirective(" in a05_directive_reader
+    and "must match the document ID" in a05_directive_reader
+    and "must match createdByUid" in a05_directive_reader
+    and "readRequiredPersistedEnum(" in a05_directive_reader
+    and a05_directive_reader.count("readRequiredPersistedBool(") == 3
+    and "readRequiredPersistedInt(" in a05_directive_reader
+    and "assetType and assetNumber must be present together"
+        in a05_directive_reader
+    and "acknowledgement actor and timestamp must be present together"
+        in a05_directive_reader
+    and "closure actor and timestamp must be present together"
+        in a05_directive_reader
+    and "must be present exactly when isDeleted is true"
+        in a05_directive_reader
+    and "readOptionalJsonObject(" in a05_directive_reader
+    and "deleted directives require deletion actor authority"
+        in a05_directive_reader
+    and "readRemoteOperationalDirective(" in a05_directive_provider
+    and "'firestoreId': firestoreId" in a05_directive_provider
+    and "_normalizeDirectiveFromRemote" not in a05_directive_provider
+    and "_enumByNameOr" not in a05_directive_provider
+    and "_directiveIntOrNull" not in a05_directive_provider
+    and "every authority-bearing field is required" in a05_directive_test
+    and "unknown enums and scalar coercions fail closed" in a05_directive_test
+    and "malformed optional lists fail instead of disappearing"
+        in a05_directive_test
+    and "malformed present metadata JSON fails closed" in a05_directive_test
+    and "incomplete or contradictory lifecycle state fails closed"
+        in a05_directive_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_11
+    and "writer now includes the" in a05_decision_11
+    and "exact `firestoreId`" in a05_decision_11
+    and "durable counted quarantine and operator repair" in a05_decision_11
+    and "does not inspect or mutate production documents" in a05_decision_11,
 )
 check(
     "A-05 persisted-state tranche fails closed without claiming finding closure",
