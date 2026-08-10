@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "approvalClass": "CONTROLLED_BUILD8_F4_AUTHORITY_NEGATIVE_EVIDENCE",
+  "recordedAtUtc": "2026-08-10T15:15:00.000Z",
+  "approvalAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "authoringBaselineCommit": "a0a0c7d8b7e854bf37e97c04e3fbaba32c7f7b24",
+    "authoringBaselineTree": "60dbc6ac008bbef83640ac54e3cc84efc076d7ce",
+    "effectiveOnlyAfterMergedToCleanMain": true,
+    "priorPhysicalPromotion": "release/approvals/build-6-f4-physical-device-execution-promotion.json",
+    "priorPhysicalPromotionSha256": "39199AF090789F8A78F4372E8D05F6DBDEACAB635C9256F40B5DA3033312DFC1"
+  },
+  "adjudicatedPrerequisites": {
+    "provedCriteria": [
+      "approved sign-in",
+      "sync marker",
+      "offline/reconnect",
+      "weak-network through the accepted bounded three-cycle intermittent-connectivity method"
+    ],
+    "remainingCriteria": [
+      "revocation next-operation denial",
+      "wrong-role denials"
+    ],
+    "evidence": [
+      {
+        "path": "release/evidence/build-8-f4-sync-marker-adjudication.json",
+        "sha256": "A165DFD44ED2B2BE9DDC27F20D4D982585EA7C0DC5749915BEE1C545DFAB5F5C"
+      },
+      {
+        "path": "release/evidence/build-8-f4-offline-reconnect-adjudication.json",
+        "sha256": "95A5B0C0524B98104E47A69EDA1EFC7D827D9A5E8125042F83C20A742D7A0394"
+      },
+      {
+        "path": "release/evidence/build-8-f4-intermittent-connectivity-adjudication.json",
+        "sha256": "45B90B3F0C3D711FEA82B3514669B0C25FEDD2EF320AF4872EC8B102535678F6"
+      }
+    ]
+  },
+  "artifactAuthority": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b8",
+    "versionName": "1.0.0-rc.1",
+    "versionCode": 8,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "sourceCommit": "731a02980d38e4e3a8f61ff2bca74a1e85771478",
+    "governedPackageName": "crm3-baf-ops-1.0.0-rc.1-b8-GOVERNED-PACKAGE.zip",
+    "governedPackageSha256": "75362F9875CC5067012B4A5768720CB4AE0AD2C6A94B38C1F174E0FD1E1CA91F",
+    "apkEntry": "crm3-baf-ops-1.0.0-rc.1-b8-release.apk",
+    "apkSha256": "7F6CD741431230689193A0DD9505918B2E865C0A500649B7F242EA4747303CCD",
+    "signerCertificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "finalizationEvidence": "release/evidence/build-8-finalization-closure.json",
+    "finalizationEvidenceSha256": "9DA20D9997DC11D305317F4A594F3A139E9AC2FF3111523FDD4E288C0D31B446"
+  },
+  "backendAuthority": {
+    "deployedFleetEvidence": "release/evidence/s01-d01-h2-runtime-identity-live-finalization.json",
+    "deployedFleetEvidenceSha256": "B9862804EA98080FC4BCD74DC92717C0D47A3DEE8A8DD5B17F20A23E584FC5FA",
+    "deployedFleetCommit": "bdc5c6ed870e7f947c40ea053cd587a56d77d48a",
+    "fleetFinalizedAtUtc": "2026-08-04T15:03:41.351Z",
+    "deployedFunctionCount": 14,
+    "governedAuthorityWriter": "mutateUserAuthority",
+    "serverDenialWitnesses": [
+      "functions/test/publishedTemplateAssignment.test.js: operations assignment is permission-denied",
+      "functions/test/plannedJobClosure.test.js: operations completion is permission-denied before execution/module reads",
+      "functions/test/maintenanceWorkflow.test.js: operations finalize/reconcile commands are permission-denied"
+    ],
+    "liveReadbackMustBeReconfirmedBeforeAuthorityMutation": true
+  },
+  "runtimeTopology": {
+    "subject": {
+      "kind": "PHYSICAL_ANDROID_DEVICE",
+      "artifact": "exact governed Build 8 APK",
+      "identity": "approved SI, not Admin",
+      "applicationProcessMustSurviveAllAuthorityTransitions": true
+    },
+    "operator": {
+      "kind": "ANDROID_VIRTUAL_DEVICE",
+      "artifact": "exact governed Build 8 APK",
+      "identity": "different approved Admin",
+      "purpose": "invoke only the app User Management surface backed by mutateUserAuthority"
+    },
+    "subjectAndOperatorMustBeDifferentFirebaseIdentities": true,
+    "rawIdentityRetained": false
+  },
+  "phaseOrder": [
+    "Preflight",
+    "CaptureRevoked",
+    "CaptureRevocationRestored",
+    "CaptureWrongRole",
+    "CaptureFinalRestoration"
+  ],
+  "phaseRequirements": {
+    "Preflight": [
+      "clean tracked main equals freshly fetched origin/main",
+      "physical subject and emulator operator are simultaneously attached and distinct",
+      "both devices carry byte-exact governed Build 8",
+      "subject is approved SI and not Admin; operator is a different approved Admin",
+      "subject exact approval and role preimage is captured before mutation",
+      "live function-fleet authority is reconfirmed"
+    ],
+    "CaptureRevoked": [
+      "separate Admin uses the Build 8 User Management UI and governed callable to revoke the subject",
+      "subject reaches Awaiting Approval without force-stop, relaunch, reinstall or data clear",
+      "the subject process identity matches preflight",
+      "no privileged application surface remains reachable"
+    ],
+    "CaptureRevocationRestored": [
+      "separate Admin uses a distinct governed APPROVE request",
+      "subject returns to its approved SI surface in the same process",
+      "the exact captured role preimage is restored before continuing"
+    ],
+    "CaptureWrongRole": [
+      "separate Admin uses a distinct governed REPLACE_ROLES request with operations only",
+      "the same physical process loses Administration, Template authoring, Legacy template publisher, Knowledge governance and Support diagnostics",
+      "the physical live-role witness is combined only with exact deployed server-denial tests; no synthetic production mutation is attempted"
+    ],
+    "CaptureFinalRestoration": [
+      "separate Admin restores the exact captured approval and role preimage through a distinct governed request",
+      "the subject recovers its approved SI non-Admin surfaces in the same process",
+      "operator remains an approved Admin",
+      "final receipt remains non-closing pending independent evidence adjudication"
+    ]
+  },
+  "wrongRoleCompositeEvidencePolicy": {
+    "physicalDeviceProves": [
+      "live user-authority propagation without process restart",
+      "operations-only capability representation",
+      "absence of Admin and SI-only surfaces"
+    ],
+    "deployedBackendEvidenceProves": [
+      "operations cannot assign a published template",
+      "operations cannot complete a planned job",
+      "operations cannot invoke Admin/SI-only maintenance workflow commands"
+    ],
+    "reasonForCompositeMethod": "Build 8 exposes no harmless SI-only server mutation whose successful authorization would be guaranteed zero-write. A synthetic business write is less safe and less representative than combining the physical authority-propagation witness with exact deployed denial regressions.",
+    "mayClaimLivePhysicalMutationDenial": false,
+    "mayClaimWrongRoleCriterionReadyForAdjudication": true
+  },
+  "authorizedOperations": [
+    "read device properties, installed package bytes and privacy-minimized UI hierarchy from the two exact targets",
+    "use the separate Admin's production-signed Build 8 User Management UI for one revoke, one approve and two exact role-replacement/restoration requests",
+    "read minimum governed authority receipts, audit evidence and live function metadata",
+    "write append-only privacy-minimized campaign receipts outside the repository"
+  ],
+  "prohibitedOperations": [
+    "direct Firestore, Admin SDK, REST or console authority writes",
+    "synthetic production tickets, workflows, jobs, templates, abnormalities or other business records",
+    "mint or retain a subject token, raw UID, email, account name, ADB serial, Android ID or access token",
+    "clear data, uninstall, reinstall, force-stop or relaunch the physical subject app during the authority sequence",
+    "leave the subject revoked, operations-only or with any role set different from the exact preflight state",
+    "continue from CaptureRevoked unless revocation restoration passes",
+    "continue from CaptureWrongRole unless final exact restoration passes",
+    "deploy Firebase, Rules, Functions, IAM, App Check or distribution configuration",
+    "claim a live server mutation denial that was not executed on the physical device",
+    "close STAGE2D-F4, close P-07 or authorize pilot handout from collector output alone"
+  ],
+  "privacyBoundary": {
+    "rawUiRetained": false,
+    "rawDeviceIdentifiersRetained": false,
+    "rawAccountIdentifiersRetained": false,
+    "tokensRetained": false,
+    "businessPayloadRetained": false,
+    "hashesAndBooleanOutcomesOnly": true
+  },
+  "programmeBoundary": {
+    "stage2dF4ExecutionAuthorized": true,
+    "stage2dF4EvidenceMayBeCreated": true,
+    "stage2dF4ClosureAuthorized": false,
+    "p07ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "distributionAuthorized": false,
+    "separateEvidenceAdjudicationRequired": true
+  }
+}
