@@ -7999,6 +7999,106 @@ check(
         == "NOT_AUTHORIZED",
 )
 
+build8_f4_authority_promotion = data(
+    "release/approvals/build-8-f4-authority-negative-promotion.json"
+)
+build8_f4_authority_collector = text(
+    "tools/release/Invoke-Build8F4AuthorityNegativeCampaign.ps1"
+)
+build8_f4_authority_doc = text(
+    "docs/v4_2_r1/BUILD8_F4_AUTHORITY_NEGATIVE_PROMOTION.md"
+)
+build8_f4_authority_test = text(
+    "test/build8_f4_authority_negative_promotion_contract_test.dart"
+)
+build8_f4_gate = next(
+    record
+    for record in programme_ledger.get("programmeGates", [])
+    if record.get("gateId") == "STAGE2D-F4"
+)
+check(
+    "Build 8 F4 authority-negative campaign is two-session, restorative and non-closing",
+    build8_f4_authority_promotion.get("approvalClass")
+        == "CONTROLLED_BUILD8_F4_AUTHORITY_NEGATIVE_EVIDENCE"
+    and build8_f4_authority_promotion.get(
+        "adjudicatedPrerequisites", {}
+    ).get("remainingCriteria")
+        == ["revocation next-operation denial", "wrong-role denials"]
+    and build8_f4_authority_promotion.get("artifactAuthority", {}).get(
+        "versionCode"
+    ) == 8
+    and build8_f4_authority_promotion.get("artifactAuthority", {}).get(
+        "apkSha256"
+    ) == "7F6CD741431230689193A0DD9505918B2E865C0A500649B7F242EA4747303CCD"
+    and build8_f4_authority_promotion.get("runtimeTopology", {}).get(
+        "subject", {}
+    ).get("kind") == "PHYSICAL_ANDROID_DEVICE"
+    and build8_f4_authority_promotion.get("runtimeTopology", {}).get(
+        "operator", {}
+    ).get("kind") == "ANDROID_VIRTUAL_DEVICE"
+    and build8_f4_authority_promotion.get("backendAuthority", {}).get(
+        "fleetFinalizedAtUtc"
+    ) == "2026-08-04T15:03:41.351Z"
+    and build8_f4_authority_promotion.get(
+        "wrongRoleCompositeEvidencePolicy", {}
+    ).get("mayClaimLivePhysicalMutationDenial") is False
+    and build8_f4_authority_promotion.get(
+        "wrongRoleCompositeEvidencePolicy", {}
+    ).get("mayClaimWrongRoleCriterionReadyForAdjudication") is True
+    and build8_f4_authority_promotion.get("programmeBoundary", {}).get(
+        "stage2dF4ClosureAuthorized"
+    ) is False
+    and build8_f4_authority_promotion.get("programmeBoundary", {}).get(
+        "p07ClosureAuthorized"
+    ) is False
+    and build8_f4_authority_promotion.get("programmeBoundary", {}).get(
+        "pilotHandoutAuthorized"
+    ) is False
+    and all(
+        phase in build8_f4_authority_collector
+        for phase in [
+            "'Preflight'",
+            "'CaptureRevoked'",
+            "'CaptureRevocationRestored'",
+            "'CaptureWrongRole'",
+            "'CaptureFinalRestoration'",
+        ]
+    )
+    and "Same physical application process" in build8_f4_authority_collector
+    and "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL"
+        in build8_f4_authority_collector
+    and "Authority functions do not share one admitted deployed source."
+        in build8_f4_authority_collector
+    and "Authority-function deployment changed after the admitted fleet finalization."
+        in build8_f4_authority_collector
+    and "$ConfirmOperationsOnlyRoleSet" in build8_f4_authority_collector
+    and "restorationRequiredBeforeContinuation = $true"
+        in build8_f4_authority_collector
+    and "restorationRequiredBeforeFinalPass = $true"
+        in build8_f4_authority_collector
+    and "livePhysicalMutationDenialClaimed = $false"
+        in build8_f4_authority_collector
+    and "syntheticProductionMutationAttempted = $false"
+        in build8_f4_authority_collector
+    and "physicalCapabilityProfile = 'OPERATIONS_ONLY_SURFACES'"
+        in build8_f4_authority_collector
+    and "operatorConfirmedRoleProfile = @('operations')"
+        in build8_f4_authority_collector
+    and "stage2dF4Closed = $false" in build8_f4_authority_collector
+    and "pilotHandoutAuthorized = $false" in build8_f4_authority_collector
+    and "firebase deploy" not in build8_f4_authority_collector.lower()
+    and "gcloud " not in build8_f4_authority_collector.lower()
+    and "Why the wrong-role proof is composite" in build8_f4_authority_doc
+    and "authority-negative collector is byte-bound"
+        in build8_f4_authority_test
+    and build8_f4_gate.get("currentStatus") == "OPEN"
+    and build8_f4_gate.get("evidence") == []
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F4"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
+)
+
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
 if FAIL:
     for name, detail in FAIL:
