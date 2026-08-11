@@ -941,17 +941,17 @@
     {
       "path": "lib/core/services/isar_schema_guard_io.dart",
       "canonicalSha256": "1D4B9B636F8735060B71D6EF132103EB66F75A35583F33853050339802B3E0D7",
-      "candidateSha256": "6D034B46AF17C1B9C42621C362EDE5A851B854168B1F270BB26A578B380766CB",
+      "candidateSha256": "4BEA96F929E4B6D80531D421630C7BC452A1AFB0744085DAAFE06FAD5AC90F65",
       "canonicalBytes": 1271,
-      "candidateBytes": 2016,
+      "candidateBytes": 2965,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/core/services/isar_schema_guard_stub.dart",
       "canonicalSha256": "0F98D49C1917040736B7666CD8FDA92A226C5931A260DCD0F2008EFE9AE8CD90",
-      "candidateSha256": "E0EC632AC746535B03D6B2440771E7275C16D043965A64EF0D148D42A411B456",
+      "candidateSha256": "C7BF9F852C9414A753EF2A2E47F4608D19795A9C73234AD3EC049E979EEC84DC",
       "canonicalBytes": 391,
-      "candidateBytes": 535,
+      "candidateBytes": 773,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1301,9 +1301,9 @@
     {
       "path": "lib/features/admin/presentation/local_diagnostics_screen.dart",
       "canonicalSha256": "6E59F2DA4062137E4D50F5FA8AA19A2C20A9AB9CE06EB7A8662EA3A68D17A42F",
-      "candidateSha256": "3F4ABAF38C659641B75CA78B2D15837C5F0574C1014A4363827E43510813B4A5",
+      "candidateSha256": "81C304883B1CE8A13A44A83FDCD4482FF983C28EF4450A33F4A77DA1CB8B42E0",
       "canonicalBytes": 51571,
-      "candidateBytes": 51596,
+      "candidateBytes": 55280,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2369,9 +2369,9 @@
     {
       "path": "lib/main.dart",
       "canonicalSha256": "6DE20D01D9D00FAA761B6231101DD873CDB9A442194FAB2691E7B34809B87A97",
-      "candidateSha256": "C129AC000B3E261B1B665838BC6C0058219A9DB3FBF473F33E86281C3C956FFA",
+      "candidateSha256": "0A1DCC8768FC76CCB4F534402E35B9D921466CFFE5772018BC0DDA1FFB98F065",
       "canonicalBytes": 41433,
-      "candidateBytes": 48616,
+      "candidateBytes": 49680,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2817,9 +2817,9 @@
     {
       "path": "test/local_diagnostics_visibility_contract_test.dart",
       "canonicalSha256": "A6F67C233D49EBBB0E5FF9A955049AF2D19B96477F8A47DFB989CBE7142B5AD7",
-      "candidateSha256": "3FD74DC8EEA238D75E5C019148115E3547814CFA2AA4B15B61FEC421E1F93D56",
+      "candidateSha256": "CC009FE4C325AC18A75866EF7FE046E81499B1088605F85334EE894A4E921654",
       "canonicalBytes": 2769,
-      "candidateBytes": 2850,
+      "candidateBytes": 3478,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

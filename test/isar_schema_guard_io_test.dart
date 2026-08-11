@@ -77,4 +77,51 @@ void main() {
     expect(legacyFingerprint['present'], isFalse);
     expect(legacyFingerprint['value'], isNull);
   });
+
+  test('privacy-safe installed-store inventory performs no marker writes', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'crm3_isar_inventory_',
+    );
+    try {
+      await File('${directory.path}/default.isar').writeAsBytes(<int>[1, 2, 3]);
+      const generation = '123e4567-e89b-42d3-a456-426614174000';
+      final marker = const IsarSchemaProvenanceMarker(
+        state: IsarSchemaMarkerState.committed,
+        schemaVersion: IsarSchemaMigrator.currentSchemaVersion,
+        schemaFingerprint: IsarSchemaMigrator.currentSchemaFingerprint,
+        databaseGenerationId: generation,
+        origin: IsarSchemaMarkerOrigin.freshInstall,
+        sourceSchemaVersion: null,
+        sourceSchemaFingerprint: null,
+      ).encode();
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        SharedPreferencesIsarSchemaProvenanceStore.canonicalMarkerKey: marker,
+      });
+      final before = await SharedPreferences.getInstance();
+      final beforeKeys = before.getKeys();
+      final beforeMarker = before.getString(
+        SharedPreferencesIsarSchemaProvenanceStore.canonicalMarkerKey,
+      );
+
+      final inventory = await readPrivacySafeIsarProvenanceInventory(
+        databaseDirectoryPath: directory.path,
+      );
+
+      final after = await SharedPreferences.getInstance();
+      expect(inventory.overallDisposition, 'EXISTING_STORE_CANONICAL_CURRENT');
+      expect(inventory.hasDurableStore, isTrue);
+      expect(inventory.toDiagnosticsText(), isNot(contains(generation)));
+      expect(after.getKeys(), beforeKeys);
+      expect(
+        after.getString(
+          SharedPreferencesIsarSchemaProvenanceStore.canonicalMarkerKey,
+        ),
+        beforeMarker,
+      );
+    } finally {
+      if (await directory.exists()) {
+        await directory.delete(recursive: true);
+      }
+    }
+  });
 }

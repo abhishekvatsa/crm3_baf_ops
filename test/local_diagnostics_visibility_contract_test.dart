@@ -46,6 +46,9 @@ void main() {
         expect(source, contains("title: 'Template governance inventory'"));
         expect(source, contains('LocalGovernanceDiagnosticsSummary'));
         expect(source, contains('Firestore-only governance source'));
+        expect(source, contains('IsarInstalledStoreProvenanceInventory'));
+        expect(source, contains("title: 'Local database provenance'"));
+        expect(source, contains("'localDatabaseProvenance':"));
       },
     );
 
@@ -57,6 +60,15 @@ void main() {
 
       expect(source, contains('actor.canManageTemplateGovernance'));
       expect(source, contains('Admin/SI access required'));
+      expect(
+        source.indexOf('actor.canManageTemplateGovernance'),
+        lessThan(source.indexOf('ref.watch(localDiagnosticsReportProvider)')),
+      );
+      expect(
+        source.indexOf('await ref.watch(currentAppUserProvider.future)'),
+        lessThan(source.indexOf('readPrivacySafeIsarProvenanceInventory()')),
+      );
+      expect(source, contains('readStartupPreOpenIsarProvenanceInventory()'));
       expect(
         source,
         contains(

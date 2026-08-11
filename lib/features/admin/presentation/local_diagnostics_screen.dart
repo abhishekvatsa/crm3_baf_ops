@@ -11,7 +11,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/sync_status_provider.dart';
 import '../../../core/release/app_build_identity.dart';
 import '../../../core/release/backend_release_identity_service.dart';
+import '../../../core/services/isar_installed_store_provenance.dart';
 import '../../../core/services/isar_production_recovery.dart';
+import '../../../core/services/isar_schema_guard.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import 'local_diagnostics_exporter.dart';
@@ -34,6 +36,11 @@ import '../../../core/persistence/app_database.dart' as app_main;
 final localDiagnosticsReportProvider = FutureProvider.autoDispose<
   LocalDiagnosticsReport
 >((ref) async {
+  final actor = await ref.watch(currentAppUserProvider.future);
+  if (actor == null || !actor.canManageTemplateGovernance) {
+    throw StateError('Admin/SI access is required for local diagnostics.');
+  }
+
   final syncStatus = ref.watch(syncStatusProvider);
   final syncHealth = ref.watch(syncRunHealthProvider);
   final supportSnapshot = LocalDiagnosticsSupportSnapshot.capture(
@@ -49,8 +56,13 @@ final localDiagnosticsReportProvider = FutureProvider.autoDispose<
     return LocalDiagnosticsReport.webUnavailable(
       supportSnapshot: supportSnapshot,
       releaseSnapshot: releaseSnapshot,
+      provenanceInventory: IsarInstalledStoreProvenanceInventory.unsupported(),
     );
   }
+
+  final provenanceInventory =
+      readStartupPreOpenIsarProvenanceInventory() ??
+      await readPrivacySafeIsarProvenanceInventory();
 
   final rows = <LocalDiagnosticsRow>[
     await _row(
@@ -217,6 +229,7 @@ final localDiagnosticsReportProvider = FutureProvider.autoDispose<
     governanceSummary: governanceSummary,
     supportSnapshot: supportSnapshot,
     releaseSnapshot: releaseSnapshot,
+    provenanceInventory: provenanceInventory,
   );
 });
 
@@ -303,6 +316,7 @@ class LocalDiagnosticsReport {
   final LocalGovernanceDiagnosticsSummary? governanceSummary;
   final LocalDiagnosticsSupportSnapshot supportSnapshot;
   final LocalReleaseDiagnosticsSnapshot releaseSnapshot;
+  final IsarInstalledStoreProvenanceInventory provenanceInventory;
   final bool isWebUnavailable;
 
   const LocalDiagnosticsReport({
@@ -315,6 +329,7 @@ class LocalDiagnosticsReport {
     required this.collectionCount,
     required this.supportSnapshot,
     required this.releaseSnapshot,
+    required this.provenanceInventory,
     this.governanceSummary,
     this.isWebUnavailable = false,
   });
@@ -322,6 +337,7 @@ class LocalDiagnosticsReport {
   factory LocalDiagnosticsReport.webUnavailable({
     required LocalDiagnosticsSupportSnapshot supportSnapshot,
     required LocalReleaseDiagnosticsSnapshot releaseSnapshot,
+    required IsarInstalledStoreProvenanceInventory provenanceInventory,
   }) {
     return LocalDiagnosticsReport(
       generatedAt: DateTime.now(),
@@ -333,6 +349,7 @@ class LocalDiagnosticsReport {
       collectionCount: 0,
       supportSnapshot: supportSnapshot,
       releaseSnapshot: releaseSnapshot,
+      provenanceInventory: provenanceInventory,
       isWebUnavailable: true,
     );
   }
@@ -392,6 +409,9 @@ class LocalDiagnosticsReport {
           )
           ..writeln('platform: ${supportSnapshot.platformLabel}')
           ..writeln('')
+          ..writeln('Local database provenance:')
+          ..writeln(provenanceInventory.toDiagnosticsText())
+          ..writeln('')
           ..writeln('Release identity:')
           ..writeln(releaseSnapshot.toDiagnosticsText())
           ..writeln('')
@@ -434,6 +454,7 @@ class LocalDiagnosticsReport {
       'collectionsReported': collectionCount,
       'support': supportSnapshot.toMap(),
       'releaseIdentity': releaseSnapshot.toMap(),
+      'localDatabaseProvenance': provenanceInventory.toMap(),
       if (governanceSummary != null)
         'governanceSummary': governanceSummary!.toMap(),
       'rows': rows
@@ -766,7 +787,6 @@ class LocalDiagnosticsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final actorAsync = ref.watch(currentAppUserProvider);
-    final reportAsync = ref.watch(localDiagnosticsReportProvider);
 
     return actorAsync.when(
       loading:
@@ -783,6 +803,8 @@ class LocalDiagnosticsScreen extends ConsumerWidget {
                 'Only approved Admin/SI users can open local diagnostics inventory.',
           );
         }
+
+        final reportAsync = ref.watch(localDiagnosticsReportProvider);
 
         return Scaffold(
           backgroundColor: BafColors.background,
@@ -930,6 +952,10 @@ class _DiagnosticsReportView extends StatelessWidget {
         const SizedBox(height: BafSpacing.lg),
         _DiagnosticsSupportPanel(snapshot: report.supportSnapshot),
         const SizedBox(height: BafSpacing.lg),
+        _DatabaseProvenanceDiagnosticsPanel(
+          inventory: report.provenanceInventory,
+        ),
+        const SizedBox(height: BafSpacing.lg),
         _ReleaseIdentityDiagnosticsPanel(snapshot: report.releaseSnapshot),
         if (report.governanceSummary != null) ...[
           const SizedBox(height: BafSpacing.lg),
@@ -1019,6 +1045,76 @@ class _DiagnosticsSummary extends StatelessWidget {
                 report.supportSnapshot.syncIsRunning
                     ? BafColors.warning
                     : BafColors.sync,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DatabaseProvenanceDiagnosticsPanel extends StatelessWidget {
+  final IsarInstalledStoreProvenanceInventory inventory;
+
+  const _DatabaseProvenanceDiagnosticsPanel({required this.inventory});
+
+  @override
+  Widget build(BuildContext context) {
+    final generation = inventory.databaseGenerationSha256;
+    final generationLabel =
+        generation == null ? 'none' : '${generation.substring(0, 16)}...';
+
+    return _DiagnosticsPanel(
+      title: 'Local database provenance',
+      subtitle: inventory.overallDisposition,
+      icon: Icons.verified_user_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: BafSpacing.sm,
+            runSpacing: BafSpacing.sm,
+            children: [
+              _SummaryChip(
+                label: 'Canonical ${inventory.canonicalDisposition.wireName}',
+                icon: Icons.fingerprint_rounded,
+                color:
+                    inventory.canonicalFingerprintRecognized
+                        ? BafColors.success
+                        : BafColors.warning,
+              ),
+              _SummaryChip(
+                label:
+                    'Schema ${inventory.canonicalSchemaVersion ?? 'unknown'}',
+                icon: Icons.schema_rounded,
+                color: BafColors.planned,
+              ),
+              _SummaryChip(
+                label:
+                    inventory.requiresGovernedRecovery
+                        ? 'Recovery review required'
+                        : 'Provenance current',
+                icon:
+                    inventory.requiresGovernedRecovery
+                        ? Icons.report_problem_rounded
+                        : Icons.check_circle_rounded,
+                color:
+                    inventory.requiresGovernedRecovery
+                        ? BafColors.danger
+                        : BafColors.success,
+              ),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.md),
+          Text(
+            'Durable store: ${inventory.hasDurableStore ? 'present' : 'absent'}\n'
+            'Legacy marker: ${inventory.legacyDisposition.wireName}\n'
+            'Generation digest: $generationLabel\n'
+            'Reason: ${inventory.reasonCode ?? 'none'}',
+            style: const TextStyle(
+              color: BafColors.textSecondary,
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

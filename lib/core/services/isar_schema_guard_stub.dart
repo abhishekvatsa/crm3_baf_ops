@@ -1,5 +1,6 @@
 // FILE: lib/core/services/isar_schema_guard_stub.dart
 
+import 'isar_installed_store_provenance.dart';
 import 'isar_schema_migration.dart';
 
 Future<IsarSchemaOpenPreparation> ensureIsarSchemaBeforeOpen({
@@ -10,6 +11,11 @@ Future<IsarSchemaOpenPreparation> ensureIsarSchemaBeforeOpen({
     databaseDirectoryPath: databaseDirectoryPath,
     hasExistingLocalStore: false,
   );
+}
+
+Future<IsarInstalledStoreProvenanceInventory>
+readPrivacySafeIsarProvenanceInventory({String? databaseDirectoryPath}) async {
+  return IsarInstalledStoreProvenanceInventory.unsupported();
 }
 
 Future<String> readIsarSchemaProvenanceSnapshotJson() async {

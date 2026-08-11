@@ -2619,6 +2619,54 @@ check(
     and ".isar.lock" not in isar_guard,
 )
 
+isar_inventory = text("lib/core/services/isar_installed_store_provenance.dart")
+local_diagnostics = text(
+    "lib/features/admin/presentation/local_diagnostics_screen.dart"
+)
+isar_fixture_test = text("test/70k_isar_populated_migration_fixture_test.dart")
+isar_inventory_test = text("test/isar_installed_store_provenance_test.dart")
+recovery_source_tranche = text(
+    "docs/v4_2_r1/70K_LOCAL_DATABASE_RECOVERY_SOURCE_TRANCHE.md"
+)
+check(
+    "70K inventory and populated recovery fixtures are privacy-safe and exact",
+    all(marker in isar_inventory for marker in (
+        "EXISTING_STORE_UNMARKED_BLOCKED",
+        "EXISTING_STORE_LEGACY_PARTIAL_BLOCKED",
+        "CANONICAL_MARKER_MALFORMED_BLOCKED",
+        "EXISTING_STORE_PREPARED_RESTART_REQUIRED",
+        "EXISTING_STORE_CANONICAL_CURRENT",
+        "STORE_ABSENT_GENERATION_ROTATION_REQUIRED",
+        "rawMarkerValuesIncluded': false",
+        ".convert(utf8.encode(canonicalMarker.databaseGenerationId))",
+    ))
+    and "readPrivacySafeIsarProvenanceInventory" in isar_guard
+    and "preferences.set" not in isar_guard
+    and "canonicalSourceFingerprintRecognized" in isar_inventory
+    and "stored-schema-fingerprint-unrecognized" in isar_inventory
+    and "preserveStartupPreOpenIsarProvenanceInventory" in startup
+    and '"installedStoreProvenance": $installedStoreProvenance' in startup
+    and "readStartupPreOpenIsarProvenanceInventory()" in local_diagnostics
+    and local_diagnostics.index(
+        "await ref.watch(currentAppUserProvider.future)"
+    ) < local_diagnostics.index("readPrivacySafeIsarProvenanceInventory()")
+    and "'localDatabaseProvenance': provenanceInventory.toMap()"
+        in local_diagnostics
+    and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
+    and "repository-proven populated v1 migrates to v3" in isar_fixture_test
+    and "stored-schema-fingerprint-unrecognized" in isar_fixture_test
+    and "blocks a current target with unsupported migration ancestry"
+        in isar_inventory_test
+    and "preserves the startup pre-open inventory for later reporting"
+        in isar_inventory_test
+    and "durable restart rehearsal preserves generation" in isar_fixture_test
+    and "backup restores populated rows" in isar_fixture_test
+    and "isNot(contains(_generationId))" in isar_inventory_test
+    and "does not add a production v2 fingerprint" in recovery_source_tranche
+    and "does not by itself\nauthorize pilot handout or close `70K-RECOVERY`"
+        in recovery_source_tranche,
+)
+
 app_database_source = text("lib/core/persistence/app_database.dart")
 main_source = text("lib/main.dart")
 dart_import_cycle_test = text("test/dart_import_cycle_test.dart")
