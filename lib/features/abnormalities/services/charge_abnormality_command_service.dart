@@ -4,6 +4,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../data/abnormality_model.dart';
 
 const chargeAbnormalityCallableName = 'mutateChargeAbnormality';
@@ -286,15 +287,24 @@ class ChargeAbnormalityCommandService {
     }
     final version = data['version'];
     final auditId = data['auditId'];
-    final committedAt = DateTime.tryParse(
-      data['committedAt']?.toString() ?? '',
+    final committedAt = readRequiredPersistedDateTime(
+      data['committedAt'],
+      field: 'committedAt',
+      source: 'mutateChargeAbnormality/$expectedRequestId',
     );
+    if ((data['committedAt'] as String).trim() !=
+        committedAt.toUtc().toIso8601String()) {
+      throw PersistedDataFormatException(
+        field: 'committedAt',
+        source: 'mutateChargeAbnormality/$expectedRequestId',
+        detail: 'must be a canonical UTC ISO instant',
+      );
+    }
     final abnormalityRaw = data['abnormality'];
     if (version is! int ||
         version <= 0 ||
         auditId is! String ||
         auditId != 'server_charge_abnormality_$expectedRequestId' ||
-        committedAt == null ||
         data['idempotentReplay'] is! bool ||
         abnormalityRaw is! Map) {
       throw const ChargeAbnormalityMutationException(

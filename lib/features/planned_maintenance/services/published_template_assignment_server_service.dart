@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/job_module_model.dart';
 import '../data/job_template_model.dart';
@@ -77,23 +78,23 @@ class PublishedTemplateAssignmentServerResult {
   final List<JobModuleInstance> modules;
   final String requestId;
   final bool idempotentReplay;
-  final String? publicationAuditFirestoreId;
-  final DateTime? assignedAt;
+  final String publicationAuditFirestoreId;
+  final DateTime assignedAt;
 
   const PublishedTemplateAssignmentServerResult({
     required this.execution,
     required this.modules,
     required this.requestId,
     required this.idempotentReplay,
-    this.publicationAuditFirestoreId,
-    this.assignedAt,
+    required this.publicationAuditFirestoreId,
+    required this.assignedAt,
   });
 
   factory PublishedTemplateAssignmentServerResult.fromCallableData(
     Object? raw, {
     required String fallbackRequestId,
   }) {
-    if (raw is! Map) {
+    if (raw is! Map || raw['ok'] != true) {
       throw const FormatException(
         'Server assignment returned an invalid response object.',
       );
@@ -107,12 +108,17 @@ class PublishedTemplateAssignmentServerResult {
       );
     }
     final executionMap = Map<String, dynamic>.from(executionRaw);
-    final executionId =
-        _clean(executionMap['firestoreId']?.toString()) ??
-        _clean(map['executionId']?.toString());
-    if (executionId == null) {
+    final executionId = _requiredResponseText(
+      map['executionId'],
+      field: 'executionId',
+    );
+    final executionDocumentId = _requiredResponseText(
+      executionMap['firestoreId'],
+      field: 'execution.firestoreId',
+    );
+    if (executionDocumentId != executionId) {
       throw const FormatException(
-        'Server assignment returned a JobExecution without an identity.',
+        'Server assignment returned mismatched JobExecution identities.',
       );
     }
     final execution = JobExecution.fromMap(executionMap, executionId)
@@ -125,6 +131,7 @@ class PublishedTemplateAssignmentServerResult {
       );
     }
     final modules = <JobModuleInstance>[];
+    final moduleIds = <String>{};
     for (final rawModule in modulesRaw) {
       if (rawModule is! Map) {
         throw const FormatException(
@@ -132,10 +139,13 @@ class PublishedTemplateAssignmentServerResult {
         );
       }
       final moduleMap = Map<String, dynamic>.from(rawModule);
-      final moduleId = _clean(moduleMap['firestoreId']?.toString());
-      if (moduleId == null) {
-        throw const FormatException(
-          'Server assignment returned a module without an identity.',
+      final moduleId = _requiredResponseText(
+        moduleMap['firestoreId'],
+        field: 'modules.firestoreId',
+      );
+      if (!moduleIds.add(moduleId)) {
+        throw FormatException(
+          'Server assignment returned duplicate module identity $moduleId.',
         );
       }
       final module = JobModuleInstance.fromMap(moduleMap, moduleId)
@@ -148,7 +158,10 @@ class PublishedTemplateAssignmentServerResult {
       modules.add(module);
     }
 
-    final requestId = _clean(map['requestId']?.toString()) ?? fallbackRequestId;
+    final requestId = _requiredResponseText(
+      map['requestId'],
+      field: 'requestId',
+    );
     if (requestId != fallbackRequestId) {
       throw FormatException(
         'Server assignment request identity changed. Expected '
@@ -156,15 +169,41 @@ class PublishedTemplateAssignmentServerResult {
       );
     }
 
+    if (map['idempotentReplay'] is! bool) {
+      throw const FormatException(
+        'Server assignment returned an invalid replay flag.',
+      );
+    }
+    final publicationAuditId = _requiredResponseText(
+      map['publicationAuditId'],
+      field: 'publicationAuditId',
+    );
+    final assignedAt = readRequiredPersistedDateTime(
+      map['assignedAt'],
+      field: 'assignedAt',
+      source: 'assignPublishedTemplateVersion/$requestId',
+    );
+    if ((map['assignedAt'] as String).trim() !=
+        assignedAt.toUtc().toIso8601String()) {
+      throw PersistedDataFormatException(
+        field: 'assignedAt',
+        source: 'assignPublishedTemplateVersion/$requestId',
+        detail: 'must be a canonical UTC ISO instant',
+      );
+    }
+    if (!execution.createdAt.isAtSameMomentAs(assignedAt)) {
+      throw const FormatException(
+        'Server assignment timestamp did not match its JobExecution.',
+      );
+    }
+
     return PublishedTemplateAssignmentServerResult(
       execution: execution,
       modules: modules,
       requestId: requestId,
-      idempotentReplay: map['idempotentReplay'] == true,
-      publicationAuditFirestoreId: _clean(
-        map['publicationAuditId']?.toString(),
-      ),
-      assignedAt: _parseDateTime(map['assignedAt']),
+      idempotentReplay: map['idempotentReplay'] as bool,
+      publicationAuditFirestoreId: publicationAuditId,
+      assignedAt: assignedAt,
     );
   }
 }
@@ -279,18 +318,13 @@ String? _clean(String? value) {
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
 }
 
-DateTime? _parseDateTime(Object? value) {
-  if (value is DateTime) return value;
-  if (value is String) return DateTime.tryParse(value);
-  if (value is Map) {
-    final seconds = value['_seconds'] ?? value['seconds'];
-    final nanoseconds = value['_nanoseconds'] ?? value['nanoseconds'];
-    if (seconds is num) {
-      final micros =
-          seconds.toInt() * Duration.microsecondsPerSecond +
-          ((nanoseconds is num ? nanoseconds.toInt() : 0) ~/ 1000);
-      return DateTime.fromMicrosecondsSinceEpoch(micros, isUtc: true);
-    }
+String _requiredResponseText(Object? value, {required String field}) {
+  if (value is! String) {
+    throw FormatException('Server assignment returned invalid $field.');
   }
-  return null;
+  final cleaned = _clean(value);
+  if (cleaned == null) {
+    throw FormatException('Server assignment returned empty $field.');
+  }
+  return cleaned;
 }

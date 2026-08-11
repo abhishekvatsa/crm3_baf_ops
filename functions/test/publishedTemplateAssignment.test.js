@@ -634,6 +634,73 @@ describe("published TemplateVersion server assignment", () => {
     expect(fixture.writes).toHaveLength(writeCount);
   });
 
+  test("replay fails closed when assignment timestamp evidence is absent or corrupt", async () => {
+    const fixture = fakeAssignmentDb();
+    const first = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+      now: () => new Date("2026-06-19T11:00:00.000Z"),
+    });
+    const receiptPath =
+      `published_template_assignment_requests/${REQUEST_ID}`;
+    const executionPath = `job_executions/${first.executionId}`;
+    const receipt = fixture.store.get(receiptPath);
+    const execution = fixture.store.get(executionPath);
+
+    fixture.store.set(receiptPath, {...receipt, assignedAt: null});
+    fixture.store.set(executionPath, {...execution, createdAt: null});
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+    })).rejects.toMatchObject({
+      code: "data-loss",
+      details: {reasonCode: "request-assigned-at-missing"},
+    });
+
+    fixture.store.set(receiptPath, {...receipt, assignedAt: "not-a-date"});
+    fixture.store.set(executionPath, execution);
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+    })).rejects.toMatchObject({
+      code: "data-loss",
+      details: {
+        reasonCode: "request-assigned-at-invalid",
+        source: "receipt",
+      },
+    });
+
+    fixture.store.set(receiptPath, {
+      ...receipt,
+      assignedAt: "2026-06-19T11:00:01.000Z",
+    });
+    fixture.store.set(executionPath, execution);
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+    })).rejects.toMatchObject({
+      code: "data-loss",
+      details: {reasonCode: "request-assigned-at-mismatch"},
+    });
+
+    fixture.store.set(receiptPath, {...receipt, assignedAt: 20260619});
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture(),
+    })).rejects.toMatchObject({
+      code: "data-loss",
+      details: {
+        reasonCode: "request-assigned-at-invalid",
+        source: "receipt",
+      },
+    });
+  });
+
   test("same request ID with changed assignment meaning is rejected without writes", async () => {
     const fixture = fakeAssignmentDb();
     await assignPublishedTemplateVersionWithDb({

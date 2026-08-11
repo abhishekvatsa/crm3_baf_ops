@@ -196,6 +196,60 @@ function assertDocumentId(value: unknown, fieldName: string): string {
   return id;
 }
 
+function assertReplayAssignedAt(
+  receiptValue: unknown,
+  executionValue: unknown,
+): string {
+  const receiptPresent = receiptValue != null;
+  const executionPresent = executionValue != null;
+  if (!receiptPresent && !executionPresent) {
+    throw new AssignmentValidationError(
+      "data-loss",
+      "The completed assignment is missing its assignment timestamp.",
+      {reasonCode: "request-assigned-at-missing"},
+    );
+  }
+
+  const parse = (value: unknown, source: "receipt" | "execution"): Date => {
+    const candidate = cleanOptionalText(value);
+    const parsed = candidate == null ? null : new Date(candidate);
+    if (parsed == null || Number.isNaN(parsed.getTime())) {
+      throw new AssignmentValidationError(
+        "data-loss",
+        "The completed assignment has an invalid assignment timestamp.",
+        {reasonCode: "request-assigned-at-invalid", source},
+      );
+    }
+    if (parsed.toISOString() !== candidate) {
+      throw new AssignmentValidationError(
+        "data-loss",
+        "The completed assignment timestamp is not canonical UTC ISO evidence.",
+        {reasonCode: "request-assigned-at-invalid", source},
+      );
+    }
+    return parsed;
+  };
+
+  const receiptAssignedAt = receiptPresent
+    ? parse(receiptValue, "receipt")
+    : null;
+  const executionCreatedAt = executionPresent
+    ? parse(executionValue, "execution")
+    : null;
+  if (
+    receiptAssignedAt != null &&
+    executionCreatedAt != null &&
+    receiptAssignedAt.getTime() !== executionCreatedAt.getTime()
+  ) {
+    throw new AssignmentValidationError(
+      "data-loss",
+      "The completed assignment timestamp disagrees with its execution.",
+      {reasonCode: "request-assigned-at-mismatch"},
+    );
+  }
+  return (receiptAssignedAt ?? executionCreatedAt!).toISOString();
+}
+
 function assertPositiveSafeInteger(
   value: unknown,
   fieldName: string,
@@ -1815,10 +1869,10 @@ async function replayExistingAssignment(args: {
       requestData.publicationAuditId,
       "stored publicationAuditId",
     ),
-    assignedAt:
-      cleanOptionalText(requestData.assignedAt) ??
-      cleanOptionalText(execution.createdAt) ??
-      new Date(0).toISOString(),
+    assignedAt: assertReplayAssignedAt(
+      requestData.assignedAt,
+      execution.createdAt,
+    ),
     executionId,
     execution,
     modules,

@@ -152,6 +152,37 @@ void main() {
     expect(result.abnormality.isDeleted, isTrue);
   });
 
+  test(
+    'non-string or non-canonical committedAt evidence fails closed',
+    () async {
+      for (final invalid in <Object>[20260726, '2026-07-26T10:00:00Z']) {
+        final response = _response(
+          requestId: requestId,
+          operation: ChargeAbnormalityMutationOperation.update,
+        )..['committedAt'] = invalid;
+        final service = ChargeAbnormalityCommandService(
+          transport: _FakeTransport(response),
+        );
+
+        await expectLater(
+          service.update(
+            abnormality: _record(),
+            expectedVersion: 4,
+            reason: 'Corrected after Admin review',
+            requestId: requestId,
+          ),
+          throwsA(
+            isA<ChargeAbnormalityMutationException>().having(
+              (error) => error.reasonCode,
+              'reasonCode',
+              'abnormality-response-invalid',
+            ),
+          ),
+        );
+      }
+    },
+  );
+
   test('deterministic sync IDs are stable and operation-bound', () {
     final service = ChargeAbnormalityCommandService(
       transport: _FakeTransport(null),
