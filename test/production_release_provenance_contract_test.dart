@@ -251,6 +251,28 @@ void main() {
       expect(text, contains('crm3-android-preflight-placeholder.p12'));
       expect(
         text,
+        contains('flutter build apk --release --config-only --no-pub'),
+      );
+      expect(
+        text,
+        contains("grep -Fq 'dev.flutter.plugins.integration_test'"),
+      );
+      expect(
+        text.indexOf('flutter build apk --release --config-only --no-pub'),
+        lessThan(
+          text.indexOf("grep -Fq 'dev.flutter.plugins.integration_test'"),
+        ),
+      );
+      expect(
+        text.indexOf("grep -Fq 'dev.flutter.plugins.integration_test'"),
+        lessThan(
+          text.indexOf(
+            './gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace',
+          ),
+        ),
+      );
+      expect(
+        text,
         contains(
           './gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace',
         ),

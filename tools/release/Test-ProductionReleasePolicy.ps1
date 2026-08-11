@@ -1264,6 +1264,9 @@ foreach ($required in @(
   'Prove Android dependency configuration before reservation'
   'Prove production environment secrets before reservation'
   'crm3-android-preflight-placeholder.p12'
+  'flutter build apk --release --config-only --no-pub'
+  "grep -Fq 'dev.flutter.plugins.integration_test'"
+  'Release plugin registrant still contains integration_test.'
   './gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace'
   './gradlew :app:compileReleaseSources --no-daemon --stacktrace'
   'New-ProductionArtifact.ps1'
@@ -1299,6 +1302,20 @@ $androidPreflightSection = $workflow.Substring(
   $androidPreflightIndex,
   $environmentSecretPreflightIndex - $androidPreflightIndex
 )
+$releaseConfigIndex = $androidPreflightSection.IndexOf(
+  'flutter build apk --release --config-only --no-pub'
+)
+$registrantCheckIndex = $androidPreflightSection.IndexOf(
+  "grep -Fq 'dev.flutter.plugins.integration_test'"
+)
+$gradleDryRunIndex = $androidPreflightSection.IndexOf(
+  './gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace'
+)
+if ($releaseConfigIndex -lt 0 -or
+    $registrantCheckIndex -le $releaseConfigIndex -or
+    $gradleDryRunIndex -le $registrantCheckIndex) {
+  throw 'Android preflight does not prove release-only plugin configuration before Gradle.'
+}
 if ($androidPreflightSection -notmatch
     '(?m)^\s+\./gradlew :app:compileReleaseSources ' +
       '--no-daemon --stacktrace\r?\n\s+\)\s*$') {
