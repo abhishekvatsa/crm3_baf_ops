@@ -7346,6 +7346,7 @@ a05_tombstone_models = "\n".join(
         "lib/features/planned_maintenance/data/job_module_model.dart",
         "lib/features/planned_maintenance/data/job_template_model.dart",
         "lib/features/planned_maintenance/data/template_governance_model.dart",
+        "lib/features/planned_maintenance/data/remote_template_governance_reader.dart",
     )
 )
 a05_tombstone_provider_paths = (
@@ -7368,7 +7369,7 @@ a05_decision_5 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_5.md"
 )
 a05_timeline_template_model = text(
-    "lib/features/planned_maintenance/data/template_governance_model.dart"
+    "lib/features/planned_maintenance/data/remote_template_governance_reader.dart"
 )
 a05_timeline_registry_model = text(
     "lib/features/planned_maintenance/data/module_registry_model.dart"
@@ -7463,6 +7464,18 @@ a05_abnormality_provider = text(
 a05_abnormality_test = text("test/a05_abnormality_integrity_test.dart")
 a05_decision_12 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_12.md"
+)
+a05_template_governance_model = text(
+    "lib/features/planned_maintenance/data/template_governance_model.dart"
+)
+a05_template_governance_reader = text(
+    "lib/features/planned_maintenance/data/remote_template_governance_reader.dart"
+)
+a05_template_governance_test = text(
+    "test/a05_template_governance_integrity_test.dart"
+)
+a05_decision_13 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_13.md"
 )
 a05_timestamp_inventory_process = subprocess.run(
     [sys.executable, str(ROOT / "tools/v4/a05_persisted_timestamp_inventory.py")],
@@ -7720,6 +7733,48 @@ check(
     and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_12
     and "durable counted quarantine and operator repair" in a05_decision_12
     and "does not inspect or mutate production documents" in a05_decision_12,
+)
+check(
+    "A-05 template governance retains exact persisted and closure authority",
+    "readRemoteTemplatePackage(map, documentId: documentId)"
+        in a05_template_governance_model
+    and "readRemoteTemplateVersion(map, documentId: documentId)"
+        in a05_template_governance_model
+    and "readRemoteTemplatePublishAudit(map, documentId: documentId)"
+        in a05_template_governance_model
+    and "TemplatePackage readRemoteTemplatePackage("
+        in a05_template_governance_reader
+    and "TemplateVersion readRemoteTemplateVersion("
+        in a05_template_governance_reader
+    and "TemplatePublishAudit readRemoteTemplatePublishAudit("
+        in a05_template_governance_reader
+    and "must match the document ID" in a05_template_governance_reader
+    and "readRequiredJsonObject(" in a05_template_governance_reader
+    and "readRequiredJsonObjectList(" in a05_template_governance_reader
+    and "the five closure-review projection fields must exist together"
+        in a05_template_governance_reader
+    and "top-level closure review must match the frozen snapshot"
+        in a05_template_governance_reader
+    and "published closure-critical content requires review authority"
+        in a05_template_governance_reader
+    and "active packages cannot carry deletion state"
+        in a05_template_governance_reader
+    and "active versions cannot carry deletion state"
+        in a05_template_governance_reader
+    and "all four snapshot JSON fields are structurally strict"
+        in a05_template_governance_test
+    and "closure projection is complete, exact, and snapshot-bound"
+        in a05_template_governance_test
+    and "whole legacy closure projection may be derived, partial may not"
+        in a05_template_governance_test
+    and "factories and every Firestore page use the strict readers"
+        in a05_template_governance_test
+    and "arrow_offset" in a05_timestamp_inventory_tool
+    and "unterminated expression-bodied decoder"
+        in a05_timestamp_inventory_tool
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_13
+    and "durable counted quarantine and operator repair" in a05_decision_13
+    and "does not inspect or mutate production documents" in a05_decision_13,
 )
 check(
     "A-05 persisted-state tranche fails closed without claiming finding closure",

@@ -20,7 +20,7 @@ void main() {
       expect(
         () => TemplatePackage.fromMap(
           Map<String, dynamic>.from(valid)..remove('createdAt'),
-          'package-missing-created',
+          'package-1',
         ),
         _invalidField('createdAt'),
       );
@@ -28,21 +28,21 @@ void main() {
         () => TemplatePackage.fromMap(<String, dynamic>{
           ...valid,
           'updatedAt': 'not-a-time',
-        }, 'package-bad-updated'),
+        }, 'package-1'),
         _invalidField('updatedAt'),
       );
       expect(
         () => TemplatePackage.fromMap(<String, dynamic>{
           ...valid,
           'lifecycleStatus': 'retired',
-        }, 'package-retired-without-time'),
+        }, 'package-1'),
         _invalidField('retiredAt'),
       );
       expect(
         () => TemplatePackage.fromMap(<String, dynamic>{
           ...valid,
           'lifecycleStatus': 'unknown',
-        }, 'package-unknown-state'),
+        }, 'package-1'),
         _invalidField('lifecycleStatus'),
       );
     });
@@ -58,37 +58,52 @@ void main() {
         () => TemplateVersion.fromMap(<String, dynamic>{
           ...draft,
           'status': 'published',
-        }, 'version-published-without-time'),
+          'contentHash': _contentHash,
+          'publishedByUid': 'admin-1',
+        }, 'version-draft'),
         _invalidField('publishedAt'),
       );
       expect(
         () => TemplateVersion.fromMap(<String, dynamic>{
           ...draft,
           'status': 'retired',
+          'contentHash': _contentHash,
+          'publishedByUid': 'admin-1',
           'publishedAt': updatedAt.toIso8601String(),
-        }, 'version-retired-without-time'),
+          'retiredByUid': 'admin-1',
+          'retireReason': 'Superseded by a governed revision',
+        }, 'version-draft'),
         _invalidField('retiredAt'),
       );
       expect(
         () => TemplateVersion.fromMap(<String, dynamic>{
           ...draft,
           'status': 'archived',
+          'contentHash': _contentHash,
+          'publishedByUid': 'admin-1',
           'publishedAt': updatedAt.toIso8601String(),
-        }, 'version-archived-partial-history'),
+        }, 'version-draft'),
         _invalidField('retiredAt'),
       );
       expect(
         () => TemplateVersion.fromMap(<String, dynamic>{
           ...draft,
+          'jobTemplateSnapshotJson': jsonEncode(<String, dynamic>{
+            'composer': <String, dynamic>{
+              'closureReviewConfirmed': true,
+              'closureReviewConfirmedByUid': 'admin-1',
+            },
+          }),
           'closureReviewConfirmed': true,
-        }, 'version-confirmed-without-time'),
+          'closureReviewConfirmedByUid': 'admin-1',
+        }, 'version-draft'),
         _invalidField('closureReviewConfirmedAt'),
       );
       expect(
         () => TemplateVersion.fromMap(<String, dynamic>{
           ...draft,
           'publishedAt': 'not-a-time',
-        }, 'version-malformed-optional-time'),
+        }, 'version-draft'),
         _invalidField('publishedAt'),
       );
       expect(
@@ -100,7 +115,7 @@ void main() {
               'closureReviewConfirmedAt': 'not-a-time',
             },
           }),
-        }, 'version-malformed-nested-closure-time'),
+        }, 'version-draft'),
         _invalidField('closureReviewConfirmedAt'),
       );
 
@@ -108,9 +123,14 @@ void main() {
       final retired = TemplateVersion.fromMap(<String, dynamic>{
         ...draft,
         'status': 'retired',
+        'contentHash': _contentHash,
+        'publishedByUid': 'admin-1',
         'publishedAt': updatedAt.toIso8601String(),
+        'retiredByUid': 'admin-1',
         'retiredAt': retiredAt.toIso8601String(),
-      }, 'version-retired');
+        'retireReason': 'Superseded by a governed revision',
+        'updatedAt': retiredAt.toIso8601String(),
+      }, 'version-draft');
       expect(retired.publishedAt, updatedAt);
       expect(retired.retiredAt, retiredAt);
     });
@@ -124,7 +144,7 @@ void main() {
       expect(
         () => TemplatePublishAudit.fromMap(
           Map<String, dynamic>.from(valid)..remove('updatedAt'),
-          'audit-missing-updated',
+          'audit-1',
         ),
         _invalidField('updatedAt'),
       );
@@ -132,14 +152,14 @@ void main() {
         () => TemplatePublishAudit.fromMap(<String, dynamic>{
           ...valid,
           'performedAt': 'not-a-time',
-        }, 'audit-bad-performed'),
+        }, 'audit-1'),
         _invalidField('performedAt'),
       );
       expect(
         () => TemplatePublishAudit.fromMap(<String, dynamic>{
           ...valid,
           'action': 'unknown',
-        }, 'audit-bad-action'),
+        }, 'audit-1'),
         _invalidField('action'),
       );
     });
@@ -252,13 +272,22 @@ Matcher _invalidField(String field) => throwsA(
   ),
 );
 
+const _contentHash =
+    'tg2-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
 Map<String, dynamic> _packageMap({
   required DateTime createdAt,
   required DateTime updatedAt,
 }) => <String, dynamic>{
+  'firestoreId': 'package-1',
   'packageCode': 'PKG-1',
   'title': 'Governed package',
   'lifecycleStatus': 'active',
+  'latestVersionNumber': 0,
+  'createdByUid': 'admin-1',
+  'updatedByUid': 'admin-1',
+  'version': 1,
+  'schemaVersion': 1,
   'createdAt': createdAt.toIso8601String(),
   'updatedAt': updatedAt.toIso8601String(),
   'isDeleted': false,
@@ -268,6 +297,7 @@ Map<String, dynamic> _versionMap({
   required DateTime createdAt,
   required DateTime updatedAt,
 }) => <String, dynamic>{
+  'firestoreId': 'version-draft',
   'packageFirestoreId': 'package-1',
   'versionNumber': 1,
   'status': 'draft',
@@ -277,6 +307,13 @@ Map<String, dynamic> _versionMap({
   'checklistJson': '[]',
   'closureReviewConfirmed': false,
   'closureCriticalModuleCount': 0,
+  'closureReviewConfirmedByUid': null,
+  'closureReviewConfirmedByName': null,
+  'closureReviewConfirmedAt': null,
+  'createdByUid': 'admin-1',
+  'updatedByUid': 'admin-1',
+  'version': 1,
+  'schemaVersion': 1,
   'createdAt': createdAt.toIso8601String(),
   'updatedAt': updatedAt.toIso8601String(),
   'isDeleted': false,
@@ -286,11 +323,15 @@ Map<String, dynamic> _auditMap({
   required DateTime createdAt,
   required DateTime updatedAt,
 }) => <String, dynamic>{
+  'firestoreId': 'audit-1',
   'packageFirestoreId': 'package-1',
   'versionFirestoreId': 'version-1',
   'action': 'created',
+  'performedByUid': 'admin-1',
   'performedAt': createdAt.toIso8601String(),
   'updatedAt': updatedAt.toIso8601String(),
+  'version': 1,
+  'schemaVersion': 1,
   'isDeleted': false,
 };
 

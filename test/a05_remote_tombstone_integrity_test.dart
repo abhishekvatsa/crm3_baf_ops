@@ -64,10 +64,12 @@ void main() {
             }, 'diary-1'),
         'template package':
             () => TemplatePackage.fromMap(const <String, dynamic>{
+              'firestoreId': 'package-1',
               'isDeleted': true,
             }, 'package-1'),
         'template version':
             () => TemplateVersion.fromMap(const <String, dynamic>{
+              'firestoreId': 'version-1',
               'isDeleted': true,
             }, 'version-1'),
       };

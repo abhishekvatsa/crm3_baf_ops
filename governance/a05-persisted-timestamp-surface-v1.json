@@ -102,10 +102,10 @@
     },
     {
       "id": "template-closure-review-snapshot",
-      "decoderFile": "lib/features/planned_maintenance/data/template_governance_model.dart",
-      "decoderMarker": "_TemplateClosureReviewState _deriveClosureReviewState(",
-      "readerFile": "lib/features/planned_maintenance/data/template_governance_model.dart",
-      "readerFunction": "_deriveClosureReviewState",
+      "decoderFile": "lib/features/planned_maintenance/data/remote_template_governance_reader.dart",
+      "decoderMarker": "_TemplateClosureReviewState _readStrictClosureReviewState(",
+      "readerFile": "lib/features/planned_maintenance/data/remote_template_governance_reader.dart",
+      "readerFunction": "_TemplateClosureReviewState _readStrictClosureReviewState(",
       "binding": null,
       "requiredFields": [],
       "optionalFields": ["closureReviewConfirmedAt"]
