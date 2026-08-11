@@ -23,8 +23,12 @@ Workflow pull now applies these rules independently to every collection:
   `workflow-pull-cursor-invalid` failure and performs no remote read;
 - every newly produced quarantine record is appended to durable local repair
   state before the corresponding cursor may advance;
+- quarantine and cursor writes require a successful storage acknowledgement
+  and exact same-process readback before synchronization reports success, with
+  the prior cached value restored on a failed or mismatched write;
 - corrupt existing quarantine storage returns the stable
-  `workflow-pull-quarantine-invalid` failure and prevents cursor advancement;
+  `workflow-pull-quarantine-invalid` failure and prevents cursor advancement,
+  including when the current remote batch contains only valid records;
   and
 - malformed quarantine arrays and entries are not filtered or replaced with an
   empty list.
@@ -69,6 +73,9 @@ Focused Flutter tests prove:
   repair;
 - corrupt quarantine storage prevents cursor advancement past a malformed
   remote record;
+- failed quarantine writes and mismatched readback prevent cursor advancement;
+- existing corrupt quarantine blocks a valid-only batch before its cursor can
+  advance;
 - corrupt quarantine state remains visible until explicitly cleared;
 - an authorized Admin can clear only the corrupt local log and then resume
   diagnostics; and

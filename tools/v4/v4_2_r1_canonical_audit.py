@@ -7886,17 +7886,30 @@ check(
     "A-05 workflow quarantine is durable before cursor advancement",
     "workflow-pull-cursor-invalid" in a05_workflow_pull
     and "workflow-pull-quarantine-invalid" in a05_workflow_pull
+    and "workflow-pull-quarantine-write-failed" in a05_workflow_pull
+    and "workflow-pull-cursor-write-failed" in a05_workflow_pull
     and "readRequiredPersistedDateTime(" in a05_workflow_pull
     and "await _appendQuarantine(prefs, collectionRecords);"
         in a05_workflow_pull
     and a05_workflow_pull.find(
         "await _appendQuarantine(prefs, collectionRecords);"
     ) < a05_workflow_pull.find("await _advance(prefs, key, observed);")
+    and "_readStoredQuarantine(prefs, _preferenceReader);"
+        in a05_workflow_pull
+    and "!written || _preferenceReader(prefs, key) != value"
+        in a05_workflow_pull
+    and "_restorePreferenceAfterFailedWrite(" in a05_workflow_pull
     and "whereType<Map>()" not in a05_workflow_pull
     and "malformed local cursor blocks fetch" in a05_workflow_pull_test
     and "corrupt quarantine prevents cursor advance"
         in a05_workflow_pull_test
     and "corrupt quarantine is visible until explicitly cleared"
+        in a05_workflow_pull_test
+    and "failed quarantine write prevents cursor advance"
+        in a05_workflow_pull_test
+    and "readback mismatch prevents cursor advance"
+        in a05_workflow_pull_test
+    and "existing corrupt quarantine blocks valid-only cursor advance"
         in a05_workflow_pull_test
     and "Workflow diagnostics need repair" in ui_diagnostics_source
     and "Clear local log" in ui_diagnostics_source

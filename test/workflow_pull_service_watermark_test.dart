@@ -103,6 +103,118 @@ void main() {
     expect(prefs.getInt(workflowCursor), 7);
   });
 
+  test('failed quarantine write prevents cursor advance', () async {
+    const workflowCursor = 'last_maintenance_workflow_pull_v2_workflows';
+    const quarantineKey = 'last_maintenance_workflow_pull_v2_quarantine';
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final observedAt = DateTime.utc(2026, 8, 11, 3);
+    final service = WorkflowPullService(
+      remote: _QuarantiningRemote(observedAt),
+      local: _FakeLocal(),
+      preferenceWriter: (preferences, key, value) async {
+        await preferences.setString(key, value);
+        return false;
+      },
+    );
+
+    final summary = await service.pull();
+    final prefs = await SharedPreferences.getInstance();
+
+    expect(
+      summary.failures['workflows'],
+      contains('workflow-pull-quarantine-write-failed'),
+    );
+    expect(prefs.getString(workflowCursor), isNull);
+    expect(prefs.getString(quarantineKey), isNull);
+  });
+
+  test('readback mismatch prevents cursor advance', () async {
+    const workflowCursor = 'last_maintenance_workflow_pull_v2_workflows';
+    const quarantineKey = 'last_maintenance_workflow_pull_v2_quarantine';
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    var quarantineWriteAttempted = false;
+    final observedAt = DateTime.utc(2026, 8, 11, 4);
+    final service = WorkflowPullService(
+      remote: _QuarantiningRemote(observedAt),
+      local: _FakeLocal(),
+      preferenceReader: (preferences, key) {
+        if (key == quarantineKey && quarantineWriteAttempted) return '[]';
+        return preferences.getString(key);
+      },
+      preferenceWriter: (preferences, key, value) async {
+        if (key == quarantineKey) {
+          quarantineWriteAttempted = true;
+          return true;
+        }
+        return preferences.setString(key, value);
+      },
+    );
+
+    final summary = await service.pull();
+    final prefs = await SharedPreferences.getInstance();
+
+    expect(
+      summary.failures['workflows'],
+      contains('workflow-pull-quarantine-write-failed'),
+    );
+    expect(prefs.getString(workflowCursor), isNull);
+  });
+
+  test(
+    'existing corrupt quarantine blocks valid-only cursor advance',
+    () async {
+      const workflowCursor = 'last_maintenance_workflow_pull_v2_workflows';
+      const quarantineKey = 'last_maintenance_workflow_pull_v2_quarantine';
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        quarantineKey: '{not-json',
+      });
+      final remote = _FakeRemote(_workflow(DateTime.utc(2026, 8, 11, 5)));
+      final local = _FakeLocal();
+      final service = WorkflowPullService(remote: remote, local: local);
+
+      final summary = await service.pull();
+      final prefs = await SharedPreferences.getInstance();
+
+      expect(
+        summary.failures['workflows'],
+        contains('workflow-pull-quarantine-invalid'),
+      );
+      expect(remote.workflowSince, <DateTime?>[null]);
+      expect(local.workflowUpsertAttempts, 1);
+      expect(prefs.getString(workflowCursor), isNull);
+      expect(prefs.getString(quarantineKey), '{not-json');
+    },
+  );
+
+  test(
+    'failed cursor write returns a stable failure and remains unset',
+    () async {
+      const workflowCursor = 'last_maintenance_workflow_pull_v2_workflows';
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final remote = _FakeRemote(_workflow(DateTime.utc(2026, 8, 11, 6)));
+      final service = WorkflowPullService(
+        remote: remote,
+        local: _FakeLocal(),
+        preferenceWriter: (preferences, key, value) async {
+          if (key == workflowCursor) {
+            await preferences.setString(key, value);
+            return false;
+          }
+          return preferences.setString(key, value);
+        },
+      );
+
+      final summary = await service.pull();
+      final prefs = await SharedPreferences.getInstance();
+
+      expect(
+        summary.failures['workflows'],
+        contains('workflow-pull-cursor-write-failed'),
+      );
+      expect(prefs.getString(workflowCursor), isNull);
+    },
+  );
+
   test('corrupt quarantine is visible until explicitly cleared', () async {
     const quarantineKey = 'last_maintenance_workflow_pull_v2_quarantine';
     SharedPreferences.setMockInitialValues(<String, Object>{

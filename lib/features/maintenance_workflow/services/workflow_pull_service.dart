@@ -6,6 +6,24 @@ import '../../../core/serialization/persisted_data_reader.dart';
 import '../repositories/firestore_workflow_read_repository.dart';
 import '../repositories/workflow_repository.dart';
 
+typedef WorkflowPullPreferenceStringReader =
+    String? Function(SharedPreferences preferences, String key);
+typedef WorkflowPullPreferenceStringWriter =
+    Future<bool> Function(
+      SharedPreferences preferences,
+      String key,
+      String value,
+    );
+
+String? _readPreferenceString(SharedPreferences preferences, String key) =>
+    preferences.getString(key);
+
+Future<bool> _writePreferenceString(
+  SharedPreferences preferences,
+  String key,
+  String value,
+) => preferences.setString(key, value);
+
 class WorkflowPullStateException extends FormatException {
   final String reasonCode;
 
@@ -125,8 +143,17 @@ class WorkflowPullService {
 
   final WorkflowRemoteReadRepository remote;
   final WorkflowRepository local;
+  final WorkflowPullPreferenceStringReader _preferenceReader;
+  final WorkflowPullPreferenceStringWriter _preferenceWriter;
 
-  const WorkflowPullService({required this.remote, required this.local});
+  const WorkflowPullService({
+    required this.remote,
+    required this.local,
+    WorkflowPullPreferenceStringReader preferenceReader = _readPreferenceString,
+    WorkflowPullPreferenceStringWriter preferenceWriter =
+        _writePreferenceString,
+  }) : _preferenceReader = preferenceReader,
+       _preferenceWriter = preferenceWriter;
 
   /// Pulls each projection independently and quarantines malformed records.
   ///
@@ -234,12 +261,18 @@ class WorkflowPullService {
 
   static Future<List<WorkflowPullQuarantineRecord>> readQuarantine() async {
     final prefs = await SharedPreferences.getInstance();
-    return _decodeQuarantine(prefs.getString(_quarantineKey));
+    return _readStoredQuarantine(prefs, _readPreferenceString);
   }
 
   static Future<void> clearQuarantine() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_quarantineKey);
+    final removed = await prefs.remove(_quarantineKey);
+    if (!removed || prefs.containsKey(_quarantineKey)) {
+      throw WorkflowPullStateException(
+        reasonCode: 'workflow-pull-quarantine-clear-failed',
+        message: 'Stored workflow pull quarantine could not be cleared.',
+      );
+    }
   }
 
   Future<int> _pullCollection<T>({
@@ -304,6 +337,9 @@ class WorkflowPullService {
         await _appendQuarantine(prefs, collectionRecords);
       }
       if (!unknownFailureTimestamp && !localUpsertFailed) {
+        if (collectionRecords.isEmpty) {
+          _readStoredQuarantine(prefs, _preferenceReader);
+        }
         await _advance(prefs, key, observed);
       } else {
         final reasons = <String>[
@@ -323,7 +359,7 @@ class WorkflowPullService {
 
   DateTime? _since(SharedPreferences prefs, String key) {
     try {
-      final raw = prefs.getString(key);
+      final raw = _preferenceReader(prefs, key);
       if (raw == null) return null;
       final data = <String, Object?>{'cursor': raw};
       return readRequiredPersistedDateTime(
@@ -350,7 +386,13 @@ class WorkflowPullService {
         .toList(growable: false);
     if (values.isEmpty) return;
     values.sort();
-    await prefs.setString(key, values.last.toIso8601String());
+    await _writeExactly(
+      prefs,
+      key,
+      values.last.toIso8601String(),
+      reasonCode: 'workflow-pull-cursor-write-failed',
+      message: 'Workflow pull cursor could not be written and read back.',
+    );
   }
 
   Future<void> _appendQuarantine(
@@ -358,19 +400,88 @@ class WorkflowPullService {
     List<WorkflowPullQuarantineRecord> newRecords,
   ) async {
     if (newRecords.isEmpty) return;
-    final existing = _decodeQuarantine(prefs.getString(_quarantineKey));
+    final existing = _readStoredQuarantine(prefs, _preferenceReader);
     final combined = <WorkflowPullQuarantineRecord>[...existing, ...newRecords]
       ..sort((a, b) => a.quarantinedAt.compareTo(b.quarantinedAt));
     final retained =
         combined.length <= _maxQuarantineRecords
             ? combined
             : combined.sublist(combined.length - _maxQuarantineRecords);
-    await prefs.setString(
-      _quarantineKey,
-      jsonEncode(
-        retained.map((record) => record.toJson()).toList(growable: false),
-      ),
+    final encoded = jsonEncode(
+      retained.map((record) => record.toJson()).toList(growable: false),
     );
+    await _writeExactly(
+      prefs,
+      _quarantineKey,
+      encoded,
+      reasonCode: 'workflow-pull-quarantine-write-failed',
+      message: 'Workflow pull quarantine could not be written and read back.',
+    );
+  }
+
+  Future<void> _writeExactly(
+    SharedPreferences prefs,
+    String key,
+    String value, {
+    required String reasonCode,
+    required String message,
+  }) async {
+    String? previousValue;
+    var writeAttempted = false;
+    try {
+      previousValue = _preferenceReader(prefs, key);
+      writeAttempted = true;
+      final written = await _preferenceWriter(prefs, key, value);
+      if (!written || _preferenceReader(prefs, key) != value) {
+        throw WorkflowPullStateException(
+          reasonCode: reasonCode,
+          message: message,
+        );
+      }
+    } catch (error) {
+      if (writeAttempted) {
+        await _restorePreferenceAfterFailedWrite(prefs, key, previousValue);
+      }
+      if (error is WorkflowPullStateException) rethrow;
+      throw WorkflowPullStateException(
+        reasonCode: reasonCode,
+        message: message,
+        source: error,
+      );
+    }
+  }
+
+  static Future<void> _restorePreferenceAfterFailedWrite(
+    SharedPreferences prefs,
+    String key,
+    String? previousValue,
+  ) async {
+    try {
+      if (previousValue == null) {
+        await prefs.remove(key);
+      } else {
+        await prefs.setString(key, previousValue);
+      }
+    } catch (_) {
+      // The original exact-write failure remains authoritative.
+    }
+  }
+
+  static List<WorkflowPullQuarantineRecord> _readStoredQuarantine(
+    SharedPreferences prefs,
+    WorkflowPullPreferenceStringReader reader,
+  ) {
+    try {
+      return _decodeQuarantine(reader(prefs, _quarantineKey));
+    } on WorkflowPullStateException {
+      rethrow;
+    } catch (error) {
+      throw WorkflowPullStateException(
+        reasonCode: 'workflow-pull-quarantine-invalid',
+        message: 'Stored workflow pull quarantine needs repair.',
+        source: error,
+      );
+    }
   }
 
   static List<WorkflowPullQuarantineRecord> _decodeQuarantine(String? raw) {

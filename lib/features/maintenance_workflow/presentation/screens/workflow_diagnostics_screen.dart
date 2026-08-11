@@ -35,7 +35,17 @@ class _WorkflowDiagnosticsScreenState
   }
 
   Future<void> _clearQuarantine() async {
-    await WorkflowPullService.clearQuarantine();
+    try {
+      await WorkflowPullService.clearQuarantine();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Local workflow log could not be cleared.'),
+        ),
+      );
+      return;
+    }
     if (!mounted) return;
     _refresh();
     ScaffoldMessenger.of(context).showSnackBar(
