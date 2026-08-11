@@ -353,8 +353,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 223
-    and counts.get("SUCCESSOR_MODIFIED") == 187
+    and counts.get("BYTE_IDENTICAL") == 221
+    and counts.get("SUCCESSOR_MODIFIED") == 189
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -7490,6 +7490,30 @@ a05_module_registry_test = text("test/a05_module_registry_integrity_test.dart")
 a05_decision_14 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_14.md"
 )
+a05_assignment_backend = text("functions/src/publishedTemplateAssignment.ts")
+a05_assignment_backend_test = text(
+    "functions/test/publishedTemplateAssignment.test.js"
+)
+a05_assignment_response = text(
+    "lib/features/planned_maintenance/services/"
+    "published_template_assignment_server_service.dart"
+)
+a05_assignment_response_test = text(
+    "test/published_template_assignment_server_contract_test.dart"
+)
+a05_authority_response = text(
+    "lib/features/admin/services/user_authority_command_service.dart"
+)
+a05_authority_response_test = text("test/user_authority_command_service_test.dart")
+a05_abnormality_response = text(
+    "lib/features/abnormalities/services/charge_abnormality_command_service.dart"
+)
+a05_abnormality_response_test = text(
+    "test/charge_abnormality_atomic_mutation_contract_test.dart"
+)
+a05_decision_15 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_15.md"
+)
 a05_timestamp_inventory_process = subprocess.run(
     [sys.executable, str(ROOT / "tools/v4/a05_persisted_timestamp_inventory.py")],
     cwd=ROOT,
@@ -7610,16 +7634,16 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 25
-    and a05_timestamp_inventory_report.get("directCallCount") == 75
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 36
+    and a05_timestamp_inventory_report.get("readerCount") == 28
+    and a05_timestamp_inventory_report.get("directCallCount") == 78
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 39
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 39
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and len(a05_timestamp_inventory_report.get("directParserCandidates", []))
-        == 35
+        == 32
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 25
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 28
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "readerSha256" in a05_timestamp_inventory_tool
     and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
@@ -7825,6 +7849,34 @@ check(
     and "35 direct `DateTime` parser and epoch-sentinel" in a05_decision_14
     and "`A-05` remains open" in a05_decision_14
     and "does not inspect or mutate production documents" in a05_decision_14,
+)
+check(
+    "A-05 command responses and assignment replay chronology fail closed",
+    "new Date(0).toISOString()" not in a05_assignment_backend
+    and "assertReplayAssignedAt(" in a05_assignment_backend
+    and "request-assigned-at-missing" in a05_assignment_backend
+    and "request-assigned-at-invalid" in a05_assignment_backend
+    and "request-assigned-at-mismatch" in a05_assignment_backend
+    and "replay fails closed when assignment timestamp evidence is absent or corrupt"
+        in a05_assignment_backend_test
+    and "readRequiredPersistedDateTime(" in a05_assignment_response
+    and "map['idempotentReplay'] is! bool" in a05_assignment_response
+    and "mismatched JobExecution identities" in a05_assignment_response
+    and "duplicate module identity" in a05_assignment_response
+    and "requires exact callable response evidence fields"
+        in a05_assignment_response_test
+    and "requires assignment chronology to match the execution"
+        in a05_assignment_response_test
+    and "readRequiredPersistedDateTime(" in a05_authority_response
+    and "non-string or non-canonical committedAt evidence fails closed"
+        in a05_authority_response_test
+    and "readRequiredPersistedDateTime(" in a05_abnormality_response
+    and "non-string or non-canonical committedAt evidence fails closed"
+        in a05_abnormality_response_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_15
+    and "28 classified readers" in a05_decision_15
+    and "32 direct `DateTime` parser and epoch-sentinel" in a05_decision_15
+    and "does not inspect or mutate production documents" in a05_decision_15,
 )
 check(
     "A-05 persisted-state tranche fails closed without claiming finding closure",
@@ -8043,8 +8095,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 223
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 187
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 221
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 189
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

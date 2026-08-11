@@ -28,6 +28,42 @@
       "reArmCondition": "any new timestamp read in decodePersistedAuditEvent"
     },
     {
+      "id": "charge-abnormality-command-response",
+      "readerFile": "lib/features/abnormalities/services/charge_abnormality_command_service.dart",
+      "readerMarker": "ChargeAbnormalityMutationResult _parseResult(",
+      "requiredFields": ["committedAt"],
+      "optionalFields": [],
+      "owner": "abnormalities",
+      "purpose": "verify server-committed abnormality mutation evidence",
+      "authorityBoundary": "remote-command-response",
+      "regression": "test/charge_abnormality_atomic_mutation_contract_test.dart",
+      "reArmCondition": "any charge-abnormality callable response timestamp change"
+    },
+    {
+      "id": "user-authority-command-response",
+      "readerFile": "lib/features/admin/services/user_authority_command_service.dart",
+      "readerMarker": "UserAuthorityMutationResult _parseResult(",
+      "requiredFields": ["committedAt"],
+      "optionalFields": [],
+      "owner": "administration",
+      "purpose": "verify server-committed user-authority mutation evidence",
+      "authorityBoundary": "remote-command-response",
+      "regression": "test/user_authority_command_service_test.dart",
+      "reArmCondition": "any user-authority callable response timestamp change"
+    },
+    {
+      "id": "published-template-assignment-response",
+      "readerFile": "lib/features/planned_maintenance/services/published_template_assignment_server_service.dart",
+      "readerMarker": "factory PublishedTemplateAssignmentServerResult.fromCallableData",
+      "requiredFields": ["assignedAt"],
+      "optionalFields": [],
+      "owner": "planned-maintenance",
+      "purpose": "verify server assignment chronology before local reconciliation",
+      "authorityBoundary": "remote-command-response",
+      "regression": "test/published_template_assignment_server_contract_test.dart",
+      "reArmCondition": "any published-assignment callable response timestamp change"
+    },
+    {
       "id": "abnormality-type",
       "readerFile": "lib/features/abnormalities/data/remote_abnormality_timestamps.dart",
       "readerMarker": "RemoteAbnormalityTypeTimestamps readRemoteAbnormalityTypeTimestamps(",

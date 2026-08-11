@@ -4,6 +4,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../auth/data/user_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
 
@@ -246,13 +247,20 @@ class UserAuthorityCommandService {
     final roles = _parseResultRoles(data['roles'] as List);
     final digest = data['authorityDigest'];
     final auditId = data['auditId'];
-    final committedAt = DateTime.tryParse(
-      data['committedAt']?.toString() ?? '',
+    final committedAt = readRequiredPersistedDateTime(
+      data['committedAt'],
+      field: 'committedAt',
+      source: 'mutateUserAuthority/$expectedRequestId',
     );
-    if (digest is! String ||
-        auditId is! String ||
-        auditId.trim().isEmpty ||
-        committedAt == null) {
+    if ((data['committedAt'] as String).trim() !=
+        committedAt.toUtc().toIso8601String()) {
+      throw PersistedDataFormatException(
+        field: 'committedAt',
+        source: 'mutateUserAuthority/$expectedRequestId',
+        detail: 'must be a canonical UTC ISO instant',
+      );
+    }
+    if (digest is! String || auditId is! String || auditId.trim().isEmpty) {
       throw const UserAuthorityMutationException(
         code: 'internal',
         message: 'User authority response evidence was malformed.',

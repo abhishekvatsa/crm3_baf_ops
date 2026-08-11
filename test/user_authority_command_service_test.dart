@@ -161,6 +161,44 @@ void main() {
     );
   });
 
+  test(
+    'non-string or non-canonical committedAt evidence fails closed',
+    () async {
+      for (final invalid in <Object>[20260726, '2026-07-26T01:00:00Z']) {
+        final transport = _FakeAuthorityTransport();
+        transport.responder = (request) {
+          return <String, dynamic>{
+            ..._successResponse(
+              request,
+              isApproved: true,
+              roles: const <AppRole>[AppRole.operations],
+            ),
+            'committedAt': invalid,
+          };
+        };
+        final service = UserAuthorityCommandService(transport: transport);
+
+        await expectLater(
+          service.approve(
+            _user(
+              isApproved: false,
+              roles: const <AppRole>[AppRole.operations],
+            ),
+            reason: 'Approved for operational access.',
+            requestId: requestId,
+          ),
+          throwsA(
+            isA<UserAuthorityMutationException>().having(
+              (error) => error.reasonCode,
+              'reasonCode',
+              'authority-response-invalid',
+            ),
+          ),
+        );
+      }
+    },
+  );
+
   test('invalid reason is rejected before transport access', () async {
     final transport = _FakeAuthorityTransport();
     final service = UserAuthorityCommandService(transport: transport);
