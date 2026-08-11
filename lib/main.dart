@@ -1,6 +1,7 @@
 // FILE: lib/main.dart
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -49,6 +50,7 @@ import 'core/services/auto_sync_service.dart';
 import 'core/services/app_logger.dart';
 import 'core/security/app_check_bootstrap.dart';
 import 'core/services/crash_reporting_bootstrap.dart';
+import 'core/services/isar_installed_store_provenance.dart';
 import 'core/services/isar_production_recovery.dart';
 import 'core/services/isar_schema_guard.dart';
 import 'core/services/isar_schema_migration.dart';
@@ -96,6 +98,10 @@ final _isarSchemas = [
 
 Future<Isar> _openLocalIsar() async {
   final dir = await getApplicationDocumentsDirectory();
+  final preOpenProvenance = await readPrivacySafeIsarProvenanceInventory(
+    databaseDirectoryPath: dir.path,
+  );
+  preserveStartupPreOpenIsarProvenanceInventory(preOpenProvenance);
   final schemaPreparation = await ensureIsarSchemaBeforeOpen(
     databaseDirectoryPath: dir.path,
   );
@@ -110,8 +116,7 @@ Future<Isar> _openLocalIsar() async {
         'diaryModuleLinks=${repair.repairedDiaryModuleLinks}',
       );
     }
-    final committedMarker =
-        await schemaPreparation.commitAfterSuccessfulOpen();
+    final committedMarker = await schemaPreparation.commitAfterSuccessfulOpen();
     debugPrint(
       'Isar provenance committed: '
       'schema=${committedMarker.schemaVersion}, '
@@ -131,6 +136,8 @@ class StartupFailure {
   final DateTime occurredAt;
   final String? diagnosticsFilePath;
   final String? schemaProvenanceSnapshotJson;
+  final IsarInstalledStoreProvenanceInventory?
+  installedStoreProvenanceInventory;
 
   StartupFailure({
     required this.stage,
@@ -139,6 +146,7 @@ class StartupFailure {
     DateTime? occurredAt,
     this.diagnosticsFilePath,
     this.schemaProvenanceSnapshotJson,
+    this.installedStoreProvenanceInventory,
   }) : occurredAt = occurredAt ?? DateTime.now();
 
   String get diagnosticsText {
@@ -152,6 +160,9 @@ class StartupFailure {
         'diagnosticsFilePath: $diagnosticsFilePath',
       if (schemaProvenanceSnapshotJson != null)
         'schemaProvenanceSnapshot: $schemaProvenanceSnapshotJson',
+      if (installedStoreProvenanceInventory != null)
+        'installedStoreProvenance: '
+            '${jsonEncode(installedStoreProvenanceInventory!.toMap())}',
       'stackTrace:',
       stackTrace.toString(),
     ].join('\n');
@@ -160,6 +171,7 @@ class StartupFailure {
   StartupFailure copyWith({
     String? diagnosticsFilePath,
     String? schemaProvenanceSnapshotJson,
+    IsarInstalledStoreProvenanceInventory? installedStoreProvenanceInventory,
   }) {
     return StartupFailure(
       stage: stage,
@@ -169,6 +181,9 @@ class StartupFailure {
       diagnosticsFilePath: diagnosticsFilePath ?? this.diagnosticsFilePath,
       schemaProvenanceSnapshotJson:
           schemaProvenanceSnapshotJson ?? this.schemaProvenanceSnapshotJson,
+      installedStoreProvenanceInventory:
+          installedStoreProvenanceInventory ??
+          this.installedStoreProvenanceInventory,
     );
   }
 
@@ -193,8 +208,7 @@ class StartupFailure {
     return null;
   }
 
-  bool get isSchemaProvenanceFailure =>
-      schemaProvenanceReasonCode != null;
+  bool get isSchemaProvenanceFailure => schemaProvenanceReasonCode != null;
 
   String _jsonEscape(String value) {
     return value
@@ -213,15 +227,17 @@ class StartupFailure {
             ? 'null'
             : '"${_jsonEscape(diagnosticsFilePath!)}"';
     final provenanceSnapshot = schemaProvenanceSnapshotJson ?? 'null';
+    final installedStoreProvenance =
+        installedStoreProvenanceInventory == null
+            ? 'null'
+            : jsonEncode(installedStoreProvenanceInventory!.toMap());
     final mode =
         isLocalDatabaseStage
             ? 'startup_isar_open_failed'
             : 'startup_core_initialization_failed';
     final isarOpenStatus = isLocalDatabaseStage ? 'failed' : 'not_attempted';
     final schemaProvenanceStatus =
-        provenanceReasonCode == null
-            ? 'not_evaluated'
-            : 'rejected_before_open';
+        provenanceReasonCode == null ? 'not_evaluated' : 'rejected_before_open';
     final schemaProvenanceReason =
         provenanceReasonCode == null
             ? 'null'
@@ -258,6 +274,7 @@ class StartupFailure {
   "targetSchemaVersion": $targetSchemaVersion,
   "hadExistingLocalStore": $hadExistingLocalStore,
   "schemaProvenanceSnapshot": $provenanceSnapshot,
+  "installedStoreProvenance": $installedStoreProvenance,
   "rowLevelInventoryAvailable": false,
   "policy": "$policy"
 }''';
@@ -273,6 +290,8 @@ Future<StartupFailure> _captureStartupFailure({
     stage: stage,
     error: error,
     stackTrace: stackTrace,
+    installedStoreProvenanceInventory:
+        readStartupPreOpenIsarProvenanceInventory(),
   );
   if (!kIsWeb && failure.isLocalDatabaseStage) {
     try {

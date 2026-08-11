@@ -3,8 +3,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'isar_installed_store_provenance.dart';
 import 'isar_schema_migration.dart';
 
 Future<IsarSchemaOpenPreparation> ensureIsarSchemaBeforeOpen({
@@ -42,6 +44,27 @@ Future<bool> hasDurableIsarStoreFiles(String databaseDirectoryPath) async {
   }
 
   return false;
+}
+
+Future<IsarInstalledStoreProvenanceInventory>
+readPrivacySafeIsarProvenanceInventory({String? databaseDirectoryPath}) async {
+  final preferences = await SharedPreferences.getInstance();
+  final directoryPath =
+      databaseDirectoryPath ?? (await getApplicationDocumentsDirectory()).path;
+  final hasExistingStore = await hasDurableIsarStoreFiles(directoryPath);
+
+  return IsarInstalledStoreProvenanceInventory.classify(
+    hasDurableStore: hasExistingStore,
+    canonicalMarkerValue: preferences.get(
+      SharedPreferencesIsarSchemaProvenanceStore.canonicalMarkerKey,
+    ),
+    legacySchemaVersionValue: preferences.get(
+      SharedPreferencesIsarSchemaProvenanceStore.legacySchemaVersionKey,
+    ),
+    legacySchemaFingerprintValue: preferences.get(
+      SharedPreferencesIsarSchemaProvenanceStore.legacySchemaFingerprintKey,
+    ),
+  );
 }
 
 Future<String> readIsarSchemaProvenanceSnapshotJson() async {
