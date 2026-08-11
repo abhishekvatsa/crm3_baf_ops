@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 224,
-    "SUCCESSOR_MODIFIED": 186
+    "BYTE_IDENTICAL": 223,
+    "SUCCESSOR_MODIFIED": 187
   },
   "paths": [
     {
@@ -1645,9 +1645,9 @@
     {
       "path": "lib/features/planned_maintenance/data/module_registry_model.dart",
       "canonicalSha256": "11180688DD6487B95B893F4E7F4F0473D6D0644593C10E446FD3C828411F7109",
-      "candidateSha256": "408409A2A31FB64B8BD5E1EF7AE5707C173CF8DAD8D1D1CDD588C4AE5FF7F314",
+      "candidateSha256": "A47FCF0FC966178824027540B12BA3C0CDB6F1C619DE7CC327EE92CE2F05832E",
       "canonicalBytes": 24223,
-      "candidateBytes": 27494,
+      "candidateBytes": 19423,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2261,10 +2261,10 @@
     {
       "path": "lib/features/planned_maintenance/providers/module_registry_provider.dart",
       "canonicalSha256": "011C9A5EF0716CCC7C77027C3F4B2E250C66097A32831F3648729301E27E30BE",
-      "candidateSha256": "011C9A5EF0716CCC7C77027C3F4B2E250C66097A32831F3648729301E27E30BE",
+      "candidateSha256": "2883FFE42F9E5C30980D6E0AAB639FF22B1869EED922CFE7D56DDA0CC0CC8FF9",
       "canonicalBytes": 25537,
-      "candidateBytes": 25537,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 26015,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",

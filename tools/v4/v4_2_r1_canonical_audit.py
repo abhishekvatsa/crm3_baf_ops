@@ -353,8 +353,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 224
-    and counts.get("SUCCESSOR_MODIFIED") == 186
+    and counts.get("BYTE_IDENTICAL") == 223
+    and counts.get("SUCCESSOR_MODIFIED") == 187
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -7410,7 +7410,7 @@ a05_decision_8 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_8.md"
 )
 a05_timestamp_inventory_manifest = data(
-    "governance/a05-persisted-timestamp-surface-v1.json"
+    "governance/a05-persisted-timestamp-surface-v2.json"
 )
 a05_timestamp_inventory_tool = text(
     "tools/v4/a05_persisted_timestamp_inventory.py"
@@ -7476,6 +7476,19 @@ a05_template_governance_test = text(
 )
 a05_decision_13 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_13.md"
+)
+a05_module_registry_reader = text(
+    "lib/features/planned_maintenance/data/remote_module_registry_reader.dart"
+)
+a05_module_registry_model = text(
+    "lib/features/planned_maintenance/data/module_registry_model.dart"
+)
+a05_module_registry_provider = text(
+    "lib/features/planned_maintenance/providers/module_registry_provider.dart"
+)
+a05_module_registry_test = text("test/a05_module_registry_integrity_test.dart")
+a05_decision_14 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_14.md"
 )
 a05_timestamp_inventory_process = subprocess.run(
     [sys.executable, str(ROOT / "tools/v4/a05_persisted_timestamp_inventory.py")],
@@ -7594,19 +7607,24 @@ check(
     and "finding status. Closure still requires" in a02_a05_exit_decision,
 )
 check(
-    "A-05 persisted timestamp inventory is exact and source-enforced",
+    "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("decoderCount") == 13
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 19
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 21
-    and a05_timestamp_inventory_report.get("unclassifiedRiskSites") == []
-    and a05_timestamp_inventory_manifest.get("schemaVersion") == 1
-    and len(a05_timestamp_inventory_manifest.get("decoders", [])) == 13
+    and a05_timestamp_inventory_report.get("readerCount") == 25
+    and a05_timestamp_inventory_report.get("directCallCount") == 75
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 36
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 39
+    and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
+    and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
+    and len(a05_timestamp_inventory_report.get("directParserCandidates", []))
+        == 35
+    and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 25
     and "sourceCommit" in a05_timestamp_inventory_tool
-    and "decoderSha256" in a05_timestamp_inventory_tool
-    and "unclassifiedRiskSites" in a05_timestamp_inventory_tool
-    and "fromMap|fromCloudMap|fromJson" in a05_timestamp_inventory_tool
+    and "readerSha256" in a05_timestamp_inventory_tool
+    and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
+    and "duplicateReaderSites" in a05_timestamp_inventory_tool
+    and "directParserCandidates" in a05_timestamp_inventory_tool
     and "workflow receipts require their persisted application time"
         in a05_operational_timestamp_test
     and "malformed present optional timestamps fail closed"
@@ -7770,11 +7788,43 @@ check(
     and "factories and every Firestore page use the strict readers"
         in a05_template_governance_test
     and "arrow_offset" in a05_timestamp_inventory_tool
-    and "unterminated expression-bodied decoder"
+    and "unterminated expression-bodied reader"
         in a05_timestamp_inventory_tool
     and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_13
     and "durable counted quarantine and operator repair" in a05_decision_13
     and "does not inspect or mutate production documents" in a05_decision_13,
+)
+check(
+    "A-05 module registry remote state is exact, hash-bound, and contained",
+    "readRemoteModuleRegistryFamily(map, documentId: docId)"
+        in a05_module_registry_model
+    and "readRemoteModuleRegistryRevision(" in a05_module_registry_model
+    and "ModuleRegistryFamily readRemoteModuleRegistryFamily("
+        in a05_module_registry_reader
+    and "ModuleRegistryRevision readRemoteModuleRegistryRevision("
+        in a05_module_registry_reader
+    and "must match the parent registry document ID"
+        in a05_module_registry_reader
+    and "stableModuleRegistryContentHashStrict("
+        in a05_module_registry_reader
+    and "does not match the canonical registry payload"
+        in a05_module_registry_reader
+    and "_enumByNameOr" not in a05_module_registry_model
+    and "_cleanRequiredText" not in a05_module_registry_model
+    and "_decodeJsonObject(" not in a05_module_registry_model
+    and a05_module_registry_provider.count("ModuleRegistryRevision.fromMap(")
+        == 10
+    and "rejects manufactured identity, enum, list, bool, and counters"
+        in a05_module_registry_test
+    and "rejects malformed JSON roots, references, lineage, and hash"
+        in a05_module_registry_test
+    and "source contains no top-level registry manufacturing defaults"
+        in a05_module_registry_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_14
+    and "25 classified readers" in a05_decision_14
+    and "35 direct `DateTime` parser and epoch-sentinel" in a05_decision_14
+    and "`A-05` remains open" in a05_decision_14
+    and "does not inspect or mutate production documents" in a05_decision_14,
 )
 check(
     "A-05 persisted-state tranche fails closed without claiming finding closure",
@@ -7913,7 +7963,7 @@ check(
         not in a05_timeline_template_model
     and "_parseTimestamp(map['updatedAt'])"
         not in a05_timeline_template_model
-    and "readRequiredPersistedDateTime(" in a05_timeline_registry_model
+    and "readRequiredPersistedDateTime(" in a05_module_registry_reader
     and "DateTime? _parseTimestamp" not in a05_timeline_registry_model
     and "_rejectUnsupportedRegistryTombstone"
         in a05_timeline_registry_model
@@ -7993,8 +8043,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 224
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 186
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 223
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 187
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections
