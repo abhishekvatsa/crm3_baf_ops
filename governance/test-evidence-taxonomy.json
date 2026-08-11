@@ -33,8 +33,8 @@
     {
       "id": "android_package",
       "label": "Android package",
-      "claim": "APK and AAB construction, signing, and inspection without installation or launch",
-      "runtimeExecuted": false,
+      "claim": "APK and AAB construction, signing, and inspection plus exact release APK cold-start on a disposable Android emulator",
+      "runtimeExecuted": true,
       "physicalDevice": false
     },
     {
@@ -71,7 +71,7 @@
     },
     {
       "id": "android_package",
-      "headline": "Android release package construction (no install)",
+      "headline": "Android release package + cold-start proof (non-production)",
       "levels": [
         "android_package"
       ]

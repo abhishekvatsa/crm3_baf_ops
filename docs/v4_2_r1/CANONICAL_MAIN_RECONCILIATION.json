@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 221,
-    "SUCCESSOR_MODIFIED": 189
+    "BYTE_IDENTICAL": 220,
+    "SUCCESSOR_MODIFIED": 190
   },
   "paths": [
     {
@@ -105,9 +105,9 @@
     {
       "path": ".github/workflows/release-gate.yml",
       "canonicalSha256": "CE3A2B57B0A19DAC48F25587EAFFD8D3C0D57F00ECDE41703E10DECD31FC0561",
-      "candidateSha256": "4D61A33BCCAECB940FBF17517F243026E7AECDC6C16636202DE8131780024342",
+      "candidateSha256": "0677EB5A1086E669129740DEFDEBE36996FBEAA906C19F026171EBE3F8AAC583",
       "canonicalBytes": 8984,
-      "candidateBytes": 13103,
+      "candidateBytes": 13928,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -145,9 +145,9 @@
     {
       "path": "android/app/build.gradle.kts",
       "canonicalSha256": "5B04387D1042C0770E38315702F2A86B7DDA8C09D06987C98218A4B37A5A1A19",
-      "candidateSha256": "AE97C674371C5E71DE598B646207DB84692993591BFCD4E8CA2FA0CB97FD6334",
+      "candidateSha256": "EB0C4BAF2E547F63E022523990F98579581CD898FB306954E1B37728479BE718",
       "canonicalBytes": 2536,
-      "candidateBytes": 2687,
+      "candidateBytes": 2729,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -329,10 +329,10 @@
     {
       "path": "android/settings.gradle.kts",
       "canonicalSha256": "6F742F19E2A1BFB759148429F9CFD27C66541CBC7A14DE23D0BB2F793CEF1C4D",
-      "candidateSha256": "6F742F19E2A1BFB759148429F9CFD27C66541CBC7A14DE23D0BB2F793CEF1C4D",
+      "candidateSha256": "7D134C5E2198636F6D28E63A6FD6D4741688A2596500017BD115DD1BE9617AE7",
       "canonicalBytes": 1000,
-      "candidateBytes": 1000,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 1070,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "docs/70B_BUSINESS_FLOW_WALKTHROUGH.md",
@@ -3157,9 +3157,9 @@
     {
       "path": "test/release_startup_hygiene_contract_test.dart",
       "canonicalSha256": "C709DF5B31A5CA444CAB63F4A538CF9551B538542C6F1B1F199D6B9E64B0A90F",
-      "candidateSha256": "7C85C69CDEE6E55B72E499282799C18F99938690F72018F80471A5DDD85FE71B",
+      "candidateSha256": "4F31638FF2D8B4FC638C9710DFF5EC8F8A18200F535DC38C3BA8427A51D02E6B",
       "canonicalBytes": 17177,
-      "candidateBytes": 19711,
+      "candidateBytes": 20080,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

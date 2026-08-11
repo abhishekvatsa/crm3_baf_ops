@@ -17,7 +17,7 @@ void main() {
   group('C-03 Android PR packaging proof', () {
     test('release gate builds APK and AAB with no production authority', () {
       final workflow = _read('.github/workflows/release-gate.yml');
-      final job = _jobSection(workflow, 'android-package', 'firestore-rules');
+      final job = _jobSection(workflow, 'android-package', 'android-emulator');
 
       expect(workflow, contains('pull_request:'));
       expect(workflow, contains('push:'));
@@ -26,7 +26,7 @@ void main() {
       expect(workflow, isNot(contains('push:\n    branches: ["**"]')));
       expect(
         job,
-        contains('Android release package construction (no install)'),
+        contains('Android release package + cold-start proof (non-production)'),
       );
       expect(
         job,
@@ -39,6 +39,14 @@ void main() {
         ),
       );
       expect(job, contains('Invoke-CIAndroidPackageProof.ps1'));
+      expect(job, contains('Test-CIAndroidReleaseStartup.ps1'));
+      expect(job, contains('Cold-start the exact release APK'));
+      expect(
+        job,
+        contains(
+          'ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d',
+        ),
+      );
       expect(job, isNot(contains(r'${{ secrets.')));
       expect(job, isNot(contains('\n    environment:')));
       expect(job, isNot(contains('upload-artifact')));
@@ -69,6 +77,16 @@ void main() {
       expect(script, contains("'jarsigner'"));
       expect(script, contains("'manifest', 'application-id'"));
       expect(script, contains("'manifest', 'debuggable'"));
+      expect(
+        script,
+        contains("'com.google.firebase.crashlytics.mapping_file_id'"),
+      );
+      expect(
+        script,
+        contains('Release APK is missing Crashlytics mapping identity.'),
+      );
+      expect(script, contains(r'$crashlyticsMappingIdOutput.Count -ne 1'));
+      expect(script, contains('crashlyticsMappingIdPresent=true'));
       expect(script, contains('policy.signing.certificateSha256'));
       expect(
         script,
@@ -84,5 +102,47 @@ void main() {
       expect(script, contains('Remove-Item -LiteralPath \$temporaryStore'));
       expect(script, isNot(contains(productionCertificate)));
     });
+
+    test(
+      'cold-start proof fails closed on process death or crash evidence',
+      () {
+        final script = _read('tools/release/Test-CIAndroidReleaseStartup.ps1');
+        final decision = _read(
+          'docs/v4_2_r1/BUILD9_CRASHLYTICS_STARTUP_REMEDIATION.md',
+        );
+
+        expect(script, contains('ANDROID_SDK_ROOT'));
+        expect(script, contains('Android Debug Bridge is unavailable.'));
+        expect(script, contains('-not (\$devices -match'));
+        expect(script, contains("'install', '-r', \$resolvedApk"));
+        expect(script, contains("'android.permission.POST_NOTIFICATIONS'"));
+        expect(script, contains("'am',"));
+        expect(script, contains("'start',"));
+        expect(script, contains("'-W',"));
+        expect(script, contains('shell pidof \$ApplicationId'));
+        expect(script, contains(r'$pidExitCode -ne 0'));
+        expect(script, contains("'activity', 'exit-info'"));
+        expect(script, contains("'logcat', '-b', 'crash'"));
+        expect(script, contains("-not (\$launchOutput -match '^Status:"));
+        expect(script, contains('reason=4 \\(APP CRASH\\(EXCEPTION\\)\\)'));
+        expect(
+          script,
+          contains('Release process is not alive after cold launch.'),
+        );
+        expect(script, contains('PASS_C03_ANDROID_RELEASE_COLD_START_PROOF'));
+        expect(script, isNot(contains('pm clear')));
+        expect(script, isNot(contains('uninstall')));
+        expect(
+          decision,
+          contains('SOURCE REMEDIATED / BUILD 9 NON-DISTRIBUTABLE'),
+        );
+        expect(decision, contains('reason=4 (APP CRASH(EXCEPTION))'));
+        expect(decision, contains('No cache or app data was cleared'));
+        expect(
+          decision,
+          contains('separately authorized, production-signed successor'),
+        );
+      },
+    );
   });
 }

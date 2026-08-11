@@ -195,6 +195,8 @@ void main() {
       final bootstrap = _readText(
         'lib/core/services/crash_reporting_bootstrap.dart',
       );
+      final settingsGradle = _readText('android/settings.gradle.kts');
+      final appGradle = _readText('android/app/build.gradle.kts');
       final initBlock = _blockStartingAt(logger, 'static Future<void> init({');
 
       expect(logger, contains('bool collectInDebug = false'));
@@ -235,6 +237,13 @@ void main() {
         isNot(contains('debugPrint =')),
         reason: 'Release logging must not globally hijack debugPrint.',
       );
+      expect(
+        settingsGradle,
+        contains(
+          'id("com.google.firebase.crashlytics") version "3.0.7" apply false',
+        ),
+      );
+      expect(appGradle, contains('id("com.google.firebase.crashlytics")'));
     });
 
     test(

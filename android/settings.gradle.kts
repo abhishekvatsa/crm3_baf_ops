@@ -23,6 +23,7 @@ plugins {
     id("com.android.built-in-kotlin") version "9.0.1" apply false
     // Modernized for 2026 compatibility
     id("com.google.gms.google-services") version "4.4.2" apply false
+    id("com.google.firebase.crashlytics") version "3.0.7" apply false
     // Required for AGP 8.9.1 support
     id("org.jetbrains.kotlin.android") version "2.4.0" apply false
 }
