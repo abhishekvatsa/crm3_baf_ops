@@ -288,7 +288,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanManageAbnormalityTypes(actor);
-    _ensureTypeDefaults(type);
+    _validateTypeForSave(type);
 
     type.firestoreId ??= _uuid.v4();
 
@@ -335,7 +335,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanManageAbnormalityTypes(actor);
-    _ensureTypeDefaults(type);
+    _validateTypeForSave(type);
     type.firestoreId ??= _uuid.v4();
 
     final existing =
@@ -568,7 +568,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanLogChargeAbnormality(actor);
-    _ensureAbnormalityDefaults(abnormality);
+    _validateAbnormalityForSave(abnormality);
 
     abnormality.firestoreId ??= _uuid.v4();
     abnormality.normalizeReannealingState();
@@ -616,7 +616,7 @@ class IsarAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanEditChargeAbnormality(actor);
-    _ensureAbnormalityDefaults(abnormality);
+    _validateAbnormalityForSave(abnormality);
     abnormality.firestoreId ??= _uuid.v4();
 
     final existing =
@@ -1280,7 +1280,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanManageAbnormalityTypes(actor);
-    _ensureTypeDefaults(type);
+    _validateTypeForSave(type);
 
     type.firestoreId ??= _uuid.v4();
 
@@ -1320,7 +1320,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanManageAbnormalityTypes(actor);
-    _ensureTypeDefaults(type);
+    _validateTypeForSave(type);
 
     if (type.firestoreId == null) {
       throw Exception('firestoreId required for abnormality type update');
@@ -1508,7 +1508,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanLogChargeAbnormality(actor);
-    _ensureAbnormalityDefaults(abnormality);
+    _validateAbnormalityForSave(abnormality);
 
     abnormality.firestoreId ??= _uuid.v4();
     abnormality.normalizeReannealingState();
@@ -1551,7 +1551,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanEditChargeAbnormality(actor);
-    _ensureAbnormalityDefaults(abnormality);
+    _validateAbnormalityForSave(abnormality);
 
     if (abnormality.firestoreId == null) {
       throw Exception('firestoreId required for abnormality update');
@@ -1999,90 +1999,198 @@ int _sortAbnormalities(ChargeAbnormality a, ChargeAbnormality b) {
   return b.updatedAt.compareTo(a.updatedAt);
 }
 
-void _ensureTypeDefaults(AbnormalityType type) {
-  final now = DateTime.now();
-
-  try {
-    type.code;
-  } catch (_) {
-    type.code = type.firestoreId ?? const Uuid().v4();
-  }
-
-  try {
-    type.title;
-  } catch (_) {
-    type.title = 'Untitled Abnormality';
-  }
-
-  try {
-    type.createdAt;
-  } catch (_) {
-    type.createdAt = now;
-  }
-
-  try {
-    type.updatedAt;
-  } catch (_) {
-    type.updatedAt = now;
-  }
-
-  if (type.version <= 0) {
-    type.version = 1;
-  }
-
+void _validateTypeForSave(AbnormalityType type) {
   _normalizeType(type);
+
+  _requireLocalText(type.code, 'code', maximum: 160);
+  _requireLocalText(type.title, 'title', maximum: 500);
+  _requireOptionalLocalText(type.description, 'description', maximum: 4000);
+  _requireLocalText(type.createdByUid, 'createdByUid', maximum: 512);
+  _requireOptionalLocalText(type.createdByName, 'createdByName', maximum: 500);
+  _requireLocalText(type.lastEditedByUid, 'lastEditedByUid', maximum: 512);
+  _requireOptionalLocalText(
+    type.lastEditedByName,
+    'lastEditedByName',
+    maximum: 500,
+  );
+  if (type.version <= 0) {
+    throw ArgumentError.value(type.version, 'version', 'must be positive');
+  }
+  if (type.updatedAt.isBefore(type.createdAt)) {
+    throw ArgumentError.value(
+      type.updatedAt,
+      'updatedAt',
+      'cannot precede createdAt',
+    );
+  }
+  final indexes = type.applicableAssetTypeIndexes;
+  if (indexes.toSet().length != indexes.length ||
+      indexes.any((index) => index < 0 || index >= AssetType.values.length)) {
+    throw ArgumentError.value(
+      indexes,
+      'applicableAssetTypeIndexes',
+      'must contain unique supported asset types',
+    );
+  }
+  if (type.isDeleted) {
+    if (type.isActive || type.deletedAt == null) {
+      throw ArgumentError(
+        'Deleted abnormality types require inactive state and deletedAt.',
+      );
+    }
+    _requireLocalText(type.deletedByUid, 'deletedByUid', maximum: 512);
+    _requireOptionalLocalText(
+      type.deletedByName,
+      'deletedByName',
+      maximum: 500,
+    );
+    _requireOptionalLocalText(type.deleteReason, 'deleteReason', maximum: 2000);
+    _requireLocalDeletionTimeline(
+      createdAt: type.createdAt,
+      updatedAt: type.updatedAt,
+      deletedAt: type.deletedAt!,
+    );
+  } else if (type.deletedAt != null ||
+      type.deletedByUid != null ||
+      type.deletedByName != null ||
+      type.deleteReason != null) {
+    throw ArgumentError(
+      'Non-deleted abnormality types cannot carry deletion state.',
+    );
+  }
 }
 
-void _ensureAbnormalityDefaults(ChargeAbnormality abnormality) {
-  final now = DateTime.now();
-
-  try {
-    abnormality.sourceChargeNo;
-  } catch (_) {
-    abnormality.sourceChargeNo = 0;
-  }
-
-  try {
-    abnormality.abnormalityTypeId;
-  } catch (_) {
-    abnormality.abnormalityTypeId = 'UNKNOWN';
-  }
-
-  try {
-    abnormality.abnormalityTypeTitle;
-  } catch (_) {
-    abnormality.abnormalityTypeTitle = 'Unknown Abnormality';
-  }
-
-  try {
-    abnormality.abnormalityTypeCode;
-  } catch (_) {
-    abnormality.abnormalityTypeCode = 'UNKNOWN';
-  }
-
-  try {
-    abnormality.observedReason;
-  } catch (_) {
-    abnormality.observedReason = 'No reason recorded';
-  }
-
-  try {
-    abnormality.loggedAt;
-  } catch (_) {
-    abnormality.loggedAt = now;
-  }
-
-  try {
-    abnormality.updatedAt;
-  } catch (_) {
-    abnormality.updatedAt = now;
-  }
-
-  if (abnormality.version <= 0) {
-    abnormality.version = 1;
-  }
-
+void _validateAbnormalityForSave(ChargeAbnormality abnormality) {
   _normalizeAbnormality(abnormality);
+
+  if (abnormality.sourceChargeNo <= 0) {
+    throw ArgumentError.value(
+      abnormality.sourceChargeNo,
+      'sourceChargeNo',
+      'must be positive',
+    );
+  }
+  _requireLocalText(
+    abnormality.abnormalityTypeId,
+    'abnormalityTypeId',
+    maximum: 512,
+  );
+  _requireLocalText(
+    abnormality.abnormalityTypeTitle,
+    'abnormalityTypeTitle',
+    maximum: 500,
+  );
+  _requireLocalText(
+    abnormality.abnormalityTypeCode,
+    'abnormalityTypeCode',
+    maximum: 160,
+  );
+  _requireOptionalLocalText(abnormality.component, 'component', maximum: 200);
+  _requireLocalText(
+    abnormality.observedReason,
+    'observedReason',
+    maximum: 2000,
+  );
+  _requireOptionalLocalText(
+    abnormality.description,
+    'description',
+    maximum: 4000,
+  );
+  _requireOptionalLocalText(
+    abnormality.possibleRootReasonNotes,
+    'possibleRootReasonNotes',
+    maximum: 4000,
+  );
+  _requireLocalText(abnormality.loggedByUid, 'loggedByUid', maximum: 512);
+  _requireOptionalLocalText(
+    abnormality.loggedByName,
+    'loggedByName',
+    maximum: 500,
+  );
+  _requireLocalText(abnormality.updatedByUid, 'updatedByUid', maximum: 512);
+  _requireOptionalLocalText(
+    abnormality.updatedByName,
+    'updatedByName',
+    maximum: 500,
+  );
+  _requireOptionalLocalText(
+    abnormality.linkedTicketFirestoreId,
+    'linkedTicketFirestoreId',
+    maximum: 512,
+  );
+  _requireOptionalLocalText(
+    abnormality.linkedExecutionFirestoreId,
+    'linkedExecutionFirestoreId',
+    maximum: 512,
+  );
+  if (abnormality.version <= 0) {
+    throw ArgumentError.value(
+      abnormality.version,
+      'version',
+      'must be positive',
+    );
+  }
+  if (abnormality.updatedAt.isBefore(abnormality.loggedAt)) {
+    throw ArgumentError.value(
+      abnormality.updatedAt,
+      'updatedAt',
+      'cannot precede loggedAt',
+    );
+  }
+  final affectedAssets = abnormality.affectedAssets;
+  if (affectedAssets.length > 50) {
+    throw ArgumentError.value(
+      affectedAssets.length,
+      'affectedAssets',
+      'must contain at most 50 assets',
+    );
+  }
+  final assetIdentities = <String>{};
+  for (final asset in affectedAssets) {
+    if (asset.assetNumber <= 0) {
+      throw ArgumentError.value(
+        asset.assetNumber,
+        'affectedAssets',
+        'asset numbers must be positive',
+      );
+    }
+    final identity = '${asset.assetType.name}:${asset.assetNumber}';
+    if (!assetIdentities.add(identity)) {
+      throw ArgumentError.value(
+        identity,
+        'affectedAssets',
+        'must not contain duplicate assets',
+      );
+    }
+  }
+  final completed =
+      abnormality.reannealingStatus == ReannealingStatus.completed;
+  final hasTarget = abnormality.reannealedToChargeNo != null;
+  if (completed != hasTarget ||
+      (abnormality.reannealedToChargeNo ?? 1) <= 0 ||
+      abnormality.reannealedToChargeNo == abnormality.sourceChargeNo) {
+    throw ArgumentError(
+      'Completed re-annealing requires a distinct positive target charge.',
+    );
+  }
+  if (abnormality.isDeleted) {
+    if (abnormality.deletedAt == null) {
+      throw ArgumentError('Deleted abnormalities require deletedAt.');
+    }
+    _requireLocalText(abnormality.deletedByUid, 'deletedByUid', maximum: 512);
+    _requireLocalText(abnormality.deletedByName, 'deletedByName', maximum: 500);
+    _requireLocalText(abnormality.deleteReason, 'deleteReason', maximum: 500);
+    _requireLocalDeletionTimeline(
+      createdAt: abnormality.loggedAt,
+      updatedAt: abnormality.updatedAt,
+      deletedAt: abnormality.deletedAt!,
+    );
+  } else if (abnormality.deletedAt != null ||
+      abnormality.deletedByUid != null ||
+      abnormality.deletedByName != null ||
+      abnormality.deleteReason != null) {
+    throw ArgumentError('Active abnormalities cannot carry deletion state.');
+  }
 }
 
 String? _cleanOptionalText(String? value) {
@@ -2091,20 +2199,47 @@ String? _cleanOptionalText(String? value) {
   return text;
 }
 
-String _cleanRequiredText(String? value, String fallback) {
-  final text = value?.trim();
-  if (text == null || text.isEmpty) return fallback;
-  return text;
+void _requireLocalText(String? value, String field, {required int maximum}) {
+  if (value == null || value.trim().isEmpty) {
+    throw ArgumentError.value(value, field, 'must be a non-empty string');
+  }
+  if (value.length > maximum) {
+    throw ArgumentError.value(
+      value,
+      field,
+      'must not exceed $maximum characters',
+    );
+  }
+}
+
+void _requireOptionalLocalText(
+  String? value,
+  String field, {
+  required int maximum,
+}) {
+  if (value != null) {
+    _requireLocalText(value, field, maximum: maximum);
+  }
+}
+
+void _requireLocalDeletionTimeline({
+  required DateTime createdAt,
+  required DateTime updatedAt,
+  required DateTime deletedAt,
+}) {
+  if (deletedAt.isBefore(createdAt) || deletedAt.isAfter(updatedAt)) {
+    throw ArgumentError.value(
+      deletedAt,
+      'deletedAt',
+      'must fall between the creation and update timestamps',
+    );
+  }
 }
 
 void _normalizeType(AbnormalityType type) {
   type
-    ..code =
-        _cleanRequiredText(
-          type.code,
-          type.firestoreId ?? const Uuid().v4(),
-        ).trim().toUpperCase()
-    ..title = _cleanRequiredText(type.title, 'Untitled Abnormality')
+    ..code = type.code.trim().toUpperCase()
+    ..title = type.title.trim()
     ..description = _cleanOptionalText(type.description)
     ..deletedByUid = _cleanOptionalText(type.deletedByUid)
     ..deletedByName = _cleanOptionalText(type.deletedByName)
@@ -2114,42 +2249,16 @@ void _normalizeType(AbnormalityType type) {
     ..lastEditedByUid = _cleanOptionalText(type.lastEditedByUid)
     ..lastEditedByName = _cleanOptionalText(type.lastEditedByName);
 
-  type.applicableAssetTypeIndexes =
-      type.applicableAssetTypeIndexes
-          .where((index) => index >= 0 && index < AssetType.values.length)
-          .toSet()
-          .toList()
-        ..sort();
-
-  if (type.isDeleted) {
-    type.isActive = false;
-  } else {
-    type.deletedAt = null;
-    type.deletedByUid = null;
-    type.deletedByName = null;
-    type.deleteReason = null;
-  }
+  type.applicableAssetTypeIndexes.sort();
 }
 
 void _normalizeAbnormality(ChargeAbnormality abnormality) {
   abnormality
-    ..abnormalityTypeId = _cleanRequiredText(
-      abnormality.abnormalityTypeId,
-      'UNKNOWN',
-    )
-    ..abnormalityTypeCode = _cleanRequiredText(
-      abnormality.abnormalityTypeCode,
-      'UNKNOWN',
-    )
-    ..abnormalityTypeTitle = _cleanRequiredText(
-      abnormality.abnormalityTypeTitle,
-      'Unknown Abnormality',
-    )
+    ..abnormalityTypeId = abnormality.abnormalityTypeId.trim()
+    ..abnormalityTypeCode = abnormality.abnormalityTypeCode.trim()
+    ..abnormalityTypeTitle = abnormality.abnormalityTypeTitle.trim()
     ..component = _cleanOptionalText(abnormality.component)
-    ..observedReason = _cleanRequiredText(
-      abnormality.observedReason,
-      'No reason recorded',
-    )
+    ..observedReason = abnormality.observedReason.trim()
     ..description = _cleanOptionalText(abnormality.description)
     ..possibleRootReasonNotes = _cleanOptionalText(
       abnormality.possibleRootReasonNotes,
@@ -2167,22 +2276,6 @@ void _normalizeAbnormality(ChargeAbnormality abnormality) {
     ..deletedByUid = _cleanOptionalText(abnormality.deletedByUid)
     ..deletedByName = _cleanOptionalText(abnormality.deletedByName)
     ..deleteReason = _cleanOptionalText(abnormality.deleteReason);
-
-  final uniqueAssets = <String, AffectedAssetRef>{};
-  for (final asset in abnormality.affectedAssets) {
-    if (asset.assetNumber <= 0) continue;
-    uniqueAssets['${asset.assetType.name}:${asset.assetNumber}'] = asset;
-  }
-  abnormality.affectedAssets = uniqueAssets.values.toList();
-
-  abnormality.normalizeReannealingState();
-
-  if (!abnormality.isDeleted) {
-    abnormality.deletedAt = null;
-    abnormality.deletedByUid = null;
-    abnormality.deletedByName = null;
-    abnormality.deleteReason = null;
-  }
 }
 
 Map<String, dynamic>? _sanitizeForAudit(Map<String, dynamic>? data) {

@@ -5,8 +5,8 @@
   "decoders": [
     {
       "id": "abnormality-type",
-      "decoderFile": "lib/features/abnormalities/data/abnormality_model.dart",
-      "decoderMarker": "factory AbnormalityType.fromMap",
+      "decoderFile": "lib/features/abnormalities/data/remote_abnormality_reader.dart",
+      "decoderMarker": "AbnormalityType readRemoteAbnormalityType(",
       "readerFile": "lib/features/abnormalities/data/remote_abnormality_timestamps.dart",
       "readerFunction": "readRemoteAbnormalityTypeTimestamps",
       "binding": "timestamps",
@@ -15,8 +15,8 @@
     },
     {
       "id": "charge-abnormality",
-      "decoderFile": "lib/features/abnormalities/data/abnormality_model.dart",
-      "decoderMarker": "factory ChargeAbnormality.fromMap",
+      "decoderFile": "lib/features/abnormalities/data/remote_abnormality_reader.dart",
+      "decoderMarker": "ChargeAbnormality readRemoteChargeAbnormality(",
       "readerFile": "lib/features/abnormalities/data/remote_abnormality_timestamps.dart",
       "readerFunction": "readRemoteChargeAbnormalityTimestamps",
       "binding": "timestamps",

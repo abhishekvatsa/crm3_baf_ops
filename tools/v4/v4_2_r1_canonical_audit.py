@@ -7451,6 +7451,19 @@ a05_directive_test = text(
 a05_decision_11 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_11.md"
 )
+a05_abnormality_model = text(
+    "lib/features/abnormalities/data/abnormality_model.dart"
+)
+a05_abnormality_reader = text(
+    "lib/features/abnormalities/data/remote_abnormality_reader.dart"
+)
+a05_abnormality_provider = text(
+    "lib/features/abnormalities/providers/abnormality_provider.dart"
+)
+a05_abnormality_test = text("test/a05_abnormality_integrity_test.dart")
+a05_decision_12 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_12.md"
+)
 a05_timestamp_inventory_process = subprocess.run(
     [sys.executable, str(ROOT / "tools/v4/a05_persisted_timestamp_inventory.py")],
     cwd=ROOT,
@@ -7663,6 +7676,50 @@ check(
     and "exact `firestoreId`" in a05_decision_11
     and "durable counted quarantine and operator repair" in a05_decision_11
     and "does not inspect or mutate production documents" in a05_decision_11,
+)
+check(
+    "A-05 abnormalities retain exact persisted and local-save authority",
+    "readRemoteAbnormalityType(map, documentId: documentId)"
+        in a05_abnormality_model
+    and "readRemoteChargeAbnormality(map, documentId: documentId)"
+        in a05_abnormality_model
+    and "_safeString" not in a05_abnormality_model
+    and "_safeInt" not in a05_abnormality_model
+    and "_safeBool" not in a05_abnormality_model
+    and "_enumByNameOr" not in a05_abnormality_model
+    and "AbnormalityType readRemoteAbnormalityType(" in a05_abnormality_reader
+    and "ChargeAbnormality readRemoteChargeAbnormality("
+        in a05_abnormality_reader
+    and "must match the document ID" in a05_abnormality_reader
+    and "required asset-type array without duplicates"
+        in a05_abnormality_reader
+    and "must not contain duplicate asset" in a05_abnormality_reader
+    and "cannot precede createdAt" in a05_abnormality_reader
+    and "cannot precede loggedAt" in a05_abnormality_reader
+    and "completed status and target charge must be present together"
+        in a05_abnormality_reader
+    and "deleted abnormality types require deletion authority"
+        in a05_abnormality_reader
+    and "deleted abnormalities require a reason" in a05_abnormality_reader
+    and "_validateTypeForSave(type)" in a05_abnormality_provider
+    and "_validateAbnormalityForSave(abnormality)"
+        in a05_abnormality_provider
+    and "_ensureTypeDefaults" not in a05_abnormality_provider
+    and "_ensureAbnormalityDefaults" not in a05_abnormality_provider
+    and "Untitled Abnormality" not in a05_abnormality_provider
+    and "Unknown Abnormality" not in a05_abnormality_provider
+    and "No reason recorded" not in a05_abnormality_provider
+    and "every authority-bearing type field is required"
+        in a05_abnormality_test
+    and "every authority-bearing charge field is required"
+        in a05_abnormality_test
+    and "malformed, aliased, duplicate, or oversized assets fail closed"
+        in a05_abnormality_test
+    and "malformed local asset JSON is not rewritten as empty state"
+        in a05_abnormality_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_12
+    and "durable counted quarantine and operator repair" in a05_decision_12
+    and "does not inspect or mutate production documents" in a05_decision_12,
 )
 check(
     "A-05 persisted-state tranche fails closed without claiming finding closure",
