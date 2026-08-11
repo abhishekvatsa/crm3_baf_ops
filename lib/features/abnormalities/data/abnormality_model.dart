@@ -4,11 +4,13 @@ import 'dart:convert';
 
 import 'package:isar/isar.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import 'remote_abnormality_timestamps.dart';
 
 part 'abnormality_model.g.dart';
+part 'remote_abnormality_reader.dart';
 
 // ─────────────────────────────────────────────────────────────
 // ENUMS
@@ -21,12 +23,8 @@ enum AbnormalityCategory {
   reannealing,
   other,
 }
-enum AbnormalitySeverity {
-  low,
-  medium,
-  high,
-  critical,
-}
+
+enum AbnormalitySeverity { low, medium, high, critical }
 
 enum ReannealingStatus {
   notApplicable,
@@ -58,22 +56,35 @@ class AffectedAssetRef {
   final AssetType assetType;
   final int assetNumber;
 
-  const AffectedAssetRef({
-    required this.assetType,
-    required this.assetNumber,
-  });
+  const AffectedAssetRef({required this.assetType, required this.assetNumber});
 
   Map<String, dynamic> toMap() {
-    return {
-      'assetType': assetType.name,
-      'assetNumber': assetNumber,
-    };
+    return {'assetType': assetType.name, 'assetNumber': assetNumber};
   }
 
-  factory AffectedAssetRef.fromMap(Map<String, dynamic> map) {
+  factory AffectedAssetRef.fromMap(Map<String, dynamic> map, {String? source}) {
+    if (map.length != 2 ||
+        !map.containsKey('assetType') ||
+        !map.containsKey('assetNumber')) {
+      throw PersistedDataFormatException(
+        field: 'affectedAssets',
+        source: source,
+        detail: 'each asset must contain only assetType and assetNumber',
+      );
+    }
     return AffectedAssetRef(
-      assetType: _assetTypeFromValue(map['assetType']),
-      assetNumber: _safeInt(map['assetNumber']) ?? 0,
+      assetType: readRequiredPersistedEnum(
+        AssetType.values,
+        map['assetType'],
+        field: 'assetType',
+        source: source,
+      ),
+      assetNumber: readRequiredPersistedInt(
+        map['assetNumber'],
+        field: 'assetNumber',
+        source: source,
+        minimum: 1,
+      ),
     );
   }
 
@@ -252,7 +263,7 @@ class AbnormalityType {
       'category': category.name,
       'severity': severity.name,
       'applicableAssetTypes':
-      applicableAssetTypes.map((assetType) => assetType.name).toList(),
+          applicableAssetTypes.map((assetType) => assetType.name).toList(),
       'suggestsReannealing': suggestsReannealing,
       'isActive': isActive,
       'isDeleted': isDeleted,
@@ -271,58 +282,9 @@ class AbnormalityType {
   }
 
   factory AbnormalityType.fromMap(
-      Map<String, dynamic> map,
-      String documentId,
-      ) {
-    final timestamps = readRemoteAbnormalityTypeTimestamps(
-      map,
-      source: 'abnormality type $documentId',
-    );
-
-    final type = AbnormalityType()
-      ..firestoreId = _safeString(map['firestoreId']) ?? documentId
-      ..code = _safeString(map['code']) ?? documentId
-      ..title = _safeString(map['title']) ?? 'Untitled Abnormality'
-      ..description = _safeString(map['description'])
-      ..category = _enumByNameOr(
-        AbnormalityCategory.values,
-        map['category'],
-        AbnormalityCategory.other,
-      )
-      ..severity = _enumByNameOr(
-        AbnormalitySeverity.values,
-        map['severity'],
-        AbnormalitySeverity.medium,
-      )
-      ..suggestsReannealing = _safeBool(map['suggestsReannealing']) ?? false
-      ..isActive = _safeBool(map['isActive']) ?? true
-      ..isDeleted = _safeBool(map['isDeleted']) ?? false
-      ..deletedAt = timestamps.deletedAt
-      ..deletedByUid = _safeString(map['deletedByUid'])
-      ..deletedByName = _safeString(map['deletedByName'])
-      ..deleteReason = _safeString(map['deleteReason'])
-      ..version = _safeInt(map['version']) ?? 1
-      ..isSynced = true
-      ..createdAt = timestamps.createdAt
-      ..updatedAt = timestamps.updatedAt
-      ..createdByUid = _safeString(map['createdByUid'])
-      ..createdByName = _safeString(map['createdByName'])
-      ..lastEditedByUid = _safeString(map['lastEditedByUid'])
-      ..lastEditedByName = _safeString(map['lastEditedByName']);
-
-    type.applicableAssetTypes =
-        _assetTypesFromValue(map['applicableAssetTypes']);
-
-    if (type.isDeleted) {
-      requireRemoteTombstoneDeletedAt(
-        type.deletedAt,
-        entityLabel: 'abnormality type',
-        firestoreId: type.firestoreId,
-      );
-    }
-
-    return type;
-  }
+    Map<String, dynamic> map,
+    String documentId,
+  ) => readRemoteAbnormalityType(map, documentId: documentId);
 
   Map<String, dynamic> toAuditMap() {
     return {
@@ -334,7 +296,7 @@ class AbnormalityType {
       'category': category.name,
       'severity': severity.name,
       'applicableAssetTypes':
-      applicableAssetTypes.map((assetType) => assetType.name).toList(),
+          applicableAssetTypes.map((assetType) => assetType.name).toList(),
       'suggestsReannealing': suggestsReannealing,
       'isActive': isActive,
       'isDeleted': isDeleted,
@@ -522,8 +484,7 @@ class ChargeAbnormality {
     required List<AffectedAssetRef> affectedAssets,
     required String observedReason,
     String? description,
-    RootReasonCategory possibleRootReasonCategory =
-        RootReasonCategory.unknown,
+    RootReasonCategory possibleRootReasonCategory = RootReasonCategory.unknown,
     String? possibleRootReasonNotes,
     int? reannealedToChargeNo,
     required String? loggedByUid,
@@ -531,30 +492,31 @@ class ChargeAbnormality {
   }) {
     final now = DateTime.now();
 
-    final abnormality = ChargeAbnormality()
-      ..firestoreId = firestoreId
-      ..sourceChargeNo = sourceChargeNo
-      ..abnormalityTypeId = 'RA_COIL_COLOUR'
-      ..abnormalityTypeCode = 'RA_COIL_COLOUR'
-      ..abnormalityTypeTitle = 'RA Required – Coil Colour'
-      ..category = AbnormalityCategory.reannealing
-      ..severity = AbnormalitySeverity.high
-      ..affectedAssets = affectedAssets
-      ..observedReason = observedReason
-      ..description = description
-      ..possibleRootReasonCategory = possibleRootReasonCategory
-      ..possibleRootReasonNotes = possibleRootReasonNotes
-      ..reannealingStatus = ReannealingStatus.required
-      ..reannealedToChargeNo = reannealedToChargeNo
-      ..loggedAt = now
-      ..updatedAt = now
-      ..loggedByUid = loggedByUid
-      ..loggedByName = loggedByName
-      ..updatedByUid = loggedByUid
-      ..updatedByName = loggedByName
-      ..version = 1
-      ..isSynced = false
-      ..isDeleted = false;
+    final abnormality =
+        ChargeAbnormality()
+          ..firestoreId = firestoreId
+          ..sourceChargeNo = sourceChargeNo
+          ..abnormalityTypeId = 'RA_COIL_COLOUR'
+          ..abnormalityTypeCode = 'RA_COIL_COLOUR'
+          ..abnormalityTypeTitle = 'RA Required – Coil Colour'
+          ..category = AbnormalityCategory.reannealing
+          ..severity = AbnormalitySeverity.high
+          ..affectedAssets = affectedAssets
+          ..observedReason = observedReason
+          ..description = description
+          ..possibleRootReasonCategory = possibleRootReasonCategory
+          ..possibleRootReasonNotes = possibleRootReasonNotes
+          ..reannealingStatus = ReannealingStatus.required
+          ..reannealedToChargeNo = reannealedToChargeNo
+          ..loggedAt = now
+          ..updatedAt = now
+          ..loggedByUid = loggedByUid
+          ..loggedByName = loggedByName
+          ..updatedByUid = loggedByUid
+          ..updatedByName = loggedByName
+          ..version = 1
+          ..isSynced = false
+          ..isDeleted = false;
 
     abnormality.normalizeReannealingState();
     return abnormality;
@@ -601,82 +563,9 @@ class ChargeAbnormality {
   }
 
   factory ChargeAbnormality.fromMap(
-      Map<String, dynamic> map,
-      String documentId,
-      ) {
-    final timestamps = readRemoteChargeAbnormalityTimestamps(
-      map,
-      source: 'charge abnormality $documentId',
-    );
-
-    final abnormality = ChargeAbnormality()
-      ..firestoreId = _safeString(map['firestoreId']) ?? documentId
-      ..sourceChargeNo = _safeInt(map['sourceChargeNo']) ?? 0
-      ..abnormalityTypeId =
-          _safeString(map['abnormalityTypeId']) ?? 'UNKNOWN'
-      ..abnormalityTypeTitle =
-          _safeString(map['abnormalityTypeTitle']) ?? 'Unknown Abnormality'
-      ..abnormalityTypeCode =
-          _safeString(map['abnormalityTypeCode']) ?? 'UNKNOWN'
-      ..category = _enumByNameOr(
-        AbnormalityCategory.values,
-        map['category'],
-        AbnormalityCategory.other,
-      )
-      ..severity = _enumByNameOr(
-        AbnormalitySeverity.values,
-        map['severity'],
-        AbnormalitySeverity.medium,
-      )
-      ..component = _safeString(map['component'])
-      ..observedReason =
-          _safeString(map['observedReason']) ?? 'No reason recorded'
-      ..description = _safeString(map['description'])
-      ..possibleRootReasonCategory = _enumByNameOr(
-        RootReasonCategory.values,
-        map['possibleRootReasonCategory'],
-        RootReasonCategory.unknown,
-      )
-      ..possibleRootReasonNotes =
-      _safeString(map['possibleRootReasonNotes'])
-      ..reannealingStatus = _enumByNameOr(
-        ReannealingStatus.values,
-        map['reannealingStatus'],
-        ReannealingStatus.notApplicable,
-      )
-      ..reannealedToChargeNo = _safeInt(map['reannealedToChargeNo'])
-      ..loggedAt = timestamps.loggedAt
-      ..updatedAt = timestamps.updatedAt
-      ..loggedByUid = _safeString(map['loggedByUid'])
-      ..loggedByName = _safeString(map['loggedByName'])
-      ..updatedByUid = _safeString(map['updatedByUid'])
-      ..updatedByName = _safeString(map['updatedByName'])
-      ..linkedTicketFirestoreId = _safeString(map['linkedTicketFirestoreId'])
-      ..linkedExecutionFirestoreId =
-      _safeString(map['linkedExecutionFirestoreId'])
-      ..version = _safeInt(map['version']) ?? 1
-      ..isSynced = true
-      ..isDeleted = _safeBool(map['isDeleted']) ?? false
-      ..deletedAt = timestamps.deletedAt
-      ..deletedByUid = _safeString(map['deletedByUid'])
-      ..deletedByName = _safeString(map['deletedByName'])
-      ..deleteReason = _safeString(map['deleteReason']);
-
-    abnormality.affectedAssets =
-        decodeAffectedAssetsFromDynamic(map['affectedAssets']);
-
-    abnormality.normalizeReannealingState();
-
-    if (abnormality.isDeleted) {
-      requireRemoteTombstoneDeletedAt(
-        abnormality.deletedAt,
-        entityLabel: 'charge abnormality',
-        firestoreId: abnormality.firestoreId,
-      );
-    }
-
-    return abnormality;
-  }
+    Map<String, dynamic> map,
+    String documentId,
+  ) => readRemoteChargeAbnormality(map, documentId: documentId);
 
   Map<String, dynamic> toAuditMap() {
     normalizeReannealingState();
@@ -728,13 +617,20 @@ List<AffectedAssetRef> decodeAffectedAssets(String? jsonText) {
   if (jsonText == null || jsonText.trim().isEmpty) {
     return [];
   }
-
+  dynamic decoded;
   try {
-    final decoded = jsonDecode(jsonText);
-    return decodeAffectedAssetsFromDynamic(decoded);
-  } catch (_) {
-    return [];
+    decoded = jsonDecode(jsonText);
+  } on FormatException {
+    throw PersistedDataFormatException(
+      field: 'affectedAssetsJson',
+      detail: 'malformed JSON',
+    );
   }
+  return _readAffectedAssetList(
+    decoded,
+    field: 'affectedAssetsJson',
+    source: 'local charge abnormality',
+  );
 }
 
 List<AffectedAssetRef> decodeAffectedAssetsFromDynamic(dynamic value) {
@@ -743,136 +639,11 @@ List<AffectedAssetRef> decodeAffectedAssetsFromDynamic(dynamic value) {
   if (value is String) {
     return decodeAffectedAssets(value);
   }
-
-  if (value is! List) return [];
-
-  final refs = <AffectedAssetRef>[];
-
-  for (final item in value) {
-    if (item is Map<String, dynamic>) {
-      refs.add(AffectedAssetRef.fromMap(item));
-    } else if (item is Map) {
-      refs.add(
-        AffectedAssetRef.fromMap(
-          item.map(
-                (key, value) => MapEntry(key.toString(), value),
-          ),
-        ),
-      );
-    }
-  }
-
-  return refs;
-}
-
-// ─────────────────────────────────────────────────────────────
-// SAFE PARSERS
-// ─────────────────────────────────────────────────────────────
-
-String? _safeString(dynamic value) {
-  if (value == null) return null;
-
-  final text = value.toString().trim();
-  if (text.isEmpty) return null;
-
-  return text;
-}
-
-int? _safeInt(dynamic value) {
-  if (value == null) return null;
-
-  if (value is int) return value;
-
-  if (value is num) return value.toInt();
-
-  if (value is String) return int.tryParse(value.trim());
-
-  return null;
-}
-
-bool? _safeBool(dynamic value) {
-  if (value == null) return null;
-
-  if (value is bool) return value;
-
-  if (value is num) return value != 0;
-
-  if (value is String) {
-    final normalized = value.trim().toLowerCase();
-    if (normalized == 'true' || normalized == 'yes' || normalized == '1') {
-      return true;
-    }
-    if (normalized == 'false' || normalized == 'no' || normalized == '0') {
-      return false;
-    }
-  }
-
-  return null;
-}
-
-T _enumByNameOr<T extends Enum>(
-    List<T> values,
-    dynamic raw,
-    T fallback,
-    ) {
-  if (raw == null) return fallback;
-
-  if (raw is int && raw >= 0 && raw < values.length) {
-    return values[raw];
-  }
-
-  final normalized = raw.toString().trim().toLowerCase();
-
-  for (final value in values) {
-    if (value.name.toLowerCase() == normalized) {
-      return value;
-    }
-  }
-
-  return fallback;
-}
-
-AssetType _assetTypeFromValue(dynamic raw) {
-  if (raw == null) return AssetType.base;
-
-  if (raw is int && raw >= 0 && raw < AssetType.values.length) {
-    return AssetType.values[raw];
-  }
-
-  final normalized = raw.toString().trim().toLowerCase().replaceAll('_', '');
-
-  switch (normalized) {
-    case 'base':
-      return AssetType.base;
-    case 'furnace':
-      return AssetType.furnace;
-    case 'forcecooler':
-    case 'forcecoolers':
-    case 'cooler':
-    case 'coolers':
-      return AssetType.forceCooler;
-    case 'innercover':
-    case 'innercovers':
-    case 'cover':
-    case 'covers':
-      return AssetType.innerCover;
-    default:
-      return _enumByNameOr(
-        AssetType.values,
-        raw,
-        AssetType.base,
-      );
-  }
-}
-
-List<AssetType> _assetTypesFromValue(dynamic value) {
-  if (value == null) return [];
-
-  if (value is List) {
-    return value.map(_assetTypeFromValue).toSet().toList();
-  }
-
-  return [_assetTypeFromValue(value)];
+  return _readAffectedAssetList(
+    value,
+    field: 'affectedAssets',
+    source: 'charge abnormality',
+  );
 }
 
 String _assetTypeLabel(AssetType type) {

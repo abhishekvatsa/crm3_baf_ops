@@ -17,13 +17,24 @@ void main() {
       final decoders = <String, Object? Function()>{
         'abnormality type':
             () => AbnormalityType.fromMap(const <String, dynamic>{
+              'firestoreId': 'type-1',
               'isDeleted': true,
+              'isActive': false,
+              'deletedByUid': 'admin-1',
               'createdAt': createdAt,
               'updatedAt': updatedAt,
             }, 'type-1'),
         'charge abnormality':
             () => ChargeAbnormality.fromMap(const <String, dynamic>{
+              'firestoreId': 'abnormality-1',
+              'sourceChargeNo': 12001,
               'isDeleted': true,
+              'reannealingStatus': 'notApplicable',
+              'deletedByUid': 'admin-1',
+              'deletedByName': 'Admin One',
+              'deleteReason': 'Duplicate record confirmed',
+              'loggedByUid': 'operations-1',
+              'updatedByUid': 'admin-1',
               'loggedAt': createdAt,
               'updatedAt': updatedAt,
             }, 'abnormality-1'),

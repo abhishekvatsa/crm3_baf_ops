@@ -1141,9 +1141,9 @@
     {
       "path": "lib/features/abnormalities/data/abnormality_model.dart",
       "canonicalSha256": "98430D484984B5151BD3F0B261E76C1176AC183EE679401E357EFCE2A88D5CFC",
-      "candidateSha256": "5AFA1B278B7B5A7D04EB17CBCCC08F9B22E0C8466763FF153718C7EC5BEB3046",
+      "candidateSha256": "CDBCD73F4EF8493F334A43274A13D359120CE74FDB88C4EC6FC8FE93247E831B",
       "canonicalBytes": 27472,
-      "candidateBytes": 27410,
+      "candidateBytes": 20956,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1189,9 +1189,9 @@
     {
       "path": "lib/features/abnormalities/providers/abnormality_provider.dart",
       "canonicalSha256": "B0ED8D3927D445D9C5FEB676B38B648F7802269AC2C762F8A2B8912857D9DD51",
-      "candidateSha256": "7B078DEAC9AFACBF87D57590B29B9D237CB92F2304905CF3614473ACA9A0FB4C",
+      "candidateSha256": "D8FA86FE3E7497501F488073E0CD659A8AAC8F497ACEB28B85109F09FFABA1FD",
       "canonicalBytes": 67050,
-      "candidateBytes": 68381,
+      "candidateBytes": 72406,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
