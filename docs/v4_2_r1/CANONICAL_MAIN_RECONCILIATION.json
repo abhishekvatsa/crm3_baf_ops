@@ -97,9 +97,9 @@
     {
       "path": ".github/workflows/production-artifact.yml",
       "canonicalSha256": "6A053C5417526F1EEE7E7DE8117B0891B5E9B895C78AD678516FC03ECD361232",
-      "candidateSha256": "4659ABEEC2B0B6F18777B80B4910477BA0E5582D74350B6D41B5F05265F9F2E0",
+      "candidateSha256": "B354E7808CC801852E59DFD39B688865478B13E77EF118D8F5F03C308D710EB2",
       "canonicalBytes": 15445,
-      "candidateBytes": 25018,
+      "candidateBytes": 24980,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3077,9 +3077,9 @@
     {
       "path": "test/production_release_provenance_contract_test.dart",
       "canonicalSha256": "3906E9F4737E325D73259BA259C8A2088CA9084C817AEAD6260FC510049FE985",
-      "candidateSha256": "CCAC0FF9C9BC5B3BB9BFBC1C3B92AB7BD78A71649515389D7F8764F1706AFDCD",
+      "candidateSha256": "F9335C5C797E3DBB7BA888EFA555F9BCA022F055B52377B3967540D98E5D210D",
       "canonicalBytes": 7635,
-      "candidateBytes": 43334,
+      "candidateBytes": 43999,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3381,9 +3381,9 @@
     {
       "path": "tools/release/Test-ProductionReleasePolicy.ps1",
       "canonicalSha256": "6A7A51C91BCF2276ACEE8FE48AEC70783808F687E6539B600273178CD8FDF7D6",
-      "candidateSha256": "683D304BB6BCE6B7CD33B5E455CE6EC618A60E2E5752ED187D61D263D529C50C",
+      "candidateSha256": "19C29CECCA22271F0E02068B4EB81F32EBFD737D7B2E809BC3A3CB01CA018B7E",
       "canonicalBytes": 15649,
-      "candidateBytes": 62711,
+      "candidateBytes": 62977,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

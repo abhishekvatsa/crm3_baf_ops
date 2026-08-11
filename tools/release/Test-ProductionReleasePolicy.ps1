@@ -1263,12 +1263,12 @@ foreach ($required in @(
   'tooling/firebase-cli/node_modules/.bin'
   'Prove Android dependency configuration before reservation'
   'Prove production environment secrets before reservation'
-  'crm3-android-preflight-placeholder.p12'
-  'flutter build apk --release --config-only --no-pub'
-  "grep -Fq 'dev.flutter.plugins.integration_test'"
-  'Release plugin registrant still contains integration_test.'
-  './gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace'
-  './gradlew :app:compileReleaseSources --no-daemon --stacktrace'
+  'Invoke-CIAndroidPackageProof.ps1'
+  "-BuildName '0.0.0-production-preflight'"
+  '-BuildNumber 1'
+  'Secret-isolated Android package proof failed.'
+  'flutter clean'
+  'Secret-isolated preflight output remains:'
   'New-ProductionArtifact.ps1'
   '-ExpectedApprovalReference $env:CRM_DISPATCH_APPROVAL_REFERENCE'
   'retention-days: 1'
@@ -1302,24 +1302,37 @@ $androidPreflightSection = $workflow.Substring(
   $androidPreflightIndex,
   $environmentSecretPreflightIndex - $androidPreflightIndex
 )
-$releaseConfigIndex = $androidPreflightSection.IndexOf(
-  'flutter build apk --release --config-only --no-pub'
+$packageProofIndex = $androidPreflightSection.IndexOf(
+  'Invoke-CIAndroidPackageProof.ps1'
 )
-$registrantCheckIndex = $androidPreflightSection.IndexOf(
-  "grep -Fq 'dev.flutter.plugins.integration_test'"
+$preflightCleanupIndex = $androidPreflightSection.IndexOf(
+  'flutter clean'
 )
-$gradleDryRunIndex = $androidPreflightSection.IndexOf(
-  './gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace'
+$packageProofFailureIndex = $androidPreflightSection.IndexOf(
+  'Secret-isolated Android package proof failed.'
 )
-if ($releaseConfigIndex -lt 0 -or
-    $registrantCheckIndex -le $releaseConfigIndex -or
-    $gradleDryRunIndex -le $registrantCheckIndex) {
-  throw 'Android preflight does not prove release-only plugin configuration before Gradle.'
+$dependencyRestoreAfterCleanupIndex = $androidPreflightSection.IndexOf(
+  'flutter pub get'
+)
+if ($packageProofIndex -lt 0 -or
+    $packageProofFailureIndex -le $packageProofIndex -or
+    $preflightCleanupIndex -le $packageProofFailureIndex -or
+    $dependencyRestoreAfterCleanupIndex -le $preflightCleanupIndex) {
+  throw 'Secret-isolated Android packaging proof and cleanup order is invalid.'
 }
-if ($androidPreflightSection -notmatch
-    '(?m)^\s+\./gradlew :app:compileReleaseSources ' +
-      '--no-daemon --stacktrace\r?\n\s+\)\s*$') {
-  throw 'Android preflight subshell is not closed before secret preflight.'
+if ($androidPreflightSection.Contains('${{ secrets.') -or
+    $androidPreflightSection.Contains(
+      'CRM_ANDROID_RELEASE_KEYSTORE_BASE64'
+    )) {
+  throw 'Secret-isolated Android preflight references production secrets.'
+}
+foreach ($requiredPreflightOutput in @(
+  'build/app/outputs/flutter-apk/app-release.apk'
+  'build/app/outputs/bundle/release/app-release.aab'
+)) {
+  if (-not $androidPreflightSection.Contains($requiredPreflightOutput)) {
+    throw "Android preflight cleanup omits: $requiredPreflightOutput"
+  }
 }
 $secretPreflightBlocks = @(
   Get-YamlRunBlocks -Source $workflow |

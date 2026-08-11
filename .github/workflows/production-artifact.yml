@@ -351,28 +351,36 @@ jobs:
           test "$actual_firebase_version" = "$CRM_FIREBASE_TOOLS_VERSION"
 
       - name: Prove Android dependency configuration before reservation
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          preflight_store="${RUNNER_TEMP}/crm3-android-preflight-placeholder.p12"
-          : > "$preflight_store"
-          trap 'rm -f "$preflight_store"' EXIT
-          export CRM_ANDROID_RELEASE_STORE_FILE="$preflight_store"
-          export CRM_ANDROID_RELEASE_STORE_PASSWORD='preflight-only'
-          export CRM_ANDROID_RELEASE_KEY_ALIAS='preflight-only'
-          export CRM_ANDROID_RELEASE_KEY_PASSWORD='preflight-only'
-          flutter build apk --release --config-only --no-pub
-          registrant='android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java'
-          test -f "$registrant"
-          if grep -Fq 'dev.flutter.plugins.integration_test' "$registrant"; then
-            echo 'Release plugin registrant still contains integration_test.' >&2
-            exit 1
-          fi
-          (
-            cd android
-            ./gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace
-            ./gradlew :app:compileReleaseSources --no-daemon --stacktrace
-          )
+          $ErrorActionPreference = 'Stop'
+
+          pwsh -NoProfile -ExecutionPolicy Bypass `
+            -File tools/release/Invoke-CIAndroidPackageProof.ps1 `
+            -RepositoryRoot $PWD `
+            -BuildName '0.0.0-production-preflight' `
+            -BuildNumber 1
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Secret-isolated Android package proof failed.'
+          }
+
+          flutter clean
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to remove secret-isolated preflight outputs.'
+          }
+          flutter pub get
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to restore dependencies after preflight cleanup.'
+          }
+
+          foreach ($path in @(
+            'build/app/outputs/flutter-apk/app-release.apk',
+            'build/app/outputs/bundle/release/app-release.aab'
+          )) {
+            if (Test-Path -LiteralPath $path) {
+              throw "Secret-isolated preflight output remains: $path"
+            }
+          }
 
       - name: Prove production environment secrets before reservation
         shell: pwsh
