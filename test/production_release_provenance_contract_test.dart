@@ -367,7 +367,7 @@ void main() {
       );
     });
 
-    test('builds 1 to 7 are preserved and build 8 is finalized', () {
+    test('builds 1 to 8 are preserved and build 9 is source-reserved', () {
       final ledger =
           jsonDecode(read('release/build-number-ledger.json'))
               as Map<String, dynamic>;
@@ -381,6 +381,7 @@ void main() {
       final build6 = entries.singleWhere((entry) => entry['buildNumber'] == 6);
       final build7 = entries.singleWhere((entry) => entry['buildNumber'] == 7);
       final build8 = entries.singleWhere((entry) => entry['buildNumber'] == 8);
+      final build9 = entries.singleWhere((entry) => entry['buildNumber'] == 9);
 
       expect(build1['status'], 'remote-consumed-build-failed');
       expect(build1['githubRunId'], 30387521656);
@@ -668,6 +669,53 @@ void main() {
       expect(build8['unrestrictedPlantReleaseApproved'], isFalse);
       expect(build8['distributionPerformed'], isFalse);
 
+      expect(build9['status'], 'source-reserved-awaiting-remote-consumption');
+      expect(
+        build9['baselineCommit'],
+        '28cb22064511c1abcb76759cbb302a303427f46f',
+      );
+      expect(build9['remoteReservationTag'], 'crm3-build-reserved/9');
+      expect(build9['remoteBuiltTag'], 'crm3-build-built/9');
+      expect(build9['versionApprovalReference'], 'BAF-REF-003-C8');
+      expect(
+        build9['versionApprovalDocumentSha256'],
+        '1AF2210730052C99F8AAA2A1A1D5E8C1D38646F0F7AF07A3444A0094778E3AE9',
+      );
+      expect(build9.containsKey('githubRunId'), isFalse);
+      expect(build9.containsKey('remoteReservationTagObject'), isFalse);
+
+      final build9Approval =
+          jsonDecode(
+                read(
+                  'release/approvals/'
+                  'build-number-9-rollover-approval.json',
+                ),
+              )
+              as Map<String, dynamic>;
+      final build9Source =
+          build9Approval['requiredSource'] as Map<String, dynamic>;
+      final build9Controls = build9Approval['controls'] as Map<String, dynamic>;
+      expect(build9Approval['approvalReference'], 'BAF-REF-003-C8');
+      expect(build9Approval['distributionApproved'], isFalse);
+      expect(
+        (build9Approval['consumedBuild']
+            as Map<String, dynamic>)['buildNumber'],
+        8,
+      );
+      expect(
+        (build9Approval['nextBuild'] as Map<String, dynamic>)['buildNumber'],
+        9,
+      );
+      expect(build9Source['integratedSuccessorPullRequest'], 193);
+      expect(
+        build9Source['integratedSuccessorMergeCommit'],
+        '28cb22064511c1abcb76759cbb302a303427f46f',
+      );
+      expect(build9Source['postMergeGithubRunId'], 31512254539);
+      expect(build9Controls['recoverySourceRequired'], isTrue);
+      expect(build9Controls['inPlaceUpgradeRequired'], isTrue);
+      expect(build9Controls['deviceDataClearProhibited'], isTrue);
+
       final build8Approval =
           jsonDecode(
                 read(
@@ -716,7 +764,7 @@ void main() {
           jsonDecode(
                 read(
                   'release/approvals/'
-                  'public-repository-environment-reviewer-approval-build-8.json',
+                  'public-repository-environment-reviewer-approval-build-9.json',
                 ),
               )
               as Map<String, dynamic>;
@@ -750,8 +798,8 @@ void main() {
         'public-repository-required-reviewer-control',
       );
       expect(scope['repositoryVisibility'], 'public');
-      expect(scope['buildNumber'], 8);
-      expect(scope['versionApprovalReference'], 'BAF-REF-003-C7');
+      expect(scope['buildNumber'], 9);
+      expect(scope['versionApprovalReference'], 'BAF-REF-003-C8');
       expect(scope['singleBuildOnly'], isTrue);
       expect(liveStateEvidence['repositoryPrivate'], isFalse);
       expect(liveStateEvidence['canAdminsBypass'], isFalse);
@@ -845,7 +893,7 @@ void main() {
       expect(
         policyVerifier,
         contains(
-          'Dispatch source does not contain the integrated PR 117 successor.',
+          'Dispatch source does not contain the integrated PR 193 successor.',
         ),
       );
     });
@@ -855,8 +903,12 @@ void main() {
           jsonDecode(read('release/production-release-policy.json'))
               as Map<String, dynamic>;
       final finalization = policy['finalization'] as Map<String, dynamic>;
+      final build8Finalization =
+          finalization['priorCompletedBuild'] as Map<String, dynamic>;
       final receipt =
-          jsonDecode(read(finalization['completionReceiptFile'] as String))
+          jsonDecode(
+                read(build8Finalization['completionReceiptFile'] as String),
+              )
               as Map<String, dynamic>;
       final sourceAuthority =
           receipt['sourceAuthority'] as Map<String, dynamic>;
@@ -871,7 +923,7 @@ void main() {
       final releaseBoundary =
           receipt['releaseBoundary'] as Map<String, dynamic>;
       final backendActivation =
-          finalization['backendActivation'] as Map<String, dynamic>;
+          build8Finalization['backendActivation'] as Map<String, dynamic>;
       final backendEvidence =
           jsonDecode(read(backendActivation['evidenceFile'] as String))
               as Map<String, dynamic>;
@@ -882,10 +934,11 @@ void main() {
       final programmeBoundary =
           backendEvidence['programmeBoundary'] as Map<String, dynamic>;
 
-      expect(finalization['status'], 'completed-non-distributable');
-      expect(finalization['dualCustodyCompleted'], isTrue);
+      expect(finalization['status'], 'pending-source-authorized');
+      expect(build8Finalization['status'], 'completed-non-distributable');
+      expect(build8Finalization['dualCustodyCompleted'], isTrue);
       expect(
-        finalization['completionReceiptSha256'],
+        build8Finalization['completionReceiptSha256'],
         '9DA20D9997DC11D305317F4A594F3A139E9AC2FF3111523FDD4E288C0D31B446',
       );
       expect(receipt['schemaVersion'], 1);
@@ -953,12 +1006,12 @@ void main() {
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
         pubspec,
-        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+8$', multiLine: true)),
+        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+9$', multiLine: true)),
       );
-      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b8"'));
+      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b9"'));
       expect(
         policy,
-        contains('"remoteReservationTag": "crm3-build-reserved/8"'),
+        contains('"remoteReservationTag": "crm3-build-reserved/9"'),
       );
       expect(policy, contains('"approved": false'));
       expect(policy, contains('"unrestrictedPlantReleaseApproved": false'));

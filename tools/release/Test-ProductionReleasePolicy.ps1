@@ -25,10 +25,10 @@ $ExpectedEnvironmentName = 'crm3-baf-ops-production-signing'
 $ExpectedRequiredReviewerLogin = 'abhishekvatsa'
 $ExpectedRequiredReviewerId = 213690022
 $ExpectedIntegratedSuccessorCommit =
-  '45ebd9c853798f88fedd2e4d72d6022dc389097f'
+  '28cb22064511c1abcb76759cbb302a303427f46f'
 $ExpectedIntegratedSuccessorTree =
-  '24487330756ea9933be5bf81181fde4d607e375d'
-$ExpectedIntegratedSuccessorPostMergeRunId = 30796250694
+  '70cc865e7636de0f3906565707b1d85e69a3e0db'
+$ExpectedIntegratedSuccessorPostMergeRunId = 31512254539
 $ExpectedEnvironmentSecretNames = @(
   'CRM_ANDROID_RELEASE_KEY_ALIAS'
   'CRM_ANDROID_RELEASE_KEY_PASSWORD'
@@ -579,7 +579,7 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
     $versionSource.requiredSource.
       firestoreValueNormalizationMustBeAncestorOfDispatchCommit -ne $true -or
     [int64]$versionSource.requiredSource.integratedSuccessorPullRequest -ne
-      117 -or
+      193 -or
     [string]$versionSource.requiredSource.integratedSuccessorMergeCommit -ne
       $ExpectedIntegratedSuccessorCommit -or
     [string]$versionSource.requiredSource.integratedSuccessorTree -ne
@@ -617,7 +617,7 @@ git merge-base --is-ancestor `
   ([string]$versionSource.requiredSource.integratedSuccessorMergeCommit) `
   HEAD
 if ($LASTEXITCODE -ne 0) {
-  throw 'Dispatch source does not contain the integrated PR 117 successor.'
+  throw 'Dispatch source does not contain the integrated PR 193 successor.'
 }
 
 $completionReceiptPath = $null

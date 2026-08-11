@@ -3031,6 +3031,21 @@ build8_environment_approval = data(
     "release/approvals/"
     "public-repository-environment-reviewer-approval-build-8.json"
 )
+build9_approval_path = (
+    ROOT / "release/approvals/build-number-9-rollover-approval.json"
+)
+build9_environment_approval_path = (
+    ROOT
+    / "release/approvals/"
+    / "public-repository-environment-reviewer-approval-build-9.json"
+)
+build9_approval = data(
+    "release/approvals/build-number-9-rollover-approval.json"
+)
+build9_environment_approval = data(
+    "release/approvals/"
+    "public-repository-environment-reviewer-approval-build-9.json"
+)
 build8_completion_path = (
     ROOT / "release/evidence/build-8-finalization-closure.json"
 )
@@ -3156,8 +3171,14 @@ build8_entries = [
     if entry.get("buildNumber") == 8
 ]
 build8_entry = build8_entries[0] if len(build8_entries) == 1 else {}
+build9_entries = [
+    entry
+    for entry in build_number_ledger.get("entries", [])
+    if entry.get("buildNumber") == 9
+]
+build9_entry = build9_entries[0] if len(build9_entries) == 1 else {}
 check(
-    "Builds 6 through 8 are finalized and remain non-distributable",
+    "Builds 6 through 8 are finalized and Build 9 is source-reserved",
     sha(build6_approval_path)
         == "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141"
     and sha(build6_exception_path)
@@ -3265,10 +3286,6 @@ check(
     )
         is False
     and sha(build8_approval_path)
-        == combined_policy.get("versionPolicy", {}).get(
-            "sourceDocumentSha256"
-        )
-    and sha(build8_approval_path)
         == "5060D9CC53FB9F65CCA888F913A45A1C7D4B5629FF93350138DB8C4E605A7335"
     and build8_approval.get("approvalReference") == "BAF-REF-003-C7"
     and build8_approval.get("approved") is True
@@ -3310,10 +3327,6 @@ check(
         is True
     and build8_approval.get("distributionApproved") is False
     and build8_approval.get("unrestrictedPlantReleaseApproved") is False
-    and sha(build8_environment_approval_path)
-        == combined_policy.get("github", {})
-        .get("environmentReviewControl", {})
-        .get("approvalReceiptSha256")
     and sha(build8_environment_approval_path)
         == "B763824728626C23F12C5DAC76428F803CF37E2433DD041E1157F8EDCEF391DE"
     and build8_environment_approval.get("receiptType")
@@ -3358,24 +3371,34 @@ check(
         "environmentReviewControl", {}
     ).get("adminBypassAllowed")
         is False
-    and version_policy_approval.get("reference") == "BAF-REF-003-C7"
-    and version_policy_approval.get("buildNumber") == 8
-    and combined_policy.get("release", {}).get("buildNumber") == 8
+    and version_policy_approval.get("reference") == "BAF-REF-003-C8"
+    and version_policy_approval.get("buildNumber") == 9
+    and combined_policy.get("release", {}).get("buildNumber") == 9
     and combined_policy.get("finalization", {}).get("status")
-        == "completed-non-distributable"
+        == "pending-source-authorized"
     and sha(build8_completion_path)
         == combined_policy.get("finalization", {}).get(
+            "priorCompletedBuild", {}
+        ).get(
             "completionReceiptSha256"
         )
-    and combined_policy.get("finalization", {}).get("sourceCommit")
+    and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get("sourceCommit")
         == "731a02980d38e4e3a8f61ff2bca74a1e85771478"
-    and combined_policy.get("finalization", {}).get("githubRunId")
+    and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get("githubRunId")
         == 30839125687
     and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get(
         "governedPackageSha256"
     )
         == "75362F9875CC5067012B4A5768720CB4AE0AD2C6A94B38C1F174E0FD1E1CA91F"
     and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get(
         "dualCustodyCompleted"
     )
         is True
@@ -3599,7 +3622,54 @@ check(
     and build8_entry.get("remoteTagPushRecoveryRequired") is False
     and build8_entry.get("firebaseBackendDeploymentPerformed") is False
     and build8_entry.get("controlledPilotApproved") is False
-    and build8_entry.get("distributionPerformed") is False,
+    and build8_entry.get("distributionPerformed") is False
+    and sha(build9_approval_path)
+        == "1AF2210730052C99F8AAA2A1A1D5E8C1D38646F0F7AF07A3444A0094778E3AE9"
+    and sha(build9_approval_path)
+        == combined_policy.get("versionPolicy", {}).get(
+            "sourceDocumentSha256"
+        )
+    and build9_approval.get("approvalReference") == "BAF-REF-003-C8"
+    and build9_approval.get("consumedBuild", {}).get("buildNumber") == 8
+    and build9_approval.get("nextBuild", {}).get("buildNumber") == 9
+    and build9_approval.get("requiredSource", {}).get(
+        "integratedSuccessorPullRequest"
+    ) == 193
+    and build9_approval.get("requiredSource", {}).get(
+        "integratedSuccessorMergeCommit"
+    ) == "28cb22064511c1abcb76759cbb302a303427f46f"
+    and build9_approval.get("requiredSource", {}).get(
+        "postMergeGithubRunId"
+    ) == 31512254539
+    and build9_approval.get("controls", {}).get("inPlaceUpgradeRequired")
+        is True
+    and build9_approval.get("controls", {}).get("deviceDataClearProhibited")
+        is True
+    and build9_approval.get("distributionApproved") is False
+    and sha(build9_environment_approval_path)
+        == "D4E1CC724C44B95C19FF3A533A45D739AD095FAE86A60F86013DEFB623433926"
+    and sha(build9_environment_approval_path)
+        == combined_policy.get("github", {})
+        .get("environmentReviewControl", {})
+        .get("approvalReceiptSha256")
+    and build9_environment_approval.get("approvalReference")
+        == "BAF-GH-ENV-005"
+    and build9_environment_approval.get("scope", {}).get("buildNumber") == 9
+    and build9_environment_approval.get("liveStateEvidence", {}).get(
+        "canAdminsBypass"
+    ) is False
+    and build9_entry.get("status")
+        == "source-reserved-awaiting-remote-consumption"
+    and build9_entry.get("baselineCommit")
+        == "28cb22064511c1abcb76759cbb302a303427f46f"
+    and build9_entry.get("versionApprovalReference") == "BAF-REF-003-C8"
+    and build9_entry.get("versionApprovalDocumentSha256")
+        == sha(build9_approval_path)
+    and build9_entry.get("remoteReservationTag")
+        == "crm3-build-reserved/9"
+    and build9_entry.get("remoteBuiltTag") == "crm3-build-built/9"
+    and "githubRunId" not in build9_entry
+    and "remoteReservationTagObject" not in build9_entry,
 )
 check(
     "Build 8 backend is ready and its one physical sync retry stays bounded",
@@ -3613,6 +3683,7 @@ check(
         in build8_sync_doc
     and sha(build8_backend_readiness_path)
         == combined_policy.get("finalization", {})
+        .get("priorCompletedBuild", {})
         .get("backendActivation", {})
         .get("evidenceSha256")
     and build8_backend_readiness.get("decision")
@@ -8242,6 +8313,54 @@ lr07_records = [
 lr07_record = lr07_records[0] if len(lr07_records) == 1 else {}
 lr07_artifacts = lr07_policy.get("expectedArtifactsForContainment", [])
 lr07_source_evidence = lr07_policy.get("sourceEvidence", [])
+lr07_latest_artifact = max(
+    lr07_artifacts,
+    key=lambda entry: entry.get("buildNumber", -1),
+    default={},
+)
+lr07_completion_authority = next(
+    (
+        entry
+        for entry in lr07_source_evidence
+        if entry.get("path")
+        == "release/evidence/build-8-finalization-closure.json"
+    ),
+    {},
+)
+lr07_finalization = combined_policy.get("finalization", {})
+lr07_current_build = combined_policy.get("release", {}).get("buildNumber")
+if (
+    lr07_finalization.get("status") == "completed-non-distributable"
+    and lr07_current_build == lr07_latest_artifact.get("buildNumber")
+):
+    lr07_preserved_finalization = {
+        **lr07_finalization,
+        "buildNumber": lr07_current_build,
+    }
+elif (
+    lr07_finalization.get("status") == "pending-source-authorized"
+    and isinstance(lr07_current_build, int)
+    and lr07_current_build > lr07_latest_artifact.get("buildNumber", -1)
+):
+    lr07_preserved_finalization = lr07_finalization.get(
+        "priorCompletedBuild", {}
+    )
+else:
+    lr07_preserved_finalization = {}
+lr07_build8_ledger = next(
+    (
+        entry
+        for entry in build_number_ledger.get("entries", [])
+        if entry.get("buildNumber") == lr07_latest_artifact.get("buildNumber")
+    ),
+    {},
+)
+lr07_successor_ledger = [
+    entry
+    for entry in build_number_ledger.get("entries", [])
+    if entry.get("buildNumber", -1)
+    > lr07_latest_artifact.get("buildNumber", -1)
+]
 check(
     "LR-07 exact containment and strict live readback close only through separate adjudication",
     lr07_policy.get("schemaVersion") == 1
@@ -8293,7 +8412,10 @@ check(
         and (ROOT / entry["path"]).stat().st_size == entry.get("bytes")
         and sha(ROOT / entry["path"]) == entry.get("sha256")
         for entry in lr07_source_evidence
-        if entry.get("path") != "release/production-release-policy.json"
+        if entry.get("path") not in {
+            "release/production-release-policy.json",
+            "release/build-number-ledger.json",
+        }
     )
     and any(
         entry.get("path") == "release/production-release-policy.json"
@@ -8302,6 +8424,57 @@ check(
             == "C620D933AD02AEFAD3B2435213D51B83178B358278945AB2A99491A438408383"
         for entry in lr07_source_evidence
     )
+    and any(
+        entry.get("path") == "release/build-number-ledger.json"
+        and entry.get("bytes") == 22173
+        and entry.get("sha256")
+            == "7DC2B9A04ADF7D90844DAE5A7387E57BDEA9EDCFE31EA2BF49FB1753BB31B4C8"
+        for entry in lr07_source_evidence
+    )
+    and lr07_preserved_finalization.get("buildNumber")
+        == lr07_latest_artifact.get("buildNumber") == 8
+    and lr07_preserved_finalization.get("status")
+        == "completed-non-distributable"
+    and lr07_preserved_finalization.get("completionReceiptFile")
+        == lr07_completion_authority.get("path")
+    and lr07_preserved_finalization.get("completionReceiptSha256")
+        == lr07_completion_authority.get("sha256")
+    and lr07_preserved_finalization.get("sourceCommit")
+        == lr07_latest_artifact.get("headSha")
+    and lr07_preserved_finalization.get("githubRunId")
+        == lr07_latest_artifact.get("workflowRunId")
+    and lr07_preserved_finalization.get("governedPackageSha256")
+        == lr07_policy.get("installationReceipt", {}).get(
+            "governedPackageSha256"
+        )
+    and lr07_preserved_finalization.get("dualCustodyCompleted") is True
+    and lr07_build8_ledger.get("githubArtifactId")
+        == lr07_latest_artifact.get("id")
+    and lr07_build8_ledger.get("githubArtifactName")
+        == lr07_latest_artifact.get("name")
+    and lr07_build8_ledger.get("githubArtifactSizeBytes")
+        == lr07_latest_artifact.get("sizeBytes")
+    and lr07_build8_ledger.get("githubArtifactDigest")
+        == lr07_latest_artifact.get("digest")
+    and lr07_build8_ledger.get("githubRunId")
+        == lr07_latest_artifact.get("workflowRunId")
+    and lr07_build8_ledger.get("remoteReservationCommit")
+        == lr07_latest_artifact.get("headSha")
+    and lr07_build8_ledger.get("disposition")
+        == lr07_latest_artifact.get("ledgerDisposition")
+    and lr07_build8_ledger.get("dualCustodyCompleted") is True
+    and lr07_build8_ledger.get("distributionPerformed") is False
+    and len(lr07_successor_ledger) == 1
+    and lr07_successor_ledger[0].get("buildNumber") == lr07_current_build == 9
+    and lr07_successor_ledger[0].get("status")
+        == "source-reserved-awaiting-remote-consumption"
+    and lr07_successor_ledger[0].get("disposition") is None
+    and lr07_successor_ledger[0].get("githubRunId") is None
+    and lr07_successor_ledger[0].get("githubArtifactId") is None
+    and lr07_successor_ledger[0].get("githubArtifactDigest") is None
+    and lr07_successor_ledger[0].get("governedPackageSha256") is None
+    and lr07_successor_ledger[0].get("artifactConstructed") is None
+    and lr07_successor_ledger[0].get("distributionPerformed") is not True
     and combined_policy.get("distribution", {}).get("authority")
         == "production-signed-pre-release-candidate"
     and combined_policy.get("distribution", {}).get("approved") is False
@@ -8337,6 +8510,9 @@ check(
     and "inventoryAfter.length !== 0" in lr07_containment
     and "actions/runs/${artifact.id}" not in lr07_containment
     and "strict readback passes only" in lr07_collector_test
+    and "preserved Build 8 authority admits only a source-reserved successor"
+        in lr07_collector_test
+    and "summarizeMutableSourceAuthority" in lr07_collector
     and "discovered by workflow run instead of filename"
         in lr07_collector_test
     and "sealed exact preflight" in lr07_containment_test
