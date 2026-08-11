@@ -160,7 +160,7 @@ function summarizeMutableSourceAuthority({policy, releasePolicy, buildLedger}) {
     preservedFinalization?.githubRunId ===
       latestExpectedArtifact.workflowRunId &&
     preservedFinalization?.governedPackageSha256 ===
-      policy.installationReceipt.governedPackageSha256 &&
+      latestExpectedArtifact.governedPackageSha256 &&
     preservedFinalization?.dualCustodyCompleted === true;
 
   const expectedLedgerEntriesExact = expectedArtifacts.every((expected) => {
@@ -235,10 +235,21 @@ function summarizeSource(repositoryRoot, policy) {
   const buildLedger = readJson(
     path.join(repositoryRoot, "release/build-number-ledger.json"),
   );
-  const finalization = readJson(
+  const build8Finalization = readJson(
     path.join(
       repositoryRoot,
       "release/evidence/build-8-finalization-closure.json",
+    ),
+  );
+  const latestExpectedArtifact = policy.expectedArtifactsForContainment.reduce(
+    (latest, entry) =>
+      latest == null || entry.buildNumber > latest.buildNumber ? entry : latest,
+    null,
+  );
+  const latestFinalization = readJson(
+    path.join(
+      repositoryRoot,
+      `release/evidence/build-${latestExpectedArtifact.buildNumber}-finalization-closure.json`,
     ),
   );
   const installationAdjudication = readJson(
@@ -315,14 +326,26 @@ function summarizeSource(repositoryRoot, policy) {
     buildLedgerExact: mutableAuthority.buildLedgerExact,
     buildLedgerArtifacts: ledgerArtifacts,
     build8FinalizationExact:
-      finalization.status === "passed-non-distributable" &&
-      finalization.release?.buildNumber === 8 &&
-      finalization.governedPackage?.sha256 ===
+      build8Finalization.status === "passed-non-distributable" &&
+      build8Finalization.release?.buildNumber === 8 &&
+      build8Finalization.governedPackage?.sha256 ===
         policy.installationReceipt.governedPackageSha256 &&
-      finalization.governedPackage?.apkSha256 ===
+      build8Finalization.governedPackage?.apkSha256 ===
         policy.installationReceipt.installedApkSha256 &&
-      finalization.dualCustody?.status === "passed" &&
-      finalization.releaseBoundary?.distributionPerformed === false,
+      build8Finalization.dualCustody?.status === "passed" &&
+      build8Finalization.releaseBoundary?.distributionPerformed === false,
+    latestContainmentFinalizationExact:
+      latestFinalization.status === "passed-non-distributable" &&
+      latestFinalization.release?.buildNumber ===
+        latestExpectedArtifact.buildNumber &&
+      latestFinalization.sourceAuthority?.commit ===
+        latestExpectedArtifact.headSha &&
+      latestFinalization.workflow?.runId ===
+        latestExpectedArtifact.workflowRunId &&
+      latestFinalization.governedPackage?.sha256 ===
+        latestExpectedArtifact.governedPackageSha256 &&
+      latestFinalization.dualCustody?.status === "passed" &&
+      latestFinalization.releaseBoundary?.distributionPerformed === false,
     installationAdjudicationExact:
       installationAdjudication.decision ===
         "PASS_BUILD8_F4_INTERMITTENT_CONNECTIVITY_ADJUDICATED" &&
@@ -446,6 +469,19 @@ function collectLiveState(options, policy) {
     ["api", `${endpoint}/actions/runs/${build8.workflowRunId}`],
     options.repositoryRoot,
   );
+  const latestExpectedArtifact = policy.expectedArtifactsForContainment.reduce(
+    (latest, entry) =>
+      latest == null || entry.buildNumber > latest.buildNumber ? entry : latest,
+    null,
+  );
+  const latestContainmentRun = runJson(
+    options.ghCommand,
+    [
+      "api",
+      `${endpoint}/actions/runs/${latestExpectedArtifact.workflowRunId}`,
+    ],
+    options.repositoryRoot,
+  );
   const releases = releasePages.flatMap((page) => page);
   const artifacts = artifactPages.flatMap((page) => page.artifacts ?? []);
   const productionWorkflowRuns = productionRunPages.flatMap(
@@ -495,6 +531,15 @@ function collectLiveState(options, policy) {
       headSha: build8Run.head_sha ?? null,
       path: build8Run.path ?? null,
     },
+    latestContainmentWorkflowRun: {
+      buildNumber: latestExpectedArtifact.buildNumber,
+      id: latestContainmentRun.id ?? null,
+      event: latestContainmentRun.event ?? null,
+      status: latestContainmentRun.status ?? null,
+      conclusion: latestContainmentRun.conclusion ?? null,
+      headSha: latestContainmentRun.head_sha ?? null,
+      path: latestContainmentRun.path ?? null,
+    },
   };
 }
 
@@ -534,6 +579,8 @@ function adjudicateReadback({
       (entry) => entry.exact === true,
     ),
     build8FinalizationExact: source.build8FinalizationExact === true,
+    latestContainmentFinalizationExact:
+      source.latestContainmentFinalizationExact === true,
     installationAdjudicationExact:
       source.installationAdjudicationExact === true,
     externalInstallationReceiptExact: installation.exact === true,
@@ -559,6 +606,15 @@ function adjudicateReadback({
         policy.expectedArtifactsForContainment.find(
           (artifact) => artifact.buildNumber === 8,
         ).headSha,
+    latestContainmentWorkflowRunExact:
+      live.latestContainmentWorkflowRun.id ===
+        policy.expectedArtifactsForContainment.at(-1).workflowRunId &&
+      live.latestContainmentWorkflowRun.buildNumber ===
+        policy.expectedArtifactsForContainment.at(-1).buildNumber &&
+      live.latestContainmentWorkflowRun.status === "completed" &&
+      live.latestContainmentWorkflowRun.conclusion === "success" &&
+      live.latestContainmentWorkflowRun.headSha ===
+        policy.expectedArtifactsForContainment.at(-1).headSha,
     readbackMutationBoundaryExact: Object.values(
       policy.readbackMutationBoundary,
     ).every((value) => value === false),
@@ -595,6 +651,10 @@ function adjudicateReadback({
         {kind: "GH_READ", command: "complete Actions artifact inventory"},
         {kind: "GH_READ", command: "complete production workflow run inventory"},
         {kind: "GH_READ", command: "exact Build 8 workflow run"},
+        {
+          kind: "GH_READ",
+          command: "exact latest containment workflow run",
+        },
       ],
       outputs: {installation, live},
       posture: {

@@ -1,6 +1,6 @@
 # LR-07 Distribution and Installation Readback
 
-Status: CLOSED - EXACT CONTAINMENT AND STRICT LIVE READBACK ADMITTED
+Status: RE-ARMED - BUILD 9 ARTIFACT CONTAINMENT AND READBACK OPEN
 
 ## Live finding
 
@@ -30,13 +30,15 @@ The production workflow now assigns its governed package the minimum supported
 one-day artifact retention. The release gate executes unit tests for both new
 LR-07 tools:
 
-- `tools/release/containGitHubProductionArtifacts.js` may delete only the five
-  exact artifact IDs declared in
+- `tools/release/containGitHubProductionArtifacts.js` may delete only exact
+  artifact IDs declared in
   `release/lr07-distribution-installation-readback-policy.json`. It requires
   clean merged `main`, exact ledger metadata, an append-only sealed preflight
   receipt and the policy's exact owner-approval phrase at execution. The phrase
   is accepted only by the containment phase and makes accidental invocation
-  fail before any deletion. The tool preserves workflow runs, logs, tags,
+  fail before any deletion. A re-armed preflight may admit already-absent
+  historical IDs only when every separately declared required-present ID is
+  exact and live. The tool preserves workflow runs, logs, tags,
   Releases, repository visibility and source.
 - `tools/release/collectDistributionInstallationReadback.js` is read-only. It
   enumerates every GitHub Release, every Actions artifact and every production
@@ -80,6 +82,23 @@ separate adjudication. The repository evidence is:
 - `release/evidence/lr07-distribution-installation-live-readback.json`
 - `release/evidence/lr07-distribution-installation-live-readback-closure.json`
 
+## Current re-arm
+
+Governed Build 9 was finalized from commit
+`f51749c3f0200a5a03b065f0644d7759c747de7f` with dual custody and created
+production artifact `9116320474`. Device validation then proved that Build 9
+crashes before Flutter startup, so the artifact is permanently
+non-distributable. The live artifact and the newer finalized build each match
+an explicit LR-07 re-arm trigger.
+
+The historical Builds 4 through 8 containment, readback and closure evidence
+remains valid for the state observed on 2026-08-06. Current LR-07 authority is
+OPEN until the Build 9 artifact is deleted under the updated exact approval
+phrase, a clean merged-main strict readback again proves zero live production
+artifacts and zero GitHub Releases, and a separate closure adjudication admits
+that new evidence. Build 10 construction does not itself close LR-07; any
+Build 10 Actions artifact must be added to the same exact containment set.
+
 ## Qualification
 
 Artifact deletion is not represented as proof that nobody downloaded a prior
@@ -90,7 +109,8 @@ installation target is admitted, the exact installation evidence becomes
 unverifiable, repository visibility or workflow retention changes, or a newer
 production build supersedes Build 8.
 
-This adjudication closes only `LR-07`. It does not close `STAGE2D-F4`, `P-07`,
-`P-05` or `70K-RECOVERY`; authorize pilot handout; change Firebase; alter a
-device; create distribution authority; or claim that a public artifact was
-never previously downloaded.
+The historical adjudication closed only the then-observed LR-07 posture. It did
+not authorize pilot handout, change Firebase, alter a device, create
+distribution authority, or claim that a public artifact was never previously
+downloaded. The Build 9 re-arm blocks any current LR-07 closure claim until the
+new containment and readback sequence completes.

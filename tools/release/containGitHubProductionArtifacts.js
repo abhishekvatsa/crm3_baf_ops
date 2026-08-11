@@ -226,6 +226,8 @@ function assertExecutionAuthority(options, policy) {
   if (
     authority?.artifactDeletionRequiresExplicitOwnerApproval !== true ||
     authority?.deleteOnlyExactArtifactIds !== true ||
+    !Array.isArray(authority?.requiredPresentArtifactIds) ||
+    authority.requiredPresentArtifactIds.length < 1 ||
     typeof authority?.requiredOwnerApprovalPhrase !== "string" ||
     authority.requiredOwnerApprovalPhrase.length < 32
   ) {
@@ -243,8 +245,15 @@ function createPreflightEvidence({policy, policyHash, source, inventory}) {
   const classification = classifyInventory(
     inventory,
     policy.expectedArtifactsForContainment,
+    {allowAbsent: true},
   );
-  if (!classification.exact) {
+  const requiredPresent = policy.executionAuthority.requiredPresentArtifactIds;
+  const requiredPresentExact =
+    requiredPresent.every((id) => classification.present.includes(id)) &&
+    classification.present.every((id) =>
+      requiredPresent.includes(id),
+    );
+  if (!classification.exact || !requiredPresentExact) {
     fail("Live production artifact inventory differs from exact policy.");
   }
   return {
@@ -264,6 +273,8 @@ function createPreflightEvidence({policy, policyHash, source, inventory}) {
       artifactIds: inventory.map((artifact) => artifact.id),
       artifactDigests: inventory.map((artifact) => artifact.digest),
       ...classification,
+      requiredPresent,
+      requiredPresentExact,
     },
     decision: "PASS_LR07_PUBLIC_ARTIFACT_CONTAINMENT_PREFLIGHT",
     mutationBoundary: {
