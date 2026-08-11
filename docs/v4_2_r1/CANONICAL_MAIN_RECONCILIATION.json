@@ -1653,9 +1653,9 @@
     {
       "path": "lib/features/planned_maintenance/data/template_governance_model.dart",
       "canonicalSha256": "03FF33A0F4AE8143B3140CEF1C91AAE6D0EE79DA82F280B4842656266459651E",
-      "candidateSha256": "2D98AD313C075E1EED7F99ED296B06F6716CADAA8D74884BAE4B69A294AA70BC",
+      "candidateSha256": "EE8B584034D40CE75757829456BC0B10EA75E679F603E47978479A8C12FA5008",
       "canonicalBytes": 29143,
-      "candidateBytes": 33426,
+      "candidateBytes": 20817,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

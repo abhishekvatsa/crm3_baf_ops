@@ -35,6 +35,7 @@ def _function_body(path: Path, marker: str) -> str:
     if marker_offset < 0:
         raise ValueError(f"missing decoder marker {marker!r}")
     open_offset = -1
+    arrow_offset = -1
     parenthesis_depth = 0
     for offset in range(marker_offset, len(cleaned)):
         token = cleaned[offset]
@@ -42,9 +43,34 @@ def _function_body(path: Path, marker: str) -> str:
             parenthesis_depth += 1
         elif token == ")":
             parenthesis_depth -= 1
+        elif (
+            token == "="
+            and offset + 1 < len(cleaned)
+            and cleaned[offset + 1] == ">"
+            and parenthesis_depth == 0
+        ):
+            arrow_offset = offset
+            break
         elif token == "{" and parenthesis_depth == 0:
             open_offset = offset
             break
+    if arrow_offset >= 0:
+        delimiters = {"(": 0, "[": 0, "{": 0}
+        closing = {")": "(", "]": "[", "}": "{"}
+        for offset in range(arrow_offset + 2, len(cleaned)):
+            token = cleaned[offset]
+            if token in delimiters:
+                delimiters[token] += 1
+            elif token in closing:
+                opener = closing[token]
+                delimiters[opener] -= 1
+                if delimiters[opener] < 0:
+                    raise ValueError(
+                        f"unbalanced expression-bodied decoder for {marker!r}"
+                    )
+            elif token == ";" and all(depth == 0 for depth in delimiters.values()):
+                return source[arrow_offset : offset + 1]
+        raise ValueError(f"unterminated expression-bodied decoder for {marker!r}")
     if open_offset < 0:
         raise ValueError(f"missing decoder body for {marker!r}")
     depth = 0
