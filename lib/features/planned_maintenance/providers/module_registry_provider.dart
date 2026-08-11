@@ -131,6 +131,7 @@ class ModuleRegistryRepository {
       final current = ModuleRegistryRevision.fromMap(
         revisionSnap.data()!,
         revisionSnap.id,
+        registryModuleId: revision.registryModuleId,
       );
       if (!current.isDraft) {
         throw StateError('Only draft registry revisions are editable.');
@@ -183,6 +184,7 @@ class ModuleRegistryRepository {
       final revision = ModuleRegistryRevision.fromMap(
         document.data(),
         document.id,
+        registryModuleId: registryModuleId,
       );
       if (revision.revisionNumber <= 0 ||
           (!revision.isPublished && !revision.isRetired)) {
@@ -239,6 +241,7 @@ class ModuleRegistryRepository {
         candidate = ModuleRegistryRevision.fromMap(
           candidateSnap.data()!,
           candidateSnap.id,
+          registryModuleId: registryModuleId,
         );
       }
     } else {
@@ -312,6 +315,7 @@ class ModuleRegistryRepository {
       final currentRevision = ModuleRegistryRevision.fromMap(
         revisionSnap.data()!,
         revisionSnap.id,
+        registryModuleId: registryModuleId,
       );
       if (currentRevision.revisionNumber !=
               currentFamily.latestPublishedRevisionNumber ||
@@ -370,6 +374,7 @@ class ModuleRegistryRepository {
       final revision = ModuleRegistryRevision.fromMap(
         revisionSnap.data()!,
         revisionSnap.id,
+        registryModuleId: registryModuleId,
       );
       if (!family.isActive) {
         throw StateError(
@@ -405,6 +410,7 @@ class ModuleRegistryRepository {
         latestPublished = ModuleRegistryRevision.fromMap(
           latestSnap.data()!,
           latestSnap.id,
+          registryModuleId: registryModuleId,
         );
         if (latestPublished.revisionNumber !=
                 family.latestPublishedRevisionNumber ||
@@ -480,6 +486,7 @@ class ModuleRegistryRepository {
       final current = ModuleRegistryRevision.fromMap(
         revisionSnap.data()!,
         revisionSnap.id,
+        registryModuleId: revision.registryModuleId,
       );
       final beforeHash = current.contentHash;
       final now = DateTime.now();
@@ -572,6 +579,7 @@ class ModuleRegistryRepository {
         final revision = ModuleRegistryRevision.fromMap(
           revisionDoc.data(),
           revisionDoc.id,
+          registryModuleId: family.registryModuleId,
         );
         if (revision.isDeleted || !revision.isDraft) {
           continue;
@@ -643,6 +651,7 @@ class ModuleRegistryRepository {
       final revision = ModuleRegistryRevision.fromMap(
         revisionDoc.data()!,
         revisionDoc.id,
+        registryModuleId: family.registryModuleId,
       );
       if (revision.isDeleted ||
           revision.revisionNumber != family.latestPublishedRevisionNumber ||
@@ -695,6 +704,7 @@ class ModuleRegistryRepository {
       final revision = ModuleRegistryRevision.fromMap(
         revisionDoc.data(),
         revisionDoc.id,
+        registryModuleId: registryModuleId,
       );
       if (revision.isDeleted ||
           (!revision.isPublished && !revision.isRetired)) {

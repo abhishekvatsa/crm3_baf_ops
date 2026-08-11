@@ -8,21 +8,9 @@ import '../domain/module_composer_models.dart';
 import '../domain/module_registry_content_hash.dart';
 import '../domain/module_workshop_actions.dart';
 
-const JsonEncoder _prettyJson = JsonEncoder.withIndent('  ');
+part 'remote_module_registry_reader.dart';
 
-void _requireRegistryTimestamp(
-  DateTime? value, {
-  required String field,
-  required String source,
-  required String detail,
-}) {
-  if (value != null) return;
-  throw PersistedDataFormatException(
-    field: field,
-    source: source,
-    detail: detail,
-  );
-}
+const JsonEncoder _prettyJson = JsonEncoder.withIndent('  ');
 
 void _rejectUnsupportedRegistryTombstone(
   bool isDeleted, {
@@ -37,18 +25,6 @@ void _rejectUnsupportedRegistryTombstone(
   );
 }
 
-T _enumByNameOr<T extends Enum>(List<T> values, dynamic value, T fallback) {
-  if (value is! String) {
-    return fallback;
-  }
-  for (final item in values) {
-    if (item.name == value) {
-      return item;
-    }
-  }
-  return fallback;
-}
-
 String? _cleanOptionalText(dynamic value) {
   if (value is! String) {
     return null;
@@ -57,15 +33,11 @@ String? _cleanOptionalText(dynamic value) {
   return trimmed.isEmpty ? null : trimmed;
 }
 
-String _cleanRequiredText(dynamic value, String fallback) {
-  return _cleanOptionalText(value) ?? fallback;
-}
-
 String? _cleanAliasText(dynamic value) {
-  if (value == null) {
+  if (value is! String) {
     return null;
   }
-  final trimmed = value.toString().trim();
+  final trimmed = value.trim();
   return trimmed.isEmpty ? null : trimmed;
 }
 
@@ -112,44 +84,6 @@ bool _moduleReferenceMatches(Map<String, dynamic> payload, String moduleCode) {
   }
   return _normaliseModuleReference(reference) ==
       _normaliseModuleReference(moduleCode);
-}
-
-List<String> _cleanStringList(dynamic value) {
-  if (value is! List) {
-    return const <String>[];
-  }
-  return value
-      .whereType<String>()
-      .map((item) => item.trim())
-      .where((item) => item.isNotEmpty)
-      .toList(growable: false);
-}
-
-Map<String, dynamic> _decodeJsonObject(String raw) {
-  try {
-    final decoded = jsonDecode(raw.trim());
-    if (decoded is Map) {
-      return Map<String, dynamic>.from(decoded);
-    }
-  } catch (_) {
-    // Invalid registry snapshots are not cloneable.
-  }
-  return const <String, dynamic>{};
-}
-
-List<Map<String, dynamic>> _decodeJsonObjectList(String raw) {
-  try {
-    final decoded = jsonDecode(raw.trim());
-    if (decoded is List) {
-      return decoded
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList(growable: false);
-    }
-  } catch (_) {
-    // Invalid registry snapshots are not cloneable.
-  }
-  return const <Map<String, dynamic>>[];
 }
 
 enum ModuleRegistryFamilyStatus { active, retired }
@@ -272,99 +206,7 @@ class ModuleRegistryFamily {
   }
 
   factory ModuleRegistryFamily.fromMap(Map<String, dynamic> map, String docId) {
-    final source = 'module_registry/$docId';
-    final status = readRequiredPersistedEnum(
-      ModuleRegistryFamilyStatus.values,
-      map['status'],
-      field: 'status',
-      source: source,
-    );
-    final isDeleted = readRequiredPersistedBool(
-      map['isDeleted'],
-      field: 'isDeleted',
-      source: source,
-    );
-    _rejectUnsupportedRegistryTombstone(isDeleted, source: source);
-    final createdAt = readRequiredPersistedDateTime(
-      map['createdAt'],
-      field: 'createdAt',
-      source: source,
-    );
-    final updatedAt = readRequiredPersistedDateTime(
-      map['updatedAt'],
-      field: 'updatedAt',
-      source: source,
-    );
-    final retiredAt = readOptionalPersistedDateTime(
-      map['retiredAt'],
-      field: 'retiredAt',
-      source: source,
-    );
-    if (status == ModuleRegistryFamilyStatus.retired) {
-      _requireRegistryTimestamp(
-        retiredAt,
-        field: 'retiredAt',
-        source: source,
-        detail: 'retired registry families require a retirement timestamp',
-      );
-    } else if (retiredAt != null) {
-      throw PersistedDataFormatException(
-        field: 'retiredAt',
-        source: source,
-        detail: 'active registry families cannot carry retirement history',
-      );
-    }
-
-    return ModuleRegistryFamily(
-      registryModuleId: _cleanRequiredText(map['registryModuleId'], docId),
-      moduleCode: _cleanRequiredText(map['moduleCode'], 'MODULE'),
-      canonicalTitle: _cleanRequiredText(
-        map['canonicalTitle'],
-        'Registry module',
-      ),
-      status: status,
-      discipline: _enumByNameOr(
-        JobModuleDiscipline.values,
-        map['discipline'],
-        JobModuleDiscipline.shared,
-      ),
-      ownerDisciplines: _cleanStringList(map['ownerDisciplines']),
-      assetType: _enumByNameOr(
-        AssetType.values,
-        map['assetType'],
-        AssetType.base,
-      ),
-      functionalSection: _cleanRequiredText(map['functionalSection'], ''),
-      componentGroup: _cleanRequiredText(map['componentGroup'], ''),
-      targetRefs: _cleanStringList(map['targetRefs']),
-      deviceTagRefs: _cleanStringList(map['deviceTagRefs']),
-      safetyClasses: _cleanStringList(map['safetyClasses']),
-      requiredForClosure: map['requiredForClosure'] == true,
-      latestPublishedRevisionNumber:
-          map['latestPublishedRevisionNumber'] is int
-              ? map['latestPublishedRevisionNumber'] as int
-              : 0,
-      latestPublishedRevisionId: _cleanOptionalText(
-        map['latestPublishedRevisionId'],
-      ),
-      latestPublishedContentHash: _cleanOptionalText(
-        map['latestPublishedContentHash'],
-      ),
-      createdByUid: _cleanOptionalText(map['createdByUid']),
-      createdByName: _cleanOptionalText(map['createdByName']),
-      createdAt: createdAt,
-      updatedByUid: _cleanOptionalText(map['updatedByUid']),
-      updatedByName: _cleanOptionalText(map['updatedByName']),
-      updatedAt: updatedAt,
-      retiredByUid: _cleanOptionalText(map['retiredByUid']),
-      retiredByName: _cleanOptionalText(map['retiredByName']),
-      retiredAt: retiredAt,
-      retireReason: _cleanOptionalText(map['retireReason']),
-      version: map['version'] is int ? map['version'] as int : 1,
-      schemaVersion:
-          map['schemaVersion'] is int ? map['schemaVersion'] as int : 1,
-      isDeleted: isDeleted,
-    );
+    return readRemoteModuleRegistryFamily(map, documentId: docId);
   }
 
   void refreshFromModule(
@@ -537,113 +379,13 @@ class ModuleRegistryRevision {
 
   factory ModuleRegistryRevision.fromMap(
     Map<String, dynamic> map,
-    String docId,
-  ) {
-    final source = 'module_registry_revisions/$docId';
-    final revisionStatus = readRequiredPersistedEnum(
-      ModuleRegistryRevisionStatus.values,
-      map['revisionStatus'],
-      field: 'revisionStatus',
-      source: source,
-    );
-    final isDeleted = readRequiredPersistedBool(
-      map['isDeleted'],
-      field: 'isDeleted',
-      source: source,
-    );
-    _rejectUnsupportedRegistryTombstone(isDeleted, source: source);
-    final createdAt = readRequiredPersistedDateTime(
-      map['createdAt'],
-      field: 'createdAt',
-      source: source,
-    );
-    final updatedAt = readRequiredPersistedDateTime(
-      map['updatedAt'],
-      field: 'updatedAt',
-      source: source,
-    );
-    final publishedAt = readOptionalPersistedDateTime(
-      map['publishedAt'],
-      field: 'publishedAt',
-      source: source,
-    );
-    final retiredAt = readOptionalPersistedDateTime(
-      map['retiredAt'],
-      field: 'retiredAt',
-      source: source,
-    );
-    switch (revisionStatus) {
-      case ModuleRegistryRevisionStatus.draft:
-        if (publishedAt != null || retiredAt != null) {
-          throw PersistedDataFormatException(
-            field: publishedAt != null ? 'publishedAt' : 'retiredAt',
-            source: source,
-            detail: 'draft registry revisions cannot carry lifecycle history',
-          );
-        }
-        break;
-      case ModuleRegistryRevisionStatus.published:
-        _requireRegistryTimestamp(
-          publishedAt,
-          field: 'publishedAt',
-          source: source,
-          detail: 'published registry revisions require a publication timestamp',
-        );
-        if (retiredAt != null) {
-          throw PersistedDataFormatException(
-            field: 'retiredAt',
-            source: source,
-            detail: 'published registry revisions cannot carry retirement history',
-          );
-        }
-        break;
-      case ModuleRegistryRevisionStatus.retired:
-        _requireRegistryTimestamp(
-          publishedAt,
-          field: 'publishedAt',
-          source: source,
-          detail: 'retired registry revisions require publication history',
-        );
-        _requireRegistryTimestamp(
-          retiredAt,
-          field: 'retiredAt',
-          source: source,
-          detail: 'retired registry revisions require a retirement timestamp',
-        );
-        break;
-    }
-
-    return ModuleRegistryRevision(
-      registryModuleId: _cleanRequiredText(map['registryModuleId'], ''),
-      revisionId: _cleanRequiredText(map['revisionId'], docId),
-      revisionNumber:
-          map['revisionNumber'] is int ? map['revisionNumber'] as int : 0,
-      revisionStatus: revisionStatus,
-      moduleSnapshotJson: _cleanRequiredText(map['moduleSnapshotJson'], '{}'),
-      fieldDefinitionsJson: _cleanRequiredText(
-        map['fieldDefinitionsJson'],
-        '[]',
-      ),
-      checklistJson: _cleanRequiredText(map['checklistJson'], '[]'),
-      contentHash: _cleanRequiredText(map['contentHash'], ''),
-      lineageJson: _cleanRequiredText(map['lineageJson'], '{}'),
-      createdByUid: _cleanOptionalText(map['createdByUid']),
-      createdByName: _cleanOptionalText(map['createdByName']),
-      createdAt: createdAt,
-      updatedByUid: _cleanOptionalText(map['updatedByUid']),
-      updatedByName: _cleanOptionalText(map['updatedByName']),
-      updatedAt: updatedAt,
-      publishedByUid: _cleanOptionalText(map['publishedByUid']),
-      publishedByName: _cleanOptionalText(map['publishedByName']),
-      publishedAt: publishedAt,
-      retiredByUid: _cleanOptionalText(map['retiredByUid']),
-      retiredByName: _cleanOptionalText(map['retiredByName']),
-      retiredAt: retiredAt,
-      retireReason: _cleanOptionalText(map['retireReason']),
-      version: map['version'] is int ? map['version'] as int : 1,
-      schemaVersion:
-          map['schemaVersion'] is int ? map['schemaVersion'] as int : 1,
-      isDeleted: isDeleted,
+    String docId, {
+    required String registryModuleId,
+  }) {
+    return readRemoteModuleRegistryRevision(
+      map,
+      documentId: docId,
+      registryModuleId: registryModuleId,
     );
   }
 
@@ -718,13 +460,33 @@ class ModuleRegistryRevision {
   }
 
   ComposerModuleDraft toComposerModuleDraft() {
-    final snapshot = _decodeJsonObject(moduleSnapshotJson);
-    final code = _moduleCodeFromSnapshot(snapshot) ?? 'REGISTRY-MODULE';
-    final fields = _decodeJsonObjectList(fieldDefinitionsJson)
+    final source = 'module_registry/$registryModuleId/revisions/$revisionId';
+    final snapshot = readRequiredJsonObject(
+      moduleSnapshotJson,
+      field: 'moduleSnapshotJson',
+      source: source,
+    );
+    final code = _moduleCodeFromSnapshot(snapshot);
+    if (code == null) {
+      throw PersistedDataFormatException(
+        field: 'moduleSnapshotJson.moduleCode',
+        source: source,
+        detail: 'a recognized non-empty module identity is required',
+      );
+    }
+    final fields = readRequiredJsonObjectList(
+          fieldDefinitionsJson,
+          field: 'fieldDefinitionsJson',
+          source: source,
+        )
         .where((field) => _moduleReferenceMatches(field, code))
         .map((field) => ComposerFieldDraft.fromMap(field))
         .toList(growable: false);
-    final checklist = _decodeJsonObjectList(checklistJson)
+    final checklist = readRequiredJsonObjectList(
+          checklistJson,
+          field: 'checklistJson',
+          source: source,
+        )
         .where((item) => _moduleReferenceMatches(item, code))
         .map((item) => ComposerChecklistItemDraft.fromMap(item))
         .toList(growable: false);

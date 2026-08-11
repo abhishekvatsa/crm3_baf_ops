@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/module_registry_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/template_governance_model.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/domain/module_registry_content_hash.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -175,7 +176,7 @@ void main() {
       expect(
         () => ModuleRegistryFamily.fromMap(
           Map<String, dynamic>.from(valid)..remove('updatedAt'),
-          'family-missing-updated',
+          'family-1',
         ),
         _invalidField('updatedAt'),
       );
@@ -183,14 +184,14 @@ void main() {
         () => ModuleRegistryFamily.fromMap(<String, dynamic>{
           ...valid,
           'status': 'retired',
-        }, 'family-retired-without-time'),
+        }, 'family-1'),
         _invalidField('retiredAt'),
       );
       expect(
         () => ModuleRegistryFamily.fromMap(<String, dynamic>{
           ...valid,
           'isDeleted': true,
-        }, 'family-unsupported-tombstone'),
+        }, 'family-1'),
         _invalidField('isDeleted'),
       );
     });
@@ -198,37 +199,57 @@ void main() {
     test('revisions require status-complete publication history', () {
       final draft = _revisionMap(createdAt: createdAt, updatedAt: updatedAt);
       expect(
-        ModuleRegistryRevision.fromMap(draft, 'revision-draft').isDraft,
+        ModuleRegistryRevision.fromMap(
+          draft,
+          'revision-1',
+          registryModuleId: 'family-1',
+        ).isDraft,
         isTrue,
       );
 
       expect(
-        () => ModuleRegistryRevision.fromMap(<String, dynamic>{
-          ...draft,
-          'revisionStatus': 'published',
-        }, 'revision-published-without-time'),
+        () => ModuleRegistryRevision.fromMap(
+          <String, dynamic>{
+            ...draft,
+            'revisionNumber': 1,
+            'revisionStatus': 'published',
+          },
+          'revision-1',
+          registryModuleId: 'family-1',
+        ),
         _invalidField('publishedAt'),
       );
       expect(
-        () => ModuleRegistryRevision.fromMap(<String, dynamic>{
-          ...draft,
-          'revisionStatus': 'retired',
-          'publishedAt': updatedAt.toIso8601String(),
-        }, 'revision-retired-without-time'),
+        () => ModuleRegistryRevision.fromMap(
+          <String, dynamic>{
+            ...draft,
+            'revisionNumber': 1,
+            'revisionStatus': 'retired',
+            'publishedAt': updatedAt.toIso8601String(),
+            'publishedByUid': 'admin-1',
+          },
+          'revision-1',
+          registryModuleId: 'family-1',
+        ),
         _invalidField('retiredAt'),
       );
       expect(
-        () => ModuleRegistryRevision.fromMap(<String, dynamic>{
-          ...draft,
-          'publishedAt': updatedAt.toIso8601String(),
-        }, 'revision-draft-with-history'),
+        () => ModuleRegistryRevision.fromMap(
+          <String, dynamic>{
+            ...draft,
+            'publishedAt': updatedAt.toIso8601String(),
+          },
+          'revision-1',
+          registryModuleId: 'family-1',
+        ),
         _invalidField('publishedAt'),
       );
       expect(
-        () => ModuleRegistryRevision.fromMap(<String, dynamic>{
-          ...draft,
-          'revisionStatus': 'unknown',
-        }, 'revision-unknown-state'),
+        () => ModuleRegistryRevision.fromMap(
+          <String, dynamic>{...draft, 'revisionStatus': 'unknown'},
+          'revision-1',
+          registryModuleId: 'family-1',
+        ),
         _invalidField('revisionStatus'),
       );
     });
@@ -344,27 +365,51 @@ Map<String, dynamic> _familyMap({
   'canonicalTitle': 'Governed module',
   'status': 'active',
   'discipline': 'shared',
+  'ownerDisciplines': <String>[],
   'assetType': 'base',
+  'functionalSection': '',
+  'componentGroup': '',
+  'targetRefs': <String>[],
+  'deviceTagRefs': <String>[],
+  'safetyClasses': <String>[],
+  'requiredForClosure': false,
+  'latestPublishedRevisionNumber': 0,
+  'createdByUid': 'admin-1',
   'createdAt': createdAt.toIso8601String(),
+  'updatedByUid': 'admin-1',
   'updatedAt': updatedAt.toIso8601String(),
+  'version': 1,
+  'schemaVersion': 1,
   'isDeleted': false,
 };
 
 Map<String, dynamic> _revisionMap({
   required DateTime createdAt,
   required DateTime updatedAt,
-}) => <String, dynamic>{
-  'registryModuleId': 'family-1',
-  'revisionId': 'revision-1',
-  'revisionNumber': 0,
-  'revisionStatus': 'draft',
-  'moduleSnapshotJson': '{}',
-  'fieldDefinitionsJson': '[]',
-  'checklistJson': '[]',
-  'contentHash':
-      'mrg1-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-  'lineageJson': '{}',
-  'createdAt': createdAt.toIso8601String(),
-  'updatedAt': updatedAt.toIso8601String(),
-  'isDeleted': false,
-};
+}) {
+  const moduleSnapshotJson = '{"moduleCode":"MODULE-1"}';
+  const fieldDefinitionsJson = '[]';
+  const checklistJson = '[]';
+  return <String, dynamic>{
+    'registryModuleId': 'family-1',
+    'revisionId': 'revision-1',
+    'revisionNumber': 0,
+    'revisionStatus': 'draft',
+    'moduleSnapshotJson': moduleSnapshotJson,
+    'fieldDefinitionsJson': fieldDefinitionsJson,
+    'checklistJson': checklistJson,
+    'contentHash': stableModuleRegistryContentHashStrict(
+      moduleSnapshotJson: moduleSnapshotJson,
+      fieldDefinitionsJson: fieldDefinitionsJson,
+      checklistJson: checklistJson,
+    ),
+    'lineageJson': '{}',
+    'createdByUid': 'admin-1',
+    'createdAt': createdAt.toIso8601String(),
+    'updatedByUid': 'admin-1',
+    'updatedAt': updatedAt.toIso8601String(),
+    'version': 1,
+    'schemaVersion': 1,
+    'isDeleted': false,
+  };
+}

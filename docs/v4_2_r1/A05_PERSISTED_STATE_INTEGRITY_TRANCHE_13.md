@@ -100,8 +100,10 @@ domain error.
 The timestamp manifest now binds `closureReviewConfirmedAt` to the strict remote
 closure reader. The inventory extractor also understands expression-bodied
 Dart factories instead of scanning forward into an unrelated brace-delimited
-method. The inventory remains exact at 13 decoders, 19 required timestamp fields
-and 21 optional timestamp fields with zero unclassified risk sites.
+method. The tranche-13 v1 inventory reported 13 selected decoders, 19 required
+timestamp fields and 21 optional timestamp fields. Tranche 14 supersedes that
+scope after proving the factory-risk discovery rule did not enumerate every
+direct strict-reader call.
 
 Focused regressions cover required fields, document identity, scalar coercion,
 enum values, lists, JSON roots and entries, partial and contradictory closure
