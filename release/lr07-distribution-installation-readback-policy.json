@@ -13,8 +13,8 @@
   "sourceEvidence": [
     {
       "path": ".github/workflows/production-artifact.yml",
-      "bytes": 25018,
-      "sha256": "4659ABEEC2B0B6F18777B80B4910477BA0E5582D74350B6D41B5F05265F9F2E0"
+      "bytes": 24980,
+      "sha256": "B354E7808CC801852E59DFD39B688865478B13E77EF118D8F5F03C308D710EB2"
     },
     {
       "path": "release/stage2d-f-internal-controlled-deployment-scope.json",

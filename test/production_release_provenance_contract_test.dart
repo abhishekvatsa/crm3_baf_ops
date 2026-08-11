@@ -248,40 +248,51 @@ void main() {
         text,
         contains('Prove Android dependency configuration before reservation'),
       );
-      expect(text, contains('crm3-android-preflight-placeholder.p12'));
+      expect(text, contains('Invoke-CIAndroidPackageProof.ps1'));
+      expect(text, contains("-BuildName '0.0.0-production-preflight'"));
+      expect(text, contains('-BuildNumber 1'));
+      expect(text, contains('Secret-isolated Android package proof failed.'));
+      expect(text, contains('Secret-isolated preflight output remains:'));
+      final preflightStart = text.indexOf(
+        '- name: Prove Android dependency configuration before reservation',
+      );
+      final secretPreflightStart = text.indexOf(
+        '- name: Prove production environment secrets before reservation',
+      );
+      final preflightSection = text.substring(
+        preflightStart,
+        secretPreflightStart,
+      );
+      expect(preflightSection, isNot(contains(r'${{ secrets.')));
       expect(
-        text,
-        contains('flutter build apk --release --config-only --no-pub'),
+        preflightSection,
+        isNot(contains('CRM_ANDROID_RELEASE_KEYSTORE_BASE64')),
       );
       expect(
-        text,
-        contains("grep -Fq 'dev.flutter.plugins.integration_test'"),
-      );
-      expect(
-        text.indexOf('flutter build apk --release --config-only --no-pub'),
+        preflightSection.indexOf('Invoke-CIAndroidPackageProof.ps1'),
         lessThan(
-          text.indexOf("grep -Fq 'dev.flutter.plugins.integration_test'"),
-        ),
-      );
-      expect(
-        text.indexOf("grep -Fq 'dev.flutter.plugins.integration_test'"),
-        lessThan(
-          text.indexOf(
-            './gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace',
+          preflightSection.indexOf(
+            'Secret-isolated Android package proof failed.',
           ),
         ),
       );
       expect(
-        text,
-        contains(
-          './gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace',
+        preflightSection.indexOf(
+          'Secret-isolated Android package proof failed.',
         ),
+        lessThan(preflightSection.indexOf('flutter clean')),
       );
       expect(
-        text,
-        contains(
-          './gradlew :app:compileReleaseSources --no-daemon --stacktrace',
-        ),
+        preflightSection.indexOf('flutter clean'),
+        lessThan(preflightSection.indexOf('flutter pub get')),
+      );
+      expect(
+        preflightSection,
+        contains('build/app/outputs/flutter-apk/app-release.apk'),
+      );
+      expect(
+        preflightSection,
+        contains('build/app/outputs/bundle/release/app-release.aab'),
       );
       expect(
         text.indexOf('- name: Restore locked dependencies and Firebase CLI'),
