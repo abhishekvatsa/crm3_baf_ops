@@ -29,7 +29,9 @@ class _WorkflowDiagnosticsScreenState
   }
 
   void _refresh() {
-    setState(() => _future = _load());
+    setState(() {
+      _future = _load();
+    });
   }
 
   Future<void> _clearQuarantine() async {
@@ -78,10 +80,40 @@ class _WorkflowDiagnosticsScreenState
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError || snapshot.data == null) {
+            final quarantineNeedsRepair =
+                snapshot.error is WorkflowPullStateException;
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('Diagnostics unavailable: ${snapshot.error}'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.sync_problem_outlined, size: 44),
+                    const SizedBox(height: 16),
+                    Text(
+                      quarantineNeedsRepair
+                          ? 'Workflow diagnostics need repair'
+                          : 'Workflow diagnostics unavailable',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      quarantineNeedsRepair
+                          ? 'The local quarantine log is malformed. Clear only this local log before retrying diagnostics.'
+                          : '${snapshot.error}',
+                      textAlign: TextAlign.center,
+                    ),
+                    if (quarantineNeedsRepair) ...[
+                      const SizedBox(height: 16),
+                      TextButton.icon(
+                        onPressed: _clearQuarantine,
+                        icon: const Icon(Icons.delete_sweep_outlined),
+                        label: const Text('Clear local log'),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             );
           }

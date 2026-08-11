@@ -6,6 +6,20 @@ import '../../../core/serialization/persisted_data_reader.dart';
 import '../repositories/firestore_workflow_read_repository.dart';
 import '../repositories/workflow_repository.dart';
 
+class WorkflowPullStateException extends FormatException {
+  final String reasonCode;
+
+  WorkflowPullStateException({
+    required this.reasonCode,
+    required String message,
+    Object? source,
+  }) : super(message, source);
+
+  @override
+  String toString() =>
+      'WorkflowPullStateException(reason=$reasonCode, message=$message)';
+}
+
 class WorkflowPullQuarantineRecord {
   final String collection;
   final String documentId;
@@ -203,7 +217,6 @@ class WorkflowPullService {
       quarantined: quarantined,
     );
 
-    await _appendQuarantine(prefs, quarantined);
     return WorkflowPullSummary(
       workflows: workflows,
       lanes: lanes,
@@ -241,6 +254,7 @@ class WorkflowPullService {
     required List<WorkflowPullQuarantineRecord> quarantined,
   }) async {
     try {
+      final quarantineStart = quarantined.length;
       final batch = await fetch(_since(prefs, key));
       final now = DateTime.now().toUtc();
       for (final failure in batch.failures) {
@@ -283,10 +297,11 @@ class WorkflowPullService {
         }
       }
 
-      final collectionQuarantine =
-          quarantined.where((record) => record.collection == name).length;
+      final collectionRecords = quarantined.sublist(quarantineStart);
+      final collectionQuarantine = collectionRecords.length;
       if (collectionQuarantine > 0) {
         failures[name] = '$collectionQuarantine record(s) quarantined';
+        await _appendQuarantine(prefs, collectionRecords);
       }
       if (!unknownFailureTimestamp && !localUpsertFailed) {
         await _advance(prefs, key, observed);
@@ -306,8 +321,24 @@ class WorkflowPullService {
     }
   }
 
-  DateTime? _since(SharedPreferences prefs, String key) =>
-      DateTime.tryParse(prefs.getString(key) ?? '')?.toUtc();
+  DateTime? _since(SharedPreferences prefs, String key) {
+    try {
+      final raw = prefs.getString(key);
+      if (raw == null) return null;
+      final data = <String, Object?>{'cursor': raw};
+      return readRequiredPersistedDateTime(
+        data['cursor'],
+        field: 'cursor',
+        source: 'workflow pull cursor',
+      ).toUtc();
+    } catch (error) {
+      throw WorkflowPullStateException(
+        reasonCode: 'workflow-pull-cursor-invalid',
+        message: 'Stored workflow pull cursor needs repair.',
+        source: error,
+      );
+    }
+  }
 
   Future<void> _advance(
     SharedPreferences prefs,
@@ -348,17 +379,26 @@ class WorkflowPullService {
     }
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! List) return const <WorkflowPullQuarantineRecord>[];
-      return decoded
-          .whereType<Map>()
-          .map(
-            (entry) => WorkflowPullQuarantineRecord.fromJson(
-              Map<String, dynamic>.from(entry),
+      if (decoded is! List) {
+        throw const FormatException('Expected a quarantine array.');
+      }
+      return <WorkflowPullQuarantineRecord>[
+        for (var index = 0; index < decoded.length; index++)
+          if (decoded[index] is Map)
+            WorkflowPullQuarantineRecord.fromJson(
+              Map<String, dynamic>.from(decoded[index] as Map),
+            )
+          else
+            throw FormatException(
+              'Expected a quarantine object at index $index.',
             ),
-          )
-          .toList(growable: false);
-    } catch (_) {
-      return const <WorkflowPullQuarantineRecord>[];
+      ];
+    } catch (error) {
+      throw WorkflowPullStateException(
+        reasonCode: 'workflow-pull-quarantine-invalid',
+        message: 'Stored workflow pull quarantine needs repair.',
+        source: error,
+      );
     }
   }
 }
