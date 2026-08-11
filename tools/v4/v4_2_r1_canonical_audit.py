@@ -7514,6 +7514,10 @@ a05_abnormality_response_test = text(
 a05_decision_15 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_15.md"
 )
+a05_workflow_pull_test = text("test/workflow_pull_service_watermark_test.dart")
+a05_decision_16 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_16.md"
+)
 a05_timestamp_inventory_process = subprocess.run(
     [sys.executable, str(ROOT / "tools/v4/a05_persisted_timestamp_inventory.py")],
     cwd=ROOT,
@@ -7634,16 +7638,16 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 28
-    and a05_timestamp_inventory_report.get("directCallCount") == 78
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 39
+    and a05_timestamp_inventory_report.get("readerCount") == 29
+    and a05_timestamp_inventory_report.get("directCallCount") == 79
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 40
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 39
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and len(a05_timestamp_inventory_report.get("directParserCandidates", []))
-        == 32
+        == 31
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 28
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 29
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "readerSha256" in a05_timestamp_inventory_tool
     and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
@@ -7877,6 +7881,44 @@ check(
     and "28 classified readers" in a05_decision_15
     and "32 direct `DateTime` parser and epoch-sentinel" in a05_decision_15
     and "does not inspect or mutate production documents" in a05_decision_15,
+)
+check(
+    "A-05 workflow quarantine is durable before cursor advancement",
+    "workflow-pull-cursor-invalid" in a05_workflow_pull
+    and "workflow-pull-quarantine-invalid" in a05_workflow_pull
+    and "workflow-pull-quarantine-write-failed" in a05_workflow_pull
+    and "workflow-pull-cursor-write-failed" in a05_workflow_pull
+    and "readRequiredPersistedDateTime(" in a05_workflow_pull
+    and "await _appendQuarantine(prefs, collectionRecords);"
+        in a05_workflow_pull
+    and a05_workflow_pull.find(
+        "await _appendQuarantine(prefs, collectionRecords);"
+    ) < a05_workflow_pull.find("await _advance(prefs, key, observed);")
+    and "_readStoredQuarantine(prefs, _preferenceReader);"
+        in a05_workflow_pull
+    and "!written || _preferenceReader(prefs, key) != value"
+        in a05_workflow_pull
+    and "_restorePreferenceAfterFailedWrite(" in a05_workflow_pull
+    and "whereType<Map>()" not in a05_workflow_pull
+    and "malformed local cursor blocks fetch" in a05_workflow_pull_test
+    and "corrupt quarantine prevents cursor advance"
+        in a05_workflow_pull_test
+    and "corrupt quarantine is visible until explicitly cleared"
+        in a05_workflow_pull_test
+    and "failed quarantine write prevents cursor advance"
+        in a05_workflow_pull_test
+    and "readback mismatch prevents cursor advance"
+        in a05_workflow_pull_test
+    and "existing corrupt quarantine blocks valid-only cursor advance"
+        in a05_workflow_pull_test
+    and "Workflow diagnostics need repair" in ui_diagnostics_source
+    and "Clear local log" in ui_diagnostics_source
+    and "admin can repair only a corrupt workflow quarantine log"
+        in ui_alignment_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_16
+    and "29 classified readers" in a05_decision_16
+    and "31 direct `DateTime` parser and epoch-sentinel" in a05_decision_16
+    and "does not inspect or mutate production documents" in a05_decision_16,
 )
 check(
     "A-05 persisted-state tranche fails closed without claiming finding closure",

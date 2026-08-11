@@ -292,6 +292,18 @@
       "reArmCondition": "any operational-directive timestamp schema change"
     },
     {
+      "id": "workflow-pull-cursor",
+      "readerFile": "lib/features/maintenance_workflow/services/workflow_pull_service.dart",
+      "readerMarker": "DateTime? _since(",
+      "requiredFields": ["cursor"],
+      "optionalFields": [],
+      "owner": "maintenance-workflow",
+      "purpose": "resume each workflow projection strictly from local pull control state",
+      "authorityBoundary": "local-persisted-control-state",
+      "regression": "test/workflow_pull_service_watermark_test.dart",
+      "reArmCondition": "any workflow pull cursor schema or fallback change"
+    },
+    {
       "id": "workflow-pull-quarantine",
       "readerFile": "lib/features/maintenance_workflow/services/workflow_pull_service.dart",
       "readerMarker": "factory WorkflowPullQuarantineRecord.fromJson",
@@ -300,7 +312,7 @@
       "owner": "maintenance-workflow",
       "purpose": "restore durable workflow quarantine evidence",
       "authorityBoundary": "local-persisted-repair-state",
-      "regression": "test/workflow_pull_service_test.dart",
+      "regression": "test/workflow_pull_service_watermark_test.dart",
       "reArmCondition": "any workflow quarantine timestamp schema change"
     },
     {

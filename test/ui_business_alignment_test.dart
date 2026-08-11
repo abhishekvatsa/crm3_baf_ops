@@ -20,6 +20,7 @@ import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_module_p
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 AppUser _actor(AppRole role, {bool approved = true}) => AppUser(
   uid: 'actor-${role.name}',
@@ -318,6 +319,42 @@ void main() {
 
       expect(find.text('Admin/SI access required'), findsOneWidget);
       expect(repository.pendingCommandReads, 0);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('admin can repair only a corrupt workflow quarantine log', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'last_maintenance_workflow_pull_v2_quarantine': '{not-json',
+      });
+      final repository = _DiagnosticsReadProbeRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream<AppUser?>.value(_actor(AppRole.admin)),
+            ),
+            workflowRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: const MaterialApp(home: WorkflowDiagnosticsScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Workflow diagnostics need repair'), findsOneWidget);
+      expect(find.text('Clear local log'), findsOneWidget);
+      expect(repository.pendingCommandReads, 0);
+
+      await tester.tap(find.text('Clear local log'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Workflow diagnostics need repair'), findsNothing);
+      expect(
+        find.text('No malformed workflow projection is retained locally.'),
+        findsOneWidget,
+      );
+      expect(repository.pendingCommandReads, 1);
       expect(tester.takeException(), isNull);
     });
 
