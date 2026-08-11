@@ -17,7 +17,7 @@ String _fileSha256(String path) {
 }
 
 void main() {
-  test('LR-07 closes on exact containment and strict live readback', () {
+  test('LR-07 historical closure stays exact after the Build 9 re-arm', () {
     const containmentPath =
         'release/evidence/lr07-public-production-artifact-containment.json';
     const readbackPath =
@@ -211,11 +211,11 @@ void main() {
 
     final gates = _objects(ledger['programmeGates']);
     final lr07 = gates.singleWhere((record) => record['gateId'] == 'LR-07');
-    expect(lr07['currentStatus'], 'CLOSED');
-    expect(lr07['authorization'], 'CLOSED_PASS');
+    expect(lr07['currentStatus'], 'OPEN');
+    expect(lr07['authorization'], 'BLOCKS_PILOT_HANDOUT');
     expect(
       _objects(lr07['statusHistory']).map((entry) => entry['status']),
-      <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],
+      <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED', 'OPEN'],
     );
     expect(_strings(lr07['requiredExitEvidence']), hasLength(6));
     expect(_strings(lr07['reArmTriggers']), hasLength(7));

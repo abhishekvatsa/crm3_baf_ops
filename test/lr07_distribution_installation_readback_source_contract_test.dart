@@ -45,6 +45,7 @@ void main() {
         6,
         7,
         8,
+        9,
       ]);
       expect(artifacts.map((entry) => entry['id']).toSet(), <int>{
         8711253816,
@@ -52,10 +53,11 @@ void main() {
         8771948980,
         8836687771,
         8866525607,
+        9116320474,
       });
       expect(
         artifacts.where((entry) => entry['dualCustodyCompleted'] == true),
-        hasLength(4),
+        hasLength(5),
       );
       expect(
         artifacts.singleWhere(
@@ -128,14 +130,21 @@ void main() {
     expect(source, contains('externalInstallationReceiptExact'));
     expect(source, contains('selectProductionArtifacts'));
     expect(source, contains('productionWorkflowRuns'));
+    expect(source, contains('latestContainmentFinalizationExact'));
+    expect(source, contains('latestContainmentWorkflowRunExact'));
     expect(source, contains('collectorAuthorizesClosure: false'));
     expect(source, contains('flag: "wx"'));
     expect(decision, contains('collector still does not close `LR-07`'));
-    expect(lr07['currentStatus'], 'CLOSED');
-    expect(lr07['authorization'], 'CLOSED_PASS');
+    expect(
+      decision,
+      contains('Status: RE-ARMED - BUILD 9 ARTIFACT CONTAINMENT'),
+    );
+    expect(lr07['currentStatus'], 'OPEN');
+    expect(lr07['authorization'], 'BLOCKS_PILOT_HANDOUT');
     expect(lr07['evidence'], hasLength(3));
     expect(lr07['requiredExitEvidence'], hasLength(6));
     expect(lr07['reArmTriggers'], hasLength(7));
-    expect(lr07['statusHistory'], hasLength(3));
+    expect(lr07['statusHistory'], hasLength(4));
+    expect((lr07['statusHistory'] as List).last['status'], 'OPEN');
   });
 }

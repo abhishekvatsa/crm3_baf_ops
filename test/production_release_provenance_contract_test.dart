@@ -400,7 +400,7 @@ void main() {
       );
     });
 
-    test('builds 1 to 8 are preserved and build 9 is source-reserved', () {
+    test('builds 1 to 9 are preserved and build 10 is source-reserved', () {
       final ledger =
           jsonDecode(read('release/build-number-ledger.json'))
               as Map<String, dynamic>;
@@ -415,6 +415,9 @@ void main() {
       final build7 = entries.singleWhere((entry) => entry['buildNumber'] == 7);
       final build8 = entries.singleWhere((entry) => entry['buildNumber'] == 8);
       final build9 = entries.singleWhere((entry) => entry['buildNumber'] == 9);
+      final build10 = entries.singleWhere(
+        (entry) => entry['buildNumber'] == 10,
+      );
 
       expect(build1['status'], 'remote-consumed-build-failed');
       expect(build1['githubRunId'], 30387521656);
@@ -702,7 +705,10 @@ void main() {
       expect(build8['unrestrictedPlantReleaseApproved'], isFalse);
       expect(build8['distributionPerformed'], isFalse);
 
-      expect(build9['status'], 'source-reserved-awaiting-remote-consumption');
+      expect(
+        build9['status'],
+        'remote-consumed-artifact-built-finalized-non-distributable',
+      );
       expect(
         build9['baselineCommit'],
         '28cb22064511c1abcb76759cbb302a303427f46f',
@@ -714,8 +720,79 @@ void main() {
         build9['versionApprovalDocumentSha256'],
         '1AF2210730052C99F8AAA2A1A1D5E8C1D38646F0F7AF07A3444A0094778E3AE9',
       );
-      expect(build9.containsKey('githubRunId'), isFalse);
-      expect(build9.containsKey('remoteReservationTagObject'), isFalse);
+      expect(build9['githubRunId'], 31528293704);
+      expect(
+        build9['remoteReservationTagObject'],
+        'feef8824b6d1587789c1f51dc4446b6a4d7c1221',
+      );
+      expect(
+        build9['remoteBuiltTagObject'],
+        'e478de7b186112b864199a5bf0184d3c3d9ea584',
+      );
+      expect(
+        build9['governedPackageSha256'],
+        '4D1EA1781FBAB0E047A1605644E329712E717B66A594147D55095DF21DF9960E',
+      );
+      expect(build9['closureFinalizationCompleted'], isTrue);
+      expect(build9['dualCustodyCompleted'], isTrue);
+      expect(build9['runtimeValidationPassed'], isFalse);
+      expect(
+        build9['runtimeFailure'],
+        'missing-crashlytics-gradle-build-identifier',
+      );
+      expect(build9['startupRemediationPullRequest'], 197);
+      expect(build9['distributionPerformed'], isFalse);
+
+      expect(build10['status'], 'source-reserved-awaiting-remote-consumption');
+      expect(
+        build10['baselineCommit'],
+        '1772fe1cf34c649c6a29d375c77b75e985b6c2f0',
+      );
+      expect(build10['remoteReservationTag'], 'crm3-build-reserved/10');
+      expect(build10['remoteBuiltTag'], 'crm3-build-built/10');
+      expect(build10['versionApprovalReference'], 'BAF-REF-003-C9');
+      expect(
+        build10['versionApprovalDocumentSha256'],
+        '5086CFB2CBAE2E8A178B565FA93D9F8D9030620BDE608EB93D85BB48ED8231B0',
+      );
+      expect(build10.containsKey('githubRunId'), isFalse);
+      expect(build10.containsKey('remoteReservationTagObject'), isFalse);
+
+      final build10Approval =
+          jsonDecode(
+                read(
+                  'release/approvals/'
+                  'build-number-10-rollover-approval.json',
+                ),
+              )
+              as Map<String, dynamic>;
+      final build10Source =
+          build10Approval['requiredSource'] as Map<String, dynamic>;
+      final build10Controls =
+          build10Approval['controls'] as Map<String, dynamic>;
+      expect(build10Approval['approvalReference'], 'BAF-REF-003-C9');
+      expect(build10Approval['distributionApproved'], isFalse);
+      expect(
+        (build10Approval['consumedBuild']
+            as Map<String, dynamic>)['buildNumber'],
+        9,
+      );
+      expect(
+        (build10Approval['nextBuild'] as Map<String, dynamic>)['buildNumber'],
+        10,
+      );
+      expect(build10Source['startupRemediationPullRequest'], 197);
+      expect(
+        build10Source['startupRemediationMergeCommit'],
+        '1772fe1cf34c649c6a29d375c77b75e985b6c2f0',
+      );
+      expect(build10Source['postMergeGithubRunId'], 31538989781);
+      expect(build10Controls['crashlyticsGradlePluginRequired'], isTrue);
+      expect(build10Controls['compiledCrashlyticsMappingIdRequired'], isTrue);
+      expect(build10Controls['exactReleaseApkColdStartCiRequired'], isTrue);
+      expect(build10Controls['lr07Build9RearmRequired'], isTrue);
+      expect(build10Controls['inPlaceUpgradeRequired'], isTrue);
+      expect(build10Controls['deviceDataClearProhibited'], isTrue);
 
       final build9Approval =
           jsonDecode(
@@ -797,7 +874,7 @@ void main() {
           jsonDecode(
                 read(
                   'release/approvals/'
-                  'public-repository-environment-reviewer-approval-build-9.json',
+                  'public-repository-environment-reviewer-approval-build-10.json',
                 ),
               )
               as Map<String, dynamic>;
@@ -831,8 +908,8 @@ void main() {
         'public-repository-required-reviewer-control',
       );
       expect(scope['repositoryVisibility'], 'public');
-      expect(scope['buildNumber'], 9);
-      expect(scope['versionApprovalReference'], 'BAF-REF-003-C8');
+      expect(scope['buildNumber'], 10);
+      expect(scope['versionApprovalReference'], 'BAF-REF-003-C9');
       expect(scope['singleBuildOnly'], isTrue);
       expect(liveStateEvidence['repositoryPrivate'], isFalse);
       expect(liveStateEvidence['canAdminsBypass'], isFalse);
@@ -926,108 +1003,117 @@ void main() {
       expect(
         policyVerifier,
         contains(
-          'Dispatch source does not contain the integrated PR 193 successor.',
+          'Dispatch source does not contain the PR 197 startup remediation.',
         ),
       );
     });
 
-    test('build 8 closure and backend readiness are exact', () {
-      final policy =
-          jsonDecode(read('release/production-release-policy.json'))
-              as Map<String, dynamic>;
-      final finalization = policy['finalization'] as Map<String, dynamic>;
-      final build8Finalization =
-          finalization['priorCompletedBuild'] as Map<String, dynamic>;
-      final receipt =
-          jsonDecode(
-                read(build8Finalization['completionReceiptFile'] as String),
-              )
-              as Map<String, dynamic>;
-      final sourceAuthority =
-          receipt['sourceAuthority'] as Map<String, dynamic>;
-      final workflow = receipt['workflow'] as Map<String, dynamic>;
-      final governedPackage =
-          receipt['governedPackage'] as Map<String, dynamic>;
-      final remoteAuthority =
-          receipt['remoteAuthority'] as Map<String, dynamic>;
-      final dualCustody = receipt['dualCustody'] as Map<String, dynamic>;
-      final closure = receipt['closure'] as Map<String, dynamic>;
-      final tagRecovery = receipt['recoveryIncident'] as Map<String, dynamic>;
-      final releaseBoundary =
-          receipt['releaseBoundary'] as Map<String, dynamic>;
-      final backendActivation =
-          build8Finalization['backendActivation'] as Map<String, dynamic>;
-      final backendEvidence =
-          jsonDecode(read(backendActivation['evidenceFile'] as String))
-              as Map<String, dynamic>;
-      final liveReadback =
-          backendEvidence['liveReadback'] as Map<String, dynamic>;
-      final mutationAdjudication =
-          backendEvidence['mutationAdjudication'] as Map<String, dynamic>;
-      final programmeBoundary =
-          backendEvidence['programmeBoundary'] as Map<String, dynamic>;
+    test(
+      'build 9 closure and historical build 8 backend readiness are exact',
+      () {
+        final policy =
+            jsonDecode(read('release/production-release-policy.json'))
+                as Map<String, dynamic>;
+        final finalization = policy['finalization'] as Map<String, dynamic>;
+        final build9Finalization =
+            finalization['priorCompletedBuild'] as Map<String, dynamic>;
+        final receipt =
+            jsonDecode(
+                  read(build9Finalization['completionReceiptFile'] as String),
+                )
+                as Map<String, dynamic>;
+        final sourceAuthority =
+            receipt['sourceAuthority'] as Map<String, dynamic>;
+        final workflow = receipt['workflow'] as Map<String, dynamic>;
+        final governedPackage =
+            receipt['governedPackage'] as Map<String, dynamic>;
+        final remoteAuthority =
+            receipt['remoteAuthority'] as Map<String, dynamic>;
+        final dualCustody = receipt['dualCustody'] as Map<String, dynamic>;
+        final closure = receipt['closure'] as Map<String, dynamic>;
+        final tagRecovery = receipt['recoveryIncident'] as Map<String, dynamic>;
+        final releaseBoundary =
+            receipt['releaseBoundary'] as Map<String, dynamic>;
+        final runtimeAdjudication =
+            receipt['runtimeAdjudication'] as Map<String, dynamic>;
+        final backendEvidence =
+            jsonDecode(
+                  read(
+                    'release/evidence/'
+                    'build-8-f4-production-backend-readiness.json',
+                  ),
+                )
+                as Map<String, dynamic>;
+        final liveReadback =
+            backendEvidence['liveReadback'] as Map<String, dynamic>;
+        final mutationAdjudication =
+            backendEvidence['mutationAdjudication'] as Map<String, dynamic>;
+        final programmeBoundary =
+            backendEvidence['programmeBoundary'] as Map<String, dynamic>;
 
-      expect(finalization['status'], 'pending-source-authorized');
-      expect(build8Finalization['status'], 'completed-non-distributable');
-      expect(build8Finalization['dualCustodyCompleted'], isTrue);
-      expect(
-        build8Finalization['completionReceiptSha256'],
-        '9DA20D9997DC11D305317F4A594F3A139E9AC2FF3111523FDD4E288C0D31B446',
-      );
-      expect(receipt['schemaVersion'], 1);
-      expect(receipt['status'], 'passed-non-distributable');
-      expect(
-        sourceAuthority['commit'],
-        '731a02980d38e4e3a8f61ff2bca74a1e85771478',
-      );
-      expect(sourceAuthority['pullRequestNumber'], 118);
-      expect(workflow['runId'], 30839125687);
-      expect(workflow['actor'], 'abhishekvatsa');
-      expect(workflow['actorId'], 213690022);
-      expect(workflow['secretValuesInspected'], isFalse);
-      expect(
-        governedPackage['sha256'],
-        '75362F9875CC5067012B4A5768720CB4AE0AD2C6A94B38C1F174E0FD1E1CA91F',
-      );
-      expect(governedPackage['independentVerificationCompleted'], isTrue);
-      expect(
-        remoteAuthority['builtTagObjectSha'],
-        'f9f6f3fbacd33d824bf4b5213b0b28f6d7e29feb',
-      );
-      expect(dualCustody['distinctVolumes'], isTrue);
-      expect(dualCustody['allFileHashesMatched'], isTrue);
-      expect(
-        closure['closurePackageSha256'],
-        'F704274E51723ECB1AE7BEB498F568A06EC0547E5B6F5331AA8644BCFC506E42',
-      );
-      expect(tagRecovery['occurred'], isFalse);
-      expect(tagRecovery['forceUsed'], isFalse);
-      expect(releaseBoundary['firebaseBackendDeploymentPerformed'], isFalse);
-      expect(releaseBoundary['controlledPilotApproved'], isFalse);
-      expect(releaseBoundary['unrestrictedPlantReleaseApproved'], isFalse);
-      expect(releaseBoundary['distributionPerformed'], isFalse);
+        expect(finalization['status'], 'pending-source-authorized');
+        expect(build9Finalization['status'], 'completed-non-distributable');
+        expect(build9Finalization['dualCustodyCompleted'], isTrue);
+        expect(build9Finalization['runtimeValidationPassed'], isFalse);
+        expect(
+          build9Finalization['completionReceiptSha256'],
+          '0ECED777787A61EBAF0F57A68608D3E9EFE2CA3FB8E6483B5439357015745720',
+        );
+        expect(receipt['schemaVersion'], 1);
+        expect(receipt['status'], 'passed-non-distributable');
+        expect(
+          sourceAuthority['commit'],
+          'f51749c3f0200a5a03b065f0644d7759c747de7f',
+        );
+        expect(sourceAuthority['pullRequestNumber'], 196);
+        expect(workflow['runId'], 31528293704);
+        expect(workflow['actor'], 'abhishekvatsa');
+        expect(workflow['actorId'], 213690022);
+        expect(workflow['secretValuesInspected'], isFalse);
+        expect(
+          governedPackage['sha256'],
+          '4D1EA1781FBAB0E047A1605644E329712E717B66A594147D55095DF21DF9960E',
+        );
+        expect(governedPackage['independentVerificationCompleted'], isTrue);
+        expect(
+          remoteAuthority['builtTagObjectSha'],
+          'e478de7b186112b864199a5bf0184d3c3d9ea584',
+        );
+        expect(dualCustody['distinctVolumes'], isTrue);
+        expect(dualCustody['allFileHashesMatched'], isTrue);
+        expect(
+          closure['closurePackageSha256'],
+          '73D0FC8DA30341D05786091E657967B21D1E57EF3B261478B36A326E4F9234B0',
+        );
+        expect(tagRecovery['occurred'], isFalse);
+        expect(tagRecovery['forceUsed'], isFalse);
+        expect(releaseBoundary['firebaseBackendDeploymentPerformed'], isFalse);
+        expect(releaseBoundary['controlledPilotApproved'], isFalse);
+        expect(releaseBoundary['unrestrictedPlantReleaseApproved'], isFalse);
+        expect(releaseBoundary['distributionPerformed'], isFalse);
+        expect(releaseBoundary['runtimeValidationPassed'], isFalse);
+        expect(
+          runtimeAdjudication['status'],
+          'failed-startup-non-distributable',
+        );
+        expect(runtimeAdjudication['remediationPullRequest'], 197);
+        expect(runtimeAdjudication['deviceDataPreserved'], isTrue);
+        expect(runtimeAdjudication['appDataClearPerformed'], isFalse);
 
-      expect(
-        backendActivation['status'],
-        'completed-ready-for-bounded-device-retry',
-      );
-      expect(
-        backendActivation['evidenceSha256'],
-        '73295B13B7DC7C476A7F094B779A58DF5B3491B32DB4E349A2CDD5C695BC7096',
-      );
-      expect(backendEvidence['decision'], 'PASS_BUILD8_F4_BACKEND_READY');
-      expect(liveReadback['globalPullContractState'], 'ACTIVE');
-      expect(liveReadback['inventoryTotal'], 42);
-      expect(liveReadback['inventoryStamped'], 42);
-      expect(liveReadback['inventoryMissing'], 0);
-      expect(liveReadback['inventoryMalformed'], 0);
-      expect(mutationAdjudication['watermarkFieldsCreated'], 41);
-      expect(mutationAdjudication['businessFieldsMutated'], isFalse);
-      expect(mutationAdjudication['distributionPerformed'], isFalse);
-      expect(programmeBoundary['stage2dF4Status'], 'OPEN');
-      expect(programmeBoundary['stage2dF4ClosureAuthorized'], isFalse);
-      expect(programmeBoundary['pilotHandoutAuthorized'], isFalse);
-    });
+        expect(backendEvidence['decision'], 'PASS_BUILD8_F4_BACKEND_READY');
+        expect(liveReadback['globalPullContractState'], 'ACTIVE');
+        expect(liveReadback['inventoryTotal'], 42);
+        expect(liveReadback['inventoryStamped'], 42);
+        expect(liveReadback['inventoryMissing'], 0);
+        expect(liveReadback['inventoryMalformed'], 0);
+        expect(mutationAdjudication['watermarkFieldsCreated'], 41);
+        expect(mutationAdjudication['businessFieldsMutated'], isFalse);
+        expect(mutationAdjudication['distributionPerformed'], isFalse);
+        expect(programmeBoundary['stage2dF4Status'], 'OPEN');
+        expect(programmeBoundary['stage2dF4ClosureAuthorized'], isFalse);
+        expect(programmeBoundary['pilotHandoutAuthorized'], isFalse);
+      },
+    );
 
     test('permanent identity and public version are committed', () {
       final gradle = read('android/app/build.gradle.kts');
@@ -1039,12 +1125,12 @@ void main() {
       expect(manifest, isNot(contains('android:label="crm3_baf_ops"')));
       expect(
         pubspec,
-        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+9$', multiLine: true)),
+        contains(RegExp(r'^version:\s+1\.0\.0-rc\.1\+10$', multiLine: true)),
       );
-      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b9"'));
+      expect(policy, contains('"releaseId": "crm3-baf-ops-1.0.0-rc.1-b10"'));
       expect(
         policy,
-        contains('"remoteReservationTag": "crm3-build-reserved/9"'),
+        contains('"remoteReservationTag": "crm3-build-reserved/10"'),
       );
       expect(policy, contains('"approved": false'));
       expect(policy, contains('"unrestrictedPlantReleaseApproved": false'));

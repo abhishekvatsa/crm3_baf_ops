@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "production-build-finalization-closure",
+  "status": "passed-non-distributable",
+  "release": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b9",
+    "version": "1.0.0-rc.1+9",
+    "buildNumber": 9,
+    "applicationId": "in.co.sail.bsl.crm3.bafops"
+  },
+  "sourceAuthority": {
+    "commit": "f51749c3f0200a5a03b065f0644d7759c747de7f",
+    "tree": "3fb5aa378f0a891a7b2387193c03c8d5ccb5360f",
+    "pullRequestNumber": 196,
+    "productionPolicySha256AtBuild": "6859DB1B20814ED73521F1E663BCCCD911CDF73C7C8700656F6F058653A927DE",
+    "finalizerSha256AtBuild": "68B54952CEE8FBDB5CC671834957239F4DBA56126A02FAA10F1F185A83407C12"
+  },
+  "workflow": {
+    "path": ".github/workflows/production-artifact.yml",
+    "runId": 31528293704,
+    "runAttempt": 1,
+    "url": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/31528293704",
+    "startedAtUtc": "2026-08-11T19:31:32Z",
+    "completedAtUtc": "2026-08-11T19:47:21Z",
+    "conclusion": "success",
+    "actor": "abhishekvatsa",
+    "actorId": 213690022,
+    "triggeringActor": "abhishekvatsa",
+    "dispatchApprovalReference": "BAF-REF-003-C8",
+    "environmentApprovalReference": "BAF-GH-ENV-005",
+    "environmentReviewControlMode": "public-repository-required-reviewer",
+    "secretNamesVerified": 4,
+    "secretValuesInspected": false
+  },
+  "githubArtifact": {
+    "id": 9116320474,
+    "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.1-b9-f51749c3f0200a5a03b065f0644d7759c747de7f-run-31528293704",
+    "sizeBytes": 143781672,
+    "digest": "sha256:a70b222fabf6debbe2028e0789580ec2c6c135505200240949712225b7e55fa8"
+  },
+  "governedPackage": {
+    "file": "crm3-baf-ops-1.0.0-rc.1-b9-GOVERNED-PACKAGE.zip",
+    "sha256": "4D1EA1781FBAB0E047A1605644E329712E717B66A594147D55095DF21DF9960E",
+    "sidecarSha256": "EF9ACF705A5F6C77BA5A67BC9BDFA2CD1FA7D126AEB0CB993C91F631F352DAD9",
+    "manifestSha256": "AFC52BEAEA72C85C7B00AD3AD7EAF65B302C460A82D9B924ED51A5316EB4D506",
+    "apkSha256": "BF1B412BA9A296FE3DE25C714002E0BAD2FB898920BE383712255D8B006670CB",
+    "apkSizeBytes": 79504885,
+    "aabSha256": "CD4255E063529C77723AE63FA5CF7B67D1B42F2BF43345195F8AE0BF1CDE1501",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "independentVerificationCompleted": true
+  },
+  "remoteAuthority": {
+    "reservationTag": "crm3-build-reserved/9",
+    "reservationTagObjectSha": "feef8824b6d1587789c1f51dc4446b6a4d7c1221",
+    "reservationTagCommit": "f51749c3f0200a5a03b065f0644d7759c747de7f",
+    "builtTag": "crm3-build-built/9",
+    "builtTagCreatedAtUtc": "2026-08-11T19:56:48Z",
+    "builtTagObjectSha": "e478de7b186112b864199a5bf0184d3c3d9ea584",
+    "builtTagCommit": "f51749c3f0200a5a03b065f0644d7759c747de7f"
+  },
+  "dualCustody": {
+    "status": "passed",
+    "completedAtUtc": "2026-08-11T19:57:22.0133000Z",
+    "distinctVolumes": true,
+    "allFileHashesMatched": true
+  },
+  "closure": {
+    "decisionAtUtc": "2026-08-11T19:56:56.8320944Z",
+    "closurePackageSha256": "73D0FC8DA30341D05786091E657967B21D1E57EF3B261478B36A326E4F9234B0",
+    "custodyRecordSha256": "02CDD5114073C96B1073905E3133BADC6D78FA49A481AA7D0A5443F96695F675"
+  },
+  "runtimeAdjudication": {
+    "status": "failed-startup-non-distributable",
+    "observedAtUtc": "2026-08-11T20:12:49Z",
+    "failureBoundary": "android-firebase-init-provider-before-flutter-startup",
+    "failureReason": "The production APK omitted the Crashlytics Gradle build identifier required by FirebaseInitProvider.",
+    "deviceDataPreserved": true,
+    "uninstallPerformed": false,
+    "appDataClearPerformed": false,
+    "physicalDeviceSerialRetained": false,
+    "physicalDeviceSerialSha256": "D5BADBAE21E335B1E21A6A694445F3E7A454BFE5525650BFA9E1B1D637523E74",
+    "privateEvidence": [
+      {
+        "fileName": "first-open-failure.png",
+        "bytes": 219886,
+        "sha256": "D826BD987540C7691D816E90AC66A748ED43817660D2913A7AFDC0AA8F4AA380"
+      },
+      {
+        "fileName": "first-open-failure.xml",
+        "bytes": 6089,
+        "sha256": "D44223701731998FC39D2DE751E42C726CC7B39D55783D86664B7E5776EF6E91"
+      },
+      {
+        "fileName": "logcat.txt",
+        "bytes": 340187,
+        "sha256": "F7B1984481027FF576D5CBCD85015FE232C502DC6A4FE1DBECB4B9644701284A"
+      }
+    ],
+    "remediationPullRequest": 197,
+    "remediationMergeCommit": "1772fe1cf34c649c6a29d375c77b75e985b6c2f0",
+    "remediationDecisionFile": "docs/v4_2_r1/BUILD9_CRASHLYTICS_STARTUP_REMEDIATION.md",
+    "build9MayBeDistributed": false,
+    "successorBuildRequired": true
+  },
+  "recoveryIncident": {
+    "occurred": false,
+    "forceUsed": false
+  },
+  "releaseBoundary": {
+    "authority": "production-signed-pre-release-candidate",
+    "firebaseBackendDeploymentPerformed": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false,
+    "distributionPerformed": false,
+    "postBuildPromotionRequiredForAnyDistribution": true,
+    "runtimeValidationPassed": false,
+    "disposition": "finalized-custody-runtime-failed-permanently-non-distributable"
+  }
+}

@@ -29,6 +29,11 @@ $ExpectedIntegratedSuccessorCommit =
 $ExpectedIntegratedSuccessorTree =
   '70cc865e7636de0f3906565707b1d85e69a3e0db'
 $ExpectedIntegratedSuccessorPostMergeRunId = 31512254539
+$ExpectedStartupRemediationCommit =
+  '1772fe1cf34c649c6a29d375c77b75e985b6c2f0'
+$ExpectedStartupRemediationTree =
+  '59c6371680ed0bf444bdbf1f1623413b14180fb9'
+$ExpectedStartupRemediationPostMergeRunId = 31538989781
 $ExpectedEnvironmentSecretNames = @(
   'CRM_ANDROID_RELEASE_KEY_ALIAS'
   'CRM_ANDROID_RELEASE_KEY_PASSWORD'
@@ -426,7 +431,7 @@ if ((Get-Sha256 $environmentReviewControl.approvalReceiptFile) -ne
     $environmentApproval.controls.
       protectedEnvironmentSecretsRequired -ne $true -or
     [string]$environmentApproval.controls.requiredIntegratedMergeCommit -ne
-      $ExpectedIntegratedSuccessorCommit -or
+      $ExpectedStartupRemediationCommit -or
     $environmentApproval.controls.
       approvedRunReviewByRequiredReviewerRequired -ne $true -or
     $environmentApproval.controls.adminBypassMustRemainDisabled -ne $true -or
@@ -484,8 +489,10 @@ if ([string]$versionSource.consumedBuild.conclusion -eq 'success' -and
   $consumedAuthorityValid = $true
 }
 if ([string]$versionSource.consumedBuild.conclusion -eq 'success' -and
-    $consumedDisposition -eq
-      'successful-build-finalized-non-distributable' -and
+    $consumedDisposition -in @(
+      'successful-build-finalized-non-distributable'
+      'successful-build-finalized-runtime-failed-non-distributable'
+    ) -and
     $versionSource.consumedBuild.independentPackageVerificationCompleted -eq
       $true -and
     $versionSource.consumedBuild.artifactConstructed -eq $true -and
@@ -548,6 +555,11 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
     $versionSource.controls.
       firestoreValueNormalizationRemediationRequired -ne $true -or
     $versionSource.controls.integratedSuccessorRequired -ne $true -or
+    $versionSource.controls.startupRemediationRequired -ne $true -or
+    $versionSource.controls.crashlyticsGradlePluginRequired -ne $true -or
+    $versionSource.controls.compiledCrashlyticsMappingIdRequired -ne $true -or
+    $versionSource.controls.exactReleaseApkColdStartCiRequired -ne $true -or
+    $versionSource.controls.lr07Build9RearmRequired -ne $true -or
     $versionSource.controls.publicRepositoryRequiredReviewerApproved -ne
       $true -or
     [string]$versionSource.controls.environmentApprovalReference -ne
@@ -586,8 +598,26 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
       $ExpectedIntegratedSuccessorTree -or
     $versionSource.requiredSource.
       integratedSuccessorMustBeAncestorOfDispatchCommit -ne $true -or
+    [int64]$versionSource.requiredSource.startupRemediationPullRequest -ne
+      197 -or
+    [string]$versionSource.requiredSource.startupRemediationMergeCommit -ne
+      $ExpectedStartupRemediationCommit -or
+    [string]$versionSource.requiredSource.startupRemediationTree -ne
+      $ExpectedStartupRemediationTree -or
+    $versionSource.requiredSource.
+      startupRemediationMustBeAncestorOfDispatchCommit -ne $true -or
+    $versionSource.requiredSource.crashlyticsGradlePluginRequired -ne
+      $true -or
+    $versionSource.requiredSource.compiledCrashlyticsMappingIdRequired -ne
+      $true -or
+    $versionSource.requiredSource.exactReleaseApkColdStartCiRequired -ne
+      $true -or
+    [string]$versionSource.requiredSource.build9FinalizationReceiptFile -ne
+      [string]$versionSource.consumedBuild.completionReceiptFile -or
+    [string]$versionSource.requiredSource.build9FinalizationReceiptSha256 -ne
+      [string]$versionSource.consumedBuild.completionReceiptSha256 -or
     [int64]$versionSource.requiredSource.postMergeGithubRunId -ne
-      $ExpectedIntegratedSuccessorPostMergeRunId -or
+      $ExpectedStartupRemediationPostMergeRunId -or
     [string]$versionSource.requiredSource.postMergeGithubRunConclusion -ne
       'success' -or
     $versionSource.distributionApproved -ne $false -or
@@ -618,6 +648,12 @@ git merge-base --is-ancestor `
   HEAD
 if ($LASTEXITCODE -ne 0) {
   throw 'Dispatch source does not contain the integrated PR 193 successor.'
+}
+git merge-base --is-ancestor `
+  ([string]$versionSource.requiredSource.startupRemediationMergeCommit) `
+  HEAD
+if ($LASTEXITCODE -ne 0) {
+  throw 'Dispatch source does not contain the PR 197 startup remediation.'
 }
 
 $completionReceiptPath = $null
@@ -930,10 +966,21 @@ if ($consumedMatches.Count -eq 1 -and
     $consumedMatches[0].remoteBuiltTagCreated -eq $false) {
   $consumedLedgerValid = $true
 }
+$consumedRuntimeDispositionValid =
+  $consumedDisposition -eq 'successful-build-finalized-non-distributable' -or
+  ($consumedDisposition -eq
+      'successful-build-finalized-runtime-failed-non-distributable' -and
+    $versionSource.consumedBuild.runtimeValidationPassed -eq $false -and
+    [string]$versionSource.consumedBuild.runtimeFailure -eq
+      'missing-crashlytics-gradle-build-identifier' -and
+    [int64]$versionSource.consumedBuild.remediationPullRequest -eq 197 -and
+    $consumedMatches.Count -eq 1 -and
+    $consumedMatches[0].runtimeValidationPassed -eq $false -and
+    [string]$consumedMatches[0].runtimeFailure -eq
+      [string]$versionSource.consumedBuild.runtimeFailure)
 if ($consumedMatches.Count -eq 1 -and
     $consumedMatches[0].failedOrWithdrawnBuildConsumesNumber -eq $true -and
-    [string]$versionSource.consumedBuild.disposition -eq
-      'successful-build-finalized-non-distributable' -and
+    $consumedRuntimeDispositionValid -and
     [string]$consumedMatches[0].status -eq
       'remote-consumed-artifact-built-finalized-non-distributable' -and
     [string]$consumedMatches[0].disposition -eq

@@ -1196,8 +1196,8 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "CLOSED",
-      "authorization": "CLOSED_PASS",
+      "currentStatus": "OPEN",
+      "authorization": "BLOCKS_PILOT_HANDOUT",
       "supersedes": [],
       "supersededBy": null,
       "evidence": [
@@ -1241,7 +1241,9 @@
         "Read-only inventory on 2026-08-06 found five publicly downloadable production workflow artifacts for consumed Builds 4 through 8; explicit owner-authorized containment deleted those five exact artifact archives and no others.",
         "Strict post-containment inventory found zero live production artifacts and zero GitHub Releases while preserving all production workflow runs, tags and repository visibility.",
         "The exact external Build 8 physical installation receipt remains available and matches its admitted SHA-256, byte length and privacy-minimized semantics.",
-        "Closure proves the current controlled surface and installation receipt, not that no artifact was downloaded before containment."
+        "Closure proves the controlled surface observed on 2026-08-06 and installation receipt, not that no artifact was downloaded before containment.",
+        "Governed Build 9 created live Actions artifact 9116320474 and superseded Build 8 as the latest finalized production build, triggering two explicit LR-07 re-arm conditions.",
+        "Historical containment and closure evidence remains valid for Builds 4 through 8; current closure now requires exact Build 9 containment and a new strict clean-main readback."
       ],
       "statusHistory": [
         {
@@ -1258,6 +1260,11 @@
           "status": "CLOSED",
           "effectiveDate": "2026-08-06",
           "basis": "Closure adjudication 7E440D6DCB826607FED4D7F4FF5332A816302571F294D3F6620206EFC5AD4089 binds PR #169 source and CI authority, owner-authorized containment and strict clean-main live readback."
+        },
+        {
+          "status": "OPEN",
+          "effectiveDate": "2026-08-11",
+          "basis": "Re-armed because finalized governed Build 9 superseded Build 8 and live production artifact 9116320474 remains retained pending exact owner-authorized containment and refreshed strict readback."
         }
       ]
     }

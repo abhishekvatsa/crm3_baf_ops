@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import path from "node:path";
+import {fileURLToPath} from "node:url";
 import {createRequire} from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -8,13 +10,20 @@ const {
   parseArgs,
   selectProductionArtifacts,
   summarizeMutableSourceAuthority,
+  summarizeSource,
 } = require("./collectDistributionInstallationReadback.js");
+
+const repositoryRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 
 function fixture() {
   const build8 = {
     buildNumber: 8,
     workflowRunId: 30839125687,
     headSha: "731a02980d38e4e3a8f61ff2bca74a1e85771478",
+    governedPackageSha256: "a".repeat(64).toUpperCase(),
   };
   const policy = {
     schemaVersion: 1,
@@ -59,6 +68,7 @@ function fixture() {
       releasePolicyExact: true,
       buildLedgerArtifacts: [{buildNumber: 8, exact: true}],
       build8FinalizationExact: true,
+      latestContainmentFinalizationExact: true,
       installationAdjudicationExact: true,
     },
     installation: {exact: true},
@@ -72,6 +82,13 @@ function fixture() {
       githubReleases: {count: 0},
       productionArtifacts: {count: 0, totalBytes: 0, artifacts: []},
       build8WorkflowRun: {
+        id: 30839125687,
+        status: "completed",
+        conclusion: "success",
+        headSha: build8.headSha,
+      },
+      latestContainmentWorkflowRun: {
+        buildNumber: 8,
         id: 30839125687,
         status: "completed",
         conclusion: "success",
@@ -150,22 +167,24 @@ test("observe mode records adverse posture without claiming closure", () => {
   assert.equal(result.evidence.closureScope.collectorAuthorizesClosure, false);
 });
 
-test("preserved Build 8 authority admits only a source-reserved successor", () => {
+test("preserved latest authority admits only a source-reserved successor", () => {
   const expected = {
-    buildNumber: 8,
-    id: 80,
-    name: "build-8",
-    sizeBytes: 800,
-    digest: `sha256:${"8".repeat(64)}`,
-    workflowRunId: 808,
-    headSha: "8".repeat(40),
-    ledgerDisposition: "successful-build-finalized-non-distributable",
+    buildNumber: 9,
+    id: 90,
+    name: "build-9",
+    sizeBytes: 900,
+    digest: `sha256:${"9".repeat(64)}`,
+    workflowRunId: 909,
+    headSha: "9".repeat(40),
+    ledgerDisposition:
+      "successful-build-finalized-runtime-failed-non-distributable",
     dualCustodyCompleted: true,
   };
   const receiptPath =
-    "release/evidence/build-8-finalization-closure.json";
+    "release/evidence/build-9-finalization-closure.json";
   const receiptSha256 = "c".repeat(64).toUpperCase();
   const packageSha256 = "a".repeat(64).toUpperCase();
+  expected.governedPackageSha256 = packageSha256;
   const policy = {
     repository: "abhishekvatsa/crm3_baf_ops",
     productionProjectId: "crm3-baf-ops-b8638",
@@ -174,7 +193,6 @@ test("preserved Build 8 authority admits only a source-reserved successor", () =
     sourceEvidence: [
       {path: receiptPath, sha256: receiptSha256},
     ],
-    installationReceipt: {governedPackageSha256: packageSha256},
   };
   const releasePolicy = {
     firebaseProjectId: policy.productionProjectId,
@@ -183,11 +201,11 @@ test("preserved Build 8 authority admits only a source-reserved successor", () =
       repository: policy.repository,
       environmentReviewControl: {repositoryVisibility: "public"},
     },
-    release: {buildNumber: 9},
+    release: {buildNumber: 10},
     finalization: {
       status: "pending-source-authorized",
       priorCompletedBuild: {
-        buildNumber: 8,
+        buildNumber: 9,
         status: "completed-non-distributable",
         completionReceiptFile: receiptPath,
         completionReceiptSha256: receiptSha256,
@@ -202,8 +220,8 @@ test("preserved Build 8 authority admits only a source-reserved successor", () =
       unrestrictedPlantReleaseApproved: false,
     },
   };
-  const build8Ledger = {
-    buildNumber: 8,
+  const build9Ledger = {
+    buildNumber: 9,
     githubArtifactId: expected.id,
     githubArtifactName: expected.name,
     githubArtifactSizeBytes: expected.sizeBytes,
@@ -214,15 +232,15 @@ test("preserved Build 8 authority admits only a source-reserved successor", () =
     dualCustodyCompleted: true,
     distributionPerformed: false,
   };
-  const build9Ledger = {
-    buildNumber: 9,
+  const build10Ledger = {
+    buildNumber: 10,
     status: "source-reserved-awaiting-remote-consumption",
   };
 
   const exact = summarizeMutableSourceAuthority({
     policy,
     releasePolicy,
-    buildLedger: {entries: [build8Ledger, build9Ledger]},
+    buildLedger: {entries: [build9Ledger, build10Ledger]},
   });
   assert.deepEqual(exact, {
     releasePolicyExact: true,
@@ -235,13 +253,13 @@ test("preserved Build 8 authority admits only a source-reserved successor", () =
     summarizeMutableSourceAuthority({
       policy,
       releasePolicy: malformedPrior,
-      buildLedger: {entries: [build8Ledger, build9Ledger]},
+      buildLedger: {entries: [build9Ledger, build10Ledger]},
     }).releasePolicyExact,
     false,
   );
 
   const artifactBearingSuccessor = {
-    ...build9Ledger,
+    ...build10Ledger,
     status: "remote-consumed-artifact-built",
     githubArtifactId: 90,
   };
@@ -249,9 +267,41 @@ test("preserved Build 8 authority admits only a source-reserved successor", () =
     summarizeMutableSourceAuthority({
       policy,
       releasePolicy,
-      buildLedger: {entries: [build8Ledger, artifactBearingSuccessor]},
+      buildLedger: {entries: [build9Ledger, artifactBearingSuccessor]},
     }).buildLedgerExact,
     false,
+  );
+});
+
+test("source summary semantically revalidates mutable authority after byte drift", () => {
+  const policy = structuredClone(
+    require("../../release/lr07-distribution-installation-readback-policy.json"),
+  );
+  const mutablePaths = new Set([
+    "release/production-release-policy.json",
+    "release/build-number-ledger.json",
+  ]);
+  for (const entry of policy.sourceEvidence) {
+    if (!mutablePaths.has(entry.path)) continue;
+    entry.bytes = 1;
+    entry.sha256 = "0".repeat(64);
+  }
+
+  const source = summarizeSource(repositoryRoot, policy);
+  const mutableEvidence = source.files.filter((entry) =>
+    mutablePaths.has(entry.path),
+  );
+
+  assert.equal(source.releasePolicyExact, true);
+  assert.equal(source.buildLedgerExact, true);
+  assert.equal(mutableEvidence.length, 2);
+  assert.ok(mutableEvidence.every((entry) => entry.byteExact === false));
+  assert.ok(
+    mutableEvidence.every(
+      (entry) =>
+        entry.authorityMode === "SEMANTIC_PRESERVED_BUILD" &&
+        entry.exact === true,
+    ),
   );
 });
 

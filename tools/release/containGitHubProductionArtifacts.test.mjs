@@ -72,6 +72,7 @@ test("sealed exact preflight authorizes only the same source and policy", () => 
     repository: "abhishekvatsa/crm3_baf_ops",
     policyId: "policy",
     expectedArtifactsForContainment: [expected()],
+    executionAuthority: {requiredPresentArtifactIds: [10]},
   };
   const evidence = createPreflightEvidence({
     policy,
@@ -96,6 +97,16 @@ test("sealed exact preflight authorizes only the same source and policy", () => 
   assert.throws(
     () => verifyPreflightReceipt({...receipt, receiptSha256: "bad"}, "F".repeat(64), source),
     /seal is invalid/,
+  );
+  assert.throws(
+    () =>
+      createPreflightEvidence({
+        policy,
+        policyHash: "F".repeat(64),
+        source,
+        inventory: [],
+      }),
+    /differs from exact policy/,
   );
 });
 
@@ -137,6 +148,7 @@ test("contain phase requires the exact explicit owner approval phrase", () => {
     executionAuthority: {
       artifactDeletionRequiresExplicitOwnerApproval: true,
       deleteOnlyExactArtifactIds: true,
+      requiredPresentArtifactIds: [10],
       requiredOwnerApprovalPhrase: "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-10",
     },
   };
