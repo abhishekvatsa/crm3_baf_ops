@@ -361,6 +361,13 @@ jobs:
           export CRM_ANDROID_RELEASE_STORE_PASSWORD='preflight-only'
           export CRM_ANDROID_RELEASE_KEY_ALIAS='preflight-only'
           export CRM_ANDROID_RELEASE_KEY_PASSWORD='preflight-only'
+          flutter build apk --release --config-only --no-pub
+          registrant='android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java'
+          test -f "$registrant"
+          if grep -Fq 'dev.flutter.plugins.integration_test' "$registrant"; then
+            echo 'Release plugin registrant still contains integration_test.' >&2
+            exit 1
+          fi
           (
             cd android
             ./gradlew :app:assembleRelease --dry-run --no-daemon --stacktrace
