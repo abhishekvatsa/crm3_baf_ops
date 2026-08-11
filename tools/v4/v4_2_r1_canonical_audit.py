@@ -353,23 +353,31 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 221
-    and counts.get("SUCCESSOR_MODIFIED") == 189
+    and counts.get("BYTE_IDENTICAL") == 220
+    and counts.get("SUCCESSOR_MODIFIED") == 190
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
 
 critical_exact = {
-    "android/settings.gradle.kts",
     "release/stage2d-f-internal-controlled-deployment-scope.json",
 }
 row_map = {row["path"]: row for row in rows}
 check(
-    "Android settings and immutable release authorities remain byte-identical",
+    "Immutable release authority remains byte-identical",
     all(
         row_map.get(path, {}).get("disposition") == "BYTE_IDENTICAL"
         for path in critical_exact
     ),
+)
+check(
+    "Android Crashlytics plugin registration is explicit successor authority",
+    row_map.get("android/settings.gradle.kts", {}).get("disposition")
+        == "SUCCESSOR_MODIFIED"
+    and 'id("com.google.firebase.crashlytics") version "3.0.7" apply false'
+        in text("android/settings.gradle.kts")
+    and 'id("com.google.firebase.crashlytics")'
+        in text("android/app/build.gradle.kts"),
 )
 check(
     "Mutable workflows, programme-ledger and ledger-contract evolution is explicitly classified",
@@ -579,7 +587,7 @@ check(
         in release_gate_source
     and "Android emulator app-shell integration (not physical-device evidence)"
         in release_gate_source
-    and "Android release package construction (no install)"
+    and "Android release package + cold-start proof (non-production)"
         in release_gate_source
     and "Cloud Functions host build + non-emulator tests"
         in release_gate_source
@@ -685,8 +693,14 @@ check(
             "sourceDecisionAtMerge",
             "workflow",
             "productionPolicyVerifier",
+            "taxonomy",
+            "contractTest",
         }
     )
+    and c04_source_controls.get("taxonomy", {}).get("sha256")
+        == "9EE7137FDD9F2D933AD4ADF0BEE332DF3F36C56D0E6F8E57D2B1AB931DE7A5E1"
+    and c04_source_controls.get("contractTest", {}).get("sha256")
+        == "B5262C5B5B1E5AFA51AEDD052AF1BD4F4075E57C478BC239531824C83F35833B"
     and c04_source_controls.get("workflow", {}).get("sha256")
         == "6645809EE26F3E78A937D26D14254AD6A6F3797D3EE3EDD488F4C5DAEC17741E"
     and c04_source_controls.get("productionPolicyVerifier", {}).get(
@@ -713,6 +727,9 @@ check(
 )
 c03_package_script = text(
     "tools/release/Invoke-CIAndroidPackageProof.ps1"
+)
+c03_startup_script = text(
+    "tools/release/Test-CIAndroidReleaseStartup.ps1"
 )
 c03_package_test = text("test/c03_android_packaging_ci_contract_test.dart")
 c03_package_decision = text("docs/v4_2_r1/C03_ANDROID_PR_PACKAGING.md")
@@ -753,6 +770,17 @@ check(
     and "AAB signer does not match" in c03_package_script
     and "productionSecretsReferenced=false" in c03_package_script
     and "artifactUploadPerformed=false" in c03_package_script
+    and "com.google.firebase.crashlytics.mapping_file_id"
+        in c03_package_script
+    and "$crashlyticsMappingIdOutput.Count -ne 1" in c03_package_script
+    and "crashlyticsMappingIdPresent=true" in c03_package_script
+    and "PASS_C03_ANDROID_RELEASE_COLD_START_PROOF"
+        in c03_startup_script
+    and "activity', 'exit-info" in c03_startup_script
+    and "logcat', '-b', 'crash" in c03_startup_script
+    and "Release process is not alive after cold launch."
+        in c03_startup_script
+    and "Test-CIAndroidReleaseStartup.ps1" in c03_job_source
     and "release gate builds APK and AAB with no production authority"
         in c03_package_test
     and "Status: CLOSED" in c03_package_decision
@@ -997,7 +1025,7 @@ mutable_workflow_action_refs = [
 check(
     "Workflow action references are immutable and repository-wide custody is CI-enforced",
     not mutable_workflow_action_refs
-    and len(workflow_action_refs) == 25
+    and len(workflow_action_refs) == 26
     and "test:workflow-action-custody" in text("package.json")
     and "npm run test:workflow-action-custody"
         in text(".github/workflows/release-gate.yml")
@@ -8256,8 +8284,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 221
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 189
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 220
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 190
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

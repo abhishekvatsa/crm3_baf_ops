@@ -371,6 +371,27 @@ try {
     throw "Release APK must be non-debuggable; observed: $debuggable"
   }
 
+  $crashlyticsMappingIdOutput = @(
+    Invoke-Captured `
+      -FilePath $apkanalyzer `
+      -ArgumentList @(
+        'resources',
+        'value',
+        '--type', 'string',
+        '--config', 'default',
+        '--name', 'com.google.firebase.crashlytics.mapping_file_id',
+        $apkPath
+      ) `
+      -FailureMessage 'Release APK is missing Crashlytics mapping identity.'
+  )
+  if ($crashlyticsMappingIdOutput.Count -ne 1) {
+    throw 'Release APK returned an ambiguous Crashlytics mapping identity.'
+  }
+  $crashlyticsMappingId = $crashlyticsMappingIdOutput[0].ToString().Trim()
+  if ($crashlyticsMappingId -notmatch '^[0-9a-fA-F]{32}$') {
+    throw 'Release APK has an invalid Crashlytics mapping identity.'
+  }
+
   $apkSha256 = (
     Get-FileHash -LiteralPath $apkPath -Algorithm SHA256
   ).Hash.ToUpperInvariant()
@@ -393,6 +414,7 @@ try {
   Write-Output "aabSha256=$aabSha256"
   Write-Output "r8MappingSha256=$r8MappingSha256"
   Write-Output "resourceShrinkReportSha256=$resourceShrinkReportSha256"
+  Write-Output 'crashlyticsMappingIdPresent=true'
   Write-Output "ciCertificateSha256=$ciCertificateSha256"
   Write-Output 'productionCertificateUsed=false'
   Write-Output 'productionSecretsReferenced=false'

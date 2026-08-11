@@ -40,6 +40,11 @@ void main() {
         'physical_device',
       });
       expect(levelById['physical_device']!['physicalDevice'], isTrue);
+      expect(levelById['android_package']!['runtimeExecuted'], isTrue);
+      expect(
+        levelById['android_package']!['claim'],
+        contains('exact release APK cold-start'),
+      );
       for (final entry in levelById.entries) {
         if (entry.key != 'physical_device') {
           expect(entry.value['physicalDevice'], isFalse, reason: entry.key);
@@ -68,23 +73,20 @@ void main() {
     test('CI headlines name their actual evidence level', () {
       final jobs = _objects(catalog['ciJobs']);
       expect(jobs, hasLength(5));
-      expect(
-        jobs.map((job) => job['id']).toSet(),
-        <String>{
-          'flutter_host',
-          'android_package',
-          'android_emulator',
-          'firebase_emulator',
-          'functions_host',
-        },
-      );
+      expect(jobs.map((job) => job['id']).toSet(), <String>{
+        'flutter_host',
+        'android_package',
+        'android_emulator',
+        'firebase_emulator',
+        'functions_host',
+      });
       for (final job in jobs) {
         expect(workflow, contains('name: ${job['headline']}'));
       }
 
       expect(
         workflow,
-        contains('Android release package construction (no install)'),
+        contains('Android release package + cold-start proof (non-production)'),
       );
       expect(
         workflow,
@@ -124,9 +126,8 @@ void main() {
       expect(workflow, contains('api-level: 33'));
       final emulatorSections = workflow.split('\n  android-emulator:\n');
       expect(emulatorSections, hasLength(2));
-      final emulatorJob = emulatorSections.last
-          .split('\n  firestore-rules:\n')
-          .first;
+      final emulatorJob =
+          emulatorSections.last.split('\n  firestore-rules:\n').first;
       expect(emulatorJob, contains('timeout-minutes: 30'));
 
       final registry =
@@ -139,9 +140,10 @@ void main() {
       expect(emulator['repository'], 'ReactiveCircus/android-emulator-runner');
       expect(emulator['commitSha'], 'a421e43855164a8197daf9d8d40fe71c6996bb0d');
 
-      final productionPolicy = File(
-        'tools/release/Test-ProductionReleasePolicy.ps1',
-      ).readAsStringSync();
+      final productionPolicy =
+          File(
+            'tools/release/Test-ProductionReleasePolicy.ps1',
+          ).readAsStringSync();
       expect(productionPolicy, isNot(contains('Properties).Count -ne 5')));
       expect(
         productionPolicy,

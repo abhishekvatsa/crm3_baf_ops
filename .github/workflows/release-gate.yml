@@ -192,7 +192,7 @@ jobs:
             test/job_module_population_replay_equivalence_test.dart
 
   android-package:
-    name: Android release package construction (no install)
+    name: Android release package + cold-start proof (non-production)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -218,6 +218,26 @@ jobs:
             -RepositoryRoot $PWD `
             -BuildName '0.0.0-ci' `
             -BuildNumber 1
+
+      - name: Enable KVM for release cold-start proof
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Cold-start the exact release APK
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          cores: 2
+          ram-size: 1536M
+          heap-size: 256M
+          script: pwsh -File tools/release/Test-CIAndroidReleaseStartup.ps1 -DeviceId emulator-5554 -ApkPath build/app/outputs/flutter-apk/app-release.apk
 
   android-emulator:
     name: Android emulator app-shell integration (not physical-device evidence)

@@ -75,7 +75,7 @@ The release workflow now reports five bounded jobs:
 
 ```text
 Flutter host analysis + tests + no-loss contracts
-Android release package construction (no install)
+Android release package + cold-start proof (non-production)
 Android emulator app-shell integration (not physical-device evidence)
 Firestore Rules + governed callable emulator
 Cloud Functions host build + non-emulator tests
@@ -83,6 +83,11 @@ Cloud Functions host build + non-emulator tests
 
 The local release gate uses the same distinctions and validates the taxonomy
 before running its test commands.
+
+The Android package level now also cold-starts the exact disposable-signed
+release APK on a clean emulator and checks process survival plus Android exit
+and crash evidence. This remains non-production emulator evidence and does not
+become physical-device or migration proof.
 
 ## Boundary
 

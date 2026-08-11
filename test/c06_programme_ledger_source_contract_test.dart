@@ -71,15 +71,33 @@ void main() {
     );
 
     final sourceControls = _object(evidence['sourceControls']);
-    for (final key in <String>[
-      'androidReleaseBuild',
-      'proguardRules',
-      'packageProof',
-      'contractTest',
-    ]) {
+    for (final key in <String>['proguardRules', 'contractTest']) {
       final control = _object(sourceControls[key]);
       expect(_sha256(control['path'] as String), control['sha256']);
     }
+    expect(
+      _object(sourceControls['androidReleaseBuild'])['sha256'],
+      'AE97C674371C5E71DE598B646207DB84692993591BFCD4E8CA2FA0CB97FD6334',
+    );
+    expect(
+      _object(sourceControls['packageProof'])['sha256'],
+      '125E2531E85B1F9E99C291D9B3F40CD879FC5A60FF0D30B74B1C6E614B0BEEC7',
+    );
+
+    final currentBuild =
+        File('android/app/build.gradle.kts').readAsStringSync();
+    final currentProof =
+        File(
+          'tools/release/Invoke-CIAndroidPackageProof.ps1',
+        ).readAsStringSync();
+    expect(currentBuild, contains('isMinifyEnabled = true'));
+    expect(currentBuild, contains('isShrinkResources = true'));
+    expect(currentBuild, contains('id("com.google.firebase.crashlytics")'));
+    expect(currentProof, contains('PASS_C06_ANDROID_RELEASE_SHRINKING_PROOF'));
+    expect(
+      currentProof,
+      contains('com.google.firebase.crashlytics.mapping_file_id'),
+    );
 
     final pullRequestCi = _object(evidence['pullRequestCi']);
     expect(pullRequestCi['runId'], 30942169313);
