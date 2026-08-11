@@ -689,9 +689,9 @@
     {
       "path": "governance/programme-ledger.json",
       "canonicalSha256": "30FC5520D44172C2F6E0AD3E954AC7482C350292464AA972CE929D2740B02C56",
-      "candidateSha256": "5B7979FBAA3FC253B0144E09443526D7466D592EAC887CE8F40F9D5100530132",
+      "candidateSha256": "B1BC08DB1AF37CC2D1EB0E86482AA79F82C9F9FBA7864FC810F926FF8454B0E3",
       "canonicalBytes": 73391,
-      "candidateBytes": 190369,
+      "candidateBytes": 193265,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3085,7 +3085,7 @@
     {
       "path": "test/programme_ledger_contract_test.dart",
       "canonicalSha256": "DC917915EE0EA58C4B7B5A794AF361AEDCCA8927DE1420BA3A98A18D59024491",
-      "candidateSha256": "1ACA1F6954FE5AA9527860D8DA132FDB8DA9EC12FF767BB9482BB55B17CB44FE",
+      "candidateSha256": "B4DFB393B2F9B647CE16C323147E166534569979118746748AD6AA7555D461A8",
       "canonicalBytes": 18375,
       "candidateBytes": 30244,
       "disposition": "SUCCESSOR_MODIFIED"
@@ -3213,7 +3213,7 @@
     {
       "path": "test/stage2d_f2_programme_ledger_closure_contract_test.dart",
       "canonicalSha256": "723D92E47D6D38A6BC52E78F0FE33E7EEE632D1EA311C5569DBFB43B910A5B73",
-      "candidateSha256": "3E7BCB7B8E417C69C76AD7A1A6968BFD6C87521367C9CAE45E550D45EA5CC0D1",
+      "candidateSha256": "4A2E5C843A0BE601E143D0E956A679C4D7A3F173174FF903D73FCB3775F284CB",
       "canonicalBytes": 2624,
       "candidateBytes": 2775,
       "disposition": "SUCCESSOR_MODIFIED"

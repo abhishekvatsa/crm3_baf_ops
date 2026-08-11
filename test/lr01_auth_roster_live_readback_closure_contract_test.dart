@@ -105,7 +105,7 @@ void main() {
       '9B30CDD3403A596510F3FE2AF4370E5AB05F8584D28EDCC7A8A89C555A52B05A',
     });
     expect(_strings(lr01['reArmTriggers']), hasLength(5));
-    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F5');
+    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F6');
     expect(
       _object(ledger['programmeDecision'])['pilotHandout'],
       'NOT_AUTHORIZED',

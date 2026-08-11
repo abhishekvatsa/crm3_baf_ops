@@ -102,7 +102,7 @@ void main() {
     expect(boundary['separateEvidenceAdjudicationRequired'], isTrue);
 
     final decision = _object(ledger['programmeDecision']);
-    expect(decision['nextMutation'], 'STAGE2D-F5');
+    expect(decision['nextMutation'], 'STAGE2D-F6');
     expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
     final f4 = (ledger['programmeGates'] as List<dynamic>)
         .cast<Map<String, dynamic>>()

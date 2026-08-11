@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "stage2d-f5-live-authority-matrix-closure",
+  "createdAtUtc": "2026-08-11T14:22:48.2655814Z",
+  "decision": "PASS_STAGE2D_F5_LIVE_AUTHORITY_MATRIX_CLOSURE",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "branch": "main",
+    "commit": "e86efddf17a8c5c0284ac1f9596a85d773e5b566",
+    "tree": "4ff07b40a361e1702874e234597d1a8f04ef66a1",
+    "originMainExact": true,
+    "worktreeCleanDuringLiveReadbacks": true,
+    "postMergeReleaseGate": {
+      "runId": 31496973855,
+      "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/31496973855",
+      "event": "push",
+      "conclusion": "success",
+      "rulesJobId": 93797036087,
+      "rulesArtifactId": 9103464221,
+      "rulesArtifactSha256": "DE3044A0234D8A8EDEF51BB5702163AEC9A385D639E3F0D7AEFAF1AAFDC12FDD",
+      "firestoreRulesTestsPassed": 160,
+      "governedCallableTestsPassed": 63,
+      "expressionLimitWarningAbsent": true
+    }
+  },
+  "deploymentLineage": {
+    "productionProject": "crm3-baf-ops-b8638",
+    "mutationScope": "FIRESTORE_RULES_ONLY",
+    "indexesDeployed": false,
+    "functionsDeployed": false,
+    "iamMutated": false,
+    "firestoreDocumentsWritten": false,
+    "appCheckMutated": false,
+    "clientArtifactChanged": false,
+    "before": {
+      "rulesetName": "projects/crm3-baf-ops-b8638/rulesets/acd08fce-b53a-4d12-9655-5977834b3d3d",
+      "activeRulesSha256": "B1B50675EF479CA62E8841DDFF61D4CD7995F1B1C5E8E4A34AD4F2292B18096E",
+      "sourceRulesSha256": "C7F00384E8266BE20B7839D50870FCE1460BB981E8503E9CC30C02B0B0A1068E",
+      "decision": "HOLD_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+      "receiptPath": "release/evidence/stage2d-f5-firestore-predeployment-hold.json",
+      "receiptSha256": "711D18BE492C45D7DA7C9DBC17AD271D38CA217CF0E50D7DEF7C7CBF3ADFCDD1"
+    },
+    "attempts": [
+      {
+        "attempt": 1,
+        "result": "FAILED_CLOSED",
+        "failure": "Rules compilation endpoint returned HTTP 503 before release creation",
+        "liveMutationProvedAbsent": true,
+        "postFailureReceiptPath": "release/evidence/stage2d-f5-firestore-post-503-hold.json",
+        "postFailureReceiptSha256": "6A873118EB2281DC4B8D3B6C4C6E9B42A06DD4A0B809EAA0FD51FF790650D071"
+      },
+      {
+        "attempt": 2,
+        "result": "CLI_NONZERO_LIVE_STATE_SEPARATELY_ADJUDICATED",
+        "compileSucceeded": true,
+        "rulesUploaded": true,
+        "finalCliResponse": "HTTP 409 Requested entity already exists",
+        "cliResponseRelabelledSuccess": false,
+        "liveReadbackIsSoleDeploymentAuthority": true
+      }
+    ],
+    "after": {
+      "rulesetName": "projects/crm3-baf-ops-b8638/rulesets/e333b52f-dfe3-4216-8df7-ea2e1567bb01",
+      "rulesetCreateTime": "2026-08-11T14:15:24.229919Z",
+      "sourceRulesSha256": "C7F00384E8266BE20B7839D50870FCE1460BB981E8503E9CC30C02B0B0A1068E",
+      "activeRulesSha256": "C7F00384E8266BE20B7839D50870FCE1460BB981E8503E9CC30C02B0B0A1068E",
+      "rulesByteExact": true,
+      "sourceIndexCount": 51,
+      "liveReadyIndexCount": 51,
+      "indexesExact": true,
+      "decision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+      "receiptPath": "release/evidence/stage2d-f5-firestore-live-readback.json",
+      "receiptSha256": "44FFC965ADD5FD01A142C6A507B787D0260C118EA7A3A3BD0FC2ABB092476E73"
+    }
+  },
+  "liveAuthorityEvidence": {
+    "allowlist": {
+      "receiptPath": "release/evidence/stage2d-f5-authority-inventory.json",
+      "receiptSha256": "9AEBDCFF14DB2445210838E453417AB9E560D326DA972E6583433D14DEE98067",
+      "decision": "PASS_GATE_1B_READ_ONLY_AUTHORITY_INTEGRITY",
+      "joinedSubjectCount": 3,
+      "canonicalApprovedCount": 3,
+      "blockingSubjectCount": 0,
+      "rawIdentifiersEmitted": false
+    },
+    "priorPhysicalAuthority": {
+      "receiptPath": "release/evidence/build-8-f4-authority-negative-adjudication.json",
+      "receiptSha256": "9FF79718C48C3B169C512433FED292FA69EA1A6BDBF9183EA7036E8EC9B78461",
+      "decision": "PASS_BUILD8_F4_AND_P07_DEVICE_EVIDENCE_CLOSURE",
+      "revocationNextOperationDenied": true,
+      "wrongRoleSurfaceDenied": true,
+      "finalAuthorityRestoredExactly": true
+    },
+    "liveClientSurface": {
+      "applicationId": "in.co.sail.bsl.crm3.bafops",
+      "versionName": "1.0.0-rc.1",
+      "versionCode": 8,
+      "adminEmulator": {
+        "auditNavigationPresent": true,
+        "productionAuditReadSucceeded": true,
+        "visibleGovernedEventCountAtLeast": 5,
+        "rawUiRetained": false
+      },
+      "siOnlyPhysicalDevice": {
+        "governanceNavigationPresent": true,
+        "supportDiagnosticsPresent": true,
+        "adminNavigationPresent": false,
+        "auditNavigationPresent": false,
+        "rawUiRetained": false
+      },
+      "deviceSerialsRetained": false,
+      "accountIdentifiersRetained": false,
+      "auditPayloadRetained": false
+    }
+  },
+  "criterionAdjudication": [
+    {
+      "criterion": "positive and negative role matrix",
+      "status": "PROVED",
+      "method": "160 exact-source Firestore Rules tests, 63 governed callable tests, byte-exact live Rules, Build 8 Admin-positive and SI-only-negative surfaces"
+    },
+    {
+      "criterion": "unapproved and revoked denial",
+      "status": "PROVED",
+      "method": "Rules tests cover unapproved, missing, malformed and unauthenticated denial; prior physical evidence proves same-process revocation next-operation denial"
+    },
+    {
+      "criterion": "server-owned write denial",
+      "status": "PROVED",
+      "method": "exact-source Rules and governed callable suites deny client writes to receipts, deterministic audits, server stamps, execution completion and abuse-control state"
+    },
+    {
+      "criterion": "audit visibility",
+      "status": "PROVED",
+      "method": "Admin read/list and revocation tests plus a live Build 8 Admin production audit read; SI-only Build 8 exposes no audit navigation"
+    }
+  ],
+  "privacyBoundary": {
+    "rawUiCommitted": false,
+    "rawDeviceIdentifiersCommitted": false,
+    "rawAccountIdentifiersCommitted": false,
+    "rawAuditEventsCommitted": false,
+    "tokensCommitted": false,
+    "businessPayloadCommitted": false,
+    "privacySafeReceiptsOnly": true
+  },
+  "programmeTransition": {
+    "stage2dF5": "OPEN_TO_CLOSED",
+    "completedCriteria": 4,
+    "requiredCriteria": 4,
+    "nextMutation": "STAGE2D-F6",
+    "stage2dF6Status": "OPEN",
+    "pilotHandout": "NOT_AUTHORIZED",
+    "unrestrictedDistribution": "NO_GO"
+  },
+  "reArmTriggers": [
+    "the active Firestore Rules or indexes no longer reproduce the admitted source",
+    "the approved roster exceeds the governed ceiling or contains a malformed authority capsule",
+    "role policy, Rules authority helpers, server-owned write boundaries or mutating callable admission changes",
+    "a revoked or unapproved session regains a privileged read or write before reauthorization",
+    "Admin audit visibility or non-Admin audit denial changes",
+    "the pilot artifact, deployed backend authority or App Check deferral scope changes"
+  ]
+}
