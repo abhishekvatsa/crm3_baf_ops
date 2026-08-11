@@ -7,6 +7,7 @@ const {
   adjudicateReadback,
   parseArgs,
   selectProductionArtifacts,
+  summarizeMutableSourceAuthority,
 } = require("./collectDistributionInstallationReadback.js");
 
 function fixture() {
@@ -147,6 +148,111 @@ test("observe mode records adverse posture without claiming closure", () => {
   );
   assert.equal(result.evidence.closureScope.lr07Closed, false);
   assert.equal(result.evidence.closureScope.collectorAuthorizesClosure, false);
+});
+
+test("preserved Build 8 authority admits only a source-reserved successor", () => {
+  const expected = {
+    buildNumber: 8,
+    id: 80,
+    name: "build-8",
+    sizeBytes: 800,
+    digest: `sha256:${"8".repeat(64)}`,
+    workflowRunId: 808,
+    headSha: "8".repeat(40),
+    ledgerDisposition: "successful-build-finalized-non-distributable",
+    dualCustodyCompleted: true,
+  };
+  const receiptPath =
+    "release/evidence/build-8-finalization-closure.json";
+  const receiptSha256 = "c".repeat(64).toUpperCase();
+  const packageSha256 = "a".repeat(64).toUpperCase();
+  const policy = {
+    repository: "abhishekvatsa/crm3_baf_ops",
+    productionProjectId: "crm3-baf-ops-b8638",
+    applicationId: "in.co.sail.bsl.crm3.bafops",
+    expectedArtifactsForContainment: [expected],
+    sourceEvidence: [
+      {path: receiptPath, sha256: receiptSha256},
+    ],
+    installationReceipt: {governedPackageSha256: packageSha256},
+  };
+  const releasePolicy = {
+    firebaseProjectId: policy.productionProjectId,
+    permanentApplicationId: policy.applicationId,
+    github: {
+      repository: policy.repository,
+      environmentReviewControl: {repositoryVisibility: "public"},
+    },
+    release: {buildNumber: 9},
+    finalization: {
+      status: "pending-source-authorized",
+      priorCompletedBuild: {
+        buildNumber: 8,
+        status: "completed-non-distributable",
+        completionReceiptFile: receiptPath,
+        completionReceiptSha256: receiptSha256,
+        sourceCommit: expected.headSha,
+        githubRunId: expected.workflowRunId,
+        governedPackageSha256: packageSha256,
+        dualCustodyCompleted: true,
+      },
+    },
+    distribution: {
+      approved: false,
+      unrestrictedPlantReleaseApproved: false,
+    },
+  };
+  const build8Ledger = {
+    buildNumber: 8,
+    githubArtifactId: expected.id,
+    githubArtifactName: expected.name,
+    githubArtifactSizeBytes: expected.sizeBytes,
+    githubArtifactDigest: expected.digest,
+    githubRunId: expected.workflowRunId,
+    remoteReservationCommit: expected.headSha,
+    disposition: expected.ledgerDisposition,
+    dualCustodyCompleted: true,
+    distributionPerformed: false,
+  };
+  const build9Ledger = {
+    buildNumber: 9,
+    status: "source-reserved-awaiting-remote-consumption",
+  };
+
+  const exact = summarizeMutableSourceAuthority({
+    policy,
+    releasePolicy,
+    buildLedger: {entries: [build8Ledger, build9Ledger]},
+  });
+  assert.deepEqual(exact, {
+    releasePolicyExact: true,
+    buildLedgerExact: true,
+  });
+
+  const malformedPrior = structuredClone(releasePolicy);
+  delete malformedPrior.finalization.priorCompletedBuild.completionReceiptSha256;
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: malformedPrior,
+      buildLedger: {entries: [build8Ledger, build9Ledger]},
+    }).releasePolicyExact,
+    false,
+  );
+
+  const artifactBearingSuccessor = {
+    ...build9Ledger,
+    status: "remote-consumed-artifact-built",
+    githubArtifactId: 90,
+  };
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy,
+      buildLedger: {entries: [build8Ledger, artifactBearingSuccessor]},
+    }).buildLedgerExact,
+    false,
+  );
 });
 
 test("argument parser rejects the wrong repository and missing receipt", () => {

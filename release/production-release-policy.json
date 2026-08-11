@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "policyId": "crm3-baf-ops-o1-o5-v4-45ebd9c-b8",
+  "policyId": "crm3-baf-ops-o1-o5-v4-28cb220-b9",
   "firebaseProjectId": "crm3-baf-ops-b8638",
   "permanentApplicationId": "in.co.sail.bsl.crm3.bafops",
   "namespace": "in.co.sail.bsl.crm3.bafops",
@@ -31,9 +31,9 @@
       },
       "manualDispatchApprovalReferenceRequired": true,
       "approvedRunReviewHistoryRequired": true,
-      "approvalReceiptFile": "release/approvals/public-repository-environment-reviewer-approval-build-8.json",
-      "approvalReceiptSha256": "B763824728626C23F12C5DAC76428F803CF37E2433DD041E1157F8EDCEF391DE",
-      "approvalReference": "BAF-GH-ENV-004",
+      "approvalReceiptFile": "release/approvals/public-repository-environment-reviewer-approval-build-9.json",
+      "approvalReceiptSha256": "D4E1CC724C44B95C19FF3A533A45D739AD095FAE86A60F86013DEFB623433926",
+      "approvalReference": "BAF-GH-ENV-005",
       "requiredSecretNames": [
         "CRM_ANDROID_RELEASE_KEY_ALIAS",
         "CRM_ANDROID_RELEASE_KEY_PASSWORD",
@@ -57,36 +57,38 @@
     "approved": true,
     "scheme": "semver2",
     "versionName": "1.0.0-rc.1",
-    "buildNumber": 8,
+    "buildNumber": 9,
     "buildNumberPolicy": "positive-int32-strictly-monotonic-never-reuse",
-    "reservationId": "crm3-baf-ops-o1-o5-v4-45ebd9c-b8-8",
+    "reservationId": "crm3-baf-ops-o1-o5-v4-28cb220-b9-9",
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
-    "sourceDocumentFile": "release/approvals/build-number-8-rollover-approval.json",
-    "sourceDocumentSha256": "5060D9CC53FB9F65CCA888F913A45A1C7D4B5629FF93350138DB8C4E605A7335",
-    "remoteReservationTag": "crm3-build-reserved/8",
-    "remoteBuiltTag": "crm3-build-built/8",
+    "sourceDocumentFile": "release/approvals/build-number-9-rollover-approval.json",
+    "sourceDocumentSha256": "1AF2210730052C99F8AAA2A1A1D5E8C1D38646F0F7AF07A3444A0094778E3AE9",
+    "remoteReservationTag": "crm3-build-reserved/9",
+    "remoteBuiltTag": "crm3-build-built/9",
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
-    "status": "completed-non-distributable",
-    "completionReceiptFile": "release/evidence/build-8-finalization-closure.json",
-    "completionReceiptSha256": "9DA20D9997DC11D305317F4A594F3A139E9AC2FF3111523FDD4E288C0D31B446",
-    "sourceCommit": "731a02980d38e4e3a8f61ff2bca74a1e85771478",
-    "githubRunId": 30839125687,
-    "governedPackageSha256": "75362F9875CC5067012B4A5768720CB4AE0AD2C6A94B38C1F174E0FD1E1CA91F",
-    "remoteReservationTagObject": "e0a50955db970ddd2c93e6bda6dc0517eaca150f",
-    "remoteBuiltTagObject": "f9f6f3fbacd33d824bf4b5213b0b28f6d7e29feb",
-    "closurePackageSha256": "F704274E51723ECB1AE7BEB498F568A06EC0547E5B6F5331AA8644BCFC506E42",
-    "custodyRecordSha256": "2737C0B726393CC915C0D0A9343661CE5F50625FDA79B30F663C60CF38496AF2",
-    "backendActivation": {
-      "status": "completed-ready-for-bounded-device-retry",
-      "evidenceFile": "release/evidence/build-8-f4-production-backend-readiness.json",
-      "evidenceSha256": "73295B13B7DC7C476A7F094B779A58DF5B3491B32DB4E349A2CDD5C695BC7096",
-      "decision": "PASS_BUILD8_F4_BACKEND_READY",
-      "deploymentCommit": "34dd01511ffd0ca4aba37735b6dfd710d2964b46"
+    "status": "pending-source-authorized",
+    "priorCompletedBuild": {
+      "buildNumber": 8,
+      "status": "completed-non-distributable",
+      "completionReceiptFile": "release/evidence/build-8-finalization-closure.json",
+      "completionReceiptSha256": "9DA20D9997DC11D305317F4A594F3A139E9AC2FF3111523FDD4E288C0D31B446",
+      "sourceCommit": "731a02980d38e4e3a8f61ff2bca74a1e85771478",
+      "githubRunId": 30839125687,
+      "remoteBuiltTag": "crm3-build-built/8",
+      "governedPackageSha256": "75362F9875CC5067012B4A5768720CB4AE0AD2C6A94B38C1F174E0FD1E1CA91F",
+      "dualCustodyCompleted": true,
+      "backendActivation": {
+        "status": "completed-ready-for-bounded-device-retry",
+        "evidenceFile": "release/evidence/build-8-f4-production-backend-readiness.json",
+        "evidenceSha256": "73295B13B7DC7C476A7F094B779A58DF5B3491B32DB4E349A2CDD5C695BC7096",
+        "decision": "PASS_BUILD8_F4_BACKEND_READY",
+        "deploymentCommit": "34dd01511ffd0ca4aba37735b6dfd710d2964b46"
+      }
     },
-    "dualCustodyCompleted": true,
+    "dualCustodyCompleted": false,
     "firebaseBackendDeploymentPerformed": false,
     "controlledPilotApproved": false,
     "unrestrictedPlantReleaseApproved": false
@@ -137,11 +139,11 @@
     "restorationEvidenceSha256": "24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF"
   },
   "release": {
-    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b8",
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b9",
     "releaseTag": "crm3-baf-ops-v1.0.0-rc.1",
     "releaseChannel": "production-candidate",
     "versionName": "1.0.0-rc.1",
-    "buildNumber": 8
+    "buildNumber": 9
   },
   "distribution": {
     "authority": "production-signed-pre-release-candidate",
@@ -150,13 +152,10 @@
     "restrictions": [
       "Unrestricted plant release is not approved",
       "Controlled-pilot distribution requires a separate post-build promotion record bound to the exact governed package hash",
-      "O-06 App Check remains open",
-      "O-08 closure concurrency remains open",
-      "O-09 assignment emulator and continuous PR coverage remain partial",
-      "O-10 physical-device, weak-network and package-ID cutover proof remains open",
-      "O-11 recovery drill remains partial",
-      "O-12 operator acceptance remains open",
-      "Do not uninstall or clear the placeholder app until device-specific no-loss cutover is signed off",
+      "App Check activation remains under its explicit governed deferral",
+      "70K-RECOVERY device evidence remains open until Build 9 in-place inventory and reconciliation pass",
+      "STAGE2D-F6 pilot authorization remains open until the full support and acceptance pack passes",
+      "Do not uninstall or clear either installed app before device-specific no-loss proof is sealed",
       "Dependency audits must be re-run on the exact artifact-construction lockfiles"
     ],
     "unrestrictedPlantReleaseApproved": false,
@@ -180,11 +179,7 @@
     "dartVersion": "3.12.0"
   },
   "knownOpenGates": [
-    "O-06 Firebase App Check",
-    "O-08 closure concurrency",
-    "O-09 assignment emulator and continuous CI",
-    "O-10 physical-device, weak-network and package-ID cutover",
-    "O-11 migration/recovery drill",
-    "O-12 operator acceptance"
+    "70K-RECOVERY local database provenance, migration and recovery",
+    "STAGE2D-F6 small-group pilot readiness and recoverability"
   ]
 }

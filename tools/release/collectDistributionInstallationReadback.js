@@ -116,10 +116,110 @@ function fileAuthority(repositoryRoot, expected) {
   };
 }
 
-function summarizeSource(repositoryRoot, policy) {
-  const files = policy.sourceEvidence.map((entry) =>
-    fileAuthority(repositoryRoot, entry),
+function summarizeMutableSourceAuthority({policy, releasePolicy, buildLedger}) {
+  const expectedArtifacts = policy.expectedArtifactsForContainment;
+  const latestExpectedArtifact = expectedArtifacts.reduce(
+    (latest, entry) =>
+      latest == null || entry.buildNumber > latest.buildNumber ? entry : latest,
+    null,
   );
+  const receiptAuthority = policy.sourceEvidence.find(
+    (entry) =>
+      entry.path ===
+      `release/evidence/build-${latestExpectedArtifact?.buildNumber}-finalization-closure.json`,
+  );
+  const finalization = releasePolicy.finalization ?? {};
+  const currentBuildNumber = releasePolicy.release?.buildNumber;
+  let preservedFinalization = null;
+  if (
+    latestExpectedArtifact != null &&
+    finalization.status === "completed-non-distributable" &&
+    currentBuildNumber === latestExpectedArtifact.buildNumber
+  ) {
+    preservedFinalization = {
+      ...finalization,
+      buildNumber: currentBuildNumber,
+    };
+  } else if (
+    latestExpectedArtifact != null &&
+    finalization.status === "pending-source-authorized" &&
+    Number.isInteger(currentBuildNumber) &&
+    currentBuildNumber > latestExpectedArtifact.buildNumber
+  ) {
+    preservedFinalization = finalization.priorCompletedBuild ?? null;
+  }
+
+  const preservedFinalizationExact =
+    latestExpectedArtifact != null &&
+    receiptAuthority != null &&
+    preservedFinalization?.buildNumber === latestExpectedArtifact.buildNumber &&
+    preservedFinalization?.status === "completed-non-distributable" &&
+    preservedFinalization?.completionReceiptFile === receiptAuthority.path &&
+    preservedFinalization?.completionReceiptSha256 === receiptAuthority.sha256 &&
+    preservedFinalization?.sourceCommit === latestExpectedArtifact.headSha &&
+    preservedFinalization?.githubRunId ===
+      latestExpectedArtifact.workflowRunId &&
+    preservedFinalization?.governedPackageSha256 ===
+      policy.installationReceipt.governedPackageSha256 &&
+    preservedFinalization?.dualCustodyCompleted === true;
+
+  const expectedLedgerEntriesExact = expectedArtifacts.every((expected) => {
+    const entry = buildLedger.entries?.find(
+      (candidate) => candidate.buildNumber === expected.buildNumber,
+    );
+    return (
+      entry != null &&
+      entry.githubArtifactId === expected.id &&
+      entry.githubArtifactName === expected.name &&
+      entry.githubArtifactSizeBytes === expected.sizeBytes &&
+      entry.githubArtifactDigest === expected.digest &&
+      entry.githubRunId === expected.workflowRunId &&
+      entry.remoteReservationCommit === expected.headSha &&
+      entry.disposition === expected.ledgerDisposition &&
+      entry.dualCustodyCompleted === expected.dualCustodyCompleted &&
+      entry.distributionPerformed !== true
+    );
+  });
+  const successorEntries = (buildLedger.entries ?? []).filter(
+    (entry) =>
+      latestExpectedArtifact != null &&
+      entry.buildNumber > latestExpectedArtifact.buildNumber,
+  );
+  const sourceOnlySuccessorsExact = successorEntries.every(
+    (entry) =>
+      entry.status === "source-reserved-awaiting-remote-consumption" &&
+      entry.disposition == null &&
+      entry.githubRunId == null &&
+      entry.githubArtifactId == null &&
+      entry.githubArtifactDigest == null &&
+      entry.governedPackageSha256 == null &&
+      entry.artifactConstructed == null &&
+      entry.distributionPerformed !== true,
+  );
+  const pendingSuccessorExact =
+    finalization.status !== "pending-source-authorized" ||
+    (successorEntries.length === 1 &&
+      successorEntries[0].buildNumber === currentBuildNumber);
+
+  return {
+    releasePolicyExact:
+      releasePolicy.firebaseProjectId === policy.productionProjectId &&
+      releasePolicy.permanentApplicationId === policy.applicationId &&
+      releasePolicy.github?.repository === policy.repository &&
+      releasePolicy.github?.environmentReviewControl?.repositoryVisibility ===
+        "public" &&
+      preservedFinalizationExact &&
+      pendingSuccessorExact &&
+      releasePolicy.distribution?.approved === false &&
+      releasePolicy.distribution?.unrestrictedPlantReleaseApproved === false,
+    buildLedgerExact:
+      expectedLedgerEntriesExact &&
+      sourceOnlySuccessorsExact &&
+      pendingSuccessorExact,
+  };
+}
+
+function summarizeSource(repositoryRoot, policy) {
   const deploymentScope = readJson(
     path.join(
       repositoryRoot,
@@ -169,6 +269,28 @@ function summarizeSource(repositoryRoot, policy) {
       entry.distributionPerformed !== true;
     return {buildNumber: expected.buildNumber, exact};
   });
+  const mutableAuthority = summarizeMutableSourceAuthority({
+    policy,
+    releasePolicy,
+    buildLedger,
+  });
+  const semanticAuthority = new Map([
+    [
+      "release/production-release-policy.json",
+      mutableAuthority.releasePolicyExact,
+    ],
+    ["release/build-number-ledger.json", mutableAuthority.buildLedgerExact],
+  ]);
+  const files = policy.sourceEvidence.map((entry) => {
+    const measured = fileAuthority(repositoryRoot, entry);
+    if (!semanticAuthority.has(entry.path)) return measured;
+    return {
+      ...measured,
+      byteExact: measured.exact,
+      authorityMode: "SEMANTIC_PRESERVED_BUILD",
+      exact: semanticAuthority.get(entry.path) === true,
+    };
+  });
   return {
     files,
     workflowRetentionExact: workflow.includes(
@@ -189,15 +311,8 @@ function summarizeSource(repositoryRoot, policy) {
       platformScope.projectId === policy.productionProjectId &&
       JSON.stringify(platformScope.currentReleasePlatforms) ===
         JSON.stringify(policy.strictReadback.requiredCurrentReleasePlatforms),
-    releasePolicyExact:
-      releasePolicy.firebaseProjectId === policy.productionProjectId &&
-      releasePolicy.permanentApplicationId === policy.applicationId &&
-      releasePolicy.github?.repository === policy.repository &&
-      releasePolicy.github?.environmentReviewControl?.repositoryVisibility ===
-        "public" &&
-      releasePolicy.finalization?.status === "completed-non-distributable" &&
-      releasePolicy.distribution?.approved === false &&
-      releasePolicy.distribution?.unrestrictedPlantReleaseApproved === false,
+    releasePolicyExact: mutableAuthority.releasePolicyExact,
+    buildLedgerExact: mutableAuthority.buildLedgerExact,
     buildLedgerArtifacts: ledgerArtifacts,
     build8FinalizationExact:
       finalization.status === "passed-non-distributable" &&
@@ -574,6 +689,7 @@ module.exports = {
   parseArgs,
   selectProductionArtifacts,
   summarizeInstallationReceipt,
+  summarizeMutableSourceAuthority,
   summarizeSource,
 };
 
