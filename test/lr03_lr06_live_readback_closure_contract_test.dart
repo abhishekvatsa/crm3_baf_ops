@@ -188,7 +188,7 @@ void main() {
       <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],
     );
     expect(_objects(p05['evidence']), hasLength(4));
-    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F5');
+    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F6');
     expect(
       _object(ledger['programmeDecision'])['pilotHandout'],
       'NOT_AUTHORIZED',

@@ -25,7 +25,7 @@
     "broadFeatureExpansion": "HOLD",
     "section71Implementation": "HOLD_CONCEPT_PRESERVED",
     "unrestrictedDistribution": "NO_GO",
-    "nextMutation": "STAGE2D-F5"
+    "nextMutation": "STAGE2D-F6"
   },
   "statusVocabulary": [
     "OPEN",
@@ -665,24 +665,63 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "BLOCKS_PILOT_HANDOUT",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/stage2d-f5-live-authority-matrix-closure.json",
+          "sha256": "DD8A8BB0E155786BF54DA468E6E15005FC303EB1057E42F01CA763C9A7F9ED7B",
+          "decision": "PASS_STAGE2D_F5_LIVE_AUTHORITY_MATRIX_CLOSURE",
+          "authority": "F5_LIVE_RULES_ALLOWLIST_ROLE_SERVER_WRITE_AND_AUDIT_MATRIX",
+          "completedExitCriteria": 4,
+          "requiredExitCriteria": 4
+        },
+        {
+          "fileName": "release/evidence/stage2d-f5-firestore-live-readback.json",
+          "sha256": "44FFC965ADD5FD01A142C6A507B787D0260C118EA7A3A3BD0FC2ABB092476E73",
+          "decision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
+          "authority": "F5_EXACT_PRODUCTION_RULES_AND_READY_INDEXES"
+        },
+        {
+          "fileName": "release/evidence/stage2d-f5-authority-inventory.json",
+          "sha256": "9AEBDCFF14DB2445210838E453417AB9E560D326DA972E6583433D14DEE98067",
+          "decision": "PASS_GATE_1B_READ_ONLY_AUTHORITY_INTEGRITY",
+          "authority": "F5_PRIVACY_SAFE_PRODUCTION_ALLOWLIST_INTEGRITY"
+        }
+      ],
       "requiredExitEvidence": [
         "positive and negative role matrix",
         "unapproved and revoked denial",
         "server-owned write denial",
         "audit visibility"
       ],
-      "reArmTriggers": [],
-      "notes": [],
+      "reArmTriggers": [
+        "the active Firestore Rules or indexes no longer reproduce the admitted source",
+        "the approved roster exceeds the governed ceiling or contains a malformed authority capsule",
+        "role policy, Rules authority helpers, server-owned write boundaries or mutating callable admission changes",
+        "a revoked or unapproved session regains a privileged read or write before reauthorization",
+        "Admin audit visibility or non-Admin audit denial changes",
+        "the pilot artifact, deployed backend authority or App Check deferral scope changes"
+      ],
+      "notes": [
+        "The initial strict readback failed closed because production Rules were older than current main; all 51 indexes were already exact and READY.",
+        "The first Rules-only deployment attempt stopped on an upstream HTTP 503 and a second strict readback proved no live change.",
+        "The retry compiled and uploaded Rules but returned HTTP 409; only the subsequent strict byte-exact live readback is admitted as deployment authority.",
+        "Fresh production allowlist integrity, exact live Rules, the 160-test Rules matrix, 63 governed callable tests, prior physical revocation evidence and Build 8 Admin/SI live surfaces prove all four F5 criteria.",
+        "STAGE2D-F5 is CLOSED with authorization CLOSED_PASS; pilot handout remains NOT_AUTHORIZED and STAGE2D-F6 is the next governed mutation."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Required after F4"
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-11",
+          "basis": "All four F5 dimensions passed separate live adjudication; repository-safe closure SHA-256 DD8A8BB0E155786BF54DA468E6E15005FC303EB1057E42F01CA763C9A7F9ED7B binds exact production Rules/indexes, the current allowlist, role and server-write denials, live Admin audit visibility and SI-only audit absence."
         }
       ]
     },

@@ -22,7 +22,7 @@ void main() {
             as Map<String, dynamic>;
 
     final programmeDecision = _object(ledger['programmeDecision']);
-    expect(programmeDecision['nextMutation'], 'STAGE2D-F5');
+    expect(programmeDecision['nextMutation'], 'STAGE2D-F6');
     expect(programmeDecision['pilotHandout'], 'NOT_AUTHORIZED');
 
     final p02 = _objects(

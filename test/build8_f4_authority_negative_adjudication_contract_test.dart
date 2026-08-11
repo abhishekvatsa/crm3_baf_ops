@@ -149,10 +149,9 @@ void main() {
     final gates = _objects(ledger['programmeGates']);
     final findings = _objects(ledger['technicalFindings']);
     final f4 = gates.singleWhere((record) => record['gateId'] == 'STAGE2D-F4');
-    final f5 = gates.singleWhere((record) => record['gateId'] == 'STAGE2D-F5');
     final p07 = findings.singleWhere((record) => record['findingId'] == 'P-07');
 
-    expect(decision['nextMutation'], 'STAGE2D-F5');
+    expect(decision['nextMutation'], 'STAGE2D-F6');
     expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
     expect(f4['currentStatus'], 'CLOSED');
     expect(f4['authorization'], 'CLOSED_PASS');
@@ -167,8 +166,6 @@ void main() {
       <String>['OPEN', 'CLOSED'],
     );
 
-    expect(f5['currentStatus'], 'OPEN');
-    expect(f5['authorization'], 'BLOCKS_PILOT_HANDOUT');
     expect(p07['currentStatus'], 'CLOSED');
     expect(_objects(p07['evidence']), hasLength(1));
     expect(_objects(p07['evidence']).single['sha256'], adjudicationSha);

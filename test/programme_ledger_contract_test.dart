@@ -267,7 +267,7 @@ void main() {
     expect(decision['leastPrivilegeIam'], 'CLOSED_PASS');
     expect(decision['broadFeatureExpansion'], 'HOLD');
     expect(decision['unrestrictedDistribution'], 'NO_GO');
-    expect(decision['nextMutation'], 'STAGE2D-F5');
+    expect(decision['nextMutation'], 'STAGE2D-F6');
 
     expect(_strings(payload['severityVocabulary']).toSet(), <String>{
       'BLOCKER',
@@ -637,7 +637,7 @@ void main() {
       _object(payload['programmeDecision'])['leastPrivilegeIam'],
       'CLOSED_PASS',
     );
-    expect(_object(payload['programmeDecision'])['nextMutation'], 'STAGE2D-F5');
+    expect(_object(payload['programmeDecision'])['nextMutation'], 'STAGE2D-F6');
     expect(f4['currentStatus'], 'CLOSED');
     expect(f4['authorization'], 'CLOSED_PASS');
     expect(

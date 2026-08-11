@@ -194,7 +194,7 @@ void main() {
     final f4 = gates.singleWhere((entry) => entry['gateId'] == 'STAGE2D-F4');
     expect(f4['currentStatus'], 'CLOSED');
     expect(f4['authorization'], 'CLOSED_PASS');
-    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F5');
+    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F6');
     expect(
       _object(ledger['programmeDecision'])['pilotHandout'],
       'NOT_AUTHORIZED',

@@ -2102,7 +2102,7 @@ check(
     ) == "CLOSED_PASS"
     and functions_live_ledger.get("programmeDecision", {}).get(
         "nextMutation"
-    ) == "STAGE2D-F5"
+    ) == "STAGE2D-F6"
     and "Status: CLOSED PASS" in function_fleet_finalization_doc
     and "does not close `STAGE2D-F4`" in function_fleet_finalization_doc,
 )
@@ -2898,7 +2898,7 @@ check(
         for entry in f3_runtime_record.get("evidence", [])
     )
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F5"
+        == "STAGE2D-F6"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -3902,7 +3902,7 @@ check(
     and len(build8_f4_gate_records) == 1
     and build8_f4_gate_records[0].get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F5"
+        == "STAGE2D-F6"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -4226,7 +4226,7 @@ check(
     and len(build8_f4_gate_records) == 1
     and build8_f4_gate_records[0].get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F5"
+        == "STAGE2D-F6"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -4431,7 +4431,7 @@ check(
     and len(build8_f4_gate_records) == 1
     and build8_f4_gate_records[0].get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F5"
+        == "STAGE2D-F6"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -4550,7 +4550,7 @@ check(
         is False
     and build7_f4_gate.get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F5",
+        == "STAGE2D-F6",
 )
 build7_f4_locator_recovery_path = (
     "release/approvals/build-7-f4-prove-read-locator-recovery.json"
@@ -4759,7 +4759,7 @@ check(
         for entry in f4_rehearsal_gate.get("evidence", [])
     )
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F5"
+        == "STAGE2D-F6"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -5354,7 +5354,7 @@ check(
         for entry in f4_rehearsal_gate.get("evidence", [])
     )
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F5"
+        == "STAGE2D-F6"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -7072,7 +7072,7 @@ check(
     and len(p05_record.get("requiredExitEvidence", [])) == 6
     and len(p05_record.get("reArmTriggers", [])) == 7
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F5"
+        == "STAGE2D-F6"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -7230,7 +7230,7 @@ check(
         for entry in p05_record.get("statusHistory", [])
     ] == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"]
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F5"
+        == "STAGE2D-F6"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED"
     and "These facts satisfy all six P-05 exit-evidence requirements"
@@ -8397,7 +8397,7 @@ check(
     and [entry.get("status") for entry in lr07_record.get("statusHistory", [])]
         == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"]
     and lr07_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F5"
+        == "STAGE2D-F6"
     and lr07_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
 )
@@ -8423,6 +8423,21 @@ build8_f4_authority_result = text(
 build8_f4_authority_adjudication_test = text(
     "test/build8_f4_authority_negative_adjudication_contract_test.dart"
 )
+stage2d_f5_closure = data(
+    "release/evidence/stage2d-f5-live-authority-matrix-closure.json"
+)
+stage2d_f5_rules_readback = data(
+    "release/evidence/stage2d-f5-firestore-live-readback.json"
+)
+stage2d_f5_authority_inventory = data(
+    "release/evidence/stage2d-f5-authority-inventory.json"
+)
+stage2d_f5_result = text(
+    "docs/v4_2_r1/STAGE2D_F5_LIVE_AUTHORITY_MATRIX_CLOSURE.md"
+)
+stage2d_f5_contract_test = text(
+    "test/stage2d_f5_live_authority_matrix_closure_contract_test.dart"
+)
 build8_f4_gate = next(
     record
     for record in programme_ledger.get("programmeGates", [])
@@ -8432,6 +8447,11 @@ build8_f5_gate = next(
     record
     for record in programme_ledger.get("programmeGates", [])
     if record.get("gateId") == "STAGE2D-F5"
+)
+stage2d_f6_gate = next(
+    record
+    for record in programme_ledger.get("programmeGates", [])
+    if record.get("gateId") == "STAGE2D-F6"
 )
 build8_p07_finding = next(
     record
@@ -8591,15 +8611,93 @@ check(
     and [entry.get("status") for entry in build8_p07_finding.get(
         "statusHistory", []
     )] == ["OPEN", "CLOSED"]
-    and build8_f5_gate.get("currentStatus") == "OPEN"
-    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F5"
+    and build8_f4_authority_adjudication.get("programmeTransition", {}).get(
+        "stage2dF5Status"
+    ) == "OPEN"
+    and build8_f4_authority_adjudication.get("programmeTransition", {}).get(
+        "nextMutation"
+    ) == "STAGE2D-F5"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED"
     and "F4 AND P-07 DEVICE EVIDENCE CLOSED" in build8_f4_authority_result
     and "all eight failed-closed receipts" in build8_f4_authority_result
     and "authority-negative adjudication binds the complete receipt lineage"
         in build8_f4_authority_adjudication_test,
+)
+check(
+    "Stage 2D-F5 exact live authority matrix closes only F5 and advances to F6",
+    sha(ROOT / "release/evidence/stage2d-f5-live-authority-matrix-closure.json")
+        == "DD8A8BB0E155786BF54DA468E6E15005FC303EB1057E42F01CA763C9A7F9ED7B"
+    and stage2d_f5_closure.get("decision")
+        == "PASS_STAGE2D_F5_LIVE_AUTHORITY_MATRIX_CLOSURE"
+    and stage2d_f5_closure.get("sourceAuthority", {}).get("commit")
+        == "e86efddf17a8c5c0284ac1f9596a85d773e5b566"
+    and stage2d_f5_closure.get("sourceAuthority", {}).get(
+        "postMergeReleaseGate", {}
+    ).get("firestoreRulesTestsPassed") == 160
+    and stage2d_f5_closure.get("sourceAuthority", {}).get(
+        "postMergeReleaseGate", {}
+    ).get("governedCallableTestsPassed") == 63
+    and stage2d_f5_closure.get("deploymentLineage", {}).get(
+        "mutationScope"
+    ) == "FIRESTORE_RULES_ONLY"
+    and stage2d_f5_closure.get("deploymentLineage", {}).get(
+        "attempts", []
+    )[0].get("result") == "FAILED_CLOSED"
+    and stage2d_f5_closure.get("deploymentLineage", {}).get(
+        "attempts", []
+    )[1].get("cliResponseRelabelledSuccess") is False
+    and stage2d_f5_closure.get("deploymentLineage", {}).get(
+        "after", {}
+    ).get("rulesByteExact") is True
+    and stage2d_f5_closure.get("deploymentLineage", {}).get(
+        "after", {}
+    ).get("sourceIndexCount") == 51
+    and stage2d_f5_closure.get("deploymentLineage", {}).get(
+        "after", {}
+    ).get("liveReadyIndexCount") == 51
+    and stage2d_f5_rules_readback.get("decision")
+        == "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK"
+    and stage2d_f5_rules_readback.get("outputs", {}).get("rules", {}).get(
+        "byteExact"
+    ) is True
+    and stage2d_f5_rules_readback.get("outputs", {}).get("indexes", {}).get(
+        "allApiIndexesReady"
+    ) is True
+    and stage2d_f5_authority_inventory.get("decision")
+        == "PASS_GATE_1B_READ_ONLY_AUTHORITY_INTEGRITY"
+    and stage2d_f5_authority_inventory.get("coverage", {}).get(
+        "joinedSubjectCount"
+    ) == 3
+    and stage2d_f5_authority_inventory.get("summary", {}).get(
+        "blockingSubjectCount"
+    ) == 0
+    and len(stage2d_f5_closure.get("criterionAdjudication", [])) == 4
+    and all(
+        criterion.get("status") == "PROVED"
+        for criterion in stage2d_f5_closure.get("criterionAdjudication", [])
+    )
+    and stage2d_f5_closure.get("liveAuthorityEvidence", {}).get(
+        "liveClientSurface", {}
+    ).get("adminEmulator", {}).get("productionAuditReadSucceeded") is True
+    and stage2d_f5_closure.get("liveAuthorityEvidence", {}).get(
+        "liveClientSurface", {}
+    ).get("siOnlyPhysicalDevice", {}).get("auditNavigationPresent") is False
+    and build8_f5_gate.get("currentStatus") == "CLOSED"
+    and build8_f5_gate.get("authorization") == "CLOSED_PASS"
+    and len(build8_f5_gate.get("evidence", [])) == 3
+    and len(build8_f5_gate.get("reArmTriggers", [])) == 6
+    and [entry.get("status") for entry in build8_f5_gate.get(
+        "statusHistory", []
+    )] == ["OPEN", "CLOSED"]
+    and stage2d_f6_gate.get("currentStatus") == "OPEN"
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "STAGE2D-F6"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED"
+    and "`STAGE2D-F5` is closed" in stage2d_f5_result
+    and "F5 closure preserves failed deployment lineage and exact live state"
+        in stage2d_f5_contract_test,
 )
 
 print(f"SUMMARY | pass={len(PASS)} fail={len(FAIL)} total={len(PASS)+len(FAIL)}")
