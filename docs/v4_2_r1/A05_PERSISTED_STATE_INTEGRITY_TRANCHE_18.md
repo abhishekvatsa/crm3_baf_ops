@@ -63,14 +63,20 @@ The sweep enumerates every registered root collection and the `revisions` and
 also extracts collection literals and named collection constants from all
 non-generated app and Functions source and fails if the registry omits one.
 It validates `users` and the active global-pull runtime contract exactly.
-Unknown live collections fail coverage closed. Any app-decoded operational record produces a pseudonymized
-reconciliation hold so that it must be passed through the supported Dart
-reader and repair path before closure. Server-only receipts are counted and
-explicitly excluded from app-decoder evidence.
+Unknown live collections fail coverage closed. Populated `audit_logs` and
+`maintenance_records` are transported over an authenticated localhost-only,
+in-memory channel to a Flutter harness that invokes the application's actual
+`decodePersistedAuditEvent` and `readRemoteMaintenanceRecord` readers. Only
+HMAC-pseudonymized pass/fail results return to the sweep; raw production data
+is neither logged nor persisted. A rejected record, missing result, harness
+failure, unsupported Firestore value, or populated app collection without a
+registered reconciliation adapter remains a blocking hold. Server-only
+receipts are counted and explicitly excluded from app-decoder evidence.
 
 This conservative boundary makes an empty operational collection a positive
-statement that no historical record requires repair; it never treats an
-uninspected nonempty collection as clean.
+statement that no historical record requires repair. A supported nonempty
+collection is clean only when every record passes its real app decoder; an
+unsupported or uninspected nonempty collection is never treated as clean.
 
 ## Regression Evidence
 
@@ -85,10 +91,11 @@ remain required evidence.
 ## Remaining A-05 Scope
 
 `A-05` remains open only for source admission, the governed read-only
-production sweep, supported-local-generation evidence binding, final ledger
-adjudication and admitted-main CI. The production sweep must report zero
-blocking findings; otherwise the finding remains open for the identified
-reconciliation or repair.
+production sweep through the admitted reconciliation adapter,
+supported-local-generation evidence binding, final ledger adjudication and
+admitted-main CI. The production sweep must report zero blocking findings;
+otherwise the finding remains open for the identified reconciliation or
+repair.
 
 This tranche does not mutate production documents, deploy Firebase Rules or
 Functions, operate a phone, close a programme gate, close `A-05`, or authorize

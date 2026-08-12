@@ -6,9 +6,11 @@
  * HMAC-pseudonymized identities for records that still require reconciliation.
  */
 import fs from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 import process from 'node:process';
-import {createHash} from 'node:crypto';
+import {createHash, randomBytes} from 'node:crypto';
+import {spawn, spawnSync} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
 
@@ -24,6 +26,14 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const PRODUCTION_PROJECT = 'crm3-baf-ops-b8638';
 const DEFAULT_HMAC_KEY_ENV = 'CRM3_A05_HMAC_KEY';
+const FLUTTER_RECONCILIATION_HARNESS = path.join(
+  ROOT,
+  'test/tools/a05_persisted_reconciliation_bridge_test.dart',
+);
+const DART_RECONCILIATION_COLLECTIONS = new Set([
+  'audit_logs',
+  'maintenance_records',
+]);
 
 export const A05_DECISIONS = Object.freeze({
   pass: 'PASS_A05_READ_ONLY_PRODUCTION_RECONCILIATION',
@@ -215,6 +225,7 @@ export function classifyA05Inventory({
   actualRootCollections,
   subcollectionDocuments = {},
   hmacKey,
+  dartReconciliationResults = [],
 }) {
   assertHmacKey(hmacKey);
   const blockingFindings = [];
@@ -222,6 +233,12 @@ export function classifyA05Inventory({
   const collectionCounts = {};
   const collectionDispositions = {};
   const registeredRoots = new Set(Object.keys(A05_COLLECTION_REGISTRY));
+  const reconciliationBySubject = new Map(
+    dartReconciliationResults.map((result) => [
+      `${result.collection}\u0000${result.subjectPseudonym}`,
+      result,
+    ]),
+  );
   const unregisteredRootCollections = [...new Set(actualRootCollections)]
     .filter((name) => !registeredRoots.has(name))
     .sort();
@@ -287,18 +304,33 @@ export function classifyA05Inventory({
       if (documents.length === 0) {
         collectionDispositions[collection] = 'EMPTY_NO_REPAIR_REQUIRED';
       } else {
-        collectionDispositions[collection] = 'DART_RECONCILIATION_REQUIRED';
+        let failed = 0;
         for (const document of documents) {
-          blockingFindings.push({
-            collection,
-            subjectPseudonym: pseudonymizeSubject(
-              hmacKey,
-              `firestore:${collection}`,
-              document.id,
-            ),
-            reason: 'supported-record-requires-strict-reader-reconciliation',
-          });
+          const subjectPseudonym = pseudonymizeSubject(
+            hmacKey,
+            `firestore:${collection}`,
+            document.id,
+          );
+          const reconciliation = reconciliationBySubject.get(
+            `${collection}\u0000${subjectPseudonym}`,
+          );
+          if (reconciliation?.result !== 'PASS') {
+            failed += 1;
+            blockingFindings.push({
+              collection,
+              subjectPseudonym,
+              reason: 'supported-record-strict-reader-reconciliation-failed',
+              reconciliationError:
+                reconciliation?.errorType ?? 'MISSING_RECONCILIATION_RESULT',
+              ...(reconciliation?.field == null
+                ? {}
+                : {field: reconciliation.field}),
+            });
+          }
         }
+        collectionDispositions[collection] = failed === 0
+          ? 'DART_STRICT_RECONCILIATION_PASS'
+          : 'DART_RECONCILIATION_REQUIRED';
       }
     } else {
       collectionDispositions[collection] =
@@ -354,6 +386,290 @@ export function classifyA05Inventory({
       ? A05_DECISIONS.pass
       : A05_DECISIONS.hold,
   };
+}
+
+function bridgeFirestoreValue(value) {
+  if (value == null || typeof value === 'string' || typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    if (Number.isFinite(value)) return value;
+    return {
+      __a05FirestoreType: 'nonFiniteNumber',
+      value: Number.isNaN(value) ? 'NaN' : value > 0 ? 'Infinity' : '-Infinity',
+    };
+  }
+  if (Array.isArray(value)) return value.map(bridgeFirestoreValue);
+  if (
+    typeof value === 'object' &&
+    Number.isInteger(value.seconds) &&
+    Number.isInteger(value.nanoseconds) &&
+    typeof value.toDate === 'function'
+  ) {
+    return {
+      __a05FirestoreType: 'timestamp',
+      seconds: value.seconds,
+      nanoseconds: value.nanoseconds,
+    };
+  }
+  if (typeof value === 'object') {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new TypeError('unsupported Firestore value type');
+    }
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [
+        key,
+        bridgeFirestoreValue(nested),
+      ]),
+    );
+  }
+  throw new TypeError('unsupported Firestore value type');
+}
+
+export async function reconcileA05DocumentsWithDart({
+  documentsByCollection,
+  hmacKey,
+}) {
+  assertHmacKey(hmacKey);
+  const records = [];
+  const localFailures = [];
+  for (const [collection, mode] of Object.entries(A05_COLLECTION_REGISTRY)) {
+    if (mode !== 'DART_RECONCILIATION_REQUIRED') continue;
+    for (const document of documentsByCollection[collection] ?? []) {
+      const subjectPseudonym = pseudonymizeSubject(
+        hmacKey,
+        `firestore:${collection}`,
+        document.id,
+      );
+      if (!DART_RECONCILIATION_COLLECTIONS.has(collection)) {
+        localFailures.push({
+          collection,
+          subjectPseudonym,
+          result: 'FAIL',
+          errorType: 'UNSUPPORTED_COLLECTION',
+        });
+        continue;
+      }
+      try {
+        records.push({
+          collection,
+          subjectPseudonym,
+          documentId: document.id,
+          data: bridgeFirestoreValue(document.data),
+        });
+      } catch (_) {
+        localFailures.push({
+          collection,
+          subjectPseudonym,
+          result: 'FAIL',
+          errorType: 'UNSUPPORTED_FIRESTORE_VALUE',
+        });
+      }
+    }
+  }
+  if (records.length === 0) return localFailures;
+
+  const dartExecutable = resolveDartExecutable();
+  const flutterToolsSnapshot = dartExecutable == null
+    ? null
+    : flutterToolsSnapshotCandidates(dartExecutable)
+        .find((candidate) => fs.existsSync(candidate)) ?? null;
+  if (
+    dartExecutable == null ||
+    !fs.existsSync(flutterToolsSnapshot) ||
+    !fs.existsSync(FLUTTER_RECONCILIATION_HARNESS)
+  ) {
+    return bridgeUnavailable(localFailures, records);
+  }
+
+  const bridgeToken = randomBytes(32).toString('hex');
+  const input = JSON.stringify({schemaVersion: 1, records});
+  let output = null;
+  let completeOutput;
+  const outputReceived = new Promise((resolve) => {
+    completeOutput = resolve;
+  });
+  const server = http.createServer((request, response) => {
+    if (request.headers.authorization !== `Bearer ${bridgeToken}`) {
+      response.statusCode = 403;
+      response.end();
+      return;
+    }
+    if (request.method === 'GET' && request.url === '/input') {
+      response.statusCode = 200;
+      response.setHeader('content-type', 'application/json');
+      response.end(input);
+      return;
+    }
+    if (request.method !== 'POST' || request.url !== '/output') {
+      response.statusCode = 404;
+      response.end();
+      return;
+    }
+    const chunks = [];
+    let byteCount = 0;
+    request.on('data', (chunk) => {
+      byteCount += chunk.length;
+      if (byteCount <= 16 * 1024 * 1024) chunks.push(chunk);
+    });
+    request.on('end', () => {
+      try {
+        if (byteCount > 16 * 1024 * 1024) throw new Error('response too large');
+        output = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        response.statusCode = 204;
+      } catch (_) {
+        response.statusCode = 400;
+      }
+      response.end();
+      completeOutput();
+    });
+  });
+  try {
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const address = server.address();
+    if (address == null || typeof address === 'string') {
+      return bridgeUnavailable(localFailures, records);
+    }
+    const child = spawn(
+      dartExecutable,
+      [
+        flutterToolsSnapshot,
+        'test',
+        FLUTTER_RECONCILIATION_HARNESS,
+        '--no-pub',
+        '--reporter=compact',
+      ],
+      {
+        cwd: ROOT,
+        env: {
+          ...process.env,
+          A05_BRIDGE_URL: `http://127.0.0.1:${address.port}`,
+          A05_BRIDGE_TOKEN: bridgeToken,
+        },
+        stdio: ['ignore', 'ignore', 'ignore'],
+        windowsHide: true,
+      },
+    );
+    const childStatus = await new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        child.kill();
+        resolve(null);
+      }, 180_000);
+      child.once('error', () => {
+        clearTimeout(timer);
+        resolve(null);
+      });
+      child.once('close', (status) => {
+        clearTimeout(timer);
+        resolve(status);
+      });
+    });
+    await Promise.race([
+      outputReceived,
+      new Promise((resolve) => setTimeout(resolve, 1_000)),
+    ]);
+    if (childStatus !== 0 || output == null) {
+      return bridgeUnavailable(localFailures, records);
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+
+  try {
+    if (output?.schemaVersion !== 1 || !Array.isArray(output.results)) {
+      throw new Error('invalid bridge response');
+    }
+  } catch (_) {
+    return [
+      ...localFailures,
+      ...records.map((record) => ({
+        collection: record.collection,
+        subjectPseudonym: record.subjectPseudonym,
+        result: 'FAIL',
+        errorType: 'INVALID_DART_BRIDGE_RESPONSE',
+      })),
+    ];
+  }
+  const expected = new Set(
+    records.map((record) => `${record.collection}\u0000${record.subjectPseudonym}`),
+  );
+  const accepted = [];
+  const seen = new Set();
+  for (const result of output.results) {
+    const key = `${result?.collection}\u0000${result?.subjectPseudonym}`;
+    if (!expected.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    accepted.push(result);
+  }
+  for (const record of records) {
+    const key = `${record.collection}\u0000${record.subjectPseudonym}`;
+    if (!seen.has(key)) {
+      accepted.push({
+        collection: record.collection,
+        subjectPseudonym: record.subjectPseudonym,
+        result: 'FAIL',
+        errorType: 'MISSING_DART_BRIDGE_RESULT',
+      });
+    }
+  }
+  return [...localFailures, ...accepted];
+}
+
+function bridgeUnavailable(localFailures, records) {
+  return [
+    ...localFailures,
+    ...records.map((record) => ({
+      collection: record.collection,
+      subjectPseudonym: record.subjectPseudonym,
+      result: 'FAIL',
+      errorType: 'DART_BRIDGE_UNAVAILABLE',
+    })),
+  ];
+}
+
+export function flutterToolsSnapshotCandidates(
+  dartExecutable,
+  pathApi = path,
+) {
+  const binDirectory = pathApi.dirname(dartExecutable);
+  return [...new Set([
+    pathApi.resolve(
+      binDirectory,
+      '..',
+      '..',
+      'flutter_tools.snapshot',
+    ),
+    pathApi.join(binDirectory, 'cache', 'flutter_tools.snapshot'),
+  ])];
+}
+
+function resolveDartExecutable() {
+  const executableName = process.platform === 'win32' ? 'where.exe' : 'which';
+  const located = spawnSync(executableName, ['dart'], {
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  if (located.status !== 0) return null;
+  for (const line of located.stdout.split(/\r?\n/)) {
+    const candidate = line.trim();
+    if (!candidate) continue;
+    if (process.platform !== 'win32' && fs.existsSync(candidate)) return candidate;
+    const direct = candidate.toLowerCase().endsWith('.exe')
+      ? candidate
+      : path.join(
+          path.dirname(candidate),
+          'cache',
+          'dart-sdk',
+          'bin',
+          'dart.exe',
+        );
+    if (fs.existsSync(direct)) return direct;
+  }
+  return null;
 }
 
 function requiredArgValue(argv, index, argument) {
@@ -460,11 +776,16 @@ async function main() {
         path: document.ref.path,
       }));
     }
+    const dartReconciliationResults = await reconcileA05DocumentsWithDart({
+      documentsByCollection,
+      hmacKey,
+    });
     const inventory = classifyA05Inventory({
       documentsByCollection,
       actualRootCollections,
       subcollectionDocuments,
       hmacKey,
+      dartReconciliationResults,
     });
     const result = {
       schemaVersion: 1,
@@ -493,6 +814,19 @@ async function main() {
         rawIdentifiersEmitted: false,
         rawDocumentDataEmitted: false,
         hmacKeyEnvironmentVariable: args.hmacKeyEnv,
+      },
+      reconciliation: {
+        adapter: 'tools/v4/a05_persisted_reconciliation_bridge.dart',
+        transport: 'AUTHENTICATED_LOOPBACK_MEMORY_ONLY',
+        rawProductionDataPersisted: false,
+        attemptedCount: dartReconciliationResults.length,
+        passedCount: dartReconciliationResults.filter(
+          (result) => result.result === 'PASS',
+        ).length,
+        failedCount: dartReconciliationResults.filter(
+          (result) => result.result !== 'PASS',
+        ).length,
+        supportedCollections: ['audit_logs', 'maintenance_records'],
       },
       ...inventory,
     };

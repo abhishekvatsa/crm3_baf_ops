@@ -10,7 +10,9 @@ import {
   assertRegistryCoversRules,
   assertRegistryCoversSource,
   classifyA05Inventory,
+  flutterToolsSnapshotCandidates,
   parseArgs,
+  reconcileA05DocumentsWithDart,
   sourceDefinedCollectionNames,
   validateGlobalPullRuntimeContract,
 } from './a05_production_persisted_integrity_sweep.mjs';
@@ -18,6 +20,8 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const HMAC_KEY = 'a05-test-key-with-at-least-thirty-two-bytes';
 const ts = {
+  seconds: 1785542400,
+  nanoseconds: 0,
   toDate: () => new Date('2026-08-01T00:00:00Z'),
   toMillis: () => 1785542400000,
 };
@@ -69,12 +73,18 @@ function emptyDocuments() {
   );
 }
 
-function classify({documents = {}, roots = [], subcollections = {}} = {}) {
+function classify({
+  documents = {},
+  roots = [],
+  subcollections = {},
+  reconciliation = [],
+} = {}) {
   return classifyA05Inventory({
     documentsByCollection: {...emptyDocuments(), ...documents},
     actualRootCollections: roots,
     subcollectionDocuments: subcollections,
     hmacKey: HMAC_KEY,
+    dartReconciliationResults: reconciliation,
   });
 }
 
@@ -136,10 +146,25 @@ test('production sweep source contains no Firestore mutation API', () => {
   assert.deepEqual([...new Set(mutationNamedCalls)].sort(), [
     'app.delete',
     'result.add',
+    'seen.add',
   ]);
   assert.match(source, /await app\.delete\(\);/);
   assert.match(source, /db\.listCollections\(\)/);
   assert.match(source, /db\.collection\(collection\)\.get\(\)/);
+});
+
+test('Flutter bridge locates both wrapper and cached Dart SDK layouts', () => {
+  const expected = '/opt/flutter/bin/cache/flutter_tools.snapshot';
+  assert.ok(
+    flutterToolsSnapshotCandidates('/opt/flutter/bin/dart', path.posix)
+      .includes(expected),
+  );
+  assert.ok(
+    flutterToolsSnapshotCandidates(
+      '/opt/flutter/bin/cache/dart-sdk/bin/dart',
+      path.posix,
+    ).includes(expected),
+  );
 });
 
 test('canonical users, active runtime contract and empty app data pass', () => {
@@ -191,6 +216,99 @@ test('any supported operational record requires Dart reconciliation', () => {
     result.blockingFindings[0].subjectPseudonym,
     /^hmac256:[0-9a-f]{64}$/,
   );
+});
+
+test('actual Dart readers reconcile valid audit and maintenance records in memory', async () => {
+  const documents = {
+    ...emptyDocuments(),
+    audit_logs: [{
+      id: 'private-audit-id',
+      data: {
+        entityType: 'maintenance_record',
+        entityId: 'private-ticket-id',
+        action: 'create',
+        performedByUid: 'private-actor-id',
+        timestamp: ts,
+        severity: 'low',
+      },
+    }],
+    maintenance_records: [{
+      id: 'ticket-1',
+      data: {
+        firestoreId: 'ticket-1',
+        version: 3,
+        assetType: 'base',
+        assetNumber: 101,
+        maintenanceType: 'breakdown',
+        description: 'Private maintenance description',
+        routedTo: 'mechanical',
+        status: 'open',
+        isResolved: false,
+        isCritical: false,
+        loggedByUid: 'private-actor-id',
+        startDate: ts,
+        createdAt: ts,
+        updatedAt: ts,
+        actionsJson: '[]',
+        resolutionHistoryJson: '[]',
+        isDeleted: false,
+      },
+    }],
+  };
+  const reconciliation = await reconcileA05DocumentsWithDart({
+    documentsByCollection: documents,
+    hmacKey: HMAC_KEY,
+  });
+  assert.equal(reconciliation.length, 2);
+  assert.ok(reconciliation.every((result) => result.result === 'PASS'));
+  assert.equal(JSON.stringify(reconciliation).includes('private-'), false);
+
+  const result = classify({
+    documents,
+    roots: ['audit_logs', 'maintenance_records'],
+    reconciliation,
+  });
+  assert.equal(result.decision, A05_DECISIONS.hold);
+  assert.equal(
+    result.collectionDispositions.audit_logs,
+    'DART_STRICT_RECONCILIATION_PASS',
+  );
+  assert.equal(
+    result.collectionDispositions.maintenance_records,
+    'DART_STRICT_RECONCILIATION_PASS',
+  );
+  assert.ok(
+    result.blockingFindings.every(
+      (finding) => finding.collection !== 'audit_logs' &&
+        finding.collection !== 'maintenance_records',
+    ),
+  );
+});
+
+test('unsupported nonempty app collections remain fail closed', async () => {
+  const documents = {
+    ...emptyDocuments(),
+    users: [{id: 'private-user-id', data: user()}],
+    runtime_contracts: [{
+      id: 'global_pull_v1',
+      data: runtimeContract(),
+    }],
+    job_executions: [{id: 'private-execution-id', data: {}}],
+  };
+  const reconciliation = await reconcileA05DocumentsWithDart({
+    documentsByCollection: documents,
+    hmacKey: HMAC_KEY,
+  });
+  assert.deepEqual(reconciliation.map((result) => result.errorType), [
+    'UNSUPPORTED_COLLECTION',
+  ]);
+  const result = classify({
+    documents,
+    roots: ['users', 'runtime_contracts', 'job_executions'],
+    reconciliation,
+  });
+  assert.equal(result.decision, A05_DECISIONS.hold);
+  assert.equal(result.blockingFindingCount, 1);
 });
 
 test('unknown collections and module revisions fail coverage closed', () => {
