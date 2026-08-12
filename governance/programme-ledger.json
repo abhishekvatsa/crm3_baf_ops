@@ -1243,7 +1243,8 @@
         "The exact external Build 8 physical installation receipt remains available and matches its admitted SHA-256, byte length and privacy-minimized semantics.",
         "Closure proves the controlled surface observed on 2026-08-06 and installation receipt, not that no artifact was downloaded before containment.",
         "Governed Build 9 created live Actions artifact 9116320474 and superseded Build 8 as the latest finalized production build, triggering two explicit LR-07 re-arm conditions.",
-        "Historical containment and closure evidence remains valid for Builds 4 through 8; current closure now requires exact Build 9 containment and a new strict clean-main readback."
+        "Governed Build 10 created live Actions artifact 9122790773. Independent package verification passed, but finalization stopped before custody or built-tag creation because the preflight and finalizer used different source anchors for the same environment receipt.",
+        "Historical containment and closure evidence remains valid for Builds 4 through 8; current closure requires exact containment of Builds 9 and 10 plus a new strict clean-main readback."
       ],
       "statusHistory": [
         {
@@ -1264,7 +1265,7 @@
         {
           "status": "OPEN",
           "effectiveDate": "2026-08-11",
-          "basis": "Re-armed because finalized governed Build 9 superseded Build 8 and live production artifact 9116320474 remains retained pending exact owner-authorized containment and refreshed strict readback."
+          "basis": "Re-armed because finalized governed Build 9 superseded Build 8 and live production artifact 9116320474 remained retained; governed Build 10 then created artifact 9122790773 and remains consumed, independently verified, finalization-blocked and non-distributable. Exact owner-authorized containment and refreshed strict readback remain required."
         }
       ]
     }

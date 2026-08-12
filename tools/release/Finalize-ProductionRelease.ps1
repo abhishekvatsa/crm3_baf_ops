@@ -656,7 +656,7 @@ if ((Get-Sha256 $environmentApprovalPath) -ne
       authorizedDispatcherIdentityRequired -ne $true -or
     [string]$environmentApproval.controls.requiredIntegratedMergeCommit -ne
       [string]$versionSourceApproval.requiredSource.
-        integratedSuccessorMergeCommit -or
+        environmentAuthorityMergeCommit -or
     $environmentApproval.controls.
       approvedRunReviewByRequiredReviewerRequired -ne $true -or
     $environmentApproval.controls.adminBypassMustRemainDisabled -ne $true -or

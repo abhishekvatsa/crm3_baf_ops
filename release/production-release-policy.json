@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "policyId": "crm3-baf-ops-o1-o5-v4-1772fe1-b10",
+  "policyId": "crm3-baf-ops-o1-o5-v4-e6bfa32-b11",
   "firebaseProjectId": "crm3-baf-ops-b8638",
   "permanentApplicationId": "in.co.sail.bsl.crm3.bafops",
   "namespace": "in.co.sail.bsl.crm3.bafops",
@@ -31,9 +31,9 @@
       },
       "manualDispatchApprovalReferenceRequired": true,
       "approvedRunReviewHistoryRequired": true,
-      "approvalReceiptFile": "release/approvals/public-repository-environment-reviewer-approval-build-10.json",
-      "approvalReceiptSha256": "2463002F3FBA1A6F48E4A6CE45A0458A9DCF53C1ECCD7B655A4133709A408828",
-      "approvalReference": "BAF-GH-ENV-006",
+      "approvalReceiptFile": "release/approvals/public-repository-environment-reviewer-approval-build-11.json",
+      "approvalReceiptSha256": "47C598A3F15F5D84676A1CC645BE39636AA39A713B1B0B6B9E03F9EB81019BC6",
+      "approvalReference": "BAF-GH-ENV-007",
       "requiredSecretNames": [
         "CRM_ANDROID_RELEASE_KEY_ALIAS",
         "CRM_ANDROID_RELEASE_KEY_PASSWORD",
@@ -57,15 +57,15 @@
     "approved": true,
     "scheme": "semver2",
     "versionName": "1.0.0-rc.1",
-    "buildNumber": 10,
+    "buildNumber": 11,
     "buildNumberPolicy": "positive-int32-strictly-monotonic-never-reuse",
-    "reservationId": "crm3-baf-ops-o1-o5-v4-1772fe1-b10-10",
+    "reservationId": "crm3-baf-ops-o1-o5-v4-e6bfa32-b11-11",
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
-    "sourceDocumentFile": "release/approvals/build-number-10-rollover-approval.json",
-    "sourceDocumentSha256": "5086CFB2CBAE2E8A178B565FA93D9F8D9030620BDE608EB93D85BB48ED8231B0",
-    "remoteReservationTag": "crm3-build-reserved/10",
-    "remoteBuiltTag": "crm3-build-built/10",
+    "sourceDocumentFile": "release/approvals/build-number-11-rollover-approval.json",
+    "sourceDocumentSha256": "9AC12BEF69FB8DB48ED974F557CB25A93B35010487782DBBA627F34D2E397DEE",
+    "remoteReservationTag": "crm3-build-reserved/11",
+    "remoteBuiltTag": "crm3-build-built/11",
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
@@ -84,6 +84,21 @@
       "runtimeDisposition": "failed-startup-non-distributable",
       "remediationPullRequest": 197,
       "remediationMergeCommit": "1772fe1cf34c649c6a29d375c77b75e985b6c2f0"
+    },
+    "priorFailedAttempt": {
+      "buildNumber": 10,
+      "status": "blocked-non-distributable",
+      "evidenceFile": "release/evidence/build-10-finalization-block.json",
+      "evidenceSha256": "E43F28767214895BAC0B212C955DC07094BFD9E7A71F472113F1762BB8365F58",
+      "sourceCommit": "e6bfa327466ffa99da9519846db7f83401c86c7b",
+      "githubRunId": 31545500587,
+      "githubArtifactId": 9122790773,
+      "githubArtifactDigest": "sha256:6c0a1012a432bb9bad80b81b192ce3ec0a55a3e019dada66b0c873c6787c31a6",
+      "governedPackageSha256": "F2FE9E997285C2BB544E3610EE1E89F52BC48E34BD3A982117D562C54A17E6DE",
+      "independentVerificationCompleted": true,
+      "dualCustodyCompleted": false,
+      "remoteBuiltTagCreated": false,
+      "distributionPerformed": false
     },
     "dualCustodyCompleted": false,
     "firebaseBackendDeploymentPerformed": false,
@@ -136,11 +151,11 @@
     "restorationEvidenceSha256": "24C335AF607595363F4C1D9E68B81AC9E558D37FB49263DE16EF87136D58E6CF"
   },
   "release": {
-    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b10",
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b11",
     "releaseTag": "crm3-baf-ops-v1.0.0-rc.1",
     "releaseChannel": "production-candidate",
     "versionName": "1.0.0-rc.1",
-    "buildNumber": 10
+    "buildNumber": 11
   },
   "distribution": {
     "authority": "production-signed-pre-release-candidate",
@@ -150,7 +165,7 @@
       "Unrestricted plant release is not approved",
       "Controlled-pilot distribution requires a separate post-build promotion record bound to the exact governed package hash",
       "App Check activation remains under its explicit governed deferral",
-      "70K-RECOVERY device evidence remains open until Build 10 in-place inventory and reconciliation pass",
+      "70K-RECOVERY device evidence remains open until Build 11 in-place inventory and reconciliation pass",
       "STAGE2D-F6 pilot authorization remains open until the full support and acceptance pack passes",
       "Do not uninstall or clear either installed app before device-specific no-loss proof is sealed",
       "Dependency audits must be re-run on the exact artifact-construction lockfiles"
@@ -178,6 +193,6 @@
   "knownOpenGates": [
     "70K-RECOVERY local database provenance, migration and recovery",
     "STAGE2D-F6 small-group pilot readiness and recoverability",
-    "LR-07 distribution and installation readback re-armed by Build 9 artifact"
+    "LR-07 distribution and installation readback re-armed by Build 10 artifact"
   ]
 }

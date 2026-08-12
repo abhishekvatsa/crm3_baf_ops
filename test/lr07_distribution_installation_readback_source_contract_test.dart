@@ -46,6 +46,7 @@ void main() {
         7,
         8,
         9,
+        10,
       ]);
       expect(artifacts.map((entry) => entry['id']).toSet(), <int>{
         8711253816,
@@ -54,10 +55,17 @@ void main() {
         8836687771,
         8866525607,
         9116320474,
+        9122790773,
       });
       expect(
         artifacts.where((entry) => entry['dualCustodyCompleted'] == true),
         hasLength(5),
+      );
+      expect(
+        artifacts.singleWhere(
+          (entry) => entry['buildNumber'] == 10,
+        )['authorityReceiptPath'],
+        'release/evidence/build-10-finalization-block.json',
       );
       expect(
         artifacts.singleWhere(
@@ -137,7 +145,7 @@ void main() {
     expect(decision, contains('collector still does not close `LR-07`'));
     expect(
       decision,
-      contains('Status: RE-ARMED - BUILD 9 ARTIFACT CONTAINMENT'),
+      contains('Status: RE-ARMED - BUILDS 9 AND 10 ARTIFACT CONTAINMENT'),
     );
     expect(lr07['currentStatus'], 'OPEN');
     expect(lr07['authorization'], 'BLOCKS_PILOT_HANDOUT');

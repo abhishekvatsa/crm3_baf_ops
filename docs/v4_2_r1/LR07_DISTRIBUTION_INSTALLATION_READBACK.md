@@ -1,6 +1,6 @@
 # LR-07 Distribution and Installation Readback
 
-Status: RE-ARMED - BUILD 9 ARTIFACT CONTAINMENT AND READBACK OPEN
+Status: RE-ARMED - BUILDS 9 AND 10 ARTIFACT CONTAINMENT AND READBACK OPEN
 
 ## Live finding
 
@@ -91,13 +91,22 @@ crashes before Flutter startup, so the artifact is permanently
 non-distributable. The live artifact and the newer finalized build each match
 an explicit LR-07 re-arm trigger.
 
+Governed Build 10 then completed the signed CI build from commit
+`e6bfa327466ffa99da9519846db7f83401c86c7b` and created production artifact
+`9122790773`. Independent package verification passed. Finalization stopped
+before either custody directory or the built tag was created because the
+source preflight and finalizer compared the environment receipt to different
+source anchors. Build 10 is therefore permanently consumed,
+finalization-blocked and non-distributable. Its exact failure authority is
+`release/evidence/build-10-finalization-block.json`.
+
 The historical Builds 4 through 8 containment, readback and closure evidence
 remains valid for the state observed on 2026-08-06. Current LR-07 authority is
-OPEN until the Build 9 artifact is deleted under the updated exact approval
+OPEN until the Build 9 and Build 10 artifacts are deleted under the updated exact approval
 phrase, a clean merged-main strict readback again proves zero live production
 artifacts and zero GitHub Releases, and a separate closure adjudication admits
-that new evidence. Build 10 construction does not itself close LR-07; any
-Build 10 Actions artifact must be added to the same exact containment set.
+that new evidence. Build 11 construction does not itself close LR-07; any
+Build 11 Actions artifact must be added to the same exact containment set.
 
 ## Qualification
 
@@ -112,5 +121,5 @@ production build supersedes Build 8.
 The historical adjudication closed only the then-observed LR-07 posture. It did
 not authorize pilot handout, change Firebase, alter a device, create
 distribution authority, or claim that a public artifact was never previously
-downloaded. The Build 9 re-arm blocks any current LR-07 closure claim until the
+downloaded. The Builds 9 and 10 re-arm blocks any current LR-07 closure claim until the
 new containment and readback sequence completes.

@@ -34,6 +34,11 @@ $ExpectedStartupRemediationCommit =
 $ExpectedStartupRemediationTree =
   '59c6371680ed0bf444bdbf1f1623413b14180fb9'
 $ExpectedStartupRemediationPostMergeRunId = 31538989781
+$ExpectedEnvironmentAuthorityCommit =
+  'e6bfa327466ffa99da9519846db7f83401c86c7b'
+$ExpectedEnvironmentAuthorityTree =
+  '5563c0ba7db287daed4f59d2769622655a5a0814'
+$ExpectedEnvironmentAuthorityPostMergeRunId = 31544517283
 $ExpectedEnvironmentSecretNames = @(
   'CRM_ANDROID_RELEASE_KEY_ALIAS'
   'CRM_ANDROID_RELEASE_KEY_PASSWORD'
@@ -278,8 +283,10 @@ $finalizationStatus = [string]$policy.finalization.status
 if ($finalizationStatus -eq 'completed-non-distributable') {
   $requiredFiles += [string]$policy.finalization.completionReceiptFile
 } elseif ($finalizationStatus -eq 'pending-source-authorized') {
-  $requiredFiles +=
+  $requiredFiles += @(
     [string]$policy.finalization.priorCompletedBuild.completionReceiptFile
+    [string]$policy.finalization.priorFailedAttempt.evidenceFile
+  )
 } else {
   throw 'Production policy finalization state is unsupported.'
 }
@@ -309,6 +316,7 @@ foreach ($requiredFinalizerControl in @(
   'deployment-branch-policies'
   '$approvedRequiredReviewerReviews.Count -lt 1'
   'environmentApprovalReference'
+  'environmentAuthorityMergeCommit'
   'github-environment-secrets.json'
   'environmentSecretValuesInspected = $false'
   'Authorized dispatcher ID:'
@@ -322,6 +330,10 @@ foreach ($requiredFinalizerControl in @(
 }
 if ($finalizer.Contains('expectedCommitHeadlines')) {
   throw 'Governed finalizer retains obsolete commit-headline coupling.'
+}
+if ($finalizer -match
+    '(?s)requiredIntegratedMergeCommit.{0,240}integratedSuccessorMergeCommit') {
+  throw 'Governed finalizer retains divergent environment/integrated-successor coupling.'
 }
 if ($finalizer.Contains(
     'git push origin "refs/tags/$builtTag:refs/tags/$builtTag"')) {
@@ -431,7 +443,7 @@ if ((Get-Sha256 $environmentReviewControl.approvalReceiptFile) -ne
     $environmentApproval.controls.
       protectedEnvironmentSecretsRequired -ne $true -or
     [string]$environmentApproval.controls.requiredIntegratedMergeCommit -ne
-      $ExpectedStartupRemediationCommit -or
+      $ExpectedEnvironmentAuthorityCommit -or
     $environmentApproval.controls.
       approvedRunReviewByRequiredReviewerRequired -ne $true -or
     $environmentApproval.controls.adminBypassMustRemainDisabled -ne $true -or
@@ -471,7 +483,10 @@ if ([string]$versionSource.consumedBuild.conclusion -eq 'failure' -and
   $consumedAuthorityValid = $true
 }
 if ([string]$versionSource.consumedBuild.conclusion -eq 'success' -and
-    $consumedDisposition -eq 'successful-build-finalization-blocked' -and
+    $consumedDisposition -in @(
+      'successful-build-finalization-blocked'
+      'successful-build-finalization-authority-mismatch-non-distributable'
+    ) -and
     $versionSource.consumedBuild.independentPackageVerificationCompleted -eq
       $true -and
     $versionSource.consumedBuild.artifactConstructed -eq $true -and
@@ -559,7 +574,7 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
     $versionSource.controls.crashlyticsGradlePluginRequired -ne $true -or
     $versionSource.controls.compiledCrashlyticsMappingIdRequired -ne $true -or
     $versionSource.controls.exactReleaseApkColdStartCiRequired -ne $true -or
-    $versionSource.controls.lr07Build9RearmRequired -ne $true -or
+    $versionSource.controls.lr07Build10RearmRequired -ne $true -or
     $versionSource.controls.publicRepositoryRequiredReviewerApproved -ne
       $true -or
     [string]$versionSource.controls.environmentApprovalReference -ne
@@ -606,6 +621,14 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
       $ExpectedStartupRemediationTree -or
     $versionSource.requiredSource.
       startupRemediationMustBeAncestorOfDispatchCommit -ne $true -or
+    [int64]$versionSource.requiredSource.environmentAuthorityPullRequest -ne
+      198 -or
+    [string]$versionSource.requiredSource.environmentAuthorityMergeCommit -ne
+      $ExpectedEnvironmentAuthorityCommit -or
+    [string]$versionSource.requiredSource.environmentAuthorityTree -ne
+      $ExpectedEnvironmentAuthorityTree -or
+    $versionSource.requiredSource.
+      environmentAuthorityMustBeAncestorOfDispatchCommit -ne $true -or
     $versionSource.requiredSource.crashlyticsGradlePluginRequired -ne
       $true -or
     $versionSource.requiredSource.compiledCrashlyticsMappingIdRequired -ne
@@ -613,11 +636,15 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
     $versionSource.requiredSource.exactReleaseApkColdStartCiRequired -ne
       $true -or
     [string]$versionSource.requiredSource.build9FinalizationReceiptFile -ne
-      [string]$versionSource.consumedBuild.completionReceiptFile -or
+      [string]$versionSource.preservedCompletedBuild.completionReceiptFile -or
     [string]$versionSource.requiredSource.build9FinalizationReceiptSha256 -ne
-      [string]$versionSource.consumedBuild.completionReceiptSha256 -or
+      [string]$versionSource.preservedCompletedBuild.completionReceiptSha256 -or
+    [string]$versionSource.requiredSource.build10FinalizationEvidenceFile -ne
+      [string]$versionSource.consumedBuild.finalizationEvidenceFile -or
+    [string]$versionSource.requiredSource.build10FinalizationEvidenceSha256 -ne
+      [string]$versionSource.consumedBuild.finalizationEvidenceSha256 -or
     [int64]$versionSource.requiredSource.postMergeGithubRunId -ne
-      $ExpectedStartupRemediationPostMergeRunId -or
+      $ExpectedEnvironmentAuthorityPostMergeRunId -or
     [string]$versionSource.requiredSource.postMergeGithubRunConclusion -ne
       'success' -or
     $versionSource.distributionApproved -ne $false -or
@@ -654,6 +681,12 @@ git merge-base --is-ancestor `
   HEAD
 if ($LASTEXITCODE -ne 0) {
   throw 'Dispatch source does not contain the PR 197 startup remediation.'
+}
+git merge-base --is-ancestor `
+  ([string]$versionSource.requiredSource.environmentAuthorityMergeCommit) `
+  HEAD
+if ($LASTEXITCODE -ne 0) {
+  throw 'Dispatch source does not contain the approved environment authority baseline.'
 }
 
 $completionReceiptPath = $null
@@ -743,25 +776,40 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
   }
 } else {
   $prior = $policy.finalization.priorCompletedBuild
+  $preserved = $versionSource.preservedCompletedBuild
+  $failed = $policy.finalization.priorFailedAttempt
+  $consumed = $versionSource.consumedBuild
   if ([int64]$prior.buildNumber -ne
-        [int64]$versionSource.consumedBuild.buildNumber -or
+        [int64]$preserved.buildNumber -or
       [string]$prior.completionReceiptFile -ne
-        [string]$versionSource.consumedBuild.completionReceiptFile -or
+        [string]$preserved.completionReceiptFile -or
       [string]$prior.completionReceiptSha256 -ne
-        [string]$versionSource.consumedBuild.completionReceiptSha256 -or
-      [string]$prior.sourceCommit -ne
-        [string]$versionSource.consumedBuild.remoteBuiltCommit -or
-      [int64]$prior.githubRunId -ne
-        [int64]$versionSource.consumedBuild.githubRunId -or
-      [string]$prior.remoteBuiltTag -ne
-        [string]$versionSource.consumedBuild.remoteBuiltTag -or
-      [string]$prior.governedPackageSha256 -ne
-        [string]$versionSource.consumedBuild.governedPackageSha256 -or
+        [string]$preserved.completionReceiptSha256 -or
+      [int64]$failed.buildNumber -ne [int64]$consumed.buildNumber -or
+      [string]$failed.status -ne 'blocked-non-distributable' -or
+      [string]$failed.evidenceFile -ne
+        [string]$consumed.finalizationEvidenceFile -or
+      [string]$failed.evidenceSha256 -ne
+        [string]$consumed.finalizationEvidenceSha256 -or
+      (Get-Sha256 $failed.evidenceFile) -ne
+        ([string]$failed.evidenceSha256).ToUpperInvariant() -or
+      [string]$failed.sourceCommit -ne
+        [string]$consumed.remoteReservationCommit -or
+      [int64]$failed.githubRunId -ne [int64]$consumed.githubRunId -or
+      [int64]$failed.githubArtifactId -ne
+        [int64]$consumed.githubArtifactId -or
+      [string]$failed.githubArtifactDigest -ne
+        [string]$consumed.githubArtifactDigest -or
+      [string]$failed.governedPackageSha256 -ne
+        [string]$consumed.governedPackageSha256 -or
+      $failed.independentVerificationCompleted -ne $true -or
+      $failed.dualCustodyCompleted -ne $false -or
+      $failed.distributionPerformed -ne $false -or
       $policy.finalization.dualCustodyCompleted -ne $false -or
       $policy.finalization.firebaseBackendDeploymentPerformed -ne $false -or
       $policy.finalization.controlledPilotApproved -ne $false -or
       $policy.finalization.unrestrictedPlantReleaseApproved -ne $false) {
-    throw 'Pending finalization does not preserve the consumed build boundary.'
+    throw 'Pending finalization does not preserve completed and failed build boundaries.'
   }
 }
 
@@ -948,10 +996,14 @@ if ($consumedMatches.Count -eq 1 -and
 }
 if ($consumedMatches.Count -eq 1 -and
     $consumedMatches[0].failedOrWithdrawnBuildConsumesNumber -eq $true -and
-    [string]$versionSource.consumedBuild.disposition -eq
-      'successful-build-finalization-blocked' -and
-    [string]$consumedMatches[0].status -eq
-      'remote-consumed-artifact-built-finalization-blocked' -and
+    [string]$versionSource.consumedBuild.disposition -in @(
+      'successful-build-finalization-blocked'
+      'successful-build-finalization-authority-mismatch-non-distributable'
+    ) -and
+    [string]$consumedMatches[0].status -in @(
+      'remote-consumed-artifact-built-finalization-blocked'
+      'remote-consumed-artifact-built-finalization-blocked-non-distributable'
+    ) -and
     [string]$consumedMatches[0].disposition -eq
       [string]$versionSource.consumedBuild.disposition -and
     $consumedMatches[0].independentPackageVerificationCompleted -eq $true -and
