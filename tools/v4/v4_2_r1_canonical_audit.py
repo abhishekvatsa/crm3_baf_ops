@@ -2130,7 +2130,7 @@ check(
     ) == "CLOSED_PASS"
     and functions_live_ledger.get("programmeDecision", {}).get(
         "nextMutation"
-    ) == "STAGE2D-F6"
+    ) == "NONE_ALL_PROGRAMME_GATES_CLOSED"
     and "Status: CLOSED PASS" in function_fleet_finalization_doc
     and "does not close `STAGE2D-F4`" in function_fleet_finalization_doc,
 )
@@ -2781,9 +2781,9 @@ check(
     and f6_readiness.get("authorizationBoundary", {}).get(
         "pilotHandoutAuthorized"
     ) is False
-    and f6_gate.get("currentStatus") == "OPEN"
+    and f6_gate.get("currentStatus") == "CLOSED"
     and recovery_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED",
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
 )
 
 app_database_source = text("lib/core/persistence/app_database.dart")
@@ -3065,9 +3065,9 @@ check(
         for entry in f3_runtime_record.get("evidence", [])
     )
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F6"
+        == "NONE_ALL_PROGRAMME_GATES_CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED",
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
 )
 auth_profile_source = text("lib/features/auth/providers/auth_provider.dart")
 auth_profile_test = text("test/auth_profile_token_race_test.dart")
@@ -3640,7 +3640,12 @@ check(
         "unrestrictedPlantReleaseApproved"
     )
         is False
-    and combined_policy.get("distribution", {}).get("approved") is False
+    and combined_policy.get("distribution", {}).get("approved") is True
+    and combined_policy.get("distribution", {}).get("authority")
+        == "exact-build11-sealed-small-group-pilot"
+    and combined_policy.get("distribution", {}).get("approvedBuildNumber") == 11
+    and combined_policy.get("distribution", {}).get("pilotHandoutPerformed")
+        is False
     and combined_policy.get("distribution", {}).get(
         "unrestrictedPlantReleaseApproved"
     )
@@ -4445,9 +4450,9 @@ check(
     and len(build8_f4_gate_records) == 1
     and build8_f4_gate_records[0].get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F6"
+        == "NONE_ALL_PROGRAMME_GATES_CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED",
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
 )
 check(
     "Build 8 offline reconnect is evidence-proved without a throttle claim",
@@ -4603,7 +4608,7 @@ check(
     and len(build8_f4_gate_records) == 1
     and build8_f4_gate_records[0].get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED",
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
 )
 check(
     "Build 8 intermittent-connectivity source is exact, bounded and non-closing",
@@ -4769,9 +4774,9 @@ check(
     and len(build8_f4_gate_records) == 1
     and build8_f4_gate_records[0].get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F6"
+        == "NONE_ALL_PROGRAMME_GATES_CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED",
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
 )
 check(
     "Build 8 intermittent connectivity is evidence-proved without throttle overclaim",
@@ -4974,9 +4979,9 @@ check(
     and len(build8_f4_gate_records) == 1
     and build8_f4_gate_records[0].get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F6"
+        == "NONE_ALL_PROGRAMME_GATES_CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED",
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
 )
 build7_f4_compatibility = data(
     "release/approvals/build-7-f4-firestore-compatibility-promotion.json"
@@ -5093,7 +5098,7 @@ check(
         is False
     and build7_f4_gate.get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F6",
+        == "NONE_ALL_PROGRAMME_GATES_CLOSED",
 )
 build7_f4_locator_recovery_path = (
     "release/approvals/build-7-f4-prove-read-locator-recovery.json"
@@ -5302,9 +5307,9 @@ check(
         for entry in f4_rehearsal_gate.get("evidence", [])
     )
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F6"
+        == "NONE_ALL_PROGRAMME_GATES_CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED",
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
 )
 build6_f4_physical = data(
     "release/approvals/build-6-f4-physical-device-execution-promotion.json"
@@ -5897,9 +5902,9 @@ check(
         for entry in f4_rehearsal_gate.get("evidence", [])
     )
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F6"
+        == "NONE_ALL_PROGRAMME_GATES_CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED",
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
 )
 global_pull_manifest = data("governance/global-pull-protocol-v1.json")
 global_pull_contract = global_pull_manifest.get("fingerprintedContract", {})
@@ -7615,9 +7620,9 @@ check(
     and len(p05_record.get("requiredExitEvidence", [])) == 6
     and len(p05_record.get("reArmTriggers", [])) == 7
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F6"
+        == "NONE_ALL_PROGRAMME_GATES_CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED",
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
 )
 
 p05_receipt_path = (
@@ -7773,9 +7778,9 @@ check(
         for entry in p05_record.get("statusHistory", [])
     ] == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED"]
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F6"
+        == "NONE_ALL_PROGRAMME_GATES_CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED"
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER"
     and "These facts satisfy all six P-05 exit-evidence requirements"
         in lr04_decision,
 )
@@ -8732,6 +8737,9 @@ lr07_build11_containment_evidence_path = (
 lr07_build11_readback_evidence_path = (
     "release/evidence/lr07-distribution-installation-live-readback-build11.json"
 )
+lr07_final_promotion_evidence_path = (
+    "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json"
+)
 lr07_containment_evidence = data(lr07_containment_evidence_path)
 lr07_readback_evidence = data(lr07_readback_evidence_path)
 lr07_closure_evidence = data(lr07_closure_evidence_path)
@@ -8739,12 +8747,21 @@ lr07_build11_containment_evidence = data(
     lr07_build11_containment_evidence_path
 )
 lr07_build11_readback_evidence = data(lr07_build11_readback_evidence_path)
+lr07_final_promotion_evidence = data(lr07_final_promotion_evidence_path)
 lr07_records = [
     record
     for record in lr07_ledger.get("programmeGates", [])
     if record.get("gateId") == "LR-07"
 ]
 lr07_record = lr07_records[0] if len(lr07_records) == 1 else {}
+lr07_stage2d_f6_record = next(
+    (
+        record
+        for record in lr07_ledger.get("programmeGates", [])
+        if record.get("gateId") == "STAGE2D-F6"
+    ),
+    {},
+)
 lr07_artifacts = lr07_policy.get("expectedArtifactsForContainment", [])
 lr07_source_evidence = lr07_policy.get("sourceEvidence", [])
 lr07_latest_artifact = max(
@@ -8851,7 +8868,7 @@ lr07_successor_ledger = [
     > lr07_latest_artifact.get("buildNumber", -1)
 ]
 check(
-    "LR-07 re-arms for Builds 9 through 11 and still closes only through separate adjudication",
+    "LR-07 Builds 9 through 11 remain exact after separate closure adjudication",
     lr07_policy.get("schemaVersion") == 1
     and lr07_policy.get("policyId")
         == "LR07-DISTRIBUTION-INSTALLATION-READBACK-POLICY-V1"
@@ -8986,16 +9003,24 @@ check(
     and lr07_current_build == 11
     and len(lr07_successor_ledger) == 0
     and combined_policy.get("distribution", {}).get("authority")
-        == "production-signed-pre-release-candidate"
-    and combined_policy.get("distribution", {}).get("approved") is False
+        == "exact-build11-sealed-small-group-pilot"
+    and combined_policy.get("distribution", {}).get("approved") is True
+    and combined_policy.get("distribution", {}).get("approvedBuildNumber") == 11
+    and combined_policy.get("distribution", {}).get("approvedPackageSha256")
+        == "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970"
+    and combined_policy.get("distribution", {}).get("pilotHandoutPerformed")
+        is False
     and combined_policy.get("distribution", {}).get(
         "unrestrictedPlantReleaseApproved"
     ) is False
     and combined_policy.get("distribution", {}).get(
         "postBuildPromotionRequiredForAnyDistribution"
     ) is True
-    and combined_policy.get("distribution", {}).get("scope")
-        == "Artifact construction, verification and custody only; no distribution approval is created by this campaign."
+    and combined_policy.get("postBuildPromotion", {}).get("status")
+        == "completed-controlled-pilot-only"
+    and combined_policy.get("postBuildPromotion", {}).get(
+        "promotionReceiptSha256"
+    ) == "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400"
     and "retention-days: 1" in lr07_workflow
     and "retention-days: 90" not in lr07_workflow
     and "npm run test:distribution-readback-custody" in lr07_release_gate
@@ -9030,9 +9055,9 @@ check(
         in lr07_collector_test
     and "sealed exact preflight" in lr07_containment_test
     and "requiredPresentArtifactIds" in lr07_containment
-    and "strict readback fails closed" in lr07_contract
-    and "collector still does not close `LR-07`" in lr07_decision
-    and "Status: LIVE READBACK PROVED - MERGED SOURCE/CI CLOSURE ADJUDICATION PENDING"
+    and "strict readback remains non-closing" in lr07_contract
+    and "collector itself does not close `LR-07`" in lr07_decision
+    and "Status: CLOSED - EXACT BUILD 11 SEALED PILOT AUTHORIZED"
         in lr07_decision
     and lr07_containment_evidence.get("decision")
         == "PASS_LR07_PUBLIC_PRODUCTION_ARTIFACTS_CONTAINED"
@@ -9119,9 +9144,9 @@ check(
         for value in lr07_closure_evidence.get("closureBoundary", {}).values()
     )
     and len(lr07_records) == 1
-    and lr07_record.get("currentStatus") == "LIVE_READBACK_PROVED"
-    and lr07_record.get("authorization") == "AWAITING_SOURCE_CI_CLOSURE"
-    and len(lr07_record.get("evidence", [])) == 5
+    and lr07_record.get("currentStatus") == "CLOSED"
+    and lr07_record.get("authorization") == "CLOSED_PASS"
+    and len(lr07_record.get("evidence", [])) == 6
     and {
         entry.get("sha256") for entry in lr07_record.get("evidence", [])
     } == {
@@ -9130,10 +9155,11 @@ check(
         "7E440D6DCB826607FED4D7F4FF5332A816302571F294D3F6620206EFC5AD4089",
         "D873651F251923D75DE34687600051C36C99E6B17E0662C023D2E7D2B04F9258",
         "A1BB0DD539B68A782BFDA3C2D9DBA3D003C65333EA5FF5FD4054EFC192667517",
+        "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400",
     }
     and len(lr07_record.get("requiredExitEvidence", [])) == 6
     and len(lr07_record.get("reArmTriggers", [])) == 7
-    and len(lr07_record.get("notes", [])) == 9
+    and len(lr07_record.get("notes", [])) == 10
     and [entry.get("status") for entry in lr07_record.get("statusHistory", [])]
         == [
             "OPEN",
@@ -9141,11 +9167,12 @@ check(
             "CLOSED",
             "OPEN",
             "LIVE_READBACK_PROVED",
+            "CLOSED",
         ]
     and lr07_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F6"
+        == "NONE_ALL_PROGRAMME_GATES_CLOSED"
     and lr07_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED",
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
 )
 
 check(
@@ -9256,6 +9283,94 @@ check(
     and "431,389,958 bytes" in lr07_decision
     and "only their merged source/CI closure adjudication remains"
         in lr07_decision,
+)
+
+check(
+    "LR-07 and F6 close only through the exact Build 11 sealed-pilot promotion",
+    sha(ROOT / lr07_final_promotion_evidence_path)
+        == "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400"
+    and lr07_final_promotion_evidence.get("decision")
+        == "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED"
+    and lr07_final_promotion_evidence.get("sourceAuthority", {}).get(
+        "adjudicatedPullRequest"
+    ) == 201
+    and lr07_final_promotion_evidence.get("sourceAuthority", {}).get(
+        "adjudicatedMergeCommit"
+    ) == "38654b9385cd91cdf4dab743ca007f07d0430f76"
+    and lr07_final_promotion_evidence.get("sourceAuthority", {}).get(
+        "pullRequestCi", {}
+    ).get("runId") == 31578415848
+    and lr07_final_promotion_evidence.get("sourceAuthority", {}).get(
+        "postMergeCi", {}
+    ).get("runId") == 31579340418
+    and all(
+        job.get("conclusion") == "success"
+        for phase in ["pullRequestCi", "postMergeCi"]
+        for job in lr07_final_promotion_evidence.get("sourceAuthority", {})
+            .get(phase, {})
+            .get("jobs", [])
+    )
+    and len(
+        lr07_final_promotion_evidence.get("sourceAuthority", {})
+            .get("pullRequestCi", {})
+            .get("jobs", [])
+    ) == 5
+    and len(
+        lr07_final_promotion_evidence.get("sourceAuthority", {})
+            .get("postMergeCi", {})
+            .get("jobs", [])
+    ) == 5
+    and lr07_final_promotion_evidence.get("promotion", {}).get(
+        "authorizedBuildNumber"
+    ) == 11
+    and lr07_final_promotion_evidence.get("promotion", {}).get(
+        "authorizedPackageSha256"
+    ) == "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970"
+    and lr07_final_promotion_evidence.get("promotion", {}).get(
+        "pilotHandoutAuthorized"
+    ) is True
+    and lr07_final_promotion_evidence.get("promotion", {}).get(
+        "pilotHandoutPerformedByThisRecord"
+    ) is False
+    and all(
+        lr07_final_promotion_evidence.get("promotion", {}).get(key) is False
+        for key in [
+            "publicArtifactAuthorized",
+            "githubReleaseAuthorized",
+            "firebaseAppDistributionAuthorized",
+            "playConsoleAuthorized",
+            "playStoreAuthorized",
+            "webDistributionAuthorized",
+            "unrestrictedDistributionAuthorized",
+            "appCheckActivationAuthorized",
+        ]
+    )
+    and [
+        transition.get("to")
+        for transition in lr07_final_promotion_evidence.get(
+            "gateTransitions", []
+        )
+    ] == ["CLOSED", "PILOT_AUTHORIZED", "CLOSED"]
+    and lr07_record.get("currentStatus") == "CLOSED"
+    and lr07_stage2d_f6_record.get("currentStatus") == "CLOSED"
+    and [
+        entry.get("status")
+        for entry in lr07_stage2d_f6_record.get("statusHistory", [])
+    ] == ["OPEN", "PILOT_AUTHORIZED", "CLOSED"]
+    and programme_ledger.get("programmeDecision", {}).get(
+        "internalControlledPilot"
+    ) == "GO"
+    and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER"
+    and programme_ledger.get("programmeDecision", {}).get("nextMutation")
+        == "NONE_ALL_PROGRAMME_GATES_CLOSED"
+    and programme_ledger.get("programmeDecision", {}).get(
+        "unrestrictedDistribution"
+    ) == "NO_GO"
+    and all(
+        gate.get("currentStatus") == "CLOSED"
+        for gate in programme_ledger.get("programmeGates", [])
+    ),
 )
 
 build8_f4_authority_promotion = data(
@@ -9390,7 +9505,7 @@ check(
     and "authority-negative collector is byte-bound"
         in build8_f4_authority_test
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED",
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
 )
 check(
     "Build 8 six-criterion adjudication closes only F4 and P-07 and advances to F5",
@@ -9474,7 +9589,7 @@ check(
         "nextMutation"
     ) == "STAGE2D-F5"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED"
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER"
     and "F4 AND P-07 DEVICE EVIDENCE CLOSED" in build8_f4_authority_result
     and "all eight failed-closed receipts" in build8_f4_authority_result
     and "authority-negative adjudication binds the complete receipt lineage"
@@ -9546,11 +9661,11 @@ check(
     and [entry.get("status") for entry in build8_f5_gate.get(
         "statusHistory", []
     )] == ["OPEN", "CLOSED"]
-    and stage2d_f6_gate.get("currentStatus") == "OPEN"
+    and stage2d_f6_gate.get("currentStatus") == "CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("nextMutation")
-        == "STAGE2D-F6"
+        == "NONE_ALL_PROGRAMME_GATES_CLOSED"
     and programme_ledger.get("programmeDecision", {}).get("pilotHandout")
-        == "NOT_AUTHORIZED"
+        == "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER"
     and "`STAGE2D-F5` is closed" in stage2d_f5_result
     and "F5 closure preserves failed deployment lineage and exact live state"
         in stage2d_f5_contract_test,

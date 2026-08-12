@@ -184,10 +184,13 @@ void main() {
     expect(_strings(p05['requiredExitEvidence']), hasLength(6));
     expect(_strings(p05['reArmTriggers']), hasLength(7));
     expect(policy['collectorStatus'], 'SOURCE_CI_AND_LIVE_READBACK_PROVED');
-    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F6');
+    expect(
+      _object(ledger['programmeDecision'])['nextMutation'],
+      'NONE_ALL_PROGRAMME_GATES_CLOSED',
+    );
     expect(
       _object(ledger['programmeDecision'])['pilotHandout'],
-      'NOT_AUTHORIZED',
+      'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER',
     );
   });
 }

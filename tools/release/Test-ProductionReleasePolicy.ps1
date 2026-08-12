@@ -6,7 +6,7 @@ Verifies the source-controlled CRM-III BAF Ops production-release policy.
 .DESCRIPTION
 This verifier checks identity, version, source reservation, signing, Firebase
 registration, migration-plan boundary, independently approved Linux Isar core,
-locked Firebase CLI, action pins and non-distribution release boundaries.
+locked Firebase CLI, action pins and exact sealed-pilot distribution boundaries.
 #>
 
 [CmdletBinding()]
@@ -254,10 +254,14 @@ if ($policy.signing.productionSigningApproved -ne $true -or
   throw 'Production signing/custody policy is incomplete.'
 }
 if ([string]$policy.distribution.authority -ne
-      'production-signed-pre-release-candidate' -or
-    $policy.distribution.approved -ne $false -or
+      'exact-build11-sealed-small-group-pilot' -or
+    $policy.distribution.approved -ne $true -or
+    [int]$policy.distribution.approvedBuildNumber -ne 11 -or
+    [string]$policy.distribution.approvedPackageSha256 -ne
+      '104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970' -or
+    $policy.distribution.pilotHandoutPerformed -ne $false -or
     $policy.distribution.unrestrictedPlantReleaseApproved -ne $false) {
-  throw 'Source policy must remain non-distributable and unrestricted=false.'
+  throw 'Source policy must authorize only exact Build 11 sealed-pilot handout and unrestricted=false.'
 }
 if ($policy.distribution.postBuildPromotionRequiredForAnyDistribution -ne
     $true) {
@@ -277,6 +281,7 @@ $requiredFiles = @(
   [string]$policy.toolchain.githubActionPinsFile
   [string]$policy.toolchain.firebaseToolsLockfile
   [string]$policy.toolchain.linuxIsarCoreAuthorityReceipt
+  [string]$policy.postBuildPromotion.promotionReceiptFile
   'tools/release/Finalize-ProductionRelease.ps1'
 )
 $finalizationStatus = [string]$policy.finalization.status
@@ -298,6 +303,52 @@ foreach ($file in $requiredFiles) {
   if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
     throw "Required policy file is missing: $file"
   }
+}
+$promotionReceiptPath =
+  [string]$policy.postBuildPromotion.promotionReceiptFile
+if ((Get-Sha256 $promotionReceiptPath) -ne
+    ([string]$policy.postBuildPromotion.promotionReceiptSha256).
+      ToUpperInvariant()) {
+  throw 'Post-build promotion receipt hash differs from policy.'
+}
+$promotionReceipt = Get-Content -LiteralPath $promotionReceiptPath -Raw |
+  ConvertFrom-Json
+if ([string]$policy.postBuildPromotion.status -ne
+      'completed-controlled-pilot-only' -or
+    [int]$policy.postBuildPromotion.buildNumber -ne 11 -or
+    [string]$policy.postBuildPromotion.sourceCommit -ne
+      [string]$policy.finalization.sourceCommit -or
+    [string]$policy.postBuildPromotion.governedPackageSha256 -ne
+      [string]$policy.finalization.governedPackageSha256 -or
+    $policy.postBuildPromotion.controlledPilotApproved -ne $true -or
+    $policy.postBuildPromotion.pilotHandoutPerformed -ne $false -or
+    $policy.postBuildPromotion.publicArtifactApproved -ne $false -or
+    $policy.postBuildPromotion.githubReleaseApproved -ne $false -or
+    $policy.postBuildPromotion.firebaseAppDistributionApproved -ne $false -or
+    $policy.postBuildPromotion.playConsoleApproved -ne $false -or
+    $policy.postBuildPromotion.playStoreApproved -ne $false -or
+    $policy.postBuildPromotion.webDistributionApproved -ne $false -or
+    $policy.postBuildPromotion.unrestrictedPlantReleaseApproved -ne $false -or
+    [string]$policy.distribution.promotionReceiptFile -ne
+      $promotionReceiptPath -or
+    [string]$policy.distribution.promotionReceiptSha256 -ne
+      [string]$policy.postBuildPromotion.promotionReceiptSha256 -or
+    [string]$promotionReceipt.decision -ne
+      'PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED' -or
+    [int]$promotionReceipt.promotion.authorizedBuildNumber -ne 11 -or
+    [string]$promotionReceipt.promotion.authorizedPackageSha256 -ne
+      [string]$policy.finalization.governedPackageSha256 -or
+    $promotionReceipt.promotion.pilotHandoutAuthorized -ne $true -or
+    $promotionReceipt.promotion.pilotHandoutPerformedByThisRecord -ne $false -or
+    $promotionReceipt.promotion.publicArtifactAuthorized -ne $false -or
+    $promotionReceipt.promotion.githubReleaseAuthorized -ne $false -or
+    $promotionReceipt.promotion.firebaseAppDistributionAuthorized -ne $false -or
+    $promotionReceipt.promotion.playConsoleAuthorized -ne $false -or
+    $promotionReceipt.promotion.playStoreAuthorized -ne $false -or
+    $promotionReceipt.promotion.webDistributionAuthorized -ne $false -or
+    $promotionReceipt.promotion.unrestrictedDistributionAuthorized -ne $false -or
+    $promotionReceipt.closureBoundary.pilotHandoutPerformed -ne $false) {
+  throw 'Post-build promotion exceeds or differs from the exact Build 11 sealed-pilot boundary.'
 }
 $finalizerTokens = $null
 $finalizerParseErrors = $null
@@ -1562,5 +1613,5 @@ Write-Host '===== PRODUCTION RELEASE POLICY VERIFIED =====' `
 Write-Host "Application ID: $($policy.permanentApplicationId)"
 Write-Host "Version:        $($policy.release.versionName)+$($policy.release.buildNumber)"
 Write-Host "Reservation:    $($policy.versionPolicy.remoteReservationTag)"
-Write-Host 'Distribution:   NOT APPROVED'
+Write-Host 'Distribution:   EXACT BUILD 11 SEALED PILOT ONLY'
 Write-Host 'Operational package cutover remains O-10/70J.'

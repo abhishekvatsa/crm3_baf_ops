@@ -18,14 +18,14 @@
   "programmeDecision": {
     "controlledEngineering": "GO",
     "technicalReaudit": "CURRENT_TECHNICAL_AUTHORITY",
-    "internalControlledPilot": "GO_WITH_GATES",
-    "pilotHandout": "NOT_AUTHORIZED",
+    "internalControlledPilot": "GO",
+    "pilotHandout": "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
     "playIntegrityAndAppCheck": "GOVERNED_DEFERRAL",
     "leastPrivilegeIam": "CLOSED_PASS",
     "broadFeatureExpansion": "HOLD",
     "section71Implementation": "HOLD_CONCEPT_PRESERVED",
     "unrestrictedDistribution": "NO_GO",
-    "nextMutation": "STAGE2D-F6"
+    "nextMutation": "NONE_ALL_PROGRAMME_GATES_CLOSED"
   },
   "statusVocabulary": [
     "OPEN",
@@ -733,8 +733,8 @@
       "authorityType": "PILOT_AUTHORIZATION",
       "transitionProfile": "PILOT_AUTHORIZATION",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "BLOCKS_PILOT_HANDOUT",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS_CONTROLLED_PILOT_AUTHORIZED",
       "supersedes": [],
       "supersededBy": null,
       "evidence": [
@@ -743,6 +743,12 @@
           "sha256": "7C5DF86E1DDB16C3CD36BFF476798C4790E314CFF707BE3BC8FDCE85BDC8CF1A",
           "decision": "READY_AWAITING_LR07_CONTAINMENT",
           "authority": "F6_COMPLETE_OPERATIONAL_PACK_WITH_PILOT_HANDOUT_BLOCKED"
+        },
+        {
+          "fileName": "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
+          "sha256": "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400",
+          "decision": "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED",
+          "authority": "EXACT_BUILD11_POST_BUILD_CONTROLLED_PILOT_PROMOTION"
         }
       ],
       "requiredExitEvidence": [
@@ -754,16 +760,34 @@
         "incident and rollback paths",
         "pilot acceptance script"
       ],
-      "reArmTriggers": [],
+      "reArmTriggers": [
+        "the exact Build 11 package hash, signing identity, source commit, built tag or custody authority changes or cannot be reproduced",
+        "the approved-user or physical-device roster is not frozen, exceeds its governed ceiling or admits an unauthorized subject or target",
+        "any pilot acceptance step fails or local provenance, synchronization, sign-in, revocation or wrong-role behavior differs from admitted evidence",
+        "Rules, indexes, callable authority, runtime identity, recovery controls, backups, privacy posture or incident controls drift from admitted evidence",
+        "a public artifact, GitHub Release, Firebase App Distribution, Play, web or unrestricted distribution path is introduced",
+        "LR-07 or another prerequisite gate re-arms"
+      ],
       "notes": [
         "All seven F6 evidence categories are authored and bound to Build 11, closed F5, closed P-05 and closed 70K authority.",
-        "Exact Builds 9, 10 and 11 containment and strict readback are LIVE_READBACK_PROVED. F6 remains OPEN and pilot handout remains NOT_AUTHORIZED until LR-07 receives its separate merged source/CI closure adjudication."
+        "Exact Builds 9, 10 and 11 containment and strict readback are LIVE_READBACK_PROVED. F6 remains OPEN and pilot handout remains NOT_AUTHORIZED until LR-07 receives its separate merged source/CI closure adjudication.",
+        "PR #201 and its five-job pull-request and post-merge CI runs provide the required LR-07 source/CI authority. Promotion 878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400 authorizes only exact Build 11 for the sealed small-group pilot; no handout is performed by the record and unrestricted distribution remains prohibited."
       ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Final pilot authorization gate"
+        },
+        {
+          "status": "PILOT_AUTHORIZED",
+          "effectiveDate": "2026-08-12",
+          "basis": "Post-build promotion 878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400 binds exact Build 11 to all seven operational categories, closed prerequisites, LR-07 containment/readback and PR #201 source/CI authority."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-12",
+          "basis": "The exact Build 11 controlled-pilot authorization is fully recorded with frozen-roster, acceptance, support, privacy, recovery, stop and re-arm boundaries; public and unrestricted distribution remain prohibited."
         }
       ]
     },
@@ -1229,8 +1253,8 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "LIVE_READBACK_PROVED",
-      "authorization": "AWAITING_SOURCE_CI_CLOSURE",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
       "evidence": [
@@ -1263,6 +1287,12 @@
           "sha256": "A1BB0DD539B68A782BFDA3C2D9DBA3D003C65333EA5FF5FD4054EFC192667517",
           "decision": "PASS_LR07_BUILD11_DISTRIBUTION_INSTALLATION_LIVE_READBACK",
           "authority": "STRICT_CLEAN_MERGED_MAIN_BUILDS_9_10_11_LIVE_READBACK"
+        },
+        {
+          "fileName": "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
+          "sha256": "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400",
+          "decision": "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED",
+          "authority": "PR201_SOURCE_CI_AND_EXACT_BUILD11_POST_BUILD_PROMOTION"
         }
       ],
       "requiredExitEvidence": [
@@ -1291,7 +1321,8 @@
         "Governed Build 10 created live Actions artifact 9122790773. Independent package verification passed, but finalization stopped before custody or built-tag creation because the preflight and finalizer used different source anchors for the same environment receipt.",
         "Governed Build 11 created live Actions artifact 9125100777, passed finalization, dual custody and two-target in-place validation, and remains non-distributable pending LR-07 and F6.",
         "Explicit owner-authorized containment deleted the exact Build 9, 10 and 11 artifact payloads and no others while preserving workflow runs, logs, tags, Releases, repository visibility, source, Firebase and devices.",
-        "Fresh strict clean-main readback proved zero live production artifacts, zero GitHub Releases, exact Build 8 installation evidence, exact Build 11 finalization and preserved Build 10 failed-attempt authority. LR-07 now awaits only merged source/CI closure adjudication."
+        "Fresh strict clean-main readback proved zero live production artifacts, zero GitHub Releases, exact Build 8 installation evidence, exact Build 11 finalization and preserved Build 10 failed-attempt authority. LR-07 now awaits only merged source/CI closure adjudication.",
+        "PR #201 merged the exact containment and strict-readback evidence and passed all five pull-request and post-merge jobs. Promotion 878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400 closes LR-07 while preserving zero public artifacts, zero GitHub Releases and all workflow runs."
       ],
       "statusHistory": [
         {
@@ -1318,6 +1349,11 @@
           "status": "LIVE_READBACK_PROVED",
           "effectiveDate": "2026-08-12",
           "basis": "Exact Builds 9, 10 and 11 containment D873651F251923D75DE34687600051C36C99E6B17E0662C023D2E7D2B04F9258 and strict Build 11 readback A1BB0DD539B68A782BFDA3C2D9DBA3D003C65333EA5FF5FD4054EFC192667517 prove zero live production artifacts, zero GitHub Releases, preserved runs and exact installation and source authority; separate merged source/CI closure remains required."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-12",
+          "basis": "Closure/promotion 878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400 binds PR #201 exact source and five-job pull-request/post-merge CI to the admitted containment and strict readback."
         }
       ]
     }

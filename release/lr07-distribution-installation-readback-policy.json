@@ -57,6 +57,11 @@
       "sha256": "59AE1BBDB9F9F4ACACF5B32342E2F1330A4915441726F44432D5CFBB50737DD3"
     },
     {
+      "path": "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
+      "bytes": 8611,
+      "sha256": "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400"
+    },
+    {
       "path": "release/evidence/build-8-f4-intermittent-connectivity-adjudication.json",
       "bytes": 6384,
       "sha256": "45B90B3F0C3D711FEA82B3514669B0C25FEDD2EF320AF4872EC8B102535678F6"

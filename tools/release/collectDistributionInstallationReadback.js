@@ -140,6 +140,11 @@ function summarizeMutableSourceAuthority({policy, releasePolicy, buildLedger}) {
   const latestReceiptAuthority = policy.sourceEvidence.find(
     (entry) => entry.path === receiptPathFor(latestExpectedArtifact),
   );
+  const promotionReceiptAuthority = policy.sourceEvidence.find(
+    (entry) =>
+      entry.path ===
+      "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
+  );
   const finalization = releasePolicy.finalization ?? {};
   const currentBuildNumber = releasePolicy.release?.buildNumber;
   let preservedFinalization = null;
@@ -267,6 +272,44 @@ function summarizeMutableSourceAuthority({policy, releasePolicy, buildLedger}) {
     finalization.status !== "pending-source-authorized" ||
     (successorEntries.length === 1 &&
       successorEntries[0].buildNumber === currentBuildNumber);
+  const nonDistributionExact =
+    releasePolicy.distribution?.approved === false &&
+    releasePolicy.distribution?.unrestrictedPlantReleaseApproved === false;
+  const postBuildPromotion = releasePolicy.postBuildPromotion ?? {};
+  const controlledPilotPromotionExact =
+    latestCompletedArtifact != null &&
+    promotionReceiptAuthority != null &&
+    postBuildPromotion.status === "completed-controlled-pilot-only" &&
+    postBuildPromotion.promotionReceiptFile === promotionReceiptAuthority.path &&
+    postBuildPromotion.promotionReceiptSha256 === promotionReceiptAuthority.sha256 &&
+    postBuildPromotion.buildNumber === latestCompletedArtifact.buildNumber &&
+    postBuildPromotion.sourceCommit === latestCompletedArtifact.headSha &&
+    postBuildPromotion.governedPackageSha256 ===
+      latestCompletedArtifact.governedPackageSha256 &&
+    postBuildPromotion.controlledPilotApproved === true &&
+    postBuildPromotion.pilotHandoutPerformed === false &&
+    postBuildPromotion.publicArtifactApproved === false &&
+    postBuildPromotion.githubReleaseApproved === false &&
+    postBuildPromotion.firebaseAppDistributionApproved === false &&
+    postBuildPromotion.playConsoleApproved === false &&
+    postBuildPromotion.playStoreApproved === false &&
+    postBuildPromotion.webDistributionApproved === false &&
+    postBuildPromotion.unrestrictedPlantReleaseApproved === false &&
+    releasePolicy.distribution?.authority ===
+      "exact-build11-sealed-small-group-pilot" &&
+    releasePolicy.distribution?.approved === true &&
+    releasePolicy.distribution?.approvedBuildNumber ===
+      latestCompletedArtifact.buildNumber &&
+    releasePolicy.distribution?.approvedPackageSha256 ===
+      latestCompletedArtifact.governedPackageSha256 &&
+    releasePolicy.distribution?.promotionReceiptFile ===
+      promotionReceiptAuthority.path &&
+    releasePolicy.distribution?.promotionReceiptSha256 ===
+      promotionReceiptAuthority.sha256 &&
+    releasePolicy.distribution?.pilotHandoutPerformed === false &&
+    releasePolicy.distribution?.unrestrictedPlantReleaseApproved === false &&
+    releasePolicy.distribution?.postBuildPromotionRequiredForAnyDistribution ===
+      true;
 
   return {
     releasePolicyExact:
@@ -279,13 +322,13 @@ function summarizeMutableSourceAuthority({policy, releasePolicy, buildLedger}) {
       latestContainmentAttemptExact &&
       historicalFailedAttemptsExact &&
       pendingSuccessorExact &&
-      releasePolicy.distribution?.approved === false &&
-      releasePolicy.distribution?.unrestrictedPlantReleaseApproved === false,
+      (nonDistributionExact || controlledPilotPromotionExact),
     buildLedgerExact:
       expectedLedgerEntriesExact &&
       sourceOnlySuccessorsExact &&
       pendingSuccessorExact,
     latestContainmentAttemptExact,
+    controlledPilotPromotionExact,
   };
 }
 

@@ -122,8 +122,11 @@ void main() {
     expect(programme['decisionMayBeUsedAsPassBuild6F4BackendReady'], isFalse);
 
     final ledgerDecision = _object(ledger['programmeDecision']);
-    expect(ledgerDecision['nextMutation'], 'STAGE2D-F6');
-    expect(ledgerDecision['pilotHandout'], 'NOT_AUTHORIZED');
+    expect(ledgerDecision['nextMutation'], 'NONE_ALL_PROGRAMME_GATES_CLOSED');
+    expect(
+      ledgerDecision['pilotHandout'],
+      'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER',
+    );
     final f4 = (ledger['programmeGates'] as List<dynamic>)
         .cast<Map<String, dynamic>>()
         .singleWhere((record) => record['gateId'] == 'STAGE2D-F4');

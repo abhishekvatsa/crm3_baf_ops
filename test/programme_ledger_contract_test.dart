@@ -261,13 +261,13 @@ void main() {
 
     final decision = _object(payload['programmeDecision']);
     expect(decision['controlledEngineering'], 'GO');
-    expect(decision['internalControlledPilot'], 'GO_WITH_GATES');
-    expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
+    expect(decision['internalControlledPilot'], 'GO');
+    expect(decision['pilotHandout'], 'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER');
     expect(decision['playIntegrityAndAppCheck'], 'GOVERNED_DEFERRAL');
     expect(decision['leastPrivilegeIam'], 'CLOSED_PASS');
     expect(decision['broadFeatureExpansion'], 'HOLD');
     expect(decision['unrestrictedDistribution'], 'NO_GO');
-    expect(decision['nextMutation'], 'STAGE2D-F6');
+    expect(decision['nextMutation'], 'NONE_ALL_PROGRAMME_GATES_CLOSED');
 
     expect(_strings(payload['severityVocabulary']).toSet(), <String>{
       'BLOCKER',
@@ -637,12 +637,15 @@ void main() {
       _object(payload['programmeDecision'])['leastPrivilegeIam'],
       'CLOSED_PASS',
     );
-    expect(_object(payload['programmeDecision'])['nextMutation'], 'STAGE2D-F6');
+    expect(
+      _object(payload['programmeDecision'])['nextMutation'],
+      'NONE_ALL_PROGRAMME_GATES_CLOSED',
+    );
     expect(f4['currentStatus'], 'CLOSED');
     expect(f4['authorization'], 'CLOSED_PASS');
     expect(
       _object(payload['programmeDecision'])['pilotHandout'],
-      'NOT_AUTHORIZED',
+      'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER',
     );
 
     for (final record in <Map<String, dynamic>>[h2, s01, d01]) {

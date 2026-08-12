@@ -215,8 +215,8 @@ void main() {
 
     final gates = _objects(ledger['programmeGates']);
     final lr07 = gates.singleWhere((record) => record['gateId'] == 'LR-07');
-    expect(lr07['currentStatus'], 'LIVE_READBACK_PROVED');
-    expect(lr07['authorization'], 'AWAITING_SOURCE_CI_CLOSURE');
+    expect(lr07['currentStatus'], 'CLOSED');
+    expect(lr07['authorization'], 'CLOSED_PASS');
     expect(
       _objects(lr07['statusHistory']).map((entry) => entry['status']),
       <String>[
@@ -225,18 +225,22 @@ void main() {
         'CLOSED',
         'OPEN',
         'LIVE_READBACK_PROVED',
+        'CLOSED',
       ],
     );
     expect(_strings(lr07['requiredExitEvidence']), hasLength(6));
     expect(_strings(lr07['reArmTriggers']), hasLength(7));
     final ledgerEvidence = _objects(lr07['evidence']);
-    expect(ledgerEvidence, hasLength(5));
+    expect(ledgerEvidence, hasLength(6));
     expect(ledgerEvidence.map((entry) => entry['sha256']).toSet(), <String>{
       _fileSha256(containmentPath),
       _fileSha256(readbackPath),
       _fileSha256(closurePath),
       _fileSha256(build11ContainmentPath),
       _fileSha256(build11ReadbackPath),
+      _fileSha256(
+        'release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json',
+      ),
     });
     expect(_strings(closure['reArmConditions']).last, contains('Build 8'));
     expect(
@@ -244,8 +248,14 @@ void main() {
       contains('latest admitted build authority'),
     );
     final programmeDecision = _object(ledger['programmeDecision']);
-    expect(programmeDecision['nextMutation'], 'STAGE2D-F6');
-    expect(programmeDecision['pilotHandout'], 'NOT_AUTHORIZED');
+    expect(
+      programmeDecision['nextMutation'],
+      'NONE_ALL_PROGRAMME_GATES_CLOSED',
+    );
+    expect(
+      programmeDecision['pilotHandout'],
+      'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER',
+    );
     expect(programmeDecision['unrestrictedDistribution'], 'NO_GO');
   });
 

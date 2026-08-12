@@ -1,6 +1,6 @@
 # LR-07 Distribution and Installation Readback
 
-Status: LIVE READBACK PROVED - MERGED SOURCE/CI CLOSURE ADJUDICATION PENDING
+Status: CLOSED - EXACT BUILD 11 SEALED PILOT AUTHORIZED
 
 ## Live finding
 
@@ -75,7 +75,7 @@ account identity.
    and strict-readback records and moved `LR-07` through
    `OPEN -> LIVE_READBACK_PROVED -> CLOSED`.
 
-The collector still does not close `LR-07`; it records facts and requires a
+The collector itself does not close `LR-07`; it records facts and requires a
 separate adjudication. The repository evidence is:
 
 - `release/evidence/lr07-public-production-artifact-containment.json`

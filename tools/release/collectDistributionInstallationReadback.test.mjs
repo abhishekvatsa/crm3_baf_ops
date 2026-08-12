@@ -246,6 +246,7 @@ test("preserved latest authority admits only a source-reserved successor", () =>
     releasePolicyExact: true,
     buildLedgerExact: true,
     latestContainmentAttemptExact: true,
+    controlledPilotPromotionExact: false,
   });
 
   const malformedPrior = structuredClone(releasePolicy);
@@ -376,7 +377,66 @@ test("completed successor still requires every retained failed-attempt receipt",
       releasePolicyExact: true,
       buildLedgerExact: true,
       latestContainmentAttemptExact: true,
+      controlledPilotPromotionExact: false,
     },
+  );
+
+  const promotionPath =
+    "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json";
+  const promotionSha = "1".repeat(64).toUpperCase();
+  policy.sourceEvidence.push({path: promotionPath, sha256: promotionSha});
+  const promotedPolicy = structuredClone(releasePolicy);
+  promotedPolicy.postBuildPromotion = {
+    status: "completed-controlled-pilot-only",
+    promotionReceiptFile: promotionPath,
+    promotionReceiptSha256: promotionSha,
+    buildNumber: completed.buildNumber,
+    sourceCommit: completed.headSha,
+    governedPackageSha256: completed.governedPackageSha256,
+    controlledPilotApproved: true,
+    pilotHandoutPerformed: false,
+    publicArtifactApproved: false,
+    githubReleaseApproved: false,
+    firebaseAppDistributionApproved: false,
+    playConsoleApproved: false,
+    playStoreApproved: false,
+    webDistributionApproved: false,
+    unrestrictedPlantReleaseApproved: false,
+  };
+  promotedPolicy.distribution = {
+    authority: "exact-build11-sealed-small-group-pilot",
+    approved: true,
+    approvedBuildNumber: completed.buildNumber,
+    approvedPackageSha256: completed.governedPackageSha256,
+    promotionReceiptFile: promotionPath,
+    promotionReceiptSha256: promotionSha,
+    pilotHandoutPerformed: false,
+    unrestrictedPlantReleaseApproved: false,
+    postBuildPromotionRequiredForAnyDistribution: true,
+  };
+  assert.deepEqual(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: promotedPolicy,
+      buildLedger: {entries: ledgers},
+    }),
+    {
+      releasePolicyExact: true,
+      buildLedgerExact: true,
+      latestContainmentAttemptExact: true,
+      controlledPilotPromotionExact: true,
+    },
+  );
+
+  const broadenedPromotion = structuredClone(promotedPolicy);
+  broadenedPromotion.postBuildPromotion.publicArtifactApproved = true;
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: broadenedPromotion,
+      buildLedger: {entries: ledgers},
+    }).releasePolicyExact,
+    false,
   );
 
   const missingFailure = structuredClone(releasePolicy);

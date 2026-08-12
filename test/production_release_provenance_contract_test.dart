@@ -144,14 +144,16 @@ void main() {
       expect(text, isNot(contains('authority.deployedIndexesParityStatus')));
     });
 
-    test('policy remains non-distributable and binds remote issuance', () {
+    test('policy binds remote issuance and exact sealed-pilot promotion', () {
       final text = read('tools/release/Test-ProductionReleasePolicy.ps1');
 
       expect(text, contains("schemaVersion -ne 3"));
       expect(text, contains('remoteReservationTag'));
       expect(text, contains('remoteBuiltTag'));
       expect(text, contains('failedOrWithdrawnBuildConsumesNumber'));
-      expect(text, contains('production-signed-pre-release-candidate'));
+      expect(text, contains('exact-build11-sealed-small-group-pilot'));
+      expect(text, contains('completed-controlled-pilot-only'));
+      expect(text, contains('promotionReceiptSha256'));
       expect(text, contains('operationalCutoverBoundary'));
       expect(text, contains('backupProofSha256'));
       expect(text, contains('recoveryProofSha256'));
@@ -1228,7 +1230,12 @@ void main() {
         policy,
         contains('"remoteReservationTag": "crm3-build-reserved/11"'),
       );
-      expect(policy, contains('"approved": false'));
+      expect(policy, contains('"approved": true'));
+      expect(
+        policy,
+        contains('"authority": "exact-build11-sealed-small-group-pilot"'),
+      );
+      expect(policy, contains('"pilotHandoutPerformed": false'));
       expect(policy, contains('"unrestrictedPlantReleaseApproved": false'));
       expect(
         policy,

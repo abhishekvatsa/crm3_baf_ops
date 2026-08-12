@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "STAGE2D-F6-BUILD11-CONTROLLED-PILOT-AUTHORIZATION-20260812",
+  "evidenceType": "stage2d-f6-build11-controlled-pilot-authorization",
+  "recordIds": [
+    "GATE:LR-07",
+    "GATE:STAGE2D-F6"
+  ],
+  "authorityType": "PILOT_AUTHORIZATION",
+  "decision": "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED",
+  "recordedAtUtc": "2026-08-12T08:52:23.8419995Z",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "adjudicatedPullRequest": 201,
+    "adjudicatedHeadCommit": "4803645b0fad351afcd0885c2ed78d180ebd3cf1",
+    "adjudicatedMergeCommit": "38654b9385cd91cdf4dab743ca007f07d0430f76",
+    "adjudicatedMergeTree": "c9a0e29ecb17f2891d6b652cf5ad1996c225523a",
+    "pullRequestCi": {
+      "runId": 31578415848,
+      "conclusion": "success",
+      "requiredJobCount": 5,
+      "jobs": [
+        {
+          "id": 94055690676,
+          "name": "Android emulator app-shell integration (not physical-device evidence)",
+          "conclusion": "success"
+        },
+        {
+          "id": 94055690720,
+          "name": "Cloud Functions host build + non-emulator tests",
+          "conclusion": "success"
+        },
+        {
+          "id": 94055690748,
+          "name": "Flutter host analysis + tests + no-loss contracts",
+          "conclusion": "success"
+        },
+        {
+          "id": 94055690782,
+          "name": "Android release package + cold-start proof (non-production)",
+          "conclusion": "success"
+        },
+        {
+          "id": 94055690836,
+          "name": "Firestore Rules + governed callable emulator",
+          "conclusion": "success"
+        }
+      ]
+    },
+    "postMergeCi": {
+      "runId": 31579340418,
+      "conclusion": "success",
+      "requiredJobCount": 5,
+      "jobs": [
+        {
+          "id": 94058618716,
+          "name": "Firestore Rules + governed callable emulator",
+          "conclusion": "success"
+        },
+        {
+          "id": 94058618786,
+          "name": "Android emulator app-shell integration (not physical-device evidence)",
+          "conclusion": "success"
+        },
+        {
+          "id": 94058618835,
+          "name": "Flutter host analysis + tests + no-loss contracts",
+          "conclusion": "success"
+        },
+        {
+          "id": 94058618836,
+          "name": "Cloud Functions host build + non-emulator tests",
+          "conclusion": "success"
+        },
+        {
+          "id": 94058618837,
+          "name": "Android release package + cold-start proof (non-production)",
+          "conclusion": "success"
+        }
+      ]
+    }
+  },
+  "admittedEvidence": {
+    "governedBuild": {
+      "buildNumber": 11,
+      "versionName": "1.0.0-rc.1",
+      "sourceCommit": "ca65d3deead23cccdf07ca24255bc073221d84db",
+      "governedPackageSha256": "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970",
+      "finalizationReceipt": "release/evidence/build-11-finalization-closure.json",
+      "finalizationReceiptSha256": "59AE1BBDB9F9F4ACACF5B32342E2F1330A4915441726F44432D5CFBB50737DD3",
+      "dualCustodyCompleted": true,
+      "twoTargetInPlaceValidationPassed": true
+    },
+    "localRecovery": {
+      "receipt": "release/evidence/70k-local-database-recovery-closure.json",
+      "sha256": "D67264FA6A93CFC07BD4A6955435D605B9062BD0F83CD53BE6BF97E12857FEF0",
+      "decision": "PASS_70K_RECOVERY_AND_P06_CLOSURE"
+    },
+    "firestoreRecoverability": {
+      "receipt": "release/evidence/p05-firestore-recoverability-closure.json",
+      "sha256": "176A143BACD196701A782F8959B96B69FC11CE401DB6D122E4F16DE2C1B4EE79",
+      "decision": "PASS_P05_FIRESTORE_RECOVERABILITY_CLOSED"
+    },
+    "liveAuthorityMatrix": {
+      "receipt": "release/evidence/stage2d-f5-live-authority-matrix-closure.json",
+      "sha256": "DD8A8BB0E155786BF54DA468E6E15005FC303EB1057E42F01CA763C9A7F9ED7B",
+      "decision": "PASS_STAGE2D_F5_LIVE_AUTHORITY_MATRIX_CLOSURE"
+    },
+    "pilotReadiness": {
+      "receipt": "release/evidence/stage2d-f6-build11-pilot-readiness.json",
+      "sha256": "7C5DF86E1DDB16C3CD36BFF476798C4790E314CFF707BE3BC8FDCE85BDC8CF1A",
+      "decision": "READY_AWAITING_LR07_CONTAINMENT"
+    },
+    "lr07Containment": {
+      "receipt": "release/evidence/lr07-public-production-artifact-containment-builds9-11.json",
+      "sha256": "D873651F251923D75DE34687600051C36C99E6B17E0662C023D2E7D2B04F9258",
+      "decision": "PASS_LR07_BUILDS_9_10_11_PUBLIC_PRODUCTION_ARTIFACTS_CONTAINED",
+      "deletedArtifactIds": [
+        9116320474,
+        9122790773,
+        9125100777
+      ],
+      "deletedBytes": 431389958
+    },
+    "lr07StrictReadback": {
+      "receipt": "release/evidence/lr07-distribution-installation-live-readback-build11.json",
+      "sha256": "A1BB0DD539B68A782BFDA3C2D9DBA3D003C65333EA5FF5FD4054EFC192667517",
+      "decision": "PASS_LR07_BUILD11_DISTRIBUTION_INSTALLATION_LIVE_READBACK",
+      "productionArtifactCount": 0,
+      "githubReleaseCount": 0,
+      "workflowRunsPreserved": true
+    }
+  },
+  "gateTransitions": [
+    {
+      "recordId": "GATE:LR-07",
+      "from": "LIVE_READBACK_PROVED",
+      "to": "CLOSED",
+      "basis": "Exact Builds 9-11 containment, strict clean-main live readback and PR #201 source/CI authority are all admitted."
+    },
+    {
+      "recordId": "GATE:STAGE2D-F6",
+      "from": "OPEN",
+      "to": "PILOT_AUTHORIZED",
+      "basis": "All seven F6 operational categories, closed prerequisite gates and exact Build 11 package authority are admitted."
+    },
+    {
+      "recordId": "GATE:STAGE2D-F6",
+      "from": "PILOT_AUTHORIZED",
+      "to": "CLOSED",
+      "basis": "The controlled-pilot authorization is fully recorded with stop, re-arm, support, recovery, privacy and acceptance boundaries."
+    }
+  ],
+  "promotion": {
+    "status": "CONTROLLED_PILOT_AUTHORIZED",
+    "authorizedBuildNumber": 11,
+    "authorizedPackageSha256": "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970",
+    "authorizedChannel": "direct-dual-custody-small-group-pilot",
+    "authorizedTargets": "frozen admitted physical-device roster only",
+    "authorizedUsers": "frozen approved-user roster at or below the governed ceiling only",
+    "preHandoutRequirements": [
+      "verify the exact Build 11 package hash and admitted production signing certificate",
+      "freeze and record the approved pilot-user and physical-device rosters",
+      "run the complete pilot acceptance script from the admitted F6 readiness record",
+      "record a separate privacy-safe execution receipt for each actual handout"
+    ],
+    "pilotHandoutAuthorized": true,
+    "pilotHandoutPerformedByThisRecord": false,
+    "publicArtifactAuthorized": false,
+    "githubReleaseAuthorized": false,
+    "firebaseAppDistributionAuthorized": false,
+    "playConsoleAuthorized": false,
+    "playStoreAuthorized": false,
+    "webDistributionAuthorized": false,
+    "unrestrictedDistributionAuthorized": false,
+    "appCheckActivationAuthorized": false
+  },
+  "programmeDecision": {
+    "internalControlledPilot": "GO",
+    "pilotHandout": "AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER",
+    "unrestrictedDistribution": "NO_GO",
+    "nextMutation": "NONE_ALL_PROGRAMME_GATES_CLOSED"
+  },
+  "reArmConditions": [
+    "A production-signed workflow artifact or GitHub Release is created or retained outside an approved handout receipt.",
+    "The Build 11 package hash, signer, source, built tag or custody authority changes or cannot be reproduced.",
+    "The approved-user or physical-device roster is not frozen, exceeds its ceiling or admits an unauthorized subject or target.",
+    "Rules, indexes, callable authority, runtime identity, recovery controls, backups, privacy posture or incident controls drift from admitted evidence.",
+    "A pilot acceptance step fails, local provenance is incomplete, synchronization loses or quarantines data, or a sign-in, revocation or wrong-role control fails.",
+    "Any public, Play, web, unrestricted or otherwise unapproved distribution path is introduced."
+  ],
+  "closureBoundary": {
+    "pilotHandoutPerformed": false,
+    "githubArtifactCreated": false,
+    "githubReleaseCreated": false,
+    "firebaseMutationPerformed": false,
+    "deviceMutationPerformed": false,
+    "businessDataReadOrWritten": false,
+    "unrestrictedDistributionAuthorized": false,
+    "appCheckDeferralChanged": false
+  },
+  "qualification": "This record authorizes a conditional, sealed, small-group pilot using only exact governed Build 11. It does not perform a handout and does not authorize public, Play, web, Firebase App Distribution or unrestricted plant distribution."
+}

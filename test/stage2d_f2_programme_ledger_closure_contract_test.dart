@@ -22,8 +22,14 @@ void main() {
             as Map<String, dynamic>;
 
     final programmeDecision = _object(ledger['programmeDecision']);
-    expect(programmeDecision['nextMutation'], 'STAGE2D-F6');
-    expect(programmeDecision['pilotHandout'], 'NOT_AUTHORIZED');
+    expect(
+      programmeDecision['nextMutation'],
+      'NONE_ALL_PROGRAMME_GATES_CLOSED',
+    );
+    expect(
+      programmeDecision['pilotHandout'],
+      'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER',
+    );
 
     final p02 = _objects(
       ledger['technicalFindings'],
