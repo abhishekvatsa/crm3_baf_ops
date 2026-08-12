@@ -8945,13 +8945,13 @@ check(
     and a05_evidence[0].get("postMergeWorkflowRun") == 31623568710
     and a05_evidence[0].get("localGenerationRevalidationPullRequest") == 206
     and a05_evidence[0].get("localGenerationRevalidationHeadCommit")
-        == "7f4bd135393db4f9744c56d3649fb8191b61d564"
+        == "ed8b8fb0655d2fb5396f10daecb3e6ab49966342"
     and a05_evidence[0].get("localGenerationRevalidationSourceTree")
-        == "03402bde4eb74491c3268159ea862fbd986ccbee"
+        == "98af51decc0c4b2fe9257d66dcb4de4766aa1cfd"
     and a05_evidence[0].get("localGenerationRevalidationWorkflowRun")
-        == 31625578630
+        == 31628102225
     and a05_evidence[0].get("localGenerationRevalidationWorkflowJob")
-        == 94210993855
+        == 94219670718
     and a05_evidence[0].get("remediatedA05RegressionPassedCount") == 137
     and a05_evidence[0].get("supportedLocalGenerationFixturePassedCount") == 4
     and a05_evidence[0].get("productionBlockingFindingCount") == 0
@@ -9007,11 +9007,11 @@ check(
         == "abhishekvatsa/crm3_baf_ops"
     and a05_current_source_revalidation.get("pullRequest") == 206
     and a05_current_source_revalidation.get("sourceCommit")
-        == "7f4bd135393db4f9744c56d3649fb8191b61d564"
+        == "ed8b8fb0655d2fb5396f10daecb3e6ab49966342"
     and a05_current_source_revalidation.get("sourceTree")
-        == "03402bde4eb74491c3268159ea862fbd986ccbee"
-    and a05_current_source_revalidation.get("workflowRun") == 31625578630
-    and a05_current_source_revalidation.get("workflowJob") == 94210993855
+        == "98af51decc0c4b2fe9257d66dcb4de4766aa1cfd"
+    and a05_current_source_revalidation.get("workflowRun") == 31628102225
+    and a05_current_source_revalidation.get("workflowJob") == 94219670718
     and a05_current_source_revalidation.get("workflowJobName")
         == "Flutter host analysis + tests + no-loss contracts"
     and a05_current_source_revalidation.get("conclusion") == "success"
@@ -9031,6 +9031,24 @@ check(
     and a05_current_source_revalidation.get("fixtureFile")
         == "test/70k_isar_populated_migration_fixture_test.dart"
     and len(a05_current_source_revalidation.get("fixtureDispositions", [])) == 4
+    and a05_current_source_revalidation.get(
+        "integratedRepairDisposition", {}
+    ).get("disposition") == "PRESERVE_AND_BLOCK_PENDING_REPAIR"
+    and a05_current_source_revalidation.get(
+        "integratedRepairDisposition", {}
+    ).get("malformedField") == "asset"
+    and a05_current_source_revalidation.get(
+        "integratedRepairDisposition", {}
+    ).get("rawPayloadPreserved") is True
+    and a05_current_source_revalidation.get(
+        "integratedRepairDisposition", {}
+    ).get("repairStateExposed") is True
+    and a05_current_source_revalidation.get(
+        "integratedRepairDisposition", {}
+    ).get("authoritativeReadRejected") is True
+    and a05_current_source_revalidation.get(
+        "integratedRepairDisposition", {}
+    ).get("silentRewritePerformed") is False
     and "rather than being reinterpreted as Firestore documents"
         in a05_current_source_revalidation.get("authorityBoundary", "")
     and a05_pr_ci.get("runId") == 31622397485
@@ -9067,6 +9085,7 @@ check(
     and "137 A-05" in a05_closure_decision
     and "all four governed local-generation fixtures"
         in a05_closure_decision
+    and "PRESERVE_AND_BLOCK_PENDING_REPAIR" in a05_closure_decision
     and "not re-created or\nreinterpreted as current-source proof"
         in a05_closure_decision
     and "closes only A-05" in a05_closure_decision,

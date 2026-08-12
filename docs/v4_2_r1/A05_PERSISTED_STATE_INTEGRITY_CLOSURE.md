@@ -52,14 +52,22 @@ The governed evidence SHA-256 is
 ## Local Generations
 
 Current-source local-generation authority is bound to PR #206 head
-`7f4bd135393db4f9744c56d3649fb8191b61d564`, tree
-`03402bde4eb74491c3268159ea862fbd986ccbee`. In immutable run
-`31625578630`, job `94210993855`, the same checkout passed 137 A-05
+`ed8b8fb0655d2fb5396f10daecb3e6ab49966342`, tree
+`98af51decc0c4b2fe9257d66dcb4de4766aa1cfd`. In immutable run
+`31628102225`, job `94219670718`, the same checkout passed 137 A-05
 regressions across 18 files and all four governed local-generation fixtures.
 Those fixtures cover populated repository-proven v1-to-v3 migration,
 production rejection and isolated adoption of the unadmitted v2 rehearsal,
 every PREPARED/open/repair/COMMITTED restart boundary, and byte-sealed
 backup/restore with correct database-generation continuity or rotation.
+
+The fixture also executes current A-05 local readers against the records after
+v1 migration, isolated v2 adoption, and byte-sealed restore. Compatible fields,
+responses, module snapshots, and field definitions remain valid. The historical
+execution and module action payload lacks the now-required `asset` field; its
+raw bytes are retained, a stable invalid repair state is exposed, and any
+authoritative action read fails. The disposition is
+`PRESERVE_AND_BLOCK_PENDING_REPAIR`; no silent rewrite is performed.
 
 The reader boundary is deliberate. Firestore readers are exercised by their
 focused regressions and the read-only production sweep. Local Isar generations
@@ -83,7 +91,7 @@ PR #205 exact-head run `31622397485` and admitted-main post-merge run
 Firestore Rules and callable emulator, Android emulator integration, and
 Android release package with cold-start proof.
 
-PR #206 exact-head run `31625578630` separately binds the closure decision to
+PR #206 source-witness run `31628102225` separately binds the closure decision to
 the remediated source and current-source local-generation revalidation. All
 five jobs passed; the Flutter job supplies the 137 A-05 plus four governed
 local-generation results described above.

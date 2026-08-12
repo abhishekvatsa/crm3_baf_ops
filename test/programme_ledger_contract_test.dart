@@ -612,14 +612,14 @@ void main() {
     expect(currentSource['pullRequest'], 206);
     expect(
       currentSource['sourceCommit'],
-      '7f4bd135393db4f9744c56d3649fb8191b61d564',
+      'ed8b8fb0655d2fb5396f10daecb3e6ab49966342',
     );
     expect(
       currentSource['sourceTree'],
-      '03402bde4eb74491c3268159ea862fbd986ccbee',
+      '98af51decc0c4b2fe9257d66dcb4de4766aa1cfd',
     );
-    expect(currentSource['workflowRun'], 31625578630);
-    expect(currentSource['workflowJob'], 94210993855);
+    expect(currentSource['workflowRun'], 31628102225);
+    expect(currentSource['workflowJob'], 94219670718);
     expect(currentSource['conclusion'], 'success');
     expect(currentSource['sameCheckout'], isTrue);
     expect(currentSource['remediatedA05RegressionFileCount'], 18);
@@ -627,6 +627,18 @@ void main() {
     expect(currentSource['supportedLocalGenerationFixturePassedCount'], 4);
     expect(currentSource['supportedLocalGenerationFixtureFailedCount'], 0);
     expect(_strings(currentSource['fixtureDispositions']), hasLength(4));
+    final repairDisposition = _object(
+      currentSource['integratedRepairDisposition'],
+    );
+    expect(
+      repairDisposition['disposition'],
+      'PRESERVE_AND_BLOCK_PENDING_REPAIR',
+    );
+    expect(repairDisposition['malformedField'], 'asset');
+    expect(repairDisposition['rawPayloadPreserved'], isTrue);
+    expect(repairDisposition['repairStateExposed'], isTrue);
+    expect(repairDisposition['authoritativeReadRejected'], isTrue);
+    expect(repairDisposition['silentRewritePerformed'], isFalse);
 
     expect(
       _strings(architecture['A-02']!['requiredExitEvidence']).join(' '),

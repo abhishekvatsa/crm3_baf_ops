@@ -6,7 +6,7 @@
   ],
   "authorityType": "SOURCE_AND_CI",
   "decision": "PASS_A05_PERSISTED_STATE_INTEGRITY_CLOSURE",
-  "recordedAtUtc": "2026-08-12T17:52:45Z",
+  "recordedAtUtc": "2026-08-12T18:46:53Z",
   "sourceAuthority": {
     "repository": "abhishekvatsa/crm3_baf_ops",
     "inventoryAndDecoderPullRequest": 204,
@@ -145,10 +145,10 @@
     "currentSourceRevalidation": {
       "repository": "abhishekvatsa/crm3_baf_ops",
       "pullRequest": 206,
-      "sourceCommit": "7f4bd135393db4f9744c56d3649fb8191b61d564",
-      "sourceTree": "03402bde4eb74491c3268159ea862fbd986ccbee",
-      "workflowRun": 31625578630,
-      "workflowJob": 94210993855,
+      "sourceCommit": "ed8b8fb0655d2fb5396f10daecb3e6ab49966342",
+      "sourceTree": "98af51decc0c4b2fe9257d66dcb4de4766aa1cfd",
+      "workflowRun": 31628102225,
+      "workflowJob": 94219670718,
       "workflowJobName": "Flutter host analysis + tests + no-loss contracts",
       "conclusion": "success",
       "sameCheckout": true,
@@ -163,6 +163,31 @@
         "interruption and restart recovery preserves the database generation across PREPARED, open, repair and COMMITTED boundaries",
         "byte-sealed backup restores populated rows while an empty rebuild rotates the database generation"
       ],
+      "integratedRepairDisposition": {
+        "fixturePayloadSha256": "17BBDED5F08ED1EC5D6C1FDFD969F6DADCD173DD8156AA49B8F17F0CF042E3D6",
+        "affectedRecordFamilies": [
+          "job_execution",
+          "job_module_instance"
+        ],
+        "validationPoints": [
+          "repository-proven-v1-migrated-to-v3",
+          "isolated-v2-adoption-rehearsal",
+          "byte-sealed-current-generation-restore"
+        ],
+        "compatiblePayloadsValidated": [
+          "template-fields",
+          "execution-responses",
+          "module-snapshot",
+          "module-field-definitions",
+          "module-responses"
+        ],
+        "malformedField": "asset",
+        "rawPayloadPreserved": true,
+        "repairStateExposed": true,
+        "authoritativeReadRejected": true,
+        "silentRewritePerformed": false,
+        "disposition": "PRESERVE_AND_BLOCK_PENDING_REPAIR"
+      },
       "authorityBoundary": "The same immutable remediated-source checkout passed both the A-05 decoder/containment regressions and the governed local-generation fixtures. Firestore readers are exercised by their focused regressions and the read-only production sweep; local Isar generations are exercised by provenance, migration, repair, restart and backup/restore fixtures rather than being reinterpreted as Firestore documents."
     },
     "evidenceFile": "release/evidence/70k-local-database-recovery-closure.json",

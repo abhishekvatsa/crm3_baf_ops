@@ -3194,7 +3194,7 @@
       "evidence": [
         {
           "evidenceFile": "release/evidence/a05-persisted-state-integrity-closure.json",
-          "evidenceSha256": "EFD473A473FB24E10BFA68F42C23E6173739C74B1948003174702E1304DE5152",
+          "evidenceSha256": "1A33B0AB9206781C18E70FBE2601D94AA50AAEBAFA3F0548ECC362AE6B2B3AFA",
           "repository": "abhishekvatsa/crm3_baf_ops",
           "inventoryAndDecoderPullRequest": 204,
           "inventoryAndDecoderMergeCommit": "6210b303d9a0981c662b716c4baae30f34afbd94",
@@ -3205,10 +3205,10 @@
           "pullRequestWorkflowRun": 31622397485,
           "postMergeWorkflowRun": 31623568710,
           "localGenerationRevalidationPullRequest": 206,
-          "localGenerationRevalidationHeadCommit": "7f4bd135393db4f9744c56d3649fb8191b61d564",
-          "localGenerationRevalidationSourceTree": "03402bde4eb74491c3268159ea862fbd986ccbee",
-          "localGenerationRevalidationWorkflowRun": 31625578630,
-          "localGenerationRevalidationWorkflowJob": 94210993855,
+          "localGenerationRevalidationHeadCommit": "ed8b8fb0655d2fb5396f10daecb3e6ab49966342",
+          "localGenerationRevalidationSourceTree": "98af51decc0c4b2fe9257d66dcb4de4766aa1cfd",
+          "localGenerationRevalidationWorkflowRun": 31628102225,
+          "localGenerationRevalidationWorkflowJob": 94219670718,
           "remediatedA05RegressionPassedCount": 137,
           "supportedLocalGenerationFixturePassedCount": 4,
           "productionReconciliationEvidenceSha256": "DC5AEA0FB0694AEA60EC2B4F4E6917E0F2D480FE806C2BC8243056BD5A0B14EB",
@@ -3236,7 +3236,7 @@
       "notes": [
         "PR #204 admitted the complete machine inventory, strict readers and cursor/quarantine containment; PR #205 admitted the privacy-safe production reconciliation bridge and cross-platform CI witnesses.",
         "The exact clean-main production sweep passed with zero blockers and zero warnings; all nine populated app-decoded records passed their real strict readers.",
-        "PR #206 run 31625578630 binds the remediated source to 137 A-05 regressions and all four governed local-generation fixtures in the same immutable checkout.",
+        "PR #206 run 31628102225 binds the remediated source to 137 A-05 regressions and all four governed local-generation fixtures in the same immutable checkout; migrated and restored legacy action payloads are preserved in an explicit blocking repair state rather than silently rewritten.",
         "The separately sealed 70K/P-06 record corroborates current-source local-generation validation with two-target installed-store, interruption, backup/restore and cloud-reconciliation evidence; it is not used as a substitute for current-source A-05 validation.",
         "This closure performed no production mutation or Firebase deployment and did not change pilot, distribution or cutover authority."
       ],
