@@ -602,6 +602,31 @@ void main() {
       _objects(a05['evidence']).single['decision'],
       'PASS_A05_PERSISTED_STATE_INTEGRITY_CLOSURE',
     );
+    final a05Closure = _readJson(
+      'release/evidence/a05-persisted-state-integrity-closure.json',
+    );
+    final localGeneration = _object(
+      a05Closure['supportedLocalGenerationAuthority'],
+    );
+    final currentSource = _object(localGeneration['currentSourceRevalidation']);
+    expect(currentSource['pullRequest'], 206);
+    expect(
+      currentSource['sourceCommit'],
+      '7f4bd135393db4f9744c56d3649fb8191b61d564',
+    );
+    expect(
+      currentSource['sourceTree'],
+      '03402bde4eb74491c3268159ea862fbd986ccbee',
+    );
+    expect(currentSource['workflowRun'], 31625578630);
+    expect(currentSource['workflowJob'], 94210993855);
+    expect(currentSource['conclusion'], 'success');
+    expect(currentSource['sameCheckout'], isTrue);
+    expect(currentSource['remediatedA05RegressionFileCount'], 18);
+    expect(currentSource['remediatedA05RegressionPassedCount'], 137);
+    expect(currentSource['supportedLocalGenerationFixturePassedCount'], 4);
+    expect(currentSource['supportedLocalGenerationFixtureFailedCount'], 0);
+    expect(_strings(currentSource['fixtureDispositions']), hasLength(4));
 
     expect(
       _strings(architecture['A-02']!['requiredExitEvidence']).join(' '),

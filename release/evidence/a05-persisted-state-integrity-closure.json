@@ -142,6 +142,29 @@
     ]
   },
   "supportedLocalGenerationAuthority": {
+    "currentSourceRevalidation": {
+      "repository": "abhishekvatsa/crm3_baf_ops",
+      "pullRequest": 206,
+      "sourceCommit": "7f4bd135393db4f9744c56d3649fb8191b61d564",
+      "sourceTree": "03402bde4eb74491c3268159ea862fbd986ccbee",
+      "workflowRun": 31625578630,
+      "workflowJob": 94210993855,
+      "workflowJobName": "Flutter host analysis + tests + no-loss contracts",
+      "conclusion": "success",
+      "sameCheckout": true,
+      "remediatedA05RegressionFileCount": 18,
+      "remediatedA05RegressionPassedCount": 137,
+      "supportedLocalGenerationFixturePassedCount": 4,
+      "supportedLocalGenerationFixtureFailedCount": 0,
+      "fixtureFile": "test/70k_isar_populated_migration_fixture_test.dart",
+      "fixtureDispositions": [
+        "repository-proven populated v1 migrates to v3 with rows and relationships intact",
+        "governed populated v2 remains production-unsupported and is isolated behind an explicit adoption plan",
+        "interruption and restart recovery preserves the database generation across PREPARED, open, repair and COMMITTED boundaries",
+        "byte-sealed backup restores populated rows while an empty rebuild rotates the database generation"
+      ],
+      "authorityBoundary": "The same immutable remediated-source checkout passed both the A-05 decoder/containment regressions and the governed local-generation fixtures. Firestore readers are exercised by their focused regressions and the read-only production sweep; local Isar generations are exercised by provenance, migration, repair, restart and backup/restore fixtures rather than being reinterpreted as Firestore documents."
+    },
     "evidenceFile": "release/evidence/70k-local-database-recovery-closure.json",
     "evidenceSha256": "D67264FA6A93CFC07BD4A6955435D605B9062BD0F83CD53BE6BF97E12857FEF0",
     "decision": "PASS_70K_RECOVERY_AND_P06_CLOSURE",

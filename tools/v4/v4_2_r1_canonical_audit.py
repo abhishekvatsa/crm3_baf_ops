@@ -8175,6 +8175,9 @@ a05_production_reconciliation = a05_closure.get(
 a05_local_generation = a05_closure.get(
     "supportedLocalGenerationAuthority", {}
 )
+a05_current_source_revalidation = a05_local_generation.get(
+    "currentSourceRevalidation", {}
+)
 a05_closure_boundary = a05_closure.get("closureBoundary", {})
 a05_expected_jobs = {
     "Android emulator app-shell integration (not physical-device evidence)",
@@ -8940,6 +8943,17 @@ check(
         == "3b517d7d72efb629ace4b7348e6839a60e7f40d0"
     and a05_evidence[0].get("pullRequestWorkflowRun") == 31622397485
     and a05_evidence[0].get("postMergeWorkflowRun") == 31623568710
+    and a05_evidence[0].get("localGenerationRevalidationPullRequest") == 206
+    and a05_evidence[0].get("localGenerationRevalidationHeadCommit")
+        == "7f4bd135393db4f9744c56d3649fb8191b61d564"
+    and a05_evidence[0].get("localGenerationRevalidationSourceTree")
+        == "03402bde4eb74491c3268159ea862fbd986ccbee"
+    and a05_evidence[0].get("localGenerationRevalidationWorkflowRun")
+        == 31625578630
+    and a05_evidence[0].get("localGenerationRevalidationWorkflowJob")
+        == 94210993855
+    and a05_evidence[0].get("remediatedA05RegressionPassedCount") == 137
+    and a05_evidence[0].get("supportedLocalGenerationFixturePassedCount") == 4
     and a05_evidence[0].get("productionBlockingFindingCount") == 0
     and a05_evidence[0].get("productionWarningCount") == 0
     and a05_evidence[0].get("decision")
@@ -8989,6 +9003,36 @@ check(
     and a05_local_generation.get("nativeStoreTestsFailed") == 0
     and a05_local_generation.get("cloudReconciliationPassedOnEveryTarget")
         is True
+    and a05_current_source_revalidation.get("repository")
+        == "abhishekvatsa/crm3_baf_ops"
+    and a05_current_source_revalidation.get("pullRequest") == 206
+    and a05_current_source_revalidation.get("sourceCommit")
+        == "7f4bd135393db4f9744c56d3649fb8191b61d564"
+    and a05_current_source_revalidation.get("sourceTree")
+        == "03402bde4eb74491c3268159ea862fbd986ccbee"
+    and a05_current_source_revalidation.get("workflowRun") == 31625578630
+    and a05_current_source_revalidation.get("workflowJob") == 94210993855
+    and a05_current_source_revalidation.get("workflowJobName")
+        == "Flutter host analysis + tests + no-loss contracts"
+    and a05_current_source_revalidation.get("conclusion") == "success"
+    and a05_current_source_revalidation.get("sameCheckout") is True
+    and a05_current_source_revalidation.get(
+        "remediatedA05RegressionFileCount"
+    ) == 18
+    and a05_current_source_revalidation.get(
+        "remediatedA05RegressionPassedCount"
+    ) == 137
+    and a05_current_source_revalidation.get(
+        "supportedLocalGenerationFixturePassedCount"
+    ) == 4
+    and a05_current_source_revalidation.get(
+        "supportedLocalGenerationFixtureFailedCount"
+    ) == 0
+    and a05_current_source_revalidation.get("fixtureFile")
+        == "test/70k_isar_populated_migration_fixture_test.dart"
+    and len(a05_current_source_revalidation.get("fixtureDispositions", [])) == 4
+    and "rather than being reinterpreted as Firestore documents"
+        in a05_current_source_revalidation.get("authorityBoundary", "")
     and a05_pr_ci.get("runId") == 31622397485
     and a05_pr_ci.get("headSha")
         == "dc9f0c94a6f4dbed0b18f3345cac8d2560deb8e1"
@@ -9018,6 +9062,12 @@ check(
     )
     and "Status: CLOSED" in a05_closure_decision
     and "PASS_A05_PERSISTED_STATE_INTEGRITY_CLOSURE"
+        in a05_closure_decision
+    and "Current-source local-generation authority" in a05_closure_decision
+    and "137 A-05" in a05_closure_decision
+    and "all four governed local-generation fixtures"
+        in a05_closure_decision
+    and "not re-created or\nreinterpreted as current-source proof"
         in a05_closure_decision
     and "closes only A-05" in a05_closure_decision,
 )
