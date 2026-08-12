@@ -405,7 +405,7 @@ extension _ModuleComposerSupport on _ModuleComposerScreenState {
     }
     late final TemplateComposerDraft recoveredDraft;
     try {
-      recoveredDraft = TemplateComposerDraft.fromPayloads(
+      recoveredDraft = TemplateComposerDraft.fromAuthoringPayloads(
         jobTemplateSnapshotJson: _requiredRecoveryPayload(
           decoded,
           'jobTemplateSnapshotJson',

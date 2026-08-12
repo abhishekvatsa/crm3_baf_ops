@@ -18,7 +18,7 @@ import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/services/global_pull_protocol.dart';
-import '../data/remote_maintenance_timestamps.dart';
+import '../data/remote_maintenance_reader.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -836,13 +836,14 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
   @override
   Future<void> updateFromRemote(MaintenanceRecord remote) async {
     if (remote.firestoreId == null) return;
-    final remoteDeleteTime = remote.isDeleted
-        ? requireRemoteTombstoneDeletedAt(
-            remote.deletedAt,
-            entityLabel: 'maintenance ticket',
-            firestoreId: remote.firestoreId,
-          )
-        : null;
+    final remoteDeleteTime =
+        remote.isDeleted
+            ? requireRemoteTombstoneDeletedAt(
+              remote.deletedAt,
+              entityLabel: 'maintenance ticket',
+              firestoreId: remote.firestoreId,
+            )
+            : null;
     await isar.writeTxn(() async {
       final local =
           await isar.maintenanceRecords
@@ -1675,134 +1676,10 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
   };
 
   MaintenanceRecord _mapTicket(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
-    final timestamps = readRemoteMaintenanceTimestamps(
-      d,
-      source: 'maintenance/${doc.id}',
+    return readRemoteMaintenanceRecord(
+      Map<String, dynamic>.from(doc.data() as Map),
+      documentId: doc.id,
     );
-    final ticket = MaintenanceRecord()
-      ..firestoreId = doc.id
-      ..version = d['version'] ?? 1
-      ..assetType = _parseEnum(d['assetType'], AssetType.values, AssetType.base)
-      ..assetNumber = d['assetNumber'] ?? 0
-      ..component = _cleanOptionalMaintenanceText(d['component']?.toString())
-      ..subsystem = _cleanOptionalMaintenanceText(d['subsystem']?.toString())
-      ..tag = _cleanOptionalMaintenanceText(d['tag']?.toString())
-      ..hierarchyPath =
-          (d['hierarchyPath'] as List?)?.map((e) => e.toString()).toList()
-      ..maintenanceType = _parseEnum(
-        d['maintenanceType'],
-        MaintenanceType.values,
-        MaintenanceType.breakdown,
-      )
-      ..classification = _cleanOptionalMaintenanceText(
-        d['classification']?.toString(),
-      )
-      ..description = d['description'] ?? ''
-      ..routedTo = _parseEnum(
-        d['routedTo'],
-        RoutedTo.values,
-        RoutedTo.mechanical,
-      )
-      ..otherDepartment = _cleanOptionalMaintenanceText(
-        d['otherDepartment']?.toString(),
-      )
-      ..status = _parseEnum(d['status'], TicketStatus.values, TicketStatus.open)
-      ..isResolved = d['isResolved'] ?? false
-      ..workflowDeferred = d['workflowDeferred'] == true
-      ..workflowQueueState =
-          d['workflowQueueState']?.toString() ?? 'independent'
-      ..workflowAggregateId = _cleanOptionalMaintenanceText(
-        d['workflowAggregateId']?.toString(),
-      )
-      ..workflowComplianceId = _cleanOptionalMaintenanceText(
-        d['workflowComplianceId']?.toString(),
-      )
-      ..workflowOriginLaneKey = _cleanOptionalMaintenanceText(
-        d['workflowOriginLaneKey']?.toString(),
-      )
-      ..workflowTargetLaneKey = _cleanOptionalMaintenanceText(
-        d['workflowTargetLaneKey']?.toString(),
-      )
-      ..workflowConditionTypeKey = _cleanOptionalMaintenanceText(
-        d['workflowConditionTypeKey']?.toString(),
-      )
-      ..workflowConditionRef = _cleanOptionalMaintenanceText(
-        d['workflowConditionRef']?.toString(),
-      )
-      ..workflowDeferredAt = timestamps.workflowDeferredAt
-      ..workflowDeferredByUid = _cleanOptionalMaintenanceText(
-        d['workflowDeferredByUid']?.toString(),
-      )
-      ..workflowDeferredByName = _cleanOptionalMaintenanceText(
-        d['workflowDeferredByName']?.toString(),
-      )
-      ..workflowReactivatedAt = timestamps.workflowReactivatedAt
-      ..workflowReactivatedByUid = _cleanOptionalMaintenanceText(
-        d['workflowReactivatedByUid']?.toString(),
-      )
-      ..workflowReactivatedByName = _cleanOptionalMaintenanceText(
-        d['workflowReactivatedByName']?.toString(),
-      )
-      ..workflowReleasedAt = timestamps.workflowReleasedAt
-      ..workflowReleasedByUid = _cleanOptionalMaintenanceText(
-        d['workflowReleasedByUid']?.toString(),
-      )
-      ..workflowReleasedByName = _cleanOptionalMaintenanceText(
-        d['workflowReleasedByName']?.toString(),
-      )
-      ..workflowCorrectionReason = _cleanOptionalMaintenanceText(
-        d['workflowCorrectionReason']?.toString(),
-      )
-      ..workflowUpdatedAt = timestamps.workflowUpdatedAt
-      ..isCritical = d['isCritical'] == true
-      ..loggedByUid = d['loggedByUid']
-      ..loggedByName = d['loggedByName']
-      ..reportedBy = d['reportedBy']
-      ..acknowledgedByUid = d['acknowledgedByUid']
-      ..acknowledgedByName = d['acknowledgedByName']
-      ..acknowledgedAt = timestamps.acknowledgedAt
-      ..closedByUid = d['closedByUid']
-      ..closedByName = d['closedByName']
-      ..teamsInvolved = List<String>.from(d['teamsInvolved'] ?? [])
-      ..performedBy = d['performedBy']
-      ..remarks = _cleanOptionalMaintenanceText(d['remarks']?.toString())
-      ..startDate = timestamps.startDate
-      ..endDate = timestamps.endDate
-      ..downtimeHours =
-          (d['downtimeHours'] is num)
-              ? (d['downtimeHours'] as num).toDouble()
-              : null
-      ..chargeNoAtEvent = d['chargeNoAtEvent']
-      ..createdAt = timestamps.createdAt
-      ..updatedAt = timestamps.updatedAt
-      ..metadataJson = d['metadataJson']
-      ..actionsJson = d['actionsJson'] ?? '[]'
-      ..resolutionHistoryJson = d['resolutionHistoryJson'] ?? '[]'
-      ..isDeleted = d['isDeleted'] ?? false
-      ..deletedAt = timestamps.deletedAt
-      ..deletedByUid = d['deletedByUid']
-      ..deletedByName = d['deletedByName']
-      ..deleteReason = d['deleteReason'];
-
-    if (ticket.isDeleted) {
-      requireRemoteTombstoneDeletedAt(
-        ticket.deletedAt,
-        entityLabel: 'maintenance ticket',
-        firestoreId: ticket.firestoreId,
-      );
-    }
-
-    return ticket;
-  }
-
-  T _parseEnum<T extends Enum>(String? value, List<T> values, T fallback) {
-    if (value == null) return fallback;
-    try {
-      return values.firstWhere((e) => e.name == value);
-    } catch (_) {
-      return fallback;
-    }
   }
 }
 

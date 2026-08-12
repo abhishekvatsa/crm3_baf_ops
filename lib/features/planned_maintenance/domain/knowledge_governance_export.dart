@@ -106,8 +106,8 @@ class KnowledgeGovernanceExport {
     required KnowledgeBundleFormat format,
     required String matrixVersion,
   }) {
-    final rowList = rows.toList()
-      ..sort((a, b) => a.rowCode.compareTo(b.rowCode));
+    final rowList =
+        rows.toList()..sort((a, b) => a.rowCode.compareTo(b.rowCode));
     final exportedAt = DateTime.now().toIso8601String();
     if (format == KnowledgeBundleFormat.json) {
       final payload = <String, dynamic>{
@@ -128,7 +128,9 @@ class KnowledgeGovernanceExport {
     buffer.writeln(_csvColumns.map(_csvEscape).join(','));
     for (final row in rowList) {
       buffer.writeln(
-        _csvColumns.map((column) => _csvEscape(_csvCellOf(row, column))).join(','),
+        _csvColumns
+            .map((column) => _csvEscape(_csvCellOf(row, column)))
+            .join(','),
       );
     }
     return KnowledgeBundleExport(
@@ -161,18 +163,12 @@ class KnowledgeGovernanceExport {
         if (decoded is Map<String, dynamic>) {
           final rawRows = decoded['rows'];
           if (rawRows is List) {
-            rowMaps = rawRows
-                .whereType<Map>()
-                .map((map) => Map<String, dynamic>.from(map))
-                .toList();
+            rowMaps = _strictObjectRows(rawRows, label: 'JSON rows');
           } else {
             return _emptyRejection('JSON: missing "rows" array');
           }
         } else if (decoded is List) {
-          rowMaps = decoded
-              .whereType<Map>()
-              .map((map) => Map<String, dynamic>.from(map))
-              .toList();
+          rowMaps = _strictObjectRows(decoded, label: 'JSON root');
         } else {
           return _emptyRejection('JSON: top-level must be object or array');
         }
@@ -186,11 +182,13 @@ class KnowledgeGovernanceExport {
     for (final raw in rowMaps) {
       final rowCode = (raw['rowCode'] ?? '').toString().trim();
       if (rowCode.isEmpty) {
-        rejected.add(const KnowledgeImportRowResult(
-          rowCode: '<missing>',
-          accepted: false,
-          messages: <String>['rowCode missing'],
-        ));
+        rejected.add(
+          const KnowledgeImportRowResult(
+            rowCode: '<missing>',
+            accepted: false,
+            messages: <String>['rowCode missing'],
+          ),
+        );
         continue;
       }
       final messages = <String>[];
@@ -202,25 +200,31 @@ class KnowledgeGovernanceExport {
         messages.add('changeSummary missing or shorter than 15 characters');
       }
       if (messages.isNotEmpty) {
-        rejected.add(KnowledgeImportRowResult(
-          rowCode: rowCode,
-          accepted: false,
-          messages: messages,
-        ));
+        rejected.add(
+          KnowledgeImportRowResult(
+            rowCode: rowCode,
+            accepted: false,
+            messages: messages,
+          ),
+        );
         continue;
       }
-      final existing = existingRowsByCode == null ? null : existingRowsByCode[rowCode];
-      final draft = existing == null
-          ? KnowledgeRowDraft.blank(prefilledRowCode: rowCode)
-          : KnowledgeRowDraft.fromRow(existing);
+      final existing =
+          existingRowsByCode == null ? null : existingRowsByCode[rowCode];
+      final draft =
+          existing == null
+              ? KnowledgeRowDraft.blank(prefilledRowCode: rowCode)
+              : KnowledgeRowDraft.fromRow(existing);
       _hydrateDraft(draft, raw);
       draft.changeSummary = reason;
-      accepted.add(KnowledgeImportRowResult(
-        rowCode: rowCode,
-        accepted: true,
-        messages: const <String>[],
-        draft: draft,
-      ));
+      accepted.add(
+        KnowledgeImportRowResult(
+          rowCode: rowCode,
+          accepted: true,
+          messages: const <String>[],
+          draft: draft,
+        ),
+      );
     }
 
     return KnowledgeImportSummary(
@@ -246,6 +250,21 @@ class KnowledgeGovernanceExport {
       ],
       accepted: const <KnowledgeImportRowResult>[],
     );
+  }
+
+  static List<Map<String, dynamic>> _strictObjectRows(
+    List<dynamic> rows, {
+    required String label,
+  }) {
+    final result = <Map<String, dynamic>>[];
+    for (var index = 0; index < rows.length; index++) {
+      final row = rows[index];
+      if (row is! Map) {
+        throw FormatException('$label item #${index + 1} must be an object.');
+      }
+      result.add(Map<String, dynamic>.from(row));
+    }
+    return result;
   }
 
   static Map<String, dynamic> _rowToJsonMap(BafKnowledgeRow row) {
@@ -362,18 +381,26 @@ class KnowledgeGovernanceExport {
     draft.taskType = (raw['taskType'] ?? draft.taskType).toString();
     draft.frequency = (raw['frequency'] ?? draft.frequency).toString();
     draft.discipline = (raw['discipline'] ?? draft.discipline).toString();
-    draft.ownerDisciplines =
-        _readList(raw['ownerDisciplines'], draft.ownerDisciplines);
-    draft.safetyClasses =
-        _readList(raw['safetyClasses'] ?? raw['safetyClass'], draft.safetyClasses);
+    draft.ownerDisciplines = _readList(
+      raw['ownerDisciplines'],
+      draft.ownerDisciplines,
+    );
+    draft.safetyClasses = _readList(
+      raw['safetyClasses'] ?? raw['safetyClass'],
+      draft.safetyClasses,
+    );
     draft.procedureRefs = _readList(raw['procedureRefs'], draft.procedureRefs);
     draft.partRefs = _readList(raw['partRefs'], draft.partRefs);
-    draft.deviceTags = _readList(raw['deviceTags'], draft.deviceTags)
-        .map((tag) => tag.toUpperCase())
-        .toList();
+    draft.deviceTags =
+        _readList(
+          raw['deviceTags'],
+          draft.deviceTags,
+        ).map((tag) => tag.toUpperCase()).toList();
     draft.targetRefs = _readList(raw['targetRefs'], draft.targetRefs);
-    draft.suggestedFields =
-        _readList(raw['suggestedFields'], draft.suggestedFields);
+    draft.suggestedFields = _readList(
+      raw['suggestedFields'],
+      draft.suggestedFields,
+    );
     draft.requiredForClosure =
         (raw['requiredForClosure'] ?? draft.requiredForClosure).toString();
     draft.resolverImpact =
@@ -499,11 +526,12 @@ class KnowledgeGovernanceExport {
         .skip(1)
         .where((row) => row.any((cell) => cell.trim().isNotEmpty))
         .map((row) {
-      final map = <String, dynamic>{};
-      for (var j = 0; j < headers.length && j < row.length; j++) {
-        map[headers[j]] = row[j];
-      }
-      return map;
-    }).toList();
+          final map = <String, dynamic>{};
+          for (var j = 0; j < headers.length && j < row.length; j++) {
+            map[headers[j]] = row[j];
+          }
+          return map;
+        })
+        .toList();
   }
 }

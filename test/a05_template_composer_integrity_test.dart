@@ -20,6 +20,7 @@ Map<String, dynamic> _templateMap({
   bool includeFieldsJson = false,
 }) {
   final map = <String, dynamic>{
+    'firestoreId': 'template-1',
     'jobName': 'Integrity template',
     'applicableAssetType': AssetType.base.name,
     'assignedAgencies': <String>['mechanical'],
@@ -129,6 +130,33 @@ void main() {
   });
 
   group('A-05 Module Composer payload integrity', () {
+    test('empty authoring draft is distinct from assignable snapshots', () {
+      final authoringDraft = TemplateComposerDraft.fromAuthoringPayloads(
+        jobTemplateSnapshotJson: jsonEncode(<String, dynamic>{
+          'title': 'New governed template',
+          'assetType': AssetType.base.name,
+        }),
+        moduleSnapshotsJson: '[]',
+        fieldDefinitionsJson: '[]',
+        checklistJson: '[]',
+      );
+
+      expect(authoringDraft.title, 'New governed template');
+      expect(authoringDraft.modules, isEmpty);
+      expect(
+        () => TemplateComposerDraft.fromPayloads(
+          jobTemplateSnapshotJson: jsonEncode(<String, dynamic>{
+            'title': 'New governed template',
+            'assetType': AssetType.base.name,
+          }),
+          moduleSnapshotsJson: '[]',
+          fieldDefinitionsJson: '[]',
+          checklistJson: '[]',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    });
+
     test('each malformed payload root fails closed', () {
       final cases = <List<String>>[
         <String>['[]', '[]', '[]', '[]'],
@@ -208,7 +236,7 @@ void main() {
             'lib/features/planned_maintenance/presentation/module_composer_screen.actions.dart',
           ).readAsStringSync();
       final decodeIndex = source.indexOf(
-        'selectedDraft = TemplateComposerDraft.fromPayloads',
+        'selectedDraft = TemplateComposerDraft.fromAuthoringPayloads',
       );
       final clearIndex = source.indexOf('await _clearRecoveryDraft()');
 

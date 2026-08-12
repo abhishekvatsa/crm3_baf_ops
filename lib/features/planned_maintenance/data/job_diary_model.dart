@@ -2,8 +2,10 @@
 
 import 'package:isar/isar.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import '../../maintenance/utils/asset_validator.dart';
 import 'remote_job_timestamps.dart';
 
 part 'job_diary_model.g.dart';
@@ -19,14 +21,6 @@ String? _cleanOptionalText(dynamic value) {
   return trimmed.isEmpty ? null : trimmed;
 }
 
-List<String> _cleanStringList(dynamic value) {
-  if (value is! List) return [];
-  return value
-      .map((item) => item.toString().trim())
-      .where((item) => item.isNotEmpty)
-      .toList();
-}
-
 String _normaliseEnumKey(dynamic value) {
   if (value == null) return '';
   return value
@@ -37,29 +31,84 @@ String _normaliseEnumKey(dynamic value) {
       .replaceAll(RegExp(r'[^a-z0-9]+'), '');
 }
 
-T _enumByNameOr<T extends Enum>(List<T> values, dynamic value, T fallback) {
+T _enumByNameOr<T extends Enum>(
+  List<T> values,
+  dynamic value,
+  T fallback, {
+  required String field,
+  required String source,
+}) {
+  if (value == null) return fallback;
+  if (value is! String) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'expected an enum string (${value.runtimeType})',
+    );
+  }
   final key = _normaliseEnumKey(value);
-  if (key.isEmpty) return fallback;
+  if (key.isEmpty) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'enum value cannot be blank',
+    );
+  }
 
   for (final item in values) {
     if (_normaliseEnumKey(item.name) == key) return item;
   }
 
-  return fallback;
+  throw PersistedDataFormatException(
+    field: field,
+    source: source,
+    detail: 'unknown enum value "$value"',
+  );
 }
 
-T? _enumByNameOrNull<T extends Enum>(List<T> values, dynamic value) {
+T? _enumByNameOrNull<T extends Enum>(
+  List<T> values,
+  dynamic value, {
+  required String field,
+  required String source,
+}) {
+  if (value == null) return null;
+  if (value is! String) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'expected an enum string (${value.runtimeType})',
+    );
+  }
   final key = _normaliseEnumKey(value);
-  if (key.isEmpty) return null;
+  if (key.isEmpty) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'enum value cannot be blank',
+    );
+  }
 
   for (final item in values) {
     if (_normaliseEnumKey(item.name) == key) return item;
   }
 
-  return null;
+  throw PersistedDataFormatException(
+    field: field,
+    source: source,
+    detail: 'unknown enum value "$value"',
+  );
 }
 
-JobDiaryDiscipline _parseDiscipline(dynamic value) {
+JobDiaryDiscipline _parseDiscipline(dynamic value, {required String source}) {
+  if (value == null) return JobDiaryDiscipline.shared;
+  if (value is! String) {
+    throw PersistedDataFormatException(
+      field: 'discipline',
+      source: source,
+      detail: 'expected an enum string (${value.runtimeType})',
+    );
+  }
   final key = _normaliseEnumKey(value);
 
   if (key == 'ia' ||
@@ -80,6 +129,8 @@ JobDiaryDiscipline _parseDiscipline(dynamic value) {
     JobDiaryDiscipline.values,
     value,
     JobDiaryDiscipline.shared,
+    field: 'discipline',
+    source: source,
   );
 }
 
@@ -340,87 +391,203 @@ class JobDiaryEntry {
   };
 
   factory JobDiaryEntry.fromMap(Map<String, dynamic> map, String documentId) {
+    final source = 'job diary entry $documentId';
     final parsedKind = _enumByNameOr(
       JobDiaryKind.values,
       map['kind'],
       JobDiaryKind.note,
+      field: 'kind',
+      source: source,
     );
 
     final parsedBlockerStatus = _enumByNameOrNull(
       JobBlockerStatus.values,
       map['blockerStatus'],
+      field: 'blockerStatus',
+      source: source,
+    );
+    final persistedIsBlocker = readOptionalPersistedBool(
+      map['isBlocker'],
+      field: 'isBlocker',
+      source: source,
+    );
+    final persistedIsHandover = readOptionalPersistedBool(
+      map['isHandover'],
+      field: 'isHandover',
+      source: source,
+    );
+    if (parsedKind == JobDiaryKind.blocker && persistedIsBlocker == false) {
+      throw PersistedDataFormatException(
+        field: 'isBlocker',
+        source: source,
+        detail: 'must be true when kind is blocker',
+      );
+    }
+    if (parsedKind == JobDiaryKind.handover && persistedIsHandover == false) {
+      throw PersistedDataFormatException(
+        field: 'isHandover',
+        source: source,
+        detail: 'must be true when kind is handover',
+      );
+    }
+    final isBlocker = persistedIsBlocker ?? parsedKind == JobDiaryKind.blocker;
+    final isHandover =
+        persistedIsHandover ?? parsedKind == JobDiaryKind.handover;
+    if (!isBlocker && parsedBlockerStatus != null) {
+      throw PersistedDataFormatException(
+        field: 'blockerStatus',
+        source: source,
+        detail: 'requires isBlocker to be true',
+      );
+    }
+
+    final timestamps = readRemoteJobDiaryTimestamps(map, source: source);
+    if (map['isDeleted'] == true && timestamps.deletedAt == null) {
+      requireRemoteTombstoneDeletedAt(
+        timestamps.deletedAt,
+        entityLabel: 'job diary entry',
+        firestoreId: documentId,
+      );
+    }
+    final embeddedId = readRequiredPersistedString(
+      map['firestoreId'],
+      field: 'firestoreId',
+      source: source,
+    );
+    if (embeddedId != documentId) {
+      throw PersistedDataFormatException(
+        field: 'firestoreId',
+        source: source,
+        detail: 'must match the document ID',
+      );
+    }
+    final assetType = readRequiredPersistedEnum(
+      AssetType.values,
+      map['assetType'],
+      field: 'assetType',
+      source: source,
+    );
+    final assetNumber = readRequiredPersistedInt(
+      map['assetNumber'],
+      field: 'assetNumber',
+      source: source,
+      minimum: 1,
+    );
+    if (!AssetValidator.isValid(assetType, assetNumber)) {
+      throw PersistedDataFormatException(
+        field: 'assetNumber',
+        source: source,
+        detail: 'outside the governed range for ${assetType.name}',
+      );
+    }
+    final isDeleted = readRequiredPersistedBool(
+      map['isDeleted'],
+      field: 'isDeleted',
+      source: source,
     );
 
-    final timestamps = readRemoteJobDiaryTimestamps(
-      map,
-      source: 'job diary entry $documentId',
-    );
-
-    final entry = JobDiaryEntry()
-      ..firestoreId = documentId
-      ..jobExecutionFirestoreId = _cleanOptionalText(
-        map['jobExecutionFirestoreId'],
-      )
-      // Device-local Isar ids are never imported from Firestore.
-      ..jobExecutionLocalId = null
-      ..moduleInstanceFirestoreId = _cleanOptionalText(
-        map['moduleInstanceFirestoreId'],
-      )
-      ..moduleInstanceLocalId = null
-      ..assetType = _enumByNameOr(
-        AssetType.values,
-        map['assetType'],
-        AssetType.base,
-      )
-      ..assetNumber =
-          map['assetNumber'] is int
-              ? map['assetNumber'] as int
-              : int.tryParse(map['assetNumber']?.toString() ?? '') ?? 0
-      ..chargeNoAtEvent =
-          map['chargeNoAtEvent'] is int
-              ? map['chargeNoAtEvent'] as int
-              : int.tryParse(map['chargeNoAtEvent']?.toString() ?? '')
-      ..templateFirestoreId = _cleanOptionalText(map['templateFirestoreId'])
-      ..templateName = _cleanOptionalText(map['templateName'])
-      ..kind = parsedKind
-      ..discipline = _parseDiscipline(map['discipline'])
-      ..severity = _enumByNameOr(
-        JobDiarySeverity.values,
-        map['severity'],
-        JobDiarySeverity.medium,
-      )
-      ..blockerStatus = parsedBlockerStatus
-      ..isBlocker =
-          map['isBlocker'] == true || parsedKind == JobDiaryKind.blocker
-      ..isHandover =
-          map['isHandover'] == true || parsedKind == JobDiaryKind.handover
-      ..functionalSection = _cleanOptionalText(map['functionalSection'])
-      ..componentGroup = _cleanOptionalText(map['componentGroup'])
-      ..targetRef = _cleanOptionalText(map['targetRef'])
-      ..procedureRef = _cleanOptionalText(map['procedureRef'])
-      ..tags = _cleanStringList(map['tags'])
-      ..title = _cleanOptionalText(map['title'])
-      ..note = _cleanOptionalText(map['note']) ?? ''
-      ..actionTaken = _cleanOptionalText(map['actionTaken'])
-      ..pendingIssue = _cleanOptionalText(map['pendingIssue'])
-      ..requiresFollowUp = map['requiresFollowUp'] == true
-      ..createdByUid = _cleanOptionalText(map['createdByUid'])
-      ..createdByName = _cleanOptionalText(map['createdByName'])
-      ..createdAt = timestamps.createdAt
-      ..updatedByUid = _cleanOptionalText(map['updatedByUid'])
-      ..updatedByName = _cleanOptionalText(map['updatedByName'])
-      ..updatedAt = timestamps.updatedAt
-      ..isDeleted = map['isDeleted'] == true
-      ..deletedAt = timestamps.deletedAt
-      ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
-      ..deletedByName = _cleanOptionalText(map['deletedByName'])
-      ..deleteReason = _cleanOptionalText(map['deleteReason'])
-      ..version =
-          map['version'] is int
-              ? map['version'] as int
-              : int.tryParse(map['version']?.toString() ?? '') ?? 1
-      ..metadataJson = _cleanOptionalText(map['metadataJson'])
-      ..isSynced = true;
+    final entry =
+        JobDiaryEntry()
+          ..firestoreId = embeddedId
+          ..jobExecutionFirestoreId = readOptionalPersistedString(
+            map['jobExecutionFirestoreId'],
+            field: 'jobExecutionFirestoreId',
+            source: source,
+          )
+          // Device-local Isar ids are never imported from Firestore.
+          ..jobExecutionLocalId = null
+          ..moduleInstanceFirestoreId = readOptionalPersistedString(
+            map['moduleInstanceFirestoreId'],
+            field: 'moduleInstanceFirestoreId',
+            source: source,
+          )
+          ..moduleInstanceLocalId = null
+          ..assetType = assetType
+          ..assetNumber = assetNumber
+          ..chargeNoAtEvent = readOptionalPersistedInt(
+            map['chargeNoAtEvent'],
+            field: 'chargeNoAtEvent',
+            source: source,
+            minimum: 1,
+          )
+          ..templateFirestoreId = readOptionalPersistedString(
+            map['templateFirestoreId'],
+            field: 'templateFirestoreId',
+            source: source,
+          )
+          ..templateName = readOptionalPersistedString(
+            map['templateName'],
+            field: 'templateName',
+            source: source,
+          )
+          ..kind = parsedKind
+          ..discipline = _parseDiscipline(map['discipline'], source: source)
+          ..severity = _enumByNameOr(
+            JobDiarySeverity.values,
+            map['severity'],
+            JobDiarySeverity.medium,
+            field: 'severity',
+            source: source,
+          )
+          ..blockerStatus = parsedBlockerStatus
+          ..isBlocker = isBlocker
+          ..isHandover = isHandover
+          ..functionalSection = _readOptional(map, 'functionalSection', source)
+          ..componentGroup = _readOptional(map, 'componentGroup', source)
+          ..targetRef = _readOptional(map, 'targetRef', source)
+          ..procedureRef = _readOptional(map, 'procedureRef', source)
+          ..tags = readOptionalPersistedStringList(
+            map['tags'],
+            field: 'tags',
+            source: source,
+          )
+          ..title = _readOptional(map, 'title', source)
+          ..note = readRequiredPersistedString(
+            map['note'],
+            field: 'note',
+            source: source,
+          )
+          ..actionTaken = _readOptional(map, 'actionTaken', source)
+          ..pendingIssue = _readOptional(map, 'pendingIssue', source)
+          ..requiresFollowUp =
+              readOptionalPersistedBool(
+                map['requiresFollowUp'],
+                field: 'requiresFollowUp',
+                source: source,
+              ) ??
+              false
+          ..createdByUid = readRequiredPersistedString(
+            map['createdByUid'],
+            field: 'createdByUid',
+            source: source,
+          )
+          ..createdByName = _readOptional(map, 'createdByName', source)
+          ..createdAt = timestamps.createdAt
+          ..updatedByUid = readRequiredPersistedString(
+            map['updatedByUid'],
+            field: 'updatedByUid',
+            source: source,
+          )
+          ..updatedByName = _readOptional(map, 'updatedByName', source)
+          ..updatedAt = timestamps.updatedAt
+          ..isDeleted = isDeleted
+          ..deletedAt = timestamps.deletedAt
+          ..deletedByUid = _readOptional(map, 'deletedByUid', source)
+          ..deletedByName = _readOptional(map, 'deletedByName', source)
+          ..deleteReason = _readOptional(map, 'deleteReason', source)
+          ..version = readRequiredPersistedInt(
+            map['version'],
+            field: 'version',
+            source: source,
+            minimum: 1,
+          )
+          ..metadataJson = _readOptional(
+            map,
+            'metadataJson',
+            source,
+            emptyAsNull: false,
+          )
+          ..isSynced = true;
 
     if (entry.isDeleted) {
       requireRemoteTombstoneDeletedAt(
@@ -428,8 +595,36 @@ class JobDiaryEntry {
         entityLabel: 'job diary entry',
         firestoreId: entry.firestoreId,
       );
+    } else if (entry.deletedAt != null ||
+        entry.deletedByUid != null ||
+        entry.deletedByName != null ||
+        entry.deleteReason != null) {
+      throw PersistedDataFormatException(
+        field: 'isDeleted',
+        source: source,
+        detail: 'active diary entries cannot carry deletion state',
+      );
+    }
+    if (entry.updatedAt.isBefore(entry.createdAt)) {
+      throw PersistedDataFormatException(
+        field: 'updatedAt',
+        source: source,
+        detail: 'cannot precede createdAt',
+      );
     }
 
     return entry;
   }
 }
+
+String? _readOptional(
+  Map<String, dynamic> map,
+  String field,
+  String source, {
+  bool emptyAsNull = true,
+}) => readOptionalPersistedString(
+  map[field],
+  field: field,
+  source: source,
+  emptyAsNull: emptyAsNull,
+);

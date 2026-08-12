@@ -1,7 +1,5 @@
 // FILE: lib/features/planned_maintenance/presentation/job_module_detail_screen.dart
 
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -526,7 +524,8 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final module = _module;
-    final standardItems = _standardItemsFromSnapshot(module.moduleSnapshotJson);
+    final snapshotRead = module.moduleSnapshotReadResult;
+    final standardItems = _standardItemsFromSnapshot(snapshotRead.value);
     final fieldRead = module.fieldDefinitionsReadResult;
     final responseRead = module.responsesReadResult;
     final fields = fieldRead.entries;
@@ -535,7 +534,10 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     final lineage = RuntimeModuleLineageInfo.fromModule(module);
     final actionRead = module.actionsReadResult;
     final workPayloadsValid =
-        fieldRead.isValid && responseRead.isValid && actionRead.isValid;
+        snapshotRead.isValid &&
+        fieldRead.isValid &&
+        responseRead.isValid &&
+        actionRead.isValid;
     final canSaveWork =
         !widget.execution.isCompleted &&
         module.isOpenForWork &&
@@ -713,7 +715,13 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
             subtitle: 'Catalogue snapshot carried into this module instance.',
             icon: Icons.checklist_rounded,
             children: [
-              if (standardItems.isEmpty)
+              if (!snapshotRead.isValid)
+                const PersistedDataIntegrityNotice(
+                  title: 'Module snapshot unavailable',
+                  message:
+                      'This saved module snapshot must be repaired before work can continue.',
+                )
+              else if (standardItems.isEmpty)
                 const _EmptyBox(
                   icon: Icons.checklist_rtl_rounded,
                   text:
@@ -1697,24 +1705,15 @@ InputDecoration _inputDecoration(String label) {
   );
 }
 
-List<Map<String, dynamic>> _standardItemsFromSnapshot(String snapshotJson) {
-  final snapshot = _decodeMap(snapshotJson);
+List<Map<String, dynamic>> _standardItemsFromSnapshot(
+  Map<String, dynamic> snapshot,
+) {
   final items = snapshot['standardItems'];
   if (items is! List) return [];
   return items
       .whereType<Map>()
       .map((item) => Map<String, dynamic>.from(item))
       .toList();
-}
-
-Map<String, dynamic> _decodeMap(String value) {
-  try {
-    final decoded = jsonDecode(value);
-    if (decoded is Map) return Map<String, dynamic>.from(decoded);
-  } catch (_) {
-    // Ignore malformed snapshot JSON.
-  }
-  return <String, dynamic>{};
 }
 
 String _formatDateTime(DateTime value) {

@@ -63,6 +63,15 @@ bool readRequiredPersistedBool(
   );
 }
 
+bool? readOptionalPersistedBool(
+  dynamic value, {
+  required String field,
+  String? source,
+}) {
+  if (value == null) return null;
+  return readRequiredPersistedBool(value, field: field, source: source);
+}
+
 int readRequiredPersistedInt(
   dynamic value, {
   required String field,
@@ -77,6 +86,21 @@ int readRequiredPersistedInt(
         minimum == null
             ? 'required integer (${value.runtimeType})'
             : 'required integer >= $minimum (${value.runtimeType})',
+  );
+}
+
+int? readOptionalPersistedInt(
+  dynamic value, {
+  required String field,
+  String? source,
+  int? minimum,
+}) {
+  if (value == null) return null;
+  return readRequiredPersistedInt(
+    value,
+    field: field,
+    source: source,
+    minimum: minimum,
   );
 }
 

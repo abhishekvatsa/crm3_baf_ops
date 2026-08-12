@@ -30,6 +30,13 @@ void main() {
       ),
       throwsFormatException,
     );
+
+    const malformedBundle = ModuleRegistrySnapshotBundle(
+      moduleSnapshotJson: '{malformed',
+      fieldDefinitionsJson: '[]',
+      checklistJson: '[]',
+    );
+    expect(() => malformedBundle.moduleSnapshot, throwsFormatException);
   });
 
   test('strict registry payload validation rejects hash mismatch', () {

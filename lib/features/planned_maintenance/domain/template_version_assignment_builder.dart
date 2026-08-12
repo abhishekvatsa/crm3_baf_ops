@@ -367,8 +367,12 @@ String? _clean(String? value) {
 String? _stringFrom(Map<String, dynamic> map, List<String> keys) {
   for (final key in keys) {
     final value = map[key];
+    if (value == null) continue;
     if (value is String && value.trim().isNotEmpty) return value.trim();
-    if (value is num || value is bool) return value.toString();
+    if (value is String) continue;
+    throw TemplateVersionAssignmentException(
+      'Snapshot field $key must be a string.',
+    );
   }
   return null;
 }
@@ -380,12 +384,11 @@ int _intFrom(
 }) {
   for (final key in keys) {
     final value = map[key];
+    if (value == null) continue;
     if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) {
-      final parsed = int.tryParse(value.trim());
-      if (parsed != null) return parsed;
-    }
+    throw TemplateVersionAssignmentException(
+      'Snapshot field $key must be an integer.',
+    );
   }
   return fallback;
 }
@@ -397,35 +400,38 @@ bool _boolFrom(
 }) {
   for (final key in keys) {
     final value = map[key];
+    if (value == null) continue;
     if (value is bool) return value;
-    if (value is String) {
-      final cleaned = value.trim().toLowerCase();
-      if (cleaned == 'true' || cleaned == 'yes' || cleaned == 'required') {
-        return true;
-      }
-      if (cleaned == 'false' || cleaned == 'no' || cleaned == 'optional') {
-        return false;
-      }
-    }
+    throw TemplateVersionAssignmentException(
+      'Snapshot field $key must be a boolean.',
+    );
   }
   return fallback;
 }
 
 List<String> _stringListFrom(Map<String, dynamic> map, List<String> keys) {
   for (final key in keys) {
+    if (!map.containsKey(key) || map[key] == null) continue;
     final value = map[key];
     final list = _stringList(value);
-    if (list.isNotEmpty) return list;
+    return list;
   }
   return <String>[];
 }
 
 List<String> _stringList(dynamic value) {
   if (value is List) {
-    return value
-        .map((item) => item.toString().trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+    final values = <String>[];
+    for (var index = 0; index < value.length; index++) {
+      final item = value[index];
+      if (item is! String || item.trim().isEmpty) {
+        throw TemplateVersionAssignmentException(
+          'Snapshot string list item #$index must be a non-empty string.',
+        );
+      }
+      values.add(item.trim());
+    }
+    return values;
   }
   if (value is String && value.trim().isNotEmpty) {
     return value
@@ -434,7 +440,10 @@ List<String> _stringList(dynamic value) {
         .where((item) => item.isNotEmpty)
         .toList();
   }
-  return <String>[];
+  if (value == null) return <String>[];
+  throw const TemplateVersionAssignmentException(
+    'Snapshot value must be a string list.',
+  );
 }
 
 String? _jsonStringOrNull(dynamic value) {
@@ -444,7 +453,9 @@ String? _jsonStringOrNull(dynamic value) {
   if (value is List) {
     return _jsonIndent.convert(value);
   }
-  return null;
+  throw const TemplateVersionAssignmentException(
+    'pairedEquipmentJson must be a JSON string, object, or list.',
+  );
 }
 
 AssetType? _parseAssetType(String? value) {
@@ -508,17 +519,29 @@ JobModuleDiscipline _parseModuleDiscipline(String? value) {
     case 'shared':
     case 'multi':
     case 'multidiscipline':
-    default:
       return JobModuleDiscipline.shared;
   }
+  if (normalized.isEmpty) return JobModuleDiscipline.shared;
+  throw TemplateVersionAssignmentException(
+    'Snapshot discipline "$value" is unsupported.',
+  );
 }
 
 JobModuleUseMode _parseUseMode(String? value) {
   final normalized = _normaliseKey(value);
+  if (normalized == 'scheduled' ||
+      normalized == 'pm' ||
+      normalized == 'conditional' ||
+      normalized == 'conditionbased') {
+    return JobModuleUseMode.scheduledPM;
+  }
   for (final mode in JobModuleUseMode.values) {
     if (_normaliseKey(mode.name) == normalized) return mode;
   }
-  return JobModuleUseMode.scheduledPM;
+  if (normalized.isEmpty) return JobModuleUseMode.scheduledPM;
+  throw TemplateVersionAssignmentException(
+    'Snapshot use mode "$value" is unsupported.',
+  );
 }
 
 JobModuleSafetyClass _parseSafetyClass(String? value) {
@@ -526,7 +549,10 @@ JobModuleSafetyClass _parseSafetyClass(String? value) {
   for (final safetyClass in JobModuleSafetyClass.values) {
     if (_normaliseKey(safetyClass.name) == normalized) return safetyClass;
   }
-  return JobModuleSafetyClass.normal;
+  if (normalized.isEmpty) return JobModuleSafetyClass.normal;
+  throw TemplateVersionAssignmentException(
+    'Snapshot safety class "$value" is unsupported.',
+  );
 }
 
 String _normaliseKey(String? value) {

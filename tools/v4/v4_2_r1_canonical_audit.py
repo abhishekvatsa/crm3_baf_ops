@@ -7814,6 +7814,9 @@ a05_maintenance_bridge = text(
 a05_planned_closure = text("functions/src/plannedJobClosure.ts")
 a05_runtime_population = text("functions/src/runtimeJobModulePopulation.ts")
 a05_live_sync = text("lib/core/services/live_remote_sync_service.dart")
+a05_remote_maintenance_reader = text(
+    "lib/features/maintenance/data/remote_maintenance_reader.dart"
+)
 a05_ticket_sync = text("lib/core/services/sync_service.tickets_templates.dart")
 a05_admin_browser = text(
     "lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart"
@@ -8090,6 +8093,21 @@ a05_template_lifecycle_test = text(
 a05_decision_17 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_17.md"
 )
+a05_decoder_inventory_manifest = data(
+    "governance/a05-persisted-decoder-surface-v1.json"
+)
+a05_decoder_inventory_tool = text(
+    "tools/v4/a05_persisted_decoder_inventory.py"
+)
+a05_production_sweep = text(
+    "tools/v4/a05_production_persisted_integrity_sweep.mjs"
+)
+a05_production_sweep_test = text(
+    "tools/v4/a05_production_persisted_integrity_sweep.test.mjs"
+)
+a05_decision_18 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_18.md"
+)
 a05_timestamp_inventory_process = subprocess.run(
     [sys.executable, str(ROOT / "tools/v4/a05_persisted_timestamp_inventory.py")],
     cwd=ROOT,
@@ -8102,6 +8120,18 @@ try:
     )
 except json.JSONDecodeError:
     a05_timestamp_inventory_report = {}
+a05_decoder_inventory_process = subprocess.run(
+    [sys.executable, str(ROOT / "tools/v4/a05_persisted_decoder_inventory.py")],
+    cwd=ROOT,
+    capture_output=True,
+    text=True,
+)
+try:
+    a05_decoder_inventory_report = json.loads(
+        a05_decoder_inventory_process.stdout
+    )
+except json.JSONDecodeError:
+    a05_decoder_inventory_report = {}
 a02_a05_exit_decision = text(
     "docs/v4_2_r1/A02_A05_ARCHITECTURE_EXIT_CRITERIA.md"
 )
@@ -8247,6 +8277,42 @@ check(
     and "`A-05` remains open" in a05_decision_9
     and "does not inspect or mutate production documents" in a05_decision_9,
     a05_timestamp_inventory_process.stderr.strip(),
+)
+check(
+    "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
+    a05_decoder_inventory_process.returncode == 0
+    and a05_decoder_inventory_report.get("result") == "PASS"
+    and a05_decoder_inventory_report.get("surfaceCount") == 39
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 36
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 20
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 22
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 234
+    and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
+    and a05_decoder_inventory_report.get("unclassifiedFiles") == []
+    and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
+    and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 39
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 36
+    and "def _decoder_catch_sites" in a05_decoder_inventory_tool
+    and "unclassified persisted decoder files" in a05_decoder_inventory_tool
+    and "stale decoder catch policies" in a05_decoder_inventory_tool
+    and "A05_COLLECTION_REGISTRY" in a05_production_sweep
+    and "cloudMutationCapability: 'NONE'" in a05_production_sweep
+    and "DART_RECONCILIATION_REQUIRED" in a05_production_sweep
+    and "unregistered-root-collection" in a05_production_sweep
+    and "Rules root and nested collection names are all registered"
+        in a05_production_sweep_test
+    and "app and Functions source collection references are all registered"
+        in a05_production_sweep_test
+    and "assertRegistryCoversSource" in a05_production_sweep
+    and "sourceDefinedCollections" in a05_production_sweep
+    and "any supported operational record requires Dart reconciliation"
+        in a05_production_sweep_test
+    and "Status: OPEN - SOURCE CLOSURE AWAITING OPERATIONAL EVIDENCE"
+        in a05_decision_18
+    and "never treats an" in a05_decision_18
+    and "uninspected nonempty collection as clean" in a05_decision_18,
+    a05_decoder_inventory_process.stderr.strip(),
 )
 check(
     "A-05 BAF knowledge and alternate factory decoders fail closed",
@@ -8601,8 +8667,10 @@ check(
     and "readComponentActionPayload" in a05_runtime_population
     and "maintenance-resolution-history-invalid" in a05_maintenance_bridge
     and "history = [];" not in a05_maintenance_bridge
-    and "ComponentAction.readEncodedPayload(" in a05_live_sync
-    and "readEncodedResolutionHistoryPayload(" in a05_live_sync
+    and "readRemoteMaintenanceRecord(" in a05_live_sync
+    and "ComponentAction.readEncodedPayload(" in a05_remote_maintenance_reader
+    and "readEncodedResolutionHistoryPayload("
+        in a05_remote_maintenance_reader
     and "d['actionsJson']?.toString()" not in a05_live_sync
     and "_maintenanceEvidenceIntegrityError(record)" in a05_ticket_sync
     and "Saved evidence needs repair before editing" in a05_admin_browser
@@ -8648,12 +8716,12 @@ check(
     and "class TemplateFieldReadResult" in a05_job_model
     and "TemplateFieldReadResult get fieldsReadResult" in a05_job_model
     and "A malformed canonical" in a05_job_model
-    and "readRequiredJsonObject(" in a05_composer_model
-    and "readRequiredJsonObjectList(" in a05_composer_model
+    and "TemplateVersionSnapshotBundle.fromRawJson(" in a05_composer_model
+    and "TemplateComposerDraft.fromAuthoringPayloads" in a05_composer_model
     and "_decodeObject(" not in a05_composer_model
     and "Saved composer payload needs repair" in a05_composer_screen
     and a05_composer_actions.index(
-        "selectedDraft = TemplateComposerDraft.fromPayloads"
+        "selectedDraft = TemplateComposerDraft.fromAuthoringPayloads"
     ) < a05_composer_actions.index("await _clearRecoveryDraft()")
     and "needs repair and was left untouched" in a05_composer_support
     and "Saved template fields need repair" in a05_template_detail
@@ -8746,8 +8814,9 @@ check(
     and "class RemoteMaintenanceTimestamps" in a05_maintenance_timestamps
     and a05_maintenance_timestamps.count("readRequiredPersistedDateTime(") == 3
     and a05_maintenance_timestamps.count("readOptionalPersistedDateTime(") == 7
-    and "readRemoteMaintenanceTimestamps(" in a05_maintenance_provider
-    and "readRemoteMaintenanceTimestamps(" in a05_live_sync
+    and "readRemoteMaintenanceRecord(" in a05_maintenance_provider
+    and "readRemoteMaintenanceRecord(" in a05_live_sync
+    and "readRemoteMaintenanceTimestamps(" in a05_remote_maintenance_reader
     and "DateTime? _parseTimestamp" not in a05_maintenance_provider
     and "DateTime? _parseTimestamp" not in a05_live_sync
     and "final int sourceDocumentCount;" in a05_maintenance_provider

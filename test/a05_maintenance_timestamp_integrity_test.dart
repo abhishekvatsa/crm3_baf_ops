@@ -134,6 +134,10 @@ void main() {
           File(
             'lib/features/maintenance/data/remote_maintenance_timestamps.dart',
           ).readAsStringSync();
+      final recordReader =
+          File(
+            'lib/features/maintenance/data/remote_maintenance_reader.dart',
+          ).readAsStringSync();
       final maintenanceProvider =
           File(
             'lib/features/maintenance/providers/maintenance_provider.dart',
@@ -155,8 +159,9 @@ void main() {
 
       expect(timestampReader, contains('readRequiredPersistedDateTime('));
       expect(timestampReader, contains('readOptionalPersistedDateTime('));
+      expect(recordReader, contains('readRemoteMaintenanceTimestamps('));
       for (final source in <String>[maintenanceProvider, liveRemoteSync]) {
-        expect(source, contains('readRemoteMaintenanceTimestamps('));
+        expect(source, contains('readRemoteMaintenanceRecord('));
         expect(source, isNot(contains('DateTime? _parseTimestamp(')));
         expect(
           source,

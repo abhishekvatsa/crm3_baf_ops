@@ -170,7 +170,10 @@ TemplateVersion _publishedVersion({
     ..versionLabel = 'Runtime add package'
     ..status = status
     ..contentHash = 'tg2-sha256:${'a' * 64}'
-    ..jobTemplateSnapshotJson = jsonEncode({'template': 'runtime'})
+    ..jobTemplateSnapshotJson = jsonEncode({
+      'title': 'Runtime add package',
+      'assetType': 'base',
+    })
     ..moduleSnapshotsJson = jsonEncode(modules)
     ..fieldDefinitionsJson = jsonEncode(fields)
     ..checklistJson = '[]';
@@ -218,7 +221,7 @@ JobExecution _execution() {
     ..firestoreId = 'execution_1'
     ..templateFirestoreId = 'version_runtime_1'
     ..assetType = AssetType.base
-    ..assetNumber = 7
+    ..assetNumber = 101
     ..chargeNoAtEvent = 1234
     ..templateVersionId = 'version_runtime_1'
     ..templatePackageId = 'package_runtime_1'

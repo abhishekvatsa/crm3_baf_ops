@@ -30,61 +30,10 @@ String _cleanRequiredText(dynamic value, String fallback) {
   return cleaned ?? fallback;
 }
 
-bool? _parseBool(dynamic value) {
-  if (value is bool) return value;
-  if (value is num) return value != 0;
-  if (value is String) {
-    final normalized = value.trim().toLowerCase();
-    if (normalized == 'true' || normalized == 'yes' || normalized == '1') {
-      return true;
-    }
-    if (normalized == 'false' || normalized == 'no' || normalized == '0') {
-      return false;
-    }
-  }
-  return null;
-}
-
-int? _parseInt(dynamic value) {
-  if (value is int) return value;
-  if (value is num) return value.toInt();
-  if (value is String) return int.tryParse(value.trim());
-  return null;
-}
-
-Map<String, dynamic> _decodeJsonObjectSafely(String raw) {
-  try {
-    final decoded = jsonDecode(raw.trim());
-    if (decoded is Map) return Map<String, dynamic>.from(decoded);
-  } catch (_) {
-    // Invalid draft JSON is handled by the Publisher UI. Governance metadata
-    // derivation must remain defensive for legacy/offline records.
-  }
-  return const <String, dynamic>{};
-}
-
-List<Map<String, dynamic>> _decodeJsonObjectListSafely(String raw) {
-  try {
-    final decoded = jsonDecode(raw.trim());
-    if (decoded is List) {
-      return decoded
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList(growable: false);
-    }
-  } catch (_) {
-    // Invalid draft JSON is handled by the Publisher UI. Governance metadata
-    // derivation must remain defensive for legacy/offline records.
-  }
-  return const <Map<String, dynamic>>[];
-}
-
-Map<String, dynamic> _mapFrom(dynamic value) {
-  if (value is Map) return Map<String, dynamic>.from(value);
-  return const <String, dynamic>{};
-}
-
-bool _moduleRequiresClosure(Map<String, dynamic> module) {
+bool _moduleRequiresClosure(
+  Map<String, dynamic> module, {
+  required String source,
+}) {
   const keys = <String>[
     'requiredForClosure',
     'requiredForCloseout',
@@ -92,7 +41,11 @@ bool _moduleRequiresClosure(Map<String, dynamic> module) {
     'isRequired',
   ];
   for (final key in keys) {
-    final parsed = _parseBool(module[key]);
+    final parsed = readOptionalPersistedBool(
+      module[key],
+      field: key,
+      source: source,
+    );
     if (parsed != null) return parsed;
   }
   return false;
@@ -119,19 +72,48 @@ _TemplateClosureReviewState _deriveClosureReviewState({
   required String moduleSnapshotsJson,
   String source = 'template closure-review snapshot',
 }) {
-  final jobSnapshot = _decodeJsonObjectSafely(jobTemplateSnapshotJson);
-  final composer = _mapFrom(jobSnapshot['composer']);
-  final modules = _decodeJsonObjectListSafely(moduleSnapshotsJson);
-  final actualCriticalCount = modules.where(_moduleRequiresClosure).length;
+  final jobSnapshot = readRequiredJsonObject(
+    jobTemplateSnapshotJson,
+    field: 'jobTemplateSnapshotJson',
+    source: source,
+  );
+  final composer =
+      readOptionalJsonObject(
+        jobSnapshot['composer'],
+        field: 'composer',
+        source: source,
+      ) ??
+      const <String, dynamic>{};
+  final modules = readRequiredJsonObjectList(
+    moduleSnapshotsJson,
+    field: 'moduleSnapshotsJson',
+    source: source,
+  );
+  final actualCriticalCount =
+      modules
+          .where((module) => _moduleRequiresClosure(module, source: source))
+          .length;
   final declaredCriticalCount =
-      _parseInt(jobSnapshot['closureCriticalCount']) ?? 0;
+      readOptionalPersistedInt(
+        jobSnapshot['closureCriticalCount'],
+        field: 'closureCriticalCount',
+        source: source,
+        minimum: 0,
+      ) ??
+      0;
   final criticalCount =
       actualCriticalCount > declaredCriticalCount
           ? actualCriticalCount
           : declaredCriticalCount;
 
   return _TemplateClosureReviewState(
-    confirmed: _parseBool(composer['closureReviewConfirmed']) ?? false,
+    confirmed:
+        readOptionalPersistedBool(
+          composer['closureReviewConfirmed'],
+          field: 'closureReviewConfirmed',
+          source: source,
+        ) ??
+        false,
     criticalModuleCount: criticalCount,
     confirmedByUid: _cleanOptionalText(composer['closureReviewConfirmedByUid']),
     confirmedByName: _cleanOptionalText(

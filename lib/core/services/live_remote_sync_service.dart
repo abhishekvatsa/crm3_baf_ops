@@ -10,10 +10,8 @@ import 'package:isar/isar.dart' hide Query;
 
 import '../../features/auth/data/user_model.dart';
 import '../../features/maintenance/data/maintenance_model.dart';
-import '../../features/maintenance/data/remote_maintenance_timestamps.dart';
-import '../../features/planned_maintenance/models/component_action_model.dart';
+import '../../features/maintenance/data/remote_maintenance_reader.dart';
 import 'app_logger.dart';
-import 'remote_tombstone_apply_result.dart';
 import 'sync_remote_freshness_policy.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
@@ -762,144 +760,7 @@ class LiveRemoteSyncService {
   MaintenanceRecord _mapTicket(
     DocumentSnapshot<Map<String, dynamic>> doc,
     Map<String, dynamic> d,
-  ) {
-    final source = 'maintenance/${doc.id}';
-    final timestamps = readRemoteMaintenanceTimestamps(d, source: source);
-    final actionsJson = ComponentAction.readEncodedPayload(
-      d['actionsJson'],
-      field: 'actionsJson',
-      source: source,
-      allowMissing: !d.containsKey('actionsJson'),
-    );
-    ComponentAction.decode(actionsJson, source: source);
-    final resolutionHistoryJson = readEncodedResolutionHistoryPayload(
-      d['resolutionHistoryJson'],
-      source: source,
-    );
-
-    final ticket = MaintenanceRecord()
-      ..firestoreId = doc.id
-      ..version = _intValue(d['version'], fallback: 1)
-      ..assetType = _parseEnum(d['assetType'], AssetType.values, AssetType.base)
-      ..assetNumber = _intValue(d['assetNumber'])
-      ..component = _cleanOptionalText(d['component']?.toString())
-      ..subsystem = _cleanOptionalText(d['subsystem']?.toString())
-      ..tag = _cleanOptionalText(d['tag']?.toString())
-      ..hierarchyPath = _stringList(d['hierarchyPath'])
-      ..maintenanceType = _parseEnum(
-        d['maintenanceType'],
-        MaintenanceType.values,
-        MaintenanceType.breakdown,
-      )
-      ..classification = _cleanOptionalText(d['classification']?.toString())
-      ..description = d['description']?.toString() ?? ''
-      ..routedTo = _parseEnum(
-        d['routedTo'],
-        RoutedTo.values,
-        RoutedTo.mechanical,
-      )
-      ..otherDepartment = _cleanOptionalText(d['otherDepartment']?.toString())
-      ..isCritical = d['isCritical'] == true
-      ..status = _parseEnum(d['status'], TicketStatus.values, TicketStatus.open)
-      ..isResolved = d['isResolved'] == true
-      ..workflowDeferred = d['workflowDeferred'] == true
-      ..workflowQueueState = d['workflowQueueState']?.toString() ?? 'independent'
-      ..workflowAggregateId = _cleanOptionalText(d['workflowAggregateId']?.toString())
-      ..workflowComplianceId = _cleanOptionalText(d['workflowComplianceId']?.toString())
-      ..workflowOriginLaneKey = _cleanOptionalText(d['workflowOriginLaneKey']?.toString())
-      ..workflowTargetLaneKey = _cleanOptionalText(d['workflowTargetLaneKey']?.toString())
-      ..workflowConditionTypeKey = _cleanOptionalText(d['workflowConditionTypeKey']?.toString())
-      ..workflowConditionRef = _cleanOptionalText(d['workflowConditionRef']?.toString())
-      ..workflowDeferredAt = timestamps.workflowDeferredAt
-      ..workflowDeferredByUid = _cleanOptionalText(d['workflowDeferredByUid']?.toString())
-      ..workflowDeferredByName = _cleanOptionalText(d['workflowDeferredByName']?.toString())
-      ..workflowReactivatedAt = timestamps.workflowReactivatedAt
-      ..workflowReactivatedByUid = _cleanOptionalText(d['workflowReactivatedByUid']?.toString())
-      ..workflowReactivatedByName = _cleanOptionalText(d['workflowReactivatedByName']?.toString())
-      ..workflowReleasedAt = timestamps.workflowReleasedAt
-      ..workflowReleasedByUid = _cleanOptionalText(d['workflowReleasedByUid']?.toString())
-      ..workflowReleasedByName = _cleanOptionalText(d['workflowReleasedByName']?.toString())
-      ..workflowCorrectionReason = _cleanOptionalText(d['workflowCorrectionReason']?.toString())
-      ..workflowUpdatedAt = timestamps.workflowUpdatedAt
-      ..loggedByUid = _cleanOptionalText(d['loggedByUid']?.toString())
-      ..loggedByName = _cleanOptionalText(d['loggedByName']?.toString())
-      ..reportedBy = _cleanOptionalText(d['reportedBy']?.toString())
-      ..acknowledgedByUid = _cleanOptionalText(
-        d['acknowledgedByUid']?.toString(),
-      )
-      ..acknowledgedByName = _cleanOptionalText(
-        d['acknowledgedByName']?.toString(),
-      )
-      ..acknowledgedAt = timestamps.acknowledgedAt
-      ..closedByUid = _cleanOptionalText(d['closedByUid']?.toString())
-      ..closedByName = _cleanOptionalText(d['closedByName']?.toString())
-      ..teamsInvolved = _stringList(d['teamsInvolved']) ?? <String>[]
-      ..performedBy = _cleanOptionalText(d['performedBy']?.toString())
-      ..remarks = _cleanOptionalText(d['remarks']?.toString())
-      ..startDate = timestamps.startDate
-      ..endDate = timestamps.endDate
-      ..downtimeHours =
-          d['downtimeHours'] is num
-              ? (d['downtimeHours'] as num).toDouble()
-              : null
-      ..chargeNoAtEvent =
-          d['chargeNoAtEvent'] is num
-              ? (d['chargeNoAtEvent'] as num).toInt()
-              : int.tryParse(d['chargeNoAtEvent']?.toString() ?? '')
-      ..createdAt = timestamps.createdAt
-      ..updatedAt = timestamps.updatedAt
-      ..metadataJson = _cleanOptionalText(d['metadataJson']?.toString())
-      ..actionsJson = actionsJson
-      ..resolutionHistoryJson = resolutionHistoryJson
-      ..isDeleted = d['isDeleted'] == true
-      ..deletedAt = timestamps.deletedAt
-      ..deletedByUid = _cleanOptionalText(d['deletedByUid']?.toString())
-      ..deletedByName = _cleanOptionalText(d['deletedByName']?.toString())
-      ..deleteReason = _cleanOptionalText(d['deleteReason']?.toString())
-      ..isSynced = true;
-
-    if (ticket.isDeleted) {
-      requireRemoteTombstoneDeletedAt(
-        ticket.deletedAt,
-        entityLabel: 'maintenance ticket',
-        firestoreId: ticket.firestoreId,
-      );
-    }
-
-    return ticket;
-  }
-
-  T _parseEnum<T extends Enum>(dynamic value, List<T> values, T fallback) {
-    final raw = value?.toString();
-    if (raw == null || raw.isEmpty) return fallback;
-    for (final item in values) {
-      if (item.name == raw) return item;
-    }
-    return fallback;
-  }
-
-  int _intValue(dynamic value, {int fallback = 0}) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '') ?? fallback;
-  }
-
-  String? _cleanOptionalText(String? value) {
-    final trimmed = value?.trim();
-    if (trimmed == null || trimmed.isEmpty) return null;
-    return trimmed;
-  }
-
-  List<String>? _stringList(dynamic value) {
-    if (value is! List) return null;
-    final list =
-        value
-            .map((entry) => entry.toString().trim())
-            .where((entry) => entry.isNotEmpty)
-            .toSet()
-            .toList();
-    return list.isEmpty ? null : list;
-  }
+  ) => readRemoteMaintenanceRecord(d, documentId: doc.id);
 
   LiveRemoteSyncHealth get _health => _read(liveRemoteSyncHealthProvider);
 

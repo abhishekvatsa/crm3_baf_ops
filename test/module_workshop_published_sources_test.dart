@@ -74,6 +74,24 @@ void main() {
 
     expect(sources, isEmpty);
   });
+
+  test('malformed published snapshot fails instead of appearing empty', () {
+    final version =
+        _publishedVersion()
+          ..moduleSnapshotsJson = jsonEncode([
+            {
+              'moduleTitle': 'Identity was lost',
+              'assetType': 'base',
+              'discipline': 'mechanical',
+              'useMode': 'scheduledPM',
+            },
+          ]);
+
+    expect(
+      () => publishedModuleSourcesFromTemplateVersion(version: version),
+      throwsFormatException,
+    );
+  });
 }
 
 TemplatePackage _package() {

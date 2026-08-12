@@ -339,7 +339,7 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
 
     late final TemplateComposerDraft selectedDraft;
     try {
-      selectedDraft = TemplateComposerDraft.fromPayloads(
+      selectedDraft = TemplateComposerDraft.fromAuthoringPayloads(
         jobTemplateSnapshotJson: selected.version.jobTemplateSnapshotJson,
         moduleSnapshotsJson: selected.version.moduleSnapshotsJson,
         fieldDefinitionsJson: selected.version.fieldDefinitionsJson,

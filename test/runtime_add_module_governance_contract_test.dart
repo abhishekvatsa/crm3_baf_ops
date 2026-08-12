@@ -231,7 +231,10 @@ TemplateVersion _publishedVersion({
     ..versionLabel = '66B runtime add governance'
     ..status = TemplateVersionStatus.published
     ..contentHash = 'tg2-sha256:${'b' * 64}'
-    ..jobTemplateSnapshotJson = jsonEncode({'template': '66B runtime add'})
+    ..jobTemplateSnapshotJson = jsonEncode({
+      'title': '66B runtime add',
+      'assetType': 'base',
+    })
     ..moduleSnapshotsJson = jsonEncode(modules)
     ..fieldDefinitionsJson = jsonEncode(fields)
     ..checklistJson = '[]';
@@ -282,7 +285,7 @@ JobExecution _execution() {
     ..templatePackageId = 'package_66b'
     ..templateVersionId = 'version_66b'
     ..assetType = AssetType.base
-    ..assetNumber = 1
+    ..assetNumber = 101
     ..chargeNoAtEvent = 6602
     ..createdAt = DateTime.utc(2026, 5, 22, 9)
     ..updatedAt = DateTime.utc(2026, 5, 22, 9);

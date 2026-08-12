@@ -288,6 +288,10 @@ class WorkflowPullService {
   }) async {
     try {
       final quarantineStart = quarantined.length;
+      final storedQuarantine = _readStoredQuarantine(prefs, _preferenceReader);
+      final hasStoredCollectionQuarantine = storedQuarantine.any(
+        (record) => record.collection == name,
+      );
       final batch = await fetch(_since(prefs, key));
       final now = DateTime.now().toUtc();
       for (final failure in batch.failures) {
@@ -336,13 +340,19 @@ class WorkflowPullService {
         failures[name] = '$collectionQuarantine record(s) quarantined';
         await _appendQuarantine(prefs, collectionRecords);
       }
-      if (!unknownFailureTimestamp && !localUpsertFailed) {
-        if (collectionRecords.isEmpty) {
-          _readStoredQuarantine(prefs, _preferenceReader);
-        }
+      final cursorBlocked =
+          hasStoredCollectionQuarantine ||
+          collectionQuarantine > 0 ||
+          unknownFailureTimestamp ||
+          localUpsertFailed;
+      if (!cursorBlocked) {
         await _advance(prefs, key, observed);
       } else {
         final reasons = <String>[
+          if (hasStoredCollectionQuarantine)
+            'an existing quarantine requires explicit repair and clearance',
+          if (collectionQuarantine > 0)
+            'the current batch contains quarantined records',
           if (unknownFailureTimestamp)
             'a failed record had no valid server timestamp',
           if (localUpsertFailed) 'a local upsert failed',
@@ -401,8 +411,22 @@ class WorkflowPullService {
   ) async {
     if (newRecords.isEmpty) return;
     final existing = _readStoredQuarantine(prefs, _preferenceReader);
-    final combined = <WorkflowPullQuarantineRecord>[...existing, ...newRecords]
-      ..sort((a, b) => a.quarantinedAt.compareTo(b.quarantinedAt));
+    final byIdentity = <String, WorkflowPullQuarantineRecord>{};
+    for (final record in <WorkflowPullQuarantineRecord>[
+      ...existing,
+      ...newRecords,
+    ]) {
+      final identity = <String>[
+        record.collection,
+        record.documentId,
+        record.stage,
+        record.observedAt?.toUtc().toIso8601String() ?? 'unknown-time',
+      ].join('|');
+      byIdentity[identity] = record;
+    }
+    final combined =
+        byIdentity.values.toList()
+          ..sort((a, b) => a.quarantinedAt.compareTo(b.quarantinedAt));
     final retained =
         combined.length <= _maxQuarantineRecords
             ? combined

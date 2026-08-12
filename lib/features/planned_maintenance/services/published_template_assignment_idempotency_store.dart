@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import 'published_template_assignment_server_service.dart';
 
 class PublishedTemplateAssignmentPendingIdentity {
@@ -22,14 +23,17 @@ class PublishedTemplateAssignmentPendingIdentity {
   factory PublishedTemplateAssignmentPendingIdentity.fromMap(
     Map<String, dynamic> map,
   ) {
-    final requestId = _clean(map['requestId']?.toString());
-    final fingerprint = _clean(map['payloadFingerprint']?.toString());
-    if (requestId == null || fingerprint == null) {
-      throw const FormatException('Pending assignment identity is incomplete.');
-    }
     return PublishedTemplateAssignmentPendingIdentity(
-      requestId: requestId,
-      payloadFingerprint: fingerprint,
+      requestId: readRequiredPersistedString(
+        map['requestId'],
+        field: 'requestId',
+        source: 'pending governed assignment identity',
+      ),
+      payloadFingerprint: readRequiredPersistedString(
+        map['payloadFingerprint'],
+        field: 'payloadFingerprint',
+        source: 'pending governed assignment identity',
+      ),
     );
   }
 }
@@ -106,15 +110,12 @@ class PublishedTemplateAssignmentIdempotencyStore {
   PublishedTemplateAssignmentPendingIdentity? _decode(String? raw) {
     final cleaned = _clean(raw);
     if (cleaned == null) return null;
-    try {
-      final decoded = jsonDecode(cleaned);
-      if (decoded is! Map) return null;
-      return PublishedTemplateAssignmentPendingIdentity.fromMap(
-        Map<String, dynamic>.from(decoded),
-      );
-    } catch (_) {
-      return null;
-    }
+    final decoded = readRequiredJsonObject(
+      cleaned,
+      field: 'pendingAssignmentIdentity',
+      source: 'SharedPreferences',
+    );
+    return PublishedTemplateAssignmentPendingIdentity.fromMap(decoded);
   }
 }
 

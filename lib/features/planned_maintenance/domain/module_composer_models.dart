@@ -5,6 +5,7 @@ import 'dart:convert';
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/job_module_model.dart';
+import 'template_version_snapshot_contract.dart';
 
 // ─────────────────────────────────────────────────────────────
 // MODULE COMPOSER ENUMS
@@ -422,47 +423,74 @@ class TemplateComposerDraft {
     required String moduleSnapshotsJson,
     required String fieldDefinitionsJson,
     required String checklistJson,
+  }) => TemplateComposerDraft._fromPayloads(
+    jobTemplateSnapshotJson: jobTemplateSnapshotJson,
+    moduleSnapshotsJson: moduleSnapshotsJson,
+    fieldDefinitionsJson: fieldDefinitionsJson,
+    checklistJson: checklistJson,
+    allowEmptyModules: false,
+  );
+
+  factory TemplateComposerDraft.fromAuthoringPayloads({
+    required String jobTemplateSnapshotJson,
+    required String moduleSnapshotsJson,
+    required String fieldDefinitionsJson,
+    required String checklistJson,
+  }) => TemplateComposerDraft._fromPayloads(
+    jobTemplateSnapshotJson: jobTemplateSnapshotJson,
+    moduleSnapshotsJson: moduleSnapshotsJson,
+    fieldDefinitionsJson: fieldDefinitionsJson,
+    checklistJson: checklistJson,
+    allowEmptyModules: true,
+  );
+
+  factory TemplateComposerDraft._fromPayloads({
+    required String jobTemplateSnapshotJson,
+    required String moduleSnapshotsJson,
+    required String fieldDefinitionsJson,
+    required String checklistJson,
+    required bool allowEmptyModules,
   }) {
     const source = 'Template Composer payload';
-    final jobSnapshot = readRequiredJsonObject(
-      jobTemplateSnapshotJson,
-      field: 'jobTemplateSnapshotJson',
-      source: source,
-    );
-    final moduleSnapshots = readRequiredJsonObjectList(
-      moduleSnapshotsJson,
-      field: 'moduleSnapshotsJson',
-      source: source,
-    );
-    final fieldDefinitions = readRequiredJsonObjectList(
-      fieldDefinitionsJson,
-      field: 'fieldDefinitionsJson',
-      source: source,
-    );
-    final checklistItems = readRequiredJsonObjectList(
-      checklistJson,
-      field: 'checklistJson',
-      source: source,
-    );
+    late final TemplateVersionSnapshotBundle bundle;
+    try {
+      bundle =
+          TemplateVersionSnapshotBundle.fromRawJson(
+            jobTemplateSnapshotJson: jobTemplateSnapshotJson,
+            moduleSnapshotsJson: moduleSnapshotsJson,
+            fieldDefinitionsJson: fieldDefinitionsJson,
+            checklistJson: checklistJson,
+            allowEmptyModules: allowEmptyModules,
+            allowEmptyFieldDefinitions: allowEmptyModules,
+          ).requireValidForAssignment();
+    } on TemplateVersionSnapshotException catch (error) {
+      throw PersistedDataFormatException(
+        field: 'snapshotBundle',
+        source: source,
+        detail: error.message,
+      );
+    }
+    final jobSnapshot = bundle.jobSnapshot;
+    final moduleSnapshots = bundle.moduleSnapshots;
+    final fieldDefinitions = bundle.fieldDefinitions;
+    final checklistItems = bundle.checklistItems;
     final title =
         _stringFrom(jobSnapshot, const [
           'title',
           'templateName',
           'jobName',
           'name',
-        ]) ??
-        'BAF governed template';
+        ])!;
     final assetType =
         _parseAssetType(
           _stringFrom(jobSnapshot, const ['assetType', 'applicableAssetType']),
-        ) ??
-        AssetType.base;
+        )!;
     final composerMeta = _mapFrom(jobSnapshot['composer']);
 
     final modules = <ComposerModuleDraft>[];
     for (var i = 0; i < moduleSnapshots.length; i++) {
       final snapshot = moduleSnapshots[i];
-      final code = _moduleCodeFromSnapshot(snapshot) ?? 'M-${i + 1}';
+      final code = _moduleCodeFromSnapshot(snapshot)!;
       final fields =
           fieldDefinitions
               .where((field) => _moduleReferenceMatches(field, code))
@@ -1109,16 +1137,39 @@ List<Map<String, dynamic>> _structuredFieldPresetMaps(dynamic value) {
         .toList(growable: false);
   }
   if (value is String && value.trim().isNotEmpty) {
+    final trimmed = value.trim();
     try {
-      final decoded = jsonDecode(value);
+      final decoded = jsonDecode(trimmed);
       if (decoded is Iterable) {
-        return decoded
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList(growable: false);
+        final rows = <Map<String, dynamic>>[];
+        var index = 0;
+        for (final item in decoded) {
+          if (item is! Map) {
+            throw PersistedDataFormatException(
+              field: 'suggestedFieldPresets[$index]',
+              source: 'BAF knowledge field presets',
+              detail: 'expected a JSON object (${item.runtimeType})',
+            );
+          }
+          rows.add(Map<String, dynamic>.from(item));
+          index += 1;
+        }
+        return rows;
       }
-    } catch (_) {
-      // Fall back to legacy string suggestedFields parsing below.
+      throw PersistedDataFormatException(
+        field: 'suggestedFieldPresets',
+        source: 'BAF knowledge field presets',
+        detail: 'expected a JSON array (${decoded.runtimeType})',
+      );
+    } on FormatException catch (error) {
+      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+        throw PersistedDataFormatException(
+          field: 'suggestedFieldPresets',
+          source: 'BAF knowledge field presets',
+          detail: 'malformed JSON: ${error.message}',
+        );
+      }
+      // Plain delimited text is the governed legacy suggestedFields shape.
     }
   }
   return <Map<String, dynamic>>[];
@@ -1412,6 +1463,12 @@ JobModuleDiscipline _parseDiscipline(
 
 JobModuleUseMode _parseUseMode(String? value) {
   final key = _normaliseText(value);
+  if (key == 'scheduled' ||
+      key == 'pm' ||
+      key == 'conditional' ||
+      key == 'conditionbased') {
+    return JobModuleUseMode.scheduledPM;
+  }
   for (final mode in JobModuleUseMode.values) {
     if (_normaliseText(mode.name) == key) {
       return mode;

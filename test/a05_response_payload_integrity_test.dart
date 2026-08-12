@@ -15,16 +15,20 @@ Map<String, dynamic> _moduleMap({
   bool includeCanonicalResponses = true,
 }) {
   final map = <String, dynamic>{
+    'firestoreId': 'module-1',
+    'jobExecutionFirestoreId': 'execution-1',
     'moduleTitle': 'Pressure inspection',
     'assetType': AssetType.base.name,
-    'assetNumber': 1,
+    'assetNumber': 101,
     'status': JobModuleStatus.draftSaved.name,
+    'isOpenForWork': true,
     'discipline': JobModuleDiscipline.mechanical.name,
     'safetyClass': JobModuleSafetyClass.normal.name,
     'fieldDefinitionsJson': fieldDefinitionsJson,
     'createdAt': '2026-08-05T08:00:00.000Z',
     'updatedAt': '2026-08-05T08:00:00.000Z',
     'version': 1,
+    'isDeleted': false,
   };
   if (includeCanonicalResponses) map['responsesJson'] = responsesJson;
   if (legacyResponses != null) map['responses'] = legacyResponses;
@@ -37,11 +41,15 @@ Map<String, dynamic> _executionMap({
   bool includeCanonicalResponses = true,
 }) {
   final map = <String, dynamic>{
+    'firestoreId': 'execution-1',
     'templateFirestoreId': 'template-1',
     'templateName': 'Pressure inspection',
     'assetType': AssetType.base.name,
-    'assetNumber': 1,
+    'assetNumber': 101,
+    'assignedByUid': 'admin-1',
     'assignedAgencies': ['mechanical'],
+    'isCompleted': false,
+    'isDeleted': false,
     'createdAt': '2026-08-05T08:00:00.000Z',
     'updatedAt': '2026-08-05T08:00:00.000Z',
     'version': 1,

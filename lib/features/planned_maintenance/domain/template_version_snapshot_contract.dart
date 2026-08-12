@@ -45,6 +45,8 @@ class TemplateVersionSnapshotBundle {
     required String moduleSnapshotsJson,
     required String fieldDefinitionsJson,
     required String checklistJson,
+    bool allowEmptyModules = false,
+    bool allowEmptyFieldDefinitions = false,
   }) {
     return TemplateVersionSnapshotBundle(
       jobSnapshot: _decodeObject(
@@ -54,10 +56,12 @@ class TemplateVersionSnapshotBundle {
       moduleSnapshots: _decodeObjectList(
         moduleSnapshotsJson,
         label: 'moduleSnapshotsJson',
+        allowEmpty: allowEmptyModules,
       ),
       fieldDefinitions: _decodeObjectList(
         fieldDefinitionsJson,
         label: 'fieldDefinitionsJson',
+        allowEmpty: allowEmptyFieldDefinitions,
       ),
       checklistItems: _decodeObjectList(
         checklistJson,
@@ -75,19 +79,61 @@ class TemplateVersionSnapshotBundle {
     final moduleCodeByNormalizedCode = <String, String>{};
     final fieldKeysByModuleCode = <String, Set<String>>{};
     var closureCriticalModuleCount = 0;
+    _validateRequiredStringAliases(
+      jobSnapshot,
+      const ['title', 'templateName', 'jobName', 'name'],
+      label: 'Job template title',
+      errors: errors,
+    );
+    _validateRequiredEnumAliases(
+      jobSnapshot,
+      const ['assetType', 'applicableAssetType', 'asset_type'],
+      label: 'Job template asset type',
+      allowed: const {
+        'base',
+        'furnace',
+        'baffurnace',
+        'forcedcooler',
+        'forcecooler',
+        'cooler',
+        'forcedcoolers',
+        'innercover',
+        'innercovers',
+      },
+      errors: errors,
+    );
+    final composer = mapFrom(jobSnapshot['composer']);
+    boolValue(composer['closureReviewConfirmed']);
+    stringValue(composer['closureReviewConfirmedByUid']);
+    stringValue(composer['closureReviewConfirmedByName']);
+    stringValue(composer['draftLocalId']);
+    intValue(jobSnapshot['closureCriticalCount']);
+    for (final key in const [
+      'assignedAgencies',
+      'agencies',
+      'disciplines',
+      'disciplineScope',
+    ]) {
+      if (jobSnapshot.containsKey(key)) stringList(jobSnapshot[key]);
+    }
 
     for (var i = 0; i < moduleSnapshots.length; i++) {
       final module = moduleSnapshots[i];
       final code = moduleCode(module);
-      final display = code?.trim().isNotEmpty == true ? code! : 'module #${i + 1}';
+      final display =
+          code?.trim().isNotEmpty == true ? code! : 'module #${i + 1}';
       if (code == null || code.trim().isEmpty) {
-        errors.add('Module #${i + 1} is missing moduleCode/code. Assignment cannot safely link fields.');
+        errors.add(
+          'Module #${i + 1} is missing moduleCode/code. Assignment cannot safely link fields.',
+        );
         continue;
       }
 
       final normalizedCode = normalizeKey(code);
       if (moduleCodeByNormalizedCode.containsKey(normalizedCode)) {
-        errors.add('Duplicate module code "$code". Module codes must be unique before publishing.');
+        errors.add(
+          'Duplicate module code "$code". Module codes must be unique before publishing.',
+        );
       }
       moduleCodeByNormalizedCode[normalizedCode] = code.trim();
       fieldKeysByModuleCode.putIfAbsent(normalizedCode, () => <String>{});
@@ -104,8 +150,11 @@ class TemplateVersionSnapshotBundle {
       );
       final metadata = mapFrom(module['metadata']);
       final owners = stringList(metadata['ownerDisciplines']);
+      _validateModuleTypes(module, metadata: metadata);
       if (discipline == 'shared' && owners.length < 2) {
-        warnings.add('Shared module $display has fewer than two owner disciplines.');
+        warnings.add(
+          'Shared module $display has fewer than two owner disciplines.',
+        );
       }
     }
 
@@ -114,6 +163,7 @@ class TemplateVersionSnapshotBundle {
       final key = fieldKey(field);
       final label = stringFrom(field, const ['label', 'title', 'name']);
       final linkedModuleCode = fieldModuleCode(field);
+      _validateFieldTypes(field);
 
       if (key == null || key.trim().isEmpty) {
         errors.add('Field definition #${i + 1} is missing key.');
@@ -122,21 +172,27 @@ class TemplateVersionSnapshotBundle {
         errors.add('Field definition #${i + 1} is missing label.');
       }
       if (linkedModuleCode == null || linkedModuleCode.trim().isEmpty) {
-        errors.add('Field ${key ?? '#${i + 1}'} is missing moduleCode. Publisher cannot safely assign it.');
+        errors.add(
+          'Field ${key ?? '#${i + 1}'} is missing moduleCode. Publisher cannot safely assign it.',
+        );
         continue;
       }
 
       final normalizedModuleCode = normalizeKey(linkedModuleCode);
       final fieldKeys = fieldKeysByModuleCode[normalizedModuleCode];
       if (fieldKeys == null) {
-        errors.add('Field ${key ?? '#${i + 1}'} points to unknown moduleCode "$linkedModuleCode".');
+        errors.add(
+          'Field ${key ?? '#${i + 1}'} points to unknown moduleCode "$linkedModuleCode".',
+        );
         continue;
       }
 
       if (key != null && key.trim().isNotEmpty) {
         final normalizedFieldKey = normalizeKey(key);
         if (!fieldKeys.add(normalizedFieldKey)) {
-          errors.add('Duplicate field key "$key" inside module ${moduleCodeByNormalizedCode[normalizedModuleCode]}.');
+          errors.add(
+            'Duplicate field key "$key" inside module ${moduleCodeByNormalizedCode[normalizedModuleCode]}.',
+          );
         }
       }
     }
@@ -145,45 +201,64 @@ class TemplateVersionSnapshotBundle {
       final item = checklistItems[i];
       final title = stringFrom(item, const ['title', 'label', 'name']);
       final linkedModuleCode = fieldModuleCode(item);
-      final linkedFieldKey = stringFrom(item, const ['linkedFieldKey', 'fieldKey', 'fieldId']);
-      final label = title?.trim().isNotEmpty == true ? title! : 'checklist item #${i + 1}';
+      final linkedFieldKey = stringFrom(item, const [
+        'linkedFieldKey',
+        'fieldKey',
+        'fieldId',
+      ]);
+      _validateChecklistTypes(item);
+      final label =
+          title?.trim().isNotEmpty == true
+              ? title!
+              : 'checklist item #${i + 1}';
 
       if (linkedModuleCode == null || linkedModuleCode.trim().isEmpty) {
-        warnings.add('Checklist item "$label" has no moduleCode and will be treated as global/reference-only.');
+        warnings.add(
+          'Checklist item "$label" has no moduleCode and will be treated as global/reference-only.',
+        );
         continue;
       }
 
       final normalizedModuleCode = normalizeKey(linkedModuleCode);
       final knownFields = fieldKeysByModuleCode[normalizedModuleCode];
       if (knownFields == null) {
-        errors.add('Checklist item "$label" points to unknown moduleCode "$linkedModuleCode".');
+        errors.add(
+          'Checklist item "$label" points to unknown moduleCode "$linkedModuleCode".',
+        );
         continue;
       }
 
       if (linkedFieldKey != null && linkedFieldKey.trim().isNotEmpty) {
         final normalizedFieldKey = normalizeKey(linkedFieldKey);
         if (!knownFields.contains(normalizedFieldKey)) {
-          errors.add('Checklist item "$label" links to missing field "$linkedFieldKey" in module $linkedModuleCode.');
+          errors.add(
+            'Checklist item "$label" links to missing field "$linkedFieldKey" in module $linkedModuleCode.',
+          );
         }
       }
     }
 
     for (final entry in fieldKeysByModuleCode.entries) {
       if (entry.value.isEmpty) {
-        warnings.add('Module ${moduleCodeByNormalizedCode[entry.key]} has no linked field definitions.');
+        warnings.add(
+          'Module ${moduleCodeByNormalizedCode[entry.key]} has no linked field definitions.',
+        );
       }
     }
 
     if (requireClosureReviewForClosureCritical) {
-      final declaredClosureCount = intValue(jobSnapshot['closureCriticalCount']) ?? 0;
+      final declaredClosureCount =
+          intValue(jobSnapshot['closureCriticalCount']) ?? 0;
       if ((closureCriticalModuleCount > 0 || declaredClosureCount > 0) &&
           !closureReviewConfirmed) {
-        errors.add('Closure-critical modules require Admin/SI closure review confirmation in composer metadata before publish.');
+        errors.add(
+          'Closure-critical modules require Admin/SI closure review confirmation in composer metadata before publish.',
+        );
       }
     }
 
     try {
-      _readClosureReviewConfirmedAt(mapFrom(jobSnapshot['composer']));
+      _readClosureReviewConfirmedAt(composer);
     } on TemplateVersionSnapshotException catch (error) {
       errors.add(error.message);
     }
@@ -232,7 +307,11 @@ class TemplateVersionSnapshotBundle {
   List<Map<String, dynamic>> fieldsForModule(Map<String, dynamic> module) {
     final code = moduleCode(module);
 
-    for (final key in const ['fields', 'fieldDefinitions', 'fieldDefinitionsJson']) {
+    for (final key in const [
+      'fields',
+      'fieldDefinitions',
+      'fieldDefinitionsJson',
+    ]) {
       final value = module[key];
       if (value is String) {
         final parsed = _decodeObjectList(
@@ -264,14 +343,17 @@ class TemplateVersionSnapshotBundle {
 
     if (code != null && code.trim().isNotEmpty) {
       final normalizedCode = normalizeKey(code);
-      final filtered = fieldDefinitions.where((field) {
-        final fieldModule = fieldModuleCode(field);
-        return normalizeKey(fieldModule) == normalizedCode;
-      }).toList();
+      final filtered =
+          fieldDefinitions.where((field) {
+            final fieldModule = fieldModuleCode(field);
+            return normalizeKey(fieldModule) == normalizedCode;
+          }).toList();
       if (filtered.isNotEmpty) return filtered;
     }
 
-    return hasModuleLinkedGlobalFields ? <Map<String, dynamic>>[] : fieldDefinitions;
+    return hasModuleLinkedGlobalFields
+        ? <Map<String, dynamic>>[]
+        : fieldDefinitions;
   }
 
   static String? moduleCode(Map<String, dynamic> module) {
@@ -279,19 +361,28 @@ class TemplateVersionSnapshotBundle {
   }
 
   static String? moduleTitleOrNull(Map<String, dynamic> module) {
-    return stringFrom(module, const ['moduleTitle', 'title', 'name', 'displayTitle', 'label']);
+    return stringFrom(module, const [
+      'moduleTitle',
+      'title',
+      'name',
+      'displayTitle',
+      'label',
+    ]);
   }
 
   static String moduleTitle(Map<String, dynamic> module, int index) {
-    return moduleTitleOrNull(module) ?? moduleCode(module) ?? 'Module ${index + 1}';
+    return moduleTitleOrNull(module) ??
+        moduleCode(module) ??
+        'Module ${index + 1}';
   }
 
   static bool moduleRequiredForClosure(Map<String, dynamic> module) {
-    return boolFrom(
-      module,
-      const ['requiredForClosure', 'requiredForCloseout', 'required', 'isRequired'],
-      fallback: false,
-    );
+    return boolFrom(module, const [
+      'requiredForClosure',
+      'requiredForCloseout',
+      'required',
+      'isRequired',
+    ], fallback: false);
   }
 
   static String? fieldKey(Map<String, dynamic> field) {
@@ -299,14 +390,365 @@ class TemplateVersionSnapshotBundle {
   }
 
   static String? fieldModuleCode(Map<String, dynamic> field) {
-    return stringFrom(field, const ['moduleCode', 'moduleId', 'templateModuleId', 'parentModuleCode']);
+    return stringFrom(field, const [
+      'moduleCode',
+      'moduleId',
+      'templateModuleId',
+      'parentModuleCode',
+    ]);
   }
 }
 
-Map<String, dynamic> _decodeObject(
-  String raw, {
-  required String label,
+void _validateModuleTypes(
+  Map<String, dynamic> module, {
+  required Map<String, dynamic> metadata,
 }) {
+  _validateStringAliases(module, const [
+    'moduleCode',
+    'code',
+    'moduleId',
+    'id',
+    'moduleTitle',
+    'title',
+    'name',
+    'displayTitle',
+    'label',
+    'moduleDescription',
+    'description',
+    'closedDossierOutput',
+    'functionalSection',
+    'section',
+    'componentGroup',
+    'component',
+    'subsystem',
+    'catalogueArea',
+    'area',
+    'templateModuleId',
+    'key',
+    'assignedDiscipline',
+    'ownerDiscipline',
+    'safetyClass',
+    'defaultSafetyClass',
+    'targetRef',
+  ]);
+  _validateOptionalEnumAliases(
+    module,
+    const ['assetType'],
+    label: 'module asset type',
+    allowed: const {
+      'base',
+      'furnace',
+      'forcedcooler',
+      'forcecooler',
+      'cooler',
+      'innercover',
+    },
+  );
+  _validateOptionalEnumAliases(
+    module,
+    const [
+      'discipline',
+      'defaultDiscipline',
+      'assignedDiscipline',
+      'ownerDiscipline',
+    ],
+    label: 'module discipline',
+    allowed: const {
+      'mechanical',
+      'electrical',
+      'instrumentation',
+      'instrument',
+      'ia',
+      'ianda',
+      'instrumentationautomation',
+      'instrumentationandautomation',
+      'operations',
+      'operation',
+      'emd',
+      'refractory',
+      'shiftincharge',
+      'safety',
+      'admin',
+      'shared',
+      'multi',
+      'multidiscipline',
+      'others',
+      'other',
+    },
+  );
+  _validateOptionalEnumAliases(
+    module,
+    const ['useMode', 'defaultUseMode'],
+    label: 'module use mode',
+    allowed: const {
+      'scheduledpm',
+      'scheduled',
+      'pm',
+      'conditional',
+      'conditionbased',
+      'troubleshooting',
+      'correctivefollowup',
+      'shutdownwork',
+      'prestartverification',
+      'postrepairverification',
+      'futurepackage',
+      'adhoc',
+    },
+  );
+  _validateOptionalEnumAliases(
+    module,
+    const ['safetyClass', 'defaultSafetyClass'],
+    label: 'module safety class',
+    allowed: const {
+      'normal',
+      'lotorequired',
+      'gasrisk',
+      'hotsurface',
+      'pressuretest',
+      'liftingrisk',
+      'electricalpanel',
+      'combustionspecialist',
+      'configurationcontrol',
+    },
+  );
+  _validateBoolAliases(module, const [
+    'requiredForClosure',
+    'requiredForCloseout',
+    'required',
+    'isRequired',
+  ]);
+  for (final key in const ['displayOrder', 'order', 'sequence']) {
+    if (module.containsKey(key)) intValue(module[key]);
+  }
+  for (final key in const [
+    'targetRefs',
+    'targets',
+    'deviceTagRefs',
+    'procedureRefs',
+    'procedures',
+    'safetyConfirmations',
+    'tags',
+    'operationalStatePreconditions',
+    'preconditions',
+  ]) {
+    if (module.containsKey(key)) stringList(module[key]);
+  }
+  final pairedEquipment = module['pairedEquipmentJson'];
+  if (pairedEquipment != null &&
+      pairedEquipment is! String &&
+      pairedEquipment is! Map &&
+      pairedEquipment is! List) {
+    throw const TemplateVersionSnapshotException(
+      'pairedEquipmentJson must be a JSON string, object, or list.',
+    );
+  }
+  for (final key in const [
+    'primaryOwner',
+    'sourceManualRef',
+    'sourceKnowledgeId',
+    'sourceSeedCode',
+    'authoringNotes',
+  ]) {
+    if (metadata.containsKey(key)) stringValue(metadata[key]);
+  }
+  if (metadata.containsKey('ownerDisciplines')) {
+    stringList(metadata['ownerDisciplines']);
+  }
+  if (metadata.containsKey('safetyClasses')) {
+    stringList(metadata['safetyClasses']);
+  }
+  if (metadata.containsKey('partRefs')) stringList(metadata['partRefs']);
+  if (metadata.containsKey('requiresJointReview')) {
+    boolValue(metadata['requiresJointReview']);
+  }
+  _validateOptionalEnumAliases(
+    metadata,
+    const ['frequency'],
+    label: 'module frequency',
+    allowed: const {
+      'everycharge',
+      'weekly',
+      'monthly',
+      'everythreemonths',
+      'threemonthly',
+      'biyearly',
+      'biannual',
+      'annually',
+      'annual',
+      'everytwoyears',
+      'conditionbased',
+      'eventbased',
+      'troubleshootingonly',
+      'unknown',
+    },
+  );
+  _validateOptionalEnumAliases(
+    metadata,
+    const ['sourceReadiness'],
+    label: 'module source readiness',
+    allowed: const {
+      'readypreset',
+      'needsreview',
+      'consultrequired',
+      'tagonly',
+      'troubleshootingonly',
+      'futureintegration',
+      'referenceonly',
+    },
+  );
+  _validateOptionalEnumAliases(
+    metadata,
+    const ['confidence'],
+    label: 'module source confidence',
+    allowed: const {
+      'confirmedmanual',
+      'confirmeduserratified',
+      'inferred',
+      'inferredneedsreview',
+      'plantinactivefuturepreset',
+      'consultuser',
+    },
+  );
+}
+
+void _validateFieldTypes(Map<String, dynamic> field) {
+  _validateStringAliases(field, const [
+    'key',
+    'fieldKey',
+    'fieldId',
+    'id',
+    'label',
+    'title',
+    'name',
+    'moduleCode',
+    'moduleId',
+    'templateModuleId',
+    'parentModuleCode',
+    'instructionText',
+    'hint',
+    'unit',
+  ]);
+  _validateOptionalEnumAliases(
+    field,
+    const ['type', 'fieldType'],
+    label: 'field type',
+    allowed: const {
+      'yesno',
+      'boolean',
+      'text',
+      'longtext',
+      'number',
+      'numericwithunit',
+      'dropdown',
+      'enum',
+      'multiselect',
+      'passfail',
+      'datetime',
+    },
+  );
+  _validateBoolAliases(field, const ['isRequired', 'required']);
+  if (field.containsKey('order')) intValue(field['order']);
+  if (field.containsKey('options')) stringList(field['options']);
+  final validation = mapFrom(field['validation']);
+  final meta = mapFrom(field['meta']);
+  if (field.containsKey('isSafetyCriticalPreset')) {
+    boolValue(field['isSafetyCriticalPreset']);
+  }
+  if (meta.containsKey('isSafetyCriticalPreset')) {
+    boolValue(meta['isSafetyCriticalPreset']);
+  }
+  if (meta.containsKey('sourcePresetId')) stringValue(meta['sourcePresetId']);
+  if (meta.containsKey('sourcePreset')) stringValue(meta['sourcePreset']);
+  if (field.containsKey('validation') && validation.isEmpty) {
+    // A present empty validation object is valid. Calling mapFrom above is the
+    // strict shape check; this branch keeps the read intentional.
+  }
+}
+
+void _validateChecklistTypes(Map<String, dynamic> item) {
+  _validateStringAliases(item, const [
+    'id',
+    'itemId',
+    'key',
+    'title',
+    'label',
+    'name',
+    'description',
+    'moduleCode',
+    'moduleId',
+    'templateModuleId',
+    'parentModuleCode',
+    'linkedFieldKey',
+    'fieldKey',
+    'fieldId',
+  ]);
+  _validateBoolAliases(item, const ['isRequired', 'required']);
+  if (item.containsKey('order')) intValue(item['order']);
+  if (item.containsKey('safetyClasses')) stringList(item['safetyClasses']);
+  mapFrom(item['metadata']);
+}
+
+void _validateStringAliases(Map<String, dynamic> source, List<String> keys) {
+  for (final key in keys) {
+    if (source.containsKey(key)) stringValue(source[key]);
+  }
+}
+
+void _validateBoolAliases(Map<String, dynamic> source, List<String> keys) {
+  for (final key in keys) {
+    if (source.containsKey(key)) boolValue(source[key]);
+  }
+}
+
+void _validateRequiredStringAliases(
+  Map<String, dynamic> source,
+  List<String> keys, {
+  required String label,
+  required List<String> errors,
+}) {
+  _validateStringAliases(source, keys);
+  if (stringFrom(source, keys) == null) {
+    errors.add('$label is missing.');
+  }
+}
+
+void _validateRequiredEnumAliases(
+  Map<String, dynamic> source,
+  List<String> keys, {
+  required String label,
+  required Set<String> allowed,
+  required List<String> errors,
+}) {
+  _validateStringAliases(source, keys);
+  final value = stringFrom(source, keys);
+  if (value == null) {
+    errors.add('$label is missing.');
+    return;
+  }
+  if (!allowed.contains(normalizeKey(value))) {
+    errors.add('$label has unsupported value "$value".');
+  }
+}
+
+void _validateOptionalEnumAliases(
+  Map<String, dynamic> source,
+  List<String> keys, {
+  required String label,
+  required Set<String> allowed,
+}) {
+  _validateStringAliases(source, keys);
+  for (final key in keys) {
+    if (!source.containsKey(key)) continue;
+    final value = stringValue(source[key]);
+    if (value == null || !allowed.contains(normalizeKey(value))) {
+      throw TemplateVersionSnapshotException(
+        '$label has unsupported value "${source[key]}".',
+      );
+    }
+  }
+}
+
+Map<String, dynamic> _decodeObject(String raw, {required String label}) {
   final trimmed = raw.trim();
   if (trimmed.isEmpty) {
     throw TemplateVersionSnapshotException('$label is empty.');
@@ -362,14 +804,19 @@ List<Map<String, dynamic>> _decodeObjectList(
   }
 
   if (objects.isEmpty && !allowEmpty) {
-    throw TemplateVersionSnapshotException('$label must contain at least one item.');
+    throw TemplateVersionSnapshotException(
+      '$label must contain at least one item.',
+    );
   }
   return objects;
 }
 
 Map<String, dynamic> mapFrom(dynamic value) {
+  if (value == null) return <String, dynamic>{};
   if (value is Map) return Map<String, dynamic>.from(value);
-  return <String, dynamic>{};
+  throw TemplateVersionSnapshotException(
+    'Expected a JSON object but found ${value.runtimeType}.',
+  );
 }
 
 String? stringFrom(Map<String, dynamic> map, List<String> keys) {
@@ -382,16 +829,20 @@ String? stringFrom(Map<String, dynamic> map, List<String> keys) {
 }
 
 String? stringValue(dynamic value) {
+  if (value == null) return null;
   if (value is String && value.trim().isNotEmpty) return value.trim();
-  if (value is num || value is bool) return value.toString();
-  return null;
+  if (value is String) return null;
+  throw TemplateVersionSnapshotException(
+    'Expected a string but found ${value.runtimeType}.',
+  );
 }
 
 int? intValue(dynamic value) {
+  if (value == null) return null;
   if (value is int) return value;
-  if (value is num) return value.toInt();
-  if (value is String) return int.tryParse(value.trim());
-  return null;
+  throw TemplateVersionSnapshotException(
+    'Expected an integer but found ${value.runtimeType}.',
+  );
 }
 
 bool boolFrom(
@@ -407,17 +858,11 @@ bool boolFrom(
 }
 
 bool? boolValue(dynamic value) {
+  if (value == null) return null;
   if (value is bool) return value;
-  if (value is String) {
-    final normalized = value.trim().toLowerCase();
-    if (normalized == 'true' || normalized == 'yes' || normalized == 'required') {
-      return true;
-    }
-    if (normalized == 'false' || normalized == 'no' || normalized == 'optional') {
-      return false;
-    }
-  }
-  return null;
+  throw TemplateVersionSnapshotException(
+    'Expected a boolean but found ${value.runtimeType}.',
+  );
 }
 
 DateTime? _readClosureReviewConfirmedAt(Map<String, dynamic> composer) {
@@ -433,11 +878,20 @@ DateTime? _readClosureReviewConfirmedAt(Map<String, dynamic> composer) {
 }
 
 List<String> stringList(dynamic value) {
+  if (value == null) return <String>[];
   if (value is Iterable) {
-    return value
-        .map((item) => item.toString().trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+    final result = <String>[];
+    var index = 0;
+    for (final item in value) {
+      if (item is! String || item.trim().isEmpty) {
+        throw TemplateVersionSnapshotException(
+          'Expected a non-empty string at list index $index.',
+        );
+      }
+      result.add(item.trim());
+      index += 1;
+    }
+    return result;
   }
   if (value is String && value.trim().isNotEmpty) {
     return value
@@ -446,7 +900,9 @@ List<String> stringList(dynamic value) {
         .where((item) => item.isNotEmpty)
         .toList();
   }
-  return <String>[];
+  throw TemplateVersionSnapshotException(
+    'Expected a string list but found ${value.runtimeType}.',
+  );
 }
 
 String normalizeKey(String? value) {
@@ -458,6 +914,8 @@ String normalizeKey(String? value) {
       '';
 }
 
-String encodeSnapshotObject(Map<String, dynamic> value) => _snapshotJsonIndent.convert(value);
+String encodeSnapshotObject(Map<String, dynamic> value) =>
+    _snapshotJsonIndent.convert(value);
 
-String encodeSnapshotList(List<Map<String, dynamic>> value) => _snapshotJsonIndent.convert(value);
+String encodeSnapshotList(List<Map<String, dynamic>> value) =>
+    _snapshotJsonIndent.convert(value);
