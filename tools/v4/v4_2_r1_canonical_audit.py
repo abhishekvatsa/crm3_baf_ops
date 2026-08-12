@@ -8726,9 +8726,19 @@ lr07_readback_evidence_path = (
 lr07_closure_evidence_path = (
     "release/evidence/lr07-distribution-installation-live-readback-closure.json"
 )
+lr07_build11_containment_evidence_path = (
+    "release/evidence/lr07-public-production-artifact-containment-builds9-11.json"
+)
+lr07_build11_readback_evidence_path = (
+    "release/evidence/lr07-distribution-installation-live-readback-build11.json"
+)
 lr07_containment_evidence = data(lr07_containment_evidence_path)
 lr07_readback_evidence = data(lr07_readback_evidence_path)
 lr07_closure_evidence = data(lr07_closure_evidence_path)
+lr07_build11_containment_evidence = data(
+    lr07_build11_containment_evidence_path
+)
+lr07_build11_readback_evidence = data(lr07_build11_readback_evidence_path)
 lr07_records = [
     record
     for record in lr07_ledger.get("programmeGates", [])
@@ -9022,7 +9032,7 @@ check(
     and "requiredPresentArtifactIds" in lr07_containment
     and "strict readback fails closed" in lr07_contract
     and "collector still does not close `LR-07`" in lr07_decision
-    and "Status: RE-ARMED - BUILDS 9, 10 AND 11 ARTIFACT CONTAINMENT AND READBACK OPEN"
+    and "Status: LIVE READBACK PROVED - MERGED SOURCE/CI CLOSURE ADJUDICATION PENDING"
         in lr07_decision
     and lr07_containment_evidence.get("decision")
         == "PASS_LR07_PUBLIC_PRODUCTION_ARTIFACTS_CONTAINED"
@@ -9109,25 +9119,143 @@ check(
         for value in lr07_closure_evidence.get("closureBoundary", {}).values()
     )
     and len(lr07_records) == 1
-    and lr07_record.get("currentStatus") == "OPEN"
-    and lr07_record.get("authorization") == "BLOCKS_PILOT_HANDOUT"
-    and len(lr07_record.get("evidence", [])) == 3
+    and lr07_record.get("currentStatus") == "LIVE_READBACK_PROVED"
+    and lr07_record.get("authorization") == "AWAITING_SOURCE_CI_CLOSURE"
+    and len(lr07_record.get("evidence", [])) == 5
     and {
         entry.get("sha256") for entry in lr07_record.get("evidence", [])
     } == {
         "B4124F0EF65CD07D6F3F4093FA0EF7672A69421724E11A3A4CD1CEF734DD27FD",
         "27D77748B060959D0508209911A700E5267A5218F776347543F215B837850854",
         "7E440D6DCB826607FED4D7F4FF5332A816302571F294D3F6620206EFC5AD4089",
+        "D873651F251923D75DE34687600051C36C99E6B17E0662C023D2E7D2B04F9258",
+        "A1BB0DD539B68A782BFDA3C2D9DBA3D003C65333EA5FF5FD4054EFC192667517",
     }
     and len(lr07_record.get("requiredExitEvidence", [])) == 6
     and len(lr07_record.get("reArmTriggers", [])) == 7
-    and len(lr07_record.get("notes", [])) == 8
+    and len(lr07_record.get("notes", [])) == 9
     and [entry.get("status") for entry in lr07_record.get("statusHistory", [])]
-        == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED", "OPEN"]
+        == [
+            "OPEN",
+            "LIVE_READBACK_PROVED",
+            "CLOSED",
+            "OPEN",
+            "LIVE_READBACK_PROVED",
+        ]
     and lr07_ledger.get("programmeDecision", {}).get("nextMutation")
         == "STAGE2D-F6"
     and lr07_ledger.get("programmeDecision", {}).get("pilotHandout")
         == "NOT_AUTHORIZED",
+)
+
+check(
+    "LR-07 Builds 9-11 exact containment and strict readback are live-proved but non-closing",
+    sha(ROOT / lr07_build11_containment_evidence_path)
+        == "D873651F251923D75DE34687600051C36C99E6B17E0662C023D2E7D2B04F9258"
+    and lr07_build11_containment_evidence.get("decision")
+        == "PASS_LR07_BUILDS_9_10_11_PUBLIC_PRODUCTION_ARTIFACTS_CONTAINED"
+    and lr07_build11_containment_evidence.get("source", {}).get("commit")
+        == "1fdc68e4fdb6caf301cde0946505d071e5bed0ed"
+    and lr07_build11_containment_evidence.get("source", {}).get("originMain")
+        == "1fdc68e4fdb6caf301cde0946505d071e5bed0ed"
+    and lr07_build11_containment_evidence.get("source", {}).get(
+        "governedWorktreeClean"
+    ) is True
+    and lr07_build11_containment_evidence.get("inventoryBefore", {}).get(
+        "count"
+    ) == 3
+    and lr07_build11_containment_evidence.get("inventoryBefore", {}).get(
+        "totalBytes"
+    ) == 431389958
+    and lr07_build11_containment_evidence.get("inventoryBefore", {}).get(
+        "artifactIds"
+    ) == [9116320474, 9122790773, 9125100777]
+    and lr07_build11_containment_evidence.get("result", {}).get("deletedNow")
+        == [9116320474, 9122790773, 9125100777]
+    and lr07_build11_containment_evidence.get("result", {}).get(
+        "remainingProductionArtifactCount"
+    ) == 0
+    and lr07_build11_containment_evidence.get("result", {}).get(
+        "workflowRunsPreserved"
+    ) is True
+    and lr07_build11_containment_evidence.get("externalReceipts", {}).get(
+        "preflight", {}
+    ).get("receiptSha256")
+        == "f51be14f8d7ac8ff2046c82b2b9ac90951e08992132e0006b3adc52199208a43"
+    and lr07_build11_containment_evidence.get("externalReceipts", {}).get(
+        "containment", {}
+    ).get("receiptSha256")
+        == "bb94e2240df836699fd6a95baa508c6f6513d8584ab6cff2483a812f651aef36"
+    and lr07_build11_containment_evidence.get("mutationBoundary", {}).get(
+        "githubArtifactsDeleted"
+    ) is True
+    and lr07_build11_containment_evidence.get("mutationBoundary", {}).get(
+        "githubArtifactDeleteCount"
+    ) == 3
+    and all(
+        value is False
+        for key, value in lr07_build11_containment_evidence.get(
+            "mutationBoundary", {}
+        ).items()
+        if key not in {"githubArtifactsDeleted", "githubArtifactDeleteCount"}
+    )
+    and all(
+        value is False
+        for value in lr07_build11_containment_evidence.get(
+            "privacyBoundary", {}
+        ).values()
+    )
+    and sha(ROOT / lr07_build11_readback_evidence_path)
+        == "A1BB0DD539B68A782BFDA3C2D9DBA3D003C65333EA5FF5FD4054EFC192667517"
+    and lr07_build11_readback_evidence.get("decision")
+        == "PASS_LR07_BUILD11_DISTRIBUTION_INSTALLATION_LIVE_READBACK"
+    and lr07_build11_readback_evidence.get("mode") == "STRICT"
+    and lr07_build11_readback_evidence.get("externalReceipt", {}).get(
+        "receiptSha256"
+    ) == "3b31de7d69c7ad232a1a51652ddc95e86c3e7f22890f8054b745164d8e4f2e59"
+    and lr07_build11_readback_evidence.get("source", {}).get("before")
+        == lr07_build11_readback_evidence.get("source", {}).get("after")
+    and lr07_build11_readback_evidence.get("source", {}).get(
+        "validatedSourceEvidenceCount"
+    ) == 10
+    and lr07_build11_readback_evidence.get("source", {}).get(
+        "semanticMutableAuthorityValidated"
+    ) is True
+    and lr07_build11_readback_evidence.get("source", {}).get(
+        "build10HistoricalFailureAuthorityPreserved"
+    ) is True
+    and lr07_build11_readback_evidence.get("outputs", {}).get("live", {}).get(
+        "productionWorkflowRunCount"
+    ) == 14
+    and lr07_build11_readback_evidence.get("outputs", {}).get("live", {}).get(
+        "productionArtifactCount"
+    ) == 0
+    and lr07_build11_readback_evidence.get("outputs", {}).get("live", {}).get(
+        "productionArtifactTotalBytes"
+    ) == 0
+    and lr07_build11_readback_evidence.get("outputs", {}).get("live", {}).get(
+        "githubReleaseCount"
+    ) == 0
+    and lr07_build11_readback_evidence.get("outputs", {}).get("live", {}).get(
+        "build11WorkflowRun", {}
+    ).get("id") == 31552161470
+    and all(lr07_build11_readback_evidence.get("checks", {}).values())
+    and lr07_build11_readback_evidence.get("failedChecks") == []
+    and lr07_build11_readback_evidence.get("closureScope", {}).get(
+        "lr07LiveReadbackProved"
+    ) is True
+    and lr07_build11_readback_evidence.get("closureScope", {}).get(
+        "lr07Closed"
+    ) is False
+    and lr07_build11_readback_evidence.get("closureScope", {}).get(
+        "stage2dF6Closed"
+    ) is False
+    and lr07_build11_readback_evidence.get("closureScope", {}).get(
+        "pilotHandoutAuthorized"
+    ) is False
+    and "431,389,958 bytes" in lr07_decision
+    and "only their merged source/CI closure adjudication remains"
+        in lr07_decision,
 )
 
 build8_f4_authority_promotion = data(

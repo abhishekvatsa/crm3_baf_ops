@@ -6,9 +6,10 @@ Build 11 closes `P-06` and `70K-RECOVERY` with exact source, CI, signed-artifact
 two-target in-place upgrade, installed-store provenance, restart, recovery-package
 and cloud-reconciliation evidence.
 
-`STAGE2D-F6` remains `OPEN`. Its complete operational pack is ready, but pilot
-handout remains `NOT_AUTHORIZED` until the current `LR-07` re-arm is closed by
-exact artifact containment and a fresh strict readback from admitted main.
+`STAGE2D-F6` remains `OPEN`. Its complete operational pack is ready. Exact
+Builds 9-11 containment and a fresh strict readback from admitted main are now
+proved, but pilot handout remains `NOT_AUTHORIZED` until that evidence receives
+merged source/CI closure adjudication under `LR-07`.
 
 ## 70K Evidence
 
@@ -59,16 +60,19 @@ The F6 pack records all seven required categories:
 6. incident containment and rollback paths; and
 7. an ordered pilot acceptance script.
 
-The pack's decision is `READY_AWAITING_LR07_CONTAINMENT`. It deliberately does
-not transition F6 to `PILOT_AUTHORIZED` or `CLOSED` while any current production
-workflow artifact remains live or the new strict LR-07 readback is absent.
+The pack's original decision remains `READY_AWAITING_LR07_CONTAINMENT` because
+the evidence record is append-only. Its prerequisite is now satisfied: the
+three exact artifact payloads were removed and strict readback found zero live
+production artifacts and zero GitHub Releases. F6 deliberately remains open
+until the new LR-07 records merge, admitted-main CI passes and a separate final
+adjudication authorizes only the sealed small-group pilot.
 
 ## Remaining Sequence
 
-1. Merge this source-and-readiness tranche with exact-head and admitted-main CI.
-2. From clean admitted main, delete only the exact Builds 9, 10 and 11 Actions
-   artifacts under the existing owner authorization, preserving runs, logs, tags
-   and repository visibility.
-3. Run the strict LR-07 collector and seal the zero-artifact readback.
-4. Adjudicate LR-07 and F6 together. Any failed acceptance or stop condition
-   leaves pilot handout unauthorized.
+1. Merge the Builds 9-11 containment and strict-readback records with exact-head
+   CI.
+2. Require all five release-gate jobs to pass again on the admitted merge
+   commit.
+3. Bind that PR and post-merge CI to a separate LR-07 closure adjudication.
+4. Only then adjudicate F6 through `PILOT_AUTHORIZED -> CLOSED`. Any failed
+   acceptance or stop condition leaves pilot handout unauthorized.

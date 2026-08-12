@@ -159,14 +159,20 @@ void main() {
     expect(decision, contains('collector still does not close `LR-07`'));
     expect(
       decision,
-      contains('Status: RE-ARMED - BUILDS 9, 10 AND 11 ARTIFACT CONTAINMENT'),
+      contains(
+        'Status: LIVE READBACK PROVED - MERGED SOURCE/CI CLOSURE '
+        'ADJUDICATION PENDING',
+      ),
     );
-    expect(lr07['currentStatus'], 'OPEN');
-    expect(lr07['authorization'], 'BLOCKS_PILOT_HANDOUT');
-    expect(lr07['evidence'], hasLength(3));
+    expect(lr07['currentStatus'], 'LIVE_READBACK_PROVED');
+    expect(lr07['authorization'], 'AWAITING_SOURCE_CI_CLOSURE');
+    expect(lr07['evidence'], hasLength(5));
     expect(lr07['requiredExitEvidence'], hasLength(6));
     expect(lr07['reArmTriggers'], hasLength(7));
-    expect(lr07['statusHistory'], hasLength(4));
-    expect((lr07['statusHistory'] as List).last['status'], 'OPEN');
+    expect(lr07['statusHistory'], hasLength(5));
+    expect(
+      (lr07['statusHistory'] as List).last['status'],
+      'LIVE_READBACK_PROVED',
+    );
   });
 }
