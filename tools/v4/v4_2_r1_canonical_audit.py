@@ -2695,6 +2695,97 @@ check(
         in recovery_source_tranche,
 )
 
+local_recovery_closure_path = (
+    ROOT / "release/evidence/70k-local-database-recovery-closure.json"
+)
+local_recovery_closure = data(
+    "release/evidence/70k-local-database-recovery-closure.json"
+)
+f6_readiness_path = (
+    ROOT / "release/evidence/stage2d-f6-build11-pilot-readiness.json"
+)
+f6_readiness = data(
+    "release/evidence/stage2d-f6-build11-pilot-readiness.json"
+)
+recovery_ledger = data("governance/programme-ledger.json")
+recovery_gate = next(
+    (
+        record
+        for record in recovery_ledger.get("programmeGates", [])
+        if record.get("gateId") == "70K-RECOVERY"
+    ),
+    {},
+)
+f6_gate = next(
+    (
+        record
+        for record in recovery_ledger.get("programmeGates", [])
+        if record.get("gateId") == "STAGE2D-F6"
+    ),
+    {},
+)
+p06_finding = next(
+    (
+        record
+        for record in recovery_ledger.get("technicalFindings", [])
+        if record.get("findingId") == "P-06"
+    ),
+    {},
+)
+check(
+    "P-06 and 70K close on exact Build 11 evidence while F6 stays blocked",
+    sha(local_recovery_closure_path)
+        == "D67264FA6A93CFC07BD4A6955435D605B9062BD0F83CD53BE6BF97E12857FEF0"
+    and local_recovery_closure.get("decision")
+        == "PASS_70K_RECOVERY_AND_P06_CLOSURE"
+    and local_recovery_closure.get("sourceAuthority", {}).get(
+        "p06PostMergeRunId"
+    ) == 31512254539
+    and local_recovery_closure.get("installedTargets", {}).get("targetCount")
+        == 2
+    and local_recovery_closure.get("installedTargets", {}).get(
+        "packageUidPreservedOnEveryTarget"
+    ) is True
+    and local_recovery_closure.get("installedTargets", {}).get(
+        "appDataClearPerformed"
+    ) is False
+    and local_recovery_closure.get("nativeStoreCampaign", {}).get("passed")
+        == 21
+    and local_recovery_closure.get("nativeStoreCampaign", {}).get("failed")
+        == 0
+    and local_recovery_closure.get("closureBoundary", {}).get(
+        "p06ClosureAuthorized"
+    ) is True
+    and local_recovery_closure.get("closureBoundary", {}).get(
+        "stage2dF6ClosureAuthorized"
+    ) is False
+    and recovery_gate.get("currentStatus") == "CLOSED"
+    and [entry.get("status") for entry in recovery_gate.get("statusHistory", [])]
+        == ["OPEN", "DEVICE_PROVED", "CLOSED"]
+    and p06_finding.get("currentStatus") == "CLOSED"
+    and [entry.get("status") for entry in p06_finding.get("statusHistory", [])]
+        == [
+            "OPEN",
+            "SOURCE_IMPLEMENTED",
+            "MERGED",
+            "DEPLOYED",
+            "DEVICE_PROVED",
+            "CLOSED",
+        ]
+    and sha(f6_readiness_path)
+        == "7C5DF86E1DDB16C3CD36BFF476798C4790E314CFF707BE3BC8FDCE85BDC8CF1A"
+    and f6_readiness.get("decision") == "READY_AWAITING_LR07_CONTAINMENT"
+    and f6_readiness.get("authorizationBoundary", {}).get(
+        "allSevenF6EvidenceCategoriesAuthored"
+    ) is True
+    and f6_readiness.get("authorizationBoundary", {}).get(
+        "pilotHandoutAuthorized"
+    ) is False
+    and f6_gate.get("currentStatus") == "OPEN"
+    and recovery_ledger.get("programmeDecision", {}).get("pilotHandout")
+        == "NOT_AUTHORIZED",
+)
+
 app_database_source = text("lib/core/persistence/app_database.dart")
 main_source = text("lib/main.dart")
 dart_import_cycle_test = text("test/dart_import_cycle_test.dart")
@@ -3122,6 +3213,12 @@ build9_completion_path = (
 build9_completion = data(
     "release/evidence/build-9-finalization-closure.json"
 )
+build11_completion_path = (
+    ROOT / "release/evidence/build-11-finalization-closure.json"
+)
+build11_completion = data(
+    "release/evidence/build-11-finalization-closure.json"
+)
 build8_backend_readiness_path = (
     ROOT
     / "release/evidence/build-8-f4-production-backend-readiness.json"
@@ -3260,7 +3357,7 @@ build11_entries = [
 ]
 build11_entry = build11_entries[0] if len(build11_entries) == 1 else {}
 check(
-    "Builds 6 through 9 are finalized, Build 10 is blocked, and Build 11 is source-reserved",
+    "Builds 6 through 9 are preserved, Build 10 is blocked, and Build 11 is finalized",
     sha(build6_approval_path)
         == "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141"
     and sha(build6_exception_path)
@@ -3457,7 +3554,23 @@ check(
     and version_policy_approval.get("buildNumber") == 11
     and combined_policy.get("release", {}).get("buildNumber") == 11
     and combined_policy.get("finalization", {}).get("status")
-        == "pending-source-authorized"
+        == "completed-non-distributable"
+    and sha(build11_completion_path)
+        == combined_policy.get("finalization", {}).get(
+            "completionReceiptSha256"
+        )
+    and combined_policy.get("finalization", {}).get("sourceCommit")
+        == "ca65d3deead23cccdf07ca24255bc073221d84db"
+    and combined_policy.get("finalization", {}).get("githubRunId")
+        == 31552161470
+    and combined_policy.get("finalization", {}).get(
+        "governedPackageSha256"
+    )
+        == "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970"
+    and combined_policy.get("finalization", {}).get("dualCustodyCompleted")
+        is True
+    and combined_policy.get("finalization", {}).get("runtimeValidationPassed")
+        is True
     and sha(build9_completion_path)
         == combined_policy.get("finalization", {}).get(
             "priorCompletedBuild", {}
@@ -3484,33 +3597,36 @@ check(
         "dualCustodyCompleted"
     )
         is True
+    and len(combined_policy.get("finalization", {}).get(
+        "historicalFailedAttempts", []
+    )) == 1
     and combined_policy.get("finalization", {}).get(
-        "priorFailedAttempt", {}
-    ).get("buildNumber")
+        "historicalFailedAttempts", [{}]
+    )[0].get("buildNumber")
         == 10
     and combined_policy.get("finalization", {}).get(
-        "priorFailedAttempt", {}
-    ).get("status")
+        "historicalFailedAttempts", [{}]
+    )[0].get("status")
         == "blocked-non-distributable"
     and combined_policy.get("finalization", {}).get(
-        "priorFailedAttempt", {}
-    ).get("evidenceSha256")
+        "historicalFailedAttempts", [{}]
+    )[0].get("evidenceSha256")
         == sha(build10_finalization_block_path)
     and combined_policy.get("finalization", {}).get(
-        "priorFailedAttempt", {}
-    ).get("sourceCommit")
+        "historicalFailedAttempts", [{}]
+    )[0].get("sourceCommit")
         == "e6bfa327466ffa99da9519846db7f83401c86c7b"
     and combined_policy.get("finalization", {}).get(
-        "priorFailedAttempt", {}
-    ).get("githubRunId")
+        "historicalFailedAttempts", [{}]
+    )[0].get("githubRunId")
         == 31545500587
     and combined_policy.get("finalization", {}).get(
-        "priorFailedAttempt", {}
-    ).get("dualCustodyCompleted")
+        "historicalFailedAttempts", [{}]
+    )[0].get("dualCustodyCompleted")
         is False
     and combined_policy.get("finalization", {}).get(
-        "priorFailedAttempt", {}
-    ).get("distributionPerformed")
+        "historicalFailedAttempts", [{}]
+    )[0].get("distributionPerformed")
         is False
     and combined_policy.get("finalization", {}).get(
         "firebaseBackendDeploymentPerformed"
@@ -3949,7 +4065,7 @@ check(
         "canAdminsBypass"
     ) is False
     and build11_entry.get("status")
-        == "source-reserved-awaiting-remote-consumption"
+        == "remote-consumed-artifact-built-finalized-non-distributable"
     and build11_entry.get("baselineCommit")
         == "e6bfa327466ffa99da9519846db7f83401c86c7b"
     and build11_entry.get("versionApprovalReference") == "BAF-REF-003-C10"
@@ -3958,8 +4074,29 @@ check(
     and build11_entry.get("remoteReservationTag")
         == "crm3-build-reserved/11"
     and build11_entry.get("remoteBuiltTag") == "crm3-build-built/11"
-    and "githubRunId" not in build11_entry
-    and "remoteReservationTagObject" not in build11_entry,
+    and build11_entry.get("githubRunId") == 31552161470
+    and build11_entry.get("githubArtifactId") == 9125100777
+    and build11_entry.get("remoteReservationTagObject")
+        == "2c39c96650fbe3b7b7f0d4c95a63736e736fed67"
+    and build11_entry.get("remoteBuiltTagObject")
+        == "ed33b3f48d9bd10b23c88025eaa567ae235d970c"
+    and build11_entry.get("governedPackageSha256")
+        == "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970"
+    and build11_entry.get("closureFinalizationCompleted") is True
+    and build11_entry.get("dualCustodyCompleted") is True
+    and build11_entry.get("runtimeValidationPassed") is True
+    and build11_entry.get("distributionPerformed") is False
+    and build11_completion.get("sourceAuthority", {}).get("commit")
+        == "ca65d3deead23cccdf07ca24255bc073221d84db"
+    and build11_completion.get("workflow", {}).get("runId") == 31552161470
+    and build11_completion.get("remoteAuthority", {}).get(
+        "builtTagObjectSha"
+    ) == "ed33b3f48d9bd10b23c88025eaa567ae235d970c"
+    and build11_completion.get("runtimeAdjudication", {}).get("status")
+        == "passed-two-target-in-place"
+    and build11_completion.get("releaseBoundary", {}).get(
+        "distributionPerformed"
+    ) is False,
 )
 check(
     "Build 8 backend is ready and its one physical sync retry stays bounded",
@@ -8665,7 +8802,30 @@ elif (
     )
 else:
     lr07_preserved_finalization = {}
-lr07_failed_attempt = lr07_finalization.get("priorFailedAttempt", {})
+lr07_failed_attempt = next(
+    (
+        entry
+        for entry in lr07_finalization.get("historicalFailedAttempts", [])
+        if entry.get("buildNumber") == 10
+    ),
+    {},
+)
+lr07_failed_artifact = next(
+    (
+        entry
+        for entry in lr07_artifacts
+        if entry.get("buildNumber") == 10
+    ),
+    {},
+)
+lr07_failed_authority = next(
+    (
+        entry
+        for entry in lr07_source_evidence
+        if entry.get("path") == lr07_failed_artifact.get("authorityReceiptPath")
+    ),
+    {},
+)
 lr07_latest_ledger = next(
     (
         entry
@@ -8681,7 +8841,7 @@ lr07_successor_ledger = [
     > lr07_latest_artifact.get("buildNumber", -1)
 ]
 check(
-    "LR-07 re-arms for Builds 9 and 10 and still closes only through separate adjudication",
+    "LR-07 re-arms for Builds 9 through 11 and still closes only through separate adjudication",
     lr07_policy.get("schemaVersion") == 1
     and lr07_policy.get("policyId")
         == "LR07-DISTRIBUTION-INSTALLATION-READBACK-POLICY-V1"
@@ -8691,9 +8851,9 @@ check(
     and lr07_policy.get("workflow", {}).get(
         "requiredArtifactRetentionDays"
     ) == 1
-    and len(lr07_artifacts) == 7
+    and len(lr07_artifacts) == 8
     and [entry.get("buildNumber") for entry in lr07_artifacts]
-        == [4, 5, 6, 7, 8, 9, 10]
+        == [4, 5, 6, 7, 8, 9, 10, 11]
     and {entry.get("id") for entry in lr07_artifacts}
         == {
             8711253816,
@@ -8703,14 +8863,15 @@ check(
             8866525607,
             9116320474,
             9122790773,
+            9125100777,
         }
     and sum(entry.get("sizeBytes", 0) for entry in lr07_artifacts)
-        == 1052722470
+        == 1196532992
     and sum(
         1
         for entry in lr07_artifacts
         if entry.get("dualCustodyCompleted") is True
-    ) == 5
+    ) == 6
     and lr07_policy.get("installationReceipt", {}).get("bytes") == 8119
     and lr07_policy.get("installationReceipt", {}).get("sha256")
         == "4BD8332FBCF80B6E809B5A3FFE94EDD7560C482D898B6B9E2F37D6F63422BCEC"
@@ -8726,10 +8887,10 @@ check(
     and lr07_policy.get("executionAuthority", {}).get(
         "requiredOwnerApprovalPhrase"
     )
-        == "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-8711253816-8730747624-8771948980-8836687771-8866525607-9116320474-9122790773"
+        == "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-8711253816-8730747624-8771948980-8836687771-8866525607-9116320474-9122790773-9125100777"
     and lr07_policy.get("executionAuthority", {}).get(
         "requiredPresentArtifactIds"
-    ) == [9116320474, 9122790773]
+    ) == [9116320474, 9122790773, 9125100777]
     and lr07_policy.get("executionAuthority", {}).get(
         "deleteOnlyExactArtifactIds"
     ) is True
@@ -8762,7 +8923,7 @@ check(
         for entry in lr07_source_evidence
     )
     and lr07_preserved_finalization.get("buildNumber")
-        == lr07_latest_completed_artifact.get("buildNumber") == 9
+        == lr07_latest_completed_artifact.get("buildNumber") == 11
     and lr07_preserved_finalization.get("status")
         == "completed-non-distributable"
     and lr07_preserved_finalization.get("completionReceiptFile")
@@ -8777,22 +8938,22 @@ check(
         == lr07_latest_completed_artifact.get("governedPackageSha256")
     and lr07_preserved_finalization.get("dualCustodyCompleted") is True
     and lr07_failed_attempt.get("buildNumber")
-        == lr07_latest_artifact.get("buildNumber") == 10
+        == lr07_failed_artifact.get("buildNumber") == 10
     and lr07_failed_attempt.get("status") == "blocked-non-distributable"
     and lr07_failed_attempt.get("evidenceFile")
-        == lr07_latest_authority.get("path")
+        == lr07_failed_authority.get("path")
     and lr07_failed_attempt.get("evidenceSha256")
-        == lr07_latest_authority.get("sha256")
+        == lr07_failed_authority.get("sha256")
     and lr07_failed_attempt.get("sourceCommit")
-        == lr07_latest_artifact.get("headSha")
+        == lr07_failed_artifact.get("headSha")
     and lr07_failed_attempt.get("githubRunId")
-        == lr07_latest_artifact.get("workflowRunId")
+        == lr07_failed_artifact.get("workflowRunId")
     and lr07_failed_attempt.get("githubArtifactId")
-        == lr07_latest_artifact.get("id")
+        == lr07_failed_artifact.get("id")
     and lr07_failed_attempt.get("githubArtifactDigest")
-        == lr07_latest_artifact.get("digest")
+        == lr07_failed_artifact.get("digest")
     and lr07_failed_attempt.get("governedPackageSha256")
-        == lr07_latest_artifact.get("governedPackageSha256")
+        == lr07_failed_artifact.get("governedPackageSha256")
     and lr07_failed_attempt.get("independentVerificationCompleted") is True
     and lr07_failed_attempt.get("dualCustodyCompleted") is False
     and lr07_failed_attempt.get("distributionPerformed") is False
@@ -8810,19 +8971,10 @@ check(
         == lr07_latest_artifact.get("headSha")
     and lr07_latest_ledger.get("disposition")
         == lr07_latest_artifact.get("ledgerDisposition")
-    and lr07_latest_ledger.get("dualCustodyCompleted") is False
+    and lr07_latest_ledger.get("dualCustodyCompleted") is True
     and lr07_latest_ledger.get("distributionPerformed") is False
-    and len(lr07_successor_ledger) == 1
-    and lr07_successor_ledger[0].get("buildNumber") == lr07_current_build == 11
-    and lr07_successor_ledger[0].get("status")
-        == "source-reserved-awaiting-remote-consumption"
-    and lr07_successor_ledger[0].get("disposition") is None
-    and lr07_successor_ledger[0].get("githubRunId") is None
-    and lr07_successor_ledger[0].get("githubArtifactId") is None
-    and lr07_successor_ledger[0].get("githubArtifactDigest") is None
-    and lr07_successor_ledger[0].get("governedPackageSha256") is None
-    and lr07_successor_ledger[0].get("artifactConstructed") is None
-    and lr07_successor_ledger[0].get("distributionPerformed") is not True
+    and lr07_current_build == 11
+    and len(lr07_successor_ledger) == 0
     and combined_policy.get("distribution", {}).get("authority")
         == "production-signed-pre-release-candidate"
     and combined_policy.get("distribution", {}).get("approved") is False
@@ -8860,6 +9012,9 @@ check(
     and "strict readback passes only" in lr07_collector_test
     and "preserved latest authority admits only a source-reserved successor"
         in lr07_collector_test
+    and "completed successor still requires every retained failed-attempt receipt"
+        in lr07_collector_test
+    and "historicalFailedAttemptsExact" in lr07_collector
     and "summarizeMutableSourceAuthority" in lr07_collector
     and "discovered by workflow run instead of filename"
         in lr07_collector_test
@@ -8867,7 +9022,7 @@ check(
     and "requiredPresentArtifactIds" in lr07_containment
     and "strict readback fails closed" in lr07_contract
     and "collector still does not close `LR-07`" in lr07_decision
-    and "Status: RE-ARMED - BUILDS 9 AND 10 ARTIFACT CONTAINMENT AND READBACK OPEN"
+    and "Status: RE-ARMED - BUILDS 9, 10 AND 11 ARTIFACT CONTAINMENT AND READBACK OPEN"
         in lr07_decision
     and lr07_containment_evidence.get("decision")
         == "PASS_LR07_PUBLIC_PRODUCTION_ARTIFACTS_CONTAINED"
@@ -8966,7 +9121,7 @@ check(
     }
     and len(lr07_record.get("requiredExitEvidence", [])) == 6
     and len(lr07_record.get("reArmTriggers", [])) == 7
-    and len(lr07_record.get("notes", [])) == 7
+    and len(lr07_record.get("notes", [])) == 8
     and [entry.get("status") for entry in lr07_record.get("statusHistory", [])]
         == ["OPEN", "LIVE_READBACK_PROVED", "CLOSED", "OPEN"]
     and lr07_ledger.get("programmeDecision", {}).get("nextMutation")

@@ -1,10 +1,10 @@
 # P-06 Isar Provenance and Migration Safety
 
-Status: SOURCE_IMPLEMENTED
+Status: CLOSED
 
-Merge, deployment, and device evidence: PENDING
+Merge, deployment, and device evidence: PASSED
 
-Related gate: `70K-RECOVERY` remains `OPEN`
+Related gate: `70K-RECOVERY` is `CLOSED`
 
 ## Finding
 
@@ -139,7 +139,7 @@ provenance, write/readback failure, PREPARED restart, missing steps, generation
 preservation and rotation, lock-only residue, startup order, and recovery
 snapshot custody.
 
-## Remaining 70K Boundary
+## Historical 70K Boundary
 
 This source tranche prevents future silent adoption. It does not prove the
 actual schema or row integrity of already installed stores.
@@ -161,8 +161,27 @@ Before pilot or any schema bump, `70K-RECOVERY` still requires:
 5. Row counts, relationship checks, generation continuity or rotation, backup,
    rebuild, pull, and cloud reconciliation evidence.
 
-No deployment, production write, pilot authorization, or 70K closure is
-claimed by this document.
+## Closure Addendum
+
+PR #193 merged the source controls as
+`28cb22064511c1abcb76759cbb302a303427f46f`; pull-request run `31511362504`
+and admitted-main run `31512254539` passed all five release-gate jobs.
+
+Finalized signed Build 11 then upgraded one physical Android target and one
+Android virtual target in place without uninstall or app-data clear. Both
+reported canonical current schema-3 provenance, stable database generation,
+zero unsynced rows, zero unresolved rejections, successful reconnect and a
+two-file app-native recovery package. The populated physical store preserved
+both pre-existing rows across upgrade and restart.
+
+The native 70K campaign passed 21 tests covering populated v1 migration,
+fail-closed unknown v2 handling, PREPARED/open/repair/COMMITTED interruption,
+byte-sealed backup/restore and generation rotation. Exact closure authority is
+`release/evidence/70k-local-database-recovery-closure.json`, SHA-256
+`D67264FA6A93CFC07BD4A6955435D605B9062BD0F83CD53BE6BF97E12857FEF0`.
+
+This closes P-06 and `70K-RECOVERY`; it does not authorize pilot handout or
+unrestricted distribution. Their re-arm triggers remain authoritative.
 
 ## Supersession
 

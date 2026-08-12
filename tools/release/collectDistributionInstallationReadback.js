@@ -177,6 +177,39 @@ function summarizeMutableSourceAuthority({policy, releasePolicy, buildLedger}) {
       latestCompletedArtifact.governedPackageSha256 &&
     preservedFinalization?.dualCustodyCompleted === true;
   const failedAttempt = finalization.priorFailedAttempt ?? null;
+  const historicalFailedAttempts = [
+    ...(finalization.historicalFailedAttempts ?? []),
+    ...(failedAttempt == null ? [] : [failedAttempt]),
+  ];
+  const failedArtifactsWithReceipts = expectedArtifacts.filter(
+    (artifact) =>
+      artifact.dualCustodyCompleted !== true &&
+      artifact.authorityReceiptPath != null,
+  );
+  const historicalFailedAttemptsExact = failedArtifactsWithReceipts.every(
+    (artifact) => {
+      const authority = policy.sourceEvidence.find(
+        (entry) => entry.path === receiptPathFor(artifact),
+      );
+      const attempt = historicalFailedAttempts.find(
+        (entry) => entry.buildNumber === artifact.buildNumber,
+      );
+      return (
+        authority != null &&
+        attempt?.status === "blocked-non-distributable" &&
+        attempt?.evidenceFile === authority.path &&
+        attempt?.evidenceSha256 === authority.sha256 &&
+        attempt?.sourceCommit === artifact.headSha &&
+        attempt?.githubRunId === artifact.workflowRunId &&
+        attempt?.githubArtifactId === artifact.id &&
+        attempt?.githubArtifactDigest === artifact.digest &&
+        attempt?.governedPackageSha256 === artifact.governedPackageSha256 &&
+        attempt?.independentVerificationCompleted === true &&
+        attempt?.dualCustodyCompleted === false &&
+        attempt?.distributionPerformed === false
+      );
+    },
+  );
   const latestContainmentAttemptExact =
     latestExpectedArtifact != null &&
     (latestExpectedArtifact.dualCustodyCompleted === true
@@ -244,6 +277,7 @@ function summarizeMutableSourceAuthority({policy, releasePolicy, buildLedger}) {
         "public" &&
       preservedFinalizationExact &&
       latestContainmentAttemptExact &&
+      historicalFailedAttemptsExact &&
       pendingSuccessorExact &&
       releasePolicy.distribution?.approved === false &&
       releasePolicy.distribution?.unrestrictedPlantReleaseApproved === false,

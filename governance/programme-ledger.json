@@ -737,7 +737,14 @@
       "authorization": "BLOCKS_PILOT_HANDOUT",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/stage2d-f6-build11-pilot-readiness.json",
+          "sha256": "7C5DF86E1DDB16C3CD36BFF476798C4790E314CFF707BE3BC8FDCE85BDC8CF1A",
+          "decision": "READY_AWAITING_LR07_CONTAINMENT",
+          "authority": "F6_COMPLETE_OPERATIONAL_PACK_WITH_PILOT_HANDOUT_BLOCKED"
+        }
+      ],
       "requiredExitEvidence": [
         "support owner",
         "stop conditions",
@@ -748,7 +755,10 @@
         "pilot acceptance script"
       ],
       "reArmTriggers": [],
-      "notes": [],
+      "notes": [
+        "All seven F6 evidence categories are authored and bound to Build 11, closed F5, closed P-05 and closed 70K authority.",
+        "F6 remains OPEN and pilot handout remains NOT_AUTHORIZED until LR-07 closes against exact Builds 9, 10 and 11 containment plus a fresh strict readback."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
@@ -814,11 +824,18 @@
       "authorityType": "DEVICE_EVIDENCE",
       "transitionProfile": "DEVICE_EVIDENCE",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "CONDITIONAL_PILOT_BLOCKER_AND_PRE_SCHEMA_BUMP_BLOCKER",
+      "currentStatus": "CLOSED",
+      "authorization": "CLOSED_PASS",
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/70k-local-database-recovery-closure.json",
+          "sha256": "D67264FA6A93CFC07BD4A6955435D605B9062BD0F83CD53BE6BF97E12857FEF0",
+          "decision": "PASS_70K_RECOVERY_AND_P06_CLOSURE",
+          "authority": "SOURCE_CI_SIGNED_BUILD_TWO_TARGET_DEVICE_AND_NATIVE_STORE_EVIDENCE"
+        }
+      ],
       "requiredExitEvidence": [
         "installed-device inventory that classifies absent, partial, complete legacy and canonical markers without mutation",
         "governed correction or adoption evidence for every existing unmarked or legacy-marked store",
@@ -826,16 +843,32 @@
         "forced interruption and restart proof across PREPARED, Isar open, post-open repair and COMMITTED boundaries",
         "database-generation continuity or rotation plus backup, rebuild, pull and cloud reconciliation evidence"
       ],
-      "reArmTriggers": [],
+      "reArmTriggers": [
+        "a future installed store reports an unmarked, partial, malformed, unrecognized or unsupported provenance state",
+        "a schema or governed fingerprint changes without a populated migration and interruption campaign",
+        "an in-place upgrade loses rows, relationships, database-generation continuity, recovery-package integrity or cloud reconciliation",
+        "the Build 11 source, package, signer, custody or device evidence becomes unavailable or unverifiable"
+      ],
       "notes": [
-        "P-06 source controls are implemented, but this DEVICE_EVIDENCE gate remains OPEN.",
-        "A complete legacy marker is compatibility input, not proof of the installed database contents; device reconciliation remains mandatory."
+        "Build 11 in-place upgrades preserved package identity and app data on one physical Android target and one Android virtual target; the populated physical store preserved both existing rows through upgrade and restart.",
+        "Both targets reported canonical current schema-3 provenance, stable generation, zero unsynced rows, zero unresolved rejections, successful reconnect and a two-file recovery package.",
+        "Twenty-one native tests prove populated v1 migration, fail-closed unknown v2 handling, interruption recovery, byte-sealed restore and generation rotation."
       ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "P-06 adjudication"
+        },
+        {
+          "status": "DEVICE_PROVED",
+          "effectiveDate": "2026-08-12",
+          "basis": "Build 11 exact two-target in-place evidence plus the 21-test native campaign satisfies all five 70K device-evidence obligations."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-12",
+          "basis": "Closure record D67264FA6A93CFC07BD4A6955435D605B9062BD0F83CD53BE6BF97E12857FEF0 binds source, PR #193 and post-merge CI, signed Build 11, installed-store inventory, populated migration, interruption, backup, restart and cloud reconciliation."
         }
       ]
     },
@@ -1244,7 +1277,8 @@
         "Closure proves the controlled surface observed on 2026-08-06 and installation receipt, not that no artifact was downloaded before containment.",
         "Governed Build 9 created live Actions artifact 9116320474 and superseded Build 8 as the latest finalized production build, triggering two explicit LR-07 re-arm conditions.",
         "Governed Build 10 created live Actions artifact 9122790773. Independent package verification passed, but finalization stopped before custody or built-tag creation because the preflight and finalizer used different source anchors for the same environment receipt.",
-        "Historical containment and closure evidence remains valid for Builds 4 through 8; current closure requires exact containment of Builds 9 and 10 plus a new strict clean-main readback."
+        "Governed Build 11 created live Actions artifact 9125100777, passed finalization, dual custody and two-target in-place validation, and remains non-distributable pending LR-07 and F6.",
+        "Historical containment and closure evidence remains valid for Builds 4 through 8; current closure requires exact containment of Builds 9, 10 and 11 plus a new strict clean-main readback."
       ],
       "statusHistory": [
         {
@@ -1701,7 +1735,7 @@
       "authorityType": "DEPLOYED_RUNTIME",
       "transitionProfile": "DEPLOYED_CONTROL",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Security/backend",
       "pilotSeverity": "CONDITIONAL_BLOCKER",
       "unrestrictedSeverity": "BLOCKER",
@@ -1710,7 +1744,20 @@
       ],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "fileName": "release/evidence/70k-local-database-recovery-closure.json",
+          "sha256": "D67264FA6A93CFC07BD4A6955435D605B9062BD0F83CD53BE6BF97E12857FEF0",
+          "decision": "PASS_70K_RECOVERY_AND_P06_CLOSURE",
+          "authority": "PR193_POST_MERGE_CI_BUILD11_AND_DEVICE_EVIDENCE"
+        },
+        {
+          "fileName": "release/evidence/build-11-finalization-closure.json",
+          "sha256": "59AE1BBDB9F9F4ACACF5B32342E2F1330A4915441726F44432D5CFBB50737DD3",
+          "decision": "PASS_BUILD11_FINALIZED_DEVICE_PROVED_NON_DISTRIBUTABLE",
+          "authority": "SIGNED_BUILD_DUAL_CUSTODY_AND_TWO_TARGET_RUNTIME"
+        }
+      ],
       "requiredExitEvidence": [
         "exact source commit and exact-head merge CI for the fail-closed provenance handshake",
         "deployment receipt for a compatible client build",
@@ -1724,8 +1771,9 @@
       ],
       "notes": [
         "The 2026-07-27 source tranche replaces split version/fingerprint keys with one exact PREPARED/COMMITTED marker, rejects unmarked or partial existing stores, validates source and target fingerprints, and preserves marker evidence in recovery packages.",
-        "SOURCE_IMPLEMENTED is not a merge, deployment, device-proof, pilot, or cutover claim.",
-        "70K-RECOVERY remains OPEN because existing legacy markers cannot by themselves prove installed database contents."
+        "PR #193 and admitted-main run 31512254539 merged and proved the source controls across all five release-gate jobs.",
+        "Finalized signed Build 11 deployed the compatible client in place to one physical and one virtual Android target without uninstall or data clear.",
+        "The exact 70K record proves canonical installed-store provenance, populated migration, interruption recovery, backup/restore, restart continuity and cloud reconciliation."
       ],
       "statusHistory": [
         {
@@ -1737,6 +1785,26 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-07-27",
           "basis": "Fail-closed atomic Isar provenance and two-phase startup handshake implemented; merge, deployment and device evidence pending"
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-08-11",
+          "basis": "PR #193 merged as 28cb22064511c1abcb76759cbb302a303427f46f; PR run 31511362504 and admitted-main run 31512254539 passed all five release-gate jobs."
+        },
+        {
+          "status": "DEPLOYED",
+          "effectiveDate": "2026-08-12",
+          "basis": "Signed Build 11 from ca65d3deead23cccdf07ca24255bc073221d84db was finalized in dual custody and upgraded in place to both admitted Android targets."
+        },
+        {
+          "status": "DEVICE_PROVED",
+          "effectiveDate": "2026-08-12",
+          "basis": "Both targets proved canonical current provenance, restart continuity, recovery-package creation and successful zero-pending reconciliation; the native 70K suite passed 21/21."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-12",
+          "basis": "Closure record D67264FA6A93CFC07BD4A6955435D605B9062BD0F83CD53BE6BF97E12857FEF0 satisfies every P-06 source, deployment and device-evidence obligation."
         }
       ]
     },

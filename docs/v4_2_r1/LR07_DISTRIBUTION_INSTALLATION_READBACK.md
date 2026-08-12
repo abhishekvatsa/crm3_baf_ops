@@ -1,6 +1,6 @@
 # LR-07 Distribution and Installation Readback
 
-Status: RE-ARMED - BUILDS 9 AND 10 ARTIFACT CONTAINMENT AND READBACK OPEN
+Status: RE-ARMED - BUILDS 9, 10 AND 11 ARTIFACT CONTAINMENT AND READBACK OPEN
 
 ## Live finding
 
@@ -100,13 +100,24 @@ source anchors. Build 10 is therefore permanently consumed,
 finalization-blocked and non-distributable. Its exact failure authority is
 `release/evidence/build-10-finalization-block.json`.
 
+Governed Build 11 was then finalized from commit
+`ca65d3deead23cccdf07ca24255bc073221d84db` with exact independent package
+verification, remote built tag and dual custody. In-place validation on one
+physical Android target and one Android virtual target passed without
+uninstalling or clearing app data. Its production artifact `9125100777`
+remains non-distributable and is now part of the exact containment set. Build
+11 completion does not erase Build 10's failed-finalization authority: the
+collector requires the exact Build 10 receipt through
+`historicalFailedAttempts` before it may semantically admit the mutable release
+policy and build ledger.
+
 The historical Builds 4 through 8 containment, readback and closure evidence
 remains valid for the state observed on 2026-08-06. Current LR-07 authority is
-OPEN until the Build 9 and Build 10 artifacts are deleted under the updated exact approval
+OPEN until the Build 9, Build 10 and Build 11 artifacts are deleted under the updated exact approval
 phrase, a clean merged-main strict readback again proves zero live production
 artifacts and zero GitHub Releases, and a separate closure adjudication admits
-that new evidence. Build 11 construction does not itself close LR-07; any
-Build 11 Actions artifact must be added to the same exact containment set.
+that new evidence. Build 11 finalization and device proof do not themselves
+close LR-07.
 
 ## Qualification
 
@@ -121,5 +132,5 @@ production build supersedes Build 8.
 The historical adjudication closed only the then-observed LR-07 posture. It did
 not authorize pilot handout, change Firebase, alter a device, create
 distribution authority, or claim that a public artifact was never previously
-downloaded. The Builds 9 and 10 re-arm blocks any current LR-07 closure claim until the
+downloaded. The Builds 9, 10 and 11 re-arm blocks any current LR-07 closure claim until the
 new containment and readback sequence completes.

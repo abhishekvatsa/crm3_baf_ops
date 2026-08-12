@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "stage2d-f6-build11-pilot-readiness",
+  "decision": "READY_AWAITING_LR07_CONTAINMENT",
+  "recordedAtUtc": "2026-08-12T02:12:00Z",
+  "releaseAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "sourceCommit": "ca65d3deead23cccdf07ca24255bc073221d84db",
+    "buildNumber": 11,
+    "governedPackageSha256": "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970",
+    "finalizationReceipt": "release/evidence/build-11-finalization-closure.json",
+    "finalizationReceiptSha256": "59AE1BBDB9F9F4ACACF5B32342E2F1330A4915441726F44432D5CFBB50737DD3",
+    "localRecoveryReceipt": "release/evidence/70k-local-database-recovery-closure.json",
+    "localRecoveryReceiptSha256": "D67264FA6A93CFC07BD4A6955435D605B9062BD0F83CD53BE6BF97E12857FEF0",
+    "firestoreRecoverabilityReceipt": "release/evidence/p05-firestore-recoverability-closure.json",
+    "firestoreRecoverabilityReceiptSha256": "176A143BACD196701A782F8959B96B69FC11CE401DB6D122E4F16DE2C1B4EE79",
+    "liveAuthorityMatrixReceipt": "release/evidence/stage2d-f5-live-authority-matrix-closure.json",
+    "liveAuthorityMatrixReceiptSha256": "DD8A8BB0E155786BF54DA468E6E15005FC303EB1057E42F01CA763C9A7F9ED7B"
+  },
+  "support": {
+    "primaryOwner": "Abhishek Vatsa",
+    "backupCustodian": "Priya",
+    "supportChannel": "direct controlled-pilot contact",
+    "responseRule": "Stop new pilot use immediately on any stop condition; preserve evidence before repair or replacement."
+  },
+  "deviceInventory": {
+    "admittedTargetCount": 2,
+    "physicalAndroidTargetCount": 1,
+    "androidVirtualTargetCount": 1,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "buildNumber": 11,
+    "inPlaceUpgradeProvedOnEveryTarget": true,
+    "packageUidAndFirstInstallTimePreservedOnEveryTarget": true,
+    "rawDeviceIdentifiersRetained": false,
+    "pilotRule": "Before handout, freeze the admitted physical-device roster and record only privacy-safe device identifiers. The emulator is a support target, not a pilot handout target."
+  },
+  "stopConditions": [
+    "LR-07 is not CLOSED or any governed production artifact or GitHub Release remains live after containment.",
+    "The admitted user roster, approved state, role set, Rules, indexes, callable authority or backend release identity differs from the closed F5 evidence.",
+    "Any target reports an unrecognized or incomplete local-store provenance marker, requires governed recovery, loses its database generation unexpectedly, or loses rows during upgrade or restart.",
+    "Any target reports unsynced local rows, unresolved synchronization rejections, failed reconnect reconciliation, repeated startup failure, or a sign-in or revocation control failure.",
+    "Production PITR or delete protection is disabled, the native backup posture no longer satisfies P-05, or the isolated restore evidence becomes unavailable.",
+    "A privacy incident, uncontrolled package transfer, unapproved target, unapproved user, or unrestricted-distribution path is observed.",
+    "The exact Build 11 package hash, signer, source commit, built tag, custody record or support ownership cannot be reproduced."
+  ],
+  "backupAndRestore": {
+    "localRecoveryPackageCreatedOnEveryTarget": true,
+    "localDatabaseFilesCopiedPerTarget": 2,
+    "localBackupByteSealAndRestoreRehearsalPassed": true,
+    "restoredRowsAndRelationshipsReadable": true,
+    "productionPointInTimeRecoveryEnabled": true,
+    "productionDeleteProtectionEnabled": true,
+    "productionNativeBackupSchedules": 2,
+    "productionReadyNativeBackups": 5,
+    "isolatedFirestoreRestoreDocuments": 81,
+    "productionImportPerformedByRestoreRehearsal": false,
+    "restoreRule": "Never import a local recovery package automatically. Preserve the original package, verify hashes, and perform any repair or Firestore restore only under a separate governed incident record."
+  },
+  "privacy": {
+    "diagnosticExportsContainBusinessPayload": false,
+    "rawDeviceIdentifiersCommitted": false,
+    "rawDatabaseGenerationIdentifiersCommitted": false,
+    "rawDatabaseFilesCommitted": false,
+    "allowedEvidence": [
+      "exact source, package, receipt and UI-capture hashes",
+      "row counts and unsynced or rejection counts",
+      "one-way device and database-generation digests",
+      "control outcomes without business payload"
+    ],
+    "prohibitedEvidence": [
+      "raw database files in the repository",
+      "raw device serial numbers in the repository",
+      "business-record payloads in support or governance evidence",
+      "signing secrets or secret values"
+    ]
+  },
+  "incidentAndRollback": {
+    "firstActions": [
+      "Stop new pilot operations and package handout.",
+      "Preserve the device, current app data, privacy-safe diagnostics and a fresh recovery package without uninstalling or clearing data.",
+      "Record exact package, source, signer, roster, Rules, indexes, backend identity, sync and provenance state.",
+      "Revoke the affected user's approved state when authority containment is required.",
+      "Classify whether the fault is local-store, synchronization, authority, backend, distribution or privacy related before mutation."
+    ],
+    "rollbackPaths": [
+      "For local-store risk, retain Build 11 and recover from the sealed app-native package only after marker and file-hash adjudication.",
+      "For backend or Rules regression, restore only an exact previously sealed source and deployment authority under separate approval, then repeat strict live readback.",
+      "For user or device compromise, revoke approval, exclude the target from the frozen roster and preserve audit evidence.",
+      "For artifact exposure, re-arm LR-07 and contain only the exact exposed artifact while preserving runs, tags and logs."
+    ],
+    "automaticDowngradeOrDataClearAllowed": false,
+    "pilotMayResumeWithoutFreshAdjudication": false
+  },
+  "pilotAcceptanceScript": [
+    "Verify LR-07 is CLOSED against the exact current source and zero live production artifacts or GitHub Releases.",
+    "Verify the admitted physical-device roster, pilot-user roster, roles and approved state are frozen and within the governed ceiling.",
+    "Verify the installed package is Build 11, signed by the admitted production certificate and matches the exact governed package authority.",
+    "Cold-start and confirm the expected role-specific home without permission, crash or token-race failure.",
+    "Capture the privacy-safe local diagnostic and require COMMITTED, EXISTING_STORE_CANONICAL_CURRENT, schema 3, recognized fingerprint, zero unsynced rows and zero unresolved rejections.",
+    "Run a normal manual synchronization and require a successful marker with no row loss.",
+    "Exercise offline creation or update, reconnect, and require exactly-once reconciliation with no permanent rejection.",
+    "Revoke one admitted test user and require denial on the next protected operation; restore only the exact pre-test authority after evidence is sealed.",
+    "Exercise at least one wrong-role operation and require denial without privileged data exposure or mutation.",
+    "Create and hash a fresh app-native recovery package, then confirm production PITR, delete protection, native backups and isolated restore authority remain current.",
+    "Record acceptance, exceptions and stop-condition status. Any failure leaves pilot handout NOT_AUTHORIZED."
+  ],
+  "authorizationBoundary": {
+    "allSevenF6EvidenceCategoriesAuthored": true,
+    "lr07CurrentStatusRequired": "CLOSED",
+    "lr07CurrentStatusObserved": "OPEN",
+    "f6ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "unrestrictedDistributionAuthorized": false,
+    "appCheckActivationAuthorized": false,
+    "firebaseMutationPerformed": false,
+    "deviceMutationPerformedByThisRecord": false
+  }
+}

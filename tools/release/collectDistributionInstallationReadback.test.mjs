@@ -274,6 +274,123 @@ test("preserved latest authority admits only a source-reserved successor", () =>
   );
 });
 
+test("completed successor still requires every retained failed-attempt receipt", () => {
+  const completed = {
+    buildNumber: 11,
+    id: 111,
+    name: "build-11",
+    sizeBytes: 1100,
+    digest: `sha256:${"b".repeat(64)}`,
+    workflowRunId: 1111,
+    headSha: "b".repeat(40),
+    ledgerDisposition: "successful-build-finalized-non-distributable",
+    dualCustodyCompleted: true,
+    governedPackageSha256: "d".repeat(64).toUpperCase(),
+  };
+  const failed = {
+    buildNumber: 10,
+    id: 101,
+    name: "build-10",
+    sizeBytes: 1000,
+    digest: `sha256:${"a".repeat(64)}`,
+    workflowRunId: 1010,
+    headSha: "a".repeat(40),
+    ledgerDisposition:
+      "successful-build-finalization-authority-mismatch-non-distributable",
+    dualCustodyCompleted: false,
+    governedPackageSha256: "c".repeat(64).toUpperCase(),
+    authorityReceiptPath: "release/evidence/build-10-finalization-block.json",
+  };
+  const completionPath =
+    "release/evidence/build-11-finalization-closure.json";
+  const failurePath = failed.authorityReceiptPath;
+  const completionSha = "e".repeat(64).toUpperCase();
+  const failureSha = "f".repeat(64).toUpperCase();
+  const policy = {
+    repository: "abhishekvatsa/crm3_baf_ops",
+    productionProjectId: "crm3-baf-ops-b8638",
+    applicationId: "in.co.sail.bsl.crm3.bafops",
+    expectedArtifactsForContainment: [failed, completed],
+    sourceEvidence: [
+      {path: failurePath, sha256: failureSha},
+      {path: completionPath, sha256: completionSha},
+    ],
+  };
+  const historicalFailure = {
+    buildNumber: failed.buildNumber,
+    status: "blocked-non-distributable",
+    evidenceFile: failurePath,
+    evidenceSha256: failureSha,
+    sourceCommit: failed.headSha,
+    githubRunId: failed.workflowRunId,
+    githubArtifactId: failed.id,
+    githubArtifactDigest: failed.digest,
+    governedPackageSha256: failed.governedPackageSha256,
+    independentVerificationCompleted: true,
+    dualCustodyCompleted: false,
+    distributionPerformed: false,
+  };
+  const releasePolicy = {
+    firebaseProjectId: policy.productionProjectId,
+    permanentApplicationId: policy.applicationId,
+    github: {
+      repository: policy.repository,
+      environmentReviewControl: {repositoryVisibility: "public"},
+    },
+    release: {buildNumber: completed.buildNumber},
+    finalization: {
+      status: "completed-non-distributable",
+      completionReceiptFile: completionPath,
+      completionReceiptSha256: completionSha,
+      sourceCommit: completed.headSha,
+      githubRunId: completed.workflowRunId,
+      governedPackageSha256: completed.governedPackageSha256,
+      dualCustodyCompleted: true,
+      historicalFailedAttempts: [historicalFailure],
+    },
+    distribution: {
+      approved: false,
+      unrestrictedPlantReleaseApproved: false,
+    },
+  };
+  const ledgers = [failed, completed].map((artifact) => ({
+    buildNumber: artifact.buildNumber,
+    githubArtifactId: artifact.id,
+    githubArtifactName: artifact.name,
+    githubArtifactSizeBytes: artifact.sizeBytes,
+    githubArtifactDigest: artifact.digest,
+    githubRunId: artifact.workflowRunId,
+    remoteReservationCommit: artifact.headSha,
+    disposition: artifact.ledgerDisposition,
+    dualCustodyCompleted: artifact.dualCustodyCompleted,
+    distributionPerformed: false,
+  }));
+
+  assert.deepEqual(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy,
+      buildLedger: {entries: ledgers},
+    }),
+    {
+      releasePolicyExact: true,
+      buildLedgerExact: true,
+      latestContainmentAttemptExact: true,
+    },
+  );
+
+  const missingFailure = structuredClone(releasePolicy);
+  missingFailure.finalization.historicalFailedAttempts = [];
+  assert.equal(
+    summarizeMutableSourceAuthority({
+      policy,
+      releasePolicy: missingFailure,
+      buildLedger: {entries: ledgers},
+    }).releasePolicyExact,
+    false,
+  );
+});
+
 test("source summary semantically revalidates mutable authority after byte drift", () => {
   const policy = structuredClone(
     require("../../release/lr07-distribution-installation-readback-policy.json"),
