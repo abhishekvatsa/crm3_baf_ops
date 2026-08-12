@@ -2,6 +2,8 @@
 
 import 'dart:convert';
 
+import '../../../core/serialization/persisted_data_reader.dart';
+
 const JsonEncoder _snapshotJsonIndent = JsonEncoder.withIndent('  ');
 
 class TemplateVersionSnapshotException implements Exception {
@@ -180,6 +182,12 @@ class TemplateVersionSnapshotBundle {
       }
     }
 
+    try {
+      _readClosureReviewConfirmedAt(mapFrom(jobSnapshot['composer']));
+    } on TemplateVersionSnapshotException catch (error) {
+      errors.add(error.message);
+    }
+
     return TemplateVersionSnapshotValidationResult(
       errors: errors.toSet().toList(),
       warnings: warnings.toSet().toList(),
@@ -218,8 +226,7 @@ class TemplateVersionSnapshotBundle {
   }
 
   DateTime? get closureReviewConfirmedAt {
-    final composer = mapFrom(jobSnapshot['composer']);
-    return dateTimeValue(composer['closureReviewConfirmedAt']);
+    return _readClosureReviewConfirmedAt(mapFrom(jobSnapshot['composer']));
   }
 
   List<Map<String, dynamic>> fieldsForModule(Map<String, dynamic> module) {
@@ -403,18 +410,26 @@ bool? boolValue(dynamic value) {
   if (value is bool) return value;
   if (value is String) {
     final normalized = value.trim().toLowerCase();
-    if (normalized == 'true' || normalized == 'yes' || normalized == 'required') return true;
-    if (normalized == 'false' || normalized == 'no' || normalized == 'optional') return false;
+    if (normalized == 'true' || normalized == 'yes' || normalized == 'required') {
+      return true;
+    }
+    if (normalized == 'false' || normalized == 'no' || normalized == 'optional') {
+      return false;
+    }
   }
   return null;
 }
 
-DateTime? dateTimeValue(dynamic value) {
-  if (value is DateTime) return value;
-  if (value is String && value.trim().isNotEmpty) {
-    return DateTime.tryParse(value.trim());
+DateTime? _readClosureReviewConfirmedAt(Map<String, dynamic> composer) {
+  try {
+    return readOptionalPersistedDateTime(
+      composer['closureReviewConfirmedAt'],
+      field: 'closureReviewConfirmedAt',
+      source: 'template version snapshot composer',
+    )?.toUtc();
+  } on PersistedDataFormatException catch (error) {
+    throw TemplateVersionSnapshotException(error.message);
   }
-  return null;
 }
 
 List<String> stringList(dynamic value) {

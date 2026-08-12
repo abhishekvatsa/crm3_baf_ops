@@ -350,6 +350,42 @@
       "authorityBoundary": "remote-command-receipt",
       "regression": "test/a05_operational_timestamp_integrity_test.dart",
       "reArmCondition": "any workflow receipt timestamp schema change"
+    },
+    {
+      "id": "backend-release-identity-response",
+      "readerFile": "lib/core/release/backend_release_identity_service.dart",
+      "readerMarker": "factory BackendReleaseIdentity.fromCallableData",
+      "requiredFields": [],
+      "optionalFields": ["deployedAt"],
+      "owner": "release-custody",
+      "purpose": "decode optional backend deployment evidence without suppressing malformed callable data",
+      "authorityBoundary": "remote-command-response",
+      "regression": "test/backend_release_identity_service_test.dart",
+      "reArmCondition": "any backend release identity timestamp schema change"
+    },
+    {
+      "id": "template-lifecycle-audit-snapshot",
+      "readerFile": "lib/core/services/sync_service.template_governance.dart",
+      "readerMarker": "bool _templateLifecycleAuditSnapshotMatchesRemote",
+      "requiredFields": ["updatedAt"],
+      "optionalFields": [],
+      "owner": "template-governance",
+      "purpose": "verify lifecycle audit evidence against the authoritative remote version chronology",
+      "authorityBoundary": "persisted-local-to-remote-reconciliation",
+      "regression": "test/template_governance_lifecycle_replay_contract_test.dart",
+      "reArmCondition": "any template lifecycle audit snapshot timestamp schema change"
+    },
+    {
+      "id": "template-version-snapshot-closure-review",
+      "readerFile": "lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart",
+      "readerMarker": "DateTime? _readClosureReviewConfirmedAt",
+      "requiredFields": [],
+      "optionalFields": ["closureReviewConfirmedAt"],
+      "owner": "template-governance",
+      "purpose": "validate optional closure-review evidence before publication or assignment",
+      "authorityBoundary": "persisted-governance-snapshot",
+      "regression": "test/template_version_snapshot_contract_test.dart",
+      "reArmCondition": "any template snapshot closure-review timestamp schema change"
     }
   ]
 }

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 
 import '../providers/sync_status_provider.dart';
+import '../serialization/persisted_data_reader.dart';
 import 'app_logger.dart';
 import 'sync_push_snapshot.dart';
 import 'sync_remote_freshness_policy.dart';

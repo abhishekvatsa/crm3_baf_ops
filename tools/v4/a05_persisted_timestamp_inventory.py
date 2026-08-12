@@ -17,6 +17,9 @@ from dart_structural_audit import strip_strings_and_comments
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "governance" / "a05-persisted-timestamp-surface-v2.json"
+CANDIDATE_MANIFEST = (
+    ROOT / "governance" / "a05-direct-timestamp-candidate-classification-v1.json"
+)
 READER_TOKENS = (
     "readRequiredPersistedDateTime",
     "readOptionalPersistedDateTime",
@@ -118,6 +121,7 @@ def _line_number(source: str, offset: int) -> int:
 
 def main() -> int:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    candidate_manifest = json.loads(CANDIDATE_MANIFEST.read_text(encoding="utf-8"))
     failures: list[str] = []
     inventory: list[dict[str, object]] = []
     classified_spans: dict[str, list[tuple[int, int, str]]] = {}
@@ -228,10 +232,75 @@ def main() -> int:
     if duplicate_reader_sites:
         failures.append("strict persisted timestamp calls have duplicate ownership")
 
+    allowed_classifications = {
+        "STRICT_READER_IMPLEMENTATION",
+        "FAIL_CLOSED_AUTHORITY_PARSER",
+        "NON_PERSISTED_RUNTIME_SENTINEL",
+        "TYPED_LOCAL_STORAGE_INITIALIZER",
+        "SORT_ONLY_NULL_ORDERING_SENTINEL",
+        "DISPLAY_ONLY_BEST_EFFORT",
+    }
+    candidate_classifications: dict[tuple[str, str, int], dict[str, object]] = {}
+    classification_groups = candidate_manifest.get("classifications", [])
+    if candidate_manifest.get("schemaVersion") != 1:
+        failures.append("candidate manifest schemaVersion must be 1")
+    if candidate_manifest.get("findingId") != manifest.get("findingId"):
+        failures.append("candidate manifest findingId must match reader manifest")
+    if not classification_groups:
+        failures.append("candidate manifest classifications must not be empty")
+
+    candidate_metadata = (
+        "owner",
+        "purpose",
+        "authorityBoundary",
+        "regression",
+        "reArmCondition",
+    )
+    seen_group_ids: set[str] = set()
+    for group in classification_groups:
+        group_id = group.get("id", "<missing-id>")
+        if group_id in seen_group_ids:
+            failures.append(f"duplicate candidate classification id {group_id}")
+        seen_group_ids.add(group_id)
+        classification = group.get("classification")
+        if classification not in allowed_classifications:
+            failures.append(f"{group_id}: invalid classification {classification!r}")
+        for field in candidate_metadata:
+            if not isinstance(group.get(field), str) or not group[field].strip():
+                failures.append(f"{group_id}: missing classification field {field}")
+        sites = group.get("sites", [])
+        if not sites:
+            failures.append(f"{group_id}: classified sites must not be empty")
+        for site in sites:
+            key = (
+                site.get("file"),
+                site.get("expression"),
+                site.get("occurrence"),
+            )
+            if not isinstance(key[0], str) or not isinstance(key[1], str):
+                failures.append(f"{group_id}: candidate site file/expression is invalid")
+                continue
+            if not isinstance(key[2], int) or key[2] < 1:
+                failures.append(f"{group_id}: candidate occurrence must be positive")
+                continue
+            if key in candidate_classifications:
+                failures.append(
+                    f"candidate site {key[0]} {key[1]} #{key[2]} has duplicate ownership"
+                )
+                continue
+            candidate_classifications[key] = {
+                "classificationId": group_id,
+                "classification": classification,
+                "authorityBoundary": group.get("authorityBoundary"),
+            }
+
     direct_parser_candidates: list[dict[str, object]] = []
     parser_pattern = re.compile(
-        r"\bDateTime\.(?:tryParse|parse|fromMillisecondsSinceEpoch)\s*\("
+        r"\bDateTime\.(?:tryParse|parse|fromMillisecondsSinceEpoch|"
+        r"fromMicrosecondsSinceEpoch)\s*\("
     )
+    candidate_occurrences: dict[tuple[str, str], int] = {}
+    discovered_candidate_keys: set[tuple[str, str, int]] = set()
     for path in sorted((ROOT / "lib").rglob("*.dart")):
         if path.name.endswith(".g.dart"):
             continue
@@ -239,13 +308,44 @@ def main() -> int:
         source = path.read_text(encoding="utf-8")
         cleaned = strip_strings_and_comments(source)
         for match in parser_pattern.finditer(cleaned):
-            direct_parser_candidates.append(
-                {
-                    "file": relative,
-                    "line": _line_number(source, match.start()),
-                    "expression": match.group(0).strip(),
-                }
+            expression = match.group(0).strip()
+            occurrence_key = (relative, expression)
+            occurrence = candidate_occurrences.get(occurrence_key, 0) + 1
+            candidate_occurrences[occurrence_key] = occurrence
+            candidate_key = (relative, expression, occurrence)
+            discovered_candidate_keys.add(candidate_key)
+            direct_parser_candidates.append({
+                "file": relative,
+                "line": _line_number(source, match.start()),
+                "expression": expression,
+                "occurrence": occurrence,
+                **candidate_classifications.get(candidate_key, {}),
+            })
+
+    unclassified_direct_parser_candidates = [
+        candidate
+        for candidate in direct_parser_candidates
+        if "classification" not in candidate
+    ]
+    stale_direct_parser_classifications = [
+        {
+            "file": key[0],
+            "expression": key[1],
+            "occurrence": key[2],
+            **candidate_classifications[key],
+        }
+        for key in sorted(set(candidate_classifications) - discovered_candidate_keys)
+    ]
+    if unclassified_direct_parser_candidates:
+        failures.append(
+            "unclassified direct timestamp candidates remain: "
+            + ", ".join(
+                f"{item['file']}:{item['line']}"
+                for item in unclassified_direct_parser_candidates
             )
+        )
+    if stale_direct_parser_classifications:
+        failures.append("stale direct timestamp candidate classifications remain")
 
     report = {
         "inventoryVersion": manifest["schemaVersion"],
@@ -261,6 +361,10 @@ def main() -> int:
         "unclassifiedReaderSites": unclassified_reader_sites,
         "duplicateReaderSites": duplicate_reader_sites,
         "directParserCandidates": direct_parser_candidates,
+        "directParserCandidateCount": len(direct_parser_candidates),
+        "directParserClassificationGroupCount": len(classification_groups),
+        "unclassifiedDirectParserCandidates": unclassified_direct_parser_candidates,
+        "staleDirectParserClassifications": stale_direct_parser_classifications,
         "result": "PASS" if not failures else "FAIL",
         "failures": failures,
     }

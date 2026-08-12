@@ -31,4 +31,50 @@ void main() {
       throwsA(isA<FormatException>()),
     );
   });
+
+  test('accepts an absent optional deployment timestamp', () {
+    final identity =
+        BackendReleaseIdentity.fromCallableData(const <String, dynamic>{
+          'releaseId': 'backend-70i-1',
+          'firebaseProjectId': 'crm3-baf-ops-b8638',
+          'environment': 'production',
+        });
+
+    expect(identity.deployedAt, isNull);
+  });
+
+  test('parses a complete serialized callable timestamp', () {
+    final identity = BackendReleaseIdentity.fromCallableData(
+      const <String, dynamic>{
+        'releaseId': 'backend-70i-1',
+        'firebaseProjectId': 'crm3-baf-ops-b8638',
+        'environment': 'production',
+        'deployedAt': <String, Object>{
+          '_seconds': 1785911400,
+          '_nanoseconds': 123456000,
+        },
+      },
+    );
+
+    expect(identity.deployedAt, DateTime.utc(2026, 8, 5, 6, 30, 0, 123, 456));
+  });
+
+  test('malformed present deployment timestamps fail closed', () {
+    for (final deployedAt in <Object>[
+      'not-a-timestamp',
+      const <String, Object>{'_seconds': 1785911400},
+      const <String, Object>{'_seconds': 1785911400, '_nanoseconds': -1},
+      const <String, Object>{'_seconds': 253402300800, '_nanoseconds': 0},
+    ]) {
+      expect(
+        () => BackendReleaseIdentity.fromCallableData(<String, dynamic>{
+          'releaseId': 'backend-70i-1',
+          'firebaseProjectId': 'crm3-baf-ops-b8638',
+          'environment': 'production',
+          'deployedAt': deployedAt,
+        }),
+        throwsA(isA<FormatException>()),
+      );
+    }
+  });
 }
