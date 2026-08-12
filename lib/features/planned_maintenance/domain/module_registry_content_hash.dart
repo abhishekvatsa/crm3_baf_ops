@@ -24,13 +24,14 @@ class ModuleRegistrySnapshotBundle {
   final String fieldDefinitionsJson;
   final String checklistJson;
 
-  Map<String, dynamic> get moduleSnapshot => _decodeObject(moduleSnapshotJson);
+  Map<String, dynamic> get moduleSnapshot =>
+      _decodeObjectStrict(moduleSnapshotJson, 'moduleSnapshotJson');
 
   List<Map<String, dynamic>> get fieldDefinitions =>
-      _decodeObjectList(fieldDefinitionsJson);
+      _decodeObjectListStrict(fieldDefinitionsJson, 'fieldDefinitionsJson');
 
   List<Map<String, dynamic>> get checklistItems =>
-      _decodeObjectList(checklistJson);
+      _decodeObjectListStrict(checklistJson, 'checklistJson');
 
   String get contentHash => stableModuleRegistryContentHashStrict(
     moduleSnapshotJson: moduleSnapshotJson,
@@ -62,28 +63,10 @@ ModuleRegistrySnapshotBundle moduleRegistrySnapshotFromDraft(
   );
 }
 
-String stableModuleRegistryContentHash({
-  required String moduleSnapshotJson,
-  required String fieldDefinitionsJson,
-  required String checklistJson,
-}) {
-  final canonical = _jsonEncoder.convert(<String, dynamic>{
-    'moduleSnapshot': _canonicalJsonValue(_decodeObject(moduleSnapshotJson)),
-    'fieldDefinitions': _canonicalJsonValue(
-      _decodeObjectList(fieldDefinitionsJson),
-    ),
-    'checklist': _canonicalJsonValue(_decodeObjectList(checklistJson)),
-  });
-  final digest = sha256.convert(utf8.encode(canonical)).toString();
-  return 'mrg1-sha256:$digest';
-}
-
 /// Computes the canonical registry content hash in strict governance mode.
 ///
-/// Unlike [stableModuleRegistryContentHash], this rejects malformed JSON and
-/// non-object/non-list payload roots instead of normalising them to empty
-/// content. Use this on publish/governance paths where a malformed registry
-/// revision must not receive a stable-looking content hash.
+/// This rejects malformed JSON and non-object/non-list payload roots so a
+/// malformed registry revision cannot receive a stable-looking content hash.
 String stableModuleRegistryContentHashStrict({
   required String moduleSnapshotJson,
   required String fieldDefinitionsJson,
@@ -200,33 +183,6 @@ List<Map<String, dynamic>> _decodeObjectListStrict(String raw, String label) {
   } catch (error) {
     throw FormatException('$label must be a valid JSON array: $error');
   }
-}
-
-Map<String, dynamic> _decodeObject(String raw) {
-  try {
-    final decoded = jsonDecode(raw.trim());
-    if (decoded is Map) {
-      return Map<String, dynamic>.from(decoded);
-    }
-  } catch (_) {
-    // Content-hash tests and callers treat malformed snapshots as empty.
-  }
-  return const <String, dynamic>{};
-}
-
-List<Map<String, dynamic>> _decodeObjectList(String raw) {
-  try {
-    final decoded = jsonDecode(raw.trim());
-    if (decoded is List) {
-      return decoded
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList(growable: false);
-    }
-  } catch (_) {
-    // Content-hash tests and callers treat malformed snapshots as empty.
-  }
-  return const <Map<String, dynamic>>[];
 }
 
 dynamic _canonicalJsonValue(dynamic value) {

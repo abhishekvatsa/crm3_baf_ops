@@ -331,6 +331,9 @@ jobs:
       - name: Gate 1B read-only authority classifier contracts
         run: npm run test:gate1b
 
+      - name: A-05 read-only production sweep contracts
+        run: npm run test:a05-production-sweep
+
       - name: Gate 1B Firestore and Auth emulator proof
         run: npm run emulator:test:gate1b
 

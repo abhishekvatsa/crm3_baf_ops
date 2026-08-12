@@ -29,7 +29,7 @@ void main() {
         reason:
             'presentation must not duplicate archive-audit authority or require remote audit read permission',
       );
-      expect(actions, contains('TemplateComposerDraft.fromPayloads'));
+      expect(actions, contains('TemplateComposerDraft.fromAuthoringPayloads'));
       expect(actions, contains('_editingTemplateVersion = selected.version'));
     });
 

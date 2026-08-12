@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/services/published_template_assignment_idempotency_store.dart';
 
 void main() {
@@ -60,5 +61,40 @@ void main() {
       requestId: pending.requestId,
     );
     expect(await store.read(actorUid: 'actor-1'), isNull);
+  });
+
+  test('malformed pending identity cannot become a new request', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'PENDING_GOVERNED_ASSIGNMENT::actor-1': '{not-json',
+    });
+    final store = PublishedTemplateAssignmentIdempotencyStore();
+
+    await expectLater(
+      store.resolve(actorUid: 'actor-1', payloadFingerprint: 'fingerprint-1'),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+    final preferences = await SharedPreferences.getInstance();
+    expect(
+      preferences.getString('PENDING_GOVERNED_ASSIGNMENT::actor-1'),
+      '{not-json',
+    );
+  });
+
+  test('wrong-typed present identity fields fail closed', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'PENDING_GOVERNED_ASSIGNMENT::actor-1':
+          '{"requestId":7,"payloadFingerprint":"fingerprint-1"}',
+    });
+
+    await expectLater(
+      PublishedTemplateAssignmentIdempotencyStore().read(actorUid: 'actor-1'),
+      throwsA(
+        isA<PersistedDataFormatException>().having(
+          (error) => error.fieldName,
+          'fieldName',
+          'requestId',
+        ),
+      ),
+    );
   });
 }

@@ -42,6 +42,8 @@ void main() {
           ..assetType = AssetType.base
           ..assetNumber = 209
           ..note = 'Observation'
+          ..createdByUid = 'actor-1'
+          ..updatedByUid = 'actor-1'
           ..createdAt = now
           ..updatedAt = now;
 

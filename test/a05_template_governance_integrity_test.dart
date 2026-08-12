@@ -190,6 +190,39 @@ void main() {
       }
     });
 
+    test('local closure-state derivation rejects malformed snapshot state', () {
+      final malformedJson =
+          TemplateVersion()
+            ..jobTemplateSnapshotJson = '{broken'
+            ..moduleSnapshotsJson = '[]';
+      expect(
+        malformedJson.refreshClosureReviewStateFromSnapshots,
+        _invalidField('jobTemplateSnapshotJson'),
+      );
+
+      final wrongBool =
+          TemplateVersion()
+            ..jobTemplateSnapshotJson = jsonEncode(<String, dynamic>{
+              'composer': <String, dynamic>{'closureReviewConfirmed': 'yes'},
+            })
+            ..moduleSnapshotsJson = '[]';
+      expect(
+        wrongBool.refreshClosureReviewStateFromSnapshots,
+        _invalidField('closureReviewConfirmed'),
+      );
+
+      final wrongCount =
+          TemplateVersion()
+            ..jobTemplateSnapshotJson = jsonEncode(<String, dynamic>{
+              'closureCriticalCount': 1.0,
+            })
+            ..moduleSnapshotsJson = '[]';
+      expect(
+        wrongCount.refreshClosureReviewStateFromSnapshots,
+        _invalidField('closureCriticalCount'),
+      );
+    });
+
     test('closure projection is complete, exact, and snapshot-bound', () {
       final partial = _validVersion()..remove('closureReviewConfirmedAt');
       expect(

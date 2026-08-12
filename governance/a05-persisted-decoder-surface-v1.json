@@ -1,0 +1,1079 @@
+{
+  "schemaVersion": 1,
+  "findingId": "A-05",
+  "scope": "all non-generated Dart files containing direct non-timestamp strict persisted-reader calls or raw JSON decoders, every structurally discovered decoder catch including presentation boundaries, and the inherited exact timestamp inventory",
+  "timestampInventory": "governance/a05-persisted-timestamp-surface-v2.json",
+  "surfaces": [
+    {
+      "id": "global-pull-cursor",
+      "file": "lib/core/services/global_pull_cursor_store.dart",
+      "markers": [
+        "factory GlobalPullDomainCursor.fromJson",
+        "jsonDecode(encoded)"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "synchronization",
+      "authorityBoundary": "durable local cursor and run envelope",
+      "malformedDisposition": "fail closed with stable repair error",
+      "compatibility": "absent pre-feature cursor only",
+      "regression": "test/global_pull_cursor_store_test.dart",
+      "reArmCondition": "new cursor parser, fallback, or suppressed decode error",
+      "riskFingerprint": "f6ce1077ebbfc539d500762b5296659d5111abf8a5f8c91ba4bac087de34bddd"
+    },
+    {
+      "id": "isar-schema-provenance",
+      "file": "lib/core/services/isar_schema_migration.dart",
+      "markers": [
+        "static IsarSchemaProvenanceMarker decode",
+        "jsonDecode(encoded)"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "local-database",
+      "authorityBoundary": "installed-store schema provenance",
+      "malformedDisposition": "fail closed into recovery",
+      "compatibility": "governed legacy marker migration only",
+      "regression": "test/isar_schema_migration_test.dart",
+      "reArmCondition": "new marker parser or ungoverned schema fallback",
+      "riskFingerprint": "bdc1172f5933f71ecac0e96fc3b9e7c81666b5bb4fb28aa050a398123d3bf03b"
+    },
+    {
+      "id": "template-sync-snapshot",
+      "file": "lib/core/services/sync_service.template_governance.dart",
+      "markers": [
+        "jsonDecode(rawSnapshot)"
+      ],
+      "classification": "REPAIRABLE_LOCAL_RECORD",
+      "owner": "template-governance-sync",
+      "authorityBoundary": "local template snapshot reconciliation",
+      "malformedDisposition": "quarantine local record and report sync failure",
+      "compatibility": "none",
+      "regression": "test/a05_template_governance_integrity_test.dart",
+      "reArmCondition": "snapshot decode bypasses quarantine or advances sync state",
+      "riskFingerprint": "525f368732aeb185a6d3699a27943d33e284caf6918a6d723957a74c63b4695d"
+    },
+    {
+      "id": "affected-assets",
+      "file": "lib/features/abnormalities/data/abnormality_model.dart",
+      "markers": [
+        "factory AffectedAssetRef.fromMap",
+        "List<AffectedAssetRef> decodeAffectedAssets("
+      ],
+      "classification": "NESTED_OPERATIONAL_STATE",
+      "owner": "abnormalities",
+      "authorityBoundary": "persisted affected-asset evidence",
+      "malformedDisposition": "fail closed",
+      "compatibility": "absent optional collection only",
+      "regression": "test/a05_abnormality_integrity_test.dart",
+      "reArmCondition": "asset coercion, row dropping, or malformed JSON suppression",
+      "riskFingerprint": "8fa9c211a2574627709c7aac34124f284d95400efa6655fa244b2b3d6ffd14df"
+    },
+    {
+      "id": "abnormality-records",
+      "file": "lib/features/abnormalities/data/remote_abnormality_reader.dart",
+      "markers": [
+        "AbnormalityType readRemoteAbnormalityType(",
+        "ChargeAbnormality readRemoteChargeAbnormality("
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "abnormalities",
+      "authorityBoundary": "Firestore abnormality records",
+      "malformedDisposition": "fail closed",
+      "compatibility": "documented absent legacy optional values only",
+      "regression": "test/a05_abnormality_integrity_test.dart",
+      "reArmCondition": "new field default, coercion, or lifecycle contradiction accepted",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "audit-payload",
+      "file": "lib/features/audit/models/audit_event_model.dart",
+      "markers": [
+        "Map<String, dynamic>? get before",
+        "Map<String, dynamic>? get after"
+      ],
+      "classification": "IMMUTABLE_AUDIT_EVIDENCE",
+      "owner": "audit",
+      "authorityBoundary": "persisted before/after evidence",
+      "malformedDisposition": "fail closed",
+      "compatibility": "absent optional evidence only",
+      "regression": "test/a05_maintenance_audit_integrity_test.dart",
+      "reArmCondition": "malformed audit JSON becomes empty evidence",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "audit-record",
+      "file": "lib/features/audit/repositories/audit_repository.dart",
+      "markers": [
+        "AuditEvent decodePersistedAuditEvent("
+      ],
+      "classification": "IMMUTABLE_AUDIT_EVIDENCE",
+      "owner": "audit",
+      "authorityBoundary": "Firestore audit chronology",
+      "malformedDisposition": "fail closed per record and surface read failure",
+      "compatibility": "absent optional narrative fields only",
+      "regression": "test/a05_operational_timestamp_integrity_test.dart",
+      "reArmCondition": "required audit state is defaulted or malformed rows are silently skipped",
+      "riskFingerprint": "1a5a76a81ab3b9cc38c01ec5733c553334b918cd9768c312a82c8fa2d81a2d65"
+    },
+    {
+      "id": "approved-user-profile",
+      "file": "lib/features/auth/data/user_model.dart",
+      "markers": [
+        "factory AppUser.fromFirestore"
+      ],
+      "classification": "REMOTE_AUTHORITY_RECORD",
+      "owner": "authentication",
+      "authorityBoundary": "approved-user identity and roles",
+      "malformedDisposition": "fail closed; malformed roles force unapproved authority",
+      "compatibility": "none for identity; unknown roles deny authority",
+      "regression": "test/user_model_test.dart",
+      "reArmCondition": "unknown authority data grants or preserves permissions",
+      "riskFingerprint": "8c06099b740df0598f7dcd473135e6fe55f4546fbabc8833880bca103dcbafae"
+    },
+    {
+      "id": "operational-directive",
+      "file": "lib/features/directives/data/remote_operational_directive_reader.dart",
+      "markers": [
+        "OperationalDirective readRemoteOperationalDirective("
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "directives",
+      "authorityBoundary": "Firestore directive lifecycle",
+      "malformedDisposition": "fail closed",
+      "compatibility": "documented absent legacy optional values only",
+      "regression": "test/a05_operational_directive_integrity_test.dart",
+      "reArmCondition": "directive identity, lifecycle, or metadata is defaulted",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "workflow-firestore-records",
+      "file": "lib/features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart",
+      "markers": [
+        "WorkflowAggregateRecord workflowAggregateRecordFromFirestoreData({",
+        "ComplianceAttemptRecord complianceAttemptRecordFromFirestoreData({"
+      ],
+      "classification": "REMOTE_WORKFLOW_RECORD",
+      "owner": "maintenance-workflow",
+      "authorityBoundary": "seven Firestore workflow projection families",
+      "malformedDisposition": "quarantine failed record with observed timestamp",
+      "compatibility": "explicit absent pre-feature flags and counters only; malformed present values fail",
+      "regression": "test/a05_workflow_record_integrity_test.dart; test/maintenance_workflow/compliance_request_mapper_test.dart",
+      "reArmCondition": "new workflow default, coercion, malformed map suppression, or unclassified mapper",
+      "riskFingerprint": "662b332ce644ba5f6a915fac85abc10ed4ef9ff9712f832d9ec8c5b6cbff7491"
+    },
+    {
+      "id": "workflow-pull-control",
+      "file": "lib/features/maintenance_workflow/services/workflow_pull_service.dart",
+      "markers": [
+        "factory WorkflowPullQuarantineRecord.fromJson",
+        "static List<WorkflowPullQuarantineRecord> _decodeQuarantine"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "maintenance-workflow",
+      "authorityBoundary": "durable quarantine and per-collection watermarks",
+      "malformedDisposition": "stable repair state; cursor held until explicit clearance",
+      "compatibility": "wholly absent pre-feature quarantine only",
+      "regression": "test/workflow_pull_service_watermark_test.dart",
+      "reArmCondition": "failed record is dropped, quarantine is overwritten, or cursor advances",
+      "riskFingerprint": "d7bf79f5e7240e506cae92b0175b202a787b9050369eada8834fda990807e1ea"
+    },
+    {
+      "id": "workflow-uncertain-retry",
+      "file": "lib/features/maintenance_workflow/services/workflow_uncertain_retry_service.dart",
+      "markers": [
+        "jsonDecode(row.payloadJson)"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "maintenance-workflow",
+      "authorityBoundary": "durable uncertain command retry payload",
+      "malformedDisposition": "fail closed and retain retry row",
+      "compatibility": "none",
+      "regression": "test/workflow_uncertain_retry_service_test.dart",
+      "reArmCondition": "malformed retry payload is discarded or executed",
+      "riskFingerprint": "a6c3cda68c54c5883f26af00eb861d3c475f7d07346cdeac9cb42aa975061019"
+    },
+    {
+      "id": "maintenance-resolution-history",
+      "file": "lib/features/maintenance/data/maintenance_model.dart",
+      "markers": [
+        "factory ResolutionHistory.fromMap",
+        "ValidatedResolutionHistoryPayload readValidatedResolutionHistoryPayload("
+      ],
+      "classification": "NESTED_OPERATIONAL_STATE",
+      "owner": "maintenance",
+      "authorityBoundary": "persisted resolution evidence",
+      "malformedDisposition": "preserve repair state or fail closed at authority boundary",
+      "compatibility": "absent pre-feature payload only",
+      "regression": "test/a05_maintenance_audit_integrity_test.dart",
+      "reArmCondition": "invalid history row is dropped or rewritten empty",
+      "riskFingerprint": "11d365b1fac485471771f70e994c03dce0bcad1594f73599e3c03c861ba0b916"
+    },
+    {
+      "id": "maintenance-record",
+      "file": "lib/features/maintenance/data/remote_maintenance_reader.dart",
+      "markers": [
+        "MaintenanceRecord readRemoteMaintenanceRecord("
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "maintenance",
+      "authorityBoundary": "Firestore maintenance record and workflow projection",
+      "malformedDisposition": "fail closed",
+      "compatibility": "wholly absent legacy workflow projection only",
+      "regression": "test/a05_remote_maintenance_record_integrity_test.dart",
+      "reArmCondition": "required ticket state, partial projection, or lifecycle contradiction is accepted",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "job-diary-record",
+      "file": "lib/features/planned_maintenance/data/job_diary_model.dart",
+      "markers": [
+        "factory JobDiaryEntry.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "planned-maintenance",
+      "authorityBoundary": "Firestore job diary record",
+      "malformedDisposition": "fail closed",
+      "compatibility": "documented absent pre-feature kind, discipline, severity, and flags only",
+      "regression": "test/a05_planned_work_record_integrity_test.dart",
+      "reArmCondition": "identity, enum, flag, lifecycle, or timeline is defaulted from malformed input",
+      "riskFingerprint": "e8e868a9d2589faaeca3fc4c1bd24497ae1b2b166c6a9b56fd0e2be2623070d5"
+    },
+    {
+      "id": "job-module-record",
+      "file": "lib/features/planned_maintenance/data/job_module_model.dart",
+      "markers": [
+        "factory JobModuleInstance.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "planned-maintenance",
+      "authorityBoundary": "Firestore runtime module record",
+      "malformedDisposition": "fail closed; response and field payloads may enter explicit repair state",
+      "compatibility": "documented absent pre-feature module fields only",
+      "regression": "test/a05_planned_work_record_integrity_test.dart; test/a05_response_payload_integrity_test.dart",
+      "reArmCondition": "module authority is coerced or malformed evidence becomes empty",
+      "riskFingerprint": "8e125197f15f555548284f24e2a1c62bb37b92716ad04cb1b643f706e354164d"
+    },
+    {
+      "id": "job-template-execution-records",
+      "file": "lib/features/planned_maintenance/data/job_template_model.dart",
+      "markers": [
+        "factory JobTemplate.fromMap",
+        "factory JobExecution.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "planned-maintenance",
+      "authorityBoundary": "Firestore legacy template and job execution records plus nested fields/responses",
+      "malformedDisposition": "fail closed; canonical response payload may enter explicit repair state",
+      "compatibility": "explicit legacy structured payload and absent pre-feature fields only",
+      "regression": "test/a05_planned_work_record_integrity_test.dart; test/a05_template_composer_integrity_test.dart; test/a05_response_payload_integrity_test.dart",
+      "reArmCondition": "canonical payload falls through, malformed optional state defaults, or identity/lifecycle drifts",
+      "riskFingerprint": "7c008b6b4dfdcede54102aa62d1e5c19070371e8e0e3770fb077577382402acc"
+    },
+    {
+      "id": "module-registry-local-content",
+      "file": "lib/features/planned_maintenance/data/module_registry_model.dart",
+      "markers": [
+        "ComposerModuleDraft toComposerModuleDraft()"
+      ],
+      "classification": "REPAIRABLE_LOCAL_RECORD",
+      "owner": "module-registry",
+      "authorityBoundary": "persisted local registry content payload",
+      "malformedDisposition": "explicit repair state",
+      "compatibility": "none",
+      "regression": "test/a05_module_registry_integrity_test.dart",
+      "reArmCondition": "malformed content is normalized to empty",
+      "riskFingerprint": "bd82e6e314b86f0ddfbe7aee8c7703ae23c052e063c87591e6a903016c3beb87"
+    },
+    {
+      "id": "baf-knowledge-records",
+      "file": "lib/features/planned_maintenance/data/remote_baf_knowledge_reader.dart",
+      "markers": [
+        "RemoteBafKnowledgeRowData readRemoteBafKnowledgeRow(",
+        "RemoteBafKnowledgeMetaData readRemoteBafKnowledgeMeta("
+      ],
+      "classification": "REMOTE_GOVERNANCE_RECORD",
+      "owner": "knowledge-governance",
+      "authorityBoundary": "Firestore BAF knowledge rows and matrix metadata",
+      "malformedDisposition": "fail closed",
+      "compatibility": "declared historical aliases only",
+      "regression": "test/a05_baf_knowledge_integrity_test.dart",
+      "reArmCondition": "knowledge authority, JSON, list, or lifecycle state is defaulted",
+      "riskFingerprint": "0c5c831770454d8540ea7825f92f4a19bf01773662e21e2b2cbdaa3351e92d61"
+    },
+    {
+      "id": "module-registry-records",
+      "file": "lib/features/planned_maintenance/data/remote_module_registry_reader.dart",
+      "markers": [
+        "ModuleRegistryFamily readRemoteModuleRegistryFamily(",
+        "ModuleRegistryRevision readRemoteModuleRegistryRevision("
+      ],
+      "classification": "REMOTE_GOVERNANCE_RECORD",
+      "owner": "module-registry",
+      "authorityBoundary": "Firestore module family and revision records",
+      "malformedDisposition": "fail closed",
+      "compatibility": "documented historical aliases only",
+      "regression": "test/a05_module_registry_integrity_test.dart",
+      "reArmCondition": "registry JSON, enum, identity, version, or lifecycle is defaulted",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "template-governance-records",
+      "file": "lib/features/planned_maintenance/data/remote_template_governance_reader.dart",
+      "markers": [
+        "TemplatePackage readRemoteTemplatePackage(",
+        "TemplateVersion readRemoteTemplateVersion(",
+        "TemplatePublishAudit readRemoteTemplatePublishAudit("
+      ],
+      "classification": "REMOTE_GOVERNANCE_RECORD",
+      "owner": "template-governance",
+      "authorityBoundary": "Firestore package, version, and immutable audit records",
+      "malformedDisposition": "fail closed",
+      "compatibility": "whole legacy closure projection may be derived only from valid snapshots",
+      "regression": "test/a05_template_governance_integrity_test.dart",
+      "reArmCondition": "partial projection, malformed snapshot, hash, or lifecycle is accepted",
+      "riskFingerprint": "11870f766a31e0400a5a0bc543271cee979e9d8254dc86fde1b4a3d022a5588b"
+    },
+    {
+      "id": "template-governance-local-derivation",
+      "file": "lib/features/planned_maintenance/data/template_governance_model.dart",
+      "markers": [
+        "_TemplateClosureReviewState _deriveClosureReviewState"
+      ],
+      "classification": "REPAIRABLE_LOCAL_RECORD",
+      "owner": "template-governance",
+      "authorityBoundary": "local draft snapshot review and canonical hash derivation",
+      "malformedDisposition": "fail closed to caller-visible repair state",
+      "compatibility": "absent closure fields only within a valid snapshot",
+      "regression": "test/a05_template_governance_integrity_test.dart",
+      "reArmCondition": "malformed snapshot or wrong-typed closure value becomes false, zero, or empty",
+      "riskFingerprint": "b28b9826083e2fec26e58a14f34bc8c5b099964564ebfb49d3ba7981a9d2511f"
+    },
+    {
+      "id": "composer-draft-records",
+      "file": "lib/features/planned_maintenance/domain/module_composer_models.dart",
+      "markers": [
+        "factory TemplateComposerDraft.fromPayloads({"
+      ],
+      "classification": "REPAIRABLE_LOCAL_RECORD",
+      "owner": "module-composer",
+      "authorityBoundary": "persisted local composer recovery draft",
+      "malformedDisposition": "fail closed to blocking repair state",
+      "compatibility": "versioned legacy draft aliases only",
+      "regression": "test/a05_template_composer_integrity_test.dart",
+      "reArmCondition": "malformed draft field is silently dropped or defaulted",
+      "riskFingerprint": "004df9792c3bd878649d98a5d441833cfaee62fbacc3a43a27c95f14fa81a6fe"
+    },
+    {
+      "id": "component-actions",
+      "file": "lib/features/planned_maintenance/models/component_action_model.dart",
+      "markers": [
+        "factory ComponentAction.fromMap",
+        "static List<ComponentAction> decode"
+      ],
+      "classification": "NESTED_OPERATIONAL_STATE",
+      "owner": "planned-maintenance",
+      "authorityBoundary": "persisted component action evidence",
+      "malformedDisposition": "fail closed",
+      "compatibility": "absent pre-feature action payload only",
+      "regression": "test/a05_component_action_integrity_test.dart",
+      "reArmCondition": "malformed action rows are dropped or normalized empty",
+      "riskFingerprint": "11d365b1fac485471771f70e994c03dce0bcad1594f73599e3c03c861ba0b916"
+    },
+    {
+      "id": "assignment-idempotency",
+      "file": "lib/features/planned_maintenance/services/published_template_assignment_idempotency_store.dart",
+      "markers": [
+        "factory PublishedTemplateAssignmentPendingIdentity.fromMap",
+        "PublishedTemplateAssignmentPendingIdentity? _decode"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "published-assignment",
+      "authorityBoundary": "durable assignment request identity",
+      "malformedDisposition": "fail closed and preserve original bytes",
+      "compatibility": "wholly absent receipt only",
+      "regression": "test/published_template_assignment_idempotency_store_test.dart",
+      "reArmCondition": "malformed receipt is treated as no prior request",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "baf-knowledge-bundled-matrix",
+      "file": "lib/features/planned_maintenance/domain/baf_knowledge_layer.dart",
+      "markers": [
+        "static Map<String, dynamic> _decodeMatrix"
+      ],
+      "classification": "BUNDLED_VALIDATED_INPUT",
+      "owner": "knowledge-governance",
+      "authorityBoundary": "versioned bundled matrix asset",
+      "malformedDisposition": "fail closed during load",
+      "compatibility": "none",
+      "regression": "test/baf_knowledge_layer_test.dart",
+      "reArmCondition": "invalid bundled matrix becomes empty or partial",
+      "riskFingerprint": "bb24f113869c7619edfd81852dff10d639bb2bc233d9c04a4fdbd4f1fbef543e"
+    },
+    {
+      "id": "knowledge-correction-snapshot",
+      "file": "lib/features/planned_maintenance/domain/knowledge_correction_promoter.dart",
+      "markers": [
+        "jsonDecode(jobTemplateSnapshotJson)"
+      ],
+      "classification": "OPTIONAL_NON_MUTATING_DERIVATION",
+      "owner": "knowledge-governance",
+      "authorityBoundary": "optional promotion-candidate discovery only; no write occurs in this helper",
+      "malformedDisposition": "produce no promotion candidate and perform no mutation",
+      "compatibility": "absent or malformed pre-Composer correction metadata is non-authoritative",
+      "regression": "test/a05_decoder_exception_policy_test.dart",
+      "reArmCondition": "invalid snapshot is promoted or rewritten",
+      "riskFingerprint": "ef03914213f7231d318a67c0fb0abd9bd5d53d6544bf82a23b2c67df80892daf"
+    },
+    {
+      "id": "knowledge-import",
+      "file": "lib/features/planned_maintenance/domain/knowledge_governance_export.dart",
+      "markers": [
+        "static KnowledgeImportSummary parse"
+      ],
+      "classification": "STRICT_IMPORT_VALIDATOR",
+      "owner": "knowledge-governance",
+      "authorityBoundary": "operator-supplied import before persistence",
+      "malformedDisposition": "reject import with diagnostics",
+      "compatibility": "supported CSV and JSON import formats",
+      "regression": "test/knowledge_governance_export_test.dart",
+      "reArmCondition": "invalid imported rows are silently dropped before persistence",
+      "riskFingerprint": "69302892d6a3fe35cc84589b234ecf221fb6f42decfc918ab3487a78b11b0b77"
+    },
+    {
+      "id": "composer-json-builder",
+      "file": "lib/features/planned_maintenance/domain/module_composer_json_builder.dart",
+      "markers": [
+        "static TemplateComposerOutput build(TemplateComposerDraft draft)"
+      ],
+      "classification": "VALIDATED_IN_MEMORY_TRANSFORM",
+      "owner": "module-composer",
+      "authorityBoundary": "validated composer output before persistence",
+      "malformedDisposition": "fail closed",
+      "compatibility": "none",
+      "regression": "test/module_composer_json_builder_test.dart",
+      "reArmCondition": "builder accepts malformed upstream JSON",
+      "riskFingerprint": "aa5e806bacb81427cd77070882b6194cce44c2ded1261a117a8bbe08aa91dc36"
+    },
+    {
+      "id": "module-registry-hash",
+      "file": "lib/features/planned_maintenance/domain/module_registry_content_hash.dart",
+      "markers": [
+        "Map<String, dynamic> _decodeObjectStrict"
+      ],
+      "classification": "VALIDATED_GOVERNANCE_TRANSFORM",
+      "owner": "module-registry",
+      "authorityBoundary": "canonical immutable revision content hash",
+      "malformedDisposition": "fail closed",
+      "compatibility": "legacy hash canonicalization only",
+      "regression": "test/module_registry_content_hash_test.dart",
+      "reArmCondition": "invalid content hashes as empty or partial payload",
+      "riskFingerprint": "86e8ef9a442c118be563587b589e28f74144a49e305e8a91cbc7f19240ff100f"
+    },
+    {
+      "id": "closure-attestation",
+      "file": "lib/features/planned_maintenance/domain/planned_job_closure_attestation.dart",
+      "markers": [
+        "static Map<String, dynamic> _decodeMetadataJson"
+      ],
+      "classification": "BOUNDED_LEGACY_METADATA_PRESERVATION",
+      "owner": "planned-job-closure",
+      "authorityBoundary": "new closure attestation is authoritative; existing opaque metadata is never interpreted as attestation authority",
+      "malformedDisposition": "preserve exact legacy text/value under an explicit legacy envelope and append a newly validated attestation",
+      "compatibility": "pre-attestation metadata may be opaque but cannot satisfy or alter the closure guard",
+      "regression": "test/planned_job_closure_attestation_test.dart",
+      "reArmCondition": "malformed attestation metadata is treated as absent",
+      "riskFingerprint": "698a47ac8e76c3dca939caa1d520c501591672b8ebb4559e1565f8162521c0b9"
+    },
+    {
+      "id": "runtime-module-lineage",
+      "file": "lib/features/planned_maintenance/domain/runtime_module_lineage.dart",
+      "markers": [
+        "Map<String, dynamic> _decodeJsonObject"
+      ],
+      "classification": "DISPLAY_ONLY_BEST_EFFORT",
+      "owner": "runtime-module-lineage",
+      "authorityBoundary": "diagnostic and dossier labels only; never grants authority or mutates persisted state",
+      "malformedDisposition": "render unknown legacy/manual lineage without claiming governed provenance",
+      "compatibility": "absent or malformed pre-lineage metadata is tolerated only at this display boundary",
+      "regression": "test/a05_decoder_exception_policy_test.dart; test/runtime_module_lineage_visibility_contract_test.dart",
+      "reArmCondition": "malformed lineage becomes an empty object",
+      "riskFingerprint": "7c0543ab772fa14046f160cd4821b6adfb9d94b6db97941d69a88b8d0496b4a8"
+    },
+    {
+      "id": "template-snapshot-contract",
+      "file": "lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart",
+      "markers": [
+        "Map<String, dynamic> _decodeObject(",
+        "List<Map<String, dynamic>> _decodeObjectList("
+      ],
+      "classification": "REMOTE_GOVERNANCE_RECORD",
+      "owner": "template-governance",
+      "authorityBoundary": "immutable template version snapshot contract",
+      "malformedDisposition": "fail closed with field diagnostics",
+      "compatibility": "documented aliases only",
+      "regression": "test/template_version_snapshot_contract_test.dart",
+      "reArmCondition": "malformed snapshot object or row is dropped/defaulted",
+      "riskFingerprint": "8541fe14900db538888ad645dde07b664ae2801182e8ec1d6dd4966df3bcd534"
+    },
+    {
+      "id": "module-registry-provider-lineage",
+      "file": "lib/features/planned_maintenance/providers/module_registry_provider.dart",
+      "markers": [
+        "lineage: jsonDecode(revision.lineageJson)"
+      ],
+      "classification": "VALIDATED_GOVERNANCE_TRANSFORM",
+      "owner": "module-registry",
+      "authorityBoundary": "strict-reader-validated lineage passed to mutation",
+      "malformedDisposition": "fail closed before mutation",
+      "compatibility": "none",
+      "regression": "test/module_registry_provider_test.dart",
+      "reArmCondition": "provider bypasses strict registry reader or suppresses lineage decode",
+      "riskFingerprint": "50ba5ab947efb41770c25625860edb3dbb76c2c1dcb2db54718d0b96eadd9e58"
+    },
+    {
+      "id": "workflow-timeline-payload-display",
+      "file": "lib/features/maintenance_workflow/presentation/widgets/workflow_timeline.dart",
+      "markers": [
+        "String _summary(String jsonText)"
+      ],
+      "classification": "DISPLAY_ONLY_RAW_PRESERVATION",
+      "owner": "maintenance-workflow-presentation",
+      "authorityBoundary": "read-only workflow event timeline",
+      "malformedDisposition": "display exact stored text and derive no fields",
+      "compatibility": "opaque legacy event payloads remain visible",
+      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "event summary parsing affects workflow state or mutation admission",
+      "riskFingerprint": "c33dbb4720c39b42d61c8ec80783bcbcd5aa5b73c5bacf0a6fed22bc24e9e3b8"
+    },
+    {
+      "id": "planned-dossier-metadata-display",
+      "file": "lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart",
+      "markers": [
+        "static Map<String, dynamic>? _decodeMetadata(String raw)"
+      ],
+      "classification": "DISPLAY_ONLY_OMISSION",
+      "owner": "planned-job-dossier",
+      "authorityBoundary": "read-only optional metadata panel",
+      "malformedDisposition": "omit optional panel and derive no business state",
+      "compatibility": "opaque legacy metadata can remain absent from display",
+      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "metadata display parsing affects workflow, completion, or authorization state",
+      "riskFingerprint": "427727d5f7bc9aa3a6ae5b9e873e19d15e7f97fda397e8cb0635621ffe7205fe"
+    },
+    {
+      "id": "composer-json-preview-display",
+      "file": "lib/features/planned_maintenance/presentation/module_composer_screen.helpers.dart",
+      "markers": [
+        "String _compactPreview(String jsonText)"
+      ],
+      "classification": "DISPLAY_ONLY_RAW_PRESERVATION",
+      "owner": "module-composer",
+      "authorityBoundary": "read-only in-memory JSON preview",
+      "malformedDisposition": "display truncated exact text and derive no draft state",
+      "compatibility": "operator can inspect invalid authoring text before validation",
+      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "preview parsing mutates draft or grants publication authority",
+      "riskFingerprint": "011a8371fda10b09f75f0f54c28c9ff60e702ab50fe391e260a14265466e2881"
+    },
+    {
+      "id": "composer-local-recovery-envelope",
+      "file": "lib/features/planned_maintenance/presentation/module_composer_screen.support.dart",
+      "markers": [
+        "Future<void> _checkForRecoverableDraft() async"
+      ],
+      "classification": "REPAIRABLE_LOCAL_RECORD",
+      "owner": "module-composer",
+      "authorityBoundary": "SharedPreferences recovery admission",
+      "malformedDisposition": "show repair notice and preserve exact recovery bytes",
+      "compatibility": "none for malformed envelope; valid saved authoring payloads may contain empty draft collections",
+      "regression": "test/a05_template_composer_integrity_test.dart",
+      "reArmCondition": "malformed recovery envelope is discarded, restored, or converted to a fresh draft",
+      "riskFingerprint": "ca662a2657cc488dd3f888b0ba1ac9d6ad88d12f9a7bc0ce3fc4a8d6be05ea29"
+    },
+    {
+      "id": "template-publisher-input-json",
+      "file": "lib/features/planned_maintenance/presentation/template_publisher_screen.validation.dart",
+      "markers": [
+        "_JsonCheck _validateJson("
+      ],
+      "classification": "OPERATOR_INPUT_PRE_MUTATION_VALIDATION",
+      "owner": "template-governance",
+      "authorityBoundary": "template publication form validation and normalization",
+      "malformedDisposition": "return or throw a blocking input error before persistence",
+      "compatibility": "valid JSON object/list roots only",
+      "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "invalid input JSON is defaulted, normalized, or admitted for publication",
+      "riskFingerprint": "9835f7232b246c5a69e0cab831c9839e83e3f1a894178a88092fb15014643e50"
+    }
+  ],
+  "catchSites": [
+    {
+      "id": "installed-store-marker-classification",
+      "file": "lib/core/services/isar_installed_store_provenance.dart",
+      "siteFingerprint": "1aa94643562457dae77f5e29e2999cd599ac772abff7335e49370583b27987d9",
+      "classification": "DURABLE_REPAIR_STATE",
+      "purpose": "classify a malformed installed-store provenance marker before database open",
+      "authorityBoundary": "local database provenance admission",
+      "mutability": "read-only classification",
+      "dataScope": "canonical local Isar provenance marker",
+      "malformedDisposition": "record malformed disposition and require governed recovery",
+      "regression": "test/isar_installed_store_provenance_test.dart",
+      "reArmCondition": "malformed marker becomes current or permits database open"
+    },
+    {
+      "id": "canonical-marker-json-translation",
+      "file": "lib/core/services/isar_schema_migration.dart",
+      "siteFingerprint": "ea4d214a1fcabb6c04a71b178dbfb7122c8c9b86fe0e18c1ffc49cffd8367545",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "translate JSON syntax failure into a stable provenance reason code",
+      "authorityBoundary": "canonical local schema marker decoder",
+      "mutability": "none",
+      "dataScope": "canonical local Isar provenance marker",
+      "malformedDisposition": "throw IsarSchemaMarkerFormatException",
+      "regression": "test/isar_schema_migration_test.dart",
+      "reArmCondition": "invalid marker JSON is accepted or replaced with defaults"
+    },
+    {
+      "id": "migration-marker-open-gate",
+      "file": "lib/core/services/isar_schema_migration.dart",
+      "siteFingerprint": "2c8f9d1fb15ec82062c04d01d82460ebfda01ad9275d6f726dd276019f2078f6",
+      "classification": "FAIL_CLOSED_OPEN_GATE",
+      "purpose": "retain marker parse failure for the existing-store open decision",
+      "authorityBoundary": "local database migration admission",
+      "mutability": "pre-open planning only",
+      "dataScope": "canonical and legacy local schema markers",
+      "malformedDisposition": "throw migration exception before opening durable data",
+      "regression": "test/isar_schema_migration_test.dart",
+      "reArmCondition": "malformed provenance permits existing-store open"
+    },
+    {
+      "id": "profile-token-race-retry",
+      "file": "lib/features/auth/providers/auth_provider.dart",
+      "siteFingerprint": "4437f704717073c93ed620868f1c359c0275d3271662ae4701e8064ed364d6f6",
+      "classification": "TRANSPORT_RETRY_ONLY",
+      "purpose": "retry one Firestore permission denial after forced token refresh",
+      "authorityBoundary": "current approved user profile",
+      "mutability": "authentication token refresh only",
+      "dataScope": "users/{uid} snapshot stream",
+      "malformedDisposition": "profile format failures escape; only eligible Firebase permission denial is retried",
+      "regression": "test/auth_profile_token_race_test.dart",
+      "reArmCondition": "profile format error is caught, authority is retained, or retry budget broadens"
+    },
+    {
+      "id": "workflow-command-transport-translation",
+      "file": "lib/features/maintenance_workflow/services/workflow_command_gateway.dart",
+      "siteFingerprint": "af1e8ecb20c98a526390d883645f35f998441fe18092516f65a8d7139430a477",
+      "classification": "TRANSPORT_ERROR_TRANSLATION",
+      "purpose": "map Cloud Functions transport errors to workflow-domain errors",
+      "authorityBoundary": "server workflow command receipt",
+      "mutability": "remote command already governed by server",
+      "dataScope": "workflow callable response",
+      "malformedDisposition": "receipt format errors escape; only FirebaseFunctionsException is translated",
+      "regression": "test/maintenance_workflow/workflow_command_gateway_test.dart",
+      "reArmCondition": "malformed receipt becomes a successful command"
+    },
+    {
+      "id": "workflow-cursor-repair-error",
+      "file": "lib/features/maintenance_workflow/services/workflow_pull_service.dart",
+      "siteFingerprint": "8a958d8e7d5caa01c4c790b239f76e5110bf001ed0c3c9a53ccaf2cb70466bff",
+      "classification": "DURABLE_REPAIR_STATE",
+      "purpose": "convert an invalid stored cursor into a stable operator repair error",
+      "authorityBoundary": "workflow pull watermark",
+      "mutability": "read-only until explicit repair",
+      "dataScope": "per-collection local workflow cursor",
+      "malformedDisposition": "throw workflow-pull-cursor-invalid and do not advance",
+      "regression": "test/workflow_pull_service_watermark_test.dart",
+      "reArmCondition": "invalid cursor becomes epoch/default or permits pull advancement"
+    },
+    {
+      "id": "workflow-quarantine-repair-error",
+      "file": "lib/features/maintenance_workflow/services/workflow_pull_service.dart",
+      "siteFingerprint": "5dee196bc553803d1519b98c86298682e0f389f97747518bc85f69f3d195e3cf",
+      "classification": "DURABLE_REPAIR_STATE",
+      "purpose": "validate stored quarantine before any cursor movement",
+      "authorityBoundary": "workflow pull quarantine control",
+      "mutability": "read-only until explicit clearance",
+      "dataScope": "persisted workflow quarantine rows",
+      "malformedDisposition": "throw workflow-pull-quarantine-invalid and hold cursor",
+      "regression": "test/workflow_pull_service_watermark_test.dart",
+      "reArmCondition": "invalid quarantine is discarded, overwritten, or bypassed"
+    },
+    {
+      "id": "field-definition-repair-result",
+      "file": "lib/features/planned_maintenance/data/job_template_model.dart",
+      "siteFingerprint": "8cc57594a5a8126fba2b2b88d849e1e7f3be23b05513636eb1054ffe830d29b9",
+      "classification": "EXPLICIT_REPAIR_RESULT",
+      "purpose": "preserve malformed field-definition status for callers",
+      "authorityBoundary": "planned template field definitions",
+      "mutability": "none",
+      "dataScope": "persisted fieldDefinitionsJson",
+      "malformedDisposition": "return empty entries paired with the original FormatException",
+      "regression": "test/a05_template_composer_integrity_test.dart",
+      "reArmCondition": "caller uses empty entries without checking isValid/error"
+    },
+    {
+      "id": "template-field-repair-result",
+      "file": "lib/features/planned_maintenance/data/job_template_model.dart",
+      "siteFingerprint": "e93e4d01c8794c65bf8fb77a38c47fe2d4237b04dd288412666a1d4b8073c9c5",
+      "classification": "EXPLICIT_REPAIR_RESULT",
+      "purpose": "preserve malformed template-field status for callers",
+      "authorityBoundary": "planned template field payload",
+      "mutability": "none",
+      "dataScope": "persisted fieldsJson",
+      "malformedDisposition": "return empty entries paired with the original FormatException",
+      "regression": "test/a05_template_composer_integrity_test.dart",
+      "reArmCondition": "caller treats malformed fields as an authoritative empty set"
+    },
+    {
+      "id": "field-response-repair-result",
+      "file": "lib/features/planned_maintenance/data/job_template_model.dart",
+      "siteFingerprint": "c0fb1e38af0db6bdb233da572a94adac645341fd06f23ac158cdfc86c0d0d998",
+      "classification": "EXPLICIT_REPAIR_RESULT",
+      "purpose": "preserve malformed response-evidence status for callers",
+      "authorityBoundary": "planned execution response evidence",
+      "mutability": "none",
+      "dataScope": "persisted responsesJson",
+      "malformedDisposition": "return empty entries paired with the original FormatException",
+      "regression": "test/a05_response_payload_integrity_test.dart",
+      "reArmCondition": "malformed responses satisfy completion or become an authoritative empty set"
+    },
+    {
+      "id": "optional-correction-harvest",
+      "file": "lib/features/planned_maintenance/domain/knowledge_correction_promoter.dart",
+      "siteFingerprint": "f7aafe1760ecde2373a96b99436b43191ce986bf2e7443b98f56ea0f91d5a0e5",
+      "classification": "OPTIONAL_NON_MUTATING_DERIVATION",
+      "purpose": "discover optional review candidates from Composer correction metadata",
+      "authorityBoundary": "candidate discovery only; separate Admin/SI review owns writes",
+      "mutability": "none",
+      "dataScope": "optional tagResolverCorrections snapshot metadata",
+      "malformedDisposition": "return no candidates and perform no mutation",
+      "regression": "test/a05_decoder_exception_policy_test.dart",
+      "reArmCondition": "malformed snapshot creates or updates a knowledge row"
+    },
+    {
+      "id": "knowledge-bundle-rejection",
+      "file": "lib/features/planned_maintenance/domain/knowledge_governance_export.dart",
+      "siteFingerprint": "de3178c34449582fcc10ae3b8db89f185e294c4c25366b69ceb1bf7ba5c9cdfd",
+      "classification": "INPUT_BUNDLE_REJECTION",
+      "purpose": "turn malformed operator import input into a visible whole-bundle rejection",
+      "authorityBoundary": "pre-mutation knowledge import parser",
+      "mutability": "none",
+      "dataScope": "operator-supplied JSON or CSV knowledge bundle",
+      "malformedDisposition": "zero accepted drafts and one bundle-level rejection",
+      "regression": "test/a05_knowledge_import_integrity_test.dart",
+      "reArmCondition": "malformed or mixed-shape bundle produces accepted drafts"
+    },
+    {
+      "id": "composer-snapshot-error-translation",
+      "file": "lib/features/planned_maintenance/domain/module_composer_models.dart",
+      "siteFingerprint": "481e61b2d343a156679bf33053cb79b03e46c783ac027c8ccd210ba29eee5d05",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "translate shared snapshot-contract rejection into persisted-data repair diagnostics",
+      "authorityBoundary": "Composer recovery and published-source load",
+      "mutability": "none before successful decode",
+      "dataScope": "four persisted Composer snapshot payloads",
+      "malformedDisposition": "throw PersistedDataFormatException and preserve recovery bytes",
+      "regression": "test/a05_template_composer_integrity_test.dart; test/module_workshop_published_sources_test.dart",
+      "reArmCondition": "invalid snapshot initializes an editable or empty draft"
+    },
+    {
+      "id": "legacy-field-preset-discriminator",
+      "file": "lib/features/planned_maintenance/domain/module_composer_models.dart",
+      "siteFingerprint": "fb3a9eeb90e64237fce12dc69f831fee5924a87bf6635c9ec2ac2d825256f541",
+      "classification": "VERSIONED_LEGACY_DISCRIMINATOR",
+      "purpose": "distinguish legacy delimited suggested fields from structured JSON presets",
+      "authorityBoundary": "knowledge-to-Composer preset derivation",
+      "mutability": "in-memory draft construction only",
+      "dataScope": "suggestedFieldPresets/suggestedFields value",
+      "malformedDisposition": "JSON-shaped malformed values throw; plain text alone uses the legacy delimiter path",
+      "regression": "test/a05_template_composer_integrity_test.dart",
+      "reArmCondition": "JSON-shaped malformed presets fall through to plain-text defaults"
+    },
+    {
+      "id": "closure-metadata-preservation",
+      "file": "lib/features/planned_maintenance/domain/planned_job_closure_attestation.dart",
+      "siteFingerprint": "0d53f7afda61bb7047496cbe7c0c7276e4c2cfd125e151947847a3e54301b146",
+      "classification": "BOUNDED_LEGACY_METADATA_PRESERVATION",
+      "purpose": "append a validated closure attestation without destroying opaque pre-attestation metadata",
+      "authorityBoundary": "new attestation envelope only",
+      "mutability": "append/merge after closure guard succeeds",
+      "dataScope": "optional existing metadataJson",
+      "malformedDisposition": "preserve exact legacy text/value under an explicit non-authoritative key",
+      "regression": "test/planned_job_closure_attestation_test.dart",
+      "reArmCondition": "legacy metadata is interpreted as attestation authority or discarded"
+    },
+    {
+      "id": "publish-validation-error",
+      "file": "lib/features/planned_maintenance/domain/publish_metadata_builder.dart",
+      "siteFingerprint": "f54dee292d3df28d727fbf52f7eab98e2462457da834f34034f8ef04738724c6",
+      "classification": "PRE_MUTATION_VALIDATION_RESULT",
+      "purpose": "surface snapshot-build failures in publish validation",
+      "authorityBoundary": "template publication admission",
+      "mutability": "none",
+      "dataScope": "in-memory Composer output before persistence",
+      "malformedDisposition": "add blocking validation error and provide no valid snapshot",
+      "regression": "test/publish_metadata_builder_test.dart",
+      "reArmCondition": "snapshot build error permits publication"
+    },
+    {
+      "id": "runtime-lineage-display-fallback",
+      "file": "lib/features/planned_maintenance/domain/runtime_module_lineage.dart",
+      "siteFingerprint": "ba264f8a5f1aa3ab5d3025ee0993d27a2e873095f9c697ac7a4968b779a8e06d",
+      "classification": "DISPLAY_ONLY_BEST_EFFORT",
+      "purpose": "render legacy module lineage without asserting governed provenance",
+      "authorityBoundary": "diagnostic and dossier display only",
+      "mutability": "none",
+      "dataScope": "module metadataJson and moduleSnapshotJson labels",
+      "malformedDisposition": "classify as unknown legacy/manual lineage",
+      "regression": "test/a05_decoder_exception_policy_test.dart; test/runtime_module_lineage_visibility_contract_test.dart",
+      "reArmCondition": "display fallback grants authority or claims a governed source"
+    },
+    {
+      "id": "assignment-snapshot-error-translation",
+      "file": "lib/features/planned_maintenance/domain/template_version_assignment_builder.dart",
+      "siteFingerprint": "04daf5aebdf1d6b1390e74b122279a06bf2ae303494d21d9782848135e843450",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "translate shared snapshot rejection into assignment-domain failure",
+      "authorityBoundary": "published TemplateVersion assignment",
+      "mutability": "none before successful validation",
+      "dataScope": "immutable published snapshot bundle",
+      "malformedDisposition": "throw TemplateVersionAssignmentException",
+      "regression": "test/template_version_snapshot_contract_test.dart; test/published_template_assignment_server_contract_test.dart",
+      "reArmCondition": "invalid snapshot produces an execution or module"
+    },
+    {
+      "id": "snapshot-object-json-translation",
+      "file": "lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart",
+      "siteFingerprint": "b558bef9ba1cd46721371b3f184b21ea3497bc60c584bc372e54a0e3bb4e7fd0",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "attach field context to invalid snapshot object JSON",
+      "authorityBoundary": "immutable template snapshot contract",
+      "mutability": "none",
+      "dataScope": "job template snapshot object",
+      "malformedDisposition": "throw TemplateVersionSnapshotException",
+      "regression": "test/template_version_snapshot_contract_test.dart",
+      "reArmCondition": "invalid object JSON becomes an empty object"
+    },
+    {
+      "id": "snapshot-list-json-translation",
+      "file": "lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart",
+      "siteFingerprint": "bb05152420f56403ae6051df9bbc74fcbf254aac04d16541e1ecb9688b546f05",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "attach field context to invalid snapshot list JSON",
+      "authorityBoundary": "immutable template snapshot contract",
+      "mutability": "none",
+      "dataScope": "module, field, and checklist snapshot arrays",
+      "malformedDisposition": "throw TemplateVersionSnapshotException",
+      "regression": "test/template_version_snapshot_contract_test.dart",
+      "reArmCondition": "invalid list JSON becomes an empty list"
+    },
+    {
+      "id": "snapshot-timestamp-error-translation",
+      "file": "lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart",
+      "siteFingerprint": "0b9cd97ead7a85d0ff850ed979773ceb9c8fc5a75c36a2aed922c05bc8be536d",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "translate malformed optional closure-review time with snapshot context",
+      "authorityBoundary": "template closure review evidence",
+      "mutability": "none",
+      "dataScope": "composer.closureReviewConfirmedAt",
+      "malformedDisposition": "throw TemplateVersionSnapshotException",
+      "regression": "test/template_version_snapshot_contract_test.dart",
+      "reArmCondition": "malformed present review timestamp becomes absent"
+    },
+    {
+      "id": "component-action-repair-result",
+      "file": "lib/features/planned_maintenance/models/component_action_model.dart",
+      "siteFingerprint": "dea78dfe0ea33212b6bd144fb9aab1b031f1ad3d16df063bf9de7cf16199ec70",
+      "classification": "EXPLICIT_REPAIR_RESULT",
+      "purpose": "preserve malformed component-action status for callers",
+      "authorityBoundary": "planned-job action evidence",
+      "mutability": "none",
+      "dataScope": "persisted actionsJson",
+      "malformedDisposition": "return empty entries paired with the original FormatException",
+      "regression": "test/a05_component_action_integrity_test.dart",
+      "reArmCondition": "malformed actions satisfy completion or become authoritative empty evidence"
+    },
+    {
+      "id": "template-publish-snapshot-rejection",
+      "file": "lib/features/planned_maintenance/providers/template_governance_provider.dart",
+      "siteFingerprint": "03e02f5bffcc065e87b8a5c217167d40c1269dffed9752c224d6c88ba117749e",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "block template publication with an operator-readable snapshot error",
+      "authorityBoundary": "template publish mutation",
+      "mutability": "none before validation passes",
+      "dataScope": "local TemplateVersion snapshot payload",
+      "malformedDisposition": "throw StateError and do not publish",
+      "regression": "test/template_version_snapshot_contract_test.dart",
+      "reArmCondition": "snapshot rejection permits publish"
+    },
+    {
+      "id": "completion-transport-translation",
+      "file": "lib/features/planned_maintenance/services/planned_job_server_completion_service.dart",
+      "siteFingerprint": "3509e1ed73e5f303542cbe6701c1abd889a41cbe0af97f49d7850585e76ee6c7",
+      "classification": "TRANSPORT_ERROR_TRANSLATION",
+      "purpose": "map Cloud Functions completion errors to app-domain errors",
+      "authorityBoundary": "server completion response",
+      "mutability": "remote mutation governed by server",
+      "dataScope": "canonical returned JobExecution",
+      "malformedDisposition": "JobExecution format errors escape; only FirebaseFunctionsException is translated",
+      "regression": "test/planned_job_server_completion_service_test.dart",
+      "reArmCondition": "malformed execution response becomes successful completion"
+    },
+    {
+      "id": "runtime-module-response-rejection",
+      "file": "lib/features/planned_maintenance/services/runtime_job_module_population_service.dart",
+      "siteFingerprint": "a095e3162f7d4299165ae997e536fd182704f762b9cdc9d2d31131de42410d1d",
+      "classification": "FAIL_CLOSED_RESPONSE_TRANSLATION",
+      "purpose": "reject malformed canonical module returned by the mutation callable",
+      "authorityBoundary": "runtime module population result",
+      "mutability": "remote mutation governed by server; local acceptance blocked",
+      "dataScope": "canonical returned JobModuleInstance",
+      "malformedDisposition": "throw invalid population response and do not accept local state",
+      "regression": "test/runtime_job_module_population_service_test.dart",
+      "reArmCondition": "malformed returned module is stored or shown as successful"
+    },
+    {
+      "id": "maintenance-create-command-presentation",
+      "file": "lib/features/maintenance/presentation/maintenance_form.dart",
+      "siteFingerprint": "78540769d9de71f4472833449fc66aa5010edb666cdac2d2e5edc20dfb8769ff",
+      "classification": "USER_INPUT_AND_COMMAND_ERROR_PRESENTATION",
+      "purpose": "surface invalid form input or ticket-command failure without manufacturing a record",
+      "authorityBoundary": "operator ticket-creation command",
+      "mutability": "command-owned mutation only after parsing and validation",
+      "dataScope": "operator-entered asset number and ticket fields",
+      "malformedDisposition": "show failure and do not substitute a parsed value",
+      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "invalid input receives a default or command failure is reported as success"
+    },
+    {
+      "id": "maintenance-resolve-command-presentation",
+      "file": "lib/features/maintenance/presentation/resolve_form.dart",
+      "siteFingerprint": "ab98f2d205357312b611b0d0bff29534e378fc306b15abdead41ee6be2c6d0f6",
+      "classification": "USER_INPUT_AND_COMMAND_ERROR_PRESENTATION",
+      "purpose": "surface resolution-command failure without coercing downtime evidence",
+      "authorityBoundary": "operator ticket-resolution command",
+      "mutability": "command-owned mutation only after form validation",
+      "dataScope": "operator-entered resolution and downtime fields",
+      "malformedDisposition": "show failure and do not substitute a parsed value",
+      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "invalid input receives a default or command failure is reported as success"
+    },
+    {
+      "id": "workflow-event-summary-display",
+      "file": "lib/features/maintenance_workflow/presentation/widgets/workflow_timeline.dart",
+      "siteFingerprint": "3d62ec4e333b4496dea2034a7854b116ea0a6a26a9738702c1fc6eb5d4100059",
+      "classification": "DISPLAY_ONLY_RAW_PRESERVATION",
+      "purpose": "render a compact event payload summary without treating it as workflow authority",
+      "authorityBoundary": "workflow timeline display only",
+      "mutability": "none",
+      "dataScope": "already-admitted workflow event payload text",
+      "malformedDisposition": "display the exact stored text without deriving fields",
+      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "display fallback mutates workflow state or derives an authorization decision"
+    },
+    {
+      "id": "module-snapshot-repair-result",
+      "file": "lib/features/planned_maintenance/data/job_module_model.dart",
+      "siteFingerprint": "27cf4e72d8eed3976df4cd4c4acde8064a02a69f7fa00ca78ad1e083c7687adf",
+      "classification": "EXPLICIT_REPAIR_RESULT",
+      "purpose": "preserve malformed local module snapshot status for the workspace",
+      "authorityBoundary": "planned-job module work admission",
+      "mutability": "none",
+      "dataScope": "persisted moduleSnapshotJson",
+      "malformedDisposition": "return an empty display value paired with the error and disable work mutations",
+      "regression": "test/a05_planned_work_record_integrity_test.dart",
+      "reArmCondition": "malformed module snapshot is shown as an authoritative empty snapshot or permits work mutation"
+    },
+    {
+      "id": "legacy-job-assignment-command-presentation",
+      "file": "lib/features/planned_maintenance/presentation/assign_job_screen.dart",
+      "siteFingerprint": "1302e35deb45549daae44bd5be0ddc9230ed90fde7ae74a5a652f5c6adf17c88",
+      "classification": "USER_INPUT_AND_COMMAND_ERROR_PRESENTATION",
+      "purpose": "surface invalid assignment input or server-command failure without creating fallback state",
+      "authorityBoundary": "legacy workflow assignment command",
+      "mutability": "server command only after parsing and validation",
+      "dataScope": "operator-entered assignment fields and command result",
+      "malformedDisposition": "show failure and retain entries; no parsed default or local assignment is created",
+      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "invalid input receives a default or failed command creates local assignment state"
+    },
+    {
+      "id": "dossier-metadata-display-omission",
+      "file": "lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart",
+      "siteFingerprint": "037ce73645a8270728c6a96289b7bc1bf5477344fc74b60d0b6a6a83e42010c0",
+      "classification": "DISPLAY_ONLY_OMISSION",
+      "purpose": "omit malformed optional metadata from a dossier presentation section",
+      "authorityBoundary": "read-only dossier display",
+      "mutability": "none",
+      "dataScope": "optional opaque metadataJson",
+      "malformedDisposition": "omit the metadata section and derive no business state",
+      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "omitted metadata affects workflow, completion, or authorization state"
+    },
+    {
+      "id": "composer-json-preview-display",
+      "file": "lib/features/planned_maintenance/presentation/module_composer_screen.helpers.dart",
+      "siteFingerprint": "7500976e869ecdb8d146ae82beaeaf2de53de59ef606cc2336e6987316bad0d1",
+      "classification": "DISPLAY_ONLY_RAW_PRESERVATION",
+      "purpose": "format valid JSON for preview while preserving invalid text for operator inspection",
+      "authorityBoundary": "Composer preview display only",
+      "mutability": "none",
+      "dataScope": "current in-memory preview text",
+      "malformedDisposition": "display truncated exact text without deriving fields",
+      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "preview fallback changes draft or publication authority"
+    },
+    {
+      "id": "composer-recovery-envelope-hold",
+      "file": "lib/features/planned_maintenance/presentation/module_composer_screen.support.dart",
+      "siteFingerprint": "d7a193a96705eff1d2cd68d77371467d38c25775486b10c14dd728f3768668eb",
+      "classification": "DURABLE_RECOVERY_HOLD",
+      "purpose": "detect malformed saved recovery envelopes before offering restoration",
+      "authorityBoundary": "local Composer recovery admission",
+      "mutability": "none on malformed input",
+      "dataScope": "SharedPreferences Composer recovery record",
+      "malformedDisposition": "show repair notice and leave the stored recovery record untouched",
+      "regression": "test/a05_template_composer_integrity_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "malformed recovery is discarded, restored, or converted into a fresh draft"
+    },
+    {
+      "id": "published-assignment-preview-rejection",
+      "file": "lib/features/planned_maintenance/presentation/published_template_assignment_screen.dart",
+      "siteFingerprint": "5fe170c58f66fe2f07cd3911266b092a5707098422112d27a52062e1e0a399df",
+      "classification": "PRE_MUTATION_VALIDATION_REJECTION",
+      "purpose": "surface snapshot or assignment-input rejection before a published assignment is accepted",
+      "authorityBoundary": "published template assignment preview",
+      "mutability": "none for TemplateVersionAssignmentException",
+      "dataScope": "operator assignment input and immutable template snapshot",
+      "malformedDisposition": "show blocking error and do not invoke successful local acceptance",
+      "regression": "test/published_template_assignment_server_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "invalid snapshot or input proceeds to assignment"
+    },
+    {
+      "id": "publisher-json-input-validation",
+      "file": "lib/features/planned_maintenance/presentation/template_publisher_screen.validation.dart",
+      "siteFingerprint": "9aaef5c48c4e1b26ca2c95c95d5032544efecf38312e75811773d34aa0f57940",
+      "classification": "PRE_MUTATION_INPUT_REJECTION",
+      "purpose": "return a visible syntax error for operator-supplied publication JSON",
+      "authorityBoundary": "template publication form validation",
+      "mutability": "none",
+      "dataScope": "operator-supplied snapshot JSON",
+      "malformedDisposition": "return blocking validation error",
+      "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "invalid JSON is normalized, defaulted, or admitted for publication"
+    },
+    {
+      "id": "publisher-semantic-input-validation",
+      "file": "lib/features/planned_maintenance/presentation/template_publisher_screen.validation.dart",
+      "siteFingerprint": "4193292180a53b13b5e183df3b34f475ebefcede732390fe99f759713b33ed01",
+      "classification": "PRE_MUTATION_VALIDATION_REJECTION",
+      "purpose": "turn immutable snapshot-contract failures into publication form errors",
+      "authorityBoundary": "template publication semantic validation",
+      "mutability": "none",
+      "dataScope": "operator-supplied template snapshot bundle",
+      "malformedDisposition": "return blocking validation errors and no valid bundle",
+      "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "semantic snapshot failure permits publication"
+    }
+  ]
+}

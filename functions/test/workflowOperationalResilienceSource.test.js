@@ -24,7 +24,11 @@ describe('workflow operational resilience source contract', () => {
     expect(pull).toContain('clearQuarantine()');
     expect(pull).toContain("'a failed record had no valid server timestamp'");
     expect(pull).toContain("if (localUpsertFailed) 'a local upsert failed'");
-    expect(pull).toContain('if (!unknownFailureTimestamp && !localUpsertFailed)');
+    expect(pull).toContain('final cursorBlocked =');
+    expect(pull).toContain('hasStoredCollectionQuarantine ||');
+    expect(pull).toContain('collectionQuarantine > 0 ||');
+    expect(pull).toContain('unknownFailureTimestamp ||');
+    expect(pull).toContain('if (!cursorBlocked)');
   });
 
   test('workflow mutations use serialized equipment counters instead of query-then-write', () => {

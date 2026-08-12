@@ -22,7 +22,7 @@ void main() {
               ..jobExecutionFirestoreId = 'execution_1'
               ..moduleTitle = 'Sample module'
               ..assetType = AssetType.base
-              ..assetNumber = 1
+              ..assetNumber = 101
               ..status = JobModuleStatus.draftSaved
               ..discipline = JobModuleDiscipline.mechanical
               ..safetyClass = JobModuleSafetyClass.normal
@@ -61,7 +61,7 @@ void main() {
               ..templateFirestoreId = 'template_1'
               ..templateName = 'Template'
               ..assetType = AssetType.base
-              ..assetNumber = 1
+              ..assetNumber = 101
               ..assignedByUid = 'u1'
               ..assignedAgencies = [RoutedTo.mechanical.name]
               ..createdAt = now
@@ -99,9 +99,10 @@ void main() {
 
         final parsed = JobModuleInstance.fromMap({
           'firestoreId': 'module_1',
+          'jobExecutionFirestoreId': 'execution_1',
           'moduleTitle': 'Sample module',
           'assetType': 'base',
-          'assetNumber': 1,
+          'assetNumber': 101,
           'status': 'draftSaved',
           'discipline': 'mechanical',
           'safetyClass': 'normal',
@@ -136,8 +137,9 @@ void main() {
           'templateFirestoreId': 'template_1',
           'templateName': 'Template',
           'assetType': 'base',
-          'assetNumber': 1,
+          'assetNumber': 101,
           'isCompleted': false,
+          'isDeleted': false,
           'assignedByUid': 'u1',
           'assignedAgencies': ['mechanical'],
           'createdAt': now.toIso8601String(),

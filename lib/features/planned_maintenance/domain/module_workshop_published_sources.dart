@@ -84,17 +84,12 @@ List<PublishedModuleSource> publishedModuleSourcesFromTemplateVersion({
     return const <PublishedModuleSource>[];
   }
 
-  late final TemplateComposerDraft draft;
-  try {
-    draft = TemplateComposerDraft.fromPayloads(
-      jobTemplateSnapshotJson: version.jobTemplateSnapshotJson,
-      moduleSnapshotsJson: version.moduleSnapshotsJson,
-      fieldDefinitionsJson: version.fieldDefinitionsJson,
-      checklistJson: version.checklistJson,
-    );
-  } catch (_) {
-    return const <PublishedModuleSource>[];
-  }
+  final draft = TemplateComposerDraft.fromPayloads(
+    jobTemplateSnapshotJson: version.jobTemplateSnapshotJson,
+    moduleSnapshotsJson: version.moduleSnapshotsJson,
+    fieldDefinitionsJson: version.fieldDefinitionsJson,
+    checklistJson: version.checklistJson,
+  );
 
   final packageCode =
       _cleanText(package?.packageCode) ??

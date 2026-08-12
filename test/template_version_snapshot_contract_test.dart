@@ -11,8 +11,13 @@ TemplateVersionSnapshotBundle _bundle({
   List<Map<String, dynamic>>? fields,
   List<Map<String, dynamic>>? checklist,
 }) {
+  final jobPayload = <String, dynamic>{
+    'title': 'Snapshot contract fixture',
+    'assetType': 'base',
+    ...?job,
+  };
   return TemplateVersionSnapshotBundle.fromRawJson(
-    jobTemplateSnapshotJson: _json(job ?? const <String, dynamic>{}),
+    jobTemplateSnapshotJson: _json(jobPayload),
     moduleSnapshotsJson: _json(modules ?? const <Map<String, dynamic>>[]),
     fieldDefinitionsJson: _json(fields ?? const <Map<String, dynamic>>[]),
     checklistJson: _json(checklist ?? const <Map<String, dynamic>>[]),
@@ -54,47 +59,50 @@ void main() {
       );
     });
 
-    test('allows closure-critical publish when closure review is confirmed', () {
-      final bundle = _bundle(
-        job: const {
-          'composer': {
-            'closureReviewConfirmed': true,
-            'closureReviewConfirmedByUid': 'admin-uid',
-            'closureReviewConfirmedAt': '2026-05-12T10:00:00.000Z',
-          },
-        },
-        modules: const [
-          {
-            'moduleCode': 'GAS-SSV-01',
-            'moduleTitle': 'Gas safety shutoff valve verification',
-            'discipline': 'shared',
-            'requiredForClosure': true,
-            'metadata': {
-              'ownerDisciplines': [
-                'mechanical',
-                'instrumentation',
-                'electrical',
-              ],
+    test(
+      'allows closure-critical publish when closure review is confirmed',
+      () {
+        final bundle = _bundle(
+          job: const {
+            'composer': {
+              'closureReviewConfirmed': true,
+              'closureReviewConfirmedByUid': 'admin-uid',
+              'closureReviewConfirmedAt': '2026-05-12T10:00:00.000Z',
             },
           },
-        ],
-        fields: const [
-          {
-            'key': 'ssv_tight_shutoff_verified',
-            'label': 'SSV tight shutoff verified',
-            'moduleCode': 'GAS-SSV-01',
-          },
-        ],
-      );
+          modules: const [
+            {
+              'moduleCode': 'GAS-SSV-01',
+              'moduleTitle': 'Gas safety shutoff valve verification',
+              'discipline': 'shared',
+              'requiredForClosure': true,
+              'metadata': {
+                'ownerDisciplines': [
+                  'mechanical',
+                  'instrumentation',
+                  'electrical',
+                ],
+              },
+            },
+          ],
+          fields: const [
+            {
+              'key': 'ssv_tight_shutoff_verified',
+              'label': 'SSV tight shutoff verified',
+              'moduleCode': 'GAS-SSV-01',
+            },
+          ],
+        );
 
-      final result = bundle.validate();
+        final result = bundle.validate();
 
-      expect(result.errors, isEmpty);
-      expect(bundle.closureCriticalModuleCount, 1);
-      expect(bundle.closureReviewConfirmed, isTrue);
-      expect(bundle.closureReviewConfirmedByUid, 'admin-uid');
-      expect(bundle.closureReviewConfirmedAt, DateTime.utc(2026, 5, 12, 10));
-    });
+        expect(result.errors, isEmpty);
+        expect(bundle.closureCriticalModuleCount, 1);
+        expect(bundle.closureReviewConfirmed, isTrue);
+        expect(bundle.closureReviewConfirmedByUid, 'admin-uid');
+        expect(bundle.closureReviewConfirmedAt, DateTime.utc(2026, 5, 12, 10));
+      },
+    );
 
     test('malformed present closure review timestamp fails closed', () {
       final bundle = _bundle(
@@ -123,10 +131,7 @@ void main() {
       final result = bundle.validate();
 
       expect(result.isValid, isFalse);
-      expect(
-        result.errors.single,
-        contains('closureReviewConfirmedAt'),
-      );
+      expect(result.errors.single, contains('closureReviewConfirmedAt'));
       expect(
         () => bundle.closureReviewConfirmedAt,
         throwsA(isA<TemplateVersionSnapshotException>()),
@@ -158,6 +163,149 @@ void main() {
       expect(bundle.closureReviewConfirmedAt, isNull);
     });
 
+    test('malformed present scalar and map values fail closed', () {
+      final wrongConfirmed = _bundle(
+        job: const {
+          'composer': {'closureReviewConfirmed': 'yes'},
+        },
+        modules: _minimalModules,
+        fields: _minimalFields,
+      );
+      expect(
+        wrongConfirmed.validate,
+        throwsA(isA<TemplateVersionSnapshotException>()),
+      );
+
+      final wrongCount = _bundle(
+        job: const {'closureCriticalCount': 1.0},
+        modules: _minimalModules,
+        fields: _minimalFields,
+      );
+      expect(
+        wrongCount.validate,
+        throwsA(isA<TemplateVersionSnapshotException>()),
+      );
+
+      final wrongComposer = _bundle(
+        job: const {'composer': <Object>[]},
+        modules: _minimalModules,
+        fields: _minimalFields,
+      );
+      expect(
+        wrongComposer.validate,
+        throwsA(isA<TemplateVersionSnapshotException>()),
+      );
+
+      final wrongModuleCode = _bundle(
+        modules: const [
+          {'moduleCode': 7, 'moduleTitle': 'Wrong identity type'},
+        ],
+        fields: _minimalFields,
+      );
+      expect(
+        wrongModuleCode.validate,
+        throwsA(isA<TemplateVersionSnapshotException>()),
+      );
+    });
+
+    test('malformed present owner lists fail instead of dropping rows', () {
+      final bundle = _bundle(
+        modules: const [
+          {
+            'moduleCode': 'OWNER-01',
+            'moduleTitle': 'Owner validation',
+            'discipline': 'shared',
+            'metadata': {
+              'ownerDisciplines': ['mechanical', 4],
+            },
+          },
+        ],
+        fields: _minimalFields,
+      );
+
+      expect(bundle.validate, throwsA(isA<TemplateVersionSnapshotException>()));
+    });
+
+    test('required job identity cannot be manufactured by consumers', () {
+      final bundle = TemplateVersionSnapshotBundle.fromRawJson(
+        jobTemplateSnapshotJson: _json(const <String, dynamic>{}),
+        moduleSnapshotsJson: _json(_minimalModules),
+        fieldDefinitionsJson: _json(_minimalFields),
+        checklistJson: _json(const <Map<String, dynamic>>[]),
+      );
+
+      final result = bundle.validate(
+        requireClosureReviewForClosureCritical: false,
+      );
+
+      expect(result.errors, contains('Job template title is missing.'));
+      expect(result.errors, contains('Job template asset type is missing.'));
+      expect(
+        bundle.requireValidForAssignment,
+        throwsA(isA<TemplateVersionSnapshotException>()),
+      );
+    });
+
+    test(
+      'assignment-consumed optional values reject coercion and unknown enums',
+      () {
+        final wrongOrder = _bundle(
+          modules: const [
+            {
+              'moduleCode': 'STRICT-01',
+              'moduleTitle': 'Strict assignment payload',
+              'discipline': 'mechanical',
+              'displayOrder': 1.0,
+            },
+          ],
+          fields: const [
+            {
+              'key': 'strict_field',
+              'label': 'Strict field',
+              'moduleCode': 'STRICT-01',
+            },
+          ],
+        );
+        expect(
+          wrongOrder.validate,
+          throwsA(isA<TemplateVersionSnapshotException>()),
+        );
+
+        final wrongEnum = _bundle(
+          modules: const [
+            {
+              'moduleCode': 'STRICT-02',
+              'moduleTitle': 'Strict enum payload',
+              'discipline': 'imaginary-lane',
+            },
+          ],
+          fields: const [
+            {
+              'key': 'strict_enum_field',
+              'label': 'Strict enum field',
+              'moduleCode': 'STRICT-02',
+            },
+          ],
+        );
+        expect(
+          wrongEnum.validate,
+          throwsA(isA<TemplateVersionSnapshotException>()),
+        );
+
+        final wrongList = _bundle(
+          job: const {
+            'assignedAgencies': ['mechanical', 7],
+          },
+          modules: _minimalModules,
+          fields: _minimalFields,
+        );
+        expect(
+          wrongList.validate,
+          throwsA(isA<TemplateVersionSnapshotException>()),
+        );
+      },
+    );
+
     test('detects field definitions pointing to unknown module codes', () {
       final bundle = _bundle(
         modules: const [
@@ -181,7 +329,9 @@ void main() {
       expect(result.isValid, isFalse);
       expect(
         result.errors,
-        contains('Field unknown_field points to unknown moduleCode "MISSING-01".'),
+        contains(
+          'Field unknown_field points to unknown moduleCode "MISSING-01".',
+        ),
       );
     });
 
@@ -195,16 +345,8 @@ void main() {
           },
         ],
         fields: const [
-          {
-            'key': 'reading',
-            'label': 'Reading 1',
-            'moduleCode': 'DUP-01',
-          },
-          {
-            'key': 'reading',
-            'label': 'Reading 2',
-            'moduleCode': 'DUP-01',
-          },
+          {'key': 'reading', 'label': 'Reading 1', 'moduleCode': 'DUP-01'},
+          {'key': 'reading', 'label': 'Reading 2', 'moduleCode': 'DUP-01'},
         ],
       );
 
@@ -217,27 +359,42 @@ void main() {
       );
     });
 
-    test('assignment validation still permits closure-critical snapshots after publish', () {
-      final bundle = _bundle(
-        modules: const [
-          {
-            'moduleCode': 'ASSIGN-01',
-            'moduleTitle': 'Assignable closure-critical module',
-            'discipline': 'mechanical',
-            'requiredForClosure': true,
-          },
-        ],
-        fields: const [
-          {
-            'key': 'assignable_field',
-            'label': 'Assignable field',
-            'moduleCode': 'ASSIGN-01',
-          },
-        ],
-      );
+    test(
+      'assignment validation still permits closure-critical snapshots after publish',
+      () {
+        final bundle = _bundle(
+          modules: const [
+            {
+              'moduleCode': 'ASSIGN-01',
+              'moduleTitle': 'Assignable closure-critical module',
+              'discipline': 'mechanical',
+              'requiredForClosure': true,
+            },
+          ],
+          fields: const [
+            {
+              'key': 'assignable_field',
+              'label': 'Assignable field',
+              'moduleCode': 'ASSIGN-01',
+            },
+          ],
+        );
 
-      expect(bundle.validate().isValid, isFalse);
-      expect(() => bundle.requireValidForAssignment(), returnsNormally);
-    });
+        expect(bundle.validate().isValid, isFalse);
+        expect(() => bundle.requireValidForAssignment(), returnsNormally);
+      },
+    );
   });
 }
+
+const _minimalModules = <Map<String, dynamic>>[
+  {
+    'moduleCode': 'VALID-01',
+    'moduleTitle': 'Valid module',
+    'discipline': 'mechanical',
+  },
+];
+
+const _minimalFields = <Map<String, dynamic>>[
+  {'key': 'valid_field', 'label': 'Valid field', 'moduleCode': 'VALID-01'},
+];

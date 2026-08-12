@@ -492,6 +492,10 @@ void main() {
           File(
             'lib/core/services/live_remote_sync_service.dart',
           ).readAsStringSync();
+      final remoteMaintenanceReader =
+          File(
+            'lib/features/maintenance/data/remote_maintenance_reader.dart',
+          ).readAsStringSync();
       final ticketSync =
           File(
             'lib/core/services/sync_service.tickets_templates.dart',
@@ -542,8 +546,15 @@ void main() {
         liveRemoteSync,
         isNot(contains("d['resolutionHistoryJson']?.toString()")),
       );
-      expect(liveRemoteSync, contains('ComponentAction.readEncodedPayload('));
-      expect(liveRemoteSync, contains('readEncodedResolutionHistoryPayload('));
+      expect(liveRemoteSync, contains('readRemoteMaintenanceRecord('));
+      expect(
+        remoteMaintenanceReader,
+        contains('ComponentAction.readEncodedPayload('),
+      );
+      expect(
+        remoteMaintenanceReader,
+        contains('readEncodedResolutionHistoryPayload('),
+      );
       final applyStart = liveRemoteSync.indexOf(
         'Future<void> _applyMaintenanceDoc(',
       );

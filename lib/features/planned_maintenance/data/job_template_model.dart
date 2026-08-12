@@ -5,6 +5,7 @@ import 'package:isar/isar.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import '../../maintenance/utils/asset_validator.dart';
 import '../models/component_action_model.dart';
 import 'remote_job_timestamps.dart';
 
@@ -892,37 +893,123 @@ class JobTemplate {
   // (legacy). Tolerates both ISO-8601 strings and Firestore Timestamp instances
   // for all date fields.
   factory JobTemplate.fromMap(Map<String, dynamic> map, String documentId) {
-    final timestamps = readRemoteJobTemplateTimestamps(
-      map,
-      source: 'job template $documentId',
+    final source = 'job template $documentId';
+    final timestamps = readRemoteJobTemplateTimestamps(map, source: source);
+    if (map['isDeleted'] == true && timestamps.deletedAt == null) {
+      requireRemoteTombstoneDeletedAt(
+        timestamps.deletedAt,
+        entityLabel: 'job template',
+        firestoreId: documentId,
+      );
+    }
+    final embeddedId = readRequiredPersistedString(
+      map['firestoreId'],
+      field: 'firestoreId',
+      source: source,
     );
+    if (embeddedId != documentId) {
+      throw PersistedDataFormatException(
+        field: 'firestoreId',
+        source: source,
+        detail: 'must match the document ID',
+      );
+    }
     final template =
         JobTemplate()
-          ..firestoreId = documentId
-          ..jobName = map['jobName'] ?? ''
-          ..description = _cleanOptionalText(map['description'])
-          ..applicableAssetType = _enumByNameOr(
+          ..firestoreId = embeddedId
+          ..jobName = readRequiredPersistedString(
+            map['jobName'],
+            field: 'jobName',
+            source: source,
+          )
+          ..description = readOptionalPersistedString(
+            map['description'],
+            field: 'description',
+            source: source,
+            emptyAsNull: false,
+          )
+          ..applicableAssetType = readRequiredPersistedEnum(
             AssetType.values,
             map['applicableAssetType'],
-            AssetType.base,
+            field: 'applicableAssetType',
+            source: source,
           )
-          ..assignedAgencies = List<String>.from(map['assignedAgencies'] ?? [])
-          ..component = _cleanOptionalText(map['component'])
-          ..subsystem = _cleanOptionalText(map['subsystem'])
-          ..hierarchyPath = _cleanOptionalStringList(map['hierarchyPath'])
-          ..createdByUid = _cleanOptionalText(map['createdByUid'])
-          ..createdByName = _cleanOptionalText(map['createdByName'])
-          ..isActive = map['isActive'] ?? true
-          ..isDeprecated = map['isDeprecated'] ?? false
-          ..isDeleted = map['isDeleted'] ?? false
+          ..assignedAgencies = readOptionalPersistedStringList(
+            map['assignedAgencies'],
+            field: 'assignedAgencies',
+            source: source,
+          )
+          ..component = readOptionalPersistedString(
+            map['component'],
+            field: 'component',
+            source: source,
+          )
+          ..subsystem = readOptionalPersistedString(
+            map['subsystem'],
+            field: 'subsystem',
+            source: source,
+          )
+          ..hierarchyPath = readNullablePersistedStringList(
+            map['hierarchyPath'],
+            field: 'hierarchyPath',
+            source: source,
+          )
+          ..createdByUid = readOptionalPersistedString(
+            map['createdByUid'],
+            field: 'createdByUid',
+            source: source,
+          )
+          ..createdByName = readOptionalPersistedString(
+            map['createdByName'],
+            field: 'createdByName',
+            source: source,
+          )
+          ..isActive = readRequiredPersistedBool(
+            map['isActive'],
+            field: 'isActive',
+            source: source,
+          )
+          ..isDeprecated = readRequiredPersistedBool(
+            map['isDeprecated'],
+            field: 'isDeprecated',
+            source: source,
+          )
+          ..isDeleted = readRequiredPersistedBool(
+            map['isDeleted'],
+            field: 'isDeleted',
+            source: source,
+          )
           ..deletedAt = timestamps.deletedAt
-          ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
-          ..deletedByName = _cleanOptionalText(map['deletedByName'])
-          ..deleteReason = _cleanOptionalText(map['deleteReason'])
-          ..version = map['version'] ?? 1
+          ..deletedByUid = readOptionalPersistedString(
+            map['deletedByUid'],
+            field: 'deletedByUid',
+            source: source,
+          )
+          ..deletedByName = readOptionalPersistedString(
+            map['deletedByName'],
+            field: 'deletedByName',
+            source: source,
+          )
+          ..deleteReason = readOptionalPersistedString(
+            map['deleteReason'],
+            field: 'deleteReason',
+            source: source,
+          )
+          ..version = readRequiredPersistedInt(
+            map['version'],
+            field: 'version',
+            source: source,
+            minimum: 1,
+          )
           ..createdAt = timestamps.createdAt
           ..updatedAt = timestamps.updatedAt
-          ..metadataJson = _cleanOptionalText(map['metadataJson']);
+          ..metadataJson = readOptionalPersistedString(
+            map['metadataJson'],
+            field: 'metadataJson',
+            source: source,
+            emptyAsNull: false,
+          )
+          ..isSynced = true;
 
     // Structured fields are canonical when present. A malformed canonical
     // field set must never fall through to a different legacy payload.
@@ -931,26 +1018,22 @@ class JobTemplate {
       if (rawFields is! List) {
         throw PersistedDataFormatException(
           field: 'fields',
-          source: 'job template $documentId',
+          source: source,
           detail: 'expected an array (${rawFields.runtimeType})',
         );
       }
       final encoded = jsonEncode(rawFields);
-      template.setFields(
-        TemplateField.decode(encoded, source: 'job template $documentId'),
-      );
+      template.setFields(TemplateField.decode(encoded, source: source));
     } else if (map.containsKey('fieldsJson')) {
       final rawFieldsJson = map['fieldsJson'];
       if (rawFieldsJson is! String) {
         throw PersistedDataFormatException(
           field: 'fieldsJson',
-          source: 'job template $documentId',
+          source: source,
           detail: 'expected a JSON string (${rawFieldsJson.runtimeType})',
         );
       }
-      template.setFields(
-        TemplateField.decode(rawFieldsJson, source: 'job template $documentId'),
-      );
+      template.setFields(TemplateField.decode(rawFieldsJson, source: source));
     } else {
       template.setFields(const <TemplateField>[]);
     }
@@ -960,6 +1043,22 @@ class JobTemplate {
         template.deletedAt,
         entityLabel: 'job template',
         firestoreId: template.firestoreId,
+      );
+    } else if (template.deletedAt != null ||
+        template.deletedByUid != null ||
+        template.deletedByName != null ||
+        template.deleteReason != null) {
+      throw PersistedDataFormatException(
+        field: 'isDeleted',
+        source: source,
+        detail: 'active templates cannot carry deletion state',
+      );
+    }
+    if (template.updatedAt.isBefore(template.createdAt)) {
+      throw PersistedDataFormatException(
+        field: 'updatedAt',
+        source: source,
+        detail: 'cannot precede createdAt',
       );
     }
 
@@ -1245,83 +1344,260 @@ class JobExecution {
   // 'responsesJson' (legacy). Tolerates both ISO-8601 strings and Firestore
   // Timestamp instances for all date fields.
   factory JobExecution.fromMap(Map<String, dynamic> map, String documentId) {
-    final timestamps = readRemoteJobExecutionTimestamps(
-      map,
-      source: 'job execution $documentId',
+    final source = 'job execution $documentId';
+    final timestamps = readRemoteJobExecutionTimestamps(map, source: source);
+    if (map['isDeleted'] == true && timestamps.deletedAt == null) {
+      requireRemoteTombstoneDeletedAt(
+        timestamps.deletedAt,
+        entityLabel: 'job execution',
+        firestoreId: documentId,
+      );
+    }
+    final embeddedId = readRequiredPersistedString(
+      map['firestoreId'],
+      field: 'firestoreId',
+      source: source,
     );
+    if (embeddedId != documentId) {
+      throw PersistedDataFormatException(
+        field: 'firestoreId',
+        source: source,
+        detail: 'must match the document ID',
+      );
+    }
+    final assetType = readRequiredPersistedEnum(
+      AssetType.values,
+      map['assetType'],
+      field: 'assetType',
+      source: source,
+    );
+    final assetNumber = readRequiredPersistedInt(
+      map['assetNumber'],
+      field: 'assetNumber',
+      source: source,
+      minimum: 1,
+    );
+    if (!AssetValidator.isValid(assetType, assetNumber)) {
+      throw PersistedDataFormatException(
+        field: 'assetNumber',
+        source: source,
+        detail: 'outside the governed range for ${assetType.name}',
+      );
+    }
+    final isCompleted = readRequiredPersistedBool(
+      map['isCompleted'],
+      field: 'isCompleted',
+      source: source,
+    );
+    final isCancelled =
+        readOptionalPersistedBool(
+          map['isCancelled'],
+          field: 'isCancelled',
+          source: source,
+        ) ??
+        false;
+    final isDeleted = readRequiredPersistedBool(
+      map['isDeleted'],
+      field: 'isDeleted',
+      source: source,
+    );
+    final actionsJson = ComponentAction.readEncodedPayload(
+      map['actionsJson'],
+      field: 'actionsJson',
+      source: source,
+      allowMissing: !map.containsKey('actionsJson'),
+    );
+    ComponentAction.decode(actionsJson, source: source);
     final execution =
         JobExecution()
-          ..firestoreId = documentId
-          ..templateFirestoreId = map['templateFirestoreId'] ?? ''
-          ..templateName = _cleanOptionalText(map['templateName'])
-          ..templatePackageId = _cleanOptionalText(map['templatePackageId'])
-          ..templateVersionId = _cleanOptionalText(map['templateVersionId'])
-          ..templateVersionNumber =
-              map['templateVersionNumber'] is int
-                  ? map['templateVersionNumber'] as int
-                  : null
-          ..templateVersionLabel = _cleanOptionalText(
-            map['templateVersionLabel'],
+          ..firestoreId = embeddedId
+          ..templateFirestoreId = readRequiredPersistedString(
+            map['templateFirestoreId'],
+            field: 'templateFirestoreId',
+            source: source,
           )
-          ..templateContentHash = _cleanOptionalText(map['templateContentHash'])
-          ..templatePackageCode = _cleanOptionalText(map['templatePackageCode'])
-          ..assetType = _enumByNameOr(
-            AssetType.values,
-            map['assetType'],
-            AssetType.base,
+          ..templateName = _readOptionalExecutionString(
+            map,
+            'templateName',
+            source,
           )
-          ..assetNumber = map['assetNumber'] ?? 0
-          ..isCompleted = map['isCompleted'] ?? false
-          ..isCancelled = map['isCancelled'] == true
+          ..templatePackageId = _readOptionalExecutionString(
+            map,
+            'templatePackageId',
+            source,
+          )
+          ..templateVersionId = _readOptionalExecutionString(
+            map,
+            'templateVersionId',
+            source,
+          )
+          ..templateVersionNumber = readOptionalPersistedInt(
+            map['templateVersionNumber'],
+            field: 'templateVersionNumber',
+            source: source,
+            minimum: 1,
+          )
+          ..templateVersionLabel = _readOptionalExecutionString(
+            map,
+            'templateVersionLabel',
+            source,
+          )
+          ..templateContentHash = _readOptionalExecutionString(
+            map,
+            'templateContentHash',
+            source,
+          )
+          ..templatePackageCode = _readOptionalExecutionString(
+            map,
+            'templatePackageCode',
+            source,
+          )
+          ..assetType = assetType
+          ..assetNumber = assetNumber
+          ..isCompleted = isCompleted
+          ..isCancelled = isCancelled
           ..cancelledAt = timestamps.cancelledAt
-          ..cancelledByUid = _cleanOptionalText(map['cancelledByUid'])
-          ..cancelledByName = _cleanOptionalText(map['cancelledByName'])
-          ..cancellationReason = _cleanOptionalText(map['cancellationReason'])
-          ..assignedByUid = map['assignedByUid']
-          ..assignedByName = map['assignedByName']
-          ..assignedAgencies = List<String>.from(map['assignedAgencies'] ?? [])
+          ..cancelledByUid = _readOptionalExecutionString(
+            map,
+            'cancelledByUid',
+            source,
+          )
+          ..cancelledByName = _readOptionalExecutionString(
+            map,
+            'cancelledByName',
+            source,
+          )
+          ..cancellationReason = _readOptionalExecutionString(
+            map,
+            'cancellationReason',
+            source,
+          )
+          ..assignedByUid = readRequiredPersistedString(
+            map['assignedByUid'],
+            field: 'assignedByUid',
+            source: source,
+          )
+          ..assignedByName = _readOptionalExecutionString(
+            map,
+            'assignedByName',
+            source,
+          )
+          ..assignedAgencies = readOptionalPersistedStringList(
+            map['assignedAgencies'],
+            field: 'assignedAgencies',
+            source: source,
+          )
           ..workflowSchemaVersion =
-              map['workflowSchemaVersion'] is int
-                  ? map['workflowSchemaVersion'] as int
-                  : 0
+              readOptionalPersistedInt(
+                map['workflowSchemaVersion'],
+                field: 'workflowSchemaVersion',
+                source: source,
+                minimum: 0,
+              ) ??
+              0
           ..laneSetVersion =
-              map['laneSetVersion'] is int ? map['laneSetVersion'] as int : 0
+              readOptionalPersistedInt(
+                map['laneSetVersion'],
+                field: 'laneSetVersion',
+                source: source,
+                minimum: 0,
+              ) ??
+              0
           ..laneSetFinalizedAt = timestamps.laneSetFinalizedAt
-          ..laneSetFinalizedByUid = _cleanOptionalText(
-            map['laneSetFinalizedByUid'],
+          ..laneSetFinalizedByUid = _readOptionalExecutionString(
+            map,
+            'laneSetFinalizedByUid',
+            source,
           )
-          ..laneSetFinalizedByName = _cleanOptionalText(
-            map['laneSetFinalizedByName'],
+          ..laneSetFinalizedByName = _readOptionalExecutionString(
+            map,
+            'laneSetFinalizedByName',
+            source,
           )
-          ..laneMappingReview = map['laneMappingReview'] == true
-          ..parentExecutionFirestoreId = _cleanOptionalText(
-            map['parentExecutionFirestoreId'],
+          ..laneMappingReview =
+              readOptionalPersistedBool(
+                map['laneMappingReview'],
+                field: 'laneMappingReview',
+                source: source,
+              ) ??
+              false
+          ..parentExecutionFirestoreId = _readOptionalExecutionString(
+            map,
+            'parentExecutionFirestoreId',
+            source,
           )
-          ..spawnedRedExecutionFirestoreId = _cleanOptionalText(
-            map['spawnedRedExecutionFirestoreId'],
+          ..spawnedRedExecutionFirestoreId = _readOptionalExecutionString(
+            map,
+            'spawnedRedExecutionFirestoreId',
+            source,
           )
-          ..redAnswerJson = _cleanOptionalText(map['redAnswerJson'])
-          ..completedByUid = map['completedByUid']
-          ..completedByName = map['completedByName']
-          ..remarks = map['remarks']
-          ..teamsInvolved = List<String>.from(map['teamsInvolved'] ?? [])
-          ..chargeNoAtEvent = map['chargeNoAtEvent']
-          ..actionsJson = ComponentAction.readEncodedPayload(
-            map['actionsJson'],
-            field: 'actionsJson',
-            source: 'job execution $documentId',
-            allowMissing: !map.containsKey('actionsJson'),
+          ..redAnswerJson = _readOptionalExecutionString(
+            map,
+            'redAnswerJson',
+            source,
+            emptyAsNull: false,
           )
-          ..version = map['version'] ?? 1
-          ..metadataJson = map['metadataJson']
-          ..isDeleted = map['isDeleted'] ?? false
+          ..completedByUid = _readOptionalExecutionString(
+            map,
+            'completedByUid',
+            source,
+          )
+          ..completedByName = _readOptionalExecutionString(
+            map,
+            'completedByName',
+            source,
+          )
+          ..remarks = _readOptionalExecutionString(
+            map,
+            'remarks',
+            source,
+            emptyAsNull: false,
+          )
+          ..teamsInvolved = readOptionalPersistedStringList(
+            map['teamsInvolved'],
+            field: 'teamsInvolved',
+            source: source,
+          )
+          ..chargeNoAtEvent = readOptionalPersistedInt(
+            map['chargeNoAtEvent'],
+            field: 'chargeNoAtEvent',
+            source: source,
+            minimum: 1,
+          )
+          ..actionsJson = actionsJson
+          ..version = readRequiredPersistedInt(
+            map['version'],
+            field: 'version',
+            source: source,
+            minimum: 1,
+          )
+          ..metadataJson = _readOptionalExecutionString(
+            map,
+            'metadataJson',
+            source,
+            emptyAsNull: false,
+          )
+          ..isDeleted = isDeleted
           ..deletedAt = timestamps.deletedAt
-          ..deletedByUid = map['deletedByUid']
-          ..deletedByName = map['deletedByName']
-          ..deleteReason = map['deleteReason']
+          ..deletedByUid = _readOptionalExecutionString(
+            map,
+            'deletedByUid',
+            source,
+          )
+          ..deletedByName = _readOptionalExecutionString(
+            map,
+            'deletedByName',
+            source,
+          )
+          ..deleteReason = _readOptionalExecutionString(
+            map,
+            'deleteReason',
+            source,
+          )
           ..createdAt = timestamps.createdAt
           ..completedAt = timestamps.completedAt
-          ..updatedAt = timestamps.updatedAt;
+          ..updatedAt = timestamps.updatedAt
+          ..isSynced = true;
 
     // responsesJson is canonical. Only fall back to the legacy structured
     // 'responses' array for old records that do not contain responsesJson.
@@ -1329,17 +1605,23 @@ class JobExecution {
       execution.responsesJson = FieldResponse.readEncodedPayload(
         map['responsesJson'],
         field: 'responsesJson',
-        source: 'job execution $documentId',
+        source: source,
       );
     } else {
       final rawResponses = map['responses'];
       if (rawResponses is List) {
         execution.responsesJson = FieldResponse.encodeLegacyPayload(
           rawResponses,
-          source: 'job execution $documentId',
+          source: source,
         );
-      } else {
+      } else if (rawResponses == null) {
         execution.responsesJson = '[]';
+      } else {
+        throw PersistedDataFormatException(
+          field: 'responses',
+          source: source,
+          detail: 'expected a legacy array (${rawResponses.runtimeType})',
+        );
       }
     }
 
@@ -1349,8 +1631,57 @@ class JobExecution {
         entityLabel: 'job execution',
         firestoreId: execution.firestoreId,
       );
+    } else if (execution.deletedAt != null ||
+        execution.deletedByUid != null ||
+        execution.deletedByName != null ||
+        execution.deleteReason != null) {
+      throw PersistedDataFormatException(
+        field: 'isDeleted',
+        source: source,
+        detail: 'active executions cannot carry deletion state',
+      );
+    }
+    if (execution.isCompleted && execution.isCancelled) {
+      throw PersistedDataFormatException(
+        field: 'isCancelled',
+        source: source,
+        detail: 'execution cannot be completed and cancelled together',
+      );
+    }
+    if (execution.isCompleted != (execution.completedAt != null)) {
+      throw PersistedDataFormatException(
+        field: 'completedAt',
+        source: source,
+        detail: 'completion flag and timestamp must be present together',
+      );
+    }
+    if (execution.isCancelled != (execution.cancelledAt != null)) {
+      throw PersistedDataFormatException(
+        field: 'cancelledAt',
+        source: source,
+        detail: 'cancellation flag and timestamp must be present together',
+      );
+    }
+    if (execution.updatedAt.isBefore(execution.createdAt)) {
+      throw PersistedDataFormatException(
+        field: 'updatedAt',
+        source: source,
+        detail: 'cannot precede createdAt',
+      );
     }
 
     return execution;
   }
 }
+
+String? _readOptionalExecutionString(
+  Map<String, dynamic> map,
+  String field,
+  String source, {
+  bool emptyAsNull = true,
+}) => readOptionalPersistedString(
+  map[field],
+  field: field,
+  source: source,
+  emptyAsNull: emptyAsNull,
+);

@@ -4,8 +4,10 @@ import 'dart:convert';
 
 import 'package:isar/isar.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import '../../maintenance/utils/asset_validator.dart';
 import '../models/component_action_model.dart';
 import 'job_template_model.dart'
     show
@@ -28,14 +30,6 @@ String? _cleanOptionalText(dynamic value) {
   return trimmed.isEmpty ? null : trimmed;
 }
 
-List<String> _cleanStringList(dynamic value) {
-  if (value is! List) return [];
-  return value
-      .map((item) => item.toString().trim())
-      .where((item) => item.isNotEmpty)
-      .toList();
-}
-
 String _normaliseEnumKey(dynamic value) {
   if (value == null) return '';
   return value
@@ -46,18 +40,50 @@ String _normaliseEnumKey(dynamic value) {
       .replaceAll(RegExp(r'[^a-z0-9]+'), '');
 }
 
-T _enumByNameOr<T extends Enum>(List<T> values, dynamic value, T fallback) {
+T _enumByNameOr<T extends Enum>(
+  List<T> values,
+  dynamic value,
+  T fallback, {
+  required String field,
+  required String source,
+}) {
+  if (value == null) return fallback;
+  if (value is! String) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'expected an enum string (${value.runtimeType})',
+    );
+  }
   final key = _normaliseEnumKey(value);
-  if (key.isEmpty) return fallback;
+  if (key.isEmpty) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'enum value cannot be blank',
+    );
+  }
 
   for (final item in values) {
     if (_normaliseEnumKey(item.name) == key) return item;
   }
 
-  return fallback;
+  throw PersistedDataFormatException(
+    field: field,
+    source: source,
+    detail: 'unknown enum value "$value"',
+  );
 }
 
-JobModuleDiscipline _parseDiscipline(dynamic value) {
+JobModuleDiscipline _parseDiscipline(dynamic value, {required String source}) {
+  if (value == null) return JobModuleDiscipline.shared;
+  if (value is! String) {
+    throw PersistedDataFormatException(
+      field: 'discipline',
+      source: source,
+      detail: 'expected an enum string (${value.runtimeType})',
+    );
+  }
   final key = _normaliseEnumKey(value);
 
   if (key == 'ia' ||
@@ -78,6 +104,8 @@ JobModuleDiscipline _parseDiscipline(dynamic value) {
     JobModuleDiscipline.values,
     value,
     JobModuleDiscipline.shared,
+    field: 'discipline',
+    source: source,
   );
 }
 
@@ -104,25 +132,42 @@ String? _laneKeyForModuleDiscipline(JobModuleDiscipline discipline) {
   }
 }
 
-int? _parseIntOrNull(dynamic value) {
-  if (value == null) return null;
-  if (value is int) return value;
-  return int.tryParse(value.toString());
-}
-
-int _parseIntOr(dynamic value, int fallback) {
-  return _parseIntOrNull(value) ?? fallback;
-}
-
-String _safeJsonObject(dynamic value) {
+String _readJsonObjectText(
+  dynamic value, {
+  required String field,
+  required String source,
+}) {
   if (value == null) return '{}';
   if (value is String) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return '{}';
-    return trimmed;
+    readRequiredJsonObject(value, field: field, source: source);
+    return value;
   }
-  if (value is Map) return jsonEncode(value);
-  return '{}';
+  if (value is Map) {
+    try {
+      final typed = Map<String, dynamic>.from(value);
+      return jsonEncode(typed);
+    } on TypeError {
+      throw PersistedDataFormatException(
+        field: field,
+        source: source,
+        detail: 'object keys must be strings',
+      );
+    }
+  }
+  throw PersistedDataFormatException(
+    field: field,
+    source: source,
+    detail: 'expected a JSON object (${value.runtimeType})',
+  );
+}
+
+class ModuleSnapshotReadResult {
+  final Map<String, dynamic> value;
+  final FormatException? error;
+
+  const ModuleSnapshotReadResult({required this.value, this.error});
+
+  bool get isValid => error == null;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -427,6 +472,27 @@ class JobModuleInstance {
   );
 
   @ignore
+  ModuleSnapshotReadResult get moduleSnapshotReadResult {
+    try {
+      return ModuleSnapshotReadResult(
+        value: readRequiredJsonObject(
+          moduleSnapshotJson,
+          field: 'moduleSnapshotJson',
+          source:
+              firestoreId == null
+                  ? 'local job module $id'
+                  : 'job module $firestoreId',
+        ),
+      );
+    } on FormatException catch (error) {
+      return ModuleSnapshotReadResult(
+        value: const <String, dynamic>{},
+        error: error,
+      );
+    }
+  }
+
+  @ignore
   FieldDefinitionReadResult get fieldDefinitionsReadResult =>
       PersistedFieldDefinitionPayload.tryDecode(
         fieldDefinitionsJson,
@@ -592,134 +658,378 @@ class JobModuleInstance {
     Map<String, dynamic> map,
     String documentId,
   ) {
-    final timestamps = readRemoteJobModuleTimestamps(
-      map,
-      source: 'job module $documentId',
+    final source = 'job module $documentId';
+    final timestamps = readRemoteJobModuleTimestamps(map, source: source);
+    if (map['isDeleted'] == true && timestamps.deletedAt == null) {
+      requireRemoteTombstoneDeletedAt(
+        timestamps.deletedAt,
+        entityLabel: 'job module',
+        firestoreId: documentId,
+      );
+    }
+    final embeddedId = readRequiredPersistedString(
+      map['firestoreId'],
+      field: 'firestoreId',
+      source: source,
     );
+    if (embeddedId != documentId) {
+      throw PersistedDataFormatException(
+        field: 'firestoreId',
+        source: source,
+        detail: 'must match the document ID',
+      );
+    }
+    final assetType = readRequiredPersistedEnum(
+      AssetType.values,
+      map['assetType'],
+      field: 'assetType',
+      source: source,
+    );
+    final assetNumber = readRequiredPersistedInt(
+      map['assetNumber'],
+      field: 'assetNumber',
+      source: source,
+      minimum: 1,
+    );
+    if (!AssetValidator.isValid(assetType, assetNumber)) {
+      throw PersistedDataFormatException(
+        field: 'assetNumber',
+        source: source,
+        detail: 'outside the governed range for ${assetType.name}',
+      );
+    }
+    final status = _enumByNameOr(
+      JobModuleStatus.values,
+      map['status'],
+      JobModuleStatus.notStarted,
+      field: 'status',
+      source: source,
+    );
+    final isDeleted =
+        readOptionalPersistedBool(
+          map['isDeleted'],
+          field: 'isDeleted',
+          source: source,
+        ) ??
+        false;
+    final actionsJson = ComponentAction.readEncodedPayload(
+      map['actionsJson'],
+      field: 'actionsJson',
+      source: source,
+      allowMissing: !map.containsKey('actionsJson'),
+    );
+    ComponentAction.decode(actionsJson, source: source);
 
     final instance =
         JobModuleInstance()
-          ..firestoreId = documentId
-          ..jobExecutionFirestoreId = _cleanOptionalText(
+          ..firestoreId = embeddedId
+          ..jobExecutionFirestoreId = readRequiredPersistedString(
             map['jobExecutionFirestoreId'],
+            field: 'jobExecutionFirestoreId',
+            source: source,
           )
           // Device-local Isar ids are never imported from Firestore.
           ..jobExecutionLocalId = null
-          ..laneKey = _cleanOptionalText(map['laneKey'])
-          ..laneActivationGeneration = _parseIntOr(
-            map['laneActivationGeneration'],
-            1,
+          ..laneKey = _readOptionalModuleString(map, 'laneKey', source)
+          ..laneActivationGeneration =
+              readOptionalPersistedInt(
+                map['laneActivationGeneration'],
+                field: 'laneActivationGeneration',
+                source: source,
+                minimum: 1,
+              ) ??
+              1
+          ..workflowLaneFirestoreId = _readOptionalModuleString(
+            map,
+            'workflowLaneFirestoreId',
+            source,
           )
-          ..workflowLaneFirestoreId = _cleanOptionalText(
-            map['workflowLaneFirestoreId'],
+          ..templateFirestoreId = _readOptionalModuleString(
+            map,
+            'templateFirestoreId',
+            source,
           )
-          ..templateFirestoreId = _cleanOptionalText(map['templateFirestoreId'])
-          ..templateName = _cleanOptionalText(map['templateName'])
-          ..templatePackageId = _cleanOptionalText(map['templatePackageId'])
-          ..templateVersionId = _cleanOptionalText(map['templateVersionId'])
-          ..templateModuleId = _cleanOptionalText(map['templateModuleId'])
-          ..moduleCode = _cleanOptionalText(map['moduleCode'])
-          ..moduleSnapshotJson = _safeJsonObject(map['moduleSnapshotJson'])
+          ..templateName = _readOptionalModuleString(
+            map,
+            'templateName',
+            source,
+          )
+          ..templatePackageId = _readOptionalModuleString(
+            map,
+            'templatePackageId',
+            source,
+          )
+          ..templateVersionId = _readOptionalModuleString(
+            map,
+            'templateVersionId',
+            source,
+          )
+          ..templateModuleId = _readOptionalModuleString(
+            map,
+            'templateModuleId',
+            source,
+          )
+          ..moduleCode = _readOptionalModuleString(map, 'moduleCode', source)
+          ..moduleSnapshotJson = _readJsonObjectText(
+            map['moduleSnapshotJson'],
+            field: 'moduleSnapshotJson',
+            source: source,
+          )
           ..fieldDefinitionsJson =
               map.containsKey('fieldDefinitionsJson')
                   ? PersistedFieldDefinitionPayload.readEncodedPayload(
                     map['fieldDefinitionsJson'],
                     field: 'fieldDefinitionsJson',
-                    source: 'job module $documentId',
+                    source: source,
                   )
                   : '[]'
-          ..assetType = _enumByNameOr(
-            AssetType.values,
-            map['assetType'],
-            AssetType.base,
+          ..assetType = assetType
+          ..assetNumber = assetNumber
+          ..chargeNoAtEvent = readOptionalPersistedInt(
+            map['chargeNoAtEvent'],
+            field: 'chargeNoAtEvent',
+            source: source,
+            minimum: 1,
           )
-          ..assetNumber = _parseIntOr(map['assetNumber'], 0)
-          ..chargeNoAtEvent = _parseIntOrNull(map['chargeNoAtEvent'])
-          ..pairedEquipmentJson = _cleanOptionalText(map['pairedEquipmentJson'])
-          ..moduleTitle =
-              _cleanOptionalText(map['moduleTitle']) ?? 'Untitled module'
-          ..moduleDescription = _cleanOptionalText(map['moduleDescription'])
-          ..status = _enumByNameOr(
-            JobModuleStatus.values,
-            map['status'],
-            JobModuleStatus.notStarted,
+          ..pairedEquipmentJson = _readOptionalModuleString(
+            map,
+            'pairedEquipmentJson',
+            source,
+            emptyAsNull: false,
           )
+          ..moduleTitle = readRequiredPersistedString(
+            map['moduleTitle'],
+            field: 'moduleTitle',
+            source: source,
+          )
+          ..moduleDescription = _readOptionalModuleString(
+            map,
+            'moduleDescription',
+            source,
+          )
+          ..status = status
           ..useMode = _enumByNameOr(
             JobModuleUseMode.values,
             map['useMode'],
             JobModuleUseMode.scheduledPM,
+            field: 'useMode',
+            source: source,
           )
-          ..discipline = _parseDiscipline(map['discipline'])
+          ..discipline = _parseDiscipline(map['discipline'], source: source)
           ..safetyClass = _enumByNameOr(
             JobModuleSafetyClass.values,
             map['safetyClass'],
             JobModuleSafetyClass.normal,
+            field: 'safetyClass',
+            source: source,
           )
-          ..isRequired = map['isRequired'] == true
-          ..requiredForClosure = map['requiredForClosure'] == true
-          ..addedDuringExecution = map['addedDuringExecution'] == true
-          ..displayOrder = _parseIntOr(map['displayOrder'], 0)
-          ..functionalSection = _cleanOptionalText(map['functionalSection'])
-          ..componentGroup = _cleanOptionalText(map['componentGroup'])
-          ..subsystem = _cleanOptionalText(map['subsystem'])
-          ..targetRef = _cleanOptionalText(map['targetRef'])
-          ..targetRefs = _cleanStringList(map['targetRefs'])
-          ..procedureRefs = _cleanStringList(map['procedureRefs'])
-          ..safetyConfirmations = _cleanStringList(map['safetyConfirmations'])
-          ..tags = _cleanStringList(map['tags'])
-          ..operationalStatePreconditions = _cleanStringList(
+          ..isRequired =
+              readOptionalPersistedBool(
+                map['isRequired'],
+                field: 'isRequired',
+                source: source,
+              ) ??
+              false
+          ..requiredForClosure =
+              readOptionalPersistedBool(
+                map['requiredForClosure'],
+                field: 'requiredForClosure',
+                source: source,
+              ) ??
+              false
+          ..addedDuringExecution =
+              readOptionalPersistedBool(
+                map['addedDuringExecution'],
+                field: 'addedDuringExecution',
+                source: source,
+              ) ??
+              false
+          ..displayOrder =
+              readOptionalPersistedInt(
+                map['displayOrder'],
+                field: 'displayOrder',
+                source: source,
+                minimum: 0,
+              ) ??
+              0
+          ..functionalSection = _readOptionalModuleString(
+            map,
+            'functionalSection',
+            source,
+          )
+          ..componentGroup = _readOptionalModuleString(
+            map,
+            'componentGroup',
+            source,
+          )
+          ..subsystem = _readOptionalModuleString(map, 'subsystem', source)
+          ..targetRef = _readOptionalModuleString(map, 'targetRef', source)
+          ..targetRefs = readOptionalPersistedStringList(
+            map['targetRefs'],
+            field: 'targetRefs',
+            source: source,
+          )
+          ..procedureRefs = readOptionalPersistedStringList(
+            map['procedureRefs'],
+            field: 'procedureRefs',
+            source: source,
+          )
+          ..safetyConfirmations = readOptionalPersistedStringList(
+            map['safetyConfirmations'],
+            field: 'safetyConfirmations',
+            source: source,
+          )
+          ..tags = readOptionalPersistedStringList(
+            map['tags'],
+            field: 'tags',
+            source: source,
+          )
+          ..operationalStatePreconditions = readOptionalPersistedStringList(
             map['operationalStatePreconditions'],
+            field: 'operationalStatePreconditions',
+            source: source,
           )
           ..responsesJson =
               map.containsKey('responsesJson')
                   ? FieldResponse.readEncodedPayload(
                     map['responsesJson'],
                     field: 'responsesJson',
-                    source: 'job module $documentId',
+                    source: source,
                   )
                   : '[]'
-          ..actionsJson = ComponentAction.readEncodedPayload(
-            map['actionsJson'],
-            field: 'actionsJson',
-            source: 'job module $documentId',
-            allowMissing: !map.containsKey('actionsJson'),
+          ..actionsJson = actionsJson
+          ..draftNote = _readOptionalModuleString(map, 'draftNote', source)
+          ..submissionNote = _readOptionalModuleString(
+            map,
+            'submissionNote',
+            source,
           )
-          ..draftNote = _cleanOptionalText(map['draftNote'])
-          ..submissionNote = _cleanOptionalText(map['submissionNote'])
-          ..acceptanceNote = _cleanOptionalText(map['acceptanceNote'])
-          ..reopenReason = _cleanOptionalText(map['reopenReason'])
-          ..notApplicableReason = _cleanOptionalText(map['notApplicableReason'])
-          ..pendingIssue = _cleanOptionalText(map['pendingIssue'])
-          ..requiresFollowUp = map['requiresFollowUp'] == true
-          ..addedByUid = _cleanOptionalText(map['addedByUid'])
-          ..addedByName = _cleanOptionalText(map['addedByName'])
+          ..acceptanceNote = _readOptionalModuleString(
+            map,
+            'acceptanceNote',
+            source,
+          )
+          ..reopenReason = _readOptionalModuleString(
+            map,
+            'reopenReason',
+            source,
+          )
+          ..notApplicableReason = _readOptionalModuleString(
+            map,
+            'notApplicableReason',
+            source,
+          )
+          ..pendingIssue = _readOptionalModuleString(
+            map,
+            'pendingIssue',
+            source,
+          )
+          ..requiresFollowUp =
+              readOptionalPersistedBool(
+                map['requiresFollowUp'],
+                field: 'requiresFollowUp',
+                source: source,
+              ) ??
+              false
+          ..addedByUid = _readOptionalModuleString(map, 'addedByUid', source)
+          ..addedByName = _readOptionalModuleString(map, 'addedByName', source)
           ..addedAt = timestamps.addedAt
-          ..addReason = _cleanOptionalText(map['addReason'])
-          ..createdByUid = _cleanOptionalText(map['createdByUid'])
-          ..createdByName = _cleanOptionalText(map['createdByName'])
+          ..addReason = _readOptionalModuleString(map, 'addReason', source)
+          ..createdByUid = _readOptionalModuleString(
+            map,
+            'createdByUid',
+            source,
+          )
+          ..createdByName = _readOptionalModuleString(
+            map,
+            'createdByName',
+            source,
+          )
           ..createdAt = timestamps.createdAt
-          ..updatedByUid = _cleanOptionalText(map['updatedByUid'])
-          ..updatedByName = _cleanOptionalText(map['updatedByName'])
+          ..updatedByUid = _readOptionalModuleString(
+            map,
+            'updatedByUid',
+            source,
+          )
+          ..updatedByName = _readOptionalModuleString(
+            map,
+            'updatedByName',
+            source,
+          )
           ..updatedAt = timestamps.updatedAt
-          ..submittedByUid = _cleanOptionalText(map['submittedByUid'])
-          ..submittedByName = _cleanOptionalText(map['submittedByName'])
+          ..submittedByUid = _readOptionalModuleString(
+            map,
+            'submittedByUid',
+            source,
+          )
+          ..submittedByName = _readOptionalModuleString(
+            map,
+            'submittedByName',
+            source,
+          )
           ..submittedAt = timestamps.submittedAt
-          ..acceptedByUid = _cleanOptionalText(map['acceptedByUid'])
-          ..acceptedByName = _cleanOptionalText(map['acceptedByName'])
+          ..acceptedByUid = _readOptionalModuleString(
+            map,
+            'acceptedByUid',
+            source,
+          )
+          ..acceptedByName = _readOptionalModuleString(
+            map,
+            'acceptedByName',
+            source,
+          )
           ..acceptedAt = timestamps.acceptedAt
-          ..reopenedByUid = _cleanOptionalText(map['reopenedByUid'])
-          ..reopenedByName = _cleanOptionalText(map['reopenedByName'])
+          ..reopenedByUid = _readOptionalModuleString(
+            map,
+            'reopenedByUid',
+            source,
+          )
+          ..reopenedByName = _readOptionalModuleString(
+            map,
+            'reopenedByName',
+            source,
+          )
           ..reopenedAt = timestamps.reopenedAt
-          ..notApplicableByUid = _cleanOptionalText(map['notApplicableByUid'])
-          ..notApplicableByName = _cleanOptionalText(map['notApplicableByName'])
+          ..notApplicableByUid = _readOptionalModuleString(
+            map,
+            'notApplicableByUid',
+            source,
+          )
+          ..notApplicableByName = _readOptionalModuleString(
+            map,
+            'notApplicableByName',
+            source,
+          )
           ..notApplicableAt = timestamps.notApplicableAt
-          ..isDeleted = map['isDeleted'] == true
+          ..isDeleted = isDeleted
           ..deletedAt = timestamps.deletedAt
-          ..deletedByUid = _cleanOptionalText(map['deletedByUid'])
-          ..deletedByName = _cleanOptionalText(map['deletedByName'])
-          ..deleteReason = _cleanOptionalText(map['deleteReason'])
-          ..version = _parseIntOr(map['version'], 1)
-          ..metadataJson = _cleanOptionalText(map['metadataJson'])
+          ..deletedByUid = _readOptionalModuleString(
+            map,
+            'deletedByUid',
+            source,
+          )
+          ..deletedByName = _readOptionalModuleString(
+            map,
+            'deletedByName',
+            source,
+          )
+          ..deleteReason = _readOptionalModuleString(
+            map,
+            'deleteReason',
+            source,
+          )
+          ..version = readRequiredPersistedInt(
+            map['version'],
+            field: 'version',
+            source: source,
+            minimum: 1,
+          )
+          ..metadataJson = _readOptionalModuleString(
+            map,
+            'metadataJson',
+            source,
+            emptyAsNull: false,
+          )
           ..isSynced = true;
 
     // responsesJson is canonical. Only fall back to the legacy structured
@@ -728,7 +1038,26 @@ class JobModuleInstance {
     if (!map.containsKey('responsesJson') && rawResponses is List) {
       instance.responsesJson = FieldResponse.encodeLegacyPayload(
         rawResponses,
-        source: 'job module $documentId',
+        source: source,
+      );
+    } else if (!map.containsKey('responsesJson') && rawResponses != null) {
+      throw PersistedDataFormatException(
+        field: 'responses',
+        source: source,
+        detail: 'expected a legacy array (${rawResponses.runtimeType})',
+      );
+    }
+
+    final persistedOpen = readOptionalPersistedBool(
+      map['isOpenForWork'],
+      field: 'isOpenForWork',
+      source: source,
+    );
+    if (persistedOpen != null && persistedOpen != instance.isOpenForWork) {
+      throw PersistedDataFormatException(
+        field: 'isOpenForWork',
+        source: source,
+        detail: 'must agree with status ${instance.status.name}',
       );
     }
 
@@ -738,8 +1067,36 @@ class JobModuleInstance {
         entityLabel: 'job module',
         firestoreId: instance.firestoreId,
       );
+    } else if (instance.deletedAt != null ||
+        instance.deletedByUid != null ||
+        instance.deletedByName != null ||
+        instance.deleteReason != null) {
+      throw PersistedDataFormatException(
+        field: 'isDeleted',
+        source: source,
+        detail: 'active modules cannot carry deletion state',
+      );
+    }
+    if (instance.updatedAt.isBefore(instance.createdAt)) {
+      throw PersistedDataFormatException(
+        field: 'updatedAt',
+        source: source,
+        detail: 'cannot precede createdAt',
+      );
     }
 
     return instance;
   }
 }
+
+String? _readOptionalModuleString(
+  Map<String, dynamic> map,
+  String field,
+  String source, {
+  bool emptyAsNull = true,
+}) => readOptionalPersistedString(
+  map[field],
+  field: field,
+  source: source,
+  emptyAsNull: emptyAsNull,
+);

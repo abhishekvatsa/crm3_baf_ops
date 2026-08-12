@@ -97,12 +97,15 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
   void initState() {
     super.initState();
     try {
-      _draft = TemplateComposerDraft.fromPayloads(
-        jobTemplateSnapshotJson: widget.initialJobTemplateJson,
-        moduleSnapshotsJson: widget.initialModuleSnapshotsJson,
-        fieldDefinitionsJson: widget.initialFieldDefinitionsJson,
-        checklistJson: widget.initialChecklistJson,
-      );
+      _draft =
+          _hasCanonicalFreshAuthoringSeed()
+              ? TemplateComposerDraft.empty()
+              : TemplateComposerDraft.fromAuthoringPayloads(
+                jobTemplateSnapshotJson: widget.initialJobTemplateJson,
+                moduleSnapshotsJson: widget.initialModuleSnapshotsJson,
+                fieldDefinitionsJson: widget.initialFieldDefinitionsJson,
+                checklistJson: widget.initialChecklistJson,
+              );
     } on FormatException catch (error) {
       _initialPayloadError = error.message;
       _draft = TemplateComposerDraft.empty();
@@ -119,6 +122,13 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
     if (_draft.modules.isNotEmpty) {
       _selectedModuleIndex = 0;
     }
+  }
+
+  bool _hasCanonicalFreshAuthoringSeed() {
+    return widget.initialJobTemplateJson.trim() == '{}' &&
+        widget.initialModuleSnapshotsJson.trim() == '[]' &&
+        widget.initialFieldDefinitionsJson.trim() == '[]' &&
+        widget.initialChecklistJson.trim() == '[]';
   }
 
   void _scheduleAuthorizedInitialization(String actorUid) {

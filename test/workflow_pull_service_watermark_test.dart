@@ -26,6 +26,7 @@ void main() {
       final service = WorkflowPullService(remote: remote, local: local);
 
       final failed = await service.pull();
+      await WorkflowPullService.clearQuarantine();
       final recovered = await service.pull();
       await service.pull();
 
@@ -34,6 +35,28 @@ void main() {
       expect(recovered.workflows, 1);
       expect(remote.workflowSince, <DateTime?>[null, null, updatedAt]);
       expect(local.workflowUpsertAttempts, 3);
+    },
+  );
+
+  test(
+    'durable remote quarantine holds the cursor and deduplicates retries',
+    () async {
+      const workflowCursor = 'last_maintenance_workflow_pull_v2_workflows';
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final observedAt = DateTime.utc(2026, 8, 11, 1, 30);
+      final service = WorkflowPullService(
+        remote: _QuarantiningRemote(observedAt),
+        local: _FakeLocal(),
+      );
+
+      final first = await service.pull();
+      final second = await service.pull();
+      final prefs = await SharedPreferences.getInstance();
+
+      expect(first.failures['workflows'], contains('current batch'));
+      expect(second.failures['workflows'], contains('existing quarantine'));
+      expect(prefs.getString(workflowCursor), isNull);
+      expect(await WorkflowPullService.readQuarantine(), hasLength(1));
     },
   );
 
@@ -80,7 +103,7 @@ void main() {
         summary.failures['workflows'],
         contains('workflow-pull-quarantine-invalid'),
       );
-      expect(summary.quarantinedRecords, hasLength(1));
+      expect(summary.quarantinedRecords, isEmpty);
       expect(prefs.getString(workflowCursor), isNull);
       expect(prefs.getString(quarantineKey), '{not-json');
     },
@@ -179,8 +202,8 @@ void main() {
         summary.failures['workflows'],
         contains('workflow-pull-quarantine-invalid'),
       );
-      expect(remote.workflowSince, <DateTime?>[null]);
-      expect(local.workflowUpsertAttempts, 1);
+      expect(remote.workflowSince, isEmpty);
+      expect(local.workflowUpsertAttempts, 0);
       expect(prefs.getString(workflowCursor), isNull);
       expect(prefs.getString(quarantineKey), '{not-json');
     },

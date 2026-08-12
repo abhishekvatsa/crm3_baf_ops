@@ -186,7 +186,7 @@ void main() {
           addReason: '66C lineage visibility proof',
         );
 
-        final map = module.toMap();
+        final map = module.toMap()..['firestoreId'] = 'module_66c_lineage';
         final restored = JobModuleInstance.fromMap(map, 'module_66c_lineage');
         final metadata =
             jsonDecode(restored.metadataJson!) as Map<String, dynamic>;
@@ -253,7 +253,7 @@ void main() {
               })
               ..fieldDefinitionsJson = '[]'
               ..assetType = AssetType.base
-              ..assetNumber = 1
+              ..assetNumber = 101
               ..moduleTitle = '66C scheduled frozen module'
               ..status = JobModuleStatus.notStarted
               ..useMode = JobModuleUseMode.scheduledPM
@@ -287,7 +287,7 @@ void main() {
               })
               ..fieldDefinitionsJson = '[]'
               ..assetType = AssetType.base
-              ..assetNumber = 1
+              ..assetNumber = 101
               ..moduleTitle = '66C emergency seed module'
               ..status = JobModuleStatus.notStarted
               ..useMode = JobModuleUseMode.adHoc
@@ -482,7 +482,7 @@ JobModuleInstance _lineageBaseModule() {
     ..discipline = JobModuleDiscipline.mechanical
     ..safetyClass = JobModuleSafetyClass.normal
     ..assetType = AssetType.base
-    ..assetNumber = 1
+    ..assetNumber = 101
     ..displayOrder = 1
     ..responsesJson = '[]'
     ..actionsJson = '[]'
@@ -510,7 +510,8 @@ TemplateVersion _publishedVersion({
     ..status = TemplateVersionStatus.published
     ..contentHash = 'tg2-sha256:${'c' * 64}'
     ..jobTemplateSnapshotJson = jsonEncode(<String, dynamic>{
-      'template': '66C runtime lineage',
+      'title': '66C runtime lineage',
+      'assetType': 'base',
     })
     ..moduleSnapshotsJson = jsonEncode(modules)
     ..fieldDefinitionsJson = jsonEncode(fields)
@@ -562,7 +563,7 @@ JobExecution _execution() {
     ..templatePackageId = 'package_66c'
     ..templateVersionId = 'version_66c'
     ..assetType = AssetType.base
-    ..assetNumber = 1
+    ..assetNumber = 101
     ..chargeNoAtEvent = 6603
     ..createdAt = DateTime.utc(2026, 5, 22, 9)
     ..updatedAt = DateTime.utc(2026, 5, 22, 9);

@@ -182,7 +182,10 @@ TemplateVersion _publishedVersion({
     ..versionLabel = '66B runtime catalogue'
     ..status = TemplateVersionStatus.published
     ..contentHash = 'tg2-sha256:${'b' * 64}'
-    ..jobTemplateSnapshotJson = jsonEncode({'template': 'runtime-66b'})
+    ..jobTemplateSnapshotJson = jsonEncode({
+      'title': '66B runtime catalogue',
+      'assetType': 'base',
+    })
     ..moduleSnapshotsJson = jsonEncode(modules)
     ..fieldDefinitionsJson = jsonEncode(fields)
     ..checklistJson = '[]';
@@ -240,7 +243,7 @@ JobExecution _execution() {
     ..templatePackageCode = 'BAF-66B'
     ..templateContentHash = 'tg2-sha256:${'b' * 64}'
     ..assetType = AssetType.base
-    ..assetNumber = 1
+    ..assetNumber = 101
     ..chargeNoAtEvent = 6601
     ..createdAt = DateTime.utc(2026, 5, 21, 9)
     ..updatedAt = DateTime.utc(2026, 5, 21, 9);
