@@ -1,6 +1,8 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../serialization/persisted_data_reader.dart';
+
 const backendReleaseIdentityCallableName = 'getBackendReleaseIdentity';
 const backendReleaseIdentityCallableRegion = 'asia-south1';
 
@@ -50,7 +52,13 @@ class BackendReleaseIdentity {
       firestoreRulesReleaseId: _clean(map['firestoreRulesReleaseId']),
       firestoreRulesDigest: _clean(map['firestoreRulesDigest']),
       firestoreIndexesDigest: _clean(map['firestoreIndexesDigest']),
-      deployedAt: _parseDateTime(map['deployedAt']),
+      deployedAt:
+          readOptionalPersistedDateTime(
+            map['deployedAt'],
+            field: 'deployedAt',
+            source: 'backend release identity callable',
+            allowSerializedTimestampMap: true,
+          )?.toUtc(),
     );
   }
 
@@ -150,20 +158,4 @@ String? _clean(Object? value) {
   if (value == null) return null;
   final text = value.toString().trim();
   return text.isEmpty ? null : text;
-}
-
-DateTime? _parseDateTime(Object? value) {
-  if (value is DateTime) return value;
-  if (value is String) return DateTime.tryParse(value);
-  if (value is Map) {
-    final seconds = value['_seconds'] ?? value['seconds'];
-    final nanoseconds = value['_nanoseconds'] ?? value['nanoseconds'];
-    if (seconds is num) {
-      final micros =
-          seconds.toInt() * Duration.microsecondsPerSecond +
-          ((nanoseconds is num ? nanoseconds.toInt() : 0) ~/ 1000);
-      return DateTime.fromMicrosecondsSinceEpoch(micros, isUtc: true);
-    }
-  }
-  return null;
 }

@@ -787,20 +787,23 @@ extension _SyncServiceTemplateGovernance on SyncService {
     try {
       final decoded = jsonDecode(rawSnapshot);
       if (decoded is! Map<String, dynamic>) return false;
-      final snapshotUpdatedAt = DateTime.tryParse(
-        decoded['updatedAt']?.toString() ?? '',
-      );
-      return _cleanText(decoded['firestoreId']?.toString()) ==
+      final map = decoded;
+      final snapshotUpdatedAt =
+          readRequiredPersistedDateTime(
+            map['updatedAt'],
+            field: 'updatedAt',
+            source: 'template lifecycle audit snapshot',
+          ).toUtc();
+      return _cleanText(map['firestoreId']?.toString()) ==
               _cleanText(remoteVersion.firestoreId) &&
-          _cleanText(decoded['packageFirestoreId']?.toString()) ==
+          _cleanText(map['packageFirestoreId']?.toString()) ==
               _cleanText(remoteVersion.packageFirestoreId) &&
-          decoded['status']?.toString() == remoteVersion.status.name &&
-          _cleanText(decoded['contentHash']?.toString()) ==
+          map['status']?.toString() == remoteVersion.status.name &&
+          _cleanText(map['contentHash']?.toString()) ==
               _cleanText(remoteVersion.contentHash) &&
-          decoded['version'] == remoteVersion.version &&
-          _cleanText(decoded['updatedByUid']?.toString()) ==
+          map['version'] == remoteVersion.version &&
+          _cleanText(map['updatedByUid']?.toString()) ==
               _cleanText(remoteVersion.updatedByUid) &&
-          snapshotUpdatedAt != null &&
           _sameInstant(snapshotUpdatedAt, remoteVersion.updatedAt);
     } on Object {
       return false;

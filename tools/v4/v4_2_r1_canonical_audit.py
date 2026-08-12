@@ -353,8 +353,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 220
-    and counts.get("SUCCESSOR_MODIFIED") == 190
+    and counts.get("BYTE_IDENTICAL") == 214
+    and counts.get("SUCCESSOR_MODIFIED") == 196
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -7960,6 +7960,9 @@ a05_decision_8 = text(
 a05_timestamp_inventory_manifest = data(
     "governance/a05-persisted-timestamp-surface-v2.json"
 )
+a05_direct_timestamp_candidate_manifest = data(
+    "governance/a05-direct-timestamp-candidate-classification-v1.json"
+)
 a05_timestamp_inventory_tool = text(
     "tools/v4/a05_persisted_timestamp_inventory.py"
 )
@@ -8065,6 +8068,27 @@ a05_decision_15 = text(
 a05_workflow_pull_test = text("test/workflow_pull_service_watermark_test.dart")
 a05_decision_16 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_16.md"
+)
+a05_backend_release_identity = text(
+    "lib/core/release/backend_release_identity_service.dart"
+)
+a05_backend_release_identity_test = text(
+    "test/backend_release_identity_service_test.dart"
+)
+a05_template_snapshot_contract = text(
+    "lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart"
+)
+a05_template_snapshot_test = text(
+    "test/template_version_snapshot_contract_test.dart"
+)
+a05_template_lifecycle_sync = text(
+    "lib/core/services/sync_service.template_governance.dart"
+)
+a05_template_lifecycle_test = text(
+    "test/template_governance_lifecycle_replay_contract_test.dart"
+)
+a05_decision_17 = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_17.md"
 )
 a05_timestamp_inventory_process = subprocess.run(
     [sys.executable, str(ROOT / "tools/v4/a05_persisted_timestamp_inventory.py")],
@@ -8186,21 +8210,35 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 29
-    and a05_timestamp_inventory_report.get("directCallCount") == 79
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 40
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 39
+    and a05_timestamp_inventory_report.get("readerCount") == 32
+    and a05_timestamp_inventory_report.get("directCallCount") == 82
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 41
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 41
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
-    and len(a05_timestamp_inventory_report.get("directParserCandidates", []))
-        == 31
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 29
+    and a05_timestamp_inventory_report.get(
+        "directParserClassificationGroupCount"
+    ) == 6
+    and a05_timestamp_inventory_report.get(
+        "unclassifiedDirectParserCandidates"
+    ) == []
+    and a05_timestamp_inventory_report.get(
+        "staleDirectParserClassifications"
+    ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 29
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 32
+    and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
+    and len(
+        a05_direct_timestamp_candidate_manifest.get("classifications", [])
+    ) == 6
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "readerSha256" in a05_timestamp_inventory_tool
     and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
     and "duplicateReaderSites" in a05_timestamp_inventory_tool
     and "directParserCandidates" in a05_timestamp_inventory_tool
+    and "unclassifiedDirectParserCandidates" in a05_timestamp_inventory_tool
+    and "staleDirectParserClassifications" in a05_timestamp_inventory_tool
     and "workflow receipts require their persisted application time"
         in a05_operational_timestamp_test
     and "malformed present optional timestamps fail closed"
@@ -8469,6 +8507,55 @@ check(
     and "does not inspect or mutate production documents" in a05_decision_16,
 )
 check(
+    "A-05 direct timestamp candidates are classified and weak decoders fail closed",
+    a05_timestamp_inventory_report.get("result") == "PASS"
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 29
+    and a05_timestamp_inventory_report.get(
+        "unclassifiedDirectParserCandidates"
+    ) == []
+    and a05_timestamp_inventory_report.get(
+        "staleDirectParserClassifications"
+    ) == []
+    and {
+        entry.get("classification")
+        for entry in a05_direct_timestamp_candidate_manifest.get(
+            "classifications", []
+        )
+    }
+    == {
+        "STRICT_READER_IMPLEMENTATION",
+        "FAIL_CLOSED_AUTHORITY_PARSER",
+        "NON_PERSISTED_RUNTIME_SENTINEL",
+        "TYPED_LOCAL_STORAGE_INITIALIZER",
+        "SORT_ONLY_NULL_ORDERING_SENTINEL",
+        "DISPLAY_ONLY_BEST_EFFORT",
+    }
+    and sum(
+        len(entry.get("sites", []))
+        for entry in a05_direct_timestamp_candidate_manifest.get(
+            "classifications", []
+        )
+    ) == 29
+    and "allowSerializedTimestampMap: true" in a05_backend_release_identity
+    and "DateTime? _parseDateTime(" not in a05_backend_release_identity
+    and "malformed present deployment timestamps fail closed"
+        in a05_backend_release_identity_test
+    and "readOptionalPersistedDateTime(" in a05_template_snapshot_contract
+    and "TemplateVersionSnapshotException(error.message)"
+        in a05_template_snapshot_contract
+    and "malformed present closure review timestamp fails closed"
+        in a05_template_snapshot_test
+    and "readRequiredPersistedDateTime(" in a05_template_lifecycle_sync
+    and "DateTime.tryParse(" not in a05_template_lifecycle_sync
+    and "snapshotMatcher, contains('readRequiredPersistedDateTime(')"
+        in a05_template_lifecycle_test
+    and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_17
+    and "29 direct parser and epoch-sentinel sites" in a05_decision_17
+    and "zero unclassified, duplicate, or stale sites" in a05_decision_17
+    and "`A-05` remains open" in a05_decision_17
+    and "does not inspect or mutate production documents" in a05_decision_17,
+)
+check(
     "A-05 persisted-state tranche fails closed without claiming finding closure",
     len(a05_records) == 1
     and a05_record.get("currentStatus") == "OPEN"
@@ -8685,8 +8772,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 220
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 190
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 214
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 196
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

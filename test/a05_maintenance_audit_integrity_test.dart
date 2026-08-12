@@ -55,6 +55,47 @@ void main() {
       },
     );
 
+    test(
+      'serialized timestamp maps require one complete integer field pair',
+      () {
+        final decoded = readRequiredPersistedDateTime(
+          const <String, Object>{
+            '_seconds': 1785911400,
+            '_nanoseconds': 123456000,
+          },
+          field: 'deployedAt',
+          source: 'callable response',
+          allowSerializedTimestampMap: true,
+        );
+
+        expect(decoded, DateTime.utc(2026, 8, 5, 6, 30, 0, 123, 456));
+        for (final malformed in <Object>[
+          const <String, Object>{'_seconds': 1785911400},
+          const <String, Object>{
+            '_seconds': 1785911400,
+            '_nanoseconds': 0,
+            'seconds': 1785911400,
+            'nanoseconds': 0,
+          },
+          const <String, Object>{'seconds': 1785911400.0, 'nanoseconds': 0},
+          const <String, Object>{
+            'seconds': 1785911400,
+            'nanoseconds': 1000000000,
+          },
+        ]) {
+          expect(
+            () => readRequiredPersistedDateTime(
+              malformed,
+              field: 'deployedAt',
+              source: 'callable response',
+              allowSerializedTimestampMap: true,
+            ),
+            throwsA(isA<PersistedDataFormatException>()),
+          );
+        }
+      },
+    );
+
     test('resolution history preserves valid serialized entries', () {
       final resolvedAt = DateTime.utc(2026, 8, 5, 5, 45);
       final encoded = jsonEncode([
@@ -211,7 +252,7 @@ void main() {
             ..firestoreId = 'ticket-admin-open'
             ..assetType = AssetType.base
             ..assetNumber = 3
-              ..maintenanceType = MaintenanceType.inspection
+            ..maintenanceType = MaintenanceType.inspection
             ..description = 'Inspection in progress'
             ..routedTo = RoutedTo.operations
             ..status = TicketStatus.open
@@ -473,19 +514,13 @@ void main() {
         adminBrowser,
         contains('Saved evidence needs repair before editing'),
       );
-      expect(
-        liveRemoteSync,
-        isNot(contains("d['actionsJson']?.toString()")),
-      );
+      expect(liveRemoteSync, isNot(contains("d['actionsJson']?.toString()")));
       expect(
         liveRemoteSync,
         isNot(contains("d['resolutionHistoryJson']?.toString()")),
       );
       expect(liveRemoteSync, contains('ComponentAction.readEncodedPayload('));
-      expect(
-        liveRemoteSync,
-        contains('readEncodedResolutionHistoryPayload('),
-      );
+      expect(liveRemoteSync, contains('readEncodedResolutionHistoryPayload('));
       final applyStart = liveRemoteSync.indexOf(
         'Future<void> _applyMaintenanceDoc(',
       );

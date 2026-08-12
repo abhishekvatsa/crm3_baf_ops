@@ -334,6 +334,10 @@ void main() {
         source,
         'bool _templatePublishAuditRemoteDependencySatisfied',
       );
+      final snapshotMatcher = _blockStartingAt(
+        source,
+        'bool _templateLifecycleAuditSnapshotMatchesRemote',
+      );
 
       expect(dependency, contains('case TemplatePublishAuditAction.restored:'));
       expect(
@@ -345,6 +349,13 @@ void main() {
         contains('_templateLifecycleAuditSnapshotMatchesRemote'),
         reason:
             'archive/restore audits must not sync merely because the remote lifecycle status happens to match',
+      );
+      expect(snapshotMatcher, contains('readRequiredPersistedDateTime('));
+      expect(snapshotMatcher, contains("field: 'updatedAt'"));
+      expect(snapshotMatcher, isNot(contains('DateTime.tryParse(')));
+      expect(
+        snapshotMatcher,
+        isNot(contains("decoded['updatedAt']?.toString()")),
       );
     });
 

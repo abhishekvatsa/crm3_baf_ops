@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 220,
-    "SUCCESSOR_MODIFIED": 190
+    "BYTE_IDENTICAL": 214,
+    "SUCCESSOR_MODIFIED": 196
   },
   "paths": [
     {
@@ -781,10 +781,10 @@
     {
       "path": "lib/core/release/backend_release_identity_service.dart",
       "canonicalSha256": "FA6E917D548D380E4E396147CE1B87BBD5D40692774C349F9B409387D688B0EF",
-      "candidateSha256": "FA6E917D548D380E4E396147CE1B87BBD5D40692774C349F9B409387D688B0EF",
+      "candidateSha256": "3DFD7CF0322AC6307595AB22804E937CEA8544A77E92C596D416BF2A9C1766A6",
       "canonicalBytes": 5451,
-      "candidateBytes": 5451,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 5138,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/core/security/app_check_bootstrap.dart",
@@ -1013,9 +1013,9 @@
     {
       "path": "lib/core/services/sync_service.dart",
       "canonicalSha256": "A6D3A8AD047F20344D60BE7F969F83C693462EC8386B8D3ACF569760B331AA35",
-      "candidateSha256": "71C18D6B41DAB1B010423C2FA91D9C94E843BA9C4F3FE8C5F6DDD6FDE837238B",
+      "candidateSha256": "7F0740C428AE8C9DC3CB7E0448CF320E703B36726CCBE95FEB238BDDCC6A6C0B",
       "canonicalBytes": 14226,
-      "candidateBytes": 14640,
+      "candidateBytes": 14694,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1069,10 +1069,10 @@
     {
       "path": "lib/core/services/sync_service.template_governance.dart",
       "canonicalSha256": "751A2297A46E9CAAACB46BA14E91BEB2DE44AE681A02E70FC768F914F4413BEF",
-      "candidateSha256": "751A2297A46E9CAAACB46BA14E91BEB2DE44AE681A02E70FC768F914F4413BEF",
+      "candidateSha256": "94F2DA1DBFA1CA0EA04EA98F6D4E9C429132647A865EDDD46F40D5185CA1F975",
       "canonicalBytes": 34802,
-      "candidateBytes": 34802,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 34871,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/core/services/sync_service.tickets_templates.dart",
@@ -1869,10 +1869,10 @@
     {
       "path": "lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart",
       "canonicalSha256": "C7D09F5031A08C6D62CA3FC0030892A08F17C42E4FE58CFE428C5B148E9CC479",
-      "candidateSha256": "C7D09F5031A08C6D62CA3FC0030892A08F17C42E4FE58CFE428C5B148E9CC479",
+      "candidateSha256": "FC2AA27AC6DFAE08DEFDC46AB72BBEE3498E48962BE748C6DC8BEF6739F7B593",
       "canonicalBytes": 14596,
-      "candidateBytes": 14596,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 15022,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/planned_maintenance/models/component_action_model.dart",
@@ -2665,10 +2665,10 @@
     {
       "path": "test/backend_release_identity_service_test.dart",
       "canonicalSha256": "A6368FA2C6B198EC9D84889039C499BC6B36CDBD28AA5199F5CF5478E11BB5FA",
-      "candidateSha256": "A6368FA2C6B198EC9D84889039C499BC6B36CDBD28AA5199F5CF5478E11BB5FA",
+      "candidateSha256": "7BEC0BC2064E1F66693E8A6B6035379047F4A3EA1A42C84BC1A10E5A68705A61",
       "canonicalBytes": 1220,
-      "candidateBytes": 1220,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 2675,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "test/backend_security_readiness_contract_test.dart",
@@ -3293,10 +3293,10 @@
     {
       "path": "test/template_governance_lifecycle_replay_contract_test.dart",
       "canonicalSha256": "AC6AF35D44771529A400467C37E3E99E7B6B6B4346DC906A89E4FCC9489383B3",
-      "candidateSha256": "AC6AF35D44771529A400467C37E3E99E7B6B6B4346DC906A89E4FCC9489383B3",
+      "candidateSha256": "024602972178234CA7CB6360C0825EC454DDFAC8E2D42178CACEDC5D7AB24188",
       "canonicalBytes": 16850,
-      "candidateBytes": 16850,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 17301,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "test/template_publication_readiness_test.dart",
@@ -3317,10 +3317,10 @@
     {
       "path": "test/template_version_snapshot_contract_test.dart",
       "canonicalSha256": "3BBDF895CE94FB7D99F27BF9C8E92075AC5731AE859387C8E9399C6739230765",
-      "candidateSha256": "3BBDF895CE94FB7D99F27BF9C8E92075AC5731AE859387C8E9399C6739230765",
+      "candidateSha256": "89D7AD86DC29AC68F837FEA180DA25FB3E139645F851E0802A1CF0CE2342EF54",
       "canonicalBytes": 5222,
-      "candidateBytes": 5222,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 6999,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "test/widget_test.dart",

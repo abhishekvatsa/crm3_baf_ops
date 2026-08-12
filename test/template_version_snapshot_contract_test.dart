@@ -93,6 +93,69 @@ void main() {
       expect(bundle.closureCriticalModuleCount, 1);
       expect(bundle.closureReviewConfirmed, isTrue);
       expect(bundle.closureReviewConfirmedByUid, 'admin-uid');
+      expect(bundle.closureReviewConfirmedAt, DateTime.utc(2026, 5, 12, 10));
+    });
+
+    test('malformed present closure review timestamp fails closed', () {
+      final bundle = _bundle(
+        job: const {
+          'composer': {
+            'closureReviewConfirmed': true,
+            'closureReviewConfirmedAt': 'not-a-timestamp',
+          },
+        },
+        modules: const [
+          {
+            'moduleCode': 'TIMESTAMP-01',
+            'moduleTitle': 'Timestamp validation',
+            'discipline': 'operations',
+          },
+        ],
+        fields: const [
+          {
+            'key': 'timestamp_witness',
+            'label': 'Timestamp witness',
+            'moduleCode': 'TIMESTAMP-01',
+          },
+        ],
+      );
+
+      final result = bundle.validate();
+
+      expect(result.isValid, isFalse);
+      expect(
+        result.errors.single,
+        contains('closureReviewConfirmedAt'),
+      );
+      expect(
+        () => bundle.closureReviewConfirmedAt,
+        throwsA(isA<TemplateVersionSnapshotException>()),
+      );
+    });
+
+    test('absent optional closure review timestamp remains absent', () {
+      final bundle = _bundle(
+        job: const {
+          'composer': {'closureReviewConfirmed': false},
+        },
+        modules: const [
+          {
+            'moduleCode': 'TIMESTAMP-02',
+            'moduleTitle': 'Optional timestamp validation',
+            'discipline': 'operations',
+          },
+        ],
+        fields: const [
+          {
+            'key': 'optional_timestamp_witness',
+            'label': 'Optional timestamp witness',
+            'moduleCode': 'TIMESTAMP-02',
+          },
+        ],
+      );
+
+      expect(bundle.validate().errors, isEmpty);
+      expect(bundle.closureReviewConfirmedAt, isNull);
     });
 
     test('detects field definitions pointing to unknown module codes', () {

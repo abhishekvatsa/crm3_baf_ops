@@ -164,6 +164,7 @@ DateTime readRequiredPersistedDateTime(
   required String field,
   String? source,
   bool allowEpochMilliseconds = false,
+  bool allowSerializedTimestampMap = false,
 }) {
   if (value is Timestamp) return value.toDate();
   if (value is DateTime) return value;
@@ -178,6 +179,35 @@ DateTime readRequiredPersistedDateTime(
       // Converted into the stable format exception below.
     }
   }
+  if (allowSerializedTimestampMap && value is Map) {
+    final hasPrivateSeconds = value.containsKey('_seconds');
+    final hasPrivateNanoseconds = value.containsKey('_nanoseconds');
+    final hasPublicSeconds = value.containsKey('seconds');
+    final hasPublicNanoseconds = value.containsKey('nanoseconds');
+    final hasPrivateShape = hasPrivateSeconds || hasPrivateNanoseconds;
+    final hasPublicShape = hasPublicSeconds || hasPublicNanoseconds;
+
+    if (hasPrivateShape != hasPublicShape) {
+      final secondsKey = hasPrivateShape ? '_seconds' : 'seconds';
+      final nanosecondsKey = hasPrivateShape ? '_nanoseconds' : 'nanoseconds';
+      final seconds = value[secondsKey];
+      final nanoseconds = value[nanosecondsKey];
+      if (value.containsKey(secondsKey) &&
+          value.containsKey(nanosecondsKey) &&
+          seconds is int &&
+          nanoseconds is int &&
+          nanoseconds >= 0 &&
+          nanoseconds < 1000000000) {
+        try {
+          final microseconds =
+              seconds * Duration.microsecondsPerSecond + nanoseconds ~/ 1000;
+          return DateTime.fromMicrosecondsSinceEpoch(microseconds, isUtc: true);
+        } on RangeError {
+          // Converted into the stable format exception below.
+        }
+      }
+    }
+  }
   throw PersistedDataFormatException(
     field: field,
     source: source,
@@ -190,6 +220,7 @@ DateTime? readOptionalPersistedDateTime(
   required String field,
   String? source,
   bool allowEpochMilliseconds = false,
+  bool allowSerializedTimestampMap = false,
 }) {
   if (value == null) return null;
   return readRequiredPersistedDateTime(
@@ -197,6 +228,7 @@ DateTime? readOptionalPersistedDateTime(
     field: field,
     source: source,
     allowEpochMilliseconds: allowEpochMilliseconds,
+    allowSerializedTimestampMap: allowSerializedTimestampMap,
   );
 }
 

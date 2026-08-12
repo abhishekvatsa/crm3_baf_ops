@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "findingId": "A-05",
+  "scope": "all direct DateTime parser and epoch-sentinel calls in non-generated Dart source after strict-reader remediation",
+  "classifications": [
+    {
+      "id": "strict-reader-implementation",
+      "classification": "STRICT_READER_IMPLEMENTATION",
+      "owner": "core-serialization",
+      "purpose": "implement the shared fail-closed timestamp decoder and its explicitly enabled epoch compatibility path",
+      "authorityBoundary": "shared-persisted-data-reader",
+      "regression": "test/a05_maintenance_audit_integrity_test.dart",
+      "reArmCondition": "any direct parser added inside the shared persisted timestamp reader",
+      "sites": [
+        {"file": "lib/core/serialization/persisted_data_reader.dart", "expression": "DateTime.tryParse(", "occurrence": 1},
+        {"file": "lib/core/serialization/persisted_data_reader.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1},
+        {"file": "lib/core/serialization/persisted_data_reader.dart", "expression": "DateTime.fromMicrosecondsSinceEpoch(", "occurrence": 1}
+      ]
+    },
+    {
+      "id": "fail-closed-authority-parsers",
+      "classification": "FAIL_CLOSED_AUTHORITY_PARSER",
+      "owner": "synchronization-and-workflow",
+      "purpose": "parse canonical protocol or projection timestamps and reject malformed authority state with stable errors",
+      "authorityBoundary": "persisted-control-or-remote-authority",
+      "regression": "test/global_pull_cursor_store_test.dart; test/global_pull_protocol_test.dart; test/maintenance_workflow_read_path_test.dart",
+      "reArmCondition": "any fallback, coercion, or nullable malformed result added to these parsers",
+      "sites": [
+        {"file": "lib/core/services/global_pull_cursor_store.dart", "expression": "DateTime.tryParse(", "occurrence": 1},
+        {"file": "lib/core/services/global_pull_protocol.dart", "expression": "DateTime.tryParse(", "occurrence": 1},
+        {"file": "lib/features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart", "expression": "DateTime.tryParse(", "occurrence": 1}
+      ]
+    },
+    {
+      "id": "runtime-throttle-sentinel",
+      "classification": "NON_PERSISTED_RUNTIME_SENTINEL",
+      "owner": "synchronization",
+      "purpose": "initialize an in-memory last-run throttle before the first process-local synchronization",
+      "authorityBoundary": "non-persisted-runtime-state",
+      "regression": "test/sync_coordinator_test.dart",
+      "reArmCondition": "the sentinel is persisted, exported, or used as domain chronology",
+      "sites": [
+        {"file": "lib/core/services/sync_coordinator.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1}
+      ]
+    },
+    {
+      "id": "typed-local-record-initializers",
+      "classification": "TYPED_LOCAL_STORAGE_INITIALIZER",
+      "owner": "maintenance-workflow",
+      "purpose": "satisfy non-null generated local-record fields before constructors or mappers assign validated domain times",
+      "authorityBoundary": "typed-local-storage-model",
+      "regression": "test/maintenance_workflow_local_store_test.dart; test/maintenance_workflow_read_path_test.dart",
+      "reArmCondition": "an initializer becomes an accepted decode fallback or escapes a constructor without assignment",
+      "sites": [
+        {"file": "lib/features/maintenance_workflow/data/compliance_attempt_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1},
+        {"file": "lib/features/maintenance_workflow/data/compliance_request_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1},
+        {"file": "lib/features/maintenance_workflow/data/compliance_request_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 2},
+        {"file": "lib/features/maintenance_workflow/data/equipment_prompt_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1},
+        {"file": "lib/features/maintenance_workflow/data/equipment_prompt_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 2},
+        {"file": "lib/features/maintenance_workflow/data/equipment_status_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1},
+        {"file": "lib/features/maintenance_workflow/data/job_lane_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1},
+        {"file": "lib/features/maintenance_workflow/data/job_lane_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 2},
+        {"file": "lib/features/maintenance_workflow/data/workflow_aggregate_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1},
+        {"file": "lib/features/maintenance_workflow/data/workflow_aggregate_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 2},
+        {"file": "lib/features/maintenance_workflow/data/workflow_command_receipt_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1},
+        {"file": "lib/features/maintenance_workflow/data/workflow_command_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1},
+        {"file": "lib/features/maintenance_workflow/data/workflow_event_record.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1}
+      ]
+    },
+    {
+      "id": "sort-only-null-ordering-sentinels",
+      "classification": "SORT_ONLY_NULL_ORDERING_SENTINEL",
+      "owner": "planned-maintenance",
+      "purpose": "provide deterministic oldest-first ordering for absent optional publication times without creating persisted chronology",
+      "authorityBoundary": "in-memory-sort-key",
+      "regression": "test/module_workshop_published_sources_test.dart; test/module_registry_provider_test.dart",
+      "reArmCondition": "a sort sentinel is persisted, displayed as evidence, or used for authorization or synchronization",
+      "sites": [
+        {"file": "lib/features/planned_maintenance/domain/module_workshop_published_sources.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1},
+        {"file": "lib/features/planned_maintenance/domain/module_workshop_published_sources.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 2},
+        {"file": "lib/features/planned_maintenance/providers/module_registry_provider.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1},
+        {"file": "lib/features/planned_maintenance/providers/module_registry_provider.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 2},
+        {"file": "lib/features/planned_maintenance/providers/module_registry_provider.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 3},
+        {"file": "lib/features/planned_maintenance/providers/module_registry_provider.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 4}
+      ]
+    },
+    {
+      "id": "display-only-best-effort-parsers",
+      "classification": "DISPLAY_ONLY_BEST_EFFORT",
+      "owner": "planned-maintenance-ui",
+      "purpose": "format non-authoritative display values while preserving malformed source text rather than manufacturing a time",
+      "authorityBoundary": "display-only",
+      "regression": "test/complete_job_screen_test.dart; test/planned_job_detail_screen_test.dart; test/job_history_screen_test.dart",
+      "reArmCondition": "parsed output influences persistence, authorization, ordering, synchronization, or closure decisions",
+      "sites": [
+        {"file": "lib/features/planned_maintenance/presentation/complete_job_screen.dart", "expression": "DateTime.tryParse(", "occurrence": 1},
+        {"file": "lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart", "expression": "DateTime.tryParse(", "occurrence": 1},
+        {"file": "lib/features/planned_maintenance/presentation/job_history_screen.dart", "expression": "DateTime.tryParse(", "occurrence": 1}
+      ]
+    }
+  ]
+}
