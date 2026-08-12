@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "70k-local-database-recovery-closure",
+  "decision": "PASS_70K_RECOVERY_AND_P06_CLOSURE",
+  "recordedAtUtc": "2026-08-12T01:56:00Z",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "admittedMainCommit": "ca65d3deead23cccdf07ca24255bc073221d84db",
+    "admittedMainTree": "da0e9380a6a581c601cd1bb2b1997c7d1bbde6a7",
+    "p06SourceMergeCommit": "28cb22064511c1abcb76759cbb302a303427f46f",
+    "p06PullRequest": 193,
+    "p06PullRequestRunId": 31511362504,
+    "p06PostMergeRunId": 31512254539,
+    "p06PullRequestChecksPassed": 5,
+    "p06PostMergeChecksPassed": 5,
+    "build11FinalizationReceipt": "release/evidence/build-11-finalization-closure.json",
+    "build11FinalizationReceiptSha256": "59AE1BBDB9F9F4ACACF5B32342E2F1330A4915441726F44432D5CFBB50737DD3",
+    "build11RunId": 31552161470,
+    "build11ApkSha256": "9D63F459B9BB8CC45671677C3DDB44745855A0D468F4858DAD5D4A6DC456E4DB"
+  },
+  "installedTargets": {
+    "targetCount": 2,
+    "physicalTargetCount": 1,
+    "emulatorTargetCount": 1,
+    "upgradeMode": "IN_PLACE_ADB_INSTALL_R",
+    "uninstallPerformed": false,
+    "appDataClearPerformed": false,
+    "packageUidPreservedOnEveryTarget": true,
+    "firstInstallTimePreservedOnEveryTarget": true,
+    "bothColdStartedToApprovedHome": true,
+    "rawTargetIdentifiersRetained": false,
+    "targets": [
+      {
+        "targetKind": "PHYSICAL_ANDROID_DEVICE",
+        "targetIdentifierSha256": "D5BADBAE21E335B1E21A6A694445F3E7A454BFE5525650BFA9E1B1D637523E74",
+        "fromBuildNumber": 9,
+        "toBuildNumber": 11,
+        "preUpgradeDiagnosticsSha256": "F67DF8336D5F62DCB31779966905581F5C48D78BA71C25AAEBDD090CF07BD075",
+        "postUpgradeDiagnosticsSha256": "EE8F87BF6AB064DAD77D90A8280260E813DC99AA28E22C94D41141997FE2216B",
+        "postRestartDiagnosticsSha256": "704AEB470AC56D451B565D2AB4D73F0747B3F68330D0D51BCD7ECCA439F2261F",
+        "databaseGenerationSha256": "414793CDF444D09A5D23E3F335FFCF8D8DCFE5EFB75BD1318CAB0B0D5D2C9306",
+        "generationUnchangedAfterRestart": true,
+        "preUpgradeTotalRows": 2,
+        "postUpgradeTotalRows": 2,
+        "postRestartTotalRows": 2,
+        "totalUnsyncedRows": 0,
+        "unresolvedSyncRejections": 0,
+        "syncLastSucceeded": true,
+        "recoveryPackageDatabaseFilesCopied": 2
+      },
+      {
+        "targetKind": "ANDROID_VIRTUAL_DEVICE",
+        "targetIdentifierSha256": "04AB3FC382BFB33EA4FBC120F5172ECFC4AED71652E00977064492CA0F65A017",
+        "fromBuildNumber": 8,
+        "toBuildNumber": 11,
+        "preUpgradeDiagnosticsSha256": "0F3F9F7AFFF80F93B4B1BBE4D615B3DB538F9D639AC0E1D32B66A875F27DA6FF",
+        "postUpgradeDiagnosticsSha256": "268172E7761839B2310EA299F4E8AE157EAA875C941D9BF87B76BF3E378706AD",
+        "postRestartDiagnosticsSha256": "6FE9F52B3CC382D19B740849658662D4FD1EBC344FF564055A96B94FF5AB7F65",
+        "databaseGenerationSha256": "2A49F2AE9FFDA347FC0C0F0BC185AF3426955A4FE4238C0B143CB053D9DFA97C",
+        "generationUnchangedAfterRestart": true,
+        "preUpgradeTotalRows": 0,
+        "postUpgradeTotalRows": 0,
+        "postRestartTotalRows": 0,
+        "totalUnsyncedRows": 0,
+        "unresolvedSyncRejections": 0,
+        "syncLastSucceeded": true,
+        "recoveryPackageDatabaseFilesCopied": 2
+      }
+    ],
+    "privacySafeInventory": {
+      "captureSupportedOnEveryTarget": true,
+      "readOnlyOnEveryTarget": true,
+      "durableStorePresentOnEveryTarget": true,
+      "canonicalDispositionOnEveryTarget": "COMMITTED",
+      "overallDispositionOnEveryTarget": "EXISTING_STORE_CANONICAL_CURRENT",
+      "canonicalSchemaVersionOnEveryTarget": 3,
+      "canonicalFingerprintRecognizedOnEveryTarget": true,
+      "legacyDispositionOnEveryTarget": "ABSENT",
+      "requiresGovernedRecoveryOnAnyTarget": false,
+      "unmarkedOrLegacyMarkedInstalledStoreCount": 0,
+      "rawMarkerValuesIncluded": false
+    }
+  },
+  "nativeStoreCampaign": {
+    "command": "flutter test test/70k_isar_populated_migration_fixture_test.dart test/isar_installed_store_provenance_test.dart test/isar_schema_guard_io_test.dart --reporter expanded",
+    "executedAtUtc": "2026-08-12T01:53:00Z",
+    "passed": 21,
+    "failed": 0,
+    "repositoryProvenV1": {
+      "populatedMigrationToV3Passed": true,
+      "rowSurvivalPassed": true,
+      "relationshipSurvivalPassed": true,
+      "transportedLocalLinkRepairPassed": true
+    },
+    "governedV2": {
+      "productionRejectedUnrecognizedFingerprint": true,
+      "productionFingerprintAdded": false,
+      "isolatedAdoptionRehearsalPassed": true
+    },
+    "interruptionAndRestart": {
+      "preparedBoundaryPassed": true,
+      "isarOpenBoundaryPassed": true,
+      "postOpenRepairBoundaryPassed": true,
+      "committedBoundaryPassed": true,
+      "repairIdempotent": true,
+      "generationPreservedAcrossMigration": true
+    },
+    "backupRebuildRestore": {
+      "byteSealedBackupPassed": true,
+      "emptyRebuildRotatedGeneration": true,
+      "restoredFilesMatchedEveryHash": true,
+      "restoredRowsAndRelationshipsReadable": true
+    },
+    "classificationMatrix": {
+      "absent": "PROVED",
+      "unmarked": "FAIL_CLOSED_PROVED",
+      "partialLegacy": "FAIL_CLOSED_PROVED",
+      "malformedLegacy": "FAIL_CLOSED_PROVED",
+      "completeLegacy": "GOVERNED_REVIEW_PROVED",
+      "prepared": "RESTART_REVIEW_PROVED",
+      "committedCurrent": "PROVED",
+      "unsupportedCanonical": "FAIL_CLOSED_PROVED",
+      "missingDurableStoreWithMarker": "GENERATION_ROTATION_PROVED"
+    }
+  },
+  "cloudReconciliation": {
+    "bothTargetsReportedSuccessfulReconnectSync": true,
+    "bothTargetsReportedZeroUnsyncedRows": true,
+    "bothTargetsReportedZeroUnresolvedRejections": true,
+    "physicalTargetRowsPreservedAcrossUpgradeAndRestart": true,
+    "businessPayloadRetainedInRepositoryEvidence": false
+  },
+  "privateEvidenceCustody": {
+    "directoryName": "CRM_III_BAF_Ops_70K_Build11_Device_Evidence_20260812",
+    "absolutePathCommitted": false,
+    "rawDatabaseFilesCommitted": false,
+    "rawTargetIdentifiersCommitted": false,
+    "rawDatabaseGenerationIdentifiersCommitted": false,
+    "representativeFileHashes": [
+      {
+        "role": "physical-startup-ui",
+        "bytes": 10371,
+        "sha256": "A97B238F57F1DB2B74F68AD5C1A671518F8452C64E59D6C89643694DBDD2C4C8"
+      },
+      {
+        "role": "emulator-startup-ui",
+        "bytes": 9996,
+        "sha256": "D7644E9BCC9393F22942B9AC16A47884B96023C1FBD4DBEC2013CD920A6C162D"
+      },
+      {
+        "role": "physical-recovery-package-result",
+        "bytes": 9198,
+        "sha256": "2D44D370A98EA6E1266460E95058BA6A1DEB37BDCD22B971255F284D4E02320D"
+      },
+      {
+        "role": "emulator-recovery-package-result",
+        "bytes": 8626,
+        "sha256": "B840393049539E98697144139FEE1DA991741A67A4A3D380F09B909BEF7E0494"
+      }
+    ]
+  },
+  "closureBoundary": {
+    "p06ClosureAuthorized": true,
+    "gate70kClosureAuthorized": true,
+    "stage2dF6ClosureAuthorized": false,
+    "lr07ClosureAuthorized": false,
+    "pilotHandoutAuthorized": false,
+    "unrestrictedDistributionAuthorized": false,
+    "firebaseMutationPerformed": false,
+    "productionDataMutationPerformed": false
+  }
+}

@@ -400,7 +400,7 @@ void main() {
       );
     });
 
-    test('builds 1 to 10 are preserved and build 11 is source-reserved', () {
+    test('builds 1 to 10 are preserved and build 11 is finalized', () {
       final ledger =
           jsonDecode(read('release/build-number-ledger.json'))
               as Map<String, dynamic>;
@@ -772,7 +772,10 @@ void main() {
       expect(build10['remoteBuiltTagCreated'], isFalse);
       expect(build10['distributionPerformed'], isFalse);
 
-      expect(build11['status'], 'source-reserved-awaiting-remote-consumption');
+      expect(
+        build11['status'],
+        'remote-consumed-artifact-built-finalized-non-distributable',
+      );
       expect(
         build11['baselineCommit'],
         'e6bfa327466ffa99da9519846db7f83401c86c7b',
@@ -784,8 +787,21 @@ void main() {
         build11['versionApprovalDocumentSha256'],
         '9AC12BEF69FB8DB48ED974F557CB25A93B35010487782DBBA627F34D2E397DEE',
       );
-      expect(build11.containsKey('githubRunId'), isFalse);
-      expect(build11.containsKey('remoteReservationTagObject'), isFalse);
+      expect(build11['githubRunId'], 31552161470);
+      expect(build11['githubArtifactId'], 9125100777);
+      expect(
+        build11['remoteReservationTagObject'],
+        '2c39c96650fbe3b7b7f0d4c95a63736e736fed67',
+      );
+      expect(
+        build11['remoteBuiltTagObject'],
+        'ed33b3f48d9bd10b23c88025eaa567ae235d970c',
+      );
+      expect(build11['closureFinalizationCompleted'], isTrue);
+      expect(build11['dualCustodyCompleted'], isTrue);
+      expect(build11['runtimeValidationPassed'], isTrue);
+      expect(build11['runtimeDisposition'], 'passed-two-target-in-place');
+      expect(build11['distributionPerformed'], isFalse);
 
       final build11Approval =
           jsonDecode(
@@ -1080,7 +1096,7 @@ void main() {
     });
 
     test(
-      'build 9 closure and historical build 8 backend readiness are exact',
+      'build 11 completion preserves build 10 failure and build 8 readiness',
       () {
         final policy =
             jsonDecode(read('release/production-release-policy.json'))
@@ -1089,9 +1105,7 @@ void main() {
         final build9Finalization =
             finalization['priorCompletedBuild'] as Map<String, dynamic>;
         final receipt =
-            jsonDecode(
-                  read(build9Finalization['completionReceiptFile'] as String),
-                )
+            jsonDecode(read(finalization['completionReceiptFile'] as String))
                 as Map<String, dynamic>;
         final sourceAuthority =
             receipt['sourceAuthority'] as Map<String, dynamic>;
@@ -1122,14 +1136,20 @@ void main() {
         final programmeBoundary =
             backendEvidence['programmeBoundary'] as Map<String, dynamic>;
 
-        expect(finalization['status'], 'pending-source-authorized');
+        expect(finalization['status'], 'completed-non-distributable');
         final failedAttempt =
-            finalization['priorFailedAttempt'] as Map<String, dynamic>;
+            (finalization['historicalFailedAttempts'] as List)
+                .cast<Map<String, dynamic>>()
+                .single;
         expect(failedAttempt['buildNumber'], 10);
         expect(failedAttempt['status'], 'blocked-non-distributable');
         expect(failedAttempt['independentVerificationCompleted'], isTrue);
         expect(failedAttempt['dualCustodyCompleted'], isFalse);
         expect(failedAttempt['distributionPerformed'], isFalse);
+        expect(
+          failedAttempt['evidenceSha256'],
+          'E43F28767214895BAC0B212C955DC07094BFD9E7A71F472113F1762BB8365F58',
+        );
         expect(build9Finalization['status'], 'completed-non-distributable');
         expect(build9Finalization['dualCustodyCompleted'], isTrue);
         expect(build9Finalization['runtimeValidationPassed'], isFalse);
@@ -1141,27 +1161,27 @@ void main() {
         expect(receipt['status'], 'passed-non-distributable');
         expect(
           sourceAuthority['commit'],
-          'f51749c3f0200a5a03b065f0644d7759c747de7f',
+          'ca65d3deead23cccdf07ca24255bc073221d84db',
         );
-        expect(sourceAuthority['pullRequestNumber'], 196);
-        expect(workflow['runId'], 31528293704);
+        expect(sourceAuthority['pullRequestNumber'], 199);
+        expect(workflow['runId'], 31552161470);
         expect(workflow['actor'], 'abhishekvatsa');
         expect(workflow['actorId'], 213690022);
         expect(workflow['secretValuesInspected'], isFalse);
         expect(
           governedPackage['sha256'],
-          '4D1EA1781FBAB0E047A1605644E329712E717B66A594147D55095DF21DF9960E',
+          '104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970',
         );
         expect(governedPackage['independentVerificationCompleted'], isTrue);
         expect(
           remoteAuthority['builtTagObjectSha'],
-          'e478de7b186112b864199a5bf0184d3c3d9ea584',
+          'ed33b3f48d9bd10b23c88025eaa567ae235d970c',
         );
         expect(dualCustody['distinctVolumes'], isTrue);
         expect(dualCustody['allFileHashesMatched'], isTrue);
         expect(
           closure['closurePackageSha256'],
-          '73D0FC8DA30341D05786091E657967B21D1E57EF3B261478B36A326E4F9234B0',
+          '9E3C4F04A120438A817DB316E5142C06A502FE4AB726DCFCB7787966C30CCB43',
         );
         expect(tagRecovery['occurred'], isFalse);
         expect(tagRecovery['forceUsed'], isFalse);
@@ -1169,13 +1189,11 @@ void main() {
         expect(releaseBoundary['controlledPilotApproved'], isFalse);
         expect(releaseBoundary['unrestrictedPlantReleaseApproved'], isFalse);
         expect(releaseBoundary['distributionPerformed'], isFalse);
-        expect(releaseBoundary['runtimeValidationPassed'], isFalse);
-        expect(
-          runtimeAdjudication['status'],
-          'failed-startup-non-distributable',
-        );
-        expect(runtimeAdjudication['remediationPullRequest'], 197);
-        expect(runtimeAdjudication['deviceDataPreserved'], isTrue);
+        expect(releaseBoundary['runtimeValidationPassed'], isTrue);
+        expect(runtimeAdjudication['status'], 'passed-two-target-in-place');
+        expect(runtimeAdjudication['physicalTargetCount'], 1);
+        expect(runtimeAdjudication['emulatorTargetCount'], 1);
+        expect(runtimeAdjudication['bothPreservedAppData'], isTrue);
         expect(runtimeAdjudication['appDataClearPerformed'], isFalse);
 
         expect(backendEvidence['decision'], 'PASS_BUILD8_F4_BACKEND_READY');

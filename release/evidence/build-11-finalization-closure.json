@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "production-build-finalization-closure",
+  "status": "passed-non-distributable",
+  "release": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.1-b11",
+    "version": "1.0.0-rc.1+11",
+    "buildNumber": 11,
+    "applicationId": "in.co.sail.bsl.crm3.bafops"
+  },
+  "sourceAuthority": {
+    "commit": "ca65d3deead23cccdf07ca24255bc073221d84db",
+    "tree": "da0e9380a6a581c601cd1bb2b1997c7d1bbde6a7",
+    "pullRequestNumber": 199,
+    "productionPolicySha256AtBuild": "95A40389942DBA1DED450D805CEBF201C2CBCC7E2224258FEF2AAE84061D6EAA",
+    "finalizerSha256AtBuild": "08A72F69F1A44B36ECBBED60C1118B409B6DB679FC3DE58234005F2F70F38646"
+  },
+  "workflow": {
+    "path": ".github/workflows/production-artifact.yml",
+    "runId": 31552161470,
+    "runAttempt": 1,
+    "url": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/31552161470",
+    "startedAtUtc": "2026-08-12T01:00:27Z",
+    "completedAtUtc": "2026-08-12T01:24:19Z",
+    "conclusion": "success",
+    "actor": "abhishekvatsa",
+    "actorId": 213690022,
+    "triggeringActor": "abhishekvatsa",
+    "dispatchApprovalReference": "BAF-REF-003-C10",
+    "environmentApprovalReference": "BAF-GH-ENV-007",
+    "environmentReviewControlMode": "public-repository-required-reviewer",
+    "secretNamesVerified": 4,
+    "secretValuesInspected": false
+  },
+  "githubArtifact": {
+    "id": 9125100777,
+    "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.1-b11-ca65d3deead23cccdf07ca24255bc073221d84db-run-31552161470",
+    "sizeBytes": 143810522,
+    "digest": "sha256:aa68d4f12c2ee406be73192b73eef725201e8223fd7a244a2eb523aa3e694b76"
+  },
+  "governedPackage": {
+    "file": "crm3-baf-ops-1.0.0-rc.1-b11-GOVERNED-PACKAGE.zip",
+    "sha256": "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970",
+    "sidecarSha256": "19092C28F5F7D27BA70AE9FD44C3A7DB2105E1230D636EB0ACBE725606B4F9C9",
+    "manifestSha256": "552BC608E9A02B0500BC4E9DA1EC5D72E7D82E19154D6D22170ECC250D94A087",
+    "apkSha256": "9D63F459B9BB8CC45671677C3DDB44745855A0D468F4858DAD5D4A6DC456E4DB",
+    "apkSizeBytes": 79505821,
+    "aabSha256": "857CB5CDAF24A6017E80609225400D00EEFB3B680DF8861F008CFCD3B8CDDFC2",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "independentVerificationCompleted": true
+  },
+  "remoteAuthority": {
+    "reservationTag": "crm3-build-reserved/11",
+    "reservationTagObjectSha": "2c39c96650fbe3b7b7f0d4c95a63736e736fed67",
+    "reservationTagCommit": "ca65d3deead23cccdf07ca24255bc073221d84db",
+    "builtTag": "crm3-build-built/11",
+    "builtTagCreatedAtUtc": "2026-08-12T01:32:41.7557544Z",
+    "builtTagObjectSha": "ed33b3f48d9bd10b23c88025eaa567ae235d970c",
+    "builtTagCommit": "ca65d3deead23cccdf07ca24255bc073221d84db"
+  },
+  "dualCustody": {
+    "status": "passed",
+    "completedAtUtc": "2026-08-12T01:33:09.7394657Z",
+    "distinctVolumes": true,
+    "allFileHashesMatched": true
+  },
+  "closure": {
+    "decisionAtUtc": "2026-08-12T01:32:41.7557544Z",
+    "closurePackageSha256": "9E3C4F04A120438A817DB316E5142C06A502FE4AB726DCFCB7787966C30CCB43",
+    "custodyRecordSha256": "18F9DB2D1C1D49C16F1311F35F08B6597D944E4E2868BA1723BF323B969949F6"
+  },
+  "runtimeAdjudication": {
+    "status": "passed-two-target-in-place",
+    "observedAtUtc": "2026-08-12T01:51:40Z",
+    "physicalTargetCount": 1,
+    "emulatorTargetCount": 1,
+    "bothColdStartedToApprovedHome": true,
+    "bothPreservedPackageUid": true,
+    "bothPreservedFirstInstallTime": true,
+    "bothPreservedAppData": true,
+    "uninstallPerformed": false,
+    "appDataClearPerformed": false,
+    "rawTargetIdentifiersRetained": false,
+    "targetIdentifierSha256": [
+      "D5BADBAE21E335B1E21A6A694445F3E7A454BFE5525650BFA9E1B1D637523E74",
+      "04AB3FC382BFB33EA4FBC120F5172ECFC4AED71652E00977064492CA0F65A017"
+    ]
+  },
+  "recoveryIncident": {
+    "occurred": false,
+    "forceUsed": false
+  },
+  "releaseBoundary": {
+    "authority": "production-signed-pre-release-candidate",
+    "firebaseBackendDeploymentPerformed": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false,
+    "distributionPerformed": false,
+    "postBuildPromotionRequiredForAnyDistribution": true,
+    "runtimeValidationPassed": true,
+    "disposition": "finalized-dual-custody-device-proved-awaiting-lr07-and-f6"
+  }
+}

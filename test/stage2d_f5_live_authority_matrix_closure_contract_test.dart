@@ -131,9 +131,6 @@ void main() {
     final gates = _objects(ledger['programmeGates']);
     final f5 = gates.singleWhere((record) => record['gateId'] == 'STAGE2D-F5');
     final f6 = gates.singleWhere((record) => record['gateId'] == 'STAGE2D-F6');
-    final recovery = gates.singleWhere(
-      (record) => record['gateId'] == '70K-RECOVERY',
-    );
 
     expect(decision['nextMutation'], 'STAGE2D-F6');
     expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
@@ -152,7 +149,6 @@ void main() {
     );
     expect(f6['currentStatus'], 'OPEN');
     expect(f6['authorization'], 'BLOCKS_PILOT_HANDOUT');
-    expect(recovery['currentStatus'], 'OPEN');
 
     final result =
         File(
@@ -161,5 +157,7 @@ void main() {
     expect(result, contains('`STAGE2D-F5` is closed'));
     expect(result, contains('response is retained as non-success'));
     expect(result, contains('Pilot handout remains'));
+    expect(result, contains('does not close `STAGE2D-F6` or'));
+    expect(result, contains('`70K-RECOVERY`'));
   });
 }

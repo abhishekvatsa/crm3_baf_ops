@@ -282,6 +282,9 @@ $requiredFiles = @(
 $finalizationStatus = [string]$policy.finalization.status
 if ($finalizationStatus -eq 'completed-non-distributable') {
   $requiredFiles += [string]$policy.finalization.completionReceiptFile
+  foreach ($failedAttempt in @($policy.finalization.historicalFailedAttempts)) {
+    $requiredFiles += [string]$failedAttempt.evidenceFile
+  }
 } elseif ($finalizationStatus -eq 'pending-source-authorized') {
   $requiredFiles += @(
     [string]$policy.finalization.priorCompletedBuild.completionReceiptFile
@@ -774,6 +777,7 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
       $completionReceipt.releaseBoundary.distributionPerformed -ne $false) {
     throw 'Finalization receipt differs from policy or release boundary.'
   }
+
 } else {
   $prior = $policy.finalization.priorCompletedBuild
   $preserved = $versionSource.preservedCompletedBuild
@@ -873,6 +877,44 @@ foreach ($pin in @($actionPins.actions.PSObject.Properties)) {
 
 $ledger = Get-Content -LiteralPath $policy.versionPolicy.ledgerFile -Raw |
   ConvertFrom-Json
+$historicalFailedAttempts = @($policy.finalization.historicalFailedAttempts)
+if ($finalizationStatus -eq 'completed-non-distributable') {
+  if ($historicalFailedAttempts.Count -lt 1) {
+    throw 'Completed finalization omits historical failed-attempt authority.'
+  }
+  foreach ($failed in $historicalFailedAttempts) {
+    $failedLedgerMatches = @(
+      $ledger.entries |
+        Where-Object { [int64]$_.buildNumber -eq [int64]$failed.buildNumber }
+    )
+    if ($failedLedgerMatches.Count -ne 1) {
+      throw 'Historical failed attempt does not resolve to one ledger entry.'
+    }
+    $failedLedger = $failedLedgerMatches[0]
+    if ([string]$failed.status -ne 'blocked-non-distributable' -or
+        [string]$failed.evidenceFile -ne
+          [string]$failedLedger.finalizationEvidenceFile -or
+        [string]$failed.evidenceSha256 -ne
+          [string]$failedLedger.finalizationEvidenceSha256 -or
+        (Get-Sha256 $failed.evidenceFile) -ne
+          ([string]$failed.evidenceSha256).ToUpperInvariant() -or
+        [string]$failed.sourceCommit -ne
+          [string]$failedLedger.remoteReservationCommit -or
+        [int64]$failed.githubRunId -ne [int64]$failedLedger.githubRunId -or
+        [int64]$failed.githubArtifactId -ne
+          [int64]$failedLedger.githubArtifactId -or
+        [string]$failed.githubArtifactDigest -ne
+          [string]$failedLedger.githubArtifactDigest -or
+        [string]$failed.governedPackageSha256 -ne
+          [string]$failedLedger.governedPackageSha256 -or
+        $failed.independentVerificationCompleted -ne $true -or
+        $failed.dualCustodyCompleted -ne $false -or
+        $failed.remoteBuiltTagCreated -ne $false -or
+        $failed.distributionPerformed -ne $false) {
+      throw 'Historical failed-attempt authority differs from its ledger record.'
+    }
+  }
+}
 $ledgerMatches = @(
   $ledger.entries |
     Where-Object {

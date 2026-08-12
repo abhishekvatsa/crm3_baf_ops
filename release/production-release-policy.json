@@ -69,7 +69,7 @@
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
-    "status": "pending-source-authorized",
+    "status": "completed-non-distributable",
     "priorCompletedBuild": {
       "buildNumber": 9,
       "status": "completed-non-distributable",
@@ -85,22 +85,35 @@
       "remediationPullRequest": 197,
       "remediationMergeCommit": "1772fe1cf34c649c6a29d375c77b75e985b6c2f0"
     },
-    "priorFailedAttempt": {
-      "buildNumber": 10,
-      "status": "blocked-non-distributable",
-      "evidenceFile": "release/evidence/build-10-finalization-block.json",
-      "evidenceSha256": "E43F28767214895BAC0B212C955DC07094BFD9E7A71F472113F1762BB8365F58",
-      "sourceCommit": "e6bfa327466ffa99da9519846db7f83401c86c7b",
-      "githubRunId": 31545500587,
-      "githubArtifactId": 9122790773,
-      "githubArtifactDigest": "sha256:6c0a1012a432bb9bad80b81b192ce3ec0a55a3e019dada66b0c873c6787c31a6",
-      "governedPackageSha256": "F2FE9E997285C2BB544E3610EE1E89F52BC48E34BD3A982117D562C54A17E6DE",
-      "independentVerificationCompleted": true,
-      "dualCustodyCompleted": false,
-      "remoteBuiltTagCreated": false,
-      "distributionPerformed": false
-    },
-    "dualCustodyCompleted": false,
+    "historicalFailedAttempts": [
+      {
+        "buildNumber": 10,
+        "status": "blocked-non-distributable",
+        "evidenceFile": "release/evidence/build-10-finalization-block.json",
+        "evidenceSha256": "E43F28767214895BAC0B212C955DC07094BFD9E7A71F472113F1762BB8365F58",
+        "sourceCommit": "e6bfa327466ffa99da9519846db7f83401c86c7b",
+        "githubRunId": 31545500587,
+        "githubArtifactId": 9122790773,
+        "githubArtifactDigest": "sha256:6c0a1012a432bb9bad80b81b192ce3ec0a55a3e019dada66b0c873c6787c31a6",
+        "governedPackageSha256": "F2FE9E997285C2BB544E3610EE1E89F52BC48E34BD3A982117D562C54A17E6DE",
+        "independentVerificationCompleted": true,
+        "dualCustodyCompleted": false,
+        "remoteBuiltTagCreated": false,
+        "distributionPerformed": false
+      }
+    ],
+    "completionReceiptFile": "release/evidence/build-11-finalization-closure.json",
+    "completionReceiptSha256": "59AE1BBDB9F9F4ACACF5B32342E2F1330A4915441726F44432D5CFBB50737DD3",
+    "sourceCommit": "ca65d3deead23cccdf07ca24255bc073221d84db",
+    "githubRunId": 31552161470,
+    "governedPackageSha256": "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970",
+    "remoteReservationTagObject": "2c39c96650fbe3b7b7f0d4c95a63736e736fed67",
+    "remoteBuiltTagObject": "ed33b3f48d9bd10b23c88025eaa567ae235d970c",
+    "closurePackageSha256": "9E3C4F04A120438A817DB316E5142C06A502FE4AB726DCFCB7787966C30CCB43",
+    "custodyRecordSha256": "18F9DB2D1C1D49C16F1311F35F08B6597D944E4E2868BA1723BF323B969949F6",
+    "dualCustodyCompleted": true,
+    "runtimeValidationPassed": true,
+    "runtimeDisposition": "passed-two-target-in-place",
     "firebaseBackendDeploymentPerformed": false,
     "controlledPilotApproved": false,
     "unrestrictedPlantReleaseApproved": false
@@ -165,7 +178,7 @@
       "Unrestricted plant release is not approved",
       "Controlled-pilot distribution requires a separate post-build promotion record bound to the exact governed package hash",
       "App Check activation remains under its explicit governed deferral",
-      "70K-RECOVERY device evidence remains open until Build 11 in-place inventory and reconciliation pass",
+      "70K-RECOVERY is closed only by the separately sealed Build 11 in-place inventory, migration, restart and reconciliation evidence",
       "STAGE2D-F6 pilot authorization remains open until the full support and acceptance pack passes",
       "Do not uninstall or clear either installed app before device-specific no-loss proof is sealed",
       "Dependency audits must be re-run on the exact artifact-construction lockfiles"
@@ -191,8 +204,7 @@
     "dartVersion": "3.12.0"
   },
   "knownOpenGates": [
-    "70K-RECOVERY local database provenance, migration and recovery",
     "STAGE2D-F6 small-group pilot readiness and recoverability",
-    "LR-07 distribution and installation readback re-armed by Build 10 artifact"
+    "LR-07 distribution and installation readback re-armed by Builds 9, 10 and 11"
   ]
 }
