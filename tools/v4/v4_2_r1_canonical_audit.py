@@ -8105,6 +8105,12 @@ a05_production_sweep = text(
 a05_production_sweep_test = text(
     "tools/v4/a05_production_persisted_integrity_sweep.test.mjs"
 )
+a05_reconciliation_bridge = text(
+    "tools/v4/a05_persisted_reconciliation_bridge.dart"
+)
+a05_reconciliation_harness = text(
+    "test/tools/a05_persisted_reconciliation_bridge_test.dart"
+)
 a05_decision_18 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_18.md"
 )
@@ -8308,10 +8314,25 @@ check(
     and "sourceDefinedCollections" in a05_production_sweep
     and "any supported operational record requires Dart reconciliation"
         in a05_production_sweep_test
+    and "AUTHENTICATED_LOOPBACK_MEMORY_ONLY" in a05_production_sweep
+    and "rawProductionDataPersisted: false" in a05_production_sweep
+    and "reconcileA05Envelope" in a05_reconciliation_bridge
+    and "decodePersistedAuditEvent(data, documentId: documentId)"
+        in a05_reconciliation_bridge
+    and "readRemoteMaintenanceRecord(data, documentId: documentId)"
+        in a05_reconciliation_bridge
+    and "A05_BRIDGE_TOKEN" in a05_reconciliation_harness
+    and "reconciles an in-memory production envelope through app readers"
+        in a05_reconciliation_harness
+    and "actual Dart readers reconcile valid audit and maintenance records in memory"
+        in a05_production_sweep_test
+    and "unsupported nonempty app collections remain fail closed"
+        in a05_production_sweep_test
     and "Status: OPEN - SOURCE CLOSURE AWAITING OPERATIONAL EVIDENCE"
         in a05_decision_18
-    and "never treats an" in a05_decision_18
-    and "uninspected nonempty collection as clean" in a05_decision_18,
+    and "unsupported or uninspected nonempty collection"
+        in a05_decision_18
+    and "is never treated as clean" in a05_decision_18,
     a05_decoder_inventory_process.stderr.strip(),
 )
 check(
