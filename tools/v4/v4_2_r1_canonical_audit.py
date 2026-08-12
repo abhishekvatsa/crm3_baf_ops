@@ -1025,7 +1025,7 @@ mutable_workflow_action_refs = [
 check(
     "Workflow action references are immutable and repository-wide custody is CI-enforced",
     not mutable_workflow_action_refs
-    and len(workflow_action_refs) == 26
+    and len(workflow_action_refs) == 27
     and "test:workflow-action-custody" in text("package.json")
     and "npm run test:workflow-action-custody"
         in text(".github/workflows/release-gate.yml")
@@ -8328,6 +8328,14 @@ check(
         in a05_production_sweep_test
     and "unsupported nonempty app collections remain fail closed"
         in a05_production_sweep_test
+    and release_gate_source.count(
+        "- name: A-05 read-only production sweep contracts"
+    ) == 1
+    and release_gate_source.index(
+        "- name: A-05 read-only production sweep contracts"
+    ) < release_gate_source.index("  android-package:")
+    and "Set up Node 22 for A-05 reconciliation contracts"
+        in release_gate_source
     and "Status: OPEN - SOURCE CLOSURE AWAITING OPERATIONAL EVIDENCE"
         in a05_decision_18
     and "unsupported or uninspected nonempty collection"
