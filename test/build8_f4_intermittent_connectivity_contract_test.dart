@@ -193,8 +193,11 @@ void main() {
       expect(gate['authorization'], 'CLOSED_PASS');
 
       final decision = _object(ledger['programmeDecision']);
-      expect(decision['nextMutation'], 'STAGE2D-F6');
-      expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
+      expect(decision['nextMutation'], 'NONE_ALL_PROGRAMME_GATES_CLOSED');
+      expect(
+        decision['pilotHandout'],
+        'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER',
+      );
 
       final doc =
           File(

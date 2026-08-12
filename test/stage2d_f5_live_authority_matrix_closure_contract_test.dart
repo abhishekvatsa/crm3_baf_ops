@@ -125,15 +125,15 @@ void main() {
     );
   });
 
-  test('ledger closes only F5 and advances to F6', () {
+  test('F5 closure remains exact after the later F6 promotion', () {
     final ledger = _readJson('governance/programme-ledger.json');
     final decision = _object(ledger['programmeDecision']);
     final gates = _objects(ledger['programmeGates']);
     final f5 = gates.singleWhere((record) => record['gateId'] == 'STAGE2D-F5');
     final f6 = gates.singleWhere((record) => record['gateId'] == 'STAGE2D-F6');
 
-    expect(decision['nextMutation'], 'STAGE2D-F6');
-    expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
+    expect(decision['nextMutation'], 'NONE_ALL_PROGRAMME_GATES_CLOSED');
+    expect(decision['pilotHandout'], 'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER');
     expect(f5['currentStatus'], 'CLOSED');
     expect(f5['authorization'], 'CLOSED_PASS');
     expect(_objects(f5['evidence']), hasLength(3));
@@ -147,8 +147,8 @@ void main() {
       _objects(f5['statusHistory']).map((record) => record['status']).toList(),
       <String>['OPEN', 'CLOSED'],
     );
-    expect(f6['currentStatus'], 'OPEN');
-    expect(f6['authorization'], 'BLOCKS_PILOT_HANDOUT');
+    expect(f6['currentStatus'], 'CLOSED');
+    expect(f6['authorization'], 'CLOSED_PASS_CONTROLLED_PILOT_AUTHORIZED');
 
     final result =
         File(

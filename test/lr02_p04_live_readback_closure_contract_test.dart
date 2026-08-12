@@ -134,10 +134,13 @@ void main() {
       expect(_strings(record['reArmTriggers']), hasLength(5));
     }
     expect(lr02['authorization'], 'CLOSED_PASS');
-    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F6');
+    expect(
+      _object(ledger['programmeDecision'])['nextMutation'],
+      'NONE_ALL_PROGRAMME_GATES_CLOSED',
+    );
     expect(
       _object(ledger['programmeDecision'])['pilotHandout'],
-      'NOT_AUTHORIZED',
+      'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER',
     );
   });
 }

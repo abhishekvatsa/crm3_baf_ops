@@ -15,6 +15,30 @@ List<String> _strings(dynamic value) => (value as List<dynamic>).cast<String>();
 String _sha256(String path) =>
     sha256.convert(File(path).readAsBytesSync()).toString().toUpperCase();
 
+String _gitBlobSha256(String commit, String path) {
+  final result = Process.runSync('git', <String>[
+    'show',
+    '$commit:$path',
+  ], stdoutEncoding: null, stderrEncoding: null);
+  expect(result.exitCode, 0, reason: 'Missing historical blob $commit:$path');
+  return sha256.convert(result.stdout as List<int>).toString().toUpperCase();
+}
+
+String _introductionCommit(String path) {
+  final result = Process.runSync('git', <String>[
+    'log',
+    '--diff-filter=A',
+    '--max-count=1',
+    '--format=%H',
+    '--',
+    path,
+  ]);
+  expect(result.exitCode, 0, reason: 'Cannot inspect history for $path');
+  final commit = (result.stdout as String).trim();
+  expect(commit, isNotEmpty, reason: 'No introduction commit for $path');
+  return commit;
+}
+
 void main() {
   test('C-02 closes on exact audit-package source and CI evidence', () {
     final ledger =
@@ -78,9 +102,18 @@ void main() {
     ]);
 
     final sourceControls = _object(evidence['sourceControls']);
-    for (final control in sourceControls.values) {
-      final item = _object(control);
-      expect(_sha256(item['path'] as String), item['sha256']);
+    final sourceCommit =
+        _object(evidence['sourceAuthority'])['headCommit'] as String;
+    final evidenceCommit = _introductionCommit(evidencePath);
+    for (final control in sourceControls.entries) {
+      final item = _object(control.value);
+      final commit = control.key == 'decisionRecord'
+          ? evidenceCommit
+          : sourceCommit;
+      expect(
+        _gitBlobSha256(commit, item['path'] as String),
+        item['sha256'],
+      );
     }
 
     final pullRequestCi = _object(evidence['pullRequestCi']);

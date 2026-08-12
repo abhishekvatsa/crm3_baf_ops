@@ -6,10 +6,12 @@ Build 11 closes `P-06` and `70K-RECOVERY` with exact source, CI, signed-artifact
 two-target in-place upgrade, installed-store provenance, restart, recovery-package
 and cloud-reconciliation evidence.
 
-`STAGE2D-F6` remains `OPEN`. Its complete operational pack is ready. Exact
-Builds 9-11 containment and a fresh strict readback from admitted main are now
-proved, but pilot handout remains `NOT_AUTHORIZED` until that evidence receives
-merged source/CI closure adjudication under `LR-07`.
+`STAGE2D-F6` and `LR-07` are now `CLOSED`. PR #201 merged the exact Builds 9-11
+containment and strict readback and all five pull-request and post-merge jobs
+passed. The separate promotion authorizes only exact governed Build 11 for the
+sealed small-group pilot. No handout was performed by the promotion record;
+public, Play, web, Firebase App Distribution and unrestricted distribution
+remain prohibited.
 
 ## 70K Evidence
 
@@ -44,9 +46,18 @@ written to two distinct custody volumes, and represented by the remote built tag
 `crm3-build-built/11`. Its governed package SHA-256 is
 `104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970`.
 
-This is artifact and runtime authority, not distribution authority. Build 10's
-failed finalization receipt remains mandatory historical evidence and is not
-replaced or hidden by Build 11's successful completion.
+This finalization is artifact and runtime authority, not distribution
+authority. The later, separate post-build promotion supplies the bounded pilot
+authority without rewriting finalization history. Build 10's failed
+finalization receipt remains mandatory historical evidence and is not replaced
+or hidden by Build 11's successful completion.
+
+The promotion does not change the production artifact constructor's output
+boundary. Every later workflow build is still created as a non-distributable
+pre-release candidate and requires its own byte-exact post-build promotion.
+The policy records that construction boundary separately from Build 11's
+retained promotion, so a future governed build remains possible without
+inheriting Build 11's authority.
 
 ## F6 Readiness
 
@@ -61,18 +72,22 @@ The F6 pack records all seven required categories:
 7. an ordered pilot acceptance script.
 
 The pack's original decision remains `READY_AWAITING_LR07_CONTAINMENT` because
-the evidence record is append-only. Its prerequisite is now satisfied: the
-three exact artifact payloads were removed and strict readback found zero live
-production artifacts and zero GitHub Releases. F6 deliberately remains open
-until the new LR-07 records merge, admitted-main CI passes and a separate final
-adjudication authorizes only the sealed small-group pilot.
+the evidence record is append-only. Its prerequisite is satisfied: the three
+exact artifact payloads were removed, strict readback found zero live
+production artifacts and zero GitHub Releases, PR #201 merged the evidence, and
+its five-job pull-request and post-merge runs passed.
 
-## Remaining Sequence
+The final authority is
+`release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json`,
+SHA-256
+`878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400`.
+It records `OPEN -> PILOT_AUTHORIZED -> CLOSED` for F6 and
+`LIVE_READBACK_PROVED -> CLOSED` for LR-07.
 
-1. Merge the Builds 9-11 containment and strict-readback records with exact-head
-   CI.
-2. Require all five release-gate jobs to pass again on the admitted merge
-   commit.
-3. Bind that PR and post-merge CI to a separate LR-07 closure adjudication.
-4. Only then adjudicate F6 through `PILOT_AUTHORIZED -> CLOSED`. Any failed
-   acceptance or stop condition leaves pilot handout unauthorized.
+## Execution Boundary
+
+Actual pilot handout is conditional and separate from authorization. Before
+each handout, the operator must verify the exact Build 11 package and signer,
+freeze the admitted user and physical-device rosters, complete the acceptance
+script, and retain a privacy-safe execution receipt. Any failed acceptance or
+stop condition re-arms the gate and stops further pilot use.

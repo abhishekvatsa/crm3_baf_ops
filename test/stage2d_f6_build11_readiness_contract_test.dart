@@ -12,7 +12,7 @@ List<Map<String, dynamic>> _objects(dynamic value) {
 }
 
 void main() {
-  test('F6 pack is complete while LR-07 source/CI closure blocks handout', () {
+  test('F6 readiness remains exact and the separate promotion closes F6', () {
     final readiness =
         jsonDecode(
               File(
@@ -73,18 +73,29 @@ void main() {
     final gates = _objects(ledger['programmeGates']);
     final f6 = gates.singleWhere((entry) => entry['gateId'] == 'STAGE2D-F6');
     final lr07 = gates.singleWhere((entry) => entry['gateId'] == 'LR-07');
-    expect(f6['currentStatus'], 'OPEN');
-    expect(f6['authorization'], 'BLOCKS_PILOT_HANDOUT');
+    expect(f6['currentStatus'], 'CLOSED');
+    expect(f6['authorization'], 'CLOSED_PASS_CONTROLLED_PILOT_AUTHORIZED');
     expect(
-      _objects(f6['evidence']).single['decision'],
-      'READY_AWAITING_LR07_CONTAINMENT',
+      _objects(f6['evidence']).map((entry) => entry['decision']),
+      contains('READY_AWAITING_LR07_CONTAINMENT'),
     );
-    expect(lr07['currentStatus'], 'LIVE_READBACK_PROVED');
-    expect(lr07['authorization'], 'AWAITING_SOURCE_CI_CLOSURE');
+    expect(
+      _objects(f6['evidence']).map((entry) => entry['decision']),
+      contains('PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED'),
+    );
+    expect(
+      _objects(f6['statusHistory']).map((entry) => entry['status']),
+      <String>['OPEN', 'PILOT_AUTHORIZED', 'CLOSED'],
+    );
+    expect(lr07['currentStatus'], 'CLOSED');
+    expect(lr07['authorization'], 'CLOSED_PASS');
     expect(
       _object(ledger['programmeDecision'])['pilotHandout'],
-      'NOT_AUTHORIZED',
+      'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER',
     );
-    expect(_object(ledger['programmeDecision'])['nextMutation'], 'STAGE2D-F6');
+    expect(
+      _object(ledger['programmeDecision'])['nextMutation'],
+      'NONE_ALL_PROGRAMME_GATES_CLOSED',
+    );
   });
 }

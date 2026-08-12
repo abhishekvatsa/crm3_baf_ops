@@ -1,6 +1,6 @@
 # LR-07 Distribution and Installation Readback
 
-Status: LIVE READBACK PROVED - MERGED SOURCE/CI CLOSURE ADJUDICATION PENDING
+Status: CLOSED - EXACT BUILD 11 SEALED PILOT AUTHORIZED
 
 ## Live finding
 
@@ -75,7 +75,7 @@ account identity.
    and strict-readback records and moved `LR-07` through
    `OPEN -> LIVE_READBACK_PROVED -> CLOSED`.
 
-The collector still does not close `LR-07`; it records facts and requires a
+The collector itself does not close `LR-07`; it records facts and requires a
 separate adjudication. The repository evidence is:
 
 - `release/evidence/lr07-public-production-artifact-containment.json`
@@ -127,10 +127,16 @@ records are:
 - `release/evidence/lr07-public-production-artifact-containment-builds9-11.json`
 - `release/evidence/lr07-distribution-installation-live-readback-build11.json`
 
-`LR-07` is now `LIVE_READBACK_PROVED`. It is not yet `CLOSED`: the new records
-must merge with exact-head CI, pass admitted-main CI, and then be admitted by a
-separate closure adjudication. Pilot handout remains `NOT_AUTHORIZED` during
-that source/CI boundary.
+PR #201 merged the containment and strict-readback records with five successful
+pull-request jobs and five successful post-merge jobs. The separate Build 11
+promotion receipt then admitted that evidence and moved `LR-07` from
+`LIVE_READBACK_PROVED` to `CLOSED`.
+
+The strict collector parses that promotion receipt and binds its authorized
+build number, source commit and governed package hash to the completed artifact.
+A matching receipt path and file hash alone are insufficient. The collector
+continues to require zero GitHub Releases, zero live production workflow
+artifacts and every broad-distribution flag set to false.
 
 ## Qualification
 
@@ -145,5 +151,7 @@ production build supersedes the latest admitted build authority.
 The historical adjudication closed only the then-observed LR-07 posture. It did
 not authorize pilot handout, change Firebase, alter a device, create
 distribution authority, or claim that a public artifact was never previously
-downloaded. The Builds 9, 10 and 11 containment and strict readback are now
-proved; only their merged source/CI closure adjudication remains.
+downloaded. The later promotion authorizes only conditional handout of exact
+Build 11 to the sealed small-group roster; it performs no handout and leaves
+public, Play, web, Firebase App Distribution and unrestricted distribution
+prohibited.

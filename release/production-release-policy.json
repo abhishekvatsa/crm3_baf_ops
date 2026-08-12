@@ -118,6 +118,31 @@
     "controlledPilotApproved": false,
     "unrestrictedPlantReleaseApproved": false
   },
+  "postBuildPromotion": {
+    "status": "completed-controlled-pilot-only",
+    "promotionReceiptFile": "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
+    "promotionReceiptSha256": "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400",
+    "buildNumber": 11,
+    "sourceCommit": "ca65d3deead23cccdf07ca24255bc073221d84db",
+    "governedPackageSha256": "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970",
+    "controlledPilotApproved": true,
+    "pilotHandoutPerformed": false,
+    "publicArtifactApproved": false,
+    "githubReleaseApproved": false,
+    "firebaseAppDistributionApproved": false,
+    "playConsoleApproved": false,
+    "playStoreApproved": false,
+    "webDistributionApproved": false,
+    "unrestrictedPlantReleaseApproved": false
+  },
+  "artifactConstructionBoundary": {
+    "authority": "production-signed-pre-release-candidate",
+    "distributionApproved": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false,
+    "firebaseDeploymentPerformed": false,
+    "postBuildPromotionRequiredForAnyDistribution": true
+  },
   "signing": {
     "mode": "release",
     "productionSigningApproved": true,
@@ -171,15 +196,21 @@
     "buildNumber": 11
   },
   "distribution": {
-    "authority": "production-signed-pre-release-candidate",
-    "approved": false,
-    "scope": "Artifact construction, verification and custody only; no distribution approval is created by this campaign.",
+    "authority": "exact-build11-sealed-small-group-pilot",
+    "approved": true,
+    "scope": "Conditional direct handout of exact governed Build 11 to the frozen approved-user and physical-device pilot rosters only, after the acceptance script passes and a privacy-safe execution receipt is recorded.",
+    "approvedBuildNumber": 11,
+    "approvedPackageSha256": "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970",
+    "promotionReceiptFile": "release/evidence/stage2d-f6-build11-controlled-pilot-authorization.json",
+    "promotionReceiptSha256": "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400",
+    "pilotHandoutPerformed": false,
     "restrictions": [
       "Unrestricted plant release is not approved",
-      "Controlled-pilot distribution requires a separate post-build promotion record bound to the exact governed package hash",
+      "Only the exact governed Build 11 package may be handed directly from dual custody to the sealed small-group pilot",
+      "Every actual handout requires frozen user and physical-device rosters, successful acceptance-script execution and a separate privacy-safe receipt",
+      "GitHub artifacts, GitHub Releases, Firebase App Distribution, Play Console, Play Store, web and public distribution remain prohibited",
       "App Check activation remains under its explicit governed deferral",
       "70K-RECOVERY is closed only by the separately sealed Build 11 in-place inventory, migration, restart and reconciliation evidence",
-      "STAGE2D-F6 pilot authorization remains open until the full support and acceptance pack passes",
       "Do not uninstall or clear either installed app before device-specific no-loss proof is sealed",
       "Dependency audits must be re-run on the exact artifact-construction lockfiles"
     ],
@@ -203,8 +234,5 @@
     "flutterVersion": "3.44.0",
     "dartVersion": "3.12.0"
   },
-  "knownOpenGates": [
-    "STAGE2D-F6 small-group pilot readiness and recoverability",
-    "LR-07 distribution and installation readback re-armed by Builds 9, 10 and 11"
-  ]
+  "knownOpenGates": []
 }

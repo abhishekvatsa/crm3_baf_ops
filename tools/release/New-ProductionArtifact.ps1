@@ -578,10 +578,16 @@ if ([string]$versionApproval.reference -ne $ExpectedApprovalReference -or
 if ([int]$policy.release.buildNumber -ne $ExpectedBuildNumber) {
   throw 'Build-number input differs from policy.'
 }
-if ([string]$policy.distribution.authority -ne
-  'production-signed-pre-release-candidate' -or
-  $policy.distribution.approved -ne $false) {
-  throw 'O-05 builder may produce only a non-distributable pre-release candidate.'
+$constructionBoundary = $policy.artifactConstructionBoundary
+if ([string]$constructionBoundary.authority -ne
+    'production-signed-pre-release-candidate' -or
+    $constructionBoundary.distributionApproved -ne $false -or
+    $constructionBoundary.controlledPilotApproved -ne $false -or
+    $constructionBoundary.unrestrictedPlantReleaseApproved -ne $false -or
+    $constructionBoundary.firebaseDeploymentPerformed -ne $false -or
+    $constructionBoundary.postBuildPromotionRequiredForAnyDistribution -ne
+      $true) {
+  throw 'O-05 builder may produce only a new non-distributable pre-release candidate requiring separate post-build promotion.'
 }
 
 & pwsh -NoProfile -ExecutionPolicy Bypass `

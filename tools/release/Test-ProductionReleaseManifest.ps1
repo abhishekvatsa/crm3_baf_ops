@@ -696,10 +696,26 @@ if ([string]$policy.firebaseAndroidApp.firebaseAppId -ne
       [string]$manifest.firebaseAndroidApp.androidOauthClientId) {
   throw 'Manifest/policy Firebase identity mismatch.'
 }
-if ([string]$policy.distribution.authority -ne
+$constructionBoundary = $policy.artifactConstructionBoundary
+if ([string]$constructionBoundary.authority -ne
       'production-signed-pre-release-candidate' -or
-    $policy.distribution.approved -ne $false) {
-  throw 'Source policy improperly claims distribution approval.'
+    $constructionBoundary.distributionApproved -ne $false -or
+    $constructionBoundary.controlledPilotApproved -ne $false -or
+    $constructionBoundary.unrestrictedPlantReleaseApproved -ne $false -or
+    $constructionBoundary.firebaseDeploymentPerformed -ne $false -or
+    $constructionBoundary.postBuildPromotionRequiredForAnyDistribution -ne
+      $true -or
+    $manifest.releaseBoundary.distributionApproved -ne
+      $constructionBoundary.distributionApproved -or
+    $manifest.releaseBoundary.controlledPilotApproved -ne
+      $constructionBoundary.controlledPilotApproved -or
+    $manifest.releaseBoundary.unrestrictedPlantReleaseApproved -ne
+      $constructionBoundary.unrestrictedPlantReleaseApproved -or
+    $manifest.releaseBoundary.firebaseDeploymentPerformed -ne
+      $constructionBoundary.firebaseDeploymentPerformed -or
+    $manifest.releaseBoundary.postBuildPromotionRequiredForAnyDistribution -ne
+      $constructionBoundary.postBuildPromotionRequiredForAnyDistribution) {
+  throw 'Manifest does not preserve the policy new-artifact construction boundary.'
 }
 
 if ([string]$manifest.toolchain.actual.runnerImage -ne

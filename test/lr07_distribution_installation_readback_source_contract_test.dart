@@ -132,47 +132,44 @@ void main() {
     expect(source, isNot(contains(r'actions/runs/${artifact.id}')));
   });
 
-  test('strict readback fails closed and requires separate adjudication', () {
-    final source = read(
-      'tools/release/collectDistributionInstallationReadback.js',
-    );
-    final decision = read(
-      'docs/v4_2_r1/LR07_DISTRIBUTION_INSTALLATION_READBACK.md',
-    );
-    final ledger =
-        jsonDecode(read('governance/programme-ledger.json'))
-            as Map<String, dynamic>;
-    final gates =
-        (ledger['programmeGates'] as List).cast<Map<String, dynamic>>();
-    final lr07 = gates.singleWhere((record) => record['gateId'] == 'LR-07');
+  test(
+    'strict readback remains non-closing and final adjudication is recorded',
+    () {
+      final source = read(
+        'tools/release/collectDistributionInstallationReadback.js',
+      );
+      final decision = read(
+        'docs/v4_2_r1/LR07_DISTRIBUTION_INSTALLATION_READBACK.md',
+      );
+      final ledger =
+          jsonDecode(read('governance/programme-ledger.json'))
+              as Map<String, dynamic>;
+      final gates =
+          (ledger['programmeGates'] as List).cast<Map<String, dynamic>>();
+      final lr07 = gates.singleWhere((record) => record['gateId'] == 'LR-07');
 
-    expect(source, contains('liveProductionArtifactInventoryEmpty'));
-    expect(source, contains('githubReleaseInventoryEmpty'));
-    expect(source, contains('externalInstallationReceiptExact'));
-    expect(source, contains('selectProductionArtifacts'));
-    expect(source, contains('productionWorkflowRuns'));
-    expect(source, contains('latestContainmentFinalizationExact'));
-    expect(source, contains('historicalFailedAttemptsExact'));
-    expect(source, contains('latestContainmentWorkflowRunExact'));
-    expect(source, contains('collectorAuthorizesClosure: false'));
-    expect(source, contains('flag: "wx"'));
-    expect(decision, contains('collector still does not close `LR-07`'));
-    expect(
-      decision,
-      contains(
-        'Status: LIVE READBACK PROVED - MERGED SOURCE/CI CLOSURE '
-        'ADJUDICATION PENDING',
-      ),
-    );
-    expect(lr07['currentStatus'], 'LIVE_READBACK_PROVED');
-    expect(lr07['authorization'], 'AWAITING_SOURCE_CI_CLOSURE');
-    expect(lr07['evidence'], hasLength(5));
-    expect(lr07['requiredExitEvidence'], hasLength(6));
-    expect(lr07['reArmTriggers'], hasLength(7));
-    expect(lr07['statusHistory'], hasLength(5));
-    expect(
-      (lr07['statusHistory'] as List).last['status'],
-      'LIVE_READBACK_PROVED',
-    );
-  });
+      expect(source, contains('liveProductionArtifactInventoryEmpty'));
+      expect(source, contains('githubReleaseInventoryEmpty'));
+      expect(source, contains('externalInstallationReceiptExact'));
+      expect(source, contains('selectProductionArtifacts'));
+      expect(source, contains('productionWorkflowRuns'));
+      expect(source, contains('latestContainmentFinalizationExact'));
+      expect(source, contains('historicalFailedAttemptsExact'));
+      expect(source, contains('latestContainmentWorkflowRunExact'));
+      expect(source, contains('collectorAuthorizesClosure: false'));
+      expect(source, contains('flag: "wx"'));
+      expect(decision, contains('collector itself does not close `LR-07`'));
+      expect(
+        decision,
+        contains('Status: CLOSED - EXACT BUILD 11 SEALED PILOT AUTHORIZED'),
+      );
+      expect(lr07['currentStatus'], 'CLOSED');
+      expect(lr07['authorization'], 'CLOSED_PASS');
+      expect(lr07['evidence'], hasLength(6));
+      expect(lr07['requiredExitEvidence'], hasLength(6));
+      expect(lr07['reArmTriggers'], hasLength(7));
+      expect(lr07['statusHistory'], hasLength(6));
+      expect((lr07['statusHistory'] as List).last['status'], 'CLOSED');
+    },
+  );
 }

@@ -109,6 +109,9 @@ void main() {
       expect(text, isNot(contains('authority.backendGitCommit')));
       expect(text, isNot(contains('SkipQualityGates')));
       expect(text, isNot(contains("CiRunId = 'local'")));
+      expect(text, contains('artifactConstructionBoundary'));
+      expect(text, contains('production-signed-pre-release-candidate'));
+      expect(text, contains('postBuildPromotionRequiredForAnyDistribution'));
     });
 
     test('independent verifier reproduces signer and source custody', () {
@@ -131,6 +134,7 @@ void main() {
       expect(text, contains('firestore.indexes.sourceSha256'));
       expect(text, contains('Get-LedgerReservationMatches'));
       expect(text, contains('LedgerSelectionSelfTest'));
+      expect(text, contains('artifactConstructionBoundary'));
       expect(text, contains(r'[string]$_.reservationId -eq $ReservationId'));
       expect(text, isNot(contains('Where-Object reservationId -eq')));
       expect(
@@ -144,14 +148,16 @@ void main() {
       expect(text, isNot(contains('authority.deployedIndexesParityStatus')));
     });
 
-    test('policy remains non-distributable and binds remote issuance', () {
+    test('policy binds remote issuance and exact sealed-pilot promotion', () {
       final text = read('tools/release/Test-ProductionReleasePolicy.ps1');
 
       expect(text, contains("schemaVersion -ne 3"));
       expect(text, contains('remoteReservationTag'));
       expect(text, contains('remoteBuiltTag'));
       expect(text, contains('failedOrWithdrawnBuildConsumesNumber'));
-      expect(text, contains('production-signed-pre-release-candidate'));
+      expect(text, contains('exact-build11-sealed-small-group-pilot'));
+      expect(text, contains('completed-controlled-pilot-only'));
+      expect(text, contains('promotionReceiptSha256'));
       expect(text, contains('operationalCutoverBoundary'));
       expect(text, contains('backupProofSha256'));
       expect(text, contains('recoveryProofSha256'));
@@ -191,6 +197,7 @@ void main() {
       );
 
       expect(text, contains('crm3-production-build-number-'));
+      expect(text, contains('artifactConstructionBoundary'));
       expect(text, contains('contents: write'));
       expect(text, contains('refs/tags/'));
       expect(text, contains('This number is consumed even if the build fails'));
@@ -1228,7 +1235,12 @@ void main() {
         policy,
         contains('"remoteReservationTag": "crm3-build-reserved/11"'),
       );
-      expect(policy, contains('"approved": false'));
+      expect(policy, contains('"approved": true'));
+      expect(
+        policy,
+        contains('"authority": "exact-build11-sealed-small-group-pilot"'),
+      );
+      expect(policy, contains('"pilotHandoutPerformed": false'));
       expect(policy, contains('"unrestrictedPlantReleaseApproved": false'));
       expect(
         policy,

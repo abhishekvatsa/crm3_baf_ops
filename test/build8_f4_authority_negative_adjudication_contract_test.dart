@@ -151,8 +151,8 @@ void main() {
     final f4 = gates.singleWhere((record) => record['gateId'] == 'STAGE2D-F4');
     final p07 = findings.singleWhere((record) => record['findingId'] == 'P-07');
 
-    expect(decision['nextMutation'], 'STAGE2D-F6');
-    expect(decision['pilotHandout'], 'NOT_AUTHORIZED');
+    expect(decision['nextMutation'], 'NONE_ALL_PROGRAMME_GATES_CLOSED');
+    expect(decision['pilotHandout'], 'AUTHORIZED_EXACT_BUILD11_SEALED_ROSTER');
     expect(f4['currentStatus'], 'CLOSED');
     expect(f4['authorization'], 'CLOSED_PASS');
     expect(_objects(f4['evidence']), hasLength(4));
