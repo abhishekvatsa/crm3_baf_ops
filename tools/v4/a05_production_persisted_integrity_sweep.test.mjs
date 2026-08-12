@@ -10,6 +10,7 @@ import {
   assertRegistryCoversRules,
   assertRegistryCoversSource,
   classifyA05Inventory,
+  flutterToolsSnapshotCandidates,
   parseArgs,
   reconcileA05DocumentsWithDart,
   sourceDefinedCollectionNames,
@@ -150,6 +151,20 @@ test('production sweep source contains no Firestore mutation API', () => {
   assert.match(source, /await app\.delete\(\);/);
   assert.match(source, /db\.listCollections\(\)/);
   assert.match(source, /db\.collection\(collection\)\.get\(\)/);
+});
+
+test('Flutter bridge locates both wrapper and cached Dart SDK layouts', () => {
+  const expected = '/opt/flutter/bin/cache/flutter_tools.snapshot';
+  assert.ok(
+    flutterToolsSnapshotCandidates('/opt/flutter/bin/dart', path.posix)
+      .includes(expected),
+  );
+  assert.ok(
+    flutterToolsSnapshotCandidates(
+      '/opt/flutter/bin/cache/dart-sdk/bin/dart',
+      path.posix,
+    ).includes(expected),
+  );
 });
 
 test('canonical users, active runtime contract and empty app data pass', () => {

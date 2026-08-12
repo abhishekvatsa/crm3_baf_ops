@@ -473,12 +473,8 @@ export async function reconcileA05DocumentsWithDart({
   const dartExecutable = resolveDartExecutable();
   const flutterToolsSnapshot = dartExecutable == null
     ? null
-    : path.resolve(
-        path.dirname(dartExecutable),
-        '..',
-        '..',
-        'flutter_tools.snapshot',
-      );
+    : flutterToolsSnapshotCandidates(dartExecutable)
+        .find((candidate) => fs.existsSync(candidate)) ?? null;
   if (
     dartExecutable == null ||
     !fs.existsSync(flutterToolsSnapshot) ||
@@ -633,6 +629,22 @@ function bridgeUnavailable(localFailures, records) {
       errorType: 'DART_BRIDGE_UNAVAILABLE',
     })),
   ];
+}
+
+export function flutterToolsSnapshotCandidates(
+  dartExecutable,
+  pathApi = path,
+) {
+  const binDirectory = pathApi.dirname(dartExecutable);
+  return [...new Set([
+    pathApi.resolve(
+      binDirectory,
+      '..',
+      '..',
+      'flutter_tools.snapshot',
+    ),
+    pathApi.join(binDirectory, 'cache', 'flutter_tools.snapshot'),
+  ])];
 }
 
 function resolveDartExecutable() {

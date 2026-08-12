@@ -8315,6 +8315,7 @@ check(
     and "any supported operational record requires Dart reconciliation"
         in a05_production_sweep_test
     and "AUTHENTICATED_LOOPBACK_MEMORY_ONLY" in a05_production_sweep
+    and "flutterToolsSnapshotCandidates" in a05_production_sweep
     and "rawProductionDataPersisted: false" in a05_production_sweep
     and "reconcileA05Envelope" in a05_reconciliation_bridge
     and "decodePersistedAuditEvent(data, documentId: documentId)"
@@ -8327,6 +8328,8 @@ check(
     and "actual Dart readers reconcile valid audit and maintenance records in memory"
         in a05_production_sweep_test
     and "unsupported nonempty app collections remain fail closed"
+        in a05_production_sweep_test
+    and "Flutter bridge locates both wrapper and cached Dart SDK layouts"
         in a05_production_sweep_test
     and release_gate_source.count(
         "- name: A-05 read-only production sweep contracts"
