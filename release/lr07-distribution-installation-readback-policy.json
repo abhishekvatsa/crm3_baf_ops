@@ -47,6 +47,11 @@
       "sha256": "0ECED777787A61EBAF0F57A68608D3E9EFE2CA3FB8E6483B5439357015745720"
     },
     {
+      "path": "release/evidence/build-10-finalization-block.json",
+      "bytes": 3753,
+      "sha256": "E43F28767214895BAC0B212C955DC07094BFD9E7A71F472113F1762BB8365F58"
+    },
+    {
       "path": "release/evidence/build-8-f4-intermittent-connectivity-adjudication.json",
       "bytes": 6384,
       "sha256": "45B90B3F0C3D711FEA82B3514669B0C25FEDD2EF320AF4872EC8B102535678F6"
@@ -134,6 +139,20 @@
       "dualCustodyCompleted": true,
       "governedPackageSha256": "4D1EA1781FBAB0E047A1605644E329712E717B66A594147D55095DF21DF9960E",
       "deletionBasis": "FINALIZED_DUAL_CUSTODY_RUNTIME_FAILED_NON_DISTRIBUTABLE"
+    },
+    {
+      "buildNumber": 10,
+      "id": 9122790773,
+      "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.1-b10-e6bfa327466ffa99da9519846db7f83401c86c7b-run-31545500587",
+      "sizeBytes": 143797764,
+      "digest": "sha256:6c0a1012a432bb9bad80b81b192ce3ec0a55a3e019dada66b0c873c6787c31a6",
+      "workflowRunId": 31545500587,
+      "headSha": "e6bfa327466ffa99da9519846db7f83401c86c7b",
+      "ledgerDisposition": "successful-build-finalization-authority-mismatch-non-distributable",
+      "dualCustodyCompleted": false,
+      "governedPackageSha256": "F2FE9E997285C2BB544E3610EE1E89F52BC48E34BD3A982117D562C54A17E6DE",
+      "authorityReceiptPath": "release/evidence/build-10-finalization-block.json",
+      "deletionBasis": "CONSUMED_VERIFIED_FINALIZATION_BLOCKED_NON_DISTRIBUTABLE"
     }
   ],
   "strictReadback": {
@@ -149,9 +168,10 @@
   },
   "executionAuthority": {
     "artifactDeletionRequiresExplicitOwnerApproval": true,
-    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-8711253816-8730747624-8771948980-8836687771-8866525607-9116320474",
+    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-8711253816-8730747624-8771948980-8836687771-8866525607-9116320474-9122790773",
     "requiredPresentArtifactIds": [
-      9116320474
+      9116320474,
+      9122790773
     ],
     "deleteOnlyExactArtifactIds": true,
     "workflowRunsAndLogsPreserved": true,

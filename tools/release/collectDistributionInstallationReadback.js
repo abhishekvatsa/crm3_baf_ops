@@ -123,45 +123,79 @@ function summarizeMutableSourceAuthority({policy, releasePolicy, buildLedger}) {
       latest == null || entry.buildNumber > latest.buildNumber ? entry : latest,
     null,
   );
-  const receiptAuthority = policy.sourceEvidence.find(
-    (entry) =>
-      entry.path ===
-      `release/evidence/build-${latestExpectedArtifact?.buildNumber}-finalization-closure.json`,
+  const completedArtifacts = expectedArtifacts.filter(
+    (entry) => entry.dualCustodyCompleted === true,
+  );
+  const latestCompletedArtifact = completedArtifacts.reduce(
+    (latest, entry) =>
+      latest == null || entry.buildNumber > latest.buildNumber ? entry : latest,
+    null,
+  );
+  const receiptPathFor = (artifact) =>
+    artifact?.authorityReceiptPath ??
+    `release/evidence/build-${artifact?.buildNumber}-finalization-closure.json`;
+  const completedReceiptAuthority = policy.sourceEvidence.find(
+    (entry) => entry.path === receiptPathFor(latestCompletedArtifact),
+  );
+  const latestReceiptAuthority = policy.sourceEvidence.find(
+    (entry) => entry.path === receiptPathFor(latestExpectedArtifact),
   );
   const finalization = releasePolicy.finalization ?? {};
   const currentBuildNumber = releasePolicy.release?.buildNumber;
   let preservedFinalization = null;
   if (
-    latestExpectedArtifact != null &&
+    latestCompletedArtifact != null &&
     finalization.status === "completed-non-distributable" &&
-    currentBuildNumber === latestExpectedArtifact.buildNumber
+    currentBuildNumber === latestCompletedArtifact.buildNumber
   ) {
     preservedFinalization = {
       ...finalization,
       buildNumber: currentBuildNumber,
     };
   } else if (
-    latestExpectedArtifact != null &&
+    latestCompletedArtifact != null &&
     finalization.status === "pending-source-authorized" &&
     Number.isInteger(currentBuildNumber) &&
-    currentBuildNumber > latestExpectedArtifact.buildNumber
+    currentBuildNumber > latestCompletedArtifact.buildNumber
   ) {
     preservedFinalization = finalization.priorCompletedBuild ?? null;
   }
 
   const preservedFinalizationExact =
-    latestExpectedArtifact != null &&
-    receiptAuthority != null &&
-    preservedFinalization?.buildNumber === latestExpectedArtifact.buildNumber &&
+    latestCompletedArtifact != null &&
+    completedReceiptAuthority != null &&
+    preservedFinalization?.buildNumber === latestCompletedArtifact.buildNumber &&
     preservedFinalization?.status === "completed-non-distributable" &&
-    preservedFinalization?.completionReceiptFile === receiptAuthority.path &&
-    preservedFinalization?.completionReceiptSha256 === receiptAuthority.sha256 &&
-    preservedFinalization?.sourceCommit === latestExpectedArtifact.headSha &&
+    preservedFinalization?.completionReceiptFile ===
+      completedReceiptAuthority.path &&
+    preservedFinalization?.completionReceiptSha256 ===
+      completedReceiptAuthority.sha256 &&
+    preservedFinalization?.sourceCommit === latestCompletedArtifact.headSha &&
     preservedFinalization?.githubRunId ===
-      latestExpectedArtifact.workflowRunId &&
+      latestCompletedArtifact.workflowRunId &&
     preservedFinalization?.governedPackageSha256 ===
-      latestExpectedArtifact.governedPackageSha256 &&
+      latestCompletedArtifact.governedPackageSha256 &&
     preservedFinalization?.dualCustodyCompleted === true;
+  const failedAttempt = finalization.priorFailedAttempt ?? null;
+  const latestContainmentAttemptExact =
+    latestExpectedArtifact != null &&
+    (latestExpectedArtifact.dualCustodyCompleted === true
+      ? latestExpectedArtifact.buildNumber === latestCompletedArtifact?.buildNumber &&
+        preservedFinalizationExact
+      : latestReceiptAuthority != null &&
+        failedAttempt?.buildNumber === latestExpectedArtifact.buildNumber &&
+        failedAttempt?.status === "blocked-non-distributable" &&
+        failedAttempt?.evidenceFile === latestReceiptAuthority.path &&
+        failedAttempt?.evidenceSha256 === latestReceiptAuthority.sha256 &&
+        failedAttempt?.sourceCommit === latestExpectedArtifact.headSha &&
+        failedAttempt?.githubRunId === latestExpectedArtifact.workflowRunId &&
+        failedAttempt?.githubArtifactId === latestExpectedArtifact.id &&
+        failedAttempt?.githubArtifactDigest === latestExpectedArtifact.digest &&
+        failedAttempt?.governedPackageSha256 ===
+          latestExpectedArtifact.governedPackageSha256 &&
+        failedAttempt?.independentVerificationCompleted === true &&
+        failedAttempt?.dualCustodyCompleted === false &&
+        failedAttempt?.distributionPerformed === false);
 
   const expectedLedgerEntriesExact = expectedArtifacts.every((expected) => {
     const entry = buildLedger.entries?.find(
@@ -209,6 +243,7 @@ function summarizeMutableSourceAuthority({policy, releasePolicy, buildLedger}) {
       releasePolicy.github?.environmentReviewControl?.repositoryVisibility ===
         "public" &&
       preservedFinalizationExact &&
+      latestContainmentAttemptExact &&
       pendingSuccessorExact &&
       releasePolicy.distribution?.approved === false &&
       releasePolicy.distribution?.unrestrictedPlantReleaseApproved === false,
@@ -216,6 +251,7 @@ function summarizeMutableSourceAuthority({policy, releasePolicy, buildLedger}) {
       expectedLedgerEntriesExact &&
       sourceOnlySuccessorsExact &&
       pendingSuccessorExact,
+    latestContainmentAttemptExact,
   };
 }
 
@@ -246,10 +282,11 @@ function summarizeSource(repositoryRoot, policy) {
       latest == null || entry.buildNumber > latest.buildNumber ? entry : latest,
     null,
   );
-  const latestFinalization = readJson(
+  const latestAuthorityReceipt = readJson(
     path.join(
       repositoryRoot,
-      `release/evidence/build-${latestExpectedArtifact.buildNumber}-finalization-closure.json`,
+      latestExpectedArtifact.authorityReceiptPath ??
+        `release/evidence/build-${latestExpectedArtifact.buildNumber}-finalization-closure.json`,
     ),
   );
   const installationAdjudication = readJson(
@@ -335,17 +372,8 @@ function summarizeSource(repositoryRoot, policy) {
       build8Finalization.dualCustody?.status === "passed" &&
       build8Finalization.releaseBoundary?.distributionPerformed === false,
     latestContainmentFinalizationExact:
-      latestFinalization.status === "passed-non-distributable" &&
-      latestFinalization.release?.buildNumber ===
-        latestExpectedArtifact.buildNumber &&
-      latestFinalization.sourceAuthority?.commit ===
-        latestExpectedArtifact.headSha &&
-      latestFinalization.workflow?.runId ===
-        latestExpectedArtifact.workflowRunId &&
-      latestFinalization.governedPackage?.sha256 ===
-        latestExpectedArtifact.governedPackageSha256 &&
-      latestFinalization.dualCustody?.status === "passed" &&
-      latestFinalization.releaseBoundary?.distributionPerformed === false,
+      mutableAuthority.latestContainmentAttemptExact === true &&
+      latestAuthorityReceipt != null,
     installationAdjudicationExact:
       installationAdjudication.decision ===
         "PASS_BUILD8_F4_INTERMITTENT_CONNECTIVITY_ADJUDICATED" &&

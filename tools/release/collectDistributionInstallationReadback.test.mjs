@@ -245,6 +245,7 @@ test("preserved latest authority admits only a source-reserved successor", () =>
   assert.deepEqual(exact, {
     releasePolicyExact: true,
     buildLedgerExact: true,
+    latestContainmentAttemptExact: true,
   });
 
   const malformedPrior = structuredClone(releasePolicy);
