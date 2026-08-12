@@ -557,7 +557,7 @@ void main() {
     }
   });
 
-  test('A-02 to A-05 remain open with explicit exit constraints', () {
+  test('A-02 to A-04 remain open while A-05 is evidence-closed', () {
     final payload = _readJson('governance/programme-ledger.json');
     final findings = _objects(payload['technicalFindings']);
     final architecture = <String, Map<String, dynamic>>{
@@ -572,7 +572,8 @@ void main() {
     };
 
     expect(architecture.keys, <String>{'A-02', 'A-03', 'A-04', 'A-05'});
-    for (final finding in architecture.values) {
+    for (final findingId in <String>['A-02', 'A-03', 'A-04']) {
+      final finding = architecture[findingId]!;
       expect(finding['currentStatus'], 'OPEN');
       expect(_objects(finding['evidence']), isEmpty);
       expect(_strings(finding['requiredExitEvidence']), hasLength(5));
@@ -585,6 +586,59 @@ void main() {
         <String>['OPEN'],
       );
     }
+
+    final a05 = architecture['A-05']!;
+    expect(a05['currentStatus'], 'CLOSED');
+    expect(_objects(a05['evidence']), hasLength(1));
+    expect(_strings(a05['requiredExitEvidence']), hasLength(5));
+    expect(_strings(a05['reArmTriggers']), hasLength(3));
+    expect(
+      _objects(
+        a05['statusHistory'],
+      ).map((entry) => entry['status']).toList(growable: false),
+      <String>['OPEN', 'SOURCE_IMPLEMENTED', 'MERGED', 'CLOSED'],
+    );
+    expect(
+      _objects(a05['evidence']).single['decision'],
+      'PASS_A05_PERSISTED_STATE_INTEGRITY_CLOSURE',
+    );
+    final a05Closure = _readJson(
+      'release/evidence/a05-persisted-state-integrity-closure.json',
+    );
+    final localGeneration = _object(
+      a05Closure['supportedLocalGenerationAuthority'],
+    );
+    final currentSource = _object(localGeneration['currentSourceRevalidation']);
+    expect(currentSource['pullRequest'], 206);
+    expect(
+      currentSource['sourceCommit'],
+      'ed8b8fb0655d2fb5396f10daecb3e6ab49966342',
+    );
+    expect(
+      currentSource['sourceTree'],
+      '98af51decc0c4b2fe9257d66dcb4de4766aa1cfd',
+    );
+    expect(currentSource['workflowRun'], 31628102225);
+    expect(currentSource['workflowJob'], 94219670718);
+    expect(currentSource['conclusion'], 'success');
+    expect(currentSource['sameCheckout'], isTrue);
+    expect(currentSource['remediatedA05RegressionFileCount'], 18);
+    expect(currentSource['remediatedA05RegressionPassedCount'], 137);
+    expect(currentSource['supportedLocalGenerationFixturePassedCount'], 4);
+    expect(currentSource['supportedLocalGenerationFixtureFailedCount'], 0);
+    expect(_strings(currentSource['fixtureDispositions']), hasLength(4));
+    final repairDisposition = _object(
+      currentSource['integratedRepairDisposition'],
+    );
+    expect(
+      repairDisposition['disposition'],
+      'PRESERVE_AND_BLOCK_PENDING_REPAIR',
+    );
+    expect(repairDisposition['malformedField'], 'asset');
+    expect(repairDisposition['rawPayloadPreserved'], isTrue);
+    expect(repairDisposition['repairStateExposed'], isTrue);
+    expect(repairDisposition['authoritativeReadRejected'], isTrue);
+    expect(repairDisposition['silentRewritePerformed'], isFalse);
 
     expect(
       _strings(architecture['A-02']!['requiredExitEvidence']).join(' '),

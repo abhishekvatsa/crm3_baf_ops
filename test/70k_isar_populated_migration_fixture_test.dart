@@ -406,6 +406,35 @@ Future<void> _populateRepresentativeRows(Isar isar) async {
   });
 }
 
+void _expectCurrentA05LocalDisposition({
+  required JobTemplate template,
+  required JobExecution execution,
+  required JobModuleInstance module,
+  required JobDiaryEntry diary,
+}) {
+  expect(template.fieldsReadResult.isValid, isTrue);
+  expect(execution.responsesReadResult.isValid, isTrue);
+  expect(module.moduleSnapshotReadResult.isValid, isTrue);
+  expect(module.fieldDefinitionsReadResult.isValid, isTrue);
+  expect(module.responsesReadResult.isValid, isTrue);
+  expect(diary.jobExecutionFirestoreId, execution.firestoreId);
+  expect(diary.moduleInstanceFirestoreId, module.firestoreId);
+
+  const legacyActions = '[{"action":"inspect"}]';
+  expect(execution.actionsJson, legacyActions);
+  expect(module.actionsJson, legacyActions);
+  for (final result in [
+    execution.actionsReadResult,
+    module.actionsReadResult,
+  ]) {
+    expect(result.isValid, isFalse);
+    expect(result.entries, isEmpty);
+    expect(result.error.toString(), contains('field "asset"'));
+  }
+  expect(() => execution.actions, throwsA(isA<FormatException>()));
+  expect(() => module.actions, throwsA(isA<FormatException>()));
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -502,6 +531,12 @@ void main() {
         expect(module?.jobExecutionLocalId, isNull);
         expect(diary?.jobExecutionLocalId, isNull);
         expect(diary?.moduleInstanceLocalId, isNull);
+        _expectCurrentA05LocalDisposition(
+          template: template!,
+          execution: execution!,
+          module: module!,
+          diary: diary!,
+        );
         expect(await isar.workflowAggregateRecords.where().count(), 0);
         expect(await isar.workflowCommandRecords.where().count(), 0);
       } finally {
@@ -609,6 +644,11 @@ void main() {
         expect(committed.state, IsarSchemaMarkerState.committed);
         expect(committed.databaseGenerationId, _generationId);
 
+        final template =
+            await isar.jobTemplates
+                .filter()
+                .firestoreIdEqualTo('70k-template-v1')
+                .findFirst();
         final execution =
             await isar.jobExecutions
                 .filter()
@@ -627,6 +667,12 @@ void main() {
         expect(module?.jobExecutionFirestoreId, execution?.firestoreId);
         expect(diary?.jobExecutionFirestoreId, execution?.firestoreId);
         expect(diary?.moduleInstanceFirestoreId, module?.firestoreId);
+        _expectCurrentA05LocalDisposition(
+          template: template!,
+          execution: execution!,
+          module: module!,
+          diary: diary!,
+        );
       } finally {
         if (isar?.isOpen ?? false) {
           await isar!.close(deleteFromDisk: true);
@@ -869,12 +915,33 @@ void main() {
         expect(await isar.jobExecutions.where().count(), 1);
         expect(await isar.jobModuleInstances.where().count(), 1);
         expect(await isar.jobDiaryEntrys.where().count(), 1);
+        final restoredTemplate =
+            await isar.jobTemplates
+                .filter()
+                .firestoreIdEqualTo('70k-template-v1')
+                .findFirst();
+        final restoredExecution =
+            await isar.jobExecutions
+                .filter()
+                .firestoreIdEqualTo('70k-execution-v1')
+                .findFirst();
         final restoredModule =
             await isar.jobModuleInstances
                 .filter()
                 .firestoreIdEqualTo('70k-module-v1')
                 .findFirst();
+        final restoredDiary =
+            await isar.jobDiaryEntrys
+                .filter()
+                .firestoreIdEqualTo('70k-diary-v1')
+                .findFirst();
         expect(restoredModule?.jobExecutionFirestoreId, '70k-execution-v1');
+        _expectCurrentA05LocalDisposition(
+          template: restoredTemplate!,
+          execution: restoredExecution!,
+          module: restoredModule!,
+          diary: restoredDiary!,
+        );
       } finally {
         if (isar?.isOpen ?? false) {
           await isar!.close(deleteFromDisk: true);

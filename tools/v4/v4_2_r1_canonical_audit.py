@@ -8114,6 +8114,15 @@ a05_reconciliation_harness = text(
 a05_decision_18 = text(
     "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_TRANCHE_18.md"
 )
+a05_closure_path = (
+    ROOT / "release/evidence/a05-persisted-state-integrity-closure.json"
+)
+a05_closure = data(
+    "release/evidence/a05-persisted-state-integrity-closure.json"
+)
+a05_closure_decision = text(
+    "docs/v4_2_r1/A05_PERSISTED_STATE_INTEGRITY_CLOSURE.md"
+)
 a05_timestamp_inventory_process = subprocess.run(
     [sys.executable, str(ROOT / "tools/v4/a05_persisted_timestamp_inventory.py")],
     cwd=ROOT,
@@ -8153,6 +8162,30 @@ a05_records = [
     if record.get("findingId") == "A-05"
 ]
 a05_record = a05_records[0] if len(a05_records) == 1 else {}
+a05_evidence = a05_record.get("evidence", [])
+a05_history = [
+    entry.get("status")
+    for entry in a05_record.get("statusHistory", [])
+]
+a05_pr_ci = a05_closure.get("pullRequestCi", {})
+a05_postmerge_ci = a05_closure.get("postMergeCi", {})
+a05_production_reconciliation = a05_closure.get(
+    "productionReconciliation", {}
+)
+a05_local_generation = a05_closure.get(
+    "supportedLocalGenerationAuthority", {}
+)
+a05_current_source_revalidation = a05_local_generation.get(
+    "currentSourceRevalidation", {}
+)
+a05_closure_boundary = a05_closure.get("closureBoundary", {})
+a05_expected_jobs = {
+    "Android emulator app-shell integration (not physical-device evidence)",
+    "Android release package + cold-start proof (non-production)",
+    "Cloud Functions host build + non-emulator tests",
+    "Firestore Rules + governed callable emulator",
+    "Flutter host analysis + tests + no-loss contracts",
+}
 a05_reconciliation_corrections = {
     "lib/features/admin/presentation/local_diagnostics_screen.dart",
     "lib/features/audit/repositories/audit_repository.dart",
@@ -8233,8 +8266,13 @@ check(
         and len(record.get("reArmTriggers", [])) == 3
         and [entry.get("status") for entry in record.get("statusHistory", [])]
         == ["OPEN"]
-        for record in a02_a05_records.values()
+        for finding_id, record in a02_a05_records.items()
+        if finding_id != "A-05"
     )
+    and a05_record.get("currentStatus") == "CLOSED"
+    and len(a05_record.get("requiredExitEvidence", [])) == 5
+    and len(a05_record.get("reArmTriggers", [])) == 3
+    and a05_history == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
     and "Inventories must be machine-generated" in a02_a05_exit_decision
     and "Broad exemptions for `metadataJson`" in a02_a05_exit_decision
     and "registered, authority-gated, read-only diagnostic adapters"
@@ -8658,9 +8696,8 @@ check(
     and "does not inspect or mutate production documents" in a05_decision_17,
 )
 check(
-    "A-05 persisted-state tranche fails closed without claiming finding closure",
+    "A-05 historical persisted-state tranches retain their bounded authority",
     len(a05_records) == 1
-    and a05_record.get("currentStatus") == "OPEN"
     and a05_record.get("title")
         == "Empty catches and DateTime.now fallbacks manufacture or suppress state"
     and "class PersistedDataFormatException" in a05_reader
@@ -8887,6 +8924,171 @@ check(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_source_delta_paths
     ),
+)
+check(
+    "A-05 closes on exact source, CI, production and local-generation authority",
+    a05_record.get("currentStatus") == "CLOSED"
+    and a05_history == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(a05_evidence) == 1
+    and a05_evidence[0].get("evidenceFile")
+        == "release/evidence/a05-persisted-state-integrity-closure.json"
+    and a05_evidence[0].get("evidenceSha256") == sha(a05_closure_path)
+    and a05_evidence[0].get("inventoryAndDecoderPullRequest") == 204
+    and a05_evidence[0].get("reconciliationPullRequest") == 205
+    and a05_evidence[0].get("reconciliationHeadCommit")
+        == "dc9f0c94a6f4dbed0b18f3345cac8d2560deb8e1"
+    and a05_evidence[0].get("reconciliationSourceTree")
+        == "7f003322ed68856c0b941ba276fd6a31aedb986c"
+    and a05_evidence[0].get("reconciliationMergeCommit")
+        == "3b517d7d72efb629ace4b7348e6839a60e7f40d0"
+    and a05_evidence[0].get("pullRequestWorkflowRun") == 31622397485
+    and a05_evidence[0].get("postMergeWorkflowRun") == 31623568710
+    and a05_evidence[0].get("localGenerationRevalidationPullRequest") == 206
+    and a05_evidence[0].get("localGenerationRevalidationHeadCommit")
+        == "ed8b8fb0655d2fb5396f10daecb3e6ab49966342"
+    and a05_evidence[0].get("localGenerationRevalidationSourceTree")
+        == "98af51decc0c4b2fe9257d66dcb4de4766aa1cfd"
+    and a05_evidence[0].get("localGenerationRevalidationWorkflowRun")
+        == 31628102225
+    and a05_evidence[0].get("localGenerationRevalidationWorkflowJob")
+        == 94219670718
+    and a05_evidence[0].get("remediatedA05RegressionPassedCount") == 137
+    and a05_evidence[0].get("supportedLocalGenerationFixturePassedCount") == 4
+    and a05_evidence[0].get("productionBlockingFindingCount") == 0
+    and a05_evidence[0].get("productionWarningCount") == 0
+    and a05_evidence[0].get("decision")
+        == "PASS_A05_PERSISTED_STATE_INTEGRITY_CLOSURE"
+    and a05_closure.get("schemaVersion") == 1
+    and a05_closure.get("findingIds") == ["A-05"]
+    and a05_closure.get("authorityType") == "SOURCE_AND_CI"
+    and a05_closure.get("decision")
+        == "PASS_A05_PERSISTED_STATE_INTEGRITY_CLOSURE"
+    and a05_closure.get("machineInventory", {}).get("decoderSurfaceCount")
+        == 39
+    and a05_closure.get("machineInventory", {}).get("decoderCatchSiteCount")
+        == 36
+    and a05_closure.get("machineInventory", {}).get("timestampReaderCount")
+        == 32
+    and a05_closure.get("machineInventory", {}).get(
+        "directTimestampCandidateCount"
+    ) == 28
+    and a05_closure.get("machineInventory", {}).get("riskCandidateCount")
+        == 234
+    and a05_closure.get("machineInventory", {}).get("unclassifiedCount") == 0
+    and a05_closure.get("machineInventory", {}).get("stalePolicyCount") == 0
+    and a05_production_reconciliation.get("decision")
+        == "PASS_A05_READ_ONLY_PRODUCTION_RECONCILIATION"
+    and a05_production_reconciliation.get("sourceCommit")
+        == "3b517d7d72efb629ace4b7348e6839a60e7f40d0"
+    and a05_production_reconciliation.get("sourceTree")
+        == "7f003322ed68856c0b941ba276fd6a31aedb986c"
+    and a05_production_reconciliation.get("cleanFetchedMain") is True
+    and a05_production_reconciliation.get("readOnly") is True
+    and a05_production_reconciliation.get("cloudMutationCapability") == "NONE"
+    and a05_production_reconciliation.get("rawIdentifiersEmitted") is False
+    and a05_production_reconciliation.get("rawDocumentDataPersisted") is False
+    and a05_production_reconciliation.get("unregisteredRootCollectionCount")
+        == 0
+    and a05_production_reconciliation.get("blockingFindingCount") == 0
+    and a05_production_reconciliation.get("warningCount") == 0
+    and a05_production_reconciliation.get("strictReaderAttemptedCount") == 9
+    and a05_production_reconciliation.get("strictReaderPassedCount") == 9
+    and a05_production_reconciliation.get("strictReaderFailedCount") == 0
+    and a05_local_generation.get("evidenceSha256")
+        == sha(local_recovery_closure_path)
+    and a05_local_generation.get("decision")
+        == "PASS_70K_RECOVERY_AND_P06_CLOSURE"
+    and a05_local_generation.get("installedTargetCount") == 2
+    and a05_local_generation.get("nativeStoreTestsPassed") == 21
+    and a05_local_generation.get("nativeStoreTestsFailed") == 0
+    and a05_local_generation.get("cloudReconciliationPassedOnEveryTarget")
+        is True
+    and a05_current_source_revalidation.get("repository")
+        == "abhishekvatsa/crm3_baf_ops"
+    and a05_current_source_revalidation.get("pullRequest") == 206
+    and a05_current_source_revalidation.get("sourceCommit")
+        == "ed8b8fb0655d2fb5396f10daecb3e6ab49966342"
+    and a05_current_source_revalidation.get("sourceTree")
+        == "98af51decc0c4b2fe9257d66dcb4de4766aa1cfd"
+    and a05_current_source_revalidation.get("workflowRun") == 31628102225
+    and a05_current_source_revalidation.get("workflowJob") == 94219670718
+    and a05_current_source_revalidation.get("workflowJobName")
+        == "Flutter host analysis + tests + no-loss contracts"
+    and a05_current_source_revalidation.get("conclusion") == "success"
+    and a05_current_source_revalidation.get("sameCheckout") is True
+    and a05_current_source_revalidation.get(
+        "remediatedA05RegressionFileCount"
+    ) == 18
+    and a05_current_source_revalidation.get(
+        "remediatedA05RegressionPassedCount"
+    ) == 137
+    and a05_current_source_revalidation.get(
+        "supportedLocalGenerationFixturePassedCount"
+    ) == 4
+    and a05_current_source_revalidation.get(
+        "supportedLocalGenerationFixtureFailedCount"
+    ) == 0
+    and a05_current_source_revalidation.get("fixtureFile")
+        == "test/70k_isar_populated_migration_fixture_test.dart"
+    and len(a05_current_source_revalidation.get("fixtureDispositions", [])) == 4
+    and a05_current_source_revalidation.get(
+        "integratedRepairDisposition", {}
+    ).get("disposition") == "PRESERVE_AND_BLOCK_PENDING_REPAIR"
+    and a05_current_source_revalidation.get(
+        "integratedRepairDisposition", {}
+    ).get("malformedField") == "asset"
+    and a05_current_source_revalidation.get(
+        "integratedRepairDisposition", {}
+    ).get("rawPayloadPreserved") is True
+    and a05_current_source_revalidation.get(
+        "integratedRepairDisposition", {}
+    ).get("repairStateExposed") is True
+    and a05_current_source_revalidation.get(
+        "integratedRepairDisposition", {}
+    ).get("authoritativeReadRejected") is True
+    and a05_current_source_revalidation.get(
+        "integratedRepairDisposition", {}
+    ).get("silentRewritePerformed") is False
+    and "rather than being reinterpreted as Firestore documents"
+        in a05_current_source_revalidation.get("authorityBoundary", "")
+    and a05_pr_ci.get("runId") == 31622397485
+    and a05_pr_ci.get("headSha")
+        == "dc9f0c94a6f4dbed0b18f3345cac8d2560deb8e1"
+    and a05_pr_ci.get("conclusion") == "success"
+    and a05_postmerge_ci.get("runId") == 31623568710
+    and a05_postmerge_ci.get("headSha")
+        == "3b517d7d72efb629ace4b7348e6839a60e7f40d0"
+    and a05_postmerge_ci.get("conclusion") == "success"
+    and all(
+        {
+            job.get("name")
+            for job in section.get("jobs", [])
+            if isinstance(job, dict)
+        } == a05_expected_jobs
+        and all(
+            job.get("conclusion") == "success"
+            for job in section.get("jobs", [])
+            if isinstance(job, dict)
+        )
+        for section in (a05_pr_ci, a05_postmerge_ci)
+    )
+    and a05_closure_boundary.get("a05ClosureAuthorized") is True
+    and all(
+        value is False
+        for key, value in a05_closure_boundary.items()
+        if key != "a05ClosureAuthorized"
+    )
+    and "Status: CLOSED" in a05_closure_decision
+    and "PASS_A05_PERSISTED_STATE_INTEGRITY_CLOSURE"
+        in a05_closure_decision
+    and "Current-source local-generation authority" in a05_closure_decision
+    and "137 A-05" in a05_closure_decision
+    and "all four governed local-generation fixtures"
+        in a05_closure_decision
+    and "PRESERVE_AND_BLOCK_PENDING_REPAIR" in a05_closure_decision
+    and "not re-created or\nreinterpreted as current-source proof"
+        in a05_closure_decision
+    and "closes only A-05" in a05_closure_decision,
 )
 
 lr07_policy = data(
