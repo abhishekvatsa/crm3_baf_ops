@@ -195,14 +195,10 @@ DateTime readRequiredPersistedDateTime(
       if (value.containsKey(secondsKey) &&
           value.containsKey(nanosecondsKey) &&
           seconds is int &&
-          nanoseconds is int &&
-          nanoseconds >= 0 &&
-          nanoseconds < 1000000000) {
+          nanoseconds is int) {
         try {
-          final microseconds =
-              seconds * Duration.microsecondsPerSecond + nanoseconds ~/ 1000;
-          return DateTime.fromMicrosecondsSinceEpoch(microseconds, isUtc: true);
-        } on RangeError {
+          return Timestamp(seconds, nanoseconds).toDate().toUtc();
+        } on ArgumentError {
           // Converted into the stable format exception below.
         }
       }

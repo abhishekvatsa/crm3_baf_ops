@@ -64,6 +64,7 @@ void main() {
       'not-a-timestamp',
       const <String, Object>{'_seconds': 1785911400},
       const <String, Object>{'_seconds': 1785911400, '_nanoseconds': -1},
+      const <String, Object>{'_seconds': 253402300800, '_nanoseconds': 0},
     ]) {
       expect(
         () => BackendReleaseIdentity.fromCallableData(<String, dynamic>{

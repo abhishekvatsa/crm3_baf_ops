@@ -69,6 +69,27 @@ void main() {
         );
 
         expect(decoded, DateTime.utc(2026, 8, 5, 6, 30, 0, 123, 456));
+        expect(
+          readRequiredPersistedDateTime(
+            const <String, Object>{'seconds': -62135596800, 'nanoseconds': 0},
+            field: 'deployedAt',
+            source: 'callable response',
+            allowSerializedTimestampMap: true,
+          ),
+          DateTime.utc(1),
+        );
+        expect(
+          readRequiredPersistedDateTime(
+            const <String, Object>{
+              'seconds': 253402300799,
+              'nanoseconds': 999999999,
+            },
+            field: 'deployedAt',
+            source: 'callable response',
+            allowSerializedTimestampMap: true,
+          ),
+          DateTime.utc(9999, 12, 31, 23, 59, 59, 999, 999),
+        );
         for (final malformed in <Object>[
           const <String, Object>{'_seconds': 1785911400},
           const <String, Object>{
@@ -82,6 +103,8 @@ void main() {
             'seconds': 1785911400,
             'nanoseconds': 1000000000,
           },
+          const <String, Object>{'seconds': -62135596801, 'nanoseconds': 0},
+          const <String, Object>{'seconds': 253402300800, 'nanoseconds': 0},
         ]) {
           expect(
             () => readRequiredPersistedDateTime(

@@ -8216,7 +8216,7 @@ check(
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 41
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 29
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 28
     and a05_timestamp_inventory_report.get(
         "directParserClassificationGroupCount"
     ) == 6
@@ -8509,7 +8509,7 @@ check(
 check(
     "A-05 direct timestamp candidates are classified and weak decoders fail closed",
     a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 29
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 28
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -8535,7 +8535,11 @@ check(
         for entry in a05_direct_timestamp_candidate_manifest.get(
             "classifications", []
         )
-    ) == 29
+    ) == 28
+    and "Timestamp(seconds, nanoseconds).toDate().toUtc()" in a05_reader
+    and "on ArgumentError" in a05_reader
+    and "'seconds': -62135596801" in a05_test
+    and "'seconds': 253402300800" in a05_test
     and "allowSerializedTimestampMap: true" in a05_backend_release_identity
     and "DateTime? _parseDateTime(" not in a05_backend_release_identity
     and "malformed present deployment timestamps fail closed"
@@ -8550,7 +8554,7 @@ check(
     and "snapshotMatcher, contains('readRequiredPersistedDateTime(')"
         in a05_template_lifecycle_test
     and "Status: OPEN - PARTIAL SOURCE REMEDIATION" in a05_decision_17
-    and "29 direct parser and epoch-sentinel sites" in a05_decision_17
+    and "28 direct parser and epoch-sentinel sites" in a05_decision_17
     and "zero unclassified, duplicate, or stale sites" in a05_decision_17
     and "`A-05` remains open" in a05_decision_17
     and "does not inspect or mutate production documents" in a05_decision_17,

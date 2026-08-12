@@ -13,8 +13,9 @@ not change the `A-05` ledger status.
 The shared persisted timestamp reader now supports an explicitly enabled
 serialized Firestore timestamp map. A map is valid only when it uses exactly
 one supported key pair, supplies both seconds and nanoseconds as integers, and
-keeps nanoseconds within the Firestore range. Partial, mixed, fractional,
-negative, out-of-range, or otherwise malformed maps fail closed.
+keeps seconds and nanoseconds within Firestore's year 0001 through 9999 range.
+Partial, mixed, fractional, negative-nanosecond, out-of-range, or otherwise
+malformed maps fail closed.
 
 Three authority-bearing paths now use the shared reader:
 
@@ -28,7 +29,7 @@ Three authority-bearing paths now use the shared reader:
 ## Exact Candidate Classification
 
 `governance/a05-direct-timestamp-candidate-classification-v1.json` classifies
-all 29 direct parser and epoch-sentinel sites in current non-generated Dart
+all 28 direct parser and epoch-sentinel sites in current non-generated Dart
 source into six permitted behavior classes:
 
 - shared strict-reader implementation;
@@ -50,9 +51,10 @@ closure-review evidence.
 ## Regression Evidence
 
 Focused tests prove complete serialized timestamp maps decode exactly, malformed
-map shapes fail closed, absent optional values remain absent, malformed present
-backend and template-snapshot values are rejected, and lifecycle matching is
-bound to the shared strict reader without string coercion.
+map shapes and values outside the SDK-enforced Firestore range fail closed,
+absent optional values remain absent, malformed present backend and
+template-snapshot values are rejected, and lifecycle matching is bound to the
+shared strict reader without string coercion.
 
 ## Remaining A-05 Scope
 

@@ -13,8 +13,7 @@
       "reArmCondition": "any direct parser added inside the shared persisted timestamp reader",
       "sites": [
         {"file": "lib/core/serialization/persisted_data_reader.dart", "expression": "DateTime.tryParse(", "occurrence": 1},
-        {"file": "lib/core/serialization/persisted_data_reader.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1},
-        {"file": "lib/core/serialization/persisted_data_reader.dart", "expression": "DateTime.fromMicrosecondsSinceEpoch(", "occurrence": 1}
+        {"file": "lib/core/serialization/persisted_data_reader.dart", "expression": "DateTime.fromMillisecondsSinceEpoch(", "occurrence": 1}
       ]
     },
     {

@@ -2665,9 +2665,9 @@
     {
       "path": "test/backend_release_identity_service_test.dart",
       "canonicalSha256": "A6368FA2C6B198EC9D84889039C499BC6B36CDBD28AA5199F5CF5478E11BB5FA",
-      "candidateSha256": "7BEC0BC2064E1F66693E8A6B6035379047F4A3EA1A42C84BC1A10E5A68705A61",
+      "candidateSha256": "68D32A0C24EE4E72F1B86BDF2336F12B573C6012E31C6E82BFBA21151A612928",
       "canonicalBytes": 1220,
-      "candidateBytes": 2675,
+      "candidateBytes": 2750,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
