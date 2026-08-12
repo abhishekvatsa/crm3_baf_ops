@@ -139,10 +139,17 @@ jobs:
               [int]$env:CRM_DISPATCH_BUILD_NUMBER) {
             throw 'Build number differs from policy.'
           }
-          if ([string]$policy.distribution.authority -ne
-            'production-signed-pre-release-candidate' -or
-            $policy.distribution.approved -ne $false) {
-            throw 'Policy improperly claims distribution approval.'
+          $constructionBoundary = $policy.artifactConstructionBoundary
+          if ([string]$constructionBoundary.authority -ne
+                'production-signed-pre-release-candidate' -or
+              $constructionBoundary.distributionApproved -ne $false -or
+              $constructionBoundary.controlledPilotApproved -ne $false -or
+              $constructionBoundary.unrestrictedPlantReleaseApproved -ne
+                $false -or
+              $constructionBoundary.firebaseDeploymentPerformed -ne $false -or
+              $constructionBoundary.
+                postBuildPromotionRequiredForAnyDistribution -ne $true) {
+            throw 'Policy does not preserve the non-distributable new-artifact boundary.'
           }
           $environmentControl = $policy.github.environmentReviewControl
           if ([string]$environmentControl.mode -ne

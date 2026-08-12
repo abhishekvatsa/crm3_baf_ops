@@ -52,6 +52,13 @@ authority without rewriting finalization history. Build 10's failed
 finalization receipt remains mandatory historical evidence and is not replaced
 or hidden by Build 11's successful completion.
 
+The promotion does not change the production artifact constructor's output
+boundary. Every later workflow build is still created as a non-distributable
+pre-release candidate and requires its own byte-exact post-build promotion.
+The policy records that construction boundary separately from Build 11's
+retained promotion, so a future governed build remains possible without
+inheriting Build 11's authority.
+
 ## F6 Readiness
 
 The F6 pack records all seven required categories:

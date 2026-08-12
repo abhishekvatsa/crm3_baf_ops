@@ -135,6 +135,14 @@
     "webDistributionApproved": false,
     "unrestrictedPlantReleaseApproved": false
   },
+  "artifactConstructionBoundary": {
+    "authority": "production-signed-pre-release-candidate",
+    "distributionApproved": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false,
+    "firebaseDeploymentPerformed": false,
+    "postBuildPromotionRequiredForAnyDistribution": true
+  },
   "signing": {
     "mode": "release",
     "productionSigningApproved": true,

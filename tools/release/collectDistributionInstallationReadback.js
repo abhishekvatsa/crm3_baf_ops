@@ -116,7 +116,12 @@ function fileAuthority(repositoryRoot, expected) {
   };
 }
 
-function summarizeMutableSourceAuthority({policy, releasePolicy, buildLedger}) {
+function summarizeMutableSourceAuthority({
+  policy,
+  releasePolicy,
+  buildLedger,
+  promotionReceipt = null,
+}) {
   const expectedArtifacts = policy.expectedArtifactsForContainment;
   const latestExpectedArtifact = expectedArtifacts.reduce(
     (latest, entry) =>
@@ -276,9 +281,35 @@ function summarizeMutableSourceAuthority({policy, releasePolicy, buildLedger}) {
     releasePolicy.distribution?.approved === false &&
     releasePolicy.distribution?.unrestrictedPlantReleaseApproved === false;
   const postBuildPromotion = releasePolicy.postBuildPromotion ?? {};
+  const promotedReceiptBuild = promotionReceipt?.admittedEvidence?.governedBuild;
+  const promotedReceiptBoundary = promotionReceipt?.promotion;
+  const promotionReceiptExact =
+    promotionReceipt?.schemaVersion === 1 &&
+    promotionReceipt?.evidenceType ===
+      "stage2d-f6-build11-controlled-pilot-authorization" &&
+    promotionReceipt?.decision ===
+      "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED" &&
+    promotedReceiptBuild?.buildNumber === latestCompletedArtifact?.buildNumber &&
+    promotedReceiptBuild?.sourceCommit === latestCompletedArtifact?.headSha &&
+    promotedReceiptBuild?.governedPackageSha256 ===
+      latestCompletedArtifact?.governedPackageSha256 &&
+    promotedReceiptBoundary?.authorizedBuildNumber ===
+      latestCompletedArtifact?.buildNumber &&
+    promotedReceiptBoundary?.authorizedPackageSha256 ===
+      latestCompletedArtifact?.governedPackageSha256 &&
+    promotedReceiptBoundary?.pilotHandoutAuthorized === true &&
+    promotedReceiptBoundary?.pilotHandoutPerformedByThisRecord === false &&
+    promotedReceiptBoundary?.publicArtifactAuthorized === false &&
+    promotedReceiptBoundary?.githubReleaseAuthorized === false &&
+    promotedReceiptBoundary?.firebaseAppDistributionAuthorized === false &&
+    promotedReceiptBoundary?.playConsoleAuthorized === false &&
+    promotedReceiptBoundary?.playStoreAuthorized === false &&
+    promotedReceiptBoundary?.webDistributionAuthorized === false &&
+    promotedReceiptBoundary?.unrestrictedDistributionAuthorized === false;
   const controlledPilotPromotionExact =
     latestCompletedArtifact != null &&
     promotionReceiptAuthority != null &&
+    promotionReceiptExact &&
     postBuildPromotion.status === "completed-controlled-pilot-only" &&
     postBuildPromotion.promotionReceiptFile === promotionReceiptAuthority.path &&
     postBuildPromotion.promotionReceiptSha256 === promotionReceiptAuthority.sha256 &&
@@ -345,6 +376,12 @@ function summarizeSource(repositoryRoot, policy) {
   const releasePolicy = readJson(
     path.join(repositoryRoot, "release/production-release-policy.json"),
   );
+  const promotionReceipt = readJson(
+    path.join(
+      repositoryRoot,
+      releasePolicy.postBuildPromotion.promotionReceiptFile,
+    ),
+  );
   const buildLedger = readJson(
     path.join(repositoryRoot, "release/build-number-ledger.json"),
   );
@@ -398,6 +435,7 @@ function summarizeSource(repositoryRoot, policy) {
     policy,
     releasePolicy,
     buildLedger,
+    promotionReceipt,
   });
   const semanticAuthority = new Map([
     [

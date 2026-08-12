@@ -13,8 +13,8 @@
   "sourceEvidence": [
     {
       "path": ".github/workflows/production-artifact.yml",
-      "bytes": 24980,
-      "sha256": "B354E7808CC801852E59DFD39B688865478B13E77EF118D8F5F03C308D710EB2"
+      "bytes": 25459,
+      "sha256": "9040CFC20FFA42C96D8E747B01CB020D1836F721A543323332CB69B6622C862B"
     },
     {
       "path": "release/stage2d-f-internal-controlled-deployment-scope.json",
@@ -28,8 +28,8 @@
     },
     {
       "path": "release/production-release-policy.json",
-      "bytes": 9795,
-      "sha256": "D9CA37D91826CBAC7A971B5F3F851EE839EDB154C94DE4A3DAA2068EAEE0EE99"
+      "bytes": 13018,
+      "sha256": "78FCA6D9E786BC9350A654134AA16831747298A0F7639E10EB69CEB6FC1500DF"
     },
     {
       "path": "release/build-number-ledger.json",

@@ -267,6 +267,17 @@ if ($policy.distribution.postBuildPromotionRequiredForAnyDistribution -ne
     $true) {
   throw 'Post-build promotion requirement is missing.'
 }
+$constructionBoundary = $policy.artifactConstructionBoundary
+if ([string]$constructionBoundary.authority -ne
+      'production-signed-pre-release-candidate' -or
+    $constructionBoundary.distributionApproved -ne $false -or
+    $constructionBoundary.controlledPilotApproved -ne $false -or
+    $constructionBoundary.unrestrictedPlantReleaseApproved -ne $false -or
+    $constructionBoundary.firebaseDeploymentPerformed -ne $false -or
+    $constructionBoundary.postBuildPromotionRequiredForAnyDistribution -ne
+      $true) {
+  throw 'New production-artifact construction boundary is incomplete.'
+}
 
 $requiredFiles = @(
   [string]$policy.identityApproval.receiptFile

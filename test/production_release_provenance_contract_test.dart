@@ -109,6 +109,9 @@ void main() {
       expect(text, isNot(contains('authority.backendGitCommit')));
       expect(text, isNot(contains('SkipQualityGates')));
       expect(text, isNot(contains("CiRunId = 'local'")));
+      expect(text, contains('artifactConstructionBoundary'));
+      expect(text, contains('production-signed-pre-release-candidate'));
+      expect(text, contains('postBuildPromotionRequiredForAnyDistribution'));
     });
 
     test('independent verifier reproduces signer and source custody', () {
@@ -131,6 +134,7 @@ void main() {
       expect(text, contains('firestore.indexes.sourceSha256'));
       expect(text, contains('Get-LedgerReservationMatches'));
       expect(text, contains('LedgerSelectionSelfTest'));
+      expect(text, contains('artifactConstructionBoundary'));
       expect(text, contains(r'[string]$_.reservationId -eq $ReservationId'));
       expect(text, isNot(contains('Where-Object reservationId -eq')));
       expect(
@@ -193,6 +197,7 @@ void main() {
       );
 
       expect(text, contains('crm3-production-build-number-'));
+      expect(text, contains('artifactConstructionBoundary'));
       expect(text, contains('contents: write'));
       expect(text, contains('refs/tags/'));
       expect(text, contains('This number is consumed even if the build fails'));

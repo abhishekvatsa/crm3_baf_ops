@@ -8937,9 +8937,9 @@ check(
     )
     and any(
         entry.get("path") == "release/production-release-policy.json"
-        and entry.get("bytes") == 9795
+        and entry.get("bytes") == 13018
         and entry.get("sha256")
-            == "D9CA37D91826CBAC7A971B5F3F851EE839EDB154C94DE4A3DAA2068EAEE0EE99"
+            == "78FCA6D9E786BC9350A654134AA16831747298A0F7639E10EB69CEB6FC1500DF"
         for entry in lr07_source_evidence
     )
     and any(
@@ -9021,6 +9021,25 @@ check(
     and combined_policy.get("postBuildPromotion", {}).get(
         "promotionReceiptSha256"
     ) == "878897E7DAAF26BF099F3894CAA2EB6719E5F56CED3F7546E8D48E352C4E7400"
+    and combined_policy.get("artifactConstructionBoundary", {}).get("authority")
+        == "production-signed-pre-release-candidate"
+    and combined_policy.get("artifactConstructionBoundary", {}).get(
+        "distributionApproved"
+    ) is False
+    and combined_policy.get("artifactConstructionBoundary", {}).get(
+        "controlledPilotApproved"
+    ) is False
+    and combined_policy.get("artifactConstructionBoundary", {}).get(
+        "postBuildPromotionRequiredForAnyDistribution"
+    ) is True
+    and "artifactConstructionBoundary" in lr07_workflow
+    and "artifactConstructionBoundary" in text(
+        "tools/release/New-ProductionArtifact.ps1"
+    )
+    and "artifactConstructionBoundary" in text(
+        "tools/release/Test-ProductionReleaseManifest.ps1"
+    )
+    and "promotedReceiptBuild" in lr07_collector
     and "retention-days: 1" in lr07_workflow
     and "retention-days: 90" not in lr07_workflow
     and "npm run test:distribution-readback-custody" in lr07_release_gate
@@ -9176,7 +9195,7 @@ check(
 )
 
 check(
-    "LR-07 Builds 9-11 exact containment and strict readback are live-proved but non-closing",
+    "LR-07 Builds 9-11 containment and readback remain historically non-closing by themselves",
     sha(ROOT / lr07_build11_containment_evidence_path)
         == "D873651F251923D75DE34687600051C36C99E6B17E0662C023D2E7D2B04F9258"
     and lr07_build11_containment_evidence.get("decision")
@@ -9281,7 +9300,7 @@ check(
         "pilotHandoutAuthorized"
     ) is False
     and "431,389,958 bytes" in lr07_decision
-    and "only their merged source/CI closure adjudication remains"
+    and "later promotion authorizes only conditional handout of exact"
         in lr07_decision,
 )
 
