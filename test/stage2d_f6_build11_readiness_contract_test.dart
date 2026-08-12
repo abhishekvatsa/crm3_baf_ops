@@ -12,7 +12,7 @@ List<Map<String, dynamic>> _objects(dynamic value) {
 }
 
 void main() {
-  test('F6 operational pack is complete but LR-07 still blocks handout', () {
+  test('F6 pack is complete while LR-07 source/CI closure blocks handout', () {
     final readiness =
         jsonDecode(
               File(
@@ -79,7 +79,8 @@ void main() {
       _objects(f6['evidence']).single['decision'],
       'READY_AWAITING_LR07_CONTAINMENT',
     );
-    expect(lr07['currentStatus'], 'OPEN');
+    expect(lr07['currentStatus'], 'LIVE_READBACK_PROVED');
+    expect(lr07['authorization'], 'AWAITING_SOURCE_CI_CLOSURE');
     expect(
       _object(ledger['programmeDecision'])['pilotHandout'],
       'NOT_AUTHORIZED',

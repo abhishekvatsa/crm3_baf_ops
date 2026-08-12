@@ -24,6 +24,10 @@ void main() {
         'release/evidence/lr07-distribution-installation-live-readback.json';
     const closurePath =
         'release/evidence/lr07-distribution-installation-live-readback-closure.json';
+    const build11ContainmentPath =
+        'release/evidence/lr07-public-production-artifact-containment-builds9-11.json';
+    const build11ReadbackPath =
+        'release/evidence/lr07-distribution-installation-live-readback-build11.json';
 
     final containment = _object(
       jsonDecode(File(containmentPath).readAsStringSync()),
@@ -211,28 +215,120 @@ void main() {
 
     final gates = _objects(ledger['programmeGates']);
     final lr07 = gates.singleWhere((record) => record['gateId'] == 'LR-07');
-    expect(lr07['currentStatus'], 'OPEN');
-    expect(lr07['authorization'], 'BLOCKS_PILOT_HANDOUT');
+    expect(lr07['currentStatus'], 'LIVE_READBACK_PROVED');
+    expect(lr07['authorization'], 'AWAITING_SOURCE_CI_CLOSURE');
     expect(
       _objects(lr07['statusHistory']).map((entry) => entry['status']),
-      <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED', 'OPEN'],
+      <String>[
+        'OPEN',
+        'LIVE_READBACK_PROVED',
+        'CLOSED',
+        'OPEN',
+        'LIVE_READBACK_PROVED',
+      ],
     );
     expect(_strings(lr07['requiredExitEvidence']), hasLength(6));
     expect(_strings(lr07['reArmTriggers']), hasLength(7));
     final ledgerEvidence = _objects(lr07['evidence']);
-    expect(ledgerEvidence, hasLength(3));
+    expect(ledgerEvidence, hasLength(5));
     expect(ledgerEvidence.map((entry) => entry['sha256']).toSet(), <String>{
       _fileSha256(containmentPath),
       _fileSha256(readbackPath),
       _fileSha256(closurePath),
+      _fileSha256(build11ContainmentPath),
+      _fileSha256(build11ReadbackPath),
     });
+    expect(_strings(closure['reArmConditions']).last, contains('Build 8'));
     expect(
-      _strings(closure['reArmConditions']),
-      _strings(lr07['reArmTriggers']),
+      _strings(lr07['reArmTriggers']).last,
+      contains('latest admitted build authority'),
     );
     final programmeDecision = _object(ledger['programmeDecision']);
     expect(programmeDecision['nextMutation'], 'STAGE2D-F6');
     expect(programmeDecision['pilotHandout'], 'NOT_AUTHORIZED');
     expect(programmeDecision['unrestrictedDistribution'], 'NO_GO');
+  });
+
+  test('Builds 9-11 containment and strict readback are exact and non-closing', () {
+    const containmentPath =
+        'release/evidence/lr07-public-production-artifact-containment-builds9-11.json';
+    const readbackPath =
+        'release/evidence/lr07-distribution-installation-live-readback-build11.json';
+    final containment = _object(
+      jsonDecode(File(containmentPath).readAsStringSync()),
+    );
+    final readback = _object(jsonDecode(File(readbackPath).readAsStringSync()));
+
+    expect(
+      containment['decision'],
+      'PASS_LR07_BUILDS_9_10_11_PUBLIC_PRODUCTION_ARTIFACTS_CONTAINED',
+    );
+    final source = _object(containment['source']);
+    expect(source['branch'], 'main');
+    expect(source['commit'], '1fdc68e4fdb6caf301cde0946505d071e5bed0ed');
+    expect(source['originMain'], source['commit']);
+    expect(source['governedWorktreeClean'], isTrue);
+    expect(source['materialChangeCount'], 0);
+
+    final receipts = _object(containment['externalReceipts']);
+    expect(_object(receipts['preflight'])['fileBytes'], 1898);
+    expect(
+      _object(receipts['preflight'])['receiptSha256'],
+      'f51be14f8d7ac8ff2046c82b2b9ac90951e08992132e0006b3adc52199208a43',
+    );
+    expect(_object(receipts['containment'])['fileBytes'], 1836);
+    expect(
+      _object(receipts['containment'])['receiptSha256'],
+      'bb94e2240df836699fd6a95baa508c6f6513d8584ab6cff2483a812f651aef36',
+    );
+
+    final inventory = _object(containment['inventoryBefore']);
+    expect(inventory['count'], 3);
+    expect(inventory['totalBytes'], 431389958);
+    expect(inventory['artifactIds'], <int>[9116320474, 9122790773, 9125100777]);
+    expect(
+      _object(containment['result'])['deletedNow'],
+      inventory['artifactIds'],
+    );
+    expect(
+      _object(containment['result'])['remainingProductionArtifactCount'],
+      0,
+    );
+    expect(_object(containment['result'])['workflowRunsPreserved'], isTrue);
+    expect(
+      _object(containment['mutationBoundary'])['githubArtifactDeleteCount'],
+      3,
+    );
+    expect(
+      _object(containment['privacyBoundary']).values,
+      everyElement(isFalse),
+    );
+
+    expect(
+      readback['decision'],
+      'PASS_LR07_BUILD11_DISTRIBUTION_INSTALLATION_LIVE_READBACK',
+    );
+    expect(readback['mode'], 'STRICT');
+    final readbackSource = _object(readback['source']);
+    expect(readbackSource['before'], readbackSource['after']);
+    expect(readbackSource['validatedSourceEvidenceCount'], 10);
+    expect(readbackSource['semanticMutableAuthorityValidated'], isTrue);
+    expect(
+      readbackSource['build10HistoricalFailureAuthorityPreserved'],
+      isTrue,
+    );
+    final live = _object(_object(readback['outputs'])['live']);
+    expect(live['productionWorkflowRunCount'], 14);
+    expect(live['productionArtifactCount'], 0);
+    expect(live['productionArtifactTotalBytes'], 0);
+    expect(live['githubReleaseCount'], 0);
+    expect(_object(live['build11WorkflowRun'])['id'], 31552161470);
+    expect(_object(readback['checks']).values, everyElement(isTrue));
+    expect(readback['failedChecks'], isEmpty);
+    final scope = _object(readback['closureScope']);
+    expect(scope['lr07LiveReadbackProved'], isTrue);
+    expect(scope['lr07Closed'], isFalse);
+    expect(scope['stage2dF6Closed'], isFalse);
+    expect(scope['pilotHandoutAuthorized'], isFalse);
   });
 }

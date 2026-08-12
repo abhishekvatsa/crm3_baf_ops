@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "LR07-DISTRIBUTION-INSTALLATION-LIVE-READBACK-BUILD11-20260812",
+  "evidenceType": "lr07-distribution-installation-live-readback",
+  "mode": "STRICT",
+  "repository": "abhishekvatsa/crm3_baf_ops",
+  "projectId": "crm3-baf-ops-b8638",
+  "applicationId": "in.co.sail.bsl.crm3.bafops",
+  "gateIds": [
+    "LR-07"
+  ],
+  "authorityType": "LIVE_READBACK",
+  "decision": "PASS_LR07_BUILD11_DISTRIBUTION_INSTALLATION_LIVE_READBACK",
+  "externalReceipt": {
+    "fileName": "lr07-distribution-installation-strict-readback-build11-20260812.json",
+    "fileBytes": 9106,
+    "fileSha256": "A4FB796F698C9EF2CD6A76FE33FBCF53ED1190D3A48D900B651F39F1BCB21EB3",
+    "receiptSha256": "3b31de7d69c7ad232a1a51652ddc95e86c3e7f22890f8054b745164d8e4f2e59",
+    "capturedAtUtc": "2026-08-12T08:09:57.484Z",
+    "custody": "PRIVATE_EXTERNAL_CUSTODY"
+  },
+  "source": {
+    "before": {
+      "branch": "main",
+      "commit": "1fdc68e4fdb6caf301cde0946505d071e5bed0ed",
+      "tree": "bd26b8f9bacd5e48ab1842cea336f576e0e864c3",
+      "originMain": "1fdc68e4fdb6caf301cde0946505d071e5bed0ed",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0
+    },
+    "after": {
+      "branch": "main",
+      "commit": "1fdc68e4fdb6caf301cde0946505d071e5bed0ed",
+      "tree": "bd26b8f9bacd5e48ab1842cea336f576e0e864c3",
+      "originMain": "1fdc68e4fdb6caf301cde0946505d071e5bed0ed",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0
+    },
+    "validatedSourceEvidenceCount": 10,
+    "allSourceEvidenceExact": true,
+    "semanticMutableAuthorityValidated": true,
+    "build10HistoricalFailureAuthorityPreserved": true
+  },
+  "commands": [
+    {
+      "kind": "LOCAL_READ",
+      "command": "git status/rev-parse"
+    },
+    {
+      "kind": "LOCAL_READ",
+      "command": "read exact distribution and installation authorities"
+    },
+    {
+      "kind": "GH_READ",
+      "command": "repository metadata"
+    },
+    {
+      "kind": "GH_READ",
+      "command": "artifact and log retention settings"
+    },
+    {
+      "kind": "GH_READ",
+      "command": "complete GitHub Release inventory"
+    },
+    {
+      "kind": "GH_READ",
+      "command": "complete Actions artifact inventory"
+    },
+    {
+      "kind": "GH_READ",
+      "command": "complete production workflow run inventory"
+    },
+    {
+      "kind": "GH_READ",
+      "command": "exact Build 8 and Build 11 workflow runs"
+    }
+  ],
+  "outputs": {
+    "installation": {
+      "fileName": "build8-f4-intermittent-connectivity-receipt.json",
+      "fileBytes": 8119,
+      "fileSha256": "4BD8332FBCF80B6E809B5A3FFE94EDD7560C482D898B6B9E2F37D6F63422BCEC",
+      "capturedAtUtc": "2026-08-05T23:13:48.6165462+05:30",
+      "decision": "PASS_BUILD8_F4_BOUNDED_THREE_CYCLE_INTERMITTENT_CONNECTIVITY_RECOVERY",
+      "versionCode": 8,
+      "physicalDevice": true,
+      "productionSignerVerified": true,
+      "approvedSessionVerified": true,
+      "rawIdentifiersRetained": false,
+      "accountIdentityRetained": false,
+      "exact": true
+    },
+    "live": {
+      "repositoryVisibility": "PUBLIC",
+      "defaultBranch": "main",
+      "repositoryArchived": false,
+      "repositoryArtifactAndLogRetentionDays": 90,
+      "githubReleaseCount": 0,
+      "productionWorkflowRunCount": 14,
+      "productionArtifactCount": 0,
+      "productionArtifactTotalBytes": 0,
+      "build8WorkflowRun": {
+        "id": 30839125687,
+        "event": "workflow_dispatch",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "731a02980d38e4e3a8f61ff2bca74a1e85771478",
+        "path": ".github/workflows/production-artifact.yml"
+      },
+      "build11WorkflowRun": {
+        "id": 31552161470,
+        "event": "workflow_dispatch",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "ca65d3deead23cccdf07ca24255bc073221d84db",
+        "path": ".github/workflows/production-artifact.yml"
+      }
+    }
+  },
+  "posture": {
+    "decision": "PASS_LR07_DISTRIBUTION_INSTALLATION_POSTURE",
+    "holds": []
+  },
+  "checks": {
+    "policyIdentityExact": true,
+    "sourceBranchMain": true,
+    "sourceCommitMatchesOriginMain": true,
+    "sourceBindingStable": true,
+    "governedSourceClean": true,
+    "sourceEvidenceExact": true,
+    "workflowRetentionExact": true,
+    "distributionScopeExact": true,
+    "platformScopeExact": true,
+    "releasePolicyExact": true,
+    "buildLedgerArtifactsExact": true,
+    "build8FinalizationExact": true,
+    "build11FinalizationExact": true,
+    "build10HistoricalFailureExact": true,
+    "installationAdjudicationExact": true,
+    "externalInstallationReceiptExact": true,
+    "repositoryExact": true,
+    "githubReleaseInventoryEmpty": true,
+    "liveProductionArtifactInventoryEmpty": true,
+    "build8WorkflowRunExact": true,
+    "build11WorkflowRunExact": true,
+    "readbackMutationBoundaryExact": true
+  },
+  "failedChecks": [],
+  "closureScope": {
+    "lr07LiveReadbackProved": true,
+    "lr07Closed": false,
+    "collectorAuthorizesClosure": false,
+    "separateAdjudicationRequired": true,
+    "stage2dF6Closed": false,
+    "pilotHandoutAuthorized": false
+  },
+  "mutationBoundary": {
+    "githubArtifactDeleted": false,
+    "githubReleaseChanged": false,
+    "repositoryVisibilityChanged": false,
+    "workflowRunDeleted": false,
+    "tagChanged": false,
+    "sourceChanged": false,
+    "deviceChanged": false,
+    "firebaseChanged": false,
+    "businessDataReadOrWritten": false
+  },
+  "privacyBoundary": {
+    "artifactBytesDownloaded": false,
+    "secretNamesOrValuesRetained": false,
+    "rawDeviceIdentifiersRetained": false,
+    "accountIdentityRetained": false,
+    "businessPayloadRetained": false,
+    "privateCustodyPathsRetained": false,
+    "artifactNamesRepresentedBySha256Only": true
+  }
+}

@@ -757,7 +757,7 @@
       "reArmTriggers": [],
       "notes": [
         "All seven F6 evidence categories are authored and bound to Build 11, closed F5, closed P-05 and closed 70K authority.",
-        "F6 remains OPEN and pilot handout remains NOT_AUTHORIZED until LR-07 closes against exact Builds 9, 10 and 11 containment plus a fresh strict readback."
+        "Exact Builds 9, 10 and 11 containment and strict readback are LIVE_READBACK_PROVED. F6 remains OPEN and pilot handout remains NOT_AUTHORIZED until LR-07 receives its separate merged source/CI closure adjudication."
       ],
       "statusHistory": [
         {
@@ -1229,8 +1229,8 @@
       "authorityType": "LIVE_READBACK",
       "transitionProfile": "LIVE_READBACK",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
-      "authorization": "BLOCKS_PILOT_HANDOUT",
+      "currentStatus": "LIVE_READBACK_PROVED",
+      "authorization": "AWAITING_SOURCE_CI_CLOSURE",
       "supersedes": [],
       "supersededBy": null,
       "evidence": [
@@ -1251,6 +1251,18 @@
           "sha256": "7E440D6DCB826607FED4D7F4FF5332A816302571F294D3F6620206EFC5AD4089",
           "decision": "PASS_LR07_DISTRIBUTION_INSTALLATION_LIVE_READBACK_CLOSURE",
           "authority": "SOURCE_CI_CONTAINMENT_AND_LIVE_RECEIPT_ADJUDICATION"
+        },
+        {
+          "fileName": "release/evidence/lr07-public-production-artifact-containment-builds9-11.json",
+          "sha256": "D873651F251923D75DE34687600051C36C99E6B17E0662C023D2E7D2B04F9258",
+          "decision": "PASS_LR07_BUILDS_9_10_11_PUBLIC_PRODUCTION_ARTIFACTS_CONTAINED",
+          "authority": "EXPLICIT_OWNER_AUTHORIZED_EXACT_BUILDS_9_10_11_ARTIFACT_CONTAINMENT"
+        },
+        {
+          "fileName": "release/evidence/lr07-distribution-installation-live-readback-build11.json",
+          "sha256": "A1BB0DD539B68A782BFDA3C2D9DBA3D003C65333EA5FF5FD4054EFC192667517",
+          "decision": "PASS_LR07_BUILD11_DISTRIBUTION_INSTALLATION_LIVE_READBACK",
+          "authority": "STRICT_CLEAN_MERGED_MAIN_BUILDS_9_10_11_LIVE_READBACK"
         }
       ],
       "requiredExitEvidence": [
@@ -1268,7 +1280,7 @@
         "a new client platform or physical installation target is promoted",
         "the exact external installation receipt or its repository adjudication becomes absent, unverifiable or superseded",
         "repository visibility, artifact retention, production workflow upload behavior or release-scope policy changes",
-        "a newer governed production build supersedes Build 8"
+        "a newer governed production build supersedes the latest admitted build authority"
       ],
       "notes": [
         "Read-only inventory on 2026-08-06 found five publicly downloadable production workflow artifacts for consumed Builds 4 through 8; explicit owner-authorized containment deleted those five exact artifact archives and no others.",
@@ -1278,7 +1290,8 @@
         "Governed Build 9 created live Actions artifact 9116320474 and superseded Build 8 as the latest finalized production build, triggering two explicit LR-07 re-arm conditions.",
         "Governed Build 10 created live Actions artifact 9122790773. Independent package verification passed, but finalization stopped before custody or built-tag creation because the preflight and finalizer used different source anchors for the same environment receipt.",
         "Governed Build 11 created live Actions artifact 9125100777, passed finalization, dual custody and two-target in-place validation, and remains non-distributable pending LR-07 and F6.",
-        "Historical containment and closure evidence remains valid for Builds 4 through 8; current closure requires exact containment of Builds 9, 10 and 11 plus a new strict clean-main readback."
+        "Explicit owner-authorized containment deleted the exact Build 9, 10 and 11 artifact payloads and no others while preserving workflow runs, logs, tags, Releases, repository visibility, source, Firebase and devices.",
+        "Fresh strict clean-main readback proved zero live production artifacts, zero GitHub Releases, exact Build 8 installation evidence, exact Build 11 finalization and preserved Build 10 failed-attempt authority. LR-07 now awaits only merged source/CI closure adjudication."
       ],
       "statusHistory": [
         {
@@ -1300,6 +1313,11 @@
           "status": "OPEN",
           "effectiveDate": "2026-08-11",
           "basis": "Re-armed because finalized governed Build 9 superseded Build 8 and live production artifact 9116320474 remained retained; governed Build 10 then created artifact 9122790773 and remains consumed, independently verified, finalization-blocked and non-distributable. Exact owner-authorized containment and refreshed strict readback remain required."
+        },
+        {
+          "status": "LIVE_READBACK_PROVED",
+          "effectiveDate": "2026-08-12",
+          "basis": "Exact Builds 9, 10 and 11 containment D873651F251923D75DE34687600051C36C99E6B17E0662C023D2E7D2B04F9258 and strict Build 11 readback A1BB0DD539B68A782BFDA3C2D9DBA3D003C65333EA5FF5FD4054EFC192667517 prove zero live production artifacts, zero GitHub Releases, preserved runs and exact installation and source authority; separate merged source/CI closure remains required."
         }
       ]
     }
