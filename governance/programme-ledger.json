@@ -3184,14 +3184,36 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "Architecture",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "MEDIUM",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "evidenceFile": "release/evidence/a05-persisted-state-integrity-closure.json",
+          "evidenceSha256": "8C64A2BD7AD380F5164ABED2C35773F2C8624B4C29B01DFCB9013A70BD4081D7",
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "inventoryAndDecoderPullRequest": 204,
+          "inventoryAndDecoderMergeCommit": "6210b303d9a0981c662b716c4baae30f34afbd94",
+          "reconciliationPullRequest": 205,
+          "reconciliationHeadCommit": "dc9f0c94a6f4dbed0b18f3345cac8d2560deb8e1",
+          "reconciliationSourceTree": "7f003322ed68856c0b941ba276fd6a31aedb986c",
+          "reconciliationMergeCommit": "3b517d7d72efb629ace4b7348e6839a60e7f40d0",
+          "pullRequestWorkflowRun": 31622397485,
+          "postMergeWorkflowRun": 31623568710,
+          "productionReconciliationEvidenceSha256": "DC5AEA0FB0694AEA60EC2B4F4E6917E0F2D480FE806C2BC8243056BD5A0B14EB",
+          "localGenerationEvidenceSha256": "D67264FA6A93CFC07BD4A6955435D605B9062BD0F83CD53BE6BF97E12857FEF0",
+          "decision": "PASS_A05_PERSISTED_STATE_INTEGRITY_CLOSURE",
+          "productionBlockingFindingCount": 0,
+          "productionWarningCount": 0,
+          "productionDataMutationPerformed": false,
+          "firebaseDeploymentPerformed": false,
+          "pilotAuthorizationChanged": false
+        }
+      ],
       "requiredExitEvidence": [
         "exact-commit inventory of persisted-state catches, timestamp parsers and fallback sites, with every admitted site classified by required, optional or repairable semantics",
         "shared strict readers or evidence-bound exceptions proving required persisted values are never manufactured and malformed present optional values fail closed",
@@ -3205,13 +3227,31 @@
         "JSON or timestamp decoding is introduced outside an approved strict reader or evidence-bound compatibility adapter"
       ],
       "notes": [
-        "A-05 remains open after each bounded source tranche until the complete inventory, repair path and operational reconciliation evidence are admitted. Criteria authoring does not change OPEN status."
+        "PR #204 admitted the complete machine inventory, strict readers and cursor/quarantine containment; PR #205 admitted the privacy-safe production reconciliation bridge and cross-platform CI witnesses.",
+        "The exact clean-main production sweep passed with zero blockers and zero warnings; all nine populated app-decoded records passed their real strict readers.",
+        "The separately sealed 70K/P-06 record supplies two-target supported-local-generation, populated migration, interruption, backup/restore and cloud-reconciliation authority.",
+        "This closure performed no production mutation or Firebase deployment and did not change pilot, distribution or cutover authority."
       ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-08-12",
+          "basis": "PR #204 implemented the complete persisted-decoder inventory, strict-reader remediation, durable quarantine and read-only production gate; operational evidence remained pending."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-08-12",
+          "basis": "PR #205 exact green head dc9f0c94a6f4dbed0b18f3345cac8d2560deb8e1 merged as 3b517d7d72efb629ace4b7348e6839a60e7f40d0 with source tree 7f003322ed68856c0b941ba276fd6a31aedb986c."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-12",
+          "basis": "PASS_A05_PERSISTED_STATE_INTEGRITY_CLOSURE binds complete inventories and containment, exact-head run 31622397485, post-merge run 31623568710, zero-blocker production reconciliation, and the sealed 70K/P-06 supported-local-generation campaign."
         }
       ]
     },

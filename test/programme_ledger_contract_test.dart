@@ -557,7 +557,7 @@ void main() {
     }
   });
 
-  test('A-02 to A-05 remain open with explicit exit constraints', () {
+  test('A-02 to A-04 remain open while A-05 is evidence-closed', () {
     final payload = _readJson('governance/programme-ledger.json');
     final findings = _objects(payload['technicalFindings']);
     final architecture = <String, Map<String, dynamic>>{
@@ -572,7 +572,8 @@ void main() {
     };
 
     expect(architecture.keys, <String>{'A-02', 'A-03', 'A-04', 'A-05'});
-    for (final finding in architecture.values) {
+    for (final findingId in <String>['A-02', 'A-03', 'A-04']) {
+      final finding = architecture[findingId]!;
       expect(finding['currentStatus'], 'OPEN');
       expect(_objects(finding['evidence']), isEmpty);
       expect(_strings(finding['requiredExitEvidence']), hasLength(5));
@@ -585,6 +586,22 @@ void main() {
         <String>['OPEN'],
       );
     }
+
+    final a05 = architecture['A-05']!;
+    expect(a05['currentStatus'], 'CLOSED');
+    expect(_objects(a05['evidence']), hasLength(1));
+    expect(_strings(a05['requiredExitEvidence']), hasLength(5));
+    expect(_strings(a05['reArmTriggers']), hasLength(3));
+    expect(
+      _objects(
+        a05['statusHistory'],
+      ).map((entry) => entry['status']).toList(growable: false),
+      <String>['OPEN', 'SOURCE_IMPLEMENTED', 'MERGED', 'CLOSED'],
+    );
+    expect(
+      _objects(a05['evidence']).single['decision'],
+      'PASS_A05_PERSISTED_STATE_INTEGRITY_CLOSURE',
+    );
 
     expect(
       _strings(architecture['A-02']!['requiredExitEvidence']).join(' '),

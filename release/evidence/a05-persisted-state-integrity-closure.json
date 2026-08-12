@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "A05-PERSISTED-STATE-INTEGRITY-CLOSURE-20260812",
+  "findingIds": [
+    "A-05"
+  ],
+  "authorityType": "SOURCE_AND_CI",
+  "decision": "PASS_A05_PERSISTED_STATE_INTEGRITY_CLOSURE",
+  "recordedAtUtc": "2026-08-12T17:52:45Z",
+  "sourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "inventoryAndDecoderPullRequest": 204,
+    "inventoryAndDecoderHeadCommit": "7566ffc010d190e47fd9cea49bc792057f5ec75b",
+    "inventoryAndDecoderSourceTree": "0753191438cd3c366e59a3befa1a392ce55f32a4",
+    "inventoryAndDecoderMergeCommit": "6210b303d9a0981c662b716c4baae30f34afbd94",
+    "reconciliationPullRequest": 205,
+    "reconciliationHeadCommit": "dc9f0c94a6f4dbed0b18f3345cac8d2560deb8e1",
+    "reconciliationSourceTree": "7f003322ed68856c0b941ba276fd6a31aedb986c",
+    "reconciliationMergeCommit": "3b517d7d72efb629ace4b7348e6839a60e7f40d0",
+    "reconciliationMergeTree": "7f003322ed68856c0b941ba276fd6a31aedb986c"
+  },
+  "pullRequestCi": {
+    "runId": 31622397485,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/31622397485",
+    "event": "pull_request",
+    "headSha": "dc9f0c94a6f4dbed0b18f3345cac8d2560deb8e1",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android emulator app-shell integration (not physical-device evidence)",
+        "jobId": 94200218302,
+        "conclusion": "success"
+      },
+      {
+        "name": "Android release package + cold-start proof (non-production)",
+        "jobId": 94200218129,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions host build + non-emulator tests",
+        "jobId": 94200218275,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore Rules + governed callable emulator",
+        "jobId": 94200218161,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter host analysis + tests + no-loss contracts",
+        "jobId": 94200218337,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "postMergeCi": {
+    "runId": 31623568710,
+    "runUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/31623568710",
+    "event": "push",
+    "headSha": "3b517d7d72efb629ace4b7348e6839a60e7f40d0",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Android emulator app-shell integration (not physical-device evidence)",
+        "jobId": 94204145181,
+        "conclusion": "success"
+      },
+      {
+        "name": "Android release package + cold-start proof (non-production)",
+        "jobId": 94204145291,
+        "conclusion": "success"
+      },
+      {
+        "name": "Cloud Functions host build + non-emulator tests",
+        "jobId": 94204145241,
+        "conclusion": "success"
+      },
+      {
+        "name": "Firestore Rules + governed callable emulator",
+        "jobId": 94204145288,
+        "conclusion": "success"
+      },
+      {
+        "name": "Flutter host analysis + tests + no-loss contracts",
+        "jobId": 94204145283,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "machineInventory": {
+    "decoderSurfaceManifest": "governance/a05-persisted-decoder-surface-v1.json",
+    "decoderSurfaceCount": 39,
+    "decoderCatchSiteCount": 36,
+    "timestampReaderManifest": "governance/a05-persisted-timestamp-surface-v2.json",
+    "timestampReaderCount": 32,
+    "directTimestampCandidateManifest": "governance/a05-direct-timestamp-candidate-classification-v1.json",
+    "directTimestampCandidateCount": 28,
+    "riskCandidateCount": 234,
+    "unclassifiedCount": 0,
+    "stalePolicyCount": 0
+  },
+  "productionReconciliation": {
+    "projectId": "crm3-baf-ops-b8638",
+    "evidenceFile": "release_evidence/a05-production-persisted-integrity-3b517d7.json",
+    "evidenceSha256": "DC5AEA0FB0694AEA60EC2B4F4E6917E0F2D480FE806C2BC8243056BD5A0B14EB",
+    "decision": "PASS_A05_READ_ONLY_PRODUCTION_RECONCILIATION",
+    "sourceCommit": "3b517d7d72efb629ace4b7348e6839a60e7f40d0",
+    "sourceTree": "7f003322ed68856c0b941ba276fd6a31aedb986c",
+    "cleanFetchedMain": true,
+    "readOnly": true,
+    "cloudMutationCapability": "NONE",
+    "rawIdentifiersEmitted": false,
+    "rawDocumentDataPersisted": false,
+    "registeredRootCollectionCount": 33,
+    "enumeratedRootCollectionCount": 7,
+    "registeredSubcollectionGroupCount": 2,
+    "unregisteredRootCollectionCount": 0,
+    "blockingFindingCount": 0,
+    "warningCount": 0,
+    "strictReaderAttemptedCount": 9,
+    "strictReaderPassedCount": 9,
+    "strictReaderFailedCount": 0,
+    "nonEmptyCollectionCounts": {
+      "audit_logs": 8,
+      "callable_abuse_controls": 1,
+      "maintenance_records": 1,
+      "notification_event_receipts": 1,
+      "runtime_contracts": 1,
+      "user_authority_mutation_receipts": 7,
+      "users": 3
+    },
+    "nonEmptySubcollectionCounts": {
+      "notification_installations": 2
+    },
+    "strictReaderPassCollections": [
+      "audit_logs",
+      "maintenance_records"
+    ],
+    "strictShapePassCollections": [
+      "runtime_contracts",
+      "users"
+    ]
+  },
+  "supportedLocalGenerationAuthority": {
+    "evidenceFile": "release/evidence/70k-local-database-recovery-closure.json",
+    "evidenceSha256": "D67264FA6A93CFC07BD4A6955435D605B9062BD0F83CD53BE6BF97E12857FEF0",
+    "decision": "PASS_70K_RECOVERY_AND_P06_CLOSURE",
+    "installedTargetCount": 2,
+    "physicalTargetCount": 1,
+    "emulatorTargetCount": 1,
+    "canonicalCurrentOnEveryTarget": true,
+    "governedRecoveryRequiredOnAnyTarget": false,
+    "nativeStoreTestsPassed": 21,
+    "nativeStoreTestsFailed": 0,
+    "populatedMigrationPassed": true,
+    "interruptionAndRestartPassed": true,
+    "byteSealedBackupRestorePassed": true,
+    "generationContinuityOrRotationPassed": true,
+    "zeroUnsyncedRowsOnEveryTarget": true,
+    "zeroUnresolvedRejectionsOnEveryTarget": true,
+    "cloudReconciliationPassedOnEveryTarget": true
+  },
+  "closureBoundary": {
+    "a05ClosureAuthorized": true,
+    "productionDataMutationPerformed": false,
+    "firebaseDeploymentPerformed": false,
+    "newDeviceOperationPerformed": false,
+    "existingPilotAuthorizationChanged": false,
+    "pilotHandoutPerformed": false,
+    "unrestrictedDistributionAuthorized": false,
+    "cutoverAuthorized": false
+  }
+}
