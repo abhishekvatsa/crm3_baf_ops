@@ -5,12 +5,17 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../auth/data/user_model.dart';
 import '../data/asset_hierarchy_model.dart';
 import '../data/asset_registry_model.dart';
 
 const assetHierarchyCallableName = 'mutateAssetHierarchy';
 const assetHierarchyCallableRegion = 'asia-south1';
+
+bool _sameStrings(List<String> left, List<String> right) =>
+    left.length == right.length &&
+    left.asMap().entries.every((entry) => entry.value == right[entry.key]);
 
 class AssetHierarchyException implements Exception {
   final String message;
@@ -174,18 +179,21 @@ class AssetHierarchyRepository {
     final claim =
         await _firestore.collection('asset_tag_claims').doc(claimId).get();
     if (!claim.exists || claim.data() == null) return null;
-    final claimData = claim.data()!;
-    if (claimData['normalizedTag'] != normalized ||
-        claimData['ownerType'] != 'installed_component' ||
-        claimData['componentInstanceId'] is! String) {
+    final AssetTagClaimRecord claimRecord;
+    try {
+      claimRecord = AssetTagClaimRecord.fromMap(claim.data()!, claim.id);
+    } on PersistedDataFormatException {
       throw AssetHierarchyException(
         'Tag $normalized has a malformed ownership claim. Reconcile the tag register before use.',
       );
     }
+    if (claimRecord.normalizedTag != normalized) {
+      throw AssetHierarchyException(
+        'Tag $normalized disagrees with its ownership claim. Reconcile the tag register before use.',
+      );
+    }
     final component =
-        await _componentInstances
-            .doc(claimData['componentInstanceId'] as String)
-            .get();
+        await _componentInstances.doc(claimRecord.componentInstanceId).get();
     if (!component.exists || component.data() == null) {
       throw AssetHierarchyException(
         'Tag $normalized points to a missing component. Reconcile the tag register before use.',
@@ -196,7 +204,20 @@ class AssetHierarchyRepository {
       component.id,
     );
     if (!record.isActive ||
-        normalizeAssetComponentTag(record.componentTag ?? '') != normalized) {
+        normalizeAssetComponentTag(record.componentTag ?? '') != normalized ||
+        claimRecord.assetClassId != record.assetClassId ||
+        claimRecord.assetClassName != record.assetClassName ||
+        claimRecord.assetInstanceId != record.assetInstanceId ||
+        claimRecord.assetInstanceName != record.assetInstanceName ||
+        claimRecord.assetNumber != record.assetNumber ||
+        claimRecord.definitionNodeId != record.definitionNodeId ||
+        claimRecord.definitionName != record.definitionName ||
+        claimRecord.ownershipStatus != record.ownershipStatus ||
+        claimRecord.ownerDiscipline != record.ownerDiscipline ||
+        !_sameStrings(
+          claimRecord.accountableRoleKeys,
+          record.accountableRoleKeys,
+        )) {
       throw AssetHierarchyException(
         'Tag $normalized disagrees with its component record. Reconcile the tag register before use.',
       );

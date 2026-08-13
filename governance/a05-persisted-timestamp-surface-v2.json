@@ -434,6 +434,18 @@
       "authorityBoundary": "remote-installed-component-record",
       "regression": "test/asset_hierarchy_model_test.dart",
       "reArmCondition": "any installed-component timestamp schema change"
+    },
+    {
+      "id": "asset-tag-claim-record",
+      "readerFile": "lib/features/assets/data/asset_registry_model.dart",
+      "readerMarker": "factory AssetTagClaimRecord.fromMap",
+      "requiredFields": ["claimedAt"],
+      "optionalFields": [],
+      "owner": "asset-governance",
+      "purpose": "validate installed-component tag ownership chronology",
+      "authorityBoundary": "remote-installed-component-tag-authority",
+      "regression": "test/asset_hierarchy_model_test.dart; tools/v4/a05_production_persisted_integrity_sweep.test.mjs",
+      "reArmCondition": "any installed-component tag-claim timestamp schema change"
     }
   ]
 }

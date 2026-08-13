@@ -558,8 +558,13 @@ function adjudicateReadback({
   const defaultComputeFunctions = live.functions
     .filter((record) => record.serviceAccountEmail === live.defaultCompute)
     .map((record) => record.name);
+  const expectedCallableNames = phaseRequiredNames(policy, "callables");
   const callableProbesReady = !probeCallables ||
-    (live.callableProbes.length === 8 &&
+    (live.callableProbes.length === expectedCallableNames.length &&
+      sameValues(
+        live.callableProbes.map((record) => record.name).sort(),
+        expectedCallableNames,
+      ) &&
       live.callableProbes.every((record) => record.safeNoSuccess === true));
 
   const checks = {

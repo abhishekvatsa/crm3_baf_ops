@@ -1,5 +1,208 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 import '../../../core/serialization/persisted_data_reader.dart';
 import 'asset_hierarchy_model.dart';
+
+class AssetTagClaimRecord {
+  final String id;
+  final String normalizedTag;
+  final String displayTag;
+  final String componentInstanceId;
+  final String definitionNodeId;
+  final String definitionName;
+  final String assetInstanceId;
+  final String assetInstanceName;
+  final int assetNumber;
+  final String assetClassId;
+  final String assetClassName;
+  final List<String> hierarchyPath;
+  final AssetOwnershipStatus ownershipStatus;
+  final String? ownerDiscipline;
+  final List<String> accountableRoleKeys;
+  final DateTime claimedAt;
+  final String claimedByUid;
+  final String lastMutationId;
+
+  const AssetTagClaimRecord({
+    required this.id,
+    required this.normalizedTag,
+    required this.displayTag,
+    required this.componentInstanceId,
+    required this.definitionNodeId,
+    required this.definitionName,
+    required this.assetInstanceId,
+    required this.assetInstanceName,
+    required this.assetNumber,
+    required this.assetClassId,
+    required this.assetClassName,
+    required this.hierarchyPath,
+    required this.ownershipStatus,
+    this.ownerDiscipline,
+    required this.accountableRoleKeys,
+    required this.claimedAt,
+    required this.claimedByUid,
+    required this.lastMutationId,
+  });
+
+  factory AssetTagClaimRecord.fromMap(
+    Map<String, dynamic> map,
+    String documentId,
+  ) {
+    final source = 'asset_tag_claims/$documentId';
+    final schemaVersion = readRequiredPersistedInt(
+      map['schemaVersion'],
+      field: 'schemaVersion',
+      source: source,
+      minimum: 1,
+    );
+    if (schemaVersion != 2) {
+      throw PersistedDataFormatException(
+        field: 'schemaVersion',
+        source: source,
+        detail:
+            'unsupported installed-component tag-claim schema $schemaVersion',
+      );
+    }
+    final ownerType = readRequiredPersistedString(
+      map['ownerType'],
+      field: 'ownerType',
+      source: source,
+    );
+    if (ownerType != 'installed_component') {
+      throw PersistedDataFormatException(
+        field: 'ownerType',
+        source: source,
+        detail: 'must identify an installed component',
+      );
+    }
+    final normalizedTag = readRequiredPersistedString(
+      map['normalizedTag'],
+      field: 'normalizedTag',
+      source: source,
+    );
+    if (normalizeAssetComponentTag(normalizedTag) != normalizedTag ||
+        sha256.convert(utf8.encode(normalizedTag)).toString() != documentId) {
+      throw PersistedDataFormatException(
+        field: 'normalizedTag',
+        source: source,
+        detail: 'must be canonical and match the tag-claim document ID',
+      );
+    }
+    final record = AssetTagClaimRecord(
+      id: documentId,
+      normalizedTag: normalizedTag,
+      displayTag: readRequiredPersistedString(
+        map['displayTag'],
+        field: 'displayTag',
+        source: source,
+      ),
+      componentInstanceId: readRequiredPersistedString(
+        map['componentInstanceId'],
+        field: 'componentInstanceId',
+        source: source,
+      ),
+      definitionNodeId: readRequiredPersistedString(
+        map['definitionNodeId'],
+        field: 'definitionNodeId',
+        source: source,
+      ),
+      definitionName: readRequiredPersistedString(
+        map['definitionName'],
+        field: 'definitionName',
+        source: source,
+      ),
+      assetInstanceId: readRequiredPersistedString(
+        map['assetInstanceId'],
+        field: 'assetInstanceId',
+        source: source,
+      ),
+      assetInstanceName: readRequiredPersistedString(
+        map['assetInstanceName'],
+        field: 'assetInstanceName',
+        source: source,
+      ),
+      assetNumber: readRequiredPersistedInt(
+        map['assetNumber'],
+        field: 'assetNumber',
+        source: source,
+        minimum: 1,
+      ),
+      assetClassId: readRequiredPersistedString(
+        map['assetClassId'],
+        field: 'assetClassId',
+        source: source,
+      ),
+      assetClassName: readRequiredPersistedString(
+        map['assetClassName'],
+        field: 'assetClassName',
+        source: source,
+      ),
+      hierarchyPath: List<String>.unmodifiable(
+        readOptionalPersistedStringList(
+          map['hierarchyPath'],
+          field: 'hierarchyPath',
+          source: source,
+        ),
+      ),
+      ownershipStatus: readRequiredPersistedEnum(
+        AssetOwnershipStatus.values,
+        map['ownershipStatus'],
+        field: 'ownershipStatus',
+        source: source,
+      ),
+      ownerDiscipline: readOptionalPersistedString(
+        map['ownerDiscipline'],
+        field: 'ownerDiscipline',
+        source: source,
+      ),
+      accountableRoleKeys: List<String>.unmodifiable(
+        readOptionalPersistedStringList(
+          map['accountableRoleKeys'],
+          field: 'accountableRoleKeys',
+          source: source,
+        ),
+      ),
+      claimedAt: readRequiredPersistedDateTime(
+        map['claimedAt'],
+        field: 'claimedAt',
+        source: source,
+      ),
+      claimedByUid: readRequiredPersistedString(
+        map['claimedByUid'],
+        field: 'claimedByUid',
+        source: source,
+      ),
+      lastMutationId: readRequiredPersistedString(
+        map['lastMutationId'],
+        field: 'lastMutationId',
+        source: source,
+      ),
+    );
+    if (record.ownershipStatus != AssetOwnershipStatus.confirmed) {
+      throw PersistedDataFormatException(
+        field: 'ownershipStatus',
+        source: source,
+        detail: 'an active installed-component tag claim must be confirmed',
+      );
+    }
+    if (normalizeAssetComponentTag(record.displayTag) != normalizedTag) {
+      throw PersistedDataFormatException(
+        field: 'displayTag',
+        source: source,
+        detail: 'must normalize to the claimed tag',
+      );
+    }
+    requireValidPersistedAssetOwnership(
+      record.ownershipStatus,
+      record.ownerDiscipline,
+      record.accountableRoleKeys,
+      source: source,
+    );
+    return record;
+  }
+}
 
 enum AssetServiceState {
   inService,

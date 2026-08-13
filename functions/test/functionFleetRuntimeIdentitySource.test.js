@@ -64,9 +64,12 @@ describe("complete Function fleet runtime identity source policy", () => {
         sourceBindings[name],
       ])),
     );
-    expect(Object.keys(sourceBindings).filter(
-      (name) => !liveBindingNames.includes(name),
-    ).sort()).toEqual(policy.deploymentPendingFunctionBindings.sort());
+    expect(liveBindingNames.sort()).toEqual(governedNames);
+    expect(liveReadbackPolicy.sourcePendingDeploymentExports.sort())
+      .toEqual(policy.deploymentPendingFunctionBindings.sort());
+    expect(policy.deploymentPendingFunctionBindings.every(
+      (name) => liveBindingNames.includes(name),
+    )).toBe(true);
   });
 
   test("resolves the full fleet only inside the selected deployment project", () => {

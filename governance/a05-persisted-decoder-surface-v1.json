@@ -626,17 +626,18 @@
       "id": "asset-registry-records",
       "file": "lib/features/assets/data/asset_registry_model.dart",
       "markers": [
+        "factory AssetTagClaimRecord.fromMap",
         "factory AssetInstanceRecord.fromMap",
         "factory InstalledComponentRecord.fromMap"
       ],
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "owner": "asset-governance",
-      "authorityBoundary": "physical asset and installed-component registry",
+      "authorityBoundary": "physical asset, installed-component, and tag-claim registry",
       "malformedDisposition": "fail closed before a malformed installation can resolve a tag or enter business evidence",
       "compatibility": "none for physical identity, lifecycle, ownership, or version authority",
       "regression": "test/asset_hierarchy_model_test.dart; functions/test/assetHierarchyMutation.firestoreEmulator.test.js",
-      "reArmCondition": "physical identity, ownership, lifecycle, or installed-component state is coerced or defaulted",
-      "riskFingerprint": "4b93c15167534c4675856fcb676adb816e1346e3b6af901a0c4c1c57cc82d256"
+      "reArmCondition": "physical identity, ownership, lifecycle, installed-component state, or tag authority is coerced or defaulted",
+      "riskFingerprint": "e73f0250f4b7fa6d4a3183c6136af2fb11bc9230c0f7ab3e9d631a435173d9c2"
     }
   ],
   "catchSites": [

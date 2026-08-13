@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
@@ -258,6 +261,55 @@ void main() {
             ownerDiscipline: 'Instrumentation',
           ).encode(),
       throwsStateError,
+    );
+  });
+
+  test('installed tag claims bind canonical tag, document hash and owner', () {
+    const normalizedTag = 'PT101';
+    final claimId = sha256.convert(utf8.encode(normalizedTag)).toString();
+    final valid = <String, dynamic>{
+      'schemaVersion': 2,
+      'ownerType': 'installed_component',
+      'normalizedTag': normalizedTag,
+      'displayTag': 'PT-101',
+      'componentInstanceId': 'component-1',
+      'definitionNodeId': 'node-1',
+      'definitionName': 'Pressure transmitter',
+      'assetInstanceId': 'asset-1',
+      'assetInstanceName': 'Furnace 1',
+      'assetNumber': 1,
+      'assetClassId': 'class-1',
+      'assetClassName': 'Furnace',
+      'hierarchyPath': <String>['Pressure system', 'Pressure transmitter'],
+      'ownershipStatus': 'confirmed',
+      'ownerDiscipline': 'Instrumentation',
+      'accountableRoleKeys': <String>['seniorInstrumentation'],
+      'claimedAt': '2026-08-13T00:00:00.000Z',
+      'claimedByUid': 'admin-1',
+      'lastMutationId': 'mutation-1',
+    };
+
+    expect(
+      AssetTagClaimRecord.fromMap(valid, claimId).componentInstanceId,
+      'component-1',
+    );
+    expect(
+      () => AssetTagClaimRecord.fromMap(valid, 'wrong-claim-id'),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+    expect(
+      () => AssetTagClaimRecord.fromMap({
+        ...valid,
+        'displayTag': 'PT-102',
+      }, claimId),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+    expect(
+      () => AssetTagClaimRecord.fromMap({
+        ...valid,
+        'ownershipStatus': 'provisional',
+      }, claimId),
+      throwsA(isA<PersistedDataFormatException>()),
     );
   });
 }

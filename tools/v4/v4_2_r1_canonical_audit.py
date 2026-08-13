@@ -8327,9 +8327,9 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 36
-    and a05_timestamp_inventory_report.get("directCallCount") == 92
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 49
+    and a05_timestamp_inventory_report.get("readerCount") == 37
+    and a05_timestamp_inventory_report.get("directCallCount") == 93
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 50
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 43
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
@@ -8344,7 +8344,7 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 36
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 37
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
@@ -8373,7 +8373,7 @@ check(
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 36
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 22
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 23
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 239
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 240
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []

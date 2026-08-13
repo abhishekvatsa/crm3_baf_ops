@@ -3,10 +3,20 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
 
-const _supportedCollections = <String>{'audit_logs', 'maintenance_records'};
+const _supportedCollections = <String>{
+  'asset_classes',
+  'asset_component_instances',
+  'asset_hierarchy_nodes',
+  'asset_instances',
+  'asset_tag_claims',
+  'audit_logs',
+  'maintenance_records',
+};
 
 Future<void> main() async {
   try {
@@ -46,6 +56,16 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
     final data = Map<String, dynamic>.from(restored);
 
     switch (collection) {
+      case 'asset_classes':
+        AssetClassRecord.fromMap(data, documentId);
+      case 'asset_hierarchy_nodes':
+        AssetHierarchyNode.fromMap(data, documentId);
+      case 'asset_instances':
+        AssetInstanceRecord.fromMap(data, documentId);
+      case 'asset_component_instances':
+        InstalledComponentRecord.fromMap(data, documentId);
+      case 'asset_tag_claims':
+        AssetTagClaimRecord.fromMap(data, documentId);
       case 'audit_logs':
         decodePersistedAuditEvent(data, documentId: documentId);
       case 'maintenance_records':
