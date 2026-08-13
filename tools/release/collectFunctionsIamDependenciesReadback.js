@@ -496,6 +496,9 @@ function adjudicateReadback({
   const runtimeBindingNames = Object.keys(
     policy.sourceDeclaredRuntimeBindings ?? {},
   ).sort();
+  const sourcePendingDeploymentExports = sortedUnique(
+    policy.sourcePendingDeploymentExports ?? [],
+  );
   const missingFromLive = expectedNames.filter((name) => !actualSet.has(name));
   const unexpectedLive = actualNames.filter((name) => !expectedSet.has(name));
   const duplicateFunctionNames = actualNames.filter(
@@ -563,6 +566,12 @@ function adjudicateReadback({
       canonicalJson(expectedNames) === canonicalJson(policyNames),
     sourceRuntimeBindingInventoryMatchesPolicy:
       canonicalJson(expectedNames) === canonicalJson(runtimeBindingNames),
+    sourcePendingDeploymentExportsValid:
+      sourcePendingDeploymentExports.length ===
+        (policy.sourcePendingDeploymentExports ?? []).length &&
+      sourcePendingDeploymentExports.every(
+        (name) => expectedSet.has(name) && runtimeBindingNames.includes(name),
+      ),
     sourceStable:
       sourceBefore.commit === sourceAfter.commit &&
       sourceBefore.tree === sourceAfter.tree,
@@ -665,6 +674,7 @@ function adjudicateReadback({
       posture: {
         sourceFunctionCount: expectedNames.length,
         deployedFunctionCount: actualNames.length,
+        sourcePendingDeploymentExports,
         missingFromLive,
         unexpectedLive,
         fleetMatchesSource:

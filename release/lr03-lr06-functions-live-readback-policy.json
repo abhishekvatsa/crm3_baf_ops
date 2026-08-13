@@ -15,6 +15,7 @@
     "executeMaintenanceWorkflowCommand",
     "getBackendReleaseIdentity",
     "maintenanceWorkflowEscalationSweep",
+    "mutateAssetHierarchy",
     "mutateChargeAbnormality",
     "mutateRuntimeJobModulePopulation",
     "mutateUserAuthority",
@@ -31,6 +32,7 @@
     "executeMaintenanceWorkflowCommand": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "getBackendReleaseIdentity": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "maintenanceWorkflowEscalationSweep": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+    "mutateAssetHierarchy": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "mutateChargeAbnormality": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "mutateRuntimeJobModulePopulation": "crm3-fn-runtime-modules@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "mutateUserAuthority": "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com",
@@ -40,6 +42,9 @@
     "onTicketResolved": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
     "stampGlobalPullServerClock": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com"
   },
+  "sourcePendingDeploymentExports": [
+    "mutateAssetHierarchy"
+  ],
   "forbiddenBroadProjectRoles": [
     "roles/editor",
     "roles/owner"

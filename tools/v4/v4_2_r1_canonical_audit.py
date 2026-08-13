@@ -255,6 +255,7 @@ check(
 post_codegen_register = data("docs/v4_2_r1/AUTHORITATIVE_POST_CODEGEN_BINDINGS.json")
 post_codegen_bindings = post_codegen_register.get("bindings", {})
 post_codegen_source = post_codegen_register.get("sourceEvidence", {})
+post_codegen_refresh = post_codegen_register.get("currentSourceRefresh", {})
 post_codegen_register_valid = (
     post_codegen_register.get("schemaVersion") == 1
     and post_codegen_register.get("authority") == "AUTHENTIC_WINDOWS_ISAR_CODEGEN"
@@ -262,6 +263,18 @@ post_codegen_register_valid = (
     == "E2A0F3D38C9A0950922A0B5933A435159E5FA950F361BC8C2B8D6ADB3FEB470A"
     and post_codegen_source.get("codegenResult") == "PASS"
     and post_codegen_source.get("custodyResult") == "PASS"
+    and post_codegen_refresh.get("sourceCommit")
+        == "ac7efab08879ac54f1aede3624e02a0129b19d61"
+    and post_codegen_refresh.get("sourceTree")
+        == "388d9ac83892f0dafbdffa498b4017ad240e4d24"
+    and post_codegen_refresh.get("codegenResult") == "PASS"
+    and post_codegen_refresh.get("changedBindingPaths") == [
+        "lib/features/directives/data/operational_directive_model.g.dart",
+        "lib/features/maintenance/data/maintenance_model.g.dart",
+        "lib/features/planned_maintenance/data/job_diary_model.g.dart",
+        "lib/features/planned_maintenance/data/job_module_model.g.dart",
+        "lib/features/planned_maintenance/data/job_template_model.g.dart",
+    ]
     and len(post_codegen_bindings) == 19
     and all(
         path.startswith("lib/")
@@ -353,8 +366,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 214
-    and counts.get("SUCCESSOR_MODIFIED") == 196
+    and counts.get("BYTE_IDENTICAL") == 204
+    and counts.get("SUCCESSOR_MODIFIED") == 206
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -1541,7 +1554,7 @@ functions_live_receipt_seal = hashlib.sha256(
         separators=(",", ":"),
     ).encode("utf-8")
 ).hexdigest()
-functions_live_expected_exports = [
+functions_live_sealed_exports = [
     "assignPublishedTemplateVersion",
     "beginGlobalPullRun",
     "completePlannedJobExecution",
@@ -1557,6 +1570,9 @@ functions_live_expected_exports = [
     "onTicketResolved",
     "stampGlobalPullServerClock",
 ]
+functions_live_expected_exports = sorted(
+    functions_live_sealed_exports + ["mutateAssetHierarchy"]
+)
 functions_live_gate_records = {
     record.get("gateId"): record
     for record in functions_live_ledger.get("programmeGates", [])
@@ -1579,6 +1595,9 @@ check(
     and functions_live_readback_policy.get("gateIds") == ["LR-03", "LR-06"]
     and functions_live_readback_policy.get("sourceFunctionExports")
         == functions_live_expected_exports
+    and functions_live_readback_policy.get(
+        "sourcePendingDeploymentExports"
+    ) == ["mutateAssetHierarchy"]
     and len(functions_live_readback_policy.get("trackedRuntimePackages", []))
         == 8
     and set(
@@ -1688,6 +1707,18 @@ check(
     )
     and functions_live_receipt.get("posture", {}).get("sourceFunctionCount")
         == 14
+    and functions_live_receipt.get("outputs", {}).get(
+        "discoveredSourceFunctionExports"
+    ) == functions_live_sealed_exports
+    and functions_live_receipt.get("outputs", {}).get(
+        "policySourceFunctionExports"
+    ) == functions_live_sealed_exports
+    and sorted(
+        set(functions_live_expected_exports)
+        - set(functions_live_sealed_exports)
+    ) == functions_live_readback_policy.get(
+        "sourcePendingDeploymentExports"
+    )
     and functions_live_receipt.get("posture", {}).get(
         "deployedFunctionCount"
     ) == 9
@@ -1818,9 +1849,7 @@ check(
         "crossProjectResolutionAllowed": False,
     }
     and function_fleet_pending_bindings == ["mutateAssetHierarchy"]
-    and sorted(function_fleet_bindings) == sorted(
-        functions_live_expected_exports + function_fleet_pending_bindings
-    )
+    and sorted(function_fleet_bindings) == functions_live_expected_exports
     and len(function_fleet_account_ids) == 15
     and len(set(function_fleet_account_ids)) == 15
     and all(
@@ -8928,8 +8957,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 214
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 196
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 204
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 206
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections
