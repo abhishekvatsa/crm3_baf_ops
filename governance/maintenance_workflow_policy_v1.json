@@ -422,6 +422,12 @@
       "si",
       "contractSupervisor",
       "shiftSupervisor"
+    ],
+    "raiseComplianceCoordination": [
+      "admin",
+      "si",
+      "contractSupervisor",
+      "shiftSupervisor"
     ]
   }
 }

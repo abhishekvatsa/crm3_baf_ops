@@ -6,10 +6,11 @@ const admin = actor('admin-1', ['admin']);
 const ops = actor('ops-1', ['operations']);
 const electrical = actor('elec-1', ['seniorElectrical']);
 const refractory = actor('red-1', ['refractory']);
+const contractSupervisor = actor('contract-1', ['contractSupervisor']);
 const at = (value) => new Date(value);
 
 const serviceFor = (store) => {
-  for (const current of [admin, ops, electrical, refractory]) {
+  for (const current of [admin, ops, electrical, refractory, contractSupervisor]) {
     store.seed(`users/${current.uid}`, {
       isApproved: true,
       roles: [...current.roles],
@@ -608,6 +609,94 @@ describe('maintenance workflow command integration', () => {
       targetLaneKey: 'oprn',
       raisedByUid: 'elec-1',
     });
+  });
+
+  test('supervisor coordinates Operations support without impersonating the origin discipline', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-support', 'inProgress', 2);
+    store.seed('job_lanes/wf-support_mech_1', {
+      workflowId: 'wf-support', laneKey: 'mech', status: 'acknowledged',
+      activationGeneration: 1, version: 1,
+    });
+    store.seed('job_lanes/wf-support_oprn_1', {
+      workflowId: 'wf-support', laneKey: 'oprn', status: 'acknowledged',
+      activationGeneration: 1, version: 1,
+    });
+    const service = serviceFor(store);
+    await service.execute({
+      commandId: 'raise-support', commandType: 'raiseCompliance',
+      aggregateId: 'wf-support', expectedVersion: 2,
+      payload: {
+        complianceId: 'c-support', originLaneKey: 'mech', targetLaneKey: 'oprn',
+        requestPurposeKey: 'operationsSupport', title: 'Move furnace for access',
+        description: 'Move the furnace to the maintenance bay.',
+        conditionTypeKey: 'manual', operationsSupportTypeKey: 'assetRelocation',
+        operationsResourceKey: 'crane', requestedLocation: 'Maintenance bay 2',
+      },
+    }, {actor: contractSupervisor, serverNow: at('2026-07-20T15:02:00Z')});
+
+    expect(store.read('compliance_requests/c-support')).toMatchObject({
+      requestPurposeKey: 'operationsSupport',
+      operationsSupportTypeKey: 'assetRelocation',
+      operationsResourceKey: 'crane', requestedLocation: 'Maintenance bay 2',
+      raisedUnderCoordination: true,
+      coordinationBasis: 'supervisory-workflow-coordination',
+      raisedByUid: 'contract-1', originLaneKey: 'mech', targetLaneKey: 'oprn',
+    });
+    expect(store.read('maintenance_workflow_command_receipts/raise-support'))
+      .toMatchObject({
+        authorityScope: {
+          schemaVersion: 1, capability: 'compliance.raise', laneKey: 'mech',
+        },
+      });
+  });
+
+  test('typed deferment and Operations support fail closed when their required context is absent', async () => {
+    const store = new MemoryWorkflowStore();
+    seedWorkflow(store, 'wf-purpose', 'inProgress', 1);
+    for (const laneKey of ['elec', 'oprn']) {
+      store.seed(`job_lanes/wf-purpose_${laneKey}_1`, {
+        workflowId: 'wf-purpose', laneKey, status: 'acknowledged',
+        activationGeneration: 1, version: 1,
+      });
+    }
+    const service = serviceFor(store);
+    const base = {
+      commandType: 'raiseCompliance', aggregateId: 'wf-purpose',
+      expectedVersion: 1,
+    };
+    await expect(service.execute({...base, commandId: 'bad-deferment', payload: {
+      complianceId: 'c-bad-deferment', originLaneKey: 'elec', targetLaneKey: 'oprn',
+      requestPurposeKey: 'deferment', defermentBasisKey: 'ongoingCycle',
+      title: 'Wait', description: 'Wait for current operations.',
+      conditionTypeKey: 'manual',
+    }}, {actor: electrical, serverNow: at('2026-07-20T15:03:00Z')}))
+      .rejects.toMatchObject({code: 'invalid-argument'});
+
+    await expect(service.execute({...base, commandId: 'bad-support', payload: {
+      complianceId: 'c-bad-support', originLaneKey: 'elec', targetLaneKey: 'oprn',
+      requestPurposeKey: 'operationsSupport', title: 'Move asset',
+      description: 'Crane movement is required.', conditionTypeKey: 'manual',
+      operationsSupportTypeKey: 'craneMovement', operationsResourceKey: 'crane',
+    }}, {actor: electrical, serverNow: at('2026-07-20T15:04:00Z')}))
+      .rejects.toMatchObject({code: 'invalid-argument'});
+
+    await expect(service.execute({...base, commandId: 'bad-purpose-type', payload: {
+      complianceId: 'c-bad-purpose-type', originLaneKey: 'elec', targetLaneKey: 'oprn',
+      requestPurposeKey: 7, title: 'Malformed purpose',
+      description: 'A non-string purpose must not default to assurance.',
+      conditionTypeKey: 'manual',
+    }}, {actor: electrical, serverNow: at('2026-07-20T15:05:00Z')}))
+      .rejects.toMatchObject({code: 'invalid-argument'});
+
+    await expect(service.execute({...base, commandId: 'bad-location-type', payload: {
+      complianceId: 'c-bad-location-type', originLaneKey: 'elec', targetLaneKey: 'oprn',
+      requestPurposeKey: 'operationsSupport', title: 'Prepare isolation',
+      description: 'A provided location must retain its declared string type.',
+      conditionTypeKey: 'manual', operationsSupportTypeKey: 'isolation',
+      operationsResourceKey: 'operationsCrew', requestedLocation: 4,
+    }}, {actor: electrical, serverNow: at('2026-07-20T15:06:00Z')}))
+      .rejects.toMatchObject({code: 'invalid-argument'});
   });
 
   test('deferred compliance governs and releases the linked original maintenance ticket', async () => {

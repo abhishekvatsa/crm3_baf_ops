@@ -190,7 +190,7 @@ void main() {
 
     test('partial legacy marker fails closed in either direction', () async {
       for (final store in <InMemoryIsarSchemaProvenanceStore>[
-        InMemoryIsarSchemaProvenanceStore(legacyVersion: 3),
+        InMemoryIsarSchemaProvenanceStore(legacyVersion: 4),
         InMemoryIsarSchemaProvenanceStore(
           legacyFingerprint: IsarSchemaMigrator.currentSchemaFingerprint,
         ),
@@ -230,8 +230,8 @@ void main() {
           preparation.marker.origin,
           IsarSchemaMarkerOrigin.legacyCompleteMarker,
         );
-        expect(preparation.marker.sourceSchemaVersion, 3);
-        expect(store.legacyVersion, 3);
+        expect(preparation.marker.sourceSchemaVersion, 4);
+        expect(store.legacyVersion, 4);
 
         await preparation.commitAfterSuccessfulOpen();
 
@@ -264,7 +264,7 @@ void main() {
       expect(store.canonicalWriteCount, 0);
     });
 
-    test('repository-proven v1 legacy marker reaches prepared v3', () async {
+    test('repository-proven v1 legacy marker reaches prepared v4', () async {
       final store = InMemoryIsarSchemaProvenanceStore(
         legacyVersion: 1,
         legacyFingerprint: IsarSchemaMigrator.v1SchemaFingerprint,
@@ -276,7 +276,7 @@ void main() {
       );
 
       expect(preparation.result.fromVersion, 1);
-      expect(preparation.result.toVersion, 3);
+      expect(preparation.result.toVersion, 4);
       expect(preparation.marker.sourceSchemaVersion, 1);
       expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
       await preparation.commitAfterSuccessfulOpen();
@@ -328,15 +328,43 @@ void main() {
       );
     });
 
+    test(
+      'repository-proven v3 marker advances through the v4 assurance step',
+      () async {
+        final store = InMemoryIsarSchemaProvenanceStore(
+          canonicalMarkerJson:
+              _marker(
+                schemaVersion: 3,
+                schemaFingerprint: IsarSchemaMigrator.v3SchemaFingerprint,
+              ).encode(),
+        );
+
+        final preparation = await _prepare(
+          store: store,
+          hasExistingLocalStore: true,
+        );
+
+        expect(preparation.result.fromVersion, 3);
+        expect(preparation.result.toVersion, 4);
+        expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
+        expect(preparation.marker.sourceSchemaVersion, 3);
+        expect(
+          preparation.marker.sourceSchemaFingerprint,
+          IsarSchemaMigrator.v3SchemaFingerprint,
+        );
+        await preparation.commitAfterSuccessfulOpen();
+      },
+    );
+
     test('committed migration source evidence must also be proven', () async {
       final store = InMemoryIsarSchemaProvenanceStore(
         canonicalMarkerJson:
             _marker(
               state: IsarSchemaMarkerState.committed,
-              schemaVersion: 3,
+              schemaVersion: 4,
               origin: IsarSchemaMarkerOrigin.schemaMigration,
-              sourceSchemaVersion: 2,
-              sourceSchemaFingerprint: 'unproved-v2',
+              sourceSchemaVersion: 3,
+              sourceSchemaFingerprint: 'unproved-v3',
             ).encode(),
       );
 
@@ -603,7 +631,7 @@ void main() {
 
     test('legacy cleanup failure is explicit after canonical commit', () async {
       final store = InMemoryIsarSchemaProvenanceStore(
-        legacyVersion: 3,
+        legacyVersion: 4,
         legacyFingerprint: IsarSchemaMigrator.currentSchemaFingerprint,
         failLegacyClear: true,
       );
@@ -627,7 +655,7 @@ void main() {
         IsarSchemaProvenanceMarker.decode(store.canonicalMarkerJson!).state,
         IsarSchemaMarkerState.committed,
       );
-      expect(store.legacyVersion, 3);
+      expect(store.legacyVersion, 4);
     });
 
     test(

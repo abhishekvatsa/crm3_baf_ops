@@ -264,16 +264,12 @@ post_codegen_register_valid = (
     and post_codegen_source.get("codegenResult") == "PASS"
     and post_codegen_source.get("custodyResult") == "PASS"
     and post_codegen_refresh.get("sourceCommit")
-        == "ac7efab08879ac54f1aede3624e02a0129b19d61"
+        == "d2d916f5ef98949421d93cbe2c40e9aeaaf8fc04"
     and post_codegen_refresh.get("sourceTree")
-        == "388d9ac83892f0dafbdffa498b4017ad240e4d24"
+        == "82888a0753c0fe9ae4fb4abfdbc2fa923e827112"
     and post_codegen_refresh.get("codegenResult") == "PASS"
     and post_codegen_refresh.get("changedBindingPaths") == [
-        "lib/features/directives/data/operational_directive_model.g.dart",
-        "lib/features/maintenance/data/maintenance_model.g.dart",
-        "lib/features/planned_maintenance/data/job_diary_model.g.dart",
-        "lib/features/planned_maintenance/data/job_module_model.g.dart",
-        "lib/features/planned_maintenance/data/job_template_model.g.dart",
+        "lib/features/maintenance_workflow/data/compliance_request_record.g.dart",
     ]
     and len(post_codegen_bindings) == 19
     and all(
@@ -2724,7 +2720,9 @@ check(
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
-    and "repository-proven populated v1 migrates to v3" in isar_fixture_test
+    and "repository-proven populated v1 migrates to v4" in isar_fixture_test
+    and "populated v3 compliance request migrates to explicit v4 assurance"
+        in isar_fixture_test
     and "stored-schema-fingerprint-unrecognized" in isar_fixture_test
     and "blocks a current target with unsupported migration ancestry"
         in isar_inventory_test

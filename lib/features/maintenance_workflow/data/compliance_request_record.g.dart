@@ -118,243 +118,278 @@ const ComplianceRequestRecordSchema = CollectionSchema(
       name: r'confirmedByUid',
       type: IsarType.string,
     ),
-    r'correctionCount': PropertySchema(
+    r'coordinationBasis': PropertySchema(
       id: 20,
+      name: r'coordinationBasis',
+      type: IsarType.string,
+    ),
+    r'correctionCount': PropertySchema(
+      id: 21,
       name: r'correctionCount',
       type: IsarType.long,
     ),
     r'counterConditionOfId': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'counterConditionOfId',
       type: IsarType.string,
     ),
     r'counterDecisionAt': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'counterDecisionAt',
       type: IsarType.dateTime,
     ),
     r'counterDecisionByName': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'counterDecisionByName',
       type: IsarType.string,
     ),
     r'counterDecisionByUid': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'counterDecisionByUid',
       type: IsarType.string,
     ),
     r'counterDecisionNote': PropertySchema(
-      id: 25,
+      id: 26,
       name: r'counterDecisionNote',
       type: IsarType.string,
     ),
     r'counterDepth': PropertySchema(
-      id: 26,
+      id: 27,
       name: r'counterDepth',
       type: IsarType.long,
     ),
     r'counterProposedAt': PropertySchema(
-      id: 27,
+      id: 28,
       name: r'counterProposedAt',
       type: IsarType.dateTime,
     ),
     r'counterProposedByName': PropertySchema(
-      id: 28,
+      id: 29,
       name: r'counterProposedByName',
       type: IsarType.string,
     ),
     r'counterProposedByUid': PropertySchema(
-      id: 29,
+      id: 30,
       name: r'counterProposedByUid',
       type: IsarType.string,
     ),
     r'counterRevisedDescription': PropertySchema(
-      id: 30,
+      id: 31,
       name: r'counterRevisedDescription',
       type: IsarType.string,
     ),
     r'createdAt': PropertySchema(
-      id: 31,
+      id: 32,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'currentAttemptId': PropertySchema(
-      id: 32,
+      id: 33,
       name: r'currentAttemptId',
       type: IsarType.string,
     ),
+    r'defermentBasisKey': PropertySchema(
+      id: 34,
+      name: r'defermentBasisKey',
+      type: IsarType.string,
+    ),
     r'deleteReason': PropertySchema(
-      id: 33,
+      id: 35,
       name: r'deleteReason',
       type: IsarType.string,
     ),
     r'deletedAt': PropertySchema(
-      id: 34,
+      id: 36,
       name: r'deletedAt',
       type: IsarType.dateTime,
     ),
     r'deletedByName': PropertySchema(
-      id: 35,
+      id: 37,
       name: r'deletedByName',
       type: IsarType.string,
     ),
     r'deletedByUid': PropertySchema(
-      id: 36,
+      id: 38,
       name: r'deletedByUid',
       type: IsarType.string,
     ),
     r'description': PropertySchema(
-      id: 37,
+      id: 39,
       name: r'description',
       type: IsarType.string,
     ),
     r'dueMarkedAt': PropertySchema(
-      id: 38,
+      id: 40,
       name: r'dueMarkedAt',
       type: IsarType.dateTime,
     ),
     r'dueMarkedByName': PropertySchema(
-      id: 39,
+      id: 41,
       name: r'dueMarkedByName',
       type: IsarType.string,
     ),
     r'dueMarkedByUid': PropertySchema(
-      id: 40,
+      id: 42,
       name: r'dueMarkedByUid',
       type: IsarType.string,
     ),
     r'escalationTier': PropertySchema(
-      id: 41,
+      id: 43,
       name: r'escalationTier',
       type: IsarType.long,
     ),
     r'firestoreId': PropertySchema(
-      id: 42,
+      id: 44,
       name: r'firestoreId',
       type: IsarType.string,
     ),
     r'gatesLaneFirestoreId': PropertySchema(
-      id: 43,
+      id: 45,
       name: r'gatesLaneFirestoreId',
       type: IsarType.string,
     ),
     r'isDeleted': PropertySchema(
-      id: 44,
+      id: 46,
       name: r'isDeleted',
       type: IsarType.bool,
     ),
     r'isSynced': PropertySchema(
-      id: 45,
+      id: 47,
       name: r'isSynced',
       type: IsarType.bool,
     ),
     r'lastCorrectionAt': PropertySchema(
-      id: 46,
+      id: 48,
       name: r'lastCorrectionAt',
       type: IsarType.dateTime,
     ),
     r'lastCorrectionByName': PropertySchema(
-      id: 47,
+      id: 49,
       name: r'lastCorrectionByName',
       type: IsarType.string,
     ),
     r'lastCorrectionByUid': PropertySchema(
-      id: 48,
+      id: 50,
       name: r'lastCorrectionByUid',
       type: IsarType.string,
     ),
     r'lastCorrectionReason': PropertySchema(
-      id: 49,
+      id: 51,
       name: r'lastCorrectionReason',
       type: IsarType.string,
     ),
     r'lastEscalatedAt': PropertySchema(
-      id: 50,
+      id: 52,
       name: r'lastEscalatedAt',
       type: IsarType.dateTime,
     ),
     r'linkedExecutionFirestoreId': PropertySchema(
-      id: 51,
+      id: 53,
       name: r'linkedExecutionFirestoreId',
       type: IsarType.string,
     ),
     r'linkedLaneFirestoreId': PropertySchema(
-      id: 52,
+      id: 54,
       name: r'linkedLaneFirestoreId',
       type: IsarType.string,
     ),
     r'linkedMaintenanceFirestoreId': PropertySchema(
-      id: 53,
+      id: 55,
       name: r'linkedMaintenanceFirestoreId',
       type: IsarType.string,
     ),
     r'linkedModuleFirestoreId': PropertySchema(
-      id: 54,
+      id: 56,
       name: r'linkedModuleFirestoreId',
       type: IsarType.string,
     ),
     r'linkedWorkflowId': PropertySchema(
-      id: 55,
+      id: 57,
       name: r'linkedWorkflowId',
       type: IsarType.string,
     ),
     r'metadataJson': PropertySchema(
-      id: 56,
+      id: 58,
       name: r'metadataJson',
       type: IsarType.string,
     ),
+    r'operationsResourceKey': PropertySchema(
+      id: 59,
+      name: r'operationsResourceKey',
+      type: IsarType.string,
+    ),
+    r'operationsSupportTypeKey': PropertySchema(
+      id: 60,
+      name: r'operationsSupportTypeKey',
+      type: IsarType.string,
+    ),
     r'originLaneKey': PropertySchema(
-      id: 57,
+      id: 61,
       name: r'originLaneKey',
       type: IsarType.string,
     ),
     r'priorityKey': PropertySchema(
-      id: 58,
+      id: 62,
       name: r'priorityKey',
       type: IsarType.string,
     ),
     r'raisedAt': PropertySchema(
-      id: 59,
+      id: 63,
       name: r'raisedAt',
       type: IsarType.dateTime,
     ),
     r'raisedByName': PropertySchema(
-      id: 60,
+      id: 64,
       name: r'raisedByName',
       type: IsarType.string,
     ),
     r'raisedByUid': PropertySchema(
-      id: 61,
+      id: 65,
       name: r'raisedByUid',
       type: IsarType.string,
     ),
+    r'raisedUnderCoordination': PropertySchema(
+      id: 66,
+      name: r'raisedUnderCoordination',
+      type: IsarType.bool,
+    ),
+    r'requestPurposeKey': PropertySchema(
+      id: 67,
+      name: r'requestPurposeKey',
+      type: IsarType.string,
+    ),
+    r'requestedLocation': PropertySchema(
+      id: 68,
+      name: r'requestedLocation',
+      type: IsarType.string,
+    ),
     r'statusKey': PropertySchema(
-      id: 62,
+      id: 69,
       name: r'statusKey',
       type: IsarType.string,
     ),
     r'supersededById': PropertySchema(
-      id: 63,
+      id: 70,
       name: r'supersededById',
       type: IsarType.string,
     ),
     r'targetLaneKey': PropertySchema(
-      id: 64,
+      id: 71,
       name: r'targetLaneKey',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 65,
+      id: 72,
       name: r'title',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 66,
+      id: 73,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'version': PropertySchema(
-      id: 67,
+      id: 74,
       name: r'version',
       type: IsarType.long,
     )
@@ -438,6 +473,19 @@ const ComplianceRequestRecordSchema = CollectionSchema(
       properties: [
         IndexPropertySchema(
           name: r'conditionRef',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
+    r'requestPurposeKey': IndexSchema(
+      id: 100764239856524010,
+      name: r'requestPurposeKey',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'requestPurposeKey',
           type: IndexType.hash,
           caseSensitive: true,
         )
@@ -606,6 +654,12 @@ int _complianceRequestRecordEstimateSize(
     }
   }
   {
+    final value = object.coordinationBasis;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.counterConditionOfId;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -649,6 +703,12 @@ int _complianceRequestRecordEstimateSize(
   }
   {
     final value = object.currentAttemptId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.defermentBasisKey;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -751,6 +811,18 @@ int _complianceRequestRecordEstimateSize(
     }
   }
   {
+    final value = object.operationsResourceKey;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.operationsSupportTypeKey;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.originLaneKey;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -765,6 +837,13 @@ int _complianceRequestRecordEstimateSize(
   }
   {
     final value = object.raisedByUid;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  bytesCount += 3 + object.requestPurposeKey.length * 3;
+  {
+    final value = object.requestedLocation;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -807,54 +886,61 @@ void _complianceRequestRecordSerialize(
   writer.writeDateTime(offsets[17], object.confirmedAt);
   writer.writeString(offsets[18], object.confirmedByName);
   writer.writeString(offsets[19], object.confirmedByUid);
-  writer.writeLong(offsets[20], object.correctionCount);
-  writer.writeString(offsets[21], object.counterConditionOfId);
-  writer.writeDateTime(offsets[22], object.counterDecisionAt);
-  writer.writeString(offsets[23], object.counterDecisionByName);
-  writer.writeString(offsets[24], object.counterDecisionByUid);
-  writer.writeString(offsets[25], object.counterDecisionNote);
-  writer.writeLong(offsets[26], object.counterDepth);
-  writer.writeDateTime(offsets[27], object.counterProposedAt);
-  writer.writeString(offsets[28], object.counterProposedByName);
-  writer.writeString(offsets[29], object.counterProposedByUid);
-  writer.writeString(offsets[30], object.counterRevisedDescription);
-  writer.writeDateTime(offsets[31], object.createdAt);
-  writer.writeString(offsets[32], object.currentAttemptId);
-  writer.writeString(offsets[33], object.deleteReason);
-  writer.writeDateTime(offsets[34], object.deletedAt);
-  writer.writeString(offsets[35], object.deletedByName);
-  writer.writeString(offsets[36], object.deletedByUid);
-  writer.writeString(offsets[37], object.description);
-  writer.writeDateTime(offsets[38], object.dueMarkedAt);
-  writer.writeString(offsets[39], object.dueMarkedByName);
-  writer.writeString(offsets[40], object.dueMarkedByUid);
-  writer.writeLong(offsets[41], object.escalationTier);
-  writer.writeString(offsets[42], object.firestoreId);
-  writer.writeString(offsets[43], object.gatesLaneFirestoreId);
-  writer.writeBool(offsets[44], object.isDeleted);
-  writer.writeBool(offsets[45], object.isSynced);
-  writer.writeDateTime(offsets[46], object.lastCorrectionAt);
-  writer.writeString(offsets[47], object.lastCorrectionByName);
-  writer.writeString(offsets[48], object.lastCorrectionByUid);
-  writer.writeString(offsets[49], object.lastCorrectionReason);
-  writer.writeDateTime(offsets[50], object.lastEscalatedAt);
-  writer.writeString(offsets[51], object.linkedExecutionFirestoreId);
-  writer.writeString(offsets[52], object.linkedLaneFirestoreId);
-  writer.writeString(offsets[53], object.linkedMaintenanceFirestoreId);
-  writer.writeString(offsets[54], object.linkedModuleFirestoreId);
-  writer.writeString(offsets[55], object.linkedWorkflowId);
-  writer.writeString(offsets[56], object.metadataJson);
-  writer.writeString(offsets[57], object.originLaneKey);
-  writer.writeString(offsets[58], object.priorityKey);
-  writer.writeDateTime(offsets[59], object.raisedAt);
-  writer.writeString(offsets[60], object.raisedByName);
-  writer.writeString(offsets[61], object.raisedByUid);
-  writer.writeString(offsets[62], object.statusKey);
-  writer.writeString(offsets[63], object.supersededById);
-  writer.writeString(offsets[64], object.targetLaneKey);
-  writer.writeString(offsets[65], object.title);
-  writer.writeDateTime(offsets[66], object.updatedAt);
-  writer.writeLong(offsets[67], object.version);
+  writer.writeString(offsets[20], object.coordinationBasis);
+  writer.writeLong(offsets[21], object.correctionCount);
+  writer.writeString(offsets[22], object.counterConditionOfId);
+  writer.writeDateTime(offsets[23], object.counterDecisionAt);
+  writer.writeString(offsets[24], object.counterDecisionByName);
+  writer.writeString(offsets[25], object.counterDecisionByUid);
+  writer.writeString(offsets[26], object.counterDecisionNote);
+  writer.writeLong(offsets[27], object.counterDepth);
+  writer.writeDateTime(offsets[28], object.counterProposedAt);
+  writer.writeString(offsets[29], object.counterProposedByName);
+  writer.writeString(offsets[30], object.counterProposedByUid);
+  writer.writeString(offsets[31], object.counterRevisedDescription);
+  writer.writeDateTime(offsets[32], object.createdAt);
+  writer.writeString(offsets[33], object.currentAttemptId);
+  writer.writeString(offsets[34], object.defermentBasisKey);
+  writer.writeString(offsets[35], object.deleteReason);
+  writer.writeDateTime(offsets[36], object.deletedAt);
+  writer.writeString(offsets[37], object.deletedByName);
+  writer.writeString(offsets[38], object.deletedByUid);
+  writer.writeString(offsets[39], object.description);
+  writer.writeDateTime(offsets[40], object.dueMarkedAt);
+  writer.writeString(offsets[41], object.dueMarkedByName);
+  writer.writeString(offsets[42], object.dueMarkedByUid);
+  writer.writeLong(offsets[43], object.escalationTier);
+  writer.writeString(offsets[44], object.firestoreId);
+  writer.writeString(offsets[45], object.gatesLaneFirestoreId);
+  writer.writeBool(offsets[46], object.isDeleted);
+  writer.writeBool(offsets[47], object.isSynced);
+  writer.writeDateTime(offsets[48], object.lastCorrectionAt);
+  writer.writeString(offsets[49], object.lastCorrectionByName);
+  writer.writeString(offsets[50], object.lastCorrectionByUid);
+  writer.writeString(offsets[51], object.lastCorrectionReason);
+  writer.writeDateTime(offsets[52], object.lastEscalatedAt);
+  writer.writeString(offsets[53], object.linkedExecutionFirestoreId);
+  writer.writeString(offsets[54], object.linkedLaneFirestoreId);
+  writer.writeString(offsets[55], object.linkedMaintenanceFirestoreId);
+  writer.writeString(offsets[56], object.linkedModuleFirestoreId);
+  writer.writeString(offsets[57], object.linkedWorkflowId);
+  writer.writeString(offsets[58], object.metadataJson);
+  writer.writeString(offsets[59], object.operationsResourceKey);
+  writer.writeString(offsets[60], object.operationsSupportTypeKey);
+  writer.writeString(offsets[61], object.originLaneKey);
+  writer.writeString(offsets[62], object.priorityKey);
+  writer.writeDateTime(offsets[63], object.raisedAt);
+  writer.writeString(offsets[64], object.raisedByName);
+  writer.writeString(offsets[65], object.raisedByUid);
+  writer.writeBool(offsets[66], object.raisedUnderCoordination);
+  writer.writeString(offsets[67], object.requestPurposeKey);
+  writer.writeString(offsets[68], object.requestedLocation);
+  writer.writeString(offsets[69], object.statusKey);
+  writer.writeString(offsets[70], object.supersededById);
+  writer.writeString(offsets[71], object.targetLaneKey);
+  writer.writeString(offsets[72], object.title);
+  writer.writeDateTime(offsets[73], object.updatedAt);
+  writer.writeLong(offsets[74], object.version);
 }
 
 ComplianceRequestRecord _complianceRequestRecordDeserialize(
@@ -884,55 +970,62 @@ ComplianceRequestRecord _complianceRequestRecordDeserialize(
   object.confirmedAt = reader.readDateTimeOrNull(offsets[17]);
   object.confirmedByName = reader.readStringOrNull(offsets[18]);
   object.confirmedByUid = reader.readStringOrNull(offsets[19]);
-  object.correctionCount = reader.readLong(offsets[20]);
-  object.counterConditionOfId = reader.readStringOrNull(offsets[21]);
-  object.counterDecisionAt = reader.readDateTimeOrNull(offsets[22]);
-  object.counterDecisionByName = reader.readStringOrNull(offsets[23]);
-  object.counterDecisionByUid = reader.readStringOrNull(offsets[24]);
-  object.counterDecisionNote = reader.readStringOrNull(offsets[25]);
-  object.counterDepth = reader.readLong(offsets[26]);
-  object.counterProposedAt = reader.readDateTimeOrNull(offsets[27]);
-  object.counterProposedByName = reader.readStringOrNull(offsets[28]);
-  object.counterProposedByUid = reader.readStringOrNull(offsets[29]);
-  object.counterRevisedDescription = reader.readStringOrNull(offsets[30]);
-  object.createdAt = reader.readDateTime(offsets[31]);
-  object.currentAttemptId = reader.readStringOrNull(offsets[32]);
-  object.deleteReason = reader.readStringOrNull(offsets[33]);
-  object.deletedAt = reader.readDateTimeOrNull(offsets[34]);
-  object.deletedByName = reader.readStringOrNull(offsets[35]);
-  object.deletedByUid = reader.readStringOrNull(offsets[36]);
-  object.description = reader.readString(offsets[37]);
-  object.dueMarkedAt = reader.readDateTimeOrNull(offsets[38]);
-  object.dueMarkedByName = reader.readStringOrNull(offsets[39]);
-  object.dueMarkedByUid = reader.readStringOrNull(offsets[40]);
-  object.escalationTier = reader.readLong(offsets[41]);
-  object.firestoreId = reader.readStringOrNull(offsets[42]);
-  object.gatesLaneFirestoreId = reader.readStringOrNull(offsets[43]);
+  object.coordinationBasis = reader.readStringOrNull(offsets[20]);
+  object.correctionCount = reader.readLong(offsets[21]);
+  object.counterConditionOfId = reader.readStringOrNull(offsets[22]);
+  object.counterDecisionAt = reader.readDateTimeOrNull(offsets[23]);
+  object.counterDecisionByName = reader.readStringOrNull(offsets[24]);
+  object.counterDecisionByUid = reader.readStringOrNull(offsets[25]);
+  object.counterDecisionNote = reader.readStringOrNull(offsets[26]);
+  object.counterDepth = reader.readLong(offsets[27]);
+  object.counterProposedAt = reader.readDateTimeOrNull(offsets[28]);
+  object.counterProposedByName = reader.readStringOrNull(offsets[29]);
+  object.counterProposedByUid = reader.readStringOrNull(offsets[30]);
+  object.counterRevisedDescription = reader.readStringOrNull(offsets[31]);
+  object.createdAt = reader.readDateTime(offsets[32]);
+  object.currentAttemptId = reader.readStringOrNull(offsets[33]);
+  object.defermentBasisKey = reader.readStringOrNull(offsets[34]);
+  object.deleteReason = reader.readStringOrNull(offsets[35]);
+  object.deletedAt = reader.readDateTimeOrNull(offsets[36]);
+  object.deletedByName = reader.readStringOrNull(offsets[37]);
+  object.deletedByUid = reader.readStringOrNull(offsets[38]);
+  object.description = reader.readString(offsets[39]);
+  object.dueMarkedAt = reader.readDateTimeOrNull(offsets[40]);
+  object.dueMarkedByName = reader.readStringOrNull(offsets[41]);
+  object.dueMarkedByUid = reader.readStringOrNull(offsets[42]);
+  object.escalationTier = reader.readLong(offsets[43]);
+  object.firestoreId = reader.readStringOrNull(offsets[44]);
+  object.gatesLaneFirestoreId = reader.readStringOrNull(offsets[45]);
   object.id = id;
-  object.isDeleted = reader.readBool(offsets[44]);
-  object.isSynced = reader.readBool(offsets[45]);
-  object.lastCorrectionAt = reader.readDateTimeOrNull(offsets[46]);
-  object.lastCorrectionByName = reader.readStringOrNull(offsets[47]);
-  object.lastCorrectionByUid = reader.readStringOrNull(offsets[48]);
-  object.lastCorrectionReason = reader.readStringOrNull(offsets[49]);
-  object.lastEscalatedAt = reader.readDateTimeOrNull(offsets[50]);
-  object.linkedExecutionFirestoreId = reader.readStringOrNull(offsets[51]);
-  object.linkedLaneFirestoreId = reader.readStringOrNull(offsets[52]);
-  object.linkedMaintenanceFirestoreId = reader.readStringOrNull(offsets[53]);
-  object.linkedModuleFirestoreId = reader.readStringOrNull(offsets[54]);
-  object.linkedWorkflowId = reader.readStringOrNull(offsets[55]);
-  object.metadataJson = reader.readStringOrNull(offsets[56]);
-  object.originLaneKey = reader.readStringOrNull(offsets[57]);
-  object.priorityKey = reader.readString(offsets[58]);
-  object.raisedAt = reader.readDateTimeOrNull(offsets[59]);
-  object.raisedByName = reader.readStringOrNull(offsets[60]);
-  object.raisedByUid = reader.readStringOrNull(offsets[61]);
-  object.statusKey = reader.readString(offsets[62]);
-  object.supersededById = reader.readStringOrNull(offsets[63]);
-  object.targetLaneKey = reader.readString(offsets[64]);
-  object.title = reader.readString(offsets[65]);
-  object.updatedAt = reader.readDateTime(offsets[66]);
-  object.version = reader.readLong(offsets[67]);
+  object.isDeleted = reader.readBool(offsets[46]);
+  object.isSynced = reader.readBool(offsets[47]);
+  object.lastCorrectionAt = reader.readDateTimeOrNull(offsets[48]);
+  object.lastCorrectionByName = reader.readStringOrNull(offsets[49]);
+  object.lastCorrectionByUid = reader.readStringOrNull(offsets[50]);
+  object.lastCorrectionReason = reader.readStringOrNull(offsets[51]);
+  object.lastEscalatedAt = reader.readDateTimeOrNull(offsets[52]);
+  object.linkedExecutionFirestoreId = reader.readStringOrNull(offsets[53]);
+  object.linkedLaneFirestoreId = reader.readStringOrNull(offsets[54]);
+  object.linkedMaintenanceFirestoreId = reader.readStringOrNull(offsets[55]);
+  object.linkedModuleFirestoreId = reader.readStringOrNull(offsets[56]);
+  object.linkedWorkflowId = reader.readStringOrNull(offsets[57]);
+  object.metadataJson = reader.readStringOrNull(offsets[58]);
+  object.operationsResourceKey = reader.readStringOrNull(offsets[59]);
+  object.operationsSupportTypeKey = reader.readStringOrNull(offsets[60]);
+  object.originLaneKey = reader.readStringOrNull(offsets[61]);
+  object.priorityKey = reader.readString(offsets[62]);
+  object.raisedAt = reader.readDateTimeOrNull(offsets[63]);
+  object.raisedByName = reader.readStringOrNull(offsets[64]);
+  object.raisedByUid = reader.readStringOrNull(offsets[65]);
+  object.raisedUnderCoordination = reader.readBool(offsets[66]);
+  object.requestPurposeKey = reader.readString(offsets[67]);
+  object.requestedLocation = reader.readStringOrNull(offsets[68]);
+  object.statusKey = reader.readString(offsets[69]);
+  object.supersededById = reader.readStringOrNull(offsets[70]);
+  object.targetLaneKey = reader.readString(offsets[71]);
+  object.title = reader.readString(offsets[72]);
+  object.updatedAt = reader.readDateTime(offsets[73]);
+  object.version = reader.readLong(offsets[74]);
   return object;
 }
 
@@ -984,71 +1077,71 @@ P _complianceRequestRecordDeserializeProp<P>(
     case 19:
       return (reader.readStringOrNull(offset)) as P;
     case 20:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 21:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 22:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 23:
       return (reader.readStringOrNull(offset)) as P;
+    case 23:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 24:
       return (reader.readStringOrNull(offset)) as P;
     case 25:
       return (reader.readStringOrNull(offset)) as P;
     case 26:
-      return (reader.readLong(offset)) as P;
-    case 27:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 28:
       return (reader.readStringOrNull(offset)) as P;
+    case 27:
+      return (reader.readLong(offset)) as P;
+    case 28:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 29:
       return (reader.readStringOrNull(offset)) as P;
     case 30:
       return (reader.readStringOrNull(offset)) as P;
     case 31:
-      return (reader.readDateTime(offset)) as P;
-    case 32:
       return (reader.readStringOrNull(offset)) as P;
+    case 32:
+      return (reader.readDateTime(offset)) as P;
     case 33:
       return (reader.readStringOrNull(offset)) as P;
     case 34:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 35:
       return (reader.readStringOrNull(offset)) as P;
     case 36:
-      return (reader.readStringOrNull(offset)) as P;
-    case 37:
-      return (reader.readString(offset)) as P;
-    case 38:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 37:
+      return (reader.readStringOrNull(offset)) as P;
+    case 38:
+      return (reader.readStringOrNull(offset)) as P;
     case 39:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 40:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 41:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 42:
       return (reader.readStringOrNull(offset)) as P;
     case 43:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 44:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 45:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 46:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 47:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 48:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 49:
       return (reader.readStringOrNull(offset)) as P;
     case 50:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 51:
       return (reader.readStringOrNull(offset)) as P;
     case 52:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 53:
       return (reader.readStringOrNull(offset)) as P;
     case 54:
@@ -1060,9 +1153,9 @@ P _complianceRequestRecordDeserializeProp<P>(
     case 57:
       return (reader.readStringOrNull(offset)) as P;
     case 58:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 59:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 60:
       return (reader.readStringOrNull(offset)) as P;
     case 61:
@@ -1070,14 +1163,28 @@ P _complianceRequestRecordDeserializeProp<P>(
     case 62:
       return (reader.readString(offset)) as P;
     case 63:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 64:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 65:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 66:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 67:
+      return (reader.readString(offset)) as P;
+    case 68:
+      return (reader.readStringOrNull(offset)) as P;
+    case 69:
+      return (reader.readString(offset)) as P;
+    case 70:
+      return (reader.readStringOrNull(offset)) as P;
+    case 71:
+      return (reader.readString(offset)) as P;
+    case 72:
+      return (reader.readString(offset)) as P;
+    case 73:
+      return (reader.readDateTime(offset)) as P;
+    case 74:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1563,6 +1670,51 @@ extension ComplianceRequestRecordQueryWhere on QueryBuilder<
               indexName: r'conditionRef',
               lower: [],
               upper: [conditionRef],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterWhereClause> requestPurposeKeyEqualTo(String requestPurposeKey) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'requestPurposeKey',
+        value: [requestPurposeKey],
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterWhereClause> requestPurposeKeyNotEqualTo(String requestPurposeKey) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'requestPurposeKey',
+              lower: [],
+              upper: [requestPurposeKey],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'requestPurposeKey',
+              lower: [requestPurposeKey],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'requestPurposeKey',
+              lower: [requestPurposeKey],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'requestPurposeKey',
+              lower: [],
+              upper: [requestPurposeKey],
               includeUpper: false,
             ));
       }
@@ -4366,6 +4518,162 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> coordinationBasisIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'coordinationBasis',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> coordinationBasisIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'coordinationBasis',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> coordinationBasisEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'coordinationBasis',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> coordinationBasisGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'coordinationBasis',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> coordinationBasisLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'coordinationBasis',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> coordinationBasisBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'coordinationBasis',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> coordinationBasisStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'coordinationBasis',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> coordinationBasisEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'coordinationBasis',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+          QAfterFilterCondition>
+      coordinationBasisContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'coordinationBasis',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+          QAfterFilterCondition>
+      coordinationBasisMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'coordinationBasis',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> coordinationBasisIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'coordinationBasis',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> coordinationBasisIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'coordinationBasis',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
       QAfterFilterCondition> correctionCountEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
@@ -5928,6 +6236,162 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'currentAttemptId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> defermentBasisKeyIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'defermentBasisKey',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> defermentBasisKeyIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'defermentBasisKey',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> defermentBasisKeyEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'defermentBasisKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> defermentBasisKeyGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'defermentBasisKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> defermentBasisKeyLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'defermentBasisKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> defermentBasisKeyBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'defermentBasisKey',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> defermentBasisKeyStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'defermentBasisKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> defermentBasisKeyEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'defermentBasisKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+          QAfterFilterCondition>
+      defermentBasisKeyContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'defermentBasisKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+          QAfterFilterCondition>
+      defermentBasisKeyMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'defermentBasisKey',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> defermentBasisKeyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'defermentBasisKey',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> defermentBasisKeyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'defermentBasisKey',
         value: '',
       ));
     });
@@ -9003,6 +9467,321 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsResourceKeyIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'operationsResourceKey',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsResourceKeyIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'operationsResourceKey',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsResourceKeyEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'operationsResourceKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsResourceKeyGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'operationsResourceKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsResourceKeyLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'operationsResourceKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsResourceKeyBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'operationsResourceKey',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsResourceKeyStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'operationsResourceKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsResourceKeyEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'operationsResourceKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+          QAfterFilterCondition>
+      operationsResourceKeyContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'operationsResourceKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+          QAfterFilterCondition>
+      operationsResourceKeyMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'operationsResourceKey',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsResourceKeyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'operationsResourceKey',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsResourceKeyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'operationsResourceKey',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsSupportTypeKeyIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'operationsSupportTypeKey',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsSupportTypeKeyIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'operationsSupportTypeKey',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsSupportTypeKeyEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'operationsSupportTypeKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsSupportTypeKeyGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'operationsSupportTypeKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsSupportTypeKeyLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'operationsSupportTypeKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsSupportTypeKeyBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'operationsSupportTypeKey',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsSupportTypeKeyStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'operationsSupportTypeKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsSupportTypeKeyEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'operationsSupportTypeKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+          QAfterFilterCondition>
+      operationsSupportTypeKeyContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'operationsSupportTypeKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+          QAfterFilterCondition>
+      operationsSupportTypeKeyMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'operationsSupportTypeKey',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsSupportTypeKeyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'operationsSupportTypeKey',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> operationsSupportTypeKeyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'operationsSupportTypeKey',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
       QAfterFilterCondition> originLaneKeyIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -9677,6 +10456,310 @@ extension ComplianceRequestRecordQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'raisedByUid',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> raisedUnderCoordinationEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'raisedUnderCoordination',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestPurposeKeyEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'requestPurposeKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestPurposeKeyGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'requestPurposeKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestPurposeKeyLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'requestPurposeKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestPurposeKeyBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'requestPurposeKey',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestPurposeKeyStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'requestPurposeKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestPurposeKeyEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'requestPurposeKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+          QAfterFilterCondition>
+      requestPurposeKeyContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'requestPurposeKey',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+          QAfterFilterCondition>
+      requestPurposeKeyMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'requestPurposeKey',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestPurposeKeyIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'requestPurposeKey',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestPurposeKeyIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'requestPurposeKey',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestedLocationIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'requestedLocation',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestedLocationIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'requestedLocation',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestedLocationEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'requestedLocation',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestedLocationGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'requestedLocation',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestedLocationLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'requestedLocation',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestedLocationBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'requestedLocation',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestedLocationStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'requestedLocation',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestedLocationEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'requestedLocation',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+          QAfterFilterCondition>
+      requestedLocationContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'requestedLocation',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+          QAfterFilterCondition>
+      requestedLocationMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'requestedLocation',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestedLocationIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'requestedLocation',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord,
+      QAfterFilterCondition> requestedLocationIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'requestedLocation',
         value: '',
       ));
     });
@@ -10654,6 +11737,20 @@ extension ComplianceRequestRecordQuerySortBy
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByCoordinationBasis() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'coordinationBasis', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByCoordinationBasisDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'coordinationBasis', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
       sortByCorrectionCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'correctionCount', Sort.asc);
@@ -10832,6 +11929,20 @@ extension ComplianceRequestRecordQuerySortBy
       sortByCurrentAttemptIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'currentAttemptId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByDefermentBasisKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'defermentBasisKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByDefermentBasisKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'defermentBasisKey', Sort.desc);
     });
   }
 
@@ -11172,6 +12283,34 @@ extension ComplianceRequestRecordQuerySortBy
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByOperationsResourceKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'operationsResourceKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByOperationsResourceKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'operationsResourceKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByOperationsSupportTypeKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'operationsSupportTypeKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByOperationsSupportTypeKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'operationsSupportTypeKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
       sortByOriginLaneKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'originLaneKey', Sort.asc);
@@ -11238,6 +12377,48 @@ extension ComplianceRequestRecordQuerySortBy
       sortByRaisedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedByUid', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByRaisedUnderCoordination() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'raisedUnderCoordination', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByRaisedUnderCoordinationDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'raisedUnderCoordination', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByRequestPurposeKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'requestPurposeKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByRequestPurposeKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'requestPurposeKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByRequestedLocation() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'requestedLocation', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      sortByRequestedLocationDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'requestedLocation', Sort.desc);
     });
   }
 
@@ -11609,6 +12790,20 @@ extension ComplianceRequestRecordQuerySortThenBy on QueryBuilder<
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByCoordinationBasis() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'coordinationBasis', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByCoordinationBasisDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'coordinationBasis', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
       thenByCorrectionCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'correctionCount', Sort.asc);
@@ -11787,6 +12982,20 @@ extension ComplianceRequestRecordQuerySortThenBy on QueryBuilder<
       thenByCurrentAttemptIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'currentAttemptId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByDefermentBasisKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'defermentBasisKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByDefermentBasisKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'defermentBasisKey', Sort.desc);
     });
   }
 
@@ -12141,6 +13350,34 @@ extension ComplianceRequestRecordQuerySortThenBy on QueryBuilder<
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByOperationsResourceKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'operationsResourceKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByOperationsResourceKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'operationsResourceKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByOperationsSupportTypeKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'operationsSupportTypeKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByOperationsSupportTypeKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'operationsSupportTypeKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
       thenByOriginLaneKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'originLaneKey', Sort.asc);
@@ -12207,6 +13444,48 @@ extension ComplianceRequestRecordQuerySortThenBy on QueryBuilder<
       thenByRaisedByUidDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'raisedByUid', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByRaisedUnderCoordination() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'raisedUnderCoordination', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByRaisedUnderCoordinationDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'raisedUnderCoordination', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByRequestPurposeKey() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'requestPurposeKey', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByRequestPurposeKeyDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'requestPurposeKey', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByRequestedLocation() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'requestedLocation', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QAfterSortBy>
+      thenByRequestedLocationDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'requestedLocation', Sort.desc);
     });
   }
 
@@ -12446,6 +13725,14 @@ extension ComplianceRequestRecordQueryWhereDistinct on QueryBuilder<
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
+      distinctByCoordinationBasis({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'coordinationBasis',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
       distinctByCorrectionCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'correctionCount');
@@ -12540,6 +13827,14 @@ extension ComplianceRequestRecordQueryWhereDistinct on QueryBuilder<
       distinctByCurrentAttemptId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'currentAttemptId',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
+      distinctByDefermentBasisKey({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'defermentBasisKey',
           caseSensitive: caseSensitive);
     });
   }
@@ -12725,6 +14020,22 @@ extension ComplianceRequestRecordQueryWhereDistinct on QueryBuilder<
   }
 
   QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
+      distinctByOperationsResourceKey({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'operationsResourceKey',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
+      distinctByOperationsSupportTypeKey({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'operationsSupportTypeKey',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
       distinctByOriginLaneKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'originLaneKey',
@@ -12757,6 +14068,29 @@ extension ComplianceRequestRecordQueryWhereDistinct on QueryBuilder<
       distinctByRaisedByUid({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'raisedByUid', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
+      distinctByRaisedUnderCoordination() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'raisedUnderCoordination');
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
+      distinctByRequestPurposeKey({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'requestPurposeKey',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, ComplianceRequestRecord, QDistinct>
+      distinctByRequestedLocation({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'requestedLocation',
+          caseSensitive: caseSensitive);
     });
   }
 
@@ -12953,6 +14287,13 @@ extension ComplianceRequestRecordQueryProperty on QueryBuilder<
     });
   }
 
+  QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
+      coordinationBasisProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'coordinationBasis');
+    });
+  }
+
   QueryBuilder<ComplianceRequestRecord, int, QQueryOperations>
       correctionCountProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -13041,6 +14382,13 @@ extension ComplianceRequestRecordQueryProperty on QueryBuilder<
       currentAttemptIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'currentAttemptId');
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
+      defermentBasisKeyProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'defermentBasisKey');
     });
   }
 
@@ -13213,6 +14561,20 @@ extension ComplianceRequestRecordQueryProperty on QueryBuilder<
   }
 
   QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
+      operationsResourceKeyProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'operationsResourceKey');
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
+      operationsSupportTypeKeyProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'operationsSupportTypeKey');
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
       originLaneKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'originLaneKey');
@@ -13244,6 +14606,27 @@ extension ComplianceRequestRecordQueryProperty on QueryBuilder<
       raisedByUidProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'raisedByUid');
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, bool, QQueryOperations>
+      raisedUnderCoordinationProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'raisedUnderCoordination');
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, String, QQueryOperations>
+      requestPurposeKeyProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'requestPurposeKey');
+    });
+  }
+
+  QueryBuilder<ComplianceRequestRecord, String?, QQueryOperations>
+      requestedLocationProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'requestedLocation');
     });
   }
 

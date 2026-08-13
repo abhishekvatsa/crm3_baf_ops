@@ -23,7 +23,27 @@ class ComplianceRequestRecord {
   String conditionTypeKey = 'manual';
   @Index()
   String? conditionRef;
+  @Index()
+  String requestPurposeKey = 'assurance';
+  String? defermentBasisKey;
+  String? operationsSupportTypeKey;
+  String? operationsResourceKey;
+  String? requestedLocation;
+  bool raisedUnderCoordination = false;
+  String? coordinationBasis;
   String priorityKey = 'medium';
+
+  @ignore
+  String get requestPurposeLabel {
+    switch (requestPurposeKey) {
+      case 'deferment':
+        return 'Deferment';
+      case 'operationsSupport':
+        return 'Operations support';
+      default:
+        return 'Assurance';
+    }
+  }
 
   String? raisedByUid;
   String? raisedByName;

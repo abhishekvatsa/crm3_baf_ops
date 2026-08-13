@@ -1,4 +1,9 @@
-import {assertLaneAuthority, mayMarkConditionDue} from "./authority";
+import {
+  assertLaneAuthority,
+  assertMayRaiseCompliance,
+  mayMarkConditionDue,
+  mayWorkLane,
+} from "./authority";
 import {
   assertExpectedVersion,
   requireActiveLaneForWorkflow,
@@ -34,11 +39,48 @@ import {cleanText, iso, laneKey, optionalText, plusMinutes} from "./utils";
 import {WORKFLOW_CLOCKS_MINUTES} from "./policy.generated";
 
 const complianceIdFromPayload = (value: unknown): string => cleanText(value, "complianceId");
+const PURPOSES = new Set(["assurance", "deferment", "operationsSupport"]);
+const DEFERMENT_BASES = new Set([
+  "ongoingCycle", "equipmentRequired", "operationalCompliance",
+  "safetyConstraint", "qualityConstraint", "other",
+]);
+const SUPPORT_TYPES = new Set([
+  "craneMovement", "assetRelocation", "isolation", "processPreparation",
+  "utilitySupport", "accessOrPermit", "other",
+]);
+const SUPPORT_RESOURCES = new Set([
+  "crane", "transferCar", "operationsCrew", "utilities", "other",
+]);
+
+const optionalChoice = (
+  value: unknown,
+  field: string,
+  allowed: ReadonlySet<string>,
+): string | null => {
+  if (value == null) return null;
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new WorkflowError("invalid-argument", `Invalid ${field}.`);
+  }
+  const parsed = value.trim();
+  if (!allowed.has(parsed)) {
+    throw new WorkflowError("invalid-argument", `Unsupported ${field}.`);
+  }
+  return parsed;
+};
+
+const optionalRequestText = (value: unknown, field: string): string | null => {
+  if (value == null) return null;
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new WorkflowError("invalid-argument", `Invalid ${field}.`);
+  }
+  return value.trim();
+};
 
 export const raiseCompliance: CommandHandler = async ({tx, command, context}) => {
   const target = laneKey(command.payload.targetLaneKey, "targetLaneKey");
   const origin = laneKey(command.payload.originLaneKey, "originLaneKey");
-  assertLaneAuthority(context.actor, origin, "work");
+  assertMayRaiseCompliance(context.actor, origin);
+  const raisedUnderCoordination = !mayWorkLane(context.actor, origin);
   const workflow = await requireMutableWorkflow(tx, command.aggregateId);
   const version = assertExpectedVersion(workflow, command.expectedVersion);
   const id = cleanText(command.payload.complianceId, "complianceId");
@@ -54,6 +96,79 @@ export const raiseCompliance: CommandHandler = async ({tx, command, context}) =>
     conditionType !== "activityRef"
   ) {
     throw new WorkflowError("invalid-argument", "Unsupported compliance condition type.");
+  }
+  const requestPurpose = optionalChoice(
+    command.payload.requestPurposeKey ?? "assurance",
+    "requestPurposeKey",
+    PURPOSES,
+  )!;
+  const defermentBasis = optionalChoice(
+    command.payload.defermentBasisKey,
+    "defermentBasisKey",
+    DEFERMENT_BASES,
+  );
+  const supportType = optionalChoice(
+    command.payload.operationsSupportTypeKey,
+    "operationsSupportTypeKey",
+    SUPPORT_TYPES,
+  );
+  const supportResource = optionalChoice(
+    command.payload.operationsResourceKey,
+    "operationsResourceKey",
+    SUPPORT_RESOURCES,
+  );
+  const requestedLocation = optionalRequestText(
+    command.payload.requestedLocation,
+    "requestedLocation",
+  );
+
+  if (requestPurpose === "deferment") {
+    if (target !== "oprn") {
+      throw new WorkflowError(
+        "invalid-argument",
+        "Maintenance-deferment requests must target the Operations lane.",
+      );
+    }
+    if (conditionType === "manual") {
+      throw new WorkflowError(
+        "invalid-argument",
+        "A deferment request requires a charge or activity release condition.",
+      );
+    }
+    if (defermentBasis == null) {
+      throw new WorkflowError("invalid-argument", "A deferment basis is required.");
+    }
+  } else if (defermentBasis != null) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "A deferment basis is valid only for a deferment request.",
+    );
+  }
+  if (requestPurpose === "operationsSupport") {
+    if (target !== "oprn") {
+      throw new WorkflowError(
+        "invalid-argument",
+        "Operations-support requests must target the Operations lane.",
+      );
+    }
+    if (supportType == null || supportResource == null) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "Operations-support type and resource are required.",
+      );
+    }
+    if ((supportType === "craneMovement" || supportType === "assetRelocation") &&
+        requestedLocation == null) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "Crane movement and asset relocation require a destination or work location.",
+      );
+    }
+  } else if (supportType != null || supportResource != null || requestedLocation != null) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Operations-support details are valid only for an Operations-support request.",
+    );
   }
 
   const originLane = await requireActiveLaneForWorkflow(
@@ -193,6 +308,14 @@ export const raiseCompliance: CommandHandler = async ({tx, command, context}) =>
     status: "raised",
     conditionTypeKey: conditionType,
     conditionRef,
+    requestPurposeKey: requestPurpose,
+    defermentBasisKey: defermentBasis,
+    operationsSupportTypeKey: supportType,
+    operationsResourceKey: supportResource,
+    requestedLocation,
+    raisedUnderCoordination,
+    coordinationBasis: raisedUnderCoordination ?
+      "supervisory-workflow-coordination" : null,
     priorityKey: optionalText(command.payload.priorityKey) ?? "medium",
     becameDueAt: immediate ? now : null,
     acknowledgementDueAt: immediate
@@ -251,6 +374,14 @@ export const raiseCompliance: CommandHandler = async ({tx, command, context}) =>
       targetLaneKey: target,
       title,
       conditionTypeKey: conditionType,
+      requestPurposeKey: requestPurpose,
+      defermentBasisKey: defermentBasis,
+      operationsSupportTypeKey: supportType,
+      operationsResourceKey: supportResource,
+      requestedLocation,
+      raisedUnderCoordination,
+      coordinationBasis: raisedUnderCoordination ?
+        "supervisory-workflow-coordination" : null,
       gatedLanePath: gate?.path ?? null,
       linkedModuleId,
       linkedMaintenanceId,

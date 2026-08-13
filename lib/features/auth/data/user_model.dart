@@ -408,6 +408,13 @@ class AppUser {
   bool get canDeployMaintenanceEquipment =>
       _canExecuteWorkflowCommand('deployEquipment');
 
+  bool get canCoordinateMaintenanceCompliance =>
+      _canExecuteWorkflowCommand('raiseComplianceCoordination');
+
+  bool canRaiseMaintenanceComplianceFromLane(String? laneName) =>
+      canCoordinateMaintenanceCompliance ||
+      canAcknowledgeOrWorkMaintenanceLane(laneName);
+
   bool canAcknowledgeOrWorkMaintenanceLane(String? laneName) {
     if (!isApproved) return false;
     final laneKey = switch (_normalisePermissionKey(laneName)) {

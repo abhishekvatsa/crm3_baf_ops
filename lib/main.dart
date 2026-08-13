@@ -55,6 +55,7 @@ import 'core/services/isar_production_recovery.dart';
 import 'core/services/isar_schema_guard.dart';
 import 'core/services/isar_schema_migration.dart';
 import 'core/services/live_remote_sync_service.dart';
+import 'core/services/operational_assurance_local_repair.dart';
 import 'core/services/planned_job_local_link_repair.dart';
 import 'core/services/sync_coordinator.dart';
 import 'core/theme/baf_design_system.dart';
@@ -114,6 +115,15 @@ Future<Isar> _openLocalIsar() async {
         'modules=${repair.repairedModules}, '
         'diaryExecutionLinks=${repair.repairedDiaryExecutionLinks}, '
         'diaryModuleLinks=${repair.repairedDiaryModuleLinks}',
+      );
+    }
+    final assuranceRepair = await repairLegacyOperationalAssuranceRequests(
+      localIsar,
+    );
+    if (assuranceRepair.changed) {
+      debugPrint(
+        'Normalized legacy assurance requests: '
+        '${assuranceRepair.normalizedLegacyRequests}',
       );
     }
     final committedMarker = await schemaPreparation.commitAfterSuccessfulOpen();

@@ -19,8 +19,23 @@ export const mayPrepareRedLane = (actor: Actor): boolean =>
   hasAny(actor, COMMAND_AUTHORITY_ROLES.prepareRedLane);
 export const mayReopenWorkflowModule = (actor: Actor): boolean =>
   hasAny(actor, COMMAND_AUTHORITY_ROLES.reopenWorkflowModule);
+export const mayCoordinateCompliance = (actor: Actor): boolean =>
+  hasAny(actor, COMMAND_AUTHORITY_ROLES.raiseComplianceCoordination);
 export const mayManageUnscopedCompliance = (actor: Actor): boolean =>
   hasAny(actor, ["admin", "si"]);
+
+export const assertMayRaiseCompliance = (
+  actor: Actor,
+  lane: LaneKey,
+): void => {
+  if (!mayWorkLane(actor, lane) && !mayCoordinateCompliance(actor)) {
+    throw new WorkflowError(
+      "permission-denied",
+      `Actor is not authorised to raise a request from ${lane}.`,
+      {lane, action: "raiseCompliance"},
+    );
+  }
+};
 
 export const assertLaneAuthority = (
   actor: Actor,

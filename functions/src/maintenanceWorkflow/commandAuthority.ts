@@ -6,6 +6,7 @@ import {
   mayFinalizeLaneSet,
   mayManageLanePopulation,
   mayManageUnscopedCompliance,
+  mayCoordinateCompliance,
   mayMarkConditionDue,
   mayPrepareRedLane,
   mayReconcileEquipment,
@@ -48,6 +49,7 @@ const LANE_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
   "lane.acknowledge",
   "lane.work",
   "lane.close",
+  "compliance.raise",
 ]);
 
 const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
@@ -64,7 +66,7 @@ const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
 ]);
 
 const laneScope = (
-  capability: "lane.acknowledge" | "lane.work" | "lane.close",
+  capability: "lane.acknowledge" | "lane.work" | "lane.close" | "compliance.raise",
   lane: LaneKey,
 ): WorkflowAuthorityScope => ({
   schemaVersion: AUTHORITY_SCOPE_SCHEMA_VERSION,
@@ -75,7 +77,7 @@ const laneScope = (
 const staticScope = (
   capability: Exclude<
     WorkflowAuthorityCapability,
-    "lane.acknowledge" | "lane.work" | "lane.close"
+    "lane.acknowledge" | "lane.work" | "lane.close" | "compliance.raise"
   >,
 ): WorkflowAuthorityScope => ({
   schemaVersion: AUTHORITY_SCOPE_SCHEMA_VERSION,
@@ -109,7 +111,7 @@ export const canonicalWorkflowAuthorityScope = (
     }
     try {
       return laneScope(
-        capability as "lane.acknowledge" | "lane.work" | "lane.close",
+        capability as "lane.acknowledge" | "lane.work" | "lane.close" | "compliance.raise",
         laneKey(data.laneKey, "authorityScope.laneKey"),
       );
     } catch {
@@ -122,7 +124,7 @@ export const canonicalWorkflowAuthorityScope = (
   }
   return staticScope(capability as Exclude<
     WorkflowAuthorityCapability,
-    "lane.acknowledge" | "lane.work" | "lane.close"
+    "lane.acknowledge" | "lane.work" | "lane.close" | "compliance.raise"
   >);
 };
 
@@ -151,6 +153,10 @@ export const assertWorkflowAuthorityScope = (
     return;
   case "lane.close":
     assertLaneAuthority(actor, scope.laneKey as LaneKey, "close");
+    return;
+  case "compliance.raise":
+    if (mayCoordinateCompliance(actor)) return;
+    assertLaneAuthority(actor, scope.laneKey as LaneKey, "work");
     return;
   case "laneSet.finalize":
     if (!mayFinalizeLaneSet(actor)) denied();
@@ -195,7 +201,7 @@ export const resolveFreshWorkflowAuthorityScope = async (
   if (staticCapability != null) {
     return staticScope(staticCapability as Exclude<
       WorkflowAuthorityCapability,
-      "lane.acknowledge" | "lane.work" | "lane.close"
+      "lane.acknowledge" | "lane.work" | "lane.close" | "compliance.raise"
     >);
   }
 
@@ -209,7 +215,7 @@ export const resolveFreshWorkflowAuthorityScope = async (
     return laneScope("lane.close", laneKey(command.payload.laneKey));
   case "raiseCompliance":
     return laneScope(
-      "lane.work",
+      "compliance.raise",
       laneKey(command.payload.originLaneKey, "originLaneKey"),
     );
   case "acknowledgeCompliance":

@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:crm3_baf_ops/core/services/isar_schema_migration.dart';
+import 'package:crm3_baf_ops/core/services/operational_assurance_local_repair.dart';
 import 'package:crm3_baf_ops/core/services/planned_job_local_link_repair.dart';
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
 import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
@@ -32,6 +33,7 @@ import '../tool/test_support/test_isar_core.dart';
 
 const _fixtureName = 'crm3_70k_populated_fixture';
 const _v2FixtureName = 'crm3_70k_governed_v2_fixture';
+const _v3FixtureName = 'crm3_70k_operational_assurance_v3_fixture';
 const _generationId = '123e4567-e89b-42d3-a456-426614174000';
 const _rotatedGenerationId = '223e4567-e89b-42d3-a456-426614174000';
 const _governedV2FixtureFingerprint =
@@ -327,6 +329,62 @@ List<CollectionSchema<dynamic>> _loadGovernedV2FixtureSchemas() {
   ];
 }
 
+CollectionSchema<ComplianceRequestRecord> _v3ComplianceRequestSchema() {
+  const v4Fields = <String>{
+    'coordinationBasis',
+    'defermentBasisKey',
+    'operationsResourceKey',
+    'operationsSupportTypeKey',
+    'raisedUnderCoordination',
+    'requestPurposeKey',
+    'requestedLocation',
+  };
+  final retained = ComplianceRequestRecordSchema.properties.entries
+      .where((entry) => !v4Fields.contains(entry.key))
+      .toList(growable: false);
+  final properties = <String, PropertySchema>{};
+  for (var index = 0; index < retained.length; index++) {
+    final entry = retained[index];
+    final property = entry.value;
+    properties[entry.key] = PropertySchema(
+      id: index,
+      name: entry.key,
+      type: property.type,
+      enumMap: property.enumMap,
+      target: property.target,
+    );
+  }
+  final indexes = Map<String, IndexSchema>.from(
+    ComplianceRequestRecordSchema.indexes,
+  )..remove('requestPurposeKey');
+  return CollectionSchema<ComplianceRequestRecord>(
+    id: ComplianceRequestRecordSchema.id,
+    name: ComplianceRequestRecordSchema.name,
+    properties: properties,
+    estimateSize: ComplianceRequestRecordSchema.estimateSize,
+    serialize: ComplianceRequestRecordSchema.serialize,
+    deserialize: ComplianceRequestRecordSchema.deserialize,
+    deserializeProp: ComplianceRequestRecordSchema.deserializeProp,
+    idName: ComplianceRequestRecordSchema.idName,
+    indexes: indexes,
+    links: ComplianceRequestRecordSchema.links,
+    embeddedSchemas: ComplianceRequestRecordSchema.embeddedSchemas,
+    getId: ComplianceRequestRecordSchema.getId,
+    getLinks: ComplianceRequestRecordSchema.getLinks,
+    attach: ComplianceRequestRecordSchema.attach,
+    version: ComplianceRequestRecordSchema.version,
+  );
+}
+
+List<CollectionSchema<dynamic>> _loadRepositoryProvenV3Schemas() =>
+    <CollectionSchema<dynamic>>[
+      for (final schema in _currentSchemas)
+        if (schema.name == ComplianceRequestRecordSchema.name)
+          _v3ComplianceRequestSchema()
+        else
+          schema,
+    ];
+
 Future<void> _populateRepresentativeRows(Isar isar) async {
   final now = DateTime.utc(2026, 8, 11, 12);
   final template =
@@ -443,7 +501,7 @@ void main() {
   });
 
   test(
-    'repository-proven populated v1 migrates to v3 with rows and relationships intact',
+    'repository-proven populated v1 migrates to v4 with rows and relationships intact',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_populated_v1_',
@@ -495,6 +553,12 @@ void main() {
         expect(repair.repairedModules, 1);
         expect(repair.repairedDiaryExecutionLinks, 1);
         expect(repair.repairedDiaryModuleLinks, 1);
+        expect(
+          (await repairLegacyOperationalAssuranceRequests(
+            isar,
+          )).normalizedLegacyRequests,
+          0,
+        );
         final committed = await preparation.commitAfterSuccessfulOpen();
         expect(committed.state, IsarSchemaMarkerState.committed);
         expect(committed.databaseGenerationId, _generationId);
@@ -539,6 +603,150 @@ void main() {
         );
         expect(await isar.workflowAggregateRecords.where().count(), 0);
         expect(await isar.workflowCommandRecords.where().count(), 0);
+      } finally {
+        if (isar?.isOpen ?? false) {
+          await isar!.close(deleteFromDisk: true);
+        }
+        if (await directory.exists()) {
+          await directory.delete(recursive: true);
+        }
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+
+  test(
+    'populated v3 compliance request migrates to explicit v4 assurance without evidence loss',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'crm3_70k_operational_assurance_v3_',
+      );
+      Isar? isar;
+      try {
+        final now = DateTime.utc(2026, 8, 14, 5, 30);
+        isar = await Isar.open(
+          _currentSchemas,
+          directory: directory.path,
+          name: _v3FixtureName,
+        );
+        final legacyRequest =
+            ComplianceRequestRecord()
+              ..firestoreId = 'legacy-compliance-v3'
+              ..isSynced = true
+              ..version = 7
+              ..title = 'Confirm crane isolation'
+              ..description = 'Confirm the crane is isolated before work.'
+              ..originLaneKey = 'mech'
+              ..targetLaneKey = 'oprn'
+              ..statusKey = 'acknowledged'
+              ..conditionTypeKey = 'manual'
+              ..requestPurposeKey = 'assurance'
+              ..priorityKey = 'high'
+              ..raisedByUid = 'mech-supervisor'
+              ..raisedByName = 'Mechanical Supervisor'
+              ..raisedAt = now
+              ..acknowledgedByUid = 'operations-user'
+              ..acknowledgedByName = 'Operations User'
+              ..acknowledgedAt = now.add(const Duration(minutes: 5))
+              ..linkedWorkflowId = 'workflow-v3'
+              ..linkedExecutionFirestoreId = 'execution-v3'
+              ..assetTypeKey = 'furnace'
+              ..assetNumber = 7
+              ..createdAt = now
+              ..updatedAt = now.add(const Duration(minutes: 5));
+        await isar.writeTxn(() async {
+          await isar!.complianceRequestRecords.put(legacyRequest);
+        });
+        await isar.close();
+        isar = null;
+
+        final v3Schemas = _loadRepositoryProvenV3Schemas();
+        expect(v3Schemas, hasLength(_currentSchemas.length));
+        final v3Compliance = v3Schemas.singleWhere(
+          (schema) => schema.name == ComplianceRequestRecordSchema.name,
+        );
+        expect(v3Compliance.properties, hasLength(68));
+        expect(v3Compliance.properties, isNot(contains('requestPurposeKey')));
+        isar = await Isar.open(
+          v3Schemas,
+          directory: directory.path,
+          name: _v3FixtureName,
+        );
+        await isar.close();
+        isar = null;
+
+        final markerStore = InMemoryIsarSchemaProvenanceStore(
+          canonicalMarkerJson:
+              const IsarSchemaProvenanceMarker(
+                state: IsarSchemaMarkerState.committed,
+                schemaVersion: 3,
+                schemaFingerprint: IsarSchemaMigrator.v3SchemaFingerprint,
+                databaseGenerationId: _generationId,
+                origin: IsarSchemaMarkerOrigin.freshInstall,
+                sourceSchemaVersion: null,
+                sourceSchemaFingerprint: null,
+              ).encode(),
+        );
+        final preparation = await IsarSchemaMigrator.prepareBeforeOpen(
+          store: markerStore,
+          databaseDirectoryPath: directory.path,
+          hasExistingLocalStore: true,
+        );
+        expect(preparation.result.fromVersion, 3);
+        expect(preparation.result.toVersion, 4);
+        expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
+        expect(preparation.marker.databaseGenerationId, _generationId);
+
+        isar = await Isar.open(
+          _currentSchemas,
+          directory: directory.path,
+          name: _v3FixtureName,
+        );
+        final beforeRepair =
+            await isar.complianceRequestRecords
+                .filter()
+                .firestoreIdEqualTo('legacy-compliance-v3')
+                .findFirst();
+        expect(beforeRepair, isNotNull);
+        expect(beforeRepair!.requestPurposeKey, isEmpty);
+
+        final firstRepair = await repairLegacyOperationalAssuranceRequests(
+          isar,
+        );
+        expect(firstRepair.normalizedLegacyRequests, 1);
+        final secondRepair = await repairLegacyOperationalAssuranceRequests(
+          isar,
+        );
+        expect(secondRepair.normalizedLegacyRequests, 0);
+
+        final migrated =
+            await isar.complianceRequestRecords
+                .filter()
+                .firestoreIdEqualTo('legacy-compliance-v3')
+                .findFirst();
+        expect(migrated, isNotNull);
+        expect(migrated!.requestPurposeKey, 'assurance');
+        expect(migrated.title, legacyRequest.title);
+        expect(migrated.description, legacyRequest.description);
+        expect(migrated.originLaneKey, 'mech');
+        expect(migrated.targetLaneKey, 'oprn');
+        expect(migrated.statusKey, 'acknowledged');
+        expect(migrated.raisedByUid, 'mech-supervisor');
+        expect(migrated.acknowledgedByUid, 'operations-user');
+        expect(migrated.raisedAt?.toUtc(), now);
+        expect(
+          migrated.acknowledgedAt?.toUtc(),
+          now.add(const Duration(minutes: 5)),
+        );
+        expect(migrated.version, 7);
+        expect(migrated.isSynced, isTrue);
+        expect(migrated.coordinationBasis, isNull);
+        expect(migrated.raisedUnderCoordination, isFalse);
+
+        final committed = await preparation.commitAfterSuccessfulOpen();
+        expect(committed.schemaVersion, 4);
+        expect(committed.state, IsarSchemaMarkerState.committed);
+        expect(committed.databaseGenerationId, _generationId);
       } finally {
         if (isar?.isOpen ?? false) {
           await isar!.close(deleteFromDisk: true);
@@ -604,7 +812,8 @@ void main() {
           schemaFingerprint: IsarSchemaMigrator.currentSchemaFingerprint,
           acceptedFingerprintsByVersion: const <int, Set<String>>{
             2: <String>{_governedV2FixtureFingerprint},
-            3: <String>{IsarSchemaMigrator.currentSchemaFingerprint},
+            3: <String>{IsarSchemaMigrator.v3SchemaFingerprint},
+            4: <String>{IsarSchemaMigrator.currentSchemaFingerprint},
           },
           stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
             3: (context) async {
@@ -612,6 +821,10 @@ void main() {
               expect(context.toVersion, 3);
               expect(context.hasExistingLocalStore, isTrue);
               v2ToV3StepRuns++;
+            },
+            4: (context) async {
+              expect(context.fromVersion, 3);
+              expect(context.toVersion, 4);
             },
           },
         );

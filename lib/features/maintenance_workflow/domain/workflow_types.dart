@@ -23,6 +23,29 @@ enum ComplianceStatus {
 
 enum ComplianceConditionType { manual, chargeComplete, activityRef }
 
+enum ComplianceRequestPurpose { assurance, deferment, operationsSupport }
+
+enum ComplianceDefermentBasis {
+  ongoingCycle,
+  equipmentRequired,
+  operationalCompliance,
+  safetyConstraint,
+  qualityConstraint,
+  other,
+}
+
+enum OperationsSupportType {
+  craneMovement,
+  assetRelocation,
+  isolation,
+  processPreparation,
+  utilitySupport,
+  accessOrPermit,
+  other,
+}
+
+enum OperationsResource { crane, transferCar, operationsCrew, utilities, other }
+
 enum EquipmentWorkflowState {
   inService,
   underMaintenance,

@@ -9,8 +9,13 @@ class RaiseComplianceDraft {
   final String targetLaneKey;
   final String title;
   final String description;
+  final String requestPurposeKey;
   final String conditionTypeKey;
   final String? conditionRef;
+  final String? defermentBasisKey;
+  final String? operationsSupportTypeKey;
+  final String? operationsResourceKey;
+  final String? requestedLocation;
   final String priorityKey;
   final String? linkedMaintenanceId;
   final JobLaneRecord? gatingLane;
@@ -20,8 +25,13 @@ class RaiseComplianceDraft {
     required this.targetLaneKey,
     required this.title,
     required this.description,
+    required this.requestPurposeKey,
     required this.conditionTypeKey,
     required this.conditionRef,
+    required this.defermentBasisKey,
+    required this.operationsSupportTypeKey,
+    required this.operationsResourceKey,
+    required this.requestedLocation,
     required this.priorityKey,
     required this.linkedMaintenanceId,
     required this.gatingLane,
@@ -37,11 +47,12 @@ Future<RaiseComplianceDraft?> showRaiseComplianceDialog(
   if (originLanes.isEmpty) return Future<RaiseComplianceDraft?>.value();
   return showDialog<RaiseComplianceDraft>(
     context: context,
-    builder: (_) => _RaiseComplianceDialog(
-      originLanes: originLanes,
-      activeLanes: activeLanes,
-      maintenanceTickets: maintenanceTickets,
-    ),
+    builder:
+        (_) => _RaiseComplianceDialog(
+          originLanes: originLanes,
+          activeLanes: activeLanes,
+          maintenanceTickets: maintenanceTickets,
+        ),
   );
 }
 
@@ -57,18 +68,23 @@ class _RaiseComplianceDialog extends StatefulWidget {
   });
 
   @override
-  State<_RaiseComplianceDialog> createState() =>
-      _RaiseComplianceDialogState();
+  State<_RaiseComplianceDialog> createState() => _RaiseComplianceDialogState();
 }
 
 class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _conditionRefController = TextEditingController();
+  final TextEditingController _requestedLocationController =
+      TextEditingController();
 
   late String _originLaneKey;
+  String _requestPurposeKey = 'assurance';
   String _targetLaneKey = MaintenanceLaneId.operations.value;
   String _conditionTypeKey = 'manual';
+  String _defermentBasisKey = 'ongoingCycle';
+  String _operationsSupportTypeKey = 'craneMovement';
+  String _operationsResourceKey = 'crane';
   String _priorityKey = 'medium';
   String _linkedMaintenanceId = '';
   String _gatingLaneId = '';
@@ -85,19 +101,40 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
     _titleController.dispose();
     _descriptionController.dispose();
     _conditionRefController.dispose();
+    _requestedLocationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Raise compliance request'),
+      title: const Text('Request assurance or support'),
       content: SizedBox(
         width: 560,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              DropdownButtonFormField<String>(
+                initialValue: _requestPurposeKey,
+                decoration: const InputDecoration(labelText: 'Request type'),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'assurance',
+                    child: Text('Assurance / confirmation'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'deferment',
+                    child: Text('Maintenance deferment'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'operationsSupport',
+                    child: Text('Operations support'),
+                  ),
+                ],
+                onChanged: _setPurpose,
+              ),
+              const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _originLaneKey,
                 decoration: const InputDecoration(
@@ -117,6 +154,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                key: ValueKey<String>('target-$_targetLaneKey'),
                 initialValue: _targetLaneKey,
                 decoration: const InputDecoration(labelText: 'Target lane'),
                 items: MaintenanceLaneCatalog.crm3.definitions
@@ -127,10 +165,126 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
                       ),
                     )
                     .toList(growable: false),
-                onChanged: (value) {
-                  if (value != null) setState(() => _targetLaneKey = value);
-                },
+                onChanged:
+                    _requestPurposeKey == 'assurance'
+                        ? (value) {
+                          if (value != null) {
+                            setState(() => _targetLaneKey = value);
+                          }
+                        }
+                        : null,
               ),
+              if (_requestPurposeKey == 'deferment') ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _defermentBasisKey,
+                  decoration: const InputDecoration(
+                    labelText: 'Reason for deferment',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'ongoingCycle',
+                      child: Text('Ongoing cycle / charge'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'equipmentRequired',
+                      child: Text('Equipment required by Operations'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'operationalCompliance',
+                      child: Text('Operational compliance'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'safetyConstraint',
+                      child: Text('Safety constraint'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'qualityConstraint',
+                      child: Text('Quality constraint'),
+                    ),
+                    DropdownMenuItem(value: 'other', child: Text('Other')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _defermentBasisKey = value);
+                    }
+                  },
+                ),
+              ],
+              if (_requestPurposeKey == 'operationsSupport') ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _operationsSupportTypeKey,
+                  decoration: const InputDecoration(
+                    labelText: 'Support required',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'craneMovement',
+                      child: Text('Crane movement'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'assetRelocation',
+                      child: Text('Asset relocation'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'isolation',
+                      child: Text('Isolation'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'processPreparation',
+                      child: Text('Process preparation'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'utilitySupport',
+                      child: Text('Utility support'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'accessOrPermit',
+                      child: Text('Access / permit'),
+                    ),
+                    DropdownMenuItem(value: 'other', child: Text('Other')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _operationsSupportTypeKey = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _operationsResourceKey,
+                  decoration: const InputDecoration(labelText: 'Resource'),
+                  items: const [
+                    DropdownMenuItem(value: 'crane', child: Text('Crane')),
+                    DropdownMenuItem(
+                      value: 'transferCar',
+                      child: Text('Transfer car'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'operationsCrew',
+                      child: Text('Operations crew'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'utilities',
+                      child: Text('Utilities'),
+                    ),
+                    DropdownMenuItem(value: 'other', child: Text('Other')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _operationsResourceKey = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _requestedLocationController,
+                  decoration: const InputDecoration(
+                    labelText: 'Destination / work location',
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               TextField(
                 controller: _titleController,
@@ -146,6 +300,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                key: ValueKey<String>('condition-$_conditionTypeKey'),
                 initialValue: _conditionTypeKey,
                 decoration: const InputDecoration(labelText: 'When due'),
                 items: const [
@@ -168,9 +323,10 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
                 TextField(
                   controller: _conditionRefController,
                   decoration: InputDecoration(
-                    labelText: _conditionTypeKey == 'chargeComplete'
-                        ? 'Charge / cycle reference'
-                        : 'Activity reference',
+                    labelText:
+                        _conditionTypeKey == 'chargeComplete'
+                            ? 'Charge / cycle reference'
+                            : 'Activity reference',
                   ),
                 ),
               ],
@@ -178,12 +334,16 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
               DropdownButtonFormField<String>(
                 initialValue: _linkedMaintenanceId,
                 decoration: InputDecoration(
-                  labelText: _conditionTypeKey == 'manual'
-                      ? 'Linked maintenance ticket (optional)'
-                      : 'Linked maintenance ticket (required)',
-                  helperText: _conditionTypeKey == 'manual'
-                      ? 'Link when the request governs an existing ticket.'
-                      : 'Deferred work must bind to a real open ticket on this asset.',
+                  labelText:
+                      _requestPurposeKey == 'deferment'
+                          ? 'Linked maintenance ticket (required)'
+                          : _conditionTypeKey == 'manual'
+                          ? 'Linked maintenance ticket (optional)'
+                          : 'Linked maintenance ticket (required)',
+                  helperText:
+                      _conditionTypeKey == 'manual'
+                          ? 'Link when the request governs an existing ticket.'
+                          : 'Deferred work must bind to a real open ticket on this asset.',
                 ),
                 items: <DropdownMenuItem<String>>[
                   const DropdownMenuItem<String>(
@@ -200,9 +360,10 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
                     ),
                   ),
                 ],
-                onChanged: (value) => setState(() {
-                  _linkedMaintenanceId = value ?? '';
-                }),
+                onChanged:
+                    (value) => setState(() {
+                      _linkedMaintenanceId = value ?? '';
+                    }),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -236,9 +397,10 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
                     ),
                   ),
                 ],
-                onChanged: (value) => setState(() {
-                  _gatingLaneId = value ?? '';
-                }),
+                onChanged:
+                    (value) => setState(() {
+                      _gatingLaneId = value ?? '';
+                    }),
               ),
               if (_validationMessage != null) ...[
                 const SizedBox(height: 12),
@@ -246,7 +408,9 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     _validationMessage!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                   ),
                 ),
               ],
@@ -259,10 +423,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Raise request'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('Raise request')),
       ],
     );
   }
@@ -271,6 +432,7 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
     final title = _titleController.text.trim();
     final description = _descriptionController.text.trim();
     final conditionRef = _conditionRefController.text.trim();
+    final requestedLocation = _requestedLocationController.text.trim();
     if (title.isEmpty || description.isEmpty) {
       setState(() {
         _validationMessage = 'Title and required action are mandatory.';
@@ -283,10 +445,21 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
       });
       return;
     }
-    if (_conditionTypeKey != 'manual' && _linkedMaintenanceId.isEmpty) {
+    if ((_requestPurposeKey == 'deferment' || _conditionTypeKey != 'manual') &&
+        _linkedMaintenanceId.isEmpty) {
       setState(() {
         _validationMessage =
             'Deferred compliance must be linked to an open maintenance ticket.';
+      });
+      return;
+    }
+    if (_requestPurposeKey == 'operationsSupport' &&
+        (_operationsSupportTypeKey == 'craneMovement' ||
+            _operationsSupportTypeKey == 'assetRelocation') &&
+        requestedLocation.isEmpty) {
+      setState(() {
+        _validationMessage =
+            'A destination or work location is required for movement.';
       });
       return;
     }
@@ -308,13 +481,46 @@ class _RaiseComplianceDialogState extends State<_RaiseComplianceDialog> {
         targetLaneKey: _targetLaneKey,
         title: title,
         description: description,
+        requestPurposeKey: _requestPurposeKey,
         conditionTypeKey: _conditionTypeKey,
         conditionRef: conditionRef.isEmpty ? null : conditionRef,
+        defermentBasisKey:
+            _requestPurposeKey == 'deferment' ? _defermentBasisKey : null,
+        operationsSupportTypeKey:
+            _requestPurposeKey == 'operationsSupport'
+                ? _operationsSupportTypeKey
+                : null,
+        operationsResourceKey:
+            _requestPurposeKey == 'operationsSupport'
+                ? _operationsResourceKey
+                : null,
+        requestedLocation:
+            _requestPurposeKey == 'operationsSupport' &&
+                    requestedLocation.isNotEmpty
+                ? requestedLocation
+                : null,
         priorityKey: _priorityKey,
         linkedMaintenanceId:
             _linkedMaintenanceId.isEmpty ? null : _linkedMaintenanceId,
         gatingLane: gatingLane,
       ),
     );
+  }
+
+  void _setPurpose(String? value) {
+    if (value == null) return;
+    setState(() {
+      _requestPurposeKey = value;
+      _validationMessage = null;
+      if (value == 'deferment') {
+        _targetLaneKey = MaintenanceLaneId.operations.value;
+        if (_conditionTypeKey == 'manual') {
+          _conditionTypeKey = 'chargeComplete';
+        }
+      } else if (value == 'operationsSupport') {
+        _targetLaneKey = MaintenanceLaneId.operations.value;
+        _conditionTypeKey = 'manual';
+      }
+    });
   }
 }

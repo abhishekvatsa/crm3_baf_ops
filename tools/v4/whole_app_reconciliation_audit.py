@@ -145,9 +145,10 @@ def main()->int:
     migration=read('lib/core/services/isar_schema_migration.dart')
     isar_guard=read('lib/core/services/isar_schema_guard_io.dart')
     startup=read('lib/main.dart')
-    add(c,'Isar migration version explicitly advances to v3',
-        'currentSchemaVersion = 3' in migration and '3: _reconcileV4WorkflowPersistence' in migration
-        and 'MaintenanceRecord+WorkflowBridge' in migration,
+    add(c,'Isar migration version explicitly advances to v4',
+        'currentSchemaVersion = 4' in migration and '3: _reconcileV4WorkflowPersistence' in migration
+        and '4: _addOperationalAssuranceRequestFields' in migration
+        and 'ComplianceRequestRecord+OperationalAssurance' in migration,
         'same-version schema drift is not hidden')
     add(c,'Isar provenance refuses unmarked stores and commits after open',
         all(token in migration for token in [
@@ -159,6 +160,7 @@ def main()->int:
         and startup.index('ensureIsarSchemaBeforeOpen(')
             < startup.index('Isar.open(')
             < startup.index('repairPlannedJobLocalLinks(')
+            < startup.index('repairLegacyOperationalAssuranceRequests(')
             < startup.index('commitAfterSuccessfulOpen()')
         and 'readIsarSchemaProvenanceSnapshotJson()' in startup
         and '"schemaProvenanceSnapshot": $provenanceSnapshot' in startup,

@@ -140,9 +140,12 @@ def verify_migration() -> None:
     text=(ROOT/'lib/core/services/isar_schema_migration.dart').read_text(encoding="utf-8")
     guard=(ROOT/'lib/core/services/isar_schema_guard_io.dart').read_text(encoding="utf-8")
     startup=(ROOT/'lib/main.dart').read_text(encoding="utf-8")
-    if 'currentSchemaVersion = 3' not in text: fail('Isar schema version is not v3')
-    if "'v3:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('v3 schema fingerprint missing')
+    if 'currentSchemaVersion = 4' not in text: fail('Isar schema version is not v4')
+    if "'v4:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('v4 schema fingerprint missing')
     if '3: _reconcileV4WorkflowPersistence' not in text: fail('v2->v3 migration step missing')
+    if '4: _addOperationalAssuranceRequestFields' not in text: fail('v3->v4 migration step missing')
+    if 'repairLegacyOperationalAssuranceRequests(' not in startup:
+        fail('v4 operational-assurance post-open repair missing')
     required_provenance = (
         "baf_isar_schema_provenance_v1",
         "databaseGenerationId",
@@ -165,10 +168,13 @@ def verify_migration() -> None:
         fail("Lock-only Isar residue must not be treated as durable data")
     prepare=startup.index("ensureIsarSchemaBeforeOpen(")
     opened=startup.index("Isar.open(",prepare)
-    repaired=startup.index("repairPlannedJobLocalLinks(",opened)
-    committed=startup.index("commitAfterSuccessfulOpen()",repaired)
-    if not prepare < opened < repaired < committed:
-        fail("Isar provenance must prepare before open and commit after repair")
+    planned_repaired=startup.index("repairPlannedJobLocalLinks(",opened)
+    assurance_repaired=startup.index(
+        "repairLegacyOperationalAssuranceRequests(", planned_repaired
+    )
+    committed=startup.index("commitAfterSuccessfulOpen()",assurance_repaired)
+    if not prepare < opened < planned_repaired < assurance_repaired < committed:
+        fail("Isar provenance must prepare before open and commit after all repairs")
     if (
         "readIsarSchemaProvenanceSnapshotJson()" not in startup
         or '"schemaProvenanceSnapshot": $provenanceSnapshot' not in startup

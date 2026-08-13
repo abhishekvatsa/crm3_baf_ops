@@ -18,8 +18,7 @@ class ComplianceInboxScreen extends ConsumerStatefulWidget {
       _ComplianceInboxScreenState();
 }
 
-class _ComplianceInboxScreenState
-    extends ConsumerState<ComplianceInboxScreen> {
+class _ComplianceInboxScreenState extends ConsumerState<ComplianceInboxScreen> {
   _ComplianceInboxView _view = _ComplianceInboxView.forMyLane;
 
   @override
@@ -27,9 +26,10 @@ class _ComplianceInboxScreenState
     final asyncRows = ref.watch(workflowAllComplianceProvider);
     final actor = ref.watch(currentAppUserProvider).value;
     final canViewAll = actor?.isModuleLifecycleSupervisor ?? false;
-    final effectiveView = !canViewAll && _view == _ComplianceInboxView.all
-        ? _ComplianceInboxView.forMyLane
-        : _view;
+    final effectiveView =
+        !canViewAll && _view == _ComplianceInboxView.all
+            ? _ComplianceInboxView.forMyLane
+            : _view;
     final laneLabel = widget.laneKey?.trim().toUpperCase();
 
     return Scaffold(
@@ -80,20 +80,22 @@ class _ComplianceInboxScreenState
               error: (error, _) => Center(child: Text('$error')),
               data: (rows) {
                 final visible = rows
-                    .where(_isActionable)
-                    .where(
-                      (row) => _matchesView(
-                        row,
-                        view: effectiveView,
-                        actorUid: actor?.uid,
-                        canWorkLane: (lane) =>
-                            actor?.canAcknowledgeOrWorkMaintenanceLane(lane) ??
-                            false,
-                        canViewAll: canViewAll,
-                      ),
-                    )
-                    .toList(growable: false)
-                  ..sort(_sortRows);
+                  .where(_isActionable)
+                  .where(
+                    (row) => _matchesView(
+                      row,
+                      view: effectiveView,
+                      actorUid: actor?.uid,
+                      canWorkLane:
+                          (lane) =>
+                              actor?.canAcknowledgeOrWorkMaintenanceLane(
+                                lane,
+                              ) ??
+                              false,
+                      canViewAll: canViewAll,
+                    ),
+                  )
+                  .toList(growable: false)..sort(_sortRows);
                 if (visible.isEmpty) {
                   return const Center(
                     child: Text('No actionable obligations in this view.'),
@@ -105,8 +107,8 @@ class _ComplianceInboxScreenState
                     physics: const AlwaysScrollableScrollPhysics(),
                     itemCount: visible.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) =>
-                        _tile(context, visible[index]),
+                    itemBuilder:
+                        (context, index) => _tile(context, visible[index]),
                   ),
                 );
               },
@@ -146,10 +148,7 @@ class _ComplianceInboxScreenState
       row.statusKey != 'superseded' &&
       row.statusKey != 'cancelled';
 
-  int _sortRows(
-    ComplianceRequestRecord left,
-    ComplianceRequestRecord right,
-  ) {
+  int _sortRows(ComplianceRequestRecord left, ComplianceRequestRecord right) {
     final tierCompare = right.escalationTier.compareTo(left.escalationTier);
     if (tierCompare != 0) return tierCompare;
     final leftDue = left.becameDueAt ?? DateTime(9999);
@@ -168,8 +167,8 @@ class _ComplianceInboxScreenState
           row.statusKey == 'complied'
               ? Icons.fact_check_outlined
               : row.becameDueAt == null
-                  ? Icons.schedule_outlined
-                  : Icons.assignment_late_outlined,
+              ? Icons.schedule_outlined
+              : Icons.assignment_late_outlined,
         ),
       ),
       title: Text(row.title),
@@ -178,15 +177,15 @@ class _ComplianceInboxScreenState
         children: [
           const SizedBox(height: 3),
           Text(
-            '${row.originLaneKey?.toUpperCase() ?? 'UNATTRIBUTED'} → ${row.targetLaneKey.toUpperCase()} · ${row.statusKey}',
+            '${row.requestPurposeLabel} · '
+            '${row.originLaneKey?.toUpperCase() ?? 'UNATTRIBUTED'} -> '
+            '${row.targetLaneKey.toUpperCase()} · ${row.statusKey}',
           ),
+          if (row.raisedUnderCoordination)
+            const Text('Raised under supervisory coordination'),
           Text(dueText),
           if (row.description.trim().isNotEmpty)
-            Text(
-              row.description,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
+            Text(row.description, maxLines: 2, overflow: TextOverflow.ellipsis),
         ],
       ),
       trailing: Wrap(
@@ -200,11 +199,12 @@ class _ComplianceInboxScreenState
           const Icon(Icons.chevron_right),
         ],
       ),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => ComplianceDetailScreen(record: row),
-        ),
-      ),
+      onTap:
+          () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ComplianceDetailScreen(record: row),
+            ),
+          ),
     );
   }
 
@@ -215,9 +215,10 @@ class _ComplianceInboxScreenState
           ? 'Dormant until its condition is confirmed'
           : 'Dormant until ${row.conditionTypeKey}: $reference';
     }
-    final dueAt = row.statusKey == 'raised'
-        ? row.acknowledgementDueAt
-        : row.complianceDueAt;
+    final dueAt =
+        row.statusKey == 'raised'
+            ? row.acknowledgementDueAt
+            : row.complianceDueAt;
     if (dueAt == null) return 'Due since ${_formatDate(row.becameDueAt!)}';
     final overdue = DateTime.now().isAfter(dueAt);
     return overdue

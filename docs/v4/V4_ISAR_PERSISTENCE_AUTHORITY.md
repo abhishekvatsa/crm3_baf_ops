@@ -43,11 +43,14 @@ cannot be promoted merely because its TypeScript and source-only audits pass.
 
 ## Schema migration
 
-The application schema marker is v3:
+The application schema marker is v4:
 
 - v1 → v2: workflow collection registration;
 - v2 → v3: workflow persistence reconciliation, maintenance bridge fields,
   execution terminal state, and EMD/Refractory persistence.
+- v3 → v4: typed operational-assurance request fields, with an idempotent
+  post-open repair that classifies historical requests as general assurance
+  before provenance is committed.
 
 The pinned generator output and real-device migration must still be proven on a
 copy of representative v2 local data before pilot approval.
