@@ -264,16 +264,12 @@ post_codegen_register_valid = (
     and post_codegen_source.get("codegenResult") == "PASS"
     and post_codegen_source.get("custodyResult") == "PASS"
     and post_codegen_refresh.get("sourceCommit")
-        == "ac7efab08879ac54f1aede3624e02a0129b19d61"
+        == "d2d916f5ef98949421d93cbe2c40e9aeaaf8fc04"
     and post_codegen_refresh.get("sourceTree")
-        == "388d9ac83892f0dafbdffa498b4017ad240e4d24"
+        == "82888a0753c0fe9ae4fb4abfdbc2fa923e827112"
     and post_codegen_refresh.get("codegenResult") == "PASS"
     and post_codegen_refresh.get("changedBindingPaths") == [
-        "lib/features/directives/data/operational_directive_model.g.dart",
-        "lib/features/maintenance/data/maintenance_model.g.dart",
-        "lib/features/planned_maintenance/data/job_diary_model.g.dart",
-        "lib/features/planned_maintenance/data/job_module_model.g.dart",
-        "lib/features/planned_maintenance/data/job_template_model.g.dart",
+        "lib/features/maintenance_workflow/data/compliance_request_record.g.dart",
     ]
     and len(post_codegen_bindings) == 19
     and all(
