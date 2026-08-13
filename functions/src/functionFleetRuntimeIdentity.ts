@@ -9,6 +9,7 @@ export const FUNCTION_RUNTIME_SERVICE_ACCOUNT_IDS = Object.freeze({
   getBackendReleaseIdentity: "crm3-backend-identity-runtime",
   mutateUserAuthority: "crm3-fn-user-authority",
   mutateChargeAbnormality: "crm3-fn-charge-abnormality",
+  mutateAssetHierarchy: "crm3-fn-asset-hierarchy",
   onTicketCreated: "crm3-fn-ticket-created",
   onTicketResolved: "crm3-fn-ticket-resolved",
   onJobAssigned: "crm3-fn-job-assigned",
@@ -37,6 +38,8 @@ export const FUNCTION_RUNTIME_SERVICE_ACCOUNTS = Object.freeze({
     expr`${FUNCTION_RUNTIME_SERVICE_ACCOUNT_IDS.mutateUserAuthority}@${projectID}.iam.gserviceaccount.com`,
   mutateChargeAbnormality:
     expr`${FUNCTION_RUNTIME_SERVICE_ACCOUNT_IDS.mutateChargeAbnormality}@${projectID}.iam.gserviceaccount.com`,
+  mutateAssetHierarchy:
+    expr`${FUNCTION_RUNTIME_SERVICE_ACCOUNT_IDS.mutateAssetHierarchy}@${projectID}.iam.gserviceaccount.com`,
   onTicketCreated:
     expr`${FUNCTION_RUNTIME_SERVICE_ACCOUNT_IDS.onTicketCreated}@${projectID}.iam.gserviceaccount.com`,
   onTicketResolved:

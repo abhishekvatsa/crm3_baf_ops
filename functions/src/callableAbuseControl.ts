@@ -92,6 +92,13 @@ export const CALLABLE_ABUSE_POLICIES: Readonly<
     anomalyWindowSeconds: 15 * 60,
     anomalyLimit: 12,
   }),
+  mutateAssetHierarchy: Object.freeze({
+    burstWindowSeconds: 60,
+    burstRequestLimit: 30,
+    dailyRequestLimit: 1000,
+    anomalyWindowSeconds: 15 * 60,
+    anomalyLimit: 12,
+  }),
   executeMaintenanceWorkflowCommand: Object.freeze({
     burstWindowSeconds: 60,
     burstRequestLimit: 90,

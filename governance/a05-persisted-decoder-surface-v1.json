@@ -604,6 +604,39 @@
       "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "invalid input JSON is defaulted, normalized, or admitted for publication",
       "riskFingerprint": "9835f7232b246c5a69e0cab831c9839e83e3f1a894178a88092fb15014643e50"
+    },
+    {
+      "id": "asset-hierarchy-records",
+      "file": "lib/features/assets/data/asset_hierarchy_model.dart",
+      "markers": [
+        "factory AssetHierarchyReference.fromMap",
+        "factory AssetClassRecord.fromMap",
+        "factory AssetHierarchyNode.fromMap"
+      ],
+      "classification": "REMOTE_GOVERNANCE_RECORD",
+      "owner": "asset-governance",
+      "authorityBoundary": "asset definitions, lifecycle, ownership, and portable references",
+      "malformedDisposition": "fail closed before displaying or attaching malformed hierarchy authority",
+      "compatibility": "schema version 1 definition references remain readable; installed references require schema version 2 physical identity",
+      "regression": "test/asset_hierarchy_model_test.dart",
+      "reArmCondition": "hierarchy identity, ownership, lifecycle, or reference fields are defaulted from malformed input",
+      "riskFingerprint": "626849293122f32564862d18c7b3d290d2f70e5cc3d88ed83c0aaac08b487029"
+    },
+    {
+      "id": "asset-registry-records",
+      "file": "lib/features/assets/data/asset_registry_model.dart",
+      "markers": [
+        "factory AssetInstanceRecord.fromMap",
+        "factory InstalledComponentRecord.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "asset-governance",
+      "authorityBoundary": "physical asset and installed-component registry",
+      "malformedDisposition": "fail closed before a malformed installation can resolve a tag or enter business evidence",
+      "compatibility": "none for physical identity, lifecycle, ownership, or version authority",
+      "regression": "test/asset_hierarchy_model_test.dart; functions/test/assetHierarchyMutation.firestoreEmulator.test.js",
+      "reArmCondition": "physical identity, ownership, lifecycle, or installed-component state is coerced or defaulted",
+      "riskFingerprint": "4b93c15167534c4675856fcb676adb816e1346e3b6af901a0c4c1c57cc82d256"
     }
   ],
   "catchSites": [
@@ -935,7 +968,7 @@
     {
       "id": "maintenance-create-command-presentation",
       "file": "lib/features/maintenance/presentation/maintenance_form.dart",
-      "siteFingerprint": "78540769d9de71f4472833449fc66aa5010edb666cdac2d2e5edc20dfb8769ff",
+      "siteFingerprint": "f55b91871094af170dc3601071e8ba87980030a5f80c00fe3b35c2be34a7a653",
       "classification": "USER_INPUT_AND_COMMAND_ERROR_PRESENTATION",
       "purpose": "surface invalid form input or ticket-command failure without manufacturing a record",
       "authorityBoundary": "operator ticket-creation command",

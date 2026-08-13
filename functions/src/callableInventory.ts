@@ -5,6 +5,7 @@ export const CALLABLE_SECURITY_CLASSIFICATION = {
   executeMaintenanceWorkflowCommand: "mutating",
   getBackendReleaseIdentity: "read-only",
   mutateChargeAbnormality: "mutating",
+  mutateAssetHierarchy: "mutating",
   mutateRuntimeJobModulePopulation: "mutating",
   mutateUserAuthority: "mutating",
 } as const;

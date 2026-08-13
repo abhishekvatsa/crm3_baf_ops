@@ -16,6 +16,8 @@ class AssetValidator {
       case AssetType.innerCover:
       // No fixed range – any positive integer is accepted
         return number > 0;
+      case AssetType.governedCustom:
+        return number >= 1 && number <= 9999;
     }
   }
 
@@ -31,6 +33,8 @@ class AssetValidator {
         return 'Force cooler number must be 1‑25';
       case AssetType.innerCover:
         return null; // no validation message for inner covers
+      case AssetType.governedCustom:
+        return 'Governed asset number must be 1-9999';
     }
   }
 }

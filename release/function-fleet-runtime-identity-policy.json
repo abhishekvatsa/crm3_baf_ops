@@ -1,7 +1,10 @@
 {
   "schemaVersion": 1,
   "policyId": "FUNCTION-FLEET-RUNTIME-IDENTITY-POLICY-V1",
-  "declarationStatus": "DEPLOYED_AND_LIVE_READBACK_PROVED",
+  "declarationStatus": "SOURCE_POLICY_EXTENDED_DEPLOYMENT_PENDING",
+  "deploymentPendingFunctionBindings": [
+    "mutateAssetHierarchy"
+  ],
   "productionProjectId": "crm3-baf-ops-b8638",
   "targetProjectBinding": {
     "builtInParameter": "PROJECT_ID",
@@ -67,6 +70,13 @@
     },
     "mutateChargeAbnormality": {
       "runtimeServiceAccountId": "crm3-fn-charge-abnormality",
+      "requiredProjectRoles": [
+        "roles/datastore.user"
+      ],
+      "workloadClass": "CALLABLE_FIRESTORE_MUTATION"
+    },
+    "mutateAssetHierarchy": {
+      "runtimeServiceAccountId": "crm3-fn-asset-hierarchy",
       "requiredProjectRoles": [
         "roles/datastore.user"
       ],
@@ -171,7 +181,7 @@
     "create the missing same-project service accounts and notification sender custom role",
     "grant only each binding's requiredProjectRoles and temporary project-level Run Invoker where a new trigger needs it",
     "grant roles/cloudbuild.builds.builder to Default Compute before removing Editor",
-    "deploy the exact admitted 14-function source fleet in bounded cohorts",
+    "deploy the exact admitted 15-function source fleet in bounded cohorts",
     "prove every Function is active under its exact identity and current dependency inventory",
     "bind Run Invoker on each trigger's own Cloud Run service and remove every temporary project-level Run Invoker grant",
     "verify callable rejection and trigger or scheduler control-plane health",

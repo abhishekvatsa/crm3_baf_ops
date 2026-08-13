@@ -18,8 +18,127 @@ const {
   serverTimestamp,
   deleteField,
   writeBatch,
+  runTransaction,
   setLogLevel,
 } = require("firebase/firestore");
+
+function hierarchyAuditPayload({
+  auditId,
+  entityType,
+  entityId,
+  assetClassId,
+  action,
+  fromVersion,
+  toVersion,
+}) {
+  return {
+    schemaVersion: 1,
+    auditId,
+    entityType,
+    entityId,
+    assetClassId,
+    action,
+    reason: "Approved hierarchy test change",
+    beforeJson: fromVersion === 0 ? null : "{}",
+    afterJson: "{}",
+    fromVersion,
+    toVersion,
+    performedByUid: "admin1",
+    performedByName: "admin1",
+    performedAt: serverTimestamp(),
+  };
+}
+
+function assetClassPayload({id, mutationId}) {
+  return {
+    schemaVersion: 1,
+    assetClassId: id,
+    code: "FURNACE",
+    name: "Furnace",
+    majorArea: "BAF Shop Equipment",
+    shortDescription: "Movable direct-fired heating package.",
+    longDescription: null,
+    status: "active",
+    version: 1,
+    createdAt: serverTimestamp(),
+    createdByUid: "admin1",
+    createdByName: "admin1",
+    updatedAt: serverTimestamp(),
+    updatedByUid: "admin1",
+    updatedByName: "admin1",
+    lastMutationId: mutationId,
+  };
+}
+
+function hierarchyNodePayload({
+  id,
+  classId,
+  mutationId,
+  parentNodeId = null,
+  ancestors = [],
+}) {
+  return {
+    schemaVersion: 1,
+    nodeId: id,
+    assetClassId: classId,
+    parentNodeId,
+    nodeType: "component",
+    name: id,
+    componentTag: null,
+    shortDescription: "Test component.",
+    longDescription: null,
+    discipline: "Mechanical",
+    operatingType: "Passive",
+    normalState: null,
+    failState: null,
+    contactArrangement: "notApplicable",
+    manufacturer: null,
+    model: null,
+    applicability: null,
+    sourceReference: null,
+    sortOrder: 10,
+    ancestorNodeIds: ancestors,
+    activeChildCount: 0,
+    status: "active",
+    version: 1,
+    createdAt: serverTimestamp(),
+    createdByUid: "admin1",
+    createdByName: "admin1",
+    updatedAt: serverTimestamp(),
+    updatedByUid: "admin1",
+    updatedByName: "admin1",
+    lastMutationId: mutationId,
+  };
+}
+
+async function createGovernedAssetClass(db, id = "class-1") {
+  const auditId = `audit-${id}`;
+  await runTransaction(db, async (transaction) => {
+    transaction.set(doc(db, `asset_classes/${id}`), assetClassPayload({
+      id,
+      mutationId: auditId,
+    }));
+    transaction.set(doc(db, "asset_class_codes/furnace"), {
+      schemaVersion: 1,
+      code: "FURNACE",
+      assetClassId: id,
+      createdAt: serverTimestamp(),
+      createdByUid: "admin1",
+    });
+    transaction.set(
+      doc(db, `asset_hierarchy_audits/${auditId}`),
+      hierarchyAuditPayload({
+        auditId,
+        entityType: "asset_class",
+        entityId: id,
+        assetClassId: id,
+        action: "create",
+        fromVersion: 0,
+        toVersion: 1,
+      })
+    );
+  });
+}
 
 let testEnv;
 
@@ -3490,6 +3609,85 @@ describe("R-04 private notification installation registry", () => {
     );
     await assertFails(
       setDoc(malformedRef, notificationInstallationPayload())
+    );
+  });
+});
+
+describe("governed dynamic asset hierarchy", () => {
+  beforeEach(async () => {
+    await seedUser("admin1", ["admin"]);
+    await seedUser("ops1", ["operations"]);
+  });
+
+  test("approved users read definitions, physical assets and a point tag claim", async () => {
+    await seedDoc("asset_classes/class-1", assetClassPayload({
+      id: "class-1",
+      mutationId: "server-mutation",
+    }));
+    await seedDoc("asset_hierarchy_nodes/root", hierarchyNodePayload({
+      id: "root",
+      classId: "class-1",
+      mutationId: "server-mutation",
+    }));
+    await seedDoc("asset_tag_claims/tag-hash", {
+      schemaVersion: 2,
+      ownerType: "installed_component",
+      normalizedTag: "PT101",
+      componentInstanceId: "component-1",
+    });
+    await seedDoc("asset_instances/asset-1", {assetInstanceId: "asset-1"});
+    await seedDoc("asset_component_instances/component-1", {
+      componentInstanceId: "component-1",
+    });
+
+    const opsDb = dbAs("ops1");
+    await assertSucceeds(getDoc(doc(opsDb, "asset_classes/class-1")));
+    await assertSucceeds(getDoc(doc(opsDb, "asset_hierarchy_nodes/root")));
+    await assertSucceeds(getDoc(doc(opsDb, "asset_instances/asset-1")));
+    await assertSucceeds(
+      getDoc(doc(opsDb, "asset_component_instances/component-1"))
+    );
+    await assertSucceeds(getDoc(doc(opsDb, "asset_tag_claims/tag-hash")));
+    await assertFails(getDocs(collection(opsDb, "asset_tag_claims")));
+  });
+
+  test("all client hierarchy mutations fail, including for Admin", async () => {
+    const adminDb = dbAs("admin1");
+    const writes = [
+      setDoc(doc(adminDb, "asset_classes/class-1"), assetClassPayload({
+        id: "class-1",
+        mutationId: "client-mutation",
+      })),
+      setDoc(doc(adminDb, "asset_hierarchy_nodes/root"), hierarchyNodePayload({
+        id: "root",
+        classId: "class-1",
+        mutationId: "client-mutation",
+      })),
+      setDoc(doc(adminDb, "asset_class_codes/furnace"), {assetClassId: "class-1"}),
+      setDoc(doc(adminDb, "asset_instances/asset-1"), {assetInstanceId: "asset-1"}),
+      setDoc(doc(adminDb, "asset_instance_numbers/number-1"), {assetInstanceId: "asset-1"}),
+      setDoc(doc(adminDb, "asset_component_instances/component-1"), {
+        componentInstanceId: "component-1",
+      }),
+      setDoc(doc(adminDb, "asset_tag_claims/tag-hash"), {nodeId: "root"}),
+      setDoc(doc(adminDb, "asset_hierarchy_audits/audit-1"), {auditId: "audit-1"}),
+      setDoc(doc(adminDb, "asset_hierarchy_mutation_receipts/request-1"), {
+        requestId: "request-1",
+      }),
+    ];
+    for (const write of writes) await assertFails(write);
+  });
+
+  test("hierarchy audits remain Admin-only and immutable", async () => {
+    await seedDoc("asset_hierarchy_audits/audit-1", {auditId: "audit-1"});
+    await assertSucceeds(
+      getDoc(doc(dbAs("admin1"), "asset_hierarchy_audits/audit-1"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("ops1"), "asset_hierarchy_audits/audit-1"))
+    );
+    await assertFails(
+      deleteDoc(doc(dbAs("admin1"), "asset_hierarchy_audits/audit-1"))
     );
   });
 });

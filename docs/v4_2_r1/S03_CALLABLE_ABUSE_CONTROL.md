@@ -33,6 +33,7 @@ admission mechanism for:
 | `mutateRuntimeJobModulePopulation` | 90 per 60 seconds | 2,000 | 15 minutes | 30 |
 | `mutateUserAuthority` | 6 per 5 minutes | 50 | 30 minutes | 6 |
 | `mutateChargeAbnormality` | 30 per 60 seconds | 500 | 15 minutes | 12 |
+| `mutateAssetHierarchy` | 30 per 60 seconds | 1,000 | 15 minutes | 12 |
 | `executeMaintenanceWorkflowCommand` | 90 per 60 seconds | 3,000 | 15 minutes | 30 |
 
 S-07 subsequently added `mutateChargeAbnormality`; it entered service through

@@ -57,6 +57,32 @@ void main() {
       expect(result.isValid, isTrue);
     });
 
+    test('accepts governed custom asset numbers only in the bounded range', () {
+      final valid = MaintenanceInputValidator.validateCreate(
+        MaintenanceCreateInput(
+          assetType: AssetType.governedCustom,
+          assetNumberText: '9999',
+          component: 'Custom component',
+          description: 'Condition requiring governed maintenance attention.',
+          startDate: DateTime.now().subtract(const Duration(minutes: 5)),
+          routedTo: RoutedTo.mechanical,
+        ),
+      );
+      final invalid = MaintenanceInputValidator.validateCreate(
+        MaintenanceCreateInput(
+          assetType: AssetType.governedCustom,
+          assetNumberText: '10000',
+          component: 'Custom component',
+          description: 'Condition requiring governed maintenance attention.',
+          startDate: DateTime.now().subtract(const Duration(minutes: 5)),
+          routedTo: RoutedTo.mechanical,
+        ),
+      );
+
+      expect(valid.messageFor('assetNumber'), isNull);
+      expect(invalid.messageFor('assetNumber'), isNotNull);
+    });
+
     test(
       'rejects invalid asset, short description, bad charge and future start',
       () {

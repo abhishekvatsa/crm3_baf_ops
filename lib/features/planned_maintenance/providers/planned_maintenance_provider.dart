@@ -67,6 +67,7 @@ void _normalizeTemplateForUserSave(
     ..component = _cleanOptionalText(template.component)
     ..subsystem = _cleanOptionalText(template.subsystem)
     ..hierarchyPath = _cleanOptionalStringList(template.hierarchyPath)
+    ..assetHierarchyRefJson = _cleanOptionalText(template.assetHierarchyRefJson)
     ..createdByUid = _cleanOptionalText(template.createdByUid)
     ..createdByName = _cleanOptionalText(template.createdByName)
     ..deletedByUid = _cleanOptionalText(template.deletedByUid)
@@ -971,6 +972,9 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
         ..component = _cleanOptionalText(remote.component)
         ..subsystem = _cleanOptionalText(remote.subsystem)
         ..hierarchyPath = _cleanOptionalStringList(remote.hierarchyPath)
+        ..assetHierarchyRefJson = _cleanOptionalText(
+          remote.assetHierarchyRefJson,
+        )
         ..isSynced = true;
       remote.setFields(remote.parsedFields);
       await isar.jobTemplates.put(remote);
@@ -1036,6 +1040,9 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
         ..component = _cleanOptionalText(remote.component)
         ..subsystem = _cleanOptionalText(remote.subsystem)
         ..hierarchyPath = _cleanOptionalStringList(remote.hierarchyPath)
+        ..assetHierarchyRefJson = _cleanOptionalText(
+          remote.assetHierarchyRefJson,
+        )
         ..createdByUid = _cleanOptionalText(remote.createdByUid)
         ..createdByName = _cleanOptionalText(remote.createdByName)
         ..isActive = remote.isActive

@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'package:isar/isar.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/utils/asset_validator.dart';
@@ -787,6 +788,16 @@ class JobTemplate {
   String? component;
   String? subsystem;
   List<String>? hierarchyPath;
+  String? assetHierarchyRefJson;
+
+  @ignore
+  AssetHierarchyReference? get assetHierarchyReference =>
+      assetHierarchyRefJson == null
+          ? null
+          : AssetHierarchyReference.decode(
+              assetHierarchyRefJson!,
+              source: _fieldSourceLabel,
+            );
 
   String fieldsJson = '[]';
 
@@ -870,6 +881,7 @@ class JobTemplate {
       'component': _cleanOptionalText(component),
       'subsystem': _cleanOptionalText(subsystem),
       'hierarchyPath': _cleanOptionalStringList(hierarchyPath),
+      'assetHierarchyRefJson': _cleanOptionalText(assetHierarchyRefJson),
       'fields': fieldsArray,
       'fieldsJson': jsonEncode(fieldsArray),
       'createdByUid': _cleanOptionalText(createdByUid),
@@ -952,6 +964,11 @@ class JobTemplate {
           ..hierarchyPath = readNullablePersistedStringList(
             map['hierarchyPath'],
             field: 'hierarchyPath',
+            source: source,
+          )
+          ..assetHierarchyRefJson = readOptionalAssetHierarchyReferenceJson(
+            map['assetHierarchyRefJson'],
+            field: 'assetHierarchyRefJson',
             source: source,
           )
           ..createdByUid = readOptionalPersistedString(
@@ -1054,6 +1071,7 @@ class JobTemplate {
         detail: 'active templates cannot carry deletion state',
       );
     }
+
     if (template.updatedAt.isBefore(template.createdAt)) {
       throw PersistedDataFormatException(
         field: 'updatedAt',

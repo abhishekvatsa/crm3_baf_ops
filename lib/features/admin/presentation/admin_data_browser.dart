@@ -12,6 +12,7 @@ import 'admin_data_browser/admin_directives_browser.dart';
 import 'admin_data_browser/admin_templates_browser.dart';
 import 'admin_data_browser/admin_executions_browser.dart';
 import 'admin_data_browser/admin_abnormalities_tab.dart';
+import 'admin_data_browser/admin_asset_hierarchy_tab.dart';
 
 // ============================================================================
 // MAIN ADMIN DATA BROWSER (Tab Bar)
@@ -32,7 +33,7 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
     _tabController.addListener(() {
       if (_tabController.index != _selectedTab) {
         setState(() => _selectedTab = _tabController.index);
@@ -129,25 +130,28 @@ class _AdminDataBrowserState extends ConsumerState<AdminDataBrowser>
             ],
             bottom: TabBar(
               controller: _tabController,
+              isScrollable: true,
               tabs: const [
                 Tab(text: 'Tickets'),
                 Tab(text: 'Directives'),
                 Tab(text: 'Templates'),
                 Tab(text: 'Executions'),
                 Tab(text: 'Abnormalities'),
+                Tab(text: 'Asset hierarchy'),
                 Tab(text: 'Users'),
               ],
             ),
           ),
           body: IndexedStack(
             index: _selectedTab,
-            children: const [
-              TicketsBrowser(),
-              DirectivesBrowser(),
-              TemplatesBrowser(),
-              ExecutionsBrowser(),
-              AbnormalitiesAdminTab(),
-              UsersTab(),
+            children: [
+              const TicketsBrowser(),
+              const DirectivesBrowser(),
+              const TemplatesBrowser(),
+              const ExecutionsBrowser(),
+              const AbnormalitiesAdminTab(),
+              AssetHierarchyAdminTab(actor: appUser),
+              const UsersTab(),
             ],
           ),
         );

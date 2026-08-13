@@ -189,6 +189,11 @@ class AppUser {
 
   bool get canOpenAdminDataBrowser => isApproved && isAdmin;
 
+  /// Asset-class and component hierarchy is an authoritative master-data
+  /// surface. Only Admin may restructure it; approved users receive read-only
+  /// access through the operational selectors that consume this master.
+  bool get canManageAssetHierarchy => isApproved && isAdmin;
+
   // ───────────────────────────────────────────────────────────
   // LEGACY PLANNED-MAINTENANCE TEMPLATE / ASSIGNMENT PERMISSIONS
   // ───────────────────────────────────────────────────────────

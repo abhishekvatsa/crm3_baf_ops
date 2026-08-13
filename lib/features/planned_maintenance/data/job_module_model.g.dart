@@ -1365,12 +1365,14 @@ const _JobModuleInstanceassetTypeEnumValueMap = {
   r'furnace': r'furnace',
   r'forceCooler': r'forceCooler',
   r'innerCover': r'innerCover',
+  r'governedCustom': r'governedCustom',
 };
 const _JobModuleInstanceassetTypeValueEnumMap = {
   r'base': AssetType.base,
   r'furnace': AssetType.furnace,
   r'forceCooler': AssetType.forceCooler,
   r'innerCover': AssetType.innerCover,
+  r'governedCustom': AssetType.governedCustom,
 };
 const _JobModuleInstancedisciplineEnumValueMap = {
   r'mechanical': r'mechanical',

@@ -72,6 +72,20 @@ import type {
   ChargeAbnormalityMutationFirestoreLike,
 } from "./chargeAbnormalityMutation";
 import {
+  AssetHierarchyMutationError,
+  mutateAssetHierarchyWithDb,
+  userCanMutateAssetHierarchy,
+} from "./assetHierarchyMutation";
+import type {
+  AssetHierarchyMutationResult,
+  AssetHierarchyMutationFirestoreLike,
+} from "./assetHierarchyMutation";
+import {
+  isAssetRegistryOperation,
+  mutateAssetRegistryWithDb,
+} from "./assetRegistryMutation";
+import type {AssetRegistryMutationResult} from "./assetRegistryMutation";
+import {
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
   buildTicketResolvedNotification,
@@ -472,6 +486,57 @@ export const mutateChargeAbnormality = onCall(
       throw new HttpsError(
         "internal",
         "Server-governed charge-abnormality mutation failed.",
+      );
+    }
+  },
+);
+
+// ─── Callable: governed asset-hierarchy mutation ────────────────────────────
+
+interface MutateAssetHierarchyRequest {
+  [key: string]: unknown;
+}
+
+export const mutateAssetHierarchy = onCall(
+  {
+    region: CALLABLE_REGION,
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    concurrency: 20,
+    serviceAccount: FUNCTION_RUNTIME_SERVICE_ACCOUNTS.mutateAssetHierarchy,
+    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
+  },
+  async (request: CallableRequest<MutateAssetHierarchyRequest>) => {
+    try {
+      const db = admin.firestore();
+      return await executeAuthorizedMutation<
+        AssetHierarchyMutationResult | AssetRegistryMutationResult
+      >({
+        db,
+        authUid: request.auth?.uid ?? null,
+        callableName: "mutateAssetHierarchy",
+        authorize: userCanMutateAssetHierarchy,
+        execute: () => {
+          const args = {
+            db: db as unknown as AssetHierarchyMutationFirestoreLike,
+            authUid: request.auth?.uid ?? null,
+            data: request.data ?? {},
+            timestampFromDate: admin.firestore.Timestamp.fromDate,
+          };
+          return isAssetRegistryOperation(request.data?.operation) ?
+            mutateAssetRegistryWithDb(args) :
+            mutateAssetHierarchyWithDb(args);
+        },
+      });
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      if (error instanceof AssetHierarchyMutationError) {
+        throw new HttpsError(error.code, error.message, error.details);
+      }
+      logger.error("mutateAssetHierarchy failed", error);
+      throw new HttpsError(
+        "internal",
+        "Server-governed asset-hierarchy mutation failed.",
       );
     }
   },

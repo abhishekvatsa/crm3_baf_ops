@@ -751,6 +751,8 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
         return 'FORCE COOLER';
       case AssetType.innerCover:
         return 'INNER COVER';
+      case AssetType.governedCustom:
+        return 'GOVERNED ASSET';
     }
   }
 }

@@ -1191,6 +1191,8 @@ String _assetTypeLabel(AssetType type) {
       return 'Force Cooler';
     case AssetType.innerCover:
       return 'Inner Cover';
+    case AssetType.governedCustom:
+      return 'Governed Asset';
   }
 }
 
@@ -1204,6 +1206,8 @@ IconData _assetIcon(AssetType type) {
       return Icons.ac_unit_rounded;
     case AssetType.innerCover:
       return Icons.inventory_2_outlined;
+    case AssetType.governedCustom:
+      return Icons.precision_manufacturing_outlined;
   }
 }
 

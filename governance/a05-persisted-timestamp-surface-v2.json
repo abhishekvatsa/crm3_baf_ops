@@ -386,6 +386,54 @@
       "authorityBoundary": "persisted-governance-snapshot",
       "regression": "test/template_version_snapshot_contract_test.dart",
       "reArmCondition": "any template snapshot closure-review timestamp schema change"
+    },
+    {
+      "id": "asset-class-record",
+      "readerFile": "lib/features/assets/data/asset_hierarchy_model.dart",
+      "readerMarker": "factory AssetClassRecord.fromMap",
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": [],
+      "owner": "asset-governance",
+      "purpose": "restore governed asset-class lifecycle chronology",
+      "authorityBoundary": "remote-asset-definition-record",
+      "regression": "test/asset_hierarchy_model_test.dart",
+      "reArmCondition": "any asset-class timestamp schema change"
+    },
+    {
+      "id": "asset-hierarchy-node-record",
+      "readerFile": "lib/features/assets/data/asset_hierarchy_model.dart",
+      "readerMarker": "factory AssetHierarchyNode.fromMap",
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": [],
+      "owner": "asset-governance",
+      "purpose": "restore governed component-definition lifecycle chronology",
+      "authorityBoundary": "remote-asset-definition-record",
+      "regression": "test/asset_hierarchy_model_test.dart",
+      "reArmCondition": "any hierarchy-node timestamp schema change"
+    },
+    {
+      "id": "asset-instance-record",
+      "readerFile": "lib/features/assets/data/asset_registry_model.dart",
+      "readerMarker": "factory AssetInstanceRecord.fromMap",
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": ["commissionedOn"],
+      "owner": "asset-governance",
+      "purpose": "restore physical-asset lifecycle and commissioning chronology",
+      "authorityBoundary": "remote-physical-asset-record",
+      "regression": "test/asset_hierarchy_model_test.dart",
+      "reArmCondition": "any physical-asset timestamp schema change"
+    },
+    {
+      "id": "installed-component-record",
+      "readerFile": "lib/features/assets/data/asset_registry_model.dart",
+      "readerMarker": "factory InstalledComponentRecord.fromMap",
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": ["installedOn"],
+      "owner": "asset-governance",
+      "purpose": "restore installed-component lifecycle and installation chronology",
+      "authorityBoundary": "remote-installed-component-record",
+      "regression": "test/asset_hierarchy_model_test.dart",
+      "reArmCondition": "any installed-component timestamp schema change"
     }
   ]
 }

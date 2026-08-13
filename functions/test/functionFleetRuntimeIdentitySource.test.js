@@ -52,9 +52,21 @@ describe("complete Function fleet runtime identity source policy", () => {
     }
     expect(accountIds.size).toBe(governedNames.length);
 
-    expect(liveReadbackPolicy.sourceDeclaredRuntimeBindings).toEqual(
-      functionRuntimeServiceAccountsForProject(policy.productionProjectId),
+    const sourceBindings = functionRuntimeServiceAccountsForProject(
+      policy.productionProjectId,
     );
+    const liveBindingNames = Object.keys(
+      liveReadbackPolicy.sourceDeclaredRuntimeBindings,
+    );
+    expect(liveReadbackPolicy.sourceDeclaredRuntimeBindings).toEqual(
+      Object.fromEntries(liveBindingNames.map((name) => [
+        name,
+        sourceBindings[name],
+      ])),
+    );
+    expect(Object.keys(sourceBindings).filter(
+      (name) => !liveBindingNames.includes(name),
+    ).sort()).toEqual(policy.deploymentPendingFunctionBindings.sort());
   });
 
   test("resolves the full fleet only inside the selected deployment project", () => {
@@ -82,8 +94,10 @@ describe("complete Function fleet runtime identity source policy", () => {
   test("keeps runtime roles exact and the Editor removal ordered last", () => {
     expect(policy.schemaVersion).toBe(1);
     expect(policy.declarationStatus).toBe(
-      "DEPLOYED_AND_LIVE_READBACK_PROVED",
+      "SOURCE_POLICY_EXTENDED_DEPLOYMENT_PENDING",
     );
+    expect(policy.deploymentPendingFunctionBindings)
+      .toEqual(["mutateAssetHierarchy"]);
     expect(policy.roleExactnessRequired).toBe(true);
     expect(policy.customRoles.notificationSender.includedPermissions)
       .toEqual(["cloudmessaging.messages.create"]);

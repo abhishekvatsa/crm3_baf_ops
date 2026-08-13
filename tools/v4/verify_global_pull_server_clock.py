@@ -302,7 +302,9 @@ check(
     and "roles/logging.logWriter" not in runtime_identity_policy_source
     and function_fleet_policy.get("schemaVersion") == 1
     and function_fleet_policy.get("declarationStatus")
-        == "DEPLOYED_AND_LIVE_READBACK_PROVED"
+        == "SOURCE_POLICY_EXTENDED_DEPLOYMENT_PENDING"
+    and function_fleet_policy.get("deploymentPendingFunctionBindings")
+        == ["mutateAssetHierarchy"]
     and function_fleet_policy.get("productionProjectId")
         == runtime_identity_policy.get("productionProjectId")
     and function_fleet_policy.get("functionBindings", {})

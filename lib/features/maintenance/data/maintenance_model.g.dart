@@ -37,312 +37,317 @@ const MaintenanceRecordSchema = CollectionSchema(
       name: r'actionsJson',
       type: IsarType.string,
     ),
-    r'assetNumber': PropertySchema(
+    r'assetHierarchyRefJson': PropertySchema(
       id: 4,
+      name: r'assetHierarchyRefJson',
+      type: IsarType.string,
+    ),
+    r'assetNumber': PropertySchema(
+      id: 5,
       name: r'assetNumber',
       type: IsarType.long,
     ),
     r'assetType': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'assetType',
       type: IsarType.string,
       enumMap: _MaintenanceRecordassetTypeEnumValueMap,
     ),
     r'chargeNoAtEvent': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'chargeNoAtEvent',
       type: IsarType.long,
     ),
     r'classification': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'classification',
       type: IsarType.string,
     ),
     r'closedByName': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'closedByName',
       type: IsarType.string,
     ),
     r'closedByUid': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'closedByUid',
       type: IsarType.string,
     ),
     r'component': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'component',
       type: IsarType.string,
     ),
     r'createdAt': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'debugLabel': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'debugLabel',
       type: IsarType.string,
     ),
     r'deleteReason': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'deleteReason',
       type: IsarType.string,
     ),
     r'deletedAt': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'deletedAt',
       type: IsarType.dateTime,
     ),
     r'deletedByName': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'deletedByName',
       type: IsarType.string,
     ),
     r'deletedByUid': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'deletedByUid',
       type: IsarType.string,
     ),
     r'description': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'description',
       type: IsarType.string,
     ),
     r'downtimeHours': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'downtimeHours',
       type: IsarType.double,
     ),
     r'endDate': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'endDate',
       type: IsarType.dateTime,
     ),
     r'firestoreId': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'firestoreId',
       type: IsarType.string,
     ),
     r'hasComponentContext': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'hasComponentContext',
       type: IsarType.bool,
     ),
     r'hierarchyPath': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'hierarchyPath',
       type: IsarType.stringList,
     ),
     r'isClosed': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'isClosed',
       type: IsarType.bool,
     ),
     r'isCritical': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'isCritical',
       type: IsarType.bool,
     ),
     r'isDeleted': PropertySchema(
-      id: 25,
+      id: 26,
       name: r'isDeleted',
       type: IsarType.bool,
     ),
     r'isOpen': PropertySchema(
-      id: 26,
+      id: 27,
       name: r'isOpen',
       type: IsarType.bool,
     ),
     r'isResolved': PropertySchema(
-      id: 27,
+      id: 28,
       name: r'isResolved',
       type: IsarType.bool,
     ),
     r'isSynced': PropertySchema(
-      id: 28,
+      id: 29,
       name: r'isSynced',
       type: IsarType.bool,
     ),
     r'loggedByName': PropertySchema(
-      id: 29,
+      id: 30,
       name: r'loggedByName',
       type: IsarType.string,
     ),
     r'loggedByUid': PropertySchema(
-      id: 30,
+      id: 31,
       name: r'loggedByUid',
       type: IsarType.string,
     ),
     r'maintenanceType': PropertySchema(
-      id: 31,
+      id: 32,
       name: r'maintenanceType',
       type: IsarType.string,
       enumMap: _MaintenanceRecordmaintenanceTypeEnumValueMap,
     ),
     r'metadataJson': PropertySchema(
-      id: 32,
+      id: 33,
       name: r'metadataJson',
       type: IsarType.string,
     ),
     r'otherDepartment': PropertySchema(
-      id: 33,
+      id: 34,
       name: r'otherDepartment',
       type: IsarType.string,
     ),
     r'performedBy': PropertySchema(
-      id: 34,
+      id: 35,
       name: r'performedBy',
       type: IsarType.string,
     ),
     r'remarks': PropertySchema(
-      id: 35,
+      id: 36,
       name: r'remarks',
       type: IsarType.string,
     ),
     r'reportedBy': PropertySchema(
-      id: 36,
+      id: 37,
       name: r'reportedBy',
       type: IsarType.string,
     ),
     r'resolutionHistoryJson': PropertySchema(
-      id: 37,
+      id: 38,
       name: r'resolutionHistoryJson',
       type: IsarType.string,
     ),
     r'routedTo': PropertySchema(
-      id: 38,
+      id: 39,
       name: r'routedTo',
       type: IsarType.string,
       enumMap: _MaintenanceRecordroutedToEnumValueMap,
     ),
     r'startDate': PropertySchema(
-      id: 39,
+      id: 40,
       name: r'startDate',
       type: IsarType.dateTime,
     ),
     r'status': PropertySchema(
-      id: 40,
+      id: 41,
       name: r'status',
       type: IsarType.string,
       enumMap: _MaintenanceRecordstatusEnumValueMap,
     ),
     r'subsystem': PropertySchema(
-      id: 41,
+      id: 42,
       name: r'subsystem',
       type: IsarType.string,
     ),
     r'tag': PropertySchema(
-      id: 42,
+      id: 43,
       name: r'tag',
       type: IsarType.string,
     ),
     r'teamsInvolved': PropertySchema(
-      id: 43,
+      id: 44,
       name: r'teamsInvolved',
       type: IsarType.stringList,
     ),
     r'updatedAt': PropertySchema(
-      id: 44,
+      id: 45,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'version': PropertySchema(
-      id: 45,
+      id: 46,
       name: r'version',
       type: IsarType.long,
     ),
     r'workflowAggregateId': PropertySchema(
-      id: 46,
+      id: 47,
       name: r'workflowAggregateId',
       type: IsarType.string,
     ),
     r'workflowComplianceId': PropertySchema(
-      id: 47,
+      id: 48,
       name: r'workflowComplianceId',
       type: IsarType.string,
     ),
     r'workflowConditionRef': PropertySchema(
-      id: 48,
+      id: 49,
       name: r'workflowConditionRef',
       type: IsarType.string,
     ),
     r'workflowConditionTypeKey': PropertySchema(
-      id: 49,
+      id: 50,
       name: r'workflowConditionTypeKey',
       type: IsarType.string,
     ),
     r'workflowCorrectionReason': PropertySchema(
-      id: 50,
+      id: 51,
       name: r'workflowCorrectionReason',
       type: IsarType.string,
     ),
     r'workflowDeferred': PropertySchema(
-      id: 51,
+      id: 52,
       name: r'workflowDeferred',
       type: IsarType.bool,
     ),
     r'workflowDeferredAt': PropertySchema(
-      id: 52,
+      id: 53,
       name: r'workflowDeferredAt',
       type: IsarType.dateTime,
     ),
     r'workflowDeferredByName': PropertySchema(
-      id: 53,
+      id: 54,
       name: r'workflowDeferredByName',
       type: IsarType.string,
     ),
     r'workflowDeferredByUid': PropertySchema(
-      id: 54,
+      id: 55,
       name: r'workflowDeferredByUid',
       type: IsarType.string,
     ),
     r'workflowOriginLaneKey': PropertySchema(
-      id: 55,
+      id: 56,
       name: r'workflowOriginLaneKey',
       type: IsarType.string,
     ),
     r'workflowQueueState': PropertySchema(
-      id: 56,
+      id: 57,
       name: r'workflowQueueState',
       type: IsarType.string,
     ),
     r'workflowReactivatedAt': PropertySchema(
-      id: 57,
+      id: 58,
       name: r'workflowReactivatedAt',
       type: IsarType.dateTime,
     ),
     r'workflowReactivatedByName': PropertySchema(
-      id: 58,
+      id: 59,
       name: r'workflowReactivatedByName',
       type: IsarType.string,
     ),
     r'workflowReactivatedByUid': PropertySchema(
-      id: 59,
+      id: 60,
       name: r'workflowReactivatedByUid',
       type: IsarType.string,
     ),
     r'workflowReleasedAt': PropertySchema(
-      id: 60,
+      id: 61,
       name: r'workflowReleasedAt',
       type: IsarType.dateTime,
     ),
     r'workflowReleasedByName': PropertySchema(
-      id: 61,
+      id: 62,
       name: r'workflowReleasedByName',
       type: IsarType.string,
     ),
     r'workflowReleasedByUid': PropertySchema(
-      id: 62,
+      id: 63,
       name: r'workflowReleasedByUid',
       type: IsarType.string,
     ),
     r'workflowTargetLaneKey': PropertySchema(
-      id: 63,
+      id: 64,
       name: r'workflowTargetLaneKey',
       type: IsarType.string,
     ),
     r'workflowUpdatedAt': PropertySchema(
-      id: 64,
+      id: 65,
       name: r'workflowUpdatedAt',
       type: IsarType.dateTime,
     )
@@ -524,6 +529,12 @@ int _maintenanceRecordEstimateSize(
     }
   }
   bytesCount += 3 + object.actionsJson.length * 3;
+  {
+    final value = object.assetHierarchyRefJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.assetType.name.length * 3;
   {
     final value = object.classification;
@@ -744,67 +755,68 @@ void _maintenanceRecordSerialize(
   writer.writeString(offsets[1], object.acknowledgedByName);
   writer.writeString(offsets[2], object.acknowledgedByUid);
   writer.writeString(offsets[3], object.actionsJson);
-  writer.writeLong(offsets[4], object.assetNumber);
-  writer.writeString(offsets[5], object.assetType.name);
-  writer.writeLong(offsets[6], object.chargeNoAtEvent);
-  writer.writeString(offsets[7], object.classification);
-  writer.writeString(offsets[8], object.closedByName);
-  writer.writeString(offsets[9], object.closedByUid);
-  writer.writeString(offsets[10], object.component);
-  writer.writeDateTime(offsets[11], object.createdAt);
-  writer.writeString(offsets[12], object.debugLabel);
-  writer.writeString(offsets[13], object.deleteReason);
-  writer.writeDateTime(offsets[14], object.deletedAt);
-  writer.writeString(offsets[15], object.deletedByName);
-  writer.writeString(offsets[16], object.deletedByUid);
-  writer.writeString(offsets[17], object.description);
-  writer.writeDouble(offsets[18], object.downtimeHours);
-  writer.writeDateTime(offsets[19], object.endDate);
-  writer.writeString(offsets[20], object.firestoreId);
-  writer.writeBool(offsets[21], object.hasComponentContext);
-  writer.writeStringList(offsets[22], object.hierarchyPath);
-  writer.writeBool(offsets[23], object.isClosed);
-  writer.writeBool(offsets[24], object.isCritical);
-  writer.writeBool(offsets[25], object.isDeleted);
-  writer.writeBool(offsets[26], object.isOpen);
-  writer.writeBool(offsets[27], object.isResolved);
-  writer.writeBool(offsets[28], object.isSynced);
-  writer.writeString(offsets[29], object.loggedByName);
-  writer.writeString(offsets[30], object.loggedByUid);
-  writer.writeString(offsets[31], object.maintenanceType.name);
-  writer.writeString(offsets[32], object.metadataJson);
-  writer.writeString(offsets[33], object.otherDepartment);
-  writer.writeString(offsets[34], object.performedBy);
-  writer.writeString(offsets[35], object.remarks);
-  writer.writeString(offsets[36], object.reportedBy);
-  writer.writeString(offsets[37], object.resolutionHistoryJson);
-  writer.writeString(offsets[38], object.routedTo.name);
-  writer.writeDateTime(offsets[39], object.startDate);
-  writer.writeString(offsets[40], object.status.name);
-  writer.writeString(offsets[41], object.subsystem);
-  writer.writeString(offsets[42], object.tag);
-  writer.writeStringList(offsets[43], object.teamsInvolved);
-  writer.writeDateTime(offsets[44], object.updatedAt);
-  writer.writeLong(offsets[45], object.version);
-  writer.writeString(offsets[46], object.workflowAggregateId);
-  writer.writeString(offsets[47], object.workflowComplianceId);
-  writer.writeString(offsets[48], object.workflowConditionRef);
-  writer.writeString(offsets[49], object.workflowConditionTypeKey);
-  writer.writeString(offsets[50], object.workflowCorrectionReason);
-  writer.writeBool(offsets[51], object.workflowDeferred);
-  writer.writeDateTime(offsets[52], object.workflowDeferredAt);
-  writer.writeString(offsets[53], object.workflowDeferredByName);
-  writer.writeString(offsets[54], object.workflowDeferredByUid);
-  writer.writeString(offsets[55], object.workflowOriginLaneKey);
-  writer.writeString(offsets[56], object.workflowQueueState);
-  writer.writeDateTime(offsets[57], object.workflowReactivatedAt);
-  writer.writeString(offsets[58], object.workflowReactivatedByName);
-  writer.writeString(offsets[59], object.workflowReactivatedByUid);
-  writer.writeDateTime(offsets[60], object.workflowReleasedAt);
-  writer.writeString(offsets[61], object.workflowReleasedByName);
-  writer.writeString(offsets[62], object.workflowReleasedByUid);
-  writer.writeString(offsets[63], object.workflowTargetLaneKey);
-  writer.writeDateTime(offsets[64], object.workflowUpdatedAt);
+  writer.writeString(offsets[4], object.assetHierarchyRefJson);
+  writer.writeLong(offsets[5], object.assetNumber);
+  writer.writeString(offsets[6], object.assetType.name);
+  writer.writeLong(offsets[7], object.chargeNoAtEvent);
+  writer.writeString(offsets[8], object.classification);
+  writer.writeString(offsets[9], object.closedByName);
+  writer.writeString(offsets[10], object.closedByUid);
+  writer.writeString(offsets[11], object.component);
+  writer.writeDateTime(offsets[12], object.createdAt);
+  writer.writeString(offsets[13], object.debugLabel);
+  writer.writeString(offsets[14], object.deleteReason);
+  writer.writeDateTime(offsets[15], object.deletedAt);
+  writer.writeString(offsets[16], object.deletedByName);
+  writer.writeString(offsets[17], object.deletedByUid);
+  writer.writeString(offsets[18], object.description);
+  writer.writeDouble(offsets[19], object.downtimeHours);
+  writer.writeDateTime(offsets[20], object.endDate);
+  writer.writeString(offsets[21], object.firestoreId);
+  writer.writeBool(offsets[22], object.hasComponentContext);
+  writer.writeStringList(offsets[23], object.hierarchyPath);
+  writer.writeBool(offsets[24], object.isClosed);
+  writer.writeBool(offsets[25], object.isCritical);
+  writer.writeBool(offsets[26], object.isDeleted);
+  writer.writeBool(offsets[27], object.isOpen);
+  writer.writeBool(offsets[28], object.isResolved);
+  writer.writeBool(offsets[29], object.isSynced);
+  writer.writeString(offsets[30], object.loggedByName);
+  writer.writeString(offsets[31], object.loggedByUid);
+  writer.writeString(offsets[32], object.maintenanceType.name);
+  writer.writeString(offsets[33], object.metadataJson);
+  writer.writeString(offsets[34], object.otherDepartment);
+  writer.writeString(offsets[35], object.performedBy);
+  writer.writeString(offsets[36], object.remarks);
+  writer.writeString(offsets[37], object.reportedBy);
+  writer.writeString(offsets[38], object.resolutionHistoryJson);
+  writer.writeString(offsets[39], object.routedTo.name);
+  writer.writeDateTime(offsets[40], object.startDate);
+  writer.writeString(offsets[41], object.status.name);
+  writer.writeString(offsets[42], object.subsystem);
+  writer.writeString(offsets[43], object.tag);
+  writer.writeStringList(offsets[44], object.teamsInvolved);
+  writer.writeDateTime(offsets[45], object.updatedAt);
+  writer.writeLong(offsets[46], object.version);
+  writer.writeString(offsets[47], object.workflowAggregateId);
+  writer.writeString(offsets[48], object.workflowComplianceId);
+  writer.writeString(offsets[49], object.workflowConditionRef);
+  writer.writeString(offsets[50], object.workflowConditionTypeKey);
+  writer.writeString(offsets[51], object.workflowCorrectionReason);
+  writer.writeBool(offsets[52], object.workflowDeferred);
+  writer.writeDateTime(offsets[53], object.workflowDeferredAt);
+  writer.writeString(offsets[54], object.workflowDeferredByName);
+  writer.writeString(offsets[55], object.workflowDeferredByUid);
+  writer.writeString(offsets[56], object.workflowOriginLaneKey);
+  writer.writeString(offsets[57], object.workflowQueueState);
+  writer.writeDateTime(offsets[58], object.workflowReactivatedAt);
+  writer.writeString(offsets[59], object.workflowReactivatedByName);
+  writer.writeString(offsets[60], object.workflowReactivatedByUid);
+  writer.writeDateTime(offsets[61], object.workflowReleasedAt);
+  writer.writeString(offsets[62], object.workflowReleasedByName);
+  writer.writeString(offsets[63], object.workflowReleasedByUid);
+  writer.writeString(offsets[64], object.workflowTargetLaneKey);
+  writer.writeDateTime(offsets[65], object.workflowUpdatedAt);
 }
 
 MaintenanceRecord _maintenanceRecordDeserialize(
@@ -818,72 +830,73 @@ MaintenanceRecord _maintenanceRecordDeserialize(
   object.acknowledgedByName = reader.readStringOrNull(offsets[1]);
   object.acknowledgedByUid = reader.readStringOrNull(offsets[2]);
   object.actionsJson = reader.readString(offsets[3]);
-  object.assetNumber = reader.readLong(offsets[4]);
+  object.assetHierarchyRefJson = reader.readStringOrNull(offsets[4]);
+  object.assetNumber = reader.readLong(offsets[5]);
   object.assetType = _MaintenanceRecordassetTypeValueEnumMap[
-          reader.readStringOrNull(offsets[5])] ??
+          reader.readStringOrNull(offsets[6])] ??
       AssetType.base;
-  object.chargeNoAtEvent = reader.readLongOrNull(offsets[6]);
-  object.classification = reader.readStringOrNull(offsets[7]);
-  object.closedByName = reader.readStringOrNull(offsets[8]);
-  object.closedByUid = reader.readStringOrNull(offsets[9]);
-  object.component = reader.readStringOrNull(offsets[10]);
-  object.createdAt = reader.readDateTime(offsets[11]);
-  object.deleteReason = reader.readStringOrNull(offsets[13]);
-  object.deletedAt = reader.readDateTimeOrNull(offsets[14]);
-  object.deletedByName = reader.readStringOrNull(offsets[15]);
-  object.deletedByUid = reader.readStringOrNull(offsets[16]);
-  object.description = reader.readString(offsets[17]);
-  object.downtimeHours = reader.readDoubleOrNull(offsets[18]);
-  object.endDate = reader.readDateTimeOrNull(offsets[19]);
-  object.firestoreId = reader.readStringOrNull(offsets[20]);
-  object.hierarchyPath = reader.readStringList(offsets[22]);
+  object.chargeNoAtEvent = reader.readLongOrNull(offsets[7]);
+  object.classification = reader.readStringOrNull(offsets[8]);
+  object.closedByName = reader.readStringOrNull(offsets[9]);
+  object.closedByUid = reader.readStringOrNull(offsets[10]);
+  object.component = reader.readStringOrNull(offsets[11]);
+  object.createdAt = reader.readDateTime(offsets[12]);
+  object.deleteReason = reader.readStringOrNull(offsets[14]);
+  object.deletedAt = reader.readDateTimeOrNull(offsets[15]);
+  object.deletedByName = reader.readStringOrNull(offsets[16]);
+  object.deletedByUid = reader.readStringOrNull(offsets[17]);
+  object.description = reader.readString(offsets[18]);
+  object.downtimeHours = reader.readDoubleOrNull(offsets[19]);
+  object.endDate = reader.readDateTimeOrNull(offsets[20]);
+  object.firestoreId = reader.readStringOrNull(offsets[21]);
+  object.hierarchyPath = reader.readStringList(offsets[23]);
   object.id = id;
-  object.isCritical = reader.readBool(offsets[24]);
-  object.isDeleted = reader.readBool(offsets[25]);
-  object.isResolved = reader.readBool(offsets[27]);
-  object.isSynced = reader.readBool(offsets[28]);
-  object.loggedByName = reader.readStringOrNull(offsets[29]);
-  object.loggedByUid = reader.readStringOrNull(offsets[30]);
+  object.isCritical = reader.readBool(offsets[25]);
+  object.isDeleted = reader.readBool(offsets[26]);
+  object.isResolved = reader.readBool(offsets[28]);
+  object.isSynced = reader.readBool(offsets[29]);
+  object.loggedByName = reader.readStringOrNull(offsets[30]);
+  object.loggedByUid = reader.readStringOrNull(offsets[31]);
   object.maintenanceType = _MaintenanceRecordmaintenanceTypeValueEnumMap[
-          reader.readStringOrNull(offsets[31])] ??
+          reader.readStringOrNull(offsets[32])] ??
       MaintenanceType.scheduled;
-  object.metadataJson = reader.readStringOrNull(offsets[32]);
-  object.otherDepartment = reader.readStringOrNull(offsets[33]);
-  object.performedBy = reader.readStringOrNull(offsets[34]);
-  object.remarks = reader.readStringOrNull(offsets[35]);
-  object.reportedBy = reader.readStringOrNull(offsets[36]);
-  object.resolutionHistoryJson = reader.readString(offsets[37]);
+  object.metadataJson = reader.readStringOrNull(offsets[33]);
+  object.otherDepartment = reader.readStringOrNull(offsets[34]);
+  object.performedBy = reader.readStringOrNull(offsets[35]);
+  object.remarks = reader.readStringOrNull(offsets[36]);
+  object.reportedBy = reader.readStringOrNull(offsets[37]);
+  object.resolutionHistoryJson = reader.readString(offsets[38]);
   object.routedTo = _MaintenanceRecordroutedToValueEnumMap[
-          reader.readStringOrNull(offsets[38])] ??
+          reader.readStringOrNull(offsets[39])] ??
       RoutedTo.operations;
-  object.startDate = reader.readDateTime(offsets[39]);
+  object.startDate = reader.readDateTime(offsets[40]);
   object.status = _MaintenanceRecordstatusValueEnumMap[
-          reader.readStringOrNull(offsets[40])] ??
+          reader.readStringOrNull(offsets[41])] ??
       TicketStatus.open;
-  object.subsystem = reader.readStringOrNull(offsets[41]);
-  object.tag = reader.readStringOrNull(offsets[42]);
-  object.teamsInvolved = reader.readStringList(offsets[43]) ?? [];
-  object.updatedAt = reader.readDateTime(offsets[44]);
-  object.version = reader.readLong(offsets[45]);
-  object.workflowAggregateId = reader.readStringOrNull(offsets[46]);
-  object.workflowComplianceId = reader.readStringOrNull(offsets[47]);
-  object.workflowConditionRef = reader.readStringOrNull(offsets[48]);
-  object.workflowConditionTypeKey = reader.readStringOrNull(offsets[49]);
-  object.workflowCorrectionReason = reader.readStringOrNull(offsets[50]);
-  object.workflowDeferred = reader.readBool(offsets[51]);
-  object.workflowDeferredAt = reader.readDateTimeOrNull(offsets[52]);
-  object.workflowDeferredByName = reader.readStringOrNull(offsets[53]);
-  object.workflowDeferredByUid = reader.readStringOrNull(offsets[54]);
-  object.workflowOriginLaneKey = reader.readStringOrNull(offsets[55]);
-  object.workflowQueueState = reader.readString(offsets[56]);
-  object.workflowReactivatedAt = reader.readDateTimeOrNull(offsets[57]);
-  object.workflowReactivatedByName = reader.readStringOrNull(offsets[58]);
-  object.workflowReactivatedByUid = reader.readStringOrNull(offsets[59]);
-  object.workflowReleasedAt = reader.readDateTimeOrNull(offsets[60]);
-  object.workflowReleasedByName = reader.readStringOrNull(offsets[61]);
-  object.workflowReleasedByUid = reader.readStringOrNull(offsets[62]);
-  object.workflowTargetLaneKey = reader.readStringOrNull(offsets[63]);
-  object.workflowUpdatedAt = reader.readDateTimeOrNull(offsets[64]);
+  object.subsystem = reader.readStringOrNull(offsets[42]);
+  object.tag = reader.readStringOrNull(offsets[43]);
+  object.teamsInvolved = reader.readStringList(offsets[44]) ?? [];
+  object.updatedAt = reader.readDateTime(offsets[45]);
+  object.version = reader.readLong(offsets[46]);
+  object.workflowAggregateId = reader.readStringOrNull(offsets[47]);
+  object.workflowComplianceId = reader.readStringOrNull(offsets[48]);
+  object.workflowConditionRef = reader.readStringOrNull(offsets[49]);
+  object.workflowConditionTypeKey = reader.readStringOrNull(offsets[50]);
+  object.workflowCorrectionReason = reader.readStringOrNull(offsets[51]);
+  object.workflowDeferred = reader.readBool(offsets[52]);
+  object.workflowDeferredAt = reader.readDateTimeOrNull(offsets[53]);
+  object.workflowDeferredByName = reader.readStringOrNull(offsets[54]);
+  object.workflowDeferredByUid = reader.readStringOrNull(offsets[55]);
+  object.workflowOriginLaneKey = reader.readStringOrNull(offsets[56]);
+  object.workflowQueueState = reader.readString(offsets[57]);
+  object.workflowReactivatedAt = reader.readDateTimeOrNull(offsets[58]);
+  object.workflowReactivatedByName = reader.readStringOrNull(offsets[59]);
+  object.workflowReactivatedByUid = reader.readStringOrNull(offsets[60]);
+  object.workflowReleasedAt = reader.readDateTimeOrNull(offsets[61]);
+  object.workflowReleasedByName = reader.readStringOrNull(offsets[62]);
+  object.workflowReleasedByUid = reader.readStringOrNull(offsets[63]);
+  object.workflowTargetLaneKey = reader.readStringOrNull(offsets[64]);
+  object.workflowUpdatedAt = reader.readDateTimeOrNull(offsets[65]);
   return object;
 }
 
@@ -903,15 +916,15 @@ P _maintenanceRecordDeserializeProp<P>(
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 5:
+      return (reader.readLong(offset)) as P;
+    case 6:
       return (_MaintenanceRecordassetTypeValueEnumMap[
               reader.readStringOrNull(offset)] ??
           AssetType.base) as P;
-    case 6:
-      return (reader.readLongOrNull(offset)) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 8:
       return (reader.readStringOrNull(offset)) as P;
     case 9:
@@ -919,31 +932,31 @@ P _maintenanceRecordDeserializeProp<P>(
     case 10:
       return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 12:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 13:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 14:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 15:
       return (reader.readStringOrNull(offset)) as P;
+    case 15:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 16:
       return (reader.readStringOrNull(offset)) as P;
     case 17:
-      return (reader.readString(offset)) as P;
-    case 18:
-      return (reader.readDoubleOrNull(offset)) as P;
-    case 19:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 20:
       return (reader.readStringOrNull(offset)) as P;
+    case 18:
+      return (reader.readString(offset)) as P;
+    case 19:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 20:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 21:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 22:
-      return (reader.readStringList(offset)) as P;
-    case 23:
       return (reader.readBool(offset)) as P;
+    case 23:
+      return (reader.readStringList(offset)) as P;
     case 24:
       return (reader.readBool(offset)) as P;
     case 25:
@@ -955,15 +968,15 @@ P _maintenanceRecordDeserializeProp<P>(
     case 28:
       return (reader.readBool(offset)) as P;
     case 29:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 30:
       return (reader.readStringOrNull(offset)) as P;
     case 31:
+      return (reader.readStringOrNull(offset)) as P;
+    case 32:
       return (_MaintenanceRecordmaintenanceTypeValueEnumMap[
               reader.readStringOrNull(offset)] ??
           MaintenanceType.scheduled) as P;
-    case 32:
-      return (reader.readStringOrNull(offset)) as P;
     case 33:
       return (reader.readStringOrNull(offset)) as P;
     case 34:
@@ -973,29 +986,29 @@ P _maintenanceRecordDeserializeProp<P>(
     case 36:
       return (reader.readStringOrNull(offset)) as P;
     case 37:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 38:
+      return (reader.readString(offset)) as P;
+    case 39:
       return (_MaintenanceRecordroutedToValueEnumMap[
               reader.readStringOrNull(offset)] ??
           RoutedTo.operations) as P;
-    case 39:
-      return (reader.readDateTime(offset)) as P;
     case 40:
+      return (reader.readDateTime(offset)) as P;
+    case 41:
       return (_MaintenanceRecordstatusValueEnumMap[
               reader.readStringOrNull(offset)] ??
           TicketStatus.open) as P;
-    case 41:
-      return (reader.readStringOrNull(offset)) as P;
     case 42:
       return (reader.readStringOrNull(offset)) as P;
     case 43:
-      return (reader.readStringList(offset) ?? []) as P;
-    case 44:
-      return (reader.readDateTime(offset)) as P;
-    case 45:
-      return (reader.readLong(offset)) as P;
-    case 46:
       return (reader.readStringOrNull(offset)) as P;
+    case 44:
+      return (reader.readStringList(offset) ?? []) as P;
+    case 45:
+      return (reader.readDateTime(offset)) as P;
+    case 46:
+      return (reader.readLong(offset)) as P;
     case 47:
       return (reader.readStringOrNull(offset)) as P;
     case 48:
@@ -1005,32 +1018,34 @@ P _maintenanceRecordDeserializeProp<P>(
     case 50:
       return (reader.readStringOrNull(offset)) as P;
     case 51:
-      return (reader.readBool(offset)) as P;
-    case 52:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 53:
       return (reader.readStringOrNull(offset)) as P;
+    case 52:
+      return (reader.readBool(offset)) as P;
+    case 53:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 54:
       return (reader.readStringOrNull(offset)) as P;
     case 55:
       return (reader.readStringOrNull(offset)) as P;
     case 56:
-      return (reader.readString(offset)) as P;
-    case 57:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 58:
       return (reader.readStringOrNull(offset)) as P;
+    case 57:
+      return (reader.readString(offset)) as P;
+    case 58:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 59:
       return (reader.readStringOrNull(offset)) as P;
     case 60:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 61:
       return (reader.readStringOrNull(offset)) as P;
+    case 61:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 62:
       return (reader.readStringOrNull(offset)) as P;
     case 63:
       return (reader.readStringOrNull(offset)) as P;
     case 64:
+      return (reader.readStringOrNull(offset)) as P;
+    case 65:
       return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1042,12 +1057,14 @@ const _MaintenanceRecordassetTypeEnumValueMap = {
   r'furnace': r'furnace',
   r'forceCooler': r'forceCooler',
   r'innerCover': r'innerCover',
+  r'governedCustom': r'governedCustom',
 };
 const _MaintenanceRecordassetTypeValueEnumMap = {
   r'base': AssetType.base,
   r'furnace': AssetType.furnace,
   r'forceCooler': AssetType.forceCooler,
   r'innerCover': AssetType.innerCover,
+  r'governedCustom': AssetType.governedCustom,
 };
 const _MaintenanceRecordmaintenanceTypeEnumValueMap = {
   r'scheduled': r'scheduled',
@@ -2438,6 +2455,161 @@ extension MaintenanceRecordQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'actionsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      assetHierarchyRefJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'assetHierarchyRefJson',
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      assetHierarchyRefJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'assetHierarchyRefJson',
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      assetHierarchyRefJsonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'assetHierarchyRefJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      assetHierarchyRefJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'assetHierarchyRefJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      assetHierarchyRefJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'assetHierarchyRefJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      assetHierarchyRefJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'assetHierarchyRefJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      assetHierarchyRefJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'assetHierarchyRefJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      assetHierarchyRefJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'assetHierarchyRefJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      assetHierarchyRefJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'assetHierarchyRefJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      assetHierarchyRefJsonMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'assetHierarchyRefJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      assetHierarchyRefJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'assetHierarchyRefJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterFilterCondition>
+      assetHierarchyRefJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'assetHierarchyRefJson',
         value: '',
       ));
     });
@@ -9720,6 +9892,20 @@ extension MaintenanceRecordQuerySortBy
   }
 
   QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterSortBy>
+      sortByAssetHierarchyRefJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetHierarchyRefJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterSortBy>
+      sortByAssetHierarchyRefJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetHierarchyRefJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterSortBy>
       sortByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.asc);
@@ -10604,6 +10790,20 @@ extension MaintenanceRecordQuerySortThenBy
   }
 
   QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterSortBy>
+      thenByAssetHierarchyRefJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetHierarchyRefJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterSortBy>
+      thenByAssetHierarchyRefJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetHierarchyRefJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QAfterSortBy>
       thenByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.asc);
@@ -11475,6 +11675,14 @@ extension MaintenanceRecordQueryWhereDistinct
   }
 
   QueryBuilder<MaintenanceRecord, MaintenanceRecord, QDistinct>
+      distinctByAssetHierarchyRefJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'assetHierarchyRefJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, MaintenanceRecord, QDistinct>
       distinctByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assetNumber');
@@ -11954,6 +12162,13 @@ extension MaintenanceRecordQueryProperty
       actionsJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'actionsJson');
+    });
+  }
+
+  QueryBuilder<MaintenanceRecord, String?, QQueryOperations>
+      assetHierarchyRefJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'assetHierarchyRefJson');
     });
   }
 

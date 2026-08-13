@@ -192,6 +192,7 @@ describe("Stage 2D source security candidate", () => {
       "mutateRuntimeJobModulePopulation",
       "mutateUserAuthority",
       "mutateChargeAbnormality",
+      "mutateAssetHierarchy",
     ]) {
       const block = blockStartingAt(
         functionSource,

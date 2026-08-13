@@ -20,6 +20,7 @@
       "completePlannedJobExecution",
       "executeMaintenanceWorkflowCommand",
       "mutateChargeAbnormality",
+      "mutateAssetHierarchy",
       "mutateRuntimeJobModulePopulation",
       "mutateUserAuthority"
     ],

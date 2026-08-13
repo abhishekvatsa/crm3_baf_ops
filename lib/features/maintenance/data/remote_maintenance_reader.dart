@@ -1,4 +1,5 @@
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import '../utils/asset_validator.dart';
@@ -122,6 +123,11 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     ..hierarchyPath = readNullablePersistedStringList(
       map['hierarchyPath'],
       field: 'hierarchyPath',
+      source: source,
+    )
+    ..assetHierarchyRefJson = readOptionalAssetHierarchyReferenceJson(
+      map['assetHierarchyRefJson'],
+      field: 'assetHierarchyRefJson',
       source: source,
     )
     ..maintenanceType = readRequiredPersistedEnum(

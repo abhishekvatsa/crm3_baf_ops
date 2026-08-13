@@ -1,20 +1,24 @@
 // FILE: lib/features/planned_maintenance/widgets/action_bottom_sheet.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/providers/asset_hierarchy_provider.dart';
+import '../../assets/repositories/asset_hierarchy_repository.dart';
 import '../domain/baf_tag_resolver_v2.dart';
 import '../models/component_action_model.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 
-class ActionBottomSheet extends StatefulWidget {
+class ActionBottomSheet extends ConsumerStatefulWidget {
   const ActionBottomSheet({super.key});
 
   @override
-  State<ActionBottomSheet> createState() => _ActionBottomSheetState();
+  ConsumerState<ActionBottomSheet> createState() => _ActionBottomSheetState();
 }
 
-class _ActionBottomSheetState extends State<ActionBottomSheet> {
+class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
   final TextEditingController _tagController = TextEditingController();
   final TextEditingController _componentController = TextEditingController();
   final TextEditingController _issueController = TextEditingController();
@@ -23,6 +27,9 @@ class _ActionBottomSheetState extends State<ActionBottomSheet> {
   String? system;
   String? subsystem;
   List<String>? path;
+  AssetHierarchyReference? hierarchyReference;
+  String? ownership;
+  int _resolutionGeneration = 0;
 
   bool _isAutoResolved = false;
 
@@ -37,11 +44,54 @@ class _ActionBottomSheetState extends State<ActionBottomSheet> {
     super.dispose();
   }
 
-  void _resolveTag(String rawTag) {
+  Future<void> _resolveTag(String rawTag) async {
+    final generation = ++_resolutionGeneration;
     final tag = rawTag.trim();
 
     if (tag.isEmpty) {
       _clearAutoFields();
+      return;
+    }
+
+    try {
+      final repository = ref.read(assetHierarchyRepositoryProvider);
+      final component = await repository.findActiveInstalledComponentByTag(tag);
+      if (!mounted || generation != _resolutionGeneration) return;
+      if (component != null) {
+        final assetClass = await repository.getAssetClass(
+          component.assetClassId,
+        );
+        if (!mounted || generation != _resolutionGeneration) return;
+        if (assetClass == null || !assetClass.isActive) {
+          throw const AssetHierarchyException(
+            'The tag belongs to an unavailable asset class.',
+          );
+        }
+        final reference = component.toReference();
+        setState(() {
+          asset = component.assetInstanceName;
+          system = assetClass.majorArea;
+          subsystem =
+              component.hierarchyPath.length > 1
+                  ? component.hierarchyPath[component.hierarchyPath.length - 2]
+                  : null;
+          path = List<String>.from(component.hierarchyPath);
+          hierarchyReference = reference;
+          ownership = [
+            component.ownershipStatus.label,
+            if (component.ownerDiscipline != null) component.ownerDiscipline!,
+          ].join(' · ');
+          _componentController.text = component.definitionName;
+          _isAutoResolved = true;
+        });
+        return;
+      }
+    } on AssetHierarchyException catch (error) {
+      if (!mounted || generation != _resolutionGeneration) return;
+      _clearAutoFields();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$error'), backgroundColor: BafColors.danger),
+      );
       return;
     }
 
@@ -60,6 +110,8 @@ class _ActionBottomSheetState extends State<ActionBottomSheet> {
 
       final rawPath = result['hierarchyPath'];
       path = rawPath is List ? List<String>.from(rawPath) : null;
+      hierarchyReference = null;
+      ownership = null;
 
       if (_componentController.text.trim().isEmpty) {
         _componentController.text = (result['component'] as String?) ?? '';
@@ -75,6 +127,8 @@ class _ActionBottomSheetState extends State<ActionBottomSheet> {
       system = null;
       subsystem = null;
       path = null;
+      hierarchyReference = null;
+      ownership = null;
       _isAutoResolved = false;
     });
   }
@@ -114,6 +168,7 @@ class _ActionBottomSheetState extends State<ActionBottomSheet> {
       system: system,
       subsystem: subsystem,
       hierarchyPath: path,
+      assetHierarchyRef: hierarchyReference,
       actionType: _actionType,
       status: _status,
       issue: _issueController.text.trim(),
@@ -272,6 +327,8 @@ class _ActionBottomSheetState extends State<ActionBottomSheet> {
                   system: system,
                   subsystem: subsystem,
                   path: path,
+                  ownership: ownership,
+                  governed: hierarchyReference != null,
                 ),
               ],
               const SizedBox(height: 20),
@@ -378,8 +435,17 @@ class _ResolvedTagPanel extends StatelessWidget {
   final String? system;
   final String? subsystem;
   final List<String>? path;
+  final String? ownership;
+  final bool governed;
 
-  const _ResolvedTagPanel({this.asset, this.system, this.subsystem, this.path});
+  const _ResolvedTagPanel({
+    this.asset,
+    this.system,
+    this.subsystem,
+    this.path,
+    this.ownership,
+    this.governed = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -394,10 +460,11 @@ class _ResolvedTagPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const StatusBadge(
-            label: 'Tag resolved',
+          StatusBadge(
+            label: governed ? 'Governed component' : 'Tag resolved',
             color: BafColors.sync,
-            icon: Icons.auto_awesome_rounded,
+            icon:
+                governed ? Icons.verified_outlined : Icons.auto_awesome_rounded,
           ),
           const SizedBox(height: 8),
           if (asset != null && asset!.trim().isNotEmpty)
@@ -408,6 +475,8 @@ class _ResolvedTagPanel extends StatelessWidget {
             _ResolvedLine(label: 'Subsystem', value: subsystem!),
           if (path != null && path!.isNotEmpty)
             _ResolvedLine(label: 'Path', value: path!.join(' › ')),
+          if (ownership != null && ownership!.trim().isNotEmpty)
+            _ResolvedLine(label: 'Ownership', value: ownership!),
         ],
       ),
     );

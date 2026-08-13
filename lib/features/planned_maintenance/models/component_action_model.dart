@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 
 enum ActionType { issue, repair, replacement, inspection }
 
@@ -28,6 +29,7 @@ class ComponentAction {
     'asset',
     'component',
     'hierarchyPath',
+    'assetHierarchyRef',
     'system',
     'subsystem',
     'subComponent',
@@ -53,6 +55,7 @@ class ComponentAction {
   final String asset;
   final String component;
   final List<String>? hierarchyPath;
+  final AssetHierarchyReference? assetHierarchyRef;
   final String? system;
   final String? subsystem;
   final String? subComponent;
@@ -82,6 +85,7 @@ class ComponentAction {
     required this.asset,
     required this.component,
     this.hierarchyPath,
+    this.assetHierarchyRef,
     this.system,
     this.subsystem,
     this.subComponent,
@@ -113,6 +117,7 @@ class ComponentAction {
     'asset': asset,
     'component': component,
     'hierarchyPath': hierarchyPath,
+    'assetHierarchyRef': assetHierarchyRef?.toMap(),
     'system': system,
     'subsystem': subsystem,
     'subComponent': subComponent,
@@ -155,6 +160,10 @@ class ComponentAction {
       hierarchyPath: readNullablePersistedStringList(
         map['hierarchyPath'],
         field: 'hierarchyPath',
+        source: source,
+      ),
+      assetHierarchyRef: _readAssetHierarchyReference(
+        map['assetHierarchyRef'],
         source: source,
       ),
       system: _readOptionalRawString(
@@ -319,6 +328,24 @@ class ComponentAction {
       detail: 'expected a JSON string (${value.runtimeType})',
     );
   }
+}
+
+AssetHierarchyReference? _readAssetHierarchyReference(
+  dynamic value, {
+  String? source,
+}) {
+  if (value == null) return null;
+  if (value is! Map) {
+    throw PersistedDataFormatException(
+      field: 'assetHierarchyRef',
+      source: source,
+      detail: 'expected an object (${value.runtimeType})',
+    );
+  }
+  return AssetHierarchyReference.fromMap(
+    Map<String, dynamic>.from(value),
+    source: source,
+  );
 }
 
 String? _readOptionalRawString(

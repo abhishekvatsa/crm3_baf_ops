@@ -196,6 +196,8 @@ class _HistoryHeader extends StatelessWidget {
         return 'FORCED COOLER';
       case AssetType.innerCover:
         return 'INNER COVER';
+      case AssetType.governedCustom:
+        return 'GOVERNED ASSET';
     }
   }
 }
@@ -580,6 +582,8 @@ class _ExecutionCard extends StatelessWidget {
         return 'FORCED COOLER';
       case AssetType.innerCover:
         return 'INNER COVER';
+      case AssetType.governedCustom:
+        return 'GOVERNED ASSET';
     }
   }
 }
@@ -817,6 +821,8 @@ class _ResponseDetailSheet extends StatelessWidget {
         return 'FORCED COOLER';
       case AssetType.innerCover:
         return 'INNER COVER';
+      case AssetType.governedCustom:
+        return 'GOVERNED ASSET';
     }
   }
 }
