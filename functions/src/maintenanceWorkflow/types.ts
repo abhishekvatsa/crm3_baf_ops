@@ -20,6 +20,15 @@ export type EquipmentState =
   | "inService" | "underMaintenance" | "awaitingPreparation"
   | "underRED" | "available";
 export type ComplianceConditionType = "manual" | "chargeComplete" | "activityRef";
+export type CompliancePurpose = "assurance" | "deferment" | "operationsSupport";
+export type DefermentBasis =
+  | "ongoingCycle" | "equipmentRequired" | "operationalCompliance"
+  | "safetyConstraint" | "qualityConstraint" | "other";
+export type OperationsSupportType =
+  | "craneMovement" | "assetRelocation" | "isolation"
+  | "processPreparation" | "utilitySupport" | "accessOrPermit" | "other";
+export type OperationsResource =
+  | "crane" | "transferCar" | "operationsCrew" | "utilities" | "other";
 
 export interface Actor {
   readonly uid: string;
@@ -42,6 +51,7 @@ export interface WorkflowCommand {
 
 export type WorkflowAuthorityCapability =
   | "lane.acknowledge" | "lane.work" | "lane.close"
+  | "compliance.raise"
   | "laneSet.finalize" | "lanePopulation.manage" | "workflow.cancel"
   | "condition.markDue" | "redLane.prepare" | "workflowModule.reopen"
   | "job.finalize" | "equipment.deploy" | "equipment.reconcile"
@@ -116,6 +126,13 @@ export interface ComplianceDoc extends JsonMap {
   readonly originLaneKey?: LaneKey | null;
   readonly targetLaneKey?: LaneKey;
   readonly conditionTypeKey?: ComplianceConditionType;
+  readonly requestPurposeKey?: CompliancePurpose;
+  readonly defermentBasisKey?: DefermentBasis | null;
+  readonly operationsSupportTypeKey?: OperationsSupportType | null;
+  readonly operationsResourceKey?: OperationsResource | null;
+  readonly requestedLocation?: string | null;
+  readonly raisedUnderCoordination?: boolean;
+  readonly coordinationBasis?: string | null;
   readonly linkedMaintenanceFirestoreId?: string | null;
   readonly linkedExecutionFirestoreId?: string | null;
   readonly linkedLaneFirestoreId?: string | null;

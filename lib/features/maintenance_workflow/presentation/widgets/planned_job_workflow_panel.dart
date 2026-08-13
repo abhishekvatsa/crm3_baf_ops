@@ -132,7 +132,7 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                   (lane) =>
                       lane.statusKey != 'removed' &&
                       lane.statusKey != 'terminated' &&
-                      actor.canAcknowledgeOrWorkMaintenanceLane(lane.laneKey),
+                      actor.canRaiseMaintenanceComplianceFromLane(lane.laneKey),
                 )
                 .toList(growable: false);
             final blockingCompliance = compliances
@@ -295,7 +295,7 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
                                     activeLanes,
                                   ),
                           icon: const Icon(Icons.assignment_add),
-                          label: const Text('Raise compliance'),
+                          label: const Text('Request assurance / support'),
                         ),
                       if (_redPreparationReady(workflow, lanes) &&
                           actor.canPrepareMaintenanceRedLane &&
@@ -767,8 +767,17 @@ class PlannedJobWorkflowPanel extends ConsumerWidget {
           'targetLaneKey': draft.targetLaneKey,
           'title': draft.title,
           'description': draft.description,
+          'requestPurposeKey': draft.requestPurposeKey,
           'conditionTypeKey': draft.conditionTypeKey,
           if (draft.conditionRef != null) 'conditionRef': draft.conditionRef,
+          if (draft.defermentBasisKey != null)
+            'defermentBasisKey': draft.defermentBasisKey,
+          if (draft.operationsSupportTypeKey != null)
+            'operationsSupportTypeKey': draft.operationsSupportTypeKey,
+          if (draft.operationsResourceKey != null)
+            'operationsResourceKey': draft.operationsResourceKey,
+          if (draft.requestedLocation != null)
+            'requestedLocation': draft.requestedLocation,
           'priorityKey': draft.priorityKey,
           if (draft.linkedMaintenanceId != null)
             'linkedMaintenanceFirestoreId': draft.linkedMaintenanceId,

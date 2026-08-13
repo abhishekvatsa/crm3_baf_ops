@@ -2724,7 +2724,9 @@ check(
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
-    and "repository-proven populated v1 migrates to v3" in isar_fixture_test
+    and "repository-proven populated v1 migrates to v4" in isar_fixture_test
+    and "populated v3 compliance request migrates to explicit v4 assurance"
+        in isar_fixture_test
     and "stored-schema-fingerprint-unrecognized" in isar_fixture_test
     and "blocks a current target with unsupported migration ancestry"
         in isar_inventory_test

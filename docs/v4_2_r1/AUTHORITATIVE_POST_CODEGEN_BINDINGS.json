@@ -50,8 +50,8 @@
       "bytes": 95026
     },
     "lib/features/maintenance_workflow/data/compliance_request_record.g.dart": {
-      "sha256": "1C47E418471D6AC5D8636B6058E45025A732FBEE48B8BC2123A7C9C163A6B7C2",
-      "bytes": 413642
+      "sha256": "6E0DBF19C8ED75EDB9330479884C21835ED9097A6A9EA347A88105428DB1C963",
+      "bytes": 457772
     },
     "lib/features/maintenance_workflow/data/equipment_prompt_record.g.dart": {
       "sha256": "54D79ACE327F2CD0AD949E49ABB9B2B7B9C5C9177A00C431D9C1C4BFD9B31585",

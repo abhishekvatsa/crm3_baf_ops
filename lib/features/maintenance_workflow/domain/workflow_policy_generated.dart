@@ -16,6 +16,7 @@ abstract final class WorkflowPolicyGenerated {
     'reconcileEquipment': <String>{'admin', 'si'},
     'prepareRedLane': <String>{'admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorElectrical', 'seniorMechanical', 'seniorInstrumentation', 'seniorRefractory'},
     'reopenWorkflowModule': <String>{'admin', 'si', 'contractSupervisor', 'shiftSupervisor'},
+    'raiseComplianceCoordination': <String>{'admin', 'si', 'contractSupervisor', 'shiftSupervisor'},
   };
   static const Set<String> workflowRoleUniverse = <String>{'admin', 'si', 'contractSupervisor', 'seniorElectrical', 'seniorMechanical', 'seniorInstrumentation', 'operations', 'shiftSupervisor', 'refractory', 'seniorRefractory'};
   static const Set<String> redApplicableAssetTypes = <String>{'base', 'furnace'};

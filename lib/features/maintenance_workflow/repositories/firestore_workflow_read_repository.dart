@@ -57,6 +57,35 @@ const Set<String> _conditionTypeKeys = <String>{
   'chargeComplete',
   'activityRef',
 };
+const Set<String> _requestPurposeKeys = <String>{
+  'assurance',
+  'deferment',
+  'operationsSupport',
+};
+const Set<String> _defermentBasisKeys = <String>{
+  'ongoingCycle',
+  'equipmentRequired',
+  'operationalCompliance',
+  'safetyConstraint',
+  'qualityConstraint',
+  'other',
+};
+const Set<String> _operationsSupportTypeKeys = <String>{
+  'craneMovement',
+  'assetRelocation',
+  'isolation',
+  'processPreparation',
+  'utilitySupport',
+  'accessOrPermit',
+  'other',
+};
+const Set<String> _operationsResourceKeys = <String>{
+  'crane',
+  'transferCar',
+  'operationsCrew',
+  'utilities',
+  'other',
+};
 const Set<String> _priorityKeys = <String>{'low', 'medium', 'high', 'critical'};
 const Set<String> _equipmentStateKeys = <String>{
   'available',
@@ -106,6 +135,18 @@ String _requiredString(
     return _projectionError(field, data[field], 'unsupported value');
   }
   return result;
+}
+
+String? _optionalAllowedString(
+  Map<String, dynamic> data,
+  String field,
+  Set<String> allowed,
+) {
+  final value = _string(data[field], field);
+  if (value != null && !allowed.contains(value)) {
+    return _projectionError(field, data[field], 'unsupported value');
+  }
+  return value;
 }
 
 int _requiredInt(Map<String, dynamic> data, String field, {int minimum = 0}) {
@@ -223,6 +264,36 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
           allowed: _conditionTypeKeys,
         )
         ..conditionRef = _string(data['conditionRef'])
+        ..requestPurposeKey =
+            data['requestPurposeKey'] == null
+                ? 'assurance'
+                : _requiredString(
+                  data,
+                  'requestPurposeKey',
+                  allowed: _requestPurposeKeys,
+                )
+        ..defermentBasisKey = _optionalAllowedString(
+          data,
+          'defermentBasisKey',
+          _defermentBasisKeys,
+        )
+        ..operationsSupportTypeKey = _optionalAllowedString(
+          data,
+          'operationsSupportTypeKey',
+          _operationsSupportTypeKeys,
+        )
+        ..operationsResourceKey = _optionalAllowedString(
+          data,
+          'operationsResourceKey',
+          _operationsResourceKeys,
+        )
+        ..requestedLocation = _string(data['requestedLocation'])
+        ..raisedUnderCoordination = _optionalBool(
+          data,
+          'raisedUnderCoordination',
+          fallback: false,
+        )
+        ..coordinationBasis = _string(data['coordinationBasis'])
         ..priorityKey = _requiredString(
           data,
           'priorityKey',
@@ -322,6 +393,63 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
       'updatedAt',
       data['updatedAt'],
       'cannot precede createdAt',
+    );
+  }
+  if (record.raisedUnderCoordination != (record.coordinationBasis != null)) {
+    return _projectionError(
+      'coordinationBasis',
+      data['coordinationBasis'],
+      'coordination marker and basis must be present together',
+    );
+  }
+  if (record.raisedUnderCoordination &&
+      record.coordinationBasis != 'supervisory-workflow-coordination') {
+    return _projectionError(
+      'coordinationBasis',
+      data['coordinationBasis'],
+      'must use the canonical supervisory coordination basis',
+    );
+  }
+  if (record.requestPurposeKey == 'deferment') {
+    if (record.targetLaneKey != 'oprn' ||
+        record.conditionTypeKey == 'manual' ||
+        record.defermentBasisKey == null ||
+        record.linkedMaintenanceFirestoreId == null) {
+      return _projectionError(
+        'requestPurposeKey',
+        data['requestPurposeKey'],
+        'deferment requires a basis, release condition and maintenance link',
+      );
+    }
+  } else if (record.defermentBasisKey != null) {
+    return _projectionError(
+      'defermentBasisKey',
+      data['defermentBasisKey'],
+      'is valid only for deferment',
+    );
+  }
+  if (record.requestPurposeKey == 'operationsSupport') {
+    if (record.targetLaneKey != 'oprn' ||
+        record.operationsSupportTypeKey == null ||
+        record.operationsResourceKey == null ||
+        (<String>{
+              'craneMovement',
+              'assetRelocation',
+            }.contains(record.operationsSupportTypeKey) &&
+            record.requestedLocation == null)) {
+      return _projectionError(
+        'requestPurposeKey',
+        data['requestPurposeKey'],
+        'Operations support requires Operations, support type and resource',
+      );
+    }
+  } else if (record.operationsSupportTypeKey != null ||
+      record.operationsResourceKey != null ||
+      record.requestedLocation != null) {
+    return _projectionError(
+      'operationsSupportTypeKey',
+      data['operationsSupportTypeKey'],
+      'support details are valid only for Operations support',
     );
   }
   return record;
