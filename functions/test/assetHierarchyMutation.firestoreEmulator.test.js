@@ -6,6 +6,9 @@ const {
 const {
   mutateAssetRegistryWithDb,
 } = require('../lib/assetRegistryMutation');
+const {
+  mutateAssetOperationalConditionWithDb,
+} = require('../lib/assetOperationalConditionMutation');
 
 jest.setTimeout(60000);
 
@@ -34,6 +37,8 @@ const IDS = {
   secondComponentRequest: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
   assetStatusRequest: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
   componentUpdateRequest: '12121212-1212-4121-8121-121212121212',
+  conditionRequest: '13131313-1313-4131-8131-131313131313',
+  restorationRequest: '14141414-1414-4141-8141-141414141414',
 };
 
 function classRequest() {
@@ -122,6 +127,16 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
   }
 
+  async function invokeCondition(data, authUid) {
+    return mutateAssetOperationalConditionWithDb({
+      db,
+      authUid,
+      data,
+      now: () => new Date('2026-08-13T12:00:00.000Z'),
+      timestampFromDate: admin.firestore.Timestamp.fromDate,
+    });
+  }
+
   function assetRequest({requestId, assetInstanceId, assetNumber, name}) {
     return {
       requestId,
@@ -201,6 +216,13 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       roles: ['operations'],
       createdAt: new Date('2026-08-13T00:00:00.000Z'),
     });
+    await db.collection('users').doc('shift-1').set({
+      name: 'Shift Supervisor',
+      email: 'shift-1@test.local',
+      isApproved: true,
+      roles: ['shiftSupervisor'],
+      createdAt: new Date('2026-08-13T00:00:00.000Z'),
+    });
   });
 
   afterAll(async () => {
@@ -237,6 +259,80 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       hierarchyPath: ['Furnace pressure transmitter'],
     });
     expect((await db.collection('asset_tag_claims').get()).empty).toBe(true);
+  });
+
+  test('Operations declares an asset down and Shift Supervisor restores it', async () => {
+    await invoke(classRequest());
+    await invokeRegistry(assetRequest({
+      requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      name: 'Furnace 1',
+    }));
+    await db.collection('maintenance_records').doc('issue-1').set({
+      firestoreId: 'issue-1',
+      isDeleted: false,
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 2,
+        scope: 'installedComponent',
+        assetInstanceId: IDS.firstAsset,
+        assetClassId: IDS.classId,
+        assetNumber: 1,
+      }),
+    });
+
+    const declaration = await invokeCondition({
+      requestId: IDS.conditionRequest,
+      operation: 'DECLARE_ASSET_CONDITION',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      expectedVersion: 0,
+      condition: 'down',
+      causeKeys: ['breakdown'],
+      reason: 'Drive fault prevents safe furnace operation.',
+      linkedIssueIds: ['issue-1'],
+    }, 'ops-1');
+    expect(declaration).toMatchObject({condition: 'down', version: 1});
+    await expect(invokeRegistry({
+      requestId: IDS.assetStatusRequest,
+      operation: 'SET_ASSET_INSTANCE_STATUS',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      expectedVersion: 1,
+      status: 'retired',
+      reason: 'Retire the asset after operational closure and review.',
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'asset-instance-active-operational-condition',
+      }),
+    });
+    await expect(invokeCondition({
+      requestId: IDS.restorationRequest,
+      operation: 'RESTORE_ASSET_CONDITION',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      expectedVersion: 1,
+      reason: 'Safe operation proved after drive repair.',
+    }, 'ops-1')).rejects.toMatchObject({code: 'permission-denied'});
+
+    const restoration = await invokeCondition({
+      requestId: IDS.restorationRequest,
+      operation: 'RESTORE_ASSET_CONDITION',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      expectedVersion: 1,
+      reason: 'Safe operation proved after drive repair.',
+    }, 'shift-1');
+    expect(restoration).toMatchObject({condition: 'available', version: 2});
+    expect((await db.collection('asset_operational_conditions')
+      .doc(IDS.firstAsset).get()).data()).toMatchObject({
+      active: false,
+      restoredByUid: 'shift-1',
+      version: 2,
+    });
+    expect((await db.collection('asset_operational_condition_audits').get()).size)
+      .toBe(2);
   });
 
   test('two furnaces share one definition while installed tag transfer stays atomic', async () => {

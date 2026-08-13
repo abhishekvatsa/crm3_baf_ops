@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
@@ -13,6 +14,7 @@ const _supportedCollections = <String>{
   'asset_component_instances',
   'asset_hierarchy_nodes',
   'asset_instances',
+  'asset_operational_conditions',
   'asset_tag_claims',
   'audit_logs',
   'maintenance_records',
@@ -62,6 +64,8 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         AssetHierarchyNode.fromMap(data, documentId);
       case 'asset_instances':
         AssetInstanceRecord.fromMap(data, documentId);
+      case 'asset_operational_conditions':
+        AssetOperationalConditionRecord.fromMap(data, documentId);
       case 'asset_component_instances':
         InstalledComponentRecord.fromMap(data, documentId);
       case 'asset_tag_claims':

@@ -3639,6 +3639,11 @@ describe("governed dynamic asset hierarchy", () => {
     await seedDoc("asset_component_instances/component-1", {
       componentInstanceId: "component-1",
     });
+    await seedDoc("asset_operational_conditions/asset-1", {
+      assetInstanceId: "asset-1",
+      condition: "down",
+      active: true,
+    });
 
     const opsDb = dbAs("ops1");
     await assertSucceeds(getDoc(doc(opsDb, "asset_classes/class-1")));
@@ -3646,6 +3651,9 @@ describe("governed dynamic asset hierarchy", () => {
     await assertSucceeds(getDoc(doc(opsDb, "asset_instances/asset-1")));
     await assertSucceeds(
       getDoc(doc(opsDb, "asset_component_instances/component-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(opsDb, "asset_operational_conditions/asset-1"))
     );
     await assertSucceeds(getDoc(doc(opsDb, "asset_tag_claims/tag-hash")));
     await assertFails(getDocs(collection(opsDb, "asset_tag_claims")));
@@ -3674,6 +3682,16 @@ describe("governed dynamic asset hierarchy", () => {
       setDoc(doc(adminDb, "asset_hierarchy_mutation_receipts/request-1"), {
         requestId: "request-1",
       }),
+      setDoc(doc(adminDb, "asset_operational_conditions/asset-1"), {
+        assetInstanceId: "asset-1",
+        condition: "down",
+      }),
+      setDoc(doc(adminDb, "asset_operational_condition_audits/audit-1"), {
+        auditId: "audit-1",
+      }),
+      setDoc(doc(adminDb, "asset_operational_condition_receipts/request-1"), {
+        requestId: "request-1",
+      }),
     ];
     for (const write of writes) await assertFails(write);
   });
@@ -3688,6 +3706,24 @@ describe("governed dynamic asset hierarchy", () => {
     );
     await assertFails(
       deleteDoc(doc(dbAs("admin1"), "asset_hierarchy_audits/audit-1"))
+    );
+  });
+
+  test("asset-condition audits are Admin-only and receipts stay private", async () => {
+    await seedDoc("asset_operational_condition_audits/audit-1", {
+      auditId: "audit-1",
+    });
+    await seedDoc("asset_operational_condition_receipts/request-1", {
+      requestId: "request-1",
+    });
+    await assertSucceeds(
+      getDoc(doc(dbAs("admin1"), "asset_operational_condition_audits/audit-1"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("ops1"), "asset_operational_condition_audits/audit-1"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("admin1"), "asset_operational_condition_receipts/request-1"))
     );
   });
 });

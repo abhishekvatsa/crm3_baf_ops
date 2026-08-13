@@ -7,6 +7,8 @@ import {
   normalizeAssetHierarchyTag,
 } from "./assetHierarchyMutation";
 import {stableJson} from "./stableJson";
+import {activeAssetOperationalConditionForRegistry} from
+  "./assetOperationalConditionMutation";
 
 type JsonMap = {[key: string]: unknown};
 type SnapshotLike = {exists: boolean; id?: string; data: () => JsonMap | undefined};
@@ -445,6 +447,7 @@ export async function mutateAssetRegistryWithDb(args: {
   const classes = db.collection("asset_classes");
   const nodes = db.collection("asset_hierarchy_nodes");
   const assets = db.collection("asset_instances");
+  const operationalConditions = db.collection("asset_operational_conditions");
   const numberClaims = db.collection("asset_instance_numbers");
   const components = db.collection("asset_component_instances");
   const tagClaims = db.collection("asset_tag_claims");
@@ -453,6 +456,7 @@ export async function mutateAssetRegistryWithDb(args: {
   const actorRef = users.doc(actorUid);
   const classRef = classes.doc(request.assetClassId);
   const assetRef = assets.doc(request.assetInstanceId);
+  const operationalConditionRef = operationalConditions.doc(request.assetInstanceId);
   const componentRef = request.componentInstanceId == null ? null :
     components.doc(request.componentInstanceId);
   const entityRef = componentRef ?? assetRef;
@@ -667,6 +671,11 @@ export async function mutateAssetRegistryWithDb(args: {
         ),
         "Active installed-component lookup",
       ) : null;
+    const operationalCondition = request.operation === "SET_ASSET_INSTANCE_STATUS" &&
+      request.status === "retired" ? asSnapshot(
+        await transaction.get(operationalConditionRef),
+        "Asset operational-condition lookup",
+      ) : null;
 
     const nowDate = args.now?.() ?? new Date();
     const committedAtIso = nowDate.toISOString();
@@ -753,6 +762,20 @@ export async function mutateAssetRegistryWithDb(args: {
           throw new AssetHierarchyMutationError(
             "failed-precondition", "Retire installed components before retiring this asset.",
             {reasonCode: "asset-instance-active-components"},
+          );
+        }
+        if (operationalCondition?.exists === true &&
+            activeAssetOperationalConditionForRegistry(
+              operationalCondition.data() ?? {},
+              {
+                assetInstanceId: request.assetInstanceId,
+                assetClassId: request.assetClassId,
+              },
+            )) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "Restore the active operational condition before retiring this asset.",
+            {reasonCode: "asset-instance-active-operational-condition"},
           );
         }
         const draft = request.assetDraft ?? {

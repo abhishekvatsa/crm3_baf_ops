@@ -446,6 +446,18 @@
       "authorityBoundary": "remote-installed-component-tag-authority",
       "regression": "test/asset_hierarchy_model_test.dart; tools/v4/a05_production_persisted_integrity_sweep.test.mjs",
       "reArmCondition": "any installed-component tag-claim timestamp schema change"
+    },
+    {
+      "id": "asset-operational-condition-record",
+      "readerFile": "lib/features/assets/data/asset_operational_condition.dart",
+      "readerMarker": "factory AssetOperationalConditionRecord.fromMap",
+      "requiredFields": ["updatedAt"],
+      "optionalFields": ["declaredAt", "restoredAt"],
+      "owner": "asset-operations",
+      "purpose": "restore declaration, restoration, and current-condition chronology",
+      "authorityBoundary": "remote-asset-operational-condition-record",
+      "regression": "test/asset_operational_condition_model_test.dart",
+      "reArmCondition": "any asset operational-condition timestamp schema change"
     }
   ]
 }
