@@ -209,6 +209,7 @@ class BafTagResolverV2 {
       AssetType.furnace => 'Furnace',
       AssetType.forceCooler => 'Forced Cooler',
       AssetType.innerCover => 'Inner Cover',
+      AssetType.governedCustom => 'Governed asset',
       null => null,
     };
   }

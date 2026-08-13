@@ -22,6 +22,7 @@ describe('S-03 callable boundary wiring', () => {
     ],
     ['mutateUserAuthority', 'userCanMutateUserAuthority'],
     ['mutateChargeAbnormality', 'userCanMutateChargeAbnormality'],
+    ['mutateAssetHierarchy', 'userCanMutateAssetHierarchy'],
   ])('%s uses authority-first shared admission through %s', (
     callableName,
     authorityPredicate,

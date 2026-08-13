@@ -16,6 +16,9 @@ import '../../../core/services/auto_sync_service.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/providers/asset_hierarchy_provider.dart';
+import '../../assets/repositories/asset_hierarchy_repository.dart';
 
 class MaintenanceForm extends ConsumerStatefulWidget {
   const MaintenanceForm({super.key});
@@ -44,6 +47,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   String? _resolvedSystem;
   String? _resolvedSubsystem;
   List<String>? _resolvedPath;
+  AssetHierarchyReference? _assetHierarchyReference;
+  String? _resolvedOwnership;
+  int _tagResolutionGeneration = 0;
 
   bool _isAutoResolved = false;
   bool _userOverrodeComponent = false;
@@ -69,12 +75,68 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     super.dispose();
   }
 
-  void _resolveTag(String rawTag) {
+  Future<void> _resolveTag(String rawTag) async {
+    final generation = ++_tagResolutionGeneration;
     final tag = rawTag.trim();
     _userOverrodeComponent = false;
 
     if (tag.isEmpty) {
       _clearAutoFields();
+      return;
+    }
+
+    try {
+      final repository = ref.read(assetHierarchyRepositoryProvider);
+      final component = await repository.findActiveInstalledComponentByTag(tag);
+      if (!mounted || generation != _tagResolutionGeneration) return;
+      if (component != null) {
+        final assetClass = await repository.getAssetClass(
+          component.assetClassId,
+        );
+        if (!mounted || generation != _tagResolutionGeneration) return;
+        if (assetClass == null || !assetClass.isActive) {
+          throw const AssetHierarchyException(
+            'The tag belongs to an unavailable asset class.',
+          );
+        }
+        final legacyType =
+            AssetType.values
+                .where((type) => type.name == assetClass.legacyAssetTypeKey)
+                .firstOrNull ??
+            AssetType.governedCustom;
+        final reference = component.toReference();
+        setState(() {
+          _assetType = legacyType;
+          _assetNumController.text = '${component.assetNumber}';
+          _resolvedSystem = assetClass.name;
+          _resolvedSubsystem =
+              component.hierarchyPath.length > 1
+                  ? component.hierarchyPath[component.hierarchyPath.length - 2]
+                  : null;
+          _resolvedPath = List<String>.from(component.hierarchyPath);
+          _assetHierarchyReference = reference;
+          _resolvedOwnership = [
+            component.ownershipStatus.label,
+            if (component.ownerDiscipline != null) component.ownerDiscipline!,
+            if (component.accountableRoleKeys.isNotEmpty)
+              component.accountableRoleKeys
+                  .map(_roleLabelForReference)
+                  .join(', '),
+          ].join(' · ');
+          if (!_userOverrodeComponent ||
+              _componentController.text.trim().isEmpty) {
+            _componentController.text = component.definitionName;
+          }
+          _isAutoResolved = true;
+        });
+        return;
+      }
+    } on AssetHierarchyException catch (error) {
+      if (!mounted || generation != _tagResolutionGeneration) return;
+      _clearAutoFields();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$error'), backgroundColor: BafColors.danger),
+      );
       return;
     }
 
@@ -95,6 +157,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       _resolvedSystem = result['system'] as String?;
       _resolvedSubsystem = result['subsystem'] as String?;
       _resolvedPath = safePath;
+      _assetHierarchyReference = null;
+      _resolvedOwnership = null;
 
       if (!_userOverrodeComponent && _componentController.text.trim().isEmpty) {
         _componentController.text = (result['component'] as String?) ?? '';
@@ -111,6 +175,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       _resolvedSystem = null;
       _resolvedSubsystem = null;
       _resolvedPath = null;
+      _assetHierarchyReference = null;
+      _resolvedOwnership = null;
       _isAutoResolved = false;
       _userOverrodeComponent = false;
     });
@@ -248,6 +314,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             ..tag = tagText
             ..subsystem = _cleanOptionalText(_resolvedSubsystem)
             ..hierarchyPath = hierarchyPath;
+      record.assetHierarchyRefJson = _assetHierarchyReference?.encode();
 
       final repository = ref.read(maintenanceRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
@@ -357,6 +424,11 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                         decoration: _inputDecoration('Type'),
                         items:
                             AssetType.values
+                                .where(
+                                  (type) =>
+                                      type != AssetType.governedCustom ||
+                                      _assetHierarchyReference != null,
+                                )
                                 .map(
                                   (type) => DropdownMenuItem<AssetType>(
                                     value: type,
@@ -369,7 +441,18 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                                 .toList(),
                         onChanged: (value) {
                           if (value == null) return;
-                          setState(() => _assetType = value);
+                          setState(() {
+                            if (value != _assetType) {
+                              _resolvedSystem = null;
+                              _resolvedSubsystem = null;
+                              _resolvedPath = null;
+                              _assetHierarchyReference = null;
+                              _resolvedOwnership = null;
+                              _isAutoResolved = false;
+                              _userOverrodeComponent = false;
+                            }
+                            _assetType = value;
+                          });
                         },
                       ),
                     ),
@@ -423,6 +506,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     system: _resolvedSystem,
                     subsystem: _resolvedSubsystem,
                     path: _resolvedPath,
+                    ownership: _resolvedOwnership,
+                    governed: _assetHierarchyReference != null,
                   ),
                 ],
               ],
@@ -646,6 +731,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         return 'FORCE COOLER';
       case AssetType.innerCover:
         return 'INNER COVER';
+      case AssetType.governedCustom:
+        return 'GOVERNED ASSET';
     }
   }
 
@@ -973,8 +1060,16 @@ class _ResolvedTagPanel extends StatelessWidget {
   final String? system;
   final String? subsystem;
   final List<String>? path;
+  final String? ownership;
+  final bool governed;
 
-  const _ResolvedTagPanel({this.system, this.subsystem, this.path});
+  const _ResolvedTagPanel({
+    this.system,
+    this.subsystem,
+    this.path,
+    this.ownership,
+    this.governed = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -989,13 +1084,17 @@ class _ResolvedTagPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.auto_awesome_rounded, size: 17, color: BafColors.sync),
-              SizedBox(width: 6),
+              Icon(
+                governed ? Icons.verified_outlined : Icons.auto_awesome_rounded,
+                size: 17,
+                color: BafColors.sync,
+              ),
+              const SizedBox(width: 6),
               Text(
-                'Tag resolved',
-                style: TextStyle(
+                governed ? 'Governed component resolved' : 'Tag resolved',
+                style: const TextStyle(
                   color: BafColors.sync,
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
@@ -1010,11 +1109,27 @@ class _ResolvedTagPanel extends StatelessWidget {
             _ResolvedLine(label: 'Subsystem', value: subsystem!),
           if (path != null && path!.isNotEmpty)
             _ResolvedLine(label: 'Path', value: path!.join(' › ')),
+          if (ownership != null && ownership!.trim().isNotEmpty)
+            _ResolvedLine(label: 'Ownership', value: ownership!),
         ],
       ),
     );
   }
 }
+
+String _roleLabelForReference(String role) => switch (role) {
+  'admin' => 'Admin',
+  'si' => 'SI',
+  'contractSupervisor' => 'Contract supervisor',
+  'shiftSupervisor' => 'Shift supervisor',
+  'seniorElectrical' => 'Sr. Electrical',
+  'seniorMechanical' => 'Sr. Mechanical',
+  'seniorInstrumentation' => 'Sr. I&A',
+  'seniorRefractory' => 'Sr. Refractory',
+  'refractory' => 'Refractory',
+  'operations' => 'Operations',
+  _ => role,
+};
 
 class _ResolvedLine extends StatelessWidget {
   final String label;

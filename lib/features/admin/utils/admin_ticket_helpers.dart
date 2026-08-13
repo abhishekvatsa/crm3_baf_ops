@@ -86,6 +86,7 @@ MaintenanceRecord copyTicketForAdminEdit({
             source.hierarchyPath == null
                 ? null
                 : List<String>.from(source.hierarchyPath!)
+        ..assetHierarchyRefJson = source.assetHierarchyRefJson
         ..maintenanceType = maintenanceType
         ..classification = source.classification
         ..description = description

@@ -388,6 +388,8 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
         return 'FORCE COOLER';
       case AssetType.innerCover:
         return 'INNER COVER';
+      case AssetType.governedCustom:
+        return 'GOVERNED ASSET';
     }
   }
 }
@@ -804,6 +806,8 @@ class _ClosedTicketCard extends StatelessWidget {
         return 'FORCE COOLER';
       case AssetType.innerCover:
         return 'INNER COVER';
+      case AssetType.governedCustom:
+        return 'GOVERNED ASSET';
     }
   }
 
@@ -817,6 +821,8 @@ class _ClosedTicketCard extends StatelessWidget {
         return Icons.air_rounded;
       case AssetType.innerCover:
         return Icons.inventory_2_rounded;
+      case AssetType.governedCustom:
+        return Icons.precision_manufacturing_outlined;
     }
   }
 

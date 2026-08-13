@@ -1555,6 +1555,8 @@ String _assetLabel(AssetType type) {
       return 'Forced Cooler';
     case AssetType.innerCover:
       return 'Inner Cover';
+    case AssetType.governedCustom:
+      return 'Governed Asset';
   }
 }
 

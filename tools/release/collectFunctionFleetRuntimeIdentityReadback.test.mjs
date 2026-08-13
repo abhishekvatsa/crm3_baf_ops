@@ -139,7 +139,13 @@ test("final phase proves exact fleet, IAM, scheduler and safe callable probes", 
     result.evidence.decision,
     "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL",
   );
-  assert.equal(result.evidence.posture.expectedFunctionCount, 14);
+  assert.equal(result.evidence.posture.expectedFunctionCount, 15);
+  assert.equal(result.evidence.outputs.callableProbes.length, 9);
+  assert.ok(
+    result.evidence.outputs.callableProbes.some(
+      (record) => record.name === "mutateAssetHierarchy",
+    ),
+  );
   assert.equal(result.evidence.outputs.schedulerBacklog.total, 0);
   assert.equal(
     result.evidence.mutationBoundary.unauthenticatedCallableProbesPerformed,

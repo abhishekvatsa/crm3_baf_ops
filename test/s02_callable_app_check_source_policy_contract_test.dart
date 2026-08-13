@@ -81,6 +81,7 @@ void main() {
         'completePlannedJobExecution',
         'executeMaintenanceWorkflowCommand',
         'mutateChargeAbnormality',
+        'mutateAssetHierarchy',
         'mutateRuntimeJobModulePopulation',
         'mutateUserAuthority',
       });

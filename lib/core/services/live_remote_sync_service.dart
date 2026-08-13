@@ -702,6 +702,7 @@ class LiveRemoteSyncService {
       ..subsystem = remote.subsystem
       ..tag = remote.tag
       ..hierarchyPath = remote.hierarchyPath
+      ..assetHierarchyRefJson = remote.assetHierarchyRefJson
       ..maintenanceType = remote.maintenanceType
       ..classification = remote.classification
       ..description = remote.description

@@ -42,24 +42,34 @@ REQUIRED_EXISTING = {
 }
 
 FIELD_RE = re.compile(
-    r"^\s*(?:late\s+)?(String|int|bool|DateTime)(\?)?\s+(\w+)\s*(?:=[^;]*)?;\s*(?://.*)?$"
+    r"^\s*(?:late\s+)?(String|int|bool|DateTime)(\?)?\s+(\w+)"
+    r"\s*(?:=[^;]*)?;\s*(?://[^\n]*)?$",
+    re.MULTILINE,
 )
 
 def fail(msg: str) -> None:
     raise AssertionError(msg)
 
 def source_fields(path: Path, class_name: str) -> set[str]:
-    lines=path.read_text(encoding="utf-8").splitlines()
-    inside=False; depth=0; fields=set()
-    for line in lines:
-        if not inside:
-            if re.match(rf"^class\s+{re.escape(class_name)}\s*{{",line.strip()):
-                inside=True; depth=line.count('{')-line.count('}')
-            continue
-        depth += line.count('{')-line.count('}')
-        m=FIELD_RE.match(line)
-        if m and m.group(3) != 'id': fields.add(m.group(3))
-        if depth<=0: break
+    text=path.read_text(encoding="utf-8")
+    class_match=re.search(rf"^class\s+{re.escape(class_name)}\s*{{", text, re.MULTILINE)
+    if class_match is None: fail(f"Class {class_name} is absent from {path}")
+    open_offset=text.index('{', class_match.start())
+    depth=0; close_offset=None
+    for offset in range(open_offset, len(text)):
+        if text[offset] == '{': depth += 1
+        elif text[offset] == '}':
+            depth -= 1
+            if depth == 0:
+                close_offset=offset
+                break
+    if close_offset is None: fail(f"Class {class_name} is unterminated in {path}")
+    body=text[open_offset + 1:close_offset]
+    fields=set()
+    for match in FIELD_RE.finditer(body):
+        prefix=body[:match.start()]
+        if prefix.count('{') == prefix.count('}') and match.group(3) != 'id':
+            fields.add(match.group(3))
     if not fields: fail(f"No fields parsed from {path}:{class_name}")
     return fields
 

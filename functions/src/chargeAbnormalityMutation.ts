@@ -131,6 +131,7 @@ const ASSET_TYPES = new Set([
   "furnace",
   "forceCooler",
   "innerCover",
+  "governedCustom",
 ]);
 const COMMON_REQUEST_FIELDS = new Set([
   "requestId",

@@ -46,6 +46,7 @@ void main() {
       'executeMaintenanceWorkflowCommand',
       'getBackendReleaseIdentity',
       'maintenanceWorkflowEscalationSweep',
+      'mutateAssetHierarchy',
       'mutateChargeAbnormality',
       'mutateRuntimeJobModulePopulation',
       'mutateUserAuthority',
@@ -63,7 +64,10 @@ void main() {
       _strings(policy['sourceFunctionExports']).toSet(),
       expectedFunctions,
     );
-    expect(_strings(policy['sourceFunctionExports']), hasLength(14));
+    expect(_strings(policy['sourceFunctionExports']), hasLength(15));
+    expect(_strings(policy['sourcePendingDeploymentExports']), <String>[
+      'mutateAssetHierarchy',
+    ]);
     expect(_strings(policy['trackedRuntimePackages']), hasLength(8));
     expect(_object(policy['mutationBoundary']).values, everyElement(isFalse));
     final privacy = _object(policy['privacyBoundary']);

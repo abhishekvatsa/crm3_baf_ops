@@ -23,123 +23,128 @@ const JobTemplateSchema = CollectionSchema(
       type: IsarType.string,
       enumMap: _JobTemplateapplicableAssetTypeEnumValueMap,
     ),
-    r'assignedAgencies': PropertySchema(
+    r'assetHierarchyRefJson': PropertySchema(
       id: 1,
+      name: r'assetHierarchyRefJson',
+      type: IsarType.string,
+    ),
+    r'assignedAgencies': PropertySchema(
+      id: 2,
       name: r'assignedAgencies',
       type: IsarType.stringList,
     ),
     r'component': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'component',
       type: IsarType.string,
     ),
     r'createdAt': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'createdByName': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'createdByName',
       type: IsarType.string,
     ),
     r'createdByUid': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'createdByUid',
       type: IsarType.string,
     ),
     r'debugLabel': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'debugLabel',
       type: IsarType.string,
     ),
     r'deleteReason': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'deleteReason',
       type: IsarType.string,
     ),
     r'deletedAt': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'deletedAt',
       type: IsarType.dateTime,
     ),
     r'deletedByName': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'deletedByName',
       type: IsarType.string,
     ),
     r'deletedByUid': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'deletedByUid',
       type: IsarType.string,
     ),
     r'description': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'description',
       type: IsarType.string,
     ),
     r'fieldsJson': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'fieldsJson',
       type: IsarType.string,
     ),
     r'firestoreId': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'firestoreId',
       type: IsarType.string,
     ),
     r'hasComponentScope': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'hasComponentScope',
       type: IsarType.bool,
     ),
     r'hierarchyPath': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'hierarchyPath',
       type: IsarType.stringList,
     ),
     r'isActive': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'isActive',
       type: IsarType.bool,
     ),
     r'isDeleted': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'isDeleted',
       type: IsarType.bool,
     ),
     r'isDeprecated': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'isDeprecated',
       type: IsarType.bool,
     ),
     r'isSynced': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'isSynced',
       type: IsarType.bool,
     ),
     r'jobName': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'jobName',
       type: IsarType.string,
     ),
     r'metadataJson': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'metadataJson',
       type: IsarType.string,
     ),
     r'subsystem': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'subsystem',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'version': PropertySchema(
-      id: 24,
+      id: 25,
       name: r'version',
       type: IsarType.long,
     )
@@ -218,6 +223,12 @@ int _jobTemplateEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.applicableAssetType.name.length * 3;
+  {
+    final value = object.assetHierarchyRefJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.assignedAgencies.length * 3;
   {
     for (var i = 0; i < object.assignedAgencies.length; i++) {
@@ -310,30 +321,31 @@ void _jobTemplateSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.applicableAssetType.name);
-  writer.writeStringList(offsets[1], object.assignedAgencies);
-  writer.writeString(offsets[2], object.component);
-  writer.writeDateTime(offsets[3], object.createdAt);
-  writer.writeString(offsets[4], object.createdByName);
-  writer.writeString(offsets[5], object.createdByUid);
-  writer.writeString(offsets[6], object.debugLabel);
-  writer.writeString(offsets[7], object.deleteReason);
-  writer.writeDateTime(offsets[8], object.deletedAt);
-  writer.writeString(offsets[9], object.deletedByName);
-  writer.writeString(offsets[10], object.deletedByUid);
-  writer.writeString(offsets[11], object.description);
-  writer.writeString(offsets[12], object.fieldsJson);
-  writer.writeString(offsets[13], object.firestoreId);
-  writer.writeBool(offsets[14], object.hasComponentScope);
-  writer.writeStringList(offsets[15], object.hierarchyPath);
-  writer.writeBool(offsets[16], object.isActive);
-  writer.writeBool(offsets[17], object.isDeleted);
-  writer.writeBool(offsets[18], object.isDeprecated);
-  writer.writeBool(offsets[19], object.isSynced);
-  writer.writeString(offsets[20], object.jobName);
-  writer.writeString(offsets[21], object.metadataJson);
-  writer.writeString(offsets[22], object.subsystem);
-  writer.writeDateTime(offsets[23], object.updatedAt);
-  writer.writeLong(offsets[24], object.version);
+  writer.writeString(offsets[1], object.assetHierarchyRefJson);
+  writer.writeStringList(offsets[2], object.assignedAgencies);
+  writer.writeString(offsets[3], object.component);
+  writer.writeDateTime(offsets[4], object.createdAt);
+  writer.writeString(offsets[5], object.createdByName);
+  writer.writeString(offsets[6], object.createdByUid);
+  writer.writeString(offsets[7], object.debugLabel);
+  writer.writeString(offsets[8], object.deleteReason);
+  writer.writeDateTime(offsets[9], object.deletedAt);
+  writer.writeString(offsets[10], object.deletedByName);
+  writer.writeString(offsets[11], object.deletedByUid);
+  writer.writeString(offsets[12], object.description);
+  writer.writeString(offsets[13], object.fieldsJson);
+  writer.writeString(offsets[14], object.firestoreId);
+  writer.writeBool(offsets[15], object.hasComponentScope);
+  writer.writeStringList(offsets[16], object.hierarchyPath);
+  writer.writeBool(offsets[17], object.isActive);
+  writer.writeBool(offsets[18], object.isDeleted);
+  writer.writeBool(offsets[19], object.isDeprecated);
+  writer.writeBool(offsets[20], object.isSynced);
+  writer.writeString(offsets[21], object.jobName);
+  writer.writeString(offsets[22], object.metadataJson);
+  writer.writeString(offsets[23], object.subsystem);
+  writer.writeDateTime(offsets[24], object.updatedAt);
+  writer.writeLong(offsets[25], object.version);
 }
 
 JobTemplate _jobTemplateDeserialize(
@@ -346,29 +358,30 @@ JobTemplate _jobTemplateDeserialize(
   object.applicableAssetType = _JobTemplateapplicableAssetTypeValueEnumMap[
           reader.readStringOrNull(offsets[0])] ??
       AssetType.base;
-  object.assignedAgencies = reader.readStringList(offsets[1]) ?? [];
-  object.component = reader.readStringOrNull(offsets[2]);
-  object.createdAt = reader.readDateTime(offsets[3]);
-  object.createdByName = reader.readStringOrNull(offsets[4]);
-  object.createdByUid = reader.readStringOrNull(offsets[5]);
-  object.deleteReason = reader.readStringOrNull(offsets[7]);
-  object.deletedAt = reader.readDateTimeOrNull(offsets[8]);
-  object.deletedByName = reader.readStringOrNull(offsets[9]);
-  object.deletedByUid = reader.readStringOrNull(offsets[10]);
-  object.description = reader.readStringOrNull(offsets[11]);
-  object.fieldsJson = reader.readString(offsets[12]);
-  object.firestoreId = reader.readStringOrNull(offsets[13]);
-  object.hierarchyPath = reader.readStringList(offsets[15]);
+  object.assetHierarchyRefJson = reader.readStringOrNull(offsets[1]);
+  object.assignedAgencies = reader.readStringList(offsets[2]) ?? [];
+  object.component = reader.readStringOrNull(offsets[3]);
+  object.createdAt = reader.readDateTime(offsets[4]);
+  object.createdByName = reader.readStringOrNull(offsets[5]);
+  object.createdByUid = reader.readStringOrNull(offsets[6]);
+  object.deleteReason = reader.readStringOrNull(offsets[8]);
+  object.deletedAt = reader.readDateTimeOrNull(offsets[9]);
+  object.deletedByName = reader.readStringOrNull(offsets[10]);
+  object.deletedByUid = reader.readStringOrNull(offsets[11]);
+  object.description = reader.readStringOrNull(offsets[12]);
+  object.fieldsJson = reader.readString(offsets[13]);
+  object.firestoreId = reader.readStringOrNull(offsets[14]);
+  object.hierarchyPath = reader.readStringList(offsets[16]);
   object.id = id;
-  object.isActive = reader.readBool(offsets[16]);
-  object.isDeleted = reader.readBool(offsets[17]);
-  object.isDeprecated = reader.readBool(offsets[18]);
-  object.isSynced = reader.readBool(offsets[19]);
-  object.jobName = reader.readString(offsets[20]);
-  object.metadataJson = reader.readStringOrNull(offsets[21]);
-  object.subsystem = reader.readStringOrNull(offsets[22]);
-  object.updatedAt = reader.readDateTime(offsets[23]);
-  object.version = reader.readLong(offsets[24]);
+  object.isActive = reader.readBool(offsets[17]);
+  object.isDeleted = reader.readBool(offsets[18]);
+  object.isDeprecated = reader.readBool(offsets[19]);
+  object.isSynced = reader.readBool(offsets[20]);
+  object.jobName = reader.readString(offsets[21]);
+  object.metadataJson = reader.readStringOrNull(offsets[22]);
+  object.subsystem = reader.readStringOrNull(offsets[23]);
+  object.updatedAt = reader.readDateTime(offsets[24]);
+  object.version = reader.readLong(offsets[25]);
   return object;
 }
 
@@ -384,37 +397,37 @@ P _jobTemplateDeserializeProp<P>(
               reader.readStringOrNull(offset)] ??
           AssetType.base) as P;
     case 1:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 2:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 3:
-      return (reader.readDateTime(offset)) as P;
-    case 4:
       return (reader.readStringOrNull(offset)) as P;
+    case 4:
+      return (reader.readDateTime(offset)) as P;
     case 5:
       return (reader.readStringOrNull(offset)) as P;
     case 6:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 8:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 9:
       return (reader.readStringOrNull(offset)) as P;
+    case 9:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 10:
       return (reader.readStringOrNull(offset)) as P;
     case 11:
       return (reader.readStringOrNull(offset)) as P;
     case 12:
-      return (reader.readString(offset)) as P;
-    case 13:
       return (reader.readStringOrNull(offset)) as P;
+    case 13:
+      return (reader.readString(offset)) as P;
     case 14:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 15:
-      return (reader.readStringList(offset)) as P;
-    case 16:
       return (reader.readBool(offset)) as P;
+    case 16:
+      return (reader.readStringList(offset)) as P;
     case 17:
       return (reader.readBool(offset)) as P;
     case 18:
@@ -422,14 +435,16 @@ P _jobTemplateDeserializeProp<P>(
     case 19:
       return (reader.readBool(offset)) as P;
     case 20:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 21:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 22:
       return (reader.readStringOrNull(offset)) as P;
     case 23:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 24:
+      return (reader.readDateTime(offset)) as P;
+    case 25:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -441,12 +456,14 @@ const _JobTemplateapplicableAssetTypeEnumValueMap = {
   r'furnace': r'furnace',
   r'forceCooler': r'forceCooler',
   r'innerCover': r'innerCover',
+  r'governedCustom': r'governedCustom',
 };
 const _JobTemplateapplicableAssetTypeValueEnumMap = {
   r'base': AssetType.base,
   r'furnace': AssetType.furnace,
   r'forceCooler': AssetType.forceCooler,
   r'innerCover': AssetType.innerCover,
+  r'governedCustom': AssetType.governedCustom,
 };
 
 Id _jobTemplateGetId(JobTemplate object) {
@@ -991,6 +1008,161 @@ extension JobTemplateQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'applicableAssetType',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterFilterCondition>
+      assetHierarchyRefJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'assetHierarchyRefJson',
+      ));
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterFilterCondition>
+      assetHierarchyRefJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'assetHierarchyRefJson',
+      ));
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterFilterCondition>
+      assetHierarchyRefJsonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'assetHierarchyRefJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterFilterCondition>
+      assetHierarchyRefJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'assetHierarchyRefJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterFilterCondition>
+      assetHierarchyRefJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'assetHierarchyRefJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterFilterCondition>
+      assetHierarchyRefJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'assetHierarchyRefJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterFilterCondition>
+      assetHierarchyRefJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'assetHierarchyRefJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterFilterCondition>
+      assetHierarchyRefJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'assetHierarchyRefJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterFilterCondition>
+      assetHierarchyRefJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'assetHierarchyRefJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterFilterCondition>
+      assetHierarchyRefJsonMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'assetHierarchyRefJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterFilterCondition>
+      assetHierarchyRefJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'assetHierarchyRefJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterFilterCondition>
+      assetHierarchyRefJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'assetHierarchyRefJson',
         value: '',
       ));
     });
@@ -3778,6 +3950,20 @@ extension JobTemplateQuerySortBy
     });
   }
 
+  QueryBuilder<JobTemplate, JobTemplate, QAfterSortBy>
+      sortByAssetHierarchyRefJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetHierarchyRefJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterSortBy>
+      sortByAssetHierarchyRefJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetHierarchyRefJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<JobTemplate, JobTemplate, QAfterSortBy> sortByComponent() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'component', Sort.asc);
@@ -4065,6 +4251,20 @@ extension JobTemplateQuerySortThenBy
       thenByApplicableAssetTypeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'applicableAssetType', Sort.desc);
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterSortBy>
+      thenByAssetHierarchyRefJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetHierarchyRefJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QAfterSortBy>
+      thenByAssetHierarchyRefJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetHierarchyRefJson', Sort.desc);
     });
   }
 
@@ -4365,6 +4565,14 @@ extension JobTemplateQueryWhereDistinct
   }
 
   QueryBuilder<JobTemplate, JobTemplate, QDistinct>
+      distinctByAssetHierarchyRefJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'assetHierarchyRefJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<JobTemplate, JobTemplate, QDistinct>
       distinctByAssignedAgencies() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assignedAgencies');
@@ -4538,6 +4746,13 @@ extension JobTemplateQueryProperty
       applicableAssetTypeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'applicableAssetType');
+    });
+  }
+
+  QueryBuilder<JobTemplate, String?, QQueryOperations>
+      assetHierarchyRefJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'assetHierarchyRefJson');
     });
   }
 
@@ -5494,12 +5709,14 @@ const _JobExecutionassetTypeEnumValueMap = {
   r'furnace': r'furnace',
   r'forceCooler': r'forceCooler',
   r'innerCover': r'innerCover',
+  r'governedCustom': r'governedCustom',
 };
 const _JobExecutionassetTypeValueEnumMap = {
   r'base': AssetType.base,
   r'furnace': AssetType.furnace,
   r'forceCooler': AssetType.forceCooler,
   r'innerCover': AssetType.innerCover,
+  r'governedCustom': AssetType.governedCustom,
 };
 
 Id _jobExecutionGetId(JobExecution object) {

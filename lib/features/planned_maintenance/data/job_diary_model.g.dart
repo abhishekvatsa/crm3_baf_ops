@@ -767,12 +767,14 @@ const _JobDiaryEntryassetTypeEnumValueMap = {
   r'furnace': r'furnace',
   r'forceCooler': r'forceCooler',
   r'innerCover': r'innerCover',
+  r'governedCustom': r'governedCustom',
 };
 const _JobDiaryEntryassetTypeValueEnumMap = {
   r'base': AssetType.base,
   r'furnace': AssetType.furnace,
   r'forceCooler': AssetType.forceCooler,
   r'innerCover': AssetType.innerCover,
+  r'governedCustom': AssetType.governedCustom,
 };
 const _JobDiaryEntryblockerStatusEnumValueMap = {
   r'open': r'open',

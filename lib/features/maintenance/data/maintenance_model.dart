@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'package:isar/isar.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 
 part 'maintenance_model.g.dart';
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
-enum AssetType { base, furnace, forceCooler, innerCover }
+enum AssetType { base, furnace, forceCooler, innerCover, governedCustom }
 
 enum MaintenanceType { scheduled, breakdown, performance, inspection, overhaul }
 
@@ -221,6 +222,19 @@ class MaintenanceRecord {
   String? subsystem;
   String? tag;
   List<String>? hierarchyPath;
+  String? assetHierarchyRefJson;
+
+  @ignore
+  AssetHierarchyReference? get assetHierarchyReference =>
+      assetHierarchyRefJson == null
+          ? null
+          : AssetHierarchyReference.decode(
+            assetHierarchyRefJson!,
+            source:
+                firestoreId == null
+                    ? 'local maintenance record $id'
+                    : 'maintenance record $firestoreId',
+          );
 
   // ── Fault Classification ─────────────────────────────────────────────────
   @Enumerated(EnumType.name)

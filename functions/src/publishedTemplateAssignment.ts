@@ -89,6 +89,7 @@ const ASSET_TYPES = new Set([
   "furnace",
   "forceCooler",
   "innerCover",
+  "governedCustom",
 ]);
 
 const REQUEST_ID_PATTERN =
@@ -294,6 +295,8 @@ function validateAssetNumber(assetType: string, assetNumber: number): void {
           ? assetNumber >= 1 && assetNumber <= 25
           : assetType === "innerCover"
             ? assetNumber > 0
+            : assetType === "governedCustom"
+              ? assetNumber >= 1 && assetNumber <= 9999
             : false;
   if (!valid) {
     throw new AssignmentValidationError(

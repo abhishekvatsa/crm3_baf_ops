@@ -892,6 +892,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
         ..subsystem = remote.subsystem
         ..tag = remote.tag
         ..hierarchyPath = remote.hierarchyPath
+        ..assetHierarchyRefJson = remote.assetHierarchyRefJson
         ..maintenanceType = remote.maintenanceType
         ..classification = remote.classification
         ..description = remote.description
@@ -1314,6 +1315,9 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       'component': _nullableTextForFirestoreUpdate(record.component),
       'subsystem': _nullableTextForFirestoreUpdate(record.subsystem),
       'tag': _nullableTextForFirestoreUpdate(record.tag),
+      'assetHierarchyRefJson': _nullableTextForFirestoreUpdate(
+        record.assetHierarchyRefJson,
+      ),
       'classification': _nullableTextForFirestoreUpdate(record.classification),
       'otherDepartment': _nullableTextForFirestoreUpdate(
         record.otherDepartment,
@@ -1640,6 +1644,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     'subsystem': t.subsystem,
     'tag': t.tag,
     'hierarchyPath': t.hierarchyPath,
+    'assetHierarchyRefJson': t.assetHierarchyRefJson,
     'maintenanceType': t.maintenanceType.name,
     'classification': t.classification,
     'description': t.description,

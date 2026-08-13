@@ -9,6 +9,8 @@ import 'package:uuid/uuid.dart';
 import '../data/job_template_model.dart';
 import '../providers/planned_maintenance_provider.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../features/assets/data/asset_hierarchy_model.dart';
+import '../../../features/assets/providers/asset_hierarchy_provider.dart';
 import '../../../features/maintenance/data/maintenance_model.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
@@ -28,6 +30,8 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
   final _descController = TextEditingController();
 
   AssetType _assetType = AssetType.base;
+  String? _assetClassId;
+  String? _definitionNodeId;
   final Set<String> _selectedAgencies = {};
   bool _isSubmitting = false;
 
@@ -78,34 +82,73 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
       final now = DateTime.now();
 
       final createdByUid = appUser.uid;
-      final createdByName = _cleanOptionalText(appUser.name) ??
+      final createdByName =
+          _cleanOptionalText(appUser.name) ??
           _cleanOptionalText(firebaseUser?.displayName) ??
           _cleanOptionalText(firebaseUser?.email);
 
-      final template = JobTemplate()
-        ..firestoreId = const Uuid().v4()
-        ..jobName = _nameController.text.trim()
-        ..description = _cleanOptionalText(_descController.text)
-        ..applicableAssetType = _assetType
-        ..assignedAgencies = (_selectedAgencies.toList()..sort())
-        ..createdByUid = createdByUid
-        ..createdByName = createdByName
-        ..isActive = true
-        ..isDeprecated = false
-        ..version = 1
-        ..isSynced = false
-        ..createdAt = now
-        ..updatedAt = now;
+      final template =
+          JobTemplate()
+            ..firestoreId = const Uuid().v4()
+            ..jobName = _nameController.text.trim()
+            ..description = _cleanOptionalText(_descController.text)
+            ..applicableAssetType = _assetType
+            ..assignedAgencies = (_selectedAgencies.toList()..sort())
+            ..createdByUid = createdByUid
+            ..createdByName = createdByName
+            ..isActive = true
+            ..isDeprecated = false
+            ..version = 1
+            ..isSynced = false
+            ..createdAt = now
+            ..updatedAt = now;
+
+      final assetClass =
+          ref
+              .read(assetClassesProvider)
+              .value
+              ?.where((item) => item.id == _assetClassId)
+              .firstOrNull;
+      final definition =
+          _assetClassId == null
+              ? null
+              : ref
+                  .read(assetHierarchyNodesProvider(_assetClassId!))
+                  .value
+                  ?.where((item) => item.id == _definitionNodeId)
+                  .firstOrNull;
+      if (assetClass != null && definition != null) {
+        template
+          ..component = definition.name
+          ..subsystem =
+              definition.hierarchyPath.length > 1
+                  ? definition.hierarchyPath[definition.hierarchyPath.length -
+                      2]
+                  : null
+          ..hierarchyPath = List<String>.from(definition.hierarchyPath)
+          ..assetHierarchyRefJson =
+              AssetHierarchyReference(
+                scope: AssetHierarchyReferenceScope.definition,
+                assetClassId: assetClass.id,
+                assetClassCode: assetClass.code,
+                assetClassName: assetClass.name,
+                nodeId: definition.id,
+                nodeVersion: definition.version,
+                nodeName: definition.name,
+                componentTag: definition.componentTag,
+                hierarchyPath: definition.hierarchyPath,
+                ownershipStatus: definition.ownershipStatus,
+                ownerDiscipline: definition.ownerDiscipline,
+                accountableRoleKeys: definition.accountableRoleKeys,
+              ).encode();
+      }
 
       template.setFields(<TemplateField>[]);
 
       final repository = ref.read(plannedRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
 
-      await repository.saveTemplate(
-        template,
-        actor: appUser,
-      );
+      await repository.saveTemplate(template, actor: appUser);
 
       unawaited(
         syncCoordinator.runFullSync(reason: 'template_created', force: true),
@@ -139,7 +182,8 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
   Widget build(BuildContext context) {
     final appUser = ref.watch(currentAppUserProvider).value;
     final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
-    final appUserName = _cleanOptionalText(appUser?.name) ??
+    final appUserName =
+        _cleanOptionalText(appUser?.name) ??
         _cleanOptionalText(firebaseUser?.displayName) ??
         _cleanOptionalText(firebaseUser?.email);
 
@@ -206,21 +250,40 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
                   initialValue: _assetType,
                   isExpanded: true,
                   decoration: _inputDecoration('Asset type'),
-                  items: AssetType.values
-                      .map(
-                        (type) => DropdownMenuItem<AssetType>(
-                      value: type,
-                      child: Text(
-                        _assetTypeLabel(type),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                      .toList(),
+                  items:
+                      AssetType.values
+                          .map(
+                            (type) => DropdownMenuItem<AssetType>(
+                              value: type,
+                              child: Text(
+                                _assetTypeLabel(type),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
                   onChanged: (value) {
                     if (value == null) return;
-                    setState(() => _assetType = value);
+                    setState(() {
+                      _assetType = value;
+                      _assetClassId = null;
+                      _definitionNodeId = null;
+                    });
                   },
+                ),
+                const SizedBox(height: BafSpacing.md),
+                _HierarchyTemplateScope(
+                  assetType: _assetType,
+                  assetClassId: _assetClassId,
+                  definitionNodeId: _definitionNodeId,
+                  onClassChanged: (value) {
+                    setState(() {
+                      _assetClassId = value;
+                      _definitionNodeId = null;
+                    });
+                  },
+                  onDefinitionChanged:
+                      (value) => setState(() => _definitionNodeId = value),
                 ),
               ],
             ),
@@ -233,39 +296,44 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
                 Wrap(
                   spacing: BafSpacing.sm,
                   runSpacing: BafSpacing.sm,
-                  children: _availableAgencies.map((agency) {
-                    final selected = _selectedAgencies.contains(agency);
-                    return FilterChip(
-                      label: Text(
-                        _agencyLabel(agency),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: selected
-                              ? BafColors.planned
-                              : BafColors.textSecondary,
-                        ),
-                      ),
-                      selected: selected,
-                      selectedColor: BafColors.planned.withValues(alpha: 0.12),
-                      checkmarkColor: BafColors.planned,
-                      side: BorderSide(
-                        color: selected
-                            ? BafColors.planned.withValues(alpha: 0.45)
-                            : BafColors.border,
-                      ),
-                      backgroundColor: BafColors.card,
-                      onSelected: (value) {
-                        setState(() {
-                          if (value) {
-                            _selectedAgencies.add(agency);
-                          } else {
-                            _selectedAgencies.remove(agency);
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
+                  children:
+                      _availableAgencies.map((agency) {
+                        final selected = _selectedAgencies.contains(agency);
+                        return FilterChip(
+                          label: Text(
+                            _agencyLabel(agency),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color:
+                                  selected
+                                      ? BafColors.planned
+                                      : BafColors.textSecondary,
+                            ),
+                          ),
+                          selected: selected,
+                          selectedColor: BafColors.planned.withValues(
+                            alpha: 0.12,
+                          ),
+                          checkmarkColor: BafColors.planned,
+                          side: BorderSide(
+                            color:
+                                selected
+                                    ? BafColors.planned.withValues(alpha: 0.45)
+                                    : BafColors.border,
+                          ),
+                          backgroundColor: BafColors.card,
+                          onSelected: (value) {
+                            setState(() {
+                              if (value) {
+                                _selectedAgencies.add(agency);
+                              } else {
+                                _selectedAgencies.remove(agency);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
                 ),
               ],
             ),
@@ -280,10 +348,10 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
   }
 
   InputDecoration _inputDecoration(
-      String label, {
-        String? hint,
-        bool alignLabelWithHint = false,
-      }) {
+    String label, {
+    String? hint,
+    bool alignLabelWithHint = false,
+  }) {
     return InputDecoration(
       labelText: label,
       hintText: hint,
@@ -304,10 +372,7 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(BafRadius.medium),
-        borderSide: const BorderSide(
-          color: BafColors.planned,
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: BafColors.planned, width: 1.5),
       ),
     );
   }
@@ -322,6 +387,8 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
         return 'FORCE COOLER';
       case AssetType.innerCover:
         return 'INNER COVER';
+      case AssetType.governedCustom:
+        return 'GOVERNED ASSET';
     }
   }
 
@@ -337,6 +404,114 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
   }
 }
 
+class _HierarchyTemplateScope extends ConsumerWidget {
+  final AssetType assetType;
+  final String? assetClassId;
+  final String? definitionNodeId;
+  final ValueChanged<String?> onClassChanged;
+  final ValueChanged<String?> onDefinitionChanged;
+
+  const _HierarchyTemplateScope({
+    required this.assetType,
+    required this.assetClassId,
+    required this.definitionNodeId,
+    required this.onClassChanged,
+    required this.onDefinitionChanged,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final classes =
+        ref.watch(assetClassesProvider).value ?? const <AssetClassRecord>[];
+    final compatible =
+        classes
+            .where(
+              (item) =>
+                  item.isActive &&
+                  (assetType == AssetType.governedCustom
+                      ? item.legacyAssetTypeKey == null
+                      : item.legacyAssetTypeKey == assetType.name),
+            )
+            .toList();
+    final definitions =
+        assetClassId == null
+            ? const <AssetHierarchyNode>[]
+            : ref.watch(assetHierarchyNodesProvider(assetClassId!)).value ??
+                const <AssetHierarchyNode>[];
+    final selectable =
+        definitions
+            .where(
+              (node) =>
+                  node.isActive &&
+                  (node.nodeType == AssetHierarchyNodeType.component ||
+                      node.nodeType == AssetHierarchyNodeType.subcomponent),
+            )
+            .toList();
+
+    return Column(
+      children: [
+        DropdownButtonFormField<String?>(
+          initialValue:
+              compatible.any((item) => item.id == assetClassId)
+                  ? assetClassId
+                  : null,
+          isExpanded: true,
+          decoration: _scopeDecoration('Governed asset class'),
+          items: [
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text('Use current asset type only'),
+            ),
+            ...compatible.map(
+              (item) => DropdownMenuItem<String?>(
+                value: item.id,
+                child: Text('${item.code} · ${item.name}'),
+              ),
+            ),
+          ],
+          onChanged: onClassChanged,
+        ),
+        if (assetClassId != null) ...[
+          const SizedBox(height: BafSpacing.md),
+          DropdownButtonFormField<String?>(
+            initialValue:
+                selectable.any((item) => item.id == definitionNodeId)
+                    ? definitionNodeId
+                    : null,
+            isExpanded: true,
+            decoration: _scopeDecoration('Component definition'),
+            items: [
+              const DropdownMenuItem<String?>(
+                value: null,
+                child: Text('Whole physical asset'),
+              ),
+              ...selectable.map(
+                (node) => DropdownMenuItem<String?>(
+                  value: node.id,
+                  child: Text(
+                    node.hierarchyPath.join(' › '),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+            onChanged: onDefinitionChanged,
+          ),
+        ],
+      ],
+    );
+  }
+
+  InputDecoration _scopeDecoration(String label) => InputDecoration(
+    labelText: label,
+    filled: true,
+    fillColor: BafColors.card,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(BafRadius.small),
+      borderSide: const BorderSide(color: BafColors.border),
+    ),
+  );
+}
 
 class _CreateTemplateBottomBar extends StatelessWidget {
   final bool isSubmitting;
@@ -375,22 +550,20 @@ class _CreateTemplateBottomBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
           ),
-          icon: isSubmitting
-              ? const SizedBox(
-            height: 18,
-            width: 18,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2,
-            ),
-          )
-              : const Icon(Icons.add_task_rounded),
+          icon:
+              isSubmitting
+                  ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                  : const Icon(Icons.add_task_rounded),
           label: Text(
             isSubmitting ? 'Creating...' : 'Create Template',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
           ),
         ),
       ),
@@ -410,9 +583,7 @@ class _IntroCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF7FBFF),
         borderRadius: BorderRadius.circular(BafRadius.large),
-        border: Border.all(
-          color: BafColors.planned.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: BafColors.planned.withValues(alpha: 0.18)),
         boxShadow: BafShadows.subtle,
       ),
       child: Row(

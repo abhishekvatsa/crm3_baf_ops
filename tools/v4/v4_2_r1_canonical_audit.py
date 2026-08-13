@@ -255,6 +255,7 @@ check(
 post_codegen_register = data("docs/v4_2_r1/AUTHORITATIVE_POST_CODEGEN_BINDINGS.json")
 post_codegen_bindings = post_codegen_register.get("bindings", {})
 post_codegen_source = post_codegen_register.get("sourceEvidence", {})
+post_codegen_refresh = post_codegen_register.get("currentSourceRefresh", {})
 post_codegen_register_valid = (
     post_codegen_register.get("schemaVersion") == 1
     and post_codegen_register.get("authority") == "AUTHENTIC_WINDOWS_ISAR_CODEGEN"
@@ -262,6 +263,18 @@ post_codegen_register_valid = (
     == "E2A0F3D38C9A0950922A0B5933A435159E5FA950F361BC8C2B8D6ADB3FEB470A"
     and post_codegen_source.get("codegenResult") == "PASS"
     and post_codegen_source.get("custodyResult") == "PASS"
+    and post_codegen_refresh.get("sourceCommit")
+        == "ac7efab08879ac54f1aede3624e02a0129b19d61"
+    and post_codegen_refresh.get("sourceTree")
+        == "388d9ac83892f0dafbdffa498b4017ad240e4d24"
+    and post_codegen_refresh.get("codegenResult") == "PASS"
+    and post_codegen_refresh.get("changedBindingPaths") == [
+        "lib/features/directives/data/operational_directive_model.g.dart",
+        "lib/features/maintenance/data/maintenance_model.g.dart",
+        "lib/features/planned_maintenance/data/job_diary_model.g.dart",
+        "lib/features/planned_maintenance/data/job_module_model.g.dart",
+        "lib/features/planned_maintenance/data/job_template_model.g.dart",
+    ]
     and len(post_codegen_bindings) == 19
     and all(
         path.startswith("lib/")
@@ -353,8 +366,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 214
-    and counts.get("SUCCESSOR_MODIFIED") == 196
+    and counts.get("BYTE_IDENTICAL") == 204
+    and counts.get("SUCCESSOR_MODIFIED") == 206
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -1541,7 +1554,7 @@ functions_live_receipt_seal = hashlib.sha256(
         separators=(",", ":"),
     ).encode("utf-8")
 ).hexdigest()
-functions_live_expected_exports = [
+functions_live_sealed_exports = [
     "assignPublishedTemplateVersion",
     "beginGlobalPullRun",
     "completePlannedJobExecution",
@@ -1557,6 +1570,9 @@ functions_live_expected_exports = [
     "onTicketResolved",
     "stampGlobalPullServerClock",
 ]
+functions_live_expected_exports = sorted(
+    functions_live_sealed_exports + ["mutateAssetHierarchy"]
+)
 functions_live_gate_records = {
     record.get("gateId"): record
     for record in functions_live_ledger.get("programmeGates", [])
@@ -1579,6 +1595,9 @@ check(
     and functions_live_readback_policy.get("gateIds") == ["LR-03", "LR-06"]
     and functions_live_readback_policy.get("sourceFunctionExports")
         == functions_live_expected_exports
+    and functions_live_readback_policy.get(
+        "sourcePendingDeploymentExports"
+    ) == ["mutateAssetHierarchy"]
     and len(functions_live_readback_policy.get("trackedRuntimePackages", []))
         == 8
     and set(
@@ -1688,6 +1707,18 @@ check(
     )
     and functions_live_receipt.get("posture", {}).get("sourceFunctionCount")
         == 14
+    and functions_live_receipt.get("outputs", {}).get(
+        "discoveredSourceFunctionExports"
+    ) == functions_live_sealed_exports
+    and functions_live_receipt.get("outputs", {}).get(
+        "policySourceFunctionExports"
+    ) == functions_live_sealed_exports
+    and sorted(
+        set(functions_live_expected_exports)
+        - set(functions_live_sealed_exports)
+    ) == functions_live_readback_policy.get(
+        "sourcePendingDeploymentExports"
+    )
     and functions_live_receipt.get("posture", {}).get(
         "deployedFunctionCount"
     ) == 9
@@ -1796,6 +1827,9 @@ function_fleet_campaign_executor_test = text(
 function_fleet_bindings = function_fleet_identity_policy.get(
     "functionBindings", {}
 )
+function_fleet_pending_bindings = function_fleet_identity_policy.get(
+    "deploymentPendingFunctionBindings", []
+)
 function_fleet_account_ids = [
     binding.get("runtimeServiceAccountId")
     for binding in function_fleet_bindings.values()
@@ -1805,7 +1839,7 @@ check(
     "S-01 complete Function fleet has unique target-project identities",
     function_fleet_identity_policy.get("schemaVersion") == 1
     and function_fleet_identity_policy.get("declarationStatus")
-        == "DEPLOYED_AND_LIVE_READBACK_PROVED"
+        == "SOURCE_POLICY_EXTENDED_DEPLOYMENT_PENDING"
     and function_fleet_identity_policy.get("productionProjectId")
         == "crm3-baf-ops-b8638"
     and function_fleet_identity_policy.get("targetProjectBinding") == {
@@ -1814,9 +1848,17 @@ check(
         "sameProjectRequired": True,
         "crossProjectResolutionAllowed": False,
     }
+    and function_fleet_pending_bindings == ["mutateAssetHierarchy"]
     and sorted(function_fleet_bindings) == functions_live_expected_exports
-    and len(function_fleet_account_ids) == 14
-    and len(set(function_fleet_account_ids)) == 14
+    and len(function_fleet_account_ids) == 15
+    and len(set(function_fleet_account_ids)) == 15
+    and all(
+        function_fleet_bindings.get(name, {}).get("runtimeServiceAccountId")
+            == live_binding.split("@", 1)[0]
+        for name, live_binding in functions_live_readback_policy.get(
+            "sourceDeclaredRuntimeBindings", {}
+        ).items()
+    )
     and all(
         isinstance(account_id, str)
         and 6 <= len(account_id) <= 30
@@ -1860,7 +1902,8 @@ check(
         not in function_fleet_identity_source
     and "endpointServiceAccount" in function_fleet_identity_test
     and "accountIds.size" in function_fleet_identity_test
-    and "DEPLOYED_AND_LIVE_READBACK_PROVED" in function_fleet_identity_test
+    and "SOURCE_POLICY_EXTENDED_DEPLOYMENT_PENDING"
+        in function_fleet_identity_test
     and "Default Compute must receive" in function_fleet_identity_decision
     and "Any failure before step 10 leaves Editor unchanged"
         in function_fleet_identity_decision
@@ -6340,9 +6383,9 @@ s02_record = s02_records[0] if len(s02_records) == 1 else {}
 functions_scripts = data("functions/package.json").get("scripts", {})
 check(
     "S-02 callable inventory is discovered, policy-complete and default-off",
-    len(exported_callable_occurrences) == len(exported_callable_names) == 8
+    len(exported_callable_occurrences) == len(exported_callable_names) == 9
     and set(exported_callable_names) == set(callable_classification)
-    and len(callable_names) == 6
+    and len(callable_names) == 7
     and len(read_only_callable_names) == 2
     and set(callable_names) == set(s02_policy.get("mutatingCallables", []))
     and set(read_only_callable_names)
@@ -6361,7 +6404,7 @@ check(
     and "default: false" in callable_security_source
     and callable_index_source.count(
         "...MUTATING_CALLABLE_SECURITY_OPTIONS"
-    ) == 5
+    ) == 6
     and workflow_callable_source.count(
         "...MUTATING_CALLABLE_SECURITY_OPTIONS"
     ) == 1
@@ -8284,10 +8327,10 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 32
-    and a05_timestamp_inventory_report.get("directCallCount") == 82
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 41
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 41
+    and a05_timestamp_inventory_report.get("readerCount") == 37
+    and a05_timestamp_inventory_report.get("directCallCount") == 93
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 50
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 43
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and a05_timestamp_inventory_report.get("directParserCandidateCount") == 28
@@ -8301,7 +8344,7 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 32
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 37
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
@@ -8326,16 +8369,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 39
+    and a05_decoder_inventory_report.get("surfaceCount") == 41
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 36
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 20
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 22
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 234
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 22
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 23
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 240
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 39
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 41
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 36
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
@@ -8914,8 +8957,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 214
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 196
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 204
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 206
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

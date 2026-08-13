@@ -106,6 +106,7 @@ function policy(overrides = {}) {
     gateIds: ["LR-03", "LR-06"],
     sourceFunctionExports: ["alpha", "beta"],
     sourceDeclaredRuntimeBindings: {alpha, beta},
+    sourcePendingDeploymentExports: [],
     forbiddenBroadProjectRoles: ["roles/editor", "roles/owner"],
     trackedRuntimePackages: trackedPackages,
     mutationBoundary: {
@@ -178,7 +179,10 @@ test("AST discovery binds the policy to all current Function exports", () => {
   );
   const discovered = discoverFunctionExports(repositoryRoot);
   assert.deepEqual(discovered, policyValue.sourceFunctionExports);
-  assert.equal(discovered.length, 14);
+  assert.equal(discovered.length, 15);
+  assert.deepEqual(policyValue.sourcePendingDeploymentExports, [
+    "mutateAssetHierarchy",
+  ]);
 });
 
 test("dependency summaries retain hashes, counts and selected versions only", () => {
@@ -303,6 +307,15 @@ test("strict acquisition fails closed on dirty, detached or incomplete source", 
   assert.ok(
     missingRuntimeBinding.failedChecks.includes(
       "sourceRuntimeBindingInventoryMatchesPolicy",
+    ),
+  );
+
+  const unknownPendingExport = adjudicate({
+    policyValue: policy({sourcePendingDeploymentExports: ["notInSource"]}),
+  });
+  assert.ok(
+    unknownPendingExport.failedChecks.includes(
+      "sourcePendingDeploymentExportsValid",
     ),
   );
 });

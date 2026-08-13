@@ -614,5 +614,7 @@ String _assetLabel(AssetType type) {
       return 'FC';
     case AssetType.innerCover:
       return 'IC';
+    case AssetType.governedCustom:
+      return 'ASSET';
   }
 }

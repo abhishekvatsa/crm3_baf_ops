@@ -1,6 +1,76 @@
 {
   "indexes": [
     {
+      "collectionGroup": "asset_component_instances",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assetInstanceId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "asset_component_instances",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "definitionNodeId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "asset_hierarchy_nodes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assetClassId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "asset_hierarchy_nodes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "parentNodeId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "asset_instances",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assetClassId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "abnormality_types",
       "queryScope": "COLLECTION",
       "fields": [

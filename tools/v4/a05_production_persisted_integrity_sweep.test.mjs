@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 
 import {
@@ -71,6 +72,161 @@ function emptyDocuments() {
   return Object.fromEntries(
     Object.keys(A05_COLLECTION_REGISTRY).map((collection) => [collection, []]),
   );
+}
+
+function hierarchyDocuments() {
+  const classId = 'class-1';
+  const nodeId = 'node-1';
+  const assetId = 'asset-1';
+  const componentId = 'component-1';
+  const normalizedTag = 'PT101';
+  const claimId = createHash('sha256').update(normalizedTag).digest('hex');
+  const ownership = {
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'Instrumentation',
+    accountableRoleKeys: ['seniorInstrumentation'],
+  };
+  return {
+    asset_classes: [{
+      id: classId,
+      data: {
+        schemaVersion: 1,
+        assetClassId: classId,
+        code: 'FURNACE',
+        name: 'Furnace',
+        majorArea: 'BAF shop',
+        shortDescription: null,
+        longDescription: null,
+        legacyAssetTypeKey: 'furnace',
+        status: 'active',
+        version: 1,
+        createdAt: ts,
+        createdByUid: 'admin-1',
+        createdByName: 'Admin',
+        updatedAt: ts,
+        updatedByUid: 'admin-1',
+        updatedByName: 'Admin',
+        lastMutationId: 'mutation-1',
+      },
+    }],
+    asset_hierarchy_nodes: [{
+      id: nodeId,
+      data: {
+        schemaVersion: 1,
+        nodeId,
+        assetClassId: classId,
+        parentNodeId: null,
+        nodeType: 'component',
+        name: 'Pressure transmitter',
+        componentTag: null,
+        shortDescription: null,
+        longDescription: null,
+        discipline: 'Instrumentation',
+        operatingType: 'Electrical',
+        normalState: null,
+        failState: null,
+        contactArrangement: 'notApplicable',
+        manufacturer: null,
+        model: null,
+        applicability: null,
+        sourceReference: null,
+        ...ownership,
+        sortOrder: 10,
+        ancestorNodeIds: [],
+        hierarchyPath: ['Pressure transmitter'],
+        activeChildCount: 0,
+        status: 'active',
+        version: 1,
+        createdAt: ts,
+        createdByUid: 'admin-1',
+        createdByName: 'Admin',
+        updatedAt: ts,
+        updatedByUid: 'admin-1',
+        updatedByName: 'Admin',
+        lastMutationId: 'mutation-1',
+      },
+    }],
+    asset_instances: [{
+      id: assetId,
+      data: {
+        schemaVersion: 1,
+        assetInstanceId: assetId,
+        assetClassId: classId,
+        assetClassCode: 'FURNACE',
+        assetClassName: 'Furnace',
+        assetNumber: 1,
+        name: 'Furnace 1',
+        plantTag: 'F-1',
+        location: 'BAF shop',
+        manufacturer: null,
+        model: null,
+        serialNumber: null,
+        commissionedOn: null,
+        serviceState: 'inService',
+        ownershipStatus: 'confirmed',
+        ownerDiscipline: 'Operations',
+        accountableRoleKeys: ['operations'],
+        status: 'active',
+        activeComponentCount: 1,
+        version: 1,
+        createdAt: ts,
+        updatedAt: ts,
+        lastMutationId: 'mutation-1',
+      },
+    }],
+    asset_component_instances: [{
+      id: componentId,
+      data: {
+        schemaVersion: 1,
+        componentInstanceId: componentId,
+        assetInstanceId: assetId,
+        assetInstanceVersionAtMutation: 1,
+        assetNumber: 1,
+        assetInstanceName: 'Furnace 1',
+        assetClassId: classId,
+        assetClassCode: 'FURNACE',
+        assetClassName: 'Furnace',
+        definitionNodeId: nodeId,
+        definitionNodeVersion: 1,
+        definitionName: 'Pressure transmitter',
+        hierarchyPath: ['Pressure transmitter'],
+        componentTag: 'PT-101',
+        manufacturer: null,
+        model: null,
+        serialNumber: null,
+        installedOn: null,
+        serviceState: 'inService',
+        ...ownership,
+        status: 'active',
+        version: 1,
+        createdAt: ts,
+        updatedAt: ts,
+        lastMutationId: 'mutation-1',
+      },
+    }],
+    asset_tag_claims: [{
+      id: claimId,
+      data: {
+        schemaVersion: 2,
+        ownerType: 'installed_component',
+        normalizedTag,
+        displayTag: 'PT-101',
+        componentInstanceId: componentId,
+        definitionNodeId: nodeId,
+        definitionName: 'Pressure transmitter',
+        assetInstanceId: assetId,
+        assetInstanceName: 'Furnace 1',
+        assetNumber: 1,
+        assetClassId: classId,
+        assetClassName: 'Furnace',
+        hierarchyPath: ['Pressure transmitter'],
+        ...ownership,
+        claimedAt: ts,
+        claimedByUid: 'admin-1',
+        lastMutationId: 'mutation-1',
+      },
+    }],
+  };
 }
 
 function classify({
@@ -283,6 +439,54 @@ test('actual Dart readers reconcile valid audit and maintenance records in memor
         finding.collection !== 'maintenance_records',
     ),
   );
+});
+
+test('actual Dart readers reconcile every hierarchy collection in memory', async () => {
+  const hierarchy = hierarchyDocuments();
+  const documents = {
+    ...emptyDocuments(),
+    users: [{id: 'private-user-id', data: user()}],
+    runtime_contracts: [{id: 'global_pull_v1', data: runtimeContract()}],
+    ...hierarchy,
+  };
+  const reconciliation = await reconcileA05DocumentsWithDart({
+    documentsByCollection: documents,
+    hmacKey: HMAC_KEY,
+  });
+  assert.equal(reconciliation.length, 5);
+  assert.ok(reconciliation.every((result) => result.result === 'PASS'));
+  assert.equal(JSON.stringify(reconciliation).includes('component-1'), false);
+
+  const result = classify({
+    documents,
+    roots: ['users', 'runtime_contracts', ...Object.keys(hierarchy)],
+    reconciliation,
+  });
+  assert.equal(result.decision, A05_DECISIONS.pass);
+  for (const collection of Object.keys(hierarchy)) {
+    assert.equal(
+      result.collectionDispositions[collection],
+      'DART_STRICT_RECONCILIATION_PASS',
+    );
+  }
+});
+
+test('hierarchy tag claims fail closed when document identity is inconsistent', async () => {
+  const documents = {...emptyDocuments(), ...hierarchyDocuments()};
+  documents.asset_tag_claims[0] = {
+    ...documents.asset_tag_claims[0],
+    id: 'wrong-claim-id',
+  };
+  const reconciliation = await reconcileA05DocumentsWithDart({
+    documentsByCollection: documents,
+    hmacKey: HMAC_KEY,
+  });
+  const claimResult = reconciliation.find(
+    (result) => result.collection === 'asset_tag_claims',
+  );
+  assert.equal(claimResult?.result, 'FAIL');
+  assert.equal(claimResult?.errorType, 'PERSISTED_DATA_FORMAT');
+  assert.equal(claimResult?.field, 'normalizedTag');
 });
 
 test('unsupported nonempty app collections remain fail closed', async () => {

@@ -31,6 +31,11 @@ const FLUTTER_RECONCILIATION_HARNESS = path.join(
   'test/tools/a05_persisted_reconciliation_bridge_test.dart',
 );
 const DART_RECONCILIATION_COLLECTIONS = new Set([
+  'asset_classes',
+  'asset_component_instances',
+  'asset_hierarchy_nodes',
+  'asset_instances',
+  'asset_tag_claims',
   'audit_logs',
   'maintenance_records',
 ]);
@@ -43,6 +48,15 @@ export const A05_DECISIONS = Object.freeze({
 export const A05_COLLECTION_REGISTRY = Object.freeze({
   users: 'STRICT_USER_PROFILE',
   runtime_contracts: 'STRICT_RUNTIME_CONTRACT',
+  asset_classes: 'DART_RECONCILIATION_REQUIRED',
+  asset_hierarchy_nodes: 'DART_RECONCILIATION_REQUIRED',
+  asset_instances: 'DART_RECONCILIATION_REQUIRED',
+  asset_component_instances: 'DART_RECONCILIATION_REQUIRED',
+  asset_tag_claims: 'DART_RECONCILIATION_REQUIRED',
+  asset_class_codes: 'SERVER_CONTROL_RECORD',
+  asset_instance_numbers: 'SERVER_CONTROL_RECORD',
+  asset_hierarchy_audits: 'SERVER_CONTROL_RECORD',
+  asset_hierarchy_mutation_receipts: 'SERVER_CONTROL_RECORD',
   knowledge_base: 'DART_RECONCILIATION_REQUIRED',
   knowledge_base_meta: 'DART_RECONCILIATION_REQUIRED',
   maintenance_records: 'DART_RECONCILIATION_REQUIRED',
@@ -826,7 +840,7 @@ async function main() {
         failedCount: dartReconciliationResults.filter(
           (result) => result.result !== 'PASS',
         ).length,
-        supportedCollections: ['audit_logs', 'maintenance_records'],
+        supportedCollections: [...DART_RECONCILIATION_COLLECTIONS].sort(),
       },
       ...inventory,
     };

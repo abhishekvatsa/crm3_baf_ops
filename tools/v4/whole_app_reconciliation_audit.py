@@ -130,7 +130,7 @@ def main()->int:
         'CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK' in security and 'default: false' in security
         and 'MUTATING_CALLABLE_SECURITY_OPTIONS' in read('functions/src/index.ts')
         and 'MUTATING_CALLABLE_SECURITY_OPTIONS' in read('functions/src/maintenanceWorkflow/callable.ts')
-        and len(callable_policy['mutatingCallables']) == 6
+        and len(callable_policy['mutatingCallables']) == 7
         and callable_policy['activationAuthorized'] is False,
         'signed-client readiness remains an explicit production gate')
     add(c,'production release rejects provisional Isar authority',
