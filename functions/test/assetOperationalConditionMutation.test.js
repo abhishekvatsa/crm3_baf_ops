@@ -153,6 +153,7 @@ function baseSeed() {
     [`asset_instances/${IDS.asset}`]: asset(),
     'maintenance_records/issue-1': {
       isDeleted: false,
+      isResolved: false,
       assetHierarchyRefJson: issueReference(),
     },
   };
@@ -229,6 +230,28 @@ describe('asset operational condition mutation', () => {
         code: 'failed-precondition',
         details: {reasonCode: 'asset-condition-linked-issue-asset-mismatch'},
       });
+  });
+
+  test('linked issue must remain open with complete lifecycle state', async () => {
+    for (const [override, reasonCode] of [
+      [{isResolved: true}, 'asset-condition-linked-issue-resolved'],
+      [{isDeleted: true}, 'asset-condition-linked-issue-deleted'],
+      [{isResolved: undefined}, 'asset-condition-linked-issue-lifecycle-malformed'],
+      [{isDeleted: 'false'}, 'asset-condition-linked-issue-lifecycle-malformed'],
+    ]) {
+      const seed = baseSeed();
+      seed['maintenance_records/issue-1'] = {
+        ...seed['maintenance_records/issue-1'],
+        ...override,
+      };
+      const memory = fakeDb(seed);
+      await expect(invoke(memory, 'ops-1', declareRequest()))
+        .rejects.toMatchObject({
+          code: 'failed-precondition',
+          details: {reasonCode},
+        });
+      expect(memory.writes).toHaveLength(0);
+    }
   });
 
   test('stale declaration fails without writes', async () => {

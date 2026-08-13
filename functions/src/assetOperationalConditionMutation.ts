@@ -382,11 +382,26 @@ function verifyAsset(data: JsonMap, request: ParsedRequest): void {
 }
 
 function verifyLinkedIssue(data: JsonMap, issueId: string, asset: JsonMap): void {
-  if (data.isDeleted === true) {
+  if (typeof data.isDeleted !== "boolean" ||
+      typeof data.isResolved !== "boolean") {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `Linked issue ${issueId} has malformed lifecycle state.`,
+      {reasonCode: "asset-condition-linked-issue-lifecycle-malformed", issueId},
+    );
+  }
+  if (data.isDeleted) {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
       `Linked issue ${issueId} is deleted.`,
       {reasonCode: "asset-condition-linked-issue-deleted", issueId},
+    );
+  }
+  if (data.isResolved) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `Linked issue ${issueId} is already resolved.`,
+      {reasonCode: "asset-condition-linked-issue-resolved", issueId},
     );
   }
   if (typeof data.assetHierarchyRefJson !== "string") {

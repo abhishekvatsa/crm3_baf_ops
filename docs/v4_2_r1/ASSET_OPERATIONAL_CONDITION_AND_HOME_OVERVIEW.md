@@ -70,12 +70,12 @@ Local verification for this source tranche includes:
 
 - Flutter analysis: clean.
 - Focused condition decoder, overview, and Home widget tests: 10 passed.
-- Functions condition unit tests: 10 passed.
+- Functions condition unit tests: 11 passed.
 - Full Functions unit suite: 414 passed, 70 intentionally skipped emulator
   tests.
 - Full Flutter suite: 886 passed, 1 intentionally skipped.
 - Firestore Rules suite: 164 passed.
-- Governed Functions emulator suite: 70 passed.
+- Governed Functions emulator suite: 71 passed.
 - A-05 production integrity sweep tests: 15 passed.
 - A-05 decoder inventory: 42 surfaces, 23 strict-reader consumer files,
   38 timestamp readers, no unclassified surfaces.

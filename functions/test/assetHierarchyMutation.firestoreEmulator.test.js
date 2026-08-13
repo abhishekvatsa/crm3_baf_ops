@@ -272,6 +272,7 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     await db.collection('maintenance_records').doc('issue-1').set({
       firestoreId: 'issue-1',
       isDeleted: false,
+      isResolved: false,
       assetHierarchyRefJson: JSON.stringify({
         schemaVersion: 2,
         scope: 'installedComponent',
@@ -333,6 +334,51 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
     expect((await db.collection('asset_operational_condition_audits').get()).size)
       .toBe(2);
+  });
+
+  test('a linked issue resolved before commit is rejected transactionally', async () => {
+    await invoke(classRequest());
+    await invokeRegistry(assetRequest({
+      requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      name: 'Furnace 1',
+    }));
+    await db.collection('maintenance_records').doc('issue-1').set({
+      firestoreId: 'issue-1',
+      isDeleted: false,
+      isResolved: true,
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 2,
+        scope: 'installedComponent',
+        assetInstanceId: IDS.firstAsset,
+        assetClassId: IDS.classId,
+        assetNumber: 1,
+      }),
+    });
+
+    await expect(invokeCondition({
+      requestId: IDS.conditionRequest,
+      operation: 'DECLARE_ASSET_CONDITION',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      expectedVersion: 0,
+      condition: 'down',
+      causeKeys: ['breakdown'],
+      reason: 'Drive fault prevents safe furnace operation.',
+      linkedIssueIds: ['issue-1'],
+    }, 'ops-1')).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'asset-condition-linked-issue-resolved',
+      }),
+    });
+    expect((await db.collection('asset_operational_conditions').get()).empty)
+      .toBe(true);
+    expect((await db.collection('asset_operational_condition_audits').get()).empty)
+      .toBe(true);
+    expect((await db.collection('asset_operational_condition_receipts').get()).empty)
+      .toBe(true);
   });
 
   test('two furnaces share one definition while installed tag transfer stays atomic', async () => {
