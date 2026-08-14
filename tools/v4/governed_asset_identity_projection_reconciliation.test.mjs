@@ -9,6 +9,7 @@ import {
 
 const PRODUCTION_PROJECT = 'crm3-baf-ops-b8638';
 const WRITE_CONFIRMATION = 'RECONCILE_GOVERNED_CUSTOM_PROJECTIONS';
+const CONTENT_HASH = `tg2-sha256:${'a'.repeat(64)}`;
 
 function asset({
   id = 'asset-furnace-3',
@@ -51,6 +52,10 @@ function hierarchyReference({
 function execution({
   id = 'execution-1',
   reference = hierarchyReference(),
+  packageId = 'package-1',
+  versionId = 'version-1',
+  versionNumber = 1,
+  contentHash = CONTENT_HASH,
   assetClassId,
   assetInstanceId,
 } = {}) {
@@ -59,6 +64,10 @@ function execution({
     data: {
       assetType: 'governedCustom',
       assetNumber: 3,
+      templatePackageId: packageId,
+      templateVersionId: versionId,
+      templateVersionNumber: versionNumber,
+      templateContentHash: contentHash,
       metadataJson: JSON.stringify({
         source: 'server_governed_published_template_assignment',
         jobTemplateSnapshot: {
@@ -73,8 +82,81 @@ function execution({
   };
 }
 
+function assignmentReceipt({
+  id = 'request-1',
+  executionId = 'execution-1',
+  packageId = 'package-1',
+  versionId = 'version-1',
+  versionNumber = 1,
+  contentHash = CONTENT_HASH,
+  publicationAuditId = 'publication-audit-1',
+} = {}) {
+  return {
+    id,
+    data: {
+      firestoreId: id,
+      executionId,
+      packageId,
+      versionId,
+      versionNumber,
+      contentHash,
+      publicationAuditId,
+      status: 'completed',
+      schemaVersion: 1,
+      assignedAt: '2026-08-14T00:00:00.000Z',
+      createdAt: '2026-08-14T00:00:00.000Z',
+    },
+  };
+}
+
+function templateVersion({
+  id = 'version-1',
+  packageId = 'package-1',
+  versionNumber = 1,
+  contentHash = CONTENT_HASH,
+  reference = hierarchyReference(),
+} = {}) {
+  return {
+    id,
+    data: {
+      firestoreId: id,
+      packageFirestoreId: packageId,
+      versionNumber,
+      contentHash,
+      status: 'published',
+      isDeleted: false,
+      publishedAt: '2026-08-13T00:00:00.000Z',
+      jobTemplateSnapshotJson: JSON.stringify({
+        assetType: 'governedCustom',
+        assetHierarchyRefJson: JSON.stringify(reference),
+      }),
+    },
+  };
+}
+
+function publicationAudit({
+  id = 'publication-audit-1',
+  packageId = 'package-1',
+  versionId = 'version-1',
+  contentHash = CONTENT_HASH,
+} = {}) {
+  return {
+    id,
+    data: {
+      firestoreId: id,
+      packageFirestoreId: packageId,
+      versionFirestoreId: versionId,
+      action: 'published',
+      afterHash: contentHash,
+      isDeleted: false,
+      performedAt: '2026-08-13T00:00:00.000Z',
+    },
+  };
+}
+
 function workflow({
   id = 'workflow-1',
+  jobExecutionId = 'execution-1',
   assetClassId,
   assetInstanceId,
   status = 'assigned',
@@ -84,7 +166,7 @@ function workflow({
   return {
     id,
     data: {
-      jobExecutionId: 'execution-1',
+      jobExecutionId,
       assetTypeKey: 'governedCustom',
       assetNumber: 3,
       status,
@@ -137,6 +219,9 @@ function inventory(overrides = {}) {
     jobExecutions: [execution()],
     assetInstances: [asset()],
     equipmentStatus: [legacyEquipment()],
+    assignmentRequests: [assignmentReceipt()],
+    templateVersions: [templateVersion()],
+    templatePublishAudits: [publicationAudit()],
     ...overrides,
   };
 }
@@ -154,6 +239,15 @@ function applyPlanInMemory(source, plan) {
     ),
     equipment_status: new Map(
       source.equipmentStatus.map((row) => [row.id, structuredClone(row.data)]),
+    ),
+    published_template_assignment_requests: new Map(
+      source.assignmentRequests.map((row) => [row.id, structuredClone(row.data)]),
+    ),
+    template_versions: new Map(
+      source.templateVersions.map((row) => [row.id, structuredClone(row.data)]),
+    ),
+    template_publish_audits: new Map(
+      source.templatePublishAudits.map((row) => [row.id, structuredClone(row.data)]),
     ),
   };
   for (const item of plan.mutations) {
@@ -178,6 +272,9 @@ function applyPlanInMemory(source, plan) {
     jobExecutions: rows('job_executions'),
     assetInstances: rows('asset_instances'),
     equipmentStatus: rows('equipment_status'),
+    assignmentRequests: rows('published_template_assignment_requests'),
+    templateVersions: rows('template_versions'),
+    templatePublishAudits: rows('template_publish_audits'),
   };
 }
 
@@ -222,6 +319,7 @@ test('installed-component evidence selects its exact physical asset', () => {
   const plan = buildReconciliationPlan(inventory({
     assetInstances: [first, second],
     jobExecutions: [execution({reference})],
+    templateVersions: [templateVersion({reference})],
   }));
 
   assert.equal(plan.decision, 'READY_TO_RECONCILE');
@@ -239,6 +337,119 @@ test('definition evidence fails closed when class and number are ambiguous', () 
 
   assert.equal(plan.decision, 'HOLD_AMBIGUOUS_OR_MALFORMED_EVIDENCE');
   assert.ok(plan.blockers.some((item) => item.code === 'asset-instance-ambiguous'));
+});
+
+test('mutable execution metadata cannot replace immutable assignment evidence', () => {
+  const changedMetadata = execution({
+    reference: hierarchyReference({assetClassId: 'class-attacker'}),
+  });
+  const plan = buildReconciliationPlan(inventory({
+    jobExecutions: [changedMetadata],
+  }));
+
+  assert.equal(plan.decision, 'READY_TO_RECONCILE');
+  const workflowUpdate = plan.mutations.find(
+    (item) => item.path === 'maintenance_workflows/workflow-1',
+  );
+  assert.equal(workflowUpdate.data.assetClassId, 'class-furnace');
+  assert.equal(workflowUpdate.data.assetInstanceId, 'asset-furnace-3');
+});
+
+test('legacy identity requires an exact immutable receipt/version/audit chain', () => {
+  const missingReceipt = buildReconciliationPlan(inventory({
+    assignmentRequests: [],
+  }));
+  assert.ok(
+    missingReceipt.blockers.some((item) => item.code === 'assignment-receipt-not-found'),
+  );
+
+  const mismatchedVersion = templateVersion();
+  mismatchedVersion.data.contentHash = `tg2-sha256:${'b'.repeat(64)}`;
+  const mismatched = buildReconciliationPlan(inventory({
+    templateVersions: [mismatchedVersion],
+  }));
+  assert.ok(
+    mismatched.blockers.some((item) => item.code === 'assigned-template-version-mismatch'),
+  );
+});
+
+test('a malformed raw registry match blocks uniqueness adjudication', () => {
+  const malformedMatch = asset({id: 'asset-furnace-3-malformed'});
+  malformedMatch.data.assetInstanceId = 'another-document-id';
+  const plan = buildReconciliationPlan(inventory({
+    assetInstances: [asset(), malformedMatch],
+  }));
+
+  assert.equal(plan.decision, 'HOLD_AMBIGUOUS_OR_MALFORMED_EVIDENCE');
+  assert.ok(
+    plan.blockers.some((item) => item.code === 'matching-asset-instance-malformed'),
+  );
+});
+
+test('a split aggregate blocks any physical asset with no individual state facts', () => {
+  const secondReference = hierarchyReference({
+    assetClassId: 'class-inner-cover',
+    assetInstanceId: null,
+  });
+  const plan = buildReconciliationPlan(inventory({
+    maintenanceWorkflows: [
+      workflow(),
+      workflow({
+        id: 'workflow-2',
+        jobExecutionId: 'execution-2',
+        status: 'completed',
+      }),
+    ],
+    jobExecutions: [
+      execution(),
+      execution({
+        id: 'execution-2',
+        packageId: 'package-2',
+        versionId: 'version-2',
+        reference: secondReference,
+      }),
+    ],
+    assetInstances: [
+      asset(),
+      asset({
+        id: 'asset-inner-cover-3',
+        assetClassId: 'class-inner-cover',
+      }),
+    ],
+    assignmentRequests: [
+      assignmentReceipt(),
+      assignmentReceipt({
+        id: 'request-2',
+        executionId: 'execution-2',
+        packageId: 'package-2',
+        versionId: 'version-2',
+        publicationAuditId: 'publication-audit-2',
+      }),
+    ],
+    templateVersions: [
+      templateVersion(),
+      templateVersion({
+        id: 'version-2',
+        packageId: 'package-2',
+        reference: secondReference,
+      }),
+    ],
+    templatePublishAudits: [
+      publicationAudit(),
+      publicationAudit({
+        id: 'publication-audit-2',
+        packageId: 'package-2',
+        versionId: 'version-2',
+      }),
+    ],
+  }));
+
+  assert.equal(plan.decision, 'HOLD_AMBIGUOUS_OR_MALFORMED_EVIDENCE');
+  assert.ok(
+    plan.blockers.some(
+      (item) => item.code === 'split-equipment-zero-fact-state-unresolved',
+    ),
+  );
 });
 
 test('partial workflow identity and mismatched legacy counters both block', () => {

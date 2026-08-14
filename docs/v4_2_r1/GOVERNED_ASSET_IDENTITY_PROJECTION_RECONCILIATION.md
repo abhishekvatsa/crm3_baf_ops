@@ -15,7 +15,9 @@ watermark.
 ## Authority Order
 
 1. Deploy the backend that writes and validates class-scoped custom identity.
-2. Place workflow mutations under a controlled maintenance hold.
+2. Place assignment, workflow, execution, asset-registry and template-governance
+   mutations under a controlled maintenance hold. The transaction source-binds
+   all seven evidence collections and aborts on any intervening change.
 3. Run the reconciliation tool in `dry-run` mode against the target project.
 4. Stop if any evidence is missing, malformed, partial, or ambiguous.
 5. Adjudicate blockers using the asset registry and original assignment
@@ -35,15 +37,21 @@ For each unbound custom workflow the tool requires:
 
 - a valid `jobExecutionId`;
 - the linked `job_executions` document;
-- the immutable published `jobTemplateSnapshot.assetHierarchyRefJson` inside
-  `metadataJson`;
+- exactly one server-only `published_template_assignment_requests` receipt
+  linking that execution to a package, version, content hash and publication
+  audit;
+- the receipt-bound frozen `template_versions` snapshot and its immutable
+  `template_publish_audits` publication record;
+- an exact match between the receipt and the execution's immutable top-level
+  template identity fields;
 - an exact registry match for the referenced class and asset number, or the
   exact instance ID carried by an installed-component reference.
 
-The tool blocks the entire mutation when any workflow cannot be resolved
-exactly. It also blocks partial identity pairs, registry contradictions,
-malformed counters, stale current projections, and plans above the single
-transaction mutation budget.
+Mutable `job_executions.metadataJson` is never assignment authority. The tool
+blocks the entire mutation when any workflow cannot be resolved exactly. It
+also blocks partial identity pairs, malformed registry rows matching the
+target class and number, registry contradictions, malformed counters, stale
+current projections, and plans above the single-transaction mutation budget.
 
 ## Equipment Projection Treatment
 
@@ -51,12 +59,17 @@ Legacy `equipment_status/governedCustom_<number>` documents are replaced with
 class-and-instance-scoped documents. Counters are recomputed from the complete
 workflow set. A legacy aggregate may split into several physical projections
 only when every contributing workflow has exact identity evidence and the old
-aggregate counters match those complete facts.
+aggregate counters match those complete facts. A split is blocked when any
+target has no active workflow facts, because the aggregate cannot prove that
+target's individual `available` versus `inService` state.
 
 The old projection is deleted in the same Firestore transaction that creates
-its replacements and updates the workflows. Every entity mutation receives a
-deterministic `governed_migration_audits` record. Concurrent changes after
-preflight abort the transaction.
+its replacements and updates the workflows. Before any write, that transaction
+rereads every source collection, rebuilds the complete source-bound plan and
+requires its hash to equal the dry-run plan. This detects changed evidence and
+new matching documents, including registry ambiguity introduced after
+preflight. Every entity mutation receives a deterministic
+`governed_migration_audits` record.
 
 ## Commands
 

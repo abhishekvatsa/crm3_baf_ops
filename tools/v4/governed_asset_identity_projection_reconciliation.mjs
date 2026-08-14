@@ -21,6 +21,11 @@ const WRITE_CONFIRMATION = 'RECONCILE_GOVERNED_CUSTOM_PROJECTIONS';
 const WRITE_TOKEN_ENV = 'CRM3_GOVERNED_ASSET_IDENTITY_WRITE_TOKEN';
 const SERVER_TIMESTAMP = '$SERVER_TIMESTAMP';
 const MAX_ENTITY_MUTATIONS = 200;
+const FROZEN_TEMPLATE_VERSION_STATUSES = new Set([
+  'published',
+  'retired',
+  'archived',
+]);
 const IGNORED_UNTRACKED_PREFIXES = Object.freeze([
   'output/',
   'outputs/',
@@ -274,6 +279,12 @@ function registryIdentity(row, expected = {}) {
       `Asset instance ${row.id} has another asset number.`,
     );
   }
+  if (data.status !== 'active' || data.isDeleted === true) {
+    throw new ReconciliationEvidenceError(
+      'registry-asset-not-active',
+      `Asset instance ${row.id} is not an active registry target.`,
+    );
+  }
   return {assetClassId, assetInstanceId, assetNumber};
 }
 
@@ -289,15 +300,19 @@ function exactRegistryIdentity({assetRows, assetClassId, assetInstanceId, assetN
     return registryIdentity(row, {assetClassId, assetNumber});
   }
 
+  const rawMatches = [...assetRows.values()].filter(
+    (row) => row.data.assetClassId === assetClassId &&
+      row.data.assetNumber === assetNumber,
+  );
   const matches = [];
-  for (const row of assetRows.values()) {
+  for (const row of rawMatches) {
     try {
-      const identity = registryIdentity(row);
-      if (identity.assetClassId === assetClassId && identity.assetNumber === assetNumber) {
-        matches.push(identity);
-      }
-    } catch {
-      // A malformed registry row is not admissible identity evidence.
+      matches.push(registryIdentity(row, {assetClassId, assetNumber}));
+    } catch (error) {
+      throw new ReconciliationEvidenceError(
+        'matching-asset-instance-malformed',
+        `Matching registry row ${row.id} is malformed: ${error.message}`,
+      );
     }
   }
   if (matches.length !== 1) {
@@ -309,69 +324,176 @@ function exactRegistryIdentity({assetRows, assetClassId, assetInstanceId, assetN
   return matches[0];
 }
 
-function hierarchyEvidence(execution, workflow) {
-  const pathLabel = rowPath('job_executions', execution.id);
+function hierarchyEvidence({
+  execution,
+  workflow,
+  receiptRows,
+  versionRows,
+  publicationAuditRows,
+}) {
+  const executionPath = rowPath('job_executions', execution.id);
   if (execution.data.assetType != null && execution.data.assetType !== 'governedCustom') {
     throw new ReconciliationEvidenceError(
       'execution-asset-type-mismatch',
-      `${pathLabel} does not describe a governed custom asset.`,
+      `${executionPath} does not describe a governed custom asset.`,
     );
   }
   if (execution.data.assetNumber != null &&
       execution.data.assetNumber !== workflow.data.assetNumber) {
     throw new ReconciliationEvidenceError(
       'execution-asset-number-mismatch',
-      `${pathLabel} has another asset number.`,
+      `${executionPath} has another asset number.`,
     );
   }
-  const metadata = parseJsonObject(execution.data.metadataJson, `${pathLabel}.metadataJson`);
-  const snapshot = objectValue(
-    metadata.jobTemplateSnapshot,
-    `${pathLabel}.metadataJson.jobTemplateSnapshot`,
+
+  const matchingReceipts = [...receiptRows.values()].filter(
+    (row) => row.data.executionId === execution.id,
   );
+  if (matchingReceipts.length !== 1) {
+    throw new ReconciliationEvidenceError(
+      matchingReceipts.length === 0
+        ? 'assignment-receipt-not-found'
+        : 'assignment-receipt-ambiguous',
+      `${executionPath} has ${matchingReceipts.length} immutable assignment receipts.`,
+    );
+  }
+  const receipt = matchingReceipts[0];
+  const receiptPath = rowPath('published_template_assignment_requests', receipt.id);
+  if (documentId(receipt.data.firestoreId, `${receiptPath}.firestoreId`) !== receipt.id ||
+      receipt.data.status !== 'completed' ||
+      integer(receipt.data.schemaVersion, `${receiptPath}.schemaVersion`, 1) !== 1) {
+    throw new ReconciliationEvidenceError(
+      'assignment-receipt-malformed',
+      `${receiptPath} is not a completed schema-v1 assignment receipt.`,
+    );
+  }
+  persistedTimestamp(receipt.data.assignedAt, `${receiptPath}.assignedAt`);
+  persistedTimestamp(receipt.data.createdAt, `${receiptPath}.createdAt`);
+  const packageId = documentId(receipt.data.packageId, `${receiptPath}.packageId`);
+  const versionId = documentId(receipt.data.versionId, `${receiptPath}.versionId`);
+  const versionNumber = positiveInteger(
+    receipt.data.versionNumber,
+    `${receiptPath}.versionNumber`,
+  );
+  const contentHash = nonEmptyString(receipt.data.contentHash, `${receiptPath}.contentHash`);
+  const publicationAuditId = documentId(
+    receipt.data.publicationAuditId,
+    `${receiptPath}.publicationAuditId`,
+  );
+
+  const immutableExecutionFields = {
+    templatePackageId: packageId,
+    templateVersionId: versionId,
+    templateVersionNumber: versionNumber,
+    templateContentHash: contentHash,
+  };
+  for (const [field, expected] of Object.entries(immutableExecutionFields)) {
+    if (execution.data[field] !== expected) {
+      throw new ReconciliationEvidenceError(
+        'execution-assignment-receipt-mismatch',
+        `${executionPath}.${field} does not match ${receiptPath}.`,
+      );
+    }
+  }
+
+  const version = versionRows.get(versionId);
+  if (version == null) {
+    throw new ReconciliationEvidenceError(
+      'assigned-template-version-not-found',
+      `Immutable assignment receipt ${receipt.id} references missing version ${versionId}.`,
+    );
+  }
+  const versionPath = rowPath('template_versions', version.id);
+  if (documentId(version.data.firestoreId, `${versionPath}.firestoreId`) !== version.id ||
+      documentId(version.data.packageFirestoreId, `${versionPath}.packageFirestoreId`) !== packageId ||
+      positiveInteger(version.data.versionNumber, `${versionPath}.versionNumber`) !== versionNumber ||
+      nonEmptyString(version.data.contentHash, `${versionPath}.contentHash`) !== contentHash ||
+      !FROZEN_TEMPLATE_VERSION_STATUSES.has(version.data.status) ||
+      version.data.isDeleted === true) {
+    throw new ReconciliationEvidenceError(
+      'assigned-template-version-mismatch',
+      `${versionPath} does not match the frozen version bound by ${receiptPath}.`,
+    );
+  }
+  persistedTimestamp(version.data.publishedAt, `${versionPath}.publishedAt`);
+
+  const publicationAudit = publicationAuditRows.get(publicationAuditId);
+  if (publicationAudit == null) {
+    throw new ReconciliationEvidenceError(
+      'assignment-publication-audit-not-found',
+      `${receiptPath} references missing publication audit ${publicationAuditId}.`,
+    );
+  }
+  const auditPath = rowPath('template_publish_audits', publicationAudit.id);
+  if (documentId(publicationAudit.data.firestoreId, `${auditPath}.firestoreId`) !==
+        publicationAudit.id ||
+      publicationAudit.data.action !== 'published' ||
+      documentId(publicationAudit.data.packageFirestoreId, `${auditPath}.packageFirestoreId`) !==
+        packageId ||
+      documentId(publicationAudit.data.versionFirestoreId, `${auditPath}.versionFirestoreId`) !==
+        versionId ||
+      nonEmptyString(publicationAudit.data.afterHash, `${auditPath}.afterHash`) !== contentHash ||
+      publicationAudit.data.isDeleted === true) {
+    throw new ReconciliationEvidenceError(
+      'assignment-publication-audit-mismatch',
+      `${auditPath} does not prove the version bound by ${receiptPath}.`,
+    );
+  }
+  persistedTimestamp(publicationAudit.data.performedAt, `${auditPath}.performedAt`);
+
+  const snapshot = parseJsonObject(
+    version.data.jobTemplateSnapshotJson,
+    `${versionPath}.jobTemplateSnapshotJson`,
+  );
+  if (snapshot.assetType != null && snapshot.assetType !== 'governedCustom') {
+    throw new ReconciliationEvidenceError(
+      'assigned-template-asset-type-mismatch',
+      `${versionPath} does not describe a governed custom asset.`,
+    );
+  }
   const reference = parseJsonObject(
     snapshot.assetHierarchyRefJson,
-    `${pathLabel}.metadataJson.jobTemplateSnapshot.assetHierarchyRefJson`,
+    `${versionPath}.jobTemplateSnapshotJson.assetHierarchyRefJson`,
   );
   const schemaVersion = positiveInteger(
     reference.schemaVersion,
-    `${pathLabel} hierarchy schemaVersion`,
+    `${versionPath} hierarchy schemaVersion`,
   );
   if (schemaVersion !== 1 && schemaVersion !== 2) {
     throw new ReconciliationEvidenceError(
       'unsupported-hierarchy-reference',
-      `${pathLabel} uses unsupported hierarchy reference schema ${schemaVersion}.`,
+      `${versionPath} uses unsupported hierarchy reference schema ${schemaVersion}.`,
     );
   }
   const scope = schemaVersion === 1 ? 'definition' : reference.scope;
   if (scope !== 'definition' && scope !== 'installedComponent') {
     throw new ReconciliationEvidenceError(
       'unsupported-hierarchy-scope',
-      `${pathLabel} has unsupported hierarchy scope.`,
+      `${versionPath} has unsupported hierarchy scope.`,
     );
   }
-  const assetClassId = documentId(reference.assetClassId, `${pathLabel} assetClassId`);
-  const assetInstanceId = optionalString(reference.assetInstanceId, `${pathLabel} assetInstanceId`);
+  const assetClassId = documentId(reference.assetClassId, `${versionPath} assetClassId`);
+  const assetInstanceId = optionalString(reference.assetInstanceId, `${versionPath} assetInstanceId`);
   const referencedNumber = reference.assetNumber == null
     ? null
-    : positiveInteger(reference.assetNumber, `${pathLabel} hierarchy assetNumber`);
+    : positiveInteger(reference.assetNumber, `${versionPath} hierarchy assetNumber`);
   if (referencedNumber != null && referencedNumber !== workflow.data.assetNumber) {
     throw new ReconciliationEvidenceError(
       'hierarchy-asset-number-mismatch',
-      `${pathLabel} hierarchy evidence has another asset number.`,
+      `${versionPath} hierarchy evidence has another asset number.`,
     );
   }
   if (scope === 'installedComponent' && assetInstanceId == null) {
     throw new ReconciliationEvidenceError(
       'installed-reference-missing-asset',
-      `${pathLabel} installed-component evidence has no physical asset identity.`,
+      `${versionPath} installed-component evidence has no physical asset identity.`,
     );
   }
   return {
     assetClassId,
     assetInstanceId: assetInstanceId == null
       ? null
-      : documentId(assetInstanceId, `${pathLabel} assetInstanceId`),
+      : documentId(assetInstanceId, `${versionPath} assetInstanceId`),
   };
 }
 
@@ -495,6 +617,17 @@ export function buildReconciliationPlan(input) {
   const executionRows = normalizeRows(input.jobExecutions, 'job_executions', blockers);
   const assetRows = normalizeRows(input.assetInstances, 'asset_instances', blockers);
   const equipmentRows = normalizeRows(input.equipmentStatus, 'equipment_status', blockers);
+  const receiptRows = normalizeRows(
+    input.assignmentRequests,
+    'published_template_assignment_requests',
+    blockers,
+  );
+  const versionRows = normalizeRows(input.templateVersions, 'template_versions', blockers);
+  const publicationAuditRows = normalizeRows(
+    input.templatePublishAudits,
+    'template_publish_audits',
+    blockers,
+  );
   const resolvedWorkflows = new Map();
   const workflowUpdates = [];
   const executionUpdates = [];
@@ -545,7 +678,13 @@ export function buildReconciliationPlan(input) {
           assetNumber,
         });
       } else {
-        const evidence = hierarchyEvidence(execution, workflow);
+        const evidence = hierarchyEvidence({
+          execution,
+          workflow,
+          receiptRows,
+          versionRows,
+          publicationAuditRows,
+        });
         identity = exactRegistryIdentity({assetRows, ...evidence, assetNumber});
         workflowUpdates.push(mutation(
           'update',
@@ -689,6 +828,22 @@ export function buildReconciliationPlan(input) {
       }
       const aggregateFacts = workflowFacts(groups.flatMap((group) => group.workflows));
       validateLegacyEquipment(legacy, aggregateFacts);
+      if (groups.length > 1) {
+        const unresolvedGroups = groups.filter((group) => {
+          const facts = workflowFacts(group.workflows);
+          return facts.activeNonRedMaintenanceCount === 0 &&
+            facts.activeRedWorkCount === 0 &&
+            facts.awaitingPreparationCount === 0;
+        });
+        if (unresolvedGroups.length > 0) {
+          throw new ReconciliationEvidenceError(
+            'split-equipment-zero-fact-state-unresolved',
+            `Legacy equipment ${legacy.id} splits across physical assets, but ` +
+              `${unresolvedGroups.length} target(s) have no workflow facts proving ` +
+              'their individual available or in-service state.',
+          );
+        }
+      }
       for (const group of groups) {
         const key = identityKey(group.identity);
         if (legacySourceByIdentity.has(key)) {
@@ -799,16 +954,30 @@ export function buildReconciliationPlan(input) {
   }
   blockers.sort((left, right) =>
     `${left.path}|${left.code}`.localeCompare(`${right.path}|${right.code}`));
+  const sourceEvidence = [
+    ['maintenance_workflows', workflowRows],
+    ['job_executions', executionRows],
+    ['asset_instances', assetRows],
+    ['equipment_status', equipmentRows],
+    ['published_template_assignment_requests', receiptRows],
+    ['template_versions', versionRows],
+    ['template_publish_audits', publicationAuditRows],
+  ].flatMap(([collection, rows]) => [...rows.values()].map((row) => ({
+    path: rowPath(collection, row.id),
+    sourceHash: sourceHash(row.data),
+  }))).sort((left, right) => left.path.localeCompare(right.path));
   const planCore = {
     schemaVersion: 1,
     blockers,
     mutations,
+    sourceEvidence,
     inventory: {
       governedCustomWorkflowCount: [...resolvedWorkflows.values()].length,
       legacyWorkflowUpdateCount: workflowUpdates.length,
       executionUpdateCount: executionUpdates.length,
       legacyEquipmentDeleteCount: equipmentDeletes.length,
       equipmentCreateCount: equipmentUpserts.length,
+      sourceEvidenceCount: sourceEvidence.length,
     },
   };
   return {
@@ -919,20 +1088,42 @@ function assertNewOutput(output) {
   return resolved;
 }
 
-async function loadRows(db, collection) {
-  const snapshot = await db.collection(collection).get();
+async function loadRows(db, collection, transaction = null) {
+  const reference = db.collection(collection);
+  const snapshot = transaction == null
+    ? await reference.get()
+    : await transaction.get(reference);
   return snapshot.docs.map((doc) => ({id: doc.id, data: doc.data()}));
 }
 
-export async function loadInventory(db) {
-  const [maintenanceWorkflows, jobExecutions, assetInstances, equipmentStatus] =
+export async function loadInventory(db, transaction = null) {
+  const [
+    maintenanceWorkflows,
+    jobExecutions,
+    assetInstances,
+    equipmentStatus,
+    assignmentRequests,
+    templateVersions,
+    templatePublishAudits,
+  ] =
     await Promise.all([
-      loadRows(db, 'maintenance_workflows'),
-      loadRows(db, 'job_executions'),
-      loadRows(db, 'asset_instances'),
-      loadRows(db, 'equipment_status'),
+      loadRows(db, 'maintenance_workflows', transaction),
+      loadRows(db, 'job_executions', transaction),
+      loadRows(db, 'asset_instances', transaction),
+      loadRows(db, 'equipment_status', transaction),
+      loadRows(db, 'published_template_assignment_requests', transaction),
+      loadRows(db, 'template_versions', transaction),
+      loadRows(db, 'template_publish_audits', transaction),
     ]);
-  return {maintenanceWorkflows, jobExecutions, assetInstances, equipmentStatus};
+  return {
+    maintenanceWorkflows,
+    jobExecutions,
+    assetInstances,
+    equipmentStatus,
+    assignmentRequests,
+    templateVersions,
+    templatePublishAudits,
+  };
 }
 
 function materialize(value, fieldValue) {
@@ -1009,16 +1200,13 @@ export async function applyPlan({db, fieldValue, plan, source}) {
   const migrationId = authority.migrationId;
   if (plan.mutations.length > 0) {
     await db.runTransaction(async (transaction) => {
-      const refs = plan.mutations.map((item) => db.doc(item.path));
-      const snapshots = await Promise.all(refs.map((ref) => transaction.get(ref)));
-      for (let index = 0; index < plan.mutations.length; index += 1) {
-        const item = plan.mutations[index];
-        const snapshot = snapshots[index];
-        const actualHash = snapshot.exists ? sourceHash(snapshot.data()) : null;
-        if (actualHash !== item.expectedSourceHash) {
-          throw new Error(`Projection changed after preflight: ${item.path}`);
-        }
+      const transactionPlan = buildReconciliationPlan(
+        await loadInventory(db, transaction),
+      );
+      if (transactionPlan.planHash !== plan.planHash) {
+        throw new Error('Migration evidence changed after preflight.');
       }
+      const refs = plan.mutations.map((item) => db.doc(item.path));
       for (let index = 0; index < plan.mutations.length; index += 1) {
         const item = plan.mutations[index];
         const ref = refs[index];

@@ -14,11 +14,15 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const require = createRequire(import.meta.url);
 const admin = require(path.join(ROOT, 'functions/node_modules/firebase-admin'));
 const PROJECT_ID = 'demo-governed-asset-identity';
+const CONTENT_HASH = `tg2-sha256:${'a'.repeat(64)}`;
 const COLLECTIONS = [
   'maintenance_workflows',
   'job_executions',
   'asset_instances',
   'equipment_status',
+  'published_template_assignment_requests',
+  'template_versions',
+  'template_publish_audits',
   'governed_migration_audits',
   'governed_migration_contracts',
 ];
@@ -70,6 +74,10 @@ async function seedLegacyProjection() {
   batch.set(db.doc('job_executions/execution-1'), {
     assetType: 'governedCustom',
     assetNumber: 3,
+    templatePackageId: 'package-1',
+    templateVersionId: 'version-1',
+    templateVersionNumber: 1,
+    templateContentHash: CONTENT_HASH,
     metadataJson: JSON.stringify({
       source: 'server_governed_published_template_assignment',
       jobTemplateSnapshot: {
@@ -78,6 +86,41 @@ async function seedLegacyProjection() {
       },
     }),
     updatedAt: timestamp,
+  });
+  batch.set(db.doc('published_template_assignment_requests/request-1'), {
+    firestoreId: 'request-1',
+    executionId: 'execution-1',
+    packageId: 'package-1',
+    versionId: 'version-1',
+    versionNumber: 1,
+    contentHash: CONTENT_HASH,
+    publicationAuditId: 'publication-audit-1',
+    status: 'completed',
+    schemaVersion: 1,
+    assignedAt: timestamp,
+    createdAt: timestamp,
+  });
+  batch.set(db.doc('template_versions/version-1'), {
+    firestoreId: 'version-1',
+    packageFirestoreId: 'package-1',
+    versionNumber: 1,
+    contentHash: CONTENT_HASH,
+    status: 'published',
+    isDeleted: false,
+    publishedAt: timestamp,
+    jobTemplateSnapshotJson: JSON.stringify({
+      assetType: 'governedCustom',
+      assetHierarchyRefJson: JSON.stringify(hierarchyReference()),
+    }),
+  });
+  batch.set(db.doc('template_publish_audits/publication-audit-1'), {
+    firestoreId: 'publication-audit-1',
+    packageFirestoreId: 'package-1',
+    versionFirestoreId: 'version-1',
+    action: 'published',
+    afterHash: CONTENT_HASH,
+    isDeleted: false,
+    performedAt: timestamp,
   });
   batch.set(db.doc('maintenance_workflows/workflow-1'), {
     jobExecutionId: 'execution-1',
@@ -183,5 +226,28 @@ test('ambiguous registry evidence performs no writes', async () => {
     /blocked plan/,
   );
   assert.equal((await db.doc('equipment_status/governedCustom_3').get()).exists, true);
+  assert.equal((await db.collection('governed_migration_audits').get()).empty, true);
+});
+
+test('changed non-target evidence aborts before any projection write', async () => {
+  await seedLegacyProjection();
+  const plan = buildReconciliationPlan(await loadInventory(db));
+  assert.equal(plan.decision, 'READY_TO_RECONCILE');
+
+  await db.doc('asset_instances/asset-furnace-3').update({
+    displayName: 'Changed after preflight',
+  });
+
+  await assert.rejects(
+    applyPlan({db, fieldValue: admin.firestore.FieldValue, plan, source}),
+    /evidence changed after preflight/,
+  );
+  assert.equal((await db.doc('equipment_status/governedCustom_3').get()).exists, true);
+  assert.equal(
+    (await db.doc(
+      'equipment_status/governedCustom_class-furnace_asset-furnace-3',
+    ).get()).exists,
+    false,
+  );
   assert.equal((await db.collection('governed_migration_audits').get()).empty, true);
 });
