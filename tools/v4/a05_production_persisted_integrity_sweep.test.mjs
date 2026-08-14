@@ -215,6 +215,7 @@ function hierarchyDocuments() {
         scope: 'plantWide',
         affectedAssetClassIds: [],
         affectedAssetInstanceIds: [],
+        completedIntervals: [],
         startedAt: ts,
         status: 'open',
         createdAt: ts,
