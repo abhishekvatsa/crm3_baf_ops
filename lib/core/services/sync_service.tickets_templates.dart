@@ -56,9 +56,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
             entityId: record.firestoreId!,
             error: evidenceError,
           );
-          debugPrint(
-            'Blocked ticket sync for ${record.id}: $evidenceError',
-          );
+          debugPrint('Blocked ticket sync for ${record.id}: $evidenceError');
           continue;
         }
 
@@ -336,6 +334,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
     int version,
   ) {
     return {
+      ...local.qualityIntentSynchronizedFields,
       'firestoreId': local.firestoreId,
       'version': version < 1 ? 1 : version,
       'assetType': local.assetType.name,

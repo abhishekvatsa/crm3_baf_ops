@@ -2415,8 +2415,81 @@ service cloud.firestore {
         && maintenanceWorkflowFieldsUnchanged();
     }
 
+    function validMaintenanceQualityIntent() {
+      let qualityFields = [
+        'qualityIntentSchemaVersion',
+        'qualityImpactAssessment',
+        'qualityWarningReason'
+      ];
+      let hasAny = request.resource.data.keys().hasAny(qualityFields);
+      let hasAll = request.resource.data.keys().hasAll(qualityFields);
+      let assessment = request.resource.data.get(
+        'qualityImpactAssessment',
+        null
+      );
+      let warningReason = request.resource.data.get(
+        'qualityWarningReason',
+        null
+      );
+      let chargeNo = request.resource.data.get('chargeNoAtEvent', null);
+      return !hasAny
+        || (hasAll
+          && request.resource.data.get('qualityIntentSchemaVersion', -1) == 1
+          && (assessment == 'notSuspected' || assessment == 'suspected')
+          && (assessment == 'notSuspected'
+            ? warningReason == null
+            : (warningReason is string
+              && warningReason.size() >= 8
+              && warningReason.size() <= 1000
+              && chargeNo is int
+              && chargeNo > 0)));
+    }
+
+    function requiredIssueQualityWarningExists(docId) {
+      let warningId = 'issue_' + docId;
+      let warningPath =
+        /databases/$(database)/documents/quality_warnings/$(warningId);
+      let warning = getAfter(warningPath).data;
+      return request.resource.data.get(
+          'qualityImpactAssessment',
+          null
+        ) != 'suspected'
+        || ((!exists(warningPath) && existsAfter(warningPath))
+          || (exists(warningPath)
+          && initialQualityWarningProjection(warning, warningId)
+          && warning.get('sourceType', null) == 'issue'
+          && warning.get('sourceId', null) == docId
+          && warning.get('sourceVersion', -1) ==
+            request.resource.data.get('version', -2)
+          && warning.get('sourceChargeNo', -1) ==
+            request.resource.data.get('chargeNoAtEvent', -2)
+          && warning.get('sourceSummary', null) ==
+            request.resource.data.get('description', null)
+          && warning.get('warningReason', null) ==
+            request.resource.data.get('qualityWarningReason', null)
+          && warning.get('component', null) ==
+            request.resource.data.get('component', null)
+          && warning.get('createdAt', null) ==
+            request.resource.data.get('createdAt', null)
+          && warning.get('createdByUid', null) ==
+            request.resource.data.get('loggedByUid', null)
+          && warning.get('createdByName', null) ==
+            request.resource.data.get('loggedByName', null)
+          && warning.get('affectedAssets', []).size() == 1
+          && warning.get('affectedAssets', [])[0].get('assetType', null) ==
+            request.resource.data.get('assetType', null)
+          && warning.get('affectedAssets', [])[0].get('assetNumber', -1) ==
+            request.resource.data.get('assetNumber', -2)
+          && ((request.resource.data.get('isCritical', false) == true
+              && warning.get('sourceSeverity', null) == 'critical')
+            || (request.resource.data.get('isCritical', false) == false
+              && warning.get('sourceSeverity', null) == 'standard'))));
+    }
+
     function validMaintenanceCreate(docId) {
       return isApprovedUser()
+        && validMaintenanceQualityIntent()
+        && requiredIssueQualityWarningExists(docId)
         && !request.resource.data.keys().hasAny(maintenanceWorkflowFields())
         && request.resource.data.keys().hasAll([
           'firestoreId',
@@ -2650,6 +2723,7 @@ service cloud.firestore {
       let sourceResolved = resource.data.get('isResolved', false);
       let targetResolved = request.resource.data.get('isResolved', false);
       return targetTombstoneHasDeletionAuthority()
+        && validMaintenanceQualityIntent()
         && (targetDeleted != sourceDeleted
         ? validMaintenanceSoftDeleteUpdate()
         : (targetResolved != sourceResolved
@@ -2724,7 +2798,9 @@ service cloud.firestore {
         request.resource.data.get('reannealingStatus', null);
       let reannealedToChargeNo =
         request.resource.data.get('reannealedToChargeNo', null);
+      let warningId = 'abnormality_' + docId;
       return canLogChargeAbnormality()
+        && requiredAbnormalityQualityWarningExists(docId)
         && request.resource.data.keys().hasAll([
           'firestoreId',
           'sourceChargeNo',
@@ -2906,6 +2982,256 @@ service cloud.firestore {
         && request.resource.data.get('deletedByUid', null) == null
         && request.resource.data.get('deletedByName', null) == null
         && request.resource.data.get('deleteReason', null) == null;
+    }
+
+    function validQualityWarningCommon(docId) {
+      return request.resource.data.keys().hasAll([
+          'schemaVersion',
+          'warningId',
+          'sourceType',
+          'sourceId',
+          'sourceVersion',
+          'sourceChargeNo',
+          'sourceSummary',
+          'sourceSeverity',
+          'warningReason',
+          'affectedAssets',
+          'component',
+          'status',
+          'closureRequestReason',
+          'closureRequestedAt',
+          'closureRequestedByUid',
+          'closureRequestedByName',
+          'closedAt',
+          'closedByUid',
+          'closedByName',
+          'closureDisposition',
+          'linkedReannealingChargeNos',
+          'decisionReason',
+          'createdAt',
+          'createdByUid',
+          'createdByName',
+          'updatedAt',
+          'updatedByUid',
+          'updatedByName',
+          'version'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'schemaVersion',
+          'warningId',
+          'sourceType',
+          'sourceId',
+          'sourceVersion',
+          'sourceChargeNo',
+          'sourceSummary',
+          'sourceSeverity',
+          'warningReason',
+          'affectedAssets',
+          'component',
+          'status',
+          'closureRequestReason',
+          'closureRequestedAt',
+          'closureRequestedByUid',
+          'closureRequestedByName',
+          'closedAt',
+          'closedByUid',
+          'closedByName',
+          'closureDisposition',
+          'linkedReannealingChargeNos',
+          'decisionReason',
+          'createdAt',
+          'createdByUid',
+          'createdByName',
+          'updatedAt',
+          'updatedByUid',
+          'updatedByName',
+          'version'
+        ])
+        && request.resource.data.get('schemaVersion', -1) == 1
+        && request.resource.data.get('warningId', null) == docId
+        && request.resource.data.get('sourceId', null) is string
+        && request.resource.data.get('sourceVersion', -1) is int
+        && request.resource.data.get('sourceVersion', -1) >= 1
+        && request.resource.data.get('sourceChargeNo', -1) is int
+        && request.resource.data.get('sourceChargeNo', -1) > 0
+        && validNonEmptyString(
+          request.resource.data.get('sourceSummary', null),
+          2000
+        )
+        && validNonEmptyString(
+          request.resource.data.get('sourceSeverity', null),
+          40
+        )
+        && validNonEmptyString(
+          request.resource.data.get('warningReason', null),
+          2000
+        )
+        && request.resource.data.get('affectedAssets', null) is list
+        && request.resource.data.get('affectedAssets', []).size() > 0
+        && request.resource.data.get('affectedAssets', []).size() <= 50
+        && validOptionalString(
+          request.resource.data.get('component', null),
+          200
+        )
+        && request.resource.data.get('status', null) == 'open'
+        && request.resource.data.get('closureRequestReason', null) == null
+        && request.resource.data.get('closureRequestedAt', null) == null
+        && request.resource.data.get('closureRequestedByUid', null) == null
+        && request.resource.data.get('closureRequestedByName', null) == null
+        && request.resource.data.get('closedAt', null) == null
+        && request.resource.data.get('closedByUid', null) == null
+        && request.resource.data.get('closedByName', null) == null
+        && request.resource.data.get('closureDisposition', null) == null
+        && request.resource.data.get('linkedReannealingChargeNos', null) is list
+        && request.resource.data.get('linkedReannealingChargeNos', []).size() == 0
+        && request.resource.data.get('decisionReason', null) == null
+        && isPersistedTimestamp(request.resource.data.get('createdAt', null))
+        && request.resource.data.get('createdByUid', null) == request.auth.uid
+        && validOptionalString(
+          request.resource.data.get('createdByName', null),
+          200
+        )
+        && request.resource.data.get('updatedAt', null) ==
+          request.resource.data.get('createdAt', null)
+        && request.resource.data.get('updatedByUid', null) ==
+          request.resource.data.get('createdByUid', null)
+        && request.resource.data.get('updatedByName', null) ==
+          request.resource.data.get('createdByName', null)
+        && request.resource.data.get('version', -1) == 1;
+    }
+
+    function initialQualityWarningProjection(warning, warningId) {
+      return warning.get('schemaVersion', -1) == 1
+        && warning.get('warningId', null) == warningId
+        && warning.get('status', null) == 'open'
+        && warning.get('closureRequestReason', null) == null
+        && warning.get('closureRequestedAt', null) == null
+        && warning.get('closureRequestedByUid', null) == null
+        && warning.get('closureRequestedByName', null) == null
+        && warning.get('closedAt', null) == null
+        && warning.get('closedByUid', null) == null
+        && warning.get('closedByName', null) == null
+        && warning.get('closureDisposition', null) == null
+        && warning.get('linkedReannealingChargeNos', null) is list
+        && warning.get('linkedReannealingChargeNos', []).size() == 0
+        && warning.get('decisionReason', null) == null
+        && warning.get('updatedAt', null) == warning.get('createdAt', null)
+        && warning.get('updatedByUid', null) ==
+          warning.get('createdByUid', null)
+        && warning.get('updatedByName', null) ==
+          warning.get('createdByName', null)
+        && warning.get('version', -1) == 1;
+    }
+
+    function requiredAbnormalityQualityWarningExists(docId) {
+      let warningId = 'abnormality_' + docId;
+      let warningPath =
+        /databases/$(database)/documents/quality_warnings/$(warningId);
+      let warning = getAfter(warningPath).data;
+      return (!exists(warningPath) && existsAfter(warningPath))
+        || (exists(warningPath)
+        && initialQualityWarningProjection(warning, warningId)
+        && warning.get('sourceType', null) == 'abnormality'
+        && warning.get('sourceId', null) == docId
+        && warning.get('sourceVersion', -1) ==
+          request.resource.data.get('version', -2)
+        && warning.get('sourceChargeNo', -1) ==
+          request.resource.data.get('sourceChargeNo', -2)
+        && warning.get('sourceSummary', null) ==
+          request.resource.data.get('abnormalityTypeTitle', null)
+        && warning.get('sourceSeverity', null) ==
+          request.resource.data.get('severity', null)
+        && warning.get('warningReason', null) ==
+          request.resource.data.get('observedReason', null)
+        && warning.get('affectedAssets', []) ==
+          request.resource.data.get('affectedAssets', [])
+        && warning.get('component', null) ==
+          request.resource.data.get('component', null)
+        && warning.get('createdAt', null) ==
+          request.resource.data.get('loggedAt', null)
+        && warning.get('createdByUid', null) ==
+          request.resource.data.get('loggedByUid', null)
+        && warning.get('createdByName', null) ==
+          request.resource.data.get('loggedByName', null));
+    }
+
+    function validIssueQualityWarning(docId) {
+      let sourceId = request.resource.data.get('sourceId', '');
+      let sourcePath = /databases/$(database)/documents/maintenance_records/$(sourceId);
+      let source = getAfter(sourcePath).data;
+      return request.resource.data.get('sourceType', null) == 'issue'
+        && docId == 'issue_' + sourceId
+        && existsAfter(sourcePath)
+        && source.get('firestoreId', null) == sourceId
+        && source.get('qualityIntentSchemaVersion', -1) == 1
+        && source.get('qualityImpactAssessment', null) == 'suspected'
+        && request.resource.data.get('sourceVersion', -1) ==
+          source.get('version', -2)
+        && request.resource.data.get('sourceChargeNo', -1) ==
+          source.get('chargeNoAtEvent', -2)
+        && request.resource.data.get('sourceSummary', null) ==
+          source.get('description', null)
+        && request.resource.data.get('warningReason', null) ==
+          source.get('qualityWarningReason', null)
+        && request.resource.data.get('component', null) ==
+          source.get('component', null)
+        && request.resource.data.get('createdAt', null) ==
+          source.get('createdAt', null)
+        && request.resource.data.get('createdByUid', null) ==
+          source.get('loggedByUid', null)
+        && request.resource.data.get('createdByName', null) ==
+          source.get('loggedByName', null)
+        && request.resource.data.get('affectedAssets', []).size() == 1
+        && request.resource.data.get('affectedAssets', [])[0].get(
+          'assetType',
+          null
+        ) == source.get('assetType', null)
+        && request.resource.data.get('affectedAssets', [])[0].get(
+          'assetNumber',
+          -1
+        ) == source.get('assetNumber', -2)
+        && ((source.get('isCritical', false) == true
+            && request.resource.data.get('sourceSeverity', null) == 'critical')
+          || (source.get('isCritical', false) == false
+            && request.resource.data.get('sourceSeverity', null) == 'standard'));
+    }
+
+    function validAbnormalityQualityWarning(docId) {
+      let sourceId = request.resource.data.get('sourceId', '');
+      let sourcePath = /databases/$(database)/documents/charge_abnormalities/$(sourceId);
+      let source = getAfter(sourcePath).data;
+      return request.resource.data.get('sourceType', null) == 'abnormality'
+        && docId == 'abnormality_' + sourceId
+        && existsAfter(sourcePath)
+        && source.get('firestoreId', null) == sourceId
+        && request.resource.data.get('sourceVersion', -1) ==
+          source.get('version', -2)
+        && request.resource.data.get('sourceChargeNo', -1) ==
+          source.get('sourceChargeNo', -2)
+        && request.resource.data.get('sourceSummary', null) ==
+          source.get('abnormalityTypeTitle', null)
+        && request.resource.data.get('sourceSeverity', null) ==
+          source.get('severity', null)
+        && request.resource.data.get('warningReason', null) ==
+          source.get('observedReason', null)
+        && request.resource.data.get('affectedAssets', []) ==
+          source.get('affectedAssets', [])
+        && request.resource.data.get('component', null) ==
+          source.get('component', null)
+        && request.resource.data.get('createdAt', null) ==
+          source.get('loggedAt', null)
+        && request.resource.data.get('createdByUid', null) ==
+          source.get('loggedByUid', null)
+        && request.resource.data.get('createdByName', null) ==
+          source.get('loggedByName', null);
+    }
+
+    function validQualityWarningCreate(docId) {
+      return isApprovedUser()
+        && globalPullStampAbsentOnCreate()
+        && validQualityWarningCommon(docId)
+        && (validIssueQualityWarning(docId)
+          || validAbnormalityQualityWarning(docId));
     }
 
     // ─────────────────────────────────────────────
@@ -3344,6 +3670,29 @@ service cloud.firestore {
       // audit and replay evidence by mutateChargeAbnormality.
       allow update: if false;
       allow delete: if false;
+    }
+
+    // ─────────────────────────────────────────────
+    // ✅ QUALITY WARNINGS AND MONITORING
+    // ─────────────────────────────────────────────
+
+    match /quality_warnings/{docId} {
+      allow read: if isApprovedUser();
+      allow create: if validQualityWarningCreate(docId);
+      // Exact no-op projection retries are safe. Every lifecycle change is
+      // committed by the governed quality command through the Admin SDK.
+      allow update: if isApprovedUser()
+        && request.resource.data == resource.data;
+      allow delete: if false;
+    }
+
+    match /quality_monitoring_requests/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /quality_mutation_receipts/{docId} {
+      allow read, create, update, delete: if false;
     }
 
     // ─────────────────────────────────────────────

@@ -4,6 +4,7 @@ import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import '../utils/asset_validator.dart';
 import 'maintenance_model.dart';
+import '../../quality/domain/issue_quality_intent.dart';
 import 'remote_maintenance_timestamps.dart';
 
 const _workflowQueueStates = <String>{
@@ -20,6 +21,10 @@ MaintenanceRecord readRemoteMaintenanceRecord(
   required String documentId,
 }) {
   final source = 'maintenance_records/$documentId';
+  final qualityIntent = IssueQualityIntent.readOptionalSynchronizedFields(
+    map,
+    source: source,
+  );
   final embeddedId = readRequiredPersistedString(
     map['firestoreId'],
     field: 'firestoreId',
@@ -236,12 +241,9 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     )
     ..createdAt = timestamps.createdAt
     ..updatedAt = timestamps.updatedAt
-    ..metadataJson = _optionalString(
-      map,
-      'metadataJson',
-      source,
-      emptyAsNull: false,
-    )
+    ..metadataJson =
+        qualityIntent?.encode() ??
+        _optionalString(map, 'metadataJson', source, emptyAsNull: false)
     ..actionsJson = actionsJson
     ..resolutionHistoryJson = resolutionHistoryJson
     ..isDeleted = isDeleted

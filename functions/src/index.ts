@@ -70,7 +70,18 @@ import {
 } from "./chargeAbnormalityMutation";
 import type {
   ChargeAbnormalityMutationFirestoreLike,
+  ChargeAbnormalityMutationResult,
 } from "./chargeAbnormalityMutation";
+import {
+  isQualityMutationOperation,
+  mutateQualityWithDb,
+  QualityMutationError,
+  userCanMutateQuality,
+} from "./qualityMutation";
+import type {
+  QualityMutationFirestoreLike,
+  QualityMutationResult,
+} from "./qualityMutation";
 import {
   AssetHierarchyMutationError,
   mutateAssetHierarchyWithDb,
@@ -449,7 +460,7 @@ export const mutateUserAuthority = onCall(
   },
 );
 
-// ─── Callable: atomic charge-abnormality admin mutation ──────────────────────
+// ─── Callable: atomic charge-abnormality and quality mutation ────────────────
 
 interface MutateChargeAbnormalityRequest {
   [key: string]: unknown;
@@ -473,21 +484,36 @@ export const mutateChargeAbnormality = onCall(
   async (request: CallableRequest<MutateChargeAbnormalityRequest>) => {
     try {
       const db = admin.firestore();
-      return await executeAuthorizedMutation({
+      return await executeAuthorizedMutation<
+        ChargeAbnormalityMutationResult | QualityMutationResult
+      >({
         db,
         authUid: request.auth?.uid ?? null,
         callableName: "mutateChargeAbnormality",
-        authorize: userCanMutateChargeAbnormality,
-        execute: () => mutateChargeAbnormalityWithDb({
-          db: db as unknown as ChargeAbnormalityMutationFirestoreLike,
-          authUid: request.auth?.uid ?? null,
-          data: request.data ?? {},
-          timestampFromDate: admin.firestore.Timestamp.fromDate,
-        }),
+        authorize: (userData) =>
+          isQualityMutationOperation(request.data?.operation) ?
+            userCanMutateQuality(userData, request.data.operation) :
+            userCanMutateChargeAbnormality(userData),
+        execute: () => isQualityMutationOperation(request.data?.operation) ?
+          mutateQualityWithDb({
+            db: db as unknown as QualityMutationFirestoreLike,
+            authUid: request.auth?.uid ?? null,
+            data: request.data ?? {},
+            timestampFromDate: admin.firestore.Timestamp.fromDate,
+          }) :
+          mutateChargeAbnormalityWithDb({
+            db: db as unknown as ChargeAbnormalityMutationFirestoreLike,
+            authUid: request.auth?.uid ?? null,
+            data: request.data ?? {},
+            timestampFromDate: admin.firestore.Timestamp.fromDate,
+          }),
       });
     } catch (error) {
       if (error instanceof HttpsError) throw error;
       if (error instanceof ChargeAbnormalityMutationError) {
+        throw new HttpsError(error.code, error.message, error.details);
+      }
+      if (error instanceof QualityMutationError) {
         throw new HttpsError(error.code, error.message, error.details);
       }
       logger.error("mutateChargeAbnormality failed", error);

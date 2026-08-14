@@ -258,6 +258,70 @@ function hierarchyDocuments() {
   };
 }
 
+function qualityDocuments() {
+  return {
+    quality_warnings: [{
+      id: 'issue_ticket-1',
+      data: {
+        schemaVersion: 1,
+        warningId: 'issue_ticket-1',
+        sourceType: 'issue',
+        sourceId: 'ticket-1',
+        sourceVersion: 1,
+        sourceChargeNo: 12001,
+        sourceSummary: 'Atmosphere interruption during cycle',
+        sourceSeverity: 'critical',
+        warningReason: 'Atmosphere interruption may affect coil quality.',
+        affectedAssets: [{assetType: 'furnace', assetNumber: 7}],
+        component: 'Atmosphere control',
+        status: 'open',
+        closureRequestReason: null,
+        closureRequestedAt: null,
+        closureRequestedByUid: null,
+        closureRequestedByName: null,
+        closedAt: null,
+        closedByUid: null,
+        closedByName: null,
+        closureDisposition: null,
+        linkedReannealingChargeNos: [],
+        decisionReason: null,
+        createdAt: ts,
+        createdByUid: 'operations-1',
+        createdByName: 'Operations',
+        updatedAt: ts,
+        updatedByUid: 'operations-1',
+        updatedByName: 'Operations',
+        version: 1,
+      },
+    }],
+    quality_monitoring_requests: [{
+      id: 'monitoring-1',
+      data: {
+        schemaVersion: 1,
+        requestId: 'monitoring-1',
+        baseNumber: 12,
+        grade: 'CRGO M4',
+        cycleReference: 'Cycle family 7A',
+        chargeNumbers: [12001, 12002],
+        reason: 'Monitor atmosphere stability during the campaign.',
+        status: 'active',
+        createdAt: ts,
+        createdByUid: 'si-1',
+        createdByName: 'SI',
+        closedAt: null,
+        closedByUid: null,
+        closedByName: null,
+        closeReason: null,
+        updatedAt: ts,
+        updatedByUid: 'si-1',
+        updatedByName: 'SI',
+        version: 1,
+        lastMutationId: '44444444-4444-4444-8444-444444444444',
+      },
+    }],
+  };
+}
+
 function classify({
   documents = {},
   roots = [],
@@ -500,6 +564,54 @@ test('actual Dart readers reconcile every hierarchy collection in memory', async
   }
 });
 
+test('actual Dart readers reconcile quality warning and monitoring records', async () => {
+  const quality = qualityDocuments();
+  const documents = {
+    ...emptyDocuments(),
+    users: [{id: 'private-user-id', data: user()}],
+    runtime_contracts: [{id: 'global_pull_v1', data: runtimeContract()}],
+    ...quality,
+  };
+  const reconciliation = await reconcileA05DocumentsWithDart({
+    documentsByCollection: documents,
+    hmacKey: HMAC_KEY,
+  });
+  assert.equal(reconciliation.length, 2);
+  assert.ok(reconciliation.every((result) => result.result === 'PASS'));
+  assert.equal(JSON.stringify(reconciliation).includes('ticket-1'), false);
+
+  const result = classify({
+    documents,
+    roots: ['users', 'runtime_contracts', ...Object.keys(quality)],
+    reconciliation,
+  });
+  assert.equal(result.decision, A05_DECISIONS.pass);
+  for (const collection of Object.keys(quality)) {
+    assert.equal(
+      result.collectionDispositions[collection],
+      'DART_STRICT_RECONCILIATION_PASS',
+    );
+  }
+});
+
+test('quality warning identity mismatch fails closed in the real Dart reader', async () => {
+  const documents = {...emptyDocuments(), ...qualityDocuments()};
+  documents.quality_warnings[0] = {
+    ...documents.quality_warnings[0],
+    data: {...documents.quality_warnings[0].data, sourceId: 'wrong-ticket'},
+  };
+  const reconciliation = await reconcileA05DocumentsWithDart({
+    documentsByCollection: documents,
+    hmacKey: HMAC_KEY,
+  });
+  const warning = reconciliation.find(
+    (result) => result.collection === 'quality_warnings',
+  );
+  assert.equal(warning?.result, 'FAIL');
+  assert.equal(warning?.errorType, 'PERSISTED_DATA_FORMAT');
+  assert.equal(warning?.field, 'sourceId');
+});
+
 test('hierarchy tag claims fail closed when document identity is inconsistent', async () => {
   const documents = {...emptyDocuments(), ...hierarchyDocuments()};
   documents.asset_tag_claims[0] = {
@@ -568,13 +680,23 @@ test('server-only receipts are counted without becoming app decoder evidence', (
       users: [{id: 'u1', data: user()}],
       runtime_contracts: [{id: 'global_pull_v1', data: runtimeContract()}],
       callable_abuse_controls: [{id: 'rate-limit-id', data: {}}],
+      quality_mutation_receipts: [{id: 'quality-receipt-id', data: {}}],
     },
-    roots: ['users', 'runtime_contracts', 'callable_abuse_controls'],
+    roots: [
+      'users',
+      'runtime_contracts',
+      'callable_abuse_controls',
+      'quality_mutation_receipts',
+    ],
   });
   assert.equal(result.decision, A05_DECISIONS.pass);
   assert.equal(result.collectionCounts.callable_abuse_controls, 1);
   assert.equal(
     result.collectionDispositions.callable_abuse_controls,
+    'COUNTED_SERVER_CONTROL_OUTSIDE_APP_DECODER_SCOPE',
+  );
+  assert.equal(
+    result.collectionDispositions.quality_mutation_receipts,
     'COUNTED_SERVER_CONTROL_OUTSIDE_APP_DECODER_SCOPE',
   );
 });

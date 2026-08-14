@@ -3,6 +3,7 @@ import 'package:isar/isar.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
+import '../../quality/domain/issue_quality_intent.dart';
 
 part 'maintenance_model.g.dart';
 
@@ -165,10 +166,7 @@ ValidatedResolutionHistoryPayload readValidatedResolutionHistoryPayload(
   return ValidatedResolutionHistoryPayload(rows: rows, entries: entries);
 }
 
-String readEncodedResolutionHistoryPayload(
-  dynamic value, {
-  String? source,
-}) {
+String readEncodedResolutionHistoryPayload(dynamic value, {String? source}) {
   if (value == null) return '[]';
   if (value is! String) {
     throw PersistedDataFormatException(
@@ -330,6 +328,18 @@ class MaintenanceRecord {
   late DateTime updatedAt;
 
   String? metadataJson;
+
+  @ignore
+  IssueQualityIntent? get qualityIntent =>
+      IssueQualityIntent.tryDecodeLocal(metadataJson);
+
+  set qualityIntent(IssueQualityIntent? value) {
+    metadataJson = value?.encode();
+  }
+
+  @ignore
+  Map<String, dynamic> get qualityIntentSynchronizedFields =>
+      qualityIntent?.toSynchronizedFields() ?? const <String, dynamic>{};
 
   // ── Actions (structured work done) ───────────────────────────────────────
   String actionsJson = '[]';

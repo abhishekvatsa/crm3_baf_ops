@@ -8,6 +8,7 @@ import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.da
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
+import 'package:crm3_baf_ops/features/quality/data/quality_warning.dart';
 
 const _supportedCollections = <String>{
   'asset_classes',
@@ -18,6 +19,8 @@ const _supportedCollections = <String>{
   'asset_tag_claims',
   'audit_logs',
   'maintenance_records',
+  'quality_monitoring_requests',
+  'quality_warnings',
 };
 
 Future<void> main() async {
@@ -74,6 +77,10 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         decodePersistedAuditEvent(data, documentId: documentId);
       case 'maintenance_records':
         readRemoteMaintenanceRecord(data, documentId: documentId);
+      case 'quality_warnings':
+        QualityWarning.fromMap(data, documentId);
+      case 'quality_monitoring_requests':
+        QualityMonitoringRequest.fromMap(data, documentId);
       default:
         throw UnsupportedError('unsupported collection');
     }

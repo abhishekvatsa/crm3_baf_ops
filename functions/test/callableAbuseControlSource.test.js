@@ -21,13 +21,34 @@ describe('S-03 callable boundary wiring', () => {
       'userCanMutateRuntimeJobModulePopulation',
     ],
     ['mutateUserAuthority', 'userCanMutateUserAuthority'],
-    ['mutateChargeAbnormality', 'userCanMutateChargeAbnormality'],
   ])('%s uses authority-first shared admission through %s', (
     callableName,
     authorityPredicate,
   ) => {
     expect(indexSource).toContain(`callableName: "${callableName}"`);
     expect(indexSource).toContain(`authorize: ${authorityPredicate}`);
+  });
+
+  test('abnormality and quality mutations select exact authority before shared admission', () => {
+    const callableStart = indexSource.indexOf(
+      'export const mutateChargeAbnormality = onCall(',
+    );
+    const callableEnd = indexSource.indexOf(
+      '// ─── Callable: governed asset-hierarchy mutation',
+      callableStart,
+    );
+    const callableBlock = indexSource.slice(callableStart, callableEnd);
+
+    expect(callableStart).toBeGreaterThan(-1);
+    expect(callableEnd).toBeGreaterThan(callableStart);
+    expect(callableBlock).toContain('callableName: "mutateChargeAbnormality"');
+    expect(callableBlock).toContain(
+      'isQualityMutationOperation(request.data?.operation)',
+    );
+    expect(callableBlock).toContain(
+      'userCanMutateQuality(userData, request.data.operation)',
+    );
+    expect(callableBlock).toContain('userCanMutateChargeAbnormality(userData)');
   });
 
   test('asset mutations select the exact authority before shared admission', () => {
