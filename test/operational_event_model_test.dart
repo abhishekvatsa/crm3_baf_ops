@@ -35,6 +35,29 @@ Map<String, dynamic> record({
 };
 
 void main() {
+  test('command timestamps are normalized to UTC milliseconds', () {
+    final draft = OperationalEventDraft(
+      eventType: OperationalEventType.water,
+      title: 'Cooling-water pressure variation',
+      description: 'Pressure varied during the active operating cycle.',
+      severity: OperationalEventSeverity.significant,
+      scope: OperationalEventScope.plantWide,
+      affectedAssetClassIds: const [],
+      affectedAssetInstanceIds: const [],
+      startedAt: DateTime.utc(2026, 8, 14, 10, 0, 0, 123, 456),
+    );
+
+    expect(draft.toCommandMap()['startedAt'], '2026-08-14T10:00:00.123Z');
+  });
+
+  test('resolved history disclosure states the bounded source window', () {
+    expect(
+      operationalEventResolvedHistoryDisclosure,
+      contains('$operationalEventLiveWindowLimit'),
+    );
+    expect(operationalEventResolvedHistoryDisclosure, contains('resolved'));
+  });
+
   test('strictly decodes a complete open operational event', () {
     final event = OperationalEvent.fromMap(record(), 'event-1');
     expect(event.isOpen, isTrue);

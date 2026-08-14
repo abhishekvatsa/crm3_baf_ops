@@ -7,6 +7,9 @@ import '../data/operational_event.dart';
 import '../services/operational_event_service.dart';
 
 const operationalEventLiveWindowLimit = 500;
+const operationalEventResolvedHistoryDisclosure =
+    'Showing up to $operationalEventLiveWindowLimit most recently updated '
+    'events. Older resolved events may not be shown.';
 
 final operationalEventServiceProvider = Provider<OperationalEventService>(
   (ref) => OperationalEventService(),

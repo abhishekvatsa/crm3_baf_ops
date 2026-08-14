@@ -114,7 +114,7 @@ class _OperationalEventsScreenState
                         ButtonSegment(
                           value: false,
                           icon: Icon(Icons.task_alt_rounded),
-                          label: Text('History'),
+                          label: Text('Recent resolved'),
                         ),
                       ],
                       selected: {_showOpen},
@@ -124,6 +124,8 @@ class _OperationalEventsScreenState
                     ),
                   ),
                 ),
+                if (!_showOpen)
+                  const SliverToBoxAdapter(child: _HistoryWindowNotice()),
                 if (visible.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
@@ -295,12 +297,46 @@ class _EventSummary extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: _Metric(
-            label: 'Resolved',
+            label: 'Recent resolved',
             value: resolvedCount,
             color: BafColors.success,
           ),
         ),
       ],
+    ),
+  );
+}
+
+class _HistoryWindowNotice extends StatelessWidget {
+  const _HistoryWindowNotice();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+    child: Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: BafColors.planned.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(color: BafColors.planned.withValues(alpha: 0.22)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, color: BafColors.planned, size: 20),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              operationalEventResolvedHistoryDisclosure,
+              style: TextStyle(
+                color: BafColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }
