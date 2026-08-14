@@ -76,12 +76,16 @@ void main() {
       expect(executionSrc, contains('showDialog<AdminDeleteDecision>'));
     });
 
-    test('uses dialog-owned controllers for ticket edit', () {
+    test('uses dialog-owned controllers for governed ticket correction', () {
       expect(
         ticketSrc,
-        contains('class _AdminEditTicketDialog extends StatefulWidget'),
+        contains('class _AdminCorrectTicketDialog extends StatefulWidget'),
       );
-      expect(ticketSrc, contains('showDialog<MaintenanceRecord>'));
+      expect(ticketSrc, contains('showDialog<AdminTicketCorrectionDraft>'));
+      expect(
+        ticketSrc,
+        contains('WorkflowCommandType.correctMaintenanceTicket'),
+      );
     });
 
     test('uses dialog-owned controllers for directive edit', () {

@@ -52,6 +52,7 @@ export interface WorkflowCommand {
 export type WorkflowAuthorityCapability =
   | "lane.acknowledge" | "lane.work" | "lane.close"
   | "compliance.raise"
+  | "ticket.acknowledge" | "ticket.correct"
   | "laneSet.finalize" | "lanePopulation.manage" | "workflow.cancel"
   | "condition.markDue" | "redLane.prepare" | "workflowModule.reopen"
   | "job.finalize" | "equipment.deploy" | "equipment.reconcile"
@@ -71,7 +72,9 @@ export type WorkflowCommandType =
   | "confirmConditionAndReactivate" | "markComplianceComplied"
   | "returnComplianceForCorrection" | "confirmComplianceClosed"
   | "proposeCounterCondition" | "decideCounterCondition"
-  | "prepareRedLane" | "reopenWorkflowModule" | "finalizeJob" | "deployEquipment" | "reconcileEquipment";
+  | "prepareRedLane" | "reopenWorkflowModule" | "finalizeJob"
+  | "deployEquipment" | "reconcileEquipment"
+  | "acknowledgeMaintenanceTicket" | "correctMaintenanceTicket";
 
 export interface WorkflowCommandReceipt {
   readonly commandId: string;

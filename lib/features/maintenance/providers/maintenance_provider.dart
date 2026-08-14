@@ -83,8 +83,6 @@ abstract class MaintenanceRepository {
     int number,
   );
   Future<MaintenanceRecord?> getTicketById(dynamic id);
-  Future<void> updateTicket(MaintenanceRecord record, {required AppUser actor});
-
   // 🔥 REACTIVE STREAMS
   Stream<List<MaintenanceRecord>> watchOpenTickets();
   Stream<List<MaintenanceRecord>> watchAllTickets({int? limit});
@@ -219,35 +217,6 @@ String? _cleanOptionalMaintenanceText(String? value) {
   return trimmed;
 }
 
-void _normalizeManualMaintenanceUpdate(MaintenanceRecord record, DateTime now) {
-  record
-    ..component = _cleanOptionalMaintenanceText(record.component)
-    ..subsystem = _cleanOptionalMaintenanceText(record.subsystem)
-    ..tag = _cleanOptionalMaintenanceText(record.tag)
-    ..classification = _cleanOptionalMaintenanceText(record.classification)
-    ..otherDepartment = _cleanOptionalMaintenanceText(record.otherDepartment)
-    ..remarks = _cleanOptionalMaintenanceText(record.remarks);
-
-  if (record.status == TicketStatus.resolved) {
-    record.isResolved = true;
-    record.endDate ??= now;
-    return;
-  }
-
-  record
-    ..isResolved = false
-    ..endDate = null
-    ..closedByUid = null
-    ..closedByName = null
-    ..downtimeHours = null
-    ..teamsInvolved = []
-    ..actionsJson = '[]';
-}
-
-Object _nullableTextForFirestoreUpdate(String? value) {
-  return _cleanOptionalMaintenanceText(value) ?? FieldValue.delete();
-}
-
 void _requireCanCloseMaintenanceTicket(AppUser actor) {
   if (!actor.canCloseMaintenanceTicket) {
     throw StateError('Not authorized to close maintenance tickets.');
@@ -257,12 +226,6 @@ void _requireCanCloseMaintenanceTicket(AppUser actor) {
 void _requireCanReopenMaintenanceTicket(AppUser actor) {
   if (!actor.canReopenMaintenanceTicket) {
     throw StateError('Not authorized to reopen maintenance tickets.');
-  }
-}
-
-void _requireCanAdminEditMaintenanceTicket(AppUser actor) {
-  if (!actor.canAdminEditMaintenanceTicket) {
-    throw StateError('Not authorized to edit maintenance ticket fields.');
   }
 }
 
@@ -567,25 +530,6 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
     final ticket = await isar.maintenanceRecords.get(id as int);
     if (ticket != null && ticket.isDeleted) return null;
     return ticket;
-  }
-
-  @override
-  Future<void> updateTicket(
-    MaintenanceRecord record, {
-    required AppUser actor,
-  }) async {
-    _requireCanAdminEditMaintenanceTicket(actor);
-    _requireMaintenanceWorkflowAllowsAction(record, 'edit this ticket');
-    _requireValidMaintenanceEvidence(record);
-    final now = DateTime.now();
-    _normalizeManualMaintenanceUpdate(record, now);
-    record.updatedAt = now;
-    record.version += 1;
-    record.isSynced = false;
-
-    await isar.writeTxn(() async {
-      await isar.maintenanceRecords.put(record);
-    });
   }
 
   @override
@@ -1358,73 +1302,6 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     if (!doc.exists) return null;
     final ticket = _mapTicket(doc);
     return ticket.isDeleted ? null : ticket;
-  }
-
-  @override
-  Future<void> updateTicket(
-    MaintenanceRecord record, {
-    required AppUser actor,
-  }) async {
-    _requireCanAdminEditMaintenanceTicket(actor);
-    if (record.firestoreId == null) return;
-    final current = await _collection.doc(record.firestoreId!).get();
-    if (!current.exists || current.data() == null) return;
-    _requireMaintenanceWorkflowMapAllowsAction(
-      current.data()!,
-      'edit this ticket',
-    );
-    final currentRecord = _mapTicket(current);
-    _requireValidMaintenanceEvidence(currentRecord);
-    _requireValidMaintenanceEvidence(record);
-    final now = DateTime.now();
-    _normalizeManualMaintenanceUpdate(record, now);
-
-    final updateMap = <String, dynamic>{
-      'assetType': record.assetType.name,
-      'assetNumber': record.assetNumber,
-      'description': record.description,
-      'routedTo': record.routedTo.name,
-      'maintenanceType': record.maintenanceType.name,
-      'status': record.status.name,
-      'isResolved': record.isResolved,
-      'isCritical': record.isCritical,
-      'component': _nullableTextForFirestoreUpdate(record.component),
-      'subsystem': _nullableTextForFirestoreUpdate(record.subsystem),
-      'tag': _nullableTextForFirestoreUpdate(record.tag),
-      'assetHierarchyRefJson': _nullableTextForFirestoreUpdate(
-        record.assetHierarchyRefJson,
-      ),
-      'classification': _nullableTextForFirestoreUpdate(record.classification),
-      'otherDepartment': _nullableTextForFirestoreUpdate(
-        record.otherDepartment,
-      ),
-      'remarks': _nullableTextForFirestoreUpdate(record.remarks),
-      'actionsJson': record.actionsJson,
-      'resolutionHistoryJson': record.resolutionHistoryJson,
-      'updatedAt': now.toIso8601String(),
-      'version': FieldValue.increment(1),
-    };
-
-    if (record.isResolved) {
-      updateMap.addAll({
-        'endDate': (record.endDate ?? now).toIso8601String(),
-        'closedByUid': record.closedByUid,
-        'closedByName': record.closedByName,
-        'downtimeHours': record.downtimeHours,
-        'teamsInvolved': record.teamsInvolved,
-      });
-      updateMap.removeWhere((key, value) => value == null);
-    } else {
-      updateMap.addAll({
-        'endDate': FieldValue.delete(),
-        'closedByUid': FieldValue.delete(),
-        'closedByName': FieldValue.delete(),
-        'downtimeHours': FieldValue.delete(),
-        'teamsInvolved': [],
-      });
-    }
-
-    await _collection.doc(record.firestoreId!).update(updateMap);
   }
 
   @override

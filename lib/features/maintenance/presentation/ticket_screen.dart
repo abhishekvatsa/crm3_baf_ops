@@ -12,6 +12,9 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../maintenance_workflow/domain/workflow_types.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
+import '../../maintenance_workflow/services/workflow_command_factory.dart';
 import '../data/maintenance_model.dart';
 import '../providers/maintenance_provider.dart';
 import 'maintenance_form.dart';
@@ -27,6 +30,7 @@ class TicketScreen extends ConsumerStatefulWidget {
 class _TicketScreenState extends ConsumerState<TicketScreen> {
   Timer? _timer;
   String _query = '';
+  String? _busyTicketId;
 
   @override
   void initState() {
@@ -80,10 +84,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                   final tickets = _visibleTickets(allTickets, appUser);
 
                   if (tickets.isEmpty) {
-                    return _buildEmptyState(
-                      appUser.canSeeAllTickets,
-                      syncStatus,
-                    );
+                    return _buildEmptyState(appUser, syncStatus);
                   }
 
                   return _buildTicketList(tickets, appUser, syncStatus);
@@ -133,9 +134,13 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     List<MaintenanceRecord> allTickets,
     AppUser appUser,
   ) {
-    if (appUser.canSeeAllTickets) return allTickets;
     return allTickets
-        .where((ticket) => ticket.loggedByUid == appUser.uid)
+        .where(
+          (ticket) => appUser.canViewMaintenanceTicket(
+            loggedByUid: ticket.loggedByUid,
+            routedTo: ticket.routedTo,
+          ),
+        )
         .toList();
   }
 
@@ -204,6 +209,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
             count: filtered.length,
             totalCount: tickets.length,
             canSeeAll: appUser.canSeeAllTickets,
+            canSeeAssigned: appUser.canSeeAssignedMaintenanceTickets,
             isSyncing: syncStatus == SyncStatus.syncing,
             query: _query,
             onQueryChanged: (value) => setState(() => _query = value),
@@ -219,12 +225,22 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                   ticket.routedTo == RoutedTo.refractory
                       ? appUser.canCloseRedTicket
                       : canResolveAnyTicket;
+              final ticketId = ticket.firestoreId?.trim();
+              final canAcknowledge =
+                  ticket.status == TicketStatus.open &&
+                  !ticket.workflowDeferred &&
+                  ticketId != null &&
+                  ticketId.isNotEmpty &&
+                  appUser.canAcknowledgeMaintenanceTicket(ticket.routedTo);
               return Padding(
                 padding: const EdgeInsets.only(bottom: BafSpacing.md),
                 child: _TicketCard(
                   ticket: ticket,
                   canResolve: canResolveThis && !ticket.workflowDeferred,
                   onResolve: () => _openResolve(ticket),
+                  canAcknowledge: canAcknowledge,
+                  isBusy: _busyTicketId == ticketId,
+                  onAcknowledge: () => _acknowledgeTicket(ticket),
                 ),
               );
             }),
@@ -271,7 +287,66 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     );
   }
 
-  Widget _buildEmptyState(bool canSeeAll, SyncStatus syncStatus) {
+  Future<void> _acknowledgeTicket(MaintenanceRecord ticket) async {
+    final ticketId = ticket.firestoreId?.trim();
+    if (ticketId == null || ticketId.isEmpty || _busyTicketId != null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('Acknowledge this issue?'),
+            content: Text(
+              'This records that ${_TicketCard._deptLabel(ticket.routedTo)} has received and accepted responsibility for triage. It does not resolve the issue.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton.icon(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                icon: const Icon(Icons.verified_rounded),
+                label: const Text('Acknowledge'),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busyTicketId = ticketId);
+    try {
+      await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(
+            WorkflowCommandFactory.create(
+              type: WorkflowCommandType.acknowledgeMaintenanceTicket,
+              aggregateId: ticketId,
+              expectedVersion: ticket.version,
+            ),
+          );
+      await ref
+          .read(syncCoordinatorProvider)
+          .runFullSync(reason: 'maintenance_ticket_acknowledged', force: true);
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Issue acknowledged'),
+          backgroundColor: BafColors.success,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text('Could not acknowledge issue: $error'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busyTicketId = null);
+    }
+  }
+
+  Widget _buildEmptyState(AppUser appUser, SyncStatus syncStatus) {
     return _BoundedIssuesContent(
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -280,7 +355,8 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
           _IssuesHeader(
             count: 0,
             totalCount: 0,
-            canSeeAll: canSeeAll,
+            canSeeAll: appUser.canSeeAllTickets,
+            canSeeAssigned: appUser.canSeeAssignedMaintenanceTickets,
             isSyncing: syncStatus == SyncStatus.syncing,
             query: '',
             onQueryChanged: (_) {},
@@ -308,8 +384,10 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                 ),
                 const SizedBox(height: BafSpacing.xs),
                 Text(
-                  canSeeAll
+                  appUser.canSeeAllTickets
                       ? 'No active breakdowns on the floor right now.'
+                      : appUser.canSeeAssignedMaintenanceTickets
+                      ? 'No active issues are assigned to your team or raised by you.'
                       : 'You have no active issues logged right now.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: BafColors.textSecondary),
@@ -344,6 +422,7 @@ class _IssuesHeader extends StatelessWidget {
   final int count;
   final int totalCount;
   final bool canSeeAll;
+  final bool canSeeAssigned;
   final bool isSyncing;
   final String query;
   final ValueChanged<String> onQueryChanged;
@@ -354,6 +433,7 @@ class _IssuesHeader extends StatelessWidget {
     required this.count,
     required this.totalCount,
     required this.canSeeAll,
+    required this.canSeeAssigned,
     required this.isSyncing,
     required this.query,
     required this.onQueryChanged,
@@ -384,6 +464,8 @@ class _IssuesHeader extends StatelessWidget {
                   Text(
                     canSeeAll
                         ? 'Issues needing attention across the floor.'
+                        : canSeeAssigned
+                        ? 'Issues raised by you or routed to your team.'
                         : 'Issues raised by you and still active.',
                     style: const TextStyle(
                       color: BafColors.textSecondary,
@@ -472,11 +554,17 @@ class _TicketCard extends StatelessWidget {
   final MaintenanceRecord ticket;
   final bool canResolve;
   final VoidCallback onResolve;
+  final bool canAcknowledge;
+  final bool isBusy;
+  final VoidCallback onAcknowledge;
 
   const _TicketCard({
     required this.ticket,
     required this.canResolve,
     required this.onResolve,
+    required this.canAcknowledge,
+    required this.isBusy,
+    required this.onAcknowledge,
   });
 
   @override
@@ -564,9 +652,18 @@ class _TicketCard extends StatelessWidget {
                                 icon: Icons.priority_high_rounded,
                               ),
                             StatusBadge(
-                              label: 'Open $elapsedText',
-                              color: BafColors.maintenance,
-                              icon: Icons.timer_outlined,
+                              label:
+                                  ticket.status == TicketStatus.acknowledged
+                                      ? 'Acknowledged'
+                                      : 'Open $elapsedText',
+                              color:
+                                  ticket.status == TicketStatus.acknowledged
+                                      ? BafColors.warning
+                                      : BafColors.maintenance,
+                              icon:
+                                  ticket.status == TicketStatus.acknowledged
+                                      ? Icons.verified_rounded
+                                      : Icons.timer_outlined,
                             ),
                             if (ticket.isWorkflowLinked)
                               StatusBadge(
@@ -622,6 +719,13 @@ class _TicketCard extends StatelessWidget {
                   text: 'Component: $component',
                 ),
               ],
+              if (ticket.acknowledgedByName?.trim().isNotEmpty == true) ...[
+                const SizedBox(height: 5),
+                _MetaRow(
+                  icon: Icons.verified_user_outlined,
+                  text: 'Acknowledged by ${ticket.acknowledgedByName}',
+                ),
+              ],
               if (ticket.workflowDeferred) ...[
                 const SizedBox(height: BafSpacing.lg),
                 Container(
@@ -646,6 +750,23 @@ class _TicketCard extends StatelessWidget {
                   ),
                 ),
               ],
+              if (canAcknowledge) ...[
+                const SizedBox(height: BafSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: isBusy ? null : onAcknowledge,
+                    icon:
+                        isBusy
+                            ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Icon(Icons.verified_rounded, size: 20),
+                    label: Text(isBusy ? 'Acknowledging...' : 'Acknowledge'),
+                  ),
+                ),
+              ],
               if (canResolve) ...[
                 const SizedBox(height: BafSpacing.lg),
                 SizedBox(
@@ -663,7 +784,7 @@ class _TicketCard extends StatelessWidget {
                     ),
                     icon: const Icon(Icons.task_alt_rounded, size: 20),
                     label: const Text(
-                      'Resolve / Update',
+                      'Resolve issue',
                       style: TextStyle(fontWeight: FontWeight.w900),
                     ),
                   ),

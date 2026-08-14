@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 204,
-    "SUCCESSOR_MODIFIED": 206
+    "BYTE_IDENTICAL": 203,
+    "SUCCESSOR_MODIFIED": 207
   },
   "paths": [
     {
@@ -465,9 +465,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "1D00F45C70A587C83EC769451E5F43994617A3F3AC3076E54E63006D72F1FE95",
+      "candidateSha256": "90862A81A16FFFE2ED8264CCB0981B6A5256C46F30C44DA8667652AECE3DC447",
       "canonicalBytes": 111981,
-      "candidateBytes": 160647,
+      "candidateBytes": 158585,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1261,9 +1261,9 @@
     {
       "path": "lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart",
       "canonicalSha256": "F8D05C5FE70571DE9411B4E369E0318493A2CB2BADB5FE054A2D4E147C2F28BC",
-      "candidateSha256": "388E151915611FA453377728FCFC31323D4EB7F32ABF3E8506A5287425624688",
+      "candidateSha256": "37D42318F27D2372C2C72967B9719406FA5415D14D87F1E19371D4F70948E252",
       "canonicalBytes": 19777,
-      "candidateBytes": 20755,
+      "candidateBytes": 23315,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1333,9 +1333,9 @@
     {
       "path": "lib/features/admin/utils/admin_ticket_helpers.dart",
       "canonicalSha256": "9B0864D1917DE518350DB0573AE9B2C8833E03E31E4C3F008305EAA66DFB5ECE",
-      "candidateSha256": "7BA1EB214D9CB3CEED8F4E4E25CAA33C18B73E42611EDAA3781A2E830B06CEA4",
+      "candidateSha256": "B90190D2C207D7BB0FE4EBFFB7B8265AC3B8C2791143AEA7B8D4969B5EDF2306",
       "canonicalBytes": 3691,
-      "candidateBytes": 5194,
+      "candidateBytes": 3679,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1405,9 +1405,9 @@
     {
       "path": "lib/features/auth/data/user_model.dart",
       "canonicalSha256": "DCBFB4D7AA4D57579F5BFAD3B58B19DFD08B17418355969971F8C66762E5585E",
-      "candidateSha256": "979A661DCEFC81DCBDD323AC0B7AAE7470F84E4C76F347BE28D0951CAE0DB258",
+      "candidateSha256": "93290A286097513EDF9EAA3B889A006CCC4873945AE4A2522A307E6A23FBAEC0",
       "canonicalBytes": 17328,
-      "candidateBytes": 22581,
+      "candidateBytes": 23664,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1541,17 +1541,17 @@
     {
       "path": "lib/features/maintenance/presentation/ticket_screen.dart",
       "canonicalSha256": "A9B5800AA0FACFBB0D4C20C762A092982E3A2B0F40F31BAA0BFE703910BB7091",
-      "candidateSha256": "AF66549A651F710CEDDFAB8B138AA74BEB6362C32BAFDF84862C813539B963F3",
+      "candidateSha256": "F6C7489C41934A5AA8273FB3C52B3357FF8806DB2D5310837234A10AC3DE1B40",
       "canonicalBytes": 20981,
-      "candidateBytes": 25990,
+      "candidateBytes": 31133,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/maintenance/providers/maintenance_provider.dart",
       "canonicalSha256": "A9ECCD861BAE74BDAE1BD898D9DA47222C003487ECFB5A6C6E134BADB72A5597",
-      "candidateSha256": "98DACA13E51F9517EA9C75946E645B8D04D51FFDB9BB28C1E7609E2964637E18",
+      "candidateSha256": "3B83D1D61891D00431A66B53065AF1323A84D2FDF133DBEF90B1BDD76280E1CC",
       "canonicalBytes": 54587,
-      "candidateBytes": 62079,
+      "candidateBytes": 57838,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2649,9 +2649,9 @@
     {
       "path": "test/async_mounted_context_safety_contract_test.dart",
       "canonicalSha256": "24EAB910BCFE8CA0AAE39691BBDEDCA1671C856BEFA1ADE7EB0E6D32159348FC",
-      "candidateSha256": "35B433CFC5BF728F32A41F13FDC3A0CECB8234518531BC9492E9C2B82219CAE5",
+      "candidateSha256": "EDC052B853424FDC4FE2BB0441D86BCB5474242B9D81228120E39BCA66D43719",
       "canonicalBytes": 27121,
-      "candidateBytes": 27679,
+      "candidateBytes": 28032,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2729,9 +2729,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "2DA37138EBBB4B5C752EA0D98CC24A26053739970DDC532D000CCB902C850739",
+      "candidateSha256": "0F1BC8674E649730537C1E19FC6DBB98591B85C6F398709B19494E94DABE5F8F",
       "canonicalBytes": 78841,
-      "candidateBytes": 115446,
+      "candidateBytes": 116105,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2809,9 +2809,9 @@
     {
       "path": "test/lifecycle_static_guardrail_contract_test.dart",
       "canonicalSha256": "9F1171DCD647295C309D233D0B4E90A1CBD345225A999F0B63B620027FF60E6B",
-      "candidateSha256": "D9D5B284B0F6E2C24AE5440D1DB219AC436CB6930E608D76FE090E590E2CECD8",
+      "candidateSha256": "AED9FE0AA1439CCAA1BE0B59A0F669852BAAF1F99D2A01CCEB04C5F73AC70C24",
       "canonicalBytes": 31220,
-      "candidateBytes": 31834,
+      "candidateBytes": 31837,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2825,18 +2825,18 @@
     {
       "path": "test/maintenance_lifecycle_replay_contract_test.dart",
       "canonicalSha256": "F0E6B4CD5FA4B519998FA947242F926D61C5F9524BC8E0641AB40DF0199DB970",
-      "candidateSha256": "CA35E7AB20B143C1401A569E321B4B54C979B96F665448C1D03619A95DBE5633",
+      "candidateSha256": "2212AD13C693ABFC20A1D2955948E9CC35A6D50E9D4AB1F0772FA0C5F98B1AA6",
       "canonicalBytes": 21051,
-      "candidateBytes": 21088,
+      "candidateBytes": 20643,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "test/master_data_field_hardening_contract_test.dart",
       "canonicalSha256": "20E24ED80D63A4F5067F4D94612C7398D8D51C513C449B9991A54971A4C1DBA9",
-      "candidateSha256": "20E24ED80D63A4F5067F4D94612C7398D8D51C513C449B9991A54971A4C1DBA9",
+      "candidateSha256": "141862C66AD56D4D0BEC256D30BC74E42659AFCD58AA31F652B07916FE0FE474",
       "canonicalBytes": 11269,
-      "candidateBytes": 11269,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 11404,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "test/module_composer_70e_responsive_widget_test.dart",

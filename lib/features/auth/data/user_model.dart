@@ -145,13 +145,32 @@ class AppUser {
 
   bool get canCloseRedTicket => canCloseMaintenanceTicket;
 
+  /// Ticket acknowledgement is receiving-lane acceptance. Plant supervisors
+  /// may triage every route; discipline actors may accept only their route.
+  bool canAcknowledgeMaintenanceTicket(RoutedTo routedTo) {
+    if (!isApproved) return false;
+    if (isAdmin || isSI || isContractSupervisor || isShiftSupervisor) {
+      return true;
+    }
+    return switch (routedTo) {
+      RoutedTo.electrical => isElectrical,
+      RoutedTo.mechanical => isMechanical,
+      RoutedTo.instrumentation => isInstrumentation,
+      RoutedTo.operations => isOperations,
+      RoutedTo.shiftInCharge => isOperations,
+      RoutedTo.refractory => isRefractory,
+      RoutedTo.emd => false,
+      RoutedTo.others => false,
+    };
+  }
+
   /// Reopening is deliberately plant/operations-side: Admin/SI may reopen,
   /// and Operations may challenge/revive a closed issue.
   bool get canReopenMaintenanceTicket =>
       isApproved && (isAdmin || isSI || isOperations);
 
   /// Historical correction and deletion are Admin-only audit actions.
-  bool get canAdminEditMaintenanceTicket => isApproved && isAdmin;
+  bool get canCorrectMaintenanceTicket => isApproved && isAdmin;
 
   bool get canSoftDeleteMaintenanceTicket => isApproved && isAdmin;
 
@@ -168,6 +187,18 @@ class AppUser {
   );
 
   bool get canSeeAllTickets => roles.any((r) => r != AppRole.operations);
+
+  bool get canSeeAssignedMaintenanceTickets =>
+      isApproved && RoutedTo.values.any(canAcknowledgeMaintenanceTicket);
+
+  bool canViewMaintenanceTicket({
+    required String? loggedByUid,
+    required RoutedTo routedTo,
+  }) =>
+      isApproved &&
+      (canSeeAllTickets ||
+          loggedByUid == uid ||
+          canAcknowledgeMaintenanceTicket(routedTo));
 
   /// Every approved user may inspect the cross-record equipment timeline.
   /// Ticket visibility within that timeline remains repository/rules governed.

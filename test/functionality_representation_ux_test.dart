@@ -2,6 +2,8 @@ import 'package:crm3_baf_ops/features/audit/presentation/audit_timeline_screen.d
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/presentation/ticket_screen.dart';
+import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/compliance_request_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/job_lane_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/presentation/screens/workflow_queue_view.dart';
@@ -27,6 +29,80 @@ void main() {
       expect(actor.canViewAuditLogs, isFalse);
     },
   );
+
+  test(
+    'ticket acknowledgement follows receiving route and supervisor scope',
+    () {
+      final electrical = _actor(AppRole.seniorElectrical);
+      final operations = _actor(AppRole.operations);
+      final supervisor = _actor(AppRole.contractSupervisor);
+
+      expect(
+        electrical.canAcknowledgeMaintenanceTicket(RoutedTo.electrical),
+        isTrue,
+      );
+      expect(
+        electrical.canAcknowledgeMaintenanceTicket(RoutedTo.mechanical),
+        isFalse,
+      );
+      expect(
+        operations.canAcknowledgeMaintenanceTicket(RoutedTo.operations),
+        isTrue,
+      );
+      expect(
+        operations.canAcknowledgeMaintenanceTicket(RoutedTo.electrical),
+        isFalse,
+      );
+      expect(
+        operations.canViewMaintenanceTicket(
+          loggedByUid: 'another-operator',
+          routedTo: RoutedTo.operations,
+        ),
+        isTrue,
+      );
+      expect(
+        operations.canViewMaintenanceTicket(
+          loggedByUid: 'another-operator',
+          routedTo: RoutedTo.electrical,
+        ),
+        isFalse,
+      );
+      for (final route in RoutedTo.values) {
+        expect(supervisor.canAcknowledgeMaintenanceTicket(route), isTrue);
+      }
+    },
+  );
+
+  testWidgets('operations sees and can acknowledge another user route ticket', (
+    tester,
+  ) async {
+    final ticket = _maintenanceTicket(
+      loggedByUid: 'another-operator',
+      routedTo: RoutedTo.operations,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream<AppUser?>.value(_actor(AppRole.operations)),
+          ),
+          openTicketsProvider.overrideWith(
+            (ref) => Stream<List<MaintenanceRecord>>.value([ticket]),
+          ),
+        ],
+        child: const MaterialApp(home: Scaffold(body: TicketScreen())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Operations-routed burner issue'), findsOneWidget);
+    expect(find.text('Acknowledge'), findsOneWidget);
+    expect(
+      find.text('Issues raised by you or routed to your team.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('closed dossiers are searchable and usable on a narrow screen', (
     tester,
@@ -219,6 +295,28 @@ JobExecution _execution({
     ..completedAt = completed ? timestamp : null
     ..cancelledAt = cancelled ? timestamp : null
     ..assignedAgencies = const ['operations']
+    ..createdAt = timestamp
+    ..updatedAt = timestamp
+    ..isSynced = true;
+}
+
+MaintenanceRecord _maintenanceTicket({
+  required String loggedByUid,
+  required RoutedTo routedTo,
+}) {
+  final timestamp = DateTime.now().subtract(const Duration(hours: 1));
+  return MaintenanceRecord()
+    ..firestoreId = 'route-ticket-1'
+    ..version = 1
+    ..assetType = AssetType.furnace
+    ..assetNumber = 7
+    ..maintenanceType = MaintenanceType.breakdown
+    ..description = 'Operations-routed burner issue'
+    ..routedTo = routedTo
+    ..component = 'Burner system'
+    ..loggedByUid = loggedByUid
+    ..loggedByName = 'Another operator'
+    ..startDate = timestamp
     ..createdAt = timestamp
     ..updatedAt = timestamp
     ..isSynced = true;

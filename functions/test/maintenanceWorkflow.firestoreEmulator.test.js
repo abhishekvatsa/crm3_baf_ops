@@ -214,4 +214,72 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
       resultKey: first.resultKey,
     });
   });
+
+  test('ticket acknowledgement commits ticket, audit, and receipt atomically', async () => {
+    await db.collection('maintenance_records').doc('ticket-ack').set({
+      firestoreId: 'ticket-ack',
+      version: 2,
+      assetType: 'furnace',
+      assetNumber: 4,
+      maintenanceType: 'breakdown',
+      description: 'Burner flame signal is intermittent',
+      routedTo: 'electrical',
+      status: 'open',
+      isResolved: false,
+      isCritical: true,
+      workflowDeferred: false,
+      isDeleted: false,
+    });
+    const command = {
+      commandId: 'ticket-ack-command',
+      commandType: 'acknowledgeMaintenanceTicket',
+      aggregateId: 'ticket-ack',
+      expectedVersion: 2,
+      payload: {},
+    };
+    const first = await service.execute(command, {
+      actor,
+      serverNow: new Date('2026-08-14T17:00:00.000Z'),
+    });
+    const replay = await service.execute(command, {
+      actor,
+      serverNow: new Date('2026-08-14T17:01:00.000Z'),
+    });
+
+    expect(replay).toEqual(first);
+    const [ticket, audit, receipt] = await Promise.all([
+      db.collection('maintenance_records').doc('ticket-ack').get(),
+      db.collection('audit_logs')
+        .doc('server_maintenance_ticket_ticket-ack-command').get(),
+      db.collection('maintenance_workflow_command_receipts')
+        .doc('ticket-ack-command').get(),
+    ]);
+    expect(ticket.data()).toMatchObject({
+      status: 'acknowledged',
+      acknowledgedByUid: actor.uid,
+      version: 3,
+    });
+    expect(ticket.data().acknowledgedAt).toBeInstanceOf(
+      admin.firestore.Timestamp,
+    );
+    expect(audit.data()).toMatchObject({
+      operation: 'acknowledgeMaintenanceTicket',
+      entityId: 'ticket-ack',
+      performedByUid: actor.uid,
+      resultVersion: 3,
+    });
+    expect(receipt.data()).toMatchObject({
+      commandType: 'acknowledgeMaintenanceTicket',
+      aggregateVersion: 3,
+    });
+
+    await audit.ref.delete();
+    await expect(service.execute(command, {
+      actor,
+      serverNow: new Date('2026-08-14T17:02:00.000Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'maintenance-ticket-replay-audit-invalid'},
+    });
+  });
 });

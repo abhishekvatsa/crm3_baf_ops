@@ -988,7 +988,7 @@ describe("maintenance_records", () => {
     );
   });
 
-  test("admin edit cannot mutate maintenance identity fields", async () => {
+  test("maintenance corrections are server-only, including for Admin", async () => {
     const createdAt = new Date(Date.now() - 60000).toISOString();
     const updatedAt = createdAt;
 
@@ -1016,6 +1016,15 @@ describe("maintenance_records", () => {
         assetNumber: 102,
         description: "Attempted identity rewrite",
         updatedAt: new Date().toISOString(),
+        version: 2,
+      })
+    );
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/ticketAdmin"), {
+        description: "Direct Admin correction attempt",
+        updatedAt: new Date().toISOString(),
+        updatedByUid: "admin1",
+        updatedByName: "Admin One",
         version: 2,
       })
     );
@@ -2848,6 +2857,19 @@ describe("audit_logs", () => {
         timestamp: "not-a-timestamp",
         severity: "extreme",
       })
+    );
+  });
+
+  test("clients cannot reserve deterministic maintenance-ticket audit IDs", async () => {
+    const db = dbAs("admin1");
+    await assertFails(
+      setDoc(
+        doc(db, "audit_logs/server_maintenance_ticket_request1"),
+        auditEventPayload({
+          performedByUid: "admin1",
+          performedByName: "Admin One",
+        })
+      )
     );
   });
 
