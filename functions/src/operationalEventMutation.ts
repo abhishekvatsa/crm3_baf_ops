@@ -328,23 +328,28 @@ function actorName(data: JsonMap): string {
     data.name.trim() : "Approved user";
 }
 
-function isTimestampLike(value: unknown): boolean {
+function timestampDate(value: unknown): Date | null {
   if (value != null && typeof value === "object" &&
       Object.prototype.toString.call(value) === "[object Date]") {
     try {
-      return !Number.isNaN(Date.prototype.getTime.call(value));
+      const date = value as Date;
+      return Number.isNaN(Date.prototype.getTime.call(date)) ? null : date;
     } catch {
-      return false;
+      return null;
     }
   }
   if (value == null || typeof value !== "object" || Array.isArray(value) ||
-      typeof (value as {toDate?: unknown}).toDate !== "function") return false;
+      typeof (value as {toDate?: unknown}).toDate !== "function") return null;
   try {
     const date = (value as {toDate: () => unknown}).toDate();
-    return date instanceof Date && !Number.isNaN(date.getTime());
+    return date instanceof Date && !Number.isNaN(date.getTime()) ? date : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function isTimestampLike(value: unknown): boolean {
+  return timestampDate(value) != null;
 }
 
 function requireStringList(
@@ -653,6 +658,17 @@ export async function mutateOperationalEventWithDb(args: {
 
     const committed = now();
     const committedAt = timestampFromDate(committed);
+    const requestedStart = draft == null ? null : new Date(draft.startedAtIso);
+    const existingStart = current == null ? null : timestampDate(current.startedAt);
+    if ((requestedStart != null && requestedStart.getTime() > committed.getTime()) ||
+        (draft == null && existingStart != null &&
+          existingStart.getTime() > committed.getTime())) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "An operational event cannot start after the current server time.",
+        {reasonCode: "operational-event-started-at-future"},
+      );
+    }
     const version = currentVersion + 1;
     let next: JsonMap;
     if (draft != null) {

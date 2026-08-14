@@ -303,6 +303,7 @@ class _ReportFilters extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String?>(
+            key: ValueKey<String>('physical-asset-${assetClassId ?? 'all'}'),
             initialValue: assetInstanceId,
             isExpanded: true,
             decoration: const InputDecoration(

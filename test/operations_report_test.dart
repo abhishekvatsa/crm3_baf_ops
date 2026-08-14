@@ -172,7 +172,6 @@ void main() {
       filter: OperationsReportFilter(
         startDate: DateTime.utc(2026, 8, 1),
         endDate: DateTime.utc(2026, 8, 31),
-        assetClassId: furnace.id,
         assetInstanceId: furnace7.id,
       ),
       tickets: [
@@ -200,7 +199,24 @@ void main() {
     );
     expect(report.issueCount, 1);
     expect(report.assetStates.single.asset.id, furnace7.id);
+    expect(report.classSummaries.single.assetClassId, furnace.id);
   });
+
+  test(
+    'report clock emits immediately and refreshes on its interval',
+    () async {
+      var minute = 0;
+      final values =
+          await operationsReportClock(
+            interval: const Duration(milliseconds: 1),
+            now: () => DateTime.utc(2026, 8, 14, 12, minute++),
+          ).take(2).toList();
+      expect(values, [
+        DateTime.utc(2026, 8, 14, 12),
+        DateTime.utc(2026, 8, 14, 12, 1),
+      ]);
+    },
+  );
 
   test('disruption duration counts only overlap with the report period', () {
     final report = buildOperationsReport(

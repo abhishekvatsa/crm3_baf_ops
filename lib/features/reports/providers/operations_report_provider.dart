@@ -15,6 +15,20 @@ import '../models/operations_report.dart';
 
 const operationsReportTicketSourceLimit = 2000;
 const operationsReportExecutionSourceLimit = 2000;
+const operationsReportClockInterval = Duration(minutes: 1);
+
+Stream<DateTime> operationsReportClock({
+  Duration interval = operationsReportClockInterval,
+  DateTime Function()? now,
+}) async* {
+  final readNow = now ?? DateTime.now;
+  yield readNow();
+  yield* Stream<DateTime>.periodic(interval, (_) => readNow());
+}
+
+final operationsReportClockProvider = StreamProvider<DateTime>(
+  (ref) => operationsReportClock(),
+);
 
 final operationsReportTicketsProvider = StreamProvider<List<MaintenanceRecord>>(
   (ref) {
@@ -32,49 +46,50 @@ final operationsReportExecutionsProvider = StreamProvider<List<JobExecution>>((
       .watchAllExecutions(limit: operationsReportExecutionSourceLimit);
 });
 
-final operationsReportProvider =
-    Provider.family<AsyncValue<OperationsReport>, OperationsReportFilter>((
-      ref,
-      filter,
-    ) {
-      final tickets = ref.watch(operationsReportTicketsProvider);
-      final executions = ref.watch(operationsReportExecutionsProvider);
-      final events = ref.watch(operationalEventsProvider);
-      final classes = ref.watch(assetClassesProvider);
-      final assets = ref.watch(allAssetInstancesProvider);
-      final overview = ref.watch(plantAssetOverviewProvider);
-      final error =
-          tickets.asError ??
-          executions.asError ??
-          events.asError ??
-          classes.asError ??
-          assets.asError ??
-          overview.asError;
-      if (error != null) return AsyncError(error.error, error.stackTrace);
-      if (tickets.isLoading ||
-          executions.isLoading ||
-          events.isLoading ||
-          classes.isLoading ||
-          assets.isLoading ||
-          overview.isLoading) {
-        return const AsyncLoading();
-      }
-      try {
-        return AsyncData(
-          buildOperationsReport(
-            filter: filter,
-            tickets: tickets.requireValue,
-            executions: executions.requireValue,
-            events: events.requireValue,
-            assetClasses: classes.requireValue,
-            assetInstances: assets.requireValue,
-            overview: overview.requireValue,
-          ),
-        );
-      } catch (error, stackTrace) {
-        return AsyncError(error, stackTrace);
-      }
-    });
+final operationsReportProvider = Provider.family<
+  AsyncValue<OperationsReport>,
+  OperationsReportFilter
+>((ref, filter) {
+  final tickets = ref.watch(operationsReportTicketsProvider);
+  final executions = ref.watch(operationsReportExecutionsProvider);
+  final events = ref.watch(operationalEventsProvider);
+  final classes = ref.watch(assetClassesProvider);
+  final assets = ref.watch(allAssetInstancesProvider);
+  final overview = ref.watch(plantAssetOverviewProvider);
+  final asOf = ref.watch(operationsReportClockProvider).value ?? DateTime.now();
+  final error =
+      tickets.asError ??
+      executions.asError ??
+      events.asError ??
+      classes.asError ??
+      assets.asError ??
+      overview.asError;
+  if (error != null) return AsyncError(error.error, error.stackTrace);
+  if (tickets.isLoading ||
+      executions.isLoading ||
+      events.isLoading ||
+      classes.isLoading ||
+      assets.isLoading ||
+      overview.isLoading) {
+    return const AsyncLoading();
+  }
+  try {
+    return AsyncData(
+      buildOperationsReport(
+        filter: filter,
+        tickets: tickets.requireValue,
+        executions: executions.requireValue,
+        events: events.requireValue,
+        assetClasses: classes.requireValue,
+        assetInstances: assets.requireValue,
+        overview: overview.requireValue,
+        asOf: asOf,
+      ),
+    );
+  } catch (error, stackTrace) {
+    return AsyncError(error, stackTrace);
+  }
+});
 
 OperationsReport buildOperationsReport({
   required OperationsReportFilter filter,
@@ -91,6 +106,19 @@ OperationsReport buildOperationsReport({
     throw ArgumentError('The report end date must not precede its start date.');
   }
   final assetsById = {for (final item in assetInstances) item.id: item};
+  final selectedAsset =
+      filter.assetInstanceId == null
+          ? null
+          : assetsById[filter.assetInstanceId];
+  if (filter.assetInstanceId != null && selectedAsset == null) {
+    throw StateError('The selected physical asset is no longer available.');
+  }
+  if (filter.assetClassId != null &&
+      selectedAsset != null &&
+      selectedAsset.assetClassId != filter.assetClassId) {
+    throw StateError('The selected physical asset is outside the asset class.');
+  }
+  final effectiveClassId = filter.assetClassId ?? selectedAsset?.assetClassId;
   final legacyClasses = <String, AssetClassRecord>{};
   for (final item in assetClasses) {
     final key = item.legacyAssetTypeKey;
@@ -137,7 +165,7 @@ OperationsReport buildOperationsReport({
   }
 
   bool matchesIdentity(String? classId, String? assetId) {
-    if (filter.assetClassId != null && classId != filter.assetClassId) {
+    if (effectiveClassId != null && classId != effectiveClassId) {
       return false;
     }
     if (filter.assetInstanceId != null && assetId != filter.assetInstanceId) {
@@ -184,12 +212,12 @@ OperationsReport buildOperationsReport({
       return selectedAsset != null &&
           event.affectedAssetClassIds.contains(selectedAsset.assetClassId);
     }
-    if (filter.assetClassId != null) {
-      if (event.affectedAssetClassIds.contains(filter.assetClassId)) {
+    if (effectiveClassId != null) {
+      if (event.affectedAssetClassIds.contains(effectiveClassId)) {
         return true;
       }
       return event.affectedAssetInstanceIds.any(
-        (id) => assetsById[id]?.assetClassId == filter.assetClassId,
+        (id) => assetsById[id]?.assetClassId == effectiveClassId,
       );
     }
     return true;
@@ -244,8 +272,7 @@ OperationsReport buildOperationsReport({
           .where(
             (assetClass) =>
                 assetClass.isActive &&
-                (filter.assetClassId == null ||
-                    assetClass.id == filter.assetClassId),
+                (effectiveClassId == null || assetClass.id == effectiveClassId),
           )
           .toList();
   final classSummaries =

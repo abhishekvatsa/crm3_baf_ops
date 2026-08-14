@@ -801,11 +801,12 @@ class _EventDialogState extends State<_EventDialog> {
   );
 
   Future<void> _pickStartedAt() async {
+    final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
-      initialDate: _startedAt,
+      initialDate: _startedAt.isAfter(now) ? now : _startedAt,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
+      lastDate: now,
     );
     if (date == null || !mounted) return;
     final time = await showTimePicker(
@@ -846,6 +847,10 @@ class _EventDialogState extends State<_EventDialog> {
     }
     if (_scope == OperationalEventScope.assets && _assetIds.isEmpty) {
       setState(() => _error = 'Select at least one asset.');
+      return;
+    }
+    if (_startedAt.isAfter(DateTime.now())) {
+      setState(() => _error = 'The event start time cannot be in the future.');
       return;
     }
     Navigator.pop(

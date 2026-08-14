@@ -223,6 +223,39 @@ describe('operational event mutation', () => {
     });
   });
 
+  test('future event chronology is rejected without writes', async () => {
+    const createMemory = fakeDb(baseSeed());
+    await expect(invoke(createMemory, 'ops-1', request({
+      eventDraft: {
+        ...request().eventDraft,
+        startedAt: '2026-08-14T13:00:00.000Z',
+      },
+    }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'operational-event-started-at-future'},
+    });
+    expect(createMemory.writes).toHaveLength(0);
+
+    const future = persistedEvent();
+    future.startedAt = new Date('2026-08-14T13:00:00.000Z');
+    const resolveMemory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: future,
+    });
+    await expect(invoke(resolveMemory, 'ops-1', {
+      requestId: IDS.resolve,
+      operation: 'RESOLVE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Attempt closure after checking the event chronology.',
+      resolutionNote: 'Supply remained stable through verification.',
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'operational-event-started-at-future'},
+    });
+    expect(resolveMemory.writes).toHaveLength(0);
+  });
+
   test('audit snapshots preserve every corrected operational field', async () => {
     const memory = fakeDb({
       ...baseSeed(),
