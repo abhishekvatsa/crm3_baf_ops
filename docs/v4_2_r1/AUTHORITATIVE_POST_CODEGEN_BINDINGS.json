@@ -58,16 +58,16 @@
       "bytes": 108958
     },
     "lib/features/maintenance_workflow/data/equipment_status_record.g.dart": {
-      "sha256": "3F34BC309D2C5239FF238F1F9C721E7A7A57ECDB6DC0BF75C76FBE46DBF04B81",
-      "bytes": 111165
+      "sha256": "E12ADE2F82406BB487AF75585D0A6C83E815A7FA586E8504EB4E17BB3579AF60",
+      "bytes": 129066
     },
     "lib/features/maintenance_workflow/data/job_lane_record.g.dart": {
       "sha256": "55BD52BB19D762CA57756F066221831C0FAD36A13F6C313D66101FC6D36D5BC2",
       "bytes": 289917
     },
     "lib/features/maintenance_workflow/data/workflow_aggregate_record.g.dart": {
-      "sha256": "889AD8396D04DE81AA919C3F76678106DEA9A0F795D3BD987123CA74296A94FB",
-      "bytes": 97813
+      "sha256": "06DB94766411B1188ED76C829A8C22408A20B5E21E8D7DAFF8A80D581CCC3405",
+      "bytes": 115886
     },
     "lib/features/maintenance_workflow/data/workflow_command_receipt_record.g.dart": {
       "sha256": "292A9C0140FD394D0BEB5F132A1485B2045DA4392BD9E793D6FFFB0824934B5C",
@@ -103,12 +103,13 @@
     }
   },
   "currentSourceRefresh": {
-    "sourceCommit": "d2d916f5ef98949421d93cbe2c40e9aeaaf8fc04",
-    "sourceTree": "82888a0753c0fe9ae4fb4abfdbc2fa923e827112",
+    "sourceCommit": "d6eade882994951d97bfb7c25dc245c434c301ac",
+    "sourceTree": "f53524f305fc5156a8dd2875aaf9c192a0d6f713",
     "command": "dart run build_runner build --delete-conflicting-outputs",
     "codegenResult": "PASS",
     "changedBindingPaths": [
-      "lib/features/maintenance_workflow/data/compliance_request_record.g.dart"
+      "lib/features/maintenance_workflow/data/equipment_status_record.g.dart",
+      "lib/features/maintenance_workflow/data/workflow_aggregate_record.g.dart"
     ]
   }
 }
