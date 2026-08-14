@@ -647,6 +647,122 @@ function canonicalSnapshotAssetType(value: string | null): string | null {
   }
 }
 
+type ValidatedAssignmentHierarchyReference = {
+  scope: "definition" | "installedComponent";
+  assetNumber: number | null;
+};
+
+function requiredHierarchyString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const cleaned = value.trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function optionalHierarchyString(
+  value: unknown,
+): string | null | undefined {
+  if (value == null) return null;
+  if (typeof value !== "string") return undefined;
+  const cleaned = value.trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function optionalHierarchyPositiveInt(
+  value: unknown,
+): number | null | undefined {
+  if (value == null) return null;
+  if (!Number.isSafeInteger(value) || (value as number) < 1) return undefined;
+  return value as number;
+}
+
+function optionalHierarchyStringList(
+  value: unknown,
+): ReadonlyArray<string> | null {
+  if (value == null) return [];
+  if (!Array.isArray(value)) return null;
+  const result: string[] = [];
+  for (const item of value) {
+    const parsed = requiredHierarchyString(item);
+    if (parsed == null) return null;
+    result.push(parsed);
+  }
+  return result;
+}
+
+function validateHierarchyReferenceContract(
+  reference: AssignmentJsonMap,
+): ValidatedAssignmentHierarchyReference | null {
+  const schemaVersion = reference.schemaVersion;
+  if (!Number.isSafeInteger(schemaVersion) ||
+      (schemaVersion !== 1 && schemaVersion !== 2)) {
+    return null;
+  }
+  const scope = schemaVersion === 1 ? "definition" : reference.scope;
+  if (scope !== "definition" && scope !== "installedComponent") return null;
+  const nodeVersion = reference.nodeVersion;
+  if (requiredHierarchyString(reference.assetClassId) == null ||
+      requiredHierarchyString(reference.assetClassCode) == null ||
+      requiredHierarchyString(reference.assetClassName) == null ||
+      requiredHierarchyString(reference.nodeId) == null ||
+      !Number.isSafeInteger(nodeVersion) || (nodeVersion as number) < 1 ||
+      requiredHierarchyString(reference.nodeName) == null) {
+    return null;
+  }
+
+  const assetInstanceId = optionalHierarchyString(reference.assetInstanceId);
+  const assetInstanceVersion = optionalHierarchyPositiveInt(
+    reference.assetInstanceVersion,
+  );
+  const assetNumber = optionalHierarchyPositiveInt(reference.assetNumber);
+  const assetInstanceName = optionalHierarchyString(reference.assetInstanceName);
+  const componentInstanceId = optionalHierarchyString(
+    reference.componentInstanceId,
+  );
+  const componentInstanceVersion = optionalHierarchyPositiveInt(
+    reference.componentInstanceVersion,
+  );
+  const componentTag = optionalHierarchyString(reference.componentTag);
+  const hierarchyPath = optionalHierarchyStringList(reference.hierarchyPath);
+  const ownerDiscipline = optionalHierarchyString(reference.ownerDiscipline);
+  const accountableRoleKeys = optionalHierarchyStringList(
+    reference.accountableRoleKeys,
+  );
+  if (assetInstanceId === undefined || assetInstanceVersion === undefined ||
+      assetNumber === undefined || assetInstanceName === undefined ||
+      componentInstanceId === undefined ||
+      componentInstanceVersion === undefined || componentTag === undefined ||
+      hierarchyPath == null || ownerDiscipline === undefined ||
+      accountableRoleKeys == null) {
+    return null;
+  }
+
+  const ownershipStatus = reference.ownershipStatus;
+  if (ownershipStatus !== "unassigned" && ownershipStatus !== "provisional" &&
+      ownershipStatus !== "confirmed") {
+    return null;
+  }
+  if (ownershipStatus === "unassigned" &&
+      (ownerDiscipline != null || accountableRoleKeys.length > 0)) {
+    return null;
+  }
+  if (ownershipStatus === "provisional" &&
+      ownerDiscipline == null && accountableRoleKeys.length === 0) {
+    return null;
+  }
+  if (ownershipStatus === "confirmed" &&
+      (ownerDiscipline == null || accountableRoleKeys.length === 0)) {
+    return null;
+  }
+  if (scope === "installedComponent" &&
+      (assetInstanceId == null || assetInstanceVersion == null ||
+       assetNumber == null || assetInstanceName == null ||
+       componentInstanceId == null || componentInstanceVersion == null ||
+       ownershipStatus !== "confirmed")) {
+    return null;
+  }
+  return {scope, assetNumber};
+}
+
 function validateAssignmentSnapshotTarget(
   bundle: ParsedSnapshotBundle,
   request: ParsedAssignmentRequest,
@@ -706,18 +822,8 @@ function validateAssignmentSnapshotTarget(
       {reasonCode: "custom-snapshot-hierarchy-reference-invalid"},
     );
   }
-  const schemaVersion = intValue(reference.schemaVersion);
-  const nodeVersion = intValue(reference.nodeVersion);
-  if (
-    (schemaVersion !== 1 && schemaVersion !== 2) ||
-    stringValue(reference.assetClassId) == null ||
-    stringValue(reference.assetClassCode) == null ||
-    stringValue(reference.assetClassName) == null ||
-    stringValue(reference.nodeId) == null ||
-    nodeVersion == null ||
-    nodeVersion < 1 ||
-    stringValue(reference.nodeName) == null
-  ) {
+  const validatedReference = validateHierarchyReferenceContract(reference);
+  if (validatedReference == null) {
     throw new AssignmentValidationError(
       "failed-precondition",
       "The published custom hierarchy reference is incomplete.",
@@ -725,8 +831,8 @@ function validateAssignmentSnapshotTarget(
     );
   }
   if (
-    stringValue(reference.scope) === "installedComponent" &&
-    intValue(reference.assetNumber) !== request.assetNumber
+    validatedReference.scope === "installedComponent" &&
+    validatedReference.assetNumber !== request.assetNumber
   ) {
     throw new AssignmentValidationError(
       "failed-precondition",

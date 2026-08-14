@@ -1,5 +1,7 @@
 import 'dart:async';
 
+String persistedReportTimestampBound(DateTime value) => value.toIso8601String();
+
 Stream<List<T>> combineLatestUniqueRecordStreams<T>({
   required List<Stream<List<T>>> streams,
   required Object Function(T value) identityOf,

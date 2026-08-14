@@ -1145,26 +1145,28 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     ) => query.snapshots().map(
       (snapshot) => snapshot.docs.map(_mapTicket).toList(growable: false),
     );
+    final startBound = persistedReportTimestampBound(startInclusive);
+    final endBound = persistedReportTimestampBound(endExclusive);
 
     final startedInPeriod = decode(
       _collection
           .where('isDeleted', isEqualTo: false)
-          .where('startDate', isGreaterThanOrEqualTo: startInclusive)
-          .where('startDate', isLessThan: endExclusive)
+          .where('startDate', isGreaterThanOrEqualTo: startBound)
+          .where('startDate', isLessThan: endBound)
           .orderBy('startDate', descending: true),
     );
     final openCarryIn = decode(
       _collection
           .where('isResolved', isEqualTo: false)
           .where('isDeleted', isEqualTo: false)
-          .where('startDate', isLessThan: startInclusive)
+          .where('startDate', isLessThan: startBound)
           .orderBy('startDate', descending: true),
     );
     final resolvedAcrossStart = decode(
       _collection
           .where('isResolved', isEqualTo: true)
           .where('isDeleted', isEqualTo: false)
-          .where('endDate', isGreaterThan: startInclusive)
+          .where('endDate', isGreaterThan: startBound)
           .orderBy('endDate', descending: true),
     );
 

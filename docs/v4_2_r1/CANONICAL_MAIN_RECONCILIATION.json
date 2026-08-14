@@ -545,9 +545,9 @@
     {
       "path": "functions/src/publishedTemplateAssignment.ts",
       "canonicalSha256": "6AF4338D2E37EA71916190414F3CCAA0A3340C97D32FA311BAEFD4876AE0B5C1",
-      "candidateSha256": "ADD8A03F36A3507E2362DB38D9380500D95C08193391A095005988A14D351F4A",
+      "candidateSha256": "EFA0613D3F6465B9C25CEC675D4D4E5649E2C8AE2817624A3E37F312EF04904F",
       "canonicalBytes": 50854,
-      "candidateBytes": 71125,
+      "candidateBytes": 75011,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -641,9 +641,9 @@
     {
       "path": "functions/test/publishedTemplateAssignment.test.js",
       "canonicalSha256": "F4721832D5F0BC2171BFA85959A64F93EB62F9C0DCF850634A088F6CA47D76BB",
-      "candidateSha256": "A4F548F047D9517E37DC587877DCC7AB5CD01E720F0EA0423724F90EF3389DB5",
+      "candidateSha256": "0DB9D7B1D515A4A3D641B29AFDA074254992D9887ED3523ACF6EF0CD6CE230C7",
       "canonicalBytes": 20408,
-      "candidateBytes": 41818,
+      "candidateBytes": 43179,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1549,9 +1549,9 @@
     {
       "path": "lib/features/maintenance/providers/maintenance_provider.dart",
       "canonicalSha256": "A9ECCD861BAE74BDAE1BD898D9DA47222C003487ECFB5A6C6E134BADB72A5597",
-      "candidateSha256": "D23C4667CE0D6F34E3FB4DC08F0B910D6E9CD0BE96460EEA78B3A6A4646A3CE5",
+      "candidateSha256": "8CE1173E0ED5CC2E52AE80E913B27468BFE0D717C7CFE052FA1C01AC61FC93A5",
       "canonicalBytes": 54587,
-      "candidateBytes": 63195,
+      "candidateBytes": 63315,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2269,9 +2269,9 @@
     {
       "path": "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",
       "canonicalSha256": "276EE9444D28EEE42CE8219C5CF66698680D95D597C961B0AF6F2992F814D4D2",
-      "candidateSha256": "7538D5F0A518E518E215B766B78566623393AF6A5E83AE63A0D94C810DD4AB5B",
+      "candidateSha256": "3AEE1F830E664FBCB6017AF8C93A21C14AE472E878F0DE530B0B036A1DCDC6C7",
       "canonicalBytes": 64065,
-      "candidateBytes": 70909,
+      "candidateBytes": 71025,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

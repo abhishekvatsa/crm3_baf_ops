@@ -1458,12 +1458,14 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
           .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
           .toList(growable: false),
     );
+    final startBound = persistedReportTimestampBound(startInclusive);
+    final endBound = persistedReportTimestampBound(endExclusive);
 
     final startedInPeriod = decode(
       _executions
           .where('isDeleted', isEqualTo: false)
-          .where('createdAt', isGreaterThanOrEqualTo: startInclusive)
-          .where('createdAt', isLessThan: endExclusive)
+          .where('createdAt', isGreaterThanOrEqualTo: startBound)
+          .where('createdAt', isLessThan: endBound)
           .orderBy('createdAt', descending: true),
     );
     final openCarryIn = decode(
@@ -1471,21 +1473,21 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
           .where('isCompleted', isEqualTo: false)
           .where('isCancelled', isEqualTo: false)
           .where('isDeleted', isEqualTo: false)
-          .where('createdAt', isLessThan: startInclusive)
+          .where('createdAt', isLessThan: startBound)
           .orderBy('createdAt', descending: true),
     );
     final completedAcrossStart = decode(
       _executions
           .where('isCompleted', isEqualTo: true)
           .where('isDeleted', isEqualTo: false)
-          .where('completedAt', isGreaterThan: startInclusive)
+          .where('completedAt', isGreaterThan: startBound)
           .orderBy('completedAt', descending: true),
     );
     final cancelledAcrossStart = decode(
       _executions
           .where('isCancelled', isEqualTo: true)
           .where('isDeleted', isEqualTo: false)
-          .where('cancelledAt', isGreaterThan: startInclusive)
+          .where('cancelledAt', isGreaterThan: startBound)
           .orderBy('cancelledAt', descending: true),
     );
 

@@ -68,7 +68,10 @@ function rehashedVersion(overrides = {}) {
   return version;
 }
 
-function customJobSnapshot({includeHierarchy = true} = {}) {
+function customJobSnapshot({
+  includeHierarchy = true,
+  hierarchyOverrides = {},
+} = {}) {
   return JSON.stringify({
     jobName: "Annealing car PM",
     assetType: "governedCustom",
@@ -93,6 +96,7 @@ function customJobSnapshot({includeHierarchy = true} = {}) {
         ownershipStatus: "unassigned",
         ownerDiscipline: null,
         accountableRoleKeys: [],
+        ...hierarchyOverrides,
       }),
     } : {}),
     composer: {
@@ -471,6 +475,44 @@ describe("published TemplateVersion server assignment", () => {
       details: {reasonCode: "assignment-asset-type-mismatch"},
     });
     expect(mismatchDb.writes).toHaveLength(0);
+  });
+
+  test.each([
+    ["missing schema-v2 scope", {scope: undefined}],
+    ["missing ownership state", {ownershipStatus: undefined}],
+    ["contradictory ownership", {
+      ownershipStatus: "confirmed",
+      ownerDiscipline: null,
+      accountableRoleKeys: [],
+    }],
+    ["malformed accountable roles", {accountableRoleKeys: [4]}],
+    ["incomplete installed identity", {
+      scope: "installedComponent",
+      ownershipStatus: "confirmed",
+      ownerDiscipline: "mechanical",
+      accountableRoleKeys: ["seniorMechanical"],
+    }],
+  ])("rejects custom hierarchy reference with %s", async (_, hierarchyOverrides) => {
+    const version = rehashedVersion({
+      jobTemplateSnapshotJson: customJobSnapshot({hierarchyOverrides}),
+    });
+    const fake = fakeAssignmentDb({
+      versionData: version,
+      audits: [auditFixture({afterHash: version.contentHash})],
+    });
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fake.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        expectedContentHash: version.contentHash,
+        assetType: "governedCustom",
+        assetNumber: 3,
+      }),
+    })).rejects.toMatchObject({
+      details: {reasonCode: "custom-snapshot-hierarchy-reference-invalid"},
+    });
+    expect(fake.writes).toHaveLength(0);
   });
 
   test("serializes assignment through an existing governed equipment projection", async () => {
