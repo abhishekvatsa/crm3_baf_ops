@@ -4,9 +4,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' as firestore show Query;
 import 'package:isar/isar.dart';
 
 import '../../../core/persistence/app_database.dart';
+import '../../../core/utils/combined_record_stream.dart';
 import '../data/job_template_model.dart';
 import '../data/job_module_model.dart';
 import '../domain/planned_job_closure_guard.dart';
@@ -31,6 +33,17 @@ bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
     remoteUpdatedAt: remote.updatedAt as DateTime,
   );
 }
+
+bool jobExecutionOverlapsPeriod(
+  JobExecution execution,
+  DateTime startInclusive,
+  DateTime endExclusive,
+) =>
+    execution.createdAt.isBefore(endExclusive) &&
+    ((execution.completedAt ?? execution.cancelledAt) == null ||
+        (execution.completedAt ?? execution.cancelledAt)!.isAfter(
+          startInclusive,
+        ));
 
 // ─────────────────────────────────────────────────────────────
 // NORMALIZATION HELPERS
@@ -205,6 +218,28 @@ abstract class PlannedMaintenanceRepository {
   /// Returns a stream of all non-deleted job executions sorted by updatedAt.
   Stream<List<JobExecution>> watchAllExecutions({int? limit});
 
+  Stream<List<JobExecution>> watchExecutionsOverlappingPeriod(
+    DateTime startInclusive,
+    DateTime endExclusive,
+  ) {
+    if (!startInclusive.isBefore(endExclusive)) {
+      return Stream<List<JobExecution>>.error(
+        ArgumentError('Report start must precede report end.'),
+      );
+    }
+    return watchAllExecutions().map(
+      (records) => records
+          .where(
+            (record) => jobExecutionOverlapsPeriod(
+              record,
+              startInclusive,
+              endExclusive,
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
   /// Returns a stream of active (assigned) job executions.
   Stream<List<JobExecution>> watchOpenExecutions();
 
@@ -279,7 +314,7 @@ abstract class PlannedMaintenanceRepository {
 // ISAR IMPLEMENTATION
 // ─────────────────────────────────────────────────────────────
 
-class IsarPlannedRepository implements PlannedMaintenanceRepository {
+class IsarPlannedRepository extends PlannedMaintenanceRepository {
   final AuditRepository _auditRepo;
   final PlannedJobServerCompletionService _serverCompletion;
 
@@ -1341,7 +1376,7 @@ class IsarPlannedRepository implements PlannedMaintenanceRepository {
 // FIRESTORE IMPLEMENTATION
 // ─────────────────────────────────────────────────────────────
 
-class FirestorePlannedRepository implements PlannedMaintenanceRepository {
+class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   final AuditRepository _auditRepo;
   final PlannedJobServerCompletionService _serverCompletion;
 
@@ -1403,6 +1438,78 @@ class FirestorePlannedRepository implements PlannedMaintenanceRepository {
           snap.docs
               .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
               .toList(),
+    );
+  }
+
+  @override
+  Stream<List<JobExecution>> watchExecutionsOverlappingPeriod(
+    DateTime startInclusive,
+    DateTime endExclusive,
+  ) {
+    if (!startInclusive.isBefore(endExclusive)) {
+      return Stream<List<JobExecution>>.error(
+        ArgumentError('Report start must precede report end.'),
+      );
+    }
+    Stream<List<JobExecution>> decode(
+      firestore.Query<Map<String, dynamic>> query,
+    ) => query.snapshots().map(
+      (snapshot) => snapshot.docs
+          .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+          .toList(growable: false),
+    );
+    final startBound = plannedExecutionReportTimestampBound(startInclusive);
+    final endBound = plannedExecutionReportTimestampBound(endExclusive);
+
+    final startedInPeriod = decode(
+      _executions
+          .where('isDeleted', isEqualTo: false)
+          .where('createdAt', isGreaterThanOrEqualTo: startBound)
+          .where('createdAt', isLessThan: endBound)
+          .orderBy('createdAt', descending: true),
+    );
+    final openCarryIn = decode(
+      _executions
+          .where('isCompleted', isEqualTo: false)
+          .where('isCancelled', isEqualTo: false)
+          .where('isDeleted', isEqualTo: false)
+          .where('createdAt', isLessThan: startBound)
+          .orderBy('createdAt', descending: true),
+    );
+    final completedAcrossStart = decode(
+      _executions
+          .where('isCompleted', isEqualTo: true)
+          .where('isDeleted', isEqualTo: false)
+          .where('completedAt', isGreaterThan: startBound)
+          .orderBy('completedAt', descending: true),
+    );
+    final cancelledAcrossStart = decode(
+      _executions
+          .where('isCancelled', isEqualTo: true)
+          .where('isDeleted', isEqualTo: false)
+          .where('cancelledAt', isGreaterThan: startBound)
+          .orderBy('cancelledAt', descending: true),
+    );
+
+    return combineLatestUniqueRecordStreams<JobExecution>(
+      streams: [
+        startedInPeriod,
+        openCarryIn,
+        completedAcrossStart,
+        cancelledAcrossStart,
+      ],
+      identityOf: (record) => record.firestoreId ?? 'local:${record.id}',
+      compare: (left, right) => right.createdAt.compareTo(left.createdAt),
+    ).map(
+      (records) => records
+          .where(
+            (record) => jobExecutionOverlapsPeriod(
+              record,
+              startInclusive,
+              endExclusive,
+            ),
+          )
+          .toList(growable: false),
     );
   }
 

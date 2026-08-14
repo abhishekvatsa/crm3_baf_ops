@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/template_version_snapshot_contract.dart';
 
 String _json(Object value) => jsonEncode(value);
@@ -243,6 +244,69 @@ void main() {
       expect(
         bundle.requireValidForAssignment,
         throwsA(isA<TemplateVersionSnapshotException>()),
+      );
+    });
+
+    test('governed custom snapshots require valid hierarchy identity', () {
+      const hierarchyReference = AssetHierarchyReference(
+        assetClassId: 'annealing-car-class',
+        assetClassCode: 'ANNEALING_CAR',
+        assetClassName: 'Annealing car',
+        nodeId: 'car-body',
+        nodeVersion: 3,
+        nodeName: 'Car body',
+        hierarchyPath: <String>['Car body'],
+        ownershipStatus: AssetOwnershipStatus.confirmed,
+        ownerDiscipline: 'mechanical',
+        accountableRoleKeys: <String>['seniorMechanical'],
+      );
+      final valid = _bundle(
+        job: <String, dynamic>{
+          'assetType': 'governedCustom',
+          'assetHierarchyRefJson': hierarchyReference.encode(),
+        },
+        modules: _minimalModules,
+        fields: _minimalFields,
+      );
+      final missing = _bundle(
+        job: const <String, dynamic>{'assetType': 'governedCustom'},
+        modules: _minimalModules,
+        fields: _minimalFields,
+      );
+      final malformed = _bundle(
+        job: const <String, dynamic>{
+          'assetType': 'governedCustom',
+          'assetHierarchyRefJson': '{"schemaVersion":2}',
+        },
+        modules: _minimalModules,
+        fields: _minimalFields,
+      );
+
+      expect(valid.validate().errors, isEmpty);
+      expect(
+        missing.validate().errors,
+        contains(
+          'Governed custom templates require an assetHierarchyRefJson reference.',
+        ),
+      );
+      expect(
+        malformed.validate().errors.single,
+        startsWith('Governed asset hierarchy reference is invalid:'),
+      );
+    });
+
+    test('malformed present hierarchy identity fails standard snapshots', () {
+      final bundle = _bundle(
+        job: const <String, dynamic>{
+          'assetHierarchyRefJson': '{"schemaVersion":2}',
+        },
+        modules: _minimalModules,
+        fields: _minimalFields,
+      );
+
+      expect(
+        bundle.validate().errors.single,
+        startsWith('Asset hierarchy reference is invalid:'),
       );
     });
 

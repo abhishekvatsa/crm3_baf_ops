@@ -75,6 +75,11 @@ PublishMetadataValidation validatePublishMetadata({
   if (input.disciplineScope.isEmpty) {
     errors.add('Select at least one discipline scope.');
   }
+  if (input.assetType != draft.assetType) {
+    errors.add(
+      'Package asset type must match the immutable composer asset type.',
+    );
+  }
 
   final composerValidation = ModuleComposerValidator.validate(draft);
   errors.addAll(composerValidation.errors);

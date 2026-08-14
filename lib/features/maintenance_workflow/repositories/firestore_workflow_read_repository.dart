@@ -16,6 +16,7 @@ const Set<String> _assetTypeKeys = <String>{
   'furnace',
   'forceCooler',
   'innerCover',
+  'governedCustom',
 };
 const Set<String> _workflowStatusKeys = <String>{
   'pendingLaneClassification',
@@ -458,50 +459,59 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
 WorkflowAggregateRecord workflowAggregateRecordFromFirestoreData({
   required String documentId,
   required Map<String, dynamic> data,
-}) =>
-    WorkflowAggregateRecord()
-      ..firestoreId = documentId
-      ..jobExecutionFirestoreId = _requiredString(data, 'jobExecutionId')
-      ..assetTypeKey = _requiredString(
-        data,
-        'assetTypeKey',
-        allowed: _assetTypeKeys,
-      )
-      ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
-      ..statusKey = _requiredString(
-        data,
-        'status',
-        allowed: _workflowStatusKeys,
-      )
-      ..workflowSchemaVersion = _requiredInt(
-        data,
-        'workflowSchemaVersion',
-        minimum: 1,
-      )
-      ..version = _requiredInt(data, 'version')
-      ..laneSetVersion = _requiredInt(data, 'laneSetVersion')
-      ..laneSetFinalizedAt = _optionalDate(
-        data['laneSetFinalizedAt'],
-        'laneSetFinalizedAt',
-      )
-      ..laneSetFinalizedByUid = _string(
-        data['laneSetFinalizedByUid'],
-        'laneSetFinalizedByUid',
-      )
-      ..laneSetFinalizedByName = _string(
-        data['laneSetFinalizedByName'],
-        'laneSetFinalizedByName',
-      )
-      ..activeRedWork = _optionalBool(data, 'activeRedWork', fallback: false)
-      ..awaitingPreparation = _optionalBool(
-        data,
-        'awaitingPreparation',
-        fallback: false,
-      )
-      ..cancelled = _optionalBool(data, 'cancelled', fallback: false)
-      ..completedAt = _optionalDate(data['completedAt'], 'completedAt')
-      ..createdAt = _date(data['createdAt'], 'createdAt')
-      ..updatedAt = _date(data['updatedAt'], 'updatedAt');
+}) {
+  final assetTypeKey = _requiredString(
+    data,
+    'assetTypeKey',
+    allowed: _assetTypeKeys,
+  );
+  final custom = assetTypeKey == 'governedCustom';
+  final assetClassId =
+      custom
+          ? _requiredString(data, 'assetClassId')
+          : _string(data['assetClassId'], 'assetClassId');
+  final assetInstanceId =
+      custom
+          ? _requiredString(data, 'assetInstanceId')
+          : _string(data['assetInstanceId'], 'assetInstanceId');
+  return WorkflowAggregateRecord()
+    ..firestoreId = documentId
+    ..jobExecutionFirestoreId = _requiredString(data, 'jobExecutionId')
+    ..assetTypeKey = assetTypeKey
+    ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
+    ..assetClassId = assetClassId
+    ..assetInstanceId = assetInstanceId
+    ..statusKey = _requiredString(data, 'status', allowed: _workflowStatusKeys)
+    ..workflowSchemaVersion = _requiredInt(
+      data,
+      'workflowSchemaVersion',
+      minimum: 1,
+    )
+    ..version = _requiredInt(data, 'version')
+    ..laneSetVersion = _requiredInt(data, 'laneSetVersion')
+    ..laneSetFinalizedAt = _optionalDate(
+      data['laneSetFinalizedAt'],
+      'laneSetFinalizedAt',
+    )
+    ..laneSetFinalizedByUid = _string(
+      data['laneSetFinalizedByUid'],
+      'laneSetFinalizedByUid',
+    )
+    ..laneSetFinalizedByName = _string(
+      data['laneSetFinalizedByName'],
+      'laneSetFinalizedByName',
+    )
+    ..activeRedWork = _optionalBool(data, 'activeRedWork', fallback: false)
+    ..awaitingPreparation = _optionalBool(
+      data,
+      'awaitingPreparation',
+      fallback: false,
+    )
+    ..cancelled = _optionalBool(data, 'cancelled', fallback: false)
+    ..completedAt = _optionalDate(data['completedAt'], 'completedAt')
+    ..createdAt = _date(data['createdAt'], 'createdAt')
+    ..updatedAt = _date(data['updatedAt'], 'updatedAt');
+}
 
 JobLaneRecord jobLaneRecordFromFirestoreData({
   required String documentId,
@@ -556,49 +566,64 @@ JobLaneRecord jobLaneRecordFromFirestoreData({
 EquipmentStatusRecord equipmentStatusRecordFromFirestoreData({
   required String documentId,
   required Map<String, dynamic> data,
-}) =>
-    EquipmentStatusRecord()
-      ..firestoreId = documentId
-      ..isSynced = true
-      ..version = _requiredInt(data, 'version', minimum: 1)
-      ..assetTypeKey = _requiredString(
-        data,
-        'assetTypeKey',
-        allowed: _assetTypeKeys,
-      )
-      ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
-      ..stateKey = _requiredString(data, 'state', allowed: _equipmentStateKeys)
-      ..openMaintenanceCount = _requiredInt(
-        data,
-        'activeNonRedMaintenanceCount',
-      )
-      ..openRedCount = _requiredInt(data, 'activeRedWorkCount')
-      ..awaitingPreparationCount = _requiredInt(
-        data,
-        'awaitingPreparationCount',
-      )
-      ..previousStateKey = _requiredString(
-        data,
-        'previousState',
-        allowed: _equipmentStateKeys,
-      )
-      ..transitionTrigger = _string(
-        data['transitionTrigger'],
-        'transitionTrigger',
-      )
-      ..lastTransitionAt = _optionalDate(
-        data['lastTransitionAt'],
-        'lastTransitionAt',
-      )
-      ..lastTransitionByUid = _string(
-        data['lastTransitionByUid'],
-        'lastTransitionByUid',
-      )
-      ..lastTransitionByName = _string(
-        data['lastTransitionByName'],
-        'lastTransitionByName',
-      )
-      ..updatedAt = _date(data['updatedAt'], 'updatedAt');
+}) {
+  final assetTypeKey = _requiredString(
+    data,
+    'assetTypeKey',
+    allowed: _assetTypeKeys,
+  );
+  final custom = assetTypeKey == 'governedCustom';
+  final assetClassId =
+      custom
+          ? _requiredString(data, 'assetClassId')
+          : _string(data['assetClassId'], 'assetClassId');
+  final assetInstanceId =
+      custom
+          ? _requiredString(data, 'assetInstanceId')
+          : _string(data['assetInstanceId'], 'assetInstanceId');
+  if (custom &&
+      documentId != 'governedCustom_${assetClassId}_$assetInstanceId') {
+    return _projectionError(
+      'documentId',
+      documentId,
+      'must match governed custom class and asset instance identity',
+    );
+  }
+  return EquipmentStatusRecord()
+    ..firestoreId = documentId
+    ..isSynced = true
+    ..version = _requiredInt(data, 'version', minimum: 1)
+    ..assetTypeKey = assetTypeKey
+    ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
+    ..assetClassId = assetClassId
+    ..assetInstanceId = assetInstanceId
+    ..stateKey = _requiredString(data, 'state', allowed: _equipmentStateKeys)
+    ..openMaintenanceCount = _requiredInt(data, 'activeNonRedMaintenanceCount')
+    ..openRedCount = _requiredInt(data, 'activeRedWorkCount')
+    ..awaitingPreparationCount = _requiredInt(data, 'awaitingPreparationCount')
+    ..previousStateKey = _requiredString(
+      data,
+      'previousState',
+      allowed: _equipmentStateKeys,
+    )
+    ..transitionTrigger = _string(
+      data['transitionTrigger'],
+      'transitionTrigger',
+    )
+    ..lastTransitionAt = _optionalDate(
+      data['lastTransitionAt'],
+      'lastTransitionAt',
+    )
+    ..lastTransitionByUid = _string(
+      data['lastTransitionByUid'],
+      'lastTransitionByUid',
+    )
+    ..lastTransitionByName = _string(
+      data['lastTransitionByName'],
+      'lastTransitionByName',
+    )
+    ..updatedAt = _date(data['updatedAt'], 'updatedAt');
+}
 
 EquipmentPromptRecord equipmentPromptRecordFromFirestoreData({
   required String documentId,

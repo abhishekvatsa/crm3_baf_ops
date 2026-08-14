@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/module_composer_json_builder.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/module_composer_models.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/domain/module_composer_validator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -111,6 +113,78 @@ void main() {
       expect(restored.modules.single.moduleCode, 'ROUND-TRIP');
       expect(restored.modules.single.fields.single.key, 'reading');
       expect(restored.modules.single.checklistItems.single.id, 'check-reading');
+    },
+  );
+
+  test('governed custom hierarchy identity survives composer round trip', () {
+    const hierarchyReference = AssetHierarchyReference(
+      assetClassId: 'annealing-car-class',
+      assetClassCode: 'ANNEALING_CAR',
+      assetClassName: 'Annealing car',
+      nodeId: 'car-body',
+      nodeVersion: 3,
+      nodeName: 'Car body',
+      hierarchyPath: ['Car body'],
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'mechanical',
+      accountableRoleKeys: ['seniorMechanical'],
+    );
+    final module =
+        ComposerModuleDraft.manual(assetType: AssetType.governedCustom)
+          ..moduleCode = 'CAR-01'
+          ..title = 'Inspect car body'
+          ..fields = [
+            ComposerFieldDraft(
+              key: 'condition',
+              label: 'Condition',
+              type: ComposerFieldType.text,
+              isRequired: true,
+              order: 1,
+            ),
+          ];
+    final source = TemplateComposerDraft(
+      title: 'Annealing car PM',
+      assetType: AssetType.governedCustom,
+      assetHierarchyRefJson: hierarchyReference.encode(),
+      modules: [module],
+    );
+
+    expect(ModuleComposerValidator.validate(source).canSave, isTrue);
+    final output = ModuleComposerJsonBuilder.build(source);
+    final snapshot = jsonDecode(output.jobTemplateSnapshotJson) as Map;
+    expect(snapshot['assetHierarchyRefJson'], hierarchyReference.encode());
+
+    final restored = TemplateComposerDraft.fromPayloads(
+      jobTemplateSnapshotJson: output.jobTemplateSnapshotJson,
+      moduleSnapshotsJson: output.moduleSnapshotsJson,
+      fieldDefinitionsJson: output.fieldDefinitionsJson,
+      checklistJson: output.checklistJson,
+    );
+    expect(restored.assetType, AssetType.governedCustom);
+    expect(
+      restored.assetHierarchyReference?.assetClassId,
+      'annealing-car-class',
+    );
+    expect(restored.assetHierarchyReference?.nodeId, 'car-body');
+  });
+
+  test(
+    'governed custom composer draft without hierarchy identity is blocked',
+    () {
+      final result = ModuleComposerValidator.validate(
+        TemplateComposerDraft(
+          title: 'Unscoped custom PM',
+          assetType: AssetType.governedCustom,
+          modules: [ComposerModuleDraft.manual()],
+        ),
+      );
+
+      expect(
+        result.errors,
+        contains(
+          'Select a governed asset class and hierarchy definition for this custom template.',
+        ),
+      );
     },
   );
 }

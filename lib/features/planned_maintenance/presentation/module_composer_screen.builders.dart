@@ -254,10 +254,12 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
                     )
                     .toList(),
             onChanged:
-                (value) => setState(
-                  () => _draft.assetType = value ?? _draft.assetType,
-                ),
+                (value) => _setComposerAssetType(value ?? _draft.assetType),
           ),
+          if (_draft.assetType == AssetType.governedCustom) ...[
+            const SizedBox(height: BafSpacing.sm),
+            _buildGovernedHierarchyScope(),
+          ],
           CheckboxListTile(
             value: _draft.closureReviewConfirmed,
             dense: true,
@@ -272,6 +274,160 @@ extension _ModuleComposerBuilders on _ModuleComposerScreenState {
           ),
         ],
       ),
+    );
+  }
+
+  void _setComposerAssetType(AssetType value) {
+    setState(() {
+      if (_draft.assetType != value) {
+        _draft.assetHierarchyRefJson = null;
+        _governedAssetClassId = null;
+        _governedDefinitionNodeId = null;
+      }
+      _draft.assetType = value;
+    });
+  }
+
+  Widget _buildGovernedHierarchyScope() {
+    final classesAsync = ref.watch(assetClassesProvider);
+    if (classesAsync.isLoading) {
+      return const LinearProgressIndicator(minHeight: 2);
+    }
+    if (classesAsync.hasError) {
+      return Text(
+        'Governed asset classes are unavailable: ${classesAsync.error}',
+        style: const TextStyle(color: BafColors.danger),
+      );
+    }
+
+    final classes =
+        classesAsync.requireValue
+            .where((item) => item.isActive && item.legacyAssetTypeKey == null)
+            .toList()
+          ..sort((left, right) => left.name.compareTo(right.name));
+    final selectedClass =
+        classes.where((item) => item.id == _governedAssetClassId).firstOrNull;
+    final nodesAsync =
+        selectedClass == null
+            ? null
+            : ref.watch(assetHierarchyNodesProvider(selectedClass.id));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DropdownButtonFormField<String>(
+          key: ValueKey('composer-asset-class-${_governedAssetClassId ?? ''}'),
+          initialValue: selectedClass?.id,
+          isExpanded: true,
+          decoration: _inputDecoration(
+            'Governed asset class',
+            Icons.account_tree_rounded,
+          ),
+          items:
+              classes
+                  .map(
+                    (item) => DropdownMenuItem<String>(
+                      value: item.id,
+                      child: Text(
+                        '${item.code} · ${item.name}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+          onChanged: (value) {
+            setState(() {
+              _governedAssetClassId = value;
+              _governedDefinitionNodeId = null;
+              _draft.assetHierarchyRefJson = null;
+            });
+          },
+        ),
+        if (_governedAssetClassId != null && selectedClass == null) ...[
+          const SizedBox(height: BafSpacing.xs),
+          const Text(
+            'The previously selected asset class is no longer active. Select an active class before publishing.',
+            style: TextStyle(color: BafColors.danger, fontSize: 12),
+          ),
+        ],
+        if (selectedClass != null) ...[
+          const SizedBox(height: BafSpacing.sm),
+          if (nodesAsync!.isLoading)
+            const LinearProgressIndicator(minHeight: 2)
+          else if (nodesAsync.hasError)
+            Text(
+              'Hierarchy definitions are unavailable: ${nodesAsync.error}',
+              style: const TextStyle(color: BafColors.danger),
+            )
+          else
+            _buildGovernedDefinitionSelector(
+              selectedClass,
+              nodesAsync.requireValue,
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildGovernedDefinitionSelector(
+    AssetClassRecord assetClass,
+    List<AssetHierarchyNode> sourceNodes,
+  ) {
+    final nodes =
+        sourceNodes.where((item) => item.isActive).toList()
+          ..sort((left, right) {
+            final path = left.hierarchyPath
+                .join(' / ')
+                .compareTo(right.hierarchyPath.join(' / '));
+            return path != 0 ? path : left.name.compareTo(right.name);
+          });
+    final selectedNode =
+        nodes.where((item) => item.id == _governedDefinitionNodeId).firstOrNull;
+    return DropdownButtonFormField<String>(
+      key: ValueKey(
+        'composer-hierarchy-definition-${assetClass.id}-${_governedDefinitionNodeId ?? ''}',
+      ),
+      initialValue: selectedNode?.id,
+      isExpanded: true,
+      decoration: _inputDecoration(
+        'Hierarchy definition',
+        Icons.precision_manufacturing_outlined,
+      ),
+      items:
+          nodes
+              .map(
+                (node) => DropdownMenuItem<String>(
+                  value: node.id,
+                  child: Text(
+                    node.hierarchyPath.join(' › '),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+      onChanged: (value) {
+        final node = nodes.where((item) => item.id == value).firstOrNull;
+        setState(() {
+          _governedDefinitionNodeId = node?.id;
+          _draft.assetHierarchyRefJson =
+              node == null
+                  ? null
+                  : AssetHierarchyReference(
+                    scope: AssetHierarchyReferenceScope.definition,
+                    assetClassId: assetClass.id,
+                    assetClassCode: assetClass.code,
+                    assetClassName: assetClass.name,
+                    nodeId: node.id,
+                    nodeVersion: node.version,
+                    nodeName: node.name,
+                    componentTag: node.componentTag,
+                    hierarchyPath: node.hierarchyPath,
+                    ownershipStatus: node.ownershipStatus,
+                    ownerDiscipline: node.ownerDiscipline,
+                    accountableRoleKeys: node.accountableRoleKeys,
+                  ).encode();
+        });
+      },
     );
   }
 

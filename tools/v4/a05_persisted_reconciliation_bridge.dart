@@ -8,6 +8,7 @@ import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.da
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
+import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
 import 'package:crm3_baf_ops/features/quality/data/quality_warning.dart';
 
 const _supportedCollections = <String>{
@@ -19,6 +20,7 @@ const _supportedCollections = <String>{
   'asset_tag_claims',
   'audit_logs',
   'maintenance_records',
+  'operational_events',
   'quality_monitoring_requests',
   'quality_warnings',
 };
@@ -77,6 +79,8 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         decodePersistedAuditEvent(data, documentId: documentId);
       case 'maintenance_records':
         readRemoteMaintenanceRecord(data, documentId: documentId);
+      case 'operational_events':
+        OperationalEvent.fromMap(data, documentId);
       case 'quality_warnings':
         QualityWarning.fromMap(data, documentId);
       case 'quality_monitoring_requests':

@@ -42,7 +42,6 @@ class _PublishedTemplateAssignmentScreenState
   String? _selectedPackageId;
   String? _selectedVersionId;
   AssetType _assetType = AssetType.base;
-  bool _assetTypeTouched = false;
   bool _isSubmitting = false;
   TemplatePublicationReadinessDecision? _displayedReadiness;
   bool _displayedPreviewValid = false;
@@ -189,7 +188,7 @@ class _PublishedTemplateAssignmentScreenState
 
                     _displayedPreviewValid =
                         preview != null && previewError == null;
-                    if (preview != null && !_assetTypeTouched) {
+                    if (preview != null) {
                       _assetType = preview.assetType;
                     }
 
@@ -252,7 +251,6 @@ class _PublishedTemplateAssignmentScreenState
                                       : (value) => setState(() {
                                         _selectedPackageId = value;
                                         _selectedVersionId = null;
-                                        _assetTypeTouched = false;
                                         _displayedReadiness = null;
                                         _displayedPreviewValid = false;
                                       }),
@@ -367,15 +365,7 @@ class _PublishedTemplateAssignmentScreenState
                                         ),
                                       )
                                       .toList(),
-                              onChanged:
-                                  _isSubmitting
-                                      ? null
-                                      : (value) => setState(() {
-                                        if (value != null) {
-                                          _assetType = value;
-                                          _assetTypeTouched = true;
-                                        }
-                                      }),
+                              onChanged: null,
                             ),
                             const SizedBox(height: BafSpacing.md),
                             TextFormField(

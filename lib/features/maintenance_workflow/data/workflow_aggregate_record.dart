@@ -19,6 +19,12 @@ class WorkflowAggregateRecord {
   late int assetNumber;
 
   @Index()
+  String? assetClassId;
+
+  @Index()
+  String? assetInstanceId;
+
+  @Index()
   String statusKey = 'pendingLaneClassification';
 
   int workflowSchemaVersion = 1;

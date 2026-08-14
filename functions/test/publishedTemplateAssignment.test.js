@@ -7,6 +7,7 @@ const {
 } = require("../lib/publishedTemplateAssignment");
 
 const REQUEST_ID = "11111111-1111-4111-8111-111111111111";
+const ANNEALING_CAR_ASSET_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 function versionFixture(overrides = {}) {
   const jobTemplateSnapshotJson =
@@ -62,6 +63,53 @@ function requestFixture(overrides = {}) {
   };
 }
 
+function rehashedVersion(overrides = {}) {
+  const version = versionFixture({...overrides, contentHash: null});
+  version.contentHash = computeTemplateVersionContentHash(version);
+  return version;
+}
+
+function customJobSnapshot({
+  includeHierarchy = true,
+  hierarchyOverrides = {},
+} = {}) {
+  return JSON.stringify({
+    jobName: "Annealing car PM",
+    assetType: "governedCustom",
+    ...(includeHierarchy ? {
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 2,
+        scope: "definition",
+        assetClassId: "annealing-car-class",
+        assetClassCode: "ANNEALING_CAR",
+        assetClassName: "Annealing car",
+        nodeId: "car-body",
+        nodeVersion: 1,
+        nodeName: "Car body",
+        assetInstanceId: null,
+        assetInstanceVersion: null,
+        assetNumber: null,
+        assetInstanceName: null,
+        componentInstanceId: null,
+        componentInstanceVersion: null,
+        componentTag: null,
+        hierarchyPath: ["Car body"],
+        ownershipStatus: "unassigned",
+        ownerDiscipline: null,
+        accountableRoleKeys: [],
+        ...hierarchyOverrides,
+      }),
+    } : {}),
+    composer: {
+      closureReviewConfirmed: true,
+      closureReviewConfirmedByUid: "si1",
+      closureReviewConfirmedByName: "SI User",
+      closureReviewConfirmedAt: "2026-06-19T10:00:00.000Z",
+    },
+    closureCriticalCount: 1,
+  });
+}
+
 function packageFixture(overrides = {}) {
   return {
     firestoreId: "pkg1",
@@ -104,6 +152,19 @@ function workflowFixture(overrides = {}) {
   };
 }
 
+function assetInstanceFixture(overrides = {}) {
+  return {
+    assetInstanceId: ANNEALING_CAR_ASSET_ID,
+    assetClassId: "annealing-car-class",
+    assetNumber: 3,
+    name: "Annealing car 3",
+    status: "active",
+    isDeleted: false,
+    version: 1,
+    ...overrides,
+  };
+}
+
 function fakeAssignmentDb({
   user = {
     isApproved: true,
@@ -115,6 +176,7 @@ function fakeAssignmentDb({
   audits = [auditFixture()],
   equipmentData = null,
   workflows = [],
+  assetInstances = [assetInstanceFixture()],
 } = {}) {
   const store = new Map();
   const writes = [];
@@ -142,6 +204,10 @@ function fakeAssignmentDb({
   workflows.forEach((workflow, index) => {
     const id = workflow.firestoreId ?? `workflow${index + 1}`;
     seed(`maintenance_workflows/${id}`, workflow);
+  });
+  assetInstances.forEach((asset, index) => {
+    const id = asset.assetInstanceId ?? `asset${index + 1}`;
+    seed(`asset_instances/${id}`, asset);
   });
 
   function docRef(collectionName, id) {
@@ -359,6 +425,227 @@ describe("published TemplateVersion server assignment", () => {
       version: 1,
     });
     expect(writes).toHaveLength(5);
+  });
+
+  test("binds governed custom assignment to its published hierarchy identity", async () => {
+    const version = rehashedVersion({
+      jobTemplateSnapshotJson: customJobSnapshot(),
+    });
+    const {db, store} = fakeAssignmentDb({
+      versionData: version,
+      audits: [auditFixture({afterHash: version.contentHash})],
+    });
+
+    const result = await assignPublishedTemplateVersionWithDb({
+      db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        expectedContentHash: version.contentHash,
+        assetType: "governedCustom",
+        assetNumber: 3,
+      }),
+      now: () => new Date("2026-06-19T11:00:00.000Z"),
+    });
+
+    const metadata = JSON.parse(result.execution.metadataJson);
+    const snapshot = metadata.jobTemplateSnapshot;
+    const hierarchy = JSON.parse(snapshot.assetHierarchyRefJson);
+    expect(result.execution.assetType).toBe("governedCustom");
+    expect(result.execution.assetNumber).toBe(3);
+    expect(result.execution.assetClassId).toBe("annealing-car-class");
+    expect(result.execution.assetInstanceId).toBe(ANNEALING_CAR_ASSET_ID);
+    expect(hierarchy.assetClassId).toBe("annealing-car-class");
+    expect(
+      store.get(`maintenance_workflows/${result.executionId}`),
+    ).toMatchObject({
+      assetClassId: "annealing-car-class",
+      assetInstanceId: ANNEALING_CAR_ASSET_ID,
+    });
+    expect(
+      store.get(
+        `equipment_status/governedCustom_annealing-car-class_${ANNEALING_CAR_ASSET_ID}`,
+      ),
+    ).toMatchObject({
+      assetClassId: "annealing-car-class",
+      assetInstanceId: ANNEALING_CAR_ASSET_ID,
+      activeNonRedMaintenanceCount: 1,
+    });
+  });
+
+  test("isolates governed custom projections when classes share an asset number", async () => {
+    const otherAssetId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const version = rehashedVersion({
+      jobTemplateSnapshotJson: customJobSnapshot(),
+    });
+    const fixture = fakeAssignmentDb({
+      versionData: version,
+      audits: [auditFixture({afterHash: version.contentHash})],
+      assetInstances: [
+        assetInstanceFixture(),
+        assetInstanceFixture({
+          assetInstanceId: otherAssetId,
+          assetClassId: "transfer-car-class",
+          name: "Transfer car 3",
+        }),
+      ],
+      workflows: [workflowFixture({
+        firestoreId: "other-class-workflow",
+        assetTypeKey: "governedCustom",
+        assetNumber: 3,
+        assetClassId: "transfer-car-class",
+        assetInstanceId: otherAssetId,
+      })],
+    });
+    const otherProjectionPath =
+      `equipment_status/governedCustom_transfer-car-class_${otherAssetId}`;
+    fixture.store.set(otherProjectionPath, {
+      assetTypeKey: "governedCustom",
+      assetNumber: 3,
+      assetClassId: "transfer-car-class",
+      assetInstanceId: otherAssetId,
+      state: "underMaintenance",
+      activeNonRedMaintenanceCount: 1,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 2,
+    });
+
+    const result = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        expectedContentHash: version.contentHash,
+        assetType: "governedCustom",
+        assetNumber: 3,
+      }),
+    });
+
+    expect(
+      fixture.store.get(
+        `equipment_status/governedCustom_annealing-car-class_${ANNEALING_CAR_ASSET_ID}`,
+      ),
+    ).toMatchObject({
+      activeNonRedMaintenanceCount: 1,
+      assetClassId: "annealing-car-class",
+      assetInstanceId: ANNEALING_CAR_ASSET_ID,
+    });
+    expect(fixture.store.get(otherProjectionPath)).toMatchObject({
+      activeNonRedMaintenanceCount: 1,
+      version: 2,
+    });
+    expect(
+      fixture.store.get(`maintenance_workflows/${result.executionId}`),
+    ).toMatchObject({
+      assetClassId: "annealing-car-class",
+      assetInstanceId: ANNEALING_CAR_ASSET_ID,
+    });
+  });
+
+  test("fails closed on an unbound legacy custom workflow with the same number", async () => {
+    const version = rehashedVersion({
+      jobTemplateSnapshotJson: customJobSnapshot(),
+    });
+    const fixture = fakeAssignmentDb({
+      versionData: version,
+      audits: [auditFixture({afterHash: version.contentHash})],
+      workflows: [workflowFixture({
+        assetTypeKey: "governedCustom",
+        assetNumber: 3,
+      })],
+    });
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        expectedContentHash: version.contentHash,
+        assetType: "governedCustom",
+        assetNumber: 3,
+      }),
+    })).rejects.toMatchObject({
+      code: "failed-precondition",
+      details: {reasonCode: "custom-workflow-identity-incomplete"},
+    });
+    expect(fixture.writes).toHaveLength(0);
+  });
+
+  test("rejects custom assignment without hierarchy identity or with a mismatched snapshot type", async () => {
+    const missingHierarchy = rehashedVersion({
+      jobTemplateSnapshotJson: customJobSnapshot({includeHierarchy: false}),
+    });
+    const missingDb = fakeAssignmentDb({
+      versionData: missingHierarchy,
+      audits: [auditFixture({afterHash: missingHierarchy.contentHash})],
+    });
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: missingDb.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        expectedContentHash: missingHierarchy.contentHash,
+        assetType: "governedCustom",
+        assetNumber: 3,
+      }),
+    })).rejects.toMatchObject({
+      details: {reasonCode: "custom-snapshot-hierarchy-reference-missing"},
+    });
+    expect(missingDb.writes).toHaveLength(0);
+
+    const mismatched = rehashedVersion({
+      jobTemplateSnapshotJson: customJobSnapshot(),
+    });
+    const mismatchDb = fakeAssignmentDb({
+      versionData: mismatched,
+      audits: [auditFixture({afterHash: mismatched.contentHash})],
+    });
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: mismatchDb.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        expectedContentHash: mismatched.contentHash,
+        assetType: "base",
+      }),
+    })).rejects.toMatchObject({
+      details: {reasonCode: "assignment-asset-type-mismatch"},
+    });
+    expect(mismatchDb.writes).toHaveLength(0);
+  });
+
+  test.each([
+    ["missing schema-v2 scope", {scope: undefined}],
+    ["missing ownership state", {ownershipStatus: undefined}],
+    ["contradictory ownership", {
+      ownershipStatus: "confirmed",
+      ownerDiscipline: null,
+      accountableRoleKeys: [],
+    }],
+    ["malformed accountable roles", {accountableRoleKeys: [4]}],
+    ["incomplete installed identity", {
+      scope: "installedComponent",
+      ownershipStatus: "confirmed",
+      ownerDiscipline: "mechanical",
+      accountableRoleKeys: ["seniorMechanical"],
+    }],
+  ])("rejects custom hierarchy reference with %s", async (_, hierarchyOverrides) => {
+    const version = rehashedVersion({
+      jobTemplateSnapshotJson: customJobSnapshot({hierarchyOverrides}),
+    });
+    const fake = fakeAssignmentDb({
+      versionData: version,
+      audits: [auditFixture({afterHash: version.contentHash})],
+    });
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fake.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        expectedContentHash: version.contentHash,
+        assetType: "governedCustom",
+        assetNumber: 3,
+      }),
+    })).rejects.toMatchObject({
+      details: {reasonCode: "custom-snapshot-hierarchy-reference-invalid"},
+    });
+    expect(fake.writes).toHaveLength(0);
   });
 
   test("serializes assignment through an existing governed equipment projection", async () => {

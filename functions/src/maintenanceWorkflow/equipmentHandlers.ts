@@ -1,20 +1,32 @@
 import {mayDeployEquipment, mayReconcileEquipment} from "./authority";
-import {equipmentProjectionWrite, loadEquipmentFacts, projectEquipment} from "./equipmentFacts";
+import {
+  equipmentProjectionWrite,
+  assertEquipmentProjectionIdentity,
+  loadEquipmentFacts,
+  projectEquipment,
+} from "./equipmentFacts";
 import {assertExpectedVersion} from "./documents";
 import {WorkflowError} from "./errors";
 import {eventPlan} from "./events";
 import {CommandHandler} from "./handlerTypes";
-import {equipmentPath} from "./paths";
+import {equipmentIdentity, equipmentPathForIdentity} from "./paths";
 import {cleanText, intValue, iso} from "./utils";
 
 export const reconcileEquipment: CommandHandler = async ({tx, command, context}) => {
   if (!mayReconcileEquipment(context.actor)) throw new WorkflowError("permission-denied", "Only Admin/SI may reconcile equipment state.");
   const assetTypeKey = cleanText(command.payload.assetTypeKey, "assetTypeKey");
   const assetNumber = intValue(command.payload.assetNumber, "assetNumber", 1);
-  const path = equipmentPath(assetTypeKey, assetNumber);
+  const identity = equipmentIdentity(
+    assetTypeKey,
+    assetNumber,
+    command.payload.assetClassId,
+    command.payload.assetInstanceId,
+  );
+  const path = equipmentPathForIdentity(identity);
   const current = await tx.get(path);
   const currentVersion = assertExpectedVersion(current.data ?? {}, command.expectedVersion);
-  const facts = await loadEquipmentFacts(tx, assetTypeKey, assetNumber);
+  const facts = await loadEquipmentFacts(tx, identity);
+  if (current.data != null) assertEquipmentProjectionIdentity(current.data, identity);
   const operationsDeployed = current.data?.state === "inService" &&
     facts.activeNonRedMaintenanceCount === 0 &&
     facts.activeRedWorkCount === 0 &&
@@ -24,6 +36,8 @@ export const reconcileEquipment: CommandHandler = async ({tx, command, context})
   const write = equipmentProjectionWrite(current.data, facts, projection, {
     assetTypeKey,
     assetNumber,
+    assetClassId: identity.assetClassId,
+    assetInstanceId: identity.assetInstanceId,
     trigger: `reconcile:${command.commandId}`,
     at: now,
     actorUid: context.actor.uid,
@@ -39,11 +53,18 @@ export const deployEquipment: CommandHandler = async ({tx, command, context}) =>
   if (!mayDeployEquipment(context.actor)) throw new WorkflowError("permission-denied", "Actor cannot deploy equipment.");
   const assetTypeKey = cleanText(command.payload.assetTypeKey, "assetTypeKey");
   const assetNumber = intValue(command.payload.assetNumber, "assetNumber", 1);
-  const path = equipmentPath(assetTypeKey, assetNumber);
+  const identity = equipmentIdentity(
+    assetTypeKey,
+    assetNumber,
+    command.payload.assetClassId,
+    command.payload.assetInstanceId,
+  );
+  const path = equipmentPathForIdentity(identity);
   const current = await tx.get(path);
   if (!current.exists || current.data == null) throw new WorkflowError("not-found", "Equipment status row was not found.");
   const currentVersion = assertExpectedVersion(current.data, command.expectedVersion);
-  const facts = await loadEquipmentFacts(tx, assetTypeKey, assetNumber);
+  assertEquipmentProjectionIdentity(current.data, identity);
+  const facts = await loadEquipmentFacts(tx, identity);
   if (facts.activeNonRedMaintenanceCount > 0 || facts.activeRedWorkCount > 0 || facts.awaitingPreparationCount > 0) {
     throw new WorkflowError("equipment-state-conflict", "Equipment with open workflow work cannot be deployed.", facts);
   }

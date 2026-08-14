@@ -211,6 +211,17 @@ class AppUser {
   bool get canRestoreAssetOperationalCondition =>
       isApproved && (isAdmin || isSI || isShiftSupervisor);
 
+  bool get canRecordOperationalEvent =>
+      isApproved &&
+      (isAdmin ||
+          isSI ||
+          isShiftSupervisor ||
+          isOperations ||
+          isContractSupervisor);
+
+  bool get canResolveOperationalEvent =>
+      isApproved && (isAdmin || isSI || isShiftSupervisor || isOperations);
+
   // ───────────────────────────────────────────────────────────
   // LEGACY PLANNED-MAINTENANCE TEMPLATE / ASSIGNMENT PERMISSIONS
   // ───────────────────────────────────────────────────────────

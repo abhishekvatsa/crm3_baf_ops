@@ -264,12 +264,13 @@ post_codegen_register_valid = (
     and post_codegen_source.get("codegenResult") == "PASS"
     and post_codegen_source.get("custodyResult") == "PASS"
     and post_codegen_refresh.get("sourceCommit")
-        == "d2d916f5ef98949421d93cbe2c40e9aeaaf8fc04"
+        == "d6eade882994951d97bfb7c25dc245c434c301ac"
     and post_codegen_refresh.get("sourceTree")
-        == "82888a0753c0fe9ae4fb4abfdbc2fa923e827112"
+        == "f53524f305fc5156a8dd2875aaf9c192a0d6f713"
     and post_codegen_refresh.get("codegenResult") == "PASS"
     and post_codegen_refresh.get("changedBindingPaths") == [
-        "lib/features/maintenance_workflow/data/compliance_request_record.g.dart",
+        "lib/features/maintenance_workflow/data/equipment_status_record.g.dart",
+        "lib/features/maintenance_workflow/data/workflow_aggregate_record.g.dart",
     ]
     and len(post_codegen_bindings) == 19
     and all(
@@ -2673,6 +2674,8 @@ check(
     "P-06 Isar provenance fails closed and commits only after a successful open",
     "baf_isar_schema_provenance_v1" in isar_migration
     and "databaseGenerationId" in isar_migration
+    and "currentSchemaVersion = 5" in isar_migration
+    and "v4SchemaFingerprint" in isar_migration
     and "existing-store-unmarked" in isar_migration
     and "legacy-marker-incomplete" in isar_migration
     and "_validateMarkerSource(" in isar_migration
@@ -2680,6 +2683,9 @@ check(
     and startup.index("ensureIsarSchemaBeforeOpen(")
     < startup.index("Isar.open(")
     < startup.index("repairPlannedJobLocalLinks(")
+    < startup.index("repairLegacyOperationalAssuranceRequests(")
+    < startup.index("repairLegacyGovernedAssetIdentityProjections(")
+    < startup.index("resetGovernedAssetIdentityProjectionPullCursors()")
     < startup.index("commitAfterSuccessfulOpen()")
     and "readIsarSchemaProvenanceSnapshotJson()" in startup
     and '"schemaProvenanceSnapshot": $provenanceSnapshot' in startup
@@ -2720,8 +2726,8 @@ check(
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
-    and "repository-proven populated v1 migrates to v4" in isar_fixture_test
-    and "populated v3 compliance request migrates to explicit v4 assurance"
+    and "repository-proven populated v1 migrates to v5" in isar_fixture_test
+    and "populated v3 compliance request migrates through v5"
         in isar_fixture_test
     and "stored-schema-fingerprint-unrecognized" in isar_fixture_test
     and "blocks a current target with unsupported migration ancestry"
@@ -8329,10 +8335,10 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 42
-    and a05_timestamp_inventory_report.get("directCallCount") == 108
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 58
-    and a05_timestamp_inventory_report.get("optionalFieldCount") == 50
+    and a05_timestamp_inventory_report.get("readerCount") == 44
+    and a05_timestamp_inventory_report.get("directCallCount") == 115
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 62
+    and a05_timestamp_inventory_report.get("optionalFieldCount") == 51
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
     and a05_timestamp_inventory_report.get("directParserCandidateCount") == 28
@@ -8346,7 +8352,7 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 42
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 44
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
@@ -8371,17 +8377,17 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 45
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 37
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 26
+    and a05_decoder_inventory_report.get("surfaceCount") == 47
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 40
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 28
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 24
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 243
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 247
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 45
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 37
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 47
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 40
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool

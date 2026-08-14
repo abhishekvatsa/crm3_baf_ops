@@ -3920,4 +3920,30 @@ describe("governed dynamic asset hierarchy", () => {
       getDoc(doc(dbAs("admin1"), "asset_operational_condition_receipts/request-1"))
     );
   });
+
+  test("operational events are approved-readable and server-write-only", async () => {
+    await seedDoc("operational_events/event-1", {eventId: "event-1"});
+    await seedDoc("operational_event_audits/audit-1", {auditId: "audit-1"});
+    await seedDoc("operational_event_receipts/request-1", {
+      requestId: "request-1",
+    });
+
+    await assertSucceeds(
+      getDoc(doc(dbAs("ops1"), "operational_events/event-1"))
+    );
+    await assertFails(
+      setDoc(doc(dbAs("admin1"), "operational_events/event-2"), {
+        eventId: "event-2",
+      })
+    );
+    await assertSucceeds(
+      getDoc(doc(dbAs("admin1"), "operational_event_audits/audit-1"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("ops1"), "operational_event_audits/audit-1"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("admin1"), "operational_event_receipts/request-1"))
+    );
+  });
 });

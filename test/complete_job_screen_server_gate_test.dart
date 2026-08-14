@@ -76,7 +76,7 @@ JobModuleInstance _acceptedModule() {
     ..isDeleted = false;
 }
 
-class _GateRejectingPlannedRepository implements PlannedMaintenanceRepository {
+class _GateRejectingPlannedRepository extends PlannedMaintenanceRepository {
   int completionCalls = 0;
 
   @override

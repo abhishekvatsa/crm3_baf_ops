@@ -513,7 +513,7 @@
       "compatibility": "documented aliases only",
       "regression": "test/template_version_snapshot_contract_test.dart",
       "reArmCondition": "malformed snapshot object or row is dropped/defaulted",
-      "riskFingerprint": "8541fe14900db538888ad645dde07b664ae2801182e8ec1d6dd4966df3bcd534"
+      "riskFingerprint": "d3259bedcb3ddf2298bda84c6df8f4f9717abbe2d971a02bc6948d88b6d31034"
     },
     {
       "id": "module-registry-provider-lineage",
@@ -653,6 +653,37 @@
       "regression": "test/asset_operational_condition_model_test.dart; test/plant_asset_overview_test.dart; functions/test/assetOperationalConditionMutation.test.js",
       "reArmCondition": "condition identity, lifecycle, authority, cause, issue-link, or version fields are defaulted from malformed input",
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "operational-event-records",
+      "file": "lib/features/operational_events/data/operational_event.dart",
+      "markers": [
+        "factory OperationalEvent.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "plant-operations",
+      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, and closure evidence",
+      "malformedDisposition": "fail closed before malformed event or partial resolution evidence can enter reports or the plant dashboard",
+      "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence",
+      "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js",
+      "reArmCondition": "event identity, scope, status, actor, timestamp, or version fields are defaulted from malformed input",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "operational-event-command-result",
+      "file": "lib/features/operational_events/services/operational_event_service.dart",
+      "markers": [
+        "factory OperationalEventCommandResult.fromMap",
+        "Future<OperationalEventCommandResult> _call"
+      ],
+      "classification": "SERVER_COMMAND_RECEIPT",
+      "owner": "plant-operations",
+      "authorityBoundary": "governed operational-event mutation result and optimistic-version evidence",
+      "malformedDisposition": "translate malformed callable evidence to data-loss and never report command success",
+      "compatibility": "none for request identity, operation, event identity, result version, audit identity, status, or commit time",
+      "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js",
+      "reArmCondition": "malformed response fields are coerced or accepted as a successful operational-event mutation",
+      "riskFingerprint": "9b34cfd77c7c22342706f6fdcd9b83073548be933665839d886ad3c55803ca4f"
     },
     {
       "id": "quality-warning-and-monitoring-records",
@@ -1173,6 +1204,32 @@
       "reArmCondition": "semantic snapshot failure permits publication"
     },
     {
+      "id": "custom-template-hierarchy-validation",
+      "file": "lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart",
+      "siteFingerprint": "ee1a705ecd8c8bde5dff271457cadfd09591fb1c0dd33aafac4cc76b29873979",
+      "classification": "PRE_MUTATION_VALIDATION_REJECTION",
+      "purpose": "translate malformed governed-custom hierarchy identity into a blocking snapshot validation error",
+      "authorityBoundary": "immutable custom template snapshot publication and assignment admission",
+      "mutability": "none",
+      "dataScope": "required assetHierarchyRefJson on governed-custom job snapshots",
+      "malformedDisposition": "return a blocking validation error and prevent publication or assignment",
+      "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "missing or malformed custom hierarchy identity is admitted for publication or assignment"
+    },
+    {
+      "id": "optional-template-hierarchy-validation",
+      "file": "lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart",
+      "siteFingerprint": "4fa6098b99d9153dc42f4de74870e2f9657a47f6d3530443c8423bb41ec4ecf9",
+      "classification": "PRE_MUTATION_VALIDATION_REJECTION",
+      "purpose": "translate a malformed optional hierarchy identity into a blocking snapshot validation error",
+      "authorityBoundary": "immutable standard template snapshot publication and assignment admission",
+      "mutability": "none",
+      "dataScope": "present assetHierarchyRefJson on non-custom job snapshots",
+      "malformedDisposition": "return a blocking validation error and prevent publication or assignment",
+      "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "a malformed present hierarchy identity is ignored or admitted for publication or assignment"
+    },
+    {
       "id": "quality-command-transport-translation",
       "file": "lib/features/quality/services/quality_command_service.dart",
       "siteFingerprint": "264b39ac9ec88eda2daddc1dd95886022ef177dcc3afa6383d2a9973ea82ff4f",
@@ -1184,6 +1241,19 @@
       "malformedDisposition": "throw a data-loss command error and do not report success",
       "regression": "test/quality_command_result_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "transport or response-format failure becomes a successful quality decision"
+    },
+    {
+      "id": "operational-event-command-transport-translation",
+      "file": "lib/features/operational_events/services/operational_event_service.dart",
+      "siteFingerprint": "c05c6fbce5982a4281ed2ba865a5d816de30593803772f397fcc8ede1842e67d",
+      "classification": "TRANSPORT_ERROR_TRANSLATION",
+      "purpose": "translate callable transport failures while preserving strict operational-event response-format failure",
+      "authorityBoundary": "governed operational-event mutation response",
+      "mutability": "remote mutation already governed by the server; no local success state is manufactured",
+      "dataScope": "operational-event callable response and Firebase transport error",
+      "malformedDisposition": "throw a data-loss command error and do not report success",
+      "regression": "test/operational_event_model_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "transport or response-format failure becomes a successful operational-event decision"
     }
   ]
 }

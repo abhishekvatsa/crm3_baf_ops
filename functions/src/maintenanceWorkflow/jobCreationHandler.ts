@@ -7,7 +7,7 @@ import {equipmentPath, executionPath, workflowPath} from "./paths";
 import {cleanText, intValue, iso, optionalText, stringArray} from "./utils";
 
 const assetTypes = new Set([
-  "base", "furnace", "forceCooler", "innerCover", "governedCustom",
+  "base", "furnace", "forceCooler", "innerCover",
 ]);
 
 const validAssetNumber = (assetType: string, number: number): boolean => {
@@ -15,7 +15,7 @@ const validAssetNumber = (assetType: string, number: number): boolean => {
   if (assetType === "furnace") return number >= 1 && number <= 26;
   if (assetType === "forceCooler") return number >= 1 && number <= 25;
   if (assetType === "innerCover") return number > 0;
-  return assetType === "governedCustom" && number >= 1 && number <= 9999;
+  return false;
 };
 
 export const createLegacyWorkflowJob: CommandHandler = async ({tx, command, context}) => {

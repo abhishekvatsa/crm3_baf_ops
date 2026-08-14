@@ -23,88 +23,98 @@ const WorkflowAggregateRecordSchema = CollectionSchema(
       name: r'activeRedWork',
       type: IsarType.bool,
     ),
-    r'assetNumber': PropertySchema(
+    r'assetClassId': PropertySchema(
       id: 1,
+      name: r'assetClassId',
+      type: IsarType.string,
+    ),
+    r'assetInstanceId': PropertySchema(
+      id: 2,
+      name: r'assetInstanceId',
+      type: IsarType.string,
+    ),
+    r'assetNumber': PropertySchema(
+      id: 3,
       name: r'assetNumber',
       type: IsarType.long,
     ),
     r'assetTypeKey': PropertySchema(
-      id: 2,
+      id: 4,
       name: r'assetTypeKey',
       type: IsarType.string,
     ),
     r'awaitingPreparation': PropertySchema(
-      id: 3,
+      id: 5,
       name: r'awaitingPreparation',
       type: IsarType.bool,
     ),
     r'cancelled': PropertySchema(
-      id: 4,
+      id: 6,
       name: r'cancelled',
       type: IsarType.bool,
     ),
     r'completedAt': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'completedAt',
       type: IsarType.dateTime,
     ),
     r'createdAt': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'firestoreId': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'firestoreId',
       type: IsarType.string,
     ),
     r'jobExecutionFirestoreId': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'jobExecutionFirestoreId',
       type: IsarType.string,
     ),
     r'laneSetFinalizedAt': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'laneSetFinalizedAt',
       type: IsarType.dateTime,
     ),
     r'laneSetFinalizedByName': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'laneSetFinalizedByName',
       type: IsarType.string,
     ),
     r'laneSetFinalizedByUid': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'laneSetFinalizedByUid',
       type: IsarType.string,
     ),
     r'laneSetVersion': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'laneSetVersion',
       type: IsarType.long,
     ),
     r'metadataJson': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'metadataJson',
       type: IsarType.string,
     ),
     r'statusKey': PropertySchema(
-      id: 14,
+      id: 16,
       name: r'statusKey',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'version': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'version',
       type: IsarType.long,
     ),
     r'workflowSchemaVersion': PropertySchema(
-      id: 17,
+      id: 19,
       name: r'workflowSchemaVersion',
       type: IsarType.long,
     )
@@ -167,6 +177,32 @@ const WorkflowAggregateRecordSchema = CollectionSchema(
         )
       ],
     ),
+    r'assetClassId': IndexSchema(
+      id: 8014201351234624830,
+      name: r'assetClassId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'assetClassId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
+    r'assetInstanceId': IndexSchema(
+      id: -1321462710229363228,
+      name: r'assetInstanceId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'assetInstanceId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
     r'statusKey': IndexSchema(
       id: -3111857984361591712,
       name: r'statusKey',
@@ -195,6 +231,18 @@ int _workflowAggregateRecordEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.assetClassId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.assetInstanceId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.assetTypeKey.length * 3;
   bytesCount += 3 + object.firestoreId.length * 3;
   bytesCount += 3 + object.jobExecutionFirestoreId.length * 3;
@@ -227,23 +275,25 @@ void _workflowAggregateRecordSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeBool(offsets[0], object.activeRedWork);
-  writer.writeLong(offsets[1], object.assetNumber);
-  writer.writeString(offsets[2], object.assetTypeKey);
-  writer.writeBool(offsets[3], object.awaitingPreparation);
-  writer.writeBool(offsets[4], object.cancelled);
-  writer.writeDateTime(offsets[5], object.completedAt);
-  writer.writeDateTime(offsets[6], object.createdAt);
-  writer.writeString(offsets[7], object.firestoreId);
-  writer.writeString(offsets[8], object.jobExecutionFirestoreId);
-  writer.writeDateTime(offsets[9], object.laneSetFinalizedAt);
-  writer.writeString(offsets[10], object.laneSetFinalizedByName);
-  writer.writeString(offsets[11], object.laneSetFinalizedByUid);
-  writer.writeLong(offsets[12], object.laneSetVersion);
-  writer.writeString(offsets[13], object.metadataJson);
-  writer.writeString(offsets[14], object.statusKey);
-  writer.writeDateTime(offsets[15], object.updatedAt);
-  writer.writeLong(offsets[16], object.version);
-  writer.writeLong(offsets[17], object.workflowSchemaVersion);
+  writer.writeString(offsets[1], object.assetClassId);
+  writer.writeString(offsets[2], object.assetInstanceId);
+  writer.writeLong(offsets[3], object.assetNumber);
+  writer.writeString(offsets[4], object.assetTypeKey);
+  writer.writeBool(offsets[5], object.awaitingPreparation);
+  writer.writeBool(offsets[6], object.cancelled);
+  writer.writeDateTime(offsets[7], object.completedAt);
+  writer.writeDateTime(offsets[8], object.createdAt);
+  writer.writeString(offsets[9], object.firestoreId);
+  writer.writeString(offsets[10], object.jobExecutionFirestoreId);
+  writer.writeDateTime(offsets[11], object.laneSetFinalizedAt);
+  writer.writeString(offsets[12], object.laneSetFinalizedByName);
+  writer.writeString(offsets[13], object.laneSetFinalizedByUid);
+  writer.writeLong(offsets[14], object.laneSetVersion);
+  writer.writeString(offsets[15], object.metadataJson);
+  writer.writeString(offsets[16], object.statusKey);
+  writer.writeDateTime(offsets[17], object.updatedAt);
+  writer.writeLong(offsets[18], object.version);
+  writer.writeLong(offsets[19], object.workflowSchemaVersion);
 }
 
 WorkflowAggregateRecord _workflowAggregateRecordDeserialize(
@@ -254,24 +304,26 @@ WorkflowAggregateRecord _workflowAggregateRecordDeserialize(
 ) {
   final object = WorkflowAggregateRecord();
   object.activeRedWork = reader.readBool(offsets[0]);
-  object.assetNumber = reader.readLong(offsets[1]);
-  object.assetTypeKey = reader.readString(offsets[2]);
-  object.awaitingPreparation = reader.readBool(offsets[3]);
-  object.cancelled = reader.readBool(offsets[4]);
-  object.completedAt = reader.readDateTimeOrNull(offsets[5]);
-  object.createdAt = reader.readDateTime(offsets[6]);
-  object.firestoreId = reader.readString(offsets[7]);
+  object.assetClassId = reader.readStringOrNull(offsets[1]);
+  object.assetInstanceId = reader.readStringOrNull(offsets[2]);
+  object.assetNumber = reader.readLong(offsets[3]);
+  object.assetTypeKey = reader.readString(offsets[4]);
+  object.awaitingPreparation = reader.readBool(offsets[5]);
+  object.cancelled = reader.readBool(offsets[6]);
+  object.completedAt = reader.readDateTimeOrNull(offsets[7]);
+  object.createdAt = reader.readDateTime(offsets[8]);
+  object.firestoreId = reader.readString(offsets[9]);
   object.id = id;
-  object.jobExecutionFirestoreId = reader.readString(offsets[8]);
-  object.laneSetFinalizedAt = reader.readDateTimeOrNull(offsets[9]);
-  object.laneSetFinalizedByName = reader.readStringOrNull(offsets[10]);
-  object.laneSetFinalizedByUid = reader.readStringOrNull(offsets[11]);
-  object.laneSetVersion = reader.readLong(offsets[12]);
-  object.metadataJson = reader.readStringOrNull(offsets[13]);
-  object.statusKey = reader.readString(offsets[14]);
-  object.updatedAt = reader.readDateTime(offsets[15]);
-  object.version = reader.readLong(offsets[16]);
-  object.workflowSchemaVersion = reader.readLong(offsets[17]);
+  object.jobExecutionFirestoreId = reader.readString(offsets[10]);
+  object.laneSetFinalizedAt = reader.readDateTimeOrNull(offsets[11]);
+  object.laneSetFinalizedByName = reader.readStringOrNull(offsets[12]);
+  object.laneSetFinalizedByUid = reader.readStringOrNull(offsets[13]);
+  object.laneSetVersion = reader.readLong(offsets[14]);
+  object.metadataJson = reader.readStringOrNull(offsets[15]);
+  object.statusKey = reader.readString(offsets[16]);
+  object.updatedAt = reader.readDateTime(offsets[17]);
+  object.version = reader.readLong(offsets[18]);
+  object.workflowSchemaVersion = reader.readLong(offsets[19]);
   return object;
 }
 
@@ -285,38 +337,42 @@ P _workflowAggregateRecordDeserializeProp<P>(
     case 0:
       return (reader.readBool(offset)) as P;
     case 1:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 2:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 3:
-      return (reader.readBool(offset)) as P;
-    case 4:
-      return (reader.readBool(offset)) as P;
-    case 5:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 6:
-      return (reader.readDateTime(offset)) as P;
-    case 7:
-      return (reader.readString(offset)) as P;
-    case 8:
-      return (reader.readString(offset)) as P;
-    case 9:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 10:
-      return (reader.readStringOrNull(offset)) as P;
-    case 11:
-      return (reader.readStringOrNull(offset)) as P;
-    case 12:
       return (reader.readLong(offset)) as P;
+    case 4:
+      return (reader.readString(offset)) as P;
+    case 5:
+      return (reader.readBool(offset)) as P;
+    case 6:
+      return (reader.readBool(offset)) as P;
+    case 7:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 8:
+      return (reader.readDateTime(offset)) as P;
+    case 9:
+      return (reader.readString(offset)) as P;
+    case 10:
+      return (reader.readString(offset)) as P;
+    case 11:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 12:
+      return (reader.readStringOrNull(offset)) as P;
     case 13:
       return (reader.readStringOrNull(offset)) as P;
     case 14:
-      return (reader.readString(offset)) as P;
-    case 15:
-      return (reader.readDateTime(offset)) as P;
-    case 16:
       return (reader.readLong(offset)) as P;
+    case 15:
+      return (reader.readStringOrNull(offset)) as P;
+    case 16:
+      return (reader.readString(offset)) as P;
     case 17:
+      return (reader.readDateTime(offset)) as P;
+    case 18:
+      return (reader.readLong(offset)) as P;
+    case 19:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -716,6 +772,140 @@ extension WorkflowAggregateRecordQueryWhere on QueryBuilder<
   }
 
   QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterWhereClause> assetClassIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'assetClassId',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterWhereClause> assetClassIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'assetClassId',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterWhereClause> assetClassIdEqualTo(String? assetClassId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'assetClassId',
+        value: [assetClassId],
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterWhereClause> assetClassIdNotEqualTo(String? assetClassId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetClassId',
+              lower: [],
+              upper: [assetClassId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetClassId',
+              lower: [assetClassId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetClassId',
+              lower: [assetClassId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetClassId',
+              lower: [],
+              upper: [assetClassId],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterWhereClause> assetInstanceIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'assetInstanceId',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterWhereClause> assetInstanceIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'assetInstanceId',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterWhereClause> assetInstanceIdEqualTo(String? assetInstanceId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'assetInstanceId',
+        value: [assetInstanceId],
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterWhereClause> assetInstanceIdNotEqualTo(String? assetInstanceId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetInstanceId',
+              lower: [],
+              upper: [assetInstanceId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetInstanceId',
+              lower: [assetInstanceId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetInstanceId',
+              lower: [assetInstanceId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetInstanceId',
+              lower: [],
+              upper: [assetInstanceId],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
       QAfterWhereClause> statusKeyEqualTo(String statusKey) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.equalTo(
@@ -769,6 +959,318 @@ extension WorkflowAggregateRecordQueryFilter on QueryBuilder<
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'activeRedWork',
         value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetClassIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'assetClassId',
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetClassIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'assetClassId',
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetClassIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'assetClassId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetClassIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'assetClassId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetClassIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'assetClassId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetClassIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'assetClassId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetClassIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'assetClassId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetClassIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'assetClassId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+          QAfterFilterCondition>
+      assetClassIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'assetClassId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+          QAfterFilterCondition>
+      assetClassIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'assetClassId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetClassIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'assetClassId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetClassIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'assetClassId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetInstanceIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'assetInstanceId',
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetInstanceIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'assetInstanceId',
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetInstanceIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'assetInstanceId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetInstanceIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'assetInstanceId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetInstanceIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'assetInstanceId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetInstanceIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'assetInstanceId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetInstanceIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'assetInstanceId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetInstanceIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'assetInstanceId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+          QAfterFilterCondition>
+      assetInstanceIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'assetInstanceId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+          QAfterFilterCondition>
+      assetInstanceIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'assetInstanceId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetInstanceIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'assetInstanceId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord,
+      QAfterFilterCondition> assetInstanceIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'assetInstanceId',
+        value: '',
       ));
     });
   }
@@ -2382,6 +2884,34 @@ extension WorkflowAggregateRecordQuerySortBy
   }
 
   QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord, QAfterSortBy>
+      sortByAssetClassId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetClassId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord, QAfterSortBy>
+      sortByAssetClassIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetClassId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord, QAfterSortBy>
+      sortByAssetInstanceId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetInstanceId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord, QAfterSortBy>
+      sortByAssetInstanceIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetInstanceId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord, QAfterSortBy>
       sortByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.asc);
@@ -2633,6 +3163,34 @@ extension WorkflowAggregateRecordQuerySortThenBy on QueryBuilder<
       thenByActiveRedWorkDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activeRedWork', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord, QAfterSortBy>
+      thenByAssetClassId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetClassId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord, QAfterSortBy>
+      thenByAssetClassIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetClassId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord, QAfterSortBy>
+      thenByAssetInstanceId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetInstanceId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord, QAfterSortBy>
+      thenByAssetInstanceIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetInstanceId', Sort.desc);
     });
   }
 
@@ -2899,6 +3457,21 @@ extension WorkflowAggregateRecordQueryWhereDistinct on QueryBuilder<
   }
 
   QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord, QDistinct>
+      distinctByAssetClassId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'assetClassId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord, QDistinct>
+      distinctByAssetInstanceId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'assetInstanceId',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, WorkflowAggregateRecord, QDistinct>
       distinctByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assetNumber');
@@ -3033,6 +3606,20 @@ extension WorkflowAggregateRecordQueryProperty on QueryBuilder<
       activeRedWorkProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'activeRedWork');
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, String?, QQueryOperations>
+      assetClassIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'assetClassId');
+    });
+  }
+
+  QueryBuilder<WorkflowAggregateRecord, String?, QQueryOperations>
+      assetInstanceIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'assetInstanceId');
     });
   }
 

@@ -2,6 +2,7 @@
 
 import 'module_composer_models.dart';
 import 'module_workshop_merge.dart';
+import '../../maintenance/data/maintenance_model.dart';
 
 class ModuleComposerValidationResult {
   final List<String> errors;
@@ -30,6 +31,12 @@ class ModuleComposerValidator {
     }
     if (draft.modules.isEmpty) {
       errors.add('Add at least one module before saving to publisher.');
+    }
+    if (draft.assetType == AssetType.governedCustom &&
+        draft.assetHierarchyRefJson == null) {
+      errors.add(
+        'Select a governed asset class and hierarchy definition for this custom template.',
+      );
     }
 
     final moduleCodes = <String>{};

@@ -50,6 +50,7 @@ import 'core/services/auto_sync_service.dart';
 import 'core/services/app_logger.dart';
 import 'core/security/app_check_bootstrap.dart';
 import 'core/services/crash_reporting_bootstrap.dart';
+import 'core/services/governed_asset_identity_local_repair.dart';
 import 'core/services/isar_installed_store_provenance.dart';
 import 'core/services/isar_production_recovery.dart';
 import 'core/services/isar_schema_guard.dart';
@@ -125,6 +126,20 @@ Future<Isar> _openLocalIsar() async {
         'Normalized legacy assurance requests: '
         '${assuranceRepair.normalizedLegacyRequests}',
       );
+    }
+    if (schemaPreparation.result.fromVersion < 5 &&
+        schemaPreparation.result.toVersion == 5) {
+      final identityRepair = await repairLegacyGovernedAssetIdentityProjections(
+        localIsar,
+      );
+      await resetGovernedAssetIdentityProjectionPullCursors();
+      if (identityRepair.changed) {
+        debugPrint(
+          'Quarantined legacy governed-asset projections: '
+          'workflows=${identityRepair.removedWorkflowProjections}, '
+          'equipment=${identityRepair.removedEquipmentProjections}',
+        );
+      }
     }
     final committedMarker = await schemaPreparation.commitAfterSuccessfulOpen();
     debugPrint(

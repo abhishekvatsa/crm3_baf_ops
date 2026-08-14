@@ -61,6 +61,14 @@ class PaginatedMaintenanceResult {
   }
 }
 
+bool maintenanceRecordOverlapsPeriod(
+  MaintenanceRecord record,
+  DateTime startInclusive,
+  DateTime endExclusive,
+) =>
+    record.startDate.isBefore(endExclusive) &&
+    (record.endDate == null || record.endDate!.isAfter(startInclusive));
+
 // ─────────────────────────────────────────────────────────────
 // INTERFACE
 // ─────────────────────────────────────────────────────────────
@@ -80,6 +88,28 @@ abstract class MaintenanceRepository {
   // 🔥 REACTIVE STREAMS
   Stream<List<MaintenanceRecord>> watchOpenTickets();
   Stream<List<MaintenanceRecord>> watchAllTickets({int? limit});
+  Stream<List<MaintenanceRecord>> watchTicketsOverlappingPeriod(
+    DateTime startInclusive,
+    DateTime endExclusive,
+  ) {
+    if (!startInclusive.isBefore(endExclusive)) {
+      return Stream<List<MaintenanceRecord>>.error(
+        ArgumentError('Report start must precede report end.'),
+      );
+    }
+    return watchAllTickets().map(
+      (records) => records
+          .where(
+            (record) => maintenanceRecordOverlapsPeriod(
+              record,
+              startInclusive,
+              endExclusive,
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
   Stream<List<MaintenanceRecord>> watchTicketsForAsset(
     AssetType type,
     int number, {
@@ -287,7 +317,7 @@ void _requireMaintenanceWorkflowMapAllowsAction(
 // ISAR IMPLEMENTATION
 // ─────────────────────────────────────────────────────────────
 
-class IsarMaintenanceRepository implements MaintenanceRepository {
+class IsarMaintenanceRepository extends MaintenanceRepository {
   final AuditRepository _auditRepo;
 
   IsarMaintenanceRepository({AuditRepository? auditRepository})
@@ -1047,7 +1077,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
 // FIRESTORE IMPLEMENTATION (FULL MAPPING RESTORED)
 // ─────────────────────────────────────────────────────────────
 
-class FirestoreMaintenanceRepository implements MaintenanceRepository {
+class FirestoreMaintenanceRepository extends MaintenanceRepository {
   final AuditRepository _auditRepo;
 
   FirestoreMaintenanceRepository({AuditRepository? auditRepository})
@@ -1096,6 +1126,33 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     }
 
     return query.snapshots().map((snap) => snap.docs.map(_mapTicket).toList());
+  }
+
+  @override
+  Stream<List<MaintenanceRecord>> watchTicketsOverlappingPeriod(
+    DateTime startInclusive,
+    DateTime endExclusive,
+  ) {
+    if (!startInclusive.isBefore(endExclusive)) {
+      return Stream<List<MaintenanceRecord>>.error(
+        ArgumentError('Report start must precede report end.'),
+      );
+    }
+    // Historical maintenance rows contain client-local ISO strings, while
+    // newer records may carry offset-aware instants. Firestore string ranges
+    // cannot order those representations as one timeline, so reporting reads
+    // the complete uncapped stream and applies the parsed overlap contract.
+    return watchAllTickets().map(
+      (records) => records
+          .where(
+            (record) => maintenanceRecordOverlapsPeriod(
+              record,
+              startInclusive,
+              endExclusive,
+            ),
+          )
+          .toList(growable: false),
+    );
   }
 
   @override

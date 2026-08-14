@@ -795,9 +795,9 @@ class JobTemplate {
       assetHierarchyRefJson == null
           ? null
           : AssetHierarchyReference.decode(
-              assetHierarchyRefJson!,
-              source: _fieldSourceLabel,
-            );
+            assetHierarchyRefJson!,
+            source: _fieldSourceLabel,
+          );
 
   String fieldsJson = '[]';
 
@@ -1121,6 +1121,35 @@ class JobExecution {
   @ignore
   bool get isGovernedTemplateAssignment =>
       templateVersionId != null && templateVersionId!.trim().isNotEmpty;
+
+  @ignore
+  AssetHierarchyReference? get assignmentAssetHierarchyReference {
+    if (!isGovernedTemplateAssignment) return null;
+    final source =
+        firestoreId == null
+            ? 'local job execution $id'
+            : 'job execution $firestoreId';
+    final metadata = readOptionalJsonObject(
+      metadataJson,
+      field: 'metadataJson',
+      source: source,
+    );
+    if (metadata == null) return null;
+    final jobSnapshot = readOptionalJsonObject(
+      metadata['jobTemplateSnapshot'],
+      field: 'metadataJson.jobTemplateSnapshot',
+      source: source,
+    );
+    if (jobSnapshot == null) return null;
+    final encoded = readOptionalAssetHierarchyReferenceJson(
+      jobSnapshot['assetHierarchyRefJson'],
+      field: 'metadataJson.jobTemplateSnapshot.assetHierarchyRefJson',
+      source: source,
+    );
+    return encoded == null
+        ? null
+        : AssetHierarchyReference.decode(encoded, source: source);
+  }
 
   @Enumerated(EnumType.name)
   late AssetType assetType;

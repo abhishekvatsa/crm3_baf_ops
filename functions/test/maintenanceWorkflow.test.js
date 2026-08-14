@@ -1,5 +1,9 @@
 const {MaintenanceWorkflowCommandService} = require('../lib/maintenanceWorkflow/dispatcher');
 const {MemoryWorkflowStore} = require('../lib/maintenanceWorkflow/memoryStore');
+const {
+  equipmentIdentityFromWorkflow,
+  equipmentPathForIdentity,
+} = require('../lib/maintenanceWorkflow/paths');
 
 const actor = (uid, roles) => ({uid, name: uid, roles: new Set(roles)});
 const admin = actor('admin-1', ['admin']);
@@ -55,6 +59,50 @@ const seedRedSuccessorTemplate = (store, assetTypeKey = 'furnace') => {
 };
 
 describe('maintenance workflow command integration', () => {
+  test('governed custom equipment paths include class and physical asset identity', () => {
+    const first = equipmentIdentityFromWorkflow({
+      assetTypeKey: 'governedCustom',
+      assetNumber: 3,
+      assetClassId: 'annealing-car-class',
+      assetInstanceId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    });
+    const second = equipmentIdentityFromWorkflow({
+      assetTypeKey: 'governedCustom',
+      assetNumber: 3,
+      assetClassId: 'transfer-car-class',
+      assetInstanceId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    });
+    expect(equipmentPathForIdentity(first)).not.toBe(
+      equipmentPathForIdentity(second),
+    );
+    expect(() => equipmentIdentityFromWorkflow({
+      assetTypeKey: 'governedCustom',
+      assetNumber: 3,
+    })).toThrow('Governed custom equipment identity is incomplete.');
+  });
+
+  test('legacy workflow creation rejects governed custom assets without registry identity', async () => {
+    const store = new MemoryWorkflowStore();
+    const service = serviceFor(store);
+    await expect(service.execute({
+      commandId: 'legacy-custom-denied',
+      commandType: 'createLegacyWorkflowJob',
+      aggregateId: 'legacy-custom-exec',
+      expectedVersion: 0,
+      payload: {
+        executionId: 'legacy-custom-exec',
+        templateFirestoreId: 'legacy-template',
+        templateName: 'Legacy custom job',
+        assetTypeKey: 'governedCustom',
+        assetNumber: 3,
+        assignedAgencies: [],
+      },
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T00:00:00Z'),
+    })).rejects.toMatchObject({code: 'invalid-argument'});
+  });
+
   test('legacy assignment creates execution, workflow and equipment projection atomically', async () => {
     const store = new MemoryWorkflowStore();
     store.seed('equipment_status/base_101', {

@@ -105,6 +105,14 @@ import type {
   AssetOperationalConditionMutationResult,
 } from "./assetOperationalConditionMutation";
 import {
+  isOperationalEventOperation,
+  mutateOperationalEventWithDb,
+  userCanMutateOperationalEvent,
+} from "./operationalEventMutation";
+import type {
+  OperationalEventMutationResult,
+} from "./operationalEventMutation";
+import {
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
   buildTicketResolvedNotification,
@@ -546,12 +554,15 @@ export const mutateAssetHierarchy = onCall(
       return await executeAuthorizedMutation<
         AssetHierarchyMutationResult |
         AssetRegistryMutationResult |
-        AssetOperationalConditionMutationResult
+        AssetOperationalConditionMutationResult |
+        OperationalEventMutationResult
       >({
         db,
         authUid: request.auth?.uid ?? null,
         callableName: "mutateAssetHierarchy",
         authorize: (userData) =>
+          isOperationalEventOperation(request.data?.operation) ?
+            userCanMutateOperationalEvent(userData, request.data.operation) :
           isAssetOperationalConditionOperation(request.data?.operation) ?
             userCanMutateAssetOperationalCondition(
               userData,
@@ -565,6 +576,9 @@ export const mutateAssetHierarchy = onCall(
             data: request.data ?? {},
             timestampFromDate: admin.firestore.Timestamp.fromDate,
           };
+          if (isOperationalEventOperation(request.data?.operation)) {
+            return mutateOperationalEventWithDb(args);
+          }
           if (isAssetOperationalConditionOperation(request.data?.operation)) {
             return mutateAssetOperationalConditionWithDb(args);
           }
