@@ -150,21 +150,60 @@ OperationsReport buildOperationsReport({
         .firstOrNull;
   }
 
-  String? executionClassId(JobExecution execution) =>
-      legacyClasses[execution.assetType.name]?.id;
+  final executionIdentityCache =
+      <JobExecution, ({String? classId, String? assetId})>{};
 
-  String? executionAssetId(JobExecution execution) {
-    final classId = executionClassId(execution);
-    if (classId == null) return null;
-    return assetInstances
+  ({String? classId, String? assetId}) executionIdentity(
+    JobExecution execution,
+  ) => executionIdentityCache.putIfAbsent(execution, () {
+    final reference = execution.assignmentAssetHierarchyReference;
+    final classId =
+        reference?.assetClassId ?? legacyClasses[execution.assetType.name]?.id;
+    if (classId == null &&
+        execution.assetType == AssetType.governedCustom &&
+        execution.isGovernedTemplateAssignment) {
+      throw StateError(
+        'Governed custom execution ${execution.firestoreId ?? execution.id} '
+        'has no published asset hierarchy reference.',
+      );
+    }
+    if (classId == null) return (classId: null, assetId: null);
+
+    final referencedAssetId = reference?.assetInstanceId;
+    if (referencedAssetId != null) {
+      final referencedAsset = assetsById[referencedAssetId];
+      if (referencedAsset == null ||
+          referencedAsset.assetClassId != classId ||
+          referencedAsset.assetNumber != execution.assetNumber) {
+        throw StateError(
+          'Execution ${execution.firestoreId ?? execution.id} has '
+          'inconsistent governed physical-asset identity.',
+        );
+      }
+      return (classId: classId, assetId: referencedAssetId);
+    }
+    final matchingAssetIds = assetInstances
         .where(
           (asset) =>
               asset.assetClassId == classId &&
               asset.assetNumber == execution.assetNumber,
         )
         .map((asset) => asset.id)
-        .firstOrNull;
-  }
+        .toList(growable: false);
+    if (matchingAssetIds.length > 1) {
+      throw StateError(
+        'Execution ${execution.firestoreId ?? execution.id} matches multiple '
+        'physical assets in class $classId.',
+      );
+    }
+    return (classId: classId, assetId: matchingAssetIds.firstOrNull);
+  });
+
+  String? executionClassId(JobExecution execution) =>
+      executionIdentity(execution).classId;
+
+  String? executionAssetId(JobExecution execution) =>
+      executionIdentity(execution).assetId;
 
   bool matchesIdentity(String? classId, String? assetId) {
     if (effectiveClassId != null && classId != effectiveClassId) {

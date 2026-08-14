@@ -1629,9 +1629,9 @@
     {
       "path": "lib/features/planned_maintenance/data/job_template_model.dart",
       "canonicalSha256": "4DA077FD5E7F9DF3A44515FBC86FA2BE75DC7603E05B5DF45EB6FDCB1065B751",
-      "candidateSha256": "F21C88C5EE56A003F346798554ED80813B4895E0325CD33A241D05B22591DE7C",
+      "candidateSha256": "C45025177C6BA71AFD661611F0BA14D6AAE9262DF6EA0585A7F3B14DB4AB8F97",
       "canonicalBytes": 21464,
-      "candidateBytes": 50682,
+      "candidateBytes": 51624,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/domain/plant_asset_overview.dart';
@@ -12,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 AssetClassRecord assetClass(
   String id,
   String name,
-  String legacy, {
+  String? legacy, {
   AssetHierarchyStatus status = AssetHierarchyStatus.active,
 }) => AssetClassRecord(
   id: id,
@@ -246,6 +248,142 @@ void main() {
     expect(report.issueCount, 1);
     expect(report.assetStates.single.asset.id, furnace7.id);
     expect(report.classSummaries.single.assetClassId, furnace.id);
+  });
+
+  test(
+    'governed custom planned work uses its published hierarchy identity',
+    () {
+      final annealingCar = assetClass(
+        'annealing-car-class',
+        'Annealing car',
+        null,
+      );
+      final car3 = asset('annealing-car-3', annealingCar, 3);
+      final customExecution =
+          execution(DateTime.utc(2026, 8, 6))
+            ..assetType = AssetType.governedCustom
+            ..assetNumber = 3
+            ..templateVersionId = 'version-custom-1'
+            ..metadataJson = jsonEncode(<String, dynamic>{
+              'source': 'server_governed_published_template_assignment',
+              'jobTemplateSnapshot': <String, dynamic>{
+                'assetHierarchyRefJson':
+                    AssetHierarchyReference(
+                      assetClassId: annealingCar.id,
+                      assetClassCode: annealingCar.code,
+                      assetClassName: annealingCar.name,
+                      nodeId: 'car-body',
+                      nodeVersion: 1,
+                      nodeName: 'Car body',
+                      hierarchyPath: const ['Car body'],
+                      ownershipStatus: AssetOwnershipStatus.unassigned,
+                    ).encode(),
+              },
+            });
+      final report = buildOperationsReport(
+        filter: OperationsReportFilter(
+          startDate: DateTime.utc(2026, 8, 1),
+          endDate: DateTime.utc(2026, 8, 31),
+          assetInstanceId: car3.id,
+        ),
+        tickets: const [],
+        executions: [customExecution],
+        events: const [],
+        assetClasses: [annealingCar],
+        assetInstances: [car3],
+        overview: PlantAssetOverview.build(
+          assetClasses: [annealingCar],
+          assetInstances: [car3],
+          operationalConditions: const [],
+          workflowStatuses: const [],
+        ),
+      );
+
+      expect(report.plannedJobCount, 1);
+      expect(report.openPlannedJobCount, 1);
+      expect(report.classSummaries.single.plannedJobCount, 1);
+    },
+  );
+
+  test(
+    'governed custom planned work without hierarchy identity fails closed',
+    () {
+      final customExecution =
+          execution(DateTime.utc(2026, 8, 6))
+            ..assetType = AssetType.governedCustom
+            ..assetNumber = 3
+            ..templateVersionId = 'version-custom-1'
+            ..metadataJson = jsonEncode(<String, dynamic>{
+              'source': 'server_governed_published_template_assignment',
+              'jobTemplateSnapshot': <String, dynamic>{
+                'jobName': 'Custom asset PM',
+              },
+            });
+
+      expect(
+        () => buildOperationsReport(
+          filter: OperationsReportFilter(
+            startDate: DateTime.utc(2026, 8, 1),
+            endDate: DateTime.utc(2026, 8, 31),
+          ),
+          tickets: const [],
+          executions: [customExecution],
+          events: const [],
+          assetClasses: const [],
+          assetInstances: const [],
+          overview: const PlantAssetOverview(classes: [], assets: []),
+        ),
+        throwsStateError,
+      );
+    },
+  );
+
+  test('governed custom planned work rejects ambiguous physical identity', () {
+    final annealingCar = assetClass(
+      'annealing-car-class',
+      'Annealing car',
+      null,
+    );
+    final customExecution =
+        execution(DateTime.utc(2026, 8, 6))
+          ..assetType = AssetType.governedCustom
+          ..assetNumber = 3
+          ..templateVersionId = 'version-custom-1'
+          ..metadataJson = jsonEncode(<String, dynamic>{
+            'source': 'server_governed_published_template_assignment',
+            'jobTemplateSnapshot': <String, dynamic>{
+              'assetHierarchyRefJson':
+                  AssetHierarchyReference(
+                    assetClassId: annealingCar.id,
+                    assetClassCode: annealingCar.code,
+                    assetClassName: annealingCar.name,
+                    nodeId: 'car-body',
+                    nodeVersion: 1,
+                    nodeName: 'Car body',
+                    hierarchyPath: const ['Car body'],
+                    ownershipStatus: AssetOwnershipStatus.unassigned,
+                  ).encode(),
+            },
+          });
+
+    expect(
+      () => buildOperationsReport(
+        filter: OperationsReportFilter(
+          startDate: DateTime.utc(2026, 8, 1),
+          endDate: DateTime.utc(2026, 8, 31),
+        ),
+        tickets: const [],
+        executions: [customExecution],
+        events: const [],
+        assetClasses: [annealingCar],
+        assetInstances: [
+          asset('annealing-car-3-a', annealingCar, 3),
+          asset('annealing-car-3-b', annealingCar, 3),
+        ],
+        overview: const PlantAssetOverview(classes: [], assets: []),
+      ),
+      throwsStateError,
+    );
   });
 
   test(
