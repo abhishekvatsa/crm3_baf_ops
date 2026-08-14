@@ -203,6 +203,34 @@ function hierarchyDocuments() {
         lastMutationId: 'condition-mutation-1',
       },
     }],
+    operational_events: [{
+      id: 'event-1',
+      data: {
+        schemaVersion: 1,
+        eventId: 'event-1',
+        eventType: 'powerTrip',
+        title: 'Incoming power interruption',
+        description: 'Incoming power was unavailable across the shop.',
+        severity: 'critical',
+        scope: 'plantWide',
+        affectedAssetClassIds: [],
+        affectedAssetInstanceIds: [],
+        startedAt: ts,
+        status: 'open',
+        createdAt: ts,
+        createdByUid: 'operations-1',
+        createdByName: 'Operations',
+        resolvedAt: null,
+        resolvedByUid: null,
+        resolvedByName: null,
+        resolutionNote: null,
+        version: 1,
+        updatedAt: ts,
+        updatedByUid: 'operations-1',
+        updatedByName: 'Operations',
+        lastMutationId: 'event-mutation-1',
+      },
+    }],
     asset_component_instances: [{
       id: componentId,
       data: {
@@ -546,7 +574,7 @@ test('actual Dart readers reconcile every hierarchy collection in memory', async
     documentsByCollection: documents,
     hmacKey: HMAC_KEY,
   });
-  assert.equal(reconciliation.length, 6);
+  assert.equal(reconciliation.length, 7);
   assert.ok(reconciliation.every((result) => result.result === 'PASS'));
   assert.equal(JSON.stringify(reconciliation).includes('component-1'), false);
 

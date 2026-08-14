@@ -25,6 +25,10 @@ import 'features/maintenance/presentation/closed_tickets_screen.dart';
 import 'features/reports/presentation/fleet_status_screen.dart';
 import 'features/abnormalities/presentation/abnormalities_home_screen.dart';
 import 'features/quality/presentation/quality_home_screen.dart';
+import 'features/quality/data/quality_warning.dart';
+import 'features/quality/providers/quality_provider.dart';
+import 'features/operational_events/presentation/operational_events_screen.dart';
+import 'features/operational_events/providers/operational_event_provider.dart';
 import 'features/maintenance_workflow/presentation/screens/compliance_inbox_screen.dart';
 import 'features/maintenance_workflow/presentation/screens/compliance_notification_screen.dart';
 import 'features/maintenance_workflow/presentation/screens/equipment_status_board.dart';
@@ -139,6 +143,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ? ref.watch(workflowAllComplianceProvider)
                 : null;
         final plantOverviewAsync = ref.watch(plantAssetOverviewProvider);
+        final operationalEventsAsync = ref.watch(operationalEventsProvider);
+        final qualityWarningsAsync = ref.watch(qualityWarningsProvider);
 
         final ticketCount = ticketCountAsync.value ?? 0;
         final executionCount = executionCountAsync?.value ?? 0;
@@ -168,6 +174,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             0;
         final workflowAttentionCount =
             pendingLaneAcknowledgements + dueCompliance;
+        final openOperationalEventCount =
+            operationalEventsAsync.value
+                ?.where((event) => event.isOpen)
+                .length ??
+            0;
+        final openQualityWarningCount =
+            qualityWarningsAsync.value
+                ?.where(
+                  (warning) => warning.status != QualityWarningStatus.closed,
+                )
+                .length ??
+            0;
 
         final tabs = _buildTabs(
           appUser: appUser,
@@ -175,6 +193,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           executionCount: executionCount,
           directiveCount: directiveCount,
           workflowAttentionCount: workflowAttentionCount,
+          openOperationalEventCount: openOperationalEventCount,
+          openQualityWarningCount: openQualityWarningCount,
           plantOverview: plantOverviewAsync,
         );
 
@@ -254,6 +274,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required int executionCount,
     required int directiveCount,
     required int workflowAttentionCount,
+    required int openOperationalEventCount,
+    required int openQualityWarningCount,
     required AsyncValue<PlantAssetOverview> plantOverview,
   }) {
     return [
@@ -266,6 +288,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               executionCount: executionCount,
               directiveCount: directiveCount,
               workflowAttentionCount: workflowAttentionCount,
+              openOperationalEventCount: openOperationalEventCount,
+              openQualityWarningCount: openQualityWarningCount,
               plantOverview: plantOverview,
               onProfileTap: () => _showProfileSheet(context, ref, appUser),
               onRaiseIssue: () => _openMaintenanceForm(context),
@@ -275,6 +299,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onAbnormalities:
                   () => _push(context, const AbnormalitiesHomeScreen()),
               onQuality: () => _push(context, const QualityHomeScreen()),
+              onOperationalEvents:
+                  () => _push(context, const OperationalEventsScreen()),
               onPlantCondition:
                   () => _push(context, const AssetConditionBoard()),
               onManualSync: () => _runManualSync(context),
@@ -359,6 +385,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onAbnormalities:
                   () => _push(context, const AbnormalitiesHomeScreen()),
               onQuality: () => _push(context, const QualityHomeScreen()),
+              onOperationalEvents:
+                  () => _push(context, const OperationalEventsScreen()),
               onTemplateAuthoring: () => _openModuleComposer(context, appUser),
               onTemplatePublisher:
                   () => _push(context, const TemplatePublisherScreen()),
@@ -559,6 +587,8 @@ class _DashboardHome extends StatelessWidget {
   final int executionCount;
   final int directiveCount;
   final int workflowAttentionCount;
+  final int openOperationalEventCount;
+  final int openQualityWarningCount;
   final AsyncValue<PlantAssetOverview> plantOverview;
   final VoidCallback onProfileTap;
   final VoidCallback onRaiseIssue;
@@ -567,6 +597,7 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onDirectives;
   final VoidCallback onAbnormalities;
   final VoidCallback onQuality;
+  final VoidCallback onOperationalEvents;
   final VoidCallback onPlantCondition;
   final VoidCallback onManualSync;
 
@@ -576,6 +607,8 @@ class _DashboardHome extends StatelessWidget {
     required this.executionCount,
     required this.directiveCount,
     required this.workflowAttentionCount,
+    required this.openOperationalEventCount,
+    required this.openQualityWarningCount,
     required this.plantOverview,
     required this.onProfileTap,
     required this.onRaiseIssue,
@@ -584,6 +617,7 @@ class _DashboardHome extends StatelessWidget {
     required this.onDirectives,
     required this.onAbnormalities,
     required this.onQuality,
+    required this.onOperationalEvents,
     required this.onPlantCondition,
     required this.onManualSync,
   });
@@ -591,7 +625,12 @@ class _DashboardHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totalAttention =
-        ticketCount + executionCount + directiveCount + workflowAttentionCount;
+        ticketCount +
+        executionCount +
+        directiveCount +
+        workflowAttentionCount +
+        openOperationalEventCount +
+        openQualityWarningCount;
 
     return SafeArea(
       bottom: false,
@@ -671,9 +710,13 @@ class _DashboardHome extends StatelessWidget {
                 executionCount: executionCount,
                 directiveCount: directiveCount,
                 workflowAttentionCount: workflowAttentionCount,
+                openOperationalEventCount: openOperationalEventCount,
+                openQualityWarningCount: openQualityWarningCount,
                 onIssues: onIssues,
                 onWork: onWork,
                 onDirectives: onDirectives,
+                onOperationalEvents: onOperationalEvents,
+                onQuality: onQuality,
               ),
             ],
           ),
@@ -693,6 +736,7 @@ class _MoreScreen extends StatelessWidget {
   final VoidCallback onAuditLog;
   final VoidCallback onAbnormalities;
   final VoidCallback onQuality;
+  final VoidCallback onOperationalEvents;
   final VoidCallback onTemplateAuthoring;
   final VoidCallback onTemplatePublisher;
   final VoidCallback onKnowledgeGovernance;
@@ -708,6 +752,7 @@ class _MoreScreen extends StatelessWidget {
     required this.onAuditLog,
     required this.onAbnormalities,
     required this.onQuality,
+    required this.onOperationalEvents,
     required this.onTemplateAuthoring,
     required this.onTemplatePublisher,
     required this.onKnowledgeGovernance,
@@ -775,6 +820,14 @@ class _MoreScreen extends StatelessWidget {
                       subtitle: 'Warnings, closure assurance and monitoring',
                       onTap: onQuality,
                     ),
+                  _MoreDestinationTile(
+                    icon: Icons.crisis_alert_outlined,
+                    color: BafColors.warning,
+                    title: 'Operational events',
+                    subtitle:
+                        'Utilities, cranes, transfer cars and plant delays',
+                    onTap: onOperationalEvents,
+                  ),
                   if (canSeeClosed)
                     _MoreDestinationTile(
                       icon: Icons.history_rounded,
@@ -880,18 +933,26 @@ class _AttentionPanel extends StatelessWidget {
   final int executionCount;
   final int directiveCount;
   final int workflowAttentionCount;
+  final int openOperationalEventCount;
+  final int openQualityWarningCount;
   final VoidCallback onIssues;
   final VoidCallback onWork;
   final VoidCallback onDirectives;
+  final VoidCallback onOperationalEvents;
+  final VoidCallback onQuality;
 
   const _AttentionPanel({
     required this.ticketCount,
     required this.executionCount,
     required this.directiveCount,
     required this.workflowAttentionCount,
+    required this.openOperationalEventCount,
+    required this.openQualityWarningCount,
     required this.onIssues,
     required this.onWork,
     required this.onDirectives,
+    required this.onOperationalEvents,
+    required this.onQuality,
   });
 
   @override
@@ -928,6 +989,22 @@ class _AttentionPanel extends StatelessWidget {
           title: 'Active directives',
           detail: '$directiveCount visible to your role',
           onTap: onDirectives,
+        ),
+      if (openOperationalEventCount > 0)
+        _AttentionRow(
+          icon: Icons.crisis_alert_outlined,
+          color: BafColors.warning,
+          title: 'Operational disruptions',
+          detail: '$openOperationalEventCount currently open',
+          onTap: onOperationalEvents,
+        ),
+      if (openQualityWarningCount > 0)
+        _AttentionRow(
+          icon: Icons.verified_user_outlined,
+          color: BafColors.danger,
+          title: 'Quality warnings',
+          detail: '$openQualityWarningCount awaiting disposition',
+          onTap: onQuality,
         ),
     ];
 

@@ -460,6 +460,30 @@
       "reArmCondition": "any asset operational-condition timestamp schema change"
     },
     {
+      "id": "operational-event-record",
+      "readerFile": "lib/features/operational_events/data/operational_event.dart",
+      "readerMarker": "factory OperationalEvent.fromMap",
+      "requiredFields": ["startedAt", "createdAt", "updatedAt"],
+      "optionalFields": ["resolvedAt"],
+      "owner": "plant-operations",
+      "purpose": "restore operational disruption chronology and complete resolution evidence",
+      "authorityBoundary": "remote-operational-event-record",
+      "regression": "test/operational_event_model_test.dart",
+      "reArmCondition": "any operational-event timestamp schema change"
+    },
+    {
+      "id": "operational-event-command-response",
+      "readerFile": "lib/features/operational_events/services/operational_event_service.dart",
+      "readerMarker": "factory OperationalEventCommandResult.fromMap",
+      "requiredFields": ["committedAt"],
+      "optionalFields": [],
+      "owner": "plant-operations",
+      "purpose": "verify the canonical server commit instant in operational-event mutation evidence",
+      "authorityBoundary": "remote-operational-event-command-response",
+      "regression": "test/operational_event_model_test.dart",
+      "reArmCondition": "any operational-event callable receipt timestamp change"
+    },
+    {
       "id": "quality-command-response",
       "readerFile": "lib/features/quality/services/quality_command_service.dart",
       "readerMarker": "factory QualityCommandResult.fromMap",

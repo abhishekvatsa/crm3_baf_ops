@@ -655,6 +655,37 @@
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "id": "operational-event-records",
+      "file": "lib/features/operational_events/data/operational_event.dart",
+      "markers": [
+        "factory OperationalEvent.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "plant-operations",
+      "authorityBoundary": "plant disruption scope, severity, chronology, lifecycle, and closure evidence",
+      "malformedDisposition": "fail closed before malformed event or partial resolution evidence can enter reports or the plant dashboard",
+      "compatibility": "schema version 1 only; complete scope arrays and all-or-none resolution evidence",
+      "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js",
+      "reArmCondition": "event identity, scope, status, actor, timestamp, or version fields are defaulted from malformed input",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "operational-event-command-result",
+      "file": "lib/features/operational_events/services/operational_event_service.dart",
+      "markers": [
+        "factory OperationalEventCommandResult.fromMap",
+        "Future<OperationalEventCommandResult> _call"
+      ],
+      "classification": "SERVER_COMMAND_RECEIPT",
+      "owner": "plant-operations",
+      "authorityBoundary": "governed operational-event mutation result and optimistic-version evidence",
+      "malformedDisposition": "translate malformed callable evidence to data-loss and never report command success",
+      "compatibility": "none for request identity, operation, event identity, result version, audit identity, status, or commit time",
+      "regression": "test/operational_event_model_test.dart; functions/test/operationalEventMutation.test.js",
+      "reArmCondition": "malformed response fields are coerced or accepted as a successful operational-event mutation",
+      "riskFingerprint": "9b34cfd77c7c22342706f6fdcd9b83073548be933665839d886ad3c55803ca4f"
+    },
+    {
       "id": "quality-warning-and-monitoring-records",
       "file": "lib/features/quality/data/quality_warning.dart",
       "markers": [
@@ -1184,6 +1215,19 @@
       "malformedDisposition": "throw a data-loss command error and do not report success",
       "regression": "test/quality_command_result_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "transport or response-format failure becomes a successful quality decision"
+    },
+    {
+      "id": "operational-event-command-transport-translation",
+      "file": "lib/features/operational_events/services/operational_event_service.dart",
+      "siteFingerprint": "c05c6fbce5982a4281ed2ba865a5d816de30593803772f397fcc8ede1842e67d",
+      "classification": "TRANSPORT_ERROR_TRANSLATION",
+      "purpose": "translate callable transport failures while preserving strict operational-event response-format failure",
+      "authorityBoundary": "governed operational-event mutation response",
+      "mutability": "remote mutation already governed by the server; no local success state is manufactured",
+      "dataScope": "operational-event callable response and Firebase transport error",
+      "malformedDisposition": "throw a data-loss command error and do not report success",
+      "regression": "test/operational_event_model_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "transport or response-format failure becomes a successful operational-event decision"
     }
   ]
 }

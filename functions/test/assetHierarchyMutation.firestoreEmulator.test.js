@@ -9,6 +9,9 @@ const {
 const {
   mutateAssetOperationalConditionWithDb,
 } = require('../lib/assetOperationalConditionMutation');
+const {
+  mutateOperationalEventWithDb,
+} = require('../lib/operationalEventMutation');
 
 jest.setTimeout(60000);
 
@@ -39,6 +42,9 @@ const IDS = {
   componentUpdateRequest: '12121212-1212-4121-8121-121212121212',
   conditionRequest: '13131313-1313-4131-8131-131313131313',
   restorationRequest: '14141414-1414-4141-8141-141414141414',
+  eventId: '15151515-1515-4151-8151-151515151515',
+  eventCreateRequest: '16161616-1616-4161-8161-161616161616',
+  eventResolveRequest: '17171717-1717-4171-8171-171717171717',
 };
 
 function classRequest() {
@@ -129,6 +135,16 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
 
   async function invokeCondition(data, authUid) {
     return mutateAssetOperationalConditionWithDb({
+      db,
+      authUid,
+      data,
+      now: () => new Date('2026-08-13T12:00:00.000Z'),
+      timestampFromDate: admin.firestore.Timestamp.fromDate,
+    });
+  }
+
+  async function invokeEvent(data, authUid) {
+    return mutateOperationalEventWithDb({
       db,
       authUid,
       data,
@@ -611,5 +627,58 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
         field: 'nodeDraft.ownershipStatus',
       }),
     });
+  });
+
+  test('records and resolves an asset-scoped operational event with exact replay evidence', async () => {
+    await invoke(classRequest());
+    await invokeRegistry(assetRequest({
+      requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      name: 'Furnace 1',
+    }));
+    const create = {
+      requestId: IDS.eventCreateRequest,
+      operation: 'CREATE_OPERATIONAL_EVENT',
+      eventId: IDS.eventId,
+      expectedVersion: 0,
+      reason: 'Record the crane outage affecting Furnace 1 movement.',
+      eventDraft: {
+        eventType: 'crane',
+        title: 'Charging crane unavailable',
+        description: 'Furnace movement is waiting for the charging crane.',
+        severity: 'significant',
+        scope: 'assets',
+        affectedAssetClassIds: [IDS.classId],
+        affectedAssetInstanceIds: [IDS.firstAsset],
+        startedAt: '2026-08-13T11:30:00.000Z',
+      },
+      resolutionNote: null,
+    };
+    const first = await invokeEvent(create, 'ops-1');
+    const replay = await invokeEvent(create, 'ops-1');
+    expect(first).toMatchObject({status: 'open', version: 1});
+    expect(replay).toEqual({...first, idempotentReplay: true});
+
+    const resolved = await invokeEvent({
+      requestId: IDS.eventResolveRequest,
+      operation: 'RESOLVE_OPERATIONAL_EVENT',
+      eventId: IDS.eventId,
+      expectedVersion: 1,
+      reason: 'Close after Operations verifies that crane service is restored.',
+      eventDraft: null,
+      resolutionNote: 'Crane trial completed and Furnace 1 movement resumed safely.',
+    }, 'shift-1');
+    expect(resolved).toMatchObject({status: 'resolved', version: 2});
+    expect((await db.collection('operational_events').doc(IDS.eventId).get()).data())
+      .toMatchObject({
+        eventType: 'crane',
+        scope: 'assets',
+        affectedAssetInstanceIds: [IDS.firstAsset],
+        resolvedByUid: 'shift-1',
+        version: 2,
+      });
+    expect((await db.collection('operational_event_audits').get()).size).toBe(2);
+    expect((await db.collection('operational_event_receipts').get()).size).toBe(2);
   });
 });
