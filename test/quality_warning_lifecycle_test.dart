@@ -3,6 +3,7 @@ import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/quality/data/quality_warning.dart';
 import 'package:crm3_baf_ops/features/quality/domain/issue_quality_intent.dart';
 import 'package:crm3_baf_ops/features/quality/domain/quality_warning_projection.dart';
+import 'package:crm3_baf_ops/features/quality/providers/quality_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -159,6 +160,26 @@ void main() {
         () => QualityWarning.fromMap(warning, 'issue_ticket-1'),
         throwsFormatException,
       );
+    });
+
+    test('non-closed window preserves old warnings and removes duplicates', () {
+      final open = QualityWarning.fromMap(_warning(), 'issue_ticket-1');
+      final reviewMap =
+          _warning()
+            ..['warningId'] = 'issue_ticket-2'
+            ..['sourceId'] = 'ticket-2'
+            ..['status'] = 'closureRequested'
+            ..['closureRequestReason'] =
+                'Coils were inspected and found satisfactory.'
+            ..['closureRequestedAt'] = DateTime.utc(2026, 8, 14, 11)
+            ..['closureRequestedByUid'] = 'operations-1'
+            ..['closureRequestedByName'] = 'Operations One';
+      final review = QualityWarning.fromMap(reviewMap, 'issue_ticket-2');
+      final merged = mergeQualityWarningWindows([open, review], [open]);
+      expect(merged.map((warning) => warning.warningId), [
+        'issue_ticket-2',
+        'issue_ticket-1',
+      ]);
     });
   });
 

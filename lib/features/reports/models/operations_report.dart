@@ -77,6 +77,7 @@ class AssetClassReportSummary {
 class OperationsReport {
   const OperationsReport({
     required this.filter,
+    required this.asOf,
     required this.tickets,
     required this.executions,
     required this.events,
@@ -90,6 +91,7 @@ class OperationsReport {
   });
 
   final OperationsReportFilter filter;
+  final DateTime asOf;
   final List<MaintenanceRecord> tickets;
   final List<JobExecution> executions;
   final List<OperationalEvent> events;
@@ -123,7 +125,7 @@ class OperationsReport {
     Duration.zero,
     (total, event) =>
         total +
-        event.durationWithin(filter.startInclusive, filter.endExclusive),
+        event.durationWithin(filter.startInclusive, filter.endExclusive, asOf),
   );
 
   int get assetCount => assetStates.length;

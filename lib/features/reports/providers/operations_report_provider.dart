@@ -84,6 +84,7 @@ OperationsReport buildOperationsReport({
   required List<AssetClassRecord> assetClasses,
   required List<AssetInstanceRecord> assetInstances,
   required PlantAssetOverview overview,
+  DateTime? asOf,
 }) {
   if (filter.endExclusive.isBefore(filter.startInclusive) ||
       filter.endExclusive == filter.startInclusive) {
@@ -147,7 +148,7 @@ OperationsReport buildOperationsReport({
 
   bool overlaps(DateTime start, DateTime? end) =>
       start.isBefore(filter.endExclusive) &&
-      (end == null || !end.isBefore(filter.startInclusive));
+      (end == null || end.isAfter(filter.startInclusive));
 
   final filteredTickets =
       tickets
@@ -294,6 +295,7 @@ OperationsReport buildOperationsReport({
 
   return OperationsReport(
     filter: filter,
+    asOf: asOf ?? DateTime.now(),
     tickets: List<MaintenanceRecord>.unmodifiable(filteredTickets),
     executions: List<JobExecution>.unmodifiable(filteredExecutions),
     events: List<OperationalEvent>.unmodifiable(filteredEvents),

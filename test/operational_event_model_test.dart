@@ -91,6 +91,7 @@ void main() {
           .durationWithin(
             DateTime.utc(2026, 8, 14, 10, 30),
             DateTime.utc(2026, 8, 14, 10, 45),
+            DateTime.utc(2026, 8, 14, 12),
           )
           .inMinutes,
       15,

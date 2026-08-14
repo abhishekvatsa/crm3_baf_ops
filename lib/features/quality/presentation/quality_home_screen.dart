@@ -99,10 +99,11 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
             ),
             children: [
               _SummaryStrip(open: open, review: review, closed: closed),
-              if (items.length == qualityWarningLiveWindowLimit) ...[
+              if (items.length >= qualityWarningLiveWindowLimit) ...[
                 const SizedBox(height: BafSpacing.sm),
                 const _WindowScopeNotice(
-                  text: 'Showing the 500 most recently updated warnings',
+                  text:
+                      'Showing every open or review warning plus up to 500 recent warnings',
                 ),
               ],
               const SizedBox(height: BafSpacing.lg),

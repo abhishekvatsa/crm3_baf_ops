@@ -242,4 +242,99 @@ void main() {
     );
     expect(report.disruptionDuration, const Duration(days: 1));
   });
+
+  test('open disruption duration stops at the report as-of instant', () {
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 14),
+        endDate: DateTime.utc(2026, 8, 14),
+      ),
+      tickets: const [],
+      executions: const [],
+      events: [
+        OperationalEvent(
+          eventId: 'event-open',
+          eventType: OperationalEventType.crane,
+          title: 'Crane unavailable',
+          description: 'Furnace movement is waiting for the charging crane.',
+          severity: OperationalEventSeverity.significant,
+          scope: OperationalEventScope.plantWide,
+          affectedAssetClassIds: const [],
+          affectedAssetInstanceIds: const [],
+          startedAt: DateTime.utc(2026, 8, 14, 10),
+          status: OperationalEventStatus.open,
+          createdAt: DateTime.utc(2026, 8, 14, 10),
+          createdByUid: 'ops',
+          createdByName: 'Operations',
+          resolvedAt: null,
+          resolvedByUid: null,
+          resolvedByName: null,
+          resolutionNote: null,
+          version: 1,
+          updatedAt: DateTime.utc(2026, 8, 14, 10),
+          updatedByUid: 'ops',
+          updatedByName: 'Operations',
+          lastMutationId: 'mutation',
+        ),
+      ],
+      assetClasses: const [],
+      assetInstances: const [],
+      overview: const PlantAssetOverview(classes: [], assets: []),
+      asOf: DateTime.utc(2026, 8, 14, 12),
+    );
+    expect(report.disruptionDuration, const Duration(hours: 2));
+  });
+
+  test('records ending at period start do not overlap the report', () {
+    final start = DateTime(2026, 8, 14);
+    final boundaryIssue = issue(
+      type: AssetType.furnace,
+      number: 7,
+      started: start.subtract(const Duration(hours: 4)),
+      resolved: true,
+    )..endDate = start;
+    final boundaryJob =
+        execution(start.subtract(const Duration(hours: 4)))
+          ..isCompleted = true
+          ..completedAt = start;
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(startDate: start, endDate: start),
+      tickets: [boundaryIssue],
+      executions: [boundaryJob],
+      events: [
+        OperationalEvent(
+          eventId: 'event-boundary',
+          eventType: OperationalEventType.powerTrip,
+          title: 'Earlier power trip',
+          description: 'Power was restored at the report boundary.',
+          severity: OperationalEventSeverity.significant,
+          scope: OperationalEventScope.plantWide,
+          affectedAssetClassIds: const [],
+          affectedAssetInstanceIds: const [],
+          startedAt: start.subtract(const Duration(hours: 4)),
+          status: OperationalEventStatus.resolved,
+          createdAt: start.subtract(const Duration(hours: 4)),
+          createdByUid: 'ops',
+          createdByName: 'Operations',
+          resolvedAt: start,
+          resolvedByUid: 'shift',
+          resolvedByName: 'Shift Supervisor',
+          resolutionNote:
+              'Supply was stable at the start of the report period.',
+          version: 2,
+          updatedAt: start,
+          updatedByUid: 'shift',
+          updatedByName: 'Shift Supervisor',
+          lastMutationId: 'mutation',
+        ),
+      ],
+      assetClasses: const [],
+      assetInstances: const [],
+      overview: const PlantAssetOverview(classes: [], assets: []),
+      asOf: start.add(const Duration(hours: 12)),
+    );
+    expect(report.issueCount, 0);
+    expect(report.plannedJobCount, 0);
+    expect(report.disruptionCount, 0);
+  });
 }
