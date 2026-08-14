@@ -256,6 +256,39 @@ describe('governed maintenance-ticket supervision', () => {
     }, valid.context)).resolves.toMatchObject({aggregateVersion: 4});
   });
 
+  test('correction cannot transfer acknowledged work to a new route', async () => {
+    const acknowledged = serviceFor(admin, {
+      status: 'acknowledged',
+      acknowledgedByUid: 'electrical-1',
+      acknowledgedByName: 'electrical-1',
+      acknowledgedAt: at.toISOString(),
+    });
+    await expect(acknowledged.service.execute({
+      commandId: 'transfer-acknowledged-ticket',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'Requested route transfer after acknowledgement review.',
+        corrections: {routedTo: 'mechanical'},
+      },
+    }, acknowledged.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'maintenance-ticket-route-locked'},
+    });
+
+    await expect(acknowledged.service.execute({
+      commandId: 'correct-acknowledged-description',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'Description correction preserves receiving accountability.',
+        corrections: {description: 'Burner gas pressure is unstable'},
+      },
+    }, acknowledged.context)).resolves.toMatchObject({aggregateVersion: 4});
+  });
+
   test('completed ticket-command receipt without its audit fails closed', async () => {
     const {store, service, context} = serviceFor(electrical);
     const command = acknowledgeCommand('missing-audit');

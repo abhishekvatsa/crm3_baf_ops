@@ -364,6 +364,17 @@ export const correctMaintenanceTicket = async ({
   for (const [key, value] of Object.entries(corrections)) {
     if ((ticket[key] ?? null) !== value) changed[key] = value;
   }
+  if (Object.prototype.hasOwnProperty.call(changed, "routedTo") &&
+      (ticket.status !== "open" ||
+        ticket.acknowledgedByUid != null ||
+        ticket.acknowledgedByName != null ||
+        ticket.acknowledgedAt != null)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A ticket route cannot be corrected after acknowledgement or work has started.",
+      {reasonCode: "maintenance-ticket-route-locked"},
+    );
+  }
   const effectiveRoute = changed.routedTo ?? ticket.routedTo;
   const effectiveOtherDepartment = Object.prototype.hasOwnProperty.call(
     changed,

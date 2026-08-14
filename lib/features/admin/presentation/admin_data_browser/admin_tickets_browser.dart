@@ -61,6 +61,12 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
   late MaintenanceType _selectedMaintenanceType;
   late bool _isCritical;
 
+  bool get _canCorrectRoute =>
+      widget.ticket.status == TicketStatus.open &&
+      widget.ticket.acknowledgedByUid == null &&
+      widget.ticket.acknowledgedByName == null &&
+      widget.ticket.acknowledgedAt == null;
+
   @override
   void initState() {
     super.initState();
@@ -132,7 +138,13 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                 DropdownButtonFormField<RoutedTo>(
                   initialValue: _selectedRouted,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Route To'),
+                  decoration: InputDecoration(
+                    labelText: 'Route To',
+                    helperText:
+                        _canCorrectRoute
+                            ? null
+                            : 'Route is locked after acknowledgement or work starts.',
+                  ),
                   items:
                       RoutedTo.values.map((route) {
                         return DropdownMenuItem<RoutedTo>(
@@ -140,17 +152,18 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                           child: Text(route.name.toUpperCase()),
                         );
                       }).toList(),
-                  onChanged: (value) {
-                    if (value == null) {
-                      return;
-                    }
-                    setState(() {
-                      _selectedRouted = value;
-                      if (value != RoutedTo.others) {
-                        _otherDepartmentController.clear();
-                      }
-                    });
-                  },
+                  onChanged:
+                      _canCorrectRoute
+                          ? (value) {
+                            if (value == null) return;
+                            setState(() {
+                              _selectedRouted = value;
+                              if (value != RoutedTo.others) {
+                                _otherDepartmentController.clear();
+                              }
+                            });
+                          }
+                          : null,
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 DropdownButtonFormField<MaintenanceType>(

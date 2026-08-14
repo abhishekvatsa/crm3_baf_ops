@@ -84,10 +84,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                   final tickets = _visibleTickets(allTickets, appUser);
 
                   if (tickets.isEmpty) {
-                    return _buildEmptyState(
-                      appUser.canSeeAllTickets,
-                      syncStatus,
-                    );
+                    return _buildEmptyState(appUser, syncStatus);
                   }
 
                   return _buildTicketList(tickets, appUser, syncStatus);
@@ -137,9 +134,13 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     List<MaintenanceRecord> allTickets,
     AppUser appUser,
   ) {
-    if (appUser.canSeeAllTickets) return allTickets;
     return allTickets
-        .where((ticket) => ticket.loggedByUid == appUser.uid)
+        .where(
+          (ticket) => appUser.canViewMaintenanceTicket(
+            loggedByUid: ticket.loggedByUid,
+            routedTo: ticket.routedTo,
+          ),
+        )
         .toList();
   }
 
@@ -208,6 +209,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
             count: filtered.length,
             totalCount: tickets.length,
             canSeeAll: appUser.canSeeAllTickets,
+            canSeeAssigned: appUser.canSeeAssignedMaintenanceTickets,
             isSyncing: syncStatus == SyncStatus.syncing,
             query: _query,
             onQueryChanged: (value) => setState(() => _query = value),
@@ -344,7 +346,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     }
   }
 
-  Widget _buildEmptyState(bool canSeeAll, SyncStatus syncStatus) {
+  Widget _buildEmptyState(AppUser appUser, SyncStatus syncStatus) {
     return _BoundedIssuesContent(
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -353,7 +355,8 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
           _IssuesHeader(
             count: 0,
             totalCount: 0,
-            canSeeAll: canSeeAll,
+            canSeeAll: appUser.canSeeAllTickets,
+            canSeeAssigned: appUser.canSeeAssignedMaintenanceTickets,
             isSyncing: syncStatus == SyncStatus.syncing,
             query: '',
             onQueryChanged: (_) {},
@@ -381,8 +384,10 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                 ),
                 const SizedBox(height: BafSpacing.xs),
                 Text(
-                  canSeeAll
+                  appUser.canSeeAllTickets
                       ? 'No active breakdowns on the floor right now.'
+                      : appUser.canSeeAssignedMaintenanceTickets
+                      ? 'No active issues are assigned to your team or raised by you.'
                       : 'You have no active issues logged right now.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: BafColors.textSecondary),
@@ -417,6 +422,7 @@ class _IssuesHeader extends StatelessWidget {
   final int count;
   final int totalCount;
   final bool canSeeAll;
+  final bool canSeeAssigned;
   final bool isSyncing;
   final String query;
   final ValueChanged<String> onQueryChanged;
@@ -427,6 +433,7 @@ class _IssuesHeader extends StatelessWidget {
     required this.count,
     required this.totalCount,
     required this.canSeeAll,
+    required this.canSeeAssigned,
     required this.isSyncing,
     required this.query,
     required this.onQueryChanged,
@@ -457,6 +464,8 @@ class _IssuesHeader extends StatelessWidget {
                   Text(
                     canSeeAll
                         ? 'Issues needing attention across the floor.'
+                        : canSeeAssigned
+                        ? 'Issues raised by you or routed to your team.'
                         : 'Issues raised by you and still active.',
                     style: const TextStyle(
                       color: BafColors.textSecondary,

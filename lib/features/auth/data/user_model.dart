@@ -188,6 +188,18 @@ class AppUser {
 
   bool get canSeeAllTickets => roles.any((r) => r != AppRole.operations);
 
+  bool get canSeeAssignedMaintenanceTickets =>
+      isApproved && RoutedTo.values.any(canAcknowledgeMaintenanceTicket);
+
+  bool canViewMaintenanceTicket({
+    required String? loggedByUid,
+    required RoutedTo routedTo,
+  }) =>
+      isApproved &&
+      (canSeeAllTickets ||
+          loggedByUid == uid ||
+          canAcknowledgeMaintenanceTicket(routedTo));
+
   /// Every approved user may inspect the cross-record equipment timeline.
   /// Ticket visibility within that timeline remains repository/rules governed.
   bool get canViewOperationalAssets => isApproved;

@@ -1261,9 +1261,9 @@
     {
       "path": "lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart",
       "canonicalSha256": "F8D05C5FE70571DE9411B4E369E0318493A2CB2BADB5FE054A2D4E147C2F28BC",
-      "candidateSha256": "DDBC5849B3DEB856E6CF13AD80F5B4611AADAE2BFF88E2BC6EE2E5F91D02C9E3",
+      "candidateSha256": "37D42318F27D2372C2C72967B9719406FA5415D14D87F1E19371D4F70948E252",
       "canonicalBytes": 19777,
-      "candidateBytes": 22741,
+      "candidateBytes": 23315,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1405,9 +1405,9 @@
     {
       "path": "lib/features/auth/data/user_model.dart",
       "canonicalSha256": "DCBFB4D7AA4D57579F5BFAD3B58B19DFD08B17418355969971F8C66762E5585E",
-      "candidateSha256": "3AE3505C1B46C0C03D545C2D66704466BCB0FE2F94F668C5BBB42780A062DA8A",
+      "candidateSha256": "93290A286097513EDF9EAA3B889A006CCC4873945AE4A2522A307E6A23FBAEC0",
       "canonicalBytes": 17328,
-      "candidateBytes": 23300,
+      "candidateBytes": 23664,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1541,9 +1541,9 @@
     {
       "path": "lib/features/maintenance/presentation/ticket_screen.dart",
       "canonicalSha256": "A9B5800AA0FACFBB0D4C20C762A092982E3A2B0F40F31BAA0BFE703910BB7091",
-      "candidateSha256": "E071AA0A493676B295084DACDF7C96B957DA9D41DD79DD35E122F1D33B436B60",
+      "candidateSha256": "F6C7489C41934A5AA8273FB3C52B3357FF8806DB2D5310837234A10AC3DE1B40",
       "canonicalBytes": 20981,
-      "candidateBytes": 30653,
+      "candidateBytes": 31133,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

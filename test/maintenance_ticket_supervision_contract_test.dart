@@ -41,6 +41,7 @@ void main() {
     expect(repository, isNot(contains('Future<void> updateTicket(')));
     expect(backend, contains('server_maintenance_ticket_'));
     expect(backend, contains('maintenance-ticket-replay-audit-invalid'));
+    expect(backend, contains('maintenance-ticket-route-locked'));
     expect(backend, contains('maintenance-ticket-route-department-invalid'));
     expect(rules, isNot(contains('validMaintenanceAdminEditUpdate')));
     expect(rules, contains("!docId.matches('^server_maintenance_ticket_.*')"));

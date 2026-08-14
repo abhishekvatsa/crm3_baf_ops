@@ -53,7 +53,9 @@ owned by their dedicated governed actions.
 The resulting route also preserves the issue-creation invariant: `others`
 requires a named other department, while every standard route requires that
 field to be empty. Existing component evidence cannot be cleared through a
-correction.
+correction. Once acknowledgement evidence exists or work has started, the
+receiving route is locked so that one discipline's acceptance cannot be
+misattributed to another.
 
 The Admin screen reflects this boundary: asset identity and status are shown as
 locked context, while the supported fields and mandatory reason are submitted
