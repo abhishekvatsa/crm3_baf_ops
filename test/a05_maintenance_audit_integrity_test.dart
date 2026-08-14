@@ -202,73 +202,50 @@ void main() {
       },
     );
 
-    test('admin reopen preserves extensions and requires closure time', () {
-      final resolvedAt = DateTime.utc(2026, 8, 5, 6);
+    test('admin correction cannot rewrite asset identity or lifecycle', () {
+      final now = DateTime.utc(2026, 8, 5, 6);
       final source =
           MaintenanceRecord()
             ..firestoreId = 'ticket-admin'
             ..assetType = AssetType.base
             ..assetNumber = 2
             ..maintenanceType = MaintenanceType.breakdown
-            ..description = 'Resolved ticket'
+            ..description = 'Original ticket description'
             ..routedTo = RoutedTo.operations
-            ..status = TicketStatus.resolved
-            ..isResolved = true
-            ..startDate = resolvedAt.subtract(const Duration(hours: 2))
-            ..endDate = resolvedAt
-            ..createdAt = resolvedAt.subtract(const Duration(days: 1))
-            ..updatedAt = resolvedAt
-            ..resolutionHistoryJson = jsonEncode([
-              {
-                'resolvedAt':
-                    resolvedAt
-                        .subtract(const Duration(days: 1))
-                        .toIso8601String(),
-                'legacyExtension': {'retained': true},
-              },
-            ]);
+            ..status = TicketStatus.open
+            ..isResolved = false
+            ..startDate = now.subtract(const Duration(hours: 2))
+            ..createdAt = now.subtract(const Duration(days: 1))
+            ..updatedAt = now;
 
-      final reopened = copyTicketForAdminEdit(
+      final draft = buildAdminTicketCorrection(
         source: source,
-        assetType: source.assetType,
-        assetNumber: source.assetNumber,
-        description: source.description,
-        routedTo: source.routedTo,
+        description: 'Corrected ticket description',
+        routedTo: RoutedTo.mechanical,
         maintenanceType: source.maintenanceType,
-        status: TicketStatus.open,
+        isCritical: true,
         component: source.component,
+        subsystem: source.subsystem,
         tag: source.tag,
-        remarks: 'Reopened for inspection',
-        editedByUid: 'admin-user',
-        editedByName: 'Admin User',
+        classification: source.classification,
+        otherDepartment: source.otherDepartment,
+        remarks: source.remarks,
+        reason: 'Corrected after field verification.',
       );
-      final rows = jsonDecode(reopened.resolutionHistoryJson) as List<dynamic>;
-      expect(rows, hasLength(2));
-      expect((rows.first as Map<String, dynamic>)['legacyExtension'], {
-        'retained': true,
+      expect(draft.corrections, {
+        'description': 'Corrected ticket description',
+        'routedTo': 'mechanical',
+        'isCritical': true,
       });
-
-      source.endDate = null;
-      expect(
-        () => copyTicketForAdminEdit(
-          source: source,
-          assetType: source.assetType,
-          assetNumber: source.assetNumber,
-          description: source.description,
-          routedTo: source.routedTo,
-          maintenanceType: source.maintenanceType,
-          status: TicketStatus.open,
-          component: source.component,
-          tag: source.tag,
-          remarks: source.remarks,
-          editedByUid: 'admin-user',
-          editedByName: 'Admin User',
-        ),
-        throwsA(isA<PersistedDataFormatException>()),
-      );
+      expect(draft.corrections, isNot(contains('assetType')));
+      expect(draft.corrections, isNot(contains('assetNumber')));
+      expect(draft.corrections, isNot(contains('status')));
+      expect(draft.corrections, isNot(contains('isResolved')));
+      expect(source.assetNumber, 2);
+      expect(source.status, TicketStatus.open);
     });
 
-    test('admin edits preserve open actions and reject malformed evidence', () {
+    test('admin corrections validate existing action and history evidence', () {
       final now = DateTime.utc(2026, 8, 5, 7, 30);
       final source =
           MaintenanceRecord()
@@ -293,40 +270,40 @@ void main() {
               ),
             ];
 
-      final edited = copyTicketForAdminEdit(
+      final draft = buildAdminTicketCorrection(
         source: source,
-        assetType: source.assetType,
-        assetNumber: source.assetNumber,
         description: source.description,
         routedTo: source.routedTo,
         maintenanceType: source.maintenanceType,
-        status: TicketStatus.open,
+        isCritical: source.isCritical,
         component: source.component,
+        subsystem: source.subsystem,
         tag: source.tag,
+        classification: source.classification,
+        otherDepartment: source.otherDepartment,
         remarks: 'Continue observation',
-        editedByUid: 'admin-user',
-        editedByName: 'Admin User',
+        reason: 'Added verified observation guidance.',
       );
 
-      expect(edited.actionsJson, source.actionsJson);
-      expect(edited.actions, hasLength(1));
-      expect(edited.actions.single.component, 'Cooling pump');
+      expect(draft.corrections, {'remarks': 'Continue observation'});
+      expect(source.actions, hasLength(1));
+      expect(source.actions.single.component, 'Cooling pump');
 
       source.actionsJson = '[{"asset":"Base 3"}]';
       expect(
-        () => copyTicketForAdminEdit(
+        () => buildAdminTicketCorrection(
           source: source,
-          assetType: source.assetType,
-          assetNumber: source.assetNumber,
           description: source.description,
           routedTo: source.routedTo,
           maintenanceType: source.maintenanceType,
-          status: TicketStatus.open,
+          isCritical: source.isCritical,
           component: source.component,
+          subsystem: source.subsystem,
           tag: source.tag,
+          classification: source.classification,
+          otherDepartment: source.otherDepartment,
           remarks: source.remarks,
-          editedByUid: 'admin-user',
-          editedByName: 'Admin User',
+          reason: 'Correction after evidence verification.',
         ),
         throwsA(isA<PersistedDataFormatException>()),
       );
@@ -334,19 +311,19 @@ void main() {
       source.actionsJson = '[]';
       source.resolutionHistoryJson = '{not-json';
       expect(
-        () => copyTicketForAdminEdit(
+        () => buildAdminTicketCorrection(
           source: source,
-          assetType: source.assetType,
-          assetNumber: source.assetNumber,
           description: source.description,
           routedTo: source.routedTo,
           maintenanceType: source.maintenanceType,
-          status: TicketStatus.open,
+          isCritical: source.isCritical,
           component: source.component,
+          subsystem: source.subsystem,
           tag: source.tag,
+          classification: source.classification,
+          otherDepartment: source.otherDepartment,
           remarks: source.remarks,
-          editedByUid: 'admin-user',
-          editedByName: 'Admin User',
+          reason: 'Correction after evidence verification.',
         ),
         throwsA(isA<PersistedDataFormatException>()),
       );
@@ -519,27 +496,25 @@ void main() {
         resolveForm,
         contains('No history entries were discarded or replaced.'),
       );
+      expect(maintenanceProvider, contains("'actionsJson': t.actionsJson,"));
       expect(
         maintenanceProvider,
-        contains("'actionsJson': record.actionsJson,"),
-      );
-      expect(
-        maintenanceProvider,
-        contains("'resolutionHistoryJson': record.resolutionHistoryJson,"),
+        contains("'resolutionHistoryJson': t.resolutionHistoryJson,"),
       );
       expect(
         maintenanceProvider,
         contains('_requireValidMaintenanceEvidence(_mapTicket(current));'),
       );
+      expect(adminHelpers, contains('if (!source.actionsReadResult.isValid)'));
       expect(
         adminHelpers,
-        contains(
-          'wasResolved && !willBeResolved ? \'[]\' : source.actionsJson',
-        ),
+        contains('if (!source.resolutionHistoryReadResult.isValid)'),
       );
+      expect(adminHelpers, isNot(contains("'status':")));
+      expect(adminHelpers, isNot(contains("'assetNumber':")));
       expect(
         adminBrowser,
-        contains('Saved evidence needs repair before editing'),
+        contains('Saved evidence needs repair before correction'),
       );
       expect(liveRemoteSync, isNot(contains("d['actionsJson']?.toString()")));
       expect(

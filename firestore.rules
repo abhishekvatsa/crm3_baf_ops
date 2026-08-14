@@ -2649,19 +2649,6 @@ service cloud.firestore {
       ]);
     }
 
-    function maintenanceAdminEditShape(affected) {
-      return maintenanceAdminEditChangedFieldsOnly(affected)
-        && !maintenanceIsCloseTransition()
-        && !maintenanceIsReopenTransition()
-        && !affected.hasAny([
-          'isDeleted',
-          'deletedAt',
-          'deletedByUid',
-          'deletedByName',
-          'deleteReason'
-        ]);
-    }
-
     function validMaintenanceCloseUpdate() {
       let affected = request.resource.data.diff(resource.data).affectedKeys();
       return maintenanceCloseChangedFieldsOnly(affected)
@@ -2709,14 +2696,6 @@ service cloud.firestore {
         : false;
     }
 
-    function validMaintenanceAdminEditUpdate() {
-      let affected = request.resource.data.diff(resource.data).affectedKeys();
-      return isAdmin()
-        && maintenanceAdminEditShape(affected)
-        && maintenanceWorkflowAllowsClientLifecycle()
-        && maintenanceVersionAdvances();
-    }
-
     function validMaintenanceUpdate() {
       let sourceDeleted = resource.data.get('isDeleted', false);
       let targetDeleted = request.resource.data.get('isDeleted', false);
@@ -2730,48 +2709,7 @@ service cloud.firestore {
           ? (targetResolved
             ? validMaintenanceCloseUpdate()
             : validMaintenanceReopenUpdate())
-          : validMaintenanceAdminEditUpdate()));
-    }
-
-    function maintenanceAdminEditChangedFieldsOnly(affected) {
-      return affected.hasOnly([
-        'maintenanceType',
-        'description',
-        'routedTo',
-        'status',
-        'isResolved',
-        'isCritical',
-        'component',
-        'subsystem',
-        'tag',
-        'assetHierarchyRefJson',
-        'classification',
-        'otherDepartment',
-        'remarks',
-        'endDate',
-        'closedByUid',
-        'closedByName',
-        'downtimeHours',
-        'teamsInvolved',
-        'actionsJson',
-        'resolutionHistoryJson',
-        'updatedAt',
-        'updatedByUid',
-        'updatedByName',
-        'version'
-      ]);
-    }
-
-    function validMaintenanceAdminEdit(affected) {
-      return isAdmin()
-        && maintenanceAdminEditShape(affected)
-        && request.resource.data.get('firestoreId', null) == resource.data.get('firestoreId', null)
-        && request.resource.data.get('assetType', null) == resource.data.get('assetType', null)
-        && request.resource.data.get('assetNumber', -1) == resource.data.get('assetNumber', -1)
-        && request.resource.data.get('loggedByUid', null) == resource.data.get('loggedByUid', null)
-        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
-        && request.resource.data.get('isDeleted', false) == resource.data.get('isDeleted', false)
-        && maintenanceVersionAdvances();
+          : false));
     }
 
     function validMaintenanceAdminSoftDelete(affected) {
@@ -3779,6 +3717,7 @@ service cloud.firestore {
       allow create: if !docId.matches('^server_module_population_.*')
         && !docId.matches('^server_authority_.*')
         && !docId.matches('^server_charge_abnormality_.*')
+        && !docId.matches('^server_maintenance_ticket_.*')
         && validAuditCreate();
       allow update, delete: if false;
     }

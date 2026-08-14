@@ -226,14 +226,6 @@ void main() {
           const _AdminMutationExpectation(
             sectionMarker:
                 'class TicketsBrowser extends ConsumerStatefulWidget',
-            methodMarker: 'Future<void> _showEditDialog',
-            repositoryProvider: 'maintenanceRepositoryProvider',
-            awaitMarker: 'await repository.updateTicket(',
-            syncReason: 'admin_ticket_edited',
-          ),
-          const _AdminMutationExpectation(
-            sectionMarker:
-                'class TicketsBrowser extends ConsumerStatefulWidget',
             methodMarker: 'Future<void> _confirmDelete',
             repositoryProvider: 'maintenanceRepositoryProvider',
             awaitMarker: 'await repository.deleteTicket(',
@@ -301,6 +293,26 @@ void main() {
           expect(body, contains('syncCoordinator.runFullSync'));
           expect(body, contains(expectation.syncReason));
         }
+
+        final ticketSection = source.indexOf(
+          'class TicketsBrowser extends ConsumerStatefulWidget',
+        );
+        final ticketCorrectionBody = _bodyStartingAt(
+          source.substring(ticketSection),
+          'Future<void> _showCorrectionDialog',
+        );
+        const commandAwait =
+            '.read(workflowCommandControllerProvider.notifier)';
+        _expectBefore(
+          ticketCorrectionBody,
+          'final syncCoordinator = ref.read(syncCoordinatorProvider);',
+          commandAwait,
+        );
+        expect(
+          ticketCorrectionBody,
+          contains('WorkflowCommandType.correctMaintenanceTicket'),
+        );
+        expect(ticketCorrectionBody, contains('admin_ticket_corrected'));
       },
     );
 

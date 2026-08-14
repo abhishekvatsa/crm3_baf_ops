@@ -33,6 +33,7 @@ const commandTypes = new Set<WorkflowCommandType>([
   "confirmComplianceClosed", "proposeCounterCondition",
   "decideCounterCondition", "prepareRedLane", "reopenWorkflowModule", "finalizeJob", "deployEquipment",
   "reconcileEquipment",
+  "acknowledgeMaintenanceTicket", "correctMaintenanceTicket",
 ]);
 
 const parseCommand = (raw: unknown): WorkflowCommand => {

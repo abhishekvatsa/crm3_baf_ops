@@ -404,7 +404,7 @@ void main() {
         _expectContains(adminExecutions, 'showDialog<AdminDeleteDecision>');
         _expectContains(
           adminTickets,
-          'class _AdminEditTicketDialog extends StatefulWidget',
+          'class _AdminCorrectTicketDialog extends StatefulWidget',
         );
         _expectContains(
           adminDirectiveDialog,

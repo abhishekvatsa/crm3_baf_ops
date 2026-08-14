@@ -363,15 +363,10 @@ void main() {
           rules,
           'function validMaintenanceSoftDeleteUpdate',
         );
-        final adminEditUpdate = _blockStartingAt(
-          rules,
-          'function validMaintenanceAdminEditUpdate',
-        );
         for (final branch in <String>[
           closeUpdate,
           reopenUpdate,
           softDeleteUpdate,
-          adminEditUpdate,
         ]) {
           expect(
             branch,
@@ -394,18 +389,14 @@ void main() {
           softDeleteUpdate,
           contains('maintenanceSoftDeleteChangedFieldsOnly(affected)'),
         );
-        expect(
-          adminEditUpdate,
-          contains('maintenanceAdminEditShape(affected)'),
-        );
+        expect(rules, isNot(contains('validMaintenanceAdminEditUpdate')));
+        expect(rules, isNot(contains('maintenanceAdminEditShape')));
         final maintenanceMatch = _blockStartingAt(
           rules,
           'match /maintenance_records/{docId}',
         );
         expect(
-          RegExp(r'allow\s+update\s*:')
-              .allMatches(maintenanceMatch)
-              .length,
+          RegExp(r'allow\s+update\s*:').allMatches(maintenanceMatch).length,
           1,
           reason:
               'Maintenance writes must evaluate exactly one routed update rule so denied branches do not consume the Firestore expression budget.',
@@ -420,19 +411,12 @@ void main() {
           rules,
           'function validMaintenanceUpdate',
         );
-        expect(
-          maintenanceRouter,
-          contains('targetDeleted != sourceDeleted'),
-        );
-        expect(
-          maintenanceRouter,
-          contains('targetResolved != sourceResolved'),
-        );
+        expect(maintenanceRouter, contains('targetDeleted != sourceDeleted'));
+        expect(maintenanceRouter, contains('targetResolved != sourceResolved'));
         for (final validator in <String>[
           'validMaintenanceSoftDeleteUpdate()',
           'validMaintenanceCloseUpdate()',
           'validMaintenanceReopenUpdate()',
-          'validMaintenanceAdminEditUpdate()',
         ]) {
           expect(maintenanceRouter, contains(validator));
         }
@@ -443,13 +427,8 @@ void main() {
               'The router must select one lifecycle validator instead of evaluating parallel alternatives.',
         );
 
-        final adminShape = _blockStartingAt(
-          rules,
-          'function maintenanceAdminEditShape',
-        );
-        expect(adminShape, contains('!maintenanceIsCloseTransition()'));
-        expect(adminShape, contains('!maintenanceIsReopenTransition()'));
-        expect(adminShape, contains('deletedByUid'));
+        expect(rules, isNot(contains('validMaintenanceAdminEditUpdate')));
+        expect(rules, isNot(contains('maintenanceAdminEditShape')));
       },
     );
 

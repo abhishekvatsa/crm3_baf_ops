@@ -26,6 +26,11 @@ import {prepareRedLane} from "./redHandlers";
 import {createLegacyWorkflowJob} from "./jobCreationHandler";
 import {reopenWorkflowModule} from "./moduleLifecycleHandlers";
 import {canonicalApprovedUserAuthority} from "../userAuthority";
+import {
+  acknowledgeMaintenanceTicket,
+  correctMaintenanceTicket,
+  verifyMaintenanceTicketAudit,
+} from "./ticketHandlers";
 
 const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   createLegacyWorkflowJob,
@@ -49,6 +54,8 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   finalizeJob,
   deployEquipment,
   reconcileEquipment,
+  acknowledgeMaintenanceTicket,
+  correctMaintenanceTicket,
 };
 
 export class MaintenanceWorkflowCommandService {
@@ -96,7 +103,10 @@ export class MaintenanceWorkflowCommandService {
       };
 
       const replay = await readExistingReceipt(tx, command, actor);
-      if (replay != null) return replay;
+      if (replay != null) {
+        await verifyMaintenanceTicketAudit({tx, command, actor, receipt: replay});
+        return replay;
+      }
       const authorityScope = await resolveFreshWorkflowAuthorityScope(
         tx,
         command,

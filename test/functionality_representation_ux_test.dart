@@ -28,6 +28,35 @@ void main() {
     },
   );
 
+  test(
+    'ticket acknowledgement follows receiving route and supervisor scope',
+    () {
+      final electrical = _actor(AppRole.seniorElectrical);
+      final operations = _actor(AppRole.operations);
+      final supervisor = _actor(AppRole.contractSupervisor);
+
+      expect(
+        electrical.canAcknowledgeMaintenanceTicket(RoutedTo.electrical),
+        isTrue,
+      );
+      expect(
+        electrical.canAcknowledgeMaintenanceTicket(RoutedTo.mechanical),
+        isFalse,
+      );
+      expect(
+        operations.canAcknowledgeMaintenanceTicket(RoutedTo.operations),
+        isTrue,
+      );
+      expect(
+        operations.canAcknowledgeMaintenanceTicket(RoutedTo.electrical),
+        isFalse,
+      );
+      for (final route in RoutedTo.values) {
+        expect(supervisor.canAcknowledgeMaintenanceTicket(route), isTrue);
+      }
+    },
+  );
+
   testWidgets('closed dossiers are searchable and usable on a narrow screen', (
     tester,
   ) async {

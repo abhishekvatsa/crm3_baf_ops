@@ -11,13 +11,16 @@ import '../../../audit/models/audit_event_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../maintenance/data/maintenance_model.dart';
 import '../../../maintenance/providers/maintenance_provider.dart';
+import '../../../maintenance_workflow/domain/workflow_types.dart';
+import '../../../maintenance_workflow/providers/workflow_providers.dart';
+import '../../../maintenance_workflow/services/workflow_command_factory.dart';
 import '../../providers/admin_stream_providers.dart';
 import '../../utils/admin_ticket_helpers.dart';
 import 'admin_data_browser_shared.dart';
 import 'admin_delete_reason_dialog.dart';
 
 // ============================================================================
-// TICKETS BROWSER (with search, edit, delete, and timeline invalidation)
+// TICKETS BROWSER (with search, governed correction, delete, and timeline invalidation)
 // ============================================================================
 
 Color _adminTicketStatusColor(TicketStatus status) {
@@ -33,65 +36,69 @@ Color _adminTicketStatusColor(TicketStatus status) {
   }
 }
 
-class _AdminEditTicketDialog extends StatefulWidget {
+class _AdminCorrectTicketDialog extends StatefulWidget {
   final MaintenanceRecord ticket;
-  final String editedByUid;
-  final String editedByName;
 
-  const _AdminEditTicketDialog({
-    required this.ticket,
-    required this.editedByUid,
-    required this.editedByName,
-  });
+  const _AdminCorrectTicketDialog({required this.ticket});
 
   @override
-  State<_AdminEditTicketDialog> createState() => _AdminEditTicketDialogState();
+  State<_AdminCorrectTicketDialog> createState() =>
+      _AdminCorrectTicketDialogState();
 }
 
-class _AdminEditTicketDialogState extends State<_AdminEditTicketDialog> {
+class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  late final TextEditingController _assetNumberController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _componentController;
+  late final TextEditingController _subsystemController;
   late final TextEditingController _tagController;
+  late final TextEditingController _classificationController;
+  late final TextEditingController _otherDepartmentController;
   late final TextEditingController _remarksController;
+  late final TextEditingController _reasonController;
 
-  late AssetType _selectedType;
   late RoutedTo _selectedRouted;
   late MaintenanceType _selectedMaintenanceType;
-  late TicketStatus _selectedStatus;
+  late bool _isCritical;
 
   @override
   void initState() {
     super.initState();
     final ticket = widget.ticket;
-    _assetNumberController = TextEditingController(
-      text: ticket.assetNumber.toString(),
-    );
     _descriptionController = TextEditingController(text: ticket.description);
     _componentController = TextEditingController(text: ticket.component ?? '');
+    _subsystemController = TextEditingController(text: ticket.subsystem ?? '');
     _tagController = TextEditingController(text: ticket.tag ?? '');
+    _classificationController = TextEditingController(
+      text: ticket.classification ?? '',
+    );
+    _otherDepartmentController = TextEditingController(
+      text: ticket.otherDepartment ?? '',
+    );
     _remarksController = TextEditingController(text: ticket.remarks ?? '');
-    _selectedType = ticket.assetType;
+    _reasonController = TextEditingController();
     _selectedRouted = ticket.routedTo;
     _selectedMaintenanceType = ticket.maintenanceType;
-    _selectedStatus = ticket.status;
+    _isCritical = ticket.isCritical;
   }
 
   @override
   void dispose() {
-    _assetNumberController.dispose();
     _descriptionController.dispose();
     _componentController.dispose();
+    _subsystemController.dispose();
     _tagController.dispose();
+    _classificationController.dispose();
+    _otherDepartmentController.dispose();
     _remarksController.dispose();
+    _reasonController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Edit Ticket'),
+      title: const Text('Correct ticket record'),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
         child: SingleChildScrollView(
@@ -100,39 +107,15 @@ class _AdminEditTicketDialogState extends State<_AdminEditTicketDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<AssetType>(
-                  initialValue: _selectedType,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Asset Type'),
-                  items:
-                      AssetType.values.map((type) {
-                        return DropdownMenuItem<AssetType>(
-                          value: type,
-                          child: Text(type.name.toUpperCase()),
-                        );
-                      }).toList(),
-                  onChanged: (value) {
-                    if (value == null) {
-                      return;
-                    }
-                    setState(() => _selectedType = value);
-                  },
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                TextFormField(
-                  controller: _assetNumberController,
-                  decoration: const InputDecoration(labelText: 'Asset Number'),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    final raw = value?.trim();
-                    if (raw == null || raw.isEmpty) {
-                      return 'Required';
-                    }
-                    if (int.tryParse(raw) == null) {
-                      return 'Enter a valid whole number';
-                    }
-                    return null;
-                  },
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.lock_outline_rounded),
+                  title: Text(
+                    '${widget.ticket.assetType.name.toUpperCase()} ${widget.ticket.assetNumber}',
+                  ),
+                  subtitle: Text(
+                    'Asset identity and lifecycle status use their own governed actions. Current status: ${widget.ticket.status.name}.',
+                  ),
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 TextFormField(
@@ -141,8 +124,8 @@ class _AdminEditTicketDialogState extends State<_AdminEditTicketDialog> {
                   maxLines: 2,
                   validator:
                       (value) =>
-                          (value == null || value.trim().isEmpty)
-                              ? 'Required'
+                          (value?.trim().length ?? 0) < 5
+                              ? 'Enter at least 5 characters'
                               : null,
                 ),
                 const SizedBox(height: BafSpacing.sm),
@@ -161,7 +144,12 @@ class _AdminEditTicketDialogState extends State<_AdminEditTicketDialog> {
                     if (value == null) {
                       return;
                     }
-                    setState(() => _selectedRouted = value);
+                    setState(() {
+                      _selectedRouted = value;
+                      if (value != RoutedTo.others) {
+                        _otherDepartmentController.clear();
+                      }
+                    });
                   },
                 ),
                 const SizedBox(height: BafSpacing.sm),
@@ -186,40 +174,33 @@ class _AdminEditTicketDialogState extends State<_AdminEditTicketDialog> {
                   },
                 ),
                 const SizedBox(height: BafSpacing.sm),
-                DropdownButtonFormField<TicketStatus>(
-                  initialValue: _selectedStatus,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Status'),
-                  items:
-                      TicketStatus.values.map((status) {
-                        return DropdownMenuItem<TicketStatus>(
-                          value: status,
-                          child: Text(status.name.toUpperCase()),
-                        );
-                      }).toList(),
-                  onChanged: (value) {
-                    if (value == null) {
-                      return;
-                    }
-                    setState(() => _selectedStatus = value);
-                  },
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Critical issue'),
+                  value: _isCritical,
+                  onChanged: (value) => setState(() => _isCritical = value),
                 ),
-                if (_selectedStatus == TicketStatus.resolved &&
-                    !widget.ticket.isResolved) ...[
-                  const SizedBox(height: BafSpacing.sm),
-                  const Text(
-                    'Saving as resolved will stamp this ticket with the current admin identity and current time if closure fields are missing.',
-                    style: TextStyle(
-                      color: BafColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: BafSpacing.sm),
                 TextFormField(
                   controller: _componentController,
                   decoration: const InputDecoration(
                     labelText: 'Component (optional)',
+                  ),
+                  validator: (value) {
+                    final length = value?.trim().length ?? 0;
+                    if (length == 1) return 'Enter at least 2 characters';
+                    if (length > 120) return 'Use at most 120 characters';
+                    if (length == 0 &&
+                        widget.ticket.component?.trim().isNotEmpty == true) {
+                      return 'A recorded component cannot be cleared';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: BafSpacing.sm),
+                TextFormField(
+                  controller: _subsystemController,
+                  decoration: const InputDecoration(
+                    labelText: 'Subsystem (optional)',
                   ),
                 ),
                 const SizedBox(height: BafSpacing.sm),
@@ -228,13 +209,54 @@ class _AdminEditTicketDialogState extends State<_AdminEditTicketDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Instrument Tag (optional)',
                   ),
+                  validator:
+                      (value) =>
+                          (value?.trim().length ?? 0) > 80
+                              ? 'Use at most 80 characters'
+                              : null,
                 ),
                 const SizedBox(height: BafSpacing.sm),
+                TextFormField(
+                  controller: _classificationController,
+                  decoration: const InputDecoration(
+                    labelText: 'Classification (optional)',
+                  ),
+                ),
+                const SizedBox(height: BafSpacing.sm),
+                if (_selectedRouted == RoutedTo.others) ...[
+                  TextFormField(
+                    controller: _otherDepartmentController,
+                    decoration: const InputDecoration(
+                      labelText: 'Other department',
+                    ),
+                    validator: (value) {
+                      final length = value?.trim().length ?? 0;
+                      if (length < 2) return 'Enter at least 2 characters';
+                      if (length > 80) return 'Use at most 80 characters';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: BafSpacing.sm),
+                ],
                 TextFormField(
                   controller: _remarksController,
                   decoration: const InputDecoration(labelText: 'Remarks'),
                   maxLines: 2,
                   textInputAction: TextInputAction.newline,
+                ),
+                const SizedBox(height: BafSpacing.sm),
+                TextFormField(
+                  controller: _reasonController,
+                  decoration: const InputDecoration(
+                    labelText: 'Correction reason',
+                  ),
+                  maxLines: 3,
+                  validator: (value) {
+                    if ((value?.trim().length ?? 0) < 12) {
+                      return 'Give a clear reason of at least 12 characters';
+                    }
+                    return null;
+                  },
                 ),
               ],
             ),
@@ -253,19 +275,23 @@ class _AdminEditTicketDialogState extends State<_AdminEditTicketDialog> {
             }
             Navigator.pop(
               context,
-              copyTicketForAdminEdit(
+              buildAdminTicketCorrection(
                 source: widget.ticket,
-                assetType: _selectedType,
-                assetNumber: int.parse(_assetNumberController.text.trim()),
                 description: _descriptionController.text.trim(),
                 routedTo: _selectedRouted,
                 maintenanceType: _selectedMaintenanceType,
-                status: _selectedStatus,
+                isCritical: _isCritical,
                 component: cleanAdminOptionalText(_componentController.text),
+                subsystem: cleanAdminOptionalText(_subsystemController.text),
                 tag: cleanAdminTagText(_tagController.text),
+                classification: cleanAdminOptionalText(
+                  _classificationController.text,
+                ),
+                otherDepartment: cleanAdminOptionalText(
+                  _otherDepartmentController.text,
+                ),
                 remarks: cleanAdminOptionalText(_remarksController.text),
-                editedByUid: widget.editedByUid,
-                editedByName: widget.editedByName,
+                reason: _reasonController.text,
               ),
             );
           },
@@ -414,7 +440,7 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
               if (!evidenceIsValid) ...[
                 const SizedBox(height: 4),
                 const Text(
-                  'Saved evidence needs repair before editing',
+                  'Saved evidence needs repair before correction',
                   style: TextStyle(
                     color: BafColors.danger,
                     fontSize: 11,
@@ -453,8 +479,8 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
             IconButton(
               tooltip:
                   evidenceIsValid
-                      ? 'Edit ticket'
-                      : 'Repair saved evidence before editing',
+                      ? 'Correct ticket'
+                      : 'Repair saved evidence before correction',
               icon: Icon(
                 Icons.edit,
                 color:
@@ -462,7 +488,8 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
                         ? BafColors.planned
                         : BafColors.textSecondary,
               ),
-              onPressed: evidenceIsValid ? () => _showEditDialog(ticket) : null,
+              onPressed:
+                  evidenceIsValid ? () => _showCorrectionDialog(ticket) : null,
             ),
             if (!ticket.isDeleted)
               IconButton(
@@ -476,7 +503,7 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
     );
   }
 
-  Future<void> _showEditDialog(MaintenanceRecord ticket) async {
+  Future<void> _showCorrectionDialog(MaintenanceRecord ticket) async {
     final appUser = ref.read(currentAppUserProvider).value;
     if (appUser == null) {
       showAdminDataSnack(
@@ -487,33 +514,42 @@ class _TicketCardState extends ConsumerState<_TicketCard> {
       return;
     }
 
-    final updatedTicket = await showDialog<MaintenanceRecord>(
+    final correction = await showDialog<AdminTicketCorrectionDraft>(
       context: context,
       barrierDismissible: false,
-      builder:
-          (_) => _AdminEditTicketDialog(
-            ticket: ticket,
-            editedByUid: appUser.uid,
-            editedByName: appUser.name,
-          ),
+      builder: (_) => _AdminCorrectTicketDialog(ticket: ticket),
     );
-    if (!mounted || updatedTicket == null) return;
+    if (!mounted || correction == null) return;
 
     try {
-      if (!appUser.canAdminEditMaintenanceTicket) {
-        throw StateError('Admin authority required to edit tickets.');
+      if (!appUser.canCorrectMaintenanceTicket) {
+        throw StateError('Admin authority required to correct tickets.');
       }
-      final repository = ref.read(maintenanceRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
-
-      await repository.updateTicket(updatedTicket, actor: appUser);
-
-      unawaited(
-        syncCoordinator.runFullSync(reason: 'admin_ticket_edited', force: true),
+      final ticketId = ticket.firestoreId;
+      if (ticketId == null || ticketId.trim().isEmpty) {
+        throw StateError('Ticket has no governed server identity.');
+      }
+      await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(
+            WorkflowCommandFactory.create(
+              type: WorkflowCommandType.correctMaintenanceTicket,
+              aggregateId: ticketId,
+              expectedVersion: ticket.version,
+              payload: <String, Object?>{
+                'reason': correction.reason,
+                'corrections': correction.corrections,
+              },
+            ),
+          );
+      await syncCoordinator.runFullSync(
+        reason: 'admin_ticket_corrected',
+        force: true,
       );
 
       if (!mounted) return;
-      showAdminDataSnack(context, 'Ticket updated');
+      showAdminDataSnack(context, 'Ticket correction recorded');
     } catch (e) {
       if (!mounted) return;
       showAdminDataSnack(context, 'Save failed: $e', color: BafColors.danger);

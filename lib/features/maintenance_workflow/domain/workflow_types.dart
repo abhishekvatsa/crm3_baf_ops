@@ -76,6 +76,8 @@ enum WorkflowCommandType {
   finalizeJob,
   deployEquipment,
   reconcileEquipment,
+  acknowledgeMaintenanceTicket,
+  correctMaintenanceTicket,
 }
 
 enum WorkflowCommandDeliveryState {
