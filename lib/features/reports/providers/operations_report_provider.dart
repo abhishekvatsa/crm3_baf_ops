@@ -119,14 +119,16 @@ OperationsReport buildOperationsReport({
     throw StateError('The selected physical asset is outside the asset class.');
   }
   final effectiveClassId = filter.assetClassId ?? selectedAsset?.assetClassId;
-  final legacyClasses = <String, AssetClassRecord>{};
+  final reportAsOf = asOf ?? DateTime.now();
+  final legacyClassCandidates = <String, List<AssetClassRecord>>{};
   for (final item in assetClasses) {
     final key = item.legacyAssetTypeKey;
     if (key == null) continue;
-    if (legacyClasses.containsKey(key)) {
-      throw StateError('More than one governed asset class maps to $key.');
-    }
-    legacyClasses[key] = item;
+    legacyClassCandidates.putIfAbsent(key, () => []).add(item);
+  }
+  final legacyClasses = <String, AssetClassRecord>{};
+  for (final entry in legacyClassCandidates.entries) {
+    if (entry.value.length == 1) legacyClasses[entry.key] = entry.value.single;
   }
 
   String? ticketClassId(MaintenanceRecord ticket) =>
@@ -202,7 +204,13 @@ OperationsReport buildOperationsReport({
           .toList();
 
   bool eventMatches(OperationalEvent event) {
-    if (!overlaps(event.startedAt, event.resolvedAt)) return false;
+    if (!event.overlapsWithin(
+      filter.startInclusive,
+      filter.endExclusive,
+      reportAsOf,
+    )) {
+      return false;
+    }
     if (event.scope == OperationalEventScope.plantWide) return true;
     if (filter.assetInstanceId != null) {
       if (event.scope == OperationalEventScope.assets) {
@@ -308,10 +316,18 @@ OperationsReport buildOperationsReport({
                 classExecutions
                     .where((job) => !job.isCompleted && !job.isCancelled)
                     .length,
-            disruptionCount:
-                filteredEvents
-                    .where((event) => eventAffectsClass(event, assetClass.id))
-                    .length,
+            disruptionCount: filteredEvents
+                .where((event) => eventAffectsClass(event, assetClass.id))
+                .fold(
+                  0,
+                  (count, event) =>
+                      count +
+                      event.occurrenceCountWithin(
+                        filter.startInclusive,
+                        filter.endExclusive,
+                        reportAsOf,
+                      ),
+                ),
           );
         }).toList()
         ..sort(
@@ -322,7 +338,7 @@ OperationsReport buildOperationsReport({
 
   return OperationsReport(
     filter: filter,
-    asOf: asOf ?? DateTime.now(),
+    asOf: reportAsOf,
     tickets: List<MaintenanceRecord>.unmodifiable(filteredTickets),
     executions: List<JobExecution>.unmodifiable(filteredExecutions),
     events: List<OperationalEvent>.unmodifiable(filteredEvents),

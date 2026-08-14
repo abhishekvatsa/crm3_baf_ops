@@ -97,6 +97,29 @@ String _canonicalCommandTimestamp(DateTime value) {
       .toIso8601String();
 }
 
+class OperationalEventInterval {
+  const OperationalEventInterval({
+    required this.startedAt,
+    required this.resolvedAt,
+  });
+
+  final DateTime startedAt;
+  final DateTime resolvedAt;
+
+  bool overlaps(DateTime startInclusive, DateTime endExclusive) =>
+      startedAt.isBefore(endExclusive) && resolvedAt.isAfter(startInclusive);
+
+  Duration durationWithin(DateTime startInclusive, DateTime endExclusive) {
+    final clippedStart =
+        startedAt.isAfter(startInclusive) ? startedAt : startInclusive;
+    final clippedEnd =
+        resolvedAt.isBefore(endExclusive) ? resolvedAt : endExclusive;
+    return clippedEnd.isAfter(clippedStart)
+        ? clippedEnd.difference(clippedStart)
+        : Duration.zero;
+  }
+}
+
 class OperationalEvent {
   const OperationalEvent({
     required this.eventId,
@@ -107,6 +130,7 @@ class OperationalEvent {
     required this.scope,
     required this.affectedAssetClassIds,
     required this.affectedAssetInstanceIds,
+    this.completedIntervals = const [],
     required this.startedAt,
     required this.status,
     required this.createdAt,
@@ -131,6 +155,7 @@ class OperationalEvent {
   final OperationalEventScope scope;
   final List<String> affectedAssetClassIds;
   final List<String> affectedAssetInstanceIds;
+  final List<OperationalEventInterval> completedIntervals;
   final DateTime startedAt;
   final OperationalEventStatus status;
   final DateTime createdAt;
@@ -148,25 +173,50 @@ class OperationalEvent {
 
   bool get isOpen => status == OperationalEventStatus.open;
 
-  Duration durationUntil(DateTime end) {
-    final effectiveEnd = resolvedAt ?? end;
-    return effectiveEnd.isBefore(startedAt)
-        ? Duration.zero
-        : effectiveEnd.difference(startedAt);
+  Iterable<OperationalEventInterval> _intervalsUntil(DateTime asOf) sync* {
+    yield* completedIntervals;
+    yield OperationalEventInterval(
+      startedAt: startedAt,
+      resolvedAt: resolvedAt ?? asOf,
+    );
   }
+
+  Duration durationUntil(DateTime end) => _intervalsUntil(end).fold(
+    Duration.zero,
+    (total, interval) =>
+        total +
+        (interval.resolvedAt.isBefore(interval.startedAt)
+            ? Duration.zero
+            : interval.resolvedAt.difference(interval.startedAt)),
+  );
+
+  bool overlapsWithin(
+    DateTime startInclusive,
+    DateTime endExclusive,
+    DateTime asOf,
+  ) => _intervalsUntil(
+    asOf,
+  ).any((interval) => interval.overlaps(startInclusive, endExclusive));
+
+  int occurrenceCountWithin(
+    DateTime startInclusive,
+    DateTime endExclusive,
+    DateTime asOf,
+  ) =>
+      _intervalsUntil(asOf)
+          .where((interval) => interval.overlaps(startInclusive, endExclusive))
+          .length;
 
   Duration durationWithin(
     DateTime startInclusive,
     DateTime endExclusive,
     DateTime asOf,
   ) {
-    final clippedStart =
-        startedAt.isAfter(startInclusive) ? startedAt : startInclusive;
-    final naturalEnd = resolvedAt ?? asOf;
-    final clippedEnd =
-        naturalEnd.isBefore(endExclusive) ? naturalEnd : endExclusive;
-    if (!clippedEnd.isAfter(clippedStart)) return Duration.zero;
-    return clippedEnd.difference(clippedStart);
+    return _intervalsUntil(asOf).fold(
+      Duration.zero,
+      (total, interval) =>
+          total + interval.durationWithin(startInclusive, endExclusive),
+    );
   }
 
   OperationalEventDraft get draft => OperationalEventDraft(
@@ -210,8 +260,8 @@ class OperationalEvent {
         detail: 'must match the document ID',
       );
     }
-    if (!map.containsKey('affectedAssetClassIds') ||
-        !map.containsKey('affectedAssetInstanceIds')) {
+    if (map['affectedAssetClassIds'] is! List ||
+        map['affectedAssetInstanceIds'] is! List) {
       throw PersistedDataFormatException(
         field: 'affectedAssetClassIds',
         source: source,
@@ -255,6 +305,67 @@ class OperationalEvent {
         field: 'scope',
         source: source,
         detail: 'does not agree with the affected asset lists',
+      );
+    }
+    final startedAt = readRequiredPersistedDateTime(
+      map['startedAt'],
+      field: 'startedAt',
+      source: source,
+    );
+    final completedRaw = map['completedIntervals'];
+    if (completedRaw is! List || completedRaw.length > 100) {
+      throw PersistedDataFormatException(
+        field: 'completedIntervals',
+        source: source,
+        detail: 'must be an array of at most 100 completed intervals',
+      );
+    }
+    final completedIntervals = <OperationalEventInterval>[];
+    DateTime? previousResolvedAt;
+    for (var index = 0; index < completedRaw.length; index++) {
+      final raw = completedRaw[index];
+      if (raw is! Map<String, dynamic> ||
+          raw.length != 2 ||
+          !raw.containsKey('startedAt') ||
+          !raw.containsKey('resolvedAt')) {
+        throw PersistedDataFormatException(
+          field: 'completedIntervals[$index]',
+          source: source,
+          detail: 'must contain only startedAt and resolvedAt',
+        );
+      }
+      final intervalStart = readRequiredPersistedDateTime(
+        raw['startedAt'],
+        field: 'completedIntervals[$index].startedAt',
+        source: source,
+      );
+      final intervalEnd = readRequiredPersistedDateTime(
+        raw['resolvedAt'],
+        field: 'completedIntervals[$index].resolvedAt',
+        source: source,
+      );
+      if (intervalEnd.isBefore(intervalStart) ||
+          (previousResolvedAt != null &&
+              intervalStart.isBefore(previousResolvedAt))) {
+        throw PersistedDataFormatException(
+          field: 'completedIntervals[$index]',
+          source: source,
+          detail: 'must be chronological and non-overlapping',
+        );
+      }
+      completedIntervals.add(
+        OperationalEventInterval(
+          startedAt: intervalStart,
+          resolvedAt: intervalEnd,
+        ),
+      );
+      previousResolvedAt = intervalEnd;
+    }
+    if (previousResolvedAt != null && startedAt.isBefore(previousResolvedAt)) {
+      throw PersistedDataFormatException(
+        field: 'startedAt',
+        source: source,
+        detail: 'must not overlap a completed interval',
       );
     }
     final status = readRequiredPersistedEnum(
@@ -306,6 +417,13 @@ class OperationalEvent {
         detail: 'must contain at least 8 characters',
       );
     }
+    if (resolvedAt != null && resolvedAt.isBefore(startedAt)) {
+      throw PersistedDataFormatException(
+        field: 'resolvedAt',
+        source: source,
+        detail: 'must not precede startedAt',
+      );
+    }
     return OperationalEvent(
       eventId: eventId,
       eventType: readRequiredPersistedEnum(
@@ -333,11 +451,10 @@ class OperationalEvent {
       scope: scope,
       affectedAssetClassIds: List<String>.unmodifiable(classIds),
       affectedAssetInstanceIds: List<String>.unmodifiable(assetIds),
-      startedAt: readRequiredPersistedDateTime(
-        map['startedAt'],
-        field: 'startedAt',
-        source: source,
+      completedIntervals: List<OperationalEventInterval>.unmodifiable(
+        completedIntervals,
       ),
+      startedAt: startedAt,
       status: status,
       createdAt: readRequiredPersistedDateTime(
         map['createdAt'],

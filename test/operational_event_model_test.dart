@@ -18,6 +18,7 @@ Map<String, dynamic> record({
   'scope': 'plantWide',
   'affectedAssetClassIds': <String>[],
   'affectedAssetInstanceIds': <String>[],
+  'completedIntervals': <Map<String, dynamic>>[],
   'startedAt': DateTime.utc(2026, 8, 14, 10),
   'status': status,
   'createdAt': DateTime.utc(2026, 8, 14, 10, 5),
@@ -71,6 +72,16 @@ void main() {
       () => OperationalEvent.fromMap(malformed, 'event-1'),
       throwsFormatException,
     );
+    for (final field in [
+      'affectedAssetClassIds',
+      'affectedAssetInstanceIds',
+      'completedIntervals',
+    ]) {
+      expect(
+        () => OperationalEvent.fromMap(record()..[field] = null, 'event-1'),
+        throwsFormatException,
+      );
+    }
   });
 
   test('rejects partial resolution evidence', () {
@@ -119,6 +130,31 @@ void main() {
           .inMinutes,
       15,
     );
+  });
+
+  test('keeps reopened disruption occurrences separate', () {
+    final recurring =
+        record(
+            status: 'resolved',
+            resolvedAt: DateTime.utc(2026, 8, 14, 14),
+            resolvedByUid: 'shift-1',
+            resolvedByName: 'Shift One',
+            resolutionNote:
+                'Supply remained stable after the second restoration.',
+          )
+          ..['startedAt'] = DateTime.utc(2026, 8, 14, 13)
+          ..['completedIntervals'] = [
+            {
+              'startedAt': DateTime.utc(2026, 8, 14, 10),
+              'resolvedAt': DateTime.utc(2026, 8, 14, 12),
+            },
+          ];
+    final event = OperationalEvent.fromMap(recurring, 'event-1');
+    final start = DateTime.utc(2026, 8, 14, 9);
+    final end = DateTime.utc(2026, 8, 14, 15);
+
+    expect(event.occurrenceCountWithin(start, end, end), 2);
+    expect(event.durationWithin(start, end, end), const Duration(hours: 3));
   });
 
   test(

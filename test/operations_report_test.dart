@@ -301,6 +301,104 @@ void main() {
     expect(report.disruptionDuration, const Duration(hours: 2));
   });
 
+  test('reopened disruptions retain separate report occurrences', () {
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 14),
+        endDate: DateTime.utc(2026, 8, 14),
+      ),
+      tickets: const [],
+      executions: const [],
+      events: [
+        OperationalEvent(
+          eventId: 'event-recurring',
+          eventType: OperationalEventType.water,
+          title: 'Cooling-water interruption',
+          description: 'Cooling water was interrupted twice during the shift.',
+          severity: OperationalEventSeverity.significant,
+          scope: OperationalEventScope.plantWide,
+          affectedAssetClassIds: const [],
+          affectedAssetInstanceIds: const [],
+          completedIntervals: [
+            OperationalEventInterval(
+              startedAt: DateTime.utc(2026, 8, 14, 10),
+              resolvedAt: DateTime.utc(2026, 8, 14, 12),
+            ),
+          ],
+          startedAt: DateTime.utc(2026, 8, 14, 13),
+          status: OperationalEventStatus.resolved,
+          createdAt: DateTime.utc(2026, 8, 14, 10),
+          createdByUid: 'ops',
+          createdByName: 'Operations',
+          resolvedAt: DateTime.utc(2026, 8, 14, 14),
+          resolvedByUid: 'shift',
+          resolvedByName: 'Shift Supervisor',
+          resolutionNote: 'Cooling water remained stable after restoration.',
+          version: 4,
+          updatedAt: DateTime.utc(2026, 8, 14, 14),
+          updatedByUid: 'shift',
+          updatedByName: 'Shift Supervisor',
+          lastMutationId: 'mutation',
+        ),
+      ],
+      assetClasses: const [],
+      assetInstances: const [],
+      overview: const PlantAssetOverview(classes: [], assets: []),
+      asOf: DateTime.utc(2026, 8, 14, 15),
+    );
+
+    expect(report.disruptionCount, 2);
+    expect(report.disruptionDuration, const Duration(hours: 3));
+  });
+
+  test('duplicate legacy mappings preserve explicit hierarchy attribution', () {
+    final furnaceA = assetClass('furnace-a', 'Furnace A', 'furnace');
+    final furnaceB = assetClass('furnace-b', 'Furnace B', 'furnace');
+    final explicit = issue(
+        type: AssetType.furnace,
+        number: 7,
+        started: DateTime.utc(2026, 8, 14, 10),
+      )
+      ..assetHierarchyRefJson =
+          AssetHierarchyReference(
+            assetClassId: furnaceA.id,
+            assetClassCode: furnaceA.code,
+            assetClassName: furnaceA.name,
+            nodeId: 'burner-system',
+            nodeVersion: 1,
+            nodeName: 'Burner system',
+            hierarchyPath: const ['Burner system'],
+            ownershipStatus: AssetOwnershipStatus.unassigned,
+          ).encode();
+    final ambiguousLegacy = issue(
+      type: AssetType.furnace,
+      number: 8,
+      started: DateTime.utc(2026, 8, 14, 11),
+    );
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 14),
+        endDate: DateTime.utc(2026, 8, 14),
+        assetClassId: furnaceA.id,
+      ),
+      tickets: [explicit, ambiguousLegacy],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnaceA, furnaceB],
+      assetInstances: const [],
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnaceA, furnaceB],
+        assetInstances: const [],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+    );
+
+    expect(report.issueCount, 1);
+    expect(report.classSummaries.single.assetClassId, furnaceA.id);
+    expect(report.classSummaries.single.issueCount, 1);
+  });
+
   test('records ending at period start do not overlap the report', () {
     final start = DateTime(2026, 8, 14);
     final boundaryIssue = issue(

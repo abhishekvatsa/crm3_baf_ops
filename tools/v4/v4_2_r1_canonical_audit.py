@@ -8330,7 +8330,7 @@ check(
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
     and a05_timestamp_inventory_report.get("readerCount") == 44
-    and a05_timestamp_inventory_report.get("directCallCount") == 113
+    and a05_timestamp_inventory_report.get("directCallCount") == 115
     and a05_timestamp_inventory_report.get("requiredFieldCount") == 62
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 51
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []

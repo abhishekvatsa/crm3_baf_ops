@@ -41,6 +41,10 @@ type EventType =
   | "other";
 type Severity = "advisory" | "significant" | "critical";
 type Scope = "plantWide" | "assetClasses" | "assets";
+type CompletedInterval = {
+  startedAt: unknown;
+  resolvedAt: unknown;
+};
 
 interface EventDraft {
   eventType: EventType;
@@ -92,6 +96,7 @@ const SEVERITIES = new Set<Severity>([
   "advisory", "significant", "critical",
 ]);
 const SCOPES = new Set<Scope>(["plantWide", "assetClasses", "assets"]);
+const MAX_COMPLETED_INTERVALS = 100;
 const WRITE_ROLES = new Set([
   "admin", "si", "shiftSupervisor", "operations", "contractSupervisor",
 ]);
@@ -352,6 +357,46 @@ function isTimestampLike(value: unknown): boolean {
   return timestampDate(value) != null;
 }
 
+function requireCompletedIntervals(value: unknown): CompletedInterval[] {
+  if (!Array.isArray(value) || value.length > MAX_COMPLETED_INTERVALS) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "The operational event has malformed completed intervals.",
+      {reasonCode: "operational-event-projection-malformed", field: "completedIntervals"},
+    );
+  }
+  let previousResolvedAt: Date | null = null;
+  return value.map((entry, index) => {
+    if (entry == null || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "The operational event has malformed completed intervals.",
+        {reasonCode: "operational-event-projection-malformed", field: `completedIntervals[${index}]`},
+      );
+    }
+    const interval = entry as JsonMap;
+    const keys = Object.keys(interval);
+    const startedAt = timestampDate(interval.startedAt);
+    const resolvedAt = timestampDate(interval.resolvedAt);
+    if (keys.length !== 2 || !keys.includes("startedAt") ||
+        !keys.includes("resolvedAt") || startedAt == null || resolvedAt == null ||
+        resolvedAt.getTime() < startedAt.getTime() ||
+        (previousResolvedAt != null &&
+          startedAt.getTime() < previousResolvedAt.getTime())) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "The operational event has malformed completed intervals.",
+        {reasonCode: "operational-event-projection-malformed", field: `completedIntervals[${index}]`},
+      );
+    }
+    previousResolvedAt = resolvedAt;
+    return {
+      startedAt: interval.startedAt,
+      resolvedAt: interval.resolvedAt,
+    };
+  });
+}
+
 function requireStringList(
   value: unknown,
   field: string,
@@ -373,6 +418,7 @@ function requireStringList(
 
 function validateCurrentEvent(data: JsonMap | null, eventId: string): number {
   if (data == null) return 0;
+  const completedIntervals = requireCompletedIntervals(data.completedIntervals);
   const classIds = requireStringList(
     data.affectedAssetClassIds,
     "affectedAssetClassIds",
@@ -390,7 +436,9 @@ function validateCurrentEvent(data: JsonMap | null, eventId: string): number {
     data.resolutionNote,
   ];
   const resolutionAbsent = resolvedValues.every((value) => value == null);
-  const resolutionComplete = isTimestampLike(data.resolvedAt) &&
+  const startedAt = timestampDate(data.startedAt);
+  const resolvedAt = timestampDate(data.resolvedAt);
+  const resolutionComplete = resolvedAt != null &&
     typeof data.resolvedByUid === "string" && data.resolvedByUid.length > 0 &&
     typeof data.resolvedByName === "string" && data.resolvedByName.length > 0 &&
     typeof data.resolutionNote === "string" && data.resolutionNote.length >= 8;
@@ -401,13 +449,20 @@ function validateCurrentEvent(data: JsonMap | null, eventId: string): number {
       data.scope === "assets" && assetIds.length > 0;
   const statusValid = data.status === "open" ? resolutionAbsent :
     data.status === "resolved" && resolutionComplete;
+  const latestCompleted = completedIntervals.at(-1);
+  const latestCompletedAt = latestCompleted == null ? null :
+    timestampDate(latestCompleted.resolvedAt);
+  const chronologyValid = startedAt != null &&
+    (resolvedAt == null || resolvedAt.getTime() >= startedAt.getTime()) &&
+    (latestCompletedAt == null ||
+      startedAt.getTime() >= latestCompletedAt.getTime());
   if (data.schemaVersion !== 1 || data.eventId !== eventId ||
       !EVENT_TYPES.has(data.eventType as EventType) ||
       typeof data.title !== "string" || data.title.trim().length === 0 ||
       data.title.length > 120 || typeof data.description !== "string" ||
       data.description.trim().length === 0 || data.description.length > 2000 ||
       !SEVERITIES.has(data.severity as Severity) || !scopeValid || !statusValid ||
-      !isTimestampLike(data.startedAt) || !isTimestampLike(data.createdAt) ||
+      !chronologyValid || !isTimestampLike(data.createdAt) ||
       typeof data.createdByUid !== "string" || data.createdByUid.length === 0 ||
       data.createdByUid.length > 128 || typeof data.createdByName !== "string" ||
       data.createdByName.length === 0 || data.createdByName.length > 200 ||
@@ -441,6 +496,7 @@ function eventSnapshot(data: JsonMap | null): JsonMap | null {
     scope: data.scope,
     affectedAssetClassIds: data.affectedAssetClassIds,
     affectedAssetInstanceIds: data.affectedAssetInstanceIds,
+    completedIntervals: data.completedIntervals,
     startedAt: data.startedAt,
     status: data.status,
     resolvedAt: data.resolvedAt,
@@ -629,6 +685,14 @@ export async function mutateOperationalEventWithDb(args: {
         {reasonCode: "operational-event-not-resolved"},
       );
     }
+    if (request.operation === "REOPEN_OPERATIONAL_EVENT" &&
+        (current?.completedIntervals as unknown[]).length >= MAX_COMPLETED_INTERVALS) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "This event has reached its recurrence-history limit; record a new event.",
+        {reasonCode: "operational-event-recurrence-history-full"},
+      );
+    }
 
     const draft = request.eventDraft;
     if (draft != null) {
@@ -682,6 +746,7 @@ export async function mutateOperationalEventWithDb(args: {
         scope: draft.scope,
         affectedAssetClassIds: draft.affectedAssetClassIds,
         affectedAssetInstanceIds: draft.affectedAssetInstanceIds,
+        completedIntervals: current?.completedIntervals ?? [],
         startedAt: timestampFromDate(new Date(draft.startedAtIso)),
         status: current?.status ?? "open",
         createdAt: current?.createdAt ?? committedAt,
@@ -715,6 +780,11 @@ export async function mutateOperationalEventWithDb(args: {
       next = {
         ...current!,
         status: "open",
+        completedIntervals: [
+          ...(current!.completedIntervals as CompletedInterval[]),
+          {startedAt: current!.startedAt, resolvedAt: current!.resolvedAt},
+        ],
+        startedAt: committedAt,
         resolvedAt: null,
         resolvedByUid: null,
         resolvedByName: null,
@@ -726,6 +796,7 @@ export async function mutateOperationalEventWithDb(args: {
         lastMutationId: request.requestId,
       };
     }
+    validateCurrentEvent(next, request.eventId);
     const audit: JsonMap = {
       schemaVersion: 1,
       auditId,

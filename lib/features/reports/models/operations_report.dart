@@ -119,7 +119,16 @@ class OperationsReport {
   int get cancelledPlannedJobCount =>
       executions.where((job) => job.isCancelled).length;
 
-  int get disruptionCount => events.length;
+  int get disruptionCount => events.fold(
+    0,
+    (count, event) =>
+        count +
+        event.occurrenceCountWithin(
+          filter.startInclusive,
+          filter.endExclusive,
+          asOf,
+        ),
+  );
   int get openDisruptionCount => events.where((event) => event.isOpen).length;
   Duration get disruptionDuration => events.fold(
     Duration.zero,

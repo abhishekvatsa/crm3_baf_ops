@@ -99,6 +99,7 @@ function persistedEvent(overrides = {}) {
     scope: 'plantWide',
     affectedAssetClassIds: [],
     affectedAssetInstanceIds: [],
+    completedIntervals: [],
     startedAt: new Date('2026-08-14T10:00:00.000Z'),
     status: 'open',
     createdAt: new Date('2026-08-14T10:05:00.000Z'),
@@ -141,12 +142,17 @@ function baseSeed() {
   };
 }
 
-async function invoke(memory, authUid, data) {
+async function invoke(
+  memory,
+  authUid,
+  data,
+  now = new Date('2026-08-14T12:00:00.000Z'),
+) {
   return mutateOperationalEventWithDb({
     db: memory.db,
     authUid,
     data,
-    now: () => new Date('2026-08-14T12:00:00.000Z'),
+    now: () => now,
     timestampFromDate: (date) => date,
   });
 }
@@ -191,6 +197,7 @@ describe('operational event mutation', () => {
     });
     expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
       eventType: 'powerTrip',
+      completedIntervals: [],
       status: 'open',
       version: 1,
       lastMutationId: IDS.create,
@@ -307,16 +314,26 @@ describe('operational event mutation', () => {
       version: 2,
     });
 
-    const reopened = await invoke(memory, 'admin-1', {
-      requestId: IDS.reopen,
-      operation: 'REOPEN_OPERATIONAL_EVENT',
-      eventId: IDS.event,
-      expectedVersion: 2,
-      reason: 'Power instability recurred during post-restoration monitoring.',
-    });
+    const reopened = await invoke(
+      memory,
+      'admin-1',
+      {
+        requestId: IDS.reopen,
+        operation: 'REOPEN_OPERATIONAL_EVENT',
+        eventId: IDS.event,
+        expectedVersion: 2,
+        reason: 'Power instability recurred during post-restoration monitoring.',
+      },
+      new Date('2026-08-14T13:00:00.000Z'),
+    );
     expect(reopened).toMatchObject({status: 'open', version: 3});
     expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
       status: 'open',
+      completedIntervals: [{
+        startedAt: new Date('2026-08-14T10:00:00.000Z'),
+        resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
+      }],
+      startedAt: new Date('2026-08-14T13:00:00.000Z'),
       resolvedAt: null,
       resolutionNote: null,
     });
@@ -328,6 +345,11 @@ describe('operational event mutation', () => {
         resolutionNote: 'Incoming supply remained stable through verification.',
       },
       after: {
+        completedIntervals: [{
+          startedAt: new Date('2026-08-14T10:00:00.000Z'),
+          resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
+        }],
+        startedAt: new Date('2026-08-14T13:00:00.000Z'),
         resolvedAt: null,
         resolvedByUid: null,
         resolvedByName: null,
@@ -354,5 +376,28 @@ describe('operational event mutation', () => {
       details: {reasonCode: 'operational-event-projection-malformed'},
     });
     expect(memory.writes).toHaveLength(0);
+
+    for (const field of [
+      'affectedAssetClassIds',
+      'affectedAssetInstanceIds',
+      'completedIntervals',
+    ]) {
+      const invalid = persistedEvent({[field]: null});
+      const invalidMemory = fakeDb({
+        ...baseSeed(),
+        [`operational_events/${IDS.event}`]: invalid,
+      });
+      await expect(invoke(invalidMemory, 'ops-1', {
+        requestId: IDS.update,
+        operation: 'UPDATE_OPERATIONAL_EVENT',
+        eventId: IDS.event,
+        expectedVersion: 1,
+        reason: 'Correct the operational event after field confirmation.',
+        eventDraft: request().eventDraft,
+      })).rejects.toMatchObject({
+        details: {reasonCode: 'operational-event-projection-malformed'},
+      });
+      expect(invalidMemory.writes).toHaveLength(0);
+    }
   });
 });
