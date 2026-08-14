@@ -756,17 +756,23 @@ export async function mutateOperationalEventWithDb(args: {
     }
 
     const draft = request.eventDraft;
-    if (draft != null) {
-      const classIds = new Set(draft.affectedAssetClassIds);
+    const targetScope = draft ??
+      (request.operation === "REOPEN_OPERATIONAL_EVENT" ? {
+        scope: current!.scope as Scope,
+        affectedAssetClassIds: current!.affectedAssetClassIds as ReadonlyArray<string>,
+        affectedAssetInstanceIds: current!.affectedAssetInstanceIds as ReadonlyArray<string>,
+      } : null);
+    if (targetScope != null) {
+      const classIds = new Set(targetScope.affectedAssetClassIds);
       const assetClassIds = new Set<string>();
-      for (const classId of draft.affectedAssetClassIds) {
+      for (const classId of targetScope.affectedAssetClassIds) {
         const value = asSnapshot(
           await transaction.get(classes.doc(classId)),
           `Affected asset class ${classId} lookup`,
         );
         verifyClass(record(value, `Affected asset class ${classId}`), classId);
       }
-      for (const assetId of draft.affectedAssetInstanceIds) {
+      for (const assetId of targetScope.affectedAssetInstanceIds) {
         const value = asSnapshot(
           await transaction.get(assets.doc(assetId)),
           `Affected asset ${assetId} lookup`,
@@ -774,7 +780,7 @@ export async function mutateOperationalEventWithDb(args: {
         const classId = verifyAsset(record(value, `Affected asset ${assetId}`), assetId);
         assetClassIds.add(classId);
       }
-      if (draft.scope === "assets" &&
+      if (targetScope.scope === "assets" &&
           (classIds.size !== assetClassIds.size ||
             [...classIds].some((classId) => !assetClassIds.has(classId)))) {
         throw new AssetHierarchyMutationError(

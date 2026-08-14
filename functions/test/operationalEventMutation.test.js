@@ -266,6 +266,37 @@ describe('operational event mutation', () => {
     expect(surplusMemory.writes).toHaveLength(0);
   });
 
+  test('reopen revalidates persisted targets before writes', async () => {
+    const seed = baseSeed();
+    seed[`asset_instances/${IDS.asset}`] = {
+      ...seed[`asset_instances/${IDS.asset}`],
+      status: 'retired',
+    };
+    seed[`operational_events/${IDS.event}`] = persistedEvent({
+      scope: 'assets',
+      affectedAssetClassIds: [IDS.assetClass],
+      affectedAssetInstanceIds: [IDS.asset],
+      status: 'resolved',
+      resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
+      resolvedByUid: 'ops-1',
+      resolvedByName: 'Operations One',
+      resolutionNote: 'Supply remained stable through verification.',
+    });
+    const memory = fakeDb(seed);
+
+    await expect(invoke(memory, 'admin-1', {
+      requestId: IDS.reopen,
+      operation: 'REOPEN_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Reopen after confirming the operational effect has recurred.',
+    }, new Date('2026-08-14T13:00:00.000Z'))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'operational-event-asset-invalid'},
+    });
+    expect(memory.writes).toHaveLength(0);
+  });
+
   test('future event chronology is rejected without writes', async () => {
     const createMemory = fakeDb(baseSeed());
     await expect(invoke(createMemory, 'ops-1', request({
