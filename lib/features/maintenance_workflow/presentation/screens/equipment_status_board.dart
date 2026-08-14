@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/equipment_status_record.dart';
+import '../../domain/equipment_command_identity.dart';
 import '../../domain/workflow_types.dart';
 import '../../providers/workflow_providers.dart';
 import '../../services/workflow_command_factory.dart';
@@ -102,17 +103,15 @@ class EquipmentStatusBoard extends ConsumerWidget {
     );
     if (approved != true || !context.mounted) return;
     try {
+      final identity = EquipmentCommandIdentity.fromRecord(row);
       await ref
           .read(workflowCommandControllerProvider.notifier)
           .execute(
             WorkflowCommandFactory.create(
               type: WorkflowCommandType.reconcileEquipment,
-              aggregateId: 'equipment_${row.assetTypeKey}_${row.assetNumber}',
+              aggregateId: identity.aggregateId,
               expectedVersion: row.version,
-              payload: <String, Object?>{
-                'assetTypeKey': row.assetTypeKey,
-                'assetNumber': row.assetNumber,
-              },
+              payload: identity.payload,
             ),
           );
       if (!context.mounted) return;
@@ -154,17 +153,15 @@ class EquipmentStatusBoard extends ConsumerWidget {
     );
     if (approved != true || !context.mounted) return;
     try {
+      final identity = EquipmentCommandIdentity.fromRecord(row);
       await ref
           .read(workflowCommandControllerProvider.notifier)
           .execute(
             WorkflowCommandFactory.create(
               type: WorkflowCommandType.deployEquipment,
-              aggregateId: 'equipment_${row.assetTypeKey}_${row.assetNumber}',
+              aggregateId: identity.aggregateId,
               expectedVersion: row.version,
-              payload: <String, Object?>{
-                'assetTypeKey': row.assetTypeKey,
-                'assetNumber': row.assetNumber,
-              },
+              payload: identity.payload,
             ),
           );
       if (!context.mounted) return;
