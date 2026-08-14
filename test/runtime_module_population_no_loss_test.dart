@@ -22,14 +22,13 @@ import 'package:crm3_baf_ops/features/planned_maintenance/providers/template_gov
 import 'package:crm3_baf_ops/features/planned_maintenance/services/planned_job_server_completion_service.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/services/runtime_job_module_population_service.dart';
 
-class _UnusedMaintenanceRepository implements MaintenanceRepository {
+class _UnusedMaintenanceRepository extends MaintenanceRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError(invocation.memberName.toString());
 }
 
-class _UnusedPlannedMaintenanceRepository
-    implements PlannedMaintenanceRepository {
+class _UnusedPlannedMaintenanceRepository extends PlannedMaintenanceRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError(invocation.memberName.toString());

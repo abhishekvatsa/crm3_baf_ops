@@ -3,6 +3,7 @@
 import 'dart:convert';
 
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/job_module_model.dart';
 import 'template_version_snapshot_contract.dart';
@@ -385,6 +386,7 @@ class TemplateComposerDraft {
   String localId;
   String title;
   AssetType assetType;
+  String? assetHierarchyRefJson;
   final List<ComposerModuleDraft> modules;
   final List<TagResolverCorrectionDraft> tagResolverCorrections;
   final List<SafetyJustificationDraft> safetyJustifications;
@@ -395,6 +397,7 @@ class TemplateComposerDraft {
     String? localId,
     required this.title,
     required this.assetType,
+    this.assetHierarchyRefJson,
     List<ComposerModuleDraft>? modules,
     List<TagResolverCorrectionDraft>? tagResolverCorrections,
     List<SafetyJustificationDraft>? safetyJustifications,
@@ -407,6 +410,14 @@ class TemplateComposerDraft {
        safetyJustifications =
            safetyJustifications ?? <SafetyJustificationDraft>[],
        metadata = metadata ?? <String, dynamic>{};
+
+  AssetHierarchyReference? get assetHierarchyReference =>
+      assetHierarchyRefJson == null
+          ? null
+          : AssetHierarchyReference.decode(
+            assetHierarchyRefJson!,
+            source: 'Template Composer draft',
+          );
 
   factory TemplateComposerDraft.empty({String? title, AssetType? assetType}) {
     return TemplateComposerDraft(
@@ -518,6 +529,11 @@ class TemplateComposerDraft {
               : _cleanString(composerMeta['draftLocalId']),
       title: title,
       assetType: assetType,
+      assetHierarchyRefJson: readOptionalAssetHierarchyReferenceJson(
+        jobSnapshot['assetHierarchyRefJson'],
+        field: 'assetHierarchyRefJson',
+        source: source,
+      ),
       modules: modules,
       metadata: <String, dynamic>{
         'source': 'existingPublisherPayload',
@@ -1420,6 +1436,8 @@ AssetType? _parseAssetType(String? value) {
       return AssetType.forceCooler;
     case 'innercover':
       return AssetType.innerCover;
+    case 'governedcustom':
+      return AssetType.governedCustom;
   }
   return null;
 }

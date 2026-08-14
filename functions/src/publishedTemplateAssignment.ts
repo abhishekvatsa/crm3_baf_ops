@@ -625,6 +625,117 @@ function normalizeKey(value: string | null): string {
     .replace(/[^a-z0-9]+/g, "");
 }
 
+function canonicalSnapshotAssetType(value: string | null): string | null {
+  switch (normalizeKey(value)) {
+  case "base":
+    return "base";
+  case "furnace":
+  case "baffurnace":
+    return "furnace";
+  case "forcecooler":
+  case "forcedcooler":
+  case "forcedcoolers":
+  case "cooler":
+    return "forceCooler";
+  case "innercover":
+  case "innercovers":
+    return "innerCover";
+  case "governedcustom":
+    return "governedCustom";
+  default:
+    return null;
+  }
+}
+
+function validateAssignmentSnapshotTarget(
+  bundle: ParsedSnapshotBundle,
+  request: ParsedAssignmentRequest,
+): void {
+  const rawSnapshotType = stringFrom(bundle.jobSnapshot, [
+    "assetType",
+    "applicableAssetType",
+    "asset_type",
+  ]);
+  const snapshotType = canonicalSnapshotAssetType(rawSnapshotType);
+  if (rawSnapshotType != null && snapshotType == null) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The published snapshot has an unsupported asset type.",
+      {reasonCode: "snapshot-asset-type-invalid"},
+    );
+  }
+  if (snapshotType != null && snapshotType !== request.assetType) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The requested asset type does not match the published snapshot.",
+      {
+        reasonCode: "assignment-asset-type-mismatch",
+        snapshotAssetType: snapshotType,
+        requestedAssetType: request.assetType,
+      },
+    );
+  }
+  if (request.assetType !== "governedCustom") return;
+  if (snapshotType !== "governedCustom") {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "Governed custom assignments require an explicit custom snapshot type.",
+      {reasonCode: "custom-snapshot-asset-type-missing"},
+    );
+  }
+
+  const encoded = cleanOptionalText(bundle.jobSnapshot.assetHierarchyRefJson);
+  if (encoded == null) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "Governed custom assignments require a published hierarchy reference.",
+      {reasonCode: "custom-snapshot-hierarchy-reference-missing"},
+    );
+  }
+  let reference: AssignmentJsonMap;
+  try {
+    const decoded: unknown = JSON.parse(encoded);
+    if (decoded == null || typeof decoded !== "object" || Array.isArray(decoded)) {
+      throw new Error("not an object");
+    }
+    reference = {...(decoded as AssignmentJsonMap)};
+  } catch {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The published custom hierarchy reference is malformed.",
+      {reasonCode: "custom-snapshot-hierarchy-reference-invalid"},
+    );
+  }
+  const schemaVersion = intValue(reference.schemaVersion);
+  const nodeVersion = intValue(reference.nodeVersion);
+  if (
+    (schemaVersion !== 1 && schemaVersion !== 2) ||
+    stringValue(reference.assetClassId) == null ||
+    stringValue(reference.assetClassCode) == null ||
+    stringValue(reference.assetClassName) == null ||
+    stringValue(reference.nodeId) == null ||
+    nodeVersion == null ||
+    nodeVersion < 1 ||
+    stringValue(reference.nodeName) == null
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The published custom hierarchy reference is incomplete.",
+      {reasonCode: "custom-snapshot-hierarchy-reference-invalid"},
+    );
+  }
+  if (
+    stringValue(reference.scope) === "installedComponent" &&
+    intValue(reference.assetNumber) !== request.assetNumber
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The installed-component snapshot does not match the requested asset number.",
+      {reasonCode: "custom-snapshot-asset-number-mismatch"},
+    );
+  }
+}
+
 function moduleCode(module: AssignmentJsonMap): string | null {
   return stringFrom(module, ["moduleCode", "code", "moduleId", "id"]);
 }
@@ -1534,6 +1645,7 @@ function buildCanonicalAssignment(args: {
   } = args;
   const bundle = parseSnapshotBundle(versionData);
   validateSnapshotBundle(bundle);
+  validateAssignmentSnapshotTarget(bundle, request);
 
   const executionRef = db.collection("job_executions").doc();
   const executionId = assertDocumentId(

@@ -29,6 +29,20 @@ final operationalEventsProvider = StreamProvider<List<OperationalEvent>>((ref) {
   return _combineOperationalEventWindows(open, recent);
 });
 
+/// Complete event-document history for date-bound operational reports.
+///
+/// Completed recurrence intervals remain embedded in their parent event, so a
+/// server-side date predicate cannot prove complete historical coverage until
+/// occurrence projections are introduced. The interactive event list keeps
+/// its bounded window; reports deliberately read every event document.
+final operationalEventsForReportsProvider =
+    StreamProvider<List<OperationalEvent>>((ref) {
+      return FirebaseFirestore.instance
+          .collection('operational_events')
+          .snapshots()
+          .map(_decodeOperationalEvents);
+    });
+
 List<OperationalEvent> _decodeOperationalEvents(
   QuerySnapshot<Map<String, dynamic>> snapshot,
 ) => snapshot.docs

@@ -513,7 +513,7 @@
       "compatibility": "documented aliases only",
       "regression": "test/template_version_snapshot_contract_test.dart",
       "reArmCondition": "malformed snapshot object or row is dropped/defaulted",
-      "riskFingerprint": "8541fe14900db538888ad645dde07b664ae2801182e8ec1d6dd4966df3bcd534"
+      "riskFingerprint": "d3259bedcb3ddf2298bda84c6df8f4f9717abbe2d971a02bc6948d88b6d31034"
     },
     {
       "id": "module-registry-provider-lineage",
@@ -1202,6 +1202,32 @@
       "malformedDisposition": "return blocking validation errors and no valid bundle",
       "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "semantic snapshot failure permits publication"
+    },
+    {
+      "id": "custom-template-hierarchy-validation",
+      "file": "lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart",
+      "siteFingerprint": "ee1a705ecd8c8bde5dff271457cadfd09591fb1c0dd33aafac4cc76b29873979",
+      "classification": "PRE_MUTATION_VALIDATION_REJECTION",
+      "purpose": "translate malformed governed-custom hierarchy identity into a blocking snapshot validation error",
+      "authorityBoundary": "immutable custom template snapshot publication and assignment admission",
+      "mutability": "none",
+      "dataScope": "required assetHierarchyRefJson on governed-custom job snapshots",
+      "malformedDisposition": "return a blocking validation error and prevent publication or assignment",
+      "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "missing or malformed custom hierarchy identity is admitted for publication or assignment"
+    },
+    {
+      "id": "optional-template-hierarchy-validation",
+      "file": "lib/features/planned_maintenance/domain/template_version_snapshot_contract.dart",
+      "siteFingerprint": "4fa6098b99d9153dc42f4de74870e2f9657a47f6d3530443c8423bb41ec4ecf9",
+      "classification": "PRE_MUTATION_VALIDATION_REJECTION",
+      "purpose": "translate a malformed optional hierarchy identity into a blocking snapshot validation error",
+      "authorityBoundary": "immutable standard template snapshot publication and assignment admission",
+      "mutability": "none",
+      "dataScope": "present assetHierarchyRefJson on non-custom job snapshots",
+      "malformedDisposition": "return a blocking validation error and prevent publication or assignment",
+      "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "a malformed present hierarchy identity is ignored or admitted for publication or assignment"
     },
     {
       "id": "quality-command-transport-translation",

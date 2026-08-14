@@ -9,6 +9,8 @@ import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/baf_module_catalogue_seed.dart';
@@ -89,6 +91,8 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
   bool _suppressRecoverySave = false;
   String? _initializingForActorUid;
   String? _initializedForActorUid;
+  String? _governedAssetClassId;
+  String? _governedDefinitionNodeId;
   Timer? _recoverySaveDebounce;
   List<BafKnowledgeEntry> _knowledgeRows = BafKnowledgeLayer.entries;
   BafKnowledgeMatrixMeta _matrixMeta = BafKnowledgeMatrixMeta.staticFallback();
@@ -110,6 +114,9 @@ class _ModuleComposerScreenState extends ConsumerState<ModuleComposerScreen> {
       _initialPayloadError = error.message;
       _draft = TemplateComposerDraft.empty();
     }
+    final hierarchyReference = _draft.assetHierarchyReference;
+    _governedAssetClassId = hierarchyReference?.assetClassId;
+    _governedDefinitionNodeId = hierarchyReference?.nodeId;
     _titleController = TextEditingController(text: _draft.title);
     _editingTemplateVersion = widget.initialTemplateVersion;
     _draft.localId =

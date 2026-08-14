@@ -5,9 +5,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' as firestore show Query;
 import 'package:isar/isar.dart';
 
 import '../../../core/persistence/app_database.dart';
+import '../../../core/utils/combined_record_stream.dart';
 import '../data/maintenance_model.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import '../../audit/models/audit_event_model.dart';
@@ -61,6 +63,14 @@ class PaginatedMaintenanceResult {
   }
 }
 
+bool maintenanceRecordOverlapsPeriod(
+  MaintenanceRecord record,
+  DateTime startInclusive,
+  DateTime endExclusive,
+) =>
+    record.startDate.isBefore(endExclusive) &&
+    (record.endDate == null || record.endDate!.isAfter(startInclusive));
+
 // ─────────────────────────────────────────────────────────────
 // INTERFACE
 // ─────────────────────────────────────────────────────────────
@@ -80,6 +90,28 @@ abstract class MaintenanceRepository {
   // 🔥 REACTIVE STREAMS
   Stream<List<MaintenanceRecord>> watchOpenTickets();
   Stream<List<MaintenanceRecord>> watchAllTickets({int? limit});
+  Stream<List<MaintenanceRecord>> watchTicketsOverlappingPeriod(
+    DateTime startInclusive,
+    DateTime endExclusive,
+  ) {
+    if (!startInclusive.isBefore(endExclusive)) {
+      return Stream<List<MaintenanceRecord>>.error(
+        ArgumentError('Report start must precede report end.'),
+      );
+    }
+    return watchAllTickets().map(
+      (records) => records
+          .where(
+            (record) => maintenanceRecordOverlapsPeriod(
+              record,
+              startInclusive,
+              endExclusive,
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
   Stream<List<MaintenanceRecord>> watchTicketsForAsset(
     AssetType type,
     int number, {
@@ -287,7 +319,7 @@ void _requireMaintenanceWorkflowMapAllowsAction(
 // ISAR IMPLEMENTATION
 // ─────────────────────────────────────────────────────────────
 
-class IsarMaintenanceRepository implements MaintenanceRepository {
+class IsarMaintenanceRepository extends MaintenanceRepository {
   final AuditRepository _auditRepo;
 
   IsarMaintenanceRepository({AuditRepository? auditRepository})
@@ -1047,7 +1079,7 @@ class IsarMaintenanceRepository implements MaintenanceRepository {
 // FIRESTORE IMPLEMENTATION (FULL MAPPING RESTORED)
 // ─────────────────────────────────────────────────────────────
 
-class FirestoreMaintenanceRepository implements MaintenanceRepository {
+class FirestoreMaintenanceRepository extends MaintenanceRepository {
   final AuditRepository _auditRepo;
 
   FirestoreMaintenanceRepository({AuditRepository? auditRepository})
@@ -1096,6 +1128,61 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     }
 
     return query.snapshots().map((snap) => snap.docs.map(_mapTicket).toList());
+  }
+
+  @override
+  Stream<List<MaintenanceRecord>> watchTicketsOverlappingPeriod(
+    DateTime startInclusive,
+    DateTime endExclusive,
+  ) {
+    if (!startInclusive.isBefore(endExclusive)) {
+      return Stream<List<MaintenanceRecord>>.error(
+        ArgumentError('Report start must precede report end.'),
+      );
+    }
+    Stream<List<MaintenanceRecord>> decode(
+      firestore.Query<Map<String, dynamic>> query,
+    ) => query.snapshots().map(
+      (snapshot) => snapshot.docs.map(_mapTicket).toList(growable: false),
+    );
+
+    final startedInPeriod = decode(
+      _collection
+          .where('isDeleted', isEqualTo: false)
+          .where('startDate', isGreaterThanOrEqualTo: startInclusive)
+          .where('startDate', isLessThan: endExclusive)
+          .orderBy('startDate', descending: true),
+    );
+    final openCarryIn = decode(
+      _collection
+          .where('isResolved', isEqualTo: false)
+          .where('isDeleted', isEqualTo: false)
+          .where('startDate', isLessThan: startInclusive)
+          .orderBy('startDate', descending: true),
+    );
+    final resolvedAcrossStart = decode(
+      _collection
+          .where('isResolved', isEqualTo: true)
+          .where('isDeleted', isEqualTo: false)
+          .where('endDate', isGreaterThan: startInclusive)
+          .orderBy('endDate', descending: true),
+    );
+
+    return combineLatestUniqueRecordStreams<MaintenanceRecord>(
+      streams: [startedInPeriod, openCarryIn, resolvedAcrossStart],
+      identityOf: (record) => record.firestoreId ?? 'local:${record.id}',
+      compare: (left, right) => right.startDate.compareTo(left.startDate),
+    ).map(
+      (records) => records
+          .where(
+            (record) => maintenanceRecordOverlapsPeriod(
+              record,
+              startInclusive,
+              endExclusive,
+            ),
+          )
+          .toList(growable: false),
+    );
   }
 
   @override

@@ -79,6 +79,7 @@ class ModuleComposerJsonBuilder {
       'title': draft.title,
       'templateName': draft.title,
       'assetType': draft.assetType.name,
+      'assetHierarchyRefJson': draft.assetHierarchyRefJson,
       'source': 'moduleComposer',
       'moduleCount': draft.modules.length,
       'closureCriticalCount': closureCriticalCount,

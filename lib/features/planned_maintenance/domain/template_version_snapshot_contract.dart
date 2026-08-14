@@ -3,6 +3,7 @@
 import 'dart:convert';
 
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 
 const JsonEncoder _snapshotJsonIndent = JsonEncoder.withIndent('  ');
 
@@ -99,9 +100,49 @@ class TemplateVersionSnapshotBundle {
         'forcedcoolers',
         'innercover',
         'innercovers',
+        'governedcustom',
       },
       errors: errors,
     );
+    final normalizedAssetType = normalizeKey(
+      stringFrom(jobSnapshot, const [
+        'assetType',
+        'applicableAssetType',
+        'asset_type',
+      ]),
+    );
+    final hierarchyReferenceJson = jobSnapshot['assetHierarchyRefJson'];
+    if (normalizedAssetType == 'governedcustom') {
+      if (hierarchyReferenceJson is! String ||
+          hierarchyReferenceJson.trim().isEmpty) {
+        errors.add(
+          'Governed custom templates require an assetHierarchyRefJson reference.',
+        );
+      } else {
+        try {
+          AssetHierarchyReference.decode(
+            hierarchyReferenceJson,
+            source: 'TemplateVersion job snapshot',
+          );
+        } on Object catch (error) {
+          errors.add('Governed asset hierarchy reference is invalid: $error');
+        }
+      }
+    } else if (hierarchyReferenceJson != null) {
+      if (hierarchyReferenceJson is! String ||
+          hierarchyReferenceJson.trim().isEmpty) {
+        errors.add('assetHierarchyRefJson must be a non-empty JSON string.');
+      } else {
+        try {
+          AssetHierarchyReference.decode(
+            hierarchyReferenceJson,
+            source: 'TemplateVersion job snapshot',
+          );
+        } on Object catch (error) {
+          errors.add('Asset hierarchy reference is invalid: $error');
+        }
+      }
+    }
     final composer = mapFrom(jobSnapshot['composer']);
     boolValue(composer['closureReviewConfirmed']);
     stringValue(composer['closureReviewConfirmedByUid']);
@@ -442,6 +483,7 @@ void _validateModuleTypes(
       'forcecooler',
       'cooler',
       'innercover',
+      'governedcustom',
     },
   );
   _validateOptionalEnumAliases(

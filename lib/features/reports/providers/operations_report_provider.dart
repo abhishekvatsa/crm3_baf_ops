@@ -13,9 +13,9 @@ import '../../planned_maintenance/data/job_template_model.dart';
 import '../../planned_maintenance/providers/planned_maintenance_provider.dart';
 import '../models/operations_report.dart';
 
-const operationsReportTicketSourceLimit = 2000;
-const operationsReportExecutionSourceLimit = 2000;
 const operationsReportClockInterval = Duration(minutes: 1);
+typedef OperationsReportPeriod =
+    ({DateTime startInclusive, DateTime endExclusive});
 
 Stream<DateTime> operationsReportClock({
   Duration interval = operationsReportClockInterval,
@@ -30,29 +30,43 @@ final operationsReportClockProvider = StreamProvider<DateTime>(
   (ref) => operationsReportClock(),
 );
 
-final operationsReportTicketsProvider = StreamProvider<List<MaintenanceRecord>>(
-  (ref) {
-    return ref
-        .watch(maintenanceRepositoryProvider)
-        .watchAllTickets(limit: operationsReportTicketSourceLimit);
-  },
-);
+final operationsReportTicketsProvider =
+    StreamProvider.family<List<MaintenanceRecord>, OperationsReportPeriod>((
+      ref,
+      period,
+    ) {
+      return ref
+          .watch(maintenanceRepositoryProvider)
+          .watchTicketsOverlappingPeriod(
+            period.startInclusive,
+            period.endExclusive,
+          );
+    });
 
-final operationsReportExecutionsProvider = StreamProvider<List<JobExecution>>((
-  ref,
-) {
-  return ref
-      .watch(plannedRepositoryProvider)
-      .watchAllExecutions(limit: operationsReportExecutionSourceLimit);
-});
+final operationsReportExecutionsProvider =
+    StreamProvider.family<List<JobExecution>, OperationsReportPeriod>((
+      ref,
+      period,
+    ) {
+      return ref
+          .watch(plannedRepositoryProvider)
+          .watchExecutionsOverlappingPeriod(
+            period.startInclusive,
+            period.endExclusive,
+          );
+    });
 
 final operationsReportProvider = Provider.family<
   AsyncValue<OperationsReport>,
   OperationsReportFilter
 >((ref, filter) {
-  final tickets = ref.watch(operationsReportTicketsProvider);
-  final executions = ref.watch(operationsReportExecutionsProvider);
-  final events = ref.watch(operationalEventsProvider);
+  final period = (
+    startInclusive: filter.startInclusive,
+    endExclusive: filter.endExclusive,
+  );
+  final tickets = ref.watch(operationsReportTicketsProvider(period));
+  final executions = ref.watch(operationsReportExecutionsProvider(period));
+  final events = ref.watch(operationalEventsForReportsProvider);
   final classes = ref.watch(assetClassesProvider);
   final assets = ref.watch(allAssetInstancesProvider);
   final overview = ref.watch(plantAssetOverviewProvider);

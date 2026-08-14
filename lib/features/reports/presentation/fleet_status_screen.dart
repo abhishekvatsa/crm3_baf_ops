@@ -296,9 +296,13 @@ OperationsReportSelection reconcileOperationsReportSelection({
 }
 
 void _invalidateReportSources(WidgetRef ref, OperationsReportFilter filter) {
-  ref.invalidate(operationsReportTicketsProvider);
-  ref.invalidate(operationsReportExecutionsProvider);
-  ref.invalidate(operationalEventsProvider);
+  final period = (
+    startInclusive: filter.startInclusive,
+    endExclusive: filter.endExclusive,
+  );
+  ref.invalidate(operationsReportTicketsProvider(period));
+  ref.invalidate(operationsReportExecutionsProvider(period));
+  ref.invalidate(operationalEventsForReportsProvider);
   ref.invalidate(assetClassesProvider);
   ref.invalidate(allAssetInstancesProvider);
   ref.invalidate(assetOperationalConditionsProvider);
@@ -949,34 +953,15 @@ class _SourceWindowNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ticketCapped =
-        report.sourceTicketCount >= operationsReportTicketSourceLimit;
-    final executionCapped =
-        report.sourceExecutionCount >= operationsReportExecutionSourceLimit;
-    final eventCapped =
-        report.sourceEventCount >= operationalEventLiveWindowLimit;
-    final capped = ticketCapped || executionCapped || eventCapped;
-    return Row(
+    return const Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          capped ? Icons.info_outline_rounded : Icons.verified_outlined,
-          size: 17,
-          color: BafColors.textSecondary,
-        ),
-        const SizedBox(width: 7),
+        Icon(Icons.verified_outlined, size: 17, color: BafColors.textSecondary),
+        SizedBox(width: 7),
         Expanded(
           child: Text(
-            capped
-                ? 'A source window reached its safety limit. Totals are complete only within the loaded window: '
-                    '$operationsReportTicketSourceLimit issues, '
-                    '$operationsReportExecutionSourceLimit jobs and '
-                    '$operationalEventLiveWindowLimit recent events plus every open event.'
-                : 'All loaded records were evaluated. Source safety limits are '
-                    '$operationsReportTicketSourceLimit issues, '
-                    '$operationsReportExecutionSourceLimit jobs and '
-                    '$operationalEventLiveWindowLimit recent events plus every open event.',
-            style: const TextStyle(
+            'All issue, planned-job and disruption records overlapping the selected period were evaluated.',
+            style: TextStyle(
               color: BafColors.textSecondary,
               fontSize: 11,
               height: 1.35,
