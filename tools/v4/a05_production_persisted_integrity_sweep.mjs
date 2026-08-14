@@ -64,6 +64,8 @@ export const A05_COLLECTION_REGISTRY = Object.freeze({
   asset_hierarchy_mutation_receipts: 'SERVER_CONTROL_RECORD',
   asset_operational_condition_audits: 'SERVER_CONTROL_RECORD',
   asset_operational_condition_receipts: 'SERVER_CONTROL_RECORD',
+  governed_migration_audits: 'SERVER_CONTROL_RECORD',
+  governed_migration_contracts: 'SERVER_CONTROL_RECORD',
   knowledge_base: 'DART_RECONCILIATION_REQUIRED',
   knowledge_base_meta: 'DART_RECONCILIATION_REQUIRED',
   maintenance_records: 'DART_RECONCILIATION_REQUIRED',
