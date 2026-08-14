@@ -69,6 +69,9 @@ jobs:
       - name: A-05 read-only production sweep contracts
         run: npm run test:a05-production-sweep
 
+      - name: Governed custom projection reconciliation contracts
+        run: npm run test:governed-asset-identity-reconciliation
+
       - name: dart format (warn-only)
         shell: bash
         run: |
