@@ -194,6 +194,14 @@ class AppUser {
   /// access through the operational selectors that consume this master.
   bool get canManageAssetHierarchy => isApproved && isAdmin;
 
+  /// Operations may declare loss of availability. Restoring availability is
+  /// a supervisory assurance decision and therefore has a narrower boundary.
+  bool get canDeclareAssetOperationalCondition =>
+      isApproved && (isAdmin || isSI || isShiftSupervisor || isOperations);
+
+  bool get canRestoreAssetOperationalCondition =>
+      isApproved && (isAdmin || isSI || isShiftSupervisor);
+
   // ───────────────────────────────────────────────────────────
   // LEGACY PLANNED-MAINTENANCE TEMPLATE / ASSIGNMENT PERMISSIONS
   // ───────────────────────────────────────────────────────────

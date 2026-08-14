@@ -638,6 +638,21 @@
       "regression": "test/asset_hierarchy_model_test.dart; functions/test/assetHierarchyMutation.firestoreEmulator.test.js",
       "reArmCondition": "physical identity, ownership, lifecycle, installed-component state, or tag authority is coerced or defaulted",
       "riskFingerprint": "e73f0250f4b7fa6d4a3183c6136af2fb11bc9230c0f7ab3e9d631a435173d9c2"
+    },
+    {
+      "id": "asset-operational-condition-records",
+      "file": "lib/features/assets/data/asset_operational_condition.dart",
+      "markers": [
+        "factory AssetOperationalConditionRecord.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "asset-operations",
+      "authorityBoundary": "current governed asset availability declaration and restoration evidence",
+      "malformedDisposition": "fail closed before malformed condition evidence can enter the plant overview or command version boundary",
+      "compatibility": "none for asset identity, active condition, causes, declaration authority, restoration authority, or version",
+      "regression": "test/asset_operational_condition_model_test.dart; test/plant_asset_overview_test.dart; functions/test/assetOperationalConditionMutation.test.js",
+      "reArmCondition": "condition identity, lifecycle, authority, cause, issue-link, or version fields are defaulted from malformed input",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
   "catchSites": [

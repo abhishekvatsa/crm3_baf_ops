@@ -3122,6 +3122,20 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /asset_operational_conditions/{docId} {
+      allow read: if isApprovedUser();
+      allow write: if false;
+    }
+
+    match /asset_operational_condition_audits/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /asset_operational_condition_receipts/{docId} {
+      allow read, write: if false;
+    }
+
     // ─────────────────────────────────────────────
     // 🔧 MAINTENANCE RECORDS
     // ─────────────────────────────────────────────

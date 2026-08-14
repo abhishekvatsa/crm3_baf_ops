@@ -86,6 +86,14 @@ import {
 } from "./assetRegistryMutation";
 import type {AssetRegistryMutationResult} from "./assetRegistryMutation";
 import {
+  isAssetOperationalConditionOperation,
+  mutateAssetOperationalConditionWithDb,
+  userCanMutateAssetOperationalCondition,
+} from "./assetOperationalConditionMutation";
+import type {
+  AssetOperationalConditionMutationResult,
+} from "./assetOperationalConditionMutation";
+import {
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
   buildTicketResolvedNotification,
@@ -510,12 +518,20 @@ export const mutateAssetHierarchy = onCall(
     try {
       const db = admin.firestore();
       return await executeAuthorizedMutation<
-        AssetHierarchyMutationResult | AssetRegistryMutationResult
+        AssetHierarchyMutationResult |
+        AssetRegistryMutationResult |
+        AssetOperationalConditionMutationResult
       >({
         db,
         authUid: request.auth?.uid ?? null,
         callableName: "mutateAssetHierarchy",
-        authorize: userCanMutateAssetHierarchy,
+        authorize: (userData) =>
+          isAssetOperationalConditionOperation(request.data?.operation) ?
+            userCanMutateAssetOperationalCondition(
+              userData,
+              request.data.operation,
+            ) :
+            userCanMutateAssetHierarchy(userData),
         execute: () => {
           const args = {
             db: db as unknown as AssetHierarchyMutationFirestoreLike,
@@ -523,9 +539,12 @@ export const mutateAssetHierarchy = onCall(
             data: request.data ?? {},
             timestampFromDate: admin.firestore.Timestamp.fromDate,
           };
+          if (isAssetOperationalConditionOperation(request.data?.operation)) {
+            return mutateAssetOperationalConditionWithDb(args);
+          }
           return isAssetRegistryOperation(request.data?.operation) ?
-            mutateAssetRegistryWithDb(args) :
-            mutateAssetHierarchyWithDb(args);
+              mutateAssetRegistryWithDb(args) :
+              mutateAssetHierarchyWithDb(args);
         },
       });
     } catch (error) {

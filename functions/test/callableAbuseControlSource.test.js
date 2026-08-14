@@ -22,13 +22,32 @@ describe('S-03 callable boundary wiring', () => {
     ],
     ['mutateUserAuthority', 'userCanMutateUserAuthority'],
     ['mutateChargeAbnormality', 'userCanMutateChargeAbnormality'],
-    ['mutateAssetHierarchy', 'userCanMutateAssetHierarchy'],
   ])('%s uses authority-first shared admission through %s', (
     callableName,
     authorityPredicate,
   ) => {
     expect(indexSource).toContain(`callableName: "${callableName}"`);
     expect(indexSource).toContain(`authorize: ${authorityPredicate}`);
+  });
+
+  test('asset mutations select the exact authority before shared admission', () => {
+    const callableStart = indexSource.indexOf(
+      'export const mutateAssetHierarchy = onCall(',
+    );
+    const callableEnd = indexSource.indexOf(
+      '// ─── Notification triggers',
+      callableStart,
+    );
+    const callableBlock = indexSource.slice(callableStart, callableEnd);
+
+    expect(callableStart).toBeGreaterThan(-1);
+    expect(callableEnd).toBeGreaterThan(callableStart);
+    expect(callableBlock).toContain('callableName: "mutateAssetHierarchy"');
+    expect(callableBlock).toContain(
+      'isAssetOperationalConditionOperation(request.data?.operation)',
+    );
+    expect(callableBlock).toContain('userCanMutateAssetOperationalCondition(');
+    expect(callableBlock).toContain('userCanMutateAssetHierarchy(userData)');
   });
 
   test('workflow command admission follows the approved actor read', () => {

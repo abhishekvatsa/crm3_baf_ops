@@ -14,6 +14,9 @@ import 'features/planned_maintenance/presentation/template_publisher_screen.dart
 import 'features/planned_maintenance/presentation/knowledge_governance_screen.dart';
 import 'features/planned_maintenance/presentation/closed_job_dossiers_screen.dart';
 import 'features/assets/presentation/asset_timeline_screen.dart';
+import 'features/assets/presentation/asset_condition_board.dart';
+import 'features/assets/domain/plant_asset_overview.dart';
+import 'features/assets/providers/plant_asset_overview_provider.dart';
 import 'features/audit/presentation/audit_timeline_screen.dart';
 import 'features/admin/presentation/admin_data_browser.dart';
 import 'features/admin/presentation/local_diagnostics_screen.dart';
@@ -134,6 +137,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             appUser.canViewPlannedMaintenance
                 ? ref.watch(workflowAllComplianceProvider)
                 : null;
+        final plantOverviewAsync = ref.watch(plantAssetOverviewProvider);
 
         final ticketCount = ticketCountAsync.value ?? 0;
         final executionCount = executionCountAsync?.value ?? 0;
@@ -170,6 +174,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           executionCount: executionCount,
           directiveCount: directiveCount,
           workflowAttentionCount: workflowAttentionCount,
+          plantOverview: plantOverviewAsync,
         );
 
         final safeIndex = _currentIndex.clamp(0, tabs.length - 1);
@@ -248,6 +253,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required int executionCount,
     required int directiveCount,
     required int workflowAttentionCount,
+    required AsyncValue<PlantAssetOverview> plantOverview,
   }) {
     return [
       _AppTab(
@@ -259,6 +265,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               executionCount: executionCount,
               directiveCount: directiveCount,
               workflowAttentionCount: workflowAttentionCount,
+              plantOverview: plantOverview,
               onProfileTap: () => _showProfileSheet(context, ref, appUser),
               onRaiseIssue: () => _openMaintenanceForm(context),
               onIssues: () => setState(() => _currentIndex = 1),
@@ -266,6 +273,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onDirectives: () => setState(() => _currentIndex = 3),
               onAbnormalities:
                   () => _push(context, const AbnormalitiesHomeScreen()),
+              onPlantCondition:
+                  () => _push(context, const AssetConditionBoard()),
               onManualSync: () => _runManualSync(context),
             ),
         destination: const NavigationDestination(
@@ -547,12 +556,14 @@ class _DashboardHome extends StatelessWidget {
   final int executionCount;
   final int directiveCount;
   final int workflowAttentionCount;
+  final AsyncValue<PlantAssetOverview> plantOverview;
   final VoidCallback onProfileTap;
   final VoidCallback onRaiseIssue;
   final VoidCallback onIssues;
   final VoidCallback onWork;
   final VoidCallback onDirectives;
   final VoidCallback onAbnormalities;
+  final VoidCallback onPlantCondition;
   final VoidCallback onManualSync;
 
   const _DashboardHome({
@@ -561,12 +572,14 @@ class _DashboardHome extends StatelessWidget {
     required this.executionCount,
     required this.directiveCount,
     required this.workflowAttentionCount,
+    required this.plantOverview,
     required this.onProfileTap,
     required this.onRaiseIssue,
     required this.onIssues,
     required this.onWork,
     required this.onDirectives,
     required this.onAbnormalities,
+    required this.onPlantCondition,
     required this.onManualSync,
   });
 
@@ -618,6 +631,11 @@ class _DashboardHome extends StatelessWidget {
                     icon: const Icon(Icons.memory_outlined),
                   ),
                 ],
+              ),
+              const SizedBox(height: BafSpacing.xl),
+              PlantOverviewPanel(
+                overview: plantOverview,
+                onOpen: onPlantCondition,
               ),
               const SizedBox(height: BafSpacing.xl),
               Row(

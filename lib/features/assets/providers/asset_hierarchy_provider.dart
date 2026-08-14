@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/asset_hierarchy_model.dart';
+import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
 import '../repositories/asset_hierarchy_repository.dart';
 
@@ -29,6 +30,17 @@ final assetInstancesProvider =
       return ref
           .watch(assetHierarchyRepositoryProvider)
           .watchAssetInstances(assetClassId);
+    });
+
+final allAssetInstancesProvider = StreamProvider<List<AssetInstanceRecord>>((
+  ref,
+) {
+  return ref.watch(assetHierarchyRepositoryProvider).watchAllAssetInstances();
+});
+
+final assetOperationalConditionsProvider =
+    StreamProvider<List<AssetOperationalConditionRecord>>((ref) {
+      return ref.watch(assetHierarchyRepositoryProvider).watchAssetConditions();
     });
 
 final installedComponentsProvider =

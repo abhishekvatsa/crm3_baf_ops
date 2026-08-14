@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../auth/data/user_model.dart';
 import '../data/asset_hierarchy_model.dart';
+import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
 
 const assetHierarchyCallableName = 'mutateAssetHierarchy';
@@ -65,6 +66,7 @@ class AssetHierarchyRepository {
   static const hierarchyNodesCollection = 'asset_hierarchy_nodes';
   static const assetInstancesCollection = 'asset_instances';
   static const componentInstancesCollection = 'asset_component_instances';
+  static const assetConditionsCollection = 'asset_operational_conditions';
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions? _functions;
@@ -90,6 +92,8 @@ class AssetHierarchyRepository {
       _firestore.collection(assetInstancesCollection);
   CollectionReference<Map<String, dynamic>> get _componentInstances =>
       _firestore.collection(componentInstancesCollection);
+  CollectionReference<Map<String, dynamic>> get _assetConditions =>
+      _firestore.collection(assetConditionsCollection);
 
   Stream<List<AssetClassRecord>> watchAssetClasses() {
     return _classes.snapshots().map((snapshot) {
@@ -145,6 +149,45 @@ class AssetHierarchyRepository {
                 );
           return List<AssetInstanceRecord>.unmodifiable(records);
         });
+  }
+
+  Stream<List<AssetInstanceRecord>> watchAllAssetInstances() {
+    return _assetInstances.snapshots().map((snapshot) {
+      final records =
+          snapshot.docs
+              .map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
+              .toList()
+            ..sort((left, right) {
+              final classOrder = left.assetClassName.toLowerCase().compareTo(
+                right.assetClassName.toLowerCase(),
+              );
+              return classOrder != 0
+                  ? classOrder
+                  : left.assetNumber.compareTo(right.assetNumber);
+            });
+      return List<AssetInstanceRecord>.unmodifiable(records);
+    });
+  }
+
+  Stream<List<AssetOperationalConditionRecord>> watchAssetConditions() {
+    return _assetConditions.snapshots().map((snapshot) {
+      final records =
+          snapshot.docs
+              .map(
+                (doc) =>
+                    AssetOperationalConditionRecord.fromMap(doc.data(), doc.id),
+              )
+              .toList()
+            ..sort((left, right) {
+              final classOrder = left.assetClassName.toLowerCase().compareTo(
+                right.assetClassName.toLowerCase(),
+              );
+              return classOrder != 0
+                  ? classOrder
+                  : left.assetNumber.compareTo(right.assetNumber);
+            });
+      return List<AssetOperationalConditionRecord>.unmodifiable(records);
+    });
   }
 
   Stream<List<InstalledComponentRecord>> watchInstalledComponents(
@@ -375,6 +418,59 @@ class AssetHierarchyRepository {
       'reason': _validateReason(reason),
       'allowTagTransfer': allowTagTransfer,
       'expectedTagOwnerComponentId': expectedTagOwnerComponentId,
+    });
+  }
+
+  Future<void> declareAssetCondition({
+    required AssetInstanceRecord asset,
+    required AssetOperationalCondition condition,
+    required Set<AssetConditionCause> causes,
+    required String reason,
+    required List<String> linkedIssueIds,
+    required AppUser actor,
+    AssetOperationalConditionRecord? current,
+  }) async {
+    if (!actor.canDeclareAssetOperationalCondition) {
+      throw const AssetHierarchyException(
+        'Your role cannot declare an asset down or unfit.',
+      );
+    }
+    if (condition == AssetOperationalCondition.available || causes.isEmpty) {
+      throw const AssetHierarchyException(
+        'Choose Down or Unfit and at least one cause.',
+      );
+    }
+    await _invoke(<String, dynamic>{
+      'requestId': _uuid.v4(),
+      'operation': 'DECLARE_ASSET_CONDITION',
+      'assetClassId': asset.assetClassId,
+      'assetInstanceId': asset.id,
+      'expectedVersion': current?.version ?? 0,
+      'condition': condition.name,
+      'causeKeys': causes.map((cause) => cause.name).toList()..sort(),
+      'reason': _validateConditionReason(reason),
+      'linkedIssueIds': linkedIssueIds.toSet().toList()..sort(),
+    });
+  }
+
+  Future<void> restoreAssetCondition({
+    required AssetInstanceRecord asset,
+    required AssetOperationalConditionRecord current,
+    required String reason,
+    required AppUser actor,
+  }) async {
+    if (!actor.canRestoreAssetOperationalCondition) {
+      throw const AssetHierarchyException(
+        'Only a Shift Supervisor, SI, or Admin can restore availability.',
+      );
+    }
+    await _invoke(<String, dynamic>{
+      'requestId': _uuid.v4(),
+      'operation': 'RESTORE_ASSET_CONDITION',
+      'assetClassId': asset.assetClassId,
+      'assetInstanceId': asset.id,
+      'expectedVersion': current.version,
+      'reason': _validateConditionReason(reason),
     });
   }
 
@@ -639,6 +735,16 @@ class AssetHierarchyRepository {
     if (cleaned.length < 8 || cleaned.length > 500) {
       throw const AssetHierarchyException(
         'Enter a change reason between 8 and 500 characters.',
+      );
+    }
+    return cleaned;
+  }
+
+  String _validateConditionReason(String reason) {
+    final cleaned = reason.trim();
+    if (cleaned.length < 8 || cleaned.length > 1000) {
+      throw const AssetHierarchyException(
+        'Enter an operational reason between 8 and 1,000 characters.',
       );
     }
     return cleaned;
