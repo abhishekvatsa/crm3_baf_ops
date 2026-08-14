@@ -5,42 +5,51 @@ import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:crm3_baf_ops/features/reports/models/operations_report.dart';
+import 'package:crm3_baf_ops/features/reports/presentation/fleet_status_screen.dart';
 import 'package:crm3_baf_ops/features/reports/providers/operations_report_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-AssetClassRecord assetClass(String id, String name, String legacy) =>
-    AssetClassRecord(
-      id: id,
-      code: name.toUpperCase(),
-      name: name,
-      majorArea: 'BAF shop',
-      legacyAssetTypeKey: legacy,
-      status: AssetHierarchyStatus.active,
-      version: 1,
-      createdAt: DateTime.utc(2026),
-      createdByUid: 'admin',
-      updatedAt: DateTime.utc(2026),
-      updatedByUid: 'admin',
-      lastMutationId: 'mutation',
-    );
+AssetClassRecord assetClass(
+  String id,
+  String name,
+  String legacy, {
+  AssetHierarchyStatus status = AssetHierarchyStatus.active,
+}) => AssetClassRecord(
+  id: id,
+  code: name.toUpperCase(),
+  name: name,
+  majorArea: 'BAF shop',
+  legacyAssetTypeKey: legacy,
+  status: status,
+  version: 1,
+  createdAt: DateTime.utc(2026),
+  createdByUid: 'admin',
+  updatedAt: DateTime.utc(2026),
+  updatedByUid: 'admin',
+  lastMutationId: 'mutation',
+);
 
-AssetInstanceRecord asset(String id, AssetClassRecord assetClass, int number) =>
-    AssetInstanceRecord(
-      id: id,
-      assetClassId: assetClass.id,
-      assetClassCode: assetClass.code,
-      assetClassName: assetClass.name,
-      assetNumber: number,
-      name: '${assetClass.name} $number',
-      serviceState: AssetServiceState.inService,
-      ownershipStatus: AssetOwnershipStatus.confirmed,
-      status: AssetHierarchyStatus.active,
-      activeComponentCount: 0,
-      version: 1,
-      createdAt: DateTime.utc(2026),
-      updatedAt: DateTime.utc(2026),
-      lastMutationId: 'mutation',
-    );
+AssetInstanceRecord asset(
+  String id,
+  AssetClassRecord assetClass,
+  int number, {
+  AssetHierarchyStatus status = AssetHierarchyStatus.active,
+}) => AssetInstanceRecord(
+  id: id,
+  assetClassId: assetClass.id,
+  assetClassCode: assetClass.code,
+  assetClassName: assetClass.name,
+  assetNumber: number,
+  name: '${assetClass.name} $number',
+  serviceState: AssetServiceState.inService,
+  ownershipStatus: AssetOwnershipStatus.confirmed,
+  status: status,
+  activeComponentCount: 0,
+  version: 1,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+  lastMutationId: 'mutation',
+);
 
 MaintenanceRecord issue({
   required AssetType type,
@@ -106,6 +115,43 @@ OperationalEvent event() => OperationalEvent(
 );
 
 void main() {
+  test('report selection clears retired hierarchy records', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+
+    final retiredClassSelection = reconcileOperationsReportSelection(
+      assetClassId: furnace.id,
+      assetInstanceId: furnace7.id,
+      classes: [
+        assetClass(
+          furnace.id,
+          furnace.name,
+          furnace.legacyAssetTypeKey!,
+          status: AssetHierarchyStatus.retired,
+        ),
+      ],
+      assets: [furnace7],
+    );
+    expect(retiredClassSelection.assetClassId, isNull);
+    expect(retiredClassSelection.assetInstanceId, isNull);
+
+    final retiredAssetSelection = reconcileOperationsReportSelection(
+      assetClassId: furnace.id,
+      assetInstanceId: furnace7.id,
+      classes: [furnace],
+      assets: [
+        asset(
+          furnace7.id,
+          furnace,
+          furnace7.assetNumber,
+          status: AssetHierarchyStatus.retired,
+        ),
+      ],
+    );
+    expect(retiredAssetSelection.assetClassId, furnace.id);
+    expect(retiredAssetSelection.assetInstanceId, isNull);
+  });
+
   test('builds dynamic class report with overlap and failure rankings', () {
     final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
     final base = assetClass('base-class', 'Base', 'base');

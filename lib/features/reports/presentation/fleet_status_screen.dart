@@ -37,13 +37,43 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final classes = ref.watch(assetClassesProvider).value ?? const [];
-    final assets = ref.watch(allAssetInstancesProvider).value ?? const [];
+    final classesAsync = ref.watch(assetClassesProvider);
+    final assetsAsync = ref.watch(allAssetInstancesProvider);
+    final classes = classesAsync.value ?? const [];
+    final assets = assetsAsync.value ?? const [];
+    final currentClassId = _assetClassId;
+    final currentAssetId = _assetInstanceId;
+    final selection =
+        classesAsync.hasValue && assetsAsync.hasValue
+            ? reconcileOperationsReportSelection(
+              assetClassId: currentClassId,
+              assetInstanceId: currentAssetId,
+              classes: classes,
+              assets: assets,
+            )
+            : OperationsReportSelection(
+              assetClassId: currentClassId,
+              assetInstanceId: currentAssetId,
+            );
+    if (selection.assetClassId != currentClassId ||
+        selection.assetInstanceId != currentAssetId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            _assetClassId != currentClassId ||
+            _assetInstanceId != currentAssetId) {
+          return;
+        }
+        setState(() {
+          _assetClassId = selection.assetClassId;
+          _assetInstanceId = selection.assetInstanceId;
+        });
+      });
+    }
     final filter = OperationsReportFilter(
       startDate: _startDate,
       endDate: _endDate,
-      assetClassId: _assetClassId,
-      assetInstanceId: _assetInstanceId,
+      assetClassId: selection.assetClassId,
+      assetInstanceId: selection.assetInstanceId,
     );
     final reportAsync = ref.watch(operationsReportProvider(filter));
 
@@ -85,8 +115,8 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                   _ReportFilters(
                     classes: classes,
                     assets: assets,
-                    assetClassId: _assetClassId,
-                    assetInstanceId: _assetInstanceId,
+                    assetClassId: selection.assetClassId,
+                    assetInstanceId: selection.assetInstanceId,
                     startDate: _startDate,
                     endDate: _endDate,
                     onClassChanged: (value) {
@@ -108,10 +138,13 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                   _SectionTitle(
                     title: 'Current plant picture',
                     subtitle:
-                        _assetClassId == null
+                        selection.assetClassId == null
                             ? 'All governed asset classes'
                             : classes
-                                    .where((item) => item.id == _assetClassId)
+                                    .where(
+                                      (item) =>
+                                          item.id == selection.assetClassId,
+                                    )
                                     .map((item) => item.name)
                                     .firstOrNull ??
                                 'Selected class',
@@ -222,6 +255,46 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
   }
 }
 
+class OperationsReportSelection {
+  const OperationsReportSelection({
+    required this.assetClassId,
+    required this.assetInstanceId,
+  });
+
+  final String? assetClassId;
+  final String? assetInstanceId;
+}
+
+OperationsReportSelection reconcileOperationsReportSelection({
+  required String? assetClassId,
+  required String? assetInstanceId,
+  required List<AssetClassRecord> classes,
+  required List<AssetInstanceRecord> assets,
+}) {
+  final activeClassIds = {
+    for (final item in classes)
+      if (item.isActive) item.id,
+  };
+  final resolvedClassId =
+      assetClassId != null && activeClassIds.contains(assetClassId)
+          ? assetClassId
+          : null;
+  final selectedAsset =
+      assetInstanceId == null
+          ? null
+          : assets.where((item) => item.id == assetInstanceId).firstOrNull;
+  final assetRemainsAvailable =
+      selectedAsset != null &&
+      selectedAsset.isActive &&
+      activeClassIds.contains(selectedAsset.assetClassId) &&
+      (resolvedClassId == null ||
+          selectedAsset.assetClassId == resolvedClassId);
+  return OperationsReportSelection(
+    assetClassId: resolvedClassId,
+    assetInstanceId: assetRemainsAvailable ? assetInstanceId : null,
+  );
+}
+
 void _invalidateReportSources(WidgetRef ref, OperationsReportFilter filter) {
   ref.invalidate(operationsReportTicketsProvider);
   ref.invalidate(operationsReportExecutionsProvider);
@@ -289,6 +362,7 @@ class _ReportFilters extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String?>(
+            key: ValueKey<String>('asset-class-${assetClassId ?? 'all'}'),
             initialValue: assetClassId,
             isExpanded: true,
             decoration: const InputDecoration(
@@ -311,7 +385,10 @@ class _ReportFilters extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String?>(
-            key: ValueKey<String>('physical-asset-${assetClassId ?? 'all'}'),
+            key: ValueKey<String>(
+              'physical-asset-${assetClassId ?? 'all'}-'
+              '${assetInstanceId ?? 'all'}',
+            ),
             initialValue: assetInstanceId,
             isExpanded: true,
             decoration: const InputDecoration(
