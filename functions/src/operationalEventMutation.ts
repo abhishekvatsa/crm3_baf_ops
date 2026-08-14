@@ -739,6 +739,7 @@ export async function mutateOperationalEventWithDb(args: {
     const draft = request.eventDraft;
     if (draft != null) {
       const classIds = new Set(draft.affectedAssetClassIds);
+      const assetClassIds = new Set<string>();
       for (const classId of draft.affectedAssetClassIds) {
         const value = asSnapshot(
           await transaction.get(classes.doc(classId)),
@@ -752,13 +753,16 @@ export async function mutateOperationalEventWithDb(args: {
           `Affected asset ${assetId} lookup`,
         );
         const classId = verifyAsset(record(value, `Affected asset ${assetId}`), assetId);
-        if (classIds.size > 0 && !classIds.has(classId)) {
-          throw new AssetHierarchyMutationError(
-            "failed-precondition",
-            `Affected asset ${assetId} is outside the selected asset classes.`,
-            {reasonCode: "operational-event-asset-class-mismatch", assetId},
-          );
-        }
+        assetClassIds.add(classId);
+      }
+      if (draft.scope === "assets" &&
+          (classIds.size !== assetClassIds.size ||
+            [...classIds].some((classId) => !assetClassIds.has(classId)))) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition",
+          "Affected asset classes must exactly match the selected assets.",
+          {reasonCode: "operational-event-asset-class-mismatch"},
+        );
       }
     }
 

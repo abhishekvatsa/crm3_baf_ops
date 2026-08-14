@@ -61,6 +61,7 @@ const IDS = {
   reopen: '55555555-5555-4555-8555-555555555555',
   asset: '66666666-6666-4666-8666-666666666666',
   assetClass: '77777777-7777-4777-8777-777777777777',
+  otherAssetClass: '88888888-8888-4888-8888-888888888888',
 };
 
 function user(role, name = role) {
@@ -127,6 +128,13 @@ function baseSeed() {
       schemaVersion: 1,
       assetClassId: IDS.assetClass,
       name: 'Furnace',
+      status: 'active',
+      version: 1,
+    },
+    [`asset_classes/${IDS.otherAssetClass}`]: {
+      schemaVersion: 1,
+      assetClassId: IDS.otherAssetClass,
+      name: 'Base',
       status: 'active',
       version: 1,
     },
@@ -228,6 +236,34 @@ describe('operational event mutation', () => {
     await expect(invoke(memory, 'contract-1', scoped)).resolves.toMatchObject({
       status: 'open',
     });
+  });
+
+  test('requires exact class metadata for asset-scoped events', async () => {
+    const scopedDraft = {
+      ...request().eventDraft,
+      scope: 'assets',
+      affectedAssetInstanceIds: [IDS.asset],
+    };
+    const missingMemory = fakeDb(baseSeed());
+    await expect(invoke(missingMemory, 'contract-1', request({
+      eventDraft: {...scopedDraft, affectedAssetClassIds: []},
+    }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'operational-event-asset-class-mismatch'},
+    });
+    expect(missingMemory.writes).toHaveLength(0);
+
+    const surplusMemory = fakeDb(baseSeed());
+    await expect(invoke(surplusMemory, 'contract-1', request({
+      eventDraft: {
+        ...scopedDraft,
+        affectedAssetClassIds: [IDS.assetClass, IDS.otherAssetClass],
+      },
+    }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'operational-event-asset-class-mismatch'},
+    });
+    expect(surplusMemory.writes).toHaveLength(0);
   });
 
   test('future event chronology is rejected without writes', async () => {
