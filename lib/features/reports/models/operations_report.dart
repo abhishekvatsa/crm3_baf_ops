@@ -74,6 +74,20 @@ class AssetClassReportSummary {
   final int disruptionCount;
 }
 
+class OperationalEventReportOccurrence {
+  const OperationalEventReportOccurrence({
+    required this.event,
+    required this.interval,
+    required this.isCurrent,
+  });
+
+  final OperationalEvent event;
+  final OperationalEventInterval interval;
+  final bool isCurrent;
+
+  bool get isOpen => isCurrent && event.isOpen;
+}
+
 class OperationsReport {
   const OperationsReport({
     required this.filter,
@@ -81,6 +95,7 @@ class OperationsReport {
     required this.tickets,
     required this.executions,
     required this.events,
+    required this.eventOccurrences,
     required this.assetStates,
     required this.classSummaries,
     required this.topComponents,
@@ -98,6 +113,7 @@ class OperationsReport {
   final List<MaintenanceRecord> tickets;
   final List<JobExecution> executions;
   final List<OperationalEvent> events;
+  final List<OperationalEventReportOccurrence> eventOccurrences;
   final List<PlantAssetState> assetStates;
   final List<AssetClassReportSummary> classSummaries;
   final List<CountedReportLabel> topComponents;

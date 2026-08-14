@@ -6,8 +6,9 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
+import '../../assets/providers/plant_asset_overview_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
-import '../../operational_events/data/operational_event.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../operational_events/presentation/operational_events_screen.dart';
 import '../../operational_events/providers/operational_event_provider.dart';
 import '../models/operations_report.dart';
@@ -71,18 +72,12 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
         error:
             (error, _) => _ErrorState(
               message: error.toString(),
-              onRetry: () {
-                ref.invalidate(operationsReportTicketsProvider);
-                ref.invalidate(operationsReportExecutionsProvider);
-                ref.invalidate(operationalEventsProvider);
-              },
+              onRetry: () => _invalidateReportSources(ref, filter),
             ),
         data:
             (report) => RefreshIndicator(
               onRefresh: () async {
-                ref.invalidate(operationsReportTicketsProvider);
-                ref.invalidate(operationsReportExecutionsProvider);
-                ref.invalidate(operationalEventsProvider);
+                _invalidateReportSources(ref, filter);
               },
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
@@ -213,9 +208,9 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                   ),
                   const SizedBox(height: 24),
                   _OpenIssuesSection(issues: report.openIssues),
-                  if (report.events.isNotEmpty) ...[
+                  if (report.eventOccurrences.isNotEmpty) ...[
                     const SizedBox(height: 24),
-                    _DisruptionSection(events: report.events),
+                    _DisruptionSection(occurrences: report.eventOccurrences),
                   ],
                   const SizedBox(height: 20),
                   _SourceWindowNotice(report: report),
@@ -225,6 +220,19 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
       ),
     );
   }
+}
+
+void _invalidateReportSources(WidgetRef ref, OperationsReportFilter filter) {
+  ref.invalidate(operationsReportTicketsProvider);
+  ref.invalidate(operationsReportExecutionsProvider);
+  ref.invalidate(operationalEventsProvider);
+  ref.invalidate(assetClassesProvider);
+  ref.invalidate(allAssetInstancesProvider);
+  ref.invalidate(assetOperationalConditionsProvider);
+  ref.invalidate(equipmentStatusProvider(null));
+  ref.invalidate(plantAssetOverviewProvider);
+  ref.invalidate(operationsReportClockProvider);
+  ref.invalidate(operationsReportProvider(filter));
 }
 
 class _ReportFilters extends StatelessWidget {
@@ -800,8 +808,8 @@ class _OpenIssuesSection extends StatelessWidget {
 }
 
 class _DisruptionSection extends StatelessWidget {
-  const _DisruptionSection({required this.events});
-  final List<OperationalEvent> events;
+  const _DisruptionSection({required this.occurrences});
+  final List<OperationalEventReportOccurrence> occurrences;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -809,28 +817,30 @@ class _DisruptionSection extends StatelessWidget {
     children: [
       _SectionTitle(
         title: 'Operational disruptions',
-        subtitle: '${events.length} events overlapped the selected period',
+        subtitle:
+            '${occurrences.length} occurrences overlapped the selected period',
       ),
       const SizedBox(height: 8),
-      ...events
+      ...occurrences
           .take(30)
           .map(
-            (event) => ListTile(
+            (occurrence) => ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(
-                event.isOpen ? Icons.crisis_alert : Icons.task_alt_rounded,
-                color: event.isOpen ? BafColors.warning : BafColors.success,
+                occurrence.isOpen ? Icons.crisis_alert : Icons.task_alt_rounded,
+                color:
+                    occurrence.isOpen ? BafColors.warning : BafColors.success,
               ),
               title: Text(
-                event.title,
+                occurrence.event.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
               subtitle: Text(
-                '${event.eventType.label} · ${event.severity.label} · ${DateFormat('dd MMM, HH:mm').format(event.startedAt.toLocal())}',
+                '${occurrence.event.eventType.label} · ${occurrence.event.severity.label} · ${DateFormat('dd MMM, HH:mm').format(occurrence.interval.startedAt.toLocal())}',
               ),
-              trailing: Text(event.status.label),
+              trailing: Text(occurrence.isOpen ? 'Open' : 'Resolved'),
             ),
           ),
     ],

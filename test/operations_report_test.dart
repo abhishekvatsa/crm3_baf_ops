@@ -352,6 +352,11 @@ void main() {
 
     expect(report.disruptionCount, 2);
     expect(report.disruptionDuration, const Duration(hours: 3));
+    expect(report.eventOccurrences.length, 2);
+    expect(report.eventOccurrences.map((item) => item.interval.startedAt), [
+      DateTime.utc(2026, 8, 14, 13),
+      DateTime.utc(2026, 8, 14, 10),
+    ]);
   });
 
   test('reopened disruption keeps each occurrence on its recorded asset', () {
@@ -418,9 +423,17 @@ void main() {
     expect(furnace7Report.disruptionCount, 1);
     expect(furnace7Report.disruptionDuration, const Duration(hours: 2));
     expect(furnace7Report.classSummaries.single.disruptionCount, 1);
+    expect(
+      furnace7Report.eventOccurrences.single.interval.startedAt,
+      DateTime.utc(2026, 8, 14, 10),
+    );
     expect(furnace8Report.disruptionCount, 1);
     expect(furnace8Report.disruptionDuration, const Duration(hours: 1));
     expect(furnace8Report.classSummaries.single.disruptionCount, 1);
+    expect(
+      furnace8Report.eventOccurrences.single.interval.startedAt,
+      DateTime.utc(2026, 8, 14, 13),
+    );
   });
 
   test('duplicate legacy mappings preserve explicit hierarchy attribution', () {

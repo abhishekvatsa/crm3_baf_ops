@@ -21,6 +21,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('operational shell and destinations preserve the intended structure', () {
     final home = File('lib/home_screen.dart').readAsStringSync();
+    final reports =
+        File(
+          'lib/features/reports/presentation/fleet_status_screen.dart',
+        ).readAsStringSync();
     final work =
         File(
           'lib/features/planned_maintenance/presentation/templates_screen.dart',
@@ -47,6 +51,20 @@ void main() {
     expect(home, contains('qualityWarningsAsync.value == null'));
     expect(home, contains("'Live attention data unavailable'"));
     expect(home, contains("'Incomplete'"));
+    expect(home, contains('ref.invalidate(operationalEventsProvider)'));
+    expect(home, contains('ref.invalidate(qualityWarningsProvider)'));
+    for (final provider in [
+      'assetClassesProvider',
+      'allAssetInstancesProvider',
+      'assetOperationalConditionsProvider',
+      'equipmentStatusProvider(null)',
+      'plantAssetOverviewProvider',
+      'operationsReportClockProvider',
+    ]) {
+      expect(reports, contains('ref.invalidate($provider)'));
+    }
+    expect(reports, contains('report.eventOccurrences'));
+    expect(reports, contains('occurrence.interval.startedAt'));
 
     expect(work, contains('_PlannedWorkView.workflow'));
     expect(work, contains('WorkflowQueueView('));

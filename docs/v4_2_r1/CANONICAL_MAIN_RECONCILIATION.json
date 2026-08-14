@@ -2345,9 +2345,9 @@
     {
       "path": "lib/features/reports/presentation/fleet_status_screen.dart",
       "canonicalSha256": "1BD7161B49893F25C7D617BE3704508089985B75FBA6066462CD5C2FC3F66913",
-      "candidateSha256": "087E894976F57550F4DA054A92E42FF48A9814D223A9A0A0A66513B318760CD0",
+      "candidateSha256": "6B538FFDA6E854C9CBA332DE31D947A00E536026B498CC26CD8751D7CF8CDA7B",
       "canonicalBytes": 21520,
-      "candidateBytes": 32272,
+      "candidateBytes": 32789,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2361,9 +2361,9 @@
     {
       "path": "lib/home_screen.dart",
       "canonicalSha256": "6360AB08D54707F01C3893CD65928CC86292CC24DF3B760829A4B66F5EDC909A",
-      "candidateSha256": "C0846F5732ECC094D6D48ACACADC6D72A22B1B6AE8B1F3A45A662A9FD816B7B0",
+      "candidateSha256": "2A85285660E696806BEF53BA5E7224CDDEC13D8AD8F8C9E6E5E6785D24B95AAA",
       "canonicalBytes": 37389,
-      "candidateBytes": 50401,
+      "candidateBytes": 50947,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

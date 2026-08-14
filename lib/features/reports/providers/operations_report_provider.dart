@@ -234,11 +234,25 @@ OperationsReport buildOperationsReport({
       event.occurrencesUntil(reportAsOf).any(occurrenceMatchesReport);
 
   final filteredEvents = events.where(eventMatches).toList();
-  final filteredOccurrences =
-      events
-          .expand((event) => event.occurrencesUntil(reportAsOf))
-          .where(occurrenceMatchesReport)
-          .toList();
+  final filteredOccurrences = <OperationalEventReportOccurrence>[];
+  for (final event in events) {
+    final occurrences = event.occurrencesUntil(reportAsOf).toList();
+    for (var index = 0; index < occurrences.length; index++) {
+      final occurrence = occurrences[index];
+      if (!occurrenceMatchesReport(occurrence)) continue;
+      filteredOccurrences.add(
+        OperationalEventReportOccurrence(
+          event: event,
+          interval: occurrence,
+          isCurrent: index == occurrences.length - 1,
+        ),
+      );
+    }
+  }
+  filteredOccurrences.sort(
+    (left, right) =>
+        right.interval.startedAt.compareTo(left.interval.startedAt),
+  );
   final filteredStates =
       overview.assets
           .where(
@@ -359,6 +373,9 @@ OperationsReport buildOperationsReport({
     tickets: List<MaintenanceRecord>.unmodifiable(filteredTickets),
     executions: List<JobExecution>.unmodifiable(filteredExecutions),
     events: List<OperationalEvent>.unmodifiable(filteredEvents),
+    eventOccurrences: List<OperationalEventReportOccurrence>.unmodifiable(
+      filteredOccurrences,
+    ),
     assetStates: List<PlantAssetState>.unmodifiable(filteredStates),
     classSummaries: List<AssetClassReportSummary>.unmodifiable(classSummaries),
     topComponents: rank(
@@ -380,16 +397,15 @@ OperationsReport buildOperationsReport({
     sourceEventCount: events.length,
     disruptionCount: filteredOccurrences.length,
     openDisruptionCount:
-        events.where((event) {
-          if (!event.isOpen) return false;
-          final currentOccurrence = event.occurrencesUntil(reportAsOf).last;
-          return occurrenceMatchesReport(currentOccurrence);
-        }).length,
+        filteredOccurrences.where((occurrence) => occurrence.isOpen).length,
     disruptionDuration: filteredOccurrences.fold(
       Duration.zero,
       (total, occurrence) =>
           total +
-          occurrence.durationWithin(filter.startInclusive, filter.endExclusive),
+          occurrence.interval.durationWithin(
+            filter.startInclusive,
+            filter.endExclusive,
+          ),
     ),
   );
 }

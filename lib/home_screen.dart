@@ -316,7 +316,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const OperationalEventsScreen()),
               onPlantCondition:
                   () => _push(context, const AssetConditionBoard()),
-              onManualSync: () => _runManualSync(context),
+              onManualSync: () => _retryAttentionData(context, appUser),
             ),
         destination: const NavigationDestination(
           icon: Icon(Icons.home_outlined),
@@ -448,6 +448,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _push(BuildContext context, Widget screen) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
+
+  void _retryAttentionData(BuildContext context, AppUser appUser) {
+    ref.invalidate(visibleOpenTicketCountProvider(appUser));
+    ref.invalidate(visibleOpenDirectiveCountProvider(appUser));
+    if (appUser.canViewPlannedMaintenance) {
+      ref.invalidate(openExecutionCountProvider);
+      ref.invalidate(workflowAllLanesProvider);
+      ref.invalidate(workflowAllComplianceProvider);
+    }
+    ref.invalidate(operationalEventsProvider);
+    ref.invalidate(qualityWarningsProvider);
+    unawaited(_runManualSync(context));
   }
 
   Future<void> _runManualSync(BuildContext context) async {
