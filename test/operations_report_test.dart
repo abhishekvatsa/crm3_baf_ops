@@ -323,6 +323,9 @@ void main() {
             OperationalEventInterval(
               startedAt: DateTime.utc(2026, 8, 14, 10),
               resolvedAt: DateTime.utc(2026, 8, 14, 12),
+              scope: OperationalEventScope.plantWide,
+              affectedAssetClassIds: const [],
+              affectedAssetInstanceIds: const [],
             ),
           ],
           startedAt: DateTime.utc(2026, 8, 14, 13),
@@ -349,6 +352,75 @@ void main() {
 
     expect(report.disruptionCount, 2);
     expect(report.disruptionDuration, const Duration(hours: 3));
+  });
+
+  test('reopened disruption keeps each occurrence on its recorded asset', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    final furnace8 = asset('furnace-8', furnace, 8);
+    final assets = [furnace7, furnace8];
+    final recurring = OperationalEvent(
+      eventId: 'event-retargeted',
+      eventType: OperationalEventType.crane,
+      title: 'Crane support interruption',
+      description: 'Separate crane interruptions affected two furnaces.',
+      severity: OperationalEventSeverity.significant,
+      scope: OperationalEventScope.assets,
+      affectedAssetClassIds: [furnace.id],
+      affectedAssetInstanceIds: [furnace8.id],
+      completedIntervals: [
+        OperationalEventInterval(
+          startedAt: DateTime.utc(2026, 8, 14, 10),
+          resolvedAt: DateTime.utc(2026, 8, 14, 12),
+          scope: OperationalEventScope.assets,
+          affectedAssetClassIds: [furnace.id],
+          affectedAssetInstanceIds: [furnace7.id],
+        ),
+      ],
+      startedAt: DateTime.utc(2026, 8, 14, 13),
+      status: OperationalEventStatus.resolved,
+      createdAt: DateTime.utc(2026, 8, 14, 10),
+      createdByUid: 'ops',
+      createdByName: 'Operations',
+      resolvedAt: DateTime.utc(2026, 8, 14, 14),
+      resolvedByUid: 'shift',
+      resolvedByName: 'Shift Supervisor',
+      resolutionNote: 'Crane support remained stable after restoration.',
+      version: 5,
+      updatedAt: DateTime.utc(2026, 8, 14, 14),
+      updatedByUid: 'shift',
+      updatedByName: 'Shift Supervisor',
+      lastMutationId: 'mutation',
+    );
+
+    OperationsReport reportFor(String assetId) => buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 14),
+        endDate: DateTime.utc(2026, 8, 14),
+        assetInstanceId: assetId,
+      ),
+      tickets: const [],
+      executions: const [],
+      events: [recurring],
+      assetClasses: [furnace],
+      assetInstances: assets,
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: assets,
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+      asOf: DateTime.utc(2026, 8, 14, 15),
+    );
+
+    final furnace7Report = reportFor(furnace7.id);
+    final furnace8Report = reportFor(furnace8.id);
+    expect(furnace7Report.disruptionCount, 1);
+    expect(furnace7Report.disruptionDuration, const Duration(hours: 2));
+    expect(furnace7Report.classSummaries.single.disruptionCount, 1);
+    expect(furnace8Report.disruptionCount, 1);
+    expect(furnace8Report.disruptionDuration, const Duration(hours: 1));
+    expect(furnace8Report.classSummaries.single.disruptionCount, 1);
   });
 
   test('duplicate legacy mappings preserve explicit hierarchy attribution', () {

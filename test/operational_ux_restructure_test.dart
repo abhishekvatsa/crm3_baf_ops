@@ -43,6 +43,10 @@ void main() {
     expect(home, contains("title: 'Audit log'"));
     expect(home, contains('appUser.canViewOperationalAssets'));
     expect(home, contains('appUser.canViewClosedMaintenanceTickets'));
+    expect(home, contains('operationalEventsAsync.value == null'));
+    expect(home, contains('qualityWarningsAsync.value == null'));
+    expect(home, contains("'Live attention data unavailable'"));
+    expect(home, contains("'Incomplete'"));
 
     expect(work, contains('_PlannedWorkView.workflow'));
     expect(work, contains('WorkflowQueueView('));

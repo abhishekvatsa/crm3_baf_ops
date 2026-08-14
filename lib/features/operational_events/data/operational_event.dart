@@ -56,6 +56,16 @@ enum OperationalEventStatus {
   };
 }
 
+bool _scopeListsAreValid(
+  OperationalEventScope scope,
+  List<String> classIds,
+  List<String> assetIds,
+) => switch (scope) {
+  OperationalEventScope.plantWide => classIds.isEmpty && assetIds.isEmpty,
+  OperationalEventScope.assetClasses => classIds.isNotEmpty && assetIds.isEmpty,
+  OperationalEventScope.assets => assetIds.isNotEmpty,
+};
+
 class OperationalEventDraft {
   const OperationalEventDraft({
     required this.eventType,
@@ -101,10 +111,16 @@ class OperationalEventInterval {
   const OperationalEventInterval({
     required this.startedAt,
     required this.resolvedAt,
+    required this.scope,
+    required this.affectedAssetClassIds,
+    required this.affectedAssetInstanceIds,
   });
 
   final DateTime startedAt;
   final DateTime resolvedAt;
+  final OperationalEventScope scope;
+  final List<String> affectedAssetClassIds;
+  final List<String> affectedAssetInstanceIds;
 
   bool overlaps(DateTime startInclusive, DateTime endExclusive) =>
       startedAt.isBefore(endExclusive) && resolvedAt.isAfter(startInclusive);
@@ -173,15 +189,18 @@ class OperationalEvent {
 
   bool get isOpen => status == OperationalEventStatus.open;
 
-  Iterable<OperationalEventInterval> _intervalsUntil(DateTime asOf) sync* {
+  Iterable<OperationalEventInterval> occurrencesUntil(DateTime asOf) sync* {
     yield* completedIntervals;
     yield OperationalEventInterval(
       startedAt: startedAt,
       resolvedAt: resolvedAt ?? asOf,
+      scope: scope,
+      affectedAssetClassIds: affectedAssetClassIds,
+      affectedAssetInstanceIds: affectedAssetInstanceIds,
     );
   }
 
-  Duration durationUntil(DateTime end) => _intervalsUntil(end).fold(
+  Duration durationUntil(DateTime end) => occurrencesUntil(end).fold(
     Duration.zero,
     (total, interval) =>
         total +
@@ -194,7 +213,7 @@ class OperationalEvent {
     DateTime startInclusive,
     DateTime endExclusive,
     DateTime asOf,
-  ) => _intervalsUntil(
+  ) => occurrencesUntil(
     asOf,
   ).any((interval) => interval.overlaps(startInclusive, endExclusive));
 
@@ -203,7 +222,7 @@ class OperationalEvent {
     DateTime endExclusive,
     DateTime asOf,
   ) =>
-      _intervalsUntil(asOf)
+      occurrencesUntil(asOf)
           .where((interval) => interval.overlaps(startInclusive, endExclusive))
           .length;
 
@@ -212,7 +231,7 @@ class OperationalEvent {
     DateTime endExclusive,
     DateTime asOf,
   ) {
-    return _intervalsUntil(asOf).fold(
+    return occurrencesUntil(asOf).fold(
       Duration.zero,
       (total, interval) =>
           total + interval.durationWithin(startInclusive, endExclusive),
@@ -294,12 +313,7 @@ class OperationalEvent {
       field: 'scope',
       source: source,
     );
-    final scopeValid = switch (scope) {
-      OperationalEventScope.plantWide => classIds.isEmpty && assetIds.isEmpty,
-      OperationalEventScope.assetClasses =>
-        classIds.isNotEmpty && assetIds.isEmpty,
-      OperationalEventScope.assets => assetIds.isNotEmpty,
-    };
+    final scopeValid = _scopeListsAreValid(scope, classIds, assetIds);
     if (!scopeValid) {
       throw PersistedDataFormatException(
         field: 'scope',
@@ -325,13 +339,16 @@ class OperationalEvent {
     for (var index = 0; index < completedRaw.length; index++) {
       final raw = completedRaw[index];
       if (raw is! Map<String, dynamic> ||
-          raw.length != 2 ||
+          raw.length != 5 ||
           !raw.containsKey('startedAt') ||
-          !raw.containsKey('resolvedAt')) {
+          !raw.containsKey('resolvedAt') ||
+          !raw.containsKey('scope') ||
+          !raw.containsKey('affectedAssetClassIds') ||
+          !raw.containsKey('affectedAssetInstanceIds')) {
         throw PersistedDataFormatException(
           field: 'completedIntervals[$index]',
           source: source,
-          detail: 'must contain only startedAt and resolvedAt',
+          detail: 'must contain complete time and scope evidence',
         );
       }
       final intervalStart = readRequiredPersistedDateTime(
@@ -344,19 +361,55 @@ class OperationalEvent {
         field: 'completedIntervals[$index].resolvedAt',
         source: source,
       );
+      if (raw['affectedAssetClassIds'] is! List ||
+          raw['affectedAssetInstanceIds'] is! List) {
+        throw PersistedDataFormatException(
+          field: 'completedIntervals[$index].affectedAssetClassIds',
+          source: source,
+          detail: 'complete scope arrays are required',
+        );
+      }
+      final intervalClassIds = readOptionalPersistedStringList(
+        raw['affectedAssetClassIds'],
+        field: 'completedIntervals[$index].affectedAssetClassIds',
+        source: source,
+      );
+      final intervalAssetIds = readOptionalPersistedStringList(
+        raw['affectedAssetInstanceIds'],
+        field: 'completedIntervals[$index].affectedAssetInstanceIds',
+        source: source,
+      );
+      final intervalScope = readRequiredPersistedEnum(
+        OperationalEventScope.values,
+        raw['scope'],
+        field: 'completedIntervals[$index].scope',
+        source: source,
+      );
       if (intervalEnd.isBefore(intervalStart) ||
           (previousResolvedAt != null &&
-              intervalStart.isBefore(previousResolvedAt))) {
+              intervalStart.isBefore(previousResolvedAt)) ||
+          intervalClassIds.length > 20 ||
+          intervalAssetIds.length > 50 ||
+          intervalClassIds.toSet().length != intervalClassIds.length ||
+          intervalAssetIds.toSet().length != intervalAssetIds.length ||
+          !_scopeListsAreValid(
+            intervalScope,
+            intervalClassIds,
+            intervalAssetIds,
+          )) {
         throw PersistedDataFormatException(
           field: 'completedIntervals[$index]',
           source: source,
-          detail: 'must be chronological and non-overlapping',
+          detail: 'must be chronological with a valid occurrence scope',
         );
       }
       completedIntervals.add(
         OperationalEventInterval(
           startedAt: intervalStart,
           resolvedAt: intervalEnd,
+          scope: intervalScope,
+          affectedAssetClassIds: List<String>.unmodifiable(intervalClassIds),
+          affectedAssetInstanceIds: List<String>.unmodifiable(intervalAssetIds),
         ),
       );
       previousResolvedAt = intervalEnd;

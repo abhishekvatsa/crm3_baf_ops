@@ -186,6 +186,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 )
                 .length ??
             0;
+        final attentionDataUnavailable =
+            ticketCountAsync.value == null ||
+            directiveCountAsync.value == null ||
+            (executionCountAsync != null &&
+                executionCountAsync.value == null) ||
+            (workflowLanesAsync != null && workflowLanesAsync.value == null) ||
+            (workflowComplianceAsync != null &&
+                workflowComplianceAsync.value == null) ||
+            operationalEventsAsync.value == null ||
+            qualityWarningsAsync.value == null;
 
         final tabs = _buildTabs(
           appUser: appUser,
@@ -195,6 +205,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           workflowAttentionCount: workflowAttentionCount,
           openOperationalEventCount: openOperationalEventCount,
           openQualityWarningCount: openQualityWarningCount,
+          attentionDataUnavailable: attentionDataUnavailable,
           plantOverview: plantOverviewAsync,
         );
 
@@ -276,6 +287,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required int workflowAttentionCount,
     required int openOperationalEventCount,
     required int openQualityWarningCount,
+    required bool attentionDataUnavailable,
     required AsyncValue<PlantAssetOverview> plantOverview,
   }) {
     return [
@@ -290,6 +302,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               workflowAttentionCount: workflowAttentionCount,
               openOperationalEventCount: openOperationalEventCount,
               openQualityWarningCount: openQualityWarningCount,
+              attentionDataUnavailable: attentionDataUnavailable,
               plantOverview: plantOverview,
               onProfileTap: () => _showProfileSheet(context, ref, appUser),
               onRaiseIssue: () => _openMaintenanceForm(context),
@@ -589,6 +602,7 @@ class _DashboardHome extends StatelessWidget {
   final int workflowAttentionCount;
   final int openOperationalEventCount;
   final int openQualityWarningCount;
+  final bool attentionDataUnavailable;
   final AsyncValue<PlantAssetOverview> plantOverview;
   final VoidCallback onProfileTap;
   final VoidCallback onRaiseIssue;
@@ -609,6 +623,7 @@ class _DashboardHome extends StatelessWidget {
     required this.workflowAttentionCount,
     required this.openOperationalEventCount,
     required this.openQualityWarningCount,
+    required this.attentionDataUnavailable,
     required this.plantOverview,
     required this.onProfileTap,
     required this.onRaiseIssue,
@@ -696,9 +711,15 @@ class _DashboardHome extends StatelessWidget {
                   ),
                   StatusBadge(
                     label:
-                        totalAttention == 0 ? 'All clear' : '$totalAttention',
+                        attentionDataUnavailable
+                            ? 'Incomplete'
+                            : totalAttention == 0
+                            ? 'All clear'
+                            : '$totalAttention',
                     color:
-                        totalAttention == 0
+                        attentionDataUnavailable
+                            ? BafColors.danger
+                            : totalAttention == 0
                             ? BafColors.success
                             : BafColors.warning,
                   ),
@@ -712,11 +733,13 @@ class _DashboardHome extends StatelessWidget {
                 workflowAttentionCount: workflowAttentionCount,
                 openOperationalEventCount: openOperationalEventCount,
                 openQualityWarningCount: openQualityWarningCount,
+                attentionDataUnavailable: attentionDataUnavailable,
                 onIssues: onIssues,
                 onWork: onWork,
                 onDirectives: onDirectives,
                 onOperationalEvents: onOperationalEvents,
                 onQuality: onQuality,
+                onRetry: onManualSync,
               ),
             ],
           ),
@@ -935,11 +958,13 @@ class _AttentionPanel extends StatelessWidget {
   final int workflowAttentionCount;
   final int openOperationalEventCount;
   final int openQualityWarningCount;
+  final bool attentionDataUnavailable;
   final VoidCallback onIssues;
   final VoidCallback onWork;
   final VoidCallback onDirectives;
   final VoidCallback onOperationalEvents;
   final VoidCallback onQuality;
+  final VoidCallback onRetry;
 
   const _AttentionPanel({
     required this.ticketCount,
@@ -948,16 +973,26 @@ class _AttentionPanel extends StatelessWidget {
     required this.workflowAttentionCount,
     required this.openOperationalEventCount,
     required this.openQualityWarningCount,
+    required this.attentionDataUnavailable,
     required this.onIssues,
     required this.onWork,
     required this.onDirectives,
     required this.onOperationalEvents,
     required this.onQuality,
+    required this.onRetry,
   });
 
   @override
   Widget build(BuildContext context) {
     final rows = <Widget>[
+      if (attentionDataUnavailable)
+        _AttentionRow(
+          icon: Icons.sync_problem_outlined,
+          color: BafColors.danger,
+          title: 'Live attention data unavailable',
+          detail: 'Some work counts could not be loaded. Tap to retry sync.',
+          onTap: onRetry,
+        ),
       if (ticketCount > 0)
         _AttentionRow(
           icon: Icons.report_problem_outlined,

@@ -147,6 +147,9 @@ void main() {
             {
               'startedAt': DateTime.utc(2026, 8, 14, 10),
               'resolvedAt': DateTime.utc(2026, 8, 14, 12),
+              'scope': 'plantWide',
+              'affectedAssetClassIds': <String>[],
+              'affectedAssetInstanceIds': <String>[],
             },
           ];
     final event = OperationalEvent.fromMap(recurring, 'event-1');

@@ -332,6 +332,9 @@ describe('operational event mutation', () => {
       completedIntervals: [{
         startedAt: new Date('2026-08-14T10:00:00.000Z'),
         resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
+        scope: 'plantWide',
+        affectedAssetClassIds: [],
+        affectedAssetInstanceIds: [],
       }],
       startedAt: new Date('2026-08-14T13:00:00.000Z'),
       resolvedAt: null,
@@ -348,6 +351,9 @@ describe('operational event mutation', () => {
         completedIntervals: [{
           startedAt: new Date('2026-08-14T10:00:00.000Z'),
           resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
+          scope: 'plantWide',
+          affectedAssetClassIds: [],
+          affectedAssetInstanceIds: [],
         }],
         startedAt: new Date('2026-08-14T13:00:00.000Z'),
         resolvedAt: null,
@@ -355,6 +361,29 @@ describe('operational event mutation', () => {
         resolvedByName: null,
         resolutionNote: null,
       },
+    });
+
+    await invoke(memory, 'ops-1', request({
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      expectedVersion: 3,
+      reason: 'Limit the recurring interruption to the affected furnace.',
+      eventDraft: {
+        ...request().eventDraft,
+        scope: 'assets',
+        affectedAssetClassIds: [IDS.assetClass],
+        affectedAssetInstanceIds: [IDS.asset],
+        startedAt: '2026-08-14T13:00:00.000Z',
+      },
+    }), new Date('2026-08-14T13:30:00.000Z'));
+    expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
+      scope: 'assets',
+      affectedAssetInstanceIds: [IDS.asset],
+      completedIntervals: [{
+        scope: 'plantWide',
+        affectedAssetClassIds: [],
+        affectedAssetInstanceIds: [],
+      }],
     });
   });
 

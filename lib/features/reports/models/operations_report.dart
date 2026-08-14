@@ -88,6 +88,9 @@ class OperationsReport {
     required this.sourceTicketCount,
     required this.sourceExecutionCount,
     required this.sourceEventCount,
+    required this.disruptionCount,
+    required this.openDisruptionCount,
+    required this.disruptionDuration,
   });
 
   final OperationsReportFilter filter;
@@ -102,6 +105,9 @@ class OperationsReport {
   final int sourceTicketCount;
   final int sourceExecutionCount;
   final int sourceEventCount;
+  final int disruptionCount;
+  final int openDisruptionCount;
+  final Duration disruptionDuration;
 
   int get issueCount => tickets.length;
   int get openIssueCount =>
@@ -118,24 +124,6 @@ class OperationsReport {
       executions.where((job) => job.isCompleted).length;
   int get cancelledPlannedJobCount =>
       executions.where((job) => job.isCancelled).length;
-
-  int get disruptionCount => events.fold(
-    0,
-    (count, event) =>
-        count +
-        event.occurrenceCountWithin(
-          filter.startInclusive,
-          filter.endExclusive,
-          asOf,
-        ),
-  );
-  int get openDisruptionCount => events.where((event) => event.isOpen).length;
-  Duration get disruptionDuration => events.fold(
-    Duration.zero,
-    (total, event) =>
-        total +
-        event.durationWithin(filter.startInclusive, filter.endExclusive, asOf),
-  );
 
   int get assetCount => assetStates.length;
   int get availableAssetCount =>

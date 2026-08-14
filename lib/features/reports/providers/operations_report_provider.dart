@@ -203,35 +203,42 @@ OperationsReport buildOperationsReport({
           )
           .toList();
 
-  bool eventMatches(OperationalEvent event) {
-    if (!event.overlapsWithin(
-      filter.startInclusive,
-      filter.endExclusive,
-      reportAsOf,
-    )) {
-      return false;
-    }
-    if (event.scope == OperationalEventScope.plantWide) return true;
+  bool occurrenceMatchesIdentity(OperationalEventInterval occurrence) {
+    if (occurrence.scope == OperationalEventScope.plantWide) return true;
     if (filter.assetInstanceId != null) {
-      if (event.scope == OperationalEventScope.assets) {
-        return event.affectedAssetInstanceIds.contains(filter.assetInstanceId);
+      if (occurrence.scope == OperationalEventScope.assets) {
+        return occurrence.affectedAssetInstanceIds.contains(
+          filter.assetInstanceId,
+        );
       }
       final selectedAsset = assetsById[filter.assetInstanceId];
       return selectedAsset != null &&
-          event.affectedAssetClassIds.contains(selectedAsset.assetClassId);
+          occurrence.affectedAssetClassIds.contains(selectedAsset.assetClassId);
     }
     if (effectiveClassId != null) {
-      if (event.affectedAssetClassIds.contains(effectiveClassId)) {
+      if (occurrence.affectedAssetClassIds.contains(effectiveClassId)) {
         return true;
       }
-      return event.affectedAssetInstanceIds.any(
+      return occurrence.affectedAssetInstanceIds.any(
         (id) => assetsById[id]?.assetClassId == effectiveClassId,
       );
     }
     return true;
   }
 
+  bool occurrenceMatchesReport(OperationalEventInterval occurrence) =>
+      occurrence.overlaps(filter.startInclusive, filter.endExclusive) &&
+      occurrenceMatchesIdentity(occurrence);
+
+  bool eventMatches(OperationalEvent event) =>
+      event.occurrencesUntil(reportAsOf).any(occurrenceMatchesReport);
+
   final filteredEvents = events.where(eventMatches).toList();
+  final filteredOccurrences =
+      events
+          .expand((event) => event.occurrencesUntil(reportAsOf))
+          .where(occurrenceMatchesReport)
+          .toList();
   final filteredStates =
       overview.assets
           .where(
@@ -268,12 +275,24 @@ OperationsReport buildOperationsReport({
     return List<CountedReportLabel>.unmodifiable(result.take(8));
   }
 
-  bool eventAffectsClass(OperationalEvent event, String classId) =>
-      event.scope == OperationalEventScope.plantWide ||
-      event.affectedAssetClassIds.contains(classId) ||
-      event.affectedAssetInstanceIds.any(
+  bool occurrenceAffectsClass(
+    OperationalEventInterval occurrence,
+    String classId,
+  ) =>
+      occurrence.scope == OperationalEventScope.plantWide ||
+      occurrence.affectedAssetClassIds.contains(classId) ||
+      occurrence.affectedAssetInstanceIds.any(
         (id) => assetsById[id]?.assetClassId == classId,
       );
+
+  bool occurrenceMatchesClassSummary(
+    OperationalEventInterval occurrence,
+    String classId,
+  ) =>
+      occurrence.overlaps(filter.startInclusive, filter.endExclusive) &&
+      (filter.assetInstanceId != null
+          ? occurrenceMatchesIdentity(occurrence)
+          : occurrenceAffectsClass(occurrence, classId));
 
   final selectedClasses =
       assetClasses
@@ -316,18 +335,16 @@ OperationsReport buildOperationsReport({
                 classExecutions
                     .where((job) => !job.isCompleted && !job.isCancelled)
                     .length,
-            disruptionCount: filteredEvents
-                .where((event) => eventAffectsClass(event, assetClass.id))
-                .fold(
-                  0,
-                  (count, event) =>
-                      count +
-                      event.occurrenceCountWithin(
-                        filter.startInclusive,
-                        filter.endExclusive,
-                        reportAsOf,
+            disruptionCount:
+                events
+                    .expand((event) => event.occurrencesUntil(reportAsOf))
+                    .where(
+                      (occurrence) => occurrenceMatchesClassSummary(
+                        occurrence,
+                        assetClass.id,
                       ),
-                ),
+                    )
+                    .length,
           );
         }).toList()
         ..sort(
@@ -361,5 +378,18 @@ OperationsReport buildOperationsReport({
     sourceTicketCount: tickets.length,
     sourceExecutionCount: executions.length,
     sourceEventCount: events.length,
+    disruptionCount: filteredOccurrences.length,
+    openDisruptionCount:
+        events.where((event) {
+          if (!event.isOpen) return false;
+          final currentOccurrence = event.occurrencesUntil(reportAsOf).last;
+          return occurrenceMatchesReport(currentOccurrence);
+        }).length,
+    disruptionDuration: filteredOccurrences.fold(
+      Duration.zero,
+      (total, occurrence) =>
+          total +
+          occurrence.durationWithin(filter.startInclusive, filter.endExclusive),
+    ),
   );
 }

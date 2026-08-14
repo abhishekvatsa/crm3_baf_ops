@@ -44,6 +44,9 @@ type Scope = "plantWide" | "assetClasses" | "assets";
 type CompletedInterval = {
   startedAt: unknown;
   resolvedAt: unknown;
+  scope: Scope;
+  affectedAssetClassIds: ReadonlyArray<string>;
+  affectedAssetInstanceIds: ReadonlyArray<string>;
 };
 
 interface EventDraft {
@@ -378,8 +381,22 @@ function requireCompletedIntervals(value: unknown): CompletedInterval[] {
     const keys = Object.keys(interval);
     const startedAt = timestampDate(interval.startedAt);
     const resolvedAt = timestampDate(interval.resolvedAt);
-    if (keys.length !== 2 || !keys.includes("startedAt") ||
-        !keys.includes("resolvedAt") || startedAt == null || resolvedAt == null ||
+    const classIds = requireStringList(
+      interval.affectedAssetClassIds,
+      `completedIntervals[${index}].affectedAssetClassIds`,
+      20,
+    );
+    const assetIds = requireStringList(
+      interval.affectedAssetInstanceIds,
+      `completedIntervals[${index}].affectedAssetInstanceIds`,
+      50,
+    );
+    if (keys.length !== 5 || !keys.includes("startedAt") ||
+        !keys.includes("resolvedAt") || !keys.includes("scope") ||
+        !keys.includes("affectedAssetClassIds") ||
+        !keys.includes("affectedAssetInstanceIds") ||
+        startedAt == null || resolvedAt == null ||
+        !scopeProjectionIsValid(interval.scope, classIds, assetIds) ||
         resolvedAt.getTime() < startedAt.getTime() ||
         (previousResolvedAt != null &&
           startedAt.getTime() < previousResolvedAt.getTime())) {
@@ -393,6 +410,9 @@ function requireCompletedIntervals(value: unknown): CompletedInterval[] {
     return {
       startedAt: interval.startedAt,
       resolvedAt: interval.resolvedAt,
+      scope: interval.scope as Scope,
+      affectedAssetClassIds: classIds,
+      affectedAssetInstanceIds: assetIds,
     };
   });
 }
@@ -414,6 +434,16 @@ function requireStringList(
     );
   }
   return value as string[];
+}
+
+function scopeProjectionIsValid(
+  scope: unknown,
+  classIds: ReadonlyArray<string>,
+  assetIds: ReadonlyArray<string>,
+): scope is Scope {
+  return scope === "plantWide" ? classIds.length === 0 && assetIds.length === 0 :
+    scope === "assetClasses" ? classIds.length > 0 && assetIds.length === 0 :
+      scope === "assets" && assetIds.length > 0;
 }
 
 function validateCurrentEvent(data: JsonMap | null, eventId: string): number {
@@ -442,11 +472,7 @@ function validateCurrentEvent(data: JsonMap | null, eventId: string): number {
     typeof data.resolvedByUid === "string" && data.resolvedByUid.length > 0 &&
     typeof data.resolvedByName === "string" && data.resolvedByName.length > 0 &&
     typeof data.resolutionNote === "string" && data.resolutionNote.length >= 8;
-  const scopeValid = data.scope === "plantWide" ?
-    classIds.length === 0 && assetIds.length === 0 :
-    data.scope === "assetClasses" ?
-      classIds.length > 0 && assetIds.length === 0 :
-      data.scope === "assets" && assetIds.length > 0;
+  const scopeValid = scopeProjectionIsValid(data.scope, classIds, assetIds);
   const statusValid = data.status === "open" ? resolutionAbsent :
     data.status === "resolved" && resolutionComplete;
   const latestCompleted = completedIntervals.at(-1);
@@ -782,7 +808,13 @@ export async function mutateOperationalEventWithDb(args: {
         status: "open",
         completedIntervals: [
           ...(current!.completedIntervals as CompletedInterval[]),
-          {startedAt: current!.startedAt, resolvedAt: current!.resolvedAt},
+          {
+            startedAt: current!.startedAt,
+            resolvedAt: current!.resolvedAt,
+            scope: current!.scope,
+            affectedAssetClassIds: current!.affectedAssetClassIds,
+            affectedAssetInstanceIds: current!.affectedAssetInstanceIds,
+          },
         ],
         startedAt: committedAt,
         resolvedAt: null,
