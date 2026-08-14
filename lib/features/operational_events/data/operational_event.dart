@@ -109,6 +109,10 @@ String _canonicalCommandTimestamp(DateTime value) {
 
 class OperationalEventInterval {
   const OperationalEventInterval({
+    required this.eventType,
+    required this.title,
+    required this.description,
+    required this.severity,
     required this.startedAt,
     required this.resolvedAt,
     required this.scope,
@@ -119,6 +123,10 @@ class OperationalEventInterval {
     required this.resolutionNote,
   });
 
+  final OperationalEventType eventType;
+  final String title;
+  final String description;
+  final OperationalEventSeverity severity;
   final DateTime startedAt;
   final DateTime resolvedAt;
   final OperationalEventScope scope;
@@ -198,6 +206,10 @@ class OperationalEvent {
   Iterable<OperationalEventInterval> occurrencesUntil(DateTime asOf) sync* {
     yield* completedIntervals;
     yield OperationalEventInterval(
+      eventType: eventType,
+      title: title,
+      description: description,
+      severity: severity,
       startedAt: startedAt,
       resolvedAt: resolvedAt ?? asOf,
       scope: scope,
@@ -348,7 +360,11 @@ class OperationalEvent {
     for (var index = 0; index < completedRaw.length; index++) {
       final raw = completedRaw[index];
       if (raw is! Map<String, dynamic> ||
-          raw.length != 8 ||
+          raw.length != 12 ||
+          !raw.containsKey('eventType') ||
+          !raw.containsKey('title') ||
+          !raw.containsKey('description') ||
+          !raw.containsKey('severity') ||
           !raw.containsKey('startedAt') ||
           !raw.containsKey('resolvedAt') ||
           !raw.containsKey('scope') ||
@@ -371,6 +387,28 @@ class OperationalEvent {
       final intervalEnd = readRequiredPersistedDateTime(
         raw['resolvedAt'],
         field: 'completedIntervals[$index].resolvedAt',
+        source: source,
+      );
+      final intervalEventType = readRequiredPersistedEnum(
+        OperationalEventType.values,
+        raw['eventType'],
+        field: 'completedIntervals[$index].eventType',
+        source: source,
+      );
+      final intervalTitle = readRequiredPersistedString(
+        raw['title'],
+        field: 'completedIntervals[$index].title',
+        source: source,
+      );
+      final intervalDescription = readRequiredPersistedString(
+        raw['description'],
+        field: 'completedIntervals[$index].description',
+        source: source,
+      );
+      final intervalSeverity = readRequiredPersistedEnum(
+        OperationalEventSeverity.values,
+        raw['severity'],
+        field: 'completedIntervals[$index].severity',
         source: source,
       );
       if (raw['affectedAssetClassIds'] is! List ||
@@ -419,6 +457,8 @@ class OperationalEvent {
           intervalAssetIds.length > 50 ||
           intervalClassIds.toSet().length != intervalClassIds.length ||
           intervalAssetIds.toSet().length != intervalAssetIds.length ||
+          intervalTitle.length > 120 ||
+          intervalDescription.length > 2000 ||
           !_scopeListsAreValid(
             intervalScope,
             intervalClassIds,
@@ -436,6 +476,10 @@ class OperationalEvent {
       }
       completedIntervals.add(
         OperationalEventInterval(
+          eventType: intervalEventType,
+          title: intervalTitle,
+          description: intervalDescription,
+          severity: intervalSeverity,
           startedAt: intervalStart,
           resolvedAt: intervalEnd,
           scope: intervalScope,

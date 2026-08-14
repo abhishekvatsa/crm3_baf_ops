@@ -1,4 +1,5 @@
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
+import 'package:crm3_baf_ops/features/operational_events/presentation/operational_events_screen.dart';
 import 'package:crm3_baf_ops/features/operational_events/providers/operational_event_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,6 +37,28 @@ Map<String, dynamic> record({
 };
 
 void main() {
+  test('event editor removes retired scope IDs and derives exact classes', () {
+    final assetSelection = reconcileOperationalEventScopeSelection(
+      scope: OperationalEventScope.assets,
+      selectedClassIds: {'class-active', 'class-retired'},
+      selectedAssetIds: {'asset-active', 'asset-retired'},
+      activeClassIds: {'class-active'},
+      activeAssetClassIds: {'asset-active': 'class-active'},
+    );
+    expect(assetSelection.assetClassIds, {'class-active'});
+    expect(assetSelection.assetInstanceIds, {'asset-active'});
+
+    final classSelection = reconcileOperationalEventScopeSelection(
+      scope: OperationalEventScope.assetClasses,
+      selectedClassIds: {'class-active', 'class-retired'},
+      selectedAssetIds: {'asset-active'},
+      activeClassIds: {'class-active'},
+      activeAssetClassIds: {'asset-active': 'class-active'},
+    );
+    expect(classSelection.assetClassIds, {'class-active'});
+    expect(classSelection.assetInstanceIds, isEmpty);
+  });
+
   test('command timestamps are normalized to UTC milliseconds', () {
     final draft = OperationalEventDraft(
       eventType: OperationalEventType.water,
@@ -99,6 +122,10 @@ void main() {
         record()
           ..['completedIntervals'] = [
             {
+              'eventType': 'powerTrip',
+              'title': 'Incoming power interruption',
+              'description': 'Incoming power was unavailable across the shop.',
+              'severity': 'critical',
               'startedAt': DateTime.utc(2026, 8, 14, 8),
               'resolvedAt': DateTime.utc(2026, 8, 14, 9),
               'scope': 'plantWide',
@@ -163,6 +190,11 @@ void main() {
           ..['startedAt'] = DateTime.utc(2026, 8, 14, 13)
           ..['completedIntervals'] = [
             {
+              'eventType': 'powerTrip',
+              'title': 'First incoming power interruption',
+              'description':
+                  'Incoming power was unavailable during the first occurrence.',
+              'severity': 'critical',
               'startedAt': DateTime.utc(2026, 8, 14, 10),
               'resolvedAt': DateTime.utc(2026, 8, 14, 12),
               'scope': 'plantWide',
@@ -181,6 +213,10 @@ void main() {
     expect(event.occurrenceCountWithin(start, end, end), 2);
     expect(event.durationWithin(start, end, end), const Duration(hours: 3));
     expect(event.completedIntervals.single.resolvedByName, 'Shift One');
+    expect(
+      event.completedIntervals.single.title,
+      'First incoming power interruption',
+    );
     expect(
       event.completedIntervals.single.resolutionNote,
       'Supply remained stable after the first restoration.',

@@ -58,6 +58,11 @@ resolution evidence and immutable audit/receipt records. Operations, Shift
 Supervisor, SI and Admin may confirm restoration. Contract Supervisor can
 record and update an event but cannot assert plant restoration.
 
+Reopening archives the completed occurrence's original type, title,
+description, severity, timing, scope and closure evidence. Later corrections
+therefore cannot rewrite how an earlier disruption appears in history or
+reports.
+
 These records supply the app-open attention picture and the duration-aware
 reporting view. They do not replace an asset issue when physical maintenance is
 required; both records may coexist and remain independently accountable.

@@ -2345,9 +2345,9 @@
     {
       "path": "lib/features/reports/presentation/fleet_status_screen.dart",
       "canonicalSha256": "1BD7161B49893F25C7D617BE3704508089985B75FBA6066462CD5C2FC3F66913",
-      "candidateSha256": "E0AC33DF3B886CA143BFBFF922E0BAB53BD366257D7C03BEE56A26946B3DEDF8",
+      "candidateSha256": "B8E239001152998178C2064C92A18175A2ECBDD615F35ED42C1BCB89F1DD0241",
       "canonicalBytes": 21520,
-      "candidateBytes": 36142,
+      "candidateBytes": 36151,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

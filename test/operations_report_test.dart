@@ -367,6 +367,10 @@ void main() {
           affectedAssetInstanceIds: const [],
           completedIntervals: [
             OperationalEventInterval(
+              eventType: OperationalEventType.powerTrip,
+              title: 'Earlier power interruption',
+              description: 'The first occurrence was an incoming power trip.',
+              severity: OperationalEventSeverity.critical,
               startedAt: DateTime.utc(2026, 8, 14, 10),
               resolvedAt: DateTime.utc(2026, 8, 14, 12),
               scope: OperationalEventScope.plantWide,
@@ -407,6 +411,14 @@ void main() {
       DateTime.utc(2026, 8, 14, 13),
       DateTime.utc(2026, 8, 14, 10),
     ]);
+    expect(
+      report.eventOccurrences.last.interval.title,
+      'Earlier power interruption',
+    );
+    expect(
+      report.eventOccurrences.last.interval.eventType,
+      OperationalEventType.powerTrip,
+    );
   });
 
   test('reopened disruption keeps each occurrence on its recorded asset', () {
@@ -425,6 +437,10 @@ void main() {
       affectedAssetInstanceIds: [furnace8.id],
       completedIntervals: [
         OperationalEventInterval(
+          eventType: OperationalEventType.crane,
+          title: 'First crane support interruption',
+          description: 'The first crane interruption affected Furnace 7.',
+          severity: OperationalEventSeverity.critical,
           startedAt: DateTime.utc(2026, 8, 14, 10),
           resolvedAt: DateTime.utc(2026, 8, 14, 12),
           scope: OperationalEventScope.assets,

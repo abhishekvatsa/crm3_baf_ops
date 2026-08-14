@@ -366,6 +366,10 @@ describe('operational event mutation', () => {
     expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
       status: 'open',
       completedIntervals: [{
+        eventType: 'powerTrip',
+        title: 'Incoming power interruption',
+        description: 'Incoming supply was lost across the annealing shop.',
+        severity: 'critical',
         startedAt: new Date('2026-08-14T10:00:00.000Z'),
         resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
         scope: 'plantWide',
@@ -388,6 +392,10 @@ describe('operational event mutation', () => {
       },
       after: {
         completedIntervals: [{
+          eventType: 'powerTrip',
+          title: 'Incoming power interruption',
+          description: 'Incoming supply was lost across the annealing shop.',
+          severity: 'critical',
           startedAt: new Date('2026-08-14T10:00:00.000Z'),
           resolvedAt: new Date('2026-08-14T12:00:00.000Z'),
           scope: 'plantWide',
@@ -412,6 +420,10 @@ describe('operational event mutation', () => {
       reason: 'Limit the recurring interruption to the affected furnace.',
       eventDraft: {
         ...request().eventDraft,
+        eventType: 'crane',
+        title: 'Charging crane interruption',
+        description: 'The recurring event now affects charging crane support.',
+        severity: 'significant',
         scope: 'assets',
         affectedAssetClassIds: [IDS.assetClass],
         affectedAssetInstanceIds: [IDS.asset],
@@ -419,9 +431,16 @@ describe('operational event mutation', () => {
       },
     }), new Date('2026-08-14T13:30:00.000Z'));
     expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
+      eventType: 'crane',
+      title: 'Charging crane interruption',
+      severity: 'significant',
       scope: 'assets',
       affectedAssetInstanceIds: [IDS.asset],
       completedIntervals: [{
+        eventType: 'powerTrip',
+        title: 'Incoming power interruption',
+        description: 'Incoming supply was lost across the annealing shop.',
+        severity: 'critical',
         scope: 'plantWide',
         affectedAssetClassIds: [],
         affectedAssetInstanceIds: [],

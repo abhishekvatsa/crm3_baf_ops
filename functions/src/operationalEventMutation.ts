@@ -42,6 +42,10 @@ type EventType =
 type Severity = "advisory" | "significant" | "critical";
 type Scope = "plantWide" | "assetClasses" | "assets";
 type CompletedInterval = {
+  eventType: EventType;
+  title: string;
+  description: string;
+  severity: Severity;
   startedAt: unknown;
   resolvedAt: unknown;
   scope: Scope;
@@ -384,6 +388,10 @@ function requireCompletedIntervals(value: unknown): CompletedInterval[] {
     const keys = Object.keys(interval);
     const startedAt = timestampDate(interval.startedAt);
     const resolvedAt = timestampDate(interval.resolvedAt);
+    const eventType = interval.eventType;
+    const title = interval.title;
+    const description = interval.description;
+    const severity = interval.severity;
     const classIds = requireStringList(
       interval.affectedAssetClassIds,
       `completedIntervals[${index}].affectedAssetClassIds`,
@@ -397,12 +405,19 @@ function requireCompletedIntervals(value: unknown): CompletedInterval[] {
     const resolvedByUid = interval.resolvedByUid;
     const resolvedByName = interval.resolvedByName;
     const resolutionNote = interval.resolutionNote;
-    if (keys.length !== 8 || !keys.includes("startedAt") ||
+    if (keys.length !== 12 || !keys.includes("eventType") ||
+        !keys.includes("title") || !keys.includes("description") ||
+        !keys.includes("severity") || !keys.includes("startedAt") ||
         !keys.includes("resolvedAt") || !keys.includes("scope") ||
         !keys.includes("affectedAssetClassIds") ||
         !keys.includes("affectedAssetInstanceIds") ||
         !keys.includes("resolvedByUid") || !keys.includes("resolvedByName") ||
         !keys.includes("resolutionNote") ||
+        !EVENT_TYPES.has(eventType as EventType) ||
+        typeof title !== "string" || title.trim().length === 0 ||
+        title.length > 120 || typeof description !== "string" ||
+        description.trim().length === 0 || description.length > 2000 ||
+        !SEVERITIES.has(severity as Severity) ||
         startedAt == null || resolvedAt == null ||
         !scopeProjectionIsValid(interval.scope, classIds, assetIds) ||
         typeof resolvedByUid !== "string" || resolvedByUid.length === 0 ||
@@ -421,6 +436,10 @@ function requireCompletedIntervals(value: unknown): CompletedInterval[] {
     }
     previousResolvedAt = resolvedAt;
     return {
+      eventType: eventType as EventType,
+      title,
+      description,
+      severity: severity as Severity,
       startedAt: interval.startedAt,
       resolvedAt: interval.resolvedAt,
       scope: interval.scope as Scope,
@@ -829,6 +848,10 @@ export async function mutateOperationalEventWithDb(args: {
         completedIntervals: [
           ...(current!.completedIntervals as CompletedInterval[]),
           {
+            eventType: current!.eventType,
+            title: current!.title,
+            description: current!.description,
+            severity: current!.severity,
             startedAt: current!.startedAt,
             resolvedAt: current!.resolvedAt,
             scope: current!.scope,

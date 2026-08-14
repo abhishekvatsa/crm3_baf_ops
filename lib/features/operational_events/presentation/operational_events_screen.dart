@@ -529,6 +529,7 @@ class _EventCard extends StatelessWidget {
                     child: _DetailLine(
                       icon: Icons.task_alt_rounded,
                       text:
+                          '${interval.title} · ${interval.eventType.label} · ${interval.severity.label}\n'
                           '${DateFormat('dd MMM yyyy, HH:mm').format(interval.startedAt.toLocal())} - '
                           '${DateFormat('dd MMM yyyy, HH:mm').format(interval.resolvedAt.toLocal())}\n'
                           'Resolved by ${interval.resolvedByName}: ${interval.resolutionNote}',
@@ -586,6 +587,47 @@ class _DetailLine extends StatelessWidget {
   );
 }
 
+class OperationalEventScopeSelection {
+  const OperationalEventScopeSelection({
+    required this.assetClassIds,
+    required this.assetInstanceIds,
+  });
+
+  final Set<String> assetClassIds;
+  final Set<String> assetInstanceIds;
+}
+
+OperationalEventScopeSelection reconcileOperationalEventScopeSelection({
+  required OperationalEventScope scope,
+  required Set<String> selectedClassIds,
+  required Set<String> selectedAssetIds,
+  required Set<String> activeClassIds,
+  required Map<String, String> activeAssetClassIds,
+}) {
+  final assetIds =
+      selectedAssetIds
+          .where(
+            (id) =>
+                activeAssetClassIds.containsKey(id) &&
+                activeClassIds.contains(activeAssetClassIds[id]),
+          )
+          .toSet();
+  return switch (scope) {
+    OperationalEventScope.plantWide => OperationalEventScopeSelection(
+      assetClassIds: Set<String>.identity(),
+      assetInstanceIds: Set<String>.identity(),
+    ),
+    OperationalEventScope.assetClasses => OperationalEventScopeSelection(
+      assetClassIds: selectedClassIds.intersection(activeClassIds),
+      assetInstanceIds: Set<String>.identity(),
+    ),
+    OperationalEventScope.assets => OperationalEventScopeSelection(
+      assetClassIds: assetIds.map((id) => activeAssetClassIds[id]!).toSet(),
+      assetInstanceIds: assetIds,
+    ),
+  };
+}
+
 class _EventDialog extends StatefulWidget {
   const _EventDialog({
     required this.event,
@@ -621,8 +663,24 @@ class _EventDialogState extends State<_EventDialog> {
     _severity = event?.severity ?? OperationalEventSeverity.significant;
     _scope = event?.scope ?? OperationalEventScope.plantWide;
     _startedAt = event?.startedAt ?? DateTime.now();
-    _classIds = event?.affectedAssetClassIds.toSet() ?? <String>{};
-    _assetIds = event?.affectedAssetInstanceIds.toSet() ?? <String>{};
+    final activeClassIds = {
+      for (final item in widget.classes)
+        if (item.isActive) item.id,
+    };
+    final activeAssetClassIds = {
+      for (final item in widget.assets)
+        if (item.isActive && activeClassIds.contains(item.assetClassId))
+          item.id: item.assetClassId,
+    };
+    final selection = reconcileOperationalEventScopeSelection(
+      scope: _scope,
+      selectedClassIds: event?.affectedAssetClassIds.toSet() ?? <String>{},
+      selectedAssetIds: event?.affectedAssetInstanceIds.toSet() ?? <String>{},
+      activeClassIds: activeClassIds,
+      activeAssetClassIds: activeAssetClassIds,
+    );
+    _classIds = selection.assetClassIds;
+    _assetIds = selection.assetInstanceIds;
     _title = TextEditingController(text: event?.title);
     _description = TextEditingController(text: event?.description);
     _reason = TextEditingController();
@@ -827,7 +885,7 @@ class _EventDialogState extends State<_EventDialog> {
   }) => showDialog<Set<String>>(
     context: context,
     builder: (context) {
-      final draft = selected.toSet();
+      final draft = selected.where(choices.containsKey).toSet();
       return StatefulBuilder(
         builder:
             (context, setDialogState) => AlertDialog(

@@ -909,7 +909,7 @@ class _DisruptionSection extends StatelessWidget {
                     occurrence.isOpen ? BafColors.warning : BafColors.success,
               ),
               title: Text(
-                occurrence.event.title,
+                occurrence.interval.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w800),
@@ -918,7 +918,7 @@ class _DisruptionSection extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${occurrence.event.eventType.label} · ${occurrence.event.severity.label} · ${DateFormat('dd MMM, HH:mm').format(occurrence.interval.startedAt.toLocal())}',
+                    '${occurrence.interval.eventType.label} · ${occurrence.interval.severity.label} · ${DateFormat('dd MMM, HH:mm').format(occurrence.interval.startedAt.toLocal())}',
                   ),
                   if (!occurrence.isOpen) ...[
                     const SizedBox(height: 2),
