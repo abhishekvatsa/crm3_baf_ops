@@ -70,6 +70,43 @@ void main() {
       );
     });
 
+    test('governed custom workflow and equipment identity is exact', () {
+      final workflow = workflowAggregateRecordFromFirestoreData(
+        documentId: 'workflow-custom',
+        data:
+            _workflow()
+              ..['assetTypeKey'] = 'governedCustom'
+              ..['assetNumber'] = 3
+              ..['assetClassId'] = 'annealing-car-class'
+              ..['assetInstanceId'] = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      );
+      final equipment = equipmentStatusRecordFromFirestoreData(
+        documentId:
+            'governedCustom_annealing-car-class_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        data:
+            _equipment()
+              ..['assetTypeKey'] = 'governedCustom'
+              ..['assetNumber'] = 3
+              ..['assetClassId'] = 'annealing-car-class'
+              ..['assetInstanceId'] = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      );
+
+      expect(workflow.assetClassId, 'annealing-car-class');
+      expect(
+        equipment.projectionIdentityKey,
+        'governedCustom:annealing-car-class:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      );
+      _expectFormat(
+        () => equipmentStatusRecordFromFirestoreData(
+          documentId: 'governedCustom_3',
+          data:
+              _equipment()
+                ..['assetTypeKey'] = 'governedCustom'
+                ..['assetNumber'] = 3,
+        ),
+      );
+    });
+
     test('fractional and string counters fail instead of being coerced', () {
       _expectFormat(
         () => jobLaneRecordFromFirestoreData(

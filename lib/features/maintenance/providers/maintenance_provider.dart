@@ -5,11 +5,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_firestore/cloud_firestore.dart' as firestore show Query;
 import 'package:isar/isar.dart';
 
 import '../../../core/persistence/app_database.dart';
-import '../../../core/utils/combined_record_stream.dart';
 import '../data/maintenance_model.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import '../../audit/models/audit_event_model.dart';
@@ -1140,41 +1138,11 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
         ArgumentError('Report start must precede report end.'),
       );
     }
-    Stream<List<MaintenanceRecord>> decode(
-      firestore.Query<Map<String, dynamic>> query,
-    ) => query.snapshots().map(
-      (snapshot) => snapshot.docs.map(_mapTicket).toList(growable: false),
-    );
-    final startBound = persistedReportTimestampBound(startInclusive);
-    final endBound = persistedReportTimestampBound(endExclusive);
-
-    final startedInPeriod = decode(
-      _collection
-          .where('isDeleted', isEqualTo: false)
-          .where('startDate', isGreaterThanOrEqualTo: startBound)
-          .where('startDate', isLessThan: endBound)
-          .orderBy('startDate', descending: true),
-    );
-    final openCarryIn = decode(
-      _collection
-          .where('isResolved', isEqualTo: false)
-          .where('isDeleted', isEqualTo: false)
-          .where('startDate', isLessThan: startBound)
-          .orderBy('startDate', descending: true),
-    );
-    final resolvedAcrossStart = decode(
-      _collection
-          .where('isResolved', isEqualTo: true)
-          .where('isDeleted', isEqualTo: false)
-          .where('endDate', isGreaterThan: startBound)
-          .orderBy('endDate', descending: true),
-    );
-
-    return combineLatestUniqueRecordStreams<MaintenanceRecord>(
-      streams: [startedInPeriod, openCarryIn, resolvedAcrossStart],
-      identityOf: (record) => record.firestoreId ?? 'local:${record.id}',
-      compare: (left, right) => right.startDate.compareTo(left.startDate),
-    ).map(
+    // Historical maintenance rows contain client-local ISO strings, while
+    // newer records may carry offset-aware instants. Firestore string ranges
+    // cannot order those representations as one timeline, so reporting reads
+    // the complete uncapped stream and applies the parsed overlap contract.
+    return watchAllTickets().map(
       (records) => records
           .where(
             (record) => maintenanceRecordOverlapsPeriod(

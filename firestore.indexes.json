@@ -671,38 +671,6 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "isDeleted",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "startDate",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "maintenance_records",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "isResolved",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "isDeleted",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "startDate",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "maintenance_records",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
           "fieldPath": "assetType",
           "order": "ASCENDING"
         },

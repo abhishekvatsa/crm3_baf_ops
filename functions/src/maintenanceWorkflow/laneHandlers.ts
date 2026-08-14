@@ -15,7 +15,15 @@ import {CommandHandler} from "./handlerTypes";
 import {collectLaneProgressEvidence, hasProtectedProgress} from "./laneProgress";
 import {maintenanceProjectionForRelease} from "./maintenanceBridge";
 import {laneForModuleDiscipline, legacyAgencyForLane} from "./modulePolicy";
-import {compliancePath, equipmentPath, executionPath, lanePath, maintenancePath, workflowPath} from "./paths";
+import {
+  compliancePath,
+  equipmentIdentityFromWorkflow,
+  equipmentPathForIdentity,
+  executionPath,
+  lanePath,
+  maintenancePath,
+  workflowPath,
+} from "./paths";
 import {JsonMap, LaneDoc, LaneKey} from "./types";
 import {cleanText, iso, laneKey, optionalText, plusMinutes, stringArray} from "./utils";
 import {WORKFLOW_CLOCKS_MINUTES} from "./policy.generated";
@@ -780,15 +788,12 @@ export const cancelWorkflow: CommandHandler = async ({tx, command, context}) => 
       },
     );
   }
-  const assetTypeKey = typeof workflow.assetTypeKey === "string" ? workflow.assetTypeKey : null;
-  const assetNumber = typeof workflow.assetNumber === "number" ? workflow.assetNumber : null;
-  if (assetTypeKey == null || assetNumber == null || assetNumber <= 0) {
-    throw new WorkflowError("failed-precondition", "Workflow asset identity is invalid.");
-  }
-  const equipmentId = equipmentPath(assetTypeKey, assetNumber);
+  const equipmentIdentity = equipmentIdentityFromWorkflow(workflow);
+  const {assetTypeKey, assetNumber} = equipmentIdentity;
+  const equipmentId = equipmentPathForIdentity(equipmentIdentity);
   const equipment = await tx.get(equipmentId);
   const remainingFacts = withoutWorkflowContribution(
-    equipmentFactsFromProjection(equipment.data),
+    equipmentFactsFromProjection(equipment.data, equipmentIdentity),
     workflowContribution(workflow),
   );
   const projection = projectEquipment(remainingFacts, false);
@@ -880,6 +885,8 @@ export const cancelWorkflow: CommandHandler = async ({tx, command, context}) => 
   tx.set(equipmentId, equipmentProjectionWrite(equipment.data, remainingFacts, projection, {
     assetTypeKey,
     assetNumber,
+    assetClassId: equipmentIdentity.assetClassId,
+    assetInstanceId: equipmentIdentity.assetInstanceId,
     trigger: `cancel:${command.aggregateId}`,
     at: now,
     actorUid: context.actor.uid,

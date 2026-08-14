@@ -171,11 +171,17 @@ class IsarWorkflowRepository implements WorkflowRepository {
   @override
   Future<EquipmentStatusRecord?> getEquipment(
     String assetTypeKey,
-    int assetNumber,
-  ) async {
+    int assetNumber, {
+    String? assetClassId,
+    String? assetInstanceId,
+  }) async {
     final rows = await isar.equipmentStatusRecords.where().findAll();
     for (final row in rows) {
-      if (row.assetTypeKey == assetTypeKey && row.assetNumber == assetNumber) {
+      if (row.assetTypeKey == assetTypeKey &&
+          row.assetNumber == assetNumber &&
+          (assetTypeKey != 'governedCustom' ||
+              (row.assetClassId == assetClassId &&
+                  row.assetInstanceId == assetInstanceId))) {
         return row;
       }
     }

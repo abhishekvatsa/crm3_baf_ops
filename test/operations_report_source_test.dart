@@ -10,8 +10,19 @@ void main() {
   final end = DateTime.utc(2026, 9, 1);
 
   test('report query bounds retain the persisted ISO string type', () {
-    expect(persistedReportTimestampBound(start), '2026-08-01T00:00:00.000Z');
-    expect(persistedReportTimestampBound(end), '2026-09-01T00:00:00.000Z');
+    expect(
+      plannedExecutionReportTimestampBound(start),
+      '2026-08-01T00:00:00.000Z',
+    );
+    expect(
+      plannedExecutionReportTimestampBound(end),
+      '2026-09-01T00:00:00.000Z',
+    );
+    final offsetInstant = DateTime.parse('2026-08-01T00:00:00+05:30');
+    expect(
+      plannedExecutionReportTimestampBound(offsetInstant),
+      '2026-07-31T18:30:00.000Z',
+    );
   });
 
   test(

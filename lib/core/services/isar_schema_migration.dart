@@ -573,7 +573,7 @@ class IsarSchemaOpenPreparation {
 }
 
 class IsarSchemaMigrator {
-  static const int currentSchemaVersion = 4;
+  static const int currentSchemaVersion = 5;
 
   static const String v1SchemaFingerprint =
       'v1:Charge,MaintenanceRecord,JobTemplate,JobExecution,JobDiaryEntry,'
@@ -592,7 +592,7 @@ class IsarSchemaMigrator {
       'EquipmentPromptRecord,WorkflowEventRecord,WorkflowCommandRecord,'
       'WorkflowCommandReceiptRecord';
 
-  static const String currentSchemaFingerprint =
+  static const String v4SchemaFingerprint =
       'v4:Charge,MaintenanceRecord+WorkflowBridge,JobTemplate,'
       'JobExecution+WorkflowTerminalState,JobDiaryEntry+EMD+RED,'
       'JobModuleInstance+EMD+RED,TemplatePackage,TemplateVersion,'
@@ -603,6 +603,18 @@ class IsarSchemaMigrator {
       'EquipmentStatusRecord,EquipmentPromptRecord,WorkflowEventRecord,'
       'WorkflowCommandRecord,WorkflowCommandReceiptRecord';
 
+  static const String currentSchemaFingerprint =
+      'v5:Charge,MaintenanceRecord+WorkflowBridge,JobTemplate,'
+      'JobExecution+WorkflowTerminalState,JobDiaryEntry+EMD+RED,'
+      'JobModuleInstance+EMD+RED,TemplatePackage,TemplateVersion,'
+      'TemplatePublishAudit,BafKnowledgeRow,BafKnowledgeMatrixMetaStore,'
+      'OperationalDirective,AuditEvent,SyncRejection,AbnormalityType,'
+      'ChargeAbnormality,WorkflowAggregateRecord+GovernedAssetIdentity,'
+      'JobLaneRecord,ComplianceRequestRecord+OperationalAssurance,'
+      'ComplianceAttemptRecord,EquipmentStatusRecord+GovernedAssetIdentity,'
+      'EquipmentPromptRecord,WorkflowEventRecord,WorkflowCommandRecord,'
+      'WorkflowCommandReceiptRecord';
+
   static const IsarSchemaMigrationPlan defaultPlan = IsarSchemaMigrationPlan(
     currentVersion: currentSchemaVersion,
     schemaFingerprint: currentSchemaFingerprint,
@@ -611,12 +623,14 @@ class IsarSchemaMigrator {
       // No repository-proven v2 fingerprint exists. A v2 store therefore
       // requires the governed 70K fixture/adoption path and is not guessed.
       3: <String>{v3SchemaFingerprint},
-      4: <String>{currentSchemaFingerprint},
+      4: <String>{v4SchemaFingerprint},
+      5: <String>{currentSchemaFingerprint},
     },
     stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
       2: _registerMaintenanceWorkflowCollections,
       3: _reconcileV4WorkflowPersistence,
       4: _addOperationalAssuranceRequestFields,
+      5: _addGovernedAssetIdentityFields,
     },
   );
 
@@ -667,6 +681,24 @@ class IsarSchemaMigrator {
     }
     // Isar adds the fields during open. The idempotent post-open repair gives
     // legacy rows their explicit assurance purpose before provenance commits.
+  }
+
+  static Future<void> _addGovernedAssetIdentityFields(
+    IsarSchemaMigrationContext context,
+  ) async {
+    if (context.fromVersion != 4 || context.toVersion != 5) {
+      throw IsarSchemaMigrationException(
+        'Unexpected governed-asset identity schema transition.',
+        reasonCode: 'unexpected-v4-v5-transition',
+        storedVersion: context.fromVersion,
+        targetVersion: context.toVersion,
+        hasExistingLocalStore: context.hasExistingLocalStore,
+        markerDisposition: 'migration-prepared',
+      );
+    }
+    // Isar adds the nullable identity fields during open. The idempotent
+    // post-open repair removes only custom projections that cannot be bound to
+    // a physical asset without guessing, then resets their pull cursors.
   }
 
   const IsarSchemaMigrator._();

@@ -25,8 +25,10 @@ abstract interface class WorkflowRepository {
   Future<ComplianceRequestRecord?> getComplianceById(String complianceId);
   Future<EquipmentStatusRecord?> getEquipment(
     String assetTypeKey,
-    int assetNumber,
-  );
+    int assetNumber, {
+    String? assetClassId,
+    String? assetInstanceId,
+  });
 
   Future<void> upsertWorkflowFromRemote(WorkflowAggregateRecord record);
   Future<void> upsertLaneFromRemote(JobLaneRecord record);

@@ -20,7 +20,14 @@ import {
 import {WorkflowError} from "./errors";
 import {eventPlan} from "./events";
 import {CommandHandler} from "./handlerTypes";
-import {compliancePath, equipmentPath, executionPath, lanePath, workflowPath} from "./paths";
+import {
+  compliancePath,
+  equipmentIdentityFromWorkflow,
+  equipmentPathForIdentity,
+  executionPath,
+  lanePath,
+  workflowPath,
+} from "./paths";
 import {WORKFLOW_CLOCKS_MINUTES} from "./policy.generated";
 import {evaluateRedExit} from "./redPolicy";
 import {
@@ -165,10 +172,11 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
     throw new WorkflowError("preparation-answer-required", "Preparation answer is required for this furnace.");
   }
 
-  const equipmentId = equipmentPath(assetTypeKey, assetNumber);
+  const equipmentIdentity = equipmentIdentityFromWorkflow(workflow);
+  const equipmentId = equipmentPathForIdentity(equipmentIdentity);
   const equipment = await tx.get(equipmentId);
   const otherFacts = withoutWorkflowContribution(
-    equipmentFactsFromProjection(equipment.data),
+    equipmentFactsFromProjection(equipment.data, equipmentIdentity),
     workflowContribution(workflow),
   );
   const now = iso(context.serverNow);
@@ -456,6 +464,8 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
   tx.set(equipmentId, equipmentProjectionWrite(equipment.data, facts, projection, {
     assetTypeKey,
     assetNumber,
+    assetClassId: equipmentIdentity.assetClassId,
+    assetInstanceId: equipmentIdentity.assetInstanceId,
     trigger: `finalize:${command.aggregateId}`,
     at: now,
     actorUid: context.actor.uid,

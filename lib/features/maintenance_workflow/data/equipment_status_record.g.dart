@@ -23,93 +23,103 @@ const EquipmentStatusRecordSchema = CollectionSchema(
       name: r'activeExecutionIdsJson',
       type: IsarType.string,
     ),
-    r'assetNumber': PropertySchema(
+    r'assetClassId': PropertySchema(
       id: 1,
+      name: r'assetClassId',
+      type: IsarType.string,
+    ),
+    r'assetInstanceId': PropertySchema(
+      id: 2,
+      name: r'assetInstanceId',
+      type: IsarType.string,
+    ),
+    r'assetNumber': PropertySchema(
+      id: 3,
       name: r'assetNumber',
       type: IsarType.long,
     ),
     r'assetTypeKey': PropertySchema(
-      id: 2,
+      id: 4,
       name: r'assetTypeKey',
       type: IsarType.string,
     ),
     r'availableSince': PropertySchema(
-      id: 3,
+      id: 5,
       name: r'availableSince',
       type: IsarType.dateTime,
     ),
     r'awaitingPreparationCount': PropertySchema(
-      id: 4,
+      id: 6,
       name: r'awaitingPreparationCount',
       type: IsarType.long,
     ),
     r'firestoreId': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'firestoreId',
       type: IsarType.string,
     ),
     r'inServiceSince': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'inServiceSince',
       type: IsarType.dateTime,
     ),
     r'isSynced': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'isSynced',
       type: IsarType.bool,
     ),
     r'lastTransitionAt': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'lastTransitionAt',
       type: IsarType.dateTime,
     ),
     r'lastTransitionByName': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'lastTransitionByName',
       type: IsarType.string,
     ),
     r'lastTransitionByUid': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'lastTransitionByUid',
       type: IsarType.string,
     ),
     r'metadataJson': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'metadataJson',
       type: IsarType.string,
     ),
     r'openMaintenanceCount': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'openMaintenanceCount',
       type: IsarType.long,
     ),
     r'openRedCount': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'openRedCount',
       type: IsarType.long,
     ),
     r'previousStateKey': PropertySchema(
-      id: 14,
+      id: 16,
       name: r'previousStateKey',
       type: IsarType.string,
     ),
     r'stateKey': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'stateKey',
       type: IsarType.string,
     ),
     r'transitionTrigger': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'transitionTrigger',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 17,
+      id: 19,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'version': PropertySchema(
-      id: 18,
+      id: 20,
       name: r'version',
       type: IsarType.long,
     )
@@ -172,6 +182,32 @@ const EquipmentStatusRecordSchema = CollectionSchema(
         )
       ],
     ),
+    r'assetClassId': IndexSchema(
+      id: 8014201351234624830,
+      name: r'assetClassId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'assetClassId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
+    r'assetInstanceId': IndexSchema(
+      id: -1321462710229363228,
+      name: r'assetInstanceId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'assetInstanceId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
     r'stateKey': IndexSchema(
       id: 535423888346486579,
       name: r'stateKey',
@@ -202,6 +238,18 @@ int _equipmentStatusRecordEstimateSize(
   var bytesCount = offsets.last;
   {
     final value = object.activeExecutionIdsJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.assetClassId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.assetInstanceId;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -249,24 +297,26 @@ void _equipmentStatusRecordSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.activeExecutionIdsJson);
-  writer.writeLong(offsets[1], object.assetNumber);
-  writer.writeString(offsets[2], object.assetTypeKey);
-  writer.writeDateTime(offsets[3], object.availableSince);
-  writer.writeLong(offsets[4], object.awaitingPreparationCount);
-  writer.writeString(offsets[5], object.firestoreId);
-  writer.writeDateTime(offsets[6], object.inServiceSince);
-  writer.writeBool(offsets[7], object.isSynced);
-  writer.writeDateTime(offsets[8], object.lastTransitionAt);
-  writer.writeString(offsets[9], object.lastTransitionByName);
-  writer.writeString(offsets[10], object.lastTransitionByUid);
-  writer.writeString(offsets[11], object.metadataJson);
-  writer.writeLong(offsets[12], object.openMaintenanceCount);
-  writer.writeLong(offsets[13], object.openRedCount);
-  writer.writeString(offsets[14], object.previousStateKey);
-  writer.writeString(offsets[15], object.stateKey);
-  writer.writeString(offsets[16], object.transitionTrigger);
-  writer.writeDateTime(offsets[17], object.updatedAt);
-  writer.writeLong(offsets[18], object.version);
+  writer.writeString(offsets[1], object.assetClassId);
+  writer.writeString(offsets[2], object.assetInstanceId);
+  writer.writeLong(offsets[3], object.assetNumber);
+  writer.writeString(offsets[4], object.assetTypeKey);
+  writer.writeDateTime(offsets[5], object.availableSince);
+  writer.writeLong(offsets[6], object.awaitingPreparationCount);
+  writer.writeString(offsets[7], object.firestoreId);
+  writer.writeDateTime(offsets[8], object.inServiceSince);
+  writer.writeBool(offsets[9], object.isSynced);
+  writer.writeDateTime(offsets[10], object.lastTransitionAt);
+  writer.writeString(offsets[11], object.lastTransitionByName);
+  writer.writeString(offsets[12], object.lastTransitionByUid);
+  writer.writeString(offsets[13], object.metadataJson);
+  writer.writeLong(offsets[14], object.openMaintenanceCount);
+  writer.writeLong(offsets[15], object.openRedCount);
+  writer.writeString(offsets[16], object.previousStateKey);
+  writer.writeString(offsets[17], object.stateKey);
+  writer.writeString(offsets[18], object.transitionTrigger);
+  writer.writeDateTime(offsets[19], object.updatedAt);
+  writer.writeLong(offsets[20], object.version);
 }
 
 EquipmentStatusRecord _equipmentStatusRecordDeserialize(
@@ -277,25 +327,27 @@ EquipmentStatusRecord _equipmentStatusRecordDeserialize(
 ) {
   final object = EquipmentStatusRecord();
   object.activeExecutionIdsJson = reader.readStringOrNull(offsets[0]);
-  object.assetNumber = reader.readLong(offsets[1]);
-  object.assetTypeKey = reader.readString(offsets[2]);
-  object.availableSince = reader.readDateTimeOrNull(offsets[3]);
-  object.awaitingPreparationCount = reader.readLong(offsets[4]);
-  object.firestoreId = reader.readStringOrNull(offsets[5]);
+  object.assetClassId = reader.readStringOrNull(offsets[1]);
+  object.assetInstanceId = reader.readStringOrNull(offsets[2]);
+  object.assetNumber = reader.readLong(offsets[3]);
+  object.assetTypeKey = reader.readString(offsets[4]);
+  object.availableSince = reader.readDateTimeOrNull(offsets[5]);
+  object.awaitingPreparationCount = reader.readLong(offsets[6]);
+  object.firestoreId = reader.readStringOrNull(offsets[7]);
   object.id = id;
-  object.inServiceSince = reader.readDateTimeOrNull(offsets[6]);
-  object.isSynced = reader.readBool(offsets[7]);
-  object.lastTransitionAt = reader.readDateTimeOrNull(offsets[8]);
-  object.lastTransitionByName = reader.readStringOrNull(offsets[9]);
-  object.lastTransitionByUid = reader.readStringOrNull(offsets[10]);
-  object.metadataJson = reader.readStringOrNull(offsets[11]);
-  object.openMaintenanceCount = reader.readLong(offsets[12]);
-  object.openRedCount = reader.readLong(offsets[13]);
-  object.previousStateKey = reader.readString(offsets[14]);
-  object.stateKey = reader.readString(offsets[15]);
-  object.transitionTrigger = reader.readStringOrNull(offsets[16]);
-  object.updatedAt = reader.readDateTime(offsets[17]);
-  object.version = reader.readLong(offsets[18]);
+  object.inServiceSince = reader.readDateTimeOrNull(offsets[8]);
+  object.isSynced = reader.readBool(offsets[9]);
+  object.lastTransitionAt = reader.readDateTimeOrNull(offsets[10]);
+  object.lastTransitionByName = reader.readStringOrNull(offsets[11]);
+  object.lastTransitionByUid = reader.readStringOrNull(offsets[12]);
+  object.metadataJson = reader.readStringOrNull(offsets[13]);
+  object.openMaintenanceCount = reader.readLong(offsets[14]);
+  object.openRedCount = reader.readLong(offsets[15]);
+  object.previousStateKey = reader.readString(offsets[16]);
+  object.stateKey = reader.readString(offsets[17]);
+  object.transitionTrigger = reader.readStringOrNull(offsets[18]);
+  object.updatedAt = reader.readDateTime(offsets[19]);
+  object.version = reader.readLong(offsets[20]);
   return object;
 }
 
@@ -309,40 +361,44 @@ P _equipmentStatusRecordDeserializeProp<P>(
     case 0:
       return (reader.readStringOrNull(offset)) as P;
     case 1:
-      return (reader.readLong(offset)) as P;
-    case 2:
-      return (reader.readString(offset)) as P;
-    case 3:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 4:
-      return (reader.readLong(offset)) as P;
-    case 5:
       return (reader.readStringOrNull(offset)) as P;
-    case 6:
+    case 2:
+      return (reader.readStringOrNull(offset)) as P;
+    case 3:
+      return (reader.readLong(offset)) as P;
+    case 4:
+      return (reader.readString(offset)) as P;
+    case 5:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 6:
+      return (reader.readLong(offset)) as P;
     case 7:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 9:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 10:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 11:
       return (reader.readStringOrNull(offset)) as P;
     case 12:
-      return (reader.readLong(offset)) as P;
-    case 13:
-      return (reader.readLong(offset)) as P;
-    case 14:
-      return (reader.readString(offset)) as P;
-    case 15:
-      return (reader.readString(offset)) as P;
-    case 16:
       return (reader.readStringOrNull(offset)) as P;
+    case 13:
+      return (reader.readStringOrNull(offset)) as P;
+    case 14:
+      return (reader.readLong(offset)) as P;
+    case 15:
+      return (reader.readLong(offset)) as P;
+    case 16:
+      return (reader.readString(offset)) as P;
     case 17:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 18:
+      return (reader.readStringOrNull(offset)) as P;
+    case 19:
+      return (reader.readDateTime(offset)) as P;
+    case 20:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -771,6 +827,140 @@ extension EquipmentStatusRecordQueryWhere on QueryBuilder<EquipmentStatusRecord,
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
+      assetClassIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'assetClassId',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
+      assetClassIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'assetClassId',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
+      assetClassIdEqualTo(String? assetClassId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'assetClassId',
+        value: [assetClassId],
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
+      assetClassIdNotEqualTo(String? assetClassId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetClassId',
+              lower: [],
+              upper: [assetClassId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetClassId',
+              lower: [assetClassId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetClassId',
+              lower: [assetClassId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetClassId',
+              lower: [],
+              upper: [assetClassId],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
+      assetInstanceIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'assetInstanceId',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
+      assetInstanceIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'assetInstanceId',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
+      assetInstanceIdEqualTo(String? assetInstanceId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'assetInstanceId',
+        value: [assetInstanceId],
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
+      assetInstanceIdNotEqualTo(String? assetInstanceId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetInstanceId',
+              lower: [],
+              upper: [assetInstanceId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetInstanceId',
+              lower: [assetInstanceId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetInstanceId',
+              lower: [assetInstanceId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'assetInstanceId',
+              lower: [],
+              upper: [assetInstanceId],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterWhereClause>
       stateKeyEqualTo(String stateKey) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(IndexWhereClause.equalTo(
@@ -971,6 +1161,318 @@ extension EquipmentStatusRecordQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'activeExecutionIdsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetClassIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'assetClassId',
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetClassIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'assetClassId',
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetClassIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'assetClassId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetClassIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'assetClassId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetClassIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'assetClassId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetClassIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'assetClassId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetClassIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'assetClassId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetClassIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'assetClassId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+          QAfterFilterCondition>
+      assetClassIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'assetClassId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+          QAfterFilterCondition>
+      assetClassIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'assetClassId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetClassIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'assetClassId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetClassIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'assetClassId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetInstanceIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'assetInstanceId',
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetInstanceIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'assetInstanceId',
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetInstanceIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'assetInstanceId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetInstanceIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'assetInstanceId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetInstanceIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'assetInstanceId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetInstanceIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'assetInstanceId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetInstanceIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'assetInstanceId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetInstanceIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'assetInstanceId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+          QAfterFilterCondition>
+      assetInstanceIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'assetInstanceId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+          QAfterFilterCondition>
+      assetInstanceIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'assetInstanceId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetInstanceIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'assetInstanceId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord,
+      QAfterFilterCondition> assetInstanceIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'assetInstanceId',
         value: '',
       ));
     });
@@ -2818,6 +3320,34 @@ extension EquipmentStatusRecordQuerySortBy
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
+      sortByAssetClassId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetClassId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
+      sortByAssetClassIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetClassId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
+      sortByAssetInstanceId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetInstanceId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
+      sortByAssetInstanceIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetInstanceId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
       sortByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assetNumber', Sort.asc);
@@ -3083,6 +3613,34 @@ extension EquipmentStatusRecordQuerySortThenBy
       thenByActiveExecutionIdsJsonDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'activeExecutionIdsJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
+      thenByAssetClassId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetClassId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
+      thenByAssetClassIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetClassId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
+      thenByAssetInstanceId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetInstanceId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QAfterSortBy>
+      thenByAssetInstanceIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'assetInstanceId', Sort.desc);
     });
   }
 
@@ -3364,6 +3922,21 @@ extension EquipmentStatusRecordQueryWhereDistinct
   }
 
   QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
+      distinctByAssetClassId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'assetClassId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
+      distinctByAssetInstanceId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'assetInstanceId',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, EquipmentStatusRecord, QDistinct>
       distinctByAssetNumber() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assetNumber');
@@ -3506,6 +4079,20 @@ extension EquipmentStatusRecordQueryProperty on QueryBuilder<
       activeExecutionIdsJsonProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'activeExecutionIdsJson');
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, String?, QQueryOperations>
+      assetClassIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'assetClassId');
+    });
+  }
+
+  QueryBuilder<EquipmentStatusRecord, String?, QQueryOperations>
+      assetInstanceIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'assetInstanceId');
     });
   }
 

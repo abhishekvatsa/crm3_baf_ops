@@ -83,12 +83,16 @@ AssetOperationalConditionRecord condition({
 EquipmentStatusRecord workflow({
   required String key,
   required int number,
+  String? assetClassId,
+  String? assetInstanceId,
   int maintenance = 0,
   int red = 0,
 }) =>
     EquipmentStatusRecord()
       ..assetTypeKey = key
       ..assetNumber = number
+      ..assetClassId = assetClassId
+      ..assetInstanceId = assetInstanceId
       ..openMaintenanceCount = maintenance
       ..openRedCount = red;
 
@@ -133,6 +137,67 @@ void main() {
 
     expect(overview.underMaintenance, 0);
     expect(overview.available, 1);
+  });
+
+  test('same-number custom classes retain separate workflow projections', () {
+    final annealingCar = assetClass(
+      id: 'annealing-car-class',
+      code: 'ANNEALING_CAR',
+      name: 'Annealing Car',
+    );
+    final transferCar = assetClass(
+      id: 'transfer-car-class',
+      code: 'TRANSFER_CAR',
+      name: 'Transfer Car',
+    );
+    final annealingCar3 = asset(
+      id: 'annealing-car-3',
+      assetClass: annealingCar,
+      number: 3,
+    );
+    final transferCar3 = asset(
+      id: 'transfer-car-3',
+      assetClass: transferCar,
+      number: 3,
+    );
+
+    final overview = PlantAssetOverview.build(
+      assetClasses: [annealingCar, transferCar],
+      assetInstances: [annealingCar3, transferCar3],
+      operationalConditions: const [],
+      workflowStatuses: [
+        workflow(
+          key: 'governedCustom',
+          number: 3,
+          assetClassId: annealingCar.id,
+          assetInstanceId: annealingCar3.id,
+          maintenance: 1,
+        ),
+        workflow(
+          key: 'governedCustom',
+          number: 3,
+          assetClassId: transferCar.id,
+          assetInstanceId: transferCar3.id,
+          red: 1,
+        ),
+      ],
+    );
+
+    expect(overview.underMaintenance, 2);
+    expect(
+      overview.assets
+          .firstWhere((state) => state.asset.id == annealingCar3.id)
+          .workflowStatus
+          ?.openMaintenanceCount,
+      1,
+    );
+    expect(
+      overview.assets
+          .firstWhere((state) => state.asset.id == transferCar3.id)
+          .workflowStatus
+          ?.openRedCount,
+      1,
+    );
   });
 
   test('standby and out-of-service states are not reported as available', () {

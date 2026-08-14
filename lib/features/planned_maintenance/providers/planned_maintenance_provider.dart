@@ -1458,8 +1458,8 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
           .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
           .toList(growable: false),
     );
-    final startBound = persistedReportTimestampBound(startInclusive);
-    final endBound = persistedReportTimestampBound(endExclusive);
+    final startBound = plannedExecutionReportTimestampBound(startInclusive);
+    final endBound = plannedExecutionReportTimestampBound(endExclusive);
 
     final startedInPeriod = decode(
       _executions

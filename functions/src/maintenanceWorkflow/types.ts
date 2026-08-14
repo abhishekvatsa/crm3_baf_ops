@@ -101,6 +101,8 @@ export interface WorkflowDoc extends JsonMap {
   readonly version?: number;
   readonly assetTypeKey?: string;
   readonly assetNumber?: number;
+  readonly assetClassId?: string;
+  readonly assetInstanceId?: string;
   readonly laneSetFinalizedAt?: string | null;
   readonly cancelled?: boolean;
   readonly completedAt?: string | null;

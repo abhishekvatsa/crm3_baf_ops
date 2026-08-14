@@ -17,7 +17,17 @@ class EquipmentStatusRecord {
   @Index()
   late int assetNumber;
   @Index()
+  String? assetClassId;
+  @Index()
+  String? assetInstanceId;
+  @Index()
   String stateKey = 'inService';
+
+  @ignore
+  String get projectionIdentityKey =>
+      assetTypeKey == 'governedCustom'
+          ? '$assetTypeKey:$assetClassId:$assetInstanceId'
+          : '$assetTypeKey:$assetNumber';
 
   int openMaintenanceCount = 0;
   int openRedCount = 0;

@@ -113,7 +113,7 @@ class PlantAssetOverview {
 
     final workflowByKey = <String, EquipmentStatusRecord>{};
     for (final status in workflowStatuses) {
-      final key = '${status.assetTypeKey}:${status.assetNumber}';
+      final key = status.projectionIdentityKey;
       if (workflowByKey.containsKey(key)) {
         throw StateError('Duplicate workflow projection for $key.');
       }
@@ -144,7 +144,7 @@ class PlantAssetOverview {
           operationalCondition: condition,
           workflowStatus:
               legacyKey == null
-                  ? null
+                  ? workflowByKey['governedCustom:${asset.assetClassId}:${asset.id}']
                   : workflowByKey['$legacyKey:${asset.assetNumber}'],
         ),
       );
