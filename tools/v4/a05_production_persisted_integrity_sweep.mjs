@@ -39,6 +39,8 @@ const DART_RECONCILIATION_COLLECTIONS = new Set([
   'asset_tag_claims',
   'audit_logs',
   'maintenance_records',
+  'quality_monitoring_requests',
+  'quality_warnings',
 ]);
 
 export const A05_DECISIONS = Object.freeze({
@@ -89,6 +91,9 @@ export const A05_COLLECTION_REGISTRY = Object.freeze({
   maintenance_workflow_command_receipts: 'SERVER_CONTROL_RECORD',
   user_authority_mutation_receipts: 'SERVER_CONTROL_RECORD',
   charge_abnormality_mutation_receipts: 'SERVER_CONTROL_RECORD',
+  quality_warnings: 'DART_RECONCILIATION_REQUIRED',
+  quality_monitoring_requests: 'DART_RECONCILIATION_REQUIRED',
+  quality_mutation_receipts: 'SERVER_CONTROL_RECORD',
   workflow_notification_receipts: 'SERVER_CONTROL_RECORD',
   notification_event_receipts: 'SERVER_CONTROL_RECORD',
   callable_abuse_controls: 'SERVER_CONTROL_RECORD',

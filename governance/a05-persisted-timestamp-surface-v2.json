@@ -458,6 +458,54 @@
       "authorityBoundary": "remote-asset-operational-condition-record",
       "regression": "test/asset_operational_condition_model_test.dart",
       "reArmCondition": "any asset operational-condition timestamp schema change"
+    },
+    {
+      "id": "quality-command-response",
+      "readerFile": "lib/features/quality/services/quality_command_service.dart",
+      "readerMarker": "factory QualityCommandResult.fromMap",
+      "requiredFields": ["committedAt"],
+      "optionalFields": [],
+      "owner": "quality-assurance",
+      "purpose": "verify the canonical server commit instant in quality mutation evidence",
+      "authorityBoundary": "remote-quality-command-response",
+      "regression": "test/quality_command_result_test.dart",
+      "reArmCondition": "any quality callable receipt timestamp change"
+    },
+    {
+      "id": "quality-command-returned-entity",
+      "readerFile": "lib/features/quality/services/quality_command_service.dart",
+      "readerMarker": "Map<String, dynamic> _normaliseQualityEntity(",
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": ["closureRequestedAt", "closedAt"],
+      "owner": "quality-assurance",
+      "purpose": "normalize callable-serialized Firestore timestamps before strict returned-entity validation",
+      "authorityBoundary": "remote-quality-command-returned-entity",
+      "regression": "test/quality_command_result_test.dart",
+      "reArmCondition": "any returned quality entity timestamp shape or optionality change"
+    },
+    {
+      "id": "quality-warning-record",
+      "readerFile": "lib/features/quality/data/quality_warning.dart",
+      "readerMarker": "factory QualityWarning.fromMap",
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": ["closedAt", "closureRequestedAt"],
+      "owner": "quality-assurance",
+      "purpose": "restore warning creation, closure-request, adjudication, and update chronology",
+      "authorityBoundary": "remote-quality-warning-record",
+      "regression": "test/quality_warning_lifecycle_test.dart",
+      "reArmCondition": "any quality warning timestamp schema change"
+    },
+    {
+      "id": "quality-monitoring-record",
+      "readerFile": "lib/features/quality/data/quality_warning.dart",
+      "readerMarker": "factory QualityMonitoringRequest.fromMap",
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": ["closedAt"],
+      "owner": "quality-assurance",
+      "purpose": "restore monitoring request creation, update, and closure chronology",
+      "authorityBoundary": "remote-quality-monitoring-record",
+      "regression": "test/quality_warning_lifecycle_test.dart",
+      "reArmCondition": "any quality monitoring timestamp schema change"
     }
   ]
 }

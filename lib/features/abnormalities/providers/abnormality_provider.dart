@@ -20,6 +20,7 @@ import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/services/global_pull_protocol.dart';
+import '../../quality/domain/quality_warning_projection.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -1191,6 +1192,11 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
       .instance
       .collection('charge_abnormalities');
 
+  final fs.CollectionReference<Map<String, dynamic>> _qualityWarnings = fs
+      .FirebaseFirestore
+      .instance
+      .collection('quality_warnings');
+
   // ───────────────────────────────────────────────────────────
   // TYPE MASTER DATA
   // ───────────────────────────────────────────────────────────
@@ -1527,9 +1533,24 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
               : abnormality.version + 1
       ..isSynced = true;
 
-    await _abnormalities
-        .doc(abnormality.firestoreId)
-        .set(abnormality.toMap(), fs.SetOptions(merge: true));
+    if (isCreate) {
+      final warning = qualityWarningProjectionForAbnormality(abnormality);
+      final warningId = warning['warningId'] as String;
+      final warningExists =
+          (await _qualityWarnings.doc(warningId).get()).exists;
+      final batch = fs.FirebaseFirestore.instance.batch();
+      batch.set(
+        _abnormalities.doc(abnormality.firestoreId),
+        abnormality.toMap(),
+        fs.SetOptions(merge: true),
+      );
+      if (!warningExists) batch.set(_qualityWarnings.doc(warningId), warning);
+      await batch.commit();
+    } else {
+      await _abnormalities
+          .doc(abnormality.firestoreId)
+          .set(abnormality.toMap(), fs.SetOptions(merge: true));
+    }
 
     if (auditContext != null) {
       _logAudit(
@@ -1838,19 +1859,64 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   Future<void> batchUpsertAbnormalities(List<ChargeAbnormality> records) async {
     if (records.isEmpty) return;
 
-    final batch = fs.FirebaseFirestore.instance.batch();
-
-    for (final record in records) {
-      if (record.firestoreId == null) continue;
-
-      batch.set(
-        _abnormalities.doc(record.firestoreId),
-        record.toMap(),
-        fs.SetOptions(merge: true),
+    const maximumPairedRecordsPerBatch = 250;
+    for (
+      var offset = 0;
+      offset < records.length;
+      offset += maximumPairedRecordsPerBatch
+    ) {
+      final chunk = records.sublist(
+        offset,
+        offset + maximumPairedRecordsPerBatch > records.length
+            ? records.length
+            : offset + maximumPairedRecordsPerBatch,
       );
-    }
+      final warnings = <String, Map<String, dynamic>>{};
+      for (final record in chunk) {
+        if (record.firestoreId == null || record.isDeleted) continue;
+        final warning = qualityWarningProjectionForAbnormality(record);
+        warnings[warning['warningId'] as String] = warning;
+      }
+      final existingWarningIds = await _existingQualityWarningIds(
+        warnings.keys,
+      );
+      final batch = fs.FirebaseFirestore.instance.batch();
+      for (final record in chunk) {
+        if (record.firestoreId == null) continue;
+        batch.set(
+          _abnormalities.doc(record.firestoreId),
+          record.toMap(),
+          fs.SetOptions(merge: true),
+        );
+      }
+      for (final entry in warnings.entries) {
+        if (!existingWarningIds.contains(entry.key)) {
+          batch.set(_qualityWarnings.doc(entry.key), entry.value);
+        }
+      }
 
-    await batch.commit();
+      await batch.commit();
+    }
+  }
+
+  Future<Set<String>> _existingQualityWarningIds(
+    Iterable<String> warningIds,
+  ) async {
+    final ids = warningIds.toSet().toList();
+    final existing = <String>{};
+    for (var index = 0; index < ids.length; index += 30) {
+      final chunk = ids.sublist(
+        index,
+        index + 30 > ids.length ? ids.length : index + 30,
+      );
+      if (chunk.isEmpty) continue;
+      final snapshot =
+          await _qualityWarnings
+              .where(fs.FieldPath.documentId, whereIn: chunk)
+              .get();
+      existing.addAll(snapshot.docs.map((document) => document.id));
+    }
+    return existing;
   }
 }
 

@@ -19,6 +19,7 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/repositories/asset_hierarchy_repository.dart';
+import '../../quality/domain/issue_quality_intent.dart';
 
 class MaintenanceForm extends ConsumerStatefulWidget {
   const MaintenanceForm({super.key});
@@ -31,6 +32,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
   bool _isCritical = false;
+  IssueQualityAssessment? _qualityAssessment;
 
   AssetType _assetType = AssetType.base;
   MaintenanceType _maintenanceType = MaintenanceType.breakdown;
@@ -43,6 +45,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   final _tagController = TextEditingController();
   final _componentController = TextEditingController();
   final _otherDepartmentController = TextEditingController();
+  final _qualityReasonController = TextEditingController();
 
   String? _resolvedSystem;
   String? _resolvedSubsystem;
@@ -72,6 +75,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     _tagController.dispose();
     _componentController.dispose();
     _otherDepartmentController.dispose();
+    _qualityReasonController.dispose();
     super.dispose();
   }
 
@@ -233,6 +237,16 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     if (!_formKey.currentState!.validate()) return;
     if (_isSubmitting) return;
 
+    if (_qualityAssessment == null) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Assess whether coil quality may be affected.'),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+      return;
+    }
+
     final inputValidation = MaintenanceInputValidator.validateCreate(
       MaintenanceCreateInput(
         assetType: _assetType,
@@ -315,6 +329,13 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             ..subsystem = _cleanOptionalText(_resolvedSubsystem)
             ..hierarchyPath = hierarchyPath;
       record.assetHierarchyRefJson = _assetHierarchyReference?.encode();
+      record.qualityIntent = IssueQualityIntent(
+        assessment: _qualityAssessment!,
+        warningReason:
+            _qualityAssessment == IssueQualityAssessment.suspected
+                ? _cleanRequiredText(_qualityReasonController.text)
+                : null,
+      );
 
       final repository = ref.read(maintenanceRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
@@ -408,6 +429,71 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           ),
           children: [
             _IntroCard(appUserName: appUser?.name),
+            const SizedBox(height: BafSpacing.lg),
+
+            _SectionCard(
+              title: 'Quality impact',
+              subtitle: 'Record whether the current charge may be affected.',
+              icon: Icons.fact_check_outlined,
+              children: [
+                SegmentedButton<IssueQualityAssessment>(
+                  emptySelectionAllowed: true,
+                  segments: const [
+                    ButtonSegment(
+                      value: IssueQualityAssessment.notSuspected,
+                      icon: Icon(Icons.check_circle_outline_rounded),
+                      label: Text('Not suspected'),
+                    ),
+                    ButtonSegment(
+                      value: IssueQualityAssessment.suspected,
+                      icon: Icon(Icons.warning_amber_rounded),
+                      label: Text('Suspected'),
+                    ),
+                  ],
+                  selected:
+                      _qualityAssessment == null
+                          ? const <IssueQualityAssessment>{}
+                          : <IssueQualityAssessment>{_qualityAssessment!},
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _qualityAssessment =
+                          selection.isEmpty ? null : selection.first;
+                      if (_qualityAssessment !=
+                          IssueQualityAssessment.suspected) {
+                        _qualityReasonController.clear();
+                      }
+                    });
+                  },
+                ),
+                if (_qualityAssessment == IssueQualityAssessment.suspected) ...[
+                  const SizedBox(height: BafSpacing.md),
+                  TextFormField(
+                    controller: _qualityReasonController,
+                    maxLines: 3,
+                    decoration: _inputDecoration(
+                      'Suspected quality effect',
+                      hint: 'What may have affected the coil or cycle?',
+                      alignLabelWithHint: true,
+                    ),
+                    validator: (value) {
+                      if (_qualityAssessment !=
+                          IssueQualityAssessment.suspected) {
+                        return null;
+                      }
+                      final cleaned = value?.trim() ?? '';
+                      if (cleaned.length < 8) {
+                        return 'Describe the suspected effect (at least 8 characters)';
+                      }
+                      if (cleaned.length > 1000) {
+                        return 'Keep the quality note within 1000 characters';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ],
+            ),
+
             const SizedBox(height: BafSpacing.lg),
 
             _SectionCard(
@@ -671,12 +757,24 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                   keyboardType: TextInputType.number,
                   decoration: _inputDecoration(
                     'Charge number',
-                    hint: 'Optional',
+                    hint:
+                        _qualityAssessment == IssueQualityAssessment.suspected
+                            ? 'Required for a quality warning'
+                            : 'Optional',
                   ),
-                  validator:
-                      (value) => MaintenanceInputValidator.validateChargeNumber(
-                        value,
-                      ).messageFor('chargeNoAtEvent'),
+                  validator: (value) {
+                    final message =
+                        MaintenanceInputValidator.validateChargeNumber(
+                          value,
+                        ).messageFor('chargeNoAtEvent');
+                    if (message != null) return message;
+                    if (_qualityAssessment ==
+                            IssueQualityAssessment.suspected &&
+                        int.tryParse(value?.trim() ?? '') == null) {
+                      return 'Charge number is required when quality impact is suspected';
+                    }
+                    return null;
+                  },
                 ),
               ],
             ),

@@ -187,6 +187,15 @@ class AppUser {
 
   bool get canViewReports => isApproved;
 
+  bool get canViewQuality => isApproved;
+
+  bool get canRequestQualityWarningClosure =>
+      isApproved && (isAdmin || isSI || isShiftSupervisor || isOperations);
+
+  bool get canCloseQualityWarning => isApproved && (isAdmin || isSI);
+
+  bool get canManageQualityMonitoring => canCloseQualityWarning;
+
   bool get canOpenAdminDataBrowser => isApproved && isAdmin;
 
   /// Asset-class and component hierarchy is an authoritative master-data

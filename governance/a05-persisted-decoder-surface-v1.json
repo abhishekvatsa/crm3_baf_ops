@@ -653,6 +653,54 @@
       "regression": "test/asset_operational_condition_model_test.dart; test/plant_asset_overview_test.dart; functions/test/assetOperationalConditionMutation.test.js",
       "reArmCondition": "condition identity, lifecycle, authority, cause, issue-link, or version fields are defaulted from malformed input",
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "quality-warning-and-monitoring-records",
+      "file": "lib/features/quality/data/quality_warning.dart",
+      "markers": [
+        "factory QualityWarning.fromMap",
+        "factory QualityMonitoringRequest.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "quality-assurance",
+      "authorityBoundary": "quality warning adjudication and monitoring lifecycle",
+      "malformedDisposition": "fail closed before malformed warning, closure, RA, or monitoring evidence enters the quality workspace",
+      "compatibility": "schema version 1 only; no partial lifecycle evidence or malformed charge references",
+      "regression": "test/quality_warning_lifecycle_test.dart; functions/test/qualityMutation.test.js",
+      "reArmCondition": "quality schema, lifecycle bundle, charge-reference, actor, timestamp, or version validation changes",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "issue-quality-intent",
+      "file": "lib/features/quality/domain/issue_quality_intent.dart",
+      "markers": [
+        "factory IssueQualityIntent.fromSynchronizedFields",
+        "static IssueQualityIntent? tryDecodeLocal"
+      ],
+      "classification": "VERSIONED_OPERATIONAL_INTENT",
+      "owner": "quality-assurance",
+      "authorityBoundary": "issue quality assessment and warning-creation admission",
+      "malformedDisposition": "fail closed for a present current quality envelope while retaining opaque pre-feature metadata compatibility",
+      "compatibility": "complete schema-versioned quality fields or wholly absent legacy fields; opaque metadata without a qualityIntent key is ignored",
+      "regression": "test/issue_quality_intent_test.dart; test/firestore.rules.test.js",
+      "reArmCondition": "quality intent is defaulted, a partial current envelope is ignored, or suspected impact loses charge/warning evidence",
+      "riskFingerprint": "56d95bc8705a74e0fe6758e72574e0157232d2ecbb8da4f39d071ab55a47edd6"
+    },
+    {
+      "id": "quality-command-result",
+      "file": "lib/features/quality/services/quality_command_service.dart",
+      "markers": [
+        "factory QualityCommandResult.fromMap",
+        "Future<QualityCommandResult> _call"
+      ],
+      "classification": "SERVER_COMMAND_RECEIPT",
+      "owner": "quality-assurance",
+      "authorityBoundary": "governed quality mutation result and optimistic-version evidence",
+      "malformedDisposition": "translate malformed callable evidence to data-loss and never report command success",
+      "compatibility": "none for request identity, operation, entity, result version, audit identity, or commit time",
+      "regression": "test/quality_command_result_test.dart; test/quality_warning_lifecycle_test.dart; functions/test/qualityMutation.test.js",
+      "reArmCondition": "malformed response fields are coerced or accepted as a successful quality mutation",
+      "riskFingerprint": "9c9cb2dde2f893b5502400fce038e06fefa3414254ec3dc653a7c8e586ba8c11"
     }
   ],
   "catchSites": [
@@ -984,7 +1032,7 @@
     {
       "id": "maintenance-create-command-presentation",
       "file": "lib/features/maintenance/presentation/maintenance_form.dart",
-      "siteFingerprint": "f55b91871094af170dc3601071e8ba87980030a5f80c00fe3b35c2be34a7a653",
+      "siteFingerprint": "6e14a8a0f37c0b2a8a84de967566aad1f2151e36ec4a10cca4405e1fcb467c00",
       "classification": "USER_INPUT_AND_COMMAND_ERROR_PRESENTATION",
       "purpose": "surface invalid form input or ticket-command failure without manufacturing a record",
       "authorityBoundary": "operator ticket-creation command",
@@ -1123,6 +1171,19 @@
       "malformedDisposition": "return blocking validation errors and no valid bundle",
       "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "semantic snapshot failure permits publication"
+    },
+    {
+      "id": "quality-command-transport-translation",
+      "file": "lib/features/quality/services/quality_command_service.dart",
+      "siteFingerprint": "264b39ac9ec88eda2daddc1dd95886022ef177dcc3afa6383d2a9973ea82ff4f",
+      "classification": "TRANSPORT_ERROR_TRANSLATION",
+      "purpose": "translate callable transport failures while preserving strict response-format failure",
+      "authorityBoundary": "governed quality mutation response",
+      "mutability": "remote mutation already governed by the server; no local success state is manufactured",
+      "dataScope": "quality callable response and Firebase transport error",
+      "malformedDisposition": "throw a data-loss command error and do not report success",
+      "regression": "test/quality_command_result_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "transport or response-format failure becomes a successful quality decision"
     }
   ]
 }

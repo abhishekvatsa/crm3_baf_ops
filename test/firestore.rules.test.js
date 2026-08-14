@@ -363,16 +363,93 @@ describe("charge abnormality governed admin mutations", () => {
     };
   }
 
+  function qualityWarningForAbnormality(payload) {
+    return {
+      schemaVersion: 1,
+      warningId: `abnormality_${payload.firestoreId}`,
+      sourceType: "abnormality",
+      sourceId: payload.firestoreId,
+      sourceVersion: payload.version,
+      sourceChargeNo: payload.sourceChargeNo,
+      sourceSummary: payload.abnormalityTypeTitle,
+      sourceSeverity: payload.severity,
+      warningReason: payload.observedReason,
+      affectedAssets: payload.affectedAssets,
+      component: payload.component,
+      status: "open",
+      closureRequestReason: null,
+      closureRequestedAt: null,
+      closureRequestedByUid: null,
+      closureRequestedByName: null,
+      closedAt: null,
+      closedByUid: null,
+      closedByName: null,
+      closureDisposition: null,
+      linkedReannealingChargeNos: [],
+      decisionReason: null,
+      createdAt: payload.loggedAt,
+      createdByUid: payload.loggedByUid,
+      createdByName: payload.loggedByName,
+      updatedAt: payload.loggedAt,
+      updatedByUid: payload.loggedByUid,
+      updatedByName: payload.loggedByName,
+      version: 1,
+    };
+  }
+
   test("approved operator can still create a valid charge abnormality", async () => {
     await seedUser("operator1", ["operations"]);
     const db = dbAs("operator1");
-
-    await assertSucceeds(
-      setDoc(
-        doc(db, "charge_abnormalities/abn1"),
-        chargeAbnormalityPayload("operator1")
-      )
+    const abnormality = chargeAbnormalityPayload("operator1");
+    const batch = writeBatch(db);
+    batch.set(doc(db, "charge_abnormalities/abn1"), abnormality);
+    batch.set(
+      doc(db, "quality_warnings/abnormality_abn1"),
+      qualityWarningForAbnormality(abnormality)
     );
+
+    await assertSucceeds(batch.commit());
+
+    const warningRef = doc(db, "quality_warnings/abnormality_abn1");
+    await assertSucceeds(
+      setDoc(warningRef, qualityWarningForAbnormality(abnormality))
+    );
+    await assertFails(updateDoc(warningRef, {status: "closureRequested"}));
+  });
+
+  test("valid abnormality cannot be created without its quality warning", async () => {
+    await seedUser("operator1", ["operations"]);
+
+    await assertFails(setDoc(
+      doc(dbAs("operator1"), "charge_abnormalities/abn1"),
+      chargeAbnormalityPayload("operator1")
+    ));
+  });
+
+  test("source-bound abnormality warning cannot be spoofed", async () => {
+    await seedUser("operator1", ["operations"]);
+    const db = dbAs("operator1");
+    const abnormality = chargeAbnormalityPayload("operator1");
+    const warning = qualityWarningForAbnormality(abnormality);
+    warning.warningReason = "Different client-supplied quality claim";
+    const batch = writeBatch(db);
+    batch.set(doc(db, "charge_abnormalities/abn1"), abnormality);
+    batch.set(doc(db, "quality_warnings/abnormality_abn1"), warning);
+
+    await assertFails(batch.commit());
+  });
+
+  test("pre-existing mismatched warning cannot satisfy abnormality pairing", async () => {
+    await seedUser("operator1", ["operations"]);
+    const abnormality = chargeAbnormalityPayload("operator1");
+    const warning = qualityWarningForAbnormality(abnormality);
+    warning.warningReason = "Server-seeded warning does not match its source";
+    await seedDoc("quality_warnings/abnormality_abn1", warning);
+
+    await assertFails(setDoc(
+      doc(dbAs("operator1"), "charge_abnormalities/abn1"),
+      abnormality
+    ));
   });
 
   test.each([
@@ -444,6 +521,15 @@ describe("charge abnormality governed admin mutations", () => {
     await assertFails(setDoc(receipt, {requestId: "request1"}));
     await assertFails(updateDoc(receipt, {resultVersion: 2}));
     await assertFails(deleteDoc(receipt));
+    const qualityReceipt = doc(db, "quality_mutation_receipts/request1");
+    await assertFails(getDoc(qualityReceipt));
+    await assertFails(setDoc(qualityReceipt, {requestId: "request1"}));
+    await assertFails(updateDoc(qualityReceipt, {resultVersion: 2}));
+    await assertFails(deleteDoc(qualityReceipt));
+    const monitoring = doc(db, "quality_monitoring_requests/request1");
+    await assertFails(setDoc(monitoring, {requestId: "request1"}));
+    await assertFails(updateDoc(monitoring, {status: "closed"}));
+    await assertFails(deleteDoc(monitoring));
     const notificationReceipt = doc(
       db,
       "notification_event_receipts/event1"
@@ -652,6 +738,114 @@ describe("maintenance_records", () => {
         isDeleted: false,
       })
     );
+  });
+
+  test("quality assessment is complete and suspected impact requires charge evidence", async () => {
+    const db = dbAs("ops1");
+    const now = new Date().toISOString();
+    const base = {
+      version: 1,
+      assetType: "furnace",
+      assetNumber: 1,
+      maintenanceType: "breakdown",
+      description: "Atmosphere interruption during cycle",
+      routedTo: "operations",
+      status: "open",
+      isResolved: false,
+      isCritical: true,
+      loggedByUid: "ops1",
+      createdAt: now,
+      updatedAt: now,
+      isDeleted: false,
+    };
+
+    await assertFails(setDoc(doc(db, "maintenance_records/qualityPartial"), {
+      ...base,
+      firestoreId: "qualityPartial",
+      qualityIntentSchemaVersion: 1,
+      qualityImpactAssessment: "suspected",
+    }));
+    await assertFails(setDoc(doc(db, "maintenance_records/qualityNoCharge"), {
+      ...base,
+      firestoreId: "qualityNoCharge",
+      qualityIntentSchemaVersion: 1,
+      qualityImpactAssessment: "suspected",
+      qualityWarningReason: "Atmosphere loss may affect coil quality.",
+    }));
+    const warningTicket = {
+      ...base,
+      firestoreId: "qualityWarning",
+      chargeNoAtEvent: 12345,
+      qualityIntentSchemaVersion: 1,
+      qualityImpactAssessment: "suspected",
+      qualityWarningReason: "Atmosphere loss may affect coil quality.",
+    };
+    await assertFails(setDoc(
+      doc(db, "maintenance_records/qualityWarningMissing"),
+      {...warningTicket, firestoreId: "qualityWarningMissing"}
+    ));
+    const warningBatch = writeBatch(db);
+    warningBatch.set(
+      doc(db, "maintenance_records/qualityWarning"),
+      warningTicket
+    );
+    const warningProjection = {
+      schemaVersion: 1,
+      warningId: "issue_qualityWarning",
+      sourceType: "issue",
+      sourceId: "qualityWarning",
+      sourceVersion: 1,
+      sourceChargeNo: 12345,
+      sourceSummary: warningTicket.description,
+      sourceSeverity: "critical",
+      warningReason: warningTicket.qualityWarningReason,
+      affectedAssets: [{assetType: "furnace", assetNumber: 1}],
+      component: null,
+      status: "open",
+      closureRequestReason: null,
+      closureRequestedAt: null,
+      closureRequestedByUid: null,
+      closureRequestedByName: null,
+      closedAt: null,
+      closedByUid: null,
+      closedByName: null,
+      closureDisposition: null,
+      linkedReannealingChargeNos: [],
+      decisionReason: null,
+      createdAt: now,
+      createdByUid: "ops1",
+      createdByName: null,
+      updatedAt: now,
+      updatedByUid: "ops1",
+      updatedByName: null,
+      version: 1,
+    };
+    warningBatch.set(
+      doc(db, "quality_warnings/issue_qualityWarning"),
+      warningProjection
+    );
+    await assertSucceeds(warningBatch.commit());
+    const poisonedTicket = {
+      ...warningTicket,
+      firestoreId: "qualityPoisoned",
+    };
+    await seedDoc("quality_warnings/issue_qualityPoisoned", {
+      ...warningProjection,
+      warningId: "issue_qualityPoisoned",
+      sourceId: "qualityPoisoned",
+      sourceSummary: "Mismatched server-seeded summary",
+    });
+    await assertFails(setDoc(
+      doc(db, "maintenance_records/qualityPoisoned"),
+      poisonedTicket
+    ));
+    await assertSucceeds(setDoc(doc(db, "maintenance_records/qualityClear"), {
+      ...base,
+      firestoreId: "qualityClear",
+      qualityIntentSchemaVersion: 1,
+      qualityImpactAssessment: "notSuspected",
+      qualityWarningReason: null,
+    }));
   });
 
   test("senior can close but cannot mutate unrelated ticket evidence while closing", async () => {

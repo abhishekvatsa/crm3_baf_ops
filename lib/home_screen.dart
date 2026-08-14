@@ -24,6 +24,7 @@ import 'features/directives/presentation/directives_screen.dart';
 import 'features/maintenance/presentation/closed_tickets_screen.dart';
 import 'features/reports/presentation/fleet_status_screen.dart';
 import 'features/abnormalities/presentation/abnormalities_home_screen.dart';
+import 'features/quality/presentation/quality_home_screen.dart';
 import 'features/maintenance_workflow/presentation/screens/compliance_inbox_screen.dart';
 import 'features/maintenance_workflow/presentation/screens/compliance_notification_screen.dart';
 import 'features/maintenance_workflow/presentation/screens/equipment_status_board.dart';
@@ -273,6 +274,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onDirectives: () => setState(() => _currentIndex = 3),
               onAbnormalities:
                   () => _push(context, const AbnormalitiesHomeScreen()),
+              onQuality: () => _push(context, const QualityHomeScreen()),
               onPlantCondition:
                   () => _push(context, const AssetConditionBoard()),
               onManualSync: () => _runManualSync(context),
@@ -356,6 +358,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onAuditLog: () => _push(context, const RecentAuditLogScreen()),
               onAbnormalities:
                   () => _push(context, const AbnormalitiesHomeScreen()),
+              onQuality: () => _push(context, const QualityHomeScreen()),
               onTemplateAuthoring: () => _openModuleComposer(context, appUser),
               onTemplatePublisher:
                   () => _push(context, const TemplatePublisherScreen()),
@@ -563,6 +566,7 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onWork;
   final VoidCallback onDirectives;
   final VoidCallback onAbnormalities;
+  final VoidCallback onQuality;
   final VoidCallback onPlantCondition;
   final VoidCallback onManualSync;
 
@@ -579,6 +583,7 @@ class _DashboardHome extends StatelessWidget {
     required this.onWork,
     required this.onDirectives,
     required this.onAbnormalities,
+    required this.onQuality,
     required this.onPlantCondition,
     required this.onManualSync,
   });
@@ -687,6 +692,7 @@ class _MoreScreen extends StatelessWidget {
   final VoidCallback onAdmin;
   final VoidCallback onAuditLog;
   final VoidCallback onAbnormalities;
+  final VoidCallback onQuality;
   final VoidCallback onTemplateAuthoring;
   final VoidCallback onTemplatePublisher;
   final VoidCallback onKnowledgeGovernance;
@@ -701,6 +707,7 @@ class _MoreScreen extends StatelessWidget {
     required this.onAdmin,
     required this.onAuditLog,
     required this.onAbnormalities,
+    required this.onQuality,
     required this.onTemplateAuthoring,
     required this.onTemplatePublisher,
     required this.onKnowledgeGovernance,
@@ -760,6 +767,14 @@ class _MoreScreen extends StatelessWidget {
                     subtitle: 'Charge events, RA traceability and root causes',
                     onTap: onAbnormalities,
                   ),
+                  if (appUser.canViewQuality)
+                    _MoreDestinationTile(
+                      icon: Icons.verified_user_outlined,
+                      color: BafColors.warning,
+                      title: 'Quality',
+                      subtitle: 'Warnings, closure assurance and monitoring',
+                      onTap: onQuality,
+                    ),
                   if (canSeeClosed)
                     _MoreDestinationTile(
                       icon: Icons.history_rounded,

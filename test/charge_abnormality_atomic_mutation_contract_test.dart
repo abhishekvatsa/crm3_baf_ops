@@ -271,7 +271,15 @@ void main() {
         contains("!docId.matches('^server_charge_abnormality_.*')"),
       );
       expect(functions, contains('export const mutateChargeAbnormality'));
-      expect(functions, contains('authorize: userCanMutateChargeAbnormality'));
+      expect(
+        functions,
+        contains('isQualityMutationOperation(request.data?.operation) ?'),
+      );
+      expect(
+        functions,
+        contains('userCanMutateQuality(userData, request.data.operation)'),
+      );
+      expect(functions, contains('userCanMutateChargeAbnormality(userData)'));
     },
   );
 }

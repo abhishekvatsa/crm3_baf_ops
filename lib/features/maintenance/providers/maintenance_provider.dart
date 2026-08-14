@@ -19,6 +19,7 @@ import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/services/global_pull_protocol.dart';
 import '../data/remote_maintenance_reader.dart';
+import '../../quality/domain/quality_warning_projection.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -1055,6 +1056,9 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
   final _collection = FirebaseFirestore.instance.collection(
     'maintenance_records',
   );
+  final _qualityWarnings = FirebaseFirestore.instance.collection(
+    'quality_warnings',
+  );
 
   Map<String, dynamic>? _sanitizeForAudit(Map<String, dynamic>? data) {
     if (data == null) return null;
@@ -1174,9 +1178,24 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     if (record.firestoreId == null) {
       throw Exception('firestoreId cannot be null');
     }
-    await _collection
-        .doc(record.firestoreId)
-        .set(_ticketToMap(record), SetOptions(merge: true));
+    final ticketData = _ticketToMap(record);
+    final warning = qualityWarningProjectionForIssue(record);
+    if (warning == null) {
+      await _collection
+          .doc(record.firestoreId)
+          .set(ticketData, SetOptions(merge: true));
+      return;
+    }
+    final warningId = warning['warningId'] as String;
+    final warningExists = (await _qualityWarnings.doc(warningId).get()).exists;
+    final batch = FirebaseFirestore.instance.batch();
+    batch.set(
+      _collection.doc(record.firestoreId),
+      ticketData,
+      SetOptions(merge: true),
+    );
+    if (!warningExists) batch.set(_qualityWarnings.doc(warningId), warning);
+    await batch.commit();
   }
 
   @override
@@ -1595,17 +1614,45 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
 
   @override
   Future<void> batchUpsertTickets(List<MaintenanceRecord> records) async {
-    final batch = FirebaseFirestore.instance.batch();
-    for (final r in records) {
-      if (r.firestoreId != null) {
-        batch.set(
-          _collection.doc(r.firestoreId),
-          _ticketToMap(r),
-          SetOptions(merge: true),
-        );
+    const maximumPairedRecordsPerBatch = 250;
+    for (
+      var offset = 0;
+      offset < records.length;
+      offset += maximumPairedRecordsPerBatch
+    ) {
+      final chunk = records.sublist(
+        offset,
+        offset + maximumPairedRecordsPerBatch > records.length
+            ? records.length
+            : offset + maximumPairedRecordsPerBatch,
+      );
+      final warnings = <String, Map<String, dynamic>>{};
+      for (final record in chunk) {
+        final warning = qualityWarningProjectionForIssue(record);
+        if (warning != null) {
+          warnings[warning['warningId'] as String] = warning;
+        }
       }
+      final existingWarningIds = await _existingQualityWarningIds(
+        warnings.keys,
+      );
+      final batch = FirebaseFirestore.instance.batch();
+      for (final record in chunk) {
+        if (record.firestoreId != null) {
+          batch.set(
+            _collection.doc(record.firestoreId),
+            _ticketToMap(record),
+            SetOptions(merge: true),
+          );
+        }
+      }
+      for (final entry in warnings.entries) {
+        if (!existingWarningIds.contains(entry.key)) {
+          batch.set(_qualityWarnings.doc(entry.key), entry.value);
+        }
+      }
+      await batch.commit();
     }
-    await batch.commit();
   }
 
   @override
@@ -1623,7 +1670,37 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     // Field-scoped merge: the caller provides only the fields for one
     // maintenance lifecycle rule branch. This avoids pushing a collapsed final
     // dirty snapshot that skips the server-visible open/closed/open sequence.
-    await _collection.doc(id).set(stepData, SetOptions(merge: true));
+    final warning = qualityWarningProjectionForIssueMap(stepData, id);
+    if (warning == null) {
+      await _collection.doc(id).set(stepData, SetOptions(merge: true));
+      return;
+    }
+    final warningId = warning['warningId'] as String;
+    final warningExists = (await _qualityWarnings.doc(warningId).get()).exists;
+    final batch = FirebaseFirestore.instance.batch();
+    batch.set(_collection.doc(id), stepData, SetOptions(merge: true));
+    if (!warningExists) batch.set(_qualityWarnings.doc(warningId), warning);
+    await batch.commit();
+  }
+
+  Future<Set<String>> _existingQualityWarningIds(
+    Iterable<String> warningIds,
+  ) async {
+    final ids = warningIds.toSet().toList();
+    final existing = <String>{};
+    for (var index = 0; index < ids.length; index += 30) {
+      final chunk = ids.sublist(
+        index,
+        index + 30 > ids.length ? ids.length : index + 30,
+      );
+      if (chunk.isEmpty) continue;
+      final snapshot =
+          await _qualityWarnings
+              .where(FieldPath.documentId, whereIn: chunk)
+              .get();
+      existing.addAll(snapshot.docs.map((document) => document.id));
+    }
+    return existing;
   }
 
   @override
@@ -1636,6 +1713,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
 
   // 🔥 FULL MAPPING (RESTORED)
   Map<String, dynamic> _ticketToMap(MaintenanceRecord t) => {
+    ...t.qualityIntentSynchronizedFields,
     'firestoreId': t.firestoreId,
     'version': t.version,
     'assetType': t.assetType.name,
