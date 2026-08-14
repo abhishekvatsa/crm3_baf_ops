@@ -837,8 +837,27 @@ class _DisruptionSection extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
-              subtitle: Text(
-                '${occurrence.event.eventType.label} · ${occurrence.event.severity.label} · ${DateFormat('dd MMM, HH:mm').format(occurrence.interval.startedAt.toLocal())}',
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${occurrence.event.eventType.label} · ${occurrence.event.severity.label} · ${DateFormat('dd MMM, HH:mm').format(occurrence.interval.startedAt.toLocal())}',
+                  ),
+                  if (!occurrence.isOpen) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Resolved by ${occurrence.interval.resolvedByName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      occurrence.interval.resolutionNote ??
+                          'Closure evidence unavailable',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
               ),
               trailing: Text(occurrence.isOpen ? 'Open' : 'Resolved'),
             ),

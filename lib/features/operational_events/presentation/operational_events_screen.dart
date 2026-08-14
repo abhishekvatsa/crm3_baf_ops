@@ -502,6 +502,41 @@ class _EventCard extends StatelessWidget {
               text: event.resolutionNote!,
             ),
           ],
+          if (event.completedIntervals.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              shape: const Border(),
+              collapsedShape: const Border(),
+              leading: const Icon(
+                Icons.history_rounded,
+                size: 19,
+                color: BafColors.textSecondary,
+              ),
+              title: Text(
+                '${event.completedIntervals.length} prior restoration${event.completedIntervals.length == 1 ? '' : 's'}',
+                style: const TextStyle(
+                  color: BafColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              children: [
+                for (final interval in event.completedIntervals.reversed)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _DetailLine(
+                      icon: Icons.task_alt_rounded,
+                      text:
+                          '${DateFormat('dd MMM yyyy, HH:mm').format(interval.startedAt.toLocal())} - '
+                          '${DateFormat('dd MMM yyyy, HH:mm').format(interval.resolvedAt.toLocal())}\n'
+                          'Resolved by ${interval.resolvedByName}: ${interval.resolutionNote}',
+                    ),
+                  ),
+              ],
+            ),
+          ],
           if (canResolve) ...[
             const SizedBox(height: 12),
             Align(

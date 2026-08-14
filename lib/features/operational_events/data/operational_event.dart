@@ -114,6 +114,9 @@ class OperationalEventInterval {
     required this.scope,
     required this.affectedAssetClassIds,
     required this.affectedAssetInstanceIds,
+    required this.resolvedByUid,
+    required this.resolvedByName,
+    required this.resolutionNote,
   });
 
   final DateTime startedAt;
@@ -121,6 +124,9 @@ class OperationalEventInterval {
   final OperationalEventScope scope;
   final List<String> affectedAssetClassIds;
   final List<String> affectedAssetInstanceIds;
+  final String? resolvedByUid;
+  final String? resolvedByName;
+  final String? resolutionNote;
 
   bool overlaps(DateTime startInclusive, DateTime endExclusive) =>
       startedAt.isBefore(endExclusive) && resolvedAt.isAfter(startInclusive);
@@ -197,6 +203,9 @@ class OperationalEvent {
       scope: scope,
       affectedAssetClassIds: affectedAssetClassIds,
       affectedAssetInstanceIds: affectedAssetInstanceIds,
+      resolvedByUid: resolvedByUid,
+      resolvedByName: resolvedByName,
+      resolutionNote: resolutionNote,
     );
   }
 
@@ -339,12 +348,15 @@ class OperationalEvent {
     for (var index = 0; index < completedRaw.length; index++) {
       final raw = completedRaw[index];
       if (raw is! Map<String, dynamic> ||
-          raw.length != 5 ||
+          raw.length != 8 ||
           !raw.containsKey('startedAt') ||
           !raw.containsKey('resolvedAt') ||
           !raw.containsKey('scope') ||
           !raw.containsKey('affectedAssetClassIds') ||
-          !raw.containsKey('affectedAssetInstanceIds')) {
+          !raw.containsKey('affectedAssetInstanceIds') ||
+          !raw.containsKey('resolvedByUid') ||
+          !raw.containsKey('resolvedByName') ||
+          !raw.containsKey('resolutionNote')) {
         throw PersistedDataFormatException(
           field: 'completedIntervals[$index]',
           source: source,
@@ -385,6 +397,21 @@ class OperationalEvent {
         field: 'completedIntervals[$index].scope',
         source: source,
       );
+      final intervalResolvedByUid = readRequiredPersistedString(
+        raw['resolvedByUid'],
+        field: 'completedIntervals[$index].resolvedByUid',
+        source: source,
+      );
+      final intervalResolvedByName = readRequiredPersistedString(
+        raw['resolvedByName'],
+        field: 'completedIntervals[$index].resolvedByName',
+        source: source,
+      );
+      final intervalResolutionNote = readRequiredPersistedString(
+        raw['resolutionNote'],
+        field: 'completedIntervals[$index].resolutionNote',
+        source: source,
+      );
       if (intervalEnd.isBefore(intervalStart) ||
           (previousResolvedAt != null &&
               intervalStart.isBefore(previousResolvedAt)) ||
@@ -396,7 +423,11 @@ class OperationalEvent {
             intervalScope,
             intervalClassIds,
             intervalAssetIds,
-          )) {
+          ) ||
+          intervalResolvedByUid.length > 128 ||
+          intervalResolvedByName.length > 200 ||
+          intervalResolutionNote.length < 8 ||
+          intervalResolutionNote.length > 1000) {
         throw PersistedDataFormatException(
           field: 'completedIntervals[$index]',
           source: source,
@@ -410,6 +441,9 @@ class OperationalEvent {
           scope: intervalScope,
           affectedAssetClassIds: List<String>.unmodifiable(intervalClassIds),
           affectedAssetInstanceIds: List<String>.unmodifiable(intervalAssetIds),
+          resolvedByUid: intervalResolvedByUid,
+          resolvedByName: intervalResolvedByName,
+          resolutionNote: intervalResolutionNote,
         ),
       );
       previousResolvedAt = intervalEnd;

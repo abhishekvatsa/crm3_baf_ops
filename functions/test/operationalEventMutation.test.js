@@ -335,6 +335,9 @@ describe('operational event mutation', () => {
         scope: 'plantWide',
         affectedAssetClassIds: [],
         affectedAssetInstanceIds: [],
+        resolvedByUid: 'ops-1',
+        resolvedByName: 'Operations One',
+        resolutionNote: 'Incoming supply remained stable through verification.',
       }],
       startedAt: new Date('2026-08-14T13:00:00.000Z'),
       resolvedAt: null,
@@ -354,6 +357,9 @@ describe('operational event mutation', () => {
           scope: 'plantWide',
           affectedAssetClassIds: [],
           affectedAssetInstanceIds: [],
+          resolvedByUid: 'ops-1',
+          resolvedByName: 'Operations One',
+          resolutionNote: 'Incoming supply remained stable through verification.',
         }],
         startedAt: new Date('2026-08-14T13:00:00.000Z'),
         resolvedAt: null,
@@ -383,6 +389,9 @@ describe('operational event mutation', () => {
         scope: 'plantWide',
         affectedAssetClassIds: [],
         affectedAssetInstanceIds: [],
+        resolvedByUid: 'ops-1',
+        resolvedByName: 'Operations One',
+        resolutionNote: 'Incoming supply remained stable through verification.',
       }],
     });
   });
@@ -428,5 +437,30 @@ describe('operational event mutation', () => {
       });
       expect(invalidMemory.writes).toHaveLength(0);
     }
+
+    const incompleteHistory = persistedEvent({
+      completedIntervals: [{
+        startedAt: new Date('2026-08-14T08:00:00.000Z'),
+        resolvedAt: new Date('2026-08-14T09:00:00.000Z'),
+        scope: 'plantWide',
+        affectedAssetClassIds: [],
+        affectedAssetInstanceIds: [],
+      }],
+    });
+    const incompleteHistoryMemory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: incompleteHistory,
+    });
+    await expect(invoke(incompleteHistoryMemory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the operational event after field confirmation.',
+      eventDraft: request().eventDraft,
+    })).rejects.toMatchObject({
+      details: {reasonCode: 'operational-event-projection-malformed'},
+    });
+    expect(incompleteHistoryMemory.writes).toHaveLength(0);
   });
 });

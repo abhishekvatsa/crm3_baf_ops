@@ -47,6 +47,9 @@ type CompletedInterval = {
   scope: Scope;
   affectedAssetClassIds: ReadonlyArray<string>;
   affectedAssetInstanceIds: ReadonlyArray<string>;
+  resolvedByUid: string;
+  resolvedByName: string;
+  resolutionNote: string;
 };
 
 interface EventDraft {
@@ -391,12 +394,22 @@ function requireCompletedIntervals(value: unknown): CompletedInterval[] {
       `completedIntervals[${index}].affectedAssetInstanceIds`,
       50,
     );
-    if (keys.length !== 5 || !keys.includes("startedAt") ||
+    const resolvedByUid = interval.resolvedByUid;
+    const resolvedByName = interval.resolvedByName;
+    const resolutionNote = interval.resolutionNote;
+    if (keys.length !== 8 || !keys.includes("startedAt") ||
         !keys.includes("resolvedAt") || !keys.includes("scope") ||
         !keys.includes("affectedAssetClassIds") ||
         !keys.includes("affectedAssetInstanceIds") ||
+        !keys.includes("resolvedByUid") || !keys.includes("resolvedByName") ||
+        !keys.includes("resolutionNote") ||
         startedAt == null || resolvedAt == null ||
         !scopeProjectionIsValid(interval.scope, classIds, assetIds) ||
+        typeof resolvedByUid !== "string" || resolvedByUid.length === 0 ||
+        resolvedByUid.length > 128 || typeof resolvedByName !== "string" ||
+        resolvedByName.length === 0 || resolvedByName.length > 200 ||
+        typeof resolutionNote !== "string" || resolutionNote.length < 8 ||
+        resolutionNote.length > 1000 ||
         resolvedAt.getTime() < startedAt.getTime() ||
         (previousResolvedAt != null &&
           startedAt.getTime() < previousResolvedAt.getTime())) {
@@ -413,6 +426,9 @@ function requireCompletedIntervals(value: unknown): CompletedInterval[] {
       scope: interval.scope as Scope,
       affectedAssetClassIds: classIds,
       affectedAssetInstanceIds: assetIds,
+      resolvedByUid,
+      resolvedByName,
+      resolutionNote,
     };
   });
 }
@@ -814,6 +830,9 @@ export async function mutateOperationalEventWithDb(args: {
             scope: current!.scope,
             affectedAssetClassIds: current!.affectedAssetClassIds,
             affectedAssetInstanceIds: current!.affectedAssetInstanceIds,
+            resolvedByUid: current!.resolvedByUid,
+            resolvedByName: current!.resolvedByName,
+            resolutionNote: current!.resolutionNote,
           },
         ],
         startedAt: committedAt,

@@ -326,6 +326,10 @@ void main() {
               scope: OperationalEventScope.plantWide,
               affectedAssetClassIds: const [],
               affectedAssetInstanceIds: const [],
+              resolvedByUid: 'shift-first',
+              resolvedByName: 'Shift Supervisor One',
+              resolutionNote:
+                  'Cooling water remained stable after the first restoration.',
             ),
           ],
           startedAt: DateTime.utc(2026, 8, 14, 13),
@@ -380,6 +384,10 @@ void main() {
           scope: OperationalEventScope.assets,
           affectedAssetClassIds: [furnace.id],
           affectedAssetInstanceIds: [furnace7.id],
+          resolvedByUid: 'shift-first',
+          resolvedByName: 'Shift Supervisor One',
+          resolutionNote:
+              'Crane support remained stable after the first restoration.',
         ),
       ],
       startedAt: DateTime.utc(2026, 8, 14, 13),

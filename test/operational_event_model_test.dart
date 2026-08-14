@@ -94,6 +94,24 @@ void main() {
     );
   });
 
+  test('requires complete closure evidence for every prior occurrence', () {
+    final malformed =
+        record()
+          ..['completedIntervals'] = [
+            {
+              'startedAt': DateTime.utc(2026, 8, 14, 8),
+              'resolvedAt': DateTime.utc(2026, 8, 14, 9),
+              'scope': 'plantWide',
+              'affectedAssetClassIds': <String>[],
+              'affectedAssetInstanceIds': <String>[],
+            },
+          ];
+    expect(
+      () => OperationalEvent.fromMap(malformed, 'event-1'),
+      throwsFormatException,
+    );
+  });
+
   test('decodes complete resolved evidence', () {
     final event = OperationalEvent.fromMap(
       record(
@@ -150,6 +168,10 @@ void main() {
               'scope': 'plantWide',
               'affectedAssetClassIds': <String>[],
               'affectedAssetInstanceIds': <String>[],
+              'resolvedByUid': 'shift-1',
+              'resolvedByName': 'Shift One',
+              'resolutionNote':
+                  'Supply remained stable after the first restoration.',
             },
           ];
     final event = OperationalEvent.fromMap(recurring, 'event-1');
@@ -158,6 +180,11 @@ void main() {
 
     expect(event.occurrenceCountWithin(start, end, end), 2);
     expect(event.durationWithin(start, end, end), const Duration(hours: 3));
+    expect(event.completedIntervals.single.resolvedByName, 'Shift One');
+    expect(
+      event.completedIntervals.single.resolutionNote,
+      'Supply remained stable after the first restoration.',
+    );
   });
 
   test(
