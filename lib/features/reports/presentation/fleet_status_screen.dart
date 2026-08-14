@@ -864,11 +864,11 @@ class _SourceWindowNotice extends StatelessWidget {
                 ? 'A source window reached its safety limit. Totals are complete only within the loaded window: '
                     '$operationsReportTicketSourceLimit issues, '
                     '$operationsReportExecutionSourceLimit jobs and '
-                    '$operationalEventLiveWindowLimit events.'
+                    '$operationalEventLiveWindowLimit recent events plus every open event.'
                 : 'All loaded records were evaluated. Source safety limits are '
                     '$operationsReportTicketSourceLimit issues, '
                     '$operationsReportExecutionSourceLimit jobs and '
-                    '$operationalEventLiveWindowLimit events.',
+                    '$operationalEventLiveWindowLimit recent events plus every open event.',
             style: const TextStyle(
               color: BafColors.textSecondary,
               fontSize: 11,

@@ -148,6 +148,16 @@ class OperationalEvent {
         : effectiveEnd.difference(startedAt);
   }
 
+  Duration durationWithin(DateTime startInclusive, DateTime endExclusive) {
+    final clippedStart =
+        startedAt.isAfter(startInclusive) ? startedAt : startInclusive;
+    final naturalEnd = resolvedAt ?? endExclusive;
+    final clippedEnd =
+        naturalEnd.isBefore(endExclusive) ? naturalEnd : endExclusive;
+    if (!clippedEnd.isAfter(clippedStart)) return Duration.zero;
+    return clippedEnd.difference(clippedStart);
+  }
+
   OperationalEventDraft get draft => OperationalEventDraft(
     eventType: eventType,
     title: title,

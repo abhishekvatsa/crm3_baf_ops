@@ -201,4 +201,45 @@ void main() {
     expect(report.issueCount, 1);
     expect(report.assetStates.single.asset.id, furnace7.id);
   });
+
+  test('disruption duration counts only overlap with the report period', () {
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 10),
+        endDate: DateTime.utc(2026, 8, 10),
+      ),
+      tickets: const [],
+      executions: const [],
+      events: [
+        OperationalEvent(
+          eventId: 'event-overlap',
+          eventType: OperationalEventType.water,
+          title: 'Water interruption',
+          description: 'Cooling water was unavailable across the plant.',
+          severity: OperationalEventSeverity.critical,
+          scope: OperationalEventScope.plantWide,
+          affectedAssetClassIds: const [],
+          affectedAssetInstanceIds: const [],
+          startedAt: DateTime.utc(2026, 8, 9, 18),
+          status: OperationalEventStatus.resolved,
+          createdAt: DateTime.utc(2026, 8, 9, 18),
+          createdByUid: 'ops',
+          createdByName: 'Operations',
+          resolvedAt: DateTime.utc(2026, 8, 11, 6),
+          resolvedByUid: 'shift',
+          resolvedByName: 'Shift Supervisor',
+          resolutionNote: 'Cooling water remained stable after restoration.',
+          version: 2,
+          updatedAt: DateTime.utc(2026, 8, 11, 6),
+          updatedByUid: 'shift',
+          updatedByName: 'Shift Supervisor',
+          lastMutationId: 'mutation',
+        ),
+      ],
+      assetClasses: const [],
+      assetInstances: const [],
+      overview: const PlantAssetOverview(classes: [], assets: []),
+    );
+    expect(report.disruptionDuration, const Duration(days: 1));
+  });
 }

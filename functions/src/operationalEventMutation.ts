@@ -428,14 +428,25 @@ function validateCurrentEvent(data: JsonMap | null, eventId: string): number {
 function eventSnapshot(data: JsonMap | null): JsonMap | null {
   if (data == null) return null;
   return {
+    eventId: data.eventId,
     eventType: data.eventType,
     title: data.title,
+    description: data.description,
     severity: data.severity,
     scope: data.scope,
     affectedAssetClassIds: data.affectedAssetClassIds,
     affectedAssetInstanceIds: data.affectedAssetInstanceIds,
+    startedAt: data.startedAt,
     status: data.status,
+    resolvedAt: data.resolvedAt,
+    resolvedByUid: data.resolvedByUid,
+    resolvedByName: data.resolvedByName,
+    resolutionNote: data.resolutionNote,
+    updatedAt: data.updatedAt,
+    updatedByUid: data.updatedByUid,
+    updatedByName: data.updatedByName,
     version: data.version,
+    lastMutationId: data.lastMutationId,
   };
 }
 

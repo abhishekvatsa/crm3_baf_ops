@@ -1,4 +1,5 @@
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
+import 'package:crm3_baf_ops/features/operational_events/providers/operational_event_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> record({
@@ -73,4 +74,45 @@ void main() {
     expect(event.status, OperationalEventStatus.resolved);
     expect(event.durationUntil(DateTime.utc(2026, 8, 15)).inHours, 1);
   });
+
+  test('clips event duration to the selected report interval', () {
+    final event = OperationalEvent.fromMap(
+      record(
+        status: 'resolved',
+        resolvedAt: DateTime.utc(2026, 8, 14, 11),
+        resolvedByUid: 'shift-1',
+        resolvedByName: 'Shift One',
+        resolutionNote: 'Supply remained stable after restoration checks.',
+      ),
+      'event-1',
+    );
+    expect(
+      event
+          .durationWithin(
+            DateTime.utc(2026, 8, 14, 10, 30),
+            DateTime.utc(2026, 8, 14, 10, 45),
+          )
+          .inMinutes,
+      15,
+    );
+  });
+
+  test(
+    'open-event window preserves old active events and removes duplicates',
+    () {
+      final open = OperationalEvent.fromMap(record(), 'event-1');
+      final resolved = OperationalEvent.fromMap(
+        record(
+          status: 'resolved',
+          resolvedAt: DateTime.utc(2026, 8, 14, 11),
+          resolvedByUid: 'shift-1',
+          resolvedByName: 'Shift One',
+          resolutionNote: 'Supply remained stable after restoration checks.',
+        )..['eventId'] = 'event-2',
+        'event-2',
+      );
+      final merged = mergeOperationalEventWindows([open], [resolved, open]);
+      expect(merged.map((event) => event.eventId), ['event-1', 'event-2']);
+    },
+  );
 }

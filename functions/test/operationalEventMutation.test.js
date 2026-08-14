@@ -223,6 +223,37 @@ describe('operational event mutation', () => {
     });
   });
 
+  test('audit snapshots preserve every corrected operational field', async () => {
+    const memory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: persistedEvent(),
+    });
+    await invoke(memory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the event timing and operational impact after review.',
+      eventDraft: {
+        ...request().eventDraft,
+        description: 'Incoming power remained unstable across the BAF shop.',
+        startedAt: '2026-08-14T09:45:00.000Z',
+      },
+    });
+    expect(memory.store.get(
+      `operational_event_audits/operational_event_${IDS.update}`,
+    )).toMatchObject({
+      before: {
+        description: 'Incoming supply was lost across the annealing shop.',
+        startedAt: new Date('2026-08-14T10:00:00.000Z'),
+      },
+      after: {
+        description: 'Incoming power remained unstable across the BAF shop.',
+        startedAt: new Date('2026-08-14T09:45:00.000Z'),
+      },
+    });
+  });
+
   test('resolves and reopens with supervisory evidence', async () => {
     const memory = fakeDb({
       ...baseSeed(),
@@ -255,6 +286,20 @@ describe('operational event mutation', () => {
       status: 'open',
       resolvedAt: null,
       resolutionNote: null,
+    });
+    expect(memory.store.get(
+      `operational_event_audits/operational_event_${IDS.reopen}`,
+    )).toMatchObject({
+      before: {
+        resolvedByUid: 'ops-1',
+        resolutionNote: 'Incoming supply remained stable through verification.',
+      },
+      after: {
+        resolvedAt: null,
+        resolvedByUid: null,
+        resolvedByName: null,
+        resolutionNote: null,
+      },
     });
   });
 

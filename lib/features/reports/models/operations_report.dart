@@ -121,7 +121,9 @@ class OperationsReport {
   int get openDisruptionCount => events.where((event) => event.isOpen).length;
   Duration get disruptionDuration => events.fold(
     Duration.zero,
-    (total, event) => total + event.durationUntil(filter.endExclusive),
+    (total, event) =>
+        total +
+        event.durationWithin(filter.startInclusive, filter.endExclusive),
   );
 
   int get assetCount => assetStates.length;
