@@ -260,8 +260,21 @@ void main() {
 
       final selector = source.indexOf('_GovernedIssueAssetSelector(');
       final tagField = source.indexOf('controller: _tagController');
+      final submit = source.indexOf('Future<void> _submit()');
+      final awaitedTagVerdict = source.indexOf(
+        'final accepted = await _resolveTag(',
+        submit,
+      );
+      final actorRead = source.indexOf(
+        'final appUser = ref.read(currentAppUserProvider).value;',
+        submit,
+      );
+      final ticketSave = source.indexOf('await repository.saveTicket(record);');
       expect(selector, greaterThanOrEqualTo(0));
       expect(tagField, greaterThan(selector));
+      expect(awaitedTagVerdict, greaterThan(submit));
+      expect(actorRead, greaterThan(awaitedTagVerdict));
+      expect(ticketSave, greaterThan(actorRead));
       expect(source, isNot(contains('_assetNumController')));
       expect(source, contains('hasGovernedAssetIdentity: true'));
       expect(source, contains('Duration(milliseconds: 450)'));

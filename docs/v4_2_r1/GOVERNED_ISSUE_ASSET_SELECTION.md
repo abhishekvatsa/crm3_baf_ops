@@ -45,8 +45,14 @@ does not guess which class is authoritative.
 - Governed custom classes map to the compatibility type `governedCustom`.
 - A valid governed identity uses the registry's universal asset-number bound of
   1-9,999 instead of old hard-coded class counts.
+- Receiving clients apply that universal range only when a parsed physical-asset
+  or installed-component reference carries the same asset number. Legacy and
+  definition-only records retain their historical class bounds.
 - A governed component tag cannot silently replace the selected asset. A tag
   belonging to another asset fails with an explicit mismatch.
+- Submission cancels the debounce and awaits the current tag verdict before any
+  actor read or ticket persistence. A stale, rejected or unverifiable verdict
+  cannot be saved.
 - Legacy tag inference may enrich component text but cannot choose or change the
   governed physical asset.
 

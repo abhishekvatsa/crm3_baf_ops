@@ -1525,9 +1525,9 @@
     {
       "path": "lib/features/maintenance/presentation/maintenance_form.dart",
       "canonicalSha256": "56F90AF33A8EF63CCADEC3D697C279EFBAE92D942257E9AB79083B4EA2630074",
-      "candidateSha256": "C07BC3A4DD2694E8CC9C2A33186458E53DDDC9F17DF9A33B92E3B54BB497BC10",
+      "candidateSha256": "8ECA7740AE2D430AFC6446D027A739311E28A5C921C2FEAA514CD5C06324898B",
       "canonicalBytes": 34842,
-      "candidateBytes": 61665,
+      "candidateBytes": 62294,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

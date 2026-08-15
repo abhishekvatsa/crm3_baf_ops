@@ -87,40 +87,40 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
   void _scheduleTagResolution(String rawTag) {
     _tagResolutionDebounce?.cancel();
+    final generation = ++_tagResolutionGeneration;
     if (rawTag.trim().isEmpty) {
-      unawaited(_resolveTag(rawTag));
+      _clearAutoFields();
       return;
     }
     _tagResolutionDebounce = Timer(const Duration(milliseconds: 450), () {
-      if (mounted) unawaited(_resolveTag(rawTag));
+      if (mounted) unawaited(_resolveTag(rawTag, generation: generation));
     });
   }
 
-  Future<void> _resolveTag(String rawTag) async {
-    final generation = ++_tagResolutionGeneration;
+  Future<bool> _resolveTag(String rawTag, {required int generation}) async {
     final tag = rawTag.trim();
     _userOverrodeComponent = false;
 
     if (tag.isEmpty) {
       _clearAutoFields();
-      return;
+      return true;
     }
 
     final selectedAsset = _selectedPhysicalAsset();
     if (selectedAsset == null) {
       _clearAutoFields();
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Choose the governed asset before resolving a tag.'),
           backgroundColor: BafColors.warning,
         ),
       );
-      return;
+      return false;
     }
     if (_assetType == AssetType.innerCover) {
       _clearAutoFields();
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -129,13 +129,13 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           backgroundColor: BafColors.warning,
         ),
       );
-      return;
+      return false;
     }
 
     try {
       final repository = ref.read(assetHierarchyRepositoryProvider);
       final component = await repository.findActiveInstalledComponentByTag(tag);
-      if (!mounted || generation != _tagResolutionGeneration) return;
+      if (!mounted || generation != _tagResolutionGeneration) return false;
       if (component != null) {
         if (component.assetInstanceId != selectedAsset.id ||
             component.assetClassId != selectedAsset.assetClassId) {
@@ -167,18 +167,18 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           _isAutoResolved = true;
           _isGovernedTagResolution = true;
         });
-        return;
+        return true;
       }
     } on AssetHierarchyException catch (error) {
-      if (!mounted || generation != _tagResolutionGeneration) return;
+      if (!mounted || generation != _tagResolutionGeneration) return false;
       _tagController.clear();
       _clearAutoFields();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$error'), backgroundColor: BafColors.danger),
       );
-      return;
+      return false;
     } on FormatException {
-      if (!mounted || generation != _tagResolutionGeneration) return;
+      if (!mounted || generation != _tagResolutionGeneration) return false;
       _tagController.clear();
       _clearAutoFields();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -189,9 +189,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           backgroundColor: BafColors.danger,
         ),
       );
-      return;
+      return false;
     } on FirebaseException {
-      if (!mounted || generation != _tagResolutionGeneration) return;
+      if (!mounted || generation != _tagResolutionGeneration) return false;
       _tagController.clear();
       _clearAutoFields();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -202,7 +202,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           backgroundColor: BafColors.warning,
         ),
       );
-      return;
+      return false;
     }
 
     final result = BafTagResolverV2.resolveToMap(tag, assetContext: _assetType);
@@ -210,13 +210,13 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
     if (!isResolved) {
       _clearAutoFields();
-      return;
+      return true;
     }
 
     final path = result['hierarchyPath'];
     final safePath = path is List ? List<String>.from(path) : null;
 
-    if (!mounted) return;
+    if (!mounted || generation != _tagResolutionGeneration) return false;
 
     setState(() {
       _resolvedSystem = result['system'] as String?;
@@ -232,6 +232,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       _isAutoResolved = true;
       _isGovernedTagResolution = false;
     });
+    return true;
   }
 
   void _clearAutoFields() {
@@ -492,6 +493,21 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     setState(() => _isSubmitting = true);
 
     try {
+      _tagResolutionDebounce?.cancel();
+      final submittedTag = _tagController.text.trim();
+      if (submittedTag.isNotEmpty) {
+        final generation = ++_tagResolutionGeneration;
+        final accepted = await _resolveTag(
+          submittedTag,
+          generation: generation,
+        );
+        if (!mounted ||
+            !accepted ||
+            _tagController.text.trim() != submittedTag) {
+          return;
+        }
+      }
+
       final appUser = ref.read(currentAppUserProvider).value;
       final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
 
