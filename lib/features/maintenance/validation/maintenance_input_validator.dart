@@ -15,6 +15,7 @@ class MaintenanceCreateInput {
   final DateTime startDate;
   final RoutedTo routedTo;
   final String? otherDepartment;
+  final bool hasGovernedAssetIdentity;
 
   const MaintenanceCreateInput({
     required this.assetType,
@@ -26,6 +27,7 @@ class MaintenanceCreateInput {
     this.tag,
     this.chargeNumberText,
     this.otherDepartment,
+    this.hasGovernedAssetIdentity = false,
   });
 }
 
@@ -66,6 +68,7 @@ class MaintenanceInputValidator {
   static ValidationResult validateAssetNumber({
     required AssetType assetType,
     required String? value,
+    bool hasGovernedAssetIdentity = false,
   }) {
     final integerResult = FieldValidators.integerText(
       value,
@@ -79,7 +82,8 @@ class MaintenanceInputValidator {
     }
 
     final number = int.parse(FieldValidators.clean(value));
-    if (!AssetValidator.isValid(assetType, number)) {
+    if (!hasGovernedAssetIdentity &&
+        !AssetValidator.isValid(assetType, number)) {
       return ValidationResult.invalid([
         ValidationIssue(
           field: 'assetNumber',
@@ -145,6 +149,7 @@ class MaintenanceInputValidator {
       validateAssetNumber(
         assetType: input.assetType,
         value: input.assetNumberText,
+        hasGovernedAssetIdentity: input.hasGovernedAssetIdentity,
       ),
       validateComponent(input.component),
       validateDescription(input.description),

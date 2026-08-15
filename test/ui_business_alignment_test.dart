@@ -252,6 +252,37 @@ void main() {
       },
     );
 
+    test('issue creation requires governed equipment before tag evidence', () {
+      final source =
+          File(
+            'lib/features/maintenance/presentation/maintenance_form.dart',
+          ).readAsStringSync();
+
+      final selector = source.indexOf('_GovernedIssueAssetSelector(');
+      final tagField = source.indexOf('controller: _tagController');
+      final submit = source.indexOf('Future<void> _submit()');
+      final awaitedTagVerdict = source.indexOf(
+        'final accepted = await _resolveTag(',
+        submit,
+      );
+      final actorRead = source.indexOf(
+        'final appUser = ref.read(currentAppUserProvider).value;',
+        submit,
+      );
+      final ticketSave = source.indexOf('await repository.saveTicket(record);');
+      expect(selector, greaterThanOrEqualTo(0));
+      expect(tagField, greaterThan(selector));
+      expect(awaitedTagVerdict, greaterThan(submit));
+      expect(actorRead, greaterThan(awaitedTagVerdict));
+      expect(ticketSave, greaterThan(actorRead));
+      expect(source, isNot(contains('_assetNumController')));
+      expect(source, contains('hasGovernedAssetIdentity: true'));
+      expect(source, contains('Duration(milliseconds: 450)'));
+      expect(source, contains('_tagController.clear();'));
+      expect(source, contains('must belong to the selected asset'));
+      expect(source, contains('Select the Base carrying the Inner Cover'));
+    });
+
     testWidgets('read-only governed dossier exposes no mutation bar', (
       tester,
     ) async {

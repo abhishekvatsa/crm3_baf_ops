@@ -1,3 +1,4 @@
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
@@ -127,7 +128,113 @@ void main() {
         );
       }
     });
+
+    test('exact governed identity admits universal asset numbers', () {
+      final record = readRemoteMaintenanceRecord(
+        _validRecord()
+          ..['assetType'] = 'furnace'
+          ..['assetNumber'] = 27
+          ..['assetHierarchyRefJson'] = _governedAssetReference(27),
+        documentId: 'ticket-1',
+      );
+
+      expect(record.assetType, AssetType.furnace);
+      expect(record.assetNumber, 27);
+      expect(record.assetHierarchyReference?.assetInstanceId, 'furnace-27');
+    });
+
+    test(
+      'exact installed component identity admits universal asset numbers',
+      () {
+        final record = readRemoteMaintenanceRecord(
+          _validRecord()
+            ..['assetType'] = 'furnace'
+            ..['assetNumber'] = 28
+            ..['assetHierarchyRefJson'] = _governedAssetReference(
+              28,
+              scope: AssetHierarchyReferenceScope.installedComponent,
+            ),
+          documentId: 'ticket-1',
+        );
+
+        expect(record.assetNumber, 28);
+        expect(
+          record.assetHierarchyReference?.scope,
+          AssetHierarchyReferenceScope.installedComponent,
+        );
+        expect(
+          record.assetHierarchyReference?.componentInstanceId,
+          'component-28',
+        );
+      },
+    );
+
+    test('legacy or mismatched identity cannot bypass asset number rules', () {
+      expect(
+        () => readRemoteMaintenanceRecord(
+          _validRecord()
+            ..['assetType'] = 'furnace'
+            ..['assetNumber'] = 27,
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+      expect(
+        () => readRemoteMaintenanceRecord(
+          _validRecord()
+            ..['assetType'] = 'furnace'
+            ..['assetNumber'] = 27
+            ..['assetHierarchyRefJson'] = _governedAssetReference(28),
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+      expect(
+        () => readRemoteMaintenanceRecord(
+          _validRecord()
+            ..['assetType'] = 'furnace'
+            ..['assetNumber'] = 10000
+            ..['assetHierarchyRefJson'] = _governedAssetReference(10000),
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    });
   });
+}
+
+String _governedAssetReference(
+  int number, {
+  AssetHierarchyReferenceScope scope =
+      AssetHierarchyReferenceScope.physicalAsset,
+}) {
+  return AssetHierarchyReference(
+    scope: scope,
+    assetClassId: 'furnace-class',
+    assetClassCode: 'FURNACE',
+    assetClassName: 'Furnace',
+    nodeId: 'furnace-$number',
+    nodeVersion: 4,
+    nodeName: 'Furnace $number',
+    assetInstanceId: 'furnace-$number',
+    assetInstanceVersion: 4,
+    assetNumber: number,
+    assetInstanceName: 'Furnace $number',
+    componentInstanceId:
+        scope == AssetHierarchyReferenceScope.installedComponent
+            ? 'component-$number'
+            : null,
+    componentInstanceVersion:
+        scope == AssetHierarchyReferenceScope.installedComponent ? 2 : null,
+    componentTag:
+        scope == AssetHierarchyReferenceScope.installedComponent
+            ? 'PT-$number'
+            : null,
+    hierarchyPath: <String>['Furnace', 'Furnace $number'],
+    ownershipStatus: AssetOwnershipStatus.confirmed,
+    ownerDiscipline: 'Mechanical',
+    accountableRoleKeys: const <String>['seniorMechanical'],
+  ).encode();
 }
 
 Map<String, dynamic> _validRecord() => <String, dynamic>{

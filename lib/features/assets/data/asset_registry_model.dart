@@ -350,6 +350,24 @@ class AssetInstanceRecord {
     accountableRoleKeys: accountableRoleKeys,
   );
 
+  AssetHierarchyReference toReference() => AssetHierarchyReference(
+    scope: AssetHierarchyReferenceScope.physicalAsset,
+    assetClassId: assetClassId,
+    assetClassCode: assetClassCode,
+    assetClassName: assetClassName,
+    nodeId: id,
+    nodeVersion: version,
+    nodeName: name,
+    assetInstanceId: id,
+    assetInstanceVersion: version,
+    assetNumber: assetNumber,
+    assetInstanceName: name,
+    hierarchyPath: <String>[assetClassName, name],
+    ownershipStatus: ownershipStatus,
+    ownerDiscipline: ownerDiscipline,
+    accountableRoleKeys: accountableRoleKeys,
+  );
+
   factory AssetInstanceRecord.fromMap(
     Map<String, dynamic> map,
     String documentId,

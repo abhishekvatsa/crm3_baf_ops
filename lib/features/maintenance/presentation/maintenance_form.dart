@@ -2,12 +2,14 @@
 
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/maintenance_model.dart';
+import '../domain/governed_issue_asset_selection.dart';
 import '../providers/maintenance_provider.dart';
 import '../validation/maintenance_input_validator.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -17,6 +19,7 @@ import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/repositories/asset_hierarchy_repository.dart';
 import '../../quality/domain/issue_quality_intent.dart';
@@ -35,11 +38,12 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   IssueQualityAssessment? _qualityAssessment;
 
   AssetType _assetType = AssetType.base;
+  String? _issueAssetClassId;
+  String? _assetInstanceId;
   MaintenanceType _maintenanceType = MaintenanceType.breakdown;
   RoutedTo _routedTo = RoutedTo.mechanical;
   DateTime _startTime = DateTime.now();
 
-  final _assetNumController = TextEditingController();
   final _descController = TextEditingController();
   final _chargeNoController = TextEditingController();
   final _tagController = TextEditingController();
@@ -53,8 +57,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   AssetHierarchyReference? _assetHierarchyReference;
   String? _resolvedOwnership;
   int _tagResolutionGeneration = 0;
+  Timer? _tagResolutionDebounce;
 
   bool _isAutoResolved = false;
+  bool _isGovernedTagResolution = false;
   bool _userOverrodeComponent = false;
 
   @override
@@ -69,7 +75,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
   @override
   void dispose() {
-    _assetNumController.dispose();
+    _tagResolutionDebounce?.cancel();
     _descController.dispose();
     _chargeNoController.dispose();
     _tagController.dispose();
@@ -79,40 +85,67 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     super.dispose();
   }
 
-  Future<void> _resolveTag(String rawTag) async {
+  void _scheduleTagResolution(String rawTag) {
+    _tagResolutionDebounce?.cancel();
     final generation = ++_tagResolutionGeneration;
+    if (rawTag.trim().isEmpty) {
+      _clearAutoFields();
+      return;
+    }
+    _tagResolutionDebounce = Timer(const Duration(milliseconds: 450), () {
+      if (mounted) unawaited(_resolveTag(rawTag, generation: generation));
+    });
+  }
+
+  Future<bool> _resolveTag(String rawTag, {required int generation}) async {
     final tag = rawTag.trim();
     _userOverrodeComponent = false;
 
     if (tag.isEmpty) {
       _clearAutoFields();
-      return;
+      return true;
+    }
+
+    final selectedAsset = _selectedPhysicalAsset();
+    if (selectedAsset == null) {
+      _clearAutoFields();
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Choose the governed asset before resolving a tag.'),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+      return false;
+    }
+    if (_assetType == AssetType.innerCover) {
+      _clearAutoFields();
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Inner Cover identity is taken from the selected Base linkage. Enter the affected component by name.',
+          ),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+      return false;
     }
 
     try {
       final repository = ref.read(assetHierarchyRepositoryProvider);
       final component = await repository.findActiveInstalledComponentByTag(tag);
-      if (!mounted || generation != _tagResolutionGeneration) return;
+      if (!mounted || generation != _tagResolutionGeneration) return false;
       if (component != null) {
-        final assetClass = await repository.getAssetClass(
-          component.assetClassId,
-        );
-        if (!mounted || generation != _tagResolutionGeneration) return;
-        if (assetClass == null || !assetClass.isActive) {
-          throw const AssetHierarchyException(
-            'The tag belongs to an unavailable asset class.',
+        if (component.assetInstanceId != selectedAsset.id ||
+            component.assetClassId != selectedAsset.assetClassId) {
+          throw AssetHierarchyException(
+            'Tag $tag belongs to ${component.assetClassName} ${component.assetNumber}, not the selected ${selectedAsset.assetClassName} ${selectedAsset.assetNumber}.',
           );
         }
-        final legacyType =
-            AssetType.values
-                .where((type) => type.name == assetClass.legacyAssetTypeKey)
-                .firstOrNull ??
-            AssetType.governedCustom;
         final reference = component.toReference();
         setState(() {
-          _assetType = legacyType;
-          _assetNumController.text = '${component.assetNumber}';
-          _resolvedSystem = assetClass.name;
+          _resolvedSystem = component.assetClassName;
           _resolvedSubsystem =
               component.hierarchyPath.length > 1
                   ? component.hierarchyPath[component.hierarchyPath.length - 2]
@@ -132,16 +165,44 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             _componentController.text = component.definitionName;
           }
           _isAutoResolved = true;
+          _isGovernedTagResolution = true;
         });
-        return;
+        return true;
       }
     } on AssetHierarchyException catch (error) {
-      if (!mounted || generation != _tagResolutionGeneration) return;
+      if (!mounted || generation != _tagResolutionGeneration) return false;
+      _tagController.clear();
       _clearAutoFields();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$error'), backgroundColor: BafColors.danger),
       );
-      return;
+      return false;
+    } on FormatException {
+      if (!mounted || generation != _tagResolutionGeneration) return false;
+      _tagController.clear();
+      _clearAutoFields();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This tag has malformed governed component evidence. Reconcile the asset register before using it.',
+          ),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return false;
+    } on FirebaseException {
+      if (!mounted || generation != _tagResolutionGeneration) return false;
+      _tagController.clear();
+      _clearAutoFields();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'The tag could not be verified. Sync and retry, or leave the optional tag blank.',
+          ),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+      return false;
     }
 
     final result = BafTagResolverV2.resolveToMap(tag, assetContext: _assetType);
@@ -149,19 +210,19 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
     if (!isResolved) {
       _clearAutoFields();
-      return;
+      return true;
     }
 
     final path = result['hierarchyPath'];
     final safePath = path is List ? List<String>.from(path) : null;
 
-    if (!mounted) return;
+    if (!mounted || generation != _tagResolutionGeneration) return false;
 
     setState(() {
       _resolvedSystem = result['system'] as String?;
       _resolvedSubsystem = result['subsystem'] as String?;
       _resolvedPath = safePath;
-      _assetHierarchyReference = null;
+      _assetHierarchyReference = selectedAsset.toReference();
       _resolvedOwnership = null;
 
       if (!_userOverrodeComponent && _componentController.text.trim().isEmpty) {
@@ -169,7 +230,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       }
 
       _isAutoResolved = true;
+      _isGovernedTagResolution = false;
     });
+    return true;
   }
 
   void _clearAutoFields() {
@@ -182,8 +245,71 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       _assetHierarchyReference = null;
       _resolvedOwnership = null;
       _isAutoResolved = false;
+      _isGovernedTagResolution = false;
       _userOverrodeComponent = false;
     });
+  }
+
+  GovernedIssueAssetRoute? _selectedAssetRoute() {
+    final classId = _issueAssetClassId;
+    final classes = ref.read(assetClassesProvider).value;
+    if (classId == null || classes == null) return null;
+    final issueClass = classes.where((item) => item.id == classId).firstOrNull;
+    if (issueClass == null) return null;
+    return resolveGovernedIssueAssetRoute(
+      issueClass: issueClass,
+      allClasses: classes,
+    );
+  }
+
+  AssetInstanceRecord? _selectedPhysicalAsset() {
+    final route = _selectedAssetRoute();
+    final assetId = _assetInstanceId;
+    final physicalClassId = route?.physicalAssetClass?.id;
+    if (route == null || assetId == null || physicalClassId == null) {
+      return null;
+    }
+    final assets = ref.read(assetInstancesProvider(physicalClassId)).value;
+    return assets
+        ?.where(
+          (item) =>
+              item.id == assetId &&
+              item.isActive &&
+              item.assetClassId == physicalClassId,
+        )
+        .firstOrNull;
+  }
+
+  void _selectIssueAssetRoute(GovernedIssueAssetRoute? route) {
+    setState(() {
+      _issueAssetClassId = route?.issueClass.id;
+      _assetInstanceId = null;
+      _assetType = route?.assetType ?? AssetType.base;
+      _resetAssetEvidence();
+    });
+  }
+
+  void _selectPhysicalAsset(AssetInstanceRecord? asset) {
+    setState(() {
+      _assetInstanceId = asset?.id;
+      _resetAssetEvidence();
+      _assetHierarchyReference = asset?.toReference();
+    });
+  }
+
+  void _resetAssetEvidence() {
+    _tagResolutionDebounce?.cancel();
+    _tagResolutionGeneration++;
+    _tagController.clear();
+    _componentController.clear();
+    _resolvedSystem = null;
+    _resolvedSubsystem = null;
+    _resolvedPath = null;
+    _assetHierarchyReference = null;
+    _resolvedOwnership = null;
+    _isAutoResolved = false;
+    _isGovernedTagResolution = false;
+    _userOverrodeComponent = false;
   }
 
   String? _cleanOptionalText(String? value) {
@@ -234,35 +360,37 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   }
 
   Future<AssetHierarchyReference?> _resolveEventAssetReference({
+    required AssetType assetType,
     required int assetNumber,
+    required AssetHierarchyReference selectedReference,
     required String reporterUid,
     required String reporterName,
     required DateTime confirmedAt,
   }) async {
     final usesBasePosition =
-        _assetType == AssetType.base || _assetType == AssetType.innerCover;
-    if (!usesBasePosition) return _assetHierarchyReference;
+        assetType == AssetType.base || assetType == AssetType.innerCover;
+    if (!usesBasePosition) return selectedReference;
     final repository = ref.read(assetHierarchyRepositoryProvider);
     final context = await repository.resolveGovernedAssetEventContext(
       legacyAssetTypeKey: AssetType.base.name,
       assetNumber: assetNumber,
     );
     if (context == null) {
-      if (_assetType == AssetType.innerCover) {
+      if (assetType == AssetType.innerCover) {
         throw const AssetHierarchyException(
           'This Base is not available in the governed asset register. Register or reconcile it before raising an Inner Cover issue.',
         );
       }
-      return _assetHierarchyReference;
+      return selectedReference;
     }
-    final existing = _assetHierarchyReference;
-    if (existing != null && existing.assetInstanceId != context.asset.id) {
+    final existing = selectedReference;
+    if (existing.assetInstanceId != context.asset.id) {
       throw const AssetHierarchyException(
         'The resolved component and selected Base disagree. Review the equipment tag.',
       );
     }
     final assignment = context.innerCoverAssignment;
-    if (_assetType == AssetType.innerCover && assignment == null) {
+    if (assetType == AssetType.innerCover && assignment == null) {
       throw const AssetHierarchyException(
         'No Inner Cover is currently linked to this Base. Link the physical cover before raising an Inner Cover issue.',
       );
@@ -284,45 +412,25 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       confirmedByUid: reporterUid,
       confirmedByName: reporterName,
     );
-    if (existing != null) {
-      return AssetHierarchyReference(
-        scope: existing.scope,
-        assetClassId: existing.assetClassId,
-        assetClassCode: existing.assetClassCode,
-        assetClassName: existing.assetClassName,
-        nodeId: existing.nodeId,
-        nodeVersion: existing.nodeVersion,
-        nodeName: existing.nodeName,
-        assetInstanceId: existing.assetInstanceId,
-        assetInstanceVersion: existing.assetInstanceVersion,
-        assetNumber: existing.assetNumber,
-        assetInstanceName: existing.assetInstanceName,
-        componentInstanceId: existing.componentInstanceId,
-        componentInstanceVersion: existing.componentInstanceVersion,
-        componentTag: existing.componentTag,
-        hierarchyPath: existing.hierarchyPath,
-        ownershipStatus: existing.ownershipStatus,
-        ownerDiscipline: existing.ownerDiscipline,
-        accountableRoleKeys: existing.accountableRoleKeys,
-        innerCoverAssociation: association,
-      );
-    }
     return AssetHierarchyReference(
-      scope: AssetHierarchyReferenceScope.physicalAsset,
-      assetClassId: context.assetClass.id,
-      assetClassCode: context.assetClass.code,
-      assetClassName: context.assetClass.name,
-      nodeId: context.asset.id,
-      nodeVersion: context.asset.version,
-      nodeName: context.asset.name,
-      assetInstanceId: context.asset.id,
-      assetInstanceVersion: context.asset.version,
-      assetNumber: context.asset.assetNumber,
-      assetInstanceName: context.asset.name,
-      hierarchyPath: [context.assetClass.name, context.asset.name],
-      ownershipStatus: context.asset.ownershipStatus,
-      ownerDiscipline: context.asset.ownerDiscipline,
-      accountableRoleKeys: context.asset.accountableRoleKeys,
+      scope: existing.scope,
+      assetClassId: existing.assetClassId,
+      assetClassCode: existing.assetClassCode,
+      assetClassName: existing.assetClassName,
+      nodeId: existing.nodeId,
+      nodeVersion: existing.nodeVersion,
+      nodeName: existing.nodeName,
+      assetInstanceId: existing.assetInstanceId,
+      assetInstanceVersion: existing.assetInstanceVersion,
+      assetNumber: existing.assetNumber,
+      assetInstanceName: existing.assetInstanceName,
+      componentInstanceId: existing.componentInstanceId,
+      componentInstanceVersion: existing.componentInstanceVersion,
+      componentTag: existing.componentTag,
+      hierarchyPath: existing.hierarchyPath,
+      ownershipStatus: existing.ownershipStatus,
+      ownerDiscipline: existing.ownerDiscipline,
+      accountableRoleKeys: existing.accountableRoleKeys,
       innerCoverAssociation: association,
     );
   }
@@ -330,6 +438,22 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_isSubmitting) return;
+
+    final assetRoute = _selectedAssetRoute();
+    final selectedAsset = _selectedPhysicalAsset();
+    if (assetRoute == null ||
+        !assetRoute.isAvailable ||
+        selectedAsset == null) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Choose an active governed asset before submitting.'),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+      return;
+    }
+    final assetType = assetRoute.assetType;
+    final assetNumber = selectedAsset.assetNumber;
 
     if (_qualityAssessment == null) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -343,8 +467,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
     final inputValidation = MaintenanceInputValidator.validateCreate(
       MaintenanceCreateInput(
-        assetType: _assetType,
-        assetNumberText: _assetNumController.text,
+        assetType: assetType,
+        assetNumberText: '$assetNumber',
+        hasGovernedAssetIdentity: true,
         component: _componentController.text,
         description: _descController.text,
         tag: _tagController.text,
@@ -368,6 +493,21 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     setState(() => _isSubmitting = true);
 
     try {
+      _tagResolutionDebounce?.cancel();
+      final submittedTag = _tagController.text.trim();
+      if (submittedTag.isNotEmpty) {
+        final generation = ++_tagResolutionGeneration;
+        final accepted = await _resolveTag(
+          submittedTag,
+          generation: generation,
+        );
+        if (!mounted ||
+            !accepted ||
+            _tagController.text.trim() != submittedTag) {
+          return;
+        }
+      }
+
       final appUser = ref.read(currentAppUserProvider).value;
       final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
 
@@ -388,9 +528,12 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           _cleanOptionalText(appUser?.name) ??
           _cleanOptionalText(firebaseUser?.displayName) ??
           _cleanOptionalText(firebaseUser?.email);
-      final assetNumber = int.parse(_assetNumController.text.trim());
+      final selectedReference =
+          _assetHierarchyReference ?? selectedAsset.toReference();
       final eventAssetReference = await _resolveEventAssetReference(
+        assetType: assetType,
         assetNumber: assetNumber,
+        selectedReference: selectedReference,
         reporterUid: reporterUid!,
         reporterName: reporterName ?? reporterUid,
         confirmedAt: now,
@@ -404,7 +547,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       final record =
           MaintenanceRecord()
             ..firestoreId = const Uuid().v4()
-            ..assetType = _assetType
+            ..assetType = assetType
             ..assetNumber = assetNumber
             ..maintenanceType = _maintenanceType
             ..routedTo = _routedTo
@@ -602,76 +745,27 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
               subtitle: 'Where is the issue happening?',
               icon: Icons.precision_manufacturing_rounded,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<AssetType>(
-                        initialValue: _assetType,
-                        isExpanded: true,
-                        decoration: _inputDecoration('Type'),
-                        items:
-                            AssetType.values
-                                .where(
-                                  (type) =>
-                                      type != AssetType.governedCustom ||
-                                      _assetHierarchyReference != null,
-                                )
-                                .map(
-                                  (type) => DropdownMenuItem<AssetType>(
-                                    value: type,
-                                    child: Text(
-                                      _assetTypeLabel(type),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            if (value != _assetType) {
-                              _resolvedSystem = null;
-                              _resolvedSubsystem = null;
-                              _resolvedPath = null;
-                              _assetHierarchyReference = null;
-                              _resolvedOwnership = null;
-                              _isAutoResolved = false;
-                              _userOverrodeComponent = false;
-                            }
-                            _assetType = value;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: BafSpacing.md),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _assetNumController,
-                        keyboardType: TextInputType.number,
-                        decoration: _inputDecoration(
-                          _assetType == AssetType.innerCover
-                              ? 'Base number'
-                              : 'Number',
-                        ),
-                        validator:
-                            (value) =>
-                                MaintenanceInputValidator.validateAssetNumber(
-                                  assetType: _assetType,
-                                  value: value,
-                                ).messageFor('assetNumber'),
-                      ),
-                    ),
-                  ],
+                _GovernedIssueAssetSelector(
+                  selectedIssueClassId: _issueAssetClassId,
+                  selectedAssetInstanceId: _assetInstanceId,
+                  onRouteChanged: _selectIssueAssetRoute,
+                  onAssetChanged: _selectPhysicalAsset,
                 ),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(
                   controller: _tagController,
+                  enabled:
+                      _selectedPhysicalAsset() != null &&
+                      _assetType != AssetType.innerCover,
                   decoration: _inputDecoration(
                     'Instrument tag / equipment tag',
-                    hint: 'Optional, helps auto-fill component context',
+                    hint:
+                        _assetType == AssetType.innerCover
+                            ? 'Inner Cover identity comes from the Base linkage'
+                            : 'Optional, must belong to the selected asset',
                   ),
                   textCapitalization: TextCapitalization.characters,
-                  onChanged: _resolveTag,
+                  onChanged: _scheduleTagResolution,
                   validator:
                       (value) => MaintenanceInputValidator.validateTag(
                         value,
@@ -698,7 +792,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     subsystem: _resolvedSubsystem,
                     path: _resolvedPath,
                     ownership: _resolvedOwnership,
-                    governed: _assetHierarchyReference != null,
+                    governed: _isGovernedTagResolution,
                   ),
                 ],
               ],
@@ -924,21 +1018,6 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     );
   }
 
-  String _assetTypeLabel(AssetType type) {
-    switch (type) {
-      case AssetType.base:
-        return 'BASE';
-      case AssetType.furnace:
-        return 'FURNACE';
-      case AssetType.forceCooler:
-        return 'FORCE COOLER';
-      case AssetType.innerCover:
-        return 'INNER COVER (BY BASE)';
-      case AssetType.governedCustom:
-        return 'GOVERNED ASSET';
-    }
-  }
-
   String _maintenanceTypeLabel(MaintenanceType type) {
     switch (type) {
       case MaintenanceType.scheduled:
@@ -973,6 +1052,371 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       case RoutedTo.others:
         return 'Others';
     }
+  }
+}
+
+class _GovernedIssueAssetSelector extends ConsumerWidget {
+  const _GovernedIssueAssetSelector({
+    required this.selectedIssueClassId,
+    required this.selectedAssetInstanceId,
+    required this.onRouteChanged,
+    required this.onAssetChanged,
+  });
+
+  final String? selectedIssueClassId;
+  final String? selectedAssetInstanceId;
+  final ValueChanged<GovernedIssueAssetRoute?> onRouteChanged;
+  final ValueChanged<AssetInstanceRecord?> onAssetChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final classesValue = ref.watch(assetClassesProvider);
+    return classesValue.when(
+      loading:
+          () => const _AssetSelectorMessage(
+            icon: Icons.sync_rounded,
+            message: 'Loading the governed asset register...',
+            color: BafColors.maintenance,
+            showProgress: true,
+          ),
+      error:
+          (error, stackTrace) => const _AssetSelectorMessage(
+            icon: Icons.error_outline_rounded,
+            message:
+                'The governed asset register could not be loaded. Sync and try again.',
+            color: BafColors.danger,
+          ),
+      data: (allClasses) {
+        final classes = activeIssueAssetClasses(allClasses);
+        if (classes.isEmpty) {
+          return const _AssetSelectorMessage(
+            icon: Icons.inventory_2_outlined,
+            message:
+                'No active asset classes are registered. An administrator must add one before issues can be raised.',
+            color: BafColors.warning,
+          );
+        }
+
+        final selectedClass =
+            classes
+                .where((item) => item.id == selectedIssueClassId)
+                .firstOrNull;
+        final route =
+            selectedClass == null
+                ? null
+                : resolveGovernedIssueAssetRoute(
+                  issueClass: selectedClass,
+                  allClasses: allClasses,
+                );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButtonFormField<String>(
+              key: ValueKey(
+                'issue-asset-class-${selectedClass?.id ?? 'none'}-${classes.length}',
+              ),
+              initialValue: selectedClass?.id,
+              isExpanded: true,
+              decoration: _decoration('Asset class'),
+              items: classes
+                  .map(
+                    (assetClass) => DropdownMenuItem<String>(
+                      value: assetClass.id,
+                      child: Text(
+                        assetClass.name,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (classId) {
+                if (classId == null) {
+                  onRouteChanged(null);
+                  return;
+                }
+                final issueClass = classes.firstWhere(
+                  (item) => item.id == classId,
+                );
+                onRouteChanged(
+                  resolveGovernedIssueAssetRoute(
+                    issueClass: issueClass,
+                    allClasses: allClasses,
+                  ),
+                );
+              },
+              validator:
+                  (value) =>
+                      value == null ? 'Choose the affected asset class' : null,
+            ),
+            if (route != null) ...[
+              const SizedBox(height: BafSpacing.md),
+              if (!route.isAvailable)
+                _AssetSelectorMessage(
+                  icon: Icons.block_rounded,
+                  message:
+                      route.blockingReason ??
+                      'This asset class cannot currently accept issues.',
+                  color: BafColors.danger,
+                )
+              else ...[
+                if (route.innerCoverByBase) ...[
+                  const _AssetSelectorMessage(
+                    icon: Icons.link_rounded,
+                    message:
+                        'Select the Base carrying the Inner Cover. Its current serial number and linkage are frozen with the issue.',
+                    color: BafColors.maintenance,
+                  ),
+                  const SizedBox(height: BafSpacing.md),
+                ],
+                _PhysicalAssetSelector(
+                  route: route,
+                  selectedAssetInstanceId: selectedAssetInstanceId,
+                  onAssetChanged: onAssetChanged,
+                ),
+              ],
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  InputDecoration _decoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: BafColors.background,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: BafSpacing.md,
+        vertical: BafSpacing.lg,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        borderSide: const BorderSide(color: BafColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        borderSide: const BorderSide(color: BafColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        borderSide: const BorderSide(color: BafColors.maintenance, width: 1.5),
+      ),
+    );
+  }
+}
+
+class _PhysicalAssetSelector extends ConsumerWidget {
+  const _PhysicalAssetSelector({
+    required this.route,
+    required this.selectedAssetInstanceId,
+    required this.onAssetChanged,
+  });
+
+  final GovernedIssueAssetRoute route;
+  final String? selectedAssetInstanceId;
+  final ValueChanged<AssetInstanceRecord?> onAssetChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final physicalClass = route.physicalAssetClass!;
+    final assetsValue = ref.watch(assetInstancesProvider(physicalClass.id));
+    return assetsValue.when(
+      loading:
+          () => const _AssetSelectorMessage(
+            icon: Icons.sync_rounded,
+            message: 'Loading active physical assets...',
+            color: BafColors.maintenance,
+            showProgress: true,
+          ),
+      error:
+          (error, stackTrace) => const _AssetSelectorMessage(
+            icon: Icons.error_outline_rounded,
+            message: 'Physical assets could not be loaded. Sync and try again.',
+            color: BafColors.danger,
+          ),
+      data: (allAssets) {
+        final assets = eligibleIssueAssets(route: route, assets: allAssets);
+        final selectedAsset =
+            assets
+                .where((item) => item.id == selectedAssetInstanceId)
+                .firstOrNull;
+        if (assets.isEmpty) {
+          return _AssetSelectorMessage(
+            icon: Icons.precision_manufacturing_outlined,
+            message:
+                'No active ${physicalClass.name} assets are registered. Add or reactivate the physical asset before raising an issue.',
+            color: BafColors.warning,
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButtonFormField<String>(
+              key: ValueKey(
+                'issue-physical-asset-${physicalClass.id}-${selectedAsset?.id ?? 'none'}-${assets.length}',
+              ),
+              initialValue: selectedAsset?.id,
+              isExpanded: true,
+              decoration: _decoration(
+                route.innerCoverByBase
+                    ? 'Base carrying Inner Cover'
+                    : 'Physical asset',
+              ),
+              items: assets
+                  .map(
+                    (asset) => DropdownMenuItem<String>(
+                      value: asset.id,
+                      child: Text(
+                        _assetLabel(asset),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (assetId) {
+                if (assetId == null) {
+                  onAssetChanged(null);
+                  return;
+                }
+                onAssetChanged(assets.firstWhere((item) => item.id == assetId));
+              },
+              validator:
+                  (value) =>
+                      value == null ? 'Choose the exact physical asset' : null,
+            ),
+            if (selectedAsset != null) ...[
+              const SizedBox(height: BafSpacing.sm),
+              _SelectedAssetSummary(asset: selectedAsset),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  String _assetLabel(AssetInstanceRecord asset) {
+    final numberLabel = '${asset.assetClassName} ${asset.assetNumber}';
+    final name = asset.name.trim();
+    if (name.isEmpty || name.toLowerCase() == numberLabel.toLowerCase()) {
+      return numberLabel;
+    }
+    return '$numberLabel · $name';
+  }
+
+  InputDecoration _decoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: BafColors.background,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: BafSpacing.md,
+        vertical: BafSpacing.lg,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        borderSide: const BorderSide(color: BafColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        borderSide: const BorderSide(color: BafColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        borderSide: const BorderSide(color: BafColors.maintenance, width: 1.5),
+      ),
+    );
+  }
+}
+
+class _SelectedAssetSummary extends StatelessWidget {
+  const _SelectedAssetSummary({required this.asset});
+
+  final AssetInstanceRecord asset;
+
+  @override
+  Widget build(BuildContext context) {
+    final details = <String>[
+      asset.serviceState.label,
+      if (asset.plantTag case final tag? when tag.trim().isNotEmpty) tag.trim(),
+      if (asset.location case final location? when location.trim().isNotEmpty)
+        location.trim(),
+      asset.ownershipStatus.label,
+    ];
+    final color = switch (asset.serviceState) {
+      AssetServiceState.inService => BafColors.sync,
+      AssetServiceState.standby => BafColors.warning,
+      AssetServiceState.outOfService => BafColors.danger,
+    };
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.verified_outlined, color: color, size: 18),
+        const SizedBox(width: BafSpacing.sm),
+        Expanded(
+          child: Text(
+            details.join(' · '),
+            style: const TextStyle(
+              color: BafColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AssetSelectorMessage extends StatelessWidget {
+  const _AssetSelectorMessage({
+    required this.icon,
+    required this.message,
+    required this.color,
+    this.showProgress = false,
+  });
+
+  final IconData icon;
+  final String message;
+  final Color color;
+  final bool showProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 19),
+            const SizedBox(width: BafSpacing.sm),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: BafColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (showProgress) ...[
+          const SizedBox(height: BafSpacing.sm),
+          LinearProgressIndicator(
+            minHeight: 2,
+            color: color,
+            backgroundColor: color.withValues(alpha: 0.12),
+          ),
+        ],
+      ],
+    );
   }
 }
 

@@ -51,7 +51,33 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     source: source,
     minimum: 1,
   );
-  if (!AssetValidator.isValid(assetType, assetNumber)) {
+  final assetHierarchyRefJson = readOptionalPersistedString(
+    map['assetHierarchyRefJson'],
+    field: 'assetHierarchyRefJson',
+    source: source,
+    emptyAsNull: false,
+  );
+  final assetHierarchyReference =
+      assetHierarchyRefJson == null
+          ? null
+          : AssetHierarchyReference.decode(
+            assetHierarchyRefJson,
+            source: source,
+          );
+  final hasGovernedAssetIdentity =
+      assetHierarchyReference != null &&
+      assetHierarchyReference.scope != AssetHierarchyReferenceScope.definition;
+  if (hasGovernedAssetIdentity &&
+      assetHierarchyReference.assetNumber != assetNumber) {
+    throw PersistedDataFormatException(
+      field: 'assetHierarchyRefJson',
+      source: source,
+      detail: 'governed asset number must match assetNumber',
+    );
+  }
+  if (assetNumber > 9999 ||
+      (!hasGovernedAssetIdentity &&
+          !AssetValidator.isValid(assetType, assetNumber))) {
     throw PersistedDataFormatException(
       field: 'assetNumber',
       source: source,
@@ -130,11 +156,7 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       field: 'hierarchyPath',
       source: source,
     )
-    ..assetHierarchyRefJson = readOptionalAssetHierarchyReferenceJson(
-      map['assetHierarchyRefJson'],
-      field: 'assetHierarchyRefJson',
-      source: source,
-    )
+    ..assetHierarchyRefJson = assetHierarchyRefJson
     ..maintenanceType = readRequiredPersistedEnum(
       MaintenanceType.values,
       map['maintenanceType'],

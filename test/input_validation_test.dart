@@ -84,6 +84,36 @@ void main() {
     });
 
     test(
+      'governed identity supersedes obsolete legacy class number limits',
+      () {
+        final legacy = MaintenanceInputValidator.validateCreate(
+          MaintenanceCreateInput(
+            assetType: AssetType.furnace,
+            assetNumberText: '27',
+            component: 'Burner assembly',
+            description: 'Condition requiring governed maintenance attention.',
+            startDate: DateTime.now().subtract(const Duration(minutes: 5)),
+            routedTo: RoutedTo.mechanical,
+          ),
+        );
+        final governed = MaintenanceInputValidator.validateCreate(
+          MaintenanceCreateInput(
+            assetType: AssetType.furnace,
+            assetNumberText: '27',
+            hasGovernedAssetIdentity: true,
+            component: 'Burner assembly',
+            description: 'Condition requiring governed maintenance attention.',
+            startDate: DateTime.now().subtract(const Duration(minutes: 5)),
+            routedTo: RoutedTo.mechanical,
+          ),
+        );
+
+        expect(legacy.messageFor('assetNumber'), isNotNull);
+        expect(governed.messageFor('assetNumber'), isNull);
+      },
+    );
+
+    test(
       'rejects invalid asset, short description, bad charge and future start',
       () {
         final result = MaintenanceInputValidator.validateCreate(
