@@ -595,6 +595,7 @@ class _ClosedTicketCard extends StatelessWidget {
     final canReopen =
         canReopenTicket && hoursSince <= 4 && !ticket.workflowDeferred;
     final agencyColor = _agencyColor(ticket.routedTo);
+    final innerCover = ticket.assetHierarchyReference?.innerCoverAssociation;
 
     return Container(
       decoration: BoxDecoration(
@@ -712,6 +713,16 @@ class _ClosedTicketCard extends StatelessWidget {
                         icon: Icons.person_outline_rounded,
                         text: 'By ${ticket.closedByName ?? 'Unknown'}',
                       ),
+                      if (innerCover != null) ...[
+                        const SizedBox(height: 5),
+                        _MetaLine(
+                          icon: Icons.layers_outlined,
+                          text:
+                              innerCover.innerCoverSerialNumber == null
+                                  ? 'At event: no Inner Cover linked'
+                                  : 'At event: Inner Cover ${innerCover.innerCoverSerialNumber}',
+                        ),
+                      ],
                       const SizedBox(height: BafSpacing.md),
                       if (canReopen)
                         SizedBox(

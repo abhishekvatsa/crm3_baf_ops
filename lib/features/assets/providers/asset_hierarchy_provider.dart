@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/asset_hierarchy_model.dart';
+import '../data/inner_cover_lifecycle.dart';
 import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
 import '../repositories/asset_hierarchy_repository.dart';
@@ -51,4 +52,34 @@ final installedComponentsProvider =
       return ref
           .watch(assetHierarchyRepositoryProvider)
           .watchInstalledComponents(assetInstanceId);
+    });
+
+final innerCoverProfilesProvider = StreamProvider<List<InnerCoverProfile>>((
+  ref,
+) {
+  return ref.watch(assetHierarchyRepositoryProvider).watchInnerCoverProfiles();
+});
+
+final innerCoverAssignmentsProvider =
+    StreamProvider<List<BaseInnerCoverAssignment>>((ref) {
+      return ref
+          .watch(assetHierarchyRepositoryProvider)
+          .watchInnerCoverAssignments();
+    });
+
+final innerCoverHistoryProvider =
+    StreamProvider.family<List<InnerCoverLinkage>, String>((ref, innerCoverId) {
+      return ref
+          .watch(assetHierarchyRepositoryProvider)
+          .watchInnerCoverHistory(innerCoverId);
+    });
+
+final innerCoverFabricationProvider =
+    StreamProvider.family<InnerCoverFabricationDossier?, String>((
+      ref,
+      innerCoverId,
+    ) {
+      return ref
+          .watch(assetHierarchyRepositoryProvider)
+          .watchInnerCoverFabrication(innerCoverId);
     });

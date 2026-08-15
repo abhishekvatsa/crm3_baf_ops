@@ -71,6 +71,20 @@
       ]
     },
     {
+      "collectionGroup": "asset_instances",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assetClassId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "assetNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "abnormality_types",
       "queryScope": "COLLECTION",
       "fields": [

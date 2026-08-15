@@ -3860,6 +3860,17 @@ describe("governed dynamic asset hierarchy", () => {
       condition: "down",
       active: true,
     });
+    await seedDoc("inner_cover_profiles/cover-1", {
+      innerCoverId: "cover-1",
+    });
+    await seedDoc("base_inner_cover_assignments/base-1", {
+      baseAssetInstanceId: "base-1",
+      innerCoverId: "cover-1",
+    });
+    await seedDoc("inner_cover_linkages/link-1", {linkageId: "link-1"});
+    await seedDoc("inner_cover_fabrications/cover-1", {
+      fabricationId: "cover-1",
+    });
 
     const opsDb = dbAs("ops1");
     await assertSucceeds(getDoc(doc(opsDb, "asset_classes/class-1")));
@@ -3873,6 +3884,14 @@ describe("governed dynamic asset hierarchy", () => {
     );
     await assertSucceeds(getDoc(doc(opsDb, "asset_tag_claims/tag-hash")));
     await assertFails(getDocs(collection(opsDb, "asset_tag_claims")));
+    await assertSucceeds(getDoc(doc(opsDb, "inner_cover_profiles/cover-1")));
+    await assertSucceeds(
+      getDoc(doc(opsDb, "base_inner_cover_assignments/base-1"))
+    );
+    await assertSucceeds(getDoc(doc(opsDb, "inner_cover_linkages/link-1")));
+    await assertSucceeds(
+      getDoc(doc(opsDb, "inner_cover_fabrications/cover-1"))
+    );
   });
 
   test("all client hierarchy mutations fail, including for Admin", async () => {
@@ -3908,6 +3927,30 @@ describe("governed dynamic asset hierarchy", () => {
       setDoc(doc(adminDb, "asset_operational_condition_receipts/request-1"), {
         requestId: "request-1",
       }),
+      setDoc(doc(adminDb, "inner_cover_profiles/cover-1"), {
+        innerCoverId: "cover-1",
+      }),
+      setDoc(doc(adminDb, "base_inner_cover_assignments/base-1"), {
+        baseAssetInstanceId: "base-1",
+      }),
+      setDoc(doc(adminDb, "inner_cover_linkages/link-1"), {
+        linkageId: "link-1",
+      }),
+      setDoc(doc(adminDb, "inner_cover_fabrications/cover-1"), {
+        fabricationId: "cover-1",
+      }),
+      setDoc(doc(adminDb, "inner_cover_serial_claims/serial-1"), {
+        innerCoverId: "cover-1",
+      }),
+      setDoc(doc(adminDb, "inner_cover_donor_part_claims/part-1"), {
+        donorInnerCoverId: "cover-1",
+      }),
+      setDoc(doc(adminDb, "inner_cover_lifecycle_audits/audit-1"), {
+        auditId: "audit-1",
+      }),
+      setDoc(doc(adminDb, "inner_cover_lifecycle_receipts/request-1"), {
+        requestId: "request-1",
+      }),
     ];
     for (const write of writes) await assertFails(write);
   });
@@ -3941,6 +3984,34 @@ describe("governed dynamic asset hierarchy", () => {
     await assertFails(
       getDoc(doc(dbAs("admin1"), "asset_operational_condition_receipts/request-1"))
     );
+  });
+
+  test("Inner Cover audits are Admin-only and custody records stay private", async () => {
+    await seedDoc("inner_cover_lifecycle_audits/audit-1", {
+      auditId: "audit-1",
+    });
+    await seedDoc("inner_cover_lifecycle_receipts/request-1", {
+      requestId: "request-1",
+    });
+    await seedDoc("inner_cover_serial_claims/serial-1", {
+      innerCoverId: "cover-1",
+    });
+    await seedDoc("inner_cover_donor_part_claims/part-1", {
+      donorInnerCoverId: "cover-1",
+    });
+    await assertSucceeds(
+      getDoc(doc(dbAs("admin1"), "inner_cover_lifecycle_audits/audit-1"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("ops1"), "inner_cover_lifecycle_audits/audit-1"))
+    );
+    for (const path of [
+      "inner_cover_lifecycle_receipts/request-1",
+      "inner_cover_serial_claims/serial-1",
+      "inner_cover_donor_part_claims/part-1",
+    ]) {
+      await assertFails(getDoc(doc(dbAs("admin1"), path)));
+    }
   });
 
   test("operational events are approved-readable and server-write-only", async () => {

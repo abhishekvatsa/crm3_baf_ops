@@ -233,6 +233,100 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     setState(() => _startTime = picked);
   }
 
+  Future<AssetHierarchyReference?> _resolveEventAssetReference({
+    required int assetNumber,
+    required String reporterUid,
+    required String reporterName,
+    required DateTime confirmedAt,
+  }) async {
+    final usesBasePosition =
+        _assetType == AssetType.base || _assetType == AssetType.innerCover;
+    if (!usesBasePosition) return _assetHierarchyReference;
+    final repository = ref.read(assetHierarchyRepositoryProvider);
+    final context = await repository.resolveGovernedAssetEventContext(
+      legacyAssetTypeKey: AssetType.base.name,
+      assetNumber: assetNumber,
+    );
+    if (context == null) {
+      if (_assetType == AssetType.innerCover) {
+        throw const AssetHierarchyException(
+          'This Base is not available in the governed asset register. Register or reconcile it before raising an Inner Cover issue.',
+        );
+      }
+      return _assetHierarchyReference;
+    }
+    final existing = _assetHierarchyReference;
+    if (existing != null && existing.assetInstanceId != context.asset.id) {
+      throw const AssetHierarchyException(
+        'The resolved component and selected Base disagree. Review the equipment tag.',
+      );
+    }
+    final assignment = context.innerCoverAssignment;
+    if (_assetType == AssetType.innerCover && assignment == null) {
+      throw const AssetHierarchyException(
+        'No Inner Cover is currently linked to this Base. Link the physical cover before raising an Inner Cover issue.',
+      );
+    }
+    final association = InnerCoverEventReference(
+      baseAssetInstanceId: context.asset.id,
+      baseAssetNumber: context.asset.assetNumber,
+      positionState:
+          assignment == null
+              ? InnerCoverPositionState.noneLinked
+              : InnerCoverPositionState.linked,
+      innerCoverId: assignment?.innerCoverId,
+      innerCoverSerialNumber: assignment?.innerCoverSerialNumber,
+      linkageId: assignment?.linkageId,
+      assignmentVersion: assignment?.version,
+      linkedAt: assignment?.linkedAt,
+      eventAt: _startTime,
+      confirmedAt: confirmedAt,
+      confirmedByUid: reporterUid,
+      confirmedByName: reporterName,
+    );
+    if (existing != null) {
+      return AssetHierarchyReference(
+        scope: existing.scope,
+        assetClassId: existing.assetClassId,
+        assetClassCode: existing.assetClassCode,
+        assetClassName: existing.assetClassName,
+        nodeId: existing.nodeId,
+        nodeVersion: existing.nodeVersion,
+        nodeName: existing.nodeName,
+        assetInstanceId: existing.assetInstanceId,
+        assetInstanceVersion: existing.assetInstanceVersion,
+        assetNumber: existing.assetNumber,
+        assetInstanceName: existing.assetInstanceName,
+        componentInstanceId: existing.componentInstanceId,
+        componentInstanceVersion: existing.componentInstanceVersion,
+        componentTag: existing.componentTag,
+        hierarchyPath: existing.hierarchyPath,
+        ownershipStatus: existing.ownershipStatus,
+        ownerDiscipline: existing.ownerDiscipline,
+        accountableRoleKeys: existing.accountableRoleKeys,
+        innerCoverAssociation: association,
+      );
+    }
+    return AssetHierarchyReference(
+      scope: AssetHierarchyReferenceScope.physicalAsset,
+      assetClassId: context.assetClass.id,
+      assetClassCode: context.assetClass.code,
+      assetClassName: context.assetClass.name,
+      nodeId: context.asset.id,
+      nodeVersion: context.asset.version,
+      nodeName: context.asset.name,
+      assetInstanceId: context.asset.id,
+      assetInstanceVersion: context.asset.version,
+      assetNumber: context.asset.assetNumber,
+      assetInstanceName: context.asset.name,
+      hierarchyPath: [context.assetClass.name, context.asset.name],
+      ownershipStatus: context.asset.ownershipStatus,
+      ownerDiscipline: context.asset.ownerDiscipline,
+      accountableRoleKeys: context.asset.accountableRoleKeys,
+      innerCoverAssociation: association,
+    );
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_isSubmitting) return;
@@ -294,6 +388,13 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           _cleanOptionalText(appUser?.name) ??
           _cleanOptionalText(firebaseUser?.displayName) ??
           _cleanOptionalText(firebaseUser?.email);
+      final assetNumber = int.parse(_assetNumController.text.trim());
+      final eventAssetReference = await _resolveEventAssetReference(
+        assetNumber: assetNumber,
+        reporterUid: reporterUid!,
+        reporterName: reporterName ?? reporterUid,
+        confirmedAt: now,
+      );
       final tagText = _cleanOptionalText(_tagController.text)?.toUpperCase();
       final hierarchyPath =
           _resolvedPath == null || _resolvedPath!.isEmpty
@@ -304,7 +405,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           MaintenanceRecord()
             ..firestoreId = const Uuid().v4()
             ..assetType = _assetType
-            ..assetNumber = int.parse(_assetNumController.text.trim())
+            ..assetNumber = assetNumber
             ..maintenanceType = _maintenanceType
             ..routedTo = _routedTo
             ..otherDepartment =
@@ -328,7 +429,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             ..tag = tagText
             ..subsystem = _cleanOptionalText(_resolvedSubsystem)
             ..hierarchyPath = hierarchyPath;
-      record.assetHierarchyRefJson = _assetHierarchyReference?.encode();
+      record.assetHierarchyRefJson = eventAssetReference?.encode();
       record.qualityIntent = IssueQualityIntent(
         assessment: _qualityAssessment!,
         warningReason:
@@ -547,7 +648,11 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                       child: TextFormField(
                         controller: _assetNumController,
                         keyboardType: TextInputType.number,
-                        decoration: _inputDecoration('Number'),
+                        decoration: _inputDecoration(
+                          _assetType == AssetType.innerCover
+                              ? 'Base number'
+                              : 'Number',
+                        ),
                         validator:
                             (value) =>
                                 MaintenanceInputValidator.validateAssetNumber(
@@ -828,7 +933,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       case AssetType.forceCooler:
         return 'FORCE COOLER';
       case AssetType.innerCover:
-        return 'INNER COVER';
+        return 'INNER COVER (BY BASE)';
       case AssetType.governedCustom:
         return 'GOVERNED ASSET';
     }

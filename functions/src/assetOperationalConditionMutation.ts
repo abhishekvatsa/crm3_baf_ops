@@ -419,7 +419,8 @@ function verifyLinkedIssue(data: JsonMap, issueId: string, asset: JsonMap): void
   }
   const map = reference == null || typeof reference !== "object" ||
       Array.isArray(reference) ? null : reference as JsonMap;
-  if (map == null || map.schemaVersion !== 2 ||
+  if (map == null ||
+      (map.schemaVersion !== 2 && map.schemaVersion !== 3) ||
       map.assetInstanceId !== asset.assetInstanceId ||
       map.assetClassId !== asset.assetClassId ||
       map.assetNumber !== asset.assetNumber) {
@@ -429,6 +430,61 @@ function verifyLinkedIssue(data: JsonMap, issueId: string, asset: JsonMap): void
       {reasonCode: "asset-condition-linked-issue-asset-mismatch", issueId},
     );
   }
+  const association = map.innerCoverAssociation;
+  if (association == null) return;
+  const innerCover = association != null && typeof association === "object" &&
+      !Array.isArray(association) ? association as JsonMap : null;
+  const positionState = innerCover?.positionState;
+  const linkedValues = innerCover == null ? [] : [
+    innerCover.innerCoverId,
+    innerCover.innerCoverSerialNumber,
+    innerCover.linkageId,
+    innerCover.assignmentVersion,
+    innerCover.linkedAt,
+  ];
+  const linkedComplete = linkedValues.length === 5 &&
+    linkedValues.slice(0, 3).every(
+      (value) => typeof value === "string" && value.trim().length > 0,
+    ) && Number.isSafeInteger(linkedValues[3]) &&
+    (linkedValues[3] as number) >= 1 && validSerializedInstant(linkedValues[4]);
+  const linkedAbsent = linkedValues.length === 5 &&
+    linkedValues.every((value) => value == null);
+  const eventAt = serializedInstant(innerCover?.eventAt);
+  const confirmedAt = serializedInstant(innerCover?.confirmedAt);
+  const linkedAt = serializedInstant(innerCover?.linkedAt);
+  const validPosition = positionState === "linked" ? linkedComplete :
+    positionState === "noneLinked" && linkedAbsent;
+  if (innerCover == null || map.schemaVersion !== 3 ||
+      innerCover.baseAssetInstanceId !== asset.assetInstanceId ||
+      innerCover.baseAssetNumber !== asset.assetNumber || !validPosition ||
+      eventAt == null || confirmedAt == null || eventAt > confirmedAt ||
+      (linkedAt != null && linkedAt > confirmedAt) ||
+      typeof innerCover.confirmedByUid !== "string" ||
+      innerCover.confirmedByUid.trim().length === 0 ||
+      typeof innerCover.confirmedByName !== "string" ||
+      innerCover.confirmedByName.trim().length === 0) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `Linked issue ${issueId} has malformed Inner Cover event evidence.`,
+      {
+        reasonCode: "asset-condition-linked-issue-inner-cover-malformed",
+        issueId,
+      },
+    );
+  }
+}
+
+function serializedInstant(value: unknown): number | null {
+  if (typeof value !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/.test(value)) {
+    return null;
+  }
+  const milliseconds = Date.parse(value);
+  return Number.isNaN(milliseconds) ? null : milliseconds;
+}
+
+function validSerializedInstant(value: unknown): boolean {
+  return serializedInstant(value) != null;
 }
 
 function resultFromReceipt(

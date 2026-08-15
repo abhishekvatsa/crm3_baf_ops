@@ -232,6 +232,61 @@ describe('asset operational condition mutation', () => {
       });
   });
 
+  test('schema-3 physical asset issue remains valid condition evidence', async () => {
+    const seed = baseSeed();
+    seed['maintenance_records/issue-1'].assetHierarchyRefJson = JSON.stringify({
+      schemaVersion: 3,
+      scope: 'physicalAsset',
+      assetInstanceId: IDS.asset,
+      assetClassId: IDS.class,
+      assetNumber: 7,
+      innerCoverAssociation: {
+        baseAssetInstanceId: IDS.asset,
+        baseAssetNumber: 7,
+        positionState: 'linked',
+        innerCoverId: 'cover-gr26',
+        innerCoverSerialNumber: 'GR26',
+        linkageId: 'link-gr26-base-7',
+        assignmentVersion: 3,
+        linkedAt: '2026-08-01T10:00:00.000Z',
+        eventAt: '2026-08-15T10:00:00.000Z',
+        confirmedAt: '2026-08-15T10:01:00.000Z',
+        confirmedByUid: 'ops-1',
+        confirmedByName: 'Operations One',
+      },
+    });
+    await expect(invoke(fakeDb(seed), 'ops-1', declareRequest()))
+      .resolves.toMatchObject({condition: 'down', version: 1});
+  });
+
+  test('partial Inner Cover event evidence cannot support a declaration', async () => {
+    const seed = baseSeed();
+    seed['maintenance_records/issue-1'].assetHierarchyRefJson = JSON.stringify({
+      schemaVersion: 3,
+      scope: 'physicalAsset',
+      assetInstanceId: IDS.asset,
+      assetClassId: IDS.class,
+      assetNumber: 7,
+      innerCoverAssociation: {
+        baseAssetInstanceId: IDS.asset,
+        baseAssetNumber: 7,
+        positionState: 'linked',
+        innerCoverSerialNumber: 'GR26',
+        eventAt: '2026-08-15T10:00:00.000Z',
+        confirmedAt: '2026-08-15T10:01:00.000Z',
+        confirmedByUid: 'ops-1',
+        confirmedByName: 'Operations One',
+      },
+    });
+    await expect(invoke(fakeDb(seed), 'ops-1', declareRequest()))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {
+          reasonCode: 'asset-condition-linked-issue-inner-cover-malformed',
+        },
+      });
+  });
+
   test('linked issue must remain open with complete lifecycle state', async () => {
     for (const [override, reasonCode] of [
       [{isResolved: true}, 'asset-condition-linked-issue-resolved'],

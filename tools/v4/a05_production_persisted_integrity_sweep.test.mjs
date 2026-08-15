@@ -78,6 +78,8 @@ function hierarchyDocuments() {
   const classId = 'class-1';
   const nodeId = 'node-1';
   const assetId = 'asset-1';
+  const baseClassId = 'base-class';
+  const baseId = 'base-201';
   const componentId = 'component-1';
   const normalizedTag = 'PT101';
   const claimId = createHash('sha256').update(normalizedTag).digest('hex');
@@ -107,6 +109,27 @@ function hierarchyDocuments() {
         updatedByUid: 'admin-1',
         updatedByName: 'Admin',
         lastMutationId: 'mutation-1',
+      },
+    }, {
+      id: baseClassId,
+      data: {
+        schemaVersion: 1,
+        assetClassId: baseClassId,
+        code: 'BASE',
+        name: 'Base',
+        majorArea: 'BAF shop',
+        shortDescription: null,
+        longDescription: null,
+        legacyAssetTypeKey: 'base',
+        status: 'active',
+        version: 1,
+        createdAt: ts,
+        createdByUid: 'admin-1',
+        createdByName: 'Admin',
+        updatedAt: ts,
+        updatedByUid: 'admin-1',
+        updatedByName: 'Admin',
+        lastMutationId: 'base-class-create-1',
       },
     }],
     asset_hierarchy_nodes: [{
@@ -172,6 +195,33 @@ function hierarchyDocuments() {
         createdAt: ts,
         updatedAt: ts,
         lastMutationId: 'mutation-1',
+      },
+    }, {
+      id: baseId,
+      data: {
+        schemaVersion: 1,
+        assetInstanceId: baseId,
+        assetClassId: baseClassId,
+        assetClassCode: 'BASE',
+        assetClassName: 'Base',
+        assetNumber: 201,
+        name: 'Base 201',
+        plantTag: 'B-201',
+        location: 'BAF shop',
+        manufacturer: null,
+        model: null,
+        serialNumber: null,
+        commissionedOn: null,
+        serviceState: 'inService',
+        ownershipStatus: 'confirmed',
+        ownerDiscipline: 'Operations',
+        accountableRoleKeys: ['operations'],
+        status: 'active',
+        activeComponentCount: 0,
+        version: 1,
+        createdAt: ts,
+        updatedAt: ts,
+        lastMutationId: 'base-create-201',
       },
     }],
     asset_operational_conditions: [{
@@ -282,6 +332,100 @@ function hierarchyDocuments() {
         claimedAt: ts,
         claimedByUid: 'admin-1',
         lastMutationId: 'mutation-1',
+      },
+    }],
+    inner_cover_profiles: [{
+      id: 'cover-gr26',
+      data: {
+        schemaVersion: 1,
+        innerCoverId: 'cover-gr26',
+        assetClassId: 'inner-cover-class',
+        assetClassCode: 'INNER_COVER',
+        assetClassName: 'Inner Cover',
+        serialNumber: 'GR26',
+        normalizedSerialNumber: 'GR26',
+        sourceType: 'fabricated',
+        lifecycleState: 'installed',
+        traceabilityGrade: 'T3',
+        supplierOrFabricator: 'BAF Fabrication Shop',
+        receivedOrCompletedOn: ts,
+        drawingReference: 'IC-GA-01',
+        materialGrade: 'SS 309',
+        acceptanceReference: 'IC-ACC-26',
+        acceptedAt: ts,
+        acceptedByUid: 'admin-1',
+        acceptedByName: 'Admin',
+        currentBaseAssetInstanceId: baseId,
+        currentBaseAssetNumber: 201,
+        currentBaseAssetName: 'Base 201',
+        currentLinkageId: 'link-gr26-base-201',
+        version: 3,
+        createdAt: ts,
+        updatedAt: ts,
+        lastMutationId: 'inner-cover-link-1',
+      },
+    }],
+    base_inner_cover_assignments: [{
+      id: baseId,
+      data: {
+        schemaVersion: 1,
+        baseAssetInstanceId: baseId,
+        baseAssetClassId: baseClassId,
+        baseAssetNumber: 201,
+        baseAssetName: 'Base 201',
+        innerCoverId: 'cover-gr26',
+        innerCoverSerialNumber: 'GR26',
+        linkageId: 'link-gr26-base-201',
+        linkedAt: ts,
+        version: 1,
+        updatedAt: ts,
+        lastMutationId: 'inner-cover-link-1',
+      },
+    }],
+    inner_cover_linkages: [{
+      id: 'link-gr26-base-201',
+      data: {
+        schemaVersion: 1,
+        linkageId: 'link-gr26-base-201',
+        baseAssetInstanceId: baseId,
+        baseAssetNumber: 201,
+        baseAssetName: 'Base 201',
+        innerCoverId: 'cover-gr26',
+        innerCoverSerialNumber: 'GR26',
+        installedAt: ts,
+        installedByUid: 'admin-1',
+        installedByName: 'Admin',
+        removedAt: null,
+        removalAction: null,
+        removalReason: null,
+        active: true,
+        version: 1,
+      },
+    }],
+    inner_cover_fabrications: [{
+      id: 'cover-gr26',
+      data: {
+        schemaVersion: 1,
+        fabricationId: 'cover-gr26',
+        resultingInnerCoverId: 'cover-gr26',
+        resultingSerialNumber: 'GR26',
+        supplierOrFabricator: 'BAF Fabrication Shop',
+        completedOn: ts,
+        drawingReference: 'IC-GA-01',
+        materialGrade: 'SS 309',
+        traceabilityGrade: 'T3',
+        sections: [{
+          sectionId: 'section-lower-26',
+          sectionType: 'lowerAssembly',
+          materialSource: 'newFabricated',
+          donorInnerCoverId: null,
+          donorSectionKey: null,
+          lengthMm: 1200,
+          cutCount: 1,
+          notes: null,
+        }],
+        status: 'accepted',
+        acceptanceReference: 'IC-ACC-26',
       },
     }],
   };
@@ -575,7 +719,11 @@ test('actual Dart readers reconcile every hierarchy collection in memory', async
     documentsByCollection: documents,
     hmacKey: HMAC_KEY,
   });
-  assert.equal(reconciliation.length, 7);
+  const expectedRecordCount = Object.values(hierarchy).reduce(
+    (total, records) => total + records.length,
+    0,
+  );
+  assert.equal(reconciliation.length, expectedRecordCount);
   assert.ok(reconciliation.every((result) => result.result === 'PASS'));
   assert.equal(JSON.stringify(reconciliation).includes('component-1'), false);
 

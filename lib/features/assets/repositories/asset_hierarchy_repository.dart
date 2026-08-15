@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../auth/data/user_model.dart';
 import '../data/asset_hierarchy_model.dart';
+import '../data/inner_cover_lifecycle.dart';
 import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
 
@@ -61,12 +62,28 @@ class AssetTagCollisionException extends AssetHierarchyException {
   }) : super('Tag $normalizedTag already belongs to $existingNodeName.');
 }
 
+class GovernedAssetEventContext {
+  final AssetClassRecord assetClass;
+  final AssetInstanceRecord asset;
+  final BaseInnerCoverAssignment? innerCoverAssignment;
+
+  const GovernedAssetEventContext({
+    required this.assetClass,
+    required this.asset,
+    this.innerCoverAssignment,
+  });
+}
+
 class AssetHierarchyRepository {
   static const assetClassesCollection = 'asset_classes';
   static const hierarchyNodesCollection = 'asset_hierarchy_nodes';
   static const assetInstancesCollection = 'asset_instances';
   static const componentInstancesCollection = 'asset_component_instances';
   static const assetConditionsCollection = 'asset_operational_conditions';
+  static const innerCoverProfilesCollection = 'inner_cover_profiles';
+  static const innerCoverAssignmentsCollection = 'base_inner_cover_assignments';
+  static const innerCoverLinkagesCollection = 'inner_cover_linkages';
+  static const innerCoverFabricationsCollection = 'inner_cover_fabrications';
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions? _functions;
@@ -94,6 +111,14 @@ class AssetHierarchyRepository {
       _firestore.collection(componentInstancesCollection);
   CollectionReference<Map<String, dynamic>> get _assetConditions =>
       _firestore.collection(assetConditionsCollection);
+  CollectionReference<Map<String, dynamic>> get _innerCoverProfiles =>
+      _firestore.collection(innerCoverProfilesCollection);
+  CollectionReference<Map<String, dynamic>> get _innerCoverAssignments =>
+      _firestore.collection(innerCoverAssignmentsCollection);
+  CollectionReference<Map<String, dynamic>> get _innerCoverLinkages =>
+      _firestore.collection(innerCoverLinkagesCollection);
+  CollectionReference<Map<String, dynamic>> get _innerCoverFabrications =>
+      _firestore.collection(innerCoverFabricationsCollection);
 
   Stream<List<AssetClassRecord>> watchAssetClasses() {
     return _classes.snapshots().map((snapshot) {
@@ -188,6 +213,166 @@ class AssetHierarchyRepository {
             });
       return List<AssetOperationalConditionRecord>.unmodifiable(records);
     });
+  }
+
+  Stream<List<InnerCoverProfile>> watchInnerCoverProfiles() {
+    return _innerCoverProfiles.snapshots().map((snapshot) {
+      final records =
+          snapshot.docs
+              .map((doc) => InnerCoverProfile.fromMap(doc.data(), doc.id))
+              .toList()
+            ..sort(
+              (left, right) => left.normalizedSerialNumber.compareTo(
+                right.normalizedSerialNumber,
+              ),
+            );
+      return List<InnerCoverProfile>.unmodifiable(records);
+    });
+  }
+
+  Stream<List<BaseInnerCoverAssignment>> watchInnerCoverAssignments() {
+    return _innerCoverAssignments.snapshots().map((snapshot) {
+      final records =
+          snapshot.docs
+              .map(
+                (doc) => BaseInnerCoverAssignment.fromMap(doc.data(), doc.id),
+              )
+              .toList()
+            ..sort(
+              (left, right) =>
+                  left.baseAssetNumber.compareTo(right.baseAssetNumber),
+            );
+      return List<BaseInnerCoverAssignment>.unmodifiable(records);
+    });
+  }
+
+  Stream<List<InnerCoverLinkage>> watchInnerCoverHistory(String innerCoverId) {
+    return _innerCoverLinkages
+        .where('innerCoverId', isEqualTo: innerCoverId)
+        .snapshots()
+        .map((snapshot) {
+          final records =
+              snapshot.docs
+                  .map((doc) => InnerCoverLinkage.fromMap(doc.data(), doc.id))
+                  .toList()
+                ..sort(
+                  (left, right) =>
+                      right.installedAt.compareTo(left.installedAt),
+                );
+          return List<InnerCoverLinkage>.unmodifiable(records);
+        });
+  }
+
+  Stream<InnerCoverFabricationDossier?> watchInnerCoverFabrication(
+    String innerCoverId,
+  ) {
+    return _innerCoverFabrications.doc(innerCoverId).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return InnerCoverFabricationDossier.fromMap(doc.data()!, doc.id);
+    });
+  }
+
+  Future<BaseInnerCoverAssignment?> getInnerCoverAssignmentForBase(
+    String baseAssetInstanceId,
+  ) async {
+    final snapshot =
+        await _innerCoverAssignments.doc(baseAssetInstanceId).get();
+    if (!snapshot.exists || snapshot.data() == null) return null;
+    return BaseInnerCoverAssignment.fromMap(snapshot.data()!, snapshot.id);
+  }
+
+  Future<GovernedAssetEventContext?> resolveGovernedAssetEventContext({
+    required String legacyAssetTypeKey,
+    required int assetNumber,
+  }) async {
+    final classSnapshot =
+        await _classes
+            .where('legacyAssetTypeKey', isEqualTo: legacyAssetTypeKey)
+            .get();
+    final matchingClasses =
+        classSnapshot.docs
+            .map((doc) => AssetClassRecord.fromMap(doc.data(), doc.id))
+            .where((record) => record.isActive)
+            .toList();
+    if (matchingClasses.isEmpty) return null;
+    if (matchingClasses.length != 1) {
+      throw AssetHierarchyException(
+        'More than one active asset class claims $legacyAssetTypeKey. Reconcile asset classes before raising work.',
+      );
+    }
+    final assetClass = matchingClasses.single;
+    final assetSnapshot =
+        await _assetInstances
+            .where('assetClassId', isEqualTo: assetClass.id)
+            .where('assetNumber', isEqualTo: assetNumber)
+            .limit(2)
+            .get();
+    final matchingAssets =
+        assetSnapshot.docs
+            .map((doc) => AssetInstanceRecord.fromMap(doc.data(), doc.id))
+            .where((record) => record.isActive)
+            .toList();
+    if (matchingAssets.length != 1) {
+      throw AssetHierarchyException(
+        matchingAssets.isEmpty
+            ? '${assetClass.name} $assetNumber is not registered as an active governed asset.'
+            : '${assetClass.name} $assetNumber has duplicate governed identities.',
+      );
+    }
+    final asset = matchingAssets.single;
+    BaseInnerCoverAssignment? assignment;
+    if (legacyAssetTypeKey == 'base') {
+      assignment = await _verifiedInnerCoverAssignment(asset);
+    }
+    return GovernedAssetEventContext(
+      assetClass: assetClass,
+      asset: asset,
+      innerCoverAssignment: assignment,
+    );
+  }
+
+  Future<BaseInnerCoverAssignment?> _verifiedInnerCoverAssignment(
+    AssetInstanceRecord base,
+  ) async {
+    final assignmentSnapshot = await _innerCoverAssignments.doc(base.id).get();
+    if (!assignmentSnapshot.exists || assignmentSnapshot.data() == null) {
+      final reverse =
+          await _innerCoverProfiles
+              .where('currentBaseAssetInstanceId', isEqualTo: base.id)
+              .limit(1)
+              .get();
+      if (reverse.docs.isNotEmpty) {
+        throw AssetHierarchyException(
+          'Base ${base.assetNumber} has an orphaned Inner Cover projection. Reconcile the pairing before raising work.',
+        );
+      }
+      return null;
+    }
+    final assignment = BaseInnerCoverAssignment.fromMap(
+      assignmentSnapshot.data()!,
+      assignmentSnapshot.id,
+    );
+    final profileSnapshot =
+        await _innerCoverProfiles.doc(assignment.innerCoverId).get();
+    if (!profileSnapshot.exists || profileSnapshot.data() == null) {
+      throw AssetHierarchyException(
+        'Base ${base.assetNumber} points to a missing Inner Cover profile.',
+      );
+    }
+    final profile = InnerCoverProfile.fromMap(
+      profileSnapshot.data()!,
+      profileSnapshot.id,
+    );
+    if (!profile.isInstalled ||
+        profile.currentBaseAssetInstanceId != base.id ||
+        profile.currentBaseAssetNumber != base.assetNumber ||
+        profile.currentLinkageId != assignment.linkageId ||
+        profile.serialNumber != assignment.innerCoverSerialNumber) {
+      throw AssetHierarchyException(
+        'Base ${base.assetNumber} and Inner Cover ${assignment.innerCoverSerialNumber} disagree. Reconcile the pairing before raising work.',
+      );
+    }
+    return assignment;
   }
 
   Stream<List<InstalledComponentRecord>> watchInstalledComponents(
@@ -342,6 +527,242 @@ class AssetHierarchyRepository {
       'expectedVersion': before.version,
       'status': status.name,
       'reason': _validateReason(reason),
+    });
+  }
+
+  Future<String> registerInnerCover({
+    required AssetClassRecord innerCoverClass,
+    required String serialNumber,
+    required InnerCoverSourceType sourceType,
+    required AppUser actor,
+    required String reason,
+    String? supplierOrFabricator,
+    DateTime? receivedOrCompletedOn,
+    String? drawingReference,
+    String? materialGrade,
+    String? notes,
+    List<InnerCoverFabricationSectionDraft> fabricationSections = const [],
+  }) async {
+    _requireAdmin(actor);
+    if (!innerCoverClass.isActive ||
+        innerCoverClass.legacyAssetTypeKey != 'innerCover') {
+      throw const AssetHierarchyException(
+        'Choose the active governed Inner Cover asset class.',
+      );
+    }
+    final serial = serialNumber.trim();
+    if (normalizeInnerCoverSerial(serial).length < 2 || serial.length > 160) {
+      throw const AssetHierarchyException(
+        'Enter an Inner Cover serial containing at least two letters or numbers.',
+      );
+    }
+    final errors =
+        fabricationSections.expand((section) => section.validate()).toList();
+    if (sourceType == InnerCoverSourceType.fabricated) {
+      final types = fabricationSections.map((section) => section.type).toSet();
+      for (final requiredType in const {
+        InnerCoverFabricationSectionType.lowerAssembly,
+        InnerCoverFabricationSectionType.flatVertical,
+        InnerCoverFabricationSectionType.corrugatedShell,
+        InnerCoverFabricationSectionType.topCover,
+      }) {
+        if (!types.contains(requiredType)) {
+          errors.add('Fabrication must include ${requiredType.label}.');
+        }
+      }
+    } else if (fabricationSections.isNotEmpty) {
+      errors.add(
+        'Fabrication sections are allowed only for fabricated covers.',
+      );
+    }
+    _validate(errors, 'Inner Cover registration is not valid.');
+    final innerCoverId = _uuid.v4();
+    await _invoke(<String, dynamic>{
+      'requestId': _uuid.v4(),
+      'operation': 'REGISTER_INNER_COVER',
+      'innerCoverId': innerCoverId,
+      'innerCoverAssetClassId': innerCoverClass.id,
+      'reason': _validateConditionReason(reason),
+      'registrationDraft': <String, dynamic>{
+        'serialNumber': serial,
+        'sourceType': sourceType.name,
+        'supplierOrFabricator': cleanHierarchyText(supplierOrFabricator),
+        'receivedOrCompletedOn':
+            receivedOrCompletedOn?.toUtc().toIso8601String(),
+        'drawingReference': cleanHierarchyText(drawingReference),
+        'materialGrade': cleanHierarchyText(materialGrade),
+        'notes': cleanHierarchyText(notes),
+        'fabricationSections': fabricationSections
+            .map(
+              (section) => <String, dynamic>{
+                'sectionId': _uuid.v4(),
+                'sectionType': section.type.name,
+                'materialSource': section.materialSource.name,
+                'donorInnerCoverId': section.donor?.id,
+                'donorSectionKey': cleanHierarchyText(section.donorSectionKey),
+                'donorExpectedVersion': section.donor?.version,
+                'lengthMm': section.lengthMm,
+                'cutCount': section.cutCount,
+                'notes': cleanHierarchyText(section.notes),
+              },
+            )
+            .toList(growable: false),
+      },
+    });
+    return innerCoverId;
+  }
+
+  Future<void> acceptInnerCover({
+    required InnerCoverProfile cover,
+    required DateTime inspectedOn,
+    required String acceptanceReference,
+    required AppUser actor,
+    required String reason,
+    String? leakTestReference,
+    String? ndtReference,
+    String? notes,
+  }) async {
+    _requireAdmin(actor);
+    final reference = acceptanceReference.trim();
+    if (reference.isEmpty || reference.length > 240) {
+      throw const AssetHierarchyException(
+        'Enter the inspection or acceptance reference.',
+      );
+    }
+    await _invoke(<String, dynamic>{
+      'requestId': _uuid.v4(),
+      'operation': 'ACCEPT_INNER_COVER',
+      'innerCoverId': cover.id,
+      'expectedVersion': cover.version,
+      'reason': _validateConditionReason(reason),
+      'acceptanceDraft': <String, dynamic>{
+        'inspectedOn': inspectedOn.toUtc().toIso8601String(),
+        'acceptanceReference': reference,
+        'leakTestReference': cleanHierarchyText(leakTestReference),
+        'ndtReference': cleanHierarchyText(ndtReference),
+        'notes': cleanHierarchyText(notes),
+      },
+    });
+  }
+
+  Future<void> setInnerCoverState({
+    required InnerCoverProfile cover,
+    required InnerCoverLifecycleState targetState,
+    required AppUser actor,
+    required String reason,
+  }) async {
+    _requireAdmin(actor);
+    await _invoke(<String, dynamic>{
+      'requestId': _uuid.v4(),
+      'operation': 'SET_INNER_COVER_STATE',
+      'innerCoverId': cover.id,
+      'expectedVersion': cover.version,
+      'targetState': targetState.name,
+      'reason': _validateConditionReason(reason),
+    });
+  }
+
+  Future<void> linkInnerCover({
+    required InnerCoverProfile cover,
+    required AssetInstanceRecord base,
+    required AppUser actor,
+    required String reason,
+  }) async {
+    _requireAdmin(actor);
+    await _invoke(<String, dynamic>{
+      'requestId': _uuid.v4(),
+      'operation': 'LINK_INNER_COVER',
+      'innerCoverId': cover.id,
+      'expectedVersion': cover.version,
+      'targetBaseAssetInstanceId': base.id,
+      'reason': _validateConditionReason(reason),
+    });
+  }
+
+  Future<void> delinkInnerCover({
+    required InnerCoverProfile cover,
+    required BaseInnerCoverAssignment assignment,
+    required InnerCoverLifecycleState targetState,
+    required AppUser actor,
+    required String reason,
+  }) async {
+    _requireAdmin(actor);
+    await _invoke(<String, dynamic>{
+      'requestId': _uuid.v4(),
+      'operation': 'DELINK_INNER_COVER',
+      'innerCoverId': cover.id,
+      'expectedVersion': cover.version,
+      'sourceBaseAssetInstanceId': assignment.baseAssetInstanceId,
+      'expectedSourceAssignmentVersion': assignment.version,
+      'targetState': targetState.name,
+      'reason': _validateConditionReason(reason),
+    });
+  }
+
+  Future<void> transferInnerCover({
+    required InnerCoverProfile cover,
+    required BaseInnerCoverAssignment sourceAssignment,
+    required AssetInstanceRecord targetBase,
+    required AppUser actor,
+    required String reason,
+  }) async {
+    _requireAdmin(actor);
+    await _invoke(<String, dynamic>{
+      'requestId': _uuid.v4(),
+      'operation': 'TRANSFER_INNER_COVER',
+      'innerCoverId': cover.id,
+      'expectedVersion': cover.version,
+      'sourceBaseAssetInstanceId': sourceAssignment.baseAssetInstanceId,
+      'expectedSourceAssignmentVersion': sourceAssignment.version,
+      'targetBaseAssetInstanceId': targetBase.id,
+      'reason': _validateConditionReason(reason),
+    });
+  }
+
+  Future<void> replaceInnerCover({
+    required InnerCoverProfile incoming,
+    required InnerCoverProfile displaced,
+    required BaseInnerCoverAssignment targetAssignment,
+    required InnerCoverLifecycleState displacedState,
+    required AppUser actor,
+    required String reason,
+  }) async {
+    _requireAdmin(actor);
+    await _invoke(<String, dynamic>{
+      'requestId': _uuid.v4(),
+      'operation': 'REPLACE_INNER_COVER',
+      'innerCoverId': incoming.id,
+      'expectedVersion': incoming.version,
+      'targetBaseAssetInstanceId': targetAssignment.baseAssetInstanceId,
+      'expectedTargetAssignmentVersion': targetAssignment.version,
+      'displacedInnerCoverId': displaced.id,
+      'expectedDisplacedVersion': displaced.version,
+      'targetState': displacedState.name,
+      'reason': _validateConditionReason(reason),
+    });
+  }
+
+  Future<void> swapInnerCovers({
+    required InnerCoverProfile incoming,
+    required BaseInnerCoverAssignment sourceAssignment,
+    required InnerCoverProfile displaced,
+    required BaseInnerCoverAssignment targetAssignment,
+    required AppUser actor,
+    required String reason,
+  }) async {
+    _requireAdmin(actor);
+    await _invoke(<String, dynamic>{
+      'requestId': _uuid.v4(),
+      'operation': 'SWAP_INNER_COVERS',
+      'innerCoverId': incoming.id,
+      'expectedVersion': incoming.version,
+      'sourceBaseAssetInstanceId': sourceAssignment.baseAssetInstanceId,
+      'expectedSourceAssignmentVersion': sourceAssignment.version,
+      'targetBaseAssetInstanceId': targetAssignment.baseAssetInstanceId,
+      'expectedTargetAssignmentVersion': targetAssignment.version,
+      'displacedInnerCoverId': displaced.id,
+      'expectedDisplacedVersion': displaced.version,
+      'reason': _validateConditionReason(reason),
     });
   }
 

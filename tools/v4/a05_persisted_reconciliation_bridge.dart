@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
@@ -18,6 +19,10 @@ const _supportedCollections = <String>{
   'asset_instances',
   'asset_operational_conditions',
   'asset_tag_claims',
+  'base_inner_cover_assignments',
+  'inner_cover_fabrications',
+  'inner_cover_linkages',
+  'inner_cover_profiles',
   'audit_logs',
   'maintenance_records',
   'operational_events',
@@ -75,6 +80,14 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         InstalledComponentRecord.fromMap(data, documentId);
       case 'asset_tag_claims':
         AssetTagClaimRecord.fromMap(data, documentId);
+      case 'inner_cover_profiles':
+        InnerCoverProfile.fromMap(data, documentId);
+      case 'base_inner_cover_assignments':
+        BaseInnerCoverAssignment.fromMap(data, documentId);
+      case 'inner_cover_linkages':
+        InnerCoverLinkage.fromMap(data, documentId);
+      case 'inner_cover_fabrications':
+        InnerCoverFabricationDossier.fromMap(data, documentId);
       case 'audit_logs':
         decodePersistedAuditEvent(data, documentId: documentId);
       case 'maintenance_records':

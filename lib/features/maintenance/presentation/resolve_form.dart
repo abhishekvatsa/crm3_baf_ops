@@ -683,6 +683,7 @@ class _TicketSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final assetLabel =
         '${ticket.assetType.name.toUpperCase()} ${ticket.assetNumber}';
+    final innerCover = ticket.assetHierarchyReference?.innerCoverAssociation;
 
     return Container(
       padding: const EdgeInsets.all(BafSpacing.lg),
@@ -772,6 +773,16 @@ class _TicketSummaryCard extends StatelessWidget {
             _MetaLine(
               icon: Icons.account_tree_outlined,
               text: 'Component: ${ticket.component}',
+            ),
+          ],
+          if (innerCover != null) ...[
+            const SizedBox(height: BafSpacing.xs),
+            _MetaLine(
+              icon: Icons.layers_outlined,
+              text:
+                  innerCover.innerCoverSerialNumber == null
+                      ? 'At event: no Inner Cover linked'
+                      : 'At event: Inner Cover ${innerCover.innerCoverSerialNumber}',
             ),
           ],
         ],
