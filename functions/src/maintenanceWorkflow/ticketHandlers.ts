@@ -22,6 +22,17 @@ const CORRECTABLE_FIELDS = new Set([
   "description", "routedTo", "maintenanceType", "isCritical", "component",
   "subsystem", "tag", "classification", "otherDepartment", "remarks",
 ]);
+const BURNER_LOCKOUT_CLASSIFICATION = "furnaceBurnerLockout";
+
+const isValidBurnerPositionList = (
+  value: unknown,
+  allowEmpty: boolean,
+): value is number[] => Array.isArray(value) &&
+  (allowEmpty || value.length > 0) &&
+  value.length <= 8 &&
+  new Set(value).size === value.length &&
+  value.every((position) => Number.isInteger(position) &&
+    position >= 1 && position <= 8);
 
 const auditId = (commandId: string): string =>
   `server_maintenance_ticket_${commandId}`;
@@ -363,6 +374,58 @@ export const correctMaintenanceTicket = async ({
   const changed: {[key: string]: string | boolean | null} = {};
   for (const [key, value] of Object.entries(corrections)) {
     if ((ticket[key] ?? null) !== value) changed[key] = value;
+  }
+  const currentClassification = ticket.classification ?? null;
+  const nextClassification = Object.prototype.hasOwnProperty.call(
+    changed,
+    "classification",
+  ) ? changed.classification : currentClassification;
+  if (currentClassification !== BURNER_LOCKOUT_CLASSIFICATION &&
+      nextClassification === BURNER_LOCKOUT_CLASSIFICATION) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A standard issue cannot be reclassified as a burner lockout.",
+      {reasonCode: "maintenance-burner-specialization-immutable"},
+    );
+  }
+  if (currentClassification === BURNER_LOCKOUT_CLASSIFICATION) {
+    const positions = ticket.burnerPositions;
+    const redHot = ticket.burnerRedHotPositions;
+    if (!isValidBurnerPositionList(positions, false) ||
+        !isValidBurnerPositionList(redHot, true) ||
+        !redHot.every((position) => positions.includes(position))) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Burner position evidence is malformed and must be reconciled before correction.",
+        {reasonCode: "maintenance-burner-evidence-malformed"},
+      );
+    }
+    const nextRoute = Object.prototype.hasOwnProperty.call(changed, "routedTo") ?
+      changed.routedTo : ticket.routedTo;
+    const nextType = Object.prototype.hasOwnProperty.call(
+      changed,
+      "maintenanceType",
+    ) ? changed.maintenanceType : ticket.maintenanceType;
+    const nextComponent = Object.prototype.hasOwnProperty.call(
+      changed,
+      "component",
+    ) ? changed.component : ticket.component;
+    const nextTag = Object.prototype.hasOwnProperty.call(changed, "tag") ?
+      changed.tag : ticket.tag ?? null;
+    const nextCritical = Object.prototype.hasOwnProperty.call(
+      changed,
+      "isCritical",
+    ) ? changed.isCritical : ticket.isCritical;
+    if (nextClassification !== BURNER_LOCKOUT_CLASSIFICATION ||
+        nextRoute !== "instrumentation" || nextType !== "breakdown" ||
+        nextComponent !== "Burner system" || nextTag != null ||
+        (redHot.length > 0 && nextCritical !== true)) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Burner identity, I&A routing, breakdown type, and red-hot criticality are immutable.",
+        {reasonCode: "maintenance-burner-specialization-immutable"},
+      );
+    }
   }
   if (Object.prototype.hasOwnProperty.call(changed, "routedTo") &&
       (ticket.status !== "open" ||

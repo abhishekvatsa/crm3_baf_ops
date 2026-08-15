@@ -335,6 +335,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
   ) {
     return {
       ...local.qualityIntentSynchronizedFields,
+      ...local.burnerLockoutSynchronizedFields,
       'firestoreId': local.firestoreId,
       'version': version < 1 ? 1 : version,
       'assetType': local.assetType.name,
@@ -381,6 +382,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
         remoteVersion != null && proposedVersion <= remoteVersion
             ? remoteVersion + 1
             : proposedVersion;
+    final burnerLockout = local.burnerLockoutCase;
 
     return {
       'isResolved': true,
@@ -392,6 +394,13 @@ extension _SyncServiceTicketsTemplates on SyncService {
       'downtimeHours': evidence.downtimeHours,
       'teamsInvolved': evidence.teamsInvolved,
       'actionsJson': evidence.actionsJson ?? '[]',
+      if (burnerLockout != null)
+        'burnerAttendedPositions': burnerLockout.attendedPositions,
+      if (burnerLockout != null)
+        'burnerResolutionOutcomes': <String>[
+          for (final position in burnerLockout.attendedPositions)
+            burnerLockout.resolutionOutcomes[position]!.name,
+        ],
       'updatedAt': timestamp.toIso8601String(),
       'updatedByUid': evidence.closedByUid,
       'updatedByName': evidence.closedByName,
@@ -402,6 +411,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
   Map<String, dynamic> _maintenanceReopenReplayStepData(
     MaintenanceRecord local,
   ) {
+    final burnerLockout = local.burnerLockoutCase;
     return {
       'isResolved': false,
       'status': TicketStatus.open.name,
@@ -411,6 +421,8 @@ extension _SyncServiceTicketsTemplates on SyncService {
       'downtimeHours': null,
       'teamsInvolved': local.teamsInvolved,
       'actionsJson': local.actionsJson,
+      if (burnerLockout != null) 'burnerAttendedPositions': <int>[],
+      if (burnerLockout != null) 'burnerResolutionOutcomes': <String>[],
       'remarks': local.remarks,
       'resolutionHistoryJson': local.resolutionHistoryJson,
       'updatedAt': local.updatedAt.toIso8601String(),

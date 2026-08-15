@@ -8,6 +8,7 @@ import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/providers/plant_asset_overview_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import '../../maintenance/domain/burner_lockout_case.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../operational_events/presentation/operational_events_screen.dart';
 import '../../operational_events/providers/operational_event_provider.dart';
@@ -241,6 +242,7 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                     topComponents: report.topComponents,
                     topSubsystemPaths: report.topSubsystemPaths,
                   ),
+                  _BurnerHistorySection(tickets: report.tickets),
                   const SizedBox(height: 24),
                   _OpenIssuesSection(issues: report.openIssues),
                   if (report.eventOccurrences.isNotEmpty) ...[
@@ -796,6 +798,217 @@ class ReportRankedList extends StatelessWidget {
             ),
           ),
       ],
+    ),
+  );
+}
+
+class _BurnerHistorySection extends StatelessWidget {
+  const _BurnerHistorySection({required this.tickets});
+
+  final List<MaintenanceRecord> tickets;
+
+  @override
+  Widget build(BuildContext context) {
+    final report = _buildBurnerHistory(tickets);
+    if (report.rows.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionTitle(
+            title: 'Burner reliability',
+            subtitle:
+                '${report.issueCount} lockout reports across ${report.rows.length} furnace-burner positions',
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: BafColors.card,
+              borderRadius: BorderRadius.circular(BafRadius.medium),
+              border: Border.all(color: BafColors.border),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowHeight: 54,
+                dataRowMinHeight: 46,
+                dataRowMaxHeight: 58,
+                horizontalMargin: 14,
+                columnSpacing: 22,
+                columns: [
+                  const DataColumn(label: Text('Position')),
+                  const DataColumn(label: Text('Reports'), numeric: true),
+                  const DataColumn(label: Text('Open'), numeric: true),
+                  const DataColumn(label: Text('Red hot'), numeric: true),
+                  const DataColumn(label: Text('Returned'), numeric: true),
+                  const DataColumn(label: Text('Follow-up'), numeric: true),
+                  for (final action in report.actionColumns)
+                    DataColumn(
+                      numeric: true,
+                      tooltip: action.label,
+                      label: SizedBox(
+                        width: 92,
+                        child: Text(
+                          action.label,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  const DataColumn(label: Text('Latest')),
+                ],
+                rows: [
+                  for (final row in report.rows)
+                    DataRow(
+                      cells: [
+                        DataCell(
+                          Text(
+                            'F${row.furnaceNumber} / B${row.burnerPosition}',
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                        DataCell(Text('${row.issueCount}')),
+                        DataCell(
+                          Text(
+                            '${row.openCount}',
+                            style: TextStyle(
+                              color:
+                                  row.openCount > 0
+                                      ? BafColors.danger
+                                      : BafColors.textPrimary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        DataCell(Text('${row.redHotCount}')),
+                        DataCell(Text('${row.returnedCount}')),
+                        DataCell(Text('${row.followUpCount}')),
+                        for (final action in report.actionColumns)
+                          DataCell(Text('${row.actionCounts[action] ?? 0}')),
+                        DataCell(
+                          Text(DateFormat('dd MMM yy').format(row.latest)),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Work counts come from structured burner attendance. Physical '
+            'burner-block life is reset only by a governed component '
+            'replacement, not by repair or controller reset.',
+            style: TextStyle(
+              color: BafColors.textSecondary,
+              fontSize: 12,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BurnerHistoryReport {
+  const _BurnerHistoryReport({
+    required this.issueCount,
+    required this.rows,
+    required this.actionColumns,
+  });
+
+  final int issueCount;
+  final List<_BurnerHistoryRow> rows;
+  final List<BurnerActionCode> actionColumns;
+}
+
+class _BurnerHistoryRow {
+  _BurnerHistoryRow({
+    required this.furnaceNumber,
+    required this.burnerPosition,
+    required this.latest,
+  });
+
+  final int furnaceNumber;
+  final int burnerPosition;
+  DateTime latest;
+  int issueCount = 0;
+  int openCount = 0;
+  int redHotCount = 0;
+  int returnedCount = 0;
+  int followUpCount = 0;
+  final Map<BurnerActionCode, int> actionCounts = <BurnerActionCode, int>{};
+}
+
+_BurnerHistoryReport _buildBurnerHistory(List<MaintenanceRecord> tickets) {
+  final rows = <String, _BurnerHistoryRow>{};
+  final actionTotals = <BurnerActionCode, int>{};
+  var issueCount = 0;
+  for (final ticket in tickets) {
+    if (ticket.classification != burnerLockoutClassification) continue;
+    final read = ticket.burnerLockoutReadResult;
+    final lockout = read.isValid ? read.value : null;
+    if (lockout == null) continue;
+    issueCount++;
+    for (final position in lockout.positions) {
+      final key = '${ticket.assetNumber}:$position';
+      final row = rows.putIfAbsent(
+        key,
+        () => _BurnerHistoryRow(
+          furnaceNumber: ticket.assetNumber,
+          burnerPosition: position,
+          latest: ticket.startDate,
+        ),
+      );
+      row.issueCount++;
+      if (!ticket.isResolved) row.openCount++;
+      if (lockout.redHotPositions.contains(position)) row.redHotCount++;
+      if (ticket.startDate.isAfter(row.latest)) row.latest = ticket.startDate;
+      final outcome = lockout.resolutionOutcomes[position];
+      if (outcome == BurnerResolutionOutcome.returnedToService) {
+        row.returnedCount++;
+      } else if (outcome == BurnerResolutionOutcome.remainsLockedOut ||
+          outcome == BurnerResolutionOutcome.isolatedForFollowUp) {
+        row.followUpCount++;
+      }
+    }
+    final actionRead = ticket.actionsReadResult;
+    if (!actionRead.isValid) continue;
+    for (final action in actionRead.entries) {
+      final position = action.extensions['burnerPosition'];
+      final codeName = action.extensions['burnerActionCode'];
+      if (position is! int || codeName is! String) continue;
+      final matches = BurnerActionCode.values.where(
+        (value) => value.name == codeName,
+      );
+      if (matches.isEmpty) continue;
+      final code = matches.first;
+      final row = rows['${ticket.assetNumber}:$position'];
+      if (row == null) continue;
+      row.actionCounts.update(code, (count) => count + 1, ifAbsent: () => 1);
+      actionTotals.update(code, (count) => count + 1, ifAbsent: () => 1);
+    }
+  }
+  final sortedRows =
+      rows.values.toList()..sort((left, right) {
+        final furnace = left.furnaceNumber.compareTo(right.furnaceNumber);
+        return furnace != 0
+            ? furnace
+            : left.burnerPosition.compareTo(right.burnerPosition);
+      });
+  final actionColumns =
+      actionTotals.entries.toList()..sort((left, right) {
+        final count = right.value.compareTo(left.value);
+        return count != 0 ? count : left.key.name.compareTo(right.key.name);
+      });
+  return _BurnerHistoryReport(
+    issueCount: issueCount,
+    rows: List<_BurnerHistoryRow>.unmodifiable(sortedRows),
+    actionColumns: List<BurnerActionCode>.unmodifiable(
+      actionColumns.take(5).map((entry) => entry.key),
     ),
   );
 }

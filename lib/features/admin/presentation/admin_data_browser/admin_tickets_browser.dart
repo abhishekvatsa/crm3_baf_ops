@@ -10,6 +10,7 @@ import '../../../../core/theme/baf_design_system.dart';
 import '../../../audit/models/audit_event_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../maintenance/data/maintenance_model.dart';
+import '../../../maintenance/domain/burner_lockout_case.dart';
 import '../../../maintenance/providers/maintenance_provider.dart';
 import '../../../maintenance_workflow/domain/workflow_types.dart';
 import '../../../maintenance_workflow/providers/workflow_providers.dart';
@@ -61,7 +62,14 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
   late MaintenanceType _selectedMaintenanceType;
   late bool _isCritical;
 
+  bool get _isBurnerLockout =>
+      widget.ticket.classification == burnerLockoutClassification;
+
+  bool get _hasRedHotBurner =>
+      widget.ticket.burnerLockoutReadResult.value?.hasRedHotObservation == true;
+
   bool get _canCorrectRoute =>
+      !_isBurnerLockout &&
       widget.ticket.status == TicketStatus.open &&
       widget.ticket.acknowledgedByUid == null &&
       widget.ticket.acknowledgedByName == null &&
@@ -141,7 +149,9 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                   decoration: InputDecoration(
                     labelText: 'Route To',
                     helperText:
-                        _canCorrectRoute
+                        _isBurnerLockout
+                            ? 'Burner lockout remains accountable to I&A.'
+                            : _canCorrectRoute
                             ? null
                             : 'Route is locked after acknowledgement or work starts.',
                   ),
@@ -179,22 +189,29 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                           child: Text(type.name.toUpperCase()),
                         );
                       }).toList(),
-                  onChanged: (value) {
-                    if (value == null) {
-                      return;
-                    }
-                    setState(() => _selectedMaintenanceType = value);
-                  },
+                  onChanged:
+                      _isBurnerLockout
+                          ? null
+                          : (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            setState(() => _selectedMaintenanceType = value);
+                          },
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Critical issue'),
                   value: _isCritical,
-                  onChanged: (value) => setState(() => _isCritical = value),
+                  onChanged:
+                      _hasRedHotBurner
+                          ? null
+                          : (value) => setState(() => _isCritical = value),
                 ),
                 TextFormField(
                   controller: _componentController,
+                  enabled: !_isBurnerLockout,
                   decoration: const InputDecoration(
                     labelText: 'Component (optional)',
                   ),
@@ -219,6 +236,7 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                 const SizedBox(height: BafSpacing.sm),
                 TextFormField(
                   controller: _tagController,
+                  enabled: !_isBurnerLockout,
                   decoration: const InputDecoration(
                     labelText: 'Instrument Tag (optional)',
                   ),
@@ -231,6 +249,7 @@ class _AdminCorrectTicketDialogState extends State<_AdminCorrectTicketDialog> {
                 const SizedBox(height: BafSpacing.sm),
                 TextFormField(
                   controller: _classificationController,
+                  enabled: !_isBurnerLockout,
                   decoration: const InputDecoration(
                     labelText: 'Classification (optional)',
                   ),

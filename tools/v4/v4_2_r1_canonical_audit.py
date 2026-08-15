@@ -8450,16 +8450,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 50
+    and a05_decoder_inventory_report.get("surfaceCount") == 51
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 38
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 31
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 24
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 255
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 32
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 25
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 262
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 50
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 51
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 38
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool

@@ -611,6 +611,7 @@ class _TicketCard extends StatelessWidget {
     ]);
     final component = ticket.component?.trim();
     final innerCover = ticket.assetHierarchyReference?.innerCoverAssociation;
+    final burnerLockout = ticket.burnerLockoutReadResult.value;
 
     return Material(
       color: BafColors.card,
@@ -680,6 +681,20 @@ class _TicketCard extends StatelessWidget {
                                 label: 'CRITICAL',
                                 color: BafColors.danger,
                                 icon: Icons.priority_high_rounded,
+                              ),
+                            if (burnerLockout != null)
+                              StatusBadge(
+                                label:
+                                    'BURNERS ${burnerLockout.positions.join(', ')}',
+                                color: BafColors.audit,
+                                icon: Icons.local_fire_department_outlined,
+                              ),
+                            if (burnerLockout?.hasRedHotObservation == true)
+                              StatusBadge(
+                                label:
+                                    'RED HOT ${burnerLockout!.redHotPositions.map((value) => 'B$value').join(', ')}',
+                                color: BafColors.danger,
+                                icon: Icons.warning_amber_rounded,
                               ),
                             StatusBadge(
                               label:
@@ -754,6 +769,15 @@ class _TicketCard extends StatelessWidget {
                 _MetaRow(
                   icon: Icons.account_tree_outlined,
                   text: 'Component: $component',
+                ),
+              ],
+              if (burnerLockout != null) ...[
+                const SizedBox(height: 5),
+                _MetaRow(
+                  icon: Icons.settings_input_component_rounded,
+                  text:
+                      '${burnerLockout.commonMode ? 'Possible common-mode event' : 'Individual burner event'}; '
+                      '${burnerLockout.relightAttempts} relight attempt${burnerLockout.relightAttempts == 1 ? '' : 's'}',
                 ),
               ],
               if (innerCover != null) ...[

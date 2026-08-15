@@ -503,7 +503,10 @@ void main() {
       );
       expect(
         maintenanceProvider,
-        contains('_requireValidMaintenanceEvidence(_mapTicket(current));'),
+        allOf(
+          contains('final ticket = _mapTicket(current);'),
+          contains('_requireValidMaintenanceEvidence(ticket);'),
+        ),
       );
       expect(adminHelpers, contains('if (!source.actionsReadResult.isValid)'));
       expect(

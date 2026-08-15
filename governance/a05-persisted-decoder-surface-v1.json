@@ -205,7 +205,7 @@
       "compatibility": "absent pre-feature payload only",
       "regression": "test/a05_maintenance_audit_integrity_test.dart",
       "reArmCondition": "invalid history row is dropped or rewritten empty",
-      "riskFingerprint": "11d365b1fac485471771f70e994c03dce0bcad1594f73599e3c03c861ba0b916"
+      "riskFingerprint": "f8e9c3467c499fad84077d3dde1edcd43e96a5e026fc0608c484ffe0c4059715"
     },
     {
       "id": "maintenance-record",
@@ -221,6 +221,22 @@
       "regression": "test/a05_remote_maintenance_record_integrity_test.dart",
       "reArmCondition": "required ticket state, partial projection, or lifecycle contradiction is accepted",
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "furnace-burner-lockout-envelope",
+      "file": "lib/features/maintenance/domain/burner_lockout_case.dart",
+      "markers": [
+        "factory BurnerLockoutCase.fromSynchronizedFields(",
+        "static BurnerLockoutCase? readOptionalSynchronizedFields("
+      ],
+      "classification": "REMOTE_AND_LOCAL_OPERATIONAL_RECORD",
+      "owner": "maintenance",
+      "authorityBoundary": "versioned Furnace burner-lockout intake, attendance outcome, and synchronized local metadata envelope",
+      "malformedDisposition": "fail closed for a present or classified burner-lockout record before workflow, closure, reporting, or replay",
+      "compatibility": "wholly absent pre-feature burner fields on a non-burner maintenance record only; unrelated opaque metadata is preserved",
+      "regression": "test/burner_lockout_case_test.dart; test/a05_remote_maintenance_record_integrity_test.dart; test/firestore.rules.test.js",
+      "reArmCondition": "partial fields, duplicate or out-of-range positions, unknown enums, classification drift, or incomplete outcomes are admitted",
+      "riskFingerprint": "92eef36022803f580cd554dcf61cba28943713515d88d8ee35e2b259de3cfa18"
     },
     {
       "id": "job-diary-record",
@@ -1112,7 +1128,7 @@
     {
       "id": "maintenance-resolve-command-presentation",
       "file": "lib/features/maintenance/presentation/resolve_form.dart",
-      "siteFingerprint": "ab98f2d205357312b611b0d0bff29534e378fc306b15abdead41ee6be2c6d0f6",
+      "siteFingerprint": "2872a89d43ccb542bdfbb88effc74275b35e3c532834910cbe95fc48dfe18d7e",
       "classification": "USER_INPUT_AND_COMMAND_ERROR_PRESENTATION",
       "purpose": "surface resolution-command failure without coercing downtime evidence",
       "authorityBoundary": "operator ticket-resolution command",
