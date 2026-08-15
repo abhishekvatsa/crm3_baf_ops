@@ -361,6 +361,136 @@ void main() {
     );
   });
 
+  test('definition ranking never borrows an installed component tag', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    final furnace8 = asset('furnace-8', furnace, 8);
+    AssetHierarchyReference installedReference({
+      required String assetId,
+      required int assetNumber,
+      required String componentId,
+      required String tag,
+    }) => AssetHierarchyReference(
+      scope: AssetHierarchyReferenceScope.installedComponent,
+      assetClassId: furnace.id,
+      assetClassCode: furnace.code,
+      assetClassName: furnace.name,
+      nodeId: 'pressure-transmitter',
+      nodeVersion: 1,
+      nodeName: 'Pressure transmitter',
+      assetInstanceId: assetId,
+      assetInstanceVersion: 1,
+      assetNumber: assetNumber,
+      assetInstanceName: 'Furnace $assetNumber',
+      componentInstanceId: componentId,
+      componentInstanceVersion: 1,
+      componentTag: tag,
+      hierarchyPath: const ['Combustion system', 'Pressure transmitter'],
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'instrumentation',
+      accountableRoleKeys: const ['senior_instrumentation'],
+    );
+    final first = issue(
+        type: AssetType.furnace,
+        number: 7,
+        started: DateTime.utc(2026, 8, 5),
+      )
+      ..assetHierarchyRefJson =
+          installedReference(
+            assetId: furnace7.id,
+            assetNumber: 7,
+            componentId: 'furnace-7-pt',
+            tag: 'PT-701',
+          ).encode();
+    final second = issue(
+        type: AssetType.furnace,
+        number: 8,
+        started: DateTime.utc(2026, 8, 6),
+      )
+      ..assetHierarchyRefJson =
+          installedReference(
+            assetId: furnace8.id,
+            assetNumber: 8,
+            componentId: 'furnace-8-pt',
+            tag: 'PT-801',
+          ).encode();
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 31),
+      ),
+      tickets: [first, second],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnace],
+      assetInstances: [furnace7, furnace8],
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: [furnace7, furnace8],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+    );
+
+    expect(
+      report.topComponents
+          .map((row) => (row.label, row.count))
+          .toList(growable: false),
+      [('Furnace - Combustion system / Pressure transmitter', 2)],
+    );
+  });
+
+  test('recorded subsystem rows retain the complete parent path', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    MaintenanceRecord ticket(String nodeId, List<String> path, int day) =>
+        issue(
+            type: AssetType.furnace,
+            number: 7,
+            started: DateTime.utc(2026, 8, day),
+          )
+          ..assetHierarchyRefJson =
+              AssetHierarchyReference(
+                assetClassId: furnace.id,
+                assetClassCode: furnace.code,
+                assetClassName: furnace.name,
+                nodeId: nodeId,
+                nodeVersion: 1,
+                nodeName: 'Motor',
+                hierarchyPath: path,
+                ownershipStatus: AssetOwnershipStatus.confirmed,
+                ownerDiscipline: 'electrical',
+                accountableRoleKeys: const ['senior_electrical'],
+              ).encode();
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 31),
+      ),
+      tickets: [
+        ticket('line-a-motor', const ['Line A', 'Drive', 'Motor'], 5),
+        ticket('line-b-motor', const ['Line B', 'Drive', 'Motor'], 6),
+      ],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnace],
+      assetInstances: [furnace7],
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: [furnace7],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+    );
+
+    expect(report.topSubsystemPaths.map((row) => row.label).toSet(), {
+      'Recorded path - Furnace - Line A / Drive',
+      'Recorded path - Furnace - Line B / Drive',
+    });
+  });
+
   test('physical-asset filter excludes another asset in the same class', () {
     final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
     final furnace7 = asset('furnace-7', furnace, 7);

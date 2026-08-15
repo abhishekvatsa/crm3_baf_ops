@@ -364,14 +364,12 @@ OperationsReport buildOperationsReport({
           .map((segment) => segment.trim())
           .where((segment) => segment.isNotEmpty)
           .join(' / ');
-      final componentTag = reference.componentTag?.trim();
       return (
         disambiguator: 'ref ${reference.assetClassId}/${reference.nodeId}',
         key: 'governed:${reference.assetClassId}:${reference.nodeId}',
         label:
             '${reference.assetClassName} - '
-            '${componentPath.isEmpty ? reference.nodeName : componentPath}'
-            '${componentTag?.isNotEmpty == true ? ' · $componentTag' : ''}',
+            '${componentPath.isEmpty ? reference.nodeName : componentPath}',
       );
     }
     final legacyLabel =
@@ -401,7 +399,8 @@ OperationsReport buildOperationsReport({
         disambiguator: 'ref ${reference.assetClassId}',
         key: 'recorded-path:${reference.assetClassId}:$normalizedPath',
         label:
-            'Recorded path - ${reference.assetClassName} - ${parentPath.last}',
+            'Recorded path - ${reference.assetClassName} - '
+            '${parentPath.join(' / ')}',
       );
     }
     final hasLegacySubsystem =
