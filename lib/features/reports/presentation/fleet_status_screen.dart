@@ -237,7 +237,7 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                   const SizedBox(height: 16),
                   _FailureSection(
                     topComponents: report.topComponents,
-                    topSubsystems: report.topSubsystems,
+                    topSubsystemPaths: report.topSubsystemPaths,
                   ),
                   const SizedBox(height: 24),
                   _OpenIssuesSection(issues: report.openIssues),
@@ -698,10 +698,10 @@ class _CompactCount extends StatelessWidget {
 class _FailureSection extends StatelessWidget {
   const _FailureSection({
     required this.topComponents,
-    required this.topSubsystems,
+    required this.topSubsystemPaths,
   });
   final List<CountedReportLabel> topComponents;
-  final List<CountedReportLabel> topSubsystems;
+  final List<CountedReportLabel> topSubsystemPaths;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -709,14 +709,18 @@ class _FailureSection extends StatelessWidget {
     children: [
       const _SectionTitle(
         title: 'Failure concentration',
-        subtitle: 'Issue frequency by recorded component and subsystem',
+        subtitle:
+            'Issue frequency by governed component and recorded subsystem path',
       ),
       const SizedBox(height: 10),
       LayoutBuilder(
         builder: (context, constraints) {
           final children = [
-            _RankedList(title: 'Top components', rows: topComponents),
-            _RankedList(title: 'Top subsystems', rows: topSubsystems),
+            ReportRankedList(title: 'Top components', rows: topComponents),
+            ReportRankedList(
+              title: 'Top recorded subsystem paths',
+              rows: topSubsystemPaths,
+            ),
           ];
           if (constraints.maxWidth >= 680) {
             return Row(
@@ -737,8 +741,8 @@ class _FailureSection extends StatelessWidget {
   );
 }
 
-class _RankedList extends StatelessWidget {
-  const _RankedList({required this.title, required this.rows});
+class ReportRankedList extends StatelessWidget {
+  const ReportRankedList({required this.title, required this.rows, super.key});
   final String title;
   final List<CountedReportLabel> rows;
 
@@ -765,6 +769,7 @@ class _RankedList extends StatelessWidget {
             (entry) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
                     width: 24,
@@ -774,12 +779,12 @@ class _RankedList extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: Text(
-                      entry.value.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    child: Tooltip(
+                      message: entry.value.label,
+                      child: Text(entry.value.label),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     '${entry.value.count}',
                     style: const TextStyle(fontWeight: FontWeight.w900),

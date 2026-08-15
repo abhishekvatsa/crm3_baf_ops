@@ -48,3 +48,9 @@ release_gate_*.log
 *.pfx
 release_output/
 production_artifacts/
+
+# Local audit, preview and scratch workspaces
+output/
+outputs/
+preview-governed-hierarchy/
+tmp/

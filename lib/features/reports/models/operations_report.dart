@@ -99,7 +99,7 @@ class OperationsReport {
     required this.assetStates,
     required this.classSummaries,
     required this.topComponents,
-    required this.topSubsystems,
+    required this.topSubsystemPaths,
     required this.sourceTicketCount,
     required this.sourceExecutionCount,
     required this.sourceEventCount,
@@ -117,7 +117,7 @@ class OperationsReport {
   final List<PlantAssetState> assetStates;
   final List<AssetClassReportSummary> classSummaries;
   final List<CountedReportLabel> topComponents;
-  final List<CountedReportLabel> topSubsystems;
+  final List<CountedReportLabel> topSubsystemPaths;
   final int sourceTicketCount;
   final int sourceExecutionCount;
   final int sourceEventCount;

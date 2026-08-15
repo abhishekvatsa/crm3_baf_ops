@@ -8,6 +8,32 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
+EXPECTED_WORKFLOW_COMMANDS = frozenset({
+    'createLegacyWorkflowJob',
+    'finalizeLaneSet',
+    'acknowledgeLane',
+    'addLane',
+    'removeLane',
+    'terminateLane',
+    'closeLane',
+    'cancelWorkflow',
+    'raiseCompliance',
+    'acknowledgeCompliance',
+    'confirmConditionAndReactivate',
+    'markComplianceComplied',
+    'returnComplianceForCorrection',
+    'confirmComplianceClosed',
+    'proposeCounterCondition',
+    'decideCounterCondition',
+    'prepareRedLane',
+    'reopenWorkflowModule',
+    'finalizeJob',
+    'deployEquipment',
+    'reconcileEquipment',
+    'acknowledgeMaintenanceTicket',
+    'correctMaintenanceTicket',
+})
+
 checks: list[tuple[bool, str, str]] = []
 
 def text(path: str) -> str:
@@ -17,10 +43,13 @@ def add(ok: bool, title: str, detail: str) -> None:
     checks.append((ok, title, detail))
 
 workflow_types = text('lib/features/maintenance_workflow/domain/workflow_types.dart')
+workflow_types_path = (
+    ROOT / 'lib/features/maintenance_workflow/domain/workflow_types.dart'
+).resolve()
 client_tree = '\n'.join(
     p.read_text(encoding='utf-8', errors='ignore')
     for p in (ROOT / 'lib').rglob('*.dart')
-    if not p.name.endswith('.g.dart')
+    if not p.name.endswith('.g.dart') and p.resolve() != workflow_types_path
 )
 server_types = text('functions/src/maintenanceWorkflow/types.ts')
 
@@ -30,20 +59,23 @@ commands = [] if m is None else [
     for token in m.group('body').splitlines()
     if token.strip() and not token.strip().startswith('//')
 ]
+command_set = set(commands)
 missing_client = [
     command for command in commands
     if f'WorkflowCommandType.{command}' not in client_tree
 ]
 add(
-    not missing_client and len(commands) == 21,
+    command_set == EXPECTED_WORKFLOW_COMMANDS and not missing_client,
     'all authoritative workflow commands have a client entry point',
-    f'commands={len(commands)} missing={missing_client}',
+    f'commands={len(commands)} missingClient={missing_client} '
+    f'missingInventory={sorted(EXPECTED_WORKFLOW_COMMANDS - command_set)} '
+    f'unexpected={sorted(command_set - EXPECTED_WORKFLOW_COMMANDS)}',
 )
 
 server_match = re.search(r'export type WorkflowCommandType\s*=\s*(?P<body>.*?);', server_types, re.S)
 server_union = set() if server_match is None else set(re.findall(r'"([A-Za-z0-9]+)"', server_match.group('body')))
 add(
-    set(commands) == server_union,
+    command_set == server_union == EXPECTED_WORKFLOW_COMMANDS,
     'Dart and TypeScript command vocabularies remain exact',
     f'dart={len(commands)} typescript={len(server_union)}',
 )

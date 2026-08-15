@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../assets/data/asset_hierarchy_model.dart';
@@ -16,6 +18,7 @@ import '../models/operations_report.dart';
 const operationsReportClockInterval = Duration(minutes: 1);
 typedef OperationsReportPeriod =
     ({DateTime startInclusive, DateTime endExclusive});
+typedef _ReportDimension = ({String disambiguator, String key, String label});
 
 Stream<DateTime> operationsReportClock({
   Duration interval = operationsReportClockInterval,
@@ -314,25 +317,39 @@ OperationsReport buildOperationsReport({
           )
           .toList();
 
-  List<CountedReportLabel> rank(String? Function(MaintenanceRecord) value) {
-    final labels = <String, String>{};
+  List<CountedReportLabel> rank(
+    _ReportDimension? Function(MaintenanceRecord) value,
+  ) {
+    final dimensions = <String, _ReportDimension>{};
     final counts = <String, int>{};
     for (final ticket in filteredTickets) {
-      final label = value(ticket)?.trim();
-      if (label == null || label.isEmpty) continue;
-      final key = label.toLowerCase();
-      labels.putIfAbsent(key, () => label);
-      counts.update(key, (count) => count + 1, ifAbsent: () => 1);
+      final dimension = value(ticket);
+      if (dimension == null) continue;
+      dimensions.putIfAbsent(dimension.key, () => dimension);
+      counts.update(dimension.key, (count) => count + 1, ifAbsent: () => 1);
+    }
+    final labelOccurrences = <String, int>{};
+    for (final dimension in dimensions.values) {
+      final normalizedLabel = dimension.label.toLowerCase();
+      labelOccurrences.update(
+        normalizedLabel,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
     }
     final result =
-        counts.entries
-            .map(
-              (entry) => CountedReportLabel(
-                label: labels[entry.key]!,
-                count: entry.value,
-              ),
-            )
-            .toList()
+        counts.entries.map((entry) {
+            final dimension = dimensions[entry.key]!;
+            final duplicateLabel =
+                labelOccurrences[dimension.label.toLowerCase()]! > 1;
+            return CountedReportLabel(
+              label:
+                  duplicateLabel
+                      ? '${dimension.label} · ${dimension.disambiguator}'
+                      : dimension.label,
+              count: entry.value,
+            );
+          }).toList()
           ..sort((left, right) {
             final count = right.count.compareTo(left.count);
             return count != 0
@@ -340,6 +357,64 @@ OperationsReport buildOperationsReport({
                 : left.label.toLowerCase().compareTo(right.label.toLowerCase());
           });
     return List<CountedReportLabel>.unmodifiable(result.take(8));
+  }
+
+  _ReportDimension? componentDimension(MaintenanceRecord ticket) {
+    final reference = ticket.assetHierarchyReference;
+    if (reference != null) {
+      final componentPath = reference.hierarchyPath
+          .map((segment) => segment.trim())
+          .where((segment) => segment.isNotEmpty)
+          .join(' / ');
+      return (
+        disambiguator: 'ref ${reference.assetClassId}/${reference.nodeId}',
+        key: 'governed:${reference.assetClassId}:${reference.nodeId}',
+        label:
+            '${reference.assetClassName} - '
+            '${componentPath.isEmpty ? reference.nodeName : componentPath}',
+      );
+    }
+    final legacyLabel =
+        ticket.component ??
+        (ticket.hierarchyPath?.isNotEmpty == true
+            ? ticket.hierarchyPath!.last
+            : null);
+    if (legacyLabel?.trim().isNotEmpty != true) return null;
+    return (
+      disambiguator: 'legacy',
+      key: 'legacy-unmapped-component',
+      label: 'Unmapped legacy component',
+    );
+  }
+
+  _ReportDimension? recordedSubsystemPathDimension(MaintenanceRecord ticket) {
+    final reference = ticket.assetHierarchyReference;
+    if (reference != null && reference.hierarchyPath.length > 1) {
+      final parentPath = reference.hierarchyPath.sublist(
+        0,
+        reference.hierarchyPath.length - 1,
+      );
+      final normalizedSegments = parentPath
+          .map((segment) => segment.trim())
+          .toList(growable: false);
+      final encodedPath = jsonEncode(normalizedSegments);
+      return (
+        disambiguator: 'path $encodedPath',
+        key: 'recorded-path:${reference.assetClassId}:$encodedPath',
+        label:
+            'Recorded path - ${reference.assetClassName} - '
+            '${normalizedSegments.join(' > ')}',
+      );
+    }
+    final hasLegacySubsystem =
+        ticket.subsystem?.trim().isNotEmpty == true ||
+        (ticket.hierarchyPath != null && ticket.hierarchyPath!.length > 1);
+    if (!hasLegacySubsystem) return null;
+    return (
+      disambiguator: 'legacy',
+      key: 'legacy-unmapped-subsystem-path',
+      label: 'Unmapped legacy subsystem path',
+    );
   }
 
   bool occurrenceAffectsClass(
@@ -431,20 +506,8 @@ OperationsReport buildOperationsReport({
     ),
     assetStates: List<PlantAssetState>.unmodifiable(filteredStates),
     classSummaries: List<AssetClassReportSummary>.unmodifiable(classSummaries),
-    topComponents: rank(
-      (ticket) =>
-          ticket.component ??
-          (ticket.hierarchyPath?.isNotEmpty == true
-              ? ticket.hierarchyPath!.last
-              : null),
-    ),
-    topSubsystems: rank(
-      (ticket) =>
-          ticket.subsystem ??
-          (ticket.hierarchyPath != null && ticket.hierarchyPath!.length > 1
-              ? ticket.hierarchyPath![ticket.hierarchyPath!.length - 2]
-              : null),
-    ),
+    topComponents: rank(componentDimension),
+    topSubsystemPaths: rank(recordedSubsystemPathDimension),
     sourceTicketCount: tickets.length,
     sourceExecutionCount: executions.length,
     sourceEventCount: events.length,

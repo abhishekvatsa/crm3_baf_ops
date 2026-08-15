@@ -490,21 +490,18 @@ class _IssuesHeader extends StatelessWidget {
           ],
         ),
         const SizedBox(height: BafSpacing.md),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                key: const ValueKey('issues-search'),
-                onChanged: onQueryChanged,
-                decoration: const InputDecoration(
-                  hintText: 'Search asset, component or description',
-                  prefixIcon: Icon(Icons.search_rounded),
-                  isDense: true,
-                ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final search = TextField(
+              key: const ValueKey('issues-search'),
+              onChanged: onQueryChanged,
+              decoration: const InputDecoration(
+                hintText: 'Search asset, component or description',
+                prefixIcon: Icon(Icons.search_rounded),
+                isDense: true,
               ),
-            ),
-            const SizedBox(width: BafSpacing.sm),
-            FilledButton.icon(
+            );
+            final raise = FilledButton.icon(
               key: const ValueKey('issues-raise-issue'),
               onPressed: onRaiseIssue,
               icon: const Icon(Icons.add_rounded),
@@ -514,8 +511,25 @@ class _IssuesHeader extends StatelessWidget {
                 foregroundColor: Colors.white,
                 minimumSize: const Size(88, 48),
               ),
-            ),
-          ],
+            );
+            if (constraints.maxWidth < 480) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  search,
+                  const SizedBox(height: BafSpacing.sm),
+                  Align(alignment: Alignment.centerRight, child: raise),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: search),
+                const SizedBox(width: BafSpacing.sm),
+                raise,
+              ],
+            );
+          },
         ),
         const SizedBox(height: BafSpacing.sm),
         Text(

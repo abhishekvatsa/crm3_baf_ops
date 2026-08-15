@@ -557,12 +557,13 @@ void main() {
     }
   });
 
-  test('A-02 to A-04 remain open while A-05 is evidence-closed', () {
+  test('architecture findings preserve their exact evidence states', () {
     final payload = _readJson('governance/programme-ledger.json');
     final findings = _objects(payload['technicalFindings']);
     final architecture = <String, Map<String, dynamic>>{
       for (final finding in findings)
         if (<String>{
+          'A-01',
           'A-02',
           'A-03',
           'A-04',
@@ -571,7 +572,19 @@ void main() {
           finding['findingId'] as String: finding,
     };
 
-    expect(architecture.keys, <String>{'A-02', 'A-03', 'A-04', 'A-05'});
+    expect(architecture.keys, <String>{'A-01', 'A-02', 'A-03', 'A-04', 'A-05'});
+    final a01 = architecture['A-01']!;
+    expect(a01['currentStatus'], 'SOURCE_IMPLEMENTED');
+    expect(_objects(a01['evidence']), isEmpty);
+    expect(_strings(a01['requiredExitEvidence']), hasLength(5));
+    expect(_strings(a01['reArmTriggers']), hasLength(3));
+    expect(_strings(a01['notes']), isNotEmpty);
+    expect(
+      _objects(
+        a01['statusHistory'],
+      ).map((entry) => entry['status']).toList(growable: false),
+      <String>['OPEN', 'SOURCE_IMPLEMENTED'],
+    );
     for (final findingId in <String>['A-02', 'A-03', 'A-04']) {
       final finding = architecture[findingId]!;
       expect(finding['currentStatus'], 'OPEN');

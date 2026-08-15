@@ -9,6 +9,7 @@ import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_mode
 import 'package:crm3_baf_ops/features/reports/models/operations_report.dart';
 import 'package:crm3_baf_ops/features/reports/presentation/fleet_status_screen.dart';
 import 'package:crm3_baf_ops/features/reports/providers/operations_report_provider.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 AssetClassRecord assetClass(
@@ -117,6 +118,35 @@ OperationalEvent event() => OperationalEvent(
 );
 
 void main() {
+  testWidgets('ranked report labels remain fully visible on narrow screens', (
+    tester,
+  ) async {
+    const label =
+        'Recorded path - Furnace - Combustion system > Zone 1 > Drive train';
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: ReportRankedList(
+              title: 'Top recorded subsystem paths',
+              rows: [CountedReportLabel(label: label, count: 4)],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final labelText = tester.widget<Text>(find.text(label));
+    expect(labelText.maxLines, isNull);
+    expect(labelText.overflow, isNull);
+    expect(find.byTooltip(label), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   test('report selection clears retired hierarchy records', () {
     final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
     final furnace7 = asset('furnace-7', furnace, 7);
@@ -204,11 +234,341 @@ void main() {
     expect(report.disruptionDuration.inHours, 2);
     expect(report.assetCount, 1);
     expect(report.availableAssetCount, 1);
-    expect(report.topComponents.single.label, 'Pressure transmitter');
+    expect(report.topComponents.single.label, 'Unmapped legacy component');
     expect(report.topComponents.single.count, 2);
-    expect(report.topSubsystems.single.label, 'Combustion control');
+    expect(
+      report.topSubsystemPaths.single.label,
+      'Unmapped legacy subsystem path',
+    );
     expect(report.classSummaries.single.assetClassName, 'Furnace');
     expect(report.classSummaries.single.disruptionCount, 1);
+  });
+
+  test('governed identity drives rankings instead of editable ticket text', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    final furnace8 = asset('furnace-8', furnace, 8);
+    final canonicalReference = AssetHierarchyReference(
+      assetClassId: furnace.id,
+      assetClassCode: furnace.code,
+      assetClassName: furnace.name,
+      nodeId: 'pressure-transmitter',
+      nodeVersion: 3,
+      nodeName: 'Pressure transmitter',
+      hierarchyPath: const ['Combustion system', 'Pressure transmitter'],
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'instrumentation',
+      accountableRoleKeys: const ['senior_instrumentation'],
+    );
+    final first = issue(
+      type: AssetType.furnace,
+      number: 7,
+      started: DateTime.utc(2026, 8, 5),
+      component: 'PT setting',
+      subsystem: 'Burner controls',
+    )..assetHierarchyRefJson = canonicalReference.encode();
+    final second = issue(
+      type: AssetType.furnace,
+      number: 8,
+      started: DateTime.utc(2026, 8, 6),
+      component: 'pressure xmitter',
+      subsystem: 'Combustion',
+    )..assetHierarchyRefJson = canonicalReference.encode();
+    final legacy = issue(
+      type: AssetType.furnace,
+      number: 7,
+      started: DateTime.utc(2026, 8, 7),
+      component: 'PT',
+      subsystem: 'Burner',
+    );
+    final assets = [furnace7, furnace8];
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 31),
+      ),
+      tickets: [first, second, legacy],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnace],
+      assetInstances: assets,
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: assets,
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+    );
+
+    expect(
+      report.topComponents
+          .map((row) => (row.label, row.count))
+          .toList(growable: false),
+      [
+        ('Furnace - Combustion system / Pressure transmitter', 2),
+        ('Unmapped legacy component', 1),
+      ],
+    );
+    expect(
+      report.topSubsystemPaths
+          .map((row) => (row.label, row.count))
+          .toList(growable: false),
+      [
+        ('Recorded path - Furnace - Combustion system', 2),
+        ('Unmapped legacy subsystem path', 1),
+      ],
+    );
+  });
+
+  test('subsystem concentration is explicit path grouping, not identity', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    final firstReference = AssetHierarchyReference(
+      assetClassId: furnace.id,
+      assetClassCode: furnace.code,
+      assetClassName: furnace.name,
+      nodeId: 'pressure-transmitter-a',
+      nodeVersion: 1,
+      nodeName: 'Pressure transmitter A',
+      hierarchyPath: const ['Combustion system', 'Pressure transmitter'],
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'instrumentation',
+      accountableRoleKeys: const ['senior_instrumentation'],
+    );
+    final secondReference = AssetHierarchyReference(
+      assetClassId: furnace.id,
+      assetClassCode: furnace.code,
+      assetClassName: furnace.name,
+      nodeId: 'pressure-transmitter-b',
+      nodeVersion: 1,
+      nodeName: 'Pressure transmitter B',
+      hierarchyPath: const ['Combustion system', 'Pressure transmitter'],
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'instrumentation',
+      accountableRoleKeys: const ['senior_instrumentation'],
+    );
+    final first = issue(
+      type: AssetType.furnace,
+      number: 7,
+      started: DateTime.utc(2026, 8, 5),
+    )..assetHierarchyRefJson = firstReference.encode();
+    final second = issue(
+      type: AssetType.furnace,
+      number: 7,
+      started: DateTime.utc(2026, 8, 6),
+    )..assetHierarchyRefJson = secondReference.encode();
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 31),
+      ),
+      tickets: [first, second],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnace],
+      assetInstances: [furnace7],
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: [furnace7],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+    );
+
+    expect(report.topComponents.map((row) => row.label).toSet(), {
+      'Furnace - Combustion system / Pressure transmitter · '
+          'ref furnace-class/pressure-transmitter-a',
+      'Furnace - Combustion system / Pressure transmitter · '
+          'ref furnace-class/pressure-transmitter-b',
+    });
+    expect(
+      report.topSubsystemPaths
+          .map((row) => (row.label, row.count))
+          .toList(growable: false),
+      [('Recorded path - Furnace - Combustion system', 2)],
+    );
+  });
+
+  test('definition ranking never borrows an installed component tag', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    final furnace8 = asset('furnace-8', furnace, 8);
+    AssetHierarchyReference installedReference({
+      required String assetId,
+      required int assetNumber,
+      required String componentId,
+      required String tag,
+    }) => AssetHierarchyReference(
+      scope: AssetHierarchyReferenceScope.installedComponent,
+      assetClassId: furnace.id,
+      assetClassCode: furnace.code,
+      assetClassName: furnace.name,
+      nodeId: 'pressure-transmitter',
+      nodeVersion: 1,
+      nodeName: 'Pressure transmitter',
+      assetInstanceId: assetId,
+      assetInstanceVersion: 1,
+      assetNumber: assetNumber,
+      assetInstanceName: 'Furnace $assetNumber',
+      componentInstanceId: componentId,
+      componentInstanceVersion: 1,
+      componentTag: tag,
+      hierarchyPath: const ['Combustion system', 'Pressure transmitter'],
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'instrumentation',
+      accountableRoleKeys: const ['senior_instrumentation'],
+    );
+    final first = issue(
+        type: AssetType.furnace,
+        number: 7,
+        started: DateTime.utc(2026, 8, 5),
+      )
+      ..assetHierarchyRefJson =
+          installedReference(
+            assetId: furnace7.id,
+            assetNumber: 7,
+            componentId: 'furnace-7-pt',
+            tag: 'PT-701',
+          ).encode();
+    final second = issue(
+        type: AssetType.furnace,
+        number: 8,
+        started: DateTime.utc(2026, 8, 6),
+      )
+      ..assetHierarchyRefJson =
+          installedReference(
+            assetId: furnace8.id,
+            assetNumber: 8,
+            componentId: 'furnace-8-pt',
+            tag: 'PT-801',
+          ).encode();
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 31),
+      ),
+      tickets: [first, second],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnace],
+      assetInstances: [furnace7, furnace8],
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: [furnace7, furnace8],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+    );
+
+    expect(
+      report.topComponents
+          .map((row) => (row.label, row.count))
+          .toList(growable: false),
+      [('Furnace - Combustion system / Pressure transmitter', 2)],
+    );
+  });
+
+  test('recorded subsystem rows retain the complete parent path', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    MaintenanceRecord ticket(String nodeId, List<String> path, int day) =>
+        issue(
+            type: AssetType.furnace,
+            number: 7,
+            started: DateTime.utc(2026, 8, day),
+          )
+          ..assetHierarchyRefJson =
+              AssetHierarchyReference(
+                assetClassId: furnace.id,
+                assetClassCode: furnace.code,
+                assetClassName: furnace.name,
+                nodeId: nodeId,
+                nodeVersion: 1,
+                nodeName: 'Motor',
+                hierarchyPath: path,
+                ownershipStatus: AssetOwnershipStatus.confirmed,
+                ownerDiscipline: 'electrical',
+                accountableRoleKeys: const ['senior_electrical'],
+              ).encode();
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 31),
+      ),
+      tickets: [
+        ticket('line-a-motor', const ['Line A', 'Drive', 'Motor'], 5),
+        ticket('line-b-motor', const ['Line B', 'Drive', 'Motor'], 6),
+      ],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnace],
+      assetInstances: [furnace7],
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: [furnace7],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+    );
+
+    expect(report.topSubsystemPaths.map((row) => row.label).toSet(), {
+      'Recorded path - Furnace - Line A > Drive',
+      'Recorded path - Furnace - Line B > Drive',
+    });
+  });
+
+  test('recorded path keys cannot collide with delimiters inside names', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    MaintenanceRecord ticket(String nodeId, List<String> path, int day) =>
+        issue(
+            type: AssetType.furnace,
+            number: 7,
+            started: DateTime.utc(2026, 8, day),
+          )
+          ..assetHierarchyRefJson =
+              AssetHierarchyReference(
+                assetClassId: furnace.id,
+                assetClassCode: furnace.code,
+                assetClassName: furnace.name,
+                nodeId: nodeId,
+                nodeVersion: 1,
+                nodeName: 'Motor',
+                hierarchyPath: path,
+                ownershipStatus: AssetOwnershipStatus.confirmed,
+                ownerDiscipline: 'electrical',
+                accountableRoleKeys: const ['senior_electrical'],
+              ).encode();
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 31),
+      ),
+      tickets: [
+        ticket('single-segment', const ['Line A / Drive', 'Motor'], 5),
+        ticket('two-segments', const ['Line A', 'Drive', 'Motor'], 6),
+      ],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnace],
+      assetInstances: [furnace7],
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: [furnace7],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+    );
+
+    expect(report.topSubsystemPaths.map((row) => row.label).toSet(), {
+      'Recorded path - Furnace - Line A / Drive',
+      'Recorded path - Furnace - Line A > Drive',
+    });
   });
 
   test('physical-asset filter excludes another asset in the same class', () {

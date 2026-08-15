@@ -264,6 +264,7 @@ class _TimelineFilterCard extends StatelessWidget {
                   onClearNumber == null
                       ? null
                       : IconButton(
+                        tooltip: 'Clear asset filter',
                         icon: const Icon(Icons.clear_rounded),
                         onPressed: onClearNumber,
                       ),

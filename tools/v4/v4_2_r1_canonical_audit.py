@@ -2837,6 +2837,11 @@ app_database_source = text("lib/core/persistence/app_database.dart")
 main_source = text("lib/main.dart")
 dart_import_cycle_test = text("test/dart_import_cycle_test.dart")
 dart_import_cycle_decision = text("docs/DART_IMPORT_CYCLE_CLOSURE.md")
+a01_finding = next(
+    item
+    for item in recovery_ledger.get("technicalFindings", [])
+    if item.get("findingId") == "A-01"
+)
 lib_dart_sources = {
     str(path.relative_to(ROOT)).replace("\\", "/"):
         path.read_text(encoding="utf-8")
@@ -2865,7 +2870,14 @@ check(
     and "cycles,\n      isEmpty" in dart_import_cycle_test
     and "Largest component:      72 files" in dart_import_cycle_decision
     and "Cyclic components:      0" in dart_import_cycle_decision
-    and "Isar schemas,\ndatabase naming, open order" in dart_import_cycle_decision,
+    and "Isar schemas,\ndatabase naming, open order" in dart_import_cycle_decision
+    and a01_finding.get("currentStatus") == "SOURCE_IMPLEMENTED"
+    and [
+        entry.get("status")
+        for entry in a01_finding.get("statusHistory", [])
+    ] == ["OPEN", "SOURCE_IMPLEMENTED"]
+    and len(a01_finding.get("requiredExitEvidence", [])) == 5
+    and len(a01_finding.get("reArmTriggers", [])) == 3,
     f"mainImporters={main_importers} appDatabaseConsumers="
     f"{len(app_database_consumers)}",
 )

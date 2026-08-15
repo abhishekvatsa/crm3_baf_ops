@@ -3040,7 +3040,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "Architecture",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
@@ -3048,14 +3048,31 @@
       "supersedes": [],
       "supersededBy": null,
       "evidence": [],
-      "requiredExitEvidence": [],
-      "reArmTriggers": [],
-      "notes": [],
+      "requiredExitEvidence": [
+        "exact-commit machine-generated Dart import graph showing zero strongly connected components and zero lib imports of main.dart",
+        "global Isar ownership moved to the bounded app-database module with every retained consumer importing that module directly",
+        "Tarjan strongly-connected-component regression test that fails on multi-file cycles and self-import cycles",
+        "exact-head pull-request CI passing the import-cycle regression, canonical audit, Flutter analysis and complete Flutter suite",
+        "admitted-main post-merge CI plus evidence binding the merge commit, source tree and successful workflow run before CLOSED status"
+      ],
+      "reArmTriggers": [
+        "any Dart library under lib imports main.dart",
+        "the internal import graph contains a multi-file strongly connected component or self-import cycle",
+        "global database ownership moves back into a presentation or application-entrypoint module"
+      ],
+      "notes": [
+        "PR #92 removed the inherited import cycle and global main.dart back-import. Current source retains the Tarjan regression and canonical zero-cycle assertion. SOURCE_IMPLEMENTED records technical correction without claiming the still-required exact-head and post-merge CI closure evidence."
+      ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-08-15",
+          "basis": "PR #92 source remains cycle-free under test/dart_import_cycle_test.dart and the canonical zero-cycle source assertion; exact-head and admitted-main CI evidence remain required before closure."
         }
       ]
     },

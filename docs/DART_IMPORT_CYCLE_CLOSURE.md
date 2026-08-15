@@ -2,6 +2,10 @@
 
 Status: SOURCE_IMPLEMENTED
 
+Programme adjudication: `FINDING:A-01` is `SOURCE_IMPLEMENTED` as of
+15 August 2026. Exact-head pull-request CI and admitted-main post-merge CI
+remain required before the ledger may record `CLOSED`.
+
 ## Finding
 
 The app data layer imported `main.dart` in eleven repositories, providers and

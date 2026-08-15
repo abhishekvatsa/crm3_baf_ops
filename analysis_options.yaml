@@ -21,6 +21,12 @@ analyzer:
     # Release campaigns retain historical source snapshots for evidence. They
     # must not be analyzed as a second copy of the current application.
     - "release_output/**"
+    # Local audit, preview and scratch workspaces can contain preserved source
+    # copies. Governed tools already exclude these from current-source reads.
+    - "output/**"
+    - "outputs/**"
+    - "preview-governed-hierarchy/**"
+    - "tmp/**"
 
 linter:
   # The lint rules applied to this project can be customized in the
