@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
@@ -85,6 +87,13 @@ void main() {
         replaces: retired.id,
         createdAt: now.subtract(const Duration(days: 7)),
       );
+      final assets = StreamController<List<AssetInstanceRecord>>();
+      final conditions =
+          StreamController<List<AssetOperationalConditionRecord>>();
+      addTearDown(assets.close);
+      addTearDown(conditions.close);
+      assets.add([asset]);
+      conditions.add([condition]);
 
       await tester.pumpWidget(
         ProviderScope(
@@ -92,11 +101,9 @@ void main() {
             currentAppUserProvider.overrideWith(
               (ref) => Stream.value(_operationsUser(now)),
             ),
-            allAssetInstancesProvider.overrideWith(
-              (ref) => Stream.value([asset]),
-            ),
+            allAssetInstancesProvider.overrideWith((ref) => assets.stream),
             assetOperationalConditionsProvider.overrideWith(
-              (ref) => Stream.value([condition]),
+              (ref) => conditions.stream,
             ),
             installedComponentsProvider(
               asset.id,
@@ -124,6 +131,14 @@ void main() {
       expect(find.text('Replacement lineage (2)'), findsWidgets);
       expect(find.byTooltip('Component actions'), findsNothing);
       expect(tester.takeException(), isNull);
+
+      assets.add([_assetWithServiceState(asset, AssetServiceState.standby)]);
+      conditions.add([_restoredCondition(condition, now)]);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Standby'), findsOneWidget);
+      expect(find.text('Available'), findsOneWidget);
+      expect(find.text('Down'), findsNothing);
 
       final lineageAction = find.text('Replacement lineage (2)').first;
       await tester.ensureVisible(lineageAction);
@@ -220,4 +235,61 @@ AppUser _operationsUser(DateTime now) => AppUser(
   roles: const [AppRole.operations],
   isApproved: true,
   createdAt: now,
+);
+
+AssetInstanceRecord _assetWithServiceState(
+  AssetInstanceRecord source,
+  AssetServiceState serviceState,
+) => AssetInstanceRecord(
+  id: source.id,
+  assetClassId: source.assetClassId,
+  assetClassCode: source.assetClassCode,
+  assetClassName: source.assetClassName,
+  assetNumber: source.assetNumber,
+  name: source.name,
+  plantTag: source.plantTag,
+  location: source.location,
+  manufacturer: source.manufacturer,
+  model: source.model,
+  serialNumber: source.serialNumber,
+  commissionedOn: source.commissionedOn,
+  serviceState: serviceState,
+  ownershipStatus: source.ownershipStatus,
+  ownerDiscipline: source.ownerDiscipline,
+  accountableRoleKeys: source.accountableRoleKeys,
+  status: source.status,
+  activeComponentCount: source.activeComponentCount,
+  version: source.version + 1,
+  createdAt: source.createdAt,
+  updatedAt: source.updatedAt.add(const Duration(minutes: 5)),
+  lastMutationId: 'asset-live-update',
+);
+
+AssetOperationalConditionRecord _restoredCondition(
+  AssetOperationalConditionRecord source,
+  DateTime now,
+) => AssetOperationalConditionRecord(
+  assetInstanceId: source.assetInstanceId,
+  assetClassId: source.assetClassId,
+  assetClassCode: source.assetClassCode,
+  assetClassName: source.assetClassName,
+  assetNumber: source.assetNumber,
+  assetName: source.assetName,
+  condition: AssetOperationalCondition.available,
+  active: false,
+  causes: const [],
+  reason: source.reason,
+  linkedIssueIds: const [],
+  declaredAt: source.declaredAt,
+  declaredByUid: source.declaredByUid,
+  declaredByName: source.declaredByName,
+  restoredAt: now,
+  restoredByUid: 'operations-1',
+  restoredByName: 'Operations One',
+  previousCondition: source.condition,
+  version: source.version + 1,
+  updatedAt: now,
+  updatedByUid: 'operations-1',
+  updatedByName: 'Operations One',
+  lastMutationId: 'condition-restored',
 );

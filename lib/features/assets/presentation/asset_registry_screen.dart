@@ -194,8 +194,7 @@ class _AssetRegistryBodyState extends ConsumerState<_AssetRegistryBody> {
                                 MaterialPageRoute<void>(
                                   builder:
                                       (_) => _AssetRegistryDetailScreen(
-                                        asset: asset,
-                                        condition: conditionByAsset[asset.id],
+                                        assetInstanceId: asset.id,
                                       ),
                                 ),
                               ),
@@ -419,13 +418,9 @@ class _AssetRegistryCard extends StatelessWidget {
 }
 
 class _AssetRegistryDetailScreen extends ConsumerWidget {
-  final AssetInstanceRecord asset;
-  final AssetOperationalConditionRecord? condition;
+  final String assetInstanceId;
 
-  const _AssetRegistryDetailScreen({
-    required this.asset,
-    required this.condition,
-  });
+  const _AssetRegistryDetailScreen({required this.assetInstanceId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -439,7 +434,37 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
         body: Center(child: Text('Approved access is required.')),
       );
     }
-    final componentsAsync = ref.watch(installedComponentsProvider(asset.id));
+    final assetsAsync = ref.watch(allAssetInstancesProvider);
+    final conditionsAsync = ref.watch(assetOperationalConditionsProvider);
+    if ((assetsAsync.isLoading && !assetsAsync.hasValue) ||
+        (conditionsAsync.isLoading && !conditionsAsync.hasValue)) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if ((assetsAsync.hasError && !assetsAsync.hasValue) ||
+        (conditionsAsync.hasError && !conditionsAsync.hasValue)) {
+      return Scaffold(
+        body: _RegistryError(
+          message: 'Could not refresh the current asset state.',
+          onRetry: () {
+            ref.invalidate(allAssetInstancesProvider);
+            ref.invalidate(assetOperationalConditionsProvider);
+          },
+        ),
+      );
+    }
+    final asset = _findAsset(assetsAsync.value ?? const [], assetInstanceId);
+    if (asset == null) {
+      return const Scaffold(
+        body: Center(child: Text('Asset record is no longer available.')),
+      );
+    }
+    final condition = _findCondition(
+      conditionsAsync.value ?? const [],
+      assetInstanceId,
+    );
+    final componentsAsync = ref.watch(
+      installedComponentsProvider(assetInstanceId),
+    );
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
@@ -454,14 +479,18 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
             (_, _) => _RegistryError(
               message: 'Could not load installed components.',
               onRetry:
-                  () => ref.invalidate(installedComponentsProvider(asset.id)),
+                  () => ref.invalidate(
+                    installedComponentsProvider(assetInstanceId),
+                  ),
             ),
         data: (components) {
           final current = components.where((item) => item.isActive).toList();
           final retired = components.where((item) => !item.isActive).toList();
           return RefreshIndicator(
             onRefresh: () async {
-              ref.invalidate(installedComponentsProvider(asset.id));
+              ref.invalidate(allAssetInstancesProvider);
+              ref.invalidate(assetOperationalConditionsProvider);
+              ref.invalidate(installedComponentsProvider(assetInstanceId));
             },
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -822,6 +851,26 @@ class _RegistryError extends StatelessWidget {
       ),
     );
   }
+}
+
+AssetInstanceRecord? _findAsset(
+  List<AssetInstanceRecord> assets,
+  String assetInstanceId,
+) {
+  for (final asset in assets) {
+    if (asset.id == assetInstanceId) return asset;
+  }
+  return null;
+}
+
+AssetOperationalConditionRecord? _findCondition(
+  List<AssetOperationalConditionRecord> conditions,
+  String assetInstanceId,
+) {
+  for (final condition in conditions) {
+    if (condition.assetInstanceId == assetInstanceId) return condition;
+  }
+  return null;
 }
 
 AssetOperationalCondition _effectiveCondition(
