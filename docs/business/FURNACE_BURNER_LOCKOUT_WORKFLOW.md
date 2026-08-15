@@ -41,6 +41,9 @@ one terminal outcome for every affected position.
 - The Operations report presents a period- and asset-filtered burner matrix by
   Furnace and burner position, including lockout, open, red-hot, outcome, and
   frequent-action counts.
+- A dedicated, role-gated Burner reliability screen presents the same governed
+  evidence in a phone-ready view, with Furnace and date filters, latest
+  microamp observations, open positions, red-hot records, and frequent actions.
 
 ## Action catalogue
 
@@ -89,4 +92,6 @@ does not invent OEM tags.
   source applies only a broad structural bound to reject malformed values or an
   accidental unit mismatch; operational limits require governed plant data.
 - Shift-round capture and proactive condition monitoring remain a following
-  tranche built on the same eight-position identity.
+  tranche built on the same eight-position identity. The Burner reliability
+  screen is historical maintenance evidence and does not claim to be a daily
+  round, live condition monitor, or component-life reset.

@@ -13,6 +13,7 @@ import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../operational_events/presentation/operational_events_screen.dart';
 import '../../operational_events/providers/operational_event_provider.dart';
 import '../models/operations_report.dart';
+import '../models/burner_reliability_report.dart';
 import '../providers/operations_report_provider.dart';
 
 class FleetStatusScreen extends ConsumerStatefulWidget {
@@ -809,7 +810,15 @@ class _BurnerHistorySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final report = _buildBurnerHistory(tickets);
+    final BurnerReliabilityReport report;
+    try {
+      report = buildBurnerReliabilityReport(tickets);
+    } on StateError {
+      return const Padding(
+        padding: EdgeInsets.only(top: 24),
+        child: _BurnerHistoryIntegrityNotice(),
+      );
+    }
     if (report.rows.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 24),
@@ -923,112 +932,45 @@ class _BurnerHistorySection extends StatelessWidget {
   }
 }
 
-class _BurnerHistoryReport {
-  const _BurnerHistoryReport({
-    required this.issueCount,
-    required this.rows,
-    required this.actionColumns,
-  });
+class _BurnerHistoryIntegrityNotice extends StatelessWidget {
+  const _BurnerHistoryIntegrityNotice();
 
-  final int issueCount;
-  final List<_BurnerHistoryRow> rows;
-  final List<BurnerActionCode> actionColumns;
-}
-
-class _BurnerHistoryRow {
-  _BurnerHistoryRow({
-    required this.furnaceNumber,
-    required this.burnerPosition,
-    required this.latest,
-  });
-
-  final int furnaceNumber;
-  final int burnerPosition;
-  DateTime latest;
-  int issueCount = 0;
-  int openCount = 0;
-  int redHotCount = 0;
-  int returnedCount = 0;
-  int followUpCount = 0;
-  double? latestMicroampReading;
-  DateTime? latestMicroampAt;
-  final Map<BurnerActionCode, int> actionCounts = <BurnerActionCode, int>{};
-}
-
-_BurnerHistoryReport _buildBurnerHistory(List<MaintenanceRecord> tickets) {
-  final rows = <String, _BurnerHistoryRow>{};
-  final actionTotals = <BurnerActionCode, int>{};
-  var issueCount = 0;
-  for (final ticket in tickets) {
-    if (ticket.classification != burnerLockoutClassification) continue;
-    final read = ticket.burnerLockoutReadResult;
-    final lockout = read.isValid ? read.value : null;
-    if (lockout == null) continue;
-    issueCount++;
-    for (final position in lockout.positions) {
-      final key = '${ticket.assetNumber}:$position';
-      final row = rows.putIfAbsent(
-        key,
-        () => _BurnerHistoryRow(
-          furnaceNumber: ticket.assetNumber,
-          burnerPosition: position,
-          latest: ticket.startDate,
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(BafSpacing.lg),
+    decoration: BoxDecoration(
+      color: BafColors.card,
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+      border: Border.all(color: BafColors.danger.withValues(alpha: 0.3)),
+    ),
+    child: const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.report_problem_outlined, color: BafColors.danger),
+        SizedBox(width: BafSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Burner evidence needs repair',
+                style: TextStyle(
+                  color: BafColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(height: BafSpacing.xs),
+              Text(
+                'Burner reliability totals are withheld because a classified '
+                'record is incomplete or malformed. Other report sections '
+                'remain available.',
+                style: TextStyle(color: BafColors.textSecondary),
+              ),
+            ],
+          ),
         ),
-      );
-      row.issueCount++;
-      if (!ticket.isResolved) row.openCount++;
-      if (lockout.redHotPositions.contains(position)) row.redHotCount++;
-      if (ticket.startDate.isAfter(row.latest)) row.latest = ticket.startDate;
-      final outcome = lockout.resolutionOutcomes[position];
-      if (outcome == BurnerResolutionOutcome.returnedToService) {
-        row.returnedCount++;
-      } else if (outcome == BurnerResolutionOutcome.remainsLockedOut ||
-          outcome == BurnerResolutionOutcome.isolatedForFollowUp) {
-        row.followUpCount++;
-      }
-      final microampReading = lockout.resolutionMicroampReadings[position];
-      final readingAt = ticket.endDate ?? ticket.updatedAt;
-      if (microampReading != null &&
-          (row.latestMicroampAt == null ||
-              readingAt.isAfter(row.latestMicroampAt!))) {
-        row.latestMicroampReading = microampReading;
-        row.latestMicroampAt = readingAt;
-      }
-    }
-    final actionRead = ticket.actionsReadResult;
-    if (!actionRead.isValid) continue;
-    for (final action in actionRead.entries) {
-      final position = action.extensions['burnerPosition'];
-      final codeName = action.extensions['burnerActionCode'];
-      if (position is! int || codeName is! String) continue;
-      final matches = BurnerActionCode.values.where(
-        (value) => value.name == codeName,
-      );
-      if (matches.isEmpty) continue;
-      final code = matches.first;
-      final row = rows['${ticket.assetNumber}:$position'];
-      if (row == null) continue;
-      row.actionCounts.update(code, (count) => count + 1, ifAbsent: () => 1);
-      actionTotals.update(code, (count) => count + 1, ifAbsent: () => 1);
-    }
-  }
-  final sortedRows =
-      rows.values.toList()..sort((left, right) {
-        final furnace = left.furnaceNumber.compareTo(right.furnaceNumber);
-        return furnace != 0
-            ? furnace
-            : left.burnerPosition.compareTo(right.burnerPosition);
-      });
-  final actionColumns =
-      actionTotals.entries.toList()..sort((left, right) {
-        final count = right.value.compareTo(left.value);
-        return count != 0 ? count : left.key.name.compareTo(right.key.name);
-      });
-  return _BurnerHistoryReport(
-    issueCount: issueCount,
-    rows: List<_BurnerHistoryRow>.unmodifiable(sortedRows),
-    actionColumns: List<BurnerActionCode>.unmodifiable(
-      actionColumns.take(5).map((entry) => entry.key),
+      ],
     ),
   );
 }
