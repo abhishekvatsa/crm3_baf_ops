@@ -2495,8 +2495,14 @@ service cloud.firestore {
       let entry = evidence.get(key, {});
       let codes = entry.get('actionCodes', []);
       let outcome = entry.get('outcome', null);
+      let microampReading = entry.get('microampReading', null);
       return entry is map
-        && entry.keys().hasOnly(['outcome', 'actionCodes'])
+        && entry.keys().hasAll(['outcome', 'actionCodes'])
+        && entry.keys().hasOnly([
+          'outcome',
+          'actionCodes',
+          'microampReading'
+        ])
         && codes is list
         && codes.size() >= 1
         && codes.size() <= 14
@@ -2522,6 +2528,10 @@ service cloud.firestore {
           'remainsLockedOut',
           'isolatedForFollowUp'
         ].hasAny([outcome])
+        && (!entry.keys().hasAny(['microampReading'])
+          || (microampReading is number
+            && microampReading >= 0
+            && microampReading <= 1000000))
         && (outcome != 'returnedToService'
           || codes.hasAny([
             'airLineCleaning',

@@ -26,13 +26,19 @@ void main() {
             4: BurnerResolutionOutcome.isolatedForFollowUp,
             8: BurnerResolutionOutcome.remainsLockedOut,
           },
+          microampReadings: const <int, double>{1: 3.75, 4: 0.42},
         ),
         actions: <ComponentAction>[
-          _action(1, BurnerActionCode.uvDetectorCleaning),
+          _action(
+            1,
+            BurnerActionCode.uvDetectorCleaning,
+            microampReading: 3.75,
+          ),
           _action(
             4,
             BurnerActionCode.poking,
             outcome: BurnerResolutionOutcome.isolatedForFollowUp,
+            microampReading: 0.42,
           ),
           _action(
             8,
@@ -57,6 +63,10 @@ void main() {
       expect(decoded.resolutionActionCodes[1], <BurnerActionCode>[
         BurnerActionCode.uvDetectorCleaning,
       ]);
+      expect(decoded.resolutionMicroampReadings, <int, double>{
+        1: 3.75,
+        4: 0.42,
+      });
       expect(burnerTag(3, 8), 'FR-03-B08');
     });
 
@@ -184,7 +194,7 @@ void main() {
         remainsLockedOut: true,
       );
       final actions = <ComponentAction>[
-        _action(2, BurnerActionCode.flameAdjustment),
+        _action(2, BurnerActionCode.flameAdjustment, microampReading: 2.8),
         _action(
           5,
           BurnerActionCode.safetyShutoffValveRelayWork,
@@ -199,6 +209,7 @@ void main() {
         resolved.resolutionOutcomes[5],
         BurnerResolutionOutcome.isolatedForFollowUp,
       );
+      expect(resolved.resolutionMicroampReadings[2], 2.8);
       expect(
         () => validatePersistedBurnerResolutionEvidence(
           lockout: resolved,
@@ -236,6 +247,44 @@ void main() {
       );
     });
 
+    test('microamp evidence rejects malformed values and action drift', () {
+      expect(
+        () => BurnerLockoutResolution(
+          outcomes: const <int, BurnerResolutionOutcome>{
+            2: BurnerResolutionOutcome.returnedToService,
+          },
+          microampReadings: const <int, double>{2: -0.1},
+        ),
+        throwsFormatException,
+      );
+
+      final intake = BurnerLockoutCase(
+        positions: const <int>[2],
+        commonMode: false,
+        cycleStage: BurnerCycleStage.firing,
+        flameObservation: BurnerObservation.seen,
+        sparkObservation: BurnerObservation.notChecked,
+        relightAttempts: 0,
+        remainsLockedOut: false,
+      );
+      final resolution = BurnerLockoutResolution(
+        outcomes: const <int, BurnerResolutionOutcome>{
+          2: BurnerResolutionOutcome.returnedToService,
+        },
+        microampReadings: const <int, double>{2: 4.2},
+      );
+
+      expect(
+        () => intake.withResolution(
+          resolution,
+          actions: <ComponentAction>[
+            _action(2, BurnerActionCode.flameAdjustment, microampReading: 3.9),
+          ],
+        ),
+        throwsStateError,
+      );
+    });
+
     test('local metadata merge preserves quality intent', () {
       final intake = BurnerLockoutCase(
         positions: const <int>[3],
@@ -268,6 +317,7 @@ ComponentAction _action(
   int position,
   BurnerActionCode code, {
   BurnerResolutionOutcome outcome = BurnerResolutionOutcome.returnedToService,
+  double? microampReading,
 }) => buildBurnerComponentAction(
   ticketId: 'ticket-1',
   furnaceNumber: 1,
@@ -276,4 +326,5 @@ ComponentAction _action(
   outcome: outcome,
   performedBy: 'I&A',
   performedAt: DateTime.utc(2026, 8, 15),
+  microampReading: microampReading,
 );

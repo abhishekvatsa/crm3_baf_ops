@@ -612,6 +612,9 @@ class _TicketCard extends StatelessWidget {
     final component = ticket.component?.trim();
     final innerCover = ticket.assetHierarchyReference?.innerCoverAssociation;
     final burnerLockout = ticket.burnerLockoutReadResult.value;
+    final burnerReadings =
+        burnerLockout?.resolutionMicroampReadings.entries.toList() ?? [];
+    burnerReadings.sort((left, right) => left.key.compareTo(right.key));
 
     return Material(
       color: BafColors.card,
@@ -779,6 +782,14 @@ class _TicketCard extends StatelessWidget {
                       '${burnerLockout.commonMode ? 'Possible common-mode event' : 'Individual burner event'}; '
                       '${burnerLockout.relightAttempts} relight attempt${burnerLockout.relightAttempts == 1 ? '' : 's'}',
                 ),
+                if (burnerReadings.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  _MetaRow(
+                    icon: Icons.speed_rounded,
+                    text:
+                        'Flame signal: ${burnerReadings.map((entry) => 'B${entry.key} ${NumberFormat('0.###').format(entry.value)} µA').join(' · ')}',
+                  ),
+                ],
               ],
               if (innerCover != null) ...[
                 const SizedBox(height: 5),

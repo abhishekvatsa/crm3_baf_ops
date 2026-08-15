@@ -857,6 +857,7 @@ class _BurnerHistorySection extends StatelessWidget {
                         ),
                       ),
                     ),
+                  const DataColumn(label: Text('Latest µA'), numeric: true),
                   const DataColumn(label: Text('Latest')),
                 ],
                 rows: [
@@ -887,6 +888,15 @@ class _BurnerHistorySection extends StatelessWidget {
                         DataCell(Text('${row.followUpCount}')),
                         for (final action in report.actionColumns)
                           DataCell(Text('${row.actionCounts[action] ?? 0}')),
+                        DataCell(
+                          Text(
+                            row.latestMicroampReading == null
+                                ? '-'
+                                : NumberFormat(
+                                  '0.###',
+                                ).format(row.latestMicroampReading),
+                          ),
+                        ),
                         DataCell(
                           Text(DateFormat('dd MMM yy').format(row.latest)),
                         ),
@@ -940,6 +950,8 @@ class _BurnerHistoryRow {
   int redHotCount = 0;
   int returnedCount = 0;
   int followUpCount = 0;
+  double? latestMicroampReading;
+  DateTime? latestMicroampAt;
   final Map<BurnerActionCode, int> actionCounts = <BurnerActionCode, int>{};
 }
 
@@ -973,6 +985,14 @@ _BurnerHistoryReport _buildBurnerHistory(List<MaintenanceRecord> tickets) {
       } else if (outcome == BurnerResolutionOutcome.remainsLockedOut ||
           outcome == BurnerResolutionOutcome.isolatedForFollowUp) {
         row.followUpCount++;
+      }
+      final microampReading = lockout.resolutionMicroampReadings[position];
+      final readingAt = ticket.endDate ?? ticket.updatedAt;
+      if (microampReading != null &&
+          (row.latestMicroampAt == null ||
+              readingAt.isAfter(row.latestMicroampAt!))) {
+        row.latestMicroampReading = microampReading;
+        row.latestMicroampAt = readingAt;
       }
     }
     final actionRead = ticket.actionsReadResult;

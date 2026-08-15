@@ -44,6 +44,8 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       <int, BurnerResolutionOutcome?>{};
   final Map<int, TextEditingController> _burnerNotes =
       <int, TextEditingController>{};
+  final Map<int, TextEditingController> _burnerMicroampReadings =
+      <int, TextEditingController>{};
 
   @override
   void initState() {
@@ -59,6 +61,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
         _burnerActions[position] = <BurnerActionCode>{};
         _burnerOutcomes[position] = null;
         _burnerNotes[position] = TextEditingController();
+        _burnerMicroampReadings[position] = TextEditingController();
       }
       if (_burnerLockout != null) _teamsInvolved.add('instrumentation');
     }
@@ -76,6 +79,9 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
     for (final controller in _burnerNotes.values) {
       controller.dispose();
     }
+    for (final controller in _burnerMicroampReadings.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -83,6 +89,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
     final lockout = _burnerLockout;
     if (lockout == null) return null;
     final outcomes = <int, BurnerResolutionOutcome>{};
+    final microampReadings = <int, double>{};
     for (final position in lockout.positions) {
       final selectedActions = _burnerActions[position] ?? const {};
       if (selectedActions.isEmpty) {
@@ -99,9 +106,25 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
           notes.length < 3) {
         throw StateError('Describe the other work done on Burner $position.');
       }
+      final microampText = _burnerMicroampReadings[position]?.text.trim() ?? '';
+      if (microampText.isNotEmpty) {
+        final reading = double.tryParse(microampText);
+        if (reading == null ||
+            !reading.isFinite ||
+            reading < 0 ||
+            reading > burnerMicroampStructuralMaximum) {
+          throw StateError(
+            'Enter a valid non-negative microamp reading for Burner $position.',
+          );
+        }
+        microampReadings[position] = reading;
+      }
       outcomes[position] = outcome;
     }
-    return BurnerLockoutResolution(outcomes: outcomes);
+    return BurnerLockoutResolution(
+      outcomes: outcomes,
+      microampReadings: microampReadings,
+    );
   }
 
   List<ComponentAction> _buildBurnerComponentActions({
@@ -123,6 +146,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
             outcome: resolution.outcomes[position]!,
             performedBy: performedBy,
             performedAt: performedAt,
+            microampReading: resolution.microampReadings[position],
             remarks: remarks == null || remarks.isEmpty ? null : remarks,
           ),
         );
@@ -534,6 +558,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
                 selectedActions: _burnerActions,
                 outcomes: _burnerOutcomes,
                 notes: _burnerNotes,
+                microampReadings: _burnerMicroampReadings,
                 onActionChanged: (position, action, selected) {
                   setState(() {
                     final actions = _burnerActions[position]!;
@@ -734,6 +759,7 @@ class _BurnerAttendanceSection extends StatelessWidget {
     required this.selectedActions,
     required this.outcomes,
     required this.notes,
+    required this.microampReadings,
     required this.onActionChanged,
     required this.onOutcomeChanged,
   });
@@ -742,6 +768,7 @@ class _BurnerAttendanceSection extends StatelessWidget {
   final Map<int, Set<BurnerActionCode>> selectedActions;
   final Map<int, BurnerResolutionOutcome?> outcomes;
   final Map<int, TextEditingController> notes;
+  final Map<int, TextEditingController> microampReadings;
   final void Function(int position, BurnerActionCode action, bool selected)
   onActionChanged;
   final void Function(int position, BurnerResolutionOutcome? outcome)
@@ -803,6 +830,7 @@ class _BurnerAttendanceSection extends StatelessWidget {
                 selectedActions[lockout.positions[index]] ?? const {},
             outcome: outcomes[lockout.positions[index]],
             notesController: notes[lockout.positions[index]]!,
+            microampController: microampReadings[lockout.positions[index]]!,
             onActionChanged:
                 (action, selected) =>
                     onActionChanged(lockout.positions[index], action, selected),
@@ -833,6 +861,7 @@ class _BurnerAttendanceEditor extends StatelessWidget {
     required this.selectedActions,
     required this.outcome,
     required this.notesController,
+    required this.microampController,
     required this.onActionChanged,
     required this.onOutcomeChanged,
   });
@@ -842,6 +871,7 @@ class _BurnerAttendanceEditor extends StatelessWidget {
   final Set<BurnerActionCode> selectedActions;
   final BurnerResolutionOutcome? outcome;
   final TextEditingController notesController;
+  final TextEditingController microampController;
   final void Function(BurnerActionCode action, bool selected) onActionChanged;
   final ValueChanged<BurnerResolutionOutcome?> onOutcomeChanged;
 
@@ -884,6 +914,26 @@ class _BurnerAttendanceEditor extends StatelessWidget {
                 onSelected: (selected) => onActionChanged(action, selected),
               ),
           ],
+        ),
+        const SizedBox(height: BafSpacing.md),
+        TextFormField(
+          controller: microampController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: _decoration(
+            'Microamp reading',
+          ).copyWith(suffixText: 'µA'),
+          validator: (value) {
+            final text = value?.trim() ?? '';
+            if (text.isEmpty) return null;
+            final reading = double.tryParse(text);
+            if (reading == null ||
+                !reading.isFinite ||
+                reading < 0 ||
+                reading > burnerMicroampStructuralMaximum) {
+              return 'Enter a valid non-negative reading';
+            }
+            return null;
+          },
         ),
         const SizedBox(height: BafSpacing.md),
         DropdownButtonFormField<BurnerResolutionOutcome>(

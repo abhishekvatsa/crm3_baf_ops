@@ -5,6 +5,7 @@ import '../../planned_maintenance/models/component_action_model.dart';
 
 const burnerLockoutClassification = 'furnaceBurnerLockout';
 const burnerLockoutSchemaVersion = 1;
+const burnerMicroampStructuralMaximum = 1000000.0;
 
 const burnerLockoutSynchronizedFieldNames = <String>{
   'burnerLockoutSchemaVersion',
@@ -93,10 +94,23 @@ class BurnerLockoutCaseReadResult {
 }
 
 class BurnerLockoutResolution {
-  BurnerLockoutResolution({required Map<int, BurnerResolutionOutcome> outcomes})
-    : outcomes = Map<int, BurnerResolutionOutcome>.unmodifiable(outcomes);
+  BurnerLockoutResolution({
+    required Map<int, BurnerResolutionOutcome> outcomes,
+    Map<int, double> microampReadings = const <int, double>{},
+  }) : outcomes = Map<int, BurnerResolutionOutcome>.unmodifiable(outcomes),
+       microampReadings = Map<int, double>.unmodifiable(microampReadings) {
+    if (!_isSubset(microampReadings.keys, outcomes.keys)) {
+      throw const FormatException(
+        'Microamp readings must belong to attended burner positions.',
+      );
+    }
+    for (final entry in microampReadings.entries) {
+      _validateMicroampReading(entry.value, position: entry.key);
+    }
+  }
 
   final Map<int, BurnerResolutionOutcome> outcomes;
+  final Map<int, double> microampReadings;
 
   List<int> get attendedPositions => outcomes.keys.toList()..sort();
 }
@@ -117,6 +131,7 @@ class BurnerLockoutCase {
         const <int, BurnerResolutionOutcome>{},
     Map<int, List<BurnerActionCode>> resolutionActionCodes =
         const <int, List<BurnerActionCode>>{},
+    Map<int, double> resolutionMicroampReadings = const <int, double>{},
   }) : positions = _validatedPositions(positions, field: 'burnerPositions'),
        redHotPositions = _validatedPositions(
          redHotPositions,
@@ -136,6 +151,9 @@ class BurnerLockoutCase {
            for (final entry in resolutionActionCodes.entries)
              entry.key: List<BurnerActionCode>.unmodifiable(entry.value),
          },
+       ),
+       resolutionMicroampReadings = Map<int, double>.unmodifiable(
+         resolutionMicroampReadings,
        ) {
     _validateRelationships();
   }
@@ -152,6 +170,7 @@ class BurnerLockoutCase {
   final List<int> attendedPositions;
   final Map<int, BurnerResolutionOutcome> resolutionOutcomes;
   final Map<int, List<BurnerActionCode>> resolutionActionCodes;
+  final Map<int, double> resolutionMicroampReadings;
 
   bool get hasRedHotObservation => redHotPositions.isNotEmpty;
 
@@ -197,6 +216,8 @@ class BurnerLockoutCase {
         'actionCodes': <String>[
           for (final code in resolutionActionCodes[position]!) code.name,
         ],
+        if (resolutionMicroampReadings[position] case final reading?)
+          'microampReading': reading,
       },
   };
 
@@ -227,6 +248,7 @@ class BurnerLockoutCase {
       attendedPositions: resolution.attendedPositions,
       resolutionOutcomes: resolution.outcomes,
       resolutionActionCodes: evidence.actionCodes,
+      resolutionMicroampReadings: evidence.microampReadings,
     );
   }
 
@@ -341,6 +363,7 @@ class BurnerLockoutCase {
       attendedPositions: attendedPositions,
       resolutionOutcomes: resolutionEvidence.outcomes,
       resolutionActionCodes: resolutionEvidence.actionCodes,
+      resolutionMicroampReadings: resolutionEvidence.microampReadings,
     );
   }
 
@@ -403,7 +426,8 @@ class BurnerLockoutCase {
     }
     if (!_isSubset(attendedPositions, positions) ||
         !_isSubset(resolutionOutcomes.keys, positions) ||
-        !_isSubset(resolutionActionCodes.keys, positions)) {
+        !_isSubset(resolutionActionCodes.keys, positions) ||
+        !_isSubset(resolutionMicroampReadings.keys, positions)) {
       throw const FormatException(
         'Attendance and outcomes must belong to selected burner positions.',
       );
@@ -427,6 +451,10 @@ class BurnerLockoutCase {
         throw FormatException(
           'Burner $position cannot be returned to service on reset-only evidence.',
         );
+      }
+      final reading = resolutionMicroampReadings[position];
+      if (reading != null) {
+        _validateMicroampReading(reading, position: position);
       }
     }
     if (relightAttempts > 20) {
@@ -492,35 +520,42 @@ ComponentAction buildBurnerComponentAction({
   required BurnerResolutionOutcome outcome,
   required String performedBy,
   required DateTime performedAt,
+  double? microampReading,
   String? remarks,
-}) => ComponentAction(
-  id: '${burnerActionSessionId(ticketId, burnerPosition)}_${code.name}',
-  asset: 'Furnace $furnaceNumber',
-  component: 'Burner $burnerPosition',
-  system: 'Combustion system',
-  subsystem: 'Burner system',
-  subComponent: code.label,
-  tag: burnerTag(furnaceNumber, burnerPosition),
-  instance: '$burnerPosition',
-  actionType: code.actionType,
-  replacement:
-      code.actionType == ActionType.replacement
-          ? ReplacementType.newPart
-          : null,
-  resolution: code.label,
-  remarks: remarks,
-  status: ActionStatus.resolved,
-  createdAt: performedAt,
-  severity: ActionSeverity.high,
-  performedBy: performedBy,
-  updatedAt: performedAt,
-  extensions: <String, dynamic>{
-    'attendanceSessionId': burnerActionSessionId(ticketId, burnerPosition),
-    'burnerPosition': burnerPosition,
-    'burnerActionCode': code.name,
-    'burnerOutcome': outcome.name,
-  },
-);
+}) {
+  if (microampReading != null) {
+    _validateMicroampReading(microampReading, position: burnerPosition);
+  }
+  return ComponentAction(
+    id: '${burnerActionSessionId(ticketId, burnerPosition)}_${code.name}',
+    asset: 'Furnace $furnaceNumber',
+    component: 'Burner $burnerPosition',
+    system: 'Combustion system',
+    subsystem: 'Burner system',
+    subComponent: code.label,
+    tag: burnerTag(furnaceNumber, burnerPosition),
+    instance: '$burnerPosition',
+    actionType: code.actionType,
+    replacement:
+        code.actionType == ActionType.replacement
+            ? ReplacementType.newPart
+            : null,
+    resolution: code.label,
+    remarks: remarks,
+    status: ActionStatus.resolved,
+    createdAt: performedAt,
+    severity: ActionSeverity.high,
+    performedBy: performedBy,
+    updatedAt: performedAt,
+    extensions: <String, dynamic>{
+      'attendanceSessionId': burnerActionSessionId(ticketId, burnerPosition),
+      'burnerPosition': burnerPosition,
+      'burnerActionCode': code.name,
+      'burnerOutcome': outcome.name,
+      if (microampReading != null) 'burnerMicroampReading': microampReading,
+    },
+  );
+}
 
 void validateBurnerResolutionEvidence({
   required BurnerLockoutCase lockout,
@@ -542,12 +577,17 @@ BurnerLockoutResolution burnerResolutionFromActions({
   required Iterable<ComponentAction> actions,
 }) {
   final outcomes = <int, BurnerResolutionOutcome>{};
+  final microampReadings = <int, double>{};
   for (final action in actions) {
     final rawPosition = action.extensions['burnerPosition'];
     final rawCode = action.extensions['burnerActionCode'];
     final rawOutcome = action.extensions['burnerOutcome'];
+    final rawMicroampReading = action.extensions['burnerMicroampReading'];
     final hasBurnerEvidence =
-        rawPosition != null || rawCode != null || rawOutcome != null;
+        rawPosition != null ||
+        rawCode != null ||
+        rawOutcome != null ||
+        rawMicroampReading != null;
     if (!hasBurnerEvidence) continue;
     if (rawPosition is! int ||
         rawCode is! String ||
@@ -568,8 +608,24 @@ BurnerLockoutResolution burnerResolutionFromActions({
       );
     }
     outcomes[rawPosition] = outcome;
+    if (rawMicroampReading != null) {
+      final reading = _readActionMicroampReading(
+        rawMicroampReading,
+        position: rawPosition,
+      );
+      final existingReading = microampReadings[rawPosition];
+      if (existingReading != null && existingReading != reading) {
+        throw StateError(
+          'Saved burner actions disagree on the microamp reading for Burner $rawPosition.',
+        );
+      }
+      microampReadings[rawPosition] = reading;
+    }
   }
-  final resolution = BurnerLockoutResolution(outcomes: outcomes);
+  final resolution = BurnerLockoutResolution(
+    outcomes: outcomes,
+    microampReadings: microampReadings,
+  );
   validateBurnerResolutionEvidence(
     lockout: lockout,
     resolution: resolution,
@@ -591,6 +647,10 @@ void validatePersistedBurnerResolutionEvidence({
         !_sameActionCodes(
           rebuilt.resolutionActionCodes,
           lockout.resolutionActionCodes,
+        ) ||
+        !_sameMicroampReadings(
+          rebuilt.resolutionMicroampReadings,
+          lockout.resolutionMicroampReadings,
         )) {
       throw const FormatException(
         'Structured burner evidence does not match actionsJson.',
@@ -609,12 +669,17 @@ _BurnerActionEvidence _burnerActionEvidenceForResolution({
   final actionCodes = <int, List<BurnerActionCode>>{
     for (final position in lockout.positions) position: <BurnerActionCode>[],
   };
+  final microampReadings = <int, double>{};
   for (final action in actions) {
     final rawPosition = action.extensions['burnerPosition'];
     final rawCode = action.extensions['burnerActionCode'];
     final rawOutcome = action.extensions['burnerOutcome'];
+    final rawMicroampReading = action.extensions['burnerMicroampReading'];
     final hasBurnerEvidence =
-        rawPosition != null || rawCode != null || rawOutcome != null;
+        rawPosition != null ||
+        rawCode != null ||
+        rawOutcome != null ||
+        rawMicroampReading != null;
     if (!hasBurnerEvidence) continue;
     if (rawPosition is! int ||
         rawCode is! String ||
@@ -637,6 +702,24 @@ _BurnerActionEvidence _burnerActionEvidenceForResolution({
     if (!actionCodes[rawPosition]!.contains(code)) {
       actionCodes[rawPosition]!.add(code);
     }
+    if (rawMicroampReading != null) {
+      final reading = _readActionMicroampReading(
+        rawMicroampReading,
+        position: rawPosition,
+      );
+      final existingReading = microampReadings[rawPosition];
+      if (existingReading != null && existingReading != reading) {
+        throw StateError(
+          'Saved burner actions disagree on the microamp reading for Burner $rawPosition.',
+        );
+      }
+      microampReadings[rawPosition] = reading;
+    }
+  }
+  if (!_sameMicroampReadings(microampReadings, resolution.microampReadings)) {
+    throw StateError(
+      'Saved burner actions disagree with the recorded microamp readings.',
+    );
   }
   for (final position in lockout.positions) {
     final codes = actionCodes[position]!;
@@ -657,6 +740,7 @@ _BurnerActionEvidence _burnerActionEvidenceForResolution({
   return (
     outcomes: Map<int, BurnerResolutionOutcome>.from(resolution.outcomes),
     actionCodes: actionCodes,
+    microampReadings: microampReadings,
   );
 }
 
@@ -721,6 +805,7 @@ _BurnerActionEvidence _readResolutionEvidence(
   }
   final outcomes = <int, BurnerResolutionOutcome>{};
   final actionCodes = <int, List<BurnerActionCode>>{};
+  final microampReadings = <int, double>{};
   for (final rawEntry in value.entries) {
     final key = rawEntry.key;
     if (key is! String || !RegExp(r'^[1-8]$').hasMatch(key)) {
@@ -734,13 +819,18 @@ _BurnerActionEvidence _readResolutionEvidence(
     final rawEvidence = rawEntry.value;
     if (rawEvidence is! Map ||
         rawEvidence.keys.any((field) => field is! String) ||
-        rawEvidence.length != 2 ||
+        rawEvidence.keys.any(
+          (field) =>
+              field != 'outcome' &&
+              field != 'actionCodes' &&
+              field != 'microampReading',
+        ) ||
         !rawEvidence.containsKey('outcome') ||
         !rawEvidence.containsKey('actionCodes')) {
       throw PersistedDataFormatException(
         field: 'burnerResolutionEvidence.$key',
         source: source,
-        detail: 'expected exactly outcome and actionCodes',
+        detail: 'expected outcome, actionCodes, and optional microampReading',
       );
     }
     final evidence = Map<String, dynamic>.from(rawEvidence);
@@ -776,8 +866,33 @@ _BurnerActionEvidence _readResolutionEvidence(
       codes.add(code);
     }
     actionCodes[position] = codes;
+    if (evidence.containsKey('microampReading')) {
+      final rawReading = evidence['microampReading'];
+      if (rawReading is! num) {
+        throw PersistedDataFormatException(
+          field: 'burnerResolutionEvidence.$key.microampReading',
+          source: source,
+          detail: 'expected a numeric microamp reading',
+        );
+      }
+      final reading = rawReading.toDouble();
+      try {
+        _validateMicroampReading(reading, position: position);
+      } on FormatException catch (error) {
+        throw PersistedDataFormatException(
+          field: 'burnerResolutionEvidence.$key.microampReading',
+          source: source,
+          detail: error.message,
+        );
+      }
+      microampReadings[position] = reading;
+    }
   }
-  return (outcomes: outcomes, actionCodes: actionCodes);
+  return (
+    outcomes: outcomes,
+    actionCodes: actionCodes,
+    microampReadings: microampReadings,
+  );
 }
 
 List<int> _validatedPositions(
@@ -838,8 +953,38 @@ bool _sameActionCodes(
   return true;
 }
 
+bool _sameMicroampReadings(Map<int, double> left, Map<int, double> right) {
+  if (!_samePositions(left.keys, right.keys)) return false;
+  return left.entries.every((entry) => right[entry.key] == entry.value);
+}
+
+double _readActionMicroampReading(dynamic value, {required int position}) {
+  if (value is! num) {
+    throw StateError(
+      'Saved microamp reading for Burner $position is not numeric.',
+    );
+  }
+  final reading = value.toDouble();
+  try {
+    _validateMicroampReading(reading, position: position);
+  } on FormatException catch (error) {
+    throw StateError(error.message);
+  }
+  return reading;
+}
+
+void _validateMicroampReading(double value, {required int position}) {
+  if (!value.isFinite || value < 0 || value > burnerMicroampStructuralMaximum) {
+    throw FormatException(
+      'Burner $position microamp reading must be between 0 and '
+      '${burnerMicroampStructuralMaximum.toStringAsFixed(0)} uA.',
+    );
+  }
+}
+
 typedef _BurnerActionEvidence =
     ({
       Map<int, BurnerResolutionOutcome> outcomes,
       Map<int, List<BurnerActionCode>> actionCodes,
+      Map<int, double> microampReadings,
     });
