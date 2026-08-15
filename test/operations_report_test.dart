@@ -9,6 +9,7 @@ import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_mode
 import 'package:crm3_baf_ops/features/reports/models/operations_report.dart';
 import 'package:crm3_baf_ops/features/reports/presentation/fleet_status_screen.dart';
 import 'package:crm3_baf_ops/features/reports/providers/operations_report_provider.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 AssetClassRecord assetClass(
@@ -117,6 +118,35 @@ OperationalEvent event() => OperationalEvent(
 );
 
 void main() {
+  testWidgets('ranked report labels remain fully visible on narrow screens', (
+    tester,
+  ) async {
+    const label =
+        'Recorded path - Furnace - Combustion system > Zone 1 > Drive train';
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: ReportRankedList(
+              title: 'Top recorded subsystem paths',
+              rows: [CountedReportLabel(label: label, count: 4)],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final labelText = tester.widget<Text>(find.text(label));
+    expect(labelText.maxLines, isNull);
+    expect(labelText.overflow, isNull);
+    expect(find.byTooltip(label), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   test('report selection clears retired hierarchy records', () {
     final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
     final furnace7 = asset('furnace-7', furnace, 7);
