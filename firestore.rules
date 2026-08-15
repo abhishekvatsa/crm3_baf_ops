@@ -1075,13 +1075,34 @@ service cloud.firestore {
         : false;
     }
 
+    function validBurnerRedHotDirectiveCreate(docId) {
+      let sourceId = request.resource.data.get(
+        'linkedMaintenanceFirestoreId',
+        null
+      );
+      return sourceId is string
+        && request.resource.data.keys().hasOnly(directiveAllowedFields())
+        && existsAfter(
+          /databases/$(database)/documents/maintenance_records/$(sourceId)
+        )
+        && validBurnerRedHotDirectiveProjection(
+          request.resource.data,
+          getAfter(
+            /databases/$(database)/documents/maintenance_records/$(sourceId)
+          ).data,
+          docId,
+          sourceId
+        );
+    }
+
     function validDirectiveCreate(docId) {
       return hasUserDoc()
         ? (validApprovedUserAuthority(userDoc().data)
-          ? validDirectiveCreateForRoles(
+          ? (validBurnerRedHotDirectiveCreate(docId)
+            || validDirectiveCreateForRoles(
               docId,
               userDoc().data.get('roles', [])
-            )
+            ))
           : false)
         : false;
     }
@@ -2445,6 +2466,216 @@ service cloud.firestore {
               && chargeNo > 0)));
     }
 
+    function maintenanceBurnerLockoutFields() {
+      return [
+        'burnerLockoutSchemaVersion',
+        'burnerPositions',
+        'burnerCommonMode',
+        'burnerCycleStage',
+        'burnerHmiAlarm',
+        'burnerFlameObservation',
+        'burnerSparkObservation',
+        'burnerRelightAttempts',
+        'burnerRemainsLockedOut',
+        'burnerRedHotPositions',
+        'burnerAttendedPositions',
+        'burnerResolutionEvidence'
+      ];
+    }
+
+    function validBurnerPositionList(value, allowEmpty) {
+      return value is list
+        && (allowEmpty || value.size() >= 1)
+        && value.size() <= 8
+        && value.hasOnly([1, 2, 3, 4, 5, 6, 7, 8])
+        && value.toSet().size() == value.size();
+    }
+
+    function validBurnerResolutionEvidenceEntry(evidence, key) {
+      let entry = evidence.get(key, {});
+      let codes = entry.get('actionCodes', []);
+      let outcome = entry.get('outcome', null);
+      return entry is map
+        && entry.keys().hasOnly(['outcome', 'actionCodes'])
+        && codes is list
+        && codes.size() >= 1
+        && codes.size() <= 14
+        && codes.toSet().size() == codes.size()
+        && codes.hasOnly([
+          'feedbackReset',
+          'airLineCleaning',
+          'uvDetectorCleaning',
+          'poking',
+          'flameAdjustment',
+          'igniterRodHolderCleaning',
+          'burnerControllerReset',
+          'burnerControllerPowerOn',
+          'safetyShutoffValveRelayWork',
+          'relay6A6BWork',
+          'igniterRodReplacement',
+          'uvDetectorReplacement',
+          'safetyShutoffValveSolenoidWork',
+          'other'
+        ])
+        && [
+          'returnedToService',
+          'remainsLockedOut',
+          'isolatedForFollowUp'
+        ].hasAny([outcome])
+        && (outcome != 'returnedToService'
+          || codes.hasAny([
+            'airLineCleaning',
+            'uvDetectorCleaning',
+            'poking',
+            'flameAdjustment',
+            'igniterRodHolderCleaning',
+            'safetyShutoffValveRelayWork',
+            'relay6A6BWork',
+            'igniterRodReplacement',
+            'uvDetectorReplacement',
+            'safetyShutoffValveSolenoidWork',
+            'other'
+          ]));
+    }
+
+    function validBurnerResolutionEvidence(positions, evidence) {
+      return evidence is map
+        && evidence.keys().hasOnly(['1', '2', '3', '4', '5', '6', '7', '8'])
+        && evidence.size() == positions.size()
+        && (positions.hasAny([1])
+          ? validBurnerResolutionEvidenceEntry(evidence, '1')
+          : !evidence.keys().hasAny(['1']))
+        && (positions.hasAny([2])
+          ? validBurnerResolutionEvidenceEntry(evidence, '2')
+          : !evidence.keys().hasAny(['2']))
+        && (positions.hasAny([3])
+          ? validBurnerResolutionEvidenceEntry(evidence, '3')
+          : !evidence.keys().hasAny(['3']))
+        && (positions.hasAny([4])
+          ? validBurnerResolutionEvidenceEntry(evidence, '4')
+          : !evidence.keys().hasAny(['4']))
+        && (positions.hasAny([5])
+          ? validBurnerResolutionEvidenceEntry(evidence, '5')
+          : !evidence.keys().hasAny(['5']))
+        && (positions.hasAny([6])
+          ? validBurnerResolutionEvidenceEntry(evidence, '6')
+          : !evidence.keys().hasAny(['6']))
+        && (positions.hasAny([7])
+          ? validBurnerResolutionEvidenceEntry(evidence, '7')
+          : !evidence.keys().hasAny(['7']))
+        && (positions.hasAny([8])
+          ? validBurnerResolutionEvidenceEntry(evidence, '8')
+          : !evidence.keys().hasAny(['8']));
+    }
+
+    function validBurnerClosureEvidenceWrite(docId) {
+      let sourcePath =
+        /databases/$(database)/documents/maintenance_records/$(docId);
+      let source = getAfter(sourcePath).data;
+      let evidence = request.resource.data.get(
+        'burnerResolutionEvidence',
+        {}
+      );
+      return isApprovedUser()
+        && existsAfter(sourcePath)
+        && request.resource.data.keys().hasOnly([
+          'firestoreId',
+          'sourceMaintenanceId',
+          'sourceVersion',
+          'closedByUid',
+          'burnerResolutionEvidence',
+          'updatedAt'
+        ])
+        && request.resource.data.get('firestoreId', null) == docId
+        && request.resource.data.get('sourceMaintenanceId', null) == docId
+        && request.resource.data.get('sourceVersion', -1) is int
+        && request.resource.data.get('sourceVersion', -1) ==
+          source.get('version', -2)
+        && request.resource.data.get('closedByUid', null) == request.auth.uid
+        && request.resource.data.get('closedByUid', null) ==
+          source.get('closedByUid', null)
+        && request.resource.data.get('updatedAt', null) ==
+          source.get('updatedAt', null)
+        && source.get('classification', null) == 'furnaceBurnerLockout'
+        && source.get('isResolved', false) == true
+        && evidence == source.get('burnerResolutionEvidence', null)
+        && validBurnerResolutionEvidence(
+          source.get('burnerPositions', []),
+          evidence
+        );
+    }
+
+    function requiredBurnerClosureEvidenceExists(docId) {
+      let evidencePath =
+        /databases/$(database)/documents/maintenance_burner_closures/$(docId);
+      let evidence = getAfter(evidencePath).data;
+      return resource.data.get('classification', null) !=
+          'furnaceBurnerLockout'
+        || (existsAfter(evidencePath)
+          && evidence.get('sourceMaintenanceId', null) == docId
+          && evidence.get('sourceVersion', -1) ==
+            request.resource.data.get('version', -2)
+          && evidence.get('closedByUid', null) == request.auth.uid
+          && evidence.get('burnerResolutionEvidence', null) ==
+            request.resource.data.get('burnerResolutionEvidence', null));
+    }
+
+    function validMaintenanceBurnerLockout() {
+      let fields = maintenanceBurnerLockoutFields();
+      let hasAny = request.resource.data.keys().hasAny(fields);
+      let hasAll = request.resource.data.keys().hasAll(fields);
+      let special = request.resource.data.get('classification', null) ==
+        'furnaceBurnerLockout';
+      let positions = request.resource.data.get('burnerPositions', []);
+      let redHot = request.resource.data.get('burnerRedHotPositions', []);
+      let attended = request.resource.data.get('burnerAttendedPositions', []);
+      let evidence = request.resource.data.get('burnerResolutionEvidence', {});
+      let hmiAlarm = request.resource.data.get('burnerHmiAlarm', null);
+      return special
+        ? (hasAll
+          && request.resource.data.get('burnerLockoutSchemaVersion', -1) == 1
+          && request.resource.data.get('assetType', null) == 'furnace'
+          && request.resource.data.get('component', null) == 'Burner system'
+          && request.resource.data.get('routedTo', null) == 'instrumentation'
+          && validBurnerPositionList(positions, false)
+          && request.resource.data.get('burnerCommonMode', null) is bool
+          && (request.resource.data.get('burnerCommonMode', false) == false
+            || positions.size() > 1)
+          && [
+            'notRecorded',
+            'purge',
+            'ignition',
+            'firing',
+            'unknown'
+          ].hasAny([
+            request.resource.data.get('burnerCycleStage', null)
+          ])
+          && (hmiAlarm == null
+            || (hmiAlarm is string && hmiAlarm.size() <= 300))
+          && ['seen', 'notSeen', 'notChecked'].hasAny([
+            request.resource.data.get('burnerFlameObservation', null)
+          ])
+          && ['seen', 'notSeen', 'notChecked'].hasAny([
+            request.resource.data.get('burnerSparkObservation', null)
+          ])
+          && request.resource.data.get('burnerRelightAttempts', -1) is int
+          && request.resource.data.get('burnerRelightAttempts', -1) >= 0
+          && request.resource.data.get('burnerRelightAttempts', -1) <= 20
+          && request.resource.data.get('burnerRemainsLockedOut', null) is bool
+          && validBurnerPositionList(redHot, true)
+          && positions.hasAll(redHot)
+          && validBurnerPositionList(attended, true)
+          && positions.hasAll(attended)
+          && (request.resource.data.get('isResolved', false) == false
+            ? (attended.size() == 0
+              && evidence is map
+              && evidence.size() == 0)
+            : (attended.size() == positions.size()
+              && attended.hasAll(positions)
+              && validBurnerResolutionEvidence(positions, evidence))))
+        : !hasAny;
+    }
+
     function requiredIssueQualityWarningExists(docId) {
       let warningId = 'issue_' + docId;
       let warningPath =
@@ -2486,10 +2717,78 @@ service cloud.firestore {
               && warning.get('sourceSeverity', null) == 'standard'))));
     }
 
+    function validBurnerRedHotDirectiveProjection(
+      directive,
+      source,
+      directiveId,
+      sourceId
+    ) {
+      return source.get('classification', null) == 'furnaceBurnerLockout'
+        && source.get('burnerRedHotPositions', []).size() > 0
+        && directive.get('firestoreId', null) == directiveId
+        && directiveId == 'burner_red_hot_' + sourceId
+        && directive.get('linkedMaintenanceFirestoreId', null) == sourceId
+        && directive.get('title', null) is string
+        && directive.get('description', null) is string
+        && directive.get('assetType', null) == 'furnace'
+        && directive.get('assetNumber', -1) == source.get('assetNumber', -2)
+        && directive.get('component', null) == 'Burner block'
+        && directive.get('subsystem', null) == 'Burner system'
+        && directive.get('directedTo', null) == 'seniorInstrumentation'
+        && directive.get('status', null) == 'open'
+        && directive.get('priority', null) == 'critical'
+        && directive.get('createdByUid', null) ==
+          source.get('loggedByUid', null)
+        && directive.get('createdByUid', null) == request.auth.uid
+        && directive.get('createdByName', null) ==
+          source.get('loggedByName', null)
+        && directive.get('issuedByUid', null) ==
+          source.get('loggedByUid', null)
+        && directive.get('issuedByUid', null) == request.auth.uid
+        && directive.get('issuedByName', null) ==
+          source.get('loggedByName', null)
+        && directive.get('createdAt', null) == source.get('createdAt', null)
+        && directive.get('updatedAt', null) == source.get('createdAt', null)
+        && directive.get('issuedAt', null) == source.get('createdAt', null)
+        && directive.get('isActive', false) == true
+        && directive.get('acknowledgedByUid', null) == null
+        && directive.get('acknowledgedByName', null) == null
+        && directive.get('acknowledgedAt', null) == null
+        && directive.get('closedByUid', null) == null
+        && directive.get('closedByName', null) == null
+        && directive.get('closedAt', null) == null
+        && directive.get('closedWithoutAcknowledgement', true) == false
+        && directive.get('isDeleted', true) == false
+        && directive.get('deletedAt', null) == null
+        && directive.get('deletedByUid', null) == null
+        && directive.get('deletedByName', null) == null
+        && directive.get('deleteReason', null) == null
+        && directive.get('version', -1) == 1;
+    }
+
+    function requiredBurnerRedHotDirectiveExists(docId) {
+      let redHot = request.resource.data.get('burnerRedHotPositions', []);
+      let directiveId = 'burner_red_hot_' + docId;
+      let directivePath =
+        /databases/$(database)/documents/directives/$(directiveId);
+      let directive = getAfter(directivePath).data;
+      return request.resource.data.get('classification', null) !=
+          'furnaceBurnerLockout'
+        || redHot.size() == 0
+        || (existsAfter(directivePath)
+          && directive.get('firestoreId', null) == directiveId
+          && directive.get('linkedMaintenanceFirestoreId', null) == docId
+          && directive.get('directedTo', null) == 'seniorInstrumentation'
+          && directive.get('status', null) == 'open'
+          && directive.get('priority', null) == 'critical');
+    }
+
     function validMaintenanceCreate(docId) {
       return isApprovedUser()
         && validMaintenanceQualityIntent()
+        && validMaintenanceBurnerLockout()
         && requiredIssueQualityWarningExists(docId)
+        && requiredBurnerRedHotDirectiveExists(docId)
         && !request.resource.data.keys().hasAny(maintenanceWorkflowFields())
         && request.resource.data.keys().hasAll([
           'firestoreId',
@@ -2542,6 +2841,8 @@ service cloud.firestore {
         'downtimeHours',
         'teamsInvolved',
         'actionsJson',
+        'burnerAttendedPositions',
+        'burnerResolutionEvidence',
         'updatedAt',
         'updatedByUid',
         'updatedByName',
@@ -2575,6 +2876,8 @@ service cloud.firestore {
         'downtimeHours',
         'teamsInvolved',
         'actionsJson',
+        'burnerAttendedPositions',
+        'burnerResolutionEvidence',
         'remarks',
         'resolutionHistoryJson',
         'updatedAt',
@@ -2627,6 +2930,42 @@ service cloud.firestore {
         && request.resource.data.get('version', -1) > resource.data.get('version', -1);
     }
 
+    function validMaintenanceBurnerCloseState() {
+      let special = resource.data.get('classification', null) ==
+        'furnaceBurnerLockout';
+      let positions = resource.data.get('burnerPositions', []);
+      let evidence = request.resource.data.get(
+        'burnerResolutionEvidence',
+        {}
+      );
+      return special
+        ? (request.resource.data.get('burnerAttendedPositions', []).size() ==
+              positions.size()
+          && request.resource.data.get('burnerAttendedPositions', [])
+            .hasAll(positions)
+          && evidence is map
+          && evidence.size() == positions.size()
+          && requiredBurnerClosureEvidenceExists(
+            request.resource.data.get('firestoreId', '')
+          ))
+        : (!request.resource.data.keys().hasAny([
+          'burnerAttendedPositions',
+          'burnerResolutionEvidence'
+        ]));
+    }
+
+    function validMaintenanceBurnerReopenState() {
+      return resource.data.get('classification', null) !=
+          'furnaceBurnerLockout'
+        ? (!request.resource.data.keys().hasAny([
+          'burnerAttendedPositions',
+          'burnerResolutionEvidence'
+        ]))
+        : (request.resource.data.get('burnerAttendedPositions', null) == []
+          && request.resource.data.get('burnerResolutionEvidence', null) is map
+          && request.resource.data.get('burnerResolutionEvidence', {}).size() == 0);
+    }
+
     function maintenanceIsCloseTransition() {
       return resource.data.get('isResolved', false) == false
         && request.resource.data.get('isResolved', false) == true;
@@ -2662,6 +3001,10 @@ service cloud.firestore {
           && request.resource.data.get('endDate', '') is string
           && request.resource.data.get('teamsInvolved', []) is list
           && request.resource.data.get('actionsJson', '[]') is string
+          && (resource.data.get('classification', null) !=
+              'furnaceBurnerLockout'
+            || request.resource.data.get('actionsJson', '[]') != '[]')
+          && validMaintenanceBurnerCloseState()
           && maintenanceWorkflowAllowsClientLifecycle()
           && maintenanceVersionAdvances())
         : false;
@@ -2678,6 +3021,7 @@ service cloud.firestore {
           && request.resource.data.get('status', null) == 'open'
           && (maintenanceMobileCloseFieldsClearedOnReopen()
             || maintenanceLegacyResolutionFieldsFrozenOnReopen(affected))
+          && validMaintenanceBurnerReopenState()
           && maintenanceWorkflowAllowsClientLifecycle()
           && maintenanceVersionAdvances())
         : false;
@@ -3477,6 +3821,12 @@ service cloud.firestore {
       // independent update allow expressions for the same request.
       allow update: if globalPullStampValidOnUpdate()
         && validMaintenanceUpdate();
+      allow delete: if false;
+    }
+
+    match /maintenance_burner_closures/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update: if validBurnerClosureEvidenceWrite(docId);
       allow delete: if false;
     }
 

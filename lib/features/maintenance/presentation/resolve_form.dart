@@ -19,6 +19,7 @@ import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
+import '../domain/burner_lockout_case.dart';
 
 class ResolveForm extends ConsumerStatefulWidget {
   final MaintenanceRecord ticket;
@@ -36,6 +37,13 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
 
   final Set<String> _teamsInvolved = {};
   final List<ComponentAction> _actions = [];
+  BurnerLockoutCase? _burnerLockout;
+  final Map<int, Set<BurnerActionCode>> _burnerActions =
+      <int, Set<BurnerActionCode>>{};
+  final Map<int, BurnerResolutionOutcome?> _burnerOutcomes =
+      <int, BurnerResolutionOutcome?>{};
+  final Map<int, TextEditingController> _burnerNotes =
+      <int, TextEditingController>{};
 
   @override
   void initState() {
@@ -43,6 +51,16 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
     final actionRead = widget.ticket.actionsReadResult;
     if (actionRead.isValid) {
       _actions.addAll(actionRead.entries);
+    }
+    final burnerRead = widget.ticket.burnerLockoutReadResult;
+    if (burnerRead.isValid) {
+      _burnerLockout = burnerRead.value;
+      for (final position in _burnerLockout?.positions ?? const <int>[]) {
+        _burnerActions[position] = <BurnerActionCode>{};
+        _burnerOutcomes[position] = null;
+        _burnerNotes[position] = TextEditingController();
+      }
+      if (_burnerLockout != null) _teamsInvolved.add('instrumentation');
     }
     final now = DateTime.now();
     if (widget.ticket.startDate.isAfter(now)) {
@@ -55,7 +73,62 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
   @override
   void dispose() {
     _remarksController.dispose();
+    for (final controller in _burnerNotes.values) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  BurnerLockoutResolution? _buildBurnerResolution() {
+    final lockout = _burnerLockout;
+    if (lockout == null) return null;
+    final outcomes = <int, BurnerResolutionOutcome>{};
+    for (final position in lockout.positions) {
+      final selectedActions = _burnerActions[position] ?? const {};
+      if (selectedActions.isEmpty) {
+        throw StateError(
+          'Select the work or inspection done on Burner $position.',
+        );
+      }
+      final outcome = _burnerOutcomes[position];
+      if (outcome == null) {
+        throw StateError('Select a terminal outcome for Burner $position.');
+      }
+      final notes = _burnerNotes[position]?.text.trim() ?? '';
+      if (selectedActions.contains(BurnerActionCode.other) &&
+          notes.length < 3) {
+        throw StateError('Describe the other work done on Burner $position.');
+      }
+      outcomes[position] = outcome;
+    }
+    return BurnerLockoutResolution(outcomes: outcomes);
+  }
+
+  List<ComponentAction> _buildBurnerComponentActions({
+    required BurnerLockoutResolution resolution,
+    required String performedBy,
+    required DateTime performedAt,
+  }) {
+    final ticketId = widget.ticket.firestoreId ?? 'local_${widget.ticket.id}';
+    final result = <ComponentAction>[];
+    for (final position in resolution.attendedPositions) {
+      final remarks = _burnerNotes[position]?.text.trim();
+      for (final code in _burnerActions[position] ?? const {}) {
+        result.add(
+          buildBurnerComponentAction(
+            ticketId: ticketId,
+            furnaceNumber: widget.ticket.assetNumber,
+            burnerPosition: position,
+            code: code,
+            outcome: resolution.outcomes[position]!,
+            performedBy: performedBy,
+            performedAt: performedAt,
+            remarks: remarks == null || remarks.isEmpty ? null : remarks,
+          ),
+        );
+      }
+    }
+    return result;
   }
 
   double get _downtimeHours {
@@ -153,6 +226,17 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       );
       return;
     }
+    if (!widget.ticket.burnerLockoutReadResult.isValid) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Cannot resolve: burner-lockout evidence needs reconciliation.',
+          ),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     if (widget.ticket.workflowDeferred) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -209,6 +293,18 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       );
       return;
     }
+    BurnerLockoutResolution? burnerResolution;
+    try {
+      burnerResolution = _buildBurnerResolution();
+    } on StateError catch (error) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: BafColors.warning,
+        ),
+      );
+      return;
+    }
 
     final dynamic id = kIsWeb ? widget.ticket.firestoreId : widget.ticket.id;
 
@@ -230,6 +326,21 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
         );
       }
       final remarks = _remarksController.text.trim();
+      final resolvedActions = <ComponentAction>[..._actions];
+      if (burnerResolution != null) {
+        resolvedActions.addAll(
+          _buildBurnerComponentActions(
+            resolution: burnerResolution,
+            performedBy: appUser.name.isNotEmpty ? appUser.name : appUser.uid,
+            performedAt: _endTime,
+          ),
+        );
+        validateBurnerResolutionEvidence(
+          lockout: _burnerLockout!,
+          resolution: burnerResolution,
+          actions: resolvedActions,
+        );
+      }
 
       final repository = ref.read(maintenanceRepositoryProvider);
       final refreshClosedTickets = ref.read(
@@ -249,7 +360,8 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
         downtimeHours: double.parse(_downtimeHours.toStringAsFixed(2)),
         endDate: _endTime,
         teamsInvolved: _teamsInvolved.toList(),
-        actions: _actions.isEmpty ? null : _actions,
+        actions: resolvedActions.isEmpty ? null : resolvedActions,
+        burnerResolution: burnerResolution,
       );
 
       refreshClosedTickets.state++;
@@ -416,9 +528,37 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
               ],
             ),
             const SizedBox(height: BafSpacing.lg),
+            if (_burnerLockout != null) ...[
+              _BurnerAttendanceSection(
+                lockout: _burnerLockout!,
+                selectedActions: _burnerActions,
+                outcomes: _burnerOutcomes,
+                notes: _burnerNotes,
+                onActionChanged: (position, action, selected) {
+                  setState(() {
+                    final actions = _burnerActions[position]!;
+                    if (selected) {
+                      actions.add(action);
+                    } else {
+                      actions.remove(action);
+                    }
+                  });
+                },
+                onOutcomeChanged: (position, outcome) {
+                  setState(() => _burnerOutcomes[position] = outcome);
+                },
+              ),
+              const SizedBox(height: BafSpacing.lg),
+            ],
             _SectionCard(
-              title: 'Work done',
-              subtitle: 'Capture action details for traceability.',
+              title:
+                  _burnerLockout == null
+                      ? 'Work done'
+                      : 'Additional component work',
+              subtitle:
+                  _burnerLockout == null
+                      ? 'Capture action details for traceability.'
+                      : 'Add any work outside the burner attendance record.',
               icon: Icons.handyman_rounded,
               children: [
                 if (!actionRead.isValid)
@@ -437,7 +577,7 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
                       border: Border.all(color: BafColors.border),
                     ),
                     child: const Text(
-                      'No detailed actions added yet. You can still resolve with remarks below.',
+                      'No additional component actions recorded.',
                       style: TextStyle(
                         color: BafColors.textSecondary,
                         fontSize: 12,
@@ -586,6 +726,230 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
       ),
     );
   }
+}
+
+class _BurnerAttendanceSection extends StatelessWidget {
+  const _BurnerAttendanceSection({
+    required this.lockout,
+    required this.selectedActions,
+    required this.outcomes,
+    required this.notes,
+    required this.onActionChanged,
+    required this.onOutcomeChanged,
+  });
+
+  final BurnerLockoutCase lockout;
+  final Map<int, Set<BurnerActionCode>> selectedActions;
+  final Map<int, BurnerResolutionOutcome?> outcomes;
+  final Map<int, TextEditingController> notes;
+  final void Function(int position, BurnerActionCode action, bool selected)
+  onActionChanged;
+  final void Function(int position, BurnerResolutionOutcome? outcome)
+  onOutcomeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Burner attendance',
+      subtitle: 'Account for every affected burner before closing the issue.',
+      icon: Icons.engineering_rounded,
+      children: [
+        Wrap(
+          spacing: BafSpacing.sm,
+          runSpacing: BafSpacing.sm,
+          children: [
+            StatusBadge(
+              label: lockout.positions.map((value) => 'B$value').join(', '),
+              color: BafColors.audit,
+              icon: Icons.local_fire_department_outlined,
+            ),
+            if (lockout.commonMode)
+              const StatusBadge(
+                label: 'COMMON MODE',
+                color: BafColors.warning,
+                icon: Icons.hub_outlined,
+              ),
+            if (lockout.hasRedHotObservation)
+              StatusBadge(
+                label:
+                    'RED HOT ${lockout.redHotPositions.map((value) => 'B$value').join(', ')}',
+                color: BafColors.danger,
+                icon: Icons.warning_amber_rounded,
+              ),
+          ],
+        ),
+        const SizedBox(height: BafSpacing.md),
+        Text(
+          'Reported stage: ${_cycleStageLabel(lockout.cycleStage)}  |  '
+          'Relight attempts: ${lockout.relightAttempts}',
+          style: const TextStyle(color: BafColors.textSecondary, height: 1.35),
+        ),
+        if (lockout.hmiAlarm != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            'HMI: ${lockout.hmiAlarm}',
+            style: const TextStyle(
+              color: BafColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+        const Divider(height: BafSpacing.xl),
+        for (var index = 0; index < lockout.positions.length; index++) ...[
+          _BurnerAttendanceEditor(
+            position: lockout.positions[index],
+            redHot: lockout.redHotPositions.contains(lockout.positions[index]),
+            selectedActions:
+                selectedActions[lockout.positions[index]] ?? const {},
+            outcome: outcomes[lockout.positions[index]],
+            notesController: notes[lockout.positions[index]]!,
+            onActionChanged:
+                (action, selected) =>
+                    onActionChanged(lockout.positions[index], action, selected),
+            onOutcomeChanged:
+                (outcome) =>
+                    onOutcomeChanged(lockout.positions[index], outcome),
+          ),
+          if (index != lockout.positions.length - 1)
+            const Divider(height: BafSpacing.xl),
+        ],
+      ],
+    );
+  }
+
+  static String _cycleStageLabel(BurnerCycleStage value) => switch (value) {
+    BurnerCycleStage.notRecorded => 'not recorded',
+    BurnerCycleStage.purge => 'purge',
+    BurnerCycleStage.ignition => 'ignition',
+    BurnerCycleStage.firing => 'firing',
+    BurnerCycleStage.unknown => 'unknown',
+  };
+}
+
+class _BurnerAttendanceEditor extends StatelessWidget {
+  const _BurnerAttendanceEditor({
+    required this.position,
+    required this.redHot,
+    required this.selectedActions,
+    required this.outcome,
+    required this.notesController,
+    required this.onActionChanged,
+    required this.onOutcomeChanged,
+  });
+
+  final int position;
+  final bool redHot;
+  final Set<BurnerActionCode> selectedActions;
+  final BurnerResolutionOutcome? outcome;
+  final TextEditingController notesController;
+  final void Function(BurnerActionCode action, bool selected) onActionChanged;
+  final ValueChanged<BurnerResolutionOutcome?> onOutcomeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final resetOnly =
+        selectedActions.isNotEmpty &&
+        selectedActions.every((action) => action.isResetOnly);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Burner $position',
+                style: const TextStyle(
+                  color: BafColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            if (redHot)
+              const Icon(
+                Icons.local_fire_department_rounded,
+                color: BafColors.danger,
+              ),
+          ],
+        ),
+        const SizedBox(height: BafSpacing.sm),
+        Wrap(
+          spacing: BafSpacing.sm,
+          runSpacing: BafSpacing.sm,
+          children: [
+            for (final action in BurnerActionCode.values)
+              FilterChip(
+                label: Text(action.label),
+                selected: selectedActions.contains(action),
+                onSelected: (selected) => onActionChanged(action, selected),
+              ),
+          ],
+        ),
+        const SizedBox(height: BafSpacing.md),
+        DropdownButtonFormField<BurnerResolutionOutcome>(
+          key: ValueKey('burner-$position-${outcome?.name ?? 'none'}'),
+          initialValue: outcome,
+          isExpanded: true,
+          decoration: _decoration('Terminal outcome'),
+          items: const [
+            DropdownMenuItem(
+              value: BurnerResolutionOutcome.returnedToService,
+              child: Text('Returned to service'),
+            ),
+            DropdownMenuItem(
+              value: BurnerResolutionOutcome.remainsLockedOut,
+              child: Text('Remains locked out'),
+            ),
+            DropdownMenuItem(
+              value: BurnerResolutionOutcome.isolatedForFollowUp,
+              child: Text('Isolated for follow-up'),
+            ),
+          ],
+          onChanged: onOutcomeChanged,
+        ),
+        if (outcome == BurnerResolutionOutcome.returnedToService &&
+            resetOnly) ...[
+          const SizedBox(height: BafSpacing.sm),
+          const Text(
+            'Reset-only evidence cannot support return to service. Record the '
+            'inspection or corrective work that established readiness.',
+            style: TextStyle(
+              color: BafColors.danger,
+              fontWeight: FontWeight.w700,
+              height: 1.3,
+            ),
+          ),
+        ],
+        const SizedBox(height: BafSpacing.md),
+        TextFormField(
+          controller: notesController,
+          maxLines: 2,
+          decoration: _decoration(
+            selectedActions.contains(BurnerActionCode.other)
+                ? 'Other work / observations (required)'
+                : 'Observations / notes',
+          ),
+          validator: (value) {
+            if (selectedActions.contains(BurnerActionCode.other) &&
+                (value?.trim().length ?? 0) < 3) {
+              return 'Describe the other work';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
+  static InputDecoration _decoration(String label) => InputDecoration(
+    labelText: label,
+    filled: true,
+    fillColor: BafColors.background,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+      borderSide: const BorderSide(color: BafColors.border),
+    ),
+  );
 }
 
 class _ResolveBottomBar extends StatelessWidget {

@@ -115,6 +115,11 @@ void main() {
           contains("'updatedAt': local.createdAt.toIso8601String()"),
         );
         expect(payload, contains("'resolutionHistoryJson': '[]'"));
+        expect(payload, contains("'burnerAttendedPositions': <int>[]"));
+        expect(
+          payload,
+          contains("'burnerResolutionEvidence': <String, dynamic>{}"),
+        );
       },
     );
 
@@ -157,6 +162,9 @@ void main() {
         expect(payload, contains('final proposedVersion ='));
         expect(payload, contains('final remoteVersion = remote?.version'));
         expect(payload, contains("'version': version"));
+        expect(payload, contains('withResolutionFromActions'));
+        expect(payload, contains('evidence.actionsJson'));
+        expect(payload, contains("'burnerResolutionEvidence'"));
         expect(payload, isNot(contains('remote!')));
       },
     );
@@ -537,6 +545,35 @@ void main() {
       expect(
         provider,
         contains('_collection.doc(id).set(stepData, SetOptions(merge: true));'),
+      );
+    });
+
+    test('ordinary batch upload atomically pairs every red-hot directive', () {
+      final provider = _read(_providerPath);
+      final batch = _blockStartingAt(
+        provider,
+        'const maximumPairedRecordsPerBatch = 166;',
+      );
+
+      expect(batch, contains('burnerRedHotDirectiveProjection(record)'));
+      expect(batch, contains('_existingDirectiveIds(directives.keys)'));
+      expect(
+        batch,
+        contains('batch.set(_directives.doc(entry.key), entry.value)'),
+      );
+      expect(batch, contains('const maximumPairedRecordsPerBatch = 166'));
+    });
+
+    test('burner intake validates its fixed component after asset changes', () {
+      final form = _read(
+        'lib/features/maintenance/presentation/maintenance_form.dart',
+      );
+
+      expect(
+        form,
+        contains(
+          "burnerLockout == null ? _componentController.text : 'Burner system'",
+        ),
       );
     });
 

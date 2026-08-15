@@ -19,7 +19,10 @@ import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../../core/services/sync_remote_freshness_policy.dart';
 import '../../../core/services/global_pull_protocol.dart';
 import '../data/remote_maintenance_reader.dart';
+import '../data/remote_maintenance_timestamps.dart';
 import '../../quality/domain/quality_warning_projection.dart';
+import '../../directives/data/operational_directive_model.dart';
+import '../domain/burner_lockout_case.dart';
 
 bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
   return SyncRemoteFreshnessPolicy.isRemoteNewer(
@@ -28,6 +31,140 @@ bool _isRemoteNewerByPolicy(dynamic local, dynamic remote) {
     remoteVersion: remote.version as int,
     remoteUpdatedAt: remote.updatedAt as DateTime,
   );
+}
+
+String burnerRedHotDirectiveId(String ticketId) => 'burner_red_hot_$ticketId';
+
+Map<String, dynamic>? burnerRedHotDirectiveProjection(
+  MaintenanceRecord record,
+) {
+  final ticketId = record.firestoreId;
+  final lockout = record.burnerLockoutCase;
+  if (ticketId == null || lockout == null || !lockout.hasRedHotObservation) {
+    return null;
+  }
+  final directiveId = burnerRedHotDirectiveId(ticketId);
+  final positions = lockout.redHotPositions;
+  final burnerList = positions.map((value) => 'B$value').join(', ');
+  final createdAt = record.createdAt.toIso8601String();
+  return <String, dynamic>{
+    'firestoreId': directiveId,
+    'title': 'Red-hot burner block: $burnerList',
+    'description':
+        'Furnace ${record.assetNumber} has a reported red-hot burner block at '
+        '$burnerList. I&A must acknowledge, apply the approved plant procedure '
+        'to take the affected burner position out of firing service, and record '
+        'compliance. This directive does not actuate the PLC.',
+    'assetType': AssetType.furnace.name,
+    'assetNumber': record.assetNumber,
+    'component': 'Burner block',
+    'subsystem': 'Burner system',
+    'tag': null,
+    'hierarchyPath': <String>['Furnace', 'Combustion system', 'Burner block'],
+    'directedTo': AppRole.seniorInstrumentation.name,
+    'status': DirectiveStatus.open.name,
+    'priority': DirectivePriority.critical.name,
+    'createdByUid': record.loggedByUid,
+    'createdByName': record.loggedByName,
+    'issuedByUid': record.loggedByUid,
+    'issuedByName': record.loggedByName,
+    'issuedAt': createdAt,
+    'isActive': true,
+    'acknowledgedByUid': null,
+    'acknowledgedByName': null,
+    'acknowledgedAt': null,
+    'closedByUid': null,
+    'closedByName': null,
+    'closedAt': null,
+    'closedWithoutAcknowledgement': false,
+    'remarks': null,
+    'linkedMaintenanceFirestoreId': ticketId,
+    'linkedExecutionFirestoreId': null,
+    'metadataJson': jsonEncode(<String, dynamic>{
+      'schemaVersion': 1,
+      'trigger': 'burnerBlockRedHot',
+      'burnerPositions': positions,
+      'automaticPlantActuation': false,
+    }),
+    'isDeleted': false,
+    'deletedAt': null,
+    'deletedByUid': null,
+    'deletedByName': null,
+    'deleteReason': null,
+    'createdAt': createdAt,
+    'updatedAt': createdAt,
+    'version': 1,
+  };
+}
+
+Map<String, dynamic>? burnerRedHotDirectiveProjectionForIssueMap(
+  Map<String, dynamic> issue,
+  String ticketId,
+) {
+  if (issue['classification'] != burnerLockoutClassification) return null;
+  final lockout = BurnerLockoutCase.readOptionalSynchronizedFields(
+    issue,
+    source: 'maintenance replay $ticketId',
+  );
+  if (lockout == null || !lockout.hasRedHotObservation) return null;
+  final assetNumber = issue['assetNumber'];
+  final timestamps = readRemoteMaintenanceTimestamps(
+    issue,
+    source: 'maintenance replay $ticketId',
+  );
+  final createdAt = timestamps.createdAt;
+  final loggedByUid = issue['loggedByUid'];
+  if (assetNumber is! int || loggedByUid is! String) {
+    throw StateError('Burner safety directive source evidence is incomplete.');
+  }
+  final record =
+      MaintenanceRecord()
+        ..firestoreId = ticketId
+        ..assetType = AssetType.furnace
+        ..assetNumber = assetNumber
+        ..maintenanceType = MaintenanceType.breakdown
+        ..classification = burnerLockoutClassification
+        ..description = issue['description'] as String
+        ..routedTo = RoutedTo.instrumentation
+        ..component = 'Burner system'
+        ..status = TicketStatus.open
+        ..isResolved = false
+        ..isCritical = true
+        ..loggedByUid = loggedByUid
+        ..loggedByName = issue['loggedByName'] as String?
+        ..startDate = createdAt
+        ..createdAt = createdAt
+        ..updatedAt = createdAt;
+  record.burnerLockoutCase = lockout;
+  return burnerRedHotDirectiveProjection(record);
+}
+
+Map<String, dynamic>? burnerClosureEvidenceProjectionForIssueMap(
+  Map<String, dynamic> issue,
+  String ticketId,
+) {
+  if (issue['isResolved'] != true ||
+      issue['burnerResolutionEvidence'] is! Map) {
+    return null;
+  }
+  final version = issue['version'];
+  final closedByUid = issue['closedByUid'];
+  final updatedAt = issue['updatedAt'];
+  if (version is! int || closedByUid is! String || updatedAt is! String) {
+    throw StateError(
+      'Burner closure projection source evidence is incomplete.',
+    );
+  }
+  return <String, dynamic>{
+    'firestoreId': ticketId,
+    'sourceMaintenanceId': ticketId,
+    'sourceVersion': version,
+    'closedByUid': closedByUid,
+    'burnerResolutionEvidence': Map<String, dynamic>.from(
+      issue['burnerResolutionEvidence'] as Map,
+    ),
+    'updatedAt': updatedAt,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -158,6 +295,7 @@ abstract class MaintenanceRepository {
     DateTime? endDate,
     List<String>? teamsInvolved,
     List<ComponentAction>? actions,
+    BurnerLockoutResolution? burnerResolution,
   });
 
   Future<void> reopenTicket(
@@ -660,6 +798,7 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
     DateTime? endDate,
     List<String>? teamsInvolved,
     List<ComponentAction>? actions,
+    BurnerLockoutResolution? burnerResolution,
   }) async {
     _requireCanCloseMaintenanceTicket(actor);
     final ticketId = id as int;
@@ -669,6 +808,27 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
       if (t != null && !t.isResolved && !t.isDeleted) {
         _requireMaintenanceWorkflowAllowsAction(t, 'resolve this ticket');
         _requireValidMaintenanceEvidence(t);
+        final lockout = t.burnerLockoutCase;
+        if (lockout != null) {
+          if (burnerResolution == null) {
+            throw StateError(
+              'Every affected burner needs a terminal outcome before closure.',
+            );
+          }
+          validateBurnerResolutionEvidence(
+            lockout: lockout,
+            resolution: burnerResolution,
+            actions: actions ?? const <ComponentAction>[],
+          );
+          t.burnerLockoutCase = lockout.withResolution(
+            burnerResolution,
+            actions: actions ?? const <ComponentAction>[],
+          );
+        } else if (burnerResolution != null) {
+          throw StateError(
+            'Burner outcomes cannot be attached to a standard issue.',
+          );
+        }
         t.isResolved = true;
         t.status = TicketStatus.resolved;
         t.endDate = endDate ?? DateTime.now();
@@ -731,6 +891,8 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
         t.closedByName = null;
         t.downtimeHours = null;
         t.actionsJson = '[]';
+        final lockout = t.burnerLockoutCase;
+        if (lockout != null) t.burnerLockoutCase = lockout.clearResolution();
         t.remarks = reopenRemarks;
         t.teamsInvolved = [];
 
@@ -1033,6 +1195,10 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   final _qualityWarnings = FirebaseFirestore.instance.collection(
     'quality_warnings',
   );
+  final _directives = FirebaseFirestore.instance.collection('directives');
+  final _burnerClosures = FirebaseFirestore.instance.collection(
+    'maintenance_burner_closures',
+  );
 
   Map<String, dynamic>? _sanitizeForAudit(Map<String, dynamic>? data) {
     if (data == null) return null;
@@ -1181,21 +1347,35 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     }
     final ticketData = _ticketToMap(record);
     final warning = qualityWarningProjectionForIssue(record);
-    if (warning == null) {
+    final safetyDirective = burnerRedHotDirectiveProjection(record);
+    if (warning == null && safetyDirective == null) {
       await _collection
           .doc(record.firestoreId)
           .set(ticketData, SetOptions(merge: true));
       return;
     }
-    final warningId = warning['warningId'] as String;
-    final warningExists = (await _qualityWarnings.doc(warningId).get()).exists;
+    final warningId = warning?['warningId'] as String?;
+    final warningExists =
+        warningId == null
+            ? false
+            : (await _qualityWarnings.doc(warningId).get()).exists;
+    final directiveId = safetyDirective?['firestoreId'] as String?;
+    final directiveExists =
+        directiveId == null
+            ? false
+            : (await _directives.doc(directiveId).get()).exists;
     final batch = FirebaseFirestore.instance.batch();
     batch.set(
       _collection.doc(record.firestoreId),
       ticketData,
       SetOptions(merge: true),
     );
-    if (!warningExists) batch.set(_qualityWarnings.doc(warningId), warning);
+    if (warning != null && warningId != null && !warningExists) {
+      batch.set(_qualityWarnings.doc(warningId), warning);
+    }
+    if (safetyDirective != null && directiveId != null && !directiveExists) {
+      batch.set(_directives.doc(directiveId), safetyDirective);
+    }
     await batch.commit();
   }
 
@@ -1386,6 +1566,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     DateTime? endDate,
     List<String>? teamsInvolved,
     List<ComponentAction>? actions,
+    BurnerLockoutResolution? burnerResolution,
   }) async {
     _requireCanCloseMaintenanceTicket(actor);
     final docId = id as String;
@@ -1397,8 +1578,27 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       current.data()!,
       'resolve this ticket',
     );
-    _requireValidMaintenanceEvidence(_mapTicket(current));
+    final ticket = _mapTicket(current);
+    _requireValidMaintenanceEvidence(ticket);
+    final lockout = ticket.burnerLockoutCase;
+    if (lockout != null) {
+      if (burnerResolution == null) {
+        throw StateError(
+          'Every affected burner needs a terminal outcome before closure.',
+        );
+      }
+      validateBurnerResolutionEvidence(
+        lockout: lockout,
+        resolution: burnerResolution,
+        actions: actions ?? const <ComponentAction>[],
+      );
+    } else if (burnerResolution != null) {
+      throw StateError(
+        'Burner outcomes cannot be attached to a standard issue.',
+      );
+    }
     final now = (endDate ?? DateTime.now()).toIso8601String();
+    final updatedAt = DateTime.now().toIso8601String();
     final updateData = <String, dynamic>{
       'isResolved': true,
       'status': TicketStatus.resolved.name,
@@ -1408,13 +1608,34 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       'remarks': remarks,
       'downtimeHours': downtimeHours,
       'teamsInvolved': teamsInvolved ?? [],
-      'updatedAt': DateTime.now().toIso8601String(),
-      'version': FieldValue.increment(1),
+      'updatedAt': updatedAt,
+      'version': ticket.version + 1,
     };
     if (actions != null && actions.isNotEmpty) {
       updateData['actionsJson'] = ComponentAction.encode(actions);
     }
-    await _collection.doc(docId).update(updateData);
+    if (lockout != null && burnerResolution != null) {
+      updateData.addAll(
+        lockout
+            .withResolution(
+              burnerResolution,
+              actions: actions ?? const <ComponentAction>[],
+            )
+            .toSynchronizedFields(),
+      );
+    }
+    final burnerClosure = burnerClosureEvidenceProjectionForIssueMap(
+      updateData,
+      docId,
+    );
+    if (burnerClosure == null) {
+      await _collection.doc(docId).update(updateData);
+      return;
+    }
+    final batch = FirebaseFirestore.instance.batch();
+    batch.update(_collection.doc(docId), updateData);
+    batch.set(_burnerClosures.doc(docId), burnerClosure);
+    await batch.commit();
   }
 
   @override
@@ -1463,6 +1684,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       }, source: 'maintenance/$docId current closure').toMap(),
     );
     final newHistoryJson = jsonEncode(historyPayload.rows);
+    final burnerLockout = current.burnerLockoutCase;
 
     await _collection.doc(docId).update({
       'isResolved': false,
@@ -1472,6 +1694,9 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       'closedByName': FieldValue.delete(),
       'downtimeHours': FieldValue.delete(),
       'actionsJson': '[]',
+      if (burnerLockout != null) 'burnerAttendedPositions': <int>[],
+      if (burnerLockout != null)
+        'burnerResolutionEvidence': <String, dynamic>{},
       'remarks': reopenRemarks,
       'teamsInvolved': [],
       'resolutionHistoryJson': newHistoryJson,
@@ -1548,7 +1773,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
 
   @override
   Future<void> batchUpsertTickets(List<MaintenanceRecord> records) async {
-    const maximumPairedRecordsPerBatch = 250;
+    const maximumPairedRecordsPerBatch = 166;
     for (
       var offset = 0;
       offset < records.length;
@@ -1561,15 +1786,21 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
             : offset + maximumPairedRecordsPerBatch,
       );
       final warnings = <String, Map<String, dynamic>>{};
+      final directives = <String, Map<String, dynamic>>{};
       for (final record in chunk) {
         final warning = qualityWarningProjectionForIssue(record);
         if (warning != null) {
           warnings[warning['warningId'] as String] = warning;
         }
+        final directive = burnerRedHotDirectiveProjection(record);
+        if (directive != null) {
+          directives[directive['firestoreId'] as String] = directive;
+        }
       }
       final existingWarningIds = await _existingQualityWarningIds(
         warnings.keys,
       );
+      final existingDirectiveIds = await _existingDirectiveIds(directives.keys);
       final batch = FirebaseFirestore.instance.batch();
       for (final record in chunk) {
         if (record.firestoreId != null) {
@@ -1583,6 +1814,11 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       for (final entry in warnings.entries) {
         if (!existingWarningIds.contains(entry.key)) {
           batch.set(_qualityWarnings.doc(entry.key), entry.value);
+        }
+      }
+      for (final entry in directives.entries) {
+        if (!existingDirectiveIds.contains(entry.key)) {
+          batch.set(_directives.doc(entry.key), entry.value);
         }
       }
       await batch.commit();
@@ -1605,15 +1841,39 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     // maintenance lifecycle rule branch. This avoids pushing a collapsed final
     // dirty snapshot that skips the server-visible open/closed/open sequence.
     final warning = qualityWarningProjectionForIssueMap(stepData, id);
-    if (warning == null) {
+    final safetyDirective = burnerRedHotDirectiveProjectionForIssueMap(
+      stepData,
+      id,
+    );
+    final burnerClosure = burnerClosureEvidenceProjectionForIssueMap(
+      stepData,
+      id,
+    );
+    if (warning == null && safetyDirective == null && burnerClosure == null) {
       await _collection.doc(id).set(stepData, SetOptions(merge: true));
       return;
     }
-    final warningId = warning['warningId'] as String;
-    final warningExists = (await _qualityWarnings.doc(warningId).get()).exists;
+    final warningId = warning?['warningId'] as String?;
+    final warningExists =
+        warningId == null
+            ? false
+            : (await _qualityWarnings.doc(warningId).get()).exists;
+    final directiveId = safetyDirective?['firestoreId'] as String?;
+    final directiveRef =
+        directiveId == null ? null : _directives.doc(directiveId);
+    final directiveExists =
+        directiveRef == null ? false : (await directiveRef.get()).exists;
     final batch = FirebaseFirestore.instance.batch();
     batch.set(_collection.doc(id), stepData, SetOptions(merge: true));
-    if (!warningExists) batch.set(_qualityWarnings.doc(warningId), warning);
+    if (warning != null && warningId != null && !warningExists) {
+      batch.set(_qualityWarnings.doc(warningId), warning);
+    }
+    if (safetyDirective != null && directiveRef != null && !directiveExists) {
+      batch.set(directiveRef, safetyDirective);
+    }
+    if (burnerClosure != null) {
+      batch.set(_burnerClosures.doc(id), burnerClosure);
+    }
     await batch.commit();
   }
 
@@ -1637,6 +1897,24 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
     return existing;
   }
 
+  Future<Set<String>> _existingDirectiveIds(
+    Iterable<String> directiveIds,
+  ) async {
+    final ids = directiveIds.toSet().toList();
+    final existing = <String>{};
+    for (var index = 0; index < ids.length; index += 30) {
+      final chunk = ids.sublist(
+        index,
+        index + 30 > ids.length ? ids.length : index + 30,
+      );
+      if (chunk.isEmpty) continue;
+      final snapshot =
+          await _directives.where(FieldPath.documentId, whereIn: chunk).get();
+      existing.addAll(snapshot.docs.map((document) => document.id));
+    }
+    return existing;
+  }
+
   @override
   Future<void> markTicketsSynced(List<int> ids) async {}
 
@@ -1648,6 +1926,7 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   // 🔥 FULL MAPPING (RESTORED)
   Map<String, dynamic> _ticketToMap(MaintenanceRecord t) => {
     ...t.qualityIntentSynchronizedFields,
+    ...t.burnerLockoutSynchronizedFields,
     'firestoreId': t.firestoreId,
     'version': t.version,
     'assetType': t.assetType.name,

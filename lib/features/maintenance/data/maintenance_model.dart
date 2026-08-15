@@ -4,6 +4,7 @@ import '../../../core/serialization/persisted_data_reader.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../quality/domain/issue_quality_intent.dart';
+import '../domain/burner_lockout_case.dart';
 
 part 'maintenance_model.g.dart';
 
@@ -339,12 +340,62 @@ class MaintenanceRecord {
       IssueQualityIntent.tryDecodeLocal(metadataJson);
 
   set qualityIntent(IssueQualityIntent? value) {
-    metadataJson = value?.encode();
+    metadataJson = mergeQualityIntentIntoMaintenanceMetadata(
+      metadataJson,
+      value?.toMap(),
+    );
   }
 
   @ignore
   Map<String, dynamic> get qualityIntentSynchronizedFields =>
       qualityIntent?.toSynchronizedFields() ?? const <String, dynamic>{};
+
+  @ignore
+  BurnerLockoutCase? get burnerLockoutCase {
+    final value = BurnerLockoutCase.tryDecodeLocal(metadataJson);
+    final isBurnerLockout = classification == burnerLockoutClassification;
+    if (isBurnerLockout && value == null) {
+      throw PersistedDataFormatException(
+        field: 'burnerLockout',
+        source:
+            firestoreId == null
+                ? 'local maintenance $id'
+                : 'maintenance $firestoreId',
+        detail: 'classified burner-lockout record requires complete evidence',
+      );
+    }
+    if (!isBurnerLockout && value != null) {
+      throw PersistedDataFormatException(
+        field: 'classification',
+        source:
+            firestoreId == null
+                ? 'local maintenance $id'
+                : 'maintenance $firestoreId',
+        detail: 'burner-lockout evidence requires its governed classification',
+      );
+    }
+    return value;
+  }
+
+  @ignore
+  BurnerLockoutCaseReadResult get burnerLockoutReadResult {
+    try {
+      return BurnerLockoutCaseReadResult(value: burnerLockoutCase);
+    } on FormatException catch (error) {
+      return BurnerLockoutCaseReadResult(value: null, error: error);
+    }
+  }
+
+  set burnerLockoutCase(BurnerLockoutCase? value) {
+    metadataJson = mergeBurnerLockoutIntoMaintenanceMetadata(
+      metadataJson,
+      value,
+    );
+  }
+
+  @ignore
+  Map<String, dynamic> get burnerLockoutSynchronizedFields =>
+      burnerLockoutCase?.toSynchronizedFields() ?? const <String, dynamic>{};
 
   // ── Actions (structured work done) ───────────────────────────────────────
   String actionsJson = '[]';

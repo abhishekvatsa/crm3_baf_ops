@@ -714,6 +714,7 @@ describe("maintenance_records", () => {
     await seedUser("admin1", ["admin"]);
     await seedUser("seniorMech", ["seniorMechanical"]);
     await seedUser("ops1", ["operations"]);
+    await seedUser("ia1", ["seniorInstrumentation"]);
   });
 
   test("approved user can create maintenance record only with valid create payload", async () => {
@@ -846,6 +847,254 @@ describe("maintenance_records", () => {
       qualityImpactAssessment: "notSuspected",
       qualityWarningReason: null,
     }));
+  });
+
+  test("burner lockout requires complete evidence, red-hot directive, and per-burner closure", async () => {
+    const db = dbAs("ia1");
+    const createdAt = new Date(Date.now() - 60000).toISOString();
+    const ticket = {
+      firestoreId: "burnerTicket",
+      version: 1,
+      assetType: "furnace",
+      assetNumber: 1,
+      component: "Burner system",
+      maintenanceType: "breakdown",
+      classification: "furnaceBurnerLockout",
+      description: "Burners 2 and 5 remain locked out",
+      routedTo: "instrumentation",
+      status: "open",
+      isResolved: false,
+      isCritical: true,
+      loggedByUid: "ia1",
+      createdAt,
+      updatedAt: createdAt,
+      actionsJson: "[]",
+      resolutionHistoryJson: "[]",
+      isDeleted: false,
+      burnerLockoutSchemaVersion: 1,
+      burnerPositions: [2, 5],
+      burnerCommonMode: true,
+      burnerCycleStage: "ignition",
+      burnerHmiAlarm: "Flame failure",
+      burnerFlameObservation: "notSeen",
+      burnerSparkObservation: "seen",
+      burnerRelightAttempts: 2,
+      burnerRemainsLockedOut: true,
+      burnerRedHotPositions: [5],
+      burnerAttendedPositions: [],
+      burnerResolutionEvidence: {},
+    };
+
+    await assertFails(
+      setDoc(doc(db, "maintenance_records/burnerTicket"), ticket)
+    );
+    const partialTicket = {
+      ...ticket,
+      firestoreId: "burnerPartial",
+    };
+    delete partialTicket.burnerSparkObservation;
+    await assertFails(
+      setDoc(doc(db, "maintenance_records/burnerPartial"), partialTicket)
+    );
+
+    const directive = {
+      firestoreId: "burner_red_hot_burnerTicket",
+      title: "Red-hot burner block: B5",
+      description: "I&A must apply the approved plant isolation procedure.",
+      assetType: "furnace",
+      assetNumber: 1,
+      component: "Burner block",
+      subsystem: "Burner system",
+      tag: null,
+      hierarchyPath: ["Furnace", "Combustion system", "Burner block"],
+      directedTo: "seniorInstrumentation",
+      status: "open",
+      priority: "critical",
+      createdByUid: "ia1",
+      createdByName: null,
+      issuedByUid: "ia1",
+      issuedByName: null,
+      issuedAt: createdAt,
+      isActive: true,
+      acknowledgedByUid: null,
+      acknowledgedByName: null,
+      acknowledgedAt: null,
+      closedByUid: null,
+      closedByName: null,
+      closedAt: null,
+      closedWithoutAcknowledgement: false,
+      remarks: null,
+      linkedMaintenanceFirestoreId: "burnerTicket",
+      linkedExecutionFirestoreId: null,
+      metadataJson: JSON.stringify({
+        schemaVersion: 1,
+        trigger: "burnerBlockRedHot",
+        burnerPositions: [5],
+        automaticPlantActuation: false,
+      }),
+      isDeleted: false,
+      deletedAt: null,
+      deletedByUid: null,
+      deletedByName: null,
+      deleteReason: null,
+      createdAt,
+      updatedAt: createdAt,
+      version: 1,
+    };
+
+    const poisonedTicket = {
+      ...ticket,
+      firestoreId: "burnerPoisoned",
+    };
+    const poisonedDirective = {
+      ...directive,
+      firestoreId: "burner_red_hot_burnerPoisoned",
+      linkedMaintenanceFirestoreId: "burnerPoisoned",
+      acknowledgedByUid: "ia1",
+      acknowledgedByName: "I&A",
+      acknowledgedAt: createdAt,
+    };
+    const poisonedBatch = writeBatch(db);
+    poisonedBatch.set(
+      doc(db, "maintenance_records/burnerPoisoned"),
+      poisonedTicket
+    );
+    poisonedBatch.set(
+      doc(db, "directives/burner_red_hot_burnerPoisoned"),
+      poisonedDirective
+    );
+    await assertFails(poisonedBatch.commit());
+
+    await seedDoc("maintenance_records/burnerExisting", {
+      ...ticket,
+      firestoreId: "burnerExisting",
+    });
+    await assertFails(setDoc(
+      doc(dbAs("ops1"), "directives/burner_red_hot_burnerExisting"),
+      {
+        ...directive,
+        firestoreId: "burner_red_hot_burnerExisting",
+        linkedMaintenanceFirestoreId: "burnerExisting",
+      }
+    ));
+
+    const createBatch = writeBatch(db);
+    createBatch.set(doc(db, "maintenance_records/burnerTicket"), ticket);
+    createBatch.set(
+      doc(db, "directives/burner_red_hot_burnerTicket"),
+      directive
+    );
+    await assertSucceeds(createBatch.commit());
+
+    const closeBase = {
+      isResolved: true,
+      status: "resolved",
+      endDate: new Date().toISOString(),
+      closedByUid: "ia1",
+      closedByName: "I&A",
+      remarks: "B2 restored; B5 isolated for follow-up.",
+      downtimeHours: 1,
+      teamsInvolved: ["instrumentation"],
+      actionsJson: "[{\"burnerPosition\":2},{\"burnerPosition\":5}]",
+      burnerAttendedPositions: [2, 5],
+      burnerResolutionEvidence: {
+        "2": {
+          outcome: "returnedToService",
+          actionCodes: ["uvDetectorCleaning"],
+        },
+      },
+      updatedAt: new Date().toISOString(),
+      updatedByUid: "ia1",
+      updatedByName: "I&A",
+      version: 2,
+    };
+    const partialCloseBatch = writeBatch(db);
+    partialCloseBatch.update(
+      doc(db, "maintenance_records/burnerTicket"),
+      closeBase
+    );
+    partialCloseBatch.set(
+      doc(db, "maintenance_burner_closures/burnerTicket"),
+      {
+        firestoreId: "burnerTicket",
+        sourceMaintenanceId: "burnerTicket",
+        sourceVersion: closeBase.version,
+        closedByUid: closeBase.closedByUid,
+        burnerResolutionEvidence: closeBase.burnerResolutionEvidence,
+        updatedAt: closeBase.updatedAt,
+      }
+    );
+    await assertFails(partialCloseBatch.commit());
+
+    const validClose = {
+      ...closeBase,
+      burnerResolutionEvidence: {
+        "2": {
+          outcome: "returnedToService",
+          actionCodes: ["uvDetectorCleaning"],
+        },
+        "5": {
+          outcome: "isolatedForFollowUp",
+          actionCodes: ["poking"],
+        },
+      },
+    };
+    await assertFails(
+      updateDoc(doc(db, "maintenance_records/burnerTicket"), validClose)
+    );
+    const validCloseBatch = writeBatch(db);
+    validCloseBatch.update(
+      doc(db, "maintenance_records/burnerTicket"),
+      validClose
+    );
+    validCloseBatch.set(
+      doc(db, "maintenance_burner_closures/burnerTicket"),
+      {
+        firestoreId: "burnerTicket",
+        sourceMaintenanceId: "burnerTicket",
+        sourceVersion: validClose.version,
+        closedByUid: validClose.closedByUid,
+        burnerResolutionEvidence: validClose.burnerResolutionEvidence,
+        updatedAt: validClose.updatedAt,
+      }
+    );
+    await assertSucceeds(validCloseBatch.commit());
+
+    await seedDoc("maintenance_records/burnerResetOnly", {
+      ...ticket,
+      firestoreId: "burnerResetOnly",
+      burnerRedHotPositions: [],
+    });
+    const resetOnlyClose = {
+      ...closeBase,
+      burnerResolutionEvidence: {
+        "2": {
+          outcome: "returnedToService",
+          actionCodes: ["feedbackReset"],
+        },
+        "5": {
+          outcome: "isolatedForFollowUp",
+          actionCodes: ["poking"],
+        },
+      },
+    };
+    const resetOnlyBatch = writeBatch(db);
+    resetOnlyBatch.update(
+      doc(db, "maintenance_records/burnerResetOnly"),
+      resetOnlyClose
+    );
+    resetOnlyBatch.set(
+      doc(db, "maintenance_burner_closures/burnerResetOnly"),
+      {
+        firestoreId: "burnerResetOnly",
+        sourceMaintenanceId: "burnerResetOnly",
+        sourceVersion: resetOnlyClose.version,
+        closedByUid: resetOnlyClose.closedByUid,
+        burnerResolutionEvidence: resetOnlyClose.burnerResolutionEvidence,
+        updatedAt: resetOnlyClose.updatedAt,
+      }
+    );
+    await assertFails(resetOnlyBatch.commit());
   });
 
   test("senior can close but cannot mutate unrelated ticket evidence while closing", async () => {

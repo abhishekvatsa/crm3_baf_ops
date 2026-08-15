@@ -5,6 +5,7 @@ import '../../planned_maintenance/models/component_action_model.dart';
 import '../utils/asset_validator.dart';
 import 'maintenance_model.dart';
 import '../../quality/domain/issue_quality_intent.dart';
+import '../domain/burner_lockout_case.dart';
 import 'remote_maintenance_timestamps.dart';
 
 const _workflowQueueStates = <String>{
@@ -103,6 +104,61 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       detail: 'must agree with status ${status.name}',
     );
   }
+  final classification = _optionalString(map, 'classification', source);
+  final burnerLockout = BurnerLockoutCase.readOptionalSynchronizedFields(
+    map,
+    source: source,
+  );
+  final isBurnerLockout = classification == burnerLockoutClassification;
+  if (isBurnerLockout != (burnerLockout != null)) {
+    throw PersistedDataFormatException(
+      field: 'classification',
+      source: source,
+      detail:
+          'burner-lockout classification and structured fields must be present together',
+    );
+  }
+  if (burnerLockout != null &&
+      (assetType != AssetType.furnace ||
+          map['routedTo'] != RoutedTo.instrumentation.name ||
+          map['component'] != 'Burner system')) {
+    throw PersistedDataFormatException(
+      field: 'classification',
+      source: source,
+      detail: 'burner lockout must belong to a Furnace and route to I&A',
+    );
+  }
+  final actionsJson = ComponentAction.readEncodedPayload(
+    map['actionsJson'],
+    field: 'actionsJson',
+    source: source,
+    allowMissing: !map.containsKey('actionsJson'),
+  );
+  final actions = ComponentAction.decode(actionsJson, source: source);
+  if (burnerLockout != null &&
+      (burnerLockout.isResolutionComplete != isResolved ||
+          (burnerLockout.hasRedHotObservation && map['isCritical'] != true))) {
+    throw PersistedDataFormatException(
+      field: 'burnerResolutionEvidence',
+      source: source,
+      detail:
+          'burner closure evidence and red-hot criticality must match ticket state',
+    );
+  }
+  if (burnerLockout != null && isResolved) {
+    try {
+      validatePersistedBurnerResolutionEvidence(
+        lockout: burnerLockout,
+        actions: actions,
+      );
+    } on FormatException catch (error) {
+      throw PersistedDataFormatException(
+        field: 'burnerResolutionEvidence',
+        source: source,
+        detail: error.message,
+      );
+    }
+  }
 
   final workflow = _readWorkflowProjection(map, source: source);
   if (workflow.aggregateId != null && timestamps.workflowUpdatedAt == null) {
@@ -112,13 +168,6 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       detail: 'linked workflow projection requires its update timestamp',
     );
   }
-  final actionsJson = ComponentAction.readEncodedPayload(
-    map['actionsJson'],
-    field: 'actionsJson',
-    source: source,
-    allowMissing: !map.containsKey('actionsJson'),
-  );
-  ComponentAction.decode(actionsJson, source: source);
   final resolutionHistoryJson = readEncodedResolutionHistoryPayload(
     map['resolutionHistoryJson'],
     source: source,
@@ -163,7 +212,7 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       field: 'maintenanceType',
       source: source,
     )
-    ..classification = _optionalString(map, 'classification', source)
+    ..classification = classification
     ..description = readRequiredPersistedString(
       map['description'],
       field: 'description',
@@ -268,8 +317,18 @@ MaintenanceRecord readRemoteMaintenanceRecord(
     ..createdAt = timestamps.createdAt
     ..updatedAt = timestamps.updatedAt
     ..metadataJson =
-        qualityIntent?.encode() ??
-        _optionalString(map, 'metadataJson', source, emptyAsNull: false)
+        qualityIntent != null || burnerLockout != null
+            ? mergeMaintenanceMetadataEnvelopes(
+              existing: _optionalString(
+                map,
+                'metadataJson',
+                source,
+                emptyAsNull: false,
+              ),
+              qualityIntent: qualityIntent?.toMap(),
+              burnerLockout: burnerLockout,
+            )
+            : _optionalString(map, 'metadataJson', source, emptyAsNull: false)
     ..actionsJson = actionsJson
     ..resolutionHistoryJson = resolutionHistoryJson
     ..isDeleted = isDeleted

@@ -333,8 +333,10 @@ extension _SyncServiceTicketsTemplates on SyncService {
     MaintenanceRecord local,
     int version,
   ) {
+    final burnerLockout = local.burnerLockoutCase;
     return {
       ...local.qualityIntentSynchronizedFields,
+      ...local.burnerLockoutSynchronizedFields,
       'firestoreId': local.firestoreId,
       'version': version < 1 ? 1 : version,
       'assetType': local.assetType.name,
@@ -361,6 +363,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
       'metadataJson': local.metadataJson,
       'actionsJson': '[]',
       'resolutionHistoryJson': '[]',
+      if (burnerLockout != null) 'burnerAttendedPositions': <int>[],
+      if (burnerLockout != null)
+        'burnerResolutionEvidence': <String, dynamic>{},
       'isDeleted': false,
     };
   }
@@ -381,6 +386,13 @@ extension _SyncServiceTicketsTemplates on SyncService {
         remoteVersion != null && proposedVersion <= remoteVersion
             ? remoteVersion + 1
             : proposedVersion;
+    final burnerLockout = local.burnerLockoutCase;
+    final resolvedBurnerLockout = burnerLockout?.withResolutionFromActions(
+      ComponentAction.decode(
+        evidence.actionsJson ?? '[]',
+        source: 'maintenance replay ${local.firestoreId} closure',
+      ),
+    );
 
     return {
       'isResolved': true,
@@ -392,6 +404,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
       'downtimeHours': evidence.downtimeHours,
       'teamsInvolved': evidence.teamsInvolved,
       'actionsJson': evidence.actionsJson ?? '[]',
+      if (resolvedBurnerLockout != null)
+        'burnerAttendedPositions': resolvedBurnerLockout.attendedPositions,
+      if (resolvedBurnerLockout != null)
+        'burnerResolutionEvidence':
+            resolvedBurnerLockout
+                .toSynchronizedFields()['burnerResolutionEvidence'],
       'updatedAt': timestamp.toIso8601String(),
       'updatedByUid': evidence.closedByUid,
       'updatedByName': evidence.closedByName,
@@ -402,6 +420,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
   Map<String, dynamic> _maintenanceReopenReplayStepData(
     MaintenanceRecord local,
   ) {
+    final burnerLockout = local.burnerLockoutCase;
     return {
       'isResolved': false,
       'status': TicketStatus.open.name,
@@ -411,6 +430,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
       'downtimeHours': null,
       'teamsInvolved': local.teamsInvolved,
       'actionsJson': local.actionsJson,
+      if (burnerLockout != null) 'burnerAttendedPositions': <int>[],
+      if (burnerLockout != null)
+        'burnerResolutionEvidence': <String, dynamic>{},
       'remarks': local.remarks,
       'resolutionHistoryJson': local.resolutionHistoryJson,
       'updatedAt': local.updatedAt.toIso8601String(),

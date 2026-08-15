@@ -1,5 +1,6 @@
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../maintenance/data/maintenance_model.dart';
+import '../../maintenance/domain/burner_lockout_case.dart';
 
 String? cleanAdminOptionalText(String value) {
   final trimmed = value.trim();
@@ -63,6 +64,26 @@ AdminTicketCorrectionDraft buildAdminTicketCorrection({
   if (cleanReason.length < 12) {
     throw ArgumentError(
       'Correction reason must contain at least 12 characters.',
+    );
+  }
+  if (source.classification == burnerLockoutClassification) {
+    final hasRedHot =
+        source.burnerLockoutReadResult.value?.hasRedHotObservation == true;
+    if (routedTo != RoutedTo.instrumentation ||
+        maintenanceType != MaintenanceType.breakdown ||
+        cleanAdminOptionalText(component ?? '') != 'Burner system' ||
+        cleanAdminTagText(tag ?? '') != null ||
+        cleanAdminOptionalText(classification ?? '') !=
+            burnerLockoutClassification ||
+        (hasRedHot && !isCritical)) {
+      throw StateError(
+        'Burner identity, I&A routing, breakdown type, and red-hot criticality are fixed.',
+      );
+    }
+  } else if (cleanAdminOptionalText(classification ?? '') ==
+      burnerLockoutClassification) {
+    throw StateError(
+      'A standard issue cannot be reclassified as a burner lockout.',
     );
   }
   final proposed = <String, Object?>{

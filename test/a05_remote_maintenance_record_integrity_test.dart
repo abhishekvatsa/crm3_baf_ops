@@ -200,8 +200,61 @@ void main() {
         throwsA(isA<PersistedDataFormatException>()),
       );
     });
+
+    test('burner-lockout fields are all-or-none and route to I&A', () {
+      final valid =
+          _validRecord()
+            ..['assetType'] = 'furnace'
+            ..['assetNumber'] = 1
+            ..['component'] = 'Burner system'
+            ..['classification'] = 'furnaceBurnerLockout'
+            ..['routedTo'] = 'instrumentation'
+            ..['isCritical'] = true
+            ..addAll(_openBurnerLockoutFields());
+      final record = readRemoteMaintenanceRecord(valid, documentId: 'ticket-1');
+
+      expect(record.burnerLockoutCase?.positions, <int>[2, 5]);
+      expect(record.burnerLockoutCase?.redHotPositions, <int>[5]);
+
+      expect(
+        () => readRemoteMaintenanceRecord(
+          Map<String, dynamic>.from(valid)..remove('burnerSparkObservation'),
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+      expect(
+        () => readRemoteMaintenanceRecord(
+          Map<String, dynamic>.from(valid)..['routedTo'] = 'mechanical',
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+      expect(
+        () => readRemoteMaintenanceRecord(
+          Map<String, dynamic>.from(valid)..['isCritical'] = false,
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    });
   });
 }
+
+Map<String, dynamic> _openBurnerLockoutFields() => <String, dynamic>{
+  'burnerLockoutSchemaVersion': 1,
+  'burnerPositions': <int>[2, 5],
+  'burnerCommonMode': true,
+  'burnerCycleStage': 'ignition',
+  'burnerHmiAlarm': 'Flame failure',
+  'burnerFlameObservation': 'notSeen',
+  'burnerSparkObservation': 'seen',
+  'burnerRelightAttempts': 2,
+  'burnerRemainsLockedOut': true,
+  'burnerRedHotPositions': <int>[5],
+  'burnerAttendedPositions': <int>[],
+  'burnerResolutionEvidence': <String, dynamic>{},
+};
 
 String _governedAssetReference(
   int number, {

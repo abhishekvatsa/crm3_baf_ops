@@ -170,6 +170,70 @@ describe('governed maintenance-ticket supervision', () => {
     });
   });
 
+  test('admin correction preserves burner specialization and red-hot criticality', async () => {
+    const burnerTicket = {
+      classification: 'furnaceBurnerLockout',
+      routedTo: 'instrumentation',
+      component: 'Burner system',
+      maintenanceType: 'breakdown',
+      tag: null,
+      burnerPositions: [3],
+      burnerRedHotPositions: [3],
+    };
+    const allowed = serviceFor(admin, burnerTicket);
+    await expect(allowed.service.execute({
+      commandId: 'correct-burner-description',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'Description clarified after the burner attendance review.',
+        corrections: {description: 'Burner 3 remains locked out'},
+      },
+    }, allowed.context)).resolves.toMatchObject({aggregateVersion: 4});
+
+    for (const [commandId, corrections] of [
+      ['change-burner-route', {routedTo: 'mechanical'}],
+      ['change-burner-class', {classification: 'general'}],
+      ['change-burner-component', {component: 'Gas valve'}],
+      ['add-burner-tag', {tag: 'FR-07-B03'}],
+      ['clear-red-hot-criticality', {isCritical: false}],
+    ]) {
+      const current = serviceFor(admin, burnerTicket);
+      await expect(current.service.execute({
+        commandId,
+        commandType: 'correctMaintenanceTicket',
+        aggregateId: 'ticket-1',
+        expectedVersion: 3,
+        payload: {
+          reason: 'Attempted correction was checked against burner identity.',
+          corrections,
+        },
+      }, current.context)).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'maintenance-burner-specialization-immutable'},
+      });
+    }
+
+    const malformed = serviceFor(admin, {
+      ...burnerTicket,
+      burnerPositions: [3, 3],
+    });
+    await expect(malformed.service.execute({
+      commandId: 'correct-malformed-burner',
+      commandType: 'correctMaintenanceTicket',
+      aggregateId: 'ticket-1',
+      expectedVersion: 3,
+      payload: {
+        reason: 'Narrative correction waits for evidence reconciliation.',
+        corrections: {description: 'Clarified description'},
+      },
+    }, malformed.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'maintenance-burner-evidence-malformed'},
+    });
+  });
+
   test('correction rejects non-admin, forbidden fields, and no-op changes', async () => {
     const command = {
       commandId: 'correct-ticket-1',

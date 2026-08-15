@@ -23,6 +23,7 @@ import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/repositories/asset_hierarchy_repository.dart';
 import '../../quality/domain/issue_quality_intent.dart';
+import '../domain/burner_lockout_case.dart';
 
 class MaintenanceForm extends ConsumerStatefulWidget {
   const MaintenanceForm({super.key});
@@ -35,7 +36,15 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   final _formKey = GlobalKey<FormState>();
   bool _isSubmitting = false;
   bool _isCritical = false;
+  bool _isBurnerLockout = false;
+  bool _burnerCommonMode = false;
+  bool _burnerRemainsLockedOut = true;
   IssueQualityAssessment? _qualityAssessment;
+  BurnerCycleStage _burnerCycleStage = BurnerCycleStage.notRecorded;
+  BurnerObservation _burnerFlameObservation = BurnerObservation.notChecked;
+  BurnerObservation _burnerSparkObservation = BurnerObservation.notChecked;
+  final Set<int> _burnerPositions = <int>{};
+  final Set<int> _redHotBurnerPositions = <int>{};
 
   AssetType _assetType = AssetType.base;
   String? _issueAssetClassId;
@@ -50,6 +59,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   final _componentController = TextEditingController();
   final _otherDepartmentController = TextEditingController();
   final _qualityReasonController = TextEditingController();
+  final _burnerHmiAlarmController = TextEditingController();
+  final _burnerRelightAttemptsController = TextEditingController(text: '0');
 
   String? _resolvedSystem;
   String? _resolvedSubsystem;
@@ -82,6 +93,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     _componentController.dispose();
     _otherDepartmentController.dispose();
     _qualityReasonController.dispose();
+    _burnerHmiAlarmController.dispose();
+    _burnerRelightAttemptsController.dispose();
     super.dispose();
   }
 
@@ -285,6 +298,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       _issueAssetClassId = route?.issueClass.id;
       _assetInstanceId = null;
       _assetType = route?.assetType ?? AssetType.base;
+      if (_assetType != AssetType.furnace) _resetBurnerLockout();
       _resetAssetEvidence();
     });
   }
@@ -310,6 +324,54 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     _isAutoResolved = false;
     _isGovernedTagResolution = false;
     _userOverrodeComponent = false;
+  }
+
+  void _resetBurnerLockout() {
+    _isBurnerLockout = false;
+    _burnerCommonMode = false;
+    _burnerRemainsLockedOut = true;
+    _burnerCycleStage = BurnerCycleStage.notRecorded;
+    _burnerFlameObservation = BurnerObservation.notChecked;
+    _burnerSparkObservation = BurnerObservation.notChecked;
+    _burnerPositions.clear();
+    _redHotBurnerPositions.clear();
+    _burnerHmiAlarmController.clear();
+    _burnerRelightAttemptsController.text = '0';
+  }
+
+  void _setBurnerLockout(bool enabled) {
+    setState(() {
+      _resetBurnerLockout();
+      _isBurnerLockout = enabled;
+      if (enabled) {
+        _componentController.text = 'Burner system';
+        _routedTo = RoutedTo.instrumentation;
+        _maintenanceType = MaintenanceType.breakdown;
+      } else {
+        _componentController.clear();
+      }
+    });
+  }
+
+  BurnerLockoutCase _buildBurnerLockoutCase() {
+    if (_burnerPositions.isEmpty) {
+      throw StateError('Select at least one affected burner.');
+    }
+    final attempts = int.tryParse(_burnerRelightAttemptsController.text.trim());
+    if (attempts == null || attempts < 0 || attempts > 20) {
+      throw StateError('Relight attempts must be a whole number from 0 to 20.');
+    }
+    return BurnerLockoutCase(
+      positions: _burnerPositions.toList(),
+      commonMode: _burnerCommonMode,
+      cycleStage: _burnerCycleStage,
+      hmiAlarm: _cleanOptionalText(_burnerHmiAlarmController.text),
+      flameObservation: _burnerFlameObservation,
+      sparkObservation: _burnerSparkObservation,
+      relightAttempts: attempts,
+      remainsLockedOut: _burnerRemainsLockedOut,
+      redHotPositions: _redHotBurnerPositions.toList(),
+    );
   }
 
   String? _cleanOptionalText(String? value) {
@@ -454,6 +516,37 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     }
     final assetType = assetRoute.assetType;
     final assetNumber = selectedAsset.assetNumber;
+    BurnerLockoutCase? burnerLockout;
+    if (_isBurnerLockout) {
+      if (assetType != AssetType.furnace) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(
+            content: Text('Burner lockout can only be raised for a Furnace.'),
+            backgroundColor: BafColors.warning,
+          ),
+        );
+        return;
+      }
+      try {
+        burnerLockout = _buildBurnerLockoutCase();
+      } on StateError catch (error) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(error.message),
+            backgroundColor: BafColors.warning,
+          ),
+        );
+        return;
+      } on FormatException catch (error) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(error.message),
+            backgroundColor: BafColors.warning,
+          ),
+        );
+        return;
+      }
+    }
 
     if (_qualityAssessment == null) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -470,7 +563,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         assetType: assetType,
         assetNumberText: '$assetNumber',
         hasGovernedAssetIdentity: true,
-        component: _componentController.text,
+        component:
+            burnerLockout == null ? _componentController.text : 'Burner system',
         description: _descController.text,
         tag: _tagController.text,
         chargeNumberText: _chargeNoController.text,
@@ -494,7 +588,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
     try {
       _tagResolutionDebounce?.cancel();
-      final submittedTag = _tagController.text.trim();
+      final submittedTag =
+          burnerLockout == null ? _tagController.text.trim() : '';
       if (submittedTag.isNotEmpty) {
         final generation = ++_tagResolutionGeneration;
         final accepted = await _resolveTag(
@@ -538,7 +633,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         reporterName: reporterName ?? reporterUid,
         confirmedAt: now,
       );
-      final tagText = _cleanOptionalText(_tagController.text)?.toUpperCase();
+      final tagText =
+          burnerLockout == null
+              ? _cleanOptionalText(_tagController.text)?.toUpperCase()
+              : null;
       final hierarchyPath =
           _resolvedPath == null || _resolvedPath!.isEmpty
               ? null
@@ -549,8 +647,14 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             ..firestoreId = const Uuid().v4()
             ..assetType = assetType
             ..assetNumber = assetNumber
-            ..maintenanceType = _maintenanceType
-            ..routedTo = _routedTo
+            ..maintenanceType =
+                burnerLockout == null
+                    ? _maintenanceType
+                    : MaintenanceType.breakdown
+            ..classification =
+                burnerLockout == null ? null : burnerLockoutClassification
+            ..routedTo =
+                burnerLockout == null ? _routedTo : RoutedTo.instrumentation
             ..otherDepartment =
                 _routedTo == RoutedTo.others
                     ? _cleanOptionalText(_otherDepartmentController.text)
@@ -565,14 +669,19 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             ..updatedAt = now
             ..status = TicketStatus.open
             ..isResolved = false
-            ..isCritical = _isCritical
+            ..isCritical =
+                _isCritical || (burnerLockout?.hasRedHotObservation ?? false)
             ..teamsInvolved = []
             ..isSynced = false
-            ..component = _cleanRequiredText(_componentController.text)
+            ..component =
+                burnerLockout == null
+                    ? _cleanRequiredText(_componentController.text)
+                    : 'Burner system'
             ..tag = tagText
             ..subsystem = _cleanOptionalText(_resolvedSubsystem)
             ..hierarchyPath = hierarchyPath;
       record.assetHierarchyRefJson = eventAssetReference?.encode();
+      record.burnerLockoutCase = burnerLockout;
       record.qualityIntent = IssueQualityIntent(
         assessment: _qualityAssessment!,
         warningReason:
@@ -587,7 +696,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
       await repository.saveTicket(record);
 
-      if (_isCritical) {
+      if (record.isCritical) {
         unawaited(
           syncCoordinator.runFullSync(
             reason: 'critical_ticket_created',
@@ -751,52 +860,126 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                   onRouteChanged: _selectIssueAssetRoute,
                   onAssetChanged: _selectPhysicalAsset,
                 ),
-                const SizedBox(height: BafSpacing.md),
-                TextFormField(
-                  controller: _tagController,
-                  enabled:
-                      _selectedPhysicalAsset() != null &&
-                      _assetType != AssetType.innerCover,
-                  decoration: _inputDecoration(
-                    'Instrument tag / equipment tag',
-                    hint:
-                        _assetType == AssetType.innerCover
-                            ? 'Inner Cover identity comes from the Base linkage'
-                            : 'Optional, must belong to the selected asset',
-                  ),
-                  textCapitalization: TextCapitalization.characters,
-                  onChanged: _scheduleTagResolution,
-                  validator:
-                      (value) => MaintenanceInputValidator.validateTag(
-                        value,
-                      ).messageFor('tag'),
-                ),
-                const SizedBox(height: BafSpacing.md),
-                TextFormField(
-                  controller: _componentController,
-                  decoration: _inputDecoration(
-                    _isAutoResolved
-                        ? 'Component (auto-filled, editable)'
-                        : 'Component name',
-                  ),
-                  textCapitalization: TextCapitalization.words,
-                  validator:
-                      (value) => MaintenanceInputValidator.validateComponent(
-                        value,
-                      ).messageFor('component'),
-                ),
-                if (_isAutoResolved) ...[
+                if (_assetType == AssetType.furnace) ...[
                   const SizedBox(height: BafSpacing.md),
-                  _ResolvedTagPanel(
-                    system: _resolvedSystem,
-                    subsystem: _resolvedSubsystem,
-                    path: _resolvedPath,
-                    ownership: _resolvedOwnership,
-                    governed: _isGovernedTagResolution,
+                  SegmentedButton<bool>(
+                    segments: const <ButtonSegment<bool>>[
+                      ButtonSegment<bool>(
+                        value: false,
+                        icon: Icon(Icons.build_outlined),
+                        label: Text('Standard issue'),
+                      ),
+                      ButtonSegment<bool>(
+                        value: true,
+                        icon: Icon(Icons.local_fire_department_outlined),
+                        label: Text('Burner lockout'),
+                      ),
+                    ],
+                    selected: <bool>{_isBurnerLockout},
+                    onSelectionChanged: (selection) {
+                      _setBurnerLockout(selection.first);
+                    },
                   ),
+                ],
+                if (!_isBurnerLockout) ...[
+                  const SizedBox(height: BafSpacing.md),
+                  TextFormField(
+                    controller: _tagController,
+                    enabled:
+                        _selectedPhysicalAsset() != null &&
+                        _assetType != AssetType.innerCover,
+                    decoration: _inputDecoration(
+                      'Instrument tag / equipment tag',
+                      hint:
+                          _assetType == AssetType.innerCover
+                              ? 'Inner Cover identity comes from the Base linkage'
+                              : 'Optional, must belong to the selected asset',
+                    ),
+                    textCapitalization: TextCapitalization.characters,
+                    onChanged: _scheduleTagResolution,
+                    validator:
+                        (value) => MaintenanceInputValidator.validateTag(
+                          value,
+                        ).messageFor('tag'),
+                  ),
+                  const SizedBox(height: BafSpacing.md),
+                  TextFormField(
+                    controller: _componentController,
+                    decoration: _inputDecoration(
+                      _isAutoResolved
+                          ? 'Component (auto-filled, editable)'
+                          : 'Component name',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                    validator:
+                        (value) => MaintenanceInputValidator.validateComponent(
+                          value,
+                        ).messageFor('component'),
+                  ),
+                  if (_isAutoResolved) ...[
+                    const SizedBox(height: BafSpacing.md),
+                    _ResolvedTagPanel(
+                      system: _resolvedSystem,
+                      subsystem: _resolvedSubsystem,
+                      path: _resolvedPath,
+                      ownership: _resolvedOwnership,
+                      governed: _isGovernedTagResolution,
+                    ),
+                  ],
+                ] else ...[
+                  const SizedBox(height: BafSpacing.md),
+                  const _BurnerRouteNotice(),
                 ],
               ],
             ),
+
+            if (_isBurnerLockout) ...[
+              const SizedBox(height: BafSpacing.lg),
+              _BurnerLockoutIntake(
+                selectedPositions: _burnerPositions,
+                redHotPositions: _redHotBurnerPositions,
+                commonMode: _burnerCommonMode,
+                cycleStage: _burnerCycleStage,
+                flameObservation: _burnerFlameObservation,
+                sparkObservation: _burnerSparkObservation,
+                remainsLockedOut: _burnerRemainsLockedOut,
+                hmiAlarmController: _burnerHmiAlarmController,
+                relightAttemptsController: _burnerRelightAttemptsController,
+                onPositionChanged: (position, selected) {
+                  setState(() {
+                    if (selected) {
+                      _burnerPositions.add(position);
+                    } else {
+                      _burnerPositions.remove(position);
+                      _redHotBurnerPositions.remove(position);
+                    }
+                    if (_burnerPositions.length < 2) {
+                      _burnerCommonMode = false;
+                    }
+                  });
+                },
+                onRedHotChanged: (position, selected) {
+                  setState(() {
+                    if (selected) {
+                      _redHotBurnerPositions.add(position);
+                      _isCritical = true;
+                    } else {
+                      _redHotBurnerPositions.remove(position);
+                    }
+                  });
+                },
+                onCommonModeChanged:
+                    (value) => setState(() => _burnerCommonMode = value),
+                onCycleStageChanged:
+                    (value) => setState(() => _burnerCycleStage = value),
+                onFlameObservationChanged:
+                    (value) => setState(() => _burnerFlameObservation = value),
+                onSparkObservationChanged:
+                    (value) => setState(() => _burnerSparkObservation = value),
+                onRemainsLockedOutChanged:
+                    (value) => setState(() => _burnerRemainsLockedOut = value),
+              ),
+            ],
 
             const SizedBox(height: BafSpacing.lg),
 
@@ -820,11 +1003,15 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 ),
                 const SizedBox(height: BafSpacing.md),
                 _CriticalIssueToggle(
-                  value: _isCritical,
-                  onChanged: (value) => setState(() => _isCritical = value),
+                  value: _isCritical || _redHotBurnerPositions.isNotEmpty,
+                  onChanged:
+                      _redHotBurnerPositions.isNotEmpty
+                          ? (_) {}
+                          : (value) => setState(() => _isCritical = value),
                 ),
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<RoutedTo>(
+                  key: ValueKey('issue-route-${_routedTo.name}'),
                   initialValue: _routedTo,
                   isExpanded: true,
                   decoration: _inputDecoration('Route to'),
@@ -840,15 +1027,18 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                             ),
                           )
                           .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() {
-                      _routedTo = value;
-                      if (_routedTo != RoutedTo.others) {
-                        _otherDepartmentController.clear();
-                      }
-                    });
-                  },
+                  onChanged:
+                      _isBurnerLockout
+                          ? null
+                          : (value) {
+                            if (value == null) return;
+                            setState(() {
+                              _routedTo = value;
+                              if (_routedTo != RoutedTo.others) {
+                                _otherDepartmentController.clear();
+                              }
+                            });
+                          },
                 ),
                 if (_routedTo == RoutedTo.others) ...[
                   const SizedBox(height: BafSpacing.md),
@@ -869,6 +1059,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 ],
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<MaintenanceType>(
+                  key: ValueKey('issue-type-${_maintenanceType.name}'),
                   initialValue: _maintenanceType,
                   isExpanded: true,
                   decoration: _inputDecoration('Maintenance type'),
@@ -884,10 +1075,13 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                             ),
                           )
                           .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _maintenanceType = value);
-                  },
+                  onChanged:
+                      _isBurnerLockout
+                          ? null
+                          : (value) {
+                            if (value == null) return;
+                            setState(() => _maintenanceType = value);
+                          },
                 ),
               ],
             ),
@@ -982,7 +1176,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       ),
       bottomNavigationBar: _SubmitIssueBar(
         isSubmitting: _isSubmitting,
-        isCritical: _isCritical,
+        isCritical: _isCritical || _redHotBurnerPositions.isNotEmpty,
         onSubmit: _isSubmitting ? null : _submit,
       ),
     );
@@ -1053,6 +1247,292 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         return 'Others';
     }
   }
+}
+
+class _BurnerRouteNotice extends StatelessWidget {
+  const _BurnerRouteNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(BafSpacing.md),
+      decoration: BoxDecoration(
+        color: BafColors.audit.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(color: BafColors.audit.withValues(alpha: 0.25)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.route_rounded, color: BafColors.audit),
+          SizedBox(width: BafSpacing.sm),
+          Expanded(
+            child: Text(
+              'Burner lockout is routed to I&A as a breakdown issue. Other '
+              'disciplines can be requested through the existing scoped-help '
+              'workflow.',
+              style: TextStyle(
+                color: BafColors.textPrimary,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BurnerLockoutIntake extends StatelessWidget {
+  const _BurnerLockoutIntake({
+    required this.selectedPositions,
+    required this.redHotPositions,
+    required this.commonMode,
+    required this.cycleStage,
+    required this.flameObservation,
+    required this.sparkObservation,
+    required this.remainsLockedOut,
+    required this.hmiAlarmController,
+    required this.relightAttemptsController,
+    required this.onPositionChanged,
+    required this.onRedHotChanged,
+    required this.onCommonModeChanged,
+    required this.onCycleStageChanged,
+    required this.onFlameObservationChanged,
+    required this.onSparkObservationChanged,
+    required this.onRemainsLockedOutChanged,
+  });
+
+  final Set<int> selectedPositions;
+  final Set<int> redHotPositions;
+  final bool commonMode;
+  final BurnerCycleStage cycleStage;
+  final BurnerObservation flameObservation;
+  final BurnerObservation sparkObservation;
+  final bool remainsLockedOut;
+  final TextEditingController hmiAlarmController;
+  final TextEditingController relightAttemptsController;
+  final void Function(int position, bool selected) onPositionChanged;
+  final void Function(int position, bool selected) onRedHotChanged;
+  final ValueChanged<bool> onCommonModeChanged;
+  final ValueChanged<BurnerCycleStage> onCycleStageChanged;
+  final ValueChanged<BurnerObservation> onFlameObservationChanged;
+  final ValueChanged<BurnerObservation> onSparkObservationChanged;
+  final ValueChanged<bool> onRemainsLockedOutChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final sortedPositions = selectedPositions.toList()..sort();
+    return _SectionCard(
+      title: 'Burner lockout evidence',
+      subtitle: 'Identify the affected positions and what was observed.',
+      icon: Icons.local_fire_department_rounded,
+      children: [
+        const Text(
+          'Affected burners',
+          style: TextStyle(
+            color: BafColors.textPrimary,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: BafSpacing.sm),
+        Wrap(
+          spacing: BafSpacing.sm,
+          runSpacing: BafSpacing.sm,
+          children: [
+            for (var position = 1; position <= 8; position++)
+              FilterChip(
+                label: Text('B$position'),
+                selected: selectedPositions.contains(position),
+                onSelected: (selected) => onPositionChanged(position, selected),
+              ),
+          ],
+        ),
+        if (selectedPositions.length > 1) ...[
+          const SizedBox(height: BafSpacing.md),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Possible common-mode event'),
+            subtitle: const Text(
+              'The selected burners may share one initiating condition.',
+            ),
+            value: commonMode,
+            onChanged: onCommonModeChanged,
+          ),
+        ],
+        if (sortedPositions.isNotEmpty) ...[
+          const Divider(height: BafSpacing.xl),
+          const Text(
+            'Red-hot burner blocks',
+            style: TextStyle(
+              color: BafColors.textPrimary,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Select only positions where the refractory burner block was '
+            'observed red hot. This is not a UV-detector observation.',
+            style: TextStyle(color: BafColors.textSecondary, height: 1.3),
+          ),
+          const SizedBox(height: BafSpacing.sm),
+          Wrap(
+            spacing: BafSpacing.sm,
+            runSpacing: BafSpacing.sm,
+            children: [
+              for (final position in sortedPositions)
+                FilterChip(
+                  avatar: const Icon(Icons.warning_amber_rounded, size: 17),
+                  label: Text('B$position red hot'),
+                  selected: redHotPositions.contains(position),
+                  selectedColor: BafColors.danger.withValues(alpha: 0.12),
+                  checkmarkColor: BafColors.danger,
+                  onSelected: (selected) => onRedHotChanged(position, selected),
+                ),
+            ],
+          ),
+          if (redHotPositions.isNotEmpty) ...[
+            const SizedBox(height: BafSpacing.md),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(BafSpacing.md),
+              decoration: BoxDecoration(
+                color: BafColors.danger.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(BafRadius.medium),
+                border: Border.all(
+                  color: BafColors.danger.withValues(alpha: 0.3),
+                ),
+              ),
+              child: const Text(
+                'A critical I&A safety directive will be created with this '
+                'issue. I&A must acknowledge and record compliance with the '
+                'approved plant procedure; the app does not actuate the PLC.',
+                style: TextStyle(
+                  color: BafColors.textPrimary,
+                  height: 1.35,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ],
+        const Divider(height: BafSpacing.xl),
+        DropdownButtonFormField<BurnerCycleStage>(
+          initialValue: cycleStage,
+          decoration: _burnerDecoration('Cycle / firing stage'),
+          items: [
+            for (final stage in BurnerCycleStage.values)
+              DropdownMenuItem(
+                value: stage,
+                child: Text(_cycleStageLabel(stage)),
+              ),
+          ],
+          onChanged: (value) {
+            if (value != null) onCycleStageChanged(value);
+          },
+        ),
+        const SizedBox(height: BafSpacing.md),
+        TextFormField(
+          controller: hmiAlarmController,
+          maxLength: 300,
+          decoration: _burnerDecoration(
+            'HMI alarm / indication',
+            hint: 'Optional alarm text or code',
+          ),
+        ),
+        const SizedBox(height: BafSpacing.md),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<BurnerObservation>(
+                initialValue: flameObservation,
+                decoration: _burnerDecoration('Flame'),
+                items: [
+                  for (final value in BurnerObservation.values)
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(_observationLabel(value)),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) onFlameObservationChanged(value);
+                },
+              ),
+            ),
+            const SizedBox(width: BafSpacing.sm),
+            Expanded(
+              child: DropdownButtonFormField<BurnerObservation>(
+                initialValue: sparkObservation,
+                decoration: _burnerDecoration('Spark'),
+                items: [
+                  for (final value in BurnerObservation.values)
+                    DropdownMenuItem(
+                      value: value,
+                      child: Text(_observationLabel(value)),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) onSparkObservationChanged(value);
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: BafSpacing.md),
+        TextFormField(
+          controller: relightAttemptsController,
+          keyboardType: TextInputType.number,
+          decoration: _burnerDecoration('Relight attempts'),
+          validator: (value) {
+            final attempts = int.tryParse(value?.trim() ?? '');
+            if (attempts == null || attempts < 0 || attempts > 20) {
+              return 'Enter a whole number from 0 to 20';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: BafSpacing.sm),
+        SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Still locked out when reported'),
+          subtitle: const Text(
+            'The issue remained present after the observations above.',
+          ),
+          value: remainsLockedOut,
+          onChanged: onRemainsLockedOutChanged,
+        ),
+      ],
+    );
+  }
+
+  static InputDecoration _burnerDecoration(String label, {String? hint}) =>
+      InputDecoration(
+        labelText: label,
+        hintText: hint,
+        filled: true,
+        fillColor: BafColors.background,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(BafRadius.medium),
+          borderSide: const BorderSide(color: BafColors.border),
+        ),
+      );
+
+  static String _cycleStageLabel(BurnerCycleStage value) => switch (value) {
+    BurnerCycleStage.notRecorded => 'Not recorded',
+    BurnerCycleStage.purge => 'Purge',
+    BurnerCycleStage.ignition => 'Ignition',
+    BurnerCycleStage.firing => 'Firing',
+    BurnerCycleStage.unknown => 'Unknown',
+  };
+
+  static String _observationLabel(BurnerObservation value) => switch (value) {
+    BurnerObservation.seen => 'Seen',
+    BurnerObservation.notSeen => 'Not seen',
+    BurnerObservation.notChecked => 'Not checked',
+  };
 }
 
 class _GovernedIssueAssetSelector extends ConsumerWidget {
