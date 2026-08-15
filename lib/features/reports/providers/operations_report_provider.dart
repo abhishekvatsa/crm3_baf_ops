@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../assets/data/asset_hierarchy_model.dart';
@@ -392,15 +394,16 @@ OperationsReport buildOperationsReport({
         0,
         reference.hierarchyPath.length - 1,
       );
-      final normalizedPath = parentPath
-          .map((segment) => segment.trim().toLowerCase())
-          .join('/');
+      final normalizedSegments = parentPath
+          .map((segment) => segment.trim())
+          .toList(growable: false);
+      final encodedPath = jsonEncode(normalizedSegments);
       return (
-        disambiguator: 'ref ${reference.assetClassId}',
-        key: 'recorded-path:${reference.assetClassId}:$normalizedPath',
+        disambiguator: 'path $encodedPath',
+        key: 'recorded-path:${reference.assetClassId}:$encodedPath',
         label:
             'Recorded path - ${reference.assetClassName} - '
-            '${parentPath.join(' / ')}',
+            '${normalizedSegments.join(' > ')}',
       );
     }
     final hasLegacySubsystem =

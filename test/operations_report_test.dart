@@ -486,8 +486,58 @@ void main() {
     );
 
     expect(report.topSubsystemPaths.map((row) => row.label).toSet(), {
+      'Recorded path - Furnace - Line A > Drive',
+      'Recorded path - Furnace - Line B > Drive',
+    });
+  });
+
+  test('recorded path keys cannot collide with delimiters inside names', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    MaintenanceRecord ticket(String nodeId, List<String> path, int day) =>
+        issue(
+            type: AssetType.furnace,
+            number: 7,
+            started: DateTime.utc(2026, 8, day),
+          )
+          ..assetHierarchyRefJson =
+              AssetHierarchyReference(
+                assetClassId: furnace.id,
+                assetClassCode: furnace.code,
+                assetClassName: furnace.name,
+                nodeId: nodeId,
+                nodeVersion: 1,
+                nodeName: 'Motor',
+                hierarchyPath: path,
+                ownershipStatus: AssetOwnershipStatus.confirmed,
+                ownerDiscipline: 'electrical',
+                accountableRoleKeys: const ['senior_electrical'],
+              ).encode();
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 31),
+      ),
+      tickets: [
+        ticket('single-segment', const ['Line A / Drive', 'Motor'], 5),
+        ticket('two-segments', const ['Line A', 'Drive', 'Motor'], 6),
+      ],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnace],
+      assetInstances: [furnace7],
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: [furnace7],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+    );
+
+    expect(report.topSubsystemPaths.map((row) => row.label).toSet(), {
       'Recorded path - Furnace - Line A / Drive',
-      'Recorded path - Furnace - Line B / Drive',
+      'Recorded path - Furnace - Line A > Drive',
     });
   });
 
