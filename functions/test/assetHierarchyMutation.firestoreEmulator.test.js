@@ -50,6 +50,8 @@ const IDS = {
   eventResolveRequest: '17171717-1717-4171-8171-171717171717',
   eventIssue: '18181818-1818-4181-8181-181818181818',
   eventIssueLinkRequest: '19191919-1919-4191-8191-191919191919',
+  replacementComponent: '21212121-2121-4121-8121-212121212121',
+  replacementRequest: '23232323-2323-4232-8232-232323232323',
 };
 
 function classRequest() {
@@ -534,6 +536,204 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       details: expect.objectContaining({
         reasonCode: 'asset-instance-number-collision',
         assetNumber: 1,
+      }),
+    });
+  });
+
+  test('component replacement preserves lineage, count, tag custody, and replay evidence', async () => {
+    await invoke(classRequest());
+    await invoke(createNodeRequest({
+      requestId: IDS.firstNodeRequest,
+      nodeId: IDS.firstNode,
+      name: 'Furnace pressure transmitter',
+      tag: null,
+      allowTagTransfer: false,
+    }));
+    await invokeRegistry(assetRequest({
+      requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      name: 'Furnace 1',
+    }));
+    const create = componentRequest({
+      requestId: IDS.firstComponentRequest,
+      assetInstanceId: IDS.firstAsset,
+      componentInstanceId: IDS.firstComponent,
+      tag: 'PT-101',
+      allowTagTransfer: false,
+    });
+    await invokeRegistry(create);
+
+    const replacement = {
+      requestId: IDS.replacementRequest,
+      operation: 'REPLACE_COMPONENT_INSTANCE',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      componentInstanceId: IDS.firstComponent,
+      replacementComponentInstanceId: IDS.replacementComponent,
+      expectedVersion: 1,
+      expectedAssetInstanceVersion: 2,
+      reason: 'Replace the pressure transmitter after confirmed calibration failure.',
+      allowTagTransfer: false,
+      expectedTagOwnerComponentId: null,
+      componentDraft: {
+        ...create.componentDraft,
+        serialNumber: 'PT-NEW-001',
+        installedOn: '2026-08-13T11:45:00.000Z',
+      },
+    };
+    const firstResult = await invokeRegistry(replacement);
+    const replay = await invokeRegistry(replacement);
+    expect(firstResult).toMatchObject({
+      nodeId: IDS.replacementComponent,
+      version: 1,
+      idempotentReplay: false,
+    });
+    expect(replay).toEqual({...firstResult, idempotentReplay: true});
+
+    const source = (
+      await db.collection('asset_component_instances').doc(IDS.firstComponent).get()
+    ).data();
+    const incoming = (
+      await db.collection('asset_component_instances').doc(IDS.replacementComponent).get()
+    ).data();
+    const asset = (
+      await db.collection('asset_instances').doc(IDS.firstAsset).get()
+    ).data();
+    expect(source).toMatchObject({
+      status: 'retired',
+      version: 2,
+      componentLineageId: IDS.firstComponent,
+      replacedByComponentInstanceId: IDS.replacementComponent,
+      componentTag: 'PT-101',
+    });
+    expect(incoming).toMatchObject({
+      status: 'active',
+      version: 1,
+      componentLineageId: IDS.firstComponent,
+      replacesComponentInstanceId: IDS.firstComponent,
+      componentTag: 'PT-101',
+      serialNumber: 'PT-NEW-001',
+    });
+    expect(asset).toMatchObject({activeComponentCount: 1, version: 3});
+    const claims = await db.collection('asset_tag_claims').get();
+    expect(claims.docs).toHaveLength(1);
+    expect(claims.docs[0].data()).toMatchObject({
+      componentInstanceId: IDS.replacementComponent,
+      normalizedTag: 'PT101',
+    });
+    const primaryAudit = (
+      await db.collection('asset_hierarchy_audits')
+        .doc(`asset_registry_${IDS.replacementRequest}`).get()
+    ).data();
+    const sourceAudit = (
+      await db.collection('asset_hierarchy_audits')
+        .doc(`asset_registry_${IDS.replacementRequest}_replacement_source`).get()
+    ).data();
+    expect(primaryAudit).toMatchObject({
+      action: 'replacement_installed',
+      entityId: IDS.replacementComponent,
+      relatedEntityId: IDS.firstComponent,
+      componentLineageId: IDS.firstComponent,
+    });
+    expect(sourceAudit).toMatchObject({
+      action: 'replaced',
+      entityId: IDS.firstComponent,
+      relatedEntityId: IDS.replacementComponent,
+      componentLineageId: IDS.firstComponent,
+    });
+    await expect(invokeRegistry({
+      requestId: '24242424-2424-4242-8242-242424242424',
+      operation: 'SET_COMPONENT_INSTANCE_STATUS',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      componentInstanceId: IDS.firstComponent,
+      expectedVersion: 2,
+      status: 'active',
+      reason: 'Attempt to restore a component superseded by replacement.',
+      allowTagTransfer: false,
+      expectedTagOwnerComponentId: null,
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'asset-component-replaced-terminal',
+      }),
+    });
+  });
+
+  test('component replacement rejects a different definition and cross-asset mutation', async () => {
+    await invoke(classRequest());
+    await invoke(createNodeRequest({
+      requestId: IDS.firstNodeRequest,
+      nodeId: IDS.firstNode,
+      name: 'Furnace pressure transmitter',
+      tag: null,
+      allowTagTransfer: false,
+    }));
+    await invoke({
+      ...createNodeRequest({
+        requestId: IDS.secondNodeRequest,
+        nodeId: IDS.secondNode,
+        name: 'Furnace burner block',
+        tag: null,
+        allowTagTransfer: false,
+      }),
+      expectedAssetClassVersion: 1,
+    });
+    await invokeRegistry(assetRequest({
+      requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      name: 'Furnace 1',
+    }));
+    await invokeRegistry(assetRequest({
+      requestId: IDS.secondAssetRequest,
+      assetInstanceId: IDS.secondAsset,
+      assetNumber: 2,
+      name: 'Furnace 2',
+    }));
+    const create = componentRequest({
+      requestId: IDS.firstComponentRequest,
+      assetInstanceId: IDS.firstAsset,
+      componentInstanceId: IDS.firstComponent,
+      tag: 'PT-101',
+      allowTagTransfer: false,
+    });
+    await invokeRegistry(create);
+    const replacement = {
+      requestId: IDS.replacementRequest,
+      operation: 'REPLACE_COMPONENT_INSTANCE',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      componentInstanceId: IDS.firstComponent,
+      replacementComponentInstanceId: IDS.replacementComponent,
+      expectedVersion: 1,
+      expectedAssetInstanceVersion: 2,
+      reason: 'Attempt a replacement against the wrong governed definition.',
+      allowTagTransfer: false,
+      expectedTagOwnerComponentId: null,
+      componentDraft: {
+        ...create.componentDraft,
+        definitionNodeId: IDS.secondNode,
+        installedOn: '2026-08-13T11:45:00.000Z',
+      },
+    };
+    await expect(invokeRegistry(replacement)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'asset-component-replacement-definition-mismatch',
+      }),
+    });
+    await expect(invokeRegistry({
+      ...create,
+      requestId: IDS.componentUpdateRequest,
+      operation: 'UPDATE_COMPONENT_INSTANCE',
+      assetInstanceId: IDS.secondAsset,
+      expectedVersion: 1,
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'asset-component-owner-mismatch',
       }),
     });
   });

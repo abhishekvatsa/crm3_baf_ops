@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
 import '../../../assets/data/asset_hierarchy_model.dart';
@@ -389,87 +390,121 @@ class _HierarchyToolbar extends StatelessWidget {
       color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(BafSpacing.md),
-        child: Column(
-          children: [
-            Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 560;
+            final search = TextField(
+              onChanged: onSearchChanged,
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: 'Search class, code or area',
+                prefixIcon: Icon(Icons.search_rounded),
+                border: OutlineInputBorder(),
+              ),
+            );
+            final filters = <Widget>[
+              FilterChip(
+                selected: showRetired,
+                onSelected: onShowRetiredChanged,
+                avatar: const Icon(Icons.history_rounded, size: 18),
+                label: Text('Retired ${total - active}'),
+              ),
+              Chip(label: Text('$active active')),
+            ];
+            return Column(
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: BafColors.assets.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(BafRadius.medium),
-                  ),
-                  child: const Icon(
-                    Icons.account_tree_rounded,
-                    color: BafColors.assets,
-                  ),
-                ),
-                const SizedBox(width: BafSpacing.md),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Asset hierarchy',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                          color: BafColors.textPrimary,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: BafColors.assets.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(BafRadius.medium),
+                      ),
+                      child: const Icon(
+                        Icons.account_tree_rounded,
+                        color: BafColors.assets,
+                      ),
+                    ),
+                    const SizedBox(width: BafSpacing.md),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Asset hierarchy',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 18,
+                              color: BafColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            'Maintain classes, assemblies, components and subcomponents.',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: BafColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (busy)
+                      const Padding(
+                        padding: EdgeInsets.only(right: 12),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       ),
-                      Text(
-                        'Maintain classes, assemblies, components and subcomponents.',
-                        style: TextStyle(
-                          color: BafColors.textSecondary,
-                          fontSize: 12,
-                        ),
+                    if (compact)
+                      IconButton.filled(
+                        tooltip: 'Add asset class',
+                        onPressed: onAddClass,
+                        icon: const Icon(Icons.add_rounded),
+                      )
+                    else
+                      FilledButton.icon(
+                        onPressed: onAddClass,
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Asset class'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: BafSpacing.md),
+                if (compact) ...[
+                  search,
+                  const SizedBox(height: BafSpacing.sm),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: BafSpacing.sm,
+                      runSpacing: BafSpacing.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: filters,
+                    ),
+                  ),
+                ] else
+                  Row(
+                    children: [
+                      Expanded(child: search),
+                      const SizedBox(width: BafSpacing.md),
+                      ...filters.expand(
+                        (filter) => [
+                          filter,
+                          const SizedBox(width: BafSpacing.sm),
+                        ],
                       ),
                     ],
                   ),
-                ),
-                if (busy)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 12),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                FilledButton.icon(
-                  onPressed: onAddClass,
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Asset class'),
-                ),
               ],
-            ),
-            const SizedBox(height: BafSpacing.md),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    onChanged: onSearchChanged,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      hintText: 'Search class, code or area',
-                      prefixIcon: Icon(Icons.search_rounded),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: BafSpacing.md),
-                FilterChip(
-                  selected: showRetired,
-                  onSelected: onShowRetiredChanged,
-                  avatar: const Icon(Icons.history_rounded, size: 18),
-                  label: Text('Retired ${total - active}'),
-                ),
-                const SizedBox(width: BafSpacing.sm),
-                Chip(label: Text('$active active')),
-              ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -722,68 +757,130 @@ class _ClassSummary extends StatelessWidget {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.all(BafSpacing.md),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
+      child: LayoutBuilder(
+        builder:
+            (context, constraints) => Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        assetClass.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                          color: BafColors.textPrimary,
-                        ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              assetClass.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 18,
+                                color: BafColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _StatusPill(active: assetClass.isActive),
+                        ],
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${assetClass.code} · ${assetClass.majorArea} · v${assetClass.version}',
+                        style: const TextStyle(color: BafColors.textSecondary),
+                      ),
+                      if (assetClass.shortDescription != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          assetClass.shortDescription!,
+                          style: const TextStyle(
+                            color: BafColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (constraints.maxWidth < 560)
+                  PopupMenuButton<String>(
+                    tooltip: 'Asset class actions',
+                    enabled: !busy,
+                    onSelected: (action) {
+                      switch (action) {
+                        case 'edit':
+                          onEdit();
+                          break;
+                        case 'toggle':
+                          onToggleStatus();
+                          break;
+                        case 'add':
+                          onAddRoot?.call();
+                          break;
+                      }
+                    },
+                    itemBuilder:
+                        (_) => [
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: ListTile(
+                              leading: Icon(Icons.edit_rounded),
+                              title: Text('Edit asset class'),
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'toggle',
+                            child: ListTile(
+                              leading: Icon(
+                                assetClass.isActive
+                                    ? Icons.archive_outlined
+                                    : Icons.restore_rounded,
+                              ),
+                              title: Text(
+                                assetClass.isActive
+                                    ? 'Retire asset class'
+                                    : 'Restore asset class',
+                              ),
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                          if (onAddRoot != null)
+                            const PopupMenuItem(
+                              value: 'add',
+                              child: ListTile(
+                                leading: Icon(Icons.add_rounded),
+                                title: Text('Add root item'),
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                        ],
+                    icon: const Icon(Icons.more_vert_rounded),
+                  )
+                else ...[
+                  IconButton(
+                    tooltip: 'Edit asset class',
+                    onPressed: busy ? null : onEdit,
+                    icon: const Icon(Icons.edit_rounded),
+                  ),
+                  IconButton(
+                    tooltip:
+                        assetClass.isActive
+                            ? 'Retire asset class'
+                            : 'Restore asset class',
+                    onPressed: busy ? null : onToggleStatus,
+                    icon: Icon(
+                      assetClass.isActive
+                          ? Icons.archive_outlined
+                          : Icons.restore_rounded,
                     ),
-                    const SizedBox(width: 8),
-                    _StatusPill(active: assetClass.isActive),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${assetClass.code} · ${assetClass.majorArea} · v${assetClass.version}',
-                  style: const TextStyle(color: BafColors.textSecondary),
-                ),
-                if (assetClass.shortDescription != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    assetClass.shortDescription!,
-                    style: const TextStyle(color: BafColors.textSecondary),
+                  ),
+                  const SizedBox(width: 4),
+                  FilledButton.icon(
+                    onPressed: busy ? null : onAddRoot,
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Root item'),
                   ),
                 ],
               ],
             ),
-          ),
-          IconButton(
-            tooltip: 'Edit asset class',
-            onPressed: busy ? null : onEdit,
-            icon: const Icon(Icons.edit_rounded),
-          ),
-          IconButton(
-            tooltip:
-                assetClass.isActive
-                    ? 'Retire asset class'
-                    : 'Restore asset class',
-            onPressed: busy ? null : onToggleStatus,
-            icon: Icon(
-              assetClass.isActive
-                  ? Icons.archive_outlined
-                  : Icons.restore_rounded,
-            ),
-          ),
-          const SizedBox(width: 4),
-          FilledButton.icon(
-            onPressed: busy ? null : onAddRoot,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Root item'),
-          ),
-        ],
       ),
     );
   }
@@ -1791,33 +1888,58 @@ class _PhysicalAssetRegistryState
           children: [
             Padding(
               padding: const EdgeInsets.all(BafSpacing.md),
-              child: Row(
-                children: [
-                  Text(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final count = Text(
                     '${visible.length} physical assets',
                     style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       color: BafColors.textSecondary,
                     ),
-                  ),
-                  const Spacer(),
-                  FilterChip(
-                    selected: _showRetired,
-                    onSelected: (value) => setState(() => _showRetired = value),
-                    label: Text(
-                      'Retired ${assets.where((asset) => !asset.isActive).length}',
+                  );
+                  final controls = <Widget>[
+                    FilterChip(
+                      selected: _showRetired,
+                      onSelected:
+                          (value) => setState(() => _showRetired = value),
+                      label: Text(
+                        'Retired ${assets.where((asset) => !asset.isActive).length}',
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  FilledButton.icon(
-                    onPressed:
-                        _busy || !widget.assetClass.isActive
-                            ? null
-                            : _createAsset,
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Physical asset'),
-                  ),
-                ],
+                    FilledButton.icon(
+                      onPressed:
+                          _busy || !widget.assetClass.isActive
+                              ? null
+                              : _createAsset,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Physical asset'),
+                    ),
+                  ];
+                  if (constraints.maxWidth < 560) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        count,
+                        const SizedBox(height: BafSpacing.sm),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: BafSpacing.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: controls,
+                        ),
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      count,
+                      const Spacer(),
+                      controls.first,
+                      const SizedBox(width: 10),
+                      controls.last,
+                    ],
+                  );
+                },
               ),
             ),
             Expanded(
@@ -1918,6 +2040,9 @@ class _PhysicalAssetRegistryState
       onToggleAsset: () => _toggleAsset(asset),
       onAddComponent: () => _createComponent(asset),
       onEditComponent: _editComponent,
+      onReplaceComponent: (component) => _replaceComponent(asset, component),
+      onHistoryComponent:
+          (component) => _showComponentHistory(asset, component),
       onToggleComponent: _toggleComponent,
     );
   }
@@ -2095,6 +2220,61 @@ class _PhysicalAssetRegistryState
     );
   }
 
+  Future<void> _replaceComponent(
+    AssetInstanceRecord asset,
+    InstalledComponentRecord before,
+  ) async {
+    final nodes =
+        ref.read(assetHierarchyNodesProvider(before.assetClassId)).value ??
+        const <AssetHierarchyNode>[];
+    final definitions =
+        nodes.where((node) => node.id == before.definitionNodeId).toList();
+    if (definitions.length != 1 || !definitions.single.isActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'The governed component definition is unavailable. Restore or reconcile it before replacement.',
+          ),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
+    final result = await showDialog<_InstalledComponentDialogResult>(
+      context: context,
+      builder:
+          (_) => _InstalledComponentDialog(
+            replacementFor: before,
+            definitions: definitions,
+          ),
+    );
+    if (result == null) return;
+    await _runTagAware(
+      (reviewedOwnerComponentId) => _repository.replaceInstalledComponent(
+        asset: asset,
+        before: before,
+        replacement: result.draft,
+        actor: widget.actor,
+        reason: result.reason,
+        allowTagTransfer: reviewedOwnerComponentId != null,
+        expectedTagOwnerComponentId: reviewedOwnerComponentId,
+      ),
+      'Component replaced and lifecycle history recorded.',
+    );
+  }
+
+  Future<void> _showComponentHistory(
+    AssetInstanceRecord asset,
+    InstalledComponentRecord component,
+  ) => showDialog<void>(
+    context: context,
+    builder:
+        (_) => _InstalledComponentHistoryDialog(
+          asset: asset,
+          component: component,
+        ),
+  );
+
   Future<void> _toggleComponent(InstalledComponentRecord before) async {
     final reason = await _reasonDialog(
       context,
@@ -2134,6 +2314,8 @@ class _InstalledComponentList extends ConsumerWidget {
   final VoidCallback onToggleAsset;
   final VoidCallback onAddComponent;
   final ValueChanged<InstalledComponentRecord> onEditComponent;
+  final ValueChanged<InstalledComponentRecord> onReplaceComponent;
+  final ValueChanged<InstalledComponentRecord> onHistoryComponent;
   final ValueChanged<InstalledComponentRecord> onToggleComponent;
 
   const _InstalledComponentList({
@@ -2143,6 +2325,8 @@ class _InstalledComponentList extends ConsumerWidget {
     required this.onToggleAsset,
     required this.onAddComponent,
     required this.onEditComponent,
+    required this.onReplaceComponent,
+    required this.onHistoryComponent,
     required this.onToggleComponent,
   });
 
@@ -2154,63 +2338,130 @@ class _InstalledComponentList extends ConsumerWidget {
         Container(
           color: Colors.white,
           padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: LayoutBuilder(
+            builder:
+                (context, constraints) => Row(
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            asset.name,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                asset.name,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              _StatusPill(active: asset.isActive),
+                              _OwnershipPill(status: asset.ownershipStatus),
+                            ],
+                          ),
+                          Text(
+                            '#${asset.assetNumber} · ${asset.serviceState.label}'
+                            '${asset.location == null ? '' : ' · ${asset.location}'}',
                             style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
+                              color: BafColors.textSecondary,
                             ),
                           ),
+                        ],
+                      ),
+                    ),
+                    if (constraints.maxWidth < 560)
+                      PopupMenuButton<String>(
+                        tooltip: 'Physical asset actions',
+                        enabled: !busy,
+                        onSelected: (action) {
+                          switch (action) {
+                            case 'edit':
+                              onEditAsset();
+                              break;
+                            case 'toggle':
+                              onToggleAsset();
+                              break;
+                            case 'add':
+                              onAddComponent();
+                              break;
+                          }
+                        },
+                        itemBuilder:
+                            (_) => [
+                              if (asset.isActive)
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: ListTile(
+                                    leading: Icon(Icons.edit_rounded),
+                                    title: Text('Edit physical asset'),
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                              if (!asset.isActive ||
+                                  asset.activeComponentCount == 0)
+                                PopupMenuItem(
+                                  value: 'toggle',
+                                  child: ListTile(
+                                    leading: Icon(
+                                      asset.isActive
+                                          ? Icons.archive_outlined
+                                          : Icons.restore_rounded,
+                                    ),
+                                    title: Text(
+                                      asset.isActive
+                                          ? 'Retire physical asset'
+                                          : 'Restore physical asset',
+                                    ),
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                              if (asset.isActive)
+                                const PopupMenuItem(
+                                  value: 'add',
+                                  child: ListTile(
+                                    leading: Icon(Icons.add_rounded),
+                                    title: Text('Add installed component'),
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                            ],
+                        icon: const Icon(Icons.more_vert_rounded),
+                      )
+                    else ...[
+                      IconButton(
+                        tooltip: 'Edit physical asset',
+                        onPressed: busy || !asset.isActive ? null : onEditAsset,
+                        icon: const Icon(Icons.edit_rounded),
+                      ),
+                      IconButton(
+                        tooltip:
+                            asset.isActive
+                                ? 'Retire physical asset'
+                                : 'Restore physical asset',
+                        onPressed:
+                            busy ||
+                                    (asset.isActive &&
+                                        asset.activeComponentCount > 0)
+                                ? null
+                                : onToggleAsset,
+                        icon: Icon(
+                          asset.isActive
+                              ? Icons.archive_outlined
+                              : Icons.restore_rounded,
                         ),
-                        const SizedBox(width: 8),
-                        _StatusPill(active: asset.isActive),
-                        const SizedBox(width: 8),
-                        _OwnershipPill(status: asset.ownershipStatus),
-                      ],
-                    ),
-                    Text(
-                      '#${asset.assetNumber} · ${asset.serviceState.label}'
-                      '${asset.location == null ? '' : ' · ${asset.location}'}',
-                      style: const TextStyle(color: BafColors.textSecondary),
-                    ),
+                      ),
+                      FilledButton.icon(
+                        onPressed:
+                            busy || !asset.isActive ? null : onAddComponent,
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Installed component'),
+                      ),
+                    ],
                   ],
                 ),
-              ),
-              IconButton(
-                tooltip: 'Edit physical asset',
-                onPressed: busy || !asset.isActive ? null : onEditAsset,
-                icon: const Icon(Icons.edit_rounded),
-              ),
-              IconButton(
-                tooltip:
-                    asset.isActive
-                        ? 'Retire physical asset'
-                        : 'Restore physical asset',
-                onPressed:
-                    busy || (asset.isActive && asset.activeComponentCount > 0)
-                        ? null
-                        : onToggleAsset,
-                icon: Icon(
-                  asset.isActive
-                      ? Icons.archive_outlined
-                      : Icons.restore_rounded,
-                ),
-              ),
-              FilledButton.icon(
-                onPressed: busy || !asset.isActive ? null : onAddComponent,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Installed component'),
-              ),
-            ],
           ),
         ),
         Expanded(
@@ -2266,26 +2517,27 @@ class _InstalledComponentList extends ConsumerWidget {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Row(
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 6,
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
                                           children: [
-                                            Flexible(
-                                              child: Text(
-                                                component.definitionName,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w900,
-                                                ),
+                                            Text(
+                                              component.definitionName,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w900,
                                               ),
                                             ),
-                                            if (component.componentTag !=
-                                                null) ...[
-                                              const SizedBox(width: 8),
+                                            if (component.componentTag != null)
                                               _TagPill(
                                                 label: component.componentTag!,
                                               ),
-                                            ],
-                                            const SizedBox(width: 8),
                                             _OwnershipPill(
                                               status: component.ownershipStatus,
+                                            ),
+                                            _StatusPill(
+                                              active: component.isActive,
                                             ),
                                           ],
                                         ),
@@ -2301,29 +2553,84 @@ class _InstalledComponentList extends ConsumerWidget {
                                       ],
                                     ),
                                   ),
-                                  IconButton(
-                                    tooltip: 'Edit installed component',
-                                    onPressed:
-                                        busy || !component.isActive
-                                            ? null
-                                            : () => onEditComponent(component),
-                                    icon: const Icon(Icons.edit_rounded),
-                                  ),
-                                  IconButton(
-                                    tooltip:
-                                        component.isActive
-                                            ? 'Retire installed component'
-                                            : 'Restore installed component',
-                                    onPressed:
-                                        busy
-                                            ? null
-                                            : () =>
-                                                onToggleComponent(component),
-                                    icon: Icon(
-                                      component.isActive
-                                          ? Icons.archive_outlined
-                                          : Icons.restore_rounded,
-                                    ),
+                                  PopupMenuButton<_ComponentAction>(
+                                    tooltip: 'Component actions',
+                                    enabled: !busy,
+                                    onSelected: (action) {
+                                      switch (action) {
+                                        case _ComponentAction.edit:
+                                          onEditComponent(component);
+                                          break;
+                                        case _ComponentAction.replace:
+                                          onReplaceComponent(component);
+                                          break;
+                                        case _ComponentAction.history:
+                                          onHistoryComponent(component);
+                                          break;
+                                        case _ComponentAction.toggleStatus:
+                                          onToggleComponent(component);
+                                          break;
+                                      }
+                                    },
+                                    itemBuilder:
+                                        (
+                                          _,
+                                        ) => <PopupMenuEntry<_ComponentAction>>[
+                                          if (component.isActive)
+                                            const PopupMenuItem(
+                                              value: _ComponentAction.edit,
+                                              child: ListTile(
+                                                leading: Icon(
+                                                  Icons.edit_rounded,
+                                                ),
+                                                title: Text('Edit details'),
+                                                contentPadding: EdgeInsets.zero,
+                                              ),
+                                            ),
+                                          if (component.isActive)
+                                            const PopupMenuItem(
+                                              value: _ComponentAction.replace,
+                                              child: ListTile(
+                                                leading: Icon(
+                                                  Icons.swap_horiz_rounded,
+                                                ),
+                                                title: Text(
+                                                  'Replace component',
+                                                ),
+                                                contentPadding: EdgeInsets.zero,
+                                              ),
+                                            ),
+                                          const PopupMenuItem(
+                                            value: _ComponentAction.history,
+                                            child: ListTile(
+                                              leading: Icon(
+                                                Icons.history_rounded,
+                                              ),
+                                              title: Text('Lifecycle history'),
+                                              contentPadding: EdgeInsets.zero,
+                                            ),
+                                          ),
+                                          if (component.isActive ||
+                                              !component.isReplacementTerminal)
+                                            PopupMenuItem(
+                                              value:
+                                                  _ComponentAction.toggleStatus,
+                                              child: ListTile(
+                                                leading: Icon(
+                                                  component.isActive
+                                                      ? Icons.archive_outlined
+                                                      : Icons.restore_rounded,
+                                                ),
+                                                title: Text(
+                                                  component.isActive
+                                                      ? 'Retire component'
+                                                      : 'Restore component',
+                                                ),
+                                                contentPadding: EdgeInsets.zero,
+                                              ),
+                                            ),
+                                        ],
+                                    icon: const Icon(Icons.more_vert_rounded),
                                   ),
                                 ],
                               ),
@@ -2336,6 +2643,159 @@ class _InstalledComponentList extends ConsumerWidget {
     );
   }
 }
+
+enum _ComponentAction { edit, replace, history, toggleStatus }
+
+class _InstalledComponentHistoryDialog extends ConsumerWidget {
+  final AssetInstanceRecord asset;
+  final InstalledComponentRecord component;
+
+  const _InstalledComponentHistoryDialog({
+    required this.asset,
+    required this.component,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final audits = ref.watch(installedComponentHistoryProvider(asset.id));
+    final components = ref.watch(installedComponentsProvider(asset.id));
+    return AlertDialog(
+      title: const Text('Component lifecycle history'),
+      content: SizedBox(
+        width: 680,
+        height: 520,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              component.definitionName,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${asset.name}${component.componentTag == null ? '' : ' · ${component.componentTag}'}',
+              style: const TextStyle(color: BafColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: components.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error:
+                    (error, _) => _LoadFailure(
+                      message: 'Component lineage could not be loaded: $error',
+                      onRetry:
+                          () => ref.invalidate(
+                            installedComponentsProvider(asset.id),
+                          ),
+                    ),
+                data: (componentRecords) {
+                  final memberIds =
+                      componentRecords
+                          .where(
+                            (record) =>
+                                record.lifecycleId == component.lifecycleId,
+                          )
+                          .map((record) => record.id)
+                          .toSet()
+                        ..add(component.id);
+                  return audits.when(
+                    loading:
+                        () => const Center(child: CircularProgressIndicator()),
+                    error:
+                        (error, _) => _LoadFailure(
+                          message:
+                              'Lifecycle history could not be loaded: $error',
+                          onRetry:
+                              () => ref.invalidate(
+                                installedComponentHistoryProvider(asset.id),
+                              ),
+                        ),
+                    data: (records) {
+                      final history =
+                          records
+                              .where(
+                                (record) =>
+                                    record.componentLineageId ==
+                                        component.lifecycleId ||
+                                    memberIds.contains(record.entityId) ||
+                                    (record.relatedEntityId != null &&
+                                        memberIds.contains(
+                                          record.relatedEntityId,
+                                        )),
+                              )
+                              .toList();
+                      if (history.isEmpty) {
+                        return const _EmptyHierarchy(
+                          icon: Icons.history_rounded,
+                          title: 'No lifecycle entries',
+                          message:
+                              'Create, edit, replacement and retirement evidence will appear here.',
+                        );
+                      }
+                      final date = DateFormat('dd MMM yyyy, HH:mm');
+                      return ListView.separated(
+                        itemCount: history.length,
+                        separatorBuilder: (_, __) => const Divider(height: 24),
+                        itemBuilder: (context, index) {
+                          final entry = history[index];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              backgroundColor: BafColors.assets.withValues(
+                                alpha: 0.12,
+                              ),
+                              foregroundColor: BafColors.assets,
+                              child: Icon(_componentAuditIcon(entry.action)),
+                            ),
+                            title: Text(
+                              _componentAuditLabel(entry.action),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${entry.reason}\n${date.format(entry.performedAt.toLocal())} · ${entry.performedByName}',
+                            ),
+                            isThreeLine: true,
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Done'),
+        ),
+      ],
+    );
+  }
+}
+
+String _componentAuditLabel(String action) => switch (action) {
+  'create' => 'Installed',
+  'update' => 'Details revised',
+  'retired' => 'Retired',
+  'active' => 'Restored',
+  'replacement_installed' => 'Replacement installed',
+  'replaced' => 'Replaced and retired',
+  'tag_transferred_out' => 'Tag transferred out',
+  _ => action.replaceAll('_', ' '),
+};
+
+IconData _componentAuditIcon(String action) => switch (action) {
+  'create' || 'replacement_installed' => Icons.add_circle_outline_rounded,
+  'replaced' || 'retired' => Icons.archive_outlined,
+  'active' => Icons.restore_rounded,
+  'tag_transferred_out' => Icons.sell_outlined,
+  _ => Icons.edit_note_rounded,
+};
 
 class _AssetInstanceDialogResult {
   final AssetInstanceDraft draft;
@@ -2472,38 +2932,52 @@ class _AssetInstanceDialogState extends State<_AssetInstanceDialog> {
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final fields = <Widget>[
+                    TextFormField(
                       controller: _manufacturer,
                       decoration: const InputDecoration(
                         labelText: 'Manufacturer',
                         border: OutlineInputBorder(),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
+                    TextFormField(
                       controller: _model,
                       decoration: const InputDecoration(
                         labelText: 'Model / type',
                         border: OutlineInputBorder(),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
+                    TextFormField(
                       controller: _serial,
                       decoration: const InputDecoration(
                         labelText: 'Serial number',
                         border: OutlineInputBorder(),
                       ),
                     ),
-                  ),
-                ],
+                  ];
+                  if (constraints.maxWidth < 620) {
+                    return Column(
+                      children: [
+                        for (var index = 0; index < fields.length; index++) ...[
+                          fields[index],
+                          if (index < fields.length - 1)
+                            const SizedBox(height: 10),
+                        ],
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      for (var index = 0; index < fields.length; index++) ...[
+                        Expanded(child: fields[index]),
+                        if (index < fields.length - 1)
+                          const SizedBox(width: 12),
+                      ],
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 12),
               _OwnershipEditor(
@@ -2585,9 +3059,14 @@ class _InstalledComponentDialogResult {
 
 class _InstalledComponentDialog extends StatefulWidget {
   final InstalledComponentRecord? existing;
+  final InstalledComponentRecord? replacementFor;
   final List<AssetHierarchyNode> definitions;
 
-  const _InstalledComponentDialog({this.existing, required this.definitions});
+  const _InstalledComponentDialog({
+    this.existing,
+    this.replacementFor,
+    required this.definitions,
+  }) : assert(existing == null || replacementFor == null);
 
   @override
   State<_InstalledComponentDialog> createState() =>
@@ -2606,20 +3085,27 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
   late AssetServiceState _serviceState;
   late AssetOwnershipStatus _ownership;
   late Set<AppRole> _roles;
+  late DateTime? _installedOn;
+
+  bool get _isReplacement => widget.replacementFor != null;
 
   @override
   void initState() {
     super.initState();
-    final value = widget.existing;
+    final value = widget.replacementFor ?? widget.existing;
     _definitionId = value?.definitionNodeId;
     _tag = TextEditingController(text: value?.componentTag);
     _manufacturer = TextEditingController(text: value?.manufacturer);
     _model = TextEditingController(text: value?.model);
-    _serial = TextEditingController(text: value?.serialNumber);
+    _serial = TextEditingController(
+      text: _isReplacement ? null : value?.serialNumber,
+    );
     _owner = TextEditingController(text: value?.ownerDiscipline);
     _serviceState = value?.serviceState ?? AssetServiceState.inService;
     _ownership = value?.ownershipStatus ?? AssetOwnershipStatus.unassigned;
     _roles = _rolesFromKeys(value?.accountableRoleKeys ?? const <String>[]);
+    _installedOn =
+        _isReplacement ? DateTime.now() : widget.existing?.installedOn;
   }
 
   @override
@@ -2640,7 +3126,9 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: Text(
-      widget.existing == null
+      _isReplacement
+          ? 'Replace installed component'
+          : widget.existing == null
           ? 'Add installed component'
           : 'Edit installed component',
     ),
@@ -2651,6 +3139,23 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
         child: SingleChildScrollView(
           child: Column(
             children: [
+              if (_isReplacement) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: BafColors.assets.withValues(alpha: 0.08),
+                    border: Border.all(
+                      color: BafColors.assets.withValues(alpha: 0.28),
+                    ),
+                    borderRadius: BorderRadius.circular(BafRadius.small),
+                  ),
+                  child: const Text(
+                    'The current identity will be retired and the new identity installed in one governed change. Historical work remains linked.',
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               DropdownButtonFormField<String>(
                 initialValue: _definitionId,
                 decoration: const InputDecoration(
@@ -2670,7 +3175,10 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
                           ),
                         )
                         .toList(),
-                onChanged: (value) => setState(() => _definitionId = value),
+                onChanged:
+                    _isReplacement
+                        ? null
+                        : (value) => setState(() => _definitionId = value),
                 validator: (value) => value == null ? 'Required' : null,
               ),
               const SizedBox(height: 12),
@@ -2681,6 +3189,44 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
                   labelText: 'Physical component tag',
                   hintText: 'Must be unique across active installed components',
                   border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              InputDecorator(
+                decoration: InputDecoration(
+                  labelText:
+                      _isReplacement
+                          ? 'Replacement installed on'
+                          : 'Installed on',
+                  border: const OutlineInputBorder(),
+                  errorText:
+                      _isReplacement && _installedOn == null
+                          ? 'Required for replacement'
+                          : null,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _installedOn == null
+                            ? 'Not recorded'
+                            : DateFormat(
+                              'dd MMM yyyy, HH:mm',
+                            ).format(_installedOn!.toLocal()),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Select installation date and time',
+                      onPressed: _pickInstalledOn,
+                      icon: const Icon(Icons.event_rounded),
+                    ),
+                    if (_installedOn != null && !_isReplacement)
+                      IconButton(
+                        tooltip: 'Clear installation date',
+                        onPressed: () => setState(() => _installedOn = null),
+                        icon: const Icon(Icons.clear_rounded),
+                      ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
@@ -2751,13 +3297,23 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
       ),
       FilledButton(
         onPressed: _submit,
-        child: Text(widget.existing == null ? 'Add' : 'Save'),
+        child: Text(
+          _isReplacement
+              ? 'Replace'
+              : widget.existing == null
+              ? 'Add'
+              : 'Save',
+        ),
       ),
     ],
   );
 
   void _submit() {
     if (!_key.currentState!.validate()) return;
+    if (_isReplacement && _installedOn == null) {
+      setState(() {});
+      return;
+    }
     final draft =
         InstalledComponentDraft(
           definitionNodeId: _definitionId!,
@@ -2765,6 +3321,7 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
           manufacturer: _manufacturer.text,
           model: _model.text,
           serialNumber: _serial.text,
+          installedOn: _installedOn,
           serviceState: _serviceState,
           ownershipStatus: _ownership,
           ownerDiscipline: _owner.text,
@@ -2783,6 +3340,32 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
     Navigator.pop(
       context,
       _InstalledComponentDialogResult(draft, _reason.text.trim()),
+    );
+  }
+
+  Future<void> _pickInstalledOn() async {
+    final initial = _installedOn?.toLocal() ?? DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      firstDate: DateTime(1980),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      initialDate: initial,
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (time == null || !mounted) return;
+    setState(
+      () =>
+          _installedOn = DateTime(
+            date.year,
+            date.month,
+            date.day,
+            time.hour,
+            time.minute,
+          ),
     );
   }
 }
@@ -2807,88 +3390,90 @@ class _OwnershipEditor extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Row(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final serviceField = DropdownButtonFormField<AssetServiceState>(
+        initialValue: serviceState,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Service state',
+          border: OutlineInputBorder(),
+        ),
+        items:
+            AssetServiceState.values
+                .map(
+                  (value) =>
+                      DropdownMenuItem(value: value, child: Text(value.label)),
+                )
+                .toList(),
+        onChanged: (value) {
+          if (value != null) onServiceChanged(value);
+        },
+      );
+      final ownershipField = DropdownButtonFormField<AssetOwnershipStatus>(
+        initialValue: ownershipStatus,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Ownership status',
+          border: OutlineInputBorder(),
+        ),
+        items:
+            AssetOwnershipStatus.values
+                .map(
+                  (value) =>
+                      DropdownMenuItem(value: value, child: Text(value.label)),
+                )
+                .toList(),
+        onChanged: (value) {
+          if (value != null) onOwnershipChanged(value);
+        },
+      );
+      final disciplineField = TextFormField(
+        controller: ownerController,
+        decoration: const InputDecoration(
+          labelText: 'Owning discipline',
+          border: OutlineInputBorder(),
+        ),
+      );
+      final fields = <Widget>[serviceField, ownershipField, disciplineField];
+      return Column(
         children: [
-          Expanded(
-            child: DropdownButtonFormField<AssetServiceState>(
-              initialValue: serviceState,
-              decoration: const InputDecoration(
-                labelText: 'Service state',
-                border: OutlineInputBorder(),
-              ),
-              items:
-                  AssetServiceState.values
+          if (constraints.maxWidth < 620)
+            ...fields.expand((field) => [field, const SizedBox(height: 10)])
+          else
+            Row(
+              children: [
+                for (var index = 0; index < fields.length; index++) ...[
+                  Expanded(child: fields[index]),
+                  if (index < fields.length - 1) const SizedBox(width: 12),
+                ],
+              ],
+            ),
+          if (constraints.maxWidth >= 620) const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children:
+                  AppRole.values
                       .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text(value.label),
+                        (role) => FilterChip(
+                          label: Text(_assetOwnerRoleLabel(role)),
+                          selected: roles.contains(role),
+                          onSelected: (selected) {
+                            final next = Set<AppRole>.from(roles);
+                            selected ? next.add(role) : next.remove(role);
+                            onRolesChanged(next);
+                          },
                         ),
                       )
                       .toList(),
-              onChanged: (value) {
-                if (value != null) onServiceChanged(value);
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: DropdownButtonFormField<AssetOwnershipStatus>(
-              initialValue: ownershipStatus,
-              decoration: const InputDecoration(
-                labelText: 'Ownership status',
-                border: OutlineInputBorder(),
-              ),
-              items:
-                  AssetOwnershipStatus.values
-                      .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text(value.label),
-                        ),
-                      )
-                      .toList(),
-              onChanged: (value) {
-                if (value != null) onOwnershipChanged(value);
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextFormField(
-              controller: ownerController,
-              decoration: const InputDecoration(
-                labelText: 'Owning discipline',
-                border: OutlineInputBorder(),
-              ),
             ),
           ),
         ],
-      ),
-      const SizedBox(height: 10),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: Wrap(
-          spacing: 7,
-          runSpacing: 7,
-          children:
-              AppRole.values
-                  .map(
-                    (role) => FilterChip(
-                      label: Text(_assetOwnerRoleLabel(role)),
-                      selected: roles.contains(role),
-                      onSelected: (selected) {
-                        final next = Set<AppRole>.from(roles);
-                        selected ? next.add(role) : next.remove(role);
-                        onRolesChanged(next);
-                      },
-                    ),
-                  )
-                  .toList(),
-        ),
-      ),
-    ],
+      );
+    },
   );
 }
 

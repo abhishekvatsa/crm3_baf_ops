@@ -26,6 +26,7 @@ type RegistryOperation =
   | "SET_ASSET_INSTANCE_STATUS"
   | "CREATE_COMPONENT_INSTANCE"
   | "UPDATE_COMPONENT_INSTANCE"
+  | "REPLACE_COMPONENT_INSTANCE"
   | "SET_COMPONENT_INSTANCE_STATUS";
 
 interface AssetDraft {
@@ -63,6 +64,7 @@ interface RegistryRequest {
   assetClassId: string;
   assetInstanceId: string;
   componentInstanceId: string | null;
+  replacementComponentInstanceId: string | null;
   expectedVersion: number | null;
   expectedAssetClassVersion: number | null;
   expectedAssetInstanceVersion: number | null;
@@ -90,7 +92,8 @@ export interface AssetRegistryMutationResult {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const OPERATIONS = new Set<RegistryOperation>([
   "CREATE_ASSET_INSTANCE", "UPDATE_ASSET_INSTANCE", "SET_ASSET_INSTANCE_STATUS",
-  "CREATE_COMPONENT_INSTANCE", "UPDATE_COMPONENT_INSTANCE", "SET_COMPONENT_INSTANCE_STATUS",
+  "CREATE_COMPONENT_INSTANCE", "UPDATE_COMPONENT_INSTANCE", "REPLACE_COMPONENT_INSTANCE",
+  "SET_COMPONENT_INSTANCE_STATUS",
 ]);
 const SERVICE_STATES = new Set(["inService", "standby", "outOfService"]);
 const OWNERSHIP = new Set(["unassigned", "provisional", "confirmed"]);
@@ -278,7 +281,8 @@ function parseComponentDraft(value: unknown): ComponentDraft {
 export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest {
   const allowed = new Set([
     "requestId", "operation", "assetClassId", "assetInstanceId",
-    "componentInstanceId", "expectedVersion", "expectedAssetClassVersion",
+    "componentInstanceId", "replacementComponentInstanceId", "expectedVersion",
+    "expectedAssetClassVersion",
     "expectedAssetInstanceVersion", "status", "reason", "allowTagTransfer",
     "expectedTagOwnerComponentId", "assetDraft", "componentDraft",
   ]);
@@ -294,6 +298,8 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
     assetInstanceId: documentId(raw.assetInstanceId, "assetInstanceId"),
     componentInstanceId: raw.componentInstanceId == null ? null :
       documentId(raw.componentInstanceId, "componentInstanceId"),
+    replacementComponentInstanceId: raw.replacementComponentInstanceId == null ? null :
+      documentId(raw.replacementComponentInstanceId, "replacementComponentInstanceId"),
     expectedVersion: optionalVersion(raw.expectedVersion, "expectedVersion"),
     expectedAssetClassVersion: optionalVersion(
       raw.expectedAssetClassVersion, "expectedAssetClassVersion",
@@ -325,15 +331,29 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
   if ((request.componentInstanceId != null) !== componentOperation) {
     invalid("componentInstanceId", componentOperation ? "is required" : "is not allowed");
   }
+  const replacementOperation = operation === "REPLACE_COMPONENT_INSTANCE";
+  if ((request.replacementComponentInstanceId != null) !== replacementOperation) {
+    invalid(
+      "replacementComponentInstanceId",
+      replacementOperation ? "is required" : "is not allowed",
+    );
+  }
+  if (replacementOperation &&
+      request.replacementComponentInstanceId === request.componentInstanceId) {
+    invalid("replacementComponentInstanceId", "must differ from componentInstanceId");
+  }
   const assetDraftOperation = operation === "CREATE_ASSET_INSTANCE" ||
     operation === "UPDATE_ASSET_INSTANCE";
   const componentDraftOperation = operation === "CREATE_COMPONENT_INSTANCE" ||
-    operation === "UPDATE_COMPONENT_INSTANCE";
+    operation === "UPDATE_COMPONENT_INSTANCE" || replacementOperation;
   if ((request.assetDraft != null) !== assetDraftOperation) {
     invalid("assetDraft", assetDraftOperation ? "is required" : "is not allowed");
   }
   if ((request.componentDraft != null) !== componentDraftOperation) {
     invalid("componentDraft", componentDraftOperation ? "is required" : "is not allowed");
+  }
+  if (replacementOperation && request.componentDraft?.installedOn == null) {
+    invalid("componentDraft.installedOn", "is required for component replacement");
   }
   const statusOperation = operation.startsWith("SET_");
   if ((request.status != null) !== statusOperation ||
@@ -344,8 +364,14 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
       (componentOperation && !UUID.test(request.componentInstanceId!)))) {
     invalid("identity", "must be a canonical UUID for creation");
   }
-  const fingerprint = `assetreg1-sha256:${createHash("sha256")
-    .update(stableJson(request), "utf8").digest("hex")}`;
+  if (replacementOperation && !UUID.test(request.replacementComponentInstanceId!)) {
+    invalid("replacementComponentInstanceId", "must be a canonical UUID");
+  }
+  const {replacementComponentInstanceId, ...legacyRequest} = request;
+  const fingerprintPayload = replacementOperation ? request : legacyRequest;
+  const fingerprintVersion = replacementOperation ? "assetreg2" : "assetreg1";
+  const fingerprint = `${fingerprintVersion}-sha256:${createHash("sha256")
+    .update(stableJson(fingerprintPayload), "utf8").digest("hex")}`;
   return {...request, fingerprint};
 }
 
@@ -398,6 +424,23 @@ function currentTag(data: JsonMap | null): string | null {
     data.normalizedComponentTag.length > 0 ? data.normalizedComponentTag : null;
 }
 
+function resultEntityId(request: RegistryRequest): string {
+  return request.replacementComponentInstanceId ??
+    request.componentInstanceId ?? request.assetInstanceId;
+}
+
+function componentLineageId(data: JsonMap | null, fallbackId: string): string {
+  const value = data?.componentLineageId;
+  if (value == null) return fallbackId;
+  if (typeof value !== "string" || value.length === 0 || value.includes("/")) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition", "The installed component has malformed lifecycle lineage.",
+      {reasonCode: "asset-component-lineage-malformed"},
+    );
+  }
+  return value;
+}
+
 function timestampOrNull(date: Date | null, convert: (date: Date) => unknown): unknown {
   return date == null ? null : convert(date);
 }
@@ -407,11 +450,15 @@ function replayResult(
   actorUid: string,
   data: JsonMap,
 ): AssetRegistryMutationResult {
-  const entityId = request.componentInstanceId ?? request.assetInstanceId;
+  const entityId = resultEntityId(request);
+  const sourceEntityId = request.operation === "REPLACE_COMPONENT_INSTANCE" ?
+    request.componentInstanceId : null;
   if (data.actorUid !== actorUid || data.fingerprint !== request.fingerprint ||
       data.operation !== request.operation || data.entityId !== entityId ||
       !Number.isSafeInteger(data.version) || typeof data.auditId !== "string" ||
-      typeof data.committedAtIso !== "string") {
+      typeof data.committedAtIso !== "string" ||
+      (sourceEntityId != null &&
+       (data.sourceEntityId !== sourceEntityId || !Number.isSafeInteger(data.sourceVersion)))) {
     throw new AssetHierarchyMutationError(
       "data-loss", "The asset-registry receipt is malformed or mismatched.",
       {reasonCode: "asset-registry-receipt-mismatch"},
@@ -459,10 +506,13 @@ export async function mutateAssetRegistryWithDb(args: {
   const operationalConditionRef = operationalConditions.doc(request.assetInstanceId);
   const componentRef = request.componentInstanceId == null ? null :
     components.doc(request.componentInstanceId);
-  const entityRef = componentRef ?? assetRef;
+  const replacementComponentRef = request.replacementComponentInstanceId == null ? null :
+    components.doc(request.replacementComponentInstanceId);
+  const entityRef = replacementComponentRef ?? componentRef ?? assetRef;
   const receiptRef = receipts.doc(request.requestId);
   const auditId = `asset_registry_${request.requestId}`;
   const auditRef = audits.doc(auditId);
+  const replacementSourceAuditRef = audits.doc(`${auditId}_replacement_source`);
 
   const preflight = record(await actorRef.get(), "Registry actor");
   const preflightAuthority = canonicalApprovedUserAuthority(preflight);
@@ -505,6 +555,30 @@ export async function mutateAssetRegistryWithDb(args: {
           {reasonCode: "asset-registry-replay-evidence-drift"},
         );
       }
+      if (request.operation === "REPLACE_COMPONENT_INSTANCE") {
+        const source = record(
+          asSnapshot(await transaction.get(componentRef!), "Registry replacement source lookup"),
+          "Recorded replacement source",
+        );
+        const sourceAudit = record(
+          asSnapshot(
+            await transaction.get(replacementSourceAuditRef),
+            "Registry replacement-source audit lookup",
+          ),
+          "Recorded replacement-source audit",
+        );
+        if (source.version !== receiptSnapshot.data()?.sourceVersion ||
+            source.lastMutationId !== request.requestId || source.status !== "retired" ||
+            source.replacedByComponentInstanceId !== request.replacementComponentInstanceId ||
+            sourceAudit.requestId !== request.requestId ||
+            sourceAudit.entityId !== request.componentInstanceId ||
+            sourceAudit.performedByUid !== actorUid) {
+          throw new AssetHierarchyMutationError(
+            "data-loss", "The replacement receipt no longer matches its source evidence.",
+            {reasonCode: "asset-registry-replay-evidence-drift"},
+          );
+        }
+      }
       return replay;
     }
 
@@ -521,6 +595,18 @@ export async function mutateAssetRegistryWithDb(args: {
     );
     const componentData = componentSnapshot?.exists === true ?
       componentSnapshot.data() ?? {} : null;
+    const replacementComponentSnapshot = replacementComponentRef == null ? null : asSnapshot(
+      await transaction.get(replacementComponentRef), "Replacement component lookup",
+    );
+    if (request.operation === "SET_COMPONENT_INSTANCE_STATUS" &&
+        request.status === "active" &&
+        componentData?.replacedByComponentInstanceId != null) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "A replaced component is a terminal historical identity and cannot be restored.",
+        {reasonCode: "asset-component-replaced-terminal"},
+      );
+    }
 
     const componentDraft = request.componentDraft ?? (componentData == null ? null : {
       definitionNodeId: componentData.definitionNodeId as string,
@@ -553,6 +639,7 @@ export async function mutateAssetRegistryWithDb(args: {
     );
 
     const desiredTag = componentDraft?.normalizedComponentTag ?? null;
+    const oldTag = currentTag(componentData);
     const desiredClaimRef = desiredTag == null ? null : tagClaims.doc(tagClaimId(desiredTag));
     const desiredClaim = desiredClaimRef == null ? null : asSnapshot(
       await transaction.get(desiredClaimRef), "Installed-component tag claim lookup",
@@ -583,6 +670,13 @@ export async function mutateAssetRegistryWithDb(args: {
             existingOwnerKind: "legacy_definition",
             transferSupported: false,
           },
+        );
+      }
+      if (componentData?.status === "active" && oldTag === desiredTag &&
+          ownerId !== request.componentInstanceId) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition", "The installed component's current tag claim is inconsistent.",
+          {reasonCode: "asset-tag-claim-owner-drift", normalizedTag: desiredTag},
         );
       }
       if (ownerId !== request.componentInstanceId) {
@@ -650,7 +744,6 @@ export async function mutateAssetRegistryWithDb(args: {
         );
       }
     }
-    const oldTag = currentTag(componentData);
     const oldClaimRef = oldTag == null ? null : tagClaims.doc(tagClaimId(oldTag));
     const oldClaim = oldClaimRef != null && oldTag !== desiredTag ? asSnapshot(
       await transaction.get(oldClaimRef), "Previous installed tag claim lookup",
@@ -684,10 +777,13 @@ export async function mutateAssetRegistryWithDb(args: {
     const actorName = typeof actor.name === "string" && actor.name.trim().length > 0 ?
       actor.name.trim() : actorUid;
     let before: JsonMap | null = null;
-    let after: JsonMap;
+    let after: JsonMap | null = null;
     let nextVersion: number;
+    let sourceVersion: number | null = null;
     let action: string;
     let entityType: string;
+    let wasActive = false;
+    let willBeActive = false;
 
     if (request.operation.includes("ASSET_INSTANCE") &&
         !request.operation.includes("COMPONENT_INSTANCE")) {
@@ -825,8 +921,120 @@ export async function mutateAssetRegistryWithDb(args: {
           "failed-precondition", "The component definition must be active in the asset's class.",
         );
       }
+      if (componentData != null &&
+          (componentData.assetInstanceId !== request.assetInstanceId ||
+           componentData.assetClassId !== request.assetClassId)) {
+        throw new AssetHierarchyMutationError(
+          "failed-precondition", "The installed component does not belong to the selected asset.",
+          {reasonCode: "asset-component-owner-mismatch"},
+        );
+      }
       entityType = "installed_component";
-      if (request.operation === "CREATE_COMPONENT_INSTANCE") {
+      const lineageId = componentLineageId(componentData, request.componentInstanceId!);
+      if (request.operation === "REPLACE_COMPONENT_INSTANCE") {
+        if (replacementComponentSnapshot?.exists === true) {
+          throw new AssetHierarchyMutationError(
+            "already-exists", "The replacement component identity already exists.",
+          );
+        }
+        if (componentData == null || componentData.status !== "active") {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition", "Only an active installed component can be replaced.",
+          );
+        }
+        if (componentDraft!.definitionNodeId !== componentData.definitionNodeId) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition",
+            "A replacement must use the same governed component definition.",
+            {reasonCode: "asset-component-replacement-definition-mismatch"},
+          );
+        }
+        const currentComponentVersion = version(
+          componentData, request.expectedVersion, "Installed component",
+        );
+        const currentAssetVersion = version(
+          assetData, request.expectedAssetInstanceVersion, "Asset instance",
+        );
+        const activeCount = assetData.activeComponentCount;
+        if (!Number.isSafeInteger(activeCount) || (activeCount as number) < 1) {
+          throw new AssetHierarchyMutationError(
+            "failed-precondition", "The asset's installed-component count is invalid.",
+            {reasonCode: "asset-component-count-invalid"},
+          );
+        }
+        sourceVersion = currentComponentVersion + 1;
+        const sourceAfter = {
+          ...componentData,
+          componentLineageId: lineageId,
+          status: "retired",
+          replacedByComponentInstanceId: request.replacementComponentInstanceId,
+          version: sourceVersion,
+          updatedAt: committedAt,
+          updatedByUid: actorUid,
+          updatedByName: actorName,
+          lastMutationId: request.requestId,
+        };
+        nextVersion = 1;
+        action = "replacement_installed";
+        after = {
+          schemaVersion: 1,
+          componentInstanceId: request.replacementComponentInstanceId,
+          componentLineageId: lineageId,
+          replacesComponentInstanceId: request.componentInstanceId,
+          assetInstanceId: request.assetInstanceId,
+          assetInstanceVersionAtMutation: currentAssetVersion,
+          assetNumber: assetData.assetNumber,
+          assetInstanceName: assetData.name,
+          assetClassId: request.assetClassId,
+          assetClassCode: classData.code,
+          assetClassName: classData.name,
+          ...componentDraft!,
+          definitionNodeVersion: definitionData!.version,
+          definitionName: definitionData.name,
+          hierarchyPath: definitionData.hierarchyPath,
+          installedOn: timestampOrNull(componentDraft!.installedOn, toTimestamp),
+          status: "active",
+          version: nextVersion,
+          createdAt: committedAt,
+          createdByUid: actorUid,
+          createdByName: actorName,
+          updatedAt: committedAt,
+          updatedByUid: actorUid,
+          updatedByName: actorName,
+          lastMutationId: request.requestId,
+        };
+        wasActive = true;
+        willBeActive = true;
+        transaction.set(componentRef!, sourceAfter);
+        transaction.set(replacementComponentRef!, after);
+        transaction.set(assetRef, {
+          ...assetData,
+          activeComponentCount: activeCount,
+          version: currentAssetVersion + 1,
+          updatedAt: committedAt,
+          updatedByUid: actorUid,
+          updatedByName: actorName,
+          lastMutationId: request.requestId,
+        });
+        transaction.set(replacementSourceAuditRef, {
+          schemaVersion: 1,
+          auditId: `${auditId}_replacement_source`,
+          entityType: "installed_component",
+          entityId: request.componentInstanceId,
+          componentLineageId: lineageId,
+          relatedEntityId: request.replacementComponentInstanceId,
+          assetClassId: request.assetClassId,
+          assetInstanceId: request.assetInstanceId,
+          action: "replaced",
+          reason: request.reason,
+          beforeJson: JSON.stringify(snapshotJson(componentData)),
+          afterJson: JSON.stringify(snapshotJson(sourceAfter)),
+          performedByUid: actorUid,
+          performedByName: actorName,
+          performedAt: committedAt,
+          requestId: request.requestId,
+        });
+      } else if (request.operation === "CREATE_COMPONENT_INSTANCE") {
         if (componentData != null) throw new AssetHierarchyMutationError("already-exists", "Installed component already exists.");
         version(assetData, request.expectedAssetInstanceVersion, "Asset instance");
         nextVersion = 1;
@@ -842,39 +1050,41 @@ export async function mutateAssetRegistryWithDb(args: {
         action = request.operation === "UPDATE_COMPONENT_INSTANCE" ? "update" : request.status!;
         before = snapshotJson(componentData);
       }
-      const resultingStatus = request.operation === "SET_COMPONENT_INSTANCE_STATUS" ?
-        request.status! : (componentData?.status as string | undefined) ?? "active";
-      after = {
-        ...(componentData ?? {}),
-        schemaVersion: 1,
-        componentInstanceId: request.componentInstanceId,
-        assetInstanceId: request.assetInstanceId,
-        assetInstanceVersionAtMutation: assetData.version,
-        assetNumber: assetData.assetNumber,
-        assetInstanceName: assetData.name,
-        assetClassId: request.assetClassId,
-        assetClassCode: classData.code,
-        assetClassName: classData.name,
-        ...componentDraft!,
-        definitionNodeVersion: definitionData!.version,
-        definitionName: definitionData.name,
-        hierarchyPath: definitionData.hierarchyPath,
-        installedOn: request.componentDraft == null ? componentData?.installedOn ?? null :
-          timestampOrNull(componentDraft!.installedOn, toTimestamp),
-        status: resultingStatus,
-        version: nextVersion,
-        createdAt: componentData?.createdAt ?? committedAt,
-        createdByUid: componentData?.createdByUid ?? actorUid,
-        createdByName: componentData?.createdByName ?? actorName,
-        updatedAt: committedAt,
-        updatedByUid: actorUid,
-        updatedByName: actorName,
-        lastMutationId: request.requestId,
-      };
-      transaction.set(componentRef!, after);
-
-      const wasActive = componentData?.status === "active";
-      const willBeActive = resultingStatus === "active";
+      if (request.operation !== "REPLACE_COMPONENT_INSTANCE") {
+        const resultingStatus = request.operation === "SET_COMPONENT_INSTANCE_STATUS" ?
+          request.status! : (componentData?.status as string | undefined) ?? "active";
+        after = {
+          ...(componentData ?? {}),
+          schemaVersion: 1,
+          componentInstanceId: request.componentInstanceId,
+          componentLineageId: lineageId,
+          assetInstanceId: request.assetInstanceId,
+          assetInstanceVersionAtMutation: assetData.version,
+          assetNumber: assetData.assetNumber,
+          assetInstanceName: assetData.name,
+          assetClassId: request.assetClassId,
+          assetClassCode: classData.code,
+          assetClassName: classData.name,
+          ...componentDraft!,
+          definitionNodeVersion: definitionData!.version,
+          definitionName: definitionData.name,
+          hierarchyPath: definitionData.hierarchyPath,
+          installedOn: request.componentDraft == null ? componentData?.installedOn ?? null :
+            timestampOrNull(componentDraft!.installedOn, toTimestamp),
+          status: resultingStatus,
+          version: nextVersion,
+          createdAt: componentData?.createdAt ?? committedAt,
+          createdByUid: componentData?.createdByUid ?? actorUid,
+          createdByName: componentData?.createdByName ?? actorName,
+          updatedAt: committedAt,
+          updatedByUid: actorUid,
+          updatedByName: actorName,
+          lastMutationId: request.requestId,
+        };
+        transaction.set(componentRef!, after);
+        wasActive = componentData?.status === "active";
+        willBeActive = resultingStatus === "active";
+      }
       if (wasActive && desiredTag != null && oldTag === desiredTag &&
           desiredClaim?.exists !== true) {
         throw new AssetHierarchyMutationError(
@@ -937,6 +1147,11 @@ export async function mutateAssetRegistryWithDb(args: {
           auditId: `${auditId}_tag_source`,
           entityType: "installed_component",
           entityId: displacedData.componentInstanceId,
+          componentLineageId: componentLineageId(
+            displacedData,
+            displacedData.componentInstanceId as string,
+          ),
+          relatedEntityId: resultEntityId(request),
           assetClassId: displacedData.assetClassId,
           assetInstanceId: displacedData.assetInstanceId,
           action: "tag_transferred_out",
@@ -955,7 +1170,7 @@ export async function mutateAssetRegistryWithDb(args: {
           ownerType: "installed_component",
           normalizedTag: desiredTag,
           displayTag: componentDraft!.componentTag,
-          componentInstanceId: request.componentInstanceId,
+          componentInstanceId: resultEntityId(request),
           definitionNodeId: componentDraft!.definitionNodeId,
           definitionName: definitionData.name,
           assetInstanceId: request.assetInstanceId,
@@ -974,11 +1189,20 @@ export async function mutateAssetRegistryWithDb(args: {
       }
     }
 
+    if (after == null) {
+      throw new AssetHierarchyMutationError(
+        "internal", "The asset-registry mutation did not produce an after-state.",
+      );
+    }
     transaction.set(auditRef, {
       schemaVersion: 1,
       auditId,
       entityType,
-      entityId: request.componentInstanceId ?? request.assetInstanceId,
+      entityId: resultEntityId(request),
+      componentLineageId: entityType === "installed_component" ?
+        componentLineageId(after, resultEntityId(request)) : null,
+      relatedEntityId: request.operation === "REPLACE_COMPONENT_INSTANCE" ?
+        request.componentInstanceId : null,
       assetClassId: request.assetClassId,
       assetInstanceId: request.assetInstanceId,
       action,
@@ -997,8 +1221,11 @@ export async function mutateAssetRegistryWithDb(args: {
       actorUid,
       fingerprint: request.fingerprint,
       operation: request.operation,
-      entityId: request.componentInstanceId ?? request.assetInstanceId,
+      entityId: resultEntityId(request),
       version: nextVersion,
+      sourceEntityId: request.operation === "REPLACE_COMPONENT_INSTANCE" ?
+        request.componentInstanceId : null,
+      sourceVersion,
       auditId,
       committedAt,
       committedAtIso,
@@ -1008,7 +1235,7 @@ export async function mutateAssetRegistryWithDb(args: {
       requestId: request.requestId,
       operation: request.operation,
       assetClassId: request.assetClassId,
-      nodeId: request.componentInstanceId ?? request.assetInstanceId,
+      nodeId: resultEntityId(request),
       version: nextVersion,
       auditId,
       committedAt: committedAtIso,

@@ -576,6 +576,9 @@ class InstalledComponentDraft {
 
 class InstalledComponentRecord {
   final String id;
+  final String? componentLineageId;
+  final String? replacesComponentInstanceId;
+  final String? replacedByComponentInstanceId;
   final String assetInstanceId;
   final int assetInstanceVersionAtMutation;
   final int assetNumber;
@@ -604,6 +607,9 @@ class InstalledComponentRecord {
 
   const InstalledComponentRecord({
     required this.id,
+    this.componentLineageId,
+    this.replacesComponentInstanceId,
+    this.replacedByComponentInstanceId,
     required this.assetInstanceId,
     required this.assetInstanceVersionAtMutation,
     required this.assetNumber,
@@ -632,6 +638,8 @@ class InstalledComponentRecord {
   });
 
   bool get isActive => status == AssetHierarchyStatus.active;
+  String get lifecycleId => componentLineageId ?? id;
+  bool get isReplacementTerminal => replacedByComponentInstanceId != null;
 
   InstalledComponentDraft get draft => InstalledComponentDraft(
     definitionNodeId: definitionNodeId,
@@ -687,6 +695,21 @@ class InstalledComponentRecord {
     _requireSchema(map, source);
     final record = InstalledComponentRecord(
       id: id,
+      componentLineageId: readOptionalPersistedString(
+        map['componentLineageId'],
+        field: 'componentLineageId',
+        source: source,
+      ),
+      replacesComponentInstanceId: readOptionalPersistedString(
+        map['replacesComponentInstanceId'],
+        field: 'replacesComponentInstanceId',
+        source: source,
+      ),
+      replacedByComponentInstanceId: readOptionalPersistedString(
+        map['replacedByComponentInstanceId'],
+        field: 'replacedByComponentInstanceId',
+        source: source,
+      ),
       assetInstanceId: readRequiredPersistedString(
         map['assetInstanceId'],
         field: 'assetInstanceId',
@@ -831,6 +854,119 @@ class InstalledComponentRecord {
       source: source,
     );
     return record;
+  }
+}
+
+class InstalledComponentLifecycleAudit {
+  final String id;
+  final String entityId;
+  final String? componentLineageId;
+  final String? relatedEntityId;
+  final String action;
+  final String reason;
+  final String? beforeJson;
+  final String afterJson;
+  final String performedByName;
+  final DateTime performedAt;
+  final String requestId;
+
+  const InstalledComponentLifecycleAudit({
+    required this.id,
+    required this.entityId,
+    this.componentLineageId,
+    this.relatedEntityId,
+    required this.action,
+    required this.reason,
+    this.beforeJson,
+    required this.afterJson,
+    required this.performedByName,
+    required this.performedAt,
+    required this.requestId,
+  });
+
+  factory InstalledComponentLifecycleAudit.fromMap(
+    Map<String, dynamic> map,
+    String documentId,
+  ) {
+    final source = 'asset_hierarchy_audits/$documentId';
+    _requireSchema(map, source);
+    final id = readRequiredPersistedString(
+      map['auditId'],
+      field: 'auditId',
+      source: source,
+    );
+    if (id != documentId) {
+      throw PersistedDataFormatException(
+        field: 'auditId',
+        source: source,
+        detail: 'must match the document ID',
+      );
+    }
+    final entityType = readRequiredPersistedString(
+      map['entityType'],
+      field: 'entityType',
+      source: source,
+    );
+    if (entityType != 'installed_component') {
+      throw PersistedDataFormatException(
+        field: 'entityType',
+        source: source,
+        detail: 'must identify an installed component',
+      );
+    }
+    return InstalledComponentLifecycleAudit(
+      id: id,
+      entityId: readRequiredPersistedString(
+        map['entityId'],
+        field: 'entityId',
+        source: source,
+      ),
+      componentLineageId: readOptionalPersistedString(
+        map['componentLineageId'],
+        field: 'componentLineageId',
+        source: source,
+      ),
+      relatedEntityId: readOptionalPersistedString(
+        map['relatedEntityId'],
+        field: 'relatedEntityId',
+        source: source,
+      ),
+      action: readRequiredPersistedString(
+        map['action'],
+        field: 'action',
+        source: source,
+      ),
+      reason: readRequiredPersistedString(
+        map['reason'],
+        field: 'reason',
+        source: source,
+      ),
+      beforeJson: readOptionalPersistedString(
+        map['beforeJson'],
+        field: 'beforeJson',
+        source: source,
+      ),
+      afterJson: readRequiredPersistedString(
+        map['afterJson'],
+        field: 'afterJson',
+        source: source,
+      ),
+      performedByName: readRequiredPersistedString(
+        map['performedByName'],
+        field: 'performedByName',
+        source: source,
+      ),
+      performedAt: readRequiredPersistedDateTime(
+        map['performedAt'],
+        field: 'performedAt',
+        source: source,
+      ),
+      requestId: readRequiredPersistedString(
+        map['requestId'],
+        field: 'requestId',
+        source: source,
+      ),
+    );
   }
 }
 

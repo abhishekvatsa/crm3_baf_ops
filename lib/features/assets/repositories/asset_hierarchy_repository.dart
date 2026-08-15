@@ -79,6 +79,7 @@ class AssetHierarchyRepository {
   static const hierarchyNodesCollection = 'asset_hierarchy_nodes';
   static const assetInstancesCollection = 'asset_instances';
   static const componentInstancesCollection = 'asset_component_instances';
+  static const hierarchyAuditsCollection = 'asset_hierarchy_audits';
   static const assetConditionsCollection = 'asset_operational_conditions';
   static const innerCoverProfilesCollection = 'inner_cover_profiles';
   static const innerCoverAssignmentsCollection = 'base_inner_cover_assignments';
@@ -109,6 +110,8 @@ class AssetHierarchyRepository {
       _firestore.collection(assetInstancesCollection);
   CollectionReference<Map<String, dynamic>> get _componentInstances =>
       _firestore.collection(componentInstancesCollection);
+  CollectionReference<Map<String, dynamic>> get _hierarchyAudits =>
+      _firestore.collection(hierarchyAuditsCollection);
   CollectionReference<Map<String, dynamic>> get _assetConditions =>
       _firestore.collection(assetConditionsCollection);
   CollectionReference<Map<String, dynamic>> get _innerCoverProfiles =>
@@ -395,6 +398,33 @@ class AssetHierarchyRepository {
                   ),
                 );
           return List<InstalledComponentRecord>.unmodifiable(records);
+        });
+  }
+
+  Stream<List<InstalledComponentLifecycleAudit>> watchInstalledComponentHistory(
+    String assetInstanceId,
+  ) {
+    return _hierarchyAudits
+        .where('assetInstanceId', isEqualTo: assetInstanceId)
+        .snapshots()
+        .map((snapshot) {
+          final records =
+              snapshot.docs
+                  .where(
+                    (doc) => doc.data()['entityType'] == 'installed_component',
+                  )
+                  .map(
+                    (doc) => InstalledComponentLifecycleAudit.fromMap(
+                      doc.data(),
+                      doc.id,
+                    ),
+                  )
+                  .toList()
+                ..sort(
+                  (left, right) =>
+                      right.performedAt.compareTo(left.performedAt),
+                );
+          return List<InstalledComponentLifecycleAudit>.unmodifiable(records);
         });
   }
 
@@ -816,6 +846,54 @@ class AssetHierarchyRepository {
       'expectedTagOwnerComponentId': expectedTagOwnerComponentId,
       'componentDraft': _componentDraftMap(normalized),
     });
+  }
+
+  Future<String> replaceInstalledComponent({
+    required AssetInstanceRecord asset,
+    required InstalledComponentRecord before,
+    required InstalledComponentDraft replacement,
+    required AppUser actor,
+    required String reason,
+    bool allowTagTransfer = false,
+    String? expectedTagOwnerComponentId,
+  }) async {
+    _requireAdmin(actor);
+    if (!asset.isActive ||
+        !before.isActive ||
+        before.assetInstanceId != asset.id ||
+        before.assetClassId != asset.assetClassId) {
+      throw const AssetHierarchyException(
+        'Select an active component belonging to the active physical asset.',
+      );
+    }
+    final normalized = replacement.normalized();
+    _validate(normalized.validate(), 'Replacement component is not valid.');
+    if (normalized.definitionNodeId != before.definitionNodeId) {
+      throw const AssetHierarchyException(
+        'A replacement must use the same governed component definition.',
+      );
+    }
+    if (normalized.installedOn == null) {
+      throw const AssetHierarchyException(
+        'Record the replacement installation date and time.',
+      );
+    }
+    final replacementComponentInstanceId = _uuid.v4();
+    await _invoke(<String, dynamic>{
+      'requestId': _uuid.v4(),
+      'operation': 'REPLACE_COMPONENT_INSTANCE',
+      'assetClassId': before.assetClassId,
+      'assetInstanceId': before.assetInstanceId,
+      'componentInstanceId': before.id,
+      'replacementComponentInstanceId': replacementComponentInstanceId,
+      'expectedVersion': before.version,
+      'expectedAssetInstanceVersion': asset.version,
+      'reason': _validateReason(reason),
+      'allowTagTransfer': allowTagTransfer,
+      'expectedTagOwnerComponentId': expectedTagOwnerComponentId,
+      'componentDraft': _componentDraftMap(normalized),
+    });
+    return replacementComponentInstanceId;
   }
 
   Future<void> setInstalledComponentStatus({

@@ -220,6 +220,29 @@ void main() {
     },
   );
 
+  test('component lifecycle audit preserves replacement lineage', () {
+    final audit = InstalledComponentLifecycleAudit.fromMap({
+      'schemaVersion': 1,
+      'auditId': 'audit-1',
+      'entityType': 'installed_component',
+      'entityId': 'component-new',
+      'componentLineageId': 'component-old',
+      'relatedEntityId': 'component-old',
+      'action': 'replacement_installed',
+      'reason': 'Replace after confirmed calibration failure.',
+      'beforeJson': null,
+      'afterJson': '{"status":"active"}',
+      'performedByName': 'Admin One',
+      'performedAt': DateTime.utc(2026, 8, 16, 1, 30),
+      'requestId': 'request-1',
+    }, 'audit-1');
+
+    expect(audit.entityId, 'component-new');
+    expect(audit.componentLineageId, 'component-old');
+    expect(audit.relatedEntityId, 'component-old');
+    expect(audit.action, 'replacement_installed');
+  });
+
   test('physical Base reference freezes the linked Inner Cover identity', () {
     final reference = AssetHierarchyReference(
       scope: AssetHierarchyReferenceScope.physicalAsset,

@@ -77,9 +77,12 @@ does not invent OEM tags.
   append-only intermediate attendance sessions require a separate server
   mutation and are not claimed here.
 - A repair, clean, reset, or configuration action does not reset component life.
-- Physical burner-block replacement and component revisioning require the
-  reusable atomic component-lifecycle mutation: preserve removed identity,
-  install the new identity, link issue/job evidence, and append immutable audit.
+- Physical burner-block replacement and component revisioning now use the
+  reusable atomic installed-component lifecycle: preserve the removed identity,
+  install the new identity, retain one lineage, transfer tag custody, and append
+  immutable audits. Direct issue/job evidence approval remains a following
+  bridge; maintenance evidence and registry confirmation are not silently
+  conflated.
 - Automatic red-hot escalation thresholds, timers, and severity changes remain
   governed plant configuration. No threshold has been inferred from the manual.
 - Microamp readings are observations, not automatic pass/fail decisions. The
