@@ -237,7 +237,7 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                   const SizedBox(height: 16),
                   _FailureSection(
                     topComponents: report.topComponents,
-                    topSubsystems: report.topSubsystems,
+                    topSubsystemPaths: report.topSubsystemPaths,
                   ),
                   const SizedBox(height: 24),
                   _OpenIssuesSection(issues: report.openIssues),
@@ -698,10 +698,10 @@ class _CompactCount extends StatelessWidget {
 class _FailureSection extends StatelessWidget {
   const _FailureSection({
     required this.topComponents,
-    required this.topSubsystems,
+    required this.topSubsystemPaths,
   });
   final List<CountedReportLabel> topComponents;
-  final List<CountedReportLabel> topSubsystems;
+  final List<CountedReportLabel> topSubsystemPaths;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -709,14 +709,18 @@ class _FailureSection extends StatelessWidget {
     children: [
       const _SectionTitle(
         title: 'Failure concentration',
-        subtitle: 'Issue frequency by recorded component and subsystem',
+        subtitle:
+            'Issue frequency by governed component and recorded subsystem path',
       ),
       const SizedBox(height: 10),
       LayoutBuilder(
         builder: (context, constraints) {
           final children = [
             _RankedList(title: 'Top components', rows: topComponents),
-            _RankedList(title: 'Top subsystems', rows: topSubsystems),
+            _RankedList(
+              title: 'Top recorded subsystem paths',
+              rows: topSubsystemPaths,
+            ),
           ];
           if (constraints.maxWidth >= 680) {
             return Row(

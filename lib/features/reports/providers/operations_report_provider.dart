@@ -364,7 +364,7 @@ OperationsReport buildOperationsReport({
     );
   }
 
-  _ReportDimension? subsystemDimension(MaintenanceRecord ticket) {
+  _ReportDimension? recordedSubsystemPathDimension(MaintenanceRecord ticket) {
     final reference = ticket.assetHierarchyReference;
     if (reference != null && reference.hierarchyPath.length > 1) {
       final parentPath = reference.hierarchyPath.sublist(
@@ -375,8 +375,9 @@ OperationsReport buildOperationsReport({
           .map((segment) => segment.trim().toLowerCase())
           .join('/');
       return (
-        key: 'governed-path:${reference.assetClassId}:$normalizedPath',
-        label: '${reference.assetClassName} - ${parentPath.last}',
+        key: 'recorded-path:${reference.assetClassId}:$normalizedPath',
+        label:
+            'Recorded path - ${reference.assetClassName} - ${parentPath.last}',
       );
     }
     final hasLegacySubsystem =
@@ -384,8 +385,8 @@ OperationsReport buildOperationsReport({
         (ticket.hierarchyPath != null && ticket.hierarchyPath!.length > 1);
     if (!hasLegacySubsystem) return null;
     return (
-      key: 'legacy-unmapped-subsystem',
-      label: 'Unmapped legacy subsystem',
+      key: 'legacy-unmapped-subsystem-path',
+      label: 'Unmapped legacy subsystem path',
     );
   }
 
@@ -479,7 +480,7 @@ OperationsReport buildOperationsReport({
     assetStates: List<PlantAssetState>.unmodifiable(filteredStates),
     classSummaries: List<AssetClassReportSummary>.unmodifiable(classSummaries),
     topComponents: rank(componentDimension),
-    topSubsystems: rank(subsystemDimension),
+    topSubsystemPaths: rank(recordedSubsystemPathDimension),
     sourceTicketCount: tickets.length,
     sourceExecutionCount: executions.length,
     sourceEventCount: events.length,

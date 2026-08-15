@@ -206,7 +206,10 @@ void main() {
     expect(report.availableAssetCount, 1);
     expect(report.topComponents.single.label, 'Unmapped legacy component');
     expect(report.topComponents.single.count, 2);
-    expect(report.topSubsystems.single.label, 'Unmapped legacy subsystem');
+    expect(
+      report.topSubsystemPaths.single.label,
+      'Unmapped legacy subsystem path',
+    );
     expect(report.classSummaries.single.assetClassName, 'Furnace');
     expect(report.classSummaries.single.disruptionCount, 1);
   });
@@ -275,10 +278,78 @@ void main() {
       [('Furnace - Pressure transmitter', 2), ('Unmapped legacy component', 1)],
     );
     expect(
-      report.topSubsystems
+      report.topSubsystemPaths
           .map((row) => (row.label, row.count))
           .toList(growable: false),
-      [('Furnace - Combustion system', 2), ('Unmapped legacy subsystem', 1)],
+      [
+        ('Recorded path - Furnace - Combustion system', 2),
+        ('Unmapped legacy subsystem path', 1),
+      ],
+    );
+  });
+
+  test('subsystem concentration is explicit path grouping, not identity', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    final firstReference = AssetHierarchyReference(
+      assetClassId: furnace.id,
+      assetClassCode: furnace.code,
+      assetClassName: furnace.name,
+      nodeId: 'pressure-transmitter-a',
+      nodeVersion: 1,
+      nodeName: 'Pressure transmitter A',
+      hierarchyPath: const ['Combustion system', 'Pressure transmitter'],
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'instrumentation',
+      accountableRoleKeys: const ['senior_instrumentation'],
+    );
+    final secondReference = AssetHierarchyReference(
+      assetClassId: furnace.id,
+      assetClassCode: furnace.code,
+      assetClassName: furnace.name,
+      nodeId: 'pressure-transmitter-b',
+      nodeVersion: 1,
+      nodeName: 'Pressure transmitter B',
+      hierarchyPath: const ['Combustion system', 'Pressure transmitter'],
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'instrumentation',
+      accountableRoleKeys: const ['senior_instrumentation'],
+    );
+    final first = issue(
+      type: AssetType.furnace,
+      number: 7,
+      started: DateTime.utc(2026, 8, 5),
+    )..assetHierarchyRefJson = firstReference.encode();
+    final second = issue(
+      type: AssetType.furnace,
+      number: 7,
+      started: DateTime.utc(2026, 8, 6),
+    )..assetHierarchyRefJson = secondReference.encode();
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 31),
+      ),
+      tickets: [first, second],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnace],
+      assetInstances: [furnace7],
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: [furnace7],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+    );
+
+    expect(report.topComponents, hasLength(2));
+    expect(
+      report.topSubsystemPaths
+          .map((row) => (row.label, row.count))
+          .toList(growable: false),
+      [('Recorded path - Furnace - Combustion system', 2)],
     );
   });
 
