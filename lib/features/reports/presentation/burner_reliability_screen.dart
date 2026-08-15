@@ -6,8 +6,13 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
+import '../../assets/data/burner_condition_round.dart';
+import '../../assets/presentation/burner_condition_round_screen.dart';
 import '../../assets/presentation/asset_timeline_screen.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
+import '../../assets/providers/burner_condition_round_provider.dart';
+import '../../assets/services/burner_condition_round_service.dart';
+import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/domain/burner_lockout_case.dart';
@@ -48,6 +53,7 @@ class BurnerReliabilityScreen extends ConsumerWidget {
               );
             }
             return _BurnerReliabilityBody(
+              actor: actor,
               initialStartDate: initialStartDate,
               initialEndDate: initialEndDate,
               initialAssetInstanceId: initialAssetInstanceId,
@@ -59,11 +65,13 @@ class BurnerReliabilityScreen extends ConsumerWidget {
 
 class _BurnerReliabilityBody extends ConsumerStatefulWidget {
   const _BurnerReliabilityBody({
+    required this.actor,
     required this.initialStartDate,
     required this.initialEndDate,
     required this.initialAssetInstanceId,
   });
 
+  final AppUser actor;
   final DateTime? initialStartDate;
   final DateTime? initialEndDate;
   final String? initialAssetInstanceId;
@@ -149,20 +157,37 @@ class _BurnerReliabilityBodyState
       endExclusive: _endDate.add(const Duration(days: 1)),
     );
     final ticketsAsync = ref.watch(operationsReportTicketsProvider(period));
+    final roundsAsync = ref.watch(burnerConditionRoundsProvider(period));
+    if ((roundsAsync.isLoading && !roundsAsync.hasValue) ||
+        (ticketsAsync.isLoading && !ticketsAsync.hasValue)) {
+      return _shell(const Center(child: CircularProgressIndicator()));
+    }
+    if ((roundsAsync.hasError && !roundsAsync.hasValue) ||
+        (ticketsAsync.hasError && !ticketsAsync.hasValue)) {
+      return _shell(
+        _ReportError(
+          message: 'Could not load burner reliability evidence.',
+          onRetry: () {
+            ref.invalidate(operationsReportTicketsProvider(period));
+            ref.invalidate(burnerConditionRoundsProvider(period));
+          },
+        ),
+      );
+    }
     return _shell(
-      ticketsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error:
-            (_, _) => _ReportError(
-              message: 'Could not load burner reliability evidence.',
-              onRetry:
-                  () => ref.invalidate(operationsReportTicketsProvider(period)),
-            ),
-        data: (tickets) {
-          final scopedTickets = _scopeTickets(tickets, selectedAsset);
+      Builder(
+        builder: (context) {
+          final scopedTickets = _scopeTickets(
+            ticketsAsync.requireValue,
+            selectedAsset,
+          );
+          final scopedRounds = _scopeRounds(
+            roundsAsync.requireValue,
+            selectedAsset,
+          );
           final BurnerReliabilityReport report;
           try {
-            report = buildBurnerReliabilityReport(scopedTickets);
+            report = buildBurnerReliabilityReport(scopedTickets, scopedRounds);
           } on StateError {
             return const _ReportNotice(
               icon: Icons.report_problem_outlined,
@@ -176,6 +201,7 @@ class _BurnerReliabilityBodyState
               ref.invalidate(assetClassesProvider);
               ref.invalidate(allAssetInstancesProvider);
               ref.invalidate(operationsReportTicketsProvider(period));
+              ref.invalidate(burnerConditionRoundsProvider(period));
             },
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -197,6 +223,14 @@ class _BurnerReliabilityBodyState
                 ),
                 const SizedBox(height: BafSpacing.lg),
                 _ReliabilityMetrics(report: report),
+                const SizedBox(height: BafSpacing.sm),
+                const Text(
+                  burnerConditionRoundHistoryDisclosure,
+                  style: TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
                 const SizedBox(height: BafSpacing.xl),
                 _ReportHeader(
                   count: report.rows.length,
@@ -206,7 +240,7 @@ class _BurnerReliabilityBodyState
                 if (report.rows.isEmpty)
                   const _ReportNotice(
                     icon: Icons.local_fire_department_outlined,
-                    title: 'No burner lockouts in this period',
+                    title: 'No burner evidence in this period',
                     message:
                         'Change the date or Furnace filter to inspect another evidence window.',
                   )
@@ -244,9 +278,39 @@ class _BurnerReliabilityBodyState
       backgroundColor: BafColors.card,
       foregroundColor: BafColors.textPrimary,
       surfaceTintColor: BafColors.card,
+      actions: [
+        if (widget.actor.canRecordBurnerConditionRound)
+          IconButton(
+            tooltip: 'Record burner round',
+            onPressed: _openRoundForm,
+            icon: const Icon(Icons.fact_check_outlined),
+          ),
+      ],
     ),
     body: body,
   );
+
+  Future<void> _openRoundForm() async {
+    final result = await Navigator.of(context).push<BurnerConditionRoundResult>(
+      MaterialPageRoute<BurnerConditionRoundResult>(
+        builder:
+            (_) => BurnerConditionRoundScreen(
+              initialAssetInstanceId: _assetInstanceId,
+            ),
+      ),
+    );
+    if (!mounted || result == null) return;
+    ref.invalidate(burnerConditionRoundsProvider);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.directiveId == null
+              ? 'Burner round recorded.'
+              : 'Burner round and critical I&A directive recorded.',
+        ),
+      ),
+    );
+  }
 
   Future<void> _selectDateRange() async {
     final range = await showDateRangePicker(
@@ -355,6 +419,12 @@ class _ReliabilityMetrics extends StatelessWidget {
           color: BafColors.maintenance,
         ),
         _Metric(
+          label: 'Condition rounds',
+          value: report.roundCount,
+          icon: Icons.fact_check_outlined,
+          color: BafColors.assets,
+        ),
+        _Metric(
           label: 'Open positions',
           value: report.openPositionCount,
           icon: Icons.error_outline_rounded,
@@ -365,12 +435,6 @@ class _ReliabilityMetrics extends StatelessWidget {
           value: report.redHotObservationCount,
           icon: Icons.local_fire_department_outlined,
           color: BafColors.warning,
-        ),
-        _Metric(
-          label: 'Latest readings',
-          value: report.readingCount,
-          icon: Icons.speed_outlined,
-          color: BafColors.charges,
         ),
       ],
     );
@@ -534,6 +598,11 @@ class _BurnerReliabilityCard extends StatelessWidget {
                     label: '${row.issueCount} reports',
                     color: BafColors.assets,
                   ),
+                  if (row.roundCount > 0)
+                    StatusBadge(
+                      label: '${row.roundCount} rounds',
+                      color: BafColors.charges,
+                    ),
                   if (row.redHotCount > 0)
                     StatusBadge(
                       label: '${row.redHotCount} red hot',
@@ -564,7 +633,7 @@ class _BurnerReliabilityCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       row.latestMicroampReading == null
-                          ? 'No attended-burner microamp reading'
+                          ? 'No microamp reading recorded'
                           : '${NumberFormat('0.###').format(row.latestMicroampReading)} microamp'
                               '${row.latestMicroampAt == null ? '' : ' on ${DateFormat('dd MMM yyyy').format(row.latestMicroampAt!)}'}',
                       style: const TextStyle(
@@ -575,6 +644,17 @@ class _BurnerReliabilityCard extends StatelessWidget {
                   ),
                 ],
               ),
+              if (row.latestFlameObservation != null) ...[
+                const SizedBox(height: BafSpacing.sm),
+                Text(
+                  'Latest round: ${row.latestFlameObservation!.label}'
+                  '${row.latestRoundAt == null ? '' : ' on ${DateFormat('dd MMM yyyy, HH:mm').format(row.latestRoundAt!)}'}',
+                  style: const TextStyle(
+                    color: BafColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
               if (actions.isNotEmpty) ...[
                 const SizedBox(height: BafSpacing.md),
                 Wrap(
@@ -591,7 +671,7 @@ class _BurnerReliabilityCard extends StatelessWidget {
               ],
               const SizedBox(height: BafSpacing.sm),
               Text(
-                'Latest lockout ${DateFormat('dd MMM yyyy, HH:mm').format(row.latest)}',
+                'Latest evidence ${DateFormat('dd MMM yyyy, HH:mm').format(row.latest)}',
                 style: const TextStyle(
                   color: BafColors.textSecondary,
                   fontSize: 12,
@@ -708,5 +788,15 @@ List<MaintenanceRecord> _scopeTickets(
         return ticket.assetType == AssetType.furnace &&
             ticket.assetNumber == selectedAsset.assetNumber;
       })
+      .toList(growable: false);
+}
+
+List<BurnerConditionRound> _scopeRounds(
+  List<BurnerConditionRound> rounds,
+  AssetInstanceRecord? selectedAsset,
+) {
+  if (selectedAsset == null) return rounds;
+  return rounds
+      .where((round) => round.assetInstanceId == selectedAsset.id)
       .toList(growable: false);
 }

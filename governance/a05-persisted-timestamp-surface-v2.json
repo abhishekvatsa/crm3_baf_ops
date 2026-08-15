@@ -626,6 +626,30 @@
       "authorityBoundary": "remote-quality-monitoring-record",
       "regression": "test/quality_warning_lifecycle_test.dart",
       "reArmCondition": "any quality monitoring timestamp schema change"
+    },
+    {
+      "id": "burner-condition-round-record",
+      "readerFile": "lib/features/assets/data/burner_condition_round.dart",
+      "readerMarker": "factory BurnerConditionRound.fromMap",
+      "requiredFields": ["observedAt"],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "restore the immutable observation instant for an eight-position Furnace burner round",
+      "authorityBoundary": "remote-burner-condition-round-record",
+      "regression": "test/burner_condition_round_test.dart",
+      "reArmCondition": "any burner-condition round timestamp schema change"
+    },
+    {
+      "id": "burner-condition-round-command-response",
+      "readerFile": "lib/features/assets/services/burner_condition_round_service.dart",
+      "readerMarker": "factory BurnerConditionRoundResult.fromMap",
+      "requiredFields": ["committedAt"],
+      "optionalFields": [],
+      "owner": "furnace-reliability",
+      "purpose": "verify the canonical server commit instant in burner-condition round mutation evidence",
+      "authorityBoundary": "remote-burner-condition-round-command-response",
+      "regression": "test/burner_condition_round_test.dart",
+      "reArmCondition": "any burner-condition round callable receipt timestamp change"
     }
   ]
 }

@@ -250,6 +250,14 @@ class AppUser {
           isOperations ||
           isContractSupervisor);
 
+  bool get canRecordBurnerConditionRound =>
+      isApproved &&
+      (isAdmin ||
+          isSI ||
+          isShiftSupervisor ||
+          isOperations ||
+          isInstrumentation);
+
   bool get canResolveOperationalEvent =>
       isApproved && (isAdmin || isSI || isShiftSupervisor || isOperations);
 

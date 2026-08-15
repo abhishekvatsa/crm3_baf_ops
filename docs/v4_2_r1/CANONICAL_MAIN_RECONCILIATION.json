@@ -465,9 +465,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "3FE92A37CC9660090D6E86C2FE9437F49E2B13EE36D7F430D7E8DD79709A02E0",
+      "candidateSha256": "139183BCF7781253F8AA296E1E4C6B819D8B6B5432FC15166523462E345B3349",
       "canonicalBytes": 111981,
-      "candidateBytes": 174904,
+      "candidateBytes": 175119,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -521,9 +521,9 @@
     {
       "path": "functions/src/index.ts",
       "canonicalSha256": "14EBFA6952BB20C137EEF408C1FB80C5706CC6CBCD5FA29F2E8699F8C04E3A48",
-      "candidateSha256": "2D086A22774DE0A7AE69AD78D37A6840991212A9877575831F4B11104FD16F02",
+      "candidateSha256": "8741550B67CC8FABABC4B26FF2EB1BB1FE7065D3E3F44D3A30003D9C41BB1FED",
       "canonicalBytes": 9674,
-      "candidateBytes": 26117,
+      "candidateBytes": 26685,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1405,9 +1405,9 @@
     {
       "path": "lib/features/auth/data/user_model.dart",
       "canonicalSha256": "DCBFB4D7AA4D57579F5BFAD3B58B19DFD08B17418355969971F8C66762E5585E",
-      "candidateSha256": "93290A286097513EDF9EAA3B889A006CCC4873945AE4A2522A307E6A23FBAEC0",
+      "candidateSha256": "3ABD2F61DE5B181680DAEFE3D0840D497D6B7DF8866411CD985A85D44F3CA636",
       "canonicalBytes": 17328,
-      "candidateBytes": 23664,
+      "candidateBytes": 23852,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2361,9 +2361,9 @@
     {
       "path": "lib/home_screen.dart",
       "canonicalSha256": "6360AB08D54707F01C3893CD65928CC86292CC24DF3B760829A4B66F5EDC909A",
-      "candidateSha256": "E8F23CF1CB6DE6EC47E1496ABC5426D17F36217E90D3305607DF76717230AC47",
+      "candidateSha256": "5D0776073B4C2EC9A34ACDCB746F565716599DCD866463CC0C4201FC7A8672F4",
       "canonicalBytes": 37389,
-      "candidateBytes": 52947,
+      "candidateBytes": 52946,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2729,9 +2729,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "643BBE1794209C312B93BE08B840FF261FDF171579C1015A4FE63D340B4C5EC6",
+      "candidateSha256": "1A92D6FA0035C1D07CAC6A15518B064CF2A4AF310573BF4C0B1C029671FA6FDD",
       "canonicalBytes": 78841,
-      "candidateBytes": 128461,
+      "candidateBytes": 129592,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

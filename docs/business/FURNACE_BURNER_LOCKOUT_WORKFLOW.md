@@ -46,6 +46,21 @@ one terminal outcome for every affected position.
   microamp observations, distinct open positions, red-hot records, and frequent
   actions. Validated earlier closure attempts remain represented after a ticket
   is reopened.
+- Authorized Operations, I&A, Shift Supervisor, SI and Admin users can record
+  an online condition round for an active governed Furnace. Every round carries
+  exactly one observation for each of its eight burner positions, optional
+  per-position microamp evidence, flame observation and red-hot indication.
+- Burner condition rounds are immutable, server-timestamped and idempotent.
+  Direct client writes and receipt reads are denied. A stale Furnace version,
+  retired/non-Furnace identity, partial position set or malformed reading fails
+  closed.
+- A red-hot condition-round observation atomically creates a deterministic,
+  critical I&A directive requiring acknowledgement and compliance with the
+  approved plant procedure. The round and directive commit together or neither
+  does; the directive does not actuate plant equipment.
+- Reliability aggregation combines lockout closures and condition rounds while
+  keeping their counts distinct. The newest valid microamp observation wins by
+  evidence time, regardless of which of the two governed paths recorded it.
 
 ## Action catalogue
 
@@ -75,6 +90,12 @@ does not invent OEM tags.
 10. Offline create/close/reopen replay carries the same structured evidence.
 11. A supplied microamp reading belongs to an attended burner, is finite and
     non-negative, and agrees across closure and action evidence.
+12. A condition round contains positions 1 through 8 exactly once and preserves
+    its governed Furnace identity and asset version.
+13. A round microamp reading is finite, non-negative and absent when flame
+    observation is `notChecked` or `notOperating`.
+14. Any condition-round red-hot position has one deterministic linked I&A
+    directive; replay verifies the retained round and directive identity.
 
 ## Deliberate boundaries
 
@@ -93,7 +114,8 @@ does not invent OEM tags.
 - Microamp readings are observations, not automatic pass/fail decisions. The
   source applies only a broad structural bound to reject malformed values or an
   accidental unit mismatch; operational limits require governed plant data.
-- Shift-round capture and proactive condition monitoring remain a following
-  tranche built on the same eight-position identity. The Burner reliability
-  screen is historical maintenance evidence and does not claim to be a daily
-  round, live condition monitor, or component-life reset.
+- Shift-round capture is now available as immutable point-in-time evidence.
+  It is not a live sensor feed, automatic pass/fail monitor, replacement for a
+  burner-lockout issue, or component-life reset. Historical trend thresholds,
+  overdue-round policy and automatic anomaly inference still require governed
+  plant configuration.

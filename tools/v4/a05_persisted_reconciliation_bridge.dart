@@ -7,6 +7,7 @@ import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
 import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
@@ -21,6 +22,7 @@ const _supportedCollections = <String>{
   'asset_operational_conditions',
   'asset_tag_claims',
   'base_inner_cover_assignments',
+  'burner_condition_rounds',
   'inner_cover_fabrications',
   'inner_cover_linkages',
   'inner_cover_profiles',
@@ -78,6 +80,8 @@ Map<String, Object?> _reconcileRecord(dynamic rawRecord) {
         AssetInstanceRecord.fromMap(data, documentId);
       case 'asset_operational_conditions':
         AssetOperationalConditionRecord.fromMap(data, documentId);
+      case 'burner_condition_rounds':
+        BurnerConditionRound.fromMap(data, documentId);
       case 'asset_component_instances':
         InstalledComponentRecord.fromMap(data, documentId);
       case 'asset_tag_claims':

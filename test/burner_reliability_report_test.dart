@@ -1,4 +1,5 @@
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
 import 'package:crm3_baf_ops/features/reports/models/burner_reliability_report.dart';
@@ -208,7 +209,78 @@ void main() {
     expect(report.openPositionCount, 1);
     expect(report.rows.single.openCount, 2);
   });
+
+  test(
+    'condition rounds add coverage, red-hot and latest reading evidence',
+    () {
+      final earlierTicket = _ticket(
+        id: 'closed-1',
+        furnaceNumber: 2,
+        startedAt: DateTime.utc(2026, 8, 14),
+        lockout: BurnerLockoutCase(
+          positions: const [1],
+          commonMode: false,
+          cycleStage: BurnerCycleStage.firing,
+          flameObservation: BurnerObservation.notSeen,
+          sparkObservation: BurnerObservation.seen,
+          relightAttempts: 1,
+          remainsLockedOut: true,
+        ),
+      );
+      final round = _round(
+        furnaceNumber: 2,
+        observedAt: DateTime.utc(2026, 8, 16, 10),
+      );
+
+      final report = buildBurnerReliabilityReport([earlierTicket], [round]);
+
+      expect(report.roundCount, 1);
+      expect(report.rows, hasLength(8));
+      expect(report.readingCount, 1);
+      expect(report.redHotObservationCount, 1);
+      final burnerOne = report.rows.firstWhere(
+        (row) => row.burnerPosition == 1,
+      );
+      expect(burnerOne.issueCount, 1);
+      expect(burnerOne.roundCount, 1);
+      expect(burnerOne.latestMicroampReading, 4.1);
+      expect(
+        burnerOne.latestFlameObservation,
+        BurnerRoundFlameObservation.seen,
+      );
+    },
+  );
 }
+
+BurnerConditionRound _round({
+  required int furnaceNumber,
+  required DateTime observedAt,
+}) => BurnerConditionRound(
+  roundId: 'round-1',
+  assetClassId: 'furnace-class',
+  assetClassCode: 'FURNACE',
+  assetClassName: 'Furnace',
+  assetInstanceId: 'furnace-$furnaceNumber',
+  assetInstanceVersion: 1,
+  assetNumber: furnaceNumber,
+  assetName: 'Furnace $furnaceNumber',
+  observations: List<BurnerConditionObservation>.generate(
+    8,
+    (index) => BurnerConditionObservation(
+      position: index + 1,
+      flameObservation: BurnerRoundFlameObservation.seen,
+      redHotObserved: index == 2,
+      microampReading: index == 0 ? 4.1 : null,
+    ),
+  ),
+  redHotPositions: const [3],
+  microampPositions: const [1],
+  observedAt: observedAt,
+  recordedByUid: 'ops-1',
+  recordedByName: 'Operations One',
+  fingerprint: 'burnerround1-sha256:${'a' * 64}',
+  directiveId: 'burner_round_red_hot_round-1',
+);
 
 MaintenanceRecord _ticket({
   required String id,

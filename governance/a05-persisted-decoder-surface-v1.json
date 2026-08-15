@@ -797,6 +797,38 @@
       "regression": "test/quality_command_result_test.dart; test/quality_warning_lifecycle_test.dart; functions/test/qualityMutation.test.js",
       "reArmCondition": "malformed response fields are coerced or accepted as a successful quality mutation",
       "riskFingerprint": "9c9cb2dde2f893b5502400fce038e06fefa3414254ec3dc653a7c8e586ba8c11"
+    },
+    {
+      "id": "burner-condition-round-record",
+      "file": "lib/features/assets/data/burner_condition_round.dart",
+      "markers": [
+        "factory BurnerConditionRound.fromMap",
+        "factory BurnerConditionObservation.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "furnace-reliability",
+      "authorityBoundary": "immutable eight-position Furnace burner observation, microamp, red-hot, actor, and directive evidence",
+      "malformedDisposition": "fail closed before malformed or internally inconsistent burner-round evidence enters reliability reporting",
+      "compatibility": "schema version 1 only; exactly eight ordered positions and exact derived position projections",
+      "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js",
+      "reArmCondition": "round identity, exact shape, position coverage, observation, microamp, red-hot projection, directive, actor, timestamp, or fingerprint validation changes",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "burner-condition-round-command-result",
+      "file": "lib/features/assets/services/burner_condition_round_service.dart",
+      "markers": [
+        "factory BurnerConditionRoundResult.fromMap",
+        "Future<BurnerConditionRoundResult> record"
+      ],
+      "classification": "SERVER_COMMAND_RECEIPT",
+      "owner": "furnace-reliability",
+      "authorityBoundary": "governed burner-condition round result, asset identity, replay, directive, and commit-time evidence",
+      "malformedDisposition": "translate malformed callable evidence to data-loss and never report round capture success",
+      "compatibility": "none for request, round, operation, asset, directive, replay, or commit-time evidence",
+      "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js",
+      "reArmCondition": "malformed response fields are coerced or accepted as a successful burner-condition round",
+      "riskFingerprint": "9b34cfd77c7c22342706f6fdcd9b83073548be933665839d886ad3c55803ca4f"
     }
   ],
   "catchSites": [
@@ -1293,6 +1325,19 @@
       "malformedDisposition": "throw a data-loss command error and do not report link success",
       "regression": "test/operational_event_issue_link_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "transport or response-format failure becomes a successful issue link"
+    },
+    {
+      "id": "burner-condition-round-transport-translation",
+      "file": "lib/features/assets/services/burner_condition_round_service.dart",
+      "siteFingerprint": "bad9e0aaf1d0d19ede8b441ccc07bb531412c94431a8fad03e3596457bb4c20d",
+      "classification": "TRANSPORT_ERROR_TRANSLATION",
+      "purpose": "translate callable transport failures while preserving strict burner-round response-format failure",
+      "authorityBoundary": "governed burner-condition round mutation response",
+      "mutability": "remote mutation already governed by the server; no local success state is manufactured",
+      "dataScope": "burner-condition callable response and Firebase transport error",
+      "malformedDisposition": "throw a data-loss command error and do not report round capture success",
+      "regression": "test/burner_condition_round_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "transport or response-format failure becomes a successful burner-condition round"
     }
   ]
 }

@@ -4149,6 +4149,10 @@ describe("governed dynamic asset hierarchy", () => {
       condition: "down",
       active: true,
     });
+    await seedDoc("burner_condition_rounds/round-1", {
+      roundId: "round-1",
+      observedAt: Timestamp.now(),
+    });
     await seedDoc("inner_cover_profiles/cover-1", {
       innerCoverId: "cover-1",
     });
@@ -4170,6 +4174,9 @@ describe("governed dynamic asset hierarchy", () => {
     );
     await assertSucceeds(
       getDoc(doc(opsDb, "asset_operational_conditions/asset-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(opsDb, "burner_condition_rounds/round-1"))
     );
     await assertSucceeds(getDoc(doc(opsDb, "asset_tag_claims/tag-hash")));
     await assertFails(getDocs(collection(opsDb, "asset_tag_claims")));
@@ -4214,6 +4221,12 @@ describe("governed dynamic asset hierarchy", () => {
         auditId: "audit-1",
       }),
       setDoc(doc(adminDb, "asset_operational_condition_receipts/request-1"), {
+        requestId: "request-1",
+      }),
+      setDoc(doc(adminDb, "burner_condition_rounds/round-1"), {
+        roundId: "round-1",
+      }),
+      setDoc(doc(adminDb, "burner_condition_round_receipts/request-1"), {
         requestId: "request-1",
       }),
       setDoc(doc(adminDb, "inner_cover_profiles/cover-1"), {
@@ -4272,6 +4285,27 @@ describe("governed dynamic asset hierarchy", () => {
     );
     await assertFails(
       getDoc(doc(dbAs("admin1"), "asset_operational_condition_receipts/request-1"))
+    );
+  });
+
+  test("burner rounds are approved-readable, immutable, and receipts stay private", async () => {
+    await seedDoc("burner_condition_rounds/round-1", {
+      roundId: "round-1",
+      observedAt: Timestamp.now(),
+    });
+    await seedDoc("burner_condition_round_receipts/request-1", {
+      requestId: "request-1",
+    });
+    await assertSucceeds(
+      getDoc(doc(dbAs("ops1"), "burner_condition_rounds/round-1"))
+    );
+    await assertFails(
+      updateDoc(doc(dbAs("admin1"), "burner_condition_rounds/round-1"), {
+        roundNote: "Client-side rewrite",
+      })
+    );
+    await assertFails(
+      getDoc(doc(dbAs("admin1"), "burner_condition_round_receipts/request-1"))
     );
   });
 
