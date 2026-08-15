@@ -501,7 +501,7 @@ void main() {
   });
 
   test(
-    'repository-proven populated v1 migrates to v5 with rows and relationships intact',
+    'repository-proven populated v1 migrates to v6 with rows and relationships intact',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_populated_v1_',
@@ -616,7 +616,7 @@ void main() {
   );
 
   test(
-    'populated v3 compliance request migrates through v5 without evidence loss',
+    'populated v3 compliance request migrates through v6 without evidence loss',
     () async {
       final directory = await Directory.systemTemp.createTemp(
         'crm3_70k_operational_assurance_v3_',
@@ -693,7 +693,7 @@ void main() {
           hasExistingLocalStore: true,
         );
         expect(preparation.result.fromVersion, 3);
-        expect(preparation.result.toVersion, 5);
+        expect(preparation.result.toVersion, 6);
         expect(preparation.marker.state, IsarSchemaMarkerState.prepared);
         expect(preparation.marker.databaseGenerationId, _generationId);
 
@@ -744,7 +744,7 @@ void main() {
         expect(migrated.raisedUnderCoordination, isFalse);
 
         final committed = await preparation.commitAfterSuccessfulOpen();
-        expect(committed.schemaVersion, 5);
+        expect(committed.schemaVersion, 6);
         expect(committed.state, IsarSchemaMarkerState.committed);
         expect(committed.databaseGenerationId, _generationId);
       } finally {
@@ -814,7 +814,8 @@ void main() {
             2: <String>{_governedV2FixtureFingerprint},
             3: <String>{IsarSchemaMigrator.v3SchemaFingerprint},
             4: <String>{IsarSchemaMigrator.v4SchemaFingerprint},
-            5: <String>{IsarSchemaMigrator.currentSchemaFingerprint},
+            5: <String>{IsarSchemaMigrator.v5SchemaFingerprint},
+            6: <String>{IsarSchemaMigrator.currentSchemaFingerprint},
           },
           stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
             3: (context) async {
@@ -830,6 +831,10 @@ void main() {
             5: (context) async {
               expect(context.fromVersion, 4);
               expect(context.toVersion, 5);
+            },
+            6: (context) async {
+              expect(context.fromVersion, 5);
+              expect(context.toVersion, 6);
             },
           },
         );

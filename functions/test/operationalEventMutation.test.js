@@ -333,7 +333,9 @@ describe('operational event mutation', () => {
   test('audit snapshots preserve every corrected operational field', async () => {
     const memory = fakeDb({
       ...baseSeed(),
-      [`operational_events/${IDS.event}`]: persistedEvent(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        issueLinkIds: ['event_issue_existing'],
+      }),
     });
     await invoke(memory, 'ops-1', {
       requestId: IDS.update,
@@ -359,12 +361,17 @@ describe('operational event mutation', () => {
         startedAt: new Date('2026-08-14T09:45:00.000Z'),
       },
     });
+    expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
+      issueLinkIds: ['event_issue_existing'],
+    });
   });
 
   test('resolves and reopens with supervisory evidence', async () => {
     const memory = fakeDb({
       ...baseSeed(),
-      [`operational_events/${IDS.event}`]: persistedEvent(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        issueLinkIds: ['event_issue_existing'],
+      }),
     });
     const resolved = await invoke(memory, 'ops-1', {
       requestId: IDS.resolve,
@@ -406,11 +413,13 @@ describe('operational event mutation', () => {
         scope: 'plantWide',
         affectedAssetClassIds: [],
         affectedAssetInstanceIds: [],
+        issueLinkIds: ['event_issue_existing'],
         resolvedByUid: 'ops-1',
         resolvedByName: 'Operations One',
         resolutionNote: 'Incoming supply remained stable through verification.',
       }],
       startedAt: new Date('2026-08-14T13:00:00.000Z'),
+      issueLinkIds: [],
       resolvedAt: null,
       resolutionNote: null,
     });
@@ -432,6 +441,7 @@ describe('operational event mutation', () => {
           scope: 'plantWide',
           affectedAssetClassIds: [],
           affectedAssetInstanceIds: [],
+          issueLinkIds: ['event_issue_existing'],
           resolvedByUid: 'ops-1',
           resolvedByName: 'Operations One',
           resolutionNote: 'Incoming supply remained stable through verification.',

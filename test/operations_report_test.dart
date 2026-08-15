@@ -101,6 +101,7 @@ OperationalEvent event() => OperationalEvent(
   scope: OperationalEventScope.plantWide,
   affectedAssetClassIds: const [],
   affectedAssetInstanceIds: const [],
+  issueLinkIds: const ['event-issue-1', 'event-issue-2'],
   startedAt: DateTime.utc(2026, 8, 10, 10),
   status: OperationalEventStatus.resolved,
   createdAt: DateTime.utc(2026, 8, 10, 10),
@@ -231,6 +232,7 @@ void main() {
     expect(report.plannedJobCount, 1);
     expect(report.openPlannedJobCount, 1);
     expect(report.disruptionCount, 1);
+    expect(report.linkedDisruptionIssueCount, 2);
     expect(report.disruptionDuration.inHours, 2);
     expect(report.assetCount, 1);
     expect(report.availableAssetCount, 1);

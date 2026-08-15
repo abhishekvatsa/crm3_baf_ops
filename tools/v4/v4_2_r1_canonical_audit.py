@@ -2674,8 +2674,10 @@ check(
     "P-06 Isar provenance fails closed and commits only after a successful open",
     "baf_isar_schema_provenance_v1" in isar_migration
     and "databaseGenerationId" in isar_migration
-    and "currentSchemaVersion = 5" in isar_migration
+    and "currentSchemaVersion = 6" in isar_migration
     and "v4SchemaFingerprint" in isar_migration
+    and "v5SchemaFingerprint" in isar_migration
+    and "6: _addOperationalEventIssueLinkProjection" in isar_migration
     and "existing-store-unmarked" in isar_migration
     and "legacy-marker-incomplete" in isar_migration
     and "_validateMarkerSource(" in isar_migration
@@ -2726,8 +2728,8 @@ check(
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
-    and "repository-proven populated v1 migrates to v5" in isar_fixture_test
-    and "populated v3 compliance request migrates through v5"
+    and "repository-proven populated v1 migrates to v6" in isar_fixture_test
+    and "populated v3 compliance request migrates through v6"
         in isar_fixture_test
     and "stored-schema-fingerprint-unrecognized" in isar_fixture_test
     and "blocks a current target with unsupported migration ancestry"
@@ -8407,9 +8409,9 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 49
-    and a05_timestamp_inventory_report.get("directCallCount") == 127
-    and a05_timestamp_inventory_report.get("requiredFieldCount") == 69
+    and a05_timestamp_inventory_report.get("readerCount") == 51
+    and a05_timestamp_inventory_report.get("directCallCount") == 130
+    and a05_timestamp_inventory_report.get("requiredFieldCount") == 72
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 56
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
@@ -8424,7 +8426,7 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 49
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 51
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
@@ -8449,17 +8451,17 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 48
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 40
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 29
+    and a05_decoder_inventory_report.get("surfaceCount") == 50
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 41
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 31
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 24
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 252
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 254
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 48
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 40
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 50
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 41
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool

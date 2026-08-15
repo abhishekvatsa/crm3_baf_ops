@@ -10,6 +10,7 @@ import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/operational_event.dart';
 import '../providers/operational_event_provider.dart';
+import 'operational_event_issue_links_screen.dart';
 
 class OperationalEventsScreen extends ConsumerStatefulWidget {
   const OperationalEventsScreen({super.key});
@@ -163,6 +164,16 @@ class _OperationalEventsScreenState
                                 ),
                             onResolve: () => _resolveEvent(visible[index]),
                             onReopen: () => _reopenEvent(visible[index]),
+                            onIssues:
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute<void>(
+                                    builder:
+                                        (_) => OperationalEventIssueLinksScreen(
+                                          event: visible[index],
+                                        ),
+                                  ),
+                                ),
                           ),
                     ),
                   ),
@@ -396,6 +407,7 @@ class _EventCard extends StatelessWidget {
     required this.onEdit,
     required this.onResolve,
     required this.onReopen,
+    required this.onIssues,
   });
 
   final OperationalEvent event;
@@ -406,6 +418,7 @@ class _EventCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onResolve;
   final VoidCallback onReopen;
+  final VoidCallback onIssues;
 
   @override
   Widget build(BuildContext context) {
@@ -538,24 +551,33 @@ class _EventCard extends StatelessWidget {
               ],
             ),
           ],
-          if (canResolve) ...[
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child:
-                  event.isOpen
-                      ? FilledButton.icon(
-                        onPressed: onResolve,
-                        icon: const Icon(Icons.task_alt_rounded),
-                        label: const Text('Resolve'),
-                      )
-                      : OutlinedButton.icon(
-                        onPressed: onReopen,
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Reopen'),
-                      ),
-            ),
-          ],
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: onIssues,
+                icon: const Icon(Icons.link_rounded),
+                label: Text(
+                  'Issues${event.issueLinkIds.isEmpty ? '' : ' (${event.issueLinkIds.length})'}',
+                ),
+              ),
+              if (canResolve)
+                event.isOpen
+                    ? FilledButton.icon(
+                      onPressed: onResolve,
+                      icon: const Icon(Icons.task_alt_rounded),
+                      label: const Text('Resolve'),
+                    )
+                    : OutlinedButton.icon(
+                      onPressed: onReopen,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Reopen'),
+                    ),
+            ],
+          ),
         ],
       ),
     );

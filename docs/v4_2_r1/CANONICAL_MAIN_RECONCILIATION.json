@@ -465,9 +465,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "5C6F39F9A705B57FFC407292BD75ADDE8EAE4809BA336B62E246C287D95D7249",
+      "candidateSha256": "E7F8505F23B3C57D315B2CAD8AE005982C3EA4545005DA94F7020A14E05D04B6",
       "canonicalBytes": 111981,
-      "candidateBytes": 159459,
+      "candidateBytes": 159862,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -521,9 +521,9 @@
     {
       "path": "functions/src/index.ts",
       "canonicalSha256": "14EBFA6952BB20C137EEF408C1FB80C5706CC6CBCD5FA29F2E8699F8C04E3A48",
-      "candidateSha256": "8569C6AD7700529E1D275BF30A98CC1DCC941CB6B0D33C6AA6CE1441B76117D2",
+      "candidateSha256": "2D086A22774DE0A7AE69AD78D37A6840991212A9877575831F4B11104FD16F02",
       "canonicalBytes": 9674,
-      "candidateBytes": 25506,
+      "candidateBytes": 26117,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -957,9 +957,9 @@
     {
       "path": "lib/core/services/isar_schema_migration.dart",
       "canonicalSha256": "D744B0534E1104A5B3BAADF352711C29B4D31095373B4D9AD722A6B7BC6435C3",
-      "candidateSha256": "90E7CA4C969ADD5A0938EBFB735230701F97CF6709E0743DBDAD42993D25F8AF",
+      "candidateSha256": "7B0C43F4F2437CFF68BDF1422DE8C6B3BFC068A3160F01AF48C8D24597E0CFB7",
       "canonicalBytes": 8792,
-      "candidateBytes": 39963,
+      "candidateBytes": 41432,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1501,17 +1501,17 @@
     {
       "path": "lib/features/maintenance/data/maintenance_model.dart",
       "canonicalSha256": "61C343EC35262FCDDB54F0E5014427C7625E10445A7405125311457C0809750A",
-      "candidateSha256": "7A81851D9AEDF64A130A7420683ADCD3A447A5848469697AE390B27F7C2D3571",
+      "candidateSha256": "562E53D04907FECFD3143983B38B1BF4DABBB4826855F43673F63A43319CEF5D",
       "canonicalBytes": 8820,
-      "candidateBytes": 14851,
+      "candidateBytes": 15201,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/features/maintenance/data/maintenance_model.g.dart",
       "canonicalSha256": "1BB7AA6C2610AC399E9D9D9D3B6399E8354981A0D3AC9FCC344F49529017D5EC",
-      "candidateSha256": "05FE35B3EF2DAEE116138E0D2B67076A6C848FBA8B30583A2082CEDAB1AD0A14",
+      "candidateSha256": "99E27B9D65797B419531EDEA201E9D4AFB409EC5A8963F43A4F5F5D736AF159B",
       "canonicalBytes": 285990,
-      "candidateBytes": 412276,
+      "candidateBytes": 426029,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1541,9 +1541,9 @@
     {
       "path": "lib/features/maintenance/presentation/ticket_screen.dart",
       "canonicalSha256": "A9B5800AA0FACFBB0D4C20C762A092982E3A2B0F40F31BAA0BFE703910BB7091",
-      "candidateSha256": "FD523EC3DE7373CDC777280106641C2CD8FF73EA46A1FBDAE1BCF73F477AB1C9",
+      "candidateSha256": "A8A4AF8627AC298E0D906A388F39582D1CF4592B644314505ED35C44436AC00B",
       "canonicalBytes": 20981,
-      "candidateBytes": 32168,
+      "candidateBytes": 33794,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2345,9 +2345,9 @@
     {
       "path": "lib/features/reports/presentation/fleet_status_screen.dart",
       "canonicalSha256": "1BD7161B49893F25C7D617BE3704508089985B75FBA6066462CD5C2FC3F66913",
-      "candidateSha256": "9B8CD47BCA49C13ABDB39A6BEA0B1D71DB71E017E5A30B30FCBF178D79D1602B",
+      "candidateSha256": "C934E61546F6BFD619792D0E52029D051351EAAF79CC55A5A0D74A3106E7D268",
       "canonicalBytes": 21520,
-      "candidateBytes": 35492,
+      "candidateBytes": 36085,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2729,9 +2729,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "D9D33B39A895D04E5099FF7E8771E7E21ED54E21C936DBF0E3F4077785125373",
+      "candidateSha256": "1E7E446B78838121C964BB9C14D74ED17FA542673A4CB460DB9A023D02F6C6FB",
       "canonicalBytes": 78841,
-      "candidateBytes": 118668,
+      "candidateBytes": 119587,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2761,9 +2761,9 @@
     {
       "path": "test/isar_schema_migrator_test.dart",
       "canonicalSha256": "23413CE1A90B1338ACDF5D0001D4890C9FF321A31C03C45A27B4F96E7DE744DB",
-      "candidateSha256": "4773358E1A337C4250F3EA1991D6962E7C2BD0F12BC5A7FD0165DA4FF127EDCE",
+      "candidateSha256": "C2FEA86685F7B46EAA0EBCEAB98E6B7317DC01797D5345E6D24605AFFC14A955",
       "canonicalBytes": 4757,
-      "candidateBytes": 21889,
+      "candidateBytes": 21894,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

@@ -9,6 +9,7 @@ Map<String, dynamic> record({
   String? resolvedByUid,
   String? resolvedByName,
   String? resolutionNote,
+  List<String> issueLinkIds = const <String>[],
 }) => <String, dynamic>{
   'schemaVersion': 1,
   'eventId': 'event-1',
@@ -20,6 +21,7 @@ Map<String, dynamic> record({
   'affectedAssetClassIds': <String>[],
   'affectedAssetInstanceIds': <String>[],
   'completedIntervals': <Map<String, dynamic>>[],
+  'issueLinkIds': issueLinkIds,
   'startedAt': DateTime.utc(2026, 8, 14, 10),
   'status': status,
   'createdAt': DateTime.utc(2026, 8, 14, 10, 5),
@@ -83,11 +85,30 @@ void main() {
   });
 
   test('strictly decodes a complete open operational event', () {
-    final event = OperationalEvent.fromMap(record(), 'event-1');
+    final event = OperationalEvent.fromMap(
+      record(issueLinkIds: const ['event_issue_1']),
+      'event-1',
+    );
     expect(event.isOpen, isTrue);
     expect(event.eventType, OperationalEventType.powerTrip);
     expect(event.durationUntil(DateTime.utc(2026, 8, 14, 12)).inHours, 2);
+    expect(event.issueLinkIds, const ['event_issue_1']);
   });
+
+  test(
+    'legacy missing link projection is empty and malformed present fails',
+    () {
+      final legacy = record()..remove('issueLinkIds');
+      expect(OperationalEvent.fromMap(legacy, 'event-1').issueLinkIds, isEmpty);
+      expect(
+        () => OperationalEvent.fromMap(
+          record(issueLinkIds: const ['duplicate', 'duplicate']),
+          'event-1',
+        ),
+        throwsFormatException,
+      );
+    },
+  );
 
   test('requires complete scope arrays', () {
     final malformed = record()..remove('affectedAssetClassIds');
@@ -200,6 +221,7 @@ void main() {
               'scope': 'plantWide',
               'affectedAssetClassIds': <String>[],
               'affectedAssetInstanceIds': <String>[],
+              'issueLinkIds': <String>['event_issue_first'],
               'resolvedByUid': 'shift-1',
               'resolvedByName': 'Shift One',
               'resolutionNote':
@@ -213,6 +235,9 @@ void main() {
     expect(event.occurrenceCountWithin(start, end, end), 2);
     expect(event.durationWithin(start, end, end), const Duration(hours: 3));
     expect(event.completedIntervals.single.resolvedByName, 'Shift One');
+    expect(event.completedIntervals.single.issueLinkIds, const [
+      'event_issue_first',
+    ]);
     expect(
       event.completedIntervals.single.title,
       'First incoming power interruption',

@@ -67,6 +67,12 @@ These records supply the app-open attention picture and the duration-aware
 reporting view. They do not replace an asset issue when physical maintenance is
 required; both records may coexist and remain independently accountable.
 
+When both records exist, an authorised user can bind the maintenance issue to
+the exact disruption occurrence as causal work, restoration work, or work
+affected by the disruption. The immutable link freezes both identities and the
+event scope at link time. Reopening an event archives the earlier occurrence's
+links rather than carrying them into the recurrence.
+
 ## Dynamic asset model
 
 Admin can add and maintain asset classes, hierarchy definitions, physical
@@ -118,6 +124,7 @@ The Operations report supports:
 - issue totals, critical/open issues and unresolved issue details;
 - planned-job totals split into open, completed and cancelled;
 - disruption count, open count and overlapping duration;
+- unique maintenance issues explicitly linked to disruption occurrences;
 - per-class health and workload summaries;
 - top component and subsystem failure concentrations.
 
@@ -148,9 +155,9 @@ to repair genuine business-data mistakes.
 1. Use the governed asset hierarchy as the sole selector in every new issue,
    planned-work and template-authoring surface, while retaining explicit legacy
    read compatibility during migration.
-2. Add source-bound links between operational events and affected maintenance
-   issues where users choose to create both.
-3. Extend component and subsystem analytics with server-side aggregates after
+2. Extend component and subsystem analytics with server-side aggregates after
    sufficient governed history exists.
-4. Add record-specific Admin correction commands only where an actual mutable
+3. Add record-specific Admin correction commands only where an actual mutable
    correction need is demonstrated; do not introduce a generic database editor.
+4. Consider direct create-and-link ergonomics only after maintenance issue
+   creation has a server-governed atomic command boundary.

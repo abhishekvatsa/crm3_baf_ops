@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/operational_event.dart';
+import '../data/operational_event_issue_link.dart';
+import '../services/operational_event_issue_link_service.dart';
 import '../services/operational_event_service.dart';
 
 const operationalEventLiveWindowLimit = 500;
@@ -14,6 +16,47 @@ const operationalEventResolvedHistoryDisclosure =
 final operationalEventServiceProvider = Provider<OperationalEventService>(
   (ref) => OperationalEventService(),
 );
+
+final operationalEventIssueLinkServiceProvider =
+    Provider<OperationalEventIssueLinkService>(
+      (ref) => OperationalEventIssueLinkService(),
+    );
+
+final operationalEventIssueLinksProvider =
+    StreamProvider.family<List<OperationalEventIssueLink>, String>((
+      ref,
+      eventId,
+    ) {
+      return FirebaseFirestore.instance
+          .collection('operational_event_issue_links')
+          .where('eventId', isEqualTo: eventId)
+          .limit(100)
+          .snapshots()
+          .map(_decodeOperationalEventIssueLinks);
+    });
+
+final operationalIssueEventLinksProvider =
+    StreamProvider.family<List<OperationalEventIssueLink>, String>((
+      ref,
+      issueId,
+    ) {
+      return FirebaseFirestore.instance
+          .collection('operational_event_issue_links')
+          .where('issueId', isEqualTo: issueId)
+          .limit(50)
+          .snapshots()
+          .map(_decodeOperationalEventIssueLinks);
+    });
+
+List<OperationalEventIssueLink> _decodeOperationalEventIssueLinks(
+  QuerySnapshot<Map<String, dynamic>> snapshot,
+) {
+  final links = snapshot.docs
+      .map((doc) => OperationalEventIssueLink.fromMap(doc.data(), doc.id))
+      .toList(growable: false);
+  links.sort((left, right) => right.linkedAt.compareTo(left.linkedAt));
+  return List<OperationalEventIssueLink>.unmodifiable(links);
+}
 
 final operationalEventsProvider = StreamProvider<List<OperationalEvent>>((ref) {
   final events = FirebaseFirestore.instance.collection('operational_events');

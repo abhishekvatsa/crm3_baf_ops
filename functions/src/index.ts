@@ -120,6 +120,14 @@ import type {
   OperationalEventMutationResult,
 } from "./operationalEventMutation";
 import {
+  isOperationalEventIssueLinkOperation,
+  mutateOperationalEventIssueLinkWithDb,
+  userCanLinkOperationalEventIssue,
+} from "./operationalEventIssueLinkMutation";
+import type {
+  OperationalEventIssueLinkMutationResult,
+} from "./operationalEventIssueLinkMutation";
+import {
   buildJobAssignedNotification,
   buildTicketCreatedNotification,
   buildTicketResolvedNotification,
@@ -563,12 +571,15 @@ export const mutateAssetHierarchy = onCall(
         AssetRegistryMutationResult |
         InnerCoverLifecycleMutationResult |
         AssetOperationalConditionMutationResult |
-        OperationalEventMutationResult
+        OperationalEventMutationResult |
+        OperationalEventIssueLinkMutationResult
       >({
         db,
         authUid: request.auth?.uid ?? null,
         callableName: "mutateAssetHierarchy",
         authorize: (userData) =>
+          isOperationalEventIssueLinkOperation(request.data?.operation) ?
+            userCanLinkOperationalEventIssue(userData) :
           isOperationalEventOperation(request.data?.operation) ?
             userCanMutateOperationalEvent(userData, request.data.operation) :
           isAssetOperationalConditionOperation(request.data?.operation) ?
@@ -584,6 +595,9 @@ export const mutateAssetHierarchy = onCall(
             data: request.data ?? {},
             timestampFromDate: admin.firestore.Timestamp.fromDate,
           };
+          if (isOperationalEventIssueLinkOperation(request.data?.operation)) {
+            return mutateOperationalEventIssueLinkWithDb(args);
+          }
           if (isOperationalEventOperation(request.data?.operation)) {
             return mutateOperationalEventWithDb(args);
           }
