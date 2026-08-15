@@ -142,7 +142,7 @@ class OperationsReport {
       executions.where((job) => job.isCancelled).length;
 
   Set<String> get linkedDisruptionIssueIds => Set<String>.unmodifiable(
-    eventOccurrences.expand((occurrence) => occurrence.interval.issueLinkIds),
+    eventOccurrences.expand((occurrence) => occurrence.interval.linkedIssueIds),
   );
   int get linkedDisruptionIssueCount => linkedDisruptionIssueIds.length;
 

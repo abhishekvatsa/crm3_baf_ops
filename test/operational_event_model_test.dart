@@ -10,6 +10,7 @@ Map<String, dynamic> record({
   String? resolvedByName,
   String? resolutionNote,
   List<String> issueLinkIds = const <String>[],
+  List<String> linkedIssueIds = const <String>[],
 }) => <String, dynamic>{
   'schemaVersion': 1,
   'eventId': 'event-1',
@@ -22,6 +23,7 @@ Map<String, dynamic> record({
   'affectedAssetInstanceIds': <String>[],
   'completedIntervals': <Map<String, dynamic>>[],
   'issueLinkIds': issueLinkIds,
+  'linkedIssueIds': linkedIssueIds,
   'startedAt': DateTime.utc(2026, 8, 14, 10),
   'status': status,
   'createdAt': DateTime.utc(2026, 8, 14, 10, 5),
@@ -86,23 +88,40 @@ void main() {
 
   test('strictly decodes a complete open operational event', () {
     final event = OperationalEvent.fromMap(
-      record(issueLinkIds: const ['event_issue_1']),
+      record(
+        issueLinkIds: const ['event_issue_1'],
+        linkedIssueIds: const ['maintenance_issue_1'],
+      ),
       'event-1',
     );
     expect(event.isOpen, isTrue);
     expect(event.eventType, OperationalEventType.powerTrip);
     expect(event.durationUntil(DateTime.utc(2026, 8, 14, 12)).inHours, 2);
     expect(event.issueLinkIds, const ['event_issue_1']);
+    expect(event.linkedIssueIds, const ['maintenance_issue_1']);
   });
 
   test(
     'legacy missing link projection is empty and malformed present fails',
     () {
-      final legacy = record()..remove('issueLinkIds');
+      final legacy =
+          record()
+            ..remove('issueLinkIds')
+            ..remove('linkedIssueIds');
       expect(OperationalEvent.fromMap(legacy, 'event-1').issueLinkIds, isEmpty);
       expect(
         () => OperationalEvent.fromMap(
-          record(issueLinkIds: const ['duplicate', 'duplicate']),
+          record(
+            issueLinkIds: const ['duplicate', 'duplicate'],
+            linkedIssueIds: const ['issue-1', 'issue-2'],
+          ),
+          'event-1',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => OperationalEvent.fromMap(
+          record(issueLinkIds: const ['event_issue_1']),
           'event-1',
         ),
         throwsFormatException,
@@ -222,6 +241,7 @@ void main() {
               'affectedAssetClassIds': <String>[],
               'affectedAssetInstanceIds': <String>[],
               'issueLinkIds': <String>['event_issue_first'],
+              'linkedIssueIds': <String>['maintenance_issue_shared'],
               'resolvedByUid': 'shift-1',
               'resolvedByName': 'Shift One',
               'resolutionNote':
@@ -237,6 +257,9 @@ void main() {
     expect(event.completedIntervals.single.resolvedByName, 'Shift One');
     expect(event.completedIntervals.single.issueLinkIds, const [
       'event_issue_first',
+    ]);
+    expect(event.completedIntervals.single.linkedIssueIds, const [
+      'maintenance_issue_shared',
     ]);
     expect(
       event.completedIntervals.single.title,

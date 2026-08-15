@@ -25,7 +25,8 @@ event scope. A free-text reason records why the two records belong together.
 The event workspace shows links for the current occurrence separately from
 prior occurrences. The maintenance issue exposes the reverse history. The
 Operations report counts unique linked issues and shows the link count on each
-disruption occurrence.
+disruption occurrence. Event history reads are not truncated at the per-
+occurrence limit, so links archived by event reopenings remain visible.
 
 ## Authority and evidence
 
@@ -34,7 +35,8 @@ disruption occurrence.
 transaction and revalidated inside it. The command requires exact event and
 issue versions and performs one atomic transaction that:
 
-- appends a bounded link ID to the current event occurrence;
+- appends a bounded link ID and its maintenance-issue ID to the current event
+  occurrence;
 - appends the same ID to the maintenance issue projection;
 - writes an immutable `operational_event_issue_links` record;
 - writes an Admin-readable immutable audit record; and
@@ -47,15 +49,22 @@ is rejected. Replaying the same request returns the original evidence without
 writes. Replay is receipt-first and validates the immutable link and audit; it
 does not depend on the event or issue remaining in their original state.
 
-Ordinary event edits preserve current link IDs. Reopening an event moves those
-IDs into the completed occurrence and starts the new occurrence with an empty
-projection, so later recurrence cannot rewrite earlier linkage.
+Ordinary event edits preserve the paired link-ID and issue-ID projections.
+Reopening an event moves both into the completed occurrence and starts the new
+occurrence with empty projections, so later recurrence cannot rewrite earlier
+linkage. Reports deduplicate the issue-ID projection across occurrences rather
+than treating two immutable link records as two different maintenance issues.
 
 ## Bounds and compatibility
 
 An event occurrence accepts at most 100 issue links and a maintenance issue at
-most 50 event links. Missing projection fields on legacy records decode as an
-empty list; malformed, duplicate, or over-bound present fields fail closed.
+most 50 event links. Both event projections may be absent together on a legacy
+record and then decode as empty. A partial pair, unequal cardinality,
+duplicates, malformed values, or over-bound present fields fail closed.
+
+Maintenance-record timestamps are decoded in their production ISO-string form
+as well as Firestore timestamp objects used by administrative writers. Invalid
+calendar dates and malformed timestamp strings fail closed.
 
 The local `MaintenanceRecord` projection advances governed Isar provenance
 from v5 to v6. The additive migration retains the exact v5 fingerprint and old

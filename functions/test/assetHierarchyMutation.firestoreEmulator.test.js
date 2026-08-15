@@ -771,7 +771,11 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
     expect(replay).toEqual({...first, idempotentReplay: true});
     expect((await db.collection('operational_events').doc(IDS.eventId).get()).data())
-      .toMatchObject({issueLinkIds: [first.linkId], version: 2});
+      .toMatchObject({
+        issueLinkIds: [first.linkId],
+        linkedIssueIds: [IDS.eventIssue],
+        version: 2,
+      });
     expect((await db.collection('maintenance_records').doc(IDS.eventIssue).get()).data())
       .toMatchObject({operationalEventIssueLinkIds: [first.linkId], version: 5});
     expect((await db.collection('operational_event_issue_links').doc(first.linkId).get()).data())

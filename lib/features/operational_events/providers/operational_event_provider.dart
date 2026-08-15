@@ -30,7 +30,6 @@ final operationalEventIssueLinksProvider =
       return FirebaseFirestore.instance
           .collection('operational_event_issue_links')
           .where('eventId', isEqualTo: eventId)
-          .limit(100)
           .snapshots()
           .map(_decodeOperationalEventIssueLinks);
     });

@@ -52,6 +52,7 @@ type CompletedInterval = {
   affectedAssetClassIds: ReadonlyArray<string>;
   affectedAssetInstanceIds: ReadonlyArray<string>;
   issueLinkIds: ReadonlyArray<string>;
+  linkedIssueIds: ReadonlyArray<string>;
   resolvedByUid: string;
   resolvedByName: string;
   resolutionNote: string;
@@ -410,10 +411,16 @@ function requireCompletedIntervals(value: unknown): CompletedInterval[] {
         `completedIntervals[${index}].issueLinkIds`,
         MAX_ISSUE_LINKS,
       );
+    const linkedIssueIds = interval.linkedIssueIds == null ? [] :
+      requireStringList(
+        interval.linkedIssueIds,
+        `completedIntervals[${index}].linkedIssueIds`,
+        MAX_ISSUE_LINKS,
+      );
     const resolvedByUid = interval.resolvedByUid;
     const resolvedByName = interval.resolvedByName;
     const resolutionNote = interval.resolutionNote;
-    if ((keys.length !== 12 && keys.length !== 13) ||
+    if ((keys.length !== 12 && keys.length !== 14) ||
         !keys.includes("eventType") ||
         !keys.includes("title") || !keys.includes("description") ||
         !keys.includes("severity") || !keys.includes("startedAt") ||
@@ -422,7 +429,9 @@ function requireCompletedIntervals(value: unknown): CompletedInterval[] {
         !keys.includes("affectedAssetInstanceIds") ||
         !keys.includes("resolvedByUid") || !keys.includes("resolvedByName") ||
         !keys.includes("resolutionNote") ||
-        (keys.length === 13 && !keys.includes("issueLinkIds")) ||
+        (keys.length === 14 &&
+          (!keys.includes("issueLinkIds") || !keys.includes("linkedIssueIds"))) ||
+        issueLinkIds.length !== linkedIssueIds.length ||
         !EVENT_TYPES.has(eventType as EventType) ||
         typeof title !== "string" || title.trim().length === 0 ||
         title.length > 120 || typeof description !== "string" ||
@@ -456,6 +465,7 @@ function requireCompletedIntervals(value: unknown): CompletedInterval[] {
       affectedAssetClassIds: classIds,
       affectedAssetInstanceIds: assetIds,
       issueLinkIds,
+      linkedIssueIds,
       resolvedByUid,
       resolvedByName,
       resolutionNote,
@@ -508,9 +518,14 @@ export function validateCurrentEvent(
     "affectedAssetInstanceIds",
     50,
   );
-  requireStringList(
+  const issueLinkIds = requireStringList(
     data.issueLinkIds ?? [],
     "issueLinkIds",
+    MAX_ISSUE_LINKS,
+  );
+  const linkedIssueIds = requireStringList(
+    data.linkedIssueIds ?? [],
+    "linkedIssueIds",
     MAX_ISSUE_LINKS,
   );
   const resolvedValues = [
@@ -537,6 +552,7 @@ export function validateCurrentEvent(
     (latestCompletedAt == null ||
       startedAt.getTime() >= latestCompletedAt.getTime());
   if (data.schemaVersion !== 1 || data.eventId !== eventId ||
+      issueLinkIds.length !== linkedIssueIds.length ||
       !EVENT_TYPES.has(data.eventType as EventType) ||
       typeof data.title !== "string" || data.title.trim().length === 0 ||
       data.title.length > 120 || typeof data.description !== "string" ||
@@ -577,6 +593,7 @@ function eventSnapshot(data: JsonMap | null): JsonMap | null {
     affectedAssetClassIds: data.affectedAssetClassIds,
     affectedAssetInstanceIds: data.affectedAssetInstanceIds,
     issueLinkIds: data.issueLinkIds ?? [],
+    linkedIssueIds: data.linkedIssueIds ?? [],
     completedIntervals: data.completedIntervals,
     startedAt: data.startedAt,
     status: data.status,
@@ -838,6 +855,7 @@ export async function mutateOperationalEventWithDb(args: {
         affectedAssetClassIds: draft.affectedAssetClassIds,
         affectedAssetInstanceIds: draft.affectedAssetInstanceIds,
         issueLinkIds: current?.issueLinkIds ?? [],
+        linkedIssueIds: current?.linkedIssueIds ?? [],
         completedIntervals: current?.completedIntervals ?? [],
         startedAt: timestampFromDate(new Date(draft.startedAtIso)),
         status: current?.status ?? "open",
@@ -885,6 +903,7 @@ export async function mutateOperationalEventWithDb(args: {
             affectedAssetClassIds: current!.affectedAssetClassIds,
             affectedAssetInstanceIds: current!.affectedAssetInstanceIds,
             issueLinkIds: current!.issueLinkIds ?? [],
+            linkedIssueIds: current!.linkedIssueIds ?? [],
             resolvedByUid: current!.resolvedByUid,
             resolvedByName: current!.resolvedByName,
             resolutionNote: current!.resolutionNote,
@@ -892,6 +911,7 @@ export async function mutateOperationalEventWithDb(args: {
         ],
         startedAt: committedAt,
         issueLinkIds: [],
+        linkedIssueIds: [],
         resolvedAt: null,
         resolvedByUid: null,
         resolvedByName: null,

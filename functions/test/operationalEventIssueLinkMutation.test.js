@@ -123,9 +123,9 @@ function persistedIssue(overrides = {}) {
     component: 'Control panel',
     subsystem: 'Power distribution',
     tag: 'MCC-07',
-    startDate: new Date('2026-08-14T10:10:00.000Z'),
-    createdAt: new Date('2026-08-14T10:12:00.000Z'),
-    updatedAt: new Date('2026-08-14T10:12:00.000Z'),
+    startDate: '2026-08-14T10:10:00.000Z',
+    createdAt: '2026-08-14T10:12:00.000Z',
+    updatedAt: '2026-08-14T10:12:00.000Z',
     ...overrides,
   };
 }
@@ -198,6 +198,7 @@ describe('operational event issue-link mutation', () => {
     expect(result.linkId).toMatch(/^event_issue_[0-9a-f]{48}$/);
     expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
       issueLinkIds: [result.linkId],
+      linkedIssueIds: [IDS.issue],
       version: 2,
       lastMutationId: IDS.request,
     });
@@ -347,6 +348,21 @@ describe('operational event issue-link mutation', () => {
       },
     });
     expect(malformedScope.writes).toHaveLength(0);
+  });
+
+  test('accepts production ISO timestamps and rejects malformed calendar dates', async () => {
+    await expect(invoke(fakeDb(baseSeed()))).resolves.toMatchObject({ok: true});
+
+    const malformed = fakeDb(baseSeed({
+      [`maintenance_records/${IDS.issue}`]: persistedIssue({
+        updatedAt: '2026-02-30T10:12:00.000Z',
+      }),
+    }));
+    await expect(invoke(malformed)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'operational-event-link-issue-malformed'},
+    });
+    expect(malformed.writes).toHaveLength(0);
   });
 
   test('fails authority-first without entering the transaction', async () => {

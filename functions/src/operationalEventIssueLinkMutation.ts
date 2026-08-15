@@ -206,6 +206,25 @@ function actorName(data: JsonMap): string {
     data.name.trim() : "Approved user";
 }
 
+function maintenanceTimestampDate(value: unknown): Date | null {
+  if (typeof value !== "string") return timestampDate(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?$/.exec(value);
+  if (match == null) return null;
+  const parts = match.slice(1, 7).map(Number);
+  const candidate = new Date(value);
+  const calendar = new Date(Date.UTC(
+    parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5],
+  ));
+  if (Number.isNaN(candidate.getTime()) ||
+      calendar.getUTCFullYear() !== parts[0] ||
+      calendar.getUTCMonth() !== parts[1] - 1 ||
+      calendar.getUTCDate() !== parts[2] ||
+      calendar.getUTCHours() !== parts[3] ||
+      calendar.getUTCMinutes() !== parts[4] ||
+      calendar.getUTCSeconds() !== parts[5]) return null;
+  return candidate;
+}
+
 function boundedIds(
   value: unknown,
   field: string,
@@ -326,8 +345,10 @@ function validateIssue(data: JsonMap, issueId: string): IssueEvidence {
       !Number.isSafeInteger(assetNumber) || (assetNumber as number) < 1 ||
       typeof description !== "string" || description.trim().length === 0 ||
       description.length > 4000 || typeof routedTo !== "string" ||
-      routedTo.trim().length === 0 || timestampDate(data.startDate) == null ||
-      timestampDate(data.createdAt) == null || timestampDate(data.updatedAt) == null) {
+      routedTo.trim().length === 0 ||
+      maintenanceTimestampDate(data.startDate) == null ||
+      maintenanceTimestampDate(data.createdAt) == null ||
+      maintenanceTimestampDate(data.updatedAt) == null) {
     throw new AssetHierarchyMutationError(
       "failed-precondition",
       "The maintenance issue is incomplete, deleted, or malformed.",
@@ -576,6 +597,26 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
       MAX_EVENT_LINKS,
       "operational-event-link-event-projection-malformed",
     );
+    const linkedIssueIds = boundedIds(
+      event.linkedIssueIds,
+      "operational-event linked issue identities",
+      MAX_EVENT_LINKS,
+      "operational-event-link-event-projection-malformed",
+    );
+    if (eventLinkIds.length !== linkedIssueIds.length) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        "The saved operational-event issue projections are incomplete.",
+        {reasonCode: "operational-event-link-event-projection-malformed"},
+      );
+    }
+    if (linkedIssueIds.includes(request.issueId)) {
+      throw new AssetHierarchyMutationError(
+        "already-exists",
+        "This issue is already linked to the current event occurrence.",
+        {reasonCode: "operational-event-issue-link-already-exists", linkId},
+      );
+    }
     if (eventLinkIds.length >= MAX_EVENT_LINKS ||
         issueEvidence.linkIds.length >= MAX_ISSUE_LINKS) {
       throw new AssetHierarchyMutationError(
@@ -590,6 +631,7 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
     const nextEventVersion = eventVersion + 1;
     const nextIssueVersion = issueEvidence.version + 1;
     const nextEventLinkIds = [...eventLinkIds, linkId].sort();
+    const nextLinkedIssueIds = [...linkedIssueIds, request.issueId].sort();
     const nextIssueLinkIds = [...issueEvidence.linkIds, linkId].sort();
     const link: JsonMap = {
       schemaVersion: 1,
@@ -636,6 +678,8 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
       reason: request.reason,
       beforeEventIssueLinkIds: eventLinkIds,
       afterEventIssueLinkIds: nextEventLinkIds,
+      beforeEventLinkedIssueIds: linkedIssueIds,
+      afterEventLinkedIssueIds: nextLinkedIssueIds,
       beforeIssueEventLinkIds: issueEvidence.linkIds,
       afterIssueEventLinkIds: nextIssueLinkIds,
       performedAt: committedAt,
@@ -660,6 +704,7 @@ export async function mutateOperationalEventIssueLinkWithDb(args: {
     transaction.set(eventRef as unknown as DocumentRefLike, {
       ...event,
       issueLinkIds: nextEventLinkIds,
+      linkedIssueIds: nextLinkedIssueIds,
       version: nextEventVersion,
       updatedAt: committedAt,
       updatedByUid: actorUid,
