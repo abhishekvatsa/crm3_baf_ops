@@ -1088,6 +1088,50 @@ class JobTemplate {
 // JOB EXECUTION
 // ─────────────────────────────────────────────────────────────
 
+class AssignmentPhysicalAssetIdentity {
+  const AssignmentPhysicalAssetIdentity({
+    required this.assetClassId,
+    required this.assetInstanceId,
+    required this.assetNumber,
+  });
+
+  final String assetClassId;
+  final String assetInstanceId;
+  final int assetNumber;
+}
+
+class AssignmentInnerCoverPosition {
+  const AssignmentInnerCoverPosition({
+    required this.baseAssetInstanceId,
+    required this.baseAssetClassId,
+    required this.baseAssetNumber,
+    required this.innerCoverId,
+    required this.innerCoverSerialNumber,
+    required this.linkageId,
+    required this.assignmentVersion,
+  });
+
+  final String baseAssetInstanceId;
+  final String baseAssetClassId;
+  final int baseAssetNumber;
+  final String innerCoverId;
+  final String innerCoverSerialNumber;
+  final String linkageId;
+  final int assignmentVersion;
+}
+
+class AssignmentInnerCoverPositionReadResult {
+  const AssignmentInnerCoverPositionReadResult({
+    required this.position,
+    required this.error,
+  });
+
+  final AssignmentInnerCoverPosition? position;
+  final Object? error;
+
+  bool get isValid => error == null;
+}
+
 @Collection()
 class JobExecution {
   // 🔥 Explicit empty constructor for Isar
@@ -1149,6 +1193,162 @@ class JobExecution {
     return encoded == null
         ? null
         : AssetHierarchyReference.decode(encoded, source: source);
+  }
+
+  @ignore
+  AssignmentPhysicalAssetIdentity? get assignmentPhysicalAssetIdentity {
+    if (!isGovernedTemplateAssignment) return null;
+    final source =
+        firestoreId == null
+            ? 'local job execution $id'
+            : 'job execution $firestoreId';
+    final metadata = readOptionalJsonObject(
+      metadataJson,
+      field: 'metadataJson',
+      source: source,
+    );
+    if (metadata == null || !metadata.containsKey('assignmentAssetIdentity')) {
+      return null;
+    }
+    final identity = readOptionalJsonObject(
+      metadata['assignmentAssetIdentity'],
+      field: 'metadataJson.assignmentAssetIdentity',
+      source: source,
+    );
+    if (identity == null) {
+      throw PersistedDataFormatException(
+        field: 'metadataJson.assignmentAssetIdentity',
+        source: source,
+        detail: 'must be a non-empty object when present',
+      );
+    }
+    final recordedAssetNumber = readRequiredPersistedInt(
+      identity['assetNumber'],
+      field: 'metadataJson.assignmentAssetIdentity.assetNumber',
+      source: source,
+      minimum: 1,
+    );
+    if (recordedAssetNumber != assetNumber) {
+      throw PersistedDataFormatException(
+        field: 'metadataJson.assignmentAssetIdentity.assetNumber',
+        source: source,
+        detail: 'must match the execution asset number',
+      );
+    }
+    return AssignmentPhysicalAssetIdentity(
+      assetClassId: readRequiredPersistedString(
+        identity['assetClassId'],
+        field: 'metadataJson.assignmentAssetIdentity.assetClassId',
+        source: source,
+      ),
+      assetInstanceId: readRequiredPersistedString(
+        identity['assetInstanceId'],
+        field: 'metadataJson.assignmentAssetIdentity.assetInstanceId',
+        source: source,
+      ),
+      assetNumber: recordedAssetNumber,
+    );
+  }
+
+  @ignore
+  AssignmentInnerCoverPosition? get assignmentInnerCoverPosition {
+    if (!isGovernedTemplateAssignment) return null;
+    final source =
+        firestoreId == null
+            ? 'local job execution $id'
+            : 'job execution $firestoreId';
+    final metadata = readOptionalJsonObject(
+      metadataJson,
+      field: 'metadataJson',
+      source: source,
+    );
+    if (metadata == null ||
+        !metadata.containsKey('assignmentInnerCoverPosition')) {
+      return null;
+    }
+    final position = readOptionalJsonObject(
+      metadata['assignmentInnerCoverPosition'],
+      field: 'metadataJson.assignmentInnerCoverPosition',
+      source: source,
+    );
+    if (position == null) {
+      throw PersistedDataFormatException(
+        field: 'metadataJson.assignmentInnerCoverPosition',
+        source: source,
+        detail: 'must be a non-empty object when present',
+      );
+    }
+    final physicalIdentity = assignmentPhysicalAssetIdentity;
+    final baseAssetInstanceId = readRequiredPersistedString(
+      position['baseAssetInstanceId'],
+      field: 'metadataJson.assignmentInnerCoverPosition.baseAssetInstanceId',
+      source: source,
+    );
+    final baseAssetClassId = readRequiredPersistedString(
+      position['baseAssetClassId'],
+      field: 'metadataJson.assignmentInnerCoverPosition.baseAssetClassId',
+      source: source,
+    );
+    final baseAssetNumber = readRequiredPersistedInt(
+      position['baseAssetNumber'],
+      field: 'metadataJson.assignmentInnerCoverPosition.baseAssetNumber',
+      source: source,
+      minimum: 1,
+    );
+    if (assetType != AssetType.innerCover ||
+        physicalIdentity == null ||
+        physicalIdentity.assetClassId != baseAssetClassId ||
+        physicalIdentity.assetInstanceId != baseAssetInstanceId ||
+        physicalIdentity.assetNumber != baseAssetNumber) {
+      throw PersistedDataFormatException(
+        field: 'metadataJson.assignmentInnerCoverPosition',
+        source: source,
+        detail: 'must match the execution physical Base identity',
+      );
+    }
+    return AssignmentInnerCoverPosition(
+      baseAssetInstanceId: baseAssetInstanceId,
+      baseAssetClassId: baseAssetClassId,
+      baseAssetNumber: baseAssetNumber,
+      innerCoverId: readRequiredPersistedString(
+        position['innerCoverId'],
+        field: 'metadataJson.assignmentInnerCoverPosition.innerCoverId',
+        source: source,
+      ),
+      innerCoverSerialNumber: readRequiredPersistedString(
+        position['innerCoverSerialNumber'],
+        field:
+            'metadataJson.assignmentInnerCoverPosition.innerCoverSerialNumber',
+        source: source,
+      ),
+      linkageId: readRequiredPersistedString(
+        position['linkageId'],
+        field: 'metadataJson.assignmentInnerCoverPosition.linkageId',
+        source: source,
+      ),
+      assignmentVersion: readRequiredPersistedInt(
+        position['assignmentVersion'],
+        field: 'metadataJson.assignmentInnerCoverPosition.assignmentVersion',
+        source: source,
+        minimum: 1,
+      ),
+    );
+  }
+
+  @ignore
+  AssignmentInnerCoverPositionReadResult
+  get assignmentInnerCoverPositionReadResult {
+    try {
+      return AssignmentInnerCoverPositionReadResult(
+        position: assignmentInnerCoverPosition,
+        error: null,
+      );
+    } on Object catch (error) {
+      return AssignmentInnerCoverPositionReadResult(
+        position: null,
+        error: error,
+      );
+    }
   }
 
   @Enumerated(EnumType.name)

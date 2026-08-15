@@ -26,6 +26,8 @@ class PublishedTemplateAssignmentRequest {
   final String expectedContentHash;
   final AssetType assetType;
   final int assetNumber;
+  final String? assetClassId;
+  final String? assetInstanceId;
   final int? chargeNoAtEvent;
   final String? remarks;
 
@@ -37,21 +39,29 @@ class PublishedTemplateAssignmentRequest {
     required this.expectedContentHash,
     required this.assetType,
     required this.assetNumber,
+    this.assetClassId,
+    this.assetInstanceId,
     this.chargeNoAtEvent,
     this.remarks,
   });
 
-  Map<String, dynamic> toCallableData() => <String, dynamic>{
-    'requestId': requestId,
-    'packageId': packageFirestoreId,
-    'versionId': versionFirestoreId,
-    'expectedVersionNumber': expectedVersionNumber,
-    'expectedContentHash': expectedContentHash,
-    'assetType': assetType.name,
-    'assetNumber': assetNumber,
-    if (chargeNoAtEvent != null) 'chargeNoAtEvent': chargeNoAtEvent,
-    if (_clean(remarks) != null) 'remarks': _clean(remarks),
-  };
+  Map<String, dynamic> toCallableData() {
+    _requireCompleteGovernedIdentity();
+    return <String, dynamic>{
+      'requestId': requestId,
+      'packageId': packageFirestoreId,
+      'versionId': versionFirestoreId,
+      'expectedVersionNumber': expectedVersionNumber,
+      'expectedContentHash': expectedContentHash,
+      'assetType': assetType.name,
+      'assetNumber': assetNumber,
+      if (_clean(assetClassId) != null) 'assetClassId': _clean(assetClassId),
+      if (_clean(assetInstanceId) != null)
+        'assetInstanceId': _clean(assetInstanceId),
+      if (chargeNoAtEvent != null) 'chargeNoAtEvent': chargeNoAtEvent,
+      if (_clean(remarks) != null) 'remarks': _clean(remarks),
+    };
+  }
 
   /// Stable fingerprint of the assignment meaning, excluding [requestId].
   ///
@@ -59,6 +69,7 @@ class PublishedTemplateAssignmentRequest {
   /// unchanged. If the user changes package, version, asset, charge or remarks,
   /// the next submission receives a new idempotency ID.
   String get payloadFingerprint {
+    _requireCompleteGovernedIdentity();
     final canonical = jsonEncode(<String, dynamic>{
       'packageId': packageFirestoreId,
       'versionId': versionFirestoreId,
@@ -66,10 +77,23 @@ class PublishedTemplateAssignmentRequest {
       'expectedContentHash': expectedContentHash,
       'assetType': assetType.name,
       'assetNumber': assetNumber,
+      if (_clean(assetClassId) != null) 'assetClassId': _clean(assetClassId),
+      if (_clean(assetInstanceId) != null)
+        'assetInstanceId': _clean(assetInstanceId),
       'chargeNoAtEvent': chargeNoAtEvent,
       'remarks': _clean(remarks),
     });
     return sha256.convert(utf8.encode(canonical)).toString();
+  }
+
+  void _requireCompleteGovernedIdentity() {
+    final hasClass = _clean(assetClassId) != null;
+    final hasInstance = _clean(assetInstanceId) != null;
+    if (hasClass != hasInstance) {
+      throw StateError(
+        'Governed assignment identity requires both assetClassId and assetInstanceId.',
+      );
+    }
   }
 }
 
@@ -93,6 +117,7 @@ class PublishedTemplateAssignmentServerResult {
   factory PublishedTemplateAssignmentServerResult.fromCallableData(
     Object? raw, {
     required String fallbackRequestId,
+    PublishedTemplateAssignmentRequest? expectedRequest,
   }) {
     if (raw is! Map || raw['ok'] != true) {
       throw const FormatException(
@@ -196,6 +221,13 @@ class PublishedTemplateAssignmentServerResult {
         'Server assignment timestamp did not match its JobExecution.',
       );
     }
+    if (expectedRequest != null) {
+      _validateAssignmentResponseMeaning(
+        request: expectedRequest,
+        execution: execution,
+        modules: modules,
+      );
+    }
 
     return PublishedTemplateAssignmentServerResult(
       execution: execution,
@@ -232,6 +264,7 @@ class PublishedTemplateAssignmentServerService {
       return PublishedTemplateAssignmentServerResult.fromCallableData(
         result.data,
         fallbackRequestId: request.requestId,
+        expectedRequest: request,
       );
     } on FirebaseFunctionsException catch (error) {
       throw PublishedTemplateAssignmentServerException.fromFirebase(error);
@@ -241,6 +274,51 @@ class PublishedTemplateAssignmentServerService {
         message: error.message,
       );
     }
+  }
+}
+
+void _validateAssignmentResponseMeaning({
+  required PublishedTemplateAssignmentRequest request,
+  required JobExecution execution,
+  required List<JobModuleInstance> modules,
+}) {
+  final executionMatches =
+      execution.templateFirestoreId == request.versionFirestoreId &&
+      execution.templatePackageId == request.packageFirestoreId &&
+      execution.templateVersionId == request.versionFirestoreId &&
+      execution.templateVersionNumber == request.expectedVersionNumber &&
+      execution.templateContentHash == request.expectedContentHash &&
+      execution.assetType == request.assetType &&
+      execution.assetNumber == request.assetNumber &&
+      execution.chargeNoAtEvent == request.chargeNoAtEvent &&
+      _clean(execution.remarks) == _clean(request.remarks);
+  if (!executionMatches) {
+    throw const FormatException(
+      'Server assignment response did not match the submitted assignment meaning.',
+    );
+  }
+  for (final module in modules) {
+    if (module.templateFirestoreId != request.versionFirestoreId ||
+        module.templatePackageId != request.packageFirestoreId ||
+        module.templateVersionId != request.versionFirestoreId ||
+        module.assetType != request.assetType ||
+        module.assetNumber != request.assetNumber) {
+      throw const FormatException(
+        'Server assignment module did not match the submitted assignment meaning.',
+      );
+    }
+  }
+  final expectedClassId = _clean(request.assetClassId);
+  final expectedInstanceId = _clean(request.assetInstanceId);
+  if (expectedClassId == null && expectedInstanceId == null) return;
+  final physicalIdentity = execution.assignmentPhysicalAssetIdentity;
+  if (physicalIdentity == null ||
+      physicalIdentity.assetClassId != expectedClassId ||
+      physicalIdentity.assetInstanceId != expectedInstanceId ||
+      physicalIdentity.assetNumber != request.assetNumber) {
+    throw const FormatException(
+      'Server assignment response did not preserve the selected physical asset identity.',
+    );
   }
 }
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
@@ -86,6 +88,72 @@ void main() {
     expect(first.payloadFingerprint, second.payloadFingerprint);
   });
 
+  test('governed assignment request carries exact physical identity', () {
+    const request = PublishedTemplateAssignmentRequest(
+      requestId: 'request-a',
+      packageFirestoreId: 'package-1',
+      versionFirestoreId: 'version-1',
+      expectedVersionNumber: 1,
+      expectedContentHash: 'hash-1',
+      assetType: AssetType.base,
+      assetNumber: 101,
+      assetClassId: 'base-class',
+      assetInstanceId: 'base-101',
+    );
+
+    expect(
+      request.toCallableData(),
+      containsPair('assetClassId', 'base-class'),
+    );
+    expect(
+      request.toCallableData(),
+      containsPair('assetInstanceId', 'base-101'),
+    );
+  });
+
+  test('physical identity participates in the request fingerprint', () {
+    const first = PublishedTemplateAssignmentRequest(
+      requestId: 'request-a',
+      packageFirestoreId: 'package-1',
+      versionFirestoreId: 'version-1',
+      expectedVersionNumber: 1,
+      expectedContentHash: 'hash-1',
+      assetType: AssetType.base,
+      assetNumber: 101,
+      assetClassId: 'base-class',
+      assetInstanceId: 'base-101-a',
+    );
+    const second = PublishedTemplateAssignmentRequest(
+      requestId: 'request-a',
+      packageFirestoreId: 'package-1',
+      versionFirestoreId: 'version-1',
+      expectedVersionNumber: 1,
+      expectedContentHash: 'hash-1',
+      assetType: AssetType.base,
+      assetNumber: 101,
+      assetClassId: 'base-class',
+      assetInstanceId: 'base-101-b',
+    );
+
+    expect(first.payloadFingerprint, isNot(second.payloadFingerprint));
+  });
+
+  test('rejects a partial governed physical identity', () {
+    const request = PublishedTemplateAssignmentRequest(
+      requestId: 'request-a',
+      packageFirestoreId: 'package-1',
+      versionFirestoreId: 'version-1',
+      expectedVersionNumber: 1,
+      expectedContentHash: 'hash-1',
+      assetType: AssetType.base,
+      assetNumber: 101,
+      assetClassId: 'base-class',
+    );
+
+    expect(request.toCallableData, throwsStateError);
+    expect(() => request.payloadFingerprint, throwsStateError);
+  });
+
   test('parses canonical execution and modules returned by callable', () {
     final result = PublishedTemplateAssignmentServerResult.fromCallableData(
       <String, dynamic>{
@@ -152,6 +220,72 @@ void main() {
     expect(result.modules.single.firestoreId, 'module-1');
     expect(result.modules.single.isSynced, isTrue);
     expect(result.publicationAuditFirestoreId, 'audit-1');
+  });
+
+  test('reconciles the complete response meaning with the request', () {
+    const request = PublishedTemplateAssignmentRequest(
+      requestId: 'request-1',
+      packageFirestoreId: 'package-1',
+      versionFirestoreId: 'version-1',
+      expectedVersionNumber: 1,
+      expectedContentHash: 'hash-1',
+      assetType: AssetType.base,
+      assetNumber: 101,
+      assetClassId: 'base-class',
+      assetInstanceId: 'base-101',
+    );
+    final response = _canonicalResponse();
+    (response['execution']
+        as Map<String, dynamic>)['metadataJson'] = jsonEncode(<String, dynamic>{
+      'assignmentAssetIdentity': <String, dynamic>{
+        'assetClassId': 'base-class',
+        'assetInstanceId': 'base-101',
+        'assetNumber': 101,
+      },
+    });
+
+    final result = PublishedTemplateAssignmentServerResult.fromCallableData(
+      response,
+      fallbackRequestId: request.requestId,
+      expectedRequest: request,
+    );
+
+    expect(
+      result.execution.assignmentPhysicalAssetIdentity?.assetInstanceId,
+      'base-101',
+    );
+  });
+
+  test('rejects a response carrying a different governed physical asset', () {
+    const request = PublishedTemplateAssignmentRequest(
+      requestId: 'request-1',
+      packageFirestoreId: 'package-1',
+      versionFirestoreId: 'version-1',
+      expectedVersionNumber: 1,
+      expectedContentHash: 'hash-1',
+      assetType: AssetType.base,
+      assetNumber: 101,
+      assetClassId: 'base-class',
+      assetInstanceId: 'base-101',
+    );
+    final response = _canonicalResponse();
+    (response['execution']
+        as Map<String, dynamic>)['metadataJson'] = jsonEncode(<String, dynamic>{
+      'assignmentAssetIdentity': <String, dynamic>{
+        'assetClassId': 'base-class',
+        'assetInstanceId': 'base-101-other',
+        'assetNumber': 101,
+      },
+    });
+
+    expect(
+      () => PublishedTemplateAssignmentServerResult.fromCallableData(
+        response,
+        fallbackRequestId: request.requestId,
+        expectedRequest: request,
+      ),
+      throwsA(isA<FormatException>()),
+    );
   });
   test('rejects response modules linked to another execution', () {
     expect(

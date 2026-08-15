@@ -669,6 +669,68 @@ void main() {
   );
 
   test(
+    'Inner Cover planned work is attributed to its selected Base position',
+    () {
+      final baseClass = assetClass('base-class', 'Base', 'base');
+      final innerCoverClass = assetClass(
+        'inner-cover-class',
+        'Inner Cover',
+        'innerCover',
+      );
+      final base201 = asset('base-201', baseClass, 201);
+      final innerCoverExecution =
+          execution(DateTime.utc(2026, 8, 6))
+            ..assetType = AssetType.innerCover
+            ..assetNumber = 201
+            ..templateVersionId = 'version-inner-cover-1'
+            ..metadataJson = jsonEncode(<String, dynamic>{
+              'source': 'server_governed_published_template_assignment',
+              'assignmentAssetIdentity': <String, dynamic>{
+                'assetClassId': baseClass.id,
+                'assetInstanceId': base201.id,
+                'assetNumber': base201.assetNumber,
+              },
+              'jobTemplateSnapshot': <String, dynamic>{
+                'assetHierarchyRefJson':
+                    AssetHierarchyReference(
+                      assetClassId: innerCoverClass.id,
+                      assetClassCode: innerCoverClass.code,
+                      assetClassName: innerCoverClass.name,
+                      nodeId: 'shell',
+                      nodeVersion: 1,
+                      nodeName: 'Shell',
+                      hierarchyPath: const ['Shell'],
+                      ownershipStatus: AssetOwnershipStatus.unassigned,
+                    ).encode(),
+              },
+            });
+
+      final report = buildOperationsReport(
+        filter: OperationsReportFilter(
+          startDate: DateTime.utc(2026, 8, 1),
+          endDate: DateTime.utc(2026, 8, 31),
+          assetInstanceId: base201.id,
+        ),
+        tickets: const [],
+        executions: [innerCoverExecution],
+        events: const [],
+        assetClasses: [baseClass, innerCoverClass],
+        assetInstances: [base201],
+        overview: PlantAssetOverview.build(
+          assetClasses: [baseClass, innerCoverClass],
+          assetInstances: [base201],
+          operationalConditions: const [],
+          workflowStatuses: const [],
+        ),
+      );
+
+      expect(report.plannedJobCount, 1);
+      expect(report.classSummaries.single.assetClassId, baseClass.id);
+      expect(report.classSummaries.single.plannedJobCount, 1);
+    },
+  );
+
+  test(
     'governed custom planned work without hierarchy identity fails closed',
     () {
       final customExecution =

@@ -495,13 +495,16 @@ class _PlannedJobDetailScreenState
     final execution = widget.execution;
     final actionRead = execution.actionsReadResult;
     final responseRead = execution.responsesReadResult;
+    final innerCoverPositionRead =
+        execution.assignmentInnerCoverPositionReadResult;
     final actor = ref.watch(currentAppUserProvider).value;
     final canAddDiaryEntry = actor?.canCreateJobDiaryEntry ?? false;
     final canAddModule = actor?.canAddJobModuleDuringExecution ?? false;
     final canCompleteJob =
         (actor?.canCompleteJobExecution ?? false) &&
         actionRead.isValid &&
-        responseRead.isValid;
+        responseRead.isValid &&
+        innerCoverPositionRead.isValid;
     final showBottomActions =
         !execution.isCompleted && (canAddDiaryEntry || canCompleteJob);
     final statusColor =
@@ -566,6 +569,14 @@ class _PlannedJobDetailScreenState
                   'Response counts and details are hidden, and job completion is blocked. No saved responses were discarded or replaced.',
             ),
           ],
+          if (!innerCoverPositionRead.isValid) ...[
+            const SizedBox(height: BafSpacing.lg),
+            const PersistedDataIntegrityNotice(
+              title: 'Inner Cover assignment evidence needs repair',
+              message:
+                  'The frozen Base, serial or linkage identity is contradictory. Job completion is blocked until the saved evidence is repaired.',
+            ),
+          ],
           if (execution.workflowSchemaVersion == 1 &&
               _hasText(execution.firestoreId)) ...[
             const SizedBox(height: BafSpacing.lg),
@@ -589,6 +600,17 @@ class _PlannedJobDetailScreenState
                 value:
                     '${_assetTypeLabel(execution.assetType)} ${execution.assetNumber}',
               ),
+              if (innerCoverPositionRead.position case final position?) ...[
+                _InfoRow(
+                  label: 'Inner Cover serial',
+                  value: position.innerCoverSerialNumber,
+                ),
+                _InfoRow(
+                  label: 'Frozen linkage',
+                  value:
+                      '${position.linkageId} · assignment v${position.assignmentVersion}',
+                ),
+              ],
               _InfoRow(
                 label: 'Template',
                 value: _cleanDisplay(
