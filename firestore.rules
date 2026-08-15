@@ -3400,6 +3400,43 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /inner_cover_profiles/{docId} {
+      allow read: if isApprovedUser();
+      allow write: if false;
+    }
+
+    match /base_inner_cover_assignments/{docId} {
+      allow read: if isApprovedUser();
+      allow write: if false;
+    }
+
+    match /inner_cover_linkages/{docId} {
+      allow read: if isApprovedUser();
+      allow write: if false;
+    }
+
+    match /inner_cover_fabrications/{docId} {
+      allow read: if isApprovedUser();
+      allow write: if false;
+    }
+
+    match /inner_cover_serial_claims/{docId} {
+      allow read, write: if false;
+    }
+
+    match /inner_cover_donor_part_claims/{docId} {
+      allow read, write: if false;
+    }
+
+    match /inner_cover_lifecycle_audits/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /inner_cover_lifecycle_receipts/{docId} {
+      allow read, write: if false;
+    }
+
     match /operational_events/{docId} {
       allow read: if isApprovedUser();
       allow create, update, delete: if false;

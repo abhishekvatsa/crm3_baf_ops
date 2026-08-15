@@ -97,6 +97,13 @@ import {
 } from "./assetRegistryMutation";
 import type {AssetRegistryMutationResult} from "./assetRegistryMutation";
 import {
+  isInnerCoverLifecycleOperation,
+  mutateInnerCoverLifecycleWithDb,
+} from "./innerCoverLifecycleMutation";
+import type {
+  InnerCoverLifecycleMutationResult,
+} from "./innerCoverLifecycleMutation";
+import {
   isAssetOperationalConditionOperation,
   mutateAssetOperationalConditionWithDb,
   userCanMutateAssetOperationalCondition,
@@ -554,6 +561,7 @@ export const mutateAssetHierarchy = onCall(
       return await executeAuthorizedMutation<
         AssetHierarchyMutationResult |
         AssetRegistryMutationResult |
+        InnerCoverLifecycleMutationResult |
         AssetOperationalConditionMutationResult |
         OperationalEventMutationResult
       >({
@@ -581,6 +589,9 @@ export const mutateAssetHierarchy = onCall(
           }
           if (isAssetOperationalConditionOperation(request.data?.operation)) {
             return mutateAssetOperationalConditionWithDb(args);
+          }
+          if (isInnerCoverLifecycleOperation(request.data?.operation)) {
+            return mutateInnerCoverLifecycleWithDb(args);
           }
           return isAssetRegistryOperation(request.data?.operation) ?
               mutateAssetRegistryWithDb(args) :

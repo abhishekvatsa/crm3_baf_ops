@@ -620,7 +620,25 @@
       "compatibility": "schema version 1 definition references remain readable; installed references require schema version 2 physical identity",
       "regression": "test/asset_hierarchy_model_test.dart",
       "reArmCondition": "hierarchy identity, ownership, lifecycle, or reference fields are defaulted from malformed input",
-      "riskFingerprint": "626849293122f32564862d18c7b3d290d2f70e5cc3d88ed83c0aaac08b487029"
+      "riskFingerprint": "4918d71ac557d7e4e326ebf875ef6ab8d78b2dc35b2138ce2fac92569327e6cb"
+    },
+    {
+      "id": "inner-cover-lifecycle-records",
+      "file": "lib/features/assets/data/inner_cover_lifecycle.dart",
+      "markers": [
+        "factory InnerCoverProfile.fromMap",
+        "factory BaseInnerCoverAssignment.fromMap",
+        "factory InnerCoverLinkage.fromMap",
+        "factory InnerCoverFabricationDossier.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "asset-governance",
+      "authorityBoundary": "Inner Cover identity, Base association, lifecycle, and fabrication genealogy",
+      "malformedDisposition": "fail closed before incomplete identity, linkage, or genealogy enters lifecycle decisions or issue evidence",
+      "compatibility": "schema version 1 only; optional fabrication and acceptance evidence remains optional only where explicitly modelled",
+      "regression": "test/inner_cover_lifecycle_model_test.dart; test/inner_cover_lifecycle_screen_test.dart; functions/test/innerCoverLifecycleMutation.firestoreEmulator.test.js",
+      "reArmCondition": "Inner Cover identity, projection, chronology, state, or genealogy fields are defaulted or coerced from malformed input",
+      "riskFingerprint": "ebcbf4555b8c66314bf3aa71809a368f7f94eb083450d091762a3a769f32cfd2"
     },
     {
       "id": "asset-registry-records",
@@ -1063,7 +1081,7 @@
     {
       "id": "maintenance-create-command-presentation",
       "file": "lib/features/maintenance/presentation/maintenance_form.dart",
-      "siteFingerprint": "6e14a8a0f37c0b2a8a84de967566aad1f2151e36ec4a10cca4405e1fcb467c00",
+      "siteFingerprint": "b8910604a322ea9e037359cb56819a15ead6c1231ad2a15ef7354b1592d546be",
       "classification": "USER_INPUT_AND_COMMAND_ERROR_PRESENTATION",
       "purpose": "surface invalid form input or ticket-command failure without manufacturing a record",
       "authorityBoundary": "operator ticket-creation command",

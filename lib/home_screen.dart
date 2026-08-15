@@ -15,6 +15,7 @@ import 'features/planned_maintenance/presentation/knowledge_governance_screen.da
 import 'features/planned_maintenance/presentation/closed_job_dossiers_screen.dart';
 import 'features/assets/presentation/asset_timeline_screen.dart';
 import 'features/assets/presentation/asset_condition_board.dart';
+import 'features/assets/presentation/inner_cover_lifecycle_screen.dart';
 import 'features/assets/domain/plant_asset_overview.dart';
 import 'features/assets/providers/plant_asset_overview_provider.dart';
 import 'features/audit/presentation/audit_timeline_screen.dart';
@@ -389,6 +390,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             (_) => _MoreScreen(
               appUser: appUser,
               onAssets: () => _push(context, const AssetTimelineScreen()),
+              onInnerCovers:
+                  () => _push(context, const InnerCoverLifecycleScreen()),
               onClosed: () => _push(context, const ClosedTicketsScreen()),
               onClosedJobs:
                   () => _push(context, const ClosedJobDossiersScreen()),
@@ -765,6 +768,7 @@ class _DashboardHome extends StatelessWidget {
 class _MoreScreen extends StatelessWidget {
   final AppUser appUser;
   final VoidCallback onAssets;
+  final VoidCallback onInnerCovers;
   final VoidCallback onClosed;
   final VoidCallback onClosedJobs;
   final VoidCallback onReports;
@@ -781,6 +785,7 @@ class _MoreScreen extends StatelessWidget {
   const _MoreScreen({
     required this.appUser,
     required this.onAssets,
+    required this.onInnerCovers,
     required this.onClosed,
     required this.onClosedJobs,
     required this.onReports,
@@ -840,6 +845,15 @@ class _MoreScreen extends StatelessWidget {
                       title: 'Assets',
                       subtitle: 'Equipment, locations and operational history',
                       onTap: onAssets,
+                    ),
+                  if (canSeeOperationalData)
+                    _MoreDestinationTile(
+                      icon: Icons.layers_outlined,
+                      color: BafColors.maintenance,
+                      title: 'Inner Covers',
+                      subtitle:
+                          'Base pairing, spare pool and fabrication history',
+                      onTap: onInnerCovers,
                     ),
                   _MoreDestinationTile(
                     icon: Icons.memory_outlined,

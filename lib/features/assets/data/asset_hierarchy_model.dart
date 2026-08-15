@@ -4,7 +4,171 @@ import '../../../core/serialization/persisted_data_reader.dart';
 
 enum AssetHierarchyStatus { active, retired }
 
-enum AssetHierarchyReferenceScope { definition, installedComponent }
+enum AssetHierarchyReferenceScope {
+  definition,
+  physicalAsset,
+  installedComponent,
+}
+
+enum InnerCoverPositionState { linked, noneLinked }
+
+class InnerCoverEventReference {
+  final String baseAssetInstanceId;
+  final int baseAssetNumber;
+  final InnerCoverPositionState positionState;
+  final String? innerCoverId;
+  final String? innerCoverSerialNumber;
+  final String? linkageId;
+  final int? assignmentVersion;
+  final DateTime? linkedAt;
+  final DateTime eventAt;
+  final DateTime confirmedAt;
+  final String confirmedByUid;
+  final String confirmedByName;
+
+  const InnerCoverEventReference({
+    required this.baseAssetInstanceId,
+    required this.baseAssetNumber,
+    required this.positionState,
+    this.innerCoverId,
+    this.innerCoverSerialNumber,
+    this.linkageId,
+    this.assignmentVersion,
+    this.linkedAt,
+    required this.eventAt,
+    required this.confirmedAt,
+    required this.confirmedByUid,
+    required this.confirmedByName,
+  });
+
+  Map<String, dynamic> toMap() => <String, dynamic>{
+    'baseAssetInstanceId': baseAssetInstanceId,
+    'baseAssetNumber': baseAssetNumber,
+    'positionState': positionState.name,
+    'innerCoverId': innerCoverId,
+    'innerCoverSerialNumber': innerCoverSerialNumber,
+    'linkageId': linkageId,
+    'assignmentVersion': assignmentVersion,
+    'linkedAt': linkedAt?.toUtc().toIso8601String(),
+    'eventAt': eventAt.toUtc().toIso8601String(),
+    'confirmedAt': confirmedAt.toUtc().toIso8601String(),
+    'confirmedByUid': confirmedByUid,
+    'confirmedByName': confirmedByName,
+  };
+
+  factory InnerCoverEventReference.fromMap(
+    Map<String, dynamic> map, {
+    String? source,
+  }) {
+    final positionState = readRequiredPersistedEnum(
+      InnerCoverPositionState.values,
+      map['positionState'],
+      field: 'innerCoverAssociation.positionState',
+      source: source,
+    );
+    final innerCoverId = readOptionalPersistedString(
+      map['innerCoverId'],
+      field: 'innerCoverAssociation.innerCoverId',
+      source: source,
+    );
+    final serial = readOptionalPersistedString(
+      map['innerCoverSerialNumber'],
+      field: 'innerCoverAssociation.innerCoverSerialNumber',
+      source: source,
+    );
+    final linkageId = readOptionalPersistedString(
+      map['linkageId'],
+      field: 'innerCoverAssociation.linkageId',
+      source: source,
+    );
+    final assignmentVersion = readOptionalPersistedInt(
+      map['assignmentVersion'],
+      field: 'innerCoverAssociation.assignmentVersion',
+      source: source,
+      minimum: 1,
+    );
+    final linkedAt = readOptionalPersistedDateTime(
+      map['linkedAt'],
+      field: 'innerCoverAssociation.linkedAt',
+      source: source,
+    );
+    final completeLink =
+        innerCoverId != null &&
+        serial != null &&
+        linkageId != null &&
+        assignmentVersion != null &&
+        linkedAt != null;
+    final absentLink =
+        innerCoverId == null &&
+        serial == null &&
+        linkageId == null &&
+        assignmentVersion == null &&
+        linkedAt == null;
+    if ((positionState == InnerCoverPositionState.linked && !completeLink) ||
+        (positionState == InnerCoverPositionState.noneLinked && !absentLink)) {
+      throw PersistedDataFormatException(
+        field: 'innerCoverAssociation.positionState',
+        source: source,
+        detail:
+            'linked identity must be complete, or wholly absent when none is linked',
+      );
+    }
+    final reference = InnerCoverEventReference(
+      baseAssetInstanceId: readRequiredPersistedString(
+        map['baseAssetInstanceId'],
+        field: 'innerCoverAssociation.baseAssetInstanceId',
+        source: source,
+      ),
+      baseAssetNumber: readRequiredPersistedInt(
+        map['baseAssetNumber'],
+        field: 'innerCoverAssociation.baseAssetNumber',
+        source: source,
+        minimum: 1,
+      ),
+      positionState: positionState,
+      innerCoverId: innerCoverId,
+      innerCoverSerialNumber: serial,
+      linkageId: linkageId,
+      assignmentVersion: assignmentVersion,
+      linkedAt: linkedAt,
+      eventAt: readRequiredPersistedDateTime(
+        map['eventAt'],
+        field: 'innerCoverAssociation.eventAt',
+        source: source,
+      ),
+      confirmedAt: readRequiredPersistedDateTime(
+        map['confirmedAt'],
+        field: 'innerCoverAssociation.confirmedAt',
+        source: source,
+      ),
+      confirmedByUid: readRequiredPersistedString(
+        map['confirmedByUid'],
+        field: 'innerCoverAssociation.confirmedByUid',
+        source: source,
+      ),
+      confirmedByName: readRequiredPersistedString(
+        map['confirmedByName'],
+        field: 'innerCoverAssociation.confirmedByName',
+        source: source,
+      ),
+    );
+    if (reference.linkedAt?.isAfter(reference.confirmedAt) == true) {
+      throw PersistedDataFormatException(
+        field: 'innerCoverAssociation.linkedAt',
+        source: source,
+        detail: 'cannot be after confirmation',
+      );
+    }
+    if (reference.eventAt.isAfter(reference.confirmedAt)) {
+      throw PersistedDataFormatException(
+        field: 'innerCoverAssociation.eventAt',
+        source: source,
+        detail: 'cannot be after confirmation',
+      );
+    }
+    return reference;
+  }
+}
 
 enum AssetOwnershipStatus {
   unassigned,
@@ -75,6 +239,7 @@ class AssetHierarchyReference {
   final AssetOwnershipStatus ownershipStatus;
   final String? ownerDiscipline;
   final List<String> accountableRoleKeys;
+  final InnerCoverEventReference? innerCoverAssociation;
 
   const AssetHierarchyReference({
     this.scope = AssetHierarchyReferenceScope.definition,
@@ -95,6 +260,7 @@ class AssetHierarchyReference {
     required this.ownershipStatus,
     this.ownerDiscipline,
     this.accountableRoleKeys = const <String>[],
+    this.innerCoverAssociation,
   });
 
   Map<String, dynamic> toMap() {
@@ -104,8 +270,31 @@ class AssetHierarchyReference {
         'Installed component references require confirmed ownership.',
       );
     }
+    if (scope == AssetHierarchyReferenceScope.physicalAsset &&
+        (assetInstanceId == null ||
+            assetInstanceVersion == null ||
+            assetNumber == null ||
+            assetInstanceName == null ||
+            componentInstanceId != null ||
+            componentInstanceVersion != null)) {
+      throw StateError(
+        'Physical asset references require exact asset identity only.',
+      );
+    }
+    if (innerCoverAssociation != null &&
+        (scope == AssetHierarchyReferenceScope.definition ||
+            innerCoverAssociation!.baseAssetInstanceId != assetInstanceId ||
+            innerCoverAssociation!.baseAssetNumber != assetNumber)) {
+      throw StateError(
+        'Inner Cover position must identify this physical Base.',
+      );
+    }
     return <String, dynamic>{
-      'schemaVersion': 2,
+      'schemaVersion':
+          scope == AssetHierarchyReferenceScope.physicalAsset ||
+                  innerCoverAssociation != null
+              ? 3
+              : 2,
       'scope': scope.name,
       'assetClassId': assetClassId,
       'assetClassCode': assetClassCode,
@@ -124,6 +313,7 @@ class AssetHierarchyReference {
       'ownershipStatus': ownershipStatus.name,
       'ownerDiscipline': ownerDiscipline,
       'accountableRoleKeys': accountableRoleKeys,
+      'innerCoverAssociation': innerCoverAssociation?.toMap(),
     };
   }
 
@@ -139,7 +329,7 @@ class AssetHierarchyReference {
       source: source,
       minimum: 1,
     );
-    if (schemaVersion != 1 && schemaVersion != 2) {
+    if (schemaVersion != 1 && schemaVersion != 2 && schemaVersion != 3) {
       throw PersistedDataFormatException(
         field: 'schemaVersion',
         source: source,
@@ -155,6 +345,14 @@ class AssetHierarchyReference {
               field: 'scope',
               source: source,
             );
+    if (scope == AssetHierarchyReferenceScope.physicalAsset &&
+        schemaVersion < 3) {
+      throw PersistedDataFormatException(
+        field: 'scope',
+        source: source,
+        detail: 'physical asset references require schema 3',
+      );
+    }
     final assetInstanceId = readOptionalPersistedString(
       map['assetInstanceId'],
       field: 'assetInstanceId',
@@ -188,6 +386,22 @@ class AssetHierarchyReference {
       source: source,
       minimum: 1,
     );
+    final rawInnerCoverAssociation = map['innerCoverAssociation'];
+    final InnerCoverEventReference? innerCoverAssociation;
+    if (rawInnerCoverAssociation == null) {
+      innerCoverAssociation = null;
+    } else if (schemaVersion == 3 && rawInnerCoverAssociation is Map) {
+      innerCoverAssociation = InnerCoverEventReference.fromMap(
+        Map<String, dynamic>.from(rawInnerCoverAssociation),
+        source: source,
+      );
+    } else {
+      throw PersistedDataFormatException(
+        field: 'innerCoverAssociation',
+        source: source,
+        detail: 'requires a schema-3 object',
+      );
+    }
     if (scope == AssetHierarchyReferenceScope.installedComponent &&
         (assetInstanceId == null ||
             assetInstanceVersion == null ||
@@ -200,6 +414,19 @@ class AssetHierarchyReference {
         source: source,
         detail:
             'installed component references require complete instance identity',
+      );
+    }
+    if (scope == AssetHierarchyReferenceScope.physicalAsset &&
+        (assetInstanceId == null ||
+            assetInstanceVersion == null ||
+            assetNumber == null ||
+            assetInstanceName == null ||
+            componentInstanceId != null ||
+            componentInstanceVersion != null)) {
+      throw PersistedDataFormatException(
+        field: 'scope',
+        source: source,
+        detail: 'physical asset references require exact asset identity only',
       );
     }
     final reference = AssetHierarchyReference(
@@ -271,6 +498,7 @@ class AssetHierarchyReference {
           source: source,
         ),
       ),
+      innerCoverAssociation: innerCoverAssociation,
     );
     requireValidPersistedAssetOwnership(
       reference.ownershipStatus,
@@ -284,6 +512,18 @@ class AssetHierarchyReference {
         field: 'ownershipStatus',
         source: source,
         detail: 'installed component references require confirmed ownership',
+      );
+    }
+    if (reference.innerCoverAssociation != null &&
+        (reference.scope == AssetHierarchyReferenceScope.definition ||
+            reference.innerCoverAssociation!.baseAssetInstanceId !=
+                reference.assetInstanceId ||
+            reference.innerCoverAssociation!.baseAssetNumber !=
+                reference.assetNumber)) {
+      throw PersistedDataFormatException(
+        field: 'innerCoverAssociation',
+        source: source,
+        detail: 'must identify the same physical Base as the reference',
       );
     }
     return reference;

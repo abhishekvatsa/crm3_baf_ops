@@ -220,6 +220,93 @@ void main() {
     },
   );
 
+  test('physical Base reference freezes the linked Inner Cover identity', () {
+    final reference = AssetHierarchyReference(
+      scope: AssetHierarchyReferenceScope.physicalAsset,
+      assetClassId: 'base-class',
+      assetClassCode: 'BASE',
+      assetClassName: 'Base',
+      nodeId: 'base-201',
+      nodeVersion: 4,
+      nodeName: 'Base 201',
+      assetInstanceId: 'base-201',
+      assetInstanceVersion: 4,
+      assetNumber: 201,
+      assetInstanceName: 'Base 201',
+      hierarchyPath: const ['Base', 'Base 201'],
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'Operations',
+      accountableRoleKeys: const ['operations'],
+      innerCoverAssociation: InnerCoverEventReference(
+        baseAssetInstanceId: 'base-201',
+        baseAssetNumber: 201,
+        positionState: InnerCoverPositionState.linked,
+        innerCoverId: 'cover-gr26',
+        innerCoverSerialNumber: 'GR26',
+        linkageId: 'link-1',
+        assignmentVersion: 3,
+        linkedAt: DateTime.utc(2026, 8, 1),
+        eventAt: DateTime.utc(2026, 8, 15, 10),
+        confirmedAt: DateTime.utc(2026, 8, 15, 10, 1),
+        confirmedByUid: 'ops-1',
+        confirmedByName: 'Operations One',
+      ),
+    );
+
+    final encoded = reference.toMap();
+    expect(encoded['schemaVersion'], 3);
+    final decoded = AssetHierarchyReference.decode(reference.encode());
+    expect(decoded.scope, AssetHierarchyReferenceScope.physicalAsset);
+    expect(decoded.innerCoverAssociation?.innerCoverSerialNumber, 'GR26');
+    expect(
+      decoded.innerCoverAssociation?.positionState,
+      InnerCoverPositionState.linked,
+    );
+  });
+
+  test(
+    'Base reference records a confirmed absence without inventing a serial',
+    () {
+      final association = InnerCoverEventReference(
+        baseAssetInstanceId: 'base-201',
+        baseAssetNumber: 201,
+        positionState: InnerCoverPositionState.noneLinked,
+        eventAt: DateTime.utc(2026, 8, 15, 10),
+        confirmedAt: DateTime.utc(2026, 8, 15, 10, 1),
+        confirmedByUid: 'ops-1',
+        confirmedByName: 'Operations One',
+      );
+      final decoded = InnerCoverEventReference.fromMap(association.toMap());
+      expect(decoded.positionState, InnerCoverPositionState.noneLinked);
+      expect(decoded.innerCoverId, isNull);
+
+      expect(
+        () => InnerCoverEventReference.fromMap({
+          ...association.toMap(),
+          'innerCoverSerialNumber': 'GR26',
+        }),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    },
+  );
+
+  test('Base event confirmation cannot predate the reported event', () {
+    final association = InnerCoverEventReference(
+      baseAssetInstanceId: 'base-201',
+      baseAssetNumber: 201,
+      positionState: InnerCoverPositionState.noneLinked,
+      eventAt: DateTime.utc(2026, 8, 15, 10),
+      confirmedAt: DateTime.utc(2026, 8, 15, 9, 59),
+      confirmedByUid: 'ops-1',
+      confirmedByName: 'Operations One',
+    );
+
+    expect(
+      () => InnerCoverEventReference.fromMap(association.toMap()),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+  });
+
   test('ownership states are internally consistent and operationally gated', () {
     expect(
       const InstalledComponentDraft(

@@ -595,6 +595,7 @@ class _TicketCard extends StatelessWidget {
       'Unknown',
     ]);
     final component = ticket.component?.trim();
+    final innerCover = ticket.assetHierarchyReference?.innerCoverAssociation;
 
     return Material(
       color: BafColors.card,
@@ -731,6 +732,16 @@ class _TicketCard extends StatelessWidget {
                 _MetaRow(
                   icon: Icons.account_tree_outlined,
                   text: 'Component: $component',
+                ),
+              ],
+              if (innerCover != null) ...[
+                const SizedBox(height: 5),
+                _MetaRow(
+                  icon: Icons.layers_outlined,
+                  text:
+                      innerCover.innerCoverSerialNumber == null
+                          ? 'At event: no Inner Cover linked'
+                          : 'At event: Inner Cover ${innerCover.innerCoverSerialNumber}',
                 ),
               ],
               if (ticket.acknowledgedByName?.trim().isNotEmpty == true) ...[

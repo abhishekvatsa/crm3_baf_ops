@@ -412,6 +412,66 @@
       "reArmCondition": "any hierarchy-node timestamp schema change"
     },
     {
+      "id": "inner-cover-event-reference",
+      "readerFile": "lib/features/assets/data/asset_hierarchy_model.dart",
+      "readerMarker": "factory InnerCoverEventReference.fromMap",
+      "requiredFields": ["innerCoverAssociation.eventAt", "innerCoverAssociation.confirmedAt"],
+      "optionalFields": ["innerCoverAssociation.linkedAt"],
+      "owner": "asset-governance",
+      "purpose": "restore the event-time Base and Inner Cover association chronology",
+      "authorityBoundary": "persisted-maintenance-asset-reference",
+      "regression": "test/asset_hierarchy_model_test.dart; functions/test/assetOperationalConditionMutation.test.js",
+      "reArmCondition": "any Inner Cover event-reference timestamp schema change"
+    },
+    {
+      "id": "inner-cover-profile-record",
+      "readerFile": "lib/features/assets/data/inner_cover_lifecycle.dart",
+      "readerMarker": "factory InnerCoverProfile.fromMap",
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": ["receivedOrCompletedOn", "acceptedAt"],
+      "owner": "asset-governance",
+      "purpose": "restore Inner Cover receipt, acceptance, and profile chronology",
+      "authorityBoundary": "remote-inner-cover-profile",
+      "regression": "test/inner_cover_lifecycle_model_test.dart",
+      "reArmCondition": "any Inner Cover profile timestamp schema change"
+    },
+    {
+      "id": "base-inner-cover-assignment-record",
+      "readerFile": "lib/features/assets/data/inner_cover_lifecycle.dart",
+      "readerMarker": "factory BaseInnerCoverAssignment.fromMap",
+      "requiredFields": ["linkedAt", "updatedAt"],
+      "optionalFields": [],
+      "owner": "asset-governance",
+      "purpose": "restore current Base-to-Inner-Cover assignment chronology",
+      "authorityBoundary": "remote-current-inner-cover-assignment",
+      "regression": "test/inner_cover_lifecycle_model_test.dart",
+      "reArmCondition": "any Base-to-Inner-Cover assignment timestamp schema change"
+    },
+    {
+      "id": "inner-cover-linkage-record",
+      "readerFile": "lib/features/assets/data/inner_cover_lifecycle.dart",
+      "readerMarker": "factory InnerCoverLinkage.fromMap",
+      "requiredFields": ["installedAt"],
+      "optionalFields": ["removedAt"],
+      "owner": "asset-governance",
+      "purpose": "restore complete Inner Cover installation and removal history",
+      "authorityBoundary": "remote-inner-cover-linkage-history",
+      "regression": "test/inner_cover_lifecycle_model_test.dart; functions/test/innerCoverLifecycleMutation.firestoreEmulator.test.js",
+      "reArmCondition": "any Inner Cover linkage timestamp schema change"
+    },
+    {
+      "id": "inner-cover-fabrication-dossier",
+      "readerFile": "lib/features/assets/data/inner_cover_lifecycle.dart",
+      "readerMarker": "factory InnerCoverFabricationDossier.fromMap",
+      "requiredFields": [],
+      "optionalFields": ["completedOn"],
+      "owner": "asset-governance",
+      "purpose": "restore declared Inner Cover fabrication completion chronology",
+      "authorityBoundary": "remote-inner-cover-fabrication-dossier",
+      "regression": "test/inner_cover_lifecycle_model_test.dart",
+      "reArmCondition": "any Inner Cover fabrication timestamp schema change"
+    },
+    {
       "id": "asset-instance-record",
       "readerFile": "lib/features/assets/data/asset_registry_model.dart",
       "readerMarker": "factory AssetInstanceRecord.fromMap",
