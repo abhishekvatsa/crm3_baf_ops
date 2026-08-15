@@ -43,7 +43,9 @@ one terminal outcome for every affected position.
   frequent-action counts.
 - A dedicated, role-gated Burner reliability screen presents the same governed
   evidence in a phone-ready view, with Furnace and date filters, latest
-  microamp observations, open positions, red-hot records, and frequent actions.
+  microamp observations, distinct open positions, red-hot records, and frequent
+  actions. Validated earlier closure attempts remain represented after a ticket
+  is reopened.
 
 ## Action catalogue
 

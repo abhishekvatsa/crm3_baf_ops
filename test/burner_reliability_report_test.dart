@@ -90,7 +90,7 @@ void main() {
 
       expect(report.issueCount, 3);
       expect(report.furnaceCount, 2);
-      expect(report.openReportCount, 2);
+      expect(report.openPositionCount, 2);
       expect(report.redHotObservationCount, 1);
       expect(report.readingCount, 1);
       expect(report.rows.map((row) => row.displayTag), [
@@ -125,6 +125,88 @@ void main() {
     )..metadataJson = '{malformed';
 
     expect(() => buildBurnerReliabilityReport([corrupt]), throwsStateError);
+  });
+
+  test('reopened ticket retains validated historical closure evidence', () {
+    final closedAt = DateTime.utc(2026, 8, 14, 10);
+    final historicalAction = buildBurnerComponentAction(
+      ticketId: 'reopened-1',
+      furnaceNumber: 4,
+      burnerPosition: 3,
+      code: BurnerActionCode.flameAdjustment,
+      outcome: BurnerResolutionOutcome.returnedToService,
+      microampReading: 2.8,
+      performedBy: 'I&A One',
+      performedAt: closedAt,
+    );
+    final reopened = _ticket(
+        id: 'reopened-1',
+        furnaceNumber: 4,
+        startedAt: DateTime.utc(2026, 8, 14, 8),
+        lockout: BurnerLockoutCase(
+          positions: const [3],
+          commonMode: false,
+          cycleStage: BurnerCycleStage.firing,
+          flameObservation: BurnerObservation.notSeen,
+          sparkObservation: BurnerObservation.seen,
+          relightAttempts: 1,
+          remainsLockedOut: true,
+        ),
+      )
+      ..resolutionHistory = [
+        ResolutionHistory(
+          resolvedAt: closedAt,
+          actionsJson: ComponentAction.encode([historicalAction]),
+        ),
+      ];
+
+    final report = buildBurnerReliabilityReport([reopened]);
+
+    expect(report.openPositionCount, 1);
+    expect(report.rows.single.openCount, 1);
+    expect(report.rows.single.returnedCount, 1);
+    expect(report.rows.single.latestMicroampReading, 2.8);
+    expect(report.rows.single.latestMicroampAt, closedAt);
+    expect(
+      report.rows.single.actionCounts[BurnerActionCode.flameAdjustment],
+      1,
+    );
+  });
+
+  test('open position metric de-duplicates concurrent reports', () {
+    final first = _ticket(
+      id: 'open-1',
+      furnaceNumber: 5,
+      startedAt: DateTime.utc(2026, 8, 14, 8),
+      lockout: BurnerLockoutCase(
+        positions: const [2],
+        commonMode: false,
+        cycleStage: BurnerCycleStage.firing,
+        flameObservation: BurnerObservation.notSeen,
+        sparkObservation: BurnerObservation.notChecked,
+        relightAttempts: 0,
+        remainsLockedOut: true,
+      ),
+    );
+    final second = _ticket(
+      id: 'open-2',
+      furnaceNumber: 5,
+      startedAt: DateTime.utc(2026, 8, 14, 9),
+      lockout: BurnerLockoutCase(
+        positions: const [2],
+        commonMode: false,
+        cycleStage: BurnerCycleStage.firing,
+        flameObservation: BurnerObservation.notSeen,
+        sparkObservation: BurnerObservation.notChecked,
+        relightAttempts: 0,
+        remainsLockedOut: true,
+      ),
+    );
+
+    final report = buildBurnerReliabilityReport([first, second]);
+
+    expect(report.openPositionCount, 1);
+    expect(report.rows.single.openCount, 2);
   });
 }
 

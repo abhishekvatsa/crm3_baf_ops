@@ -356,7 +356,7 @@ class _ReliabilityMetrics extends StatelessWidget {
         ),
         _Metric(
           label: 'Open positions',
-          value: report.openReportCount,
+          value: report.openPositionCount,
           icon: Icons.error_outline_rounded,
           color: BafColors.danger,
         ),
@@ -511,7 +511,7 @@ class _BurnerReliabilityCard extends StatelessWidget {
                   StatusBadge(
                     label:
                         row.openCount > 0
-                            ? '${row.openCount} open'
+                            ? '${row.openCount} open report${row.openCount == 1 ? '' : 's'}'
                             : 'No open lockout',
                     color:
                         row.openCount > 0
