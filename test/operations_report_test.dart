@@ -275,7 +275,10 @@ void main() {
       report.topComponents
           .map((row) => (row.label, row.count))
           .toList(growable: false),
-      [('Furnace - Pressure transmitter', 2), ('Unmapped legacy component', 1)],
+      [
+        ('Furnace - Combustion system / Pressure transmitter', 2),
+        ('Unmapped legacy component', 1),
+      ],
     );
     expect(
       report.topSubsystemPaths
@@ -344,7 +347,12 @@ void main() {
       ),
     );
 
-    expect(report.topComponents, hasLength(2));
+    expect(report.topComponents.map((row) => row.label).toSet(), {
+      'Furnace - Combustion system / Pressure transmitter · '
+          'ref furnace-class/pressure-transmitter-a',
+      'Furnace - Combustion system / Pressure transmitter · '
+          'ref furnace-class/pressure-transmitter-b',
+    });
     expect(
       report.topSubsystemPaths
           .map((row) => (row.label, row.count))

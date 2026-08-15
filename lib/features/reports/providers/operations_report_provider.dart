@@ -16,7 +16,7 @@ import '../models/operations_report.dart';
 const operationsReportClockInterval = Duration(minutes: 1);
 typedef OperationsReportPeriod =
     ({DateTime startInclusive, DateTime endExclusive});
-typedef _ReportDimension = ({String key, String label});
+typedef _ReportDimension = ({String disambiguator, String key, String label});
 
 Stream<DateTime> operationsReportClock({
   Duration interval = operationsReportClockInterval,
@@ -318,23 +318,36 @@ OperationsReport buildOperationsReport({
   List<CountedReportLabel> rank(
     _ReportDimension? Function(MaintenanceRecord) value,
   ) {
-    final labels = <String, String>{};
+    final dimensions = <String, _ReportDimension>{};
     final counts = <String, int>{};
     for (final ticket in filteredTickets) {
       final dimension = value(ticket);
       if (dimension == null) continue;
-      labels.putIfAbsent(dimension.key, () => dimension.label);
+      dimensions.putIfAbsent(dimension.key, () => dimension);
       counts.update(dimension.key, (count) => count + 1, ifAbsent: () => 1);
     }
+    final labelOccurrences = <String, int>{};
+    for (final dimension in dimensions.values) {
+      final normalizedLabel = dimension.label.toLowerCase();
+      labelOccurrences.update(
+        normalizedLabel,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
     final result =
-        counts.entries
-            .map(
-              (entry) => CountedReportLabel(
-                label: labels[entry.key]!,
-                count: entry.value,
-              ),
-            )
-            .toList()
+        counts.entries.map((entry) {
+            final dimension = dimensions[entry.key]!;
+            final duplicateLabel =
+                labelOccurrences[dimension.label.toLowerCase()]! > 1;
+            return CountedReportLabel(
+              label:
+                  duplicateLabel
+                      ? '${dimension.label} · ${dimension.disambiguator}'
+                      : dimension.label,
+              count: entry.value,
+            );
+          }).toList()
           ..sort((left, right) {
             final count = right.count.compareTo(left.count);
             return count != 0
@@ -347,9 +360,18 @@ OperationsReport buildOperationsReport({
   _ReportDimension? componentDimension(MaintenanceRecord ticket) {
     final reference = ticket.assetHierarchyReference;
     if (reference != null) {
+      final componentPath = reference.hierarchyPath
+          .map((segment) => segment.trim())
+          .where((segment) => segment.isNotEmpty)
+          .join(' / ');
+      final componentTag = reference.componentTag?.trim();
       return (
+        disambiguator: 'ref ${reference.assetClassId}/${reference.nodeId}',
         key: 'governed:${reference.assetClassId}:${reference.nodeId}',
-        label: '${reference.assetClassName} - ${reference.nodeName}',
+        label:
+            '${reference.assetClassName} - '
+            '${componentPath.isEmpty ? reference.nodeName : componentPath}'
+            '${componentTag?.isNotEmpty == true ? ' · $componentTag' : ''}',
       );
     }
     final legacyLabel =
@@ -359,6 +381,7 @@ OperationsReport buildOperationsReport({
             : null);
     if (legacyLabel?.trim().isNotEmpty != true) return null;
     return (
+      disambiguator: 'legacy',
       key: 'legacy-unmapped-component',
       label: 'Unmapped legacy component',
     );
@@ -375,6 +398,7 @@ OperationsReport buildOperationsReport({
           .map((segment) => segment.trim().toLowerCase())
           .join('/');
       return (
+        disambiguator: 'ref ${reference.assetClassId}',
         key: 'recorded-path:${reference.assetClassId}:$normalizedPath',
         label:
             'Recorded path - ${reference.assetClassName} - ${parentPath.last}',
@@ -385,6 +409,7 @@ OperationsReport buildOperationsReport({
         (ticket.hierarchyPath != null && ticket.hierarchyPath!.length > 1);
     if (!hasLegacySubsystem) return null;
     return (
+      disambiguator: 'legacy',
       key: 'legacy-unmapped-subsystem-path',
       label: 'Unmapped legacy subsystem path',
     );
