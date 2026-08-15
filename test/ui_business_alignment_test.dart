@@ -252,6 +252,24 @@ void main() {
       },
     );
 
+    test('issue creation requires governed equipment before tag evidence', () {
+      final source =
+          File(
+            'lib/features/maintenance/presentation/maintenance_form.dart',
+          ).readAsStringSync();
+
+      final selector = source.indexOf('_GovernedIssueAssetSelector(');
+      final tagField = source.indexOf('controller: _tagController');
+      expect(selector, greaterThanOrEqualTo(0));
+      expect(tagField, greaterThan(selector));
+      expect(source, isNot(contains('_assetNumController')));
+      expect(source, contains('hasGovernedAssetIdentity: true'));
+      expect(source, contains('Duration(milliseconds: 450)'));
+      expect(source, contains('_tagController.clear();'));
+      expect(source, contains('must belong to the selected asset'));
+      expect(source, contains('Select the Base carrying the Inner Cover'));
+    });
+
     testWidgets('read-only governed dossier exposes no mutation bar', (
       tester,
     ) async {

@@ -152,9 +152,9 @@ to repair genuine business-data mistakes.
 
 ## Next integration increments
 
-1. Use the governed asset hierarchy as the sole selector in every new issue,
-   planned-work and template-authoring surface, while retaining explicit legacy
-   read compatibility during migration.
+1. Continue governed-selector integration. Raise Issue now requires an exact
+   governed class and physical asset while retaining legacy read compatibility;
+   planned-work and template-authoring surfaces remain to be migrated.
 2. Extend component and subsystem analytics with server-side aggregates after
    sufficient governed history exists.
 3. Add record-specific Admin correction commands only where an actual mutable

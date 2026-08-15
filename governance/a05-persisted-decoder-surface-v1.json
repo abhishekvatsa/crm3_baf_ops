@@ -1110,19 +1110,6 @@
       "reArmCondition": "malformed returned module is stored or shown as successful"
     },
     {
-      "id": "maintenance-create-command-presentation",
-      "file": "lib/features/maintenance/presentation/maintenance_form.dart",
-      "siteFingerprint": "b8910604a322ea9e037359cb56819a15ead6c1231ad2a15ef7354b1592d546be",
-      "classification": "USER_INPUT_AND_COMMAND_ERROR_PRESENTATION",
-      "purpose": "surface invalid form input or ticket-command failure without manufacturing a record",
-      "authorityBoundary": "operator ticket-creation command",
-      "mutability": "command-owned mutation only after parsing and validation",
-      "dataScope": "operator-entered asset number and ticket fields",
-      "malformedDisposition": "show failure and do not substitute a parsed value",
-      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
-      "reArmCondition": "invalid input receives a default or command failure is reported as success"
-    },
-    {
       "id": "maintenance-resolve-command-presentation",
       "file": "lib/features/maintenance/presentation/resolve_form.dart",
       "siteFingerprint": "ab98f2d205357312b611b0d0bff29534e378fc306b15abdead41ee6be2c6d0f6",
