@@ -496,6 +496,18 @@
       "reArmCondition": "any installed-component timestamp schema change"
     },
     {
+      "id": "installed-component-lifecycle-audit",
+      "readerFile": "lib/features/assets/data/asset_registry_model.dart",
+      "readerMarker": "factory InstalledComponentLifecycleAudit.fromMap",
+      "requiredFields": ["performedAt"],
+      "optionalFields": [],
+      "owner": "asset-governance",
+      "purpose": "restore immutable installed-component revision and replacement chronology",
+      "authorityBoundary": "remote-installed-component-audit-record",
+      "regression": "test/asset_hierarchy_model_test.dart; functions/test/assetHierarchyMutation.firestoreEmulator.test.js",
+      "reArmCondition": "any installed-component lifecycle-audit timestamp schema change"
+    },
+    {
       "id": "asset-tag-claim-record",
       "readerFile": "lib/features/assets/data/asset_registry_model.dart",
       "readerMarker": "factory AssetTagClaimRecord.fromMap",

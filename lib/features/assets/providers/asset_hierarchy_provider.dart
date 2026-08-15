@@ -54,6 +54,16 @@ final installedComponentsProvider =
           .watchInstalledComponents(assetInstanceId);
     });
 
+final installedComponentHistoryProvider =
+    StreamProvider.family<List<InstalledComponentLifecycleAudit>, String>((
+      ref,
+      assetInstanceId,
+    ) {
+      return ref
+          .watch(assetHierarchyRepositoryProvider)
+          .watchInstalledComponentHistory(assetInstanceId);
+    });
+
 final innerCoverProfilesProvider = StreamProvider<List<InnerCoverProfile>>((
   ref,
 ) {
