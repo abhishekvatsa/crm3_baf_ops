@@ -264,13 +264,12 @@ post_codegen_register_valid = (
     and post_codegen_source.get("codegenResult") == "PASS"
     and post_codegen_source.get("custodyResult") == "PASS"
     and post_codegen_refresh.get("sourceCommit")
-        == "d6eade882994951d97bfb7c25dc245c434c301ac"
+        == "380cb2950fbfd40a0e845969d139df711c5bd0e3"
     and post_codegen_refresh.get("sourceTree")
-        == "f53524f305fc5156a8dd2875aaf9c192a0d6f713"
+        == "56aa0f69b19d555d75591445c6158fc241bcf479"
     and post_codegen_refresh.get("codegenResult") == "PASS"
     and post_codegen_refresh.get("changedBindingPaths") == [
-        "lib/features/maintenance_workflow/data/equipment_status_record.g.dart",
-        "lib/features/maintenance_workflow/data/workflow_aggregate_record.g.dart",
+        "lib/features/maintenance/data/maintenance_model.g.dart",
     ]
     and len(post_codegen_bindings) == 19
     and all(
