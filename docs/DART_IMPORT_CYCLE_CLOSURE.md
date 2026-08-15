@@ -1,10 +1,11 @@
 # Dart Import Cycle Closure
 
-Status: SOURCE_IMPLEMENTED
+Status: CLOSED
 
-Programme adjudication: `FINDING:A-01` is `SOURCE_IMPLEMENTED` as of
-15 August 2026. Exact-head pull-request CI and admitted-main post-merge CI
-remain required before the ledger may record `CLOSED`.
+Programme adjudication: `FINDING:A-01` is `CLOSED` as of 15 August 2026.
+PR #214 exact head `2a5a2751ae5bb2d17cb4148799ac58ed0ae78cf6`
+and admitted-main merge `dad9ec6d27177699a1656b0a33ca23739ffb41ea`
+share source tree `99deeb6966cc1b694f861a6154d9a4ddef3c7af0`.
 
 ## Finding
 
@@ -44,8 +45,18 @@ Largest component:      0 files
 `dart_import_cycle_test.dart` computes strongly connected components over all
 internal Dart imports and requires the cycle set to remain empty in CI.
 
+## Closure evidence
+
+Exact-head release-gate run `31863973925` and admitted-main run `31864544804`
+passed the Tarjan regression, canonical audit, Flutter analysis, complete
+Flutter suite and every governed release-gate job. The immutable evidence is
+recorded in
+`release/evidence/a01-dart-import-cycle-source-and-ci-closure.json`.
+
 ## Boundary
 
 This is dependency-direction and test-fixture refactoring only. Isar schemas,
 database naming, open order, migration, provenance markers and recovery policy
-are unchanged. It does not provide deployment, migration or device evidence.
+are unchanged. Closure is source-and-CI authority only; it does not provide
+deployment, migration, device, pilot, distribution or production-data
+authority.

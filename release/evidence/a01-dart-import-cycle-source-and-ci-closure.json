@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "findingId": "A-01",
+  "decision": "PASS_A01_DART_IMPORT_CYCLE_SOURCE_AND_CI_CLOSURE",
+  "effectiveDate": "2026-08-15",
+  "repository": "abhishekvatsa/crm3_baf_ops",
+  "sourceAuthority": {
+    "pullRequest": 214,
+    "headCommit": "2a5a2751ae5bb2d17cb4148799ac58ed0ae78cf6",
+    "sourceTree": "99deeb6966cc1b694f861a6154d9a4ddef3c7af0",
+    "mergeCommit": "dad9ec6d27177699a1656b0a33ca23739ffb41ea",
+    "mergeTree": "99deeb6966cc1b694f861a6154d9a4ddef3c7af0"
+  },
+  "importGraphProof": {
+    "globalIsarOwner": "lib/core/persistence/app_database.dart",
+    "mainDartImporterCount": 0,
+    "appDatabaseConsumerCount": 12,
+    "stronglyConnectedComponentCount": 0,
+    "selfImportCycleCount": 0,
+    "tarjanRegression": "test/dart_import_cycle_test.dart",
+    "canonicalAudit": "tools/v4/v4_2_r1_canonical_audit.py",
+    "localTarjanResult": "PASS"
+  },
+  "pullRequestCi": {
+    "workflowRun": 31863973925,
+    "workflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/31863973925",
+    "headCommit": "2a5a2751ae5bb2d17cb4148799ac58ed0ae78cf6",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "jobId": 94961939239,
+        "name": "Flutter host analysis + tests + no-loss contracts",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 94961939275,
+        "name": "Cloud Functions host build + non-emulator tests",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 94961939277,
+        "name": "Firestore Rules + governed callable emulator",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 94961939308,
+        "name": "Android release package + cold-start proof (non-production)",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 94961939320,
+        "name": "Android emulator app-shell integration (not physical-device evidence)",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "postMergeCi": {
+    "workflowRun": 31864544804,
+    "workflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/31864544804",
+    "headCommit": "dad9ec6d27177699a1656b0a33ca23739ffb41ea",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "jobId": 94963397117,
+        "name": "Cloud Functions host build + non-emulator tests",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 94963397151,
+        "name": "Flutter host analysis + tests + no-loss contracts",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 94963397155,
+        "name": "Android emulator app-shell integration (not physical-device evidence)",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 94963397156,
+        "name": "Firestore Rules + governed callable emulator",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 94963397205,
+        "name": "Android release package + cold-start proof (non-production)",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "boundaries": {
+    "productionDeploymentPerformed": false,
+    "productionDataMutationPerformed": false,
+    "deviceEvidenceClaimed": false,
+    "pilotAuthorizationChanged": false,
+    "distributionAuthorityChanged": false
+  }
+}
