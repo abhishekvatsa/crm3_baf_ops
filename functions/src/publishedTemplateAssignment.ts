@@ -128,6 +128,8 @@ interface ParsedAssignmentRequest {
   expectedContentHash: string;
   assetType: string;
   assetNumber: number;
+  assetClassId: string | null;
+  assetInstanceId: string | null;
   chargeNoAtEvent: number | null;
   remarks: string | null;
   payloadFingerprint: string;
@@ -199,6 +201,14 @@ function assertDocumentId(value: unknown, fieldName: string): string {
     );
   }
   return id;
+}
+
+function parseOptionalDocumentId(
+  value: unknown,
+  fieldName: string,
+): string | null {
+  if (value == null) return null;
+  return assertDocumentId(value, fieldName);
 }
 
 function assertReplayAssignedAt(
@@ -322,6 +332,8 @@ export function assignmentRequestPayloadFingerprint(data: {
   expectedContentHash: string;
   assetType: string;
   assetNumber: number;
+  assetClassId?: string | null;
+  assetInstanceId?: string | null;
   chargeNoAtEvent: number | null;
   remarks: string | null;
 }): string {
@@ -332,6 +344,8 @@ export function assignmentRequestPayloadFingerprint(data: {
     expectedContentHash: data.expectedContentHash,
     assetType: data.assetType,
     assetNumber: data.assetNumber,
+    ...(data.assetClassId != null ? {assetClassId: data.assetClassId} : {}),
+    ...(data.assetInstanceId != null ? {assetInstanceId: data.assetInstanceId} : {}),
     chargeNoAtEvent: data.chargeNoAtEvent,
     remarks: data.remarks,
   });
@@ -380,6 +394,21 @@ export function parsePublishedTemplateAssignmentRequest(
     "assetNumber",
   );
   validateAssetNumber(assetType, assetNumber);
+  const assetClassId = parseOptionalDocumentId(
+    raw.assetClassId,
+    "assetClassId",
+  );
+  const assetInstanceId = parseOptionalDocumentId(
+    raw.assetInstanceId,
+    "assetInstanceId",
+  );
+  if ((assetClassId == null) !== (assetInstanceId == null)) {
+    throw new AssignmentValidationError(
+      "invalid-argument",
+      "Governed assignment identity requires both assetClassId and assetInstanceId.",
+      {reasonCode: "assignment-asset-identity-incomplete"},
+    );
+  }
   const chargeNoAtEvent = parseOptionalSafeInteger(
     raw.chargeNoAtEvent,
     "chargeNoAtEvent",
@@ -400,6 +429,8 @@ export function parsePublishedTemplateAssignmentRequest(
     expectedContentHash,
     assetType,
     assetNumber,
+    assetClassId,
+    assetInstanceId,
     chargeNoAtEvent,
     remarks,
   });
@@ -412,6 +443,8 @@ export function parsePublishedTemplateAssignmentRequest(
     expectedContentHash,
     assetType,
     assetNumber,
+    assetClassId,
+    assetInstanceId,
     chargeNoAtEvent,
     remarks,
     payloadFingerprint,
@@ -658,6 +691,20 @@ type ValidatedAssignmentHierarchyReference = {
   assetNumber: number | null;
 };
 
+type InnerCoverAssignmentPosition = {
+  baseAssetInstanceId: string;
+  baseAssetClassId: string;
+  baseAssetNumber: number;
+  innerCoverId: string;
+  innerCoverSerialNumber: string;
+  linkageId: string;
+  assignmentVersion: number;
+};
+
+type AssignmentEquipmentIdentity = EquipmentIdentity & {
+  innerCoverPosition: InnerCoverAssignmentPosition | null;
+};
+
 function requiredHierarchyString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const cleaned = value.trim();
@@ -802,8 +849,7 @@ function validateAssignmentSnapshotTarget(
       },
     );
   }
-  if (request.assetType !== "governedCustom") return null;
-  if (snapshotType !== "governedCustom") {
+  if (request.assetType === "governedCustom" && snapshotType !== "governedCustom") {
     throw new AssignmentValidationError(
       "failed-precondition",
       "Governed custom assignments require an explicit custom snapshot type.",
@@ -813,11 +859,14 @@ function validateAssignmentSnapshotTarget(
 
   const encoded = cleanOptionalText(bundle.jobSnapshot.assetHierarchyRefJson);
   if (encoded == null) {
-    throw new AssignmentValidationError(
-      "failed-precondition",
-      "Governed custom assignments require a published hierarchy reference.",
-      {reasonCode: "custom-snapshot-hierarchy-reference-missing"},
-    );
+    if (request.assetType === "governedCustom") {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        "Governed custom assignments require a published hierarchy reference.",
+        {reasonCode: "custom-snapshot-hierarchy-reference-missing"},
+      );
+    }
+    return null;
   }
   let reference: AssignmentJsonMap;
   try {
@@ -841,10 +890,8 @@ function validateAssignmentSnapshotTarget(
       {reasonCode: "custom-snapshot-hierarchy-reference-invalid"},
     );
   }
-  if (
-    validatedReference.scope === "installedComponent" &&
-    validatedReference.assetNumber !== request.assetNumber
-  ) {
+  if (validatedReference.scope === "installedComponent" &&
+      validatedReference.assetNumber !== request.assetNumber) {
     throw new AssignmentValidationError(
       "failed-precondition",
       "The installed-component snapshot does not match the requested asset number.",
@@ -856,20 +903,119 @@ function validateAssignmentSnapshotTarget(
 
 function legacyAssignmentEquipmentIdentity(
   request: ParsedAssignmentRequest,
-): EquipmentIdentity {
+): AssignmentEquipmentIdentity {
   return {
     assetTypeKey: request.assetType,
     assetNumber: request.assetNumber,
     assetClassId: null,
     assetInstanceId: null,
+    innerCoverPosition: null,
   };
+}
+
+function expectedPhysicalLegacyClassKey(
+  request: ParsedAssignmentRequest,
+): string | null {
+  if (request.assetType === "governedCustom") return null;
+  return request.assetType === "innerCover" ? "base" : request.assetType;
+}
+
+function validateGovernedAssetClass(
+  snapshot: AssignmentDocumentSnapshotLike,
+  expectedClassId: string,
+  expectedLegacyKey: string | null,
+): void {
+  if (!snapshot.exists) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The selected governed asset class does not exist.",
+      {reasonCode: "assignment-asset-class-not-found"},
+    );
+  }
+  const data = snapshot.data() ?? {};
+  const documentId = assertDocumentId(snapshot.id, "asset class document ID");
+  const assetClassId = assertDocumentId(
+    data.assetClassId,
+    "asset class identity",
+  );
+  const legacyKey = cleanOptionalText(data.legacyAssetTypeKey);
+  if (
+    documentId !== expectedClassId ||
+    assetClassId !== expectedClassId ||
+    data.status !== "active" ||
+    data.isDeleted === true ||
+    legacyKey !== expectedLegacyKey
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The selected governed asset class is not an active compatible assignment target.",
+      {
+        reasonCode: "assignment-asset-class-invalid",
+        expectedAssetClassId: expectedClassId,
+        expectedLegacyAssetTypeKey: expectedLegacyKey,
+        actualAssetClassId: assetClassId,
+        actualLegacyAssetTypeKey: legacyKey,
+        status: data.status ?? null,
+      },
+    );
+  }
+}
+
+function validateUniqueLegacyAssetClass(
+  snapshot: AssignmentQuerySnapshotLike,
+  expectedClassId: string,
+  expectedLegacyKey: string,
+): void {
+  const rows = queryDocs(snapshot);
+  for (const row of rows) {
+    const data = row.data() ?? {};
+    const status = data.status;
+    const isDeleted = data.isDeleted;
+    if (
+      (status !== "active" && status !== "retired") ||
+      (isDeleted != null && typeof isDeleted !== "boolean") ||
+      cleanOptionalText(data.legacyAssetTypeKey) !== expectedLegacyKey
+    ) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        "A governed asset class matching this assignment type is malformed.",
+        {
+          reasonCode: "assignment-asset-class-invalid",
+          assetClassId: row.id ?? null,
+          legacyAssetTypeKey: expectedLegacyKey,
+          status: status ?? null,
+        },
+      );
+    }
+  }
+  const active = rows.filter((row) => {
+    const data = row.data() ?? {};
+    return data.status === "active" && data.isDeleted !== true;
+  });
+  if (active.length !== 1) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      active.length === 0
+        ? "No active governed asset class matches this assignment type."
+        : "More than one active governed asset class claims this assignment type.",
+      {
+        reasonCode: active.length === 0
+          ? "assignment-asset-class-not-found"
+          : "assignment-asset-class-ambiguous",
+        legacyAssetTypeKey: expectedLegacyKey,
+        matchCount: active.length,
+      },
+    );
+  }
+  validateGovernedAssetClass(active[0], expectedClassId, expectedLegacyKey);
 }
 
 function governedAssetInstanceIdentity(
   snapshot: AssignmentDocumentSnapshotLike,
   request: ParsedAssignmentRequest,
-  hierarchy: ValidatedAssignmentHierarchyReference,
-): EquipmentIdentity {
+  expectedClassId: string,
+  fixedAssetInstanceId: string | null = null,
+): AssignmentEquipmentIdentity {
   if (!snapshot.exists) {
     throw new AssignmentValidationError(
       "failed-precondition",
@@ -889,7 +1035,7 @@ function governedAssetInstanceIdentity(
   );
   if (
     documentId !== assetInstanceId ||
-    assetClassId !== hierarchy.assetClassId ||
+    assetClassId !== expectedClassId ||
     data.assetNumber !== request.assetNumber ||
     data.status !== "active" ||
     data.isDeleted === true
@@ -899,7 +1045,7 @@ function governedAssetInstanceIdentity(
       "The governed asset registry row does not match an active assignment target.",
       {
         reasonCode: "custom-asset-instance-invalid",
-        expectedAssetClassId: hierarchy.assetClassId,
+        expectedAssetClassId: expectedClassId,
         expectedAssetNumber: request.assetNumber,
         actualAssetClassId: assetClassId,
         actualAssetNumber: data.assetNumber ?? null,
@@ -908,8 +1054,9 @@ function governedAssetInstanceIdentity(
     );
   }
   if (
-    hierarchy.scope === "installedComponent" &&
-    hierarchy.assetInstanceId !== assetInstanceId
+    (request.assetInstanceId != null &&
+      request.assetInstanceId !== assetInstanceId) ||
+    (fixedAssetInstanceId != null && fixedAssetInstanceId !== assetInstanceId)
   ) {
     throw new AssignmentValidationError(
       "failed-precondition",
@@ -922,7 +1069,135 @@ function governedAssetInstanceIdentity(
     assetNumber: request.assetNumber,
     assetClassId,
     assetInstanceId,
+    innerCoverPosition: null,
   };
+}
+
+function innerCoverPositionFromAssignment(
+  snapshot: AssignmentDocumentSnapshotLike,
+  identity: EquipmentIdentity,
+): InnerCoverAssignmentPosition {
+  if (!snapshot.exists) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "No Inner Cover is currently linked to the selected Base.",
+      {reasonCode: "inner-cover-assignment-missing"},
+    );
+  }
+  const data = snapshot.data() ?? {};
+  const baseAssetInstanceId = assertDocumentId(
+    data.baseAssetInstanceId,
+    "Inner Cover assignment Base identity",
+  );
+  const baseAssetClassId = assertDocumentId(
+    data.baseAssetClassId,
+    "Inner Cover assignment Base class",
+  );
+  const baseAssetNumber = assertPositiveSafeInteger(
+    data.baseAssetNumber,
+    "Inner Cover assignment Base number",
+  );
+  const innerCoverId = assertDocumentId(
+    data.innerCoverId,
+    "Inner Cover identity",
+  );
+  const innerCoverSerialNumber = assertNonEmptyString(
+    data.innerCoverSerialNumber,
+    "Inner Cover serial number",
+    160,
+  );
+  const linkageId = assertDocumentId(data.linkageId, "Inner Cover linkage ID");
+  const assignmentVersion = assertPositiveSafeInteger(
+    data.version,
+    "Inner Cover assignment version",
+  );
+  if (
+    data.schemaVersion !== 1 ||
+    snapshot.id !== baseAssetInstanceId ||
+    baseAssetInstanceId !== identity.assetInstanceId ||
+    baseAssetClassId !== identity.assetClassId ||
+    baseAssetNumber !== identity.assetNumber
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The selected Base and its Inner Cover assignment disagree.",
+      {reasonCode: "inner-cover-assignment-mismatch"},
+    );
+  }
+  return {
+    baseAssetInstanceId,
+    baseAssetClassId,
+    baseAssetNumber,
+    innerCoverId,
+    innerCoverSerialNumber,
+    linkageId,
+    assignmentVersion,
+  };
+}
+
+function validateInnerCoverProfile(
+  snapshot: AssignmentDocumentSnapshotLike,
+  position: InnerCoverAssignmentPosition,
+): void {
+  if (!snapshot.exists) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The linked Inner Cover profile does not exist.",
+      {reasonCode: "inner-cover-profile-missing"},
+    );
+  }
+  const data = snapshot.data() ?? {};
+  if (
+    data.schemaVersion !== 1 ||
+    snapshot.id !== position.innerCoverId ||
+    data.innerCoverId !== position.innerCoverId ||
+    data.serialNumber !== position.innerCoverSerialNumber ||
+    data.lifecycleState !== "installed" ||
+    data.currentBaseAssetInstanceId !== position.baseAssetInstanceId ||
+    data.currentBaseAssetNumber !== position.baseAssetNumber ||
+    data.currentLinkageId !== position.linkageId
+  ) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The Base and linked Inner Cover profile disagree.",
+      {reasonCode: "inner-cover-profile-mismatch"},
+    );
+  }
+}
+
+async function resolveInnerCoverPosition(
+  db: AssignmentFirestoreLike,
+  identity: EquipmentIdentity,
+): Promise<InnerCoverAssignmentPosition> {
+  const baseAssetInstanceId = assertDocumentId(
+    identity.assetInstanceId,
+    "selected Base identity",
+  );
+  const position = innerCoverPositionFromAssignment(
+    await db
+      .collection("base_inner_cover_assignments")
+      .doc(baseAssetInstanceId)
+      .get(),
+    identity,
+  );
+  validateInnerCoverProfile(
+    await db.collection("inner_cover_profiles").doc(position.innerCoverId).get(),
+    position,
+  );
+  return position;
+}
+
+function sameInnerCoverPosition(
+  left: InnerCoverAssignmentPosition,
+  right: InnerCoverAssignmentPosition,
+): boolean {
+  return left.baseAssetInstanceId === right.baseAssetInstanceId &&
+    left.baseAssetClassId === right.baseAssetClassId &&
+    left.baseAssetNumber === right.baseAssetNumber &&
+    left.innerCoverId === right.innerCoverId &&
+    left.innerCoverSerialNumber === right.innerCoverSerialNumber &&
+    left.linkageId === right.linkageId &&
+    left.assignmentVersion === right.assignmentVersion;
 }
 
 function sameEquipmentIdentity(
@@ -938,8 +1213,9 @@ function sameEquipmentIdentity(
 async function resolveAssignmentEquipmentIdentity(
   db: AssignmentFirestoreLike,
   request: ParsedAssignmentRequest,
-): Promise<EquipmentIdentity> {
-  if (request.assetType !== "governedCustom") {
+): Promise<AssignmentEquipmentIdentity> {
+  const hasRequestedGovernedIdentity = request.assetClassId != null;
+  if (!hasRequestedGovernedIdentity && request.assetType !== "governedCustom") {
     return legacyAssignmentEquipmentIdentity(request);
   }
   const versionSnapshot = await db
@@ -950,7 +1226,7 @@ async function resolveAssignmentEquipmentIdentity(
   const bundle = parseSnapshotBundle(versionData);
   validateSnapshotBundle(bundle);
   const hierarchy = validateAssignmentSnapshotTarget(bundle, request);
-  if (hierarchy == null) {
+  if (request.assetType === "governedCustom" && hierarchy == null) {
     throw new AssignmentValidationError(
       "failed-precondition",
       "Governed custom assignment identity is missing.",
@@ -958,6 +1234,80 @@ async function resolveAssignmentEquipmentIdentity(
     );
   }
 
+  if (hasRequestedGovernedIdentity) {
+    const requestedClassId = assertDocumentId(
+      request.assetClassId,
+      "requested asset class identity",
+    );
+    const requestedInstanceId = assertDocumentId(
+      request.assetInstanceId,
+      "requested asset instance identity",
+    );
+    if (request.assetType === "governedCustom") {
+      if (hierarchy!.assetClassId !== requestedClassId) {
+        throw new AssignmentValidationError(
+          "failed-precondition",
+          "The selected physical asset is outside the published custom class.",
+          {reasonCode: "custom-snapshot-asset-class-mismatch"},
+        );
+      }
+      validateGovernedAssetClass(
+        await db.collection("asset_classes").doc(requestedClassId).get(),
+        requestedClassId,
+        null,
+      );
+    } else {
+      if (request.assetType === "innerCover") {
+        if (hierarchy?.assetInstanceId != null) {
+          throw new AssignmentValidationError(
+            "failed-precondition",
+            "An instance-fixed Inner Cover template cannot be assigned by Base position.",
+            {reasonCode: "inner-cover-assignment-position-conflict"},
+          );
+        }
+      } else if (hierarchy != null &&
+          hierarchy.assetClassId !== requestedClassId) {
+        throw new AssignmentValidationError(
+          "failed-precondition",
+          "The selected physical asset is outside the published template class.",
+          {reasonCode: "assignment-asset-class-mismatch"},
+        );
+      }
+      const legacyKey = expectedPhysicalLegacyClassKey(request)!;
+      const classSnapshot = await db
+        .collection("asset_classes")
+        .where("legacyAssetTypeKey", "==", legacyKey)
+        .get();
+      validateUniqueLegacyAssetClass(
+        classSnapshot,
+        requestedClassId,
+        legacyKey,
+      );
+    }
+    const identity = governedAssetInstanceIdentity(
+      await db.collection("asset_instances").doc(requestedInstanceId).get(),
+      request,
+      requestedClassId,
+      hierarchy?.scope === "installedComponent"
+        ? hierarchy.assetInstanceId
+        : null,
+    );
+    if (request.assetType === "innerCover") {
+      return {
+        ...identity,
+        innerCoverPosition: await resolveInnerCoverPosition(db, identity),
+      };
+    }
+    return identity;
+  }
+
+  if (hierarchy == null) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "Governed custom assignment identity is missing.",
+      {reasonCode: "custom-snapshot-hierarchy-reference-missing"},
+    );
+  }
   if (hierarchy.scope === "installedComponent") {
     const assetInstanceId = assertDocumentId(
       hierarchy.assetInstanceId,
@@ -966,7 +1316,8 @@ async function resolveAssignmentEquipmentIdentity(
     return governedAssetInstanceIdentity(
       await db.collection("asset_instances").doc(assetInstanceId).get(),
       request,
-      hierarchy,
+      hierarchy.assetClassId,
+      hierarchy.assetInstanceId,
     );
   }
 
@@ -992,7 +1343,11 @@ async function resolveAssignmentEquipmentIdentity(
       },
     );
   }
-  return governedAssetInstanceIdentity(matches[0], request, hierarchy);
+  return governedAssetInstanceIdentity(
+    matches[0],
+    request,
+    hierarchy.assetClassId,
+  );
 }
 
 async function revalidateAssignmentEquipmentIdentity(
@@ -1000,13 +1355,14 @@ async function revalidateAssignmentEquipmentIdentity(
   db: AssignmentFirestoreLike,
   request: ParsedAssignmentRequest,
   versionData: AssignmentJsonMap,
-  expected: EquipmentIdentity,
+  expected: AssignmentEquipmentIdentity,
 ): Promise<void> {
-  if (request.assetType !== "governedCustom") return;
+  if (expected.assetClassId == null || expected.assetInstanceId == null) return;
   const bundle = parseSnapshotBundle(versionData);
   validateSnapshotBundle(bundle);
   const hierarchy = validateAssignmentSnapshotTarget(bundle, request);
-  if (hierarchy == null || hierarchy.assetClassId !== expected.assetClassId) {
+  if (request.assetType === "governedCustom" &&
+      (hierarchy == null || hierarchy.assetClassId !== expected.assetClassId)) {
     throw new AssignmentValidationError(
       "aborted",
       "The published hierarchy target changed during assignment.",
@@ -1014,7 +1370,7 @@ async function revalidateAssignmentEquipmentIdentity(
     );
   }
   if (
-    hierarchy.scope === "installedComponent" &&
+    hierarchy?.scope === "installedComponent" &&
     hierarchy.assetInstanceId !== expected.assetInstanceId
   ) {
     throw new AssignmentValidationError(
@@ -1027,11 +1383,45 @@ async function revalidateAssignmentEquipmentIdentity(
     expected.assetInstanceId,
     "resolved asset instance identity",
   );
+  if (request.assetType === "governedCustom") {
+    validateGovernedAssetClass(
+      await transaction.get(
+        db.collection("asset_classes").doc(expected.assetClassId),
+      ) as AssignmentDocumentSnapshotLike,
+      expected.assetClassId,
+      null,
+    );
+  } else {
+    const legacyKey = expectedPhysicalLegacyClassKey(request)!;
+    validateUniqueLegacyAssetClass(
+      await transaction.get(
+        db.collection("asset_classes").where(
+          "legacyAssetTypeKey",
+          "==",
+          legacyKey,
+        ),
+      ) as AssignmentQuerySnapshotLike,
+      expected.assetClassId,
+      legacyKey,
+    );
+    if (request.assetType !== "innerCover" &&
+        hierarchy != null &&
+        hierarchy.assetClassId !== expected.assetClassId) {
+      throw new AssignmentValidationError(
+        "aborted",
+        "The published hierarchy target changed during assignment.",
+        {reasonCode: "assignment-target-changed"},
+      );
+    }
+  }
   const actual = governedAssetInstanceIdentity(
     await transaction.get(db.collection("asset_instances").doc(assetInstanceId)) as
       AssignmentDocumentSnapshotLike,
     request,
-    hierarchy,
+    expected.assetClassId,
+    hierarchy?.scope === "installedComponent"
+      ? hierarchy.assetInstanceId
+      : null,
   );
   if (!sameEquipmentIdentity(actual, expected)) {
     throw new AssignmentValidationError(
@@ -1039,6 +1429,33 @@ async function revalidateAssignmentEquipmentIdentity(
       "The governed physical asset changed during assignment.",
       {reasonCode: "custom-assignment-target-changed"},
     );
+  }
+  if (request.assetType === "innerCover") {
+    if (expected.innerCoverPosition == null) {
+      throw new AssignmentValidationError(
+        "internal",
+        "The resolved Inner Cover position is missing.",
+      );
+    }
+    const actualPosition = innerCoverPositionFromAssignment(
+      await transaction.get(
+        db.collection("base_inner_cover_assignments").doc(assetInstanceId),
+      ) as AssignmentDocumentSnapshotLike,
+      actual,
+    );
+    validateInnerCoverProfile(
+      await transaction.get(
+        db.collection("inner_cover_profiles").doc(actualPosition.innerCoverId),
+      ) as AssignmentDocumentSnapshotLike,
+      actualPosition,
+    );
+    if (!sameInnerCoverPosition(actualPosition, expected.innerCoverPosition)) {
+      throw new AssignmentValidationError(
+        "aborted",
+        "The Inner Cover linked to the selected Base changed during assignment.",
+        {reasonCode: "inner-cover-assignment-changed"},
+      );
+    }
   }
 }
 
@@ -1621,22 +2038,27 @@ function workflowFactsFromSnapshot(
   let awaitingPreparationCount = 0;
   for (const row of queryDocs(snapshot)) {
     const data = row.data() ?? {};
-    if (identity.assetTypeKey === "governedCustom") {
+    if (identity.assetClassId != null && identity.assetInstanceId != null) {
       const assetClassId = cleanOptionalText(data.assetClassId);
       const assetInstanceId = cleanOptionalText(data.assetInstanceId);
-      if (assetClassId == null || assetInstanceId == null) {
+      const classMissing = assetClassId == null;
+      const instanceMissing = assetInstanceId == null;
+      if (classMissing !== instanceMissing ||
+          (identity.assetTypeKey === "governedCustom" && classMissing)) {
         throw new AssignmentValidationError(
           "failed-precondition",
-          "A governed custom workflow has no physical asset identity.",
+          "A governed workflow has incomplete physical asset identity.",
           {
-            reasonCode: "custom-workflow-identity-incomplete",
+            reasonCode: identity.assetTypeKey === "governedCustom"
+              ? "custom-workflow-identity-incomplete"
+              : "workflow-identity-incomplete",
             workflowId: row.id ?? null,
           },
         );
       }
       if (
-        assetClassId !== identity.assetClassId ||
-        assetInstanceId !== identity.assetInstanceId
+        (!classMissing && assetClassId !== identity.assetClassId) ||
+        (!instanceMissing && assetInstanceId !== identity.assetInstanceId)
       ) {
         continue;
       }
@@ -1723,12 +2145,20 @@ function serializedEquipmentProjection(
   const actualAssetNumber = data.assetNumber;
   const actualAssetClassId = cleanOptionalText(data.assetClassId);
   const actualAssetInstanceId = cleanOptionalText(data.assetInstanceId);
+  const exactIdentityExpected = identity.assetClassId != null &&
+    identity.assetInstanceId != null;
+  const classIdentityMissing = actualAssetClassId == null;
+  const instanceIdentityMissing = actualAssetInstanceId == null;
+  const governedIdentityInvalid = exactIdentityExpected && (
+    classIdentityMissing !== instanceIdentityMissing ||
+    (identity.assetTypeKey === "governedCustom" && classIdentityMissing) ||
+    (!classIdentityMissing && actualAssetClassId !== identity.assetClassId) ||
+    (!instanceIdentityMissing && actualAssetInstanceId !== identity.assetInstanceId)
+  );
   if (
     (actualAssetTypeKey != null && actualAssetTypeKey !== request.assetType) ||
     (actualAssetNumber != null && actualAssetNumber !== request.assetNumber) ||
-    (identity.assetTypeKey === "governedCustom" &&
-      (actualAssetClassId !== identity.assetClassId ||
-       actualAssetInstanceId !== identity.assetInstanceId))
+    governedIdentityInvalid
   ) {
     throw new AssignmentValidationError(
       "failed-precondition",
@@ -1968,7 +2398,7 @@ function buildCanonicalAssignment(args: {
   actorName: string | null;
   packageData: AssignmentJsonMap;
   versionData: AssignmentJsonMap;
-  equipmentIdentity: EquipmentIdentity;
+  equipmentIdentity: AssignmentEquipmentIdentity;
   publicationAuditId: string;
   assignedAt: string;
 }): CanonicalAssignment {
@@ -2011,7 +2441,7 @@ function buildCanonicalAssignment(args: {
     templatePackageCode: packageCode,
     assetType: request.assetType,
     assetNumber: request.assetNumber,
-    ...(request.assetType === "governedCustom" ? {
+    ...(equipmentIdentity.assetClassId != null ? {
       assetClassId: equipmentIdentity.assetClassId,
       assetInstanceId: equipmentIdentity.assetInstanceId,
     } : {}),
@@ -2053,12 +2483,15 @@ function buildCanonicalAssignment(args: {
       versionNumber: request.expectedVersionNumber,
       versionLabel: cleanOptionalText(versionData.versionLabel),
       contentHash: request.expectedContentHash,
-      ...(request.assetType === "governedCustom" ? {
+      ...(equipmentIdentity.assetClassId != null ? {
         assignmentAssetIdentity: {
           assetClassId: equipmentIdentity.assetClassId,
           assetInstanceId: equipmentIdentity.assetInstanceId,
           assetNumber: equipmentIdentity.assetNumber,
         },
+      } : {}),
+      ...(equipmentIdentity.innerCoverPosition != null ? {
+        assignmentInnerCoverPosition: equipmentIdentity.innerCoverPosition,
       } : {}),
       jobTemplateSnapshot: bundle.jobSnapshot,
     }),
@@ -2107,7 +2540,7 @@ function buildCanonicalAssignment(args: {
       fieldDefinitionsJson: JSON.stringify(fields, null, 2),
       assetType: request.assetType,
       assetNumber: request.assetNumber,
-      ...(request.assetType === "governedCustom" ? {
+      ...(equipmentIdentity.assetClassId != null ? {
         assetClassId: equipmentIdentity.assetClassId,
         assetInstanceId: equipmentIdentity.assetInstanceId,
       } : {}),
@@ -2675,9 +3108,19 @@ export async function assignPublishedTemplateVersionWithDb(args: {
       jobExecutionId: canonical.executionId,
       assetTypeKey: request.assetType,
       assetNumber: request.assetNumber,
-      ...(request.assetType === "governedCustom" ? {
+      ...(assignmentEquipmentIdentity.assetClassId != null ? {
         assetClassId: assignmentEquipmentIdentity.assetClassId,
         assetInstanceId: assignmentEquipmentIdentity.assetInstanceId,
+      } : {}),
+      ...(assignmentEquipmentIdentity.innerCoverPosition != null ? {
+        innerCoverId:
+          assignmentEquipmentIdentity.innerCoverPosition.innerCoverId,
+        innerCoverSerialNumber:
+          assignmentEquipmentIdentity.innerCoverPosition.innerCoverSerialNumber,
+        innerCoverLinkageId:
+          assignmentEquipmentIdentity.innerCoverPosition.linkageId,
+        innerCoverAssignmentVersion:
+          assignmentEquipmentIdentity.innerCoverPosition.assignmentVersion,
       } : {}),
       status: "pendingLaneClassification",
       version: 1,
@@ -2695,7 +3138,7 @@ export async function assignPublishedTemplateVersionWithDb(args: {
     transaction.set(equipmentRef, {
       assetTypeKey: request.assetType,
       assetNumber: request.assetNumber,
-      ...(request.assetType === "governedCustom" ? {
+      ...(assignmentEquipmentIdentity.assetClassId != null ? {
         assetClassId: assignmentEquipmentIdentity.assetClassId,
         assetInstanceId: assignmentEquipmentIdentity.assetInstanceId,
       } : {}),

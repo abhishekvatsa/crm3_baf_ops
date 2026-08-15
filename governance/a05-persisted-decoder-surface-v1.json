@@ -266,7 +266,7 @@
       "compatibility": "explicit legacy structured payload and absent pre-feature fields only",
       "regression": "test/a05_planned_work_record_integrity_test.dart; test/a05_template_composer_integrity_test.dart; test/a05_response_payload_integrity_test.dart",
       "reArmCondition": "canonical payload falls through, malformed optional state defaults, or identity/lifecycle drifts",
-      "riskFingerprint": "7c008b6b4dfdcede54102aa62d1e5c19070371e8e0e3770fb077577382402acc"
+      "riskFingerprint": "dbcf44f6da8afc41b2f60933ec0178c7b31131268efd1613a8d690f1a2356aa5"
     },
     {
       "id": "module-registry-local-content",
@@ -1199,19 +1199,6 @@
       "malformedDisposition": "show repair notice and leave the stored recovery record untouched",
       "regression": "test/a05_template_composer_integrity_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "malformed recovery is discarded, restored, or converted into a fresh draft"
-    },
-    {
-      "id": "published-assignment-preview-rejection",
-      "file": "lib/features/planned_maintenance/presentation/published_template_assignment_screen.dart",
-      "siteFingerprint": "5fe170c58f66fe2f07cd3911266b092a5707098422112d27a52062e1e0a399df",
-      "classification": "PRE_MUTATION_VALIDATION_REJECTION",
-      "purpose": "surface snapshot or assignment-input rejection before a published assignment is accepted",
-      "authorityBoundary": "published template assignment preview",
-      "mutability": "none for TemplateVersionAssignmentException",
-      "dataScope": "operator assignment input and immutable template snapshot",
-      "malformedDisposition": "show blocking error and do not invoke successful local acceptance",
-      "regression": "test/published_template_assignment_server_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
-      "reArmCondition": "invalid snapshot or input proceeds to assignment"
     },
     {
       "id": "publisher-json-input-validation",

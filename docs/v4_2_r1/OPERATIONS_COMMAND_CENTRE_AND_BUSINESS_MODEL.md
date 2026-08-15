@@ -152,9 +152,10 @@ to repair genuine business-data mistakes.
 
 ## Next integration increments
 
-1. Continue governed-selector integration. Raise Issue now requires an exact
-   governed class and physical asset while retaining legacy read compatibility;
-   planned-work and template-authoring surfaces remain to be migrated.
+1. Continue governed-selector integration. Raise Issue and published
+   planned-work assignment now require an exact governed class and physical
+   asset while retaining documented compatibility; the legacy-template
+   assignment path and template authoring remain to be migrated.
 2. Extend component and subsystem analytics with server-side aggregates after
    sufficient governed history exists.
 3. Add record-specific Admin correction commands only where an actual mutable

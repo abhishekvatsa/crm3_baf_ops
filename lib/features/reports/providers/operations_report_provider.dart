@@ -173,9 +173,12 @@ OperationsReport buildOperationsReport({
   ({String? classId, String? assetId}) executionIdentity(
     JobExecution execution,
   ) => executionIdentityCache.putIfAbsent(execution, () {
+    final physicalIdentity = execution.assignmentPhysicalAssetIdentity;
     final reference = execution.assignmentAssetHierarchyReference;
     final classId =
-        reference?.assetClassId ?? legacyClasses[execution.assetType.name]?.id;
+        physicalIdentity?.assetClassId ??
+        reference?.assetClassId ??
+        legacyClasses[execution.assetType.name]?.id;
     if (classId == null &&
         execution.assetType == AssetType.governedCustom &&
         execution.isGovernedTemplateAssignment) {
@@ -186,7 +189,8 @@ OperationsReport buildOperationsReport({
     }
     if (classId == null) return (classId: null, assetId: null);
 
-    final referencedAssetId = reference?.assetInstanceId;
+    final referencedAssetId =
+        physicalIdentity?.assetInstanceId ?? reference?.assetInstanceId;
     if (referencedAssetId != null) {
       final referencedAsset = assetsById[referencedAssetId];
       if (referencedAsset == null ||

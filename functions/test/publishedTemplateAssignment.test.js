@@ -110,6 +110,12 @@ function customJobSnapshot({
   });
 }
 
+function legacyTypeJobSnapshot(assetType) {
+  const snapshot = JSON.parse(versionFixture().jobTemplateSnapshotJson);
+  snapshot.assetType = assetType;
+  return JSON.stringify(snapshot);
+}
+
 function packageFixture(overrides = {}) {
   return {
     firestoreId: "pkg1",
@@ -165,6 +171,19 @@ function assetInstanceFixture(overrides = {}) {
   };
 }
 
+function assetClassFixture(overrides = {}) {
+  return {
+    assetClassId: "annealing-car-class",
+    code: "ANNEALING_CAR",
+    name: "Annealing car",
+    legacyAssetTypeKey: null,
+    status: "active",
+    isDeleted: false,
+    version: 1,
+    ...overrides,
+  };
+}
+
 function fakeAssignmentDb({
   user = {
     isApproved: true,
@@ -176,7 +195,10 @@ function fakeAssignmentDb({
   audits = [auditFixture()],
   equipmentData = null,
   workflows = [],
+  assetClasses = [assetClassFixture()],
   assetInstances = [assetInstanceFixture()],
+  innerCoverAssignments = [],
+  innerCoverProfiles = [],
 } = {}) {
   const store = new Map();
   const writes = [];
@@ -205,9 +227,21 @@ function fakeAssignmentDb({
     const id = workflow.firestoreId ?? `workflow${index + 1}`;
     seed(`maintenance_workflows/${id}`, workflow);
   });
+  assetClasses.forEach((assetClass, index) => {
+    const id = assetClass.assetClassId ?? `asset-class-${index + 1}`;
+    seed(`asset_classes/${id}`, assetClass);
+  });
   assetInstances.forEach((asset, index) => {
     const id = asset.assetInstanceId ?? `asset${index + 1}`;
     seed(`asset_instances/${id}`, asset);
+  });
+  innerCoverAssignments.forEach((assignment, index) => {
+    const id = assignment.baseAssetInstanceId ?? `base-${index + 1}`;
+    seed(`base_inner_cover_assignments/${id}`, assignment);
+  });
+  innerCoverProfiles.forEach((profile, index) => {
+    const id = profile.innerCoverId ?? `inner-cover-${index + 1}`;
+    seed(`inner_cover_profiles/${id}`, profile);
   });
 
   function docRef(collectionName, id) {
@@ -358,6 +392,39 @@ describe("published TemplateVersion server assignment", () => {
     expect(changedId.payloadFingerprint).toBe(direct);
   });
 
+  test("request identity is complete and participates in the fingerprint", () => {
+    const parsed = parsePublishedTemplateAssignmentRequest(requestFixture({
+      assetClassId: "base-class",
+      assetInstanceId: "base-101",
+    }));
+    const direct = assignmentRequestPayloadFingerprint({
+      packageId: "pkg1",
+      versionId: "ver1",
+      expectedVersionNumber: 1,
+      expectedContentHash: versionFixture().contentHash,
+      assetType: "base",
+      assetNumber: 101,
+      assetClassId: "base-class",
+      assetInstanceId: "base-101",
+      chargeNoAtEvent: 12345,
+      remarks: "Inspect during planned window.",
+    });
+    expect(parsed.payloadFingerprint).toBe(direct);
+    expect(
+      parsePublishedTemplateAssignmentRequest(requestFixture({
+        assetClassId: "base-class",
+        assetInstanceId: "base-101-other",
+      })).payloadFingerprint,
+    ).not.toBe(direct);
+    expect(() => parsePublishedTemplateAssignmentRequest(requestFixture({
+      assetClassId: "base-class",
+    }))).toThrow(expect.objectContaining({
+      details: expect.objectContaining({
+        reasonCode: "assignment-asset-identity-incomplete",
+      }),
+    }));
+  });
+
   test("creates canonical execution, frozen module, and idempotency receipt atomically", async () => {
     const {db, store, writes} = fakeAssignmentDb();
     const result = await assignPublishedTemplateVersionWithDb({
@@ -425,6 +492,371 @@ describe("published TemplateVersion server assignment", () => {
       version: 1,
     });
     expect(writes).toHaveLength(5);
+  });
+
+  test("binds a legacy-type assignment to the selected governed physical asset", async () => {
+    const fixture = fakeAssignmentDb({
+      assetClasses: [assetClassFixture({
+        assetClassId: "base-class",
+        code: "BASE",
+        name: "Base",
+        legacyAssetTypeKey: "base",
+      })],
+      assetInstances: [assetInstanceFixture({
+        assetInstanceId: "base-101",
+        assetClassId: "base-class",
+        assetNumber: 101,
+        name: "Base 101",
+      })],
+    });
+
+    const result = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        assetClassId: "base-class",
+        assetInstanceId: "base-101",
+      }),
+      now: () => new Date("2026-06-19T11:00:00.000Z"),
+    });
+
+    expect(result.execution).toMatchObject({
+      assetType: "base",
+      assetNumber: 101,
+      assetClassId: "base-class",
+      assetInstanceId: "base-101",
+    });
+    expect(JSON.parse(result.execution.metadataJson).assignmentAssetIdentity)
+      .toEqual({
+        assetClassId: "base-class",
+        assetInstanceId: "base-101",
+        assetNumber: 101,
+      });
+    expect(
+      fixture.store.get(`maintenance_workflows/${result.executionId}`),
+    ).toMatchObject({
+      assetClassId: "base-class",
+      assetInstanceId: "base-101",
+    });
+    expect(fixture.store.get("equipment_status/base_101")).toMatchObject({
+      assetClassId: "base-class",
+      assetInstanceId: "base-101",
+    });
+  });
+
+  test("upgrades a complete legacy projection to exact governed identity", async () => {
+    const fixture = fakeAssignmentDb({
+      assetClasses: [assetClassFixture({
+        assetClassId: "base-class",
+        code: "BASE",
+        name: "Base",
+        legacyAssetTypeKey: "base",
+      })],
+      assetInstances: [assetInstanceFixture({
+        assetInstanceId: "base-101",
+        assetClassId: "base-class",
+        assetNumber: 101,
+        name: "Base 101",
+      })],
+      workflows: [workflowFixture()],
+      equipmentData: {
+        assetTypeKey: "base",
+        assetNumber: 101,
+        state: "underMaintenance",
+        activeNonRedMaintenanceCount: 1,
+        activeRedWorkCount: 0,
+        awaitingPreparationCount: 0,
+        version: 2,
+      },
+    });
+
+    await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        assetClassId: "base-class",
+        assetInstanceId: "base-101",
+      }),
+    });
+
+    expect(fixture.store.get("equipment_status/base_101")).toMatchObject({
+      assetClassId: "base-class",
+      assetInstanceId: "base-101",
+      activeNonRedMaintenanceCount: 2,
+      version: 3,
+    });
+  });
+
+  test("rejects a partially populated legacy projection during identity upgrade", async () => {
+    const fixture = fakeAssignmentDb({
+      assetClasses: [assetClassFixture({
+        assetClassId: "base-class",
+        code: "BASE",
+        name: "Base",
+        legacyAssetTypeKey: "base",
+      })],
+      assetInstances: [assetInstanceFixture({
+        assetInstanceId: "base-101",
+        assetClassId: "base-class",
+        assetNumber: 101,
+        name: "Base 101",
+      })],
+      equipmentData: {
+        assetTypeKey: "base",
+        assetNumber: 101,
+        assetClassId: "base-class",
+        state: "inService",
+        activeNonRedMaintenanceCount: 0,
+        activeRedWorkCount: 0,
+        awaitingPreparationCount: 0,
+        version: 2,
+      },
+    });
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        assetClassId: "base-class",
+        assetInstanceId: "base-101",
+      }),
+    })).rejects.toMatchObject({
+      details: expect.objectContaining({
+        reasonCode: "equipment-projection-identity-mismatch",
+      }),
+    });
+    expect(fixture.writes).toHaveLength(0);
+  });
+
+  test("rejects an exact assignment when the physical asset is not in the selected class", async () => {
+    const fixture = fakeAssignmentDb({
+      assetClasses: [assetClassFixture({
+        assetClassId: "base-class",
+        code: "BASE",
+        name: "Base",
+        legacyAssetTypeKey: "base",
+      })],
+      assetInstances: [assetInstanceFixture({
+        assetInstanceId: "base-101",
+        assetClassId: "other-class",
+        assetNumber: 101,
+        name: "Wrong Base 101",
+      })],
+    });
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        assetClassId: "base-class",
+        assetInstanceId: "base-101",
+      }),
+    })).rejects.toMatchObject({
+      details: expect.objectContaining({
+        reasonCode: "custom-asset-instance-invalid",
+      }),
+    });
+    expect(fixture.writes).toHaveLength(0);
+  });
+
+  test("fails closed when a matching legacy asset class row is malformed", async () => {
+    const fixture = fakeAssignmentDb({
+      assetClasses: [
+        assetClassFixture({
+          assetClassId: "base-class",
+          code: "BASE",
+          name: "Base",
+          legacyAssetTypeKey: "base",
+        }),
+        assetClassFixture({
+          assetClassId: "malformed-base-class",
+          code: "BASE_MALFORMED",
+          name: "Malformed Base",
+          legacyAssetTypeKey: "base",
+          status: "unknown",
+        }),
+      ],
+      assetInstances: [assetInstanceFixture({
+        assetInstanceId: "base-101",
+        assetClassId: "base-class",
+        assetNumber: 101,
+        name: "Base 101",
+      })],
+    });
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        assetClassId: "base-class",
+        assetInstanceId: "base-101",
+      }),
+    })).rejects.toMatchObject({
+      details: expect.objectContaining({
+        reasonCode: "assignment-asset-class-invalid",
+      }),
+    });
+    expect(fixture.writes).toHaveLength(0);
+  });
+
+  test("binds Inner Cover planned work to the selected Base position", async () => {
+    const version = rehashedVersion({
+      jobTemplateSnapshotJson: legacyTypeJobSnapshot("innerCover"),
+    });
+    const fixture = fakeAssignmentDb({
+      versionData: version,
+      audits: [auditFixture({afterHash: version.contentHash})],
+      assetClasses: [assetClassFixture({
+        assetClassId: "base-class",
+        code: "BASE",
+        name: "Base",
+        legacyAssetTypeKey: "base",
+      })],
+      assetInstances: [assetInstanceFixture({
+        assetInstanceId: "base-201",
+        assetClassId: "base-class",
+        assetNumber: 201,
+        name: "Base 201",
+      })],
+      innerCoverAssignments: [{
+        schemaVersion: 1,
+        baseAssetInstanceId: "base-201",
+        baseAssetClassId: "base-class",
+        baseAssetNumber: 201,
+        baseAssetName: "Base 201",
+        innerCoverId: "inner-cover-gr26",
+        innerCoverSerialNumber: "GR26",
+        linkageId: "linkage-gr26-base201",
+        linkedAt: "2026-08-15T06:00:00.000Z",
+        version: 3,
+        updatedAt: "2026-08-15T06:00:00.000Z",
+        lastMutationId: "mutation-gr26-base201",
+      }],
+      innerCoverProfiles: [{
+        schemaVersion: 1,
+        innerCoverId: "inner-cover-gr26",
+        serialNumber: "GR26",
+        lifecycleState: "installed",
+        currentBaseAssetInstanceId: "base-201",
+        currentBaseAssetNumber: 201,
+        currentLinkageId: "linkage-gr26-base201",
+      }],
+    });
+
+    const result = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        expectedContentHash: version.contentHash,
+        assetType: "innerCover",
+        assetNumber: 201,
+        assetClassId: "base-class",
+        assetInstanceId: "base-201",
+      }),
+    });
+
+    expect(result.execution).toMatchObject({
+      assetType: "innerCover",
+      assetNumber: 201,
+      assetClassId: "base-class",
+      assetInstanceId: "base-201",
+      metadataJson: expect.stringContaining(
+        '"innerCoverSerialNumber":"GR26"',
+      ),
+    });
+    expect(
+      fixture.store.get(`maintenance_workflows/${result.executionId}`),
+    ).toMatchObject({
+      assetTypeKey: "innerCover",
+      assetNumber: 201,
+      assetClassId: "base-class",
+      assetInstanceId: "base-201",
+      innerCoverId: "inner-cover-gr26",
+      innerCoverSerialNumber: "GR26",
+      innerCoverLinkageId: "linkage-gr26-base201",
+      innerCoverAssignmentVersion: 3,
+    });
+  });
+
+  test("rejects an Inner Cover swap that races assignment", async () => {
+    const version = rehashedVersion({
+      jobTemplateSnapshotJson: legacyTypeJobSnapshot("innerCover"),
+    });
+    const assignment = {
+      schemaVersion: 1,
+      baseAssetInstanceId: "base-201",
+      baseAssetClassId: "base-class",
+      baseAssetNumber: 201,
+      baseAssetName: "Base 201",
+      innerCoverId: "inner-cover-gr26",
+      innerCoverSerialNumber: "GR26",
+      linkageId: "linkage-gr26-base201",
+      linkedAt: "2026-08-15T06:00:00.000Z",
+      version: 3,
+      updatedAt: "2026-08-15T06:00:00.000Z",
+      lastMutationId: "mutation-gr26-base201",
+    };
+    const fixture = fakeAssignmentDb({
+      versionData: version,
+      audits: [auditFixture({afterHash: version.contentHash})],
+      assetClasses: [assetClassFixture({
+        assetClassId: "base-class",
+        code: "BASE",
+        name: "Base",
+        legacyAssetTypeKey: "base",
+      })],
+      assetInstances: [assetInstanceFixture({
+        assetInstanceId: "base-201",
+        assetClassId: "base-class",
+        assetNumber: 201,
+        name: "Base 201",
+      })],
+      innerCoverAssignments: [assignment],
+      innerCoverProfiles: [{
+        schemaVersion: 1,
+        innerCoverId: "inner-cover-gr26",
+        serialNumber: "GR26",
+        lifecycleState: "installed",
+        currentBaseAssetInstanceId: "base-201",
+        currentBaseAssetNumber: 201,
+        currentLinkageId: "linkage-gr26-base201",
+      }],
+    });
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        expectedContentHash: version.contentHash,
+        assetType: "innerCover",
+        assetNumber: 201,
+        assetClassId: "base-class",
+        assetInstanceId: "base-201",
+      }),
+      beforeAssignmentTransactionForTest: async () => {
+        fixture.store.set("base_inner_cover_assignments/base-201", {
+          ...assignment,
+          innerCoverId: "inner-cover-gr27",
+          innerCoverSerialNumber: "GR27",
+          linkageId: "linkage-gr27-base201",
+          version: 4,
+        });
+        fixture.store.set("inner_cover_profiles/inner-cover-gr27", {
+          schemaVersion: 1,
+          innerCoverId: "inner-cover-gr27",
+          serialNumber: "GR27",
+          lifecycleState: "installed",
+          currentBaseAssetInstanceId: "base-201",
+          currentBaseAssetNumber: 201,
+          currentLinkageId: "linkage-gr27-base201",
+        });
+      },
+    })).rejects.toMatchObject({
+      details: expect.objectContaining({
+        reasonCode: "inner-cover-assignment-changed",
+      }),
+    });
+    expect(fixture.writes).toHaveLength(0);
   });
 
   test("binds governed custom assignment to its published hierarchy identity", async () => {

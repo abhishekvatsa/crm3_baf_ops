@@ -104,6 +104,9 @@ class _OpenExecutionCard extends StatelessWidget {
     final title = _cleanText(execution.templateName) ?? 'Unnamed planned job';
     final packageCode = _cleanText(execution.templatePackageCode);
     final versionNumber = execution.templateVersionNumber;
+    final innerCoverPositionRead =
+        execution.assignmentInnerCoverPositionReadResult;
+    final innerCoverPosition = innerCoverPositionRead.position;
     final sourceLabel =
         execution.isGovernedTemplateAssignment
             ? [
@@ -169,7 +172,12 @@ class _OpenExecutionCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      '${_assetLabel(execution.assetType)} ${execution.assetNumber} · assigned ${_formatJobDate(execution.createdAt)}',
+                      [
+                        '${_assetLabel(execution.assetType)} ${execution.assetNumber}',
+                        if (innerCoverPosition != null)
+                          'Inner Cover ${innerCoverPosition.innerCoverSerialNumber}',
+                        'assigned ${_formatJobDate(execution.createdAt)}',
+                      ].join(' · '),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -178,6 +186,19 @@ class _OpenExecutionCard extends StatelessWidget {
                         height: 1.25,
                       ),
                     ),
+                    if (!innerCoverPositionRead.isValid) ...[
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Inner Cover assignment evidence needs repair',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: BafColors.danger,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 4),
                     Text(
                       sourceLabel,

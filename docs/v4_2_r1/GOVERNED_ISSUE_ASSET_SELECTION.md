@@ -80,7 +80,9 @@ resolution and that the free-number control is absent.
 
 ## Remaining Programme Work
 
-This increment does not yet make the governed hierarchy the sole selector in
-planned-work assignment or template authoring. Those surfaces remain explicit
-items in the business-model roadmap. Production availability additionally
-depends on normal merge, release and deployment evidence.
+Published planned-work assignment now uses an exact governed physical-asset
+selector and server-authoritative identity validation, including Base-position
+routing for Inner Cover work. The retained legacy-template assignment path and
+template authoring remain outstanding selector surfaces in the business-model
+roadmap. Production availability additionally depends on normal merge, release
+and deployment evidence.

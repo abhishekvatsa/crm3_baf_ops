@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:uuid/uuid.dart';
 
 import '../../auth/data/user_model.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/job_module_model.dart';
 import '../data/job_template_model.dart';
@@ -36,12 +37,14 @@ class PublishedTemplateAssignmentResult {
 class TemplateVersionAssignmentPreview {
   final String templateName;
   final AssetType assetType;
+  final AssetHierarchyReference? assetHierarchyReference;
   final List<String> assignedAgencies;
   final List<TemplateVersionModulePreview> modules;
 
   const TemplateVersionAssignmentPreview({
     required this.templateName,
     required this.assetType,
+    required this.assetHierarchyReference,
     required this.assignedAgencies,
     required this.modules,
   });
@@ -89,10 +92,19 @@ TemplateVersionAssignmentPreview previewTemplateVersionAssignment({
       ) ??
       AssetType.base;
   final assignedAgencies = _assignedAgenciesFrom(package, jobSnapshot);
+  final hierarchyReferenceJson = jobSnapshot['assetHierarchyRefJson'];
+  final hierarchyReference =
+      hierarchyReferenceJson == null
+          ? null
+          : AssetHierarchyReference.decode(
+            hierarchyReferenceJson as String,
+            source: 'TemplateVersion assignment preview',
+          );
 
   return TemplateVersionAssignmentPreview(
     templateName: templateName,
     assetType: assetType,
+    assetHierarchyReference: hierarchyReference,
     assignedAgencies: assignedAgencies,
     modules: [
       for (var i = 0; i < moduleSnapshots.length; i++)

@@ -3,6 +3,7 @@ import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_diary_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -93,6 +94,57 @@ void main() {
           'diary-1',
         ),
       );
+    });
+
+    test('governed assignment physical identity fails closed on drift', () {
+      final execution = JobExecution.fromMap(
+        _execution()
+          ..['templateVersionId'] = 'version-1'
+          ..['metadataJson'] = jsonEncode(<String, dynamic>{
+            'assignmentAssetIdentity': <String, dynamic>{
+              'assetClassId': 'base-class',
+              'assetInstanceId': 'base-101',
+              'assetNumber': 202,
+            },
+          }),
+        'execution-1',
+      );
+
+      _expectFormat(() => execution.assignmentPhysicalAssetIdentity);
+    });
+
+    test('frozen Inner Cover position decodes against its physical Base', () {
+      final execution = JobExecution.fromMap(
+        _execution()
+          ..['assetType'] = AssetType.innerCover.name
+          ..['assetNumber'] = 201
+          ..['templateVersionId'] = 'version-1'
+          ..['metadataJson'] = jsonEncode(
+            _innerCoverAssignmentMetadata(baseAssetNumber: 201),
+          ),
+        'execution-1',
+      );
+
+      final read = execution.assignmentInnerCoverPositionReadResult;
+      expect(read.isValid, isTrue);
+      expect(read.position?.innerCoverSerialNumber, 'GR26');
+      expect(read.position?.assignmentVersion, 3);
+    });
+
+    test('contradictory frozen Inner Cover position fails closed', () {
+      final execution = JobExecution.fromMap(
+        _execution()
+          ..['assetType'] = AssetType.innerCover.name
+          ..['assetNumber'] = 201
+          ..['templateVersionId'] = 'version-1'
+          ..['metadataJson'] = jsonEncode(
+            _innerCoverAssignmentMetadata(baseAssetNumber: 202),
+          ),
+        'execution-1',
+      );
+
+      expect(execution.assignmentInnerCoverPositionReadResult.isValid, isFalse);
+      _expectFormat(() => execution.assignmentInnerCoverPosition);
     });
 
     test('malformed local module snapshot blocks work payload admission', () {
@@ -196,6 +248,25 @@ Map<String, dynamic> _execution() => <String, dynamic>{
   'createdAt': _created,
   'updatedAt': _later,
   'responsesJson': '[]',
+};
+
+Map<String, dynamic> _innerCoverAssignmentMetadata({
+  required int baseAssetNumber,
+}) => <String, dynamic>{
+  'assignmentAssetIdentity': <String, dynamic>{
+    'assetClassId': 'base-class',
+    'assetInstanceId': 'base-201',
+    'assetNumber': 201,
+  },
+  'assignmentInnerCoverPosition': <String, dynamic>{
+    'baseAssetInstanceId': 'base-201',
+    'baseAssetClassId': 'base-class',
+    'baseAssetNumber': baseAssetNumber,
+    'innerCoverId': 'inner-cover-gr26',
+    'innerCoverSerialNumber': 'GR26',
+    'linkageId': 'linkage-gr26-base201',
+    'assignmentVersion': 3,
+  },
 };
 
 Map<String, dynamic> _module() => <String, dynamic>{
