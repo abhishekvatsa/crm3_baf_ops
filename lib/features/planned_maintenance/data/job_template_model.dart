@@ -1168,7 +1168,6 @@ class JobExecution {
 
   @ignore
   AssetHierarchyReference? get assignmentAssetHierarchyReference {
-    if (!isGovernedTemplateAssignment) return null;
     final source =
         firestoreId == null
             ? 'local job execution $id'
@@ -1197,7 +1196,6 @@ class JobExecution {
 
   @ignore
   AssignmentPhysicalAssetIdentity? get assignmentPhysicalAssetIdentity {
-    if (!isGovernedTemplateAssignment) return null;
     final source =
         firestoreId == null
             ? 'local job execution $id'
@@ -1252,7 +1250,6 @@ class JobExecution {
 
   @ignore
   AssignmentInnerCoverPosition? get assignmentInnerCoverPosition {
-    if (!isGovernedTemplateAssignment) return null;
     final source =
         firestoreId == null
             ? 'local job execution $id'

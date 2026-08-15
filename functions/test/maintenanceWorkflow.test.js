@@ -24,6 +24,49 @@ const serviceFor = (store) => {
   return new MaintenanceWorkflowCommandService(store);
 };
 
+const seedLegacyAssignmentAuthority = (
+  store,
+  {assetNumber = 101, assetInstanceId = `base-${assetNumber}`} = {},
+) => {
+  store.seed('job_templates/template-1', {
+    firestoreId: 'template-1',
+    version: 1,
+    jobName: 'Base planned maintenance',
+    applicableAssetType: 'base',
+    assignedAgencies: ['mechanical'],
+    assetHierarchyRefJson: null,
+    isActive: true,
+    isDeprecated: false,
+    isDeleted: false,
+  });
+  store.seed('asset_classes/base-class', {
+    schemaVersion: 1,
+    assetClassId: 'base-class',
+    legacyAssetTypeKey: 'base',
+    status: 'active',
+  });
+  store.seed(`asset_instances/${assetInstanceId}`, {
+    schemaVersion: 1,
+    assetInstanceId,
+    assetClassId: 'base-class',
+    assetNumber,
+    status: 'active',
+    version: 1,
+  });
+};
+
+const governedLegacyPayload = (
+  executionId,
+  {assetInstanceId = 'base-101'} = {},
+) => ({
+  assignmentSchemaVersion: 2,
+  executionId,
+  templateFirestoreId: 'template-1',
+  expectedTemplateVersion: 1,
+  assetClassId: 'base-class',
+  assetInstanceId,
+});
+
 const seedWorkflow = (store, id = 'wf1', status = 'pendingLaneClassification', version = 0, assetTypeKey = 'furnace', assetNumber = 7) => {
   store.seed(`maintenance_workflows/${id}`, {
     jobExecutionId: `${id}-exec`, status, version, assetTypeKey, assetNumber,
@@ -81,7 +124,7 @@ describe('maintenance workflow command integration', () => {
     })).toThrow('Governed custom equipment identity is incomplete.');
   });
 
-  test('legacy workflow creation rejects governed custom assets without registry identity', async () => {
+  test('old client payload cannot create another ungoverned legacy job', async () => {
     const store = new MemoryWorkflowStore();
     const service = serviceFor(store);
     await expect(service.execute({
@@ -101,10 +144,12 @@ describe('maintenance workflow command integration', () => {
       actor: admin,
       serverNow: at('2026-07-20T00:00:00Z'),
     })).rejects.toMatchObject({code: 'invalid-argument'});
+    expect(store.read('job_executions/legacy-custom-exec')).toBeNull();
   });
 
-  test('legacy assignment creates execution, workflow and equipment projection atomically', async () => {
+  test('legacy template assignment freezes governed identity atomically', async () => {
     const store = new MemoryWorkflowStore();
+    seedLegacyAssignmentAuthority(store);
     store.seed('equipment_status/base_101', {
       state: 'available',
       activeNonRedMaintenanceCount: 0,
@@ -119,13 +164,8 @@ describe('maintenance workflow command integration', () => {
       aggregateId: 'legacy-exec-1',
       expectedVersion: 0,
       payload: {
-        executionId: 'legacy-exec-1',
-        templateFirestoreId: 'template-1',
-        templateName: 'Base planned maintenance',
-        assetTypeKey: 'base',
-        assetNumber: 101,
+        ...governedLegacyPayload('legacy-exec-1'),
         chargeNoAtEvent: 12345,
-        assignedAgencies: [],
         remarks: 'Created pending lane classification',
       },
     }, {actor: admin, serverNow: at('2026-07-20T00:30:00Z')});
@@ -135,16 +175,39 @@ describe('maintenance workflow command integration', () => {
       laneSetVersion: 0,
       assetType: 'base',
       assetNumber: 101,
+      assetClassId: 'base-class',
+      assetInstanceId: 'base-101',
+      assignedAgencies: ['mechanical'],
       isCompleted: false,
+    });
+    expect(JSON.parse(
+      store.read('job_executions/legacy-exec-1').metadataJson,
+    )).toMatchObject({
+      source: 'server_governed_legacy_template_assignment',
+      assignmentSchemaVersion: 2,
+      assignmentAssetIdentity: {
+        assetClassId: 'base-class',
+        assetInstanceId: 'base-101',
+        assetNumber: 101,
+      },
+      jobTemplateSnapshot: {
+        firestoreId: 'template-1',
+        version: 1,
+        jobName: 'Base planned maintenance',
+      },
     });
     expect(store.read('maintenance_workflows/legacy-exec-1')).toMatchObject({
       status: 'pendingLaneClassification',
       version: 1,
       jobExecutionId: 'legacy-exec-1',
+      assetClassId: 'base-class',
+      assetInstanceId: 'base-101',
     });
     expect(store.read('equipment_status/base_101')).toMatchObject({
       state: 'underMaintenance',
       activeNonRedMaintenanceCount: 1,
+      assetClassId: 'base-class',
+      assetInstanceId: 'base-101',
     });
     expect(store.read('maintenance_workflow_events/legacy-create-1')).toMatchObject({
       eventType: 'workflow.jobCreatedPendingClassification',
@@ -154,6 +217,7 @@ describe('maintenance workflow command integration', () => {
 
   test('legacy assignment rejects an unreconciled missing equipment projection', async () => {
     const store = new MemoryWorkflowStore();
+    seedLegacyAssignmentAuthority(store);
     const service = serviceFor(store);
 
     await expect(service.execute({
@@ -161,14 +225,7 @@ describe('maintenance workflow command integration', () => {
       commandType: 'createLegacyWorkflowJob',
       aggregateId: 'legacy-exec-missing-equipment',
       expectedVersion: 0,
-      payload: {
-        executionId: 'legacy-exec-missing-equipment',
-        templateFirestoreId: 'template-1',
-        templateName: 'Base planned maintenance',
-        assetTypeKey: 'base',
-        assetNumber: 101,
-        assignedAgencies: [],
-      },
+      payload: governedLegacyPayload('legacy-exec-missing-equipment'),
     }, {
       actor: admin,
       serverNow: at('2026-07-20T00:45:00Z'),
@@ -181,8 +238,360 @@ describe('maintenance workflow command integration', () => {
     expect(store.read('maintenance_workflows/legacy-exec-missing-equipment')).toBeNull();
   });
 
+  test('legacy assignment rejects client-authored template and asset facts', async () => {
+    const store = new MemoryWorkflowStore();
+    seedLegacyAssignmentAuthority(store);
+    store.seed('equipment_status/base_101', {
+      state: 'available',
+      activeNonRedMaintenanceCount: 0,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 0,
+    });
+    const service = serviceFor(store);
+
+    await expect(service.execute({
+      commandId: 'legacy-client-facts',
+      commandType: 'createLegacyWorkflowJob',
+      aggregateId: 'legacy-client-facts-exec',
+      expectedVersion: 0,
+      payload: {
+        ...governedLegacyPayload('legacy-client-facts-exec'),
+        assetNumber: 102,
+      },
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T00:46:00Z'),
+    })).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: {
+        reasonCode: 'legacy-assignment-server-owned-field',
+        field: 'assetNumber',
+      },
+    });
+    expect(store.read('job_executions/legacy-client-facts-exec')).toBeNull();
+  });
+
+  test('legacy assignment rejects stale template version with zero writes', async () => {
+    const store = new MemoryWorkflowStore();
+    seedLegacyAssignmentAuthority(store);
+    store.seed('equipment_status/base_101', {
+      state: 'available',
+      activeNonRedMaintenanceCount: 0,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 0,
+    });
+    const service = serviceFor(store);
+
+    await expect(service.execute({
+      commandId: 'legacy-stale-template',
+      commandType: 'createLegacyWorkflowJob',
+      aggregateId: 'legacy-stale-template-exec',
+      expectedVersion: 0,
+      payload: {
+        ...governedLegacyPayload('legacy-stale-template-exec'),
+        expectedTemplateVersion: 2,
+      },
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T00:47:00Z'),
+    })).rejects.toMatchObject({
+      code: 'aborted',
+      details: {reasonCode: 'legacy-template-version-changed'},
+    });
+    expect(store.read('job_executions/legacy-stale-template-exec')).toBeNull();
+    expect(store.read('equipment_status/base_101')).toMatchObject({version: 0});
+  });
+
+  test('legacy assignment rejects an incomplete saved hierarchy reference', async () => {
+    const store = new MemoryWorkflowStore();
+    seedLegacyAssignmentAuthority(store);
+    store.seed('job_templates/template-1', {
+      firestoreId: 'template-1',
+      version: 1,
+      jobName: 'Base planned maintenance',
+      applicableAssetType: 'base',
+      assignedAgencies: ['mechanical'],
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 2,
+        scope: 'definition',
+        assetClassId: 'base-class',
+      }),
+      isActive: true,
+      isDeprecated: false,
+      isDeleted: false,
+    });
+    store.seed('equipment_status/base_101', {
+      state: 'available',
+      activeNonRedMaintenanceCount: 0,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 0,
+    });
+    const service = serviceFor(store);
+
+    await expect(service.execute({
+      commandId: 'legacy-incomplete-hierarchy',
+      commandType: 'createLegacyWorkflowJob',
+      aggregateId: 'legacy-incomplete-hierarchy-exec',
+      expectedVersion: 0,
+      payload: governedLegacyPayload('legacy-incomplete-hierarchy-exec'),
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T00:47:30Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'legacy-template-hierarchy-reference-invalid'},
+    });
+    expect(store.read('job_executions/legacy-incomplete-hierarchy-exec'))
+      .toBeNull();
+  });
+
+  test('legacy assignment rejects contradictory fixed-asset evidence', async () => {
+    const store = new MemoryWorkflowStore();
+    seedLegacyAssignmentAuthority(store);
+    store.seed('job_templates/template-1', {
+      firestoreId: 'template-1',
+      version: 1,
+      jobName: 'Base planned maintenance',
+      applicableAssetType: 'base',
+      assignedAgencies: ['mechanical'],
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 3,
+        scope: 'physicalAsset',
+        assetClassId: 'base-class',
+        assetClassCode: 'BASE',
+        assetClassName: 'Base',
+        nodeId: 'base-101',
+        nodeVersion: 1,
+        nodeName: 'Base 101',
+        assetInstanceId: 'base-101',
+        assetInstanceVersion: 1,
+        assetNumber: 102,
+        assetInstanceName: 'Base 101',
+        hierarchyPath: ['Base', 'Base 101'],
+        ownershipStatus: 'unassigned',
+        accountableRoleKeys: [],
+      }),
+      isActive: true,
+      isDeprecated: false,
+      isDeleted: false,
+    });
+    store.seed('equipment_status/base_101', {
+      state: 'available',
+      activeNonRedMaintenanceCount: 0,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 0,
+    });
+    const service = serviceFor(store);
+
+    await expect(service.execute({
+      commandId: 'legacy-contradictory-fixed-target',
+      commandType: 'createLegacyWorkflowJob',
+      aggregateId: 'legacy-contradictory-fixed-target-exec',
+      expectedVersion: 0,
+      payload: governedLegacyPayload('legacy-contradictory-fixed-target-exec'),
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T00:47:45Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'legacy-template-asset-number-mismatch'},
+    });
+    expect(store.read('job_executions/legacy-contradictory-fixed-target-exec'))
+      .toBeNull();
+  });
+
+  test('legacy Inner Cover assignment freezes the current Base linkage', async () => {
+    const store = new MemoryWorkflowStore();
+    store.seed('job_templates/inner-template', {
+      firestoreId: 'inner-template',
+      version: 1,
+      jobName: 'Inner Cover inspection',
+      applicableAssetType: 'innerCover',
+      assignedAgencies: ['mechanical'],
+      assetHierarchyRefJson: null,
+      isActive: true,
+      isDeprecated: false,
+      isDeleted: false,
+    });
+    store.seed('asset_classes/base-class', {
+      schemaVersion: 1,
+      assetClassId: 'base-class',
+      legacyAssetTypeKey: 'base',
+      status: 'active',
+    });
+    store.seed('asset_instances/base-201', {
+      schemaVersion: 1,
+      assetInstanceId: 'base-201',
+      assetClassId: 'base-class',
+      assetNumber: 201,
+      status: 'active',
+      version: 3,
+    });
+    store.seed('base_inner_cover_assignments/base-201', {
+      schemaVersion: 1,
+      baseAssetInstanceId: 'base-201',
+      baseAssetClassId: 'base-class',
+      baseAssetNumber: 201,
+      innerCoverId: 'inner-gr26',
+      innerCoverSerialNumber: 'GR26',
+      linkageId: 'link-gr26-base-201',
+      version: 4,
+    });
+    store.seed('inner_cover_profiles/inner-gr26', {
+      schemaVersion: 1,
+      innerCoverId: 'inner-gr26',
+      serialNumber: 'GR26',
+      lifecycleState: 'installed',
+      currentBaseAssetInstanceId: 'base-201',
+      currentBaseAssetNumber: 201,
+      currentLinkageId: 'link-gr26-base-201',
+    });
+    store.seed('equipment_status/innerCover_201', {
+      state: 'available',
+      activeNonRedMaintenanceCount: 0,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 0,
+    });
+    const service = serviceFor(store);
+
+    await service.execute({
+      commandId: 'legacy-inner-cover',
+      commandType: 'createLegacyWorkflowJob',
+      aggregateId: 'legacy-inner-cover-exec',
+      expectedVersion: 0,
+      payload: {
+        assignmentSchemaVersion: 2,
+        executionId: 'legacy-inner-cover-exec',
+        templateFirestoreId: 'inner-template',
+        expectedTemplateVersion: 1,
+        assetClassId: 'base-class',
+        assetInstanceId: 'base-201',
+      },
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T00:48:00Z'),
+    });
+
+    const execution = store.read('job_executions/legacy-inner-cover-exec');
+    expect(execution).toMatchObject({
+      assetType: 'innerCover',
+      assetNumber: 201,
+      assetClassId: 'base-class',
+      assetInstanceId: 'base-201',
+    });
+    expect(JSON.parse(execution.metadataJson)).toMatchObject({
+      assignmentInnerCoverPosition: {
+        baseAssetInstanceId: 'base-201',
+        innerCoverId: 'inner-gr26',
+        innerCoverSerialNumber: 'GR26',
+        linkageId: 'link-gr26-base-201',
+        assignmentVersion: 4,
+      },
+    });
+    expect(store.read('maintenance_workflows/legacy-inner-cover-exec'))
+      .toMatchObject({
+        innerCoverId: 'inner-gr26',
+        innerCoverSerialNumber: 'GR26',
+        innerCoverLinkageId: 'link-gr26-base-201',
+        innerCoverAssignmentVersion: 4,
+      });
+  });
+
+  test('legacy Inner Cover assignment rejects an instance-fixed template', async () => {
+    const store = new MemoryWorkflowStore();
+    store.seed('job_templates/inner-fixed-template', {
+      firestoreId: 'inner-fixed-template',
+      version: 1,
+      jobName: 'Fixed Inner Cover inspection',
+      applicableAssetType: 'innerCover',
+      assignedAgencies: ['mechanical'],
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 3,
+        scope: 'physicalAsset',
+        assetClassId: 'inner-cover-class',
+        assetClassCode: 'INNER-COVER',
+        assetClassName: 'Inner Cover',
+        nodeId: 'inner-gr26',
+        nodeVersion: 1,
+        nodeName: 'Inner Cover GR26',
+        assetInstanceId: 'inner-gr26',
+        assetInstanceVersion: 1,
+        assetNumber: 26,
+        assetInstanceName: 'Inner Cover GR26',
+        hierarchyPath: ['Inner Cover', 'Inner Cover GR26'],
+        ownershipStatus: 'unassigned',
+        accountableRoleKeys: [],
+      }),
+      isActive: true,
+      isDeprecated: false,
+      isDeleted: false,
+    });
+    const service = serviceFor(store);
+
+    await expect(service.execute({
+      commandId: 'legacy-inner-cover-fixed-target',
+      commandType: 'createLegacyWorkflowJob',
+      aggregateId: 'legacy-inner-cover-fixed-target-exec',
+      expectedVersion: 0,
+      payload: {
+        assignmentSchemaVersion: 2,
+        executionId: 'legacy-inner-cover-fixed-target-exec',
+        templateFirestoreId: 'inner-fixed-template',
+        expectedTemplateVersion: 1,
+        assetClassId: 'base-class',
+        assetInstanceId: 'base-201',
+      },
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T00:48:30Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'legacy-template-inner-cover-target-invalid'},
+    });
+    expect(store.read('job_executions/legacy-inner-cover-fixed-target-exec'))
+      .toBeNull();
+  });
+
+  test('legacy assignment rejects a partial equipment identity projection', async () => {
+    const store = new MemoryWorkflowStore();
+    seedLegacyAssignmentAuthority(store);
+    store.seed('equipment_status/base_101', {
+      state: 'available',
+      assetClassId: 'base-class',
+      activeNonRedMaintenanceCount: 0,
+      activeRedWorkCount: 0,
+      awaitingPreparationCount: 0,
+      version: 0,
+    });
+    const service = serviceFor(store);
+
+    await expect(service.execute({
+      commandId: 'legacy-partial-projection',
+      commandType: 'createLegacyWorkflowJob',
+      aggregateId: 'legacy-partial-projection-exec',
+      expectedVersion: 0,
+      payload: governedLegacyPayload('legacy-partial-projection-exec'),
+    }, {
+      actor: admin,
+      serverNow: at('2026-07-20T00:49:00Z'),
+    })).rejects.toMatchObject({
+      code: 'equipment-state-conflict',
+      details: {reasonCode: 'equipment-projection-identity-incomplete'},
+    });
+    expect(store.read('job_executions/legacy-partial-projection-exec')).toBeNull();
+  });
+
   test('Admin reconciliation initializes a new equipment projection before its first workflow', async () => {
     const store = new MemoryWorkflowStore();
+    seedLegacyAssignmentAuthority(store, {
+      assetNumber: 102,
+      assetInstanceId: 'base-102',
+    });
     const service = serviceFor(store);
 
     await service.execute({
@@ -211,14 +620,9 @@ describe('maintenance workflow command integration', () => {
       commandType: 'createLegacyWorkflowJob',
       aggregateId: 'legacy-exec-after-reconcile',
       expectedVersion: 0,
-      payload: {
-        executionId: 'legacy-exec-after-reconcile',
-        templateFirestoreId: 'template-1',
-        templateName: 'Base planned maintenance',
-        assetTypeKey: 'base',
-        assetNumber: 102,
-        assignedAgencies: [],
-      },
+      payload: governedLegacyPayload('legacy-exec-after-reconcile', {
+        assetInstanceId: 'base-102',
+      }),
     }, {
       actor: admin,
       serverNow: at('2026-07-20T00:51:00Z'),

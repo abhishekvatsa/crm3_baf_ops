@@ -69,11 +69,10 @@ identity for every non-custom request is a later cutover decision after old
 clients have been retired. This source increment does not itself deploy the
 callable or authorize a production release.
 
-The separate local legacy-template assignment screen and its
-`createLegacyWorkflowJob` command are outside this increment and continue to
-accept legacy type-and-number identity. They must be migrated or explicitly
-retired before the governed hierarchy can be described as the sole planned-work
-selector.
+The separate local legacy-template assignment screen was subsequently migrated
+under `GOVERNED_LEGACY_TEMPLATE_ASSIGNMENT_MIGRATION.md`. It now shares the
+governed selector and its command derives template and asset facts from current
+server state. Historical records retain their documented legacy fallback.
 
 ## Verification Boundary
 

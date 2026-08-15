@@ -1149,19 +1149,6 @@
       "reArmCondition": "malformed module snapshot is shown as an authoritative empty snapshot or permits work mutation"
     },
     {
-      "id": "legacy-job-assignment-command-presentation",
-      "file": "lib/features/planned_maintenance/presentation/assign_job_screen.dart",
-      "siteFingerprint": "1302e35deb45549daae44bd5be0ddc9230ed90fde7ae74a5a652f5c6adf17c88",
-      "classification": "USER_INPUT_AND_COMMAND_ERROR_PRESENTATION",
-      "purpose": "surface invalid assignment input or server-command failure without creating fallback state",
-      "authorityBoundary": "legacy workflow assignment command",
-      "mutability": "server command only after parsing and validation",
-      "dataScope": "operator-entered assignment fields and command result",
-      "malformedDisposition": "show failure and retain entries; no parsed default or local assignment is created",
-      "regression": "tools/v4/a05_persisted_decoder_inventory.py",
-      "reArmCondition": "invalid input receives a default or failed command creates local assignment state"
-    },
-    {
       "id": "dossier-metadata-display-omission",
       "file": "lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart",
       "siteFingerprint": "037ce73645a8270728c6a96289b7bc1bf5477344fc74b60d0b6a6a83e42010c0",

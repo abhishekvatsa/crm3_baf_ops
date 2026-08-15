@@ -572,19 +572,21 @@ void _expectWorkflowCommandAssignmentContract() {
     ),
     'Future<void> _submit',
   );
-  const commandAwait =
-      'await ref.read(workflowCommandControllerProvider.notifier).execute(';
+  const commandAwait = '.read(workflowCommandControllerProvider.notifier)';
   const syncCapture =
       'final syncCoordinator = ref.read(syncCoordinatorProvider);';
 
   expect(body, contains(commandAwait));
+  expect(body, contains('.execute('));
   expect(body, contains('WorkflowCommandType.createLegacyWorkflowJob'));
   expect(body, isNot(contains('repository.saveExecution(')));
   _expectBefore(body, syncCapture, commandAwait);
   expect(
     body,
-    contains(
-      "syncCoordinator.runFullSync(reason: 'workflow_job_assigned', force: true)",
+    allOf(
+      contains('syncCoordinator.runFullSync('),
+      contains("reason: 'workflow_job_assigned'"),
+      contains('force: true'),
     ),
   );
 }

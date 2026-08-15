@@ -35,12 +35,12 @@ function createCommand(id) {
     aggregateId: id,
     expectedVersion: 0,
     payload: {
+      assignmentSchemaVersion: 2,
       executionId: id,
-      templateFirestoreId: 'legacy-template',
-      templateName: 'Legacy PM',
-      assetTypeKey: 'base',
-      assetNumber: 101,
-      assignedAgencies: ['mechanical'],
+      templateFirestoreId: 'template-1',
+      expectedTemplateVersion: 1,
+      assetClassId: 'base-class',
+      assetInstanceId: 'base-101',
     },
   };
 }
@@ -82,6 +82,31 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
         roles: ['admin'],
         name: otherActor.name,
       }),
+      db.collection('job_templates').doc('template-1').set({
+        firestoreId: 'template-1',
+        version: 1,
+        jobName: 'Base planned maintenance',
+        applicableAssetType: 'base',
+        assignedAgencies: ['mechanical'],
+        assetHierarchyRefJson: null,
+        isActive: true,
+        isDeprecated: false,
+        isDeleted: false,
+      }),
+      db.collection('asset_classes').doc('base-class').set({
+        schemaVersion: 1,
+        assetClassId: 'base-class',
+        legacyAssetTypeKey: 'base',
+        status: 'active',
+      }),
+      db.collection('asset_instances').doc('base-101').set({
+        schemaVersion: 1,
+        assetInstanceId: 'base-101',
+        assetClassId: 'base-class',
+        assetNumber: 101,
+        status: 'active',
+        version: 1,
+      }),
     ]);
   });
 
@@ -113,11 +138,29 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
     ]);
 
     const workflows = await db.collection('maintenance_workflows').get();
+    const executions = await db.collection('job_executions').get();
     const equipment = await db.collection('equipment_status').doc('base_101').get();
 
     expect(workflows.size).toBe(2);
+    for (const workflow of workflows.docs) {
+      expect(workflow.data()).toMatchObject({
+        assetClassId: 'base-class',
+        assetInstanceId: 'base-101',
+        assetNumber: 101,
+      });
+    }
+    expect(executions.size).toBe(2);
+    for (const execution of executions.docs) {
+      expect(execution.data()).toMatchObject({
+        assetClassId: 'base-class',
+        assetInstanceId: 'base-101',
+        assetNumber: 101,
+      });
+    }
     expect(equipment.data()).toMatchObject({
       state: 'underMaintenance',
+      assetClassId: 'base-class',
+      assetInstanceId: 'base-101',
       activeNonRedMaintenanceCount: 2,
       activeRedWorkCount: 0,
       awaitingPreparationCount: 0,
