@@ -249,6 +249,19 @@ void main() {
 
     test('microamp evidence rejects malformed values and action drift', () {
       expect(
+        () => BurnerLockoutCase(
+          positions: const <int>[2],
+          commonMode: false,
+          cycleStage: BurnerCycleStage.firing,
+          flameObservation: BurnerObservation.seen,
+          sparkObservation: BurnerObservation.notChecked,
+          relightAttempts: 0,
+          remainsLockedOut: false,
+          resolutionMicroampReadings: const <int, double>{2: 3.5},
+        ),
+        throwsFormatException,
+      );
+      expect(
         () => BurnerLockoutResolution(
           outcomes: const <int, BurnerResolutionOutcome>{
             2: BurnerResolutionOutcome.returnedToService,

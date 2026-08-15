@@ -427,7 +427,7 @@ class BurnerLockoutCase {
     if (!_isSubset(attendedPositions, positions) ||
         !_isSubset(resolutionOutcomes.keys, positions) ||
         !_isSubset(resolutionActionCodes.keys, positions) ||
-        !_isSubset(resolutionMicroampReadings.keys, positions)) {
+        !_isSubset(resolutionMicroampReadings.keys, attendedPositions)) {
       throw const FormatException(
         'Attendance and outcomes must belong to selected burner positions.',
       );
