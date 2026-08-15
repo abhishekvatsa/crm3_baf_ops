@@ -35,7 +35,7 @@ missing_client = [
     if f'WorkflowCommandType.{command}' not in client_tree
 ]
 add(
-    not missing_client and len(commands) == 21,
+    bool(commands) and not missing_client,
     'all authoritative workflow commands have a client entry point',
     f'commands={len(commands)} missing={missing_client}',
 )

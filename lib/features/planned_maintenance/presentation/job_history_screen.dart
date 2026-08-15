@@ -702,6 +702,7 @@ class _ResponseDetailSheet extends StatelessWidget {
                       ),
                     ),
                     IconButton(
+                      tooltip: 'Close job history',
                       icon: const Icon(Icons.close_rounded),
                       onPressed: () => Navigator.pop(context),
                     ),

@@ -16,6 +16,7 @@ import '../models/operations_report.dart';
 const operationsReportClockInterval = Duration(minutes: 1);
 typedef OperationsReportPeriod =
     ({DateTime startInclusive, DateTime endExclusive});
+typedef _ReportDimension = ({String key, String label});
 
 Stream<DateTime> operationsReportClock({
   Duration interval = operationsReportClockInterval,
@@ -314,15 +315,16 @@ OperationsReport buildOperationsReport({
           )
           .toList();
 
-  List<CountedReportLabel> rank(String? Function(MaintenanceRecord) value) {
+  List<CountedReportLabel> rank(
+    _ReportDimension? Function(MaintenanceRecord) value,
+  ) {
     final labels = <String, String>{};
     final counts = <String, int>{};
     for (final ticket in filteredTickets) {
-      final label = value(ticket)?.trim();
-      if (label == null || label.isEmpty) continue;
-      final key = label.toLowerCase();
-      labels.putIfAbsent(key, () => label);
-      counts.update(key, (count) => count + 1, ifAbsent: () => 1);
+      final dimension = value(ticket);
+      if (dimension == null) continue;
+      labels.putIfAbsent(dimension.key, () => dimension.label);
+      counts.update(dimension.key, (count) => count + 1, ifAbsent: () => 1);
     }
     final result =
         counts.entries
@@ -340,6 +342,51 @@ OperationsReport buildOperationsReport({
                 : left.label.toLowerCase().compareTo(right.label.toLowerCase());
           });
     return List<CountedReportLabel>.unmodifiable(result.take(8));
+  }
+
+  _ReportDimension? componentDimension(MaintenanceRecord ticket) {
+    final reference = ticket.assetHierarchyReference;
+    if (reference != null) {
+      return (
+        key: 'governed:${reference.assetClassId}:${reference.nodeId}',
+        label: '${reference.assetClassName} - ${reference.nodeName}',
+      );
+    }
+    final legacyLabel =
+        ticket.component ??
+        (ticket.hierarchyPath?.isNotEmpty == true
+            ? ticket.hierarchyPath!.last
+            : null);
+    if (legacyLabel?.trim().isNotEmpty != true) return null;
+    return (
+      key: 'legacy-unmapped-component',
+      label: 'Unmapped legacy component',
+    );
+  }
+
+  _ReportDimension? subsystemDimension(MaintenanceRecord ticket) {
+    final reference = ticket.assetHierarchyReference;
+    if (reference != null && reference.hierarchyPath.length > 1) {
+      final parentPath = reference.hierarchyPath.sublist(
+        0,
+        reference.hierarchyPath.length - 1,
+      );
+      final normalizedPath = parentPath
+          .map((segment) => segment.trim().toLowerCase())
+          .join('/');
+      return (
+        key: 'governed-path:${reference.assetClassId}:$normalizedPath',
+        label: '${reference.assetClassName} - ${parentPath.last}',
+      );
+    }
+    final hasLegacySubsystem =
+        ticket.subsystem?.trim().isNotEmpty == true ||
+        (ticket.hierarchyPath != null && ticket.hierarchyPath!.length > 1);
+    if (!hasLegacySubsystem) return null;
+    return (
+      key: 'legacy-unmapped-subsystem',
+      label: 'Unmapped legacy subsystem',
+    );
   }
 
   bool occurrenceAffectsClass(
@@ -431,20 +478,8 @@ OperationsReport buildOperationsReport({
     ),
     assetStates: List<PlantAssetState>.unmodifiable(filteredStates),
     classSummaries: List<AssetClassReportSummary>.unmodifiable(classSummaries),
-    topComponents: rank(
-      (ticket) =>
-          ticket.component ??
-          (ticket.hierarchyPath?.isNotEmpty == true
-              ? ticket.hierarchyPath!.last
-              : null),
-    ),
-    topSubsystems: rank(
-      (ticket) =>
-          ticket.subsystem ??
-          (ticket.hierarchyPath != null && ticket.hierarchyPath!.length > 1
-              ? ticket.hierarchyPath![ticket.hierarchyPath!.length - 2]
-              : null),
-    ),
+    topComponents: rank(componentDimension),
+    topSubsystems: rank(subsystemDimension),
     sourceTicketCount: tickets.length,
     sourceExecutionCount: executions.length,
     sourceEventCount: events.length,

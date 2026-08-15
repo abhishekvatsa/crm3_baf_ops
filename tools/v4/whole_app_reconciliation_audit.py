@@ -145,10 +145,13 @@ def main()->int:
     migration=read('lib/core/services/isar_schema_migration.dart')
     isar_guard=read('lib/core/services/isar_schema_guard_io.dart')
     startup=read('lib/main.dart')
-    add(c,'Isar migration version explicitly advances to v4',
-        'currentSchemaVersion = 4' in migration and '3: _reconcileV4WorkflowPersistence' in migration
+    add(c,'Isar migration version explicitly advances to v5',
+        'currentSchemaVersion = 5' in migration and '3: _reconcileV4WorkflowPersistence' in migration
         and '4: _addOperationalAssuranceRequestFields' in migration
-        and 'ComplianceRequestRecord+OperationalAssurance' in migration,
+        and '5: _addGovernedAssetIdentityFields' in migration
+        and 'ComplianceRequestRecord+OperationalAssurance' in migration
+        and 'WorkflowAggregateRecord+GovernedAssetIdentity' in migration
+        and 'EquipmentStatusRecord+GovernedAssetIdentity' in migration,
         'same-version schema drift is not hidden')
     add(c,'Isar provenance refuses unmarked stores and commits after open',
         all(token in migration for token in [

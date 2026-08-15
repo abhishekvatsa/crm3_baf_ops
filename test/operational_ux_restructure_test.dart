@@ -155,6 +155,12 @@ void main() {
     expect(find.text('Open issues'), findsOneWidget);
     expect(find.byKey(const ValueKey('issues-search')), findsOneWidget);
     expect(find.byKey(const ValueKey('issues-raise-issue')), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('issues-search'))).dy,
+      lessThan(
+        tester.getTopLeft(find.byKey(const ValueKey('issues-raise-issue'))).dy,
+      ),
+    );
     expect(find.text('All clear'), findsOneWidget);
     expect(find.text('Manual sync now'), findsNothing);
     expect(find.byTooltip('Refresh issues'), findsOneWidget);

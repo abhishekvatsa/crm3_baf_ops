@@ -204,11 +204,82 @@ void main() {
     expect(report.disruptionDuration.inHours, 2);
     expect(report.assetCount, 1);
     expect(report.availableAssetCount, 1);
-    expect(report.topComponents.single.label, 'Pressure transmitter');
+    expect(report.topComponents.single.label, 'Unmapped legacy component');
     expect(report.topComponents.single.count, 2);
-    expect(report.topSubsystems.single.label, 'Combustion control');
+    expect(report.topSubsystems.single.label, 'Unmapped legacy subsystem');
     expect(report.classSummaries.single.assetClassName, 'Furnace');
     expect(report.classSummaries.single.disruptionCount, 1);
+  });
+
+  test('governed identity drives rankings instead of editable ticket text', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    final furnace8 = asset('furnace-8', furnace, 8);
+    final canonicalReference = AssetHierarchyReference(
+      assetClassId: furnace.id,
+      assetClassCode: furnace.code,
+      assetClassName: furnace.name,
+      nodeId: 'pressure-transmitter',
+      nodeVersion: 3,
+      nodeName: 'Pressure transmitter',
+      hierarchyPath: const ['Combustion system', 'Pressure transmitter'],
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'instrumentation',
+      accountableRoleKeys: const ['senior_instrumentation'],
+    );
+    final first = issue(
+      type: AssetType.furnace,
+      number: 7,
+      started: DateTime.utc(2026, 8, 5),
+      component: 'PT setting',
+      subsystem: 'Burner controls',
+    )..assetHierarchyRefJson = canonicalReference.encode();
+    final second = issue(
+      type: AssetType.furnace,
+      number: 8,
+      started: DateTime.utc(2026, 8, 6),
+      component: 'pressure xmitter',
+      subsystem: 'Combustion',
+    )..assetHierarchyRefJson = canonicalReference.encode();
+    final legacy = issue(
+      type: AssetType.furnace,
+      number: 7,
+      started: DateTime.utc(2026, 8, 7),
+      component: 'PT',
+      subsystem: 'Burner',
+    );
+    final assets = [furnace7, furnace8];
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 31),
+      ),
+      tickets: [first, second, legacy],
+      executions: const [],
+      events: const [],
+      assetClasses: [furnace],
+      assetInstances: assets,
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace],
+        assetInstances: assets,
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+    );
+
+    expect(
+      report.topComponents
+          .map((row) => (row.label, row.count))
+          .toList(growable: false),
+      [('Furnace - Pressure transmitter', 2), ('Unmapped legacy component', 1)],
+    );
+    expect(
+      report.topSubsystems
+          .map((row) => (row.label, row.count))
+          .toList(growable: false),
+      [('Furnace - Combustion system', 2), ('Unmapped legacy subsystem', 1)],
+    );
   });
 
   test('physical-asset filter excludes another asset in the same class', () {
