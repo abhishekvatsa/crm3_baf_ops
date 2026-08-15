@@ -2837,11 +2837,23 @@ app_database_source = text("lib/core/persistence/app_database.dart")
 main_source = text("lib/main.dart")
 dart_import_cycle_test = text("test/dart_import_cycle_test.dart")
 dart_import_cycle_decision = text("docs/DART_IMPORT_CYCLE_CLOSURE.md")
+a01_evidence_path = ROOT / "release/evidence/a01-dart-import-cycle-source-and-ci-closure.json"
+a01_evidence = data("release/evidence/a01-dart-import-cycle-source-and-ci-closure.json")
 a01_finding = next(
     item
     for item in recovery_ledger.get("technicalFindings", [])
     if item.get("findingId") == "A-01"
 )
+a01_expected_jobs = {
+    "Flutter host analysis + tests + no-loss contracts",
+    "Cloud Functions host build + non-emulator tests",
+    "Firestore Rules + governed callable emulator",
+    "Android release package + cold-start proof (non-production)",
+    "Android emulator app-shell integration (not physical-device evidence)",
+}
+a01_pull_request_ci = a01_evidence.get("pullRequestCi", {})
+a01_post_merge_ci = a01_evidence.get("postMergeCi", {})
+a01_boundaries = a01_evidence.get("boundaries", {})
 lib_dart_sources = {
     str(path.relative_to(ROOT)).replace("\\", "/"):
         path.read_text(encoding="utf-8")
@@ -2871,11 +2883,59 @@ check(
     and "Largest component:      72 files" in dart_import_cycle_decision
     and "Cyclic components:      0" in dart_import_cycle_decision
     and "Isar schemas,\ndatabase naming, open order" in dart_import_cycle_decision
-    and a01_finding.get("currentStatus") == "SOURCE_IMPLEMENTED"
+    and "Status: CLOSED" in dart_import_cycle_decision
+    and a01_finding.get("currentStatus") == "CLOSED"
     and [
         entry.get("status")
         for entry in a01_finding.get("statusHistory", [])
-    ] == ["OPEN", "SOURCE_IMPLEMENTED"]
+    ] == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(a01_finding.get("evidence", [])) == 1
+    and a01_finding["evidence"][0].get("evidenceFile")
+        == "release/evidence/a01-dart-import-cycle-source-and-ci-closure.json"
+    and a01_finding["evidence"][0].get("evidenceSha256")
+        == sha(a01_evidence_path)
+    and a01_finding["evidence"][0].get("decision")
+        == "PASS_A01_DART_IMPORT_CYCLE_SOURCE_AND_CI_CLOSURE"
+    and a01_evidence.get("decision")
+        == "PASS_A01_DART_IMPORT_CYCLE_SOURCE_AND_CI_CLOSURE"
+    and a01_evidence.get("sourceAuthority", {}).get("headCommit")
+        == "2a5a2751ae5bb2d17cb4148799ac58ed0ae78cf6"
+    and a01_evidence.get("sourceAuthority", {}).get("sourceTree")
+        == "99deeb6966cc1b694f861a6154d9a4ddef3c7af0"
+    and a01_evidence.get("sourceAuthority", {}).get("mergeCommit")
+        == "dad9ec6d27177699a1656b0a33ca23739ffb41ea"
+    and a01_evidence.get("sourceAuthority", {}).get("mergeTree")
+        == "99deeb6966cc1b694f861a6154d9a4ddef3c7af0"
+    and a01_evidence.get("importGraphProof", {}).get("mainDartImporterCount") == 0
+    and a01_evidence.get("importGraphProof", {}).get(
+        "stronglyConnectedComponentCount"
+    ) == 0
+    and a01_evidence.get("importGraphProof", {}).get("selfImportCycleCount") == 0
+    and a01_pull_request_ci.get("workflowRun") == 31863973925
+    and a01_pull_request_ci.get("headCommit")
+        == "2a5a2751ae5bb2d17cb4148799ac58ed0ae78cf6"
+    and a01_pull_request_ci.get("conclusion") == "success"
+    and len(a01_pull_request_ci.get("jobs", [])) == 5
+    and {
+        (job.get("name"), job.get("conclusion"))
+        for job in a01_pull_request_ci.get("jobs", [])
+    } == {(name, "success") for name in a01_expected_jobs}
+    and a01_post_merge_ci.get("workflowRun") == 31864544804
+    and a01_post_merge_ci.get("headCommit")
+        == "dad9ec6d27177699a1656b0a33ca23739ffb41ea"
+    and a01_post_merge_ci.get("conclusion") == "success"
+    and len(a01_post_merge_ci.get("jobs", [])) == 5
+    and {
+        (job.get("name"), job.get("conclusion"))
+        for job in a01_post_merge_ci.get("jobs", [])
+    } == {(name, "success") for name in a01_expected_jobs}
+    and a01_boundaries == {
+        "productionDeploymentPerformed": False,
+        "productionDataMutationPerformed": False,
+        "deviceEvidenceClaimed": False,
+        "pilotAuthorizationChanged": False,
+        "distributionAuthorityChanged": False,
+    }
     and len(a01_finding.get("requiredExitEvidence", [])) == 5
     and len(a01_finding.get("reArmTriggers", [])) == 3,
     f"mainImporters={main_importers} appDatabaseConsumers="

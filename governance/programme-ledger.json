@@ -3040,14 +3040,32 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Architecture",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "evidenceFile": "release/evidence/a01-dart-import-cycle-source-and-ci-closure.json",
+          "evidenceSha256": "ACF7E671708E1126E294FB6AC40AA0DADC937F1133CF159FFF2B65F0165A5150",
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 214,
+          "headCommit": "2a5a2751ae5bb2d17cb4148799ac58ed0ae78cf6",
+          "sourceTree": "99deeb6966cc1b694f861a6154d9a4ddef3c7af0",
+          "mergeCommit": "dad9ec6d27177699a1656b0a33ca23739ffb41ea",
+          "mergeTree": "99deeb6966cc1b694f861a6154d9a4ddef3c7af0",
+          "pullRequestWorkflowRun": 31863973925,
+          "postMergeWorkflowRun": 31864544804,
+          "decision": "PASS_A01_DART_IMPORT_CYCLE_SOURCE_AND_CI_CLOSURE",
+          "productionDeploymentPerformed": false,
+          "productionDataMutationPerformed": false,
+          "deviceEvidenceClaimed": false,
+          "pilotAuthorizationChanged": false
+        }
+      ],
       "requiredExitEvidence": [
         "exact-commit machine-generated Dart import graph showing zero strongly connected components and zero lib imports of main.dart",
         "global Isar ownership moved to the bounded app-database module with every retained consumer importing that module directly",
@@ -3061,7 +3079,9 @@
         "global database ownership moves back into a presentation or application-entrypoint module"
       ],
       "notes": [
-        "PR #92 removed the inherited import cycle and global main.dart back-import. Current source retains the Tarjan regression and canonical zero-cycle assertion. SOURCE_IMPLEMENTED records technical correction without claiming the still-required exact-head and post-merge CI closure evidence."
+        "PR #92 removed the inherited import cycle and global main.dart back-import. Current source retains the Tarjan regression and canonical zero-cycle assertion.",
+        "PR #214 re-proved the retained correction on exact green head 2a5a2751ae5bb2d17cb4148799ac58ed0ae78cf6 and admitted it as merge commit dad9ec6d27177699a1656b0a33ca23739ffb41ea with identical tree 99deeb6966cc1b694f861a6154d9a4ddef3c7af0.",
+        "Exact-head run 31863973925 and admitted-main run 31864544804 passed the import-cycle regression, canonical audit, complete Flutter suite and all governed release-gate jobs. This source-and-CI closure creates no deployment, device, data, pilot or distribution authority."
       ],
       "statusHistory": [
         {
@@ -3073,6 +3093,16 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-08-15",
           "basis": "PR #92 source remains cycle-free under test/dart_import_cycle_test.dart and the canonical zero-cycle source assertion; exact-head and admitted-main CI evidence remain required before closure."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-08-15",
+          "basis": "PR #214 exact green head 2a5a2751ae5bb2d17cb4148799ac58ed0ae78cf6 merged as dad9ec6d27177699a1656b0a33ca23739ffb41ea with identical tree 99deeb6966cc1b694f861a6154d9a4ddef3c7af0."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-15",
+          "basis": "PASS_A01_DART_IMPORT_CYCLE_SOURCE_AND_CI_CLOSURE binds the retained Tarjan and main-decoupling proof to exact-head run 31863973925 and successful admitted-main run 31864544804; operational authorities remain unchanged."
         }
       ]
     },

@@ -574,8 +574,8 @@ void main() {
 
     expect(architecture.keys, <String>{'A-01', 'A-02', 'A-03', 'A-04', 'A-05'});
     final a01 = architecture['A-01']!;
-    expect(a01['currentStatus'], 'SOURCE_IMPLEMENTED');
-    expect(_objects(a01['evidence']), isEmpty);
+    expect(a01['currentStatus'], 'CLOSED');
+    expect(_objects(a01['evidence']), hasLength(1));
     expect(_strings(a01['requiredExitEvidence']), hasLength(5));
     expect(_strings(a01['reArmTriggers']), hasLength(3));
     expect(_strings(a01['notes']), isNotEmpty);
@@ -583,8 +583,37 @@ void main() {
       _objects(
         a01['statusHistory'],
       ).map((entry) => entry['status']).toList(growable: false),
-      <String>['OPEN', 'SOURCE_IMPLEMENTED'],
+      <String>['OPEN', 'SOURCE_IMPLEMENTED', 'MERGED', 'CLOSED'],
     );
+    final a01Evidence = _objects(a01['evidence']).single;
+    expect(
+      a01Evidence['decision'],
+      'PASS_A01_DART_IMPORT_CYCLE_SOURCE_AND_CI_CLOSURE',
+    );
+    expect(a01Evidence['pullRequest'], 214);
+    expect(a01Evidence['pullRequestWorkflowRun'], 31863973925);
+    expect(a01Evidence['postMergeWorkflowRun'], 31864544804);
+    final a01Closure = _readJson(
+      'release/evidence/a01-dart-import-cycle-source-and-ci-closure.json',
+    );
+    expect(a01Closure['findingId'], 'A-01');
+    expect(
+      a01Closure['decision'],
+      'PASS_A01_DART_IMPORT_CYCLE_SOURCE_AND_CI_CLOSURE',
+    );
+    expect(
+      _object(a01Closure['sourceAuthority'])['sourceTree'],
+      '99deeb6966cc1b694f861a6154d9a4ddef3c7af0',
+    );
+    expect(_object(a01Closure['importGraphProof'])['mainDartImporterCount'], 0);
+    expect(
+      _object(
+        a01Closure['importGraphProof'],
+      )['stronglyConnectedComponentCount'],
+      0,
+    );
+    expect(_object(a01Closure['pullRequestCi'])['conclusion'], 'success');
+    expect(_object(a01Closure['postMergeCi'])['conclusion'], 'success');
     for (final findingId in <String>['A-02', 'A-03', 'A-04']) {
       final finding = architecture[findingId]!;
       expect(finding['currentStatus'], 'OPEN');
