@@ -220,7 +220,7 @@
       "compatibility": "wholly absent legacy workflow projection only",
       "regression": "test/a05_remote_maintenance_record_integrity_test.dart",
       "reArmCondition": "required ticket state, partial projection, or lifecycle contradiction is accepted",
-      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "riskFingerprint": "11d365b1fac485471771f70e994c03dce0bcad1594f73599e3c03c861ba0b916"
     },
     {
       "id": "furnace-burner-lockout-envelope",
@@ -236,7 +236,7 @@
       "compatibility": "wholly absent pre-feature burner fields on a non-burner maintenance record only; unrelated opaque metadata is preserved",
       "regression": "test/burner_lockout_case_test.dart; test/a05_remote_maintenance_record_integrity_test.dart; test/firestore.rules.test.js",
       "reArmCondition": "partial fields, duplicate or out-of-range positions, unknown enums, classification drift, or incomplete outcomes are admitted",
-      "riskFingerprint": "92eef36022803f580cd554dcf61cba28943713515d88d8ee35e2b259de3cfa18"
+      "riskFingerprint": "a417ca8ef6c5771d0773ad73edfd300e17036b5cce7a9e1d26e82d5b64dc1fcd"
     },
     {
       "id": "job-diary-record",

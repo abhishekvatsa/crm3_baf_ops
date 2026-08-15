@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/models/component_action_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -26,6 +27,19 @@ void main() {
             8: BurnerResolutionOutcome.remainsLockedOut,
           },
         ),
+        actions: <ComponentAction>[
+          _action(1, BurnerActionCode.uvDetectorCleaning),
+          _action(
+            4,
+            BurnerActionCode.poking,
+            outcome: BurnerResolutionOutcome.isolatedForFollowUp,
+          ),
+          _action(
+            8,
+            BurnerActionCode.airLineCleaning,
+            outcome: BurnerResolutionOutcome.remainsLockedOut,
+          ),
+        ],
       );
 
       final decoded = BurnerLockoutCase.fromSynchronizedFields(
@@ -40,6 +54,9 @@ void main() {
         decoded.resolutionOutcomes[4],
         BurnerResolutionOutcome.isolatedForFollowUp,
       );
+      expect(decoded.resolutionActionCodes[1], <BurnerActionCode>[
+        BurnerActionCode.uvDetectorCleaning,
+      ]);
       expect(burnerTag(3, 8), 'FR-03-B08');
     });
 
@@ -156,6 +173,69 @@ void main() {
       );
     });
 
+    test('historical action evidence reconstructs exact burner outcomes', () {
+      final intake = BurnerLockoutCase(
+        positions: const <int>[2, 5],
+        commonMode: true,
+        cycleStage: BurnerCycleStage.ignition,
+        flameObservation: BurnerObservation.notSeen,
+        sparkObservation: BurnerObservation.seen,
+        relightAttempts: 1,
+        remainsLockedOut: true,
+      );
+      final actions = <ComponentAction>[
+        _action(2, BurnerActionCode.flameAdjustment),
+        _action(
+          5,
+          BurnerActionCode.safetyShutoffValveRelayWork,
+          outcome: BurnerResolutionOutcome.isolatedForFollowUp,
+        ),
+      ];
+
+      final resolved = intake.withResolutionFromActions(actions);
+
+      expect(resolved.attendedPositions, <int>[2, 5]);
+      expect(
+        resolved.resolutionOutcomes[5],
+        BurnerResolutionOutcome.isolatedForFollowUp,
+      );
+      expect(
+        () => validatePersistedBurnerResolutionEvidence(
+          lockout: resolved,
+          actions: actions,
+        ),
+        returnsNormally,
+      );
+    });
+
+    test('persisted projection must match structured action evidence', () {
+      final fields =
+          BurnerLockoutCase(
+            positions: const <int>[2],
+            commonMode: false,
+            cycleStage: BurnerCycleStage.ignition,
+            flameObservation: BurnerObservation.notSeen,
+            sparkObservation: BurnerObservation.seen,
+            relightAttempts: 1,
+            remainsLockedOut: true,
+          ).toSynchronizedFields();
+      fields['burnerAttendedPositions'] = <int>[2];
+      fields['burnerResolutionEvidence'] = <String, dynamic>{
+        '2': <String, dynamic>{
+          'outcome': BurnerResolutionOutcome.returnedToService.name,
+          'actionCodes': <String>[BurnerActionCode.feedbackReset.name],
+        },
+      };
+
+      expect(
+        () => BurnerLockoutCase.fromSynchronizedFields(
+          fields,
+          source: 'reset-only projection',
+        ),
+        throwsFormatException,
+      );
+    });
+
     test('local metadata merge preserves quality intent', () {
       final intake = BurnerLockoutCase(
         positions: const <int>[3],
@@ -183,3 +263,17 @@ void main() {
     });
   });
 }
+
+ComponentAction _action(
+  int position,
+  BurnerActionCode code, {
+  BurnerResolutionOutcome outcome = BurnerResolutionOutcome.returnedToService,
+}) => buildBurnerComponentAction(
+  ticketId: 'ticket-1',
+  furnaceNumber: 1,
+  burnerPosition: position,
+  code: code,
+  outcome: outcome,
+  performedBy: 'I&A',
+  performedAt: DateTime.utc(2026, 8, 15),
+);

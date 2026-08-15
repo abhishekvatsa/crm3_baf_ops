@@ -8454,7 +8454,7 @@ check(
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 38
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 32
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 25
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 262
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 265
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []

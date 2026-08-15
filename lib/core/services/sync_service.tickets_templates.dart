@@ -333,6 +333,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
     MaintenanceRecord local,
     int version,
   ) {
+    final burnerLockout = local.burnerLockoutCase;
     return {
       ...local.qualityIntentSynchronizedFields,
       ...local.burnerLockoutSynchronizedFields,
@@ -362,6 +363,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
       'metadataJson': local.metadataJson,
       'actionsJson': '[]',
       'resolutionHistoryJson': '[]',
+      if (burnerLockout != null) 'burnerAttendedPositions': <int>[],
+      if (burnerLockout != null)
+        'burnerResolutionEvidence': <String, dynamic>{},
       'isDeleted': false,
     };
   }
@@ -383,6 +387,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
             ? remoteVersion + 1
             : proposedVersion;
     final burnerLockout = local.burnerLockoutCase;
+    final resolvedBurnerLockout = burnerLockout?.withResolutionFromActions(
+      ComponentAction.decode(
+        evidence.actionsJson ?? '[]',
+        source: 'maintenance replay ${local.firestoreId} closure',
+      ),
+    );
 
     return {
       'isResolved': true,
@@ -394,13 +404,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
       'downtimeHours': evidence.downtimeHours,
       'teamsInvolved': evidence.teamsInvolved,
       'actionsJson': evidence.actionsJson ?? '[]',
-      if (burnerLockout != null)
-        'burnerAttendedPositions': burnerLockout.attendedPositions,
-      if (burnerLockout != null)
-        'burnerResolutionOutcomes': <String>[
-          for (final position in burnerLockout.attendedPositions)
-            burnerLockout.resolutionOutcomes[position]!.name,
-        ],
+      if (resolvedBurnerLockout != null)
+        'burnerAttendedPositions': resolvedBurnerLockout.attendedPositions,
+      if (resolvedBurnerLockout != null)
+        'burnerResolutionEvidence':
+            resolvedBurnerLockout
+                .toSynchronizedFields()['burnerResolutionEvidence'],
       'updatedAt': timestamp.toIso8601String(),
       'updatedByUid': evidence.closedByUid,
       'updatedByName': evidence.closedByName,
@@ -422,7 +431,8 @@ extension _SyncServiceTicketsTemplates on SyncService {
       'teamsInvolved': local.teamsInvolved,
       'actionsJson': local.actionsJson,
       if (burnerLockout != null) 'burnerAttendedPositions': <int>[],
-      if (burnerLockout != null) 'burnerResolutionOutcomes': <String>[],
+      if (burnerLockout != null)
+        'burnerResolutionEvidence': <String, dynamic>{},
       'remarks': local.remarks,
       'resolutionHistoryJson': local.resolutionHistoryJson,
       'updatedAt': local.updatedAt.toIso8601String(),

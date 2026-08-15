@@ -18,7 +18,7 @@ const burnerLockoutSynchronizedFieldNames = <String>{
   'burnerRemainsLockedOut',
   'burnerRedHotPositions',
   'burnerAttendedPositions',
-  'burnerResolutionOutcomes',
+  'burnerResolutionEvidence',
 };
 
 enum BurnerCycleStage { notRecorded, purge, ignition, firing, unknown }
@@ -115,6 +115,8 @@ class BurnerLockoutCase {
     List<int> attendedPositions = const <int>[],
     Map<int, BurnerResolutionOutcome> resolutionOutcomes =
         const <int, BurnerResolutionOutcome>{},
+    Map<int, List<BurnerActionCode>> resolutionActionCodes =
+        const <int, List<BurnerActionCode>>{},
   }) : positions = _validatedPositions(positions, field: 'burnerPositions'),
        redHotPositions = _validatedPositions(
          redHotPositions,
@@ -128,6 +130,12 @@ class BurnerLockoutCase {
        ),
        resolutionOutcomes = Map<int, BurnerResolutionOutcome>.unmodifiable(
          resolutionOutcomes,
+       ),
+       resolutionActionCodes = Map<int, List<BurnerActionCode>>.unmodifiable(
+         <int, List<BurnerActionCode>>{
+           for (final entry in resolutionActionCodes.entries)
+             entry.key: List<BurnerActionCode>.unmodifiable(entry.value),
+         },
        ) {
     _validateRelationships();
   }
@@ -143,12 +151,14 @@ class BurnerLockoutCase {
   final List<int> redHotPositions;
   final List<int> attendedPositions;
   final Map<int, BurnerResolutionOutcome> resolutionOutcomes;
+  final Map<int, List<BurnerActionCode>> resolutionActionCodes;
 
   bool get hasRedHotObservation => redHotPositions.isNotEmpty;
 
   bool get isResolutionComplete =>
       _samePositions(attendedPositions, positions) &&
-      _samePositions(resolutionOutcomes.keys, positions);
+      _samePositions(resolutionOutcomes.keys, positions) &&
+      _samePositions(resolutionActionCodes.keys, positions);
 
   Map<String, dynamic> toSynchronizedFields() => <String, dynamic>{
     'burnerLockoutSchemaVersion': burnerLockoutSchemaVersion,
@@ -162,10 +172,7 @@ class BurnerLockoutCase {
     'burnerRemainsLockedOut': remainsLockedOut,
     'burnerRedHotPositions': redHotPositions,
     'burnerAttendedPositions': attendedPositions,
-    'burnerResolutionOutcomes': <String>[
-      for (final position in attendedPositions)
-        resolutionOutcomes[position]!.name,
-    ],
+    'burnerResolutionEvidence': _resolutionEvidenceMap(),
   };
 
   Map<String, dynamic> toLocalMap() => <String, dynamic>{
@@ -180,26 +187,58 @@ class BurnerLockoutCase {
     'remainsLockedOut': remainsLockedOut,
     'redHotPositions': redHotPositions,
     'attendedPositions': attendedPositions,
-    'resolutionOutcomes': <String>[
-      for (final position in attendedPositions)
-        resolutionOutcomes[position]!.name,
-    ],
+    'resolutionEvidence': _resolutionEvidenceMap(),
   };
 
-  BurnerLockoutCase withResolution(BurnerLockoutResolution resolution) =>
-      BurnerLockoutCase(
-        positions: positions,
-        commonMode: commonMode,
-        cycleStage: cycleStage,
-        hmiAlarm: hmiAlarm,
-        flameObservation: flameObservation,
-        sparkObservation: sparkObservation,
-        relightAttempts: relightAttempts,
-        remainsLockedOut: remainsLockedOut,
-        redHotPositions: redHotPositions,
-        attendedPositions: resolution.attendedPositions,
-        resolutionOutcomes: resolution.outcomes,
-      );
+  Map<String, dynamic> _resolutionEvidenceMap() => <String, dynamic>{
+    for (final position in attendedPositions)
+      '$position': <String, dynamic>{
+        'outcome': resolutionOutcomes[position]!.name,
+        'actionCodes': <String>[
+          for (final code in resolutionActionCodes[position]!) code.name,
+        ],
+      },
+  };
+
+  BurnerLockoutCase withResolution(
+    BurnerLockoutResolution resolution, {
+    required Iterable<ComponentAction> actions,
+  }) {
+    validateBurnerResolutionEvidence(
+      lockout: this,
+      resolution: resolution,
+      actions: actions,
+    );
+    final evidence = _burnerActionEvidenceForResolution(
+      lockout: this,
+      resolution: resolution,
+      actions: actions,
+    );
+    return BurnerLockoutCase(
+      positions: positions,
+      commonMode: commonMode,
+      cycleStage: cycleStage,
+      hmiAlarm: hmiAlarm,
+      flameObservation: flameObservation,
+      sparkObservation: sparkObservation,
+      relightAttempts: relightAttempts,
+      remainsLockedOut: remainsLockedOut,
+      redHotPositions: redHotPositions,
+      attendedPositions: resolution.attendedPositions,
+      resolutionOutcomes: resolution.outcomes,
+      resolutionActionCodes: evidence.actionCodes,
+    );
+  }
+
+  BurnerLockoutCase withResolutionFromActions(
+    Iterable<ComponentAction> actions,
+  ) {
+    final resolution = burnerResolutionFromActions(
+      lockout: this,
+      actions: actions,
+    );
+    return withResolution(resolution, actions: actions);
+  }
 
   BurnerLockoutCase clearResolution() => BurnerLockoutCase(
     positions: positions,
@@ -243,6 +282,10 @@ class BurnerLockoutCase {
       field: 'burnerAttendedPositions',
       source: source,
       allowEmpty: true,
+    );
+    final resolutionEvidence = _readResolutionEvidence(
+      map['burnerResolutionEvidence'],
+      source: source,
     );
     return BurnerLockoutCase(
       positions: _readPositions(
@@ -296,11 +339,8 @@ class BurnerLockoutCase {
         allowEmpty: true,
       ),
       attendedPositions: attendedPositions,
-      resolutionOutcomes: _readOutcomes(
-        map['burnerResolutionOutcomes'],
-        positions: attendedPositions,
-        source: source,
-      ),
+      resolutionOutcomes: resolutionEvidence.outcomes,
+      resolutionActionCodes: resolutionEvidence.actionCodes,
     );
   }
 
@@ -346,7 +386,7 @@ class BurnerLockoutCase {
       'burnerRemainsLockedOut': local['remainsLockedOut'],
       'burnerRedHotPositions': local['redHotPositions'],
       'burnerAttendedPositions': local['attendedPositions'],
-      'burnerResolutionOutcomes': local['resolutionOutcomes'],
+      'burnerResolutionEvidence': local['resolutionEvidence'],
     }, source: 'local maintenance metadata');
   }
 
@@ -362,15 +402,32 @@ class BurnerLockoutCase {
       );
     }
     if (!_isSubset(attendedPositions, positions) ||
-        !_isSubset(resolutionOutcomes.keys, positions)) {
+        !_isSubset(resolutionOutcomes.keys, positions) ||
+        !_isSubset(resolutionActionCodes.keys, positions)) {
       throw const FormatException(
         'Attendance and outcomes must belong to selected burner positions.',
       );
     }
-    if (!_samePositions(attendedPositions, resolutionOutcomes.keys)) {
+    if (!_samePositions(attendedPositions, resolutionOutcomes.keys) ||
+        !_samePositions(attendedPositions, resolutionActionCodes.keys)) {
       throw const FormatException(
-        'Every attended burner must have one terminal outcome.',
+        'Every attended burner must have one terminal outcome and action evidence.',
       );
+    }
+    for (final position in attendedPositions) {
+      final codes = resolutionActionCodes[position] ?? const [];
+      if (codes.isEmpty || codes.toSet().length != codes.length) {
+        throw const FormatException(
+          'Every attended burner must have unique action evidence.',
+        );
+      }
+      if (resolutionOutcomes[position] ==
+              BurnerResolutionOutcome.returnedToService &&
+          codes.every((code) => code.isResetOnly)) {
+        throw FormatException(
+          'Burner $position cannot be returned to service on reset-only evidence.',
+        );
+      }
     }
     if (relightAttempts > 20) {
       throw const FormatException('Relight attempts cannot exceed 20.');
@@ -473,34 +530,134 @@ void validateBurnerResolutionEvidence({
   if (!_samePositions(resolution.outcomes.keys, lockout.positions)) {
     throw StateError('Record one terminal outcome for every affected burner.');
   }
+  _burnerActionEvidenceForResolution(
+    lockout: lockout,
+    resolution: resolution,
+    actions: actions,
+  );
+}
+
+BurnerLockoutResolution burnerResolutionFromActions({
+  required BurnerLockoutCase lockout,
+  required Iterable<ComponentAction> actions,
+}) {
+  final outcomes = <int, BurnerResolutionOutcome>{};
+  for (final action in actions) {
+    final rawPosition = action.extensions['burnerPosition'];
+    final rawCode = action.extensions['burnerActionCode'];
+    final rawOutcome = action.extensions['burnerOutcome'];
+    final hasBurnerEvidence =
+        rawPosition != null || rawCode != null || rawOutcome != null;
+    if (!hasBurnerEvidence) continue;
+    if (rawPosition is! int ||
+        rawCode is! String ||
+        rawOutcome is! String ||
+        !lockout.positions.contains(rawPosition)) {
+      throw StateError(
+        'Saved burner action evidence is incomplete or invalid.',
+      );
+    }
+    final outcome = _enumByName(BurnerResolutionOutcome.values, rawOutcome);
+    if (outcome == null) {
+      throw StateError('Saved burner outcome evidence is invalid.');
+    }
+    final existing = outcomes[rawPosition];
+    if (existing != null && existing != outcome) {
+      throw StateError(
+        'Saved burner actions disagree on the outcome for Burner $rawPosition.',
+      );
+    }
+    outcomes[rawPosition] = outcome;
+  }
+  final resolution = BurnerLockoutResolution(outcomes: outcomes);
+  validateBurnerResolutionEvidence(
+    lockout: lockout,
+    resolution: resolution,
+    actions: actions,
+  );
+  return resolution;
+}
+
+void validatePersistedBurnerResolutionEvidence({
+  required BurnerLockoutCase lockout,
+  required Iterable<ComponentAction> actions,
+}) {
+  try {
+    final rebuilt = lockout.withResolutionFromActions(actions);
+    if (!_sameOutcomes(
+          rebuilt.resolutionOutcomes,
+          lockout.resolutionOutcomes,
+        ) ||
+        !_sameActionCodes(
+          rebuilt.resolutionActionCodes,
+          lockout.resolutionActionCodes,
+        )) {
+      throw const FormatException(
+        'Structured burner evidence does not match actionsJson.',
+      );
+    }
+  } on StateError catch (error) {
+    throw FormatException(error.message);
+  }
+}
+
+_BurnerActionEvidence _burnerActionEvidenceForResolution({
+  required BurnerLockoutCase lockout,
+  required BurnerLockoutResolution resolution,
+  required Iterable<ComponentAction> actions,
+}) {
+  final actionCodes = <int, List<BurnerActionCode>>{
+    for (final position in lockout.positions) position: <BurnerActionCode>[],
+  };
+  for (final action in actions) {
+    final rawPosition = action.extensions['burnerPosition'];
+    final rawCode = action.extensions['burnerActionCode'];
+    final rawOutcome = action.extensions['burnerOutcome'];
+    final hasBurnerEvidence =
+        rawPosition != null || rawCode != null || rawOutcome != null;
+    if (!hasBurnerEvidence) continue;
+    if (rawPosition is! int ||
+        rawCode is! String ||
+        rawOutcome is! String ||
+        !lockout.positions.contains(rawPosition)) {
+      throw StateError(
+        'Saved burner action evidence is incomplete or invalid.',
+      );
+    }
+    final code = _enumByName(BurnerActionCode.values, rawCode);
+    final outcome = _enumByName(BurnerResolutionOutcome.values, rawOutcome);
+    if (code == null || outcome == null) {
+      throw StateError('Saved burner action evidence is invalid.');
+    }
+    if (resolution.outcomes[rawPosition] != outcome) {
+      throw StateError(
+        'Saved burner action evidence disagrees with the terminal outcome for Burner $rawPosition.',
+      );
+    }
+    if (!actionCodes[rawPosition]!.contains(code)) {
+      actionCodes[rawPosition]!.add(code);
+    }
+  }
   for (final position in lockout.positions) {
-    final burnerActions = actions.where(
-      (action) => action.extensions['burnerPosition'] == position,
-    );
-    if (burnerActions.isEmpty) {
+    final codes = actionCodes[position]!;
+    if (codes.isEmpty) {
       throw StateError(
         'Record work or inspection evidence for Burner $position.',
       );
     }
-    final outcome = resolution.outcomes[position];
-    if (outcome == BurnerResolutionOutcome.returnedToService) {
-      final codes = burnerActions
-          .map((action) => action.extensions['burnerActionCode'])
-          .whereType<String>()
-          .map(
-            (name) =>
-                BurnerActionCode.values.where((item) => item.name == name),
-          )
-          .where((matches) => matches.isNotEmpty)
-          .map((matches) => matches.first)
-          .toList(growable: false);
-      if (codes.isEmpty || codes.every((code) => code.isResetOnly)) {
-        throw StateError(
-          'Burner $position cannot be returned to service on reset-only evidence.',
-        );
-      }
+    if (resolution.outcomes[position] ==
+            BurnerResolutionOutcome.returnedToService &&
+        codes.every((code) => code.isResetOnly)) {
+      throw StateError(
+        'Burner $position cannot be returned to service on reset-only evidence.',
+      );
     }
+    codes.sort((left, right) => left.index.compareTo(right.index));
   }
+  return (
+    outcomes: Map<int, BurnerResolutionOutcome>.from(resolution.outcomes),
+    actionCodes: actionCodes,
+  );
 }
 
 Map<String, dynamic> _readMetadataRoot(String? existing) {
@@ -551,35 +708,76 @@ List<int> _readPositions(
   }
 }
 
-Map<int, BurnerResolutionOutcome> _readOutcomes(
+_BurnerActionEvidence _readResolutionEvidence(
   dynamic value, {
-  required List<int> positions,
   required String source,
 }) {
-  if (value is! List) {
+  if (value is! Map) {
     throw PersistedDataFormatException(
-      field: 'burnerResolutionOutcomes',
+      field: 'burnerResolutionEvidence',
       source: source,
-      detail: 'expected an outcome array (${value.runtimeType})',
-    );
-  }
-  if (value.length != positions.length) {
-    throw PersistedDataFormatException(
-      field: 'burnerResolutionOutcomes',
-      source: source,
-      detail: 'outcomes must align with attended burner positions',
+      detail: 'expected an evidence object (${value.runtimeType})',
     );
   }
   final outcomes = <int, BurnerResolutionOutcome>{};
-  for (var index = 0; index < value.length; index++) {
-    outcomes[positions[index]] = readRequiredPersistedEnum(
+  final actionCodes = <int, List<BurnerActionCode>>{};
+  for (final rawEntry in value.entries) {
+    final key = rawEntry.key;
+    if (key is! String || !RegExp(r'^[1-8]$').hasMatch(key)) {
+      throw PersistedDataFormatException(
+        field: 'burnerResolutionEvidence',
+        source: source,
+        detail: 'evidence keys must be burner positions 1 through 8',
+      );
+    }
+    final position = int.parse(key);
+    final rawEvidence = rawEntry.value;
+    if (rawEvidence is! Map ||
+        rawEvidence.keys.any((field) => field is! String) ||
+        rawEvidence.length != 2 ||
+        !rawEvidence.containsKey('outcome') ||
+        !rawEvidence.containsKey('actionCodes')) {
+      throw PersistedDataFormatException(
+        field: 'burnerResolutionEvidence.$key',
+        source: source,
+        detail: 'expected exactly outcome and actionCodes',
+      );
+    }
+    final evidence = Map<String, dynamic>.from(rawEvidence);
+    outcomes[position] = readRequiredPersistedEnum(
       BurnerResolutionOutcome.values,
-      value[index],
-      field: 'burnerResolutionOutcomes[$index]',
+      evidence['outcome'],
+      field: 'burnerResolutionEvidence.$key.outcome',
       source: source,
     );
+    final rawCodes = evidence['actionCodes'];
+    if (rawCodes is! List || rawCodes.isEmpty) {
+      throw PersistedDataFormatException(
+        field: 'burnerResolutionEvidence.$key.actionCodes',
+        source: source,
+        detail: 'expected a non-empty action-code array',
+      );
+    }
+    final codes = <BurnerActionCode>[];
+    for (var index = 0; index < rawCodes.length; index++) {
+      final code = readRequiredPersistedEnum(
+        BurnerActionCode.values,
+        rawCodes[index],
+        field: 'burnerResolutionEvidence.$key.actionCodes[$index]',
+        source: source,
+      );
+      if (codes.contains(code)) {
+        throw PersistedDataFormatException(
+          field: 'burnerResolutionEvidence.$key.actionCodes',
+          source: source,
+          detail: 'action codes must be unique',
+        );
+      }
+      codes.add(code);
+    }
+    actionCodes[position] = codes;
   }
-  return outcomes;
+  return (outcomes: outcomes, actionCodes: actionCodes);
 }
 
 List<int> _validatedPositions(
@@ -608,3 +806,40 @@ bool _samePositions(Iterable<int> left, Iterable<int> right) {
   final rightSet = right.toSet();
   return leftSet.length == rightSet.length && leftSet.containsAll(rightSet);
 }
+
+T? _enumByName<T extends Enum>(Iterable<T> values, String name) {
+  for (final value in values) {
+    if (value.name == name) return value;
+  }
+  return null;
+}
+
+bool _sameOutcomes(
+  Map<int, BurnerResolutionOutcome> left,
+  Map<int, BurnerResolutionOutcome> right,
+) {
+  if (!_samePositions(left.keys, right.keys)) return false;
+  return left.entries.every((entry) => right[entry.key] == entry.value);
+}
+
+bool _sameActionCodes(
+  Map<int, List<BurnerActionCode>> left,
+  Map<int, List<BurnerActionCode>> right,
+) {
+  if (!_samePositions(left.keys, right.keys)) return false;
+  for (final entry in left.entries) {
+    final other = right[entry.key];
+    if (other == null ||
+        entry.value.length != other.length ||
+        !entry.value.toSet().containsAll(other)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+typedef _BurnerActionEvidence =
+    ({
+      Map<int, BurnerResolutionOutcome> outcomes,
+      Map<int, List<BurnerActionCode>> actionCodes,
+    });

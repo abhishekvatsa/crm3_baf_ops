@@ -128,15 +128,36 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       detail: 'burner lockout must belong to a Furnace and route to I&A',
     );
   }
+  final actionsJson = ComponentAction.readEncodedPayload(
+    map['actionsJson'],
+    field: 'actionsJson',
+    source: source,
+    allowMissing: !map.containsKey('actionsJson'),
+  );
+  final actions = ComponentAction.decode(actionsJson, source: source);
   if (burnerLockout != null &&
       (burnerLockout.isResolutionComplete != isResolved ||
           (burnerLockout.hasRedHotObservation && map['isCritical'] != true))) {
     throw PersistedDataFormatException(
-      field: 'burnerResolutionOutcomes',
+      field: 'burnerResolutionEvidence',
       source: source,
       detail:
           'burner closure evidence and red-hot criticality must match ticket state',
     );
+  }
+  if (burnerLockout != null && isResolved) {
+    try {
+      validatePersistedBurnerResolutionEvidence(
+        lockout: burnerLockout,
+        actions: actions,
+      );
+    } on FormatException catch (error) {
+      throw PersistedDataFormatException(
+        field: 'burnerResolutionEvidence',
+        source: source,
+        detail: error.message,
+      );
+    }
   }
 
   final workflow = _readWorkflowProjection(map, source: source);
@@ -147,13 +168,6 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       detail: 'linked workflow projection requires its update timestamp',
     );
   }
-  final actionsJson = ComponentAction.readEncodedPayload(
-    map['actionsJson'],
-    field: 'actionsJson',
-    source: source,
-    allowMissing: !map.containsKey('actionsJson'),
-  );
-  ComponentAction.decode(actionsJson, source: source);
   final resolutionHistoryJson = readEncodedResolutionHistoryPayload(
     map['resolutionHistoryJson'],
     source: source,

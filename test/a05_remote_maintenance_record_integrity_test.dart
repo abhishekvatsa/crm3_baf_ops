@@ -253,7 +253,7 @@ Map<String, dynamic> _openBurnerLockoutFields() => <String, dynamic>{
   'burnerRemainsLockedOut': true,
   'burnerRedHotPositions': <int>[5],
   'burnerAttendedPositions': <int>[],
-  'burnerResolutionOutcomes': <String>[],
+  'burnerResolutionEvidence': <String, dynamic>{},
 };
 
 String _governedAssetReference(

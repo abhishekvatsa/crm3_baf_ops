@@ -563,7 +563,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         assetType: assetType,
         assetNumberText: '$assetNumber',
         hasGovernedAssetIdentity: true,
-        component: _componentController.text,
+        component:
+            burnerLockout == null ? _componentController.text : 'Burner system',
         description: _descController.text,
         tag: _tagController.text,
         chargeNumberText: _chargeNoController.text,

@@ -26,6 +26,7 @@ import '../../features/planned_maintenance/services/runtime_job_module_populatio
 import '../../features/planned_maintenance/providers/job_diary_provider.dart';
 import '../../features/planned_maintenance/providers/job_module_provider.dart';
 import '../../features/planned_maintenance/providers/template_governance_provider.dart';
+import '../../features/planned_maintenance/models/component_action_model.dart';
 import '../../features/planned_maintenance/domain/baf_knowledge_repository.dart';
 import '../../features/directives/data/operational_directive_model.dart';
 import '../../features/directives/providers/operational_directive_provider.dart';

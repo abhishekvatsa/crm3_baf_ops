@@ -882,7 +882,7 @@ describe("maintenance_records", () => {
       burnerRemainsLockedOut: true,
       burnerRedHotPositions: [5],
       burnerAttendedPositions: [],
-      burnerResolutionOutcomes: [],
+      burnerResolutionEvidence: {},
     };
 
     await assertFails(
@@ -997,24 +997,104 @@ describe("maintenance_records", () => {
       teamsInvolved: ["instrumentation"],
       actionsJson: "[{\"burnerPosition\":2},{\"burnerPosition\":5}]",
       burnerAttendedPositions: [2, 5],
-      burnerResolutionOutcomes: ["returnedToService"],
+      burnerResolutionEvidence: {
+        "2": {
+          outcome: "returnedToService",
+          actionCodes: ["uvDetectorCleaning"],
+        },
+      },
       updatedAt: new Date().toISOString(),
       updatedByUid: "ia1",
       updatedByName: "I&A",
       version: 2,
     };
+    const partialCloseBatch = writeBatch(db);
+    partialCloseBatch.update(
+      doc(db, "maintenance_records/burnerTicket"),
+      closeBase
+    );
+    partialCloseBatch.set(
+      doc(db, "maintenance_burner_closures/burnerTicket"),
+      {
+        firestoreId: "burnerTicket",
+        sourceMaintenanceId: "burnerTicket",
+        sourceVersion: closeBase.version,
+        closedByUid: closeBase.closedByUid,
+        burnerResolutionEvidence: closeBase.burnerResolutionEvidence,
+        updatedAt: closeBase.updatedAt,
+      }
+    );
+    await assertFails(partialCloseBatch.commit());
+
+    const validClose = {
+      ...closeBase,
+      burnerResolutionEvidence: {
+        "2": {
+          outcome: "returnedToService",
+          actionCodes: ["uvDetectorCleaning"],
+        },
+        "5": {
+          outcome: "isolatedForFollowUp",
+          actionCodes: ["poking"],
+        },
+      },
+    };
     await assertFails(
-      updateDoc(doc(db, "maintenance_records/burnerTicket"), closeBase)
+      updateDoc(doc(db, "maintenance_records/burnerTicket"), validClose)
     );
-    await assertSucceeds(
-      updateDoc(doc(db, "maintenance_records/burnerTicket"), {
-        ...closeBase,
-        burnerResolutionOutcomes: [
-          "returnedToService",
-          "isolatedForFollowUp",
-        ],
-      })
+    const validCloseBatch = writeBatch(db);
+    validCloseBatch.update(
+      doc(db, "maintenance_records/burnerTicket"),
+      validClose
     );
+    validCloseBatch.set(
+      doc(db, "maintenance_burner_closures/burnerTicket"),
+      {
+        firestoreId: "burnerTicket",
+        sourceMaintenanceId: "burnerTicket",
+        sourceVersion: validClose.version,
+        closedByUid: validClose.closedByUid,
+        burnerResolutionEvidence: validClose.burnerResolutionEvidence,
+        updatedAt: validClose.updatedAt,
+      }
+    );
+    await assertSucceeds(validCloseBatch.commit());
+
+    await seedDoc("maintenance_records/burnerResetOnly", {
+      ...ticket,
+      firestoreId: "burnerResetOnly",
+      burnerRedHotPositions: [],
+    });
+    const resetOnlyClose = {
+      ...closeBase,
+      burnerResolutionEvidence: {
+        "2": {
+          outcome: "returnedToService",
+          actionCodes: ["feedbackReset"],
+        },
+        "5": {
+          outcome: "isolatedForFollowUp",
+          actionCodes: ["poking"],
+        },
+      },
+    };
+    const resetOnlyBatch = writeBatch(db);
+    resetOnlyBatch.update(
+      doc(db, "maintenance_records/burnerResetOnly"),
+      resetOnlyClose
+    );
+    resetOnlyBatch.set(
+      doc(db, "maintenance_burner_closures/burnerResetOnly"),
+      {
+        firestoreId: "burnerResetOnly",
+        sourceMaintenanceId: "burnerResetOnly",
+        sourceVersion: resetOnlyClose.version,
+        closedByUid: resetOnlyClose.closedByUid,
+        burnerResolutionEvidence: resetOnlyClose.burnerResolutionEvidence,
+        updatedAt: resetOnlyClose.updatedAt,
+      }
+    );
+    await assertFails(resetOnlyBatch.commit());
   });
 
   test("senior can close but cannot mutate unrelated ticket evidence while closing", async () => {
