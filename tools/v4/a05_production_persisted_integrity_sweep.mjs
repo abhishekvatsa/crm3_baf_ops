@@ -82,6 +82,7 @@ export const A05_COLLECTION_REGISTRY = Object.freeze({
   knowledge_base: 'DART_RECONCILIATION_REQUIRED',
   knowledge_base_meta: 'DART_RECONCILIATION_REQUIRED',
   maintenance_records: 'DART_RECONCILIATION_REQUIRED',
+  maintenance_burner_closures: 'SERVER_CONTROL_RECORD',
   operational_events: 'DART_RECONCILIATION_REQUIRED',
   operational_event_issue_links: 'DART_RECONCILIATION_REQUIRED',
   operational_event_issue_link_audits: 'SERVER_CONTROL_RECORD',

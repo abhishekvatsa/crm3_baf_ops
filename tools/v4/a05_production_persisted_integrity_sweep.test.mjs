@@ -897,12 +897,14 @@ test('server-only receipts are counted without becoming app decoder evidence', (
       users: [{id: 'u1', data: user()}],
       runtime_contracts: [{id: 'global_pull_v1', data: runtimeContract()}],
       callable_abuse_controls: [{id: 'rate-limit-id', data: {}}],
+      maintenance_burner_closures: [{id: 'burner-ticket-id', data: {}}],
       quality_mutation_receipts: [{id: 'quality-receipt-id', data: {}}],
     },
     roots: [
       'users',
       'runtime_contracts',
       'callable_abuse_controls',
+      'maintenance_burner_closures',
       'quality_mutation_receipts',
     ],
   });
@@ -910,6 +912,10 @@ test('server-only receipts are counted without becoming app decoder evidence', (
   assert.equal(result.collectionCounts.callable_abuse_controls, 1);
   assert.equal(
     result.collectionDispositions.callable_abuse_controls,
+    'COUNTED_SERVER_CONTROL_OUTSIDE_APP_DECODER_SCOPE',
+  );
+  assert.equal(
+    result.collectionDispositions.maintenance_burner_closures,
     'COUNTED_SERVER_CONTROL_OUTSIDE_APP_DECODER_SCOPE',
   );
   assert.equal(
