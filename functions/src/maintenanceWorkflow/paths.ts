@@ -32,7 +32,14 @@ export const equipmentIdentity = (
   const custom = assetTypeKey === "governedCustom";
   const parsedClassId = identityText(assetClassId);
   const parsedInstanceId = identityText(assetInstanceId);
-  if (custom && (parsedClassId == null || parsedInstanceId == null)) {
+  if ((parsedClassId == null) !== (parsedInstanceId == null)) {
+    throw new WorkflowError(
+      "equipment-state-conflict",
+      "Equipment registry identity is incomplete.",
+      {reasonCode: "equipment-registry-identity-incomplete"},
+    );
+  }
+  if (custom && parsedClassId == null) {
     throw new WorkflowError(
       "equipment-state-conflict",
       "Governed custom equipment identity is incomplete.",
@@ -42,8 +49,8 @@ export const equipmentIdentity = (
   return {
     assetTypeKey,
     assetNumber,
-    assetClassId: custom ? parsedClassId : null,
-    assetInstanceId: custom ? parsedInstanceId : null,
+    assetClassId: parsedClassId,
+    assetInstanceId: parsedInstanceId,
   };
 };
 

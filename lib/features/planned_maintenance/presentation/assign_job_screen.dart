@@ -8,7 +8,9 @@ import 'package:uuid/uuid.dart';
 
 import '../data/job_template_model.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../maintenance/utils/asset_validator.dart';
+import '../../assets/data/asset_registry_model.dart';
+import '../../assets/data/inner_cover_lifecycle.dart';
+import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
@@ -17,6 +19,8 @@ import '../../maintenance_workflow/domain/workflow_policy.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../maintenance_workflow/services/workflow_command_factory.dart';
+import '../domain/governed_planned_work_asset_selection.dart';
+import 'governed_planned_work_asset_selector.dart';
 
 class AssignJobScreen extends ConsumerStatefulWidget {
   final JobTemplate template;
@@ -29,18 +33,61 @@ class AssignJobScreen extends ConsumerStatefulWidget {
 
 class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _assetNumberController = TextEditingController();
   final _chargeNoController = TextEditingController();
   final _remarksController = TextEditingController();
 
+  String? _selectedAssetInstanceId;
   bool _isSubmitting = false;
 
   @override
   void dispose() {
-    _assetNumberController.dispose();
     _chargeNoController.dispose();
     _remarksController.dispose();
     super.dispose();
+  }
+
+  AssetInstanceRecord? _selectedGovernedAsset() {
+    final classes = ref.read(assetClassesProvider).asData?.value;
+    if (classes == null) return null;
+    final route = resolveGovernedPlannedWorkAssetRoute(
+      assetType: widget.template.applicableAssetType,
+      templateReference: widget.template.assetHierarchyReference,
+      allClasses: classes,
+    );
+    final physicalClassId = route.physicalAssetClass?.id;
+    if (!route.isAvailable || physicalClassId == null) return null;
+    final assets =
+        ref.read(assetInstancesProvider(physicalClassId)).asData?.value;
+    if (assets == null) return null;
+    final routeEligible = eligiblePlannedWorkAssets(
+      route: route,
+      assets: assets,
+    );
+    final linkedBaseIds =
+        route.innerCoverByBase
+            ? ref
+                .read(innerCoverAssignmentsProvider)
+                .asData
+                ?.value
+                .map((assignment) => assignment.baseAssetInstanceId)
+                .toSet()
+            : null;
+    if (route.innerCoverByBase && linkedBaseIds == null) return null;
+    final eligible =
+        linkedBaseIds == null
+            ? routeEligible
+            : routeEligible
+                .where((asset) => linkedBaseIds.contains(asset.id))
+                .toList(growable: false);
+    final selected =
+        eligible
+            .where((item) => item.id == _selectedAssetInstanceId)
+            .firstOrNull;
+    if (selected != null) return selected;
+    if (route.fixedAssetInstanceId != null && eligible.length == 1) {
+      return eligible.single;
+    }
+    return null;
   }
 
   Future<void> _submit() async {
@@ -74,65 +121,45 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
-      final now = DateTime.now();
-
-      final assignedByUid = appUser.uid;
-      final assignedByName =
-          _cleanOptionalText(appUser.name) ??
-          _cleanOptionalText(firebaseUser?.displayName) ??
-          _cleanOptionalText(firebaseUser?.email);
-
-      final execution =
-          JobExecution()
-            ..firestoreId = const Uuid().v4()
-            ..templateFirestoreId = templateFirestoreId
-            ..templateName = widget.template.jobName.trim()
-            ..assetType = widget.template.applicableAssetType
-            ..assetNumber = int.parse(_assetNumberController.text.trim())
-            ..isCompleted = false
-            ..assignedByUid = assignedByUid
-            ..assignedByName = assignedByName
-            ..assignedAgencies =
-                widget.template.assignedAgencies
-                    .map((agency) => agency.trim())
-                    .where((agency) => agency.isNotEmpty)
-                    .toList()
-            ..chargeNoAtEvent = _parseOptionalInt(_chargeNoController.text)
-            ..remarks = _cleanOptionalText(_remarksController.text)
-            ..teamsInvolved = []
-            ..version = 1
-            ..isSynced = false
-            ..createdAt = now
-            ..updatedAt = now;
-
-      final executionId = execution.firestoreId;
-      if (executionId == null || executionId.trim().isEmpty) {
-        throw StateError('Execution identity was not generated.');
+      final selectedAsset = _selectedGovernedAsset();
+      if (selectedAsset == null) {
+        throw const WorkflowException(
+          WorkflowErrorCode.invalidArgument,
+          'Choose an active physical asset from the governed register.',
+        );
       }
+      final executionId = const Uuid().v4();
       final syncCoordinator = ref.read(syncCoordinatorProvider);
 
-      await ref.read(workflowCommandControllerProvider.notifier).execute(
-        WorkflowCommandFactory.create(
-          type: WorkflowCommandType.createLegacyWorkflowJob,
-          aggregateId: executionId,
-          expectedVersion: 0,
-          payload: <String, Object?>{
-            'executionId': executionId,
-            'templateFirestoreId': templateFirestoreId,
-            'templateName': widget.template.jobName.trim(),
-            'assetTypeKey': execution.assetType.name,
-            'assetNumber': execution.assetNumber,
-            'assignedAgencies': execution.assignedAgencies,
-            if (execution.chargeNoAtEvent != null)
-              'chargeNoAtEvent': execution.chargeNoAtEvent,
-            if (execution.remarks != null) 'remarks': execution.remarks,
-          },
-        ),
-      );
+      await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(
+            WorkflowCommandFactory.create(
+              type: WorkflowCommandType.createLegacyWorkflowJob,
+              aggregateId: executionId,
+              expectedVersion: 0,
+              payload: <String, Object?>{
+                'assignmentSchemaVersion': 2,
+                'executionId': executionId,
+                'templateFirestoreId': templateFirestoreId,
+                'expectedTemplateVersion': widget.template.version,
+                'assetClassId': selectedAsset.assetClassId,
+                'assetInstanceId': selectedAsset.id,
+                if (_parseOptionalInt(_chargeNoController.text)
+                    case final chargeNo?)
+                  'chargeNoAtEvent': chargeNo,
+                if (_cleanOptionalText(_remarksController.text)
+                    case final remarks?)
+                  'remarks': remarks,
+              },
+            ),
+          );
 
       unawaited(
-        syncCoordinator.runFullSync(reason: 'workflow_job_assigned', force: true),
+        syncCoordinator.runFullSync(
+          reason: 'workflow_job_assigned',
+          force: true,
+        ),
       );
 
       if (!mounted) return;
@@ -152,15 +179,12 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      final message = e is WorkflowException &&
-              e.code == WorkflowErrorCode.unavailable
-          ? 'Assignment requires an online connection. Nothing was submitted; your entries remain on this screen.'
-          : 'Failed to assign job: $e';
+      final message =
+          e is WorkflowException && e.code == WorkflowErrorCode.unavailable
+              ? 'Assignment requires an online connection. Nothing was submitted; your entries remain on this screen.'
+              : 'Failed to assign job: $e';
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: BafColors.danger,
-        ),
+        SnackBar(content: Text(message), backgroundColor: BafColors.danger),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -169,6 +193,45 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final assetClassesAsync = ref.watch(assetClassesProvider);
+    final assetClasses = assetClassesAsync.asData?.value;
+    final assetRoute =
+        assetClasses == null
+            ? null
+            : resolveGovernedPlannedWorkAssetRoute(
+              assetType: widget.template.applicableAssetType,
+              templateReference: widget.template.assetHierarchyReference,
+              allClasses: assetClasses,
+            );
+    final physicalClassId = assetRoute?.physicalAssetClass?.id;
+    final assetInstancesAsync =
+        physicalClassId == null
+            ? null
+            : ref.watch(assetInstancesProvider(physicalClassId));
+    final innerCoverAssignmentsAsync =
+        assetRoute?.innerCoverByBase == true
+            ? ref.watch(innerCoverAssignmentsProvider)
+            : null;
+    final linkedInnerCoversByBase = {
+      for (final assignment
+          in innerCoverAssignmentsAsync?.asData?.value ??
+              const <BaseInnerCoverAssignment>[])
+        assignment.baseAssetInstanceId: assignment,
+    };
+    final routeEligibleAssets =
+        assetRoute == null || assetInstancesAsync?.asData == null
+            ? const <AssetInstanceRecord>[]
+            : eligiblePlannedWorkAssets(
+              route: assetRoute,
+              assets: assetInstancesAsync!.requireValue,
+            );
+    final eligibleAssets =
+        assetRoute?.innerCoverByBase == true
+            ? routeEligibleAssets
+                .where((asset) => linkedInnerCoversByBase.containsKey(asset.id))
+                .toList(growable: false)
+            : routeEligibleAssets;
+
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
@@ -200,35 +263,21 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
               subtitle: 'Choose the exact asset and add assignment context.',
               icon: Icons.assignment_turned_in_rounded,
               children: [
-                TextFormField(
-                  controller: _assetNumberController,
-                  keyboardType: TextInputType.number,
-                  decoration: _inputDecoration(
-                    '${widget.template.applicableAssetType.name.toUpperCase()} Number',
-                    hint: 'e.g. 221',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Required';
-                    }
-
-                    final number = int.tryParse(value.trim());
-                    if (number == null) {
-                      return 'Invalid number';
-                    }
-
-                    if (!AssetValidator.isValid(
-                      widget.template.applicableAssetType,
-                      number,
-                    )) {
-                      return AssetValidator.getValidationMessage(
-                        widget.template.applicableAssetType,
-                        number,
-                      );
-                    }
-
-                    return null;
-                  },
+                GovernedPlannedWorkAssetSelector(
+                  assetType: widget.template.applicableAssetType,
+                  classesValue: assetClassesAsync,
+                  route: assetRoute,
+                  assetsValue: assetInstancesAsync,
+                  innerCoverAssignmentsValue: innerCoverAssignmentsAsync,
+                  linkedInnerCoversByBase: linkedInnerCoversByBase,
+                  eligibleAssets: eligibleAssets,
+                  selectedAssetInstanceId: _selectedAssetInstanceId,
+                  onAssetChanged:
+                      _isSubmitting
+                          ? null
+                          : (asset) => setState(
+                            () => _selectedAssetInstanceId = asset?.id,
+                          ),
                 ),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(
@@ -241,7 +290,10 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
                   validator: (value) {
                     final text = value?.trim() ?? '';
                     if (text.isEmpty) return null;
-                    return int.tryParse(text) == null ? 'Invalid number' : null;
+                    final number = int.tryParse(text);
+                    return number == null || number < 1
+                        ? 'Enter a positive charge number'
+                        : null;
                   },
                 ),
                 const SizedBox(height: BafSpacing.md),

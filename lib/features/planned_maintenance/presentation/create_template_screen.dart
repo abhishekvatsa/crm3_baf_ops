@@ -64,6 +64,18 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
       return;
     }
 
+    if (_assetType == AssetType.governedCustom && _assetClassId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Choose the governed asset class for this custom template.',
+          ),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+      return;
+    }
+
     final appUser = ref.read(currentAppUserProvider).value;
     if (appUser == null || !appUser.canCreateLegacyJobTemplate) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -117,29 +129,33 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
                   .value
                   ?.where((item) => item.id == _definitionNodeId)
                   .firstOrNull;
-      if (assetClass != null && definition != null) {
+      if (assetClass != null) {
+        final hierarchyPath =
+            definition?.hierarchyPath ?? <String>[assetClass.name];
         template
-          ..component = definition.name
+          ..component = definition?.name
           ..subsystem =
-              definition.hierarchyPath.length > 1
-                  ? definition.hierarchyPath[definition.hierarchyPath.length -
-                      2]
+              hierarchyPath.length > 1
+                  ? hierarchyPath[hierarchyPath.length - 2]
                   : null
-          ..hierarchyPath = List<String>.from(definition.hierarchyPath)
+          ..hierarchyPath = List<String>.from(hierarchyPath)
           ..assetHierarchyRefJson =
               AssetHierarchyReference(
                 scope: AssetHierarchyReferenceScope.definition,
                 assetClassId: assetClass.id,
                 assetClassCode: assetClass.code,
                 assetClassName: assetClass.name,
-                nodeId: definition.id,
-                nodeVersion: definition.version,
-                nodeName: definition.name,
-                componentTag: definition.componentTag,
-                hierarchyPath: definition.hierarchyPath,
-                ownershipStatus: definition.ownershipStatus,
-                ownerDiscipline: definition.ownerDiscipline,
-                accountableRoleKeys: definition.accountableRoleKeys,
+                nodeId: definition?.id ?? assetClass.id,
+                nodeVersion: definition?.version ?? assetClass.version,
+                nodeName: definition?.name ?? assetClass.name,
+                componentTag: definition?.componentTag,
+                hierarchyPath: hierarchyPath,
+                ownershipStatus:
+                    definition?.ownershipStatus ??
+                    AssetOwnershipStatus.unassigned,
+                ownerDiscipline: definition?.ownerDiscipline,
+                accountableRoleKeys:
+                    definition?.accountableRoleKeys ?? const <String>[],
               ).encode();
       }
 
@@ -460,7 +476,7 @@ class _HierarchyTemplateScope extends ConsumerWidget {
           items: [
             const DropdownMenuItem<String?>(
               value: null,
-              child: Text('Use current asset type only'),
+              child: Text('Use unique legacy class mapping'),
             ),
             ...compatible.map(
               (item) => DropdownMenuItem<String?>(

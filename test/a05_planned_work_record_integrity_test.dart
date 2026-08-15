@@ -113,6 +113,28 @@ void main() {
       _expectFormat(() => execution.assignmentPhysicalAssetIdentity);
     });
 
+    test('governed legacy assignment exposes frozen physical identity', () {
+      final execution = JobExecution.fromMap(
+        _execution()
+          ..['metadataJson'] = jsonEncode(<String, dynamic>{
+            'source': 'server_governed_legacy_template_assignment',
+            'assignmentSchemaVersion': 2,
+            'assignmentAssetIdentity': <String, dynamic>{
+              'assetClassId': 'base-class',
+              'assetInstanceId': 'base-101',
+              'assetNumber': 101,
+            },
+          }),
+        'execution-1',
+      );
+
+      expect(execution.isGovernedTemplateAssignment, isFalse);
+      expect(
+        execution.assignmentPhysicalAssetIdentity?.assetInstanceId,
+        'base-101',
+      );
+    });
+
     test('frozen Inner Cover position decodes against its physical Base', () {
       final execution = JobExecution.fromMap(
         _execution()
@@ -129,6 +151,24 @@ void main() {
       expect(read.isValid, isTrue);
       expect(read.position?.innerCoverSerialNumber, 'GR26');
       expect(read.position?.assignmentVersion, 3);
+    });
+
+    test('governed legacy Inner Cover evidence remains readable', () {
+      final execution = JobExecution.fromMap(
+        _execution()
+          ..['assetType'] = AssetType.innerCover.name
+          ..['assetNumber'] = 201
+          ..['metadataJson'] = jsonEncode(
+            _innerCoverAssignmentMetadata(baseAssetNumber: 201),
+          ),
+        'execution-1',
+      );
+
+      expect(execution.isGovernedTemplateAssignment, isFalse);
+      expect(
+        execution.assignmentInnerCoverPosition?.innerCoverSerialNumber,
+        'GR26',
+      );
     });
 
     test('contradictory frozen Inner Cover position fails closed', () {

@@ -80,9 +80,9 @@ resolution and that the free-number control is absent.
 
 ## Remaining Programme Work
 
-Published planned-work assignment now uses an exact governed physical-asset
-selector and server-authoritative identity validation, including Base-position
-routing for Inner Cover work. The retained legacy-template assignment path and
-template authoring remain outstanding selector surfaces in the business-model
-roadmap. Production availability additionally depends on normal merge, release
-and deployment evidence.
+Published and retained legacy-template planned-work assignment now use an exact
+governed physical-asset selector and server-authoritative identity validation,
+including Base-position routing for Inner Cover work. New legacy whole-asset
+templates retain a class reference, while historical standard templates may
+use only a unique active legacy mapping. Production availability additionally
+depends on normal merge, release and deployment evidence.

@@ -19,9 +19,25 @@ export const assertEquipmentProjectionIdentity = (
   current: JsonMap,
   identity: EquipmentIdentity,
 ): void => {
-  if (identity.assetTypeKey === "governedCustom" &&
-      (current.assetClassId !== identity.assetClassId ||
-       current.assetInstanceId !== identity.assetInstanceId)) {
+  if (identity.assetClassId == null || identity.assetInstanceId == null) return;
+  const currentClassId = typeof current.assetClassId === "string" &&
+    current.assetClassId.trim().length > 0 ? current.assetClassId.trim() : null;
+  const currentInstanceId = typeof current.assetInstanceId === "string" &&
+    current.assetInstanceId.trim().length > 0 ? current.assetInstanceId.trim() : null;
+  if ((currentClassId == null) !== (currentInstanceId == null)) {
+    throw new WorkflowError(
+      "equipment-state-conflict",
+      "The equipment projection has incomplete physical asset identity.",
+      {
+        reasonCode: "equipment-projection-identity-incomplete",
+        actualAssetClassId: current.assetClassId ?? null,
+        actualAssetInstanceId: current.assetInstanceId ?? null,
+      },
+    );
+  }
+  if (currentClassId != null &&
+      (currentClassId !== identity.assetClassId ||
+       currentInstanceId !== identity.assetInstanceId)) {
     throw new WorkflowError(
       "equipment-state-conflict",
       "The governed equipment projection belongs to another physical asset.",
@@ -140,14 +156,22 @@ export const loadEquipmentFacts = async (
   for (const row of workflows) {
     if (excluded.has(workflowIdFromPath(row.path))) continue;
     const data = row.data ?? {};
-    if (identity.assetTypeKey === "governedCustom") {
-      const assetClassId = typeof data.assetClassId === "string" && data.assetClassId.trim().length > 0
-        ? data.assetClassId.trim()
-        : null;
-      const assetInstanceId = typeof data.assetInstanceId === "string" && data.assetInstanceId.trim().length > 0
-        ? data.assetInstanceId.trim()
-        : null;
-      if (assetClassId == null || assetInstanceId == null) {
+    if (identity.assetClassId != null && identity.assetInstanceId != null) {
+      const assetClassId = typeof data.assetClassId === "string" &&
+        data.assetClassId.trim().length > 0 ? data.assetClassId.trim() : null;
+      const assetInstanceId = typeof data.assetInstanceId === "string" &&
+        data.assetInstanceId.trim().length > 0 ? data.assetInstanceId.trim() : null;
+      if ((assetClassId == null) !== (assetInstanceId == null)) {
+        throw new WorkflowError(
+          "equipment-state-conflict",
+          "A workflow has incomplete physical asset identity.",
+          {
+            reasonCode: "workflow-equipment-identity-incomplete",
+            workflowId: workflowIdFromPath(row.path),
+          },
+        );
+      }
+      if (identity.assetTypeKey === "governedCustom" && assetClassId == null) {
         throw new WorkflowError(
           "equipment-state-conflict",
           "A governed custom workflow has no physical asset identity.",
@@ -157,7 +181,9 @@ export const loadEquipmentFacts = async (
           },
         );
       }
-      if (assetClassId !== identity.assetClassId || assetInstanceId !== identity.assetInstanceId) {
+      if (assetClassId != null &&
+          (assetClassId !== identity.assetClassId ||
+           assetInstanceId !== identity.assetInstanceId)) {
         continue;
       }
     }
@@ -212,7 +238,7 @@ export const equipmentProjectionWrite = (
   return {
     assetTypeKey: identity.assetTypeKey,
     assetNumber: identity.assetNumber,
-    ...(identity.assetTypeKey === "governedCustom" ? {
+    ...(identity.assetClassId != null ? {
       assetClassId: identity.assetClassId,
       assetInstanceId: identity.assetInstanceId,
     } : {}),
