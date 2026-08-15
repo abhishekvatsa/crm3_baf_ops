@@ -236,7 +236,7 @@
       "compatibility": "wholly absent pre-feature burner fields on a non-burner maintenance record only; unrelated opaque metadata is preserved",
       "regression": "test/burner_lockout_case_test.dart; test/a05_remote_maintenance_record_integrity_test.dart; test/firestore.rules.test.js",
       "reArmCondition": "partial fields, duplicate or out-of-range positions, unknown enums, classification drift, or incomplete outcomes are admitted",
-      "riskFingerprint": "a417ca8ef6c5771d0773ad73edfd300e17036b5cce7a9e1d26e82d5b64dc1fcd"
+      "riskFingerprint": "21a0c028af1526aae6c61243db135513f297408c357f5764e2c046083d47e32d"
     },
     {
       "id": "job-diary-record",

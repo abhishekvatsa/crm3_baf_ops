@@ -1001,6 +1001,7 @@ describe("maintenance_records", () => {
         "2": {
           outcome: "returnedToService",
           actionCodes: ["uvDetectorCleaning"],
+          microampReading: 3.75,
         },
       },
       updatedAt: new Date().toISOString(),
@@ -1032,6 +1033,7 @@ describe("maintenance_records", () => {
         "2": {
           outcome: "returnedToService",
           actionCodes: ["uvDetectorCleaning"],
+          microampReading: 3.75,
         },
         "5": {
           outcome: "isolatedForFollowUp",
@@ -1095,6 +1097,44 @@ describe("maintenance_records", () => {
       }
     );
     await assertFails(resetOnlyBatch.commit());
+
+    await seedDoc("maintenance_records/burnerInvalidMicroamp", {
+      ...ticket,
+      firestoreId: "burnerInvalidMicroamp",
+      burnerRedHotPositions: [],
+    });
+    const invalidMicroampClose = {
+      ...closeBase,
+      burnerResolutionEvidence: {
+        "2": {
+          outcome: "returnedToService",
+          actionCodes: ["uvDetectorCleaning"],
+          microampReading: -0.1,
+        },
+        "5": {
+          outcome: "isolatedForFollowUp",
+          actionCodes: ["poking"],
+        },
+      },
+    };
+    const invalidMicroampBatch = writeBatch(db);
+    invalidMicroampBatch.update(
+      doc(db, "maintenance_records/burnerInvalidMicroamp"),
+      invalidMicroampClose
+    );
+    invalidMicroampBatch.set(
+      doc(db, "maintenance_burner_closures/burnerInvalidMicroamp"),
+      {
+        firestoreId: "burnerInvalidMicroamp",
+        sourceMaintenanceId: "burnerInvalidMicroamp",
+        sourceVersion: invalidMicroampClose.version,
+        closedByUid: invalidMicroampClose.closedByUid,
+        burnerResolutionEvidence:
+          invalidMicroampClose.burnerResolutionEvidence,
+        updatedAt: invalidMicroampClose.updatedAt,
+      }
+    );
+    await assertFails(invalidMicroampBatch.commit());
   });
 
   test("senior can close but cannot mutate unrelated ticket evidence while closing", async () => {

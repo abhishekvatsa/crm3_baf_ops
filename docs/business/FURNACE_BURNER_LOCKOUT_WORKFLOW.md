@@ -29,6 +29,10 @@ one terminal outcome for every affected position.
   approved plant procedure. It does not actuate a PLC or field device.
 - Resolution requires recorded work or inspection evidence and a terminal
   outcome for every affected burner.
+- Attendance can record an optional flame-signal reading in microamps for each
+  affected burner. The value is retained in structured closure and action
+  evidence, survives offline close/reopen replay, and appears in completed
+  issue history and the burner report matrix.
 - `returnedToService` is rejected when the only evidence is feedback reset,
   controller reset, or controller power-on.
 - Admin correction may clarify narrative evidence but cannot change burner
@@ -64,6 +68,8 @@ does not invent OEM tags.
 8. Closure carries non-empty structured action evidence.
 9. Ordinary maintenance issues cannot acquire burner closure fields.
 10. Offline create/close/reopen replay carries the same structured evidence.
+11. A supplied microamp reading belongs to an attended burner, is finite and
+    non-negative, and agrees across closure and action evidence.
 
 ## Deliberate boundaries
 
@@ -76,5 +82,8 @@ does not invent OEM tags.
   install the new identity, link issue/job evidence, and append immutable audit.
 - Automatic red-hot escalation thresholds, timers, and severity changes remain
   governed plant configuration. No threshold has been inferred from the manual.
+- Microamp readings are observations, not automatic pass/fail decisions. The
+  source applies only a broad structural bound to reject malformed values or an
+  accidental unit mismatch; operational limits require governed plant data.
 - Shift-round capture and proactive condition monitoring remain a following
   tranche built on the same eight-position identity.

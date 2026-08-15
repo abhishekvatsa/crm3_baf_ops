@@ -596,6 +596,11 @@ class _ClosedTicketCard extends StatelessWidget {
         canReopenTicket && hoursSince <= 4 && !ticket.workflowDeferred;
     final agencyColor = _agencyColor(ticket.routedTo);
     final innerCover = ticket.assetHierarchyReference?.innerCoverAssociation;
+    final burnerReadings =
+        ticket.burnerLockoutReadResult.value?.resolutionMicroampReadings.entries
+            .toList() ??
+        [];
+    burnerReadings.sort((left, right) => left.key.compareTo(right.key));
 
     return Container(
       decoration: BoxDecoration(
@@ -721,6 +726,14 @@ class _ClosedTicketCard extends StatelessWidget {
                               innerCover.innerCoverSerialNumber == null
                                   ? 'At event: no Inner Cover linked'
                                   : 'At event: Inner Cover ${innerCover.innerCoverSerialNumber}',
+                        ),
+                      ],
+                      if (burnerReadings.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        _MetaLine(
+                          icon: Icons.speed_rounded,
+                          text:
+                              'Flame signal: ${burnerReadings.map((entry) => 'B${entry.key} ${NumberFormat('0.###').format(entry.value)} µA').join(' · ')}',
                         ),
                       ],
                       const SizedBox(height: BafSpacing.md),
