@@ -81,6 +81,10 @@ function hierarchyDocuments() {
   const baseClassId = 'base-class';
   const baseId = 'base-201';
   const componentId = 'component-1';
+  const eventId = '11111111-1111-4111-8111-111111111111';
+  const eventLinkRequestId = '22222222-2222-4222-8222-222222222222';
+  const eventIssueLinkId =
+    'event_issue_0123456789abcdef0123456789abcdef0123456789abcdef';
   const normalizedTag = 'PT101';
   const claimId = createHash('sha256').update(normalizedTag).digest('hex');
   const ownership = {
@@ -254,10 +258,10 @@ function hierarchyDocuments() {
       },
     }],
     operational_events: [{
-      id: 'event-1',
+      id: eventId,
       data: {
         schemaVersion: 1,
-        eventId: 'event-1',
+        eventId,
         eventType: 'powerTrip',
         title: 'Incoming power interruption',
         description: 'Incoming power was unavailable across the shop.',
@@ -280,6 +284,42 @@ function hierarchyDocuments() {
         updatedByUid: 'operations-1',
         updatedByName: 'Operations',
         lastMutationId: 'event-mutation-1',
+      },
+    }],
+    operational_event_issue_links: [{
+      id: eventIssueLinkId,
+      data: {
+        schemaVersion: 1,
+        linkId: eventIssueLinkId,
+        requestId: eventLinkRequestId,
+        auditId: `operational_event_issue_${eventLinkRequestId}`,
+        eventId,
+        eventVersionAtLink: 1,
+        eventOccurrenceStartedAt: ts,
+        eventType: 'powerTrip',
+        eventTitle: 'Incoming power interruption',
+        eventSeverity: 'critical',
+        eventScope: 'plantWide',
+        affectedAssetClassIds: [],
+        affectedAssetInstanceIds: [],
+        issueId: 'issue-1',
+        issueVersionAtLink: 2,
+        issueStatusAtLink: 'open',
+        issueResolvedAtLink: false,
+        issueAssetType: 'furnace',
+        issueAssetNumber: 1,
+        issueAssetClassId: classId,
+        issueAssetInstanceId: assetId,
+        issueDescription: 'Inspect the furnace after the power interruption.',
+        issueRoutedTo: 'electrical',
+        issueComponent: 'Control panel',
+        issueSubsystem: 'Power distribution',
+        issueTag: 'MCC-01',
+        relationship: 'responseToEvent',
+        reason: 'The inspection verifies safe restoration after the interruption.',
+        linkedAt: ts,
+        linkedByUid: 'operations-1',
+        linkedByName: 'Operations',
       },
     }],
     asset_component_instances: [{

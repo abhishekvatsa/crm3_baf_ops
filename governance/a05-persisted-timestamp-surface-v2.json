@@ -544,6 +544,30 @@
       "reArmCondition": "any operational-event callable receipt timestamp change"
     },
     {
+      "id": "operational-event-issue-link-record",
+      "readerFile": "lib/features/operational_events/data/operational_event_issue_link.dart",
+      "readerMarker": "factory OperationalEventIssueLink.fromMap",
+      "requiredFields": ["eventOccurrenceStartedAt", "linkedAt"],
+      "optionalFields": [],
+      "owner": "plant-operations",
+      "purpose": "restore immutable event-occurrence and issue-link chronology",
+      "authorityBoundary": "remote-operational-event-issue-link-record",
+      "regression": "test/operational_event_issue_link_test.dart; tools/v4/a05_production_persisted_integrity_sweep.test.mjs",
+      "reArmCondition": "any operational-event issue-link timestamp schema change"
+    },
+    {
+      "id": "operational-event-issue-link-command-response",
+      "readerFile": "lib/features/operational_events/services/operational_event_issue_link_service.dart",
+      "readerMarker": "factory OperationalEventIssueLinkCommandResult.fromMap",
+      "requiredFields": ["committedAt"],
+      "optionalFields": [],
+      "owner": "plant-operations",
+      "purpose": "verify the canonical server commit instant in issue-link mutation evidence",
+      "authorityBoundary": "remote-operational-event-issue-link-command-response",
+      "regression": "test/operational_event_issue_link_test.dart",
+      "reArmCondition": "any operational-event issue-link callable receipt timestamp change"
+    },
+    {
       "id": "quality-command-response",
       "readerFile": "lib/features/quality/services/quality_command_service.dart",
       "readerMarker": "factory QualityCommandResult.fromMap",

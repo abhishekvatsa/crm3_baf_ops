@@ -145,10 +145,12 @@ def main()->int:
     migration=read('lib/core/services/isar_schema_migration.dart')
     isar_guard=read('lib/core/services/isar_schema_guard_io.dart')
     startup=read('lib/main.dart')
-    add(c,'Isar migration version explicitly advances to v5',
-        'currentSchemaVersion = 5' in migration and '3: _reconcileV4WorkflowPersistence' in migration
+    add(c,'Isar migration version explicitly advances to v6',
+        'currentSchemaVersion = 6' in migration and '3: _reconcileV4WorkflowPersistence' in migration
         and '4: _addOperationalAssuranceRequestFields' in migration
         and '5: _addGovernedAssetIdentityFields' in migration
+        and '6: _addOperationalEventIssueLinkProjection' in migration
+        and 'MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks' in migration
         and 'ComplianceRequestRecord+OperationalAssurance' in migration
         and 'WorkflowAggregateRecord+GovernedAssetIdentity' in migration
         and 'EquipmentStatusRecord+GovernedAssetIdentity' in migration,

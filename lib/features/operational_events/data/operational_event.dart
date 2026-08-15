@@ -118,6 +118,8 @@ class OperationalEventInterval {
     required this.scope,
     required this.affectedAssetClassIds,
     required this.affectedAssetInstanceIds,
+    this.issueLinkIds = const <String>[],
+    this.linkedIssueIds = const <String>[],
     required this.resolvedByUid,
     required this.resolvedByName,
     required this.resolutionNote,
@@ -132,6 +134,8 @@ class OperationalEventInterval {
   final OperationalEventScope scope;
   final List<String> affectedAssetClassIds;
   final List<String> affectedAssetInstanceIds;
+  final List<String> issueLinkIds;
+  final List<String> linkedIssueIds;
   final String? resolvedByUid;
   final String? resolvedByName;
   final String? resolutionNote;
@@ -160,6 +164,8 @@ class OperationalEvent {
     required this.scope,
     required this.affectedAssetClassIds,
     required this.affectedAssetInstanceIds,
+    this.issueLinkIds = const <String>[],
+    this.linkedIssueIds = const <String>[],
     this.completedIntervals = const [],
     required this.startedAt,
     required this.status,
@@ -185,6 +191,8 @@ class OperationalEvent {
   final OperationalEventScope scope;
   final List<String> affectedAssetClassIds;
   final List<String> affectedAssetInstanceIds;
+  final List<String> issueLinkIds;
+  final List<String> linkedIssueIds;
   final List<OperationalEventInterval> completedIntervals;
   final DateTime startedAt;
   final OperationalEventStatus status;
@@ -215,6 +223,8 @@ class OperationalEvent {
       scope: scope,
       affectedAssetClassIds: affectedAssetClassIds,
       affectedAssetInstanceIds: affectedAssetInstanceIds,
+      issueLinkIds: issueLinkIds,
+      linkedIssueIds: linkedIssueIds,
       resolvedByUid: resolvedByUid,
       resolvedByName: resolvedByName,
       resolutionNote: resolutionNote,
@@ -318,10 +328,25 @@ class OperationalEvent {
       field: 'affectedAssetInstanceIds',
       source: source,
     );
+    final issueLinkIds = readOptionalPersistedStringList(
+      map['issueLinkIds'],
+      field: 'issueLinkIds',
+      source: source,
+    );
+    final linkedIssueIds = readOptionalPersistedStringList(
+      map['linkedIssueIds'],
+      field: 'linkedIssueIds',
+      source: source,
+    );
     if (classIds.length > 20 ||
         assetIds.length > 50 ||
         classIds.toSet().length != classIds.length ||
-        assetIds.toSet().length != assetIds.length) {
+        assetIds.toSet().length != assetIds.length ||
+        issueLinkIds.length > 100 ||
+        issueLinkIds.toSet().length != issueLinkIds.length ||
+        linkedIssueIds.length > 100 ||
+        linkedIssueIds.toSet().length != linkedIssueIds.length ||
+        issueLinkIds.length != linkedIssueIds.length) {
       throw PersistedDataFormatException(
         field: 'affectedAssetClassIds',
         source: source,
@@ -360,7 +385,7 @@ class OperationalEvent {
     for (var index = 0; index < completedRaw.length; index++) {
       final raw = completedRaw[index];
       if (raw is! Map<String, dynamic> ||
-          raw.length != 12 ||
+          (raw.length != 12 && raw.length != 14) ||
           !raw.containsKey('eventType') ||
           !raw.containsKey('title') ||
           !raw.containsKey('description') ||
@@ -372,7 +397,10 @@ class OperationalEvent {
           !raw.containsKey('affectedAssetInstanceIds') ||
           !raw.containsKey('resolvedByUid') ||
           !raw.containsKey('resolvedByName') ||
-          !raw.containsKey('resolutionNote')) {
+          !raw.containsKey('resolutionNote') ||
+          (raw.length == 14 &&
+              (!raw.containsKey('issueLinkIds') ||
+                  !raw.containsKey('linkedIssueIds')))) {
         throw PersistedDataFormatException(
           field: 'completedIntervals[$index]',
           source: source,
@@ -435,6 +463,16 @@ class OperationalEvent {
         field: 'completedIntervals[$index].scope',
         source: source,
       );
+      final intervalIssueLinkIds = readOptionalPersistedStringList(
+        raw['issueLinkIds'],
+        field: 'completedIntervals[$index].issueLinkIds',
+        source: source,
+      );
+      final intervalLinkedIssueIds = readOptionalPersistedStringList(
+        raw['linkedIssueIds'],
+        field: 'completedIntervals[$index].linkedIssueIds',
+        source: source,
+      );
       final intervalResolvedByUid = readRequiredPersistedString(
         raw['resolvedByUid'],
         field: 'completedIntervals[$index].resolvedByUid',
@@ -457,6 +495,12 @@ class OperationalEvent {
           intervalAssetIds.length > 50 ||
           intervalClassIds.toSet().length != intervalClassIds.length ||
           intervalAssetIds.toSet().length != intervalAssetIds.length ||
+          intervalIssueLinkIds.length > 100 ||
+          intervalIssueLinkIds.toSet().length != intervalIssueLinkIds.length ||
+          intervalLinkedIssueIds.length > 100 ||
+          intervalLinkedIssueIds.toSet().length !=
+              intervalLinkedIssueIds.length ||
+          intervalIssueLinkIds.length != intervalLinkedIssueIds.length ||
           intervalTitle.length > 120 ||
           intervalDescription.length > 2000 ||
           !_scopeListsAreValid(
@@ -485,6 +529,8 @@ class OperationalEvent {
           scope: intervalScope,
           affectedAssetClassIds: List<String>.unmodifiable(intervalClassIds),
           affectedAssetInstanceIds: List<String>.unmodifiable(intervalAssetIds),
+          issueLinkIds: List<String>.unmodifiable(intervalIssueLinkIds),
+          linkedIssueIds: List<String>.unmodifiable(intervalLinkedIssueIds),
           resolvedByUid: intervalResolvedByUid,
           resolvedByName: intervalResolvedByName,
           resolutionNote: intervalResolutionNote,
@@ -582,6 +628,8 @@ class OperationalEvent {
       scope: scope,
       affectedAssetClassIds: List<String>.unmodifiable(classIds),
       affectedAssetInstanceIds: List<String>.unmodifiable(assetIds),
+      issueLinkIds: List<String>.unmodifiable(issueLinkIds),
+      linkedIssueIds: List<String>.unmodifiable(linkedIssueIds),
       completedIntervals: List<OperationalEventInterval>.unmodifiable(
         completedIntervals,
       ),

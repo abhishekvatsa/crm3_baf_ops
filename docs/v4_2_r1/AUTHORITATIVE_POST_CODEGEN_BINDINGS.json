@@ -42,8 +42,8 @@
       "bytes": 240344
     },
     "lib/features/maintenance/data/maintenance_model.g.dart": {
-      "sha256": "05FE35B3EF2DAEE116138E0D2B67076A6C848FBA8B30583A2082CEDAB1AD0A14",
-      "bytes": 412276
+      "sha256": "99E27B9D65797B419531EDEA201E9D4AFB409EC5A8963F43A4F5F5D736AF159B",
+      "bytes": 426029
     },
     "lib/features/maintenance_workflow/data/compliance_attempt_record.g.dart": {
       "sha256": "62AEC2A023995203E020FEB596A5E9E2802BCEF964426C43F8816767A5144A0F",
@@ -103,13 +103,12 @@
     }
   },
   "currentSourceRefresh": {
-    "sourceCommit": "d6eade882994951d97bfb7c25dc245c434c301ac",
-    "sourceTree": "f53524f305fc5156a8dd2875aaf9c192a0d6f713",
+    "sourceCommit": "380cb2950fbfd40a0e845969d139df711c5bd0e3",
+    "sourceTree": "56aa0f69b19d555d75591445c6158fc241bcf479",
     "command": "dart run build_runner build --delete-conflicting-outputs",
     "codegenResult": "PASS",
     "changedBindingPaths": [
-      "lib/features/maintenance_workflow/data/equipment_status_record.g.dart",
-      "lib/features/maintenance_workflow/data/workflow_aggregate_record.g.dart"
+      "lib/features/maintenance/data/maintenance_model.g.dart"
     ]
   }
 }

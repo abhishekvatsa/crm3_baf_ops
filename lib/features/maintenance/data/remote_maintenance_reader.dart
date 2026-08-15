@@ -203,6 +203,10 @@ MaintenanceRecord readRemoteMaintenanceRecord(
       source,
     )
     ..workflowUpdatedAt = timestamps.workflowUpdatedAt
+    ..operationalEventIssueLinkIds = _readOperationalEventIssueLinkIds(
+      map,
+      source,
+    )
     ..isCritical = readRequiredPersistedBool(
       map['isCritical'],
       field: 'isCritical',
@@ -388,6 +392,33 @@ int? _optionalPositiveInt(
     source: source,
     minimum: 1,
   );
+}
+
+List<String> _readOperationalEventIssueLinkIds(
+  Map<String, dynamic> map,
+  String source,
+) {
+  if (!map.containsKey('operationalEventIssueLinkIds')) return <String>[];
+  if (map['operationalEventIssueLinkIds'] is! List) {
+    throw PersistedDataFormatException(
+      field: 'operationalEventIssueLinkIds',
+      source: source,
+      detail: 'must be a complete list when present',
+    );
+  }
+  final ids = readOptionalPersistedStringList(
+    map['operationalEventIssueLinkIds'],
+    field: 'operationalEventIssueLinkIds',
+    source: source,
+  );
+  if (ids.length > 50 || ids.toSet().length != ids.length) {
+    throw PersistedDataFormatException(
+      field: 'operationalEventIssueLinkIds',
+      source: source,
+      detail: 'exceeds 50 links or contains duplicates',
+    );
+  }
+  return List<String>.unmodifiable(ids);
 }
 
 void _requireTimeline({

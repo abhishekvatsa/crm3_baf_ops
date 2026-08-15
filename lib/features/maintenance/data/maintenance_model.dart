@@ -292,6 +292,11 @@ class MaintenanceRecord {
   String? workflowCorrectionReason;
   DateTime? workflowUpdatedAt;
 
+  // Server-maintained projection of immutable disruption/issue link records.
+  // Client Firestore serializers omit this field; local storage retains it so
+  // issue lists can represent the relationship without additional queries.
+  List<String> operationalEventIssueLinkIds = [];
+
   // ── Personnel & Accountability ────────────────────────────────────────────
   @Index()
   String? loggedByUid;
@@ -458,6 +463,7 @@ class MaintenanceRecord {
     'workflowAggregateId': workflowAggregateId,
     'workflowComplianceId': workflowComplianceId,
     'workflowTargetLaneKey': workflowTargetLaneKey,
+    'operationalEventIssueLinkIds': operationalEventIssueLinkIds,
     'isDeleted': isDeleted,
     'component': component,
     'tag': tag,

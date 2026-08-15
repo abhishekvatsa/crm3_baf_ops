@@ -704,6 +704,37 @@
       "riskFingerprint": "9b34cfd77c7c22342706f6fdcd9b83073548be933665839d886ad3c55803ca4f"
     },
     {
+      "id": "operational-event-issue-link-records",
+      "file": "lib/features/operational_events/data/operational_event_issue_link.dart",
+      "markers": [
+        "factory OperationalEventIssueLink.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "plant-operations",
+      "authorityBoundary": "immutable source-bound relationship between an operational-event occurrence and a maintenance issue",
+      "malformedDisposition": "fail closed before malformed identity, chronology, scope, relationship, or actor evidence can enter event, issue, or report views",
+      "compatibility": "schema version 1 only; frozen event scope and linked issue identity must agree",
+      "regression": "test/operational_event_issue_link_test.dart; functions/test/operationalEventIssueLinkMutation.test.js; functions/test/assetHierarchyMutation.firestoreEmulator.test.js",
+      "reArmCondition": "link identity, event occurrence, issue identity, relationship, actor, timestamp, or scope validation changes",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "operational-event-issue-link-command-result",
+      "file": "lib/features/operational_events/services/operational_event_issue_link_service.dart",
+      "markers": [
+        "factory OperationalEventIssueLinkCommandResult.fromMap",
+        "Future<OperationalEventIssueLinkCommandResult> link"
+      ],
+      "classification": "SERVER_COMMAND_RECEIPT",
+      "owner": "plant-operations",
+      "authorityBoundary": "governed issue-link mutation result, optimistic versions, and immutable audit identity",
+      "malformedDisposition": "translate malformed callable evidence to data-loss and never report link success",
+      "compatibility": "none for request, event, issue, link, version, audit, replay, or commit-time evidence",
+      "regression": "test/operational_event_issue_link_test.dart; functions/test/operationalEventIssueLinkMutation.test.js",
+      "reArmCondition": "malformed response fields are coerced or accepted as successful issue-link evidence",
+      "riskFingerprint": "9b34cfd77c7c22342706f6fdcd9b83073548be933665839d886ad3c55803ca4f"
+    },
+    {
       "id": "quality-warning-and-monitoring-records",
       "file": "lib/features/quality/data/quality_warning.dart",
       "markers": [
@@ -1272,6 +1303,19 @@
       "malformedDisposition": "throw a data-loss command error and do not report success",
       "regression": "test/operational_event_model_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "transport or response-format failure becomes a successful operational-event decision"
+    },
+    {
+      "id": "operational-event-issue-link-transport-translation",
+      "file": "lib/features/operational_events/services/operational_event_issue_link_service.dart",
+      "siteFingerprint": "361439612415a67fe383b88516f9e79bf39c639b132b558cdfa677a6391edaaf",
+      "classification": "TRANSPORT_ERROR_TRANSLATION",
+      "purpose": "translate callable transport failures while preserving strict issue-link response-format failure",
+      "authorityBoundary": "governed operational-event issue-link mutation response",
+      "mutability": "remote mutation already governed by the server; no local success state is manufactured",
+      "dataScope": "issue-link callable response and Firebase transport error",
+      "malformedDisposition": "throw a data-loss command error and do not report link success",
+      "regression": "test/operational_event_issue_link_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "transport or response-format failure becomes a successful issue link"
     }
   ]
 }

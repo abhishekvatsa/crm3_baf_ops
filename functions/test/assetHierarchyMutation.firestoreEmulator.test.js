@@ -12,6 +12,9 @@ const {
 const {
   mutateOperationalEventWithDb,
 } = require('../lib/operationalEventMutation');
+const {
+  mutateOperationalEventIssueLinkWithDb,
+} = require('../lib/operationalEventIssueLinkMutation');
 
 jest.setTimeout(60000);
 
@@ -45,6 +48,8 @@ const IDS = {
   eventId: '15151515-1515-4151-8151-151515151515',
   eventCreateRequest: '16161616-1616-4161-8161-161616161616',
   eventResolveRequest: '17171717-1717-4171-8171-171717171717',
+  eventIssue: '18181818-1818-4181-8181-181818181818',
+  eventIssueLinkRequest: '19191919-1919-4191-8191-191919191919',
 };
 
 function classRequest() {
@@ -145,6 +150,16 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
 
   async function invokeEvent(data, authUid) {
     return mutateOperationalEventWithDb({
+      db,
+      authUid,
+      data,
+      now: () => new Date('2026-08-13T12:00:00.000Z'),
+      timestampFromDate: admin.firestore.Timestamp.fromDate,
+    });
+  }
+
+  async function invokeEventIssueLink(data, authUid) {
+    return mutateOperationalEventIssueLinkWithDb({
       db,
       authUid,
       data,
@@ -680,5 +695,98 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       });
     expect((await db.collection('operational_event_audits').get()).size).toBe(2);
     expect((await db.collection('operational_event_receipts').get()).size).toBe(2);
+  });
+
+  test('atomically links an operational event occurrence to a governed issue', async () => {
+    await invoke(classRequest());
+    await invokeRegistry(assetRequest({
+      requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      name: 'Furnace 1',
+    }));
+    await invokeEvent({
+      requestId: IDS.eventCreateRequest,
+      operation: 'CREATE_OPERATIONAL_EVENT',
+      eventId: IDS.eventId,
+      expectedVersion: 0,
+      reason: 'Record the crane outage affecting Furnace 1 movement.',
+      eventDraft: {
+        eventType: 'crane',
+        title: 'Charging crane unavailable',
+        description: 'Furnace movement is waiting for the charging crane.',
+        severity: 'significant',
+        scope: 'assets',
+        affectedAssetClassIds: [IDS.classId],
+        affectedAssetInstanceIds: [IDS.firstAsset],
+        startedAt: '2026-08-13T11:30:00.000Z',
+      },
+      resolutionNote: null,
+    }, 'ops-1');
+    await db.collection('maintenance_records').doc(IDS.eventIssue).set({
+      firestoreId: IDS.eventIssue,
+      version: 4,
+      status: 'open',
+      isResolved: false,
+      isDeleted: false,
+      assetType: 'furnace',
+      assetNumber: 1,
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 3,
+        scope: 'physicalAsset',
+        assetClassId: IDS.classId,
+        assetInstanceId: IDS.firstAsset,
+      }),
+      description: 'Inspect the furnace after crane movement was interrupted.',
+      routedTo: 'mechanical',
+      component: null,
+      subsystem: 'Furnace handling',
+      tag: null,
+      startDate: admin.firestore.Timestamp.fromDate(
+        new Date('2026-08-13T11:35:00.000Z'),
+      ),
+      createdAt: admin.firestore.Timestamp.fromDate(
+        new Date('2026-08-13T11:36:00.000Z'),
+      ),
+      updatedAt: admin.firestore.Timestamp.fromDate(
+        new Date('2026-08-13T11:36:00.000Z'),
+      ),
+    });
+    const command = {
+      requestId: IDS.eventIssueLinkRequest,
+      operation: 'LINK_OPERATIONAL_EVENT_ISSUE',
+      eventId: IDS.eventId,
+      issueId: IDS.eventIssue,
+      expectedEventVersion: 1,
+      expectedIssueVersion: 4,
+      relationship: 'responseToEvent',
+      reason: 'The inspection was raised in response to the crane interruption.',
+    };
+    const first = await invokeEventIssueLink(command, 'ops-1');
+    const replay = await invokeEventIssueLink(command, 'ops-1');
+    expect(first).toMatchObject({
+      eventVersion: 2,
+      issueVersion: 5,
+      idempotentReplay: false,
+    });
+    expect(replay).toEqual({...first, idempotentReplay: true});
+    expect((await db.collection('operational_events').doc(IDS.eventId).get()).data())
+      .toMatchObject({
+        issueLinkIds: [first.linkId],
+        linkedIssueIds: [IDS.eventIssue],
+        version: 2,
+      });
+    expect((await db.collection('maintenance_records').doc(IDS.eventIssue).get()).data())
+      .toMatchObject({operationalEventIssueLinkIds: [first.linkId], version: 5});
+    expect((await db.collection('operational_event_issue_links').doc(first.linkId).get()).data())
+      .toMatchObject({
+        eventId: IDS.eventId,
+        issueId: IDS.eventIssue,
+        relationship: 'responseToEvent',
+      });
+    expect((await db.collection('operational_event_issue_link_audits').get()).size)
+      .toBe(1);
+    expect((await db.collection('operational_event_issue_link_receipts').get()).size)
+      .toBe(1);
   });
 });

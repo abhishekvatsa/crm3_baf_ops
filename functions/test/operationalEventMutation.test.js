@@ -333,7 +333,10 @@ describe('operational event mutation', () => {
   test('audit snapshots preserve every corrected operational field', async () => {
     const memory = fakeDb({
       ...baseSeed(),
-      [`operational_events/${IDS.event}`]: persistedEvent(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        issueLinkIds: ['event_issue_existing'],
+        linkedIssueIds: ['maintenance_issue_existing'],
+      }),
     });
     await invoke(memory, 'ops-1', {
       requestId: IDS.update,
@@ -359,12 +362,19 @@ describe('operational event mutation', () => {
         startedAt: new Date('2026-08-14T09:45:00.000Z'),
       },
     });
+    expect(memory.store.get(`operational_events/${IDS.event}`)).toMatchObject({
+      issueLinkIds: ['event_issue_existing'],
+      linkedIssueIds: ['maintenance_issue_existing'],
+    });
   });
 
   test('resolves and reopens with supervisory evidence', async () => {
     const memory = fakeDb({
       ...baseSeed(),
-      [`operational_events/${IDS.event}`]: persistedEvent(),
+      [`operational_events/${IDS.event}`]: persistedEvent({
+        issueLinkIds: ['event_issue_existing'],
+        linkedIssueIds: ['maintenance_issue_existing'],
+      }),
     });
     const resolved = await invoke(memory, 'ops-1', {
       requestId: IDS.resolve,
@@ -406,11 +416,15 @@ describe('operational event mutation', () => {
         scope: 'plantWide',
         affectedAssetClassIds: [],
         affectedAssetInstanceIds: [],
+        issueLinkIds: ['event_issue_existing'],
+        linkedIssueIds: ['maintenance_issue_existing'],
         resolvedByUid: 'ops-1',
         resolvedByName: 'Operations One',
         resolutionNote: 'Incoming supply remained stable through verification.',
       }],
       startedAt: new Date('2026-08-14T13:00:00.000Z'),
+      issueLinkIds: [],
+      linkedIssueIds: [],
       resolvedAt: null,
       resolutionNote: null,
     });
@@ -432,6 +446,8 @@ describe('operational event mutation', () => {
           scope: 'plantWide',
           affectedAssetClassIds: [],
           affectedAssetInstanceIds: [],
+          issueLinkIds: ['event_issue_existing'],
+          linkedIssueIds: ['maintenance_issue_existing'],
           resolvedByUid: 'ops-1',
           resolvedByName: 'Operations One',
           resolutionNote: 'Incoming supply remained stable through verification.',
@@ -548,5 +564,24 @@ describe('operational event mutation', () => {
       details: {reasonCode: 'operational-event-projection-malformed'},
     });
     expect(incompleteHistoryMemory.writes).toHaveLength(0);
+
+    const partialLinkProjection = persistedEvent({
+      issueLinkIds: ['event_issue_existing'],
+    });
+    const partialLinkMemory = fakeDb({
+      ...baseSeed(),
+      [`operational_events/${IDS.event}`]: partialLinkProjection,
+    });
+    await expect(invoke(partialLinkMemory, 'ops-1', {
+      requestId: IDS.update,
+      operation: 'UPDATE_OPERATIONAL_EVENT',
+      eventId: IDS.event,
+      expectedVersion: 1,
+      reason: 'Correct the operational event after field confirmation.',
+      eventDraft: request().eventDraft,
+    })).rejects.toMatchObject({
+      details: {reasonCode: 'operational-event-projection-malformed'},
+    });
+    expect(partialLinkMemory.writes).toHaveLength(0);
   });
 });

@@ -573,7 +573,7 @@ class IsarSchemaOpenPreparation {
 }
 
 class IsarSchemaMigrator {
-  static const int currentSchemaVersion = 5;
+  static const int currentSchemaVersion = 6;
 
   static const String v1SchemaFingerprint =
       'v1:Charge,MaintenanceRecord,JobTemplate,JobExecution,JobDiaryEntry,'
@@ -603,9 +603,21 @@ class IsarSchemaMigrator {
       'EquipmentStatusRecord,EquipmentPromptRecord,WorkflowEventRecord,'
       'WorkflowCommandRecord,WorkflowCommandReceiptRecord';
 
-  static const String currentSchemaFingerprint =
+  static const String v5SchemaFingerprint =
       'v5:Charge,MaintenanceRecord+WorkflowBridge,JobTemplate,'
       'JobExecution+WorkflowTerminalState,JobDiaryEntry+EMD+RED,'
+      'JobModuleInstance+EMD+RED,TemplatePackage,TemplateVersion,'
+      'TemplatePublishAudit,BafKnowledgeRow,BafKnowledgeMatrixMetaStore,'
+      'OperationalDirective,AuditEvent,SyncRejection,AbnormalityType,'
+      'ChargeAbnormality,WorkflowAggregateRecord+GovernedAssetIdentity,'
+      'JobLaneRecord,ComplianceRequestRecord+OperationalAssurance,'
+      'ComplianceAttemptRecord,EquipmentStatusRecord+GovernedAssetIdentity,'
+      'EquipmentPromptRecord,WorkflowEventRecord,WorkflowCommandRecord,'
+      'WorkflowCommandReceiptRecord';
+
+  static const String currentSchemaFingerprint =
+      'v6:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks,'
+      'JobTemplate,JobExecution+WorkflowTerminalState,JobDiaryEntry+EMD+RED,'
       'JobModuleInstance+EMD+RED,TemplatePackage,TemplateVersion,'
       'TemplatePublishAudit,BafKnowledgeRow,BafKnowledgeMatrixMetaStore,'
       'OperationalDirective,AuditEvent,SyncRejection,AbnormalityType,'
@@ -624,13 +636,15 @@ class IsarSchemaMigrator {
       // requires the governed 70K fixture/adoption path and is not guessed.
       3: <String>{v3SchemaFingerprint},
       4: <String>{v4SchemaFingerprint},
-      5: <String>{currentSchemaFingerprint},
+      5: <String>{v5SchemaFingerprint},
+      6: <String>{currentSchemaFingerprint},
     },
     stepsByTargetVersion: <int, IsarSchemaMigrationStep>{
       2: _registerMaintenanceWorkflowCollections,
       3: _reconcileV4WorkflowPersistence,
       4: _addOperationalAssuranceRequestFields,
       5: _addGovernedAssetIdentityFields,
+      6: _addOperationalEventIssueLinkProjection,
     },
   );
 
@@ -699,6 +713,22 @@ class IsarSchemaMigrator {
     // Isar adds the nullable identity fields during open. The idempotent
     // post-open repair removes only custom projections that cannot be bound to
     // a physical asset without guessing, then resets their pull cursors.
+  }
+
+  static Future<void> _addOperationalEventIssueLinkProjection(
+    IsarSchemaMigrationContext context,
+  ) async {
+    if (context.fromVersion != 5 || context.toVersion != 6) {
+      throw IsarSchemaMigrationException(
+        'Unexpected operational-event issue-link schema transition.',
+        reasonCode: 'unexpected-v5-v6-transition',
+        storedVersion: context.fromVersion,
+        targetVersion: context.toVersion,
+        hasExistingLocalStore: context.hasExistingLocalStore,
+        markerDisposition: 'migration-prepared',
+      );
+    }
+    // Isar adds the list during open; legacy rows decode it as an empty list.
   }
 
   const IsarSchemaMigrator._();

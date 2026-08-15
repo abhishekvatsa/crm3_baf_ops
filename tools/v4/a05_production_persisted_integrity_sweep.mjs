@@ -44,6 +44,7 @@ const DART_RECONCILIATION_COLLECTIONS = new Set([
   'audit_logs',
   'maintenance_records',
   'operational_events',
+  'operational_event_issue_links',
   'quality_monitoring_requests',
   'quality_warnings',
 ]);
@@ -82,6 +83,9 @@ export const A05_COLLECTION_REGISTRY = Object.freeze({
   knowledge_base_meta: 'DART_RECONCILIATION_REQUIRED',
   maintenance_records: 'DART_RECONCILIATION_REQUIRED',
   operational_events: 'DART_RECONCILIATION_REQUIRED',
+  operational_event_issue_links: 'DART_RECONCILIATION_REQUIRED',
+  operational_event_issue_link_audits: 'SERVER_CONTROL_RECORD',
+  operational_event_issue_link_receipts: 'SERVER_CONTROL_RECORD',
   template_packages: 'DART_RECONCILIATION_REQUIRED',
   template_versions: 'DART_RECONCILIATION_REQUIRED',
   template_publish_audits: 'DART_RECONCILIATION_REQUIRED',

@@ -101,6 +101,8 @@ OperationalEvent event() => OperationalEvent(
   scope: OperationalEventScope.plantWide,
   affectedAssetClassIds: const [],
   affectedAssetInstanceIds: const [],
+  issueLinkIds: const ['event-issue-1', 'event-issue-2'],
+  linkedIssueIds: const ['maintenance-issue-1', 'maintenance-issue-2'],
   startedAt: DateTime.utc(2026, 8, 10, 10),
   status: OperationalEventStatus.resolved,
   createdAt: DateTime.utc(2026, 8, 10, 10),
@@ -231,6 +233,7 @@ void main() {
     expect(report.plannedJobCount, 1);
     expect(report.openPlannedJobCount, 1);
     expect(report.disruptionCount, 1);
+    expect(report.linkedDisruptionIssueCount, 2);
     expect(report.disruptionDuration.inHours, 2);
     expect(report.assetCount, 1);
     expect(report.availableAssetCount, 1);
@@ -863,6 +866,8 @@ void main() {
           scope: OperationalEventScope.plantWide,
           affectedAssetClassIds: const [],
           affectedAssetInstanceIds: const [],
+          issueLinkIds: const ['event-issue-current'],
+          linkedIssueIds: const ['maintenance-issue-shared'],
           completedIntervals: [
             OperationalEventInterval(
               eventType: OperationalEventType.powerTrip,
@@ -874,6 +879,8 @@ void main() {
               scope: OperationalEventScope.plantWide,
               affectedAssetClassIds: const [],
               affectedAssetInstanceIds: const [],
+              issueLinkIds: const ['event-issue-prior'],
+              linkedIssueIds: const ['maintenance-issue-shared'],
               resolvedByUid: 'shift-first',
               resolvedByName: 'Shift Supervisor One',
               resolutionNote:
@@ -903,6 +910,7 @@ void main() {
     );
 
     expect(report.disruptionCount, 2);
+    expect(report.linkedDisruptionIssueCount, 1);
     expect(report.disruptionDuration, const Duration(hours: 3));
     expect(report.eventOccurrences.length, 2);
     expect(report.eventOccurrences.map((item) => item.interval.startedAt), [

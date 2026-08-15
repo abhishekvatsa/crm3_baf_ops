@@ -141,6 +141,11 @@ class OperationsReport {
   int get cancelledPlannedJobCount =>
       executions.where((job) => job.isCancelled).length;
 
+  Set<String> get linkedDisruptionIssueIds => Set<String>.unmodifiable(
+    eventOccurrences.expand((occurrence) => occurrence.interval.linkedIssueIds),
+  );
+  int get linkedDisruptionIssueCount => linkedDisruptionIssueIds.length;
+
   int get assetCount => assetStates.length;
   int get availableAssetCount =>
       assetStates.where((state) => state.isAvailable).length;

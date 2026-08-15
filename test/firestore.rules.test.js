@@ -4020,6 +4020,13 @@ describe("governed dynamic asset hierarchy", () => {
     await seedDoc("operational_event_receipts/request-1", {
       requestId: "request-1",
     });
+    await seedDoc("operational_event_issue_links/link-1", {linkId: "link-1"});
+    await seedDoc("operational_event_issue_link_audits/audit-1", {
+      auditId: "audit-1",
+    });
+    await seedDoc("operational_event_issue_link_receipts/request-1", {
+      requestId: "request-1",
+    });
 
     await assertSucceeds(
       getDoc(doc(dbAs("ops1"), "operational_events/event-1"))
@@ -4037,6 +4044,28 @@ describe("governed dynamic asset hierarchy", () => {
     );
     await assertFails(
       getDoc(doc(dbAs("admin1"), "operational_event_receipts/request-1"))
+    );
+    await assertSucceeds(
+      getDoc(doc(dbAs("ops1"), "operational_event_issue_links/link-1"))
+    );
+    await assertFails(
+      setDoc(doc(dbAs("admin1"), "operational_event_issue_links/link-2"), {
+        linkId: "link-2",
+      })
+    );
+    await assertSucceeds(
+      getDoc(doc(dbAs("admin1"), "operational_event_issue_link_audits/audit-1"))
+    );
+    await assertFails(
+      getDoc(doc(dbAs("ops1"), "operational_event_issue_link_audits/audit-1"))
+    );
+    await assertFails(
+      getDoc(
+        doc(
+          dbAs("admin1"),
+          "operational_event_issue_link_receipts/request-1"
+        )
+      )
     );
   });
 });

@@ -216,7 +216,9 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                         Icons.crisis_alert_outlined,
                         BafColors.warning,
                         detail:
-                            '${report.openDisruptionCount} open · ${_formatDuration(report.disruptionDuration)}',
+                            '${report.openDisruptionCount} open · '
+                            '${report.linkedDisruptionIssueCount} linked issues · '
+                            '${_formatDuration(report.disruptionDuration)}',
                       ),
                     ],
                   ),
@@ -929,6 +931,15 @@ class _DisruptionSection extends StatelessWidget {
                   Text(
                     '${occurrence.interval.eventType.label} · ${occurrence.interval.severity.label} · ${DateFormat('dd MMM, HH:mm').format(occurrence.interval.startedAt.toLocal())}',
                   ),
+                  if (occurrence.interval.issueLinkIds.isNotEmpty)
+                    Text(
+                      '${occurrence.interval.issueLinkIds.length} linked maintenance '
+                      '${occurrence.interval.issueLinkIds.length == 1 ? 'issue' : 'issues'}',
+                      style: const TextStyle(
+                        color: BafColors.textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   if (!occurrence.isOpen) ...[
                     const SizedBox(height: 2),
                     Text(

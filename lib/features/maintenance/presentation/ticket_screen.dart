@@ -15,6 +15,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../maintenance_workflow/services/workflow_command_factory.dart';
+import '../../operational_events/presentation/operational_event_issue_links_screen.dart';
 import '../data/maintenance_model.dart';
 import '../providers/maintenance_provider.dart';
 import 'maintenance_form.dart';
@@ -241,6 +242,18 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                   canAcknowledge: canAcknowledge,
                   isBusy: _busyTicketId == ticketId,
                   onAcknowledge: () => _acknowledgeTicket(ticket),
+                  onViewEventLinks:
+                      ticket.operationalEventIssueLinkIds.isEmpty
+                          ? null
+                          : () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder:
+                                  (_) => MaintenanceIssueEventLinksScreen(
+                                    issue: ticket,
+                                  ),
+                            ),
+                          ),
                 ),
               );
             }),
@@ -571,6 +584,7 @@ class _TicketCard extends StatelessWidget {
   final bool canAcknowledge;
   final bool isBusy;
   final VoidCallback onAcknowledge;
+  final VoidCallback? onViewEventLinks;
 
   const _TicketCard({
     required this.ticket,
@@ -579,6 +593,7 @@ class _TicketCard extends StatelessWidget {
     required this.canAcknowledge,
     required this.isBusy,
     required this.onAcknowledge,
+    required this.onViewEventLinks,
   });
 
   @override
@@ -692,6 +707,13 @@ class _TicketCard extends StatelessWidget {
                                         ? Icons.pause_circle_outline_rounded
                                         : Icons.account_tree_outlined,
                               ),
+                            if (ticket.operationalEventIssueLinkIds.isNotEmpty)
+                              StatusBadge(
+                                label:
+                                    '${ticket.operationalEventIssueLinkIds.length} EVENT LINK${ticket.operationalEventIssueLinkIds.length == 1 ? '' : 'S'}',
+                                color: BafColors.warning,
+                                icon: Icons.link_rounded,
+                              ),
                           ],
                         ),
                       ],
@@ -772,6 +794,17 @@ class _TicketCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       height: 1.35,
                     ),
+                  ),
+                ),
+              ],
+              if (onViewEventLinks != null) ...[
+                const SizedBox(height: BafSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onViewEventLinks,
+                    icon: const Icon(Icons.link_rounded),
+                    label: const Text('View linked operational events'),
                   ),
                 ),
               ],
