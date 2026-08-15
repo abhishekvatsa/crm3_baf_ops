@@ -1,0 +1,270 @@
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
+import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.dart';
+import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
+import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
+import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dart';
+import 'package:crm3_baf_ops/features/reports/presentation/burner_reliability_screen.dart';
+import 'package:crm3_baf_ops/features/reports/providers/operations_report_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  final startDate = DateTime(2026, 8, 1);
+  final endDate = DateTime(2026, 8, 31);
+  final period = (
+    startInclusive: startDate,
+    endExclusive: DateTime(2026, 9, 1),
+  );
+
+  testWidgets(
+    'approved user sees phone-width burner reliability and microamp evidence',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 820));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final now = DateTime.utc(2026, 8, 16, 8);
+      final furnaceClass = _furnaceClass(now: now);
+      final furnace = _furnace(now: now);
+      final ticket = _burnerTicket(now: now);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream.value(_user(now: now)),
+            ),
+            assetClassesProvider.overrideWith(
+              (ref) => Stream.value([furnaceClass]),
+            ),
+            allAssetInstancesProvider.overrideWith(
+              (ref) => Stream.value([furnace]),
+            ),
+            operationsReportTicketsProvider(
+              period,
+            ).overrideWith((ref) => Stream.value([ticket])),
+          ],
+          child: MaterialApp(
+            home: BurnerReliabilityScreen(
+              initialStartDate: startDate,
+              initialEndDate: endDate,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Burner reliability'), findsOneWidget);
+      expect(find.text('Lockout reports'), findsOneWidget);
+      expect(find.text('Open positions'), findsOneWidget);
+      expect(find.text('Red-hot records'), findsOneWidget);
+      expect(find.text('Latest readings'), findsOneWidget);
+      expect(find.text('FR-02-B01'), findsOneWidget);
+      expect(find.text('3.4 microamp on 16 Aug 2026'), findsOneWidget);
+      expect(find.text('1 red hot'), findsOneWidget);
+      expect(find.text('UV detector cleaning: 1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('unapproved user cannot read burner reliability evidence', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 8, 16);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_user(now: now, approved: false)),
+          ),
+        ],
+        child: MaterialApp(
+          home: BurnerReliabilityScreen(
+            initialStartDate: startDate,
+            initialEndDate: endDate,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Approved report access is required.'), findsOneWidget);
+    expect(find.text('Burner reliability'), findsNothing);
+  });
+
+  testWidgets('ambiguous Furnace mapping withholds report evidence', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 8, 16);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_user(now: now)),
+          ),
+          assetClassesProvider.overrideWith(
+            (ref) => Stream.value([
+              _furnaceClass(now: now),
+              _furnaceClass(now: now, id: 'furnace-class-duplicate'),
+            ]),
+          ),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value([_furnace(now: now)]),
+          ),
+          operationsReportTicketsProvider(period).overrideWith(
+            (ref) => Stream.error(
+              StateError('ticket evidence must not be requested'),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          home: BurnerReliabilityScreen(
+            initialStartDate: startDate,
+            initialEndDate: endDate,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Furnace authority needs reconciliation'), findsOneWidget);
+    expect(
+      find.text('Could not load burner reliability evidence.'),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('malformed classified burner evidence withholds totals', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 8, 16);
+    final corrupt = _burnerTicket(now: now)..metadataJson = '{malformed';
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentAppUserProvider.overrideWith(
+            (ref) => Stream.value(_user(now: now)),
+          ),
+          assetClassesProvider.overrideWith(
+            (ref) => Stream.value([_furnaceClass(now: now)]),
+          ),
+          allAssetInstancesProvider.overrideWith(
+            (ref) => Stream.value([_furnace(now: now)]),
+          ),
+          operationsReportTicketsProvider(
+            period,
+          ).overrideWith((ref) => Stream.value([corrupt])),
+        ],
+        child: MaterialApp(
+          home: BurnerReliabilityScreen(
+            initialStartDate: startDate,
+            initialEndDate: endDate,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Burner evidence needs repair'), findsOneWidget);
+    expect(find.text('Lockout reports'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+AppUser _user({required DateTime now, bool approved = true}) => AppUser(
+  uid: 'operations-1',
+  name: 'Operations One',
+  email: 'operations@example.com',
+  roles: const [AppRole.operations],
+  isApproved: approved,
+  createdAt: now,
+);
+
+AssetClassRecord _furnaceClass({
+  required DateTime now,
+  String id = 'furnace-class',
+}) => AssetClassRecord(
+  id: id,
+  code: 'FURNACE',
+  name: 'Furnace',
+  majorArea: 'BAF shop',
+  legacyAssetTypeKey: AssetType.furnace.name,
+  status: AssetHierarchyStatus.active,
+  version: 1,
+  createdAt: now,
+  createdByUid: 'admin-1',
+  updatedAt: now,
+  updatedByUid: 'admin-1',
+  lastMutationId: 'class-mutation-$id',
+);
+
+AssetInstanceRecord _furnace({required DateTime now}) => AssetInstanceRecord(
+  id: 'furnace-2',
+  assetClassId: 'furnace-class',
+  assetClassCode: 'FURNACE',
+  assetClassName: 'Furnace',
+  assetNumber: 2,
+  name: 'Furnace 2',
+  plantTag: 'FR-02',
+  serviceState: AssetServiceState.inService,
+  ownershipStatus: AssetOwnershipStatus.confirmed,
+  ownerDiscipline: 'Operations',
+  accountableRoleKeys: const ['operations'],
+  status: AssetHierarchyStatus.active,
+  activeComponentCount: 8,
+  version: 1,
+  createdAt: now.subtract(const Duration(days: 500)),
+  updatedAt: now,
+  lastMutationId: 'asset-mutation',
+);
+
+MaintenanceRecord _burnerTicket({required DateTime now}) {
+  final action = buildBurnerComponentAction(
+    ticketId: 'burner-ticket-1',
+    furnaceNumber: 2,
+    burnerPosition: 1,
+    code: BurnerActionCode.uvDetectorCleaning,
+    outcome: BurnerResolutionOutcome.returnedToService,
+    microampReading: 3.4,
+    performedBy: 'I&A One',
+    performedAt: now,
+  );
+  final record =
+      MaintenanceRecord()
+        ..firestoreId = 'burner-ticket-1'
+        ..assetType = AssetType.furnace
+        ..assetNumber = 2
+        ..maintenanceType = MaintenanceType.breakdown
+        ..classification = burnerLockoutClassification
+        ..description = 'Burner 1 locked out with a red-hot block observation.'
+        ..routedTo = RoutedTo.instrumentation
+        ..status = TicketStatus.resolved
+        ..isResolved = true
+        ..component = 'Burner system'
+        ..subsystem = 'Burner system'
+        ..startDate = now.subtract(const Duration(hours: 2))
+        ..endDate = now
+        ..createdAt = now.subtract(const Duration(hours: 2))
+        ..updatedAt = now
+        ..resolutionHistoryJson = '[]'
+        ..burnerLockoutCase = BurnerLockoutCase(
+          positions: const [1],
+          commonMode: false,
+          cycleStage: BurnerCycleStage.firing,
+          flameObservation: BurnerObservation.notSeen,
+          sparkObservation: BurnerObservation.seen,
+          relightAttempts: 1,
+          remainsLockedOut: true,
+          redHotPositions: const [1],
+        ).withResolution(
+          BurnerLockoutResolution(
+            outcomes: {1: BurnerResolutionOutcome.returnedToService},
+            microampReadings: {1: 3.4},
+          ),
+          actions: [action],
+        )
+        ..actions = [action];
+  return record;
+}

@@ -25,6 +25,7 @@ import 'features/admin/presentation/local_diagnostics_screen.dart';
 import 'features/directives/presentation/directives_screen.dart';
 import 'features/maintenance/presentation/closed_tickets_screen.dart';
 import 'features/reports/presentation/fleet_status_screen.dart';
+import 'features/reports/presentation/burner_reliability_screen.dart';
 import 'features/abnormalities/presentation/abnormalities_home_screen.dart';
 import 'features/quality/presentation/quality_home_screen.dart';
 import 'features/quality/data/quality_warning.dart';
@@ -399,6 +400,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onClosedJobs:
                   () => _push(context, const ClosedJobDossiersScreen()),
               onReports: () => _push(context, const FleetStatusScreen()),
+              onBurnerReliability:
+                  () => _push(context, const BurnerReliabilityScreen()),
               onAdmin: () => _push(context, const AdminDataBrowser()),
               onAuditLog: () => _push(context, const RecentAuditLogScreen()),
               onAbnormalities:
@@ -776,6 +779,7 @@ class _MoreScreen extends StatelessWidget {
   final VoidCallback onClosed;
   final VoidCallback onClosedJobs;
   final VoidCallback onReports;
+  final VoidCallback onBurnerReliability;
   final VoidCallback onAdmin;
   final VoidCallback onAuditLog;
   final VoidCallback onAbnormalities;
@@ -794,6 +798,7 @@ class _MoreScreen extends StatelessWidget {
     required this.onClosed,
     required this.onClosedJobs,
     required this.onReports,
+    required this.onBurnerReliability,
     required this.onAdmin,
     required this.onAuditLog,
     required this.onAbnormalities,
@@ -916,6 +921,15 @@ class _MoreScreen extends StatelessWidget {
                       title: 'Reports',
                       subtitle: 'Fleet status and operational summaries',
                       onTap: onReports,
+                    ),
+                  if (canSeeReports)
+                    _MoreDestinationTile(
+                      icon: Icons.local_fire_department_outlined,
+                      color: BafColors.maintenance,
+                      title: 'Burner reliability',
+                      subtitle:
+                          'Lockouts, red-hot evidence, readings and actions',
+                      onTap: onBurnerReliability,
                     ),
                 ],
               ),
