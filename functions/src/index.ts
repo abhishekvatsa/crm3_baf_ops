@@ -112,6 +112,14 @@ import type {
   AssetOperationalConditionMutationResult,
 } from "./assetOperationalConditionMutation";
 import {
+  isBurnerConditionRoundOperation,
+  mutateBurnerConditionRoundWithDb,
+  userCanRecordBurnerConditionRound,
+} from "./burnerConditionRoundMutation";
+import type {
+  BurnerConditionRoundMutationResult,
+} from "./burnerConditionRoundMutation";
+import {
   isOperationalEventOperation,
   mutateOperationalEventWithDb,
   userCanMutateOperationalEvent,
@@ -571,6 +579,7 @@ export const mutateAssetHierarchy = onCall(
         AssetRegistryMutationResult |
         InnerCoverLifecycleMutationResult |
         AssetOperationalConditionMutationResult |
+        BurnerConditionRoundMutationResult |
         OperationalEventMutationResult |
         OperationalEventIssueLinkMutationResult
       >({
@@ -578,6 +587,8 @@ export const mutateAssetHierarchy = onCall(
         authUid: request.auth?.uid ?? null,
         callableName: "mutateAssetHierarchy",
         authorize: (userData) =>
+          isBurnerConditionRoundOperation(request.data?.operation) ?
+            userCanRecordBurnerConditionRound(userData) :
           isOperationalEventIssueLinkOperation(request.data?.operation) ?
             userCanLinkOperationalEventIssue(userData) :
           isOperationalEventOperation(request.data?.operation) ?
@@ -595,6 +606,9 @@ export const mutateAssetHierarchy = onCall(
             data: request.data ?? {},
             timestampFromDate: admin.firestore.Timestamp.fromDate,
           };
+          if (isBurnerConditionRoundOperation(request.data?.operation)) {
+            return mutateBurnerConditionRoundWithDb(args);
+          }
           if (isOperationalEventIssueLinkOperation(request.data?.operation)) {
             return mutateOperationalEventIssueLinkWithDb(args);
           }

@@ -74,6 +74,42 @@ function emptyDocuments() {
   );
 }
 
+function burnerConditionRoundDocuments() {
+  const roundId = '33333333-3333-4333-8333-333333333333';
+  return {
+    burner_condition_rounds: [{
+      id: roundId,
+      data: {
+        schemaVersion: 1,
+        roundId,
+        operation: 'RECORD_BURNER_CONDITION_ROUND',
+        assetClassId: 'furnace-class',
+        assetClassCode: 'FURNACE',
+        assetClassName: 'Furnace',
+        assetInstanceId: 'furnace-201',
+        assetInstanceVersion: 3,
+        assetNumber: 201,
+        assetName: 'Furnace 201',
+        observations: Array.from({length: 8}, (_, index) => ({
+          position: index + 1,
+          flameObservation: index === 7 ? 'notOperating' : 'seen',
+          redHotObserved: index === 2,
+          microampReading: index === 0 ? 3.75 : null,
+          remarks: null,
+        })),
+        redHotPositions: [3],
+        microampPositions: [1],
+        roundNote: 'Shift observation',
+        observedAt: ts,
+        recordedByUid: 'private-actor-id',
+        recordedByName: 'I&A',
+        directiveId: `burner_round_red_hot_${roundId}`,
+        fingerprint: `burnerround1-sha256:${'a'.repeat(64)}`,
+      },
+    }],
+  };
+}
+
 function hierarchyDocuments() {
   const classId = 'class-1';
   const nodeId = 'node-1';
@@ -809,6 +845,34 @@ test('actual Dart readers reconcile quality warning and monitoring records', asy
       'DART_STRICT_RECONCILIATION_PASS',
     );
   }
+});
+
+test('actual Dart reader reconciles immutable burner-condition rounds', async () => {
+  const rounds = burnerConditionRoundDocuments();
+  const documents = {
+    ...emptyDocuments(),
+    users: [{id: 'private-user-id', data: user()}],
+    runtime_contracts: [{id: 'global_pull_v1', data: runtimeContract()}],
+    ...rounds,
+  };
+  const reconciliation = await reconcileA05DocumentsWithDart({
+    documentsByCollection: documents,
+    hmacKey: HMAC_KEY,
+  });
+  assert.equal(reconciliation.length, 1);
+  assert.equal(reconciliation[0].result, 'PASS');
+  assert.equal(JSON.stringify(reconciliation).includes('furnace-201'), false);
+
+  const result = classify({
+    documents,
+    roots: ['users', 'runtime_contracts', ...Object.keys(rounds)],
+    reconciliation,
+  });
+  assert.equal(result.decision, A05_DECISIONS.pass);
+  assert.equal(
+    result.collectionDispositions.burner_condition_rounds,
+    'DART_STRICT_RECONCILIATION_PASS',
+  );
 });
 
 test('quality warning identity mismatch fails closed in the real Dart reader', async () => {

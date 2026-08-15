@@ -928,7 +928,7 @@ class _MoreScreen extends StatelessWidget {
                       color: BafColors.maintenance,
                       title: 'Burner reliability',
                       subtitle:
-                          'Lockouts, red-hot evidence, readings and actions',
+                          'Lockouts, rounds, red-hot evidence and readings',
                       onTap: onBurnerReliability,
                     ),
                 ],

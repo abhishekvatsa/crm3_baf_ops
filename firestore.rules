@@ -3754,6 +3754,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /burner_condition_rounds/{docId} {
+      allow read: if isApprovedUser();
+      allow write: if false;
+    }
+
+    match /burner_condition_round_receipts/{docId} {
+      allow read, write: if false;
+    }
+
     match /inner_cover_profiles/{docId} {
       allow read: if isApprovedUser();
       allow write: if false;

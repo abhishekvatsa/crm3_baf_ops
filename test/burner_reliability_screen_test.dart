@@ -1,6 +1,8 @@
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
 import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.dart';
+import 'package:crm3_baf_ops/features/assets/providers/burner_condition_round_provider.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
@@ -44,6 +46,9 @@ void main() {
             operationsReportTicketsProvider(
               period,
             ).overrideWith((ref) => Stream.value([ticket])),
+            burnerConditionRoundsProvider(
+              period,
+            ).overrideWith((ref) => Stream.value([_round(now: now)])),
           ],
           child: MaterialApp(
             home: BurnerReliabilityScreen(
@@ -57,13 +62,14 @@ void main() {
 
       expect(find.text('Burner reliability'), findsOneWidget);
       expect(find.text('Lockout reports'), findsOneWidget);
+      expect(find.text('Condition rounds'), findsOneWidget);
       expect(find.text('Open positions'), findsOneWidget);
       expect(find.text('Red-hot records'), findsOneWidget);
-      expect(find.text('Latest readings'), findsOneWidget);
       expect(find.text('FR-02-B01'), findsOneWidget);
-      expect(find.text('3.4 microamp on 16 Aug 2026'), findsOneWidget);
+      expect(find.text('3.6 microamp on 16 Aug 2026'), findsOneWidget);
       expect(find.text('1 red hot'), findsOneWidget);
       expect(find.text('UV detector cleaning: 1'), findsOneWidget);
+      expect(find.text('1 rounds'), findsWidgets);
       expect(tester.takeException(), isNull);
     },
   );
@@ -156,6 +162,9 @@ void main() {
           operationsReportTicketsProvider(
             period,
           ).overrideWith((ref) => Stream.value([corrupt])),
+          burnerConditionRoundsProvider(
+            period,
+          ).overrideWith((ref) => Stream.value(const [])),
         ],
         child: MaterialApp(
           home: BurnerReliabilityScreen(
@@ -172,6 +181,32 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
+
+BurnerConditionRound _round({required DateTime now}) => BurnerConditionRound(
+  roundId: 'round-1',
+  assetClassId: 'furnace-class',
+  assetClassCode: 'FURNACE',
+  assetClassName: 'Furnace',
+  assetInstanceId: 'furnace-2',
+  assetInstanceVersion: 1,
+  assetNumber: 2,
+  assetName: 'Furnace 2',
+  observations: List<BurnerConditionObservation>.generate(
+    8,
+    (index) => BurnerConditionObservation(
+      position: index + 1,
+      flameObservation: BurnerRoundFlameObservation.seen,
+      redHotObserved: false,
+      microampReading: index == 0 ? 3.6 : null,
+    ),
+  ),
+  redHotPositions: const [],
+  microampPositions: const [1],
+  observedAt: now.add(const Duration(hours: 1)),
+  recordedByUid: 'operations-1',
+  recordedByName: 'Operations One',
+  fingerprint: 'burnerround1-sha256:${'a' * 64}',
+);
 
 AppUser _user({required DateTime now, bool approved = true}) => AppUser(
   uid: 'operations-1',

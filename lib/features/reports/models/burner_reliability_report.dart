@@ -1,15 +1,18 @@
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/domain/burner_lockout_case.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
+import '../../assets/data/burner_condition_round.dart';
 
 class BurnerReliabilityReport {
   const BurnerReliabilityReport({
     required this.issueCount,
+    required this.roundCount,
     required this.rows,
     required this.actionColumns,
   });
 
   final int issueCount;
+  final int roundCount;
   final List<BurnerReliabilityRow> rows;
   final List<BurnerActionCode> actionColumns;
 
@@ -27,12 +30,15 @@ class BurnerReliabilityRow {
     required this.burnerPosition,
     required this.latest,
     required this.issueCount,
+    required this.roundCount,
     required this.openCount,
     required this.redHotCount,
     required this.returnedCount,
     required this.followUpCount,
     required this.latestMicroampReading,
     required this.latestMicroampAt,
+    required this.latestRoundAt,
+    required this.latestFlameObservation,
     required this.actionCounts,
   });
 
@@ -40,20 +46,24 @@ class BurnerReliabilityRow {
   final int burnerPosition;
   final DateTime latest;
   final int issueCount;
+  final int roundCount;
   final int openCount;
   final int redHotCount;
   final int returnedCount;
   final int followUpCount;
   final double? latestMicroampReading;
   final DateTime? latestMicroampAt;
+  final DateTime? latestRoundAt;
+  final BurnerRoundFlameObservation? latestFlameObservation;
   final Map<BurnerActionCode, int> actionCounts;
 
   String get displayTag => burnerTag(furnaceNumber, burnerPosition);
 }
 
 BurnerReliabilityReport buildBurnerReliabilityReport(
-  List<MaintenanceRecord> tickets,
-) {
+  List<MaintenanceRecord> tickets, [
+  List<BurnerConditionRound> rounds = const <BurnerConditionRound>[],
+]) {
   final rows = <String, _MutableBurnerReliabilityRow>{};
   final actionTotals = <BurnerActionCode, int>{};
   var issueCount = 0;
@@ -143,6 +153,34 @@ BurnerReliabilityReport buildBurnerReliabilityReport(
       );
     }
   }
+  for (final round in rounds) {
+    for (final observation in round.observations) {
+      final key = '${round.assetNumber}:${observation.position}';
+      final row = rows.putIfAbsent(
+        key,
+        () => _MutableBurnerReliabilityRow(
+          furnaceNumber: round.assetNumber,
+          burnerPosition: observation.position,
+          latest: round.observedAt,
+        ),
+      );
+      row.roundCount++;
+      if (observation.redHotObserved) row.redHotCount++;
+      if (round.observedAt.isAfter(row.latest)) row.latest = round.observedAt;
+      if (row.latestRoundAt == null ||
+          !round.observedAt.isBefore(row.latestRoundAt!)) {
+        row.latestRoundAt = round.observedAt;
+        row.latestFlameObservation = observation.flameObservation;
+      }
+      final reading = observation.microampReading;
+      if (reading != null &&
+          (row.latestMicroampAt == null ||
+              round.observedAt.isAfter(row.latestMicroampAt!))) {
+        row.latestMicroampReading = reading;
+        row.latestMicroampAt = round.observedAt;
+      }
+    }
+  }
   final sortedRows =
       rows.values.toList()..sort((left, right) {
         final furnace = left.furnaceNumber.compareTo(right.furnaceNumber);
@@ -157,6 +195,7 @@ BurnerReliabilityReport buildBurnerReliabilityReport(
       });
   return BurnerReliabilityReport(
     issueCount: issueCount,
+    roundCount: rounds.length,
     rows: List<BurnerReliabilityRow>.unmodifiable(
       sortedRows.map((row) => row.freeze()),
     ),
@@ -230,12 +269,15 @@ class _MutableBurnerReliabilityRow {
   final int burnerPosition;
   DateTime latest;
   int issueCount = 0;
+  int roundCount = 0;
   int openCount = 0;
   int redHotCount = 0;
   int returnedCount = 0;
   int followUpCount = 0;
   double? latestMicroampReading;
   DateTime? latestMicroampAt;
+  DateTime? latestRoundAt;
+  BurnerRoundFlameObservation? latestFlameObservation;
   final Map<BurnerActionCode, int> actionCounts = <BurnerActionCode, int>{};
 
   BurnerReliabilityRow freeze() => BurnerReliabilityRow(
@@ -243,12 +285,15 @@ class _MutableBurnerReliabilityRow {
     burnerPosition: burnerPosition,
     latest: latest,
     issueCount: issueCount,
+    roundCount: roundCount,
     openCount: openCount,
     redHotCount: redHotCount,
     returnedCount: returnedCount,
     followUpCount: followUpCount,
     latestMicroampReading: latestMicroampReading,
     latestMicroampAt: latestMicroampAt,
+    latestRoundAt: latestRoundAt,
+    latestFlameObservation: latestFlameObservation,
     actionCounts: Map<BurnerActionCode, int>.unmodifiable(actionCounts),
   );
 }
