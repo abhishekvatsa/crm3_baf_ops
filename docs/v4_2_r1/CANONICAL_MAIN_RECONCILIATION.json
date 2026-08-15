@@ -2361,9 +2361,9 @@
     {
       "path": "lib/home_screen.dart",
       "canonicalSha256": "6360AB08D54707F01C3893CD65928CC86292CC24DF3B760829A4B66F5EDC909A",
-      "candidateSha256": "F5CD86E8082A472253A4816D50A9648AFC3E6C8540A317C3ADFA5288672FF58B",
+      "candidateSha256": "E8F0CA9F21E4BEE40B571818AF68790DD522481651DBFF182BAFCDCBBB224CC5",
       "canonicalBytes": 37389,
-      "candidateBytes": 51605,
+      "candidateBytes": 52256,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

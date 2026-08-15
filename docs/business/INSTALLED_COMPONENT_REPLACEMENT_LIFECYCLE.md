@@ -27,6 +27,11 @@ identity and installs another while preserving one traceable lifecycle.
 - The Admin UI exposes replacement and lifecycle history through the component
   actions menu. History includes legacy direct-identity entries and new
   lineage-aware entries.
+- Every approved operational user can inspect current assets, operating
+  condition, installed and retired component identities, and replacement
+  lineage from the read-only Asset registry screen.
+- Registry mutation controls and immutable hierarchy-audit records remain
+  Admin-only; the operational screen does not broaden either authority.
 
 ## Integrity invariants
 

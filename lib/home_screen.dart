@@ -14,6 +14,7 @@ import 'features/planned_maintenance/presentation/template_publisher_screen.dart
 import 'features/planned_maintenance/presentation/knowledge_governance_screen.dart';
 import 'features/planned_maintenance/presentation/closed_job_dossiers_screen.dart';
 import 'features/assets/presentation/asset_timeline_screen.dart';
+import 'features/assets/presentation/asset_registry_screen.dart';
 import 'features/assets/presentation/asset_condition_board.dart';
 import 'features/assets/presentation/inner_cover_lifecycle_screen.dart';
 import 'features/assets/domain/plant_asset_overview.dart';
@@ -389,6 +390,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         screenBuilder:
             (_) => _MoreScreen(
               appUser: appUser,
+              onAssetRegistry:
+                  () => _push(context, const AssetRegistryScreen()),
               onAssets: () => _push(context, const AssetTimelineScreen()),
               onInnerCovers:
                   () => _push(context, const InnerCoverLifecycleScreen()),
@@ -767,6 +770,7 @@ class _DashboardHome extends StatelessWidget {
 
 class _MoreScreen extends StatelessWidget {
   final AppUser appUser;
+  final VoidCallback onAssetRegistry;
   final VoidCallback onAssets;
   final VoidCallback onInnerCovers;
   final VoidCallback onClosed;
@@ -784,6 +788,7 @@ class _MoreScreen extends StatelessWidget {
 
   const _MoreScreen({
     required this.appUser,
+    required this.onAssetRegistry,
     required this.onAssets,
     required this.onInnerCovers,
     required this.onClosed,
@@ -842,8 +847,17 @@ class _MoreScreen extends StatelessWidget {
                     _MoreDestinationTile(
                       icon: Icons.precision_manufacturing_outlined,
                       color: BafColors.assets,
-                      title: 'Assets',
-                      subtitle: 'Equipment, locations and operational history',
+                      title: 'Asset registry',
+                      subtitle:
+                          'Current equipment, components and lifecycle state',
+                      onTap: onAssetRegistry,
+                    ),
+                  if (canSeeOperationalData)
+                    _MoreDestinationTile(
+                      icon: Icons.timeline_rounded,
+                      color: BafColors.audit,
+                      title: 'Asset timeline',
+                      subtitle: 'Maintenance and planned-work history',
                       onTap: onAssets,
                     ),
                   if (canSeeOperationalData)
