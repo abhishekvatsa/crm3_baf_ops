@@ -70,6 +70,7 @@ class PlantOverviewPanel extends StatelessWidget {
         color: BafColors.card,
         border: Border.all(color: BafColors.border),
         borderRadius: BorderRadius.circular(BafRadius.medium),
+        boxShadow: BafShadows.subtle,
       ),
       child: overview.when(
         loading:
@@ -107,14 +108,26 @@ class PlantOverviewPanel extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
-                          Icons.precision_manufacturing_outlined,
-                          color: BafColors.assets,
+                        Container(
+                          width: 36,
+                          height: 36,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: BafColors.assets.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(
+                              BafRadius.small,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.precision_manufacturing_outlined,
+                            color: BafColors.assets,
+                            size: 22,
+                          ),
                         ),
-                        SizedBox(width: BafSpacing.sm),
-                        Expanded(
+                        const SizedBox(width: BafSpacing.sm),
+                        const Expanded(
                           child: Text(
                             'Plant condition',
                             style: TextStyle(
@@ -124,7 +137,19 @@ class PlantOverviewPanel extends StatelessWidget {
                             ),
                           ),
                         ),
-                        Icon(Icons.chevron_right_rounded),
+                        Text(
+                          '${value.available}/${value.total}',
+                          style: const TextStyle(
+                            color: BafColors.assets,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(width: BafSpacing.xs),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: BafColors.textSecondary,
+                        ),
                       ],
                     ),
                     const SizedBox(height: BafSpacing.md),
@@ -134,32 +159,45 @@ class PlantOverviewPanel extends StatelessWidget {
                         style: TextStyle(color: BafColors.textSecondary),
                       )
                     else ...[
-                      Wrap(
-                        spacing: BafSpacing.sm,
-                        runSpacing: BafSpacing.sm,
+                      Row(
                         children: [
-                          StatusBadge(
-                            label: '${value.available} available',
-                            color: BafColors.success,
+                          Expanded(
+                            child: _PlantMetric(
+                              value: value.available,
+                              label: 'Available',
+                              color: BafColors.success,
+                            ),
                           ),
-                          StatusBadge(
-                            label: '${value.underMaintenance} maintenance',
-                            color: BafColors.maintenance,
+                          const SizedBox(width: BafSpacing.xs),
+                          Expanded(
+                            child: _PlantMetric(
+                              value: value.underMaintenance,
+                              label: 'Maintenance',
+                              color: BafColors.maintenance,
+                            ),
                           ),
-                          StatusBadge(
-                            label: '${value.down} down',
-                            color: BafColors.danger,
+                          const SizedBox(width: BafSpacing.xs),
+                          Expanded(
+                            child: _PlantMetric(
+                              value: value.down,
+                              label: 'Down',
+                              color: BafColors.danger,
+                            ),
                           ),
-                          StatusBadge(
-                            label: '${value.unfit} unfit',
-                            color: BafColors.warning,
+                          const SizedBox(width: BafSpacing.xs),
+                          Expanded(
+                            child: _PlantMetric(
+                              value: value.unfit,
+                              label: 'Unfit',
+                              color: BafColors.warning,
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: BafSpacing.md),
+                      const SizedBox(height: BafSpacing.sm),
                       ...value.classes
                           .where((summary) => summary.total > 0)
-                          .take(4)
+                          .take(2)
                           .map(
                             (summary) => Padding(
                               padding: const EdgeInsets.only(
@@ -184,6 +222,48 @@ class PlantOverviewPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PlantMetric extends StatelessWidget {
+  final int value;
+  final String label;
+  final Color color;
+
+  const _PlantMetric({
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minHeight: 54),
+    padding: const EdgeInsets.symmetric(
+      horizontal: BafSpacing.xs,
+      vertical: BafSpacing.sm,
+    ),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(BafRadius.small),
+      border: Border.all(color: color.withValues(alpha: 0.18)),
+    ),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          '$value ${label.toLowerCase()}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            height: 1.15,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ConditionBoardBody extends StatelessWidget {

@@ -267,22 +267,51 @@ class _PlannedWorkSelector extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Planned Maintenance',
-            style: TextStyle(
-              color: BafColors.textPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Jobs, workflow obligations and governed planning.',
-            style: TextStyle(
-              color: BafColors.textSecondary,
-              fontSize: 12,
-              height: 1.25,
-            ),
+          const Row(
+            children: [
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color(0xFFE4F0F4),
+                    borderRadius: BorderRadius.all(
+                      Radius.circular(BafRadius.small),
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.work_outline_rounded,
+                    color: BafColors.planned,
+                    size: 24,
+                  ),
+                ),
+              ),
+              SizedBox(width: BafSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Planned Maintenance',
+                      style: TextStyle(
+                        color: BafColors.textPrimary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Jobs, workflow obligations and governed planning.',
+                      style: TextStyle(
+                        color: BafColors.textSecondary,
+                        fontSize: 12,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: BafSpacing.md),
           SizedBox(

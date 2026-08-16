@@ -5,26 +5,31 @@ import 'package:flutter/material.dart';
 class BafColors {
   BafColors._();
 
-  static const navy = Color(0xFF0B1F3A);
-  static const navySoft = Color(0xFF1B3A6B);
-  static const background = Color(0xFFF6F8FB);
+  static const navy = Color(0xFF102A36);
+  static const navySoft = Color(0xFF1F5366);
+  static const steel = Color(0xFF466873);
+  static const background = Color(0xFFF1F4F3);
   static const card = Colors.white;
-  static const border = Color(0xFFE4EAF2);
-  static const textPrimary = Color(0xFF0B1F3A);
-  static const textSecondary = Color(0xFF52667A);
+  static const surfaceMuted = Color(0xFFE8EEEC);
+  static const surfaceStrong = Color(0xFFDDE6E3);
+  static const border = Color(0xFFD5DEDB);
+  static const textPrimary = Color(0xFF132A33);
+  static const textSecondary = Color(0xFF53676D);
 
-  static const maintenance = Color(0xFFB54708);
-  static const planned = Color(0xFF1D74B8);
-  static const directives = Color(0xFFD62828);
-  static const audit = Color(0xFF5B3FA3);
-  static const charges = Color(0xFF006B6D);
-  static const assets = Color(0xFF1B4F72);
-  static const admin = Color(0xFF374151);
-  static const sync = Color(0xFF2E7D32);
+  static const maintenance = Color(0xFFB94718);
+  static const planned = Color(0xFF176B87);
+  static const directives = Color(0xFFB8323F);
+  static const audit = Color(0xFF6A5188);
+  static const charges = Color(0xFF087A73);
+  static const assets = Color(0xFF3A6D52);
+  static const admin = Color(0xFF48565D);
+  static const sync = Color(0xFF2F7D4A);
+  static const copper = Color(0xFFA85B2A);
+  static const instrument = Color(0xFF5C5F9D);
 
-  static const success = Color(0xFF2E7D32);
-  static const warning = Color(0xFF8A4B00);
-  static const danger = Color(0xFFD62828);
+  static const success = Color(0xFF2F7D4A);
+  static const warning = Color(0xFF95580C);
+  static const danger = Color(0xFFC4343D);
 }
 
 class BafRadius {
@@ -51,17 +56,17 @@ class BafShadows {
 
   static List<BoxShadow> soft = [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.05),
-      blurRadius: 10,
-      offset: const Offset(0, 4),
+      color: BafColors.navy.withValues(alpha: 0.08),
+      blurRadius: 16,
+      offset: const Offset(0, 6),
     ),
   ];
 
   static List<BoxShadow> subtle = [
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.035),
-      blurRadius: 5,
-      offset: const Offset(0, 2),
+      color: BafColors.navy.withValues(alpha: 0.055),
+      blurRadius: 8,
+      offset: const Offset(0, 3),
     ),
   ];
 }

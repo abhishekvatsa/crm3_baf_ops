@@ -53,6 +53,9 @@ void main() {
     expect(home, contains('appUser.canViewClosedMaintenanceTickets'));
     expect(home, contains('operationalEventsAsync.value == null'));
     expect(home, contains('qualityWarningsAsync.value == null'));
+    expect(home, contains('operationalEventsUnavailable'));
+    expect(home, contains('qualityWarningsUnavailable'));
+    expect(home, contains("? 'Unavailable'"));
     expect(home, contains("'Live attention data unavailable'"));
     expect(home, contains("'Incomplete'"));
     expect(home, contains('ref.invalidate(operationalEventsProvider)'));

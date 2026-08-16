@@ -1093,9 +1093,9 @@
     {
       "path": "lib/core/theme/baf_design_system.dart",
       "canonicalSha256": "1F218A58E91E8F2D8312EE6C6D914E387C7ECF042D2F84296D71C4A0752C28B6",
-      "candidateSha256": "B4B4B22608080438B568829BC74C030F24E22D777BCE5A2D278B859DD1C1576E",
+      "candidateSha256": "915C95B35EC99E8DA21F983955E507FFE66C027A8D1E2BD216B8FE546D479828",
       "canonicalBytes": 3457,
-      "candidateBytes": 3455,
+      "candidateBytes": 3690,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1117,9 +1117,9 @@
     {
       "path": "lib/core/widgets/dashboard/dashboard_widgets.dart",
       "canonicalSha256": "C46A39297823916712AEEB9715FA2D11E8C05B2D02C5CB01E4DEB005A3D58594",
-      "candidateSha256": "1507B5E3444887149D6B52C8FC388C95ADB1D10A28D3096D25233A022881D35A",
+      "candidateSha256": "22586E788277A96275D55BCC3A2FE30C268C6584A60B6046B8FA8771C00ADA39",
       "canonicalBytes": 20995,
-      "candidateBytes": 20851,
+      "candidateBytes": 22155,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1485,9 +1485,9 @@
     {
       "path": "lib/features/directives/presentation/directives_screen.dart",
       "canonicalSha256": "1DE00DE31466A4C5AA1E4BE033B2E321CB08D8668D208D9F8CA9F26CFCF778E2",
-      "candidateSha256": "159B06AB51690C10C4A76F253326F5FF5150125D827F92BBBF71F8D96D311929",
+      "candidateSha256": "38659BD644612341C155E701C63DEEAF708DE73C48D9DACA702C554BCE935CDC",
       "canonicalBytes": 28531,
-      "candidateBytes": 29551,
+      "candidateBytes": 30512,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1541,9 +1541,9 @@
     {
       "path": "lib/features/maintenance/presentation/ticket_screen.dart",
       "canonicalSha256": "A9B5800AA0FACFBB0D4C20C762A092982E3A2B0F40F31BAA0BFE703910BB7091",
-      "candidateSha256": "71FF03D255B65ADE0266584E6D2003D95CC7E96847179F7991D378997525A2D1",
+      "candidateSha256": "9A47CF3770E760305C7250032E5C18AE5AD71AA989054E1DAF33DC4FC4BA7EA1",
       "canonicalBytes": 20981,
-      "candidateBytes": 35718,
+      "candidateBytes": 36646,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2157,9 +2157,9 @@
     {
       "path": "lib/features/planned_maintenance/presentation/templates_screen.dart",
       "canonicalSha256": "34C0F24030389E4AEBE73FE4344DAEA4D017BC7A87EB4A8A05BD94CF628E4676",
-      "candidateSha256": "0EE8D56F39E34EBC3738089199E9BA46F9441248391348E7F8E656AD0268850F",
+      "candidateSha256": "E4EB3EBE8FE975F5D7FDB813643A4489EC4E9DC55C68E872C9D5FA98131788EB",
       "canonicalBytes": 22566,
-      "candidateBytes": 24979,
+      "candidateBytes": 26027,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2361,17 +2361,17 @@
     {
       "path": "lib/home_screen.dart",
       "canonicalSha256": "6360AB08D54707F01C3893CD65928CC86292CC24DF3B760829A4B66F5EDC909A",
-      "candidateSha256": "5D0776073B4C2EC9A34ACDCB746F565716599DCD866463CC0C4201FC7A8672F4",
+      "candidateSha256": "06682D05146CB5A08E1668DC2676D4FC00EF4FBB3BD2FBA77227F1CF2B1E5C30",
       "canonicalBytes": 37389,
-      "candidateBytes": 52946,
+      "candidateBytes": 63274,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "lib/main.dart",
       "canonicalSha256": "6DE20D01D9D00FAA761B6231101DD873CDB9A442194FAB2691E7B34809B87A97",
-      "candidateSha256": "3603946569F82202E3AC4B926A4CE29333A597BA383C7B956147941796701B81",
+      "candidateSha256": "D7968715F57594B4BBC488536038BF5006F816CA381BAE81ADF23236D447B880",
       "canonicalBytes": 41433,
-      "candidateBytes": 50564,
+      "candidateBytes": 55764,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
