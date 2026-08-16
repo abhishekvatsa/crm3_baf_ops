@@ -857,6 +857,26 @@ class InstalledComponentRecord {
   }
 }
 
+enum ComponentReplacementEvidenceSource { maintenanceIssue, plannedJob }
+
+class ComponentReplacementEvidenceReference {
+  final ComponentReplacementEvidenceSource sourceType;
+  final String sourceId;
+  final int expectedVersion;
+
+  const ComponentReplacementEvidenceReference({
+    required this.sourceType,
+    required this.sourceId,
+    required this.expectedVersion,
+  });
+
+  Map<String, dynamic> toMap() => <String, dynamic>{
+    'sourceType': sourceType.name,
+    'sourceId': sourceId,
+    'expectedVersion': expectedVersion,
+  };
+}
+
 class InstalledComponentLifecycleAudit {
   final String id;
   final String entityId;
@@ -869,6 +889,10 @@ class InstalledComponentLifecycleAudit {
   final String performedByName;
   final DateTime performedAt;
   final String requestId;
+  final ComponentReplacementEvidenceSource? acceptedEvidenceType;
+  final String? acceptedEvidenceId;
+  final int? acceptedEvidenceVersion;
+  final String? acceptedEvidenceSnapshotJson;
 
   const InstalledComponentLifecycleAudit({
     required this.id,
@@ -882,6 +906,10 @@ class InstalledComponentLifecycleAudit {
     required this.performedByName,
     required this.performedAt,
     required this.requestId,
+    this.acceptedEvidenceType,
+    this.acceptedEvidenceId,
+    this.acceptedEvidenceVersion,
+    this.acceptedEvidenceSnapshotJson,
   });
 
   factory InstalledComponentLifecycleAudit.fromMap(
@@ -913,6 +941,86 @@ class InstalledComponentLifecycleAudit {
         source: source,
         detail: 'must identify an installed component',
       );
+    }
+    final acceptedEvidenceType = readOptionalPersistedEnum(
+      ComponentReplacementEvidenceSource.values,
+      map['acceptedEvidenceType'],
+      field: 'acceptedEvidenceType',
+      source: source,
+    );
+    final acceptedEvidenceId = readOptionalPersistedString(
+      map['acceptedEvidenceId'],
+      field: 'acceptedEvidenceId',
+      source: source,
+    );
+    final acceptedEvidenceVersion = readOptionalPersistedInt(
+      map['acceptedEvidenceVersion'],
+      field: 'acceptedEvidenceVersion',
+      source: source,
+      minimum: 1,
+    );
+    final acceptedEvidenceSnapshotJson = readOptionalPersistedString(
+      map['acceptedEvidenceSnapshotJson'],
+      field: 'acceptedEvidenceSnapshotJson',
+      source: source,
+    );
+    final evidenceValues = <Object?>[
+      acceptedEvidenceType,
+      acceptedEvidenceId,
+      acceptedEvidenceVersion,
+      acceptedEvidenceSnapshotJson,
+    ];
+    if (evidenceValues.any((value) => value != null) &&
+        evidenceValues.any((value) => value == null)) {
+      throw PersistedDataFormatException(
+        field: 'acceptedEvidenceId',
+        source: source,
+        detail: 'replacement evidence fields must be complete when present',
+      );
+    }
+    if (acceptedEvidenceSnapshotJson != null) {
+      final snapshot = readRequiredJsonObject(
+        acceptedEvidenceSnapshotJson,
+        field: 'acceptedEvidenceSnapshotJson',
+        source: source,
+      );
+      if (readRequiredPersistedString(
+            snapshot['sourceType'],
+            field: 'acceptedEvidenceSnapshotJson.sourceType',
+            source: source,
+          ) !=
+          acceptedEvidenceType!.name) {
+        throw PersistedDataFormatException(
+          field: 'acceptedEvidenceSnapshotJson.sourceType',
+          source: source,
+          detail: 'must match acceptedEvidenceType',
+        );
+      }
+      if (readRequiredPersistedString(
+            snapshot['sourceId'],
+            field: 'acceptedEvidenceSnapshotJson.sourceId',
+            source: source,
+          ) !=
+          acceptedEvidenceId) {
+        throw PersistedDataFormatException(
+          field: 'acceptedEvidenceSnapshotJson.sourceId',
+          source: source,
+          detail: 'must match acceptedEvidenceId',
+        );
+      }
+      if (readRequiredPersistedInt(
+            snapshot['sourceVersion'],
+            field: 'acceptedEvidenceSnapshotJson.sourceVersion',
+            source: source,
+            minimum: 1,
+          ) !=
+          acceptedEvidenceVersion) {
+        throw PersistedDataFormatException(
+          field: 'acceptedEvidenceSnapshotJson.sourceVersion',
+          source: source,
+          detail: 'must match acceptedEvidenceVersion',
+        );
+      }
     }
     return InstalledComponentLifecycleAudit(
       id: id,
@@ -966,6 +1074,10 @@ class InstalledComponentLifecycleAudit {
         field: 'requestId',
         source: source,
       ),
+      acceptedEvidenceType: acceptedEvidenceType,
+      acceptedEvidenceId: acceptedEvidenceId,
+      acceptedEvidenceVersion: acceptedEvidenceVersion,
+      acceptedEvidenceSnapshotJson: acceptedEvidenceSnapshotJson,
     );
   }
 }

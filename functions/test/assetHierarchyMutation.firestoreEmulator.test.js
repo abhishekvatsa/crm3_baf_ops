@@ -661,6 +661,214 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
     });
   });
 
+  test('component replacement snapshots exact resolved-issue evidence and replays it', async () => {
+    await invoke(classRequest());
+    await invoke(createNodeRequest({
+      requestId: IDS.firstNodeRequest,
+      nodeId: IDS.firstNode,
+      name: 'Furnace pressure transmitter',
+      tag: null,
+      allowTagTransfer: false,
+    }));
+    await invokeRegistry(assetRequest({
+      requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      name: 'Furnace 1',
+    }));
+    const create = componentRequest({
+      requestId: IDS.firstComponentRequest,
+      assetInstanceId: IDS.firstAsset,
+      componentInstanceId: IDS.firstComponent,
+      tag: 'PT-101',
+      allowTagTransfer: false,
+    });
+    await invokeRegistry(create);
+    await db.collection('maintenance_records').doc('resolved-issue-1').set({
+      version: 4,
+      isDeleted: false,
+      isResolved: true,
+      status: 'resolved',
+      description: 'Pressure transmitter failed calibration repeatedly.',
+      endDate: admin.firestore.Timestamp.fromDate(
+        new Date('2026-08-13T11:30:00.000Z'),
+      ),
+      closedByUid: 'admin-1',
+      closedByName: 'Admin One',
+      assetHierarchyRefJson: JSON.stringify({
+        schemaVersion: 2,
+        scope: 'installedComponent',
+        assetClassId: IDS.classId,
+        assetInstanceId: IDS.firstAsset,
+        assetNumber: 1,
+        componentInstanceId: IDS.firstComponent,
+      }),
+    });
+    const replacement = {
+      requestId: IDS.replacementRequest,
+      operation: 'REPLACE_COMPONENT_INSTANCE',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      componentInstanceId: IDS.firstComponent,
+      replacementComponentInstanceId: IDS.replacementComponent,
+      expectedVersion: 1,
+      expectedAssetInstanceVersion: 2,
+      reason: 'Replace the failed transmitter against resolved issue evidence.',
+      allowTagTransfer: false,
+      expectedTagOwnerComponentId: null,
+      evidenceReference: {
+        sourceType: 'maintenanceIssue',
+        sourceId: 'resolved-issue-1',
+        expectedVersion: 4,
+      },
+      componentDraft: {
+        ...create.componentDraft,
+        serialNumber: 'PT-NEW-002',
+        installedOn: '2026-08-13T11:45:00.000Z',
+      },
+    };
+
+    const first = await invokeRegistry(replacement);
+    expect(await invokeRegistry(replacement)).toEqual({
+      ...first,
+      idempotentReplay: true,
+    });
+    const audit = (
+      await db.collection('asset_hierarchy_audits')
+        .doc(`asset_registry_${IDS.replacementRequest}`).get()
+    ).data();
+    const sourceAudit = (
+      await db.collection('asset_hierarchy_audits')
+        .doc(`asset_registry_${IDS.replacementRequest}_replacement_source`).get()
+    ).data();
+    const receipt = (
+      await db.collection('asset_hierarchy_mutation_receipts')
+        .doc(IDS.replacementRequest).get()
+    ).data();
+    for (const record of [audit, sourceAudit, receipt]) {
+      expect(record).toMatchObject({
+        acceptedEvidenceType: 'maintenanceIssue',
+        acceptedEvidenceId: 'resolved-issue-1',
+        acceptedEvidenceVersion: 4,
+      });
+      expect(JSON.parse(record.acceptedEvidenceSnapshotJson)).toMatchObject({
+        sourceType: 'maintenanceIssue',
+        sourceId: 'resolved-issue-1',
+        sourceVersion: 4,
+        assetClassId: IDS.classId,
+        assetInstanceId: IDS.firstAsset,
+        assetNumber: 1,
+        componentInstanceId: IDS.firstComponent,
+        completedByUid: 'admin-1',
+      });
+    }
+    expect(receipt.fingerprint).toMatch(/^assetreg3-sha256:/);
+    await db.collection('asset_hierarchy_audits')
+      .doc(`asset_registry_${IDS.replacementRequest}`)
+      .update({acceptedEvidenceSnapshotJson: '{"sourceId":"tampered"}'});
+    await expect(invokeRegistry(replacement)).rejects.toMatchObject({
+      code: 'data-loss',
+      details: expect.objectContaining({
+        reasonCode: 'asset-registry-replay-evidence-drift',
+      }),
+    });
+  });
+
+  test('component replacement rejects stale or cross-asset planned-work evidence', async () => {
+    await invoke(classRequest());
+    await invoke(createNodeRequest({
+      requestId: IDS.firstNodeRequest,
+      nodeId: IDS.firstNode,
+      name: 'Furnace pressure transmitter',
+      tag: null,
+      allowTagTransfer: false,
+    }));
+    await invokeRegistry(assetRequest({
+      requestId: IDS.firstAssetRequest,
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      name: 'Furnace 1',
+    }));
+    const create = componentRequest({
+      requestId: IDS.firstComponentRequest,
+      assetInstanceId: IDS.firstAsset,
+      componentInstanceId: IDS.firstComponent,
+      tag: 'PT-101',
+      allowTagTransfer: false,
+    });
+    await invokeRegistry(create);
+    await db.collection('job_executions').doc('completed-job-1').set({
+      version: 3,
+      isDeleted: false,
+      isCompleted: true,
+      isCancelled: false,
+      templateName: 'Pressure transmitter replacement',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.secondAsset,
+      assetNumber: 2,
+      completedAt: admin.firestore.Timestamp.fromDate(
+        new Date('2026-08-13T11:30:00.000Z'),
+      ),
+      completedByUid: 'admin-1',
+      completedByName: 'Admin One',
+      metadataJson: JSON.stringify({
+        assignmentAssetIdentity: {
+          assetClassId: IDS.classId,
+          assetInstanceId: IDS.secondAsset,
+          assetNumber: 2,
+        },
+      }),
+    });
+    const replacement = {
+      requestId: IDS.replacementRequest,
+      operation: 'REPLACE_COMPONENT_INSTANCE',
+      assetClassId: IDS.classId,
+      assetInstanceId: IDS.firstAsset,
+      componentInstanceId: IDS.firstComponent,
+      replacementComponentInstanceId: IDS.replacementComponent,
+      expectedVersion: 1,
+      expectedAssetInstanceVersion: 2,
+      reason: 'Attempt replacement against unrelated planned-work evidence.',
+      allowTagTransfer: false,
+      expectedTagOwnerComponentId: null,
+      evidenceReference: {
+        sourceType: 'plannedJob',
+        sourceId: 'completed-job-1',
+        expectedVersion: 3,
+      },
+      componentDraft: {
+        ...create.componentDraft,
+        installedOn: '2026-08-13T11:45:00.000Z',
+      },
+    };
+    await expect(invokeRegistry(replacement)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'asset-component-replacement-evidence-asset-mismatch',
+      }),
+    });
+    await db.collection('job_executions').doc('completed-job-1').update({
+      assetInstanceId: IDS.firstAsset,
+      assetNumber: 1,
+      metadataJson: JSON.stringify({
+        assignmentAssetIdentity: {
+          assetClassId: IDS.classId,
+          assetInstanceId: IDS.firstAsset,
+          assetNumber: 1,
+        },
+      }),
+    });
+    await expect(invokeRegistry({
+      ...replacement,
+      evidenceReference: {...replacement.evidenceReference, expectedVersion: 2},
+    })).rejects.toMatchObject({
+      code: 'aborted',
+      details: expect.objectContaining({
+        reasonCode: 'asset-component-replacement-evidence-version-mismatch',
+      }),
+    });
+  });
+
   test('component replacement rejects a different definition and cross-asset mutation', async () => {
     await invoke(classRequest());
     await invoke(createNodeRequest({

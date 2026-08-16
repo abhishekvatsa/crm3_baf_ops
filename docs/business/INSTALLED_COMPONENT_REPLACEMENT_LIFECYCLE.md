@@ -24,6 +24,12 @@ identity and installs another while preserving one traceable lifecycle.
 - A superseded identity is terminal history and cannot be restored.
 - Exact request replay returns the original result only while the receipt,
   incoming identity, outgoing identity, and both audit records still agree.
+- An Admin may optionally bind a resolved maintenance issue or completed,
+  non-cancelled planned job as replacement evidence. The server revalidates its
+  lifecycle, version, exact physical-asset identity and, when present, outgoing
+  installed-component identity in the replacement transaction.
+- Accepted work evidence is frozen into both lifecycle audits and the request
+  receipt; later source-record edits cannot rewrite the accepted snapshot.
 - The Admin UI exposes replacement and lifecycle history through the component
   actions menu. History includes legacy direct-identity entries and new
   lineage-aware entries.
@@ -53,14 +59,16 @@ identity and installs another while preserving one traceable lifecycle.
 The operation is reusable for furnace burner blocks, instruments, valves,
 relays, motors, cables, base components, forced-cooler components, and other
 installed physical items represented in the governed hierarchy. Maintenance
-issues and planned-work modules may record that replacement work was performed;
-the Admin registry action remains the authority that confirms the physical
-identity change.
+issues and planned-work modules may record that replacement work was performed.
+Eligible completed work is presented to the Admin during replacement, while the
+registry action remains the authority that confirms the physical identity
+change. Manual Admin confirmation remains available when no suitable work
+record exists.
 
 ## Deliberate boundary
 
-This tranche does not let a maintenance closure mutate the asset registry
-implicitly. A future approval bridge may present completed issue or planned-job
-evidence to an Admin and carry the accepted evidence identifier into the
-replacement audit. Until that bridge exists, the mandatory reason and immutable
-before/after evidence are the governed confirmation surface.
+Maintenance closure never mutates the asset registry implicitly. The approval
+bridge is evidence-assisted, not evidence-driven: an Admin must still review and
+commit the replacement, the exact incoming physical identity, installation time
+and reason. Legacy or definition-only work without exact governed physical-asset
+identity is deliberately ineligible.

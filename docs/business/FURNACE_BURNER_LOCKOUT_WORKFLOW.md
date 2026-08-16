@@ -106,9 +106,10 @@ does not invent OEM tags.
 - Physical burner-block replacement and component revisioning now use the
   reusable atomic installed-component lifecycle: preserve the removed identity,
   install the new identity, retain one lineage, transfer tag custody, and append
-  immutable audits. Direct issue/job evidence approval remains a following
-  bridge; maintenance evidence and registry confirmation are not silently
-  conflated.
+  immutable audits. A resolved issue or completed planned job can now be
+  presented as server-validated evidence to the confirming Admin and frozen into
+  both lifecycle audits. Maintenance evidence and registry confirmation remain
+  separate authorities and are never silently conflated.
 - Automatic red-hot escalation thresholds, timers, and severity changes remain
   governed plant configuration. No threshold has been inferred from the manual.
 - Microamp readings are observations, not automatic pass/fail decisions. The
