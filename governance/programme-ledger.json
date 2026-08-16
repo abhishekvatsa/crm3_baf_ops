@@ -16,6 +16,7 @@
     ]
   },
   "programmeDecision": {
+    "decisionScope": "SEALED_BUILD11_STAGE2D_PROGRAMME",
     "controlledEngineering": "GO",
     "technicalReaudit": "CURRENT_TECHNICAL_AUTHORITY",
     "internalControlledPilot": "GO",
@@ -25,7 +26,19 @@
     "broadFeatureExpansion": "HOLD",
     "section71Implementation": "HOLD_CONCEPT_PRESERVED",
     "unrestrictedDistribution": "NO_GO",
-    "nextMutation": "NONE_ALL_PROGRAMME_GATES_CLOSED"
+    "nextMutation": "NONE_ALL_PROGRAMME_GATES_CLOSED",
+    "successorEngineeringDecisionRef": "governance/successor-engineering-rearm-2026-08-16.json"
+  },
+  "successorEngineeringDecision": {
+    "status": "RE_ARMED_SOURCE_AND_CI",
+    "effectiveDate": "2026-08-16",
+    "authorityRecord": "governance/successor-engineering-rearm-2026-08-16.json",
+    "admittedBaselineCommit": "8b796132adb6fa60dcb2b2b533a1d4d3b6cf2724",
+    "admittedBaselineTree": "e18780ac0d37ab01d45f5ce4da2010cc5d51d2ac",
+    "nextAction": "AUDIT_REMEDIATION_THEN_BUSINESS_COMPLETION_AND_UI_UX_REDESIGN",
+    "releaseAuthority": "NONE_SOURCE_AND_CI_ONLY",
+    "sealedBuild11AuthorityChanged": false,
+    "unrestrictedDistribution": "NO_GO"
   },
   "statusVocabulary": [
     "OPEN",

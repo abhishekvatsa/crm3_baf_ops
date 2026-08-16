@@ -2607,6 +2607,7 @@ describe("job_modules", () => {
     await seedUser("seniorMech", ["seniorMechanical"]);
     await seedUser("supervisor1", ["shiftSupervisor"]);
     await seedUser("ops1", ["operations"]);
+    await seedUser("red1", ["refractory"]);
     await seedDoc("job_executions/modExec", {
       firestoreId: "modExec",
       isCompleted: false,
@@ -2653,7 +2654,7 @@ describe("job_modules", () => {
     );
   });
 
-  test("operations cannot submit planned maintenance module", async () => {
+  test("operations cannot submit a mechanical planned maintenance module", async () => {
     await seedDoc("job_modules/mod2", {
       ...moduleBase,
       firestoreId: "mod2",
@@ -2666,6 +2667,44 @@ describe("job_modules", () => {
         status: "submitted",
         isOpenForWork: false,
         submittedByUid: "ops1",
+        submittedAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        version: 2,
+      })
+    );
+  });
+
+  test("operations can submit an operations planned maintenance module", async () => {
+    await seedDoc("job_modules/modOps", {
+      ...moduleBase,
+      firestoreId: "modOps",
+      discipline: "operations",
+    });
+
+    await assertSucceeds(
+      updateDoc(doc(dbAs("ops1"), "job_modules/modOps"), {
+        status: "submitted",
+        isOpenForWork: false,
+        submittedByUid: "ops1",
+        submittedAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        version: 2,
+      })
+    );
+  });
+
+  test("refractory can submit a refractory planned maintenance module", async () => {
+    await seedDoc("job_modules/modRed", {
+      ...moduleBase,
+      firestoreId: "modRed",
+      discipline: "refractory",
+    });
+
+    await assertSucceeds(
+      updateDoc(doc(dbAs("red1"), "job_modules/modRed"), {
+        status: "submitted",
+        isOpenForWork: false,
+        submittedByUid: "red1",
         submittedAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         version: 2,

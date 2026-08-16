@@ -30,6 +30,23 @@ void main() {
     },
   );
 
+  test('field roles can work and submit only their own module disciplines', () {
+    final operations = _actor(AppRole.operations);
+    final refractory = _actor(AppRole.refractory);
+
+    expect(operations.canSaveJobModuleWorkFor('operations'), isTrue);
+    expect(operations.canSubmitJobModule('operations'), isTrue);
+    expect(operations.canSaveJobModuleWorkFor('mechanical'), isFalse);
+    expect(operations.canSubmitJobModule('mechanical'), isFalse);
+    expect(operations.canAcceptJobModule, isFalse);
+
+    expect(refractory.canSaveJobModuleWorkFor('refractory'), isTrue);
+    expect(refractory.canSubmitJobModule('refractory'), isTrue);
+    expect(refractory.canSaveJobModuleWorkFor('electrical'), isFalse);
+    expect(refractory.canSubmitJobModule('electrical'), isFalse);
+    expect(refractory.canReopenJobModule, isFalse);
+  });
+
   test(
     'ticket acknowledgement follows receiving route and supervisor scope',
     () {

@@ -2648,6 +2648,9 @@ check(
 
 isar_migration = text("lib/core/services/isar_schema_migration.dart")
 isar_guard = text("lib/core/services/isar_schema_guard_io.dart")
+identity_repair = text(
+    "lib/core/services/governed_asset_identity_local_repair.dart"
+)
 startup = text("lib/main.dart")
 workflow_panel = text("lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart")
 compliance_dialog = text("lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart")
@@ -2680,14 +2683,21 @@ check(
     and "existing-store-unmarked" in isar_migration
     and "legacy-marker-incomplete" in isar_migration
     and "_validateMarkerSource(" in isar_migration
+    and "fromVersion < 5" in identity_repair
+    and "toVersion >= 5" in identity_repair
+    and "toVersion == 5" not in identity_repair
+    and "repairGovernedAssetIdentityForSchemaUpgrade(" in startup
+    and "repairLegacyGovernedAssetIdentityProjections(" in identity_repair
+    and "resetGovernedAssetIdentityProjectionPullCursors()" in identity_repair
     and "commitAfterSuccessfulOpen()" in startup
     and startup.index("ensureIsarSchemaBeforeOpen(")
     < startup.index("Isar.open(")
     < startup.index("repairPlannedJobLocalLinks(")
     < startup.index("repairLegacyOperationalAssuranceRequests(")
-    < startup.index("repairLegacyGovernedAssetIdentityProjections(")
-    < startup.index("resetGovernedAssetIdentityProjectionPullCursors()")
+    < startup.index("repairGovernedAssetIdentityForSchemaUpgrade(")
     < startup.index("commitAfterSuccessfulOpen()")
+    and identity_repair.index("repairLegacyGovernedAssetIdentityProjections(")
+    < identity_repair.index("resetGovernedAssetIdentityProjectionPullCursors()")
     and "readIsarSchemaProvenanceSnapshotJson()" in startup
     and '"schemaProvenanceSnapshot": $provenanceSnapshot' in startup
     and ".isar.lock" not in isar_guard,

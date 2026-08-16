@@ -140,6 +140,7 @@ def verify_migration() -> None:
     text=(ROOT/'lib/core/services/isar_schema_migration.dart').read_text(encoding="utf-8")
     guard=(ROOT/'lib/core/services/isar_schema_guard_io.dart').read_text(encoding="utf-8")
     startup=(ROOT/'lib/main.dart').read_text(encoding="utf-8")
+    identity_repair=(ROOT/'lib/core/services/governed_asset_identity_local_repair.dart').read_text(encoding="utf-8")
     if 'currentSchemaVersion = 6' not in text: fail('Isar schema version is not v6')
     if "'v4:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('retained v4 schema fingerprint missing')
     if "'v5:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('retained v5 schema fingerprint missing')
@@ -150,10 +151,16 @@ def verify_migration() -> None:
     if '6: _addOperationalEventIssueLinkProjection' not in text: fail('v5->v6 migration step missing')
     if 'repairLegacyOperationalAssuranceRequests(' not in startup:
         fail('v4 operational-assurance post-open repair missing')
-    if 'repairLegacyGovernedAssetIdentityProjections(' not in startup:
+    if 'repairLegacyGovernedAssetIdentityProjections(' not in identity_repair:
         fail('v5 governed-asset identity post-open repair missing')
-    if 'resetGovernedAssetIdentityProjectionPullCursors()' not in startup:
+    if 'resetGovernedAssetIdentityProjectionPullCursors()' not in identity_repair:
         fail('v5 governed-asset projection cursor reset missing')
+    if not re.search(r'fromVersion\s*<\s*5\s*&&\s*toVersion\s*>=\s*5', identity_repair):
+        fail('v5 governed-asset identity repair must cover direct upgrades to later schemas')
+    if 'toVersion == 5' in startup or 'toVersion == 5' in identity_repair:
+        fail('v5 governed-asset identity repair still uses an exact-target guard')
+    if 'repairGovernedAssetIdentityForSchemaUpgrade(' not in startup:
+        fail('startup does not use the governed-identity schema-crossing repair')
     required_provenance = (
         "baf_isar_schema_provenance_v1",
         "databaseGenerationId",
@@ -181,14 +188,17 @@ def verify_migration() -> None:
         "repairLegacyOperationalAssuranceRequests(", planned_repaired
     )
     identity_repaired=startup.index(
-        "repairLegacyGovernedAssetIdentityProjections(", assurance_repaired
+        "repairGovernedAssetIdentityForSchemaUpgrade(", assurance_repaired
     )
-    cursor_reset=startup.index(
-        "resetGovernedAssetIdentityProjectionPullCursors()", identity_repaired
+    committed=startup.index("commitAfterSuccessfulOpen()",identity_repaired)
+    repair_call=identity_repair.index("repairLegacyGovernedAssetIdentityProjections(")
+    cursor_reset=identity_repair.index(
+        "resetGovernedAssetIdentityProjectionPullCursors()", repair_call
     )
-    committed=startup.index("commitAfterSuccessfulOpen()",cursor_reset)
-    if not prepare < opened < planned_repaired < assurance_repaired < identity_repaired < cursor_reset < committed:
+    if not prepare < opened < planned_repaired < assurance_repaired < identity_repaired < committed:
         fail("Isar provenance must prepare before open and commit after all repairs")
+    if not repair_call < cursor_reset:
+        fail("Governed-identity repair must complete before its pull cursors reset")
     if (
         "readIsarSchemaProvenanceSnapshotJson()" not in startup
         or '"schemaProvenanceSnapshot": $provenanceSnapshot' not in startup

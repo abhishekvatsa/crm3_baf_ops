@@ -20,6 +20,11 @@ class GovernedAssetIdentityLocalRepairReport {
 const _workflowPullCursorKey = 'last_maintenance_workflow_pull_v2_workflows';
 const _equipmentPullCursorKey = 'last_maintenance_workflow_pull_v2_equipment';
 
+bool requiresGovernedAssetIdentityLocalRepair({
+  required int fromVersion,
+  required int toVersion,
+}) => fromVersion < 5 && toVersion >= 5;
+
 bool _isIncompleteCustomIdentity({
   required String assetTypeKey,
   required String? assetClassId,
@@ -75,6 +80,26 @@ repairLegacyGovernedAssetIdentityProjections(Isar isar) async {
     removedWorkflowProjections: removedWorkflows,
     removedEquipmentProjections: removedEquipment,
   );
+}
+
+/// Applies the v5 governed-identity repair whenever an existing schema crosses
+/// the v5 boundary, including direct upgrades to later schema versions.
+Future<GovernedAssetIdentityLocalRepairReport?>
+repairGovernedAssetIdentityForSchemaUpgrade(
+  Isar isar, {
+  required int fromVersion,
+  required int toVersion,
+}) async {
+  if (!requiresGovernedAssetIdentityLocalRepair(
+    fromVersion: fromVersion,
+    toVersion: toVersion,
+  )) {
+    return null;
+  }
+
+  final report = await repairLegacyGovernedAssetIdentityProjections(isar);
+  await resetGovernedAssetIdentityProjectionPullCursors();
+  return report;
 }
 
 /// Forces the two repaired projection collections to refetch from their full

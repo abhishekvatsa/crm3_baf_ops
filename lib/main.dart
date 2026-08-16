@@ -127,19 +127,17 @@ Future<Isar> _openLocalIsar() async {
         '${assuranceRepair.normalizedLegacyRequests}',
       );
     }
-    if (schemaPreparation.result.fromVersion < 5 &&
-        schemaPreparation.result.toVersion == 5) {
-      final identityRepair = await repairLegacyGovernedAssetIdentityProjections(
-        localIsar,
+    final identityRepair = await repairGovernedAssetIdentityForSchemaUpgrade(
+      localIsar,
+      fromVersion: schemaPreparation.result.fromVersion,
+      toVersion: schemaPreparation.result.toVersion,
+    );
+    if (identityRepair?.changed ?? false) {
+      debugPrint(
+        'Quarantined legacy governed-asset projections: '
+        'workflows=${identityRepair!.removedWorkflowProjections}, '
+        'equipment=${identityRepair.removedEquipmentProjections}',
       );
-      await resetGovernedAssetIdentityProjectionPullCursors();
-      if (identityRepair.changed) {
-        debugPrint(
-          'Quarantined legacy governed-asset projections: '
-          'workflows=${identityRepair.removedWorkflowProjections}, '
-          'equipment=${identityRepair.removedEquipmentProjections}',
-        );
-      }
     }
     final committedMarker = await schemaPreparation.commitAfterSuccessfulOpen();
     debugPrint(
