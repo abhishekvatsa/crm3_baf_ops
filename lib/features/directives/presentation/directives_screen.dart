@@ -177,25 +177,49 @@ class _DirectivesHeader extends StatelessWidget {
         Row(
           children: [
             const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    'Directives',
-                    style: TextStyle(
-                      color: BafColors.textPrimary,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      height: 1.1,
+                  SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Color(0xFFF5E7E9),
+                        borderRadius: BorderRadius.all(
+                          Radius.circular(BafRadius.small),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.assignment_late_outlined,
+                        color: BafColors.directives,
+                        size: 24,
+                      ),
                     ),
                   ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Clear operational instructions, ownership and closure tracking.',
-                    style: TextStyle(
-                      color: BafColors.textSecondary,
-                      fontSize: 13,
-                      height: 1.3,
+                  SizedBox(width: BafSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Directives',
+                          style: TextStyle(
+                            color: BafColors.textPrimary,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            height: 1.1,
+                          ),
+                        ),
+                        SizedBox(height: 5),
+                        Text(
+                          'Clear instructions, ownership and closure tracking.',
+                          style: TextStyle(
+                            color: BafColors.textSecondary,
+                            fontSize: 12,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

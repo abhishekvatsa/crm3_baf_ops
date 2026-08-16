@@ -462,27 +462,48 @@ class _IssuesHeader extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  const Text(
-                    'Open issues',
-                    style: TextStyle(
-                      color: BafColors.textPrimary,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
+                  Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: BafColors.maintenance.withValues(alpha: 0.11),
+                      borderRadius: BorderRadius.circular(BafRadius.small),
+                    ),
+                    child: const Icon(
+                      Icons.report_problem_outlined,
+                      color: BafColors.maintenance,
+                      size: 24,
                     ),
                   ),
-                  const SizedBox(height: BafSpacing.xs),
-                  Text(
-                    canSeeAll
-                        ? 'Issues needing attention across the floor.'
-                        : canSeeAssigned
-                        ? 'Issues raised by you or routed to your team.'
-                        : 'Issues raised by you and still active.',
-                    style: const TextStyle(
-                      color: BafColors.textSecondary,
-                      fontSize: 13,
+                  const SizedBox(width: BafSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Open issues',
+                          style: TextStyle(
+                            color: BafColors.textPrimary,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: BafSpacing.xs),
+                        Text(
+                          canSeeAll
+                              ? 'Issues needing attention across the floor.'
+                              : canSeeAssigned
+                              ? 'Issues raised by you or routed to your team.'
+                              : 'Issues raised by you and still active.',
+                          style: const TextStyle(
+                            color: BafColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

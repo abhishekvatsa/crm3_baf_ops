@@ -56,55 +56,87 @@ class DashboardHeader extends StatelessWidget {
             ? 'there'
             : userName.trim().split(RegExp(r'\s+')).first;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(
-              Icons.factory_outlined,
-              color: BafColors.navySoft,
-              size: 28,
-            ),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'CRM-III BAF Ops',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: BafColors.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(BafSpacing.lg),
+      decoration: BoxDecoration(
+        color: BafColors.navy,
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        boxShadow: BafShadows.soft,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: BafColors.copper,
+                  borderRadius: BorderRadius.circular(BafRadius.small),
+                ),
+                child: const Icon(
+                  Icons.factory_outlined,
+                  color: Colors.white,
+                  size: 23,
                 ),
               ),
+              const SizedBox(width: BafSpacing.sm),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CRM-III',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      'BAF OPERATIONS',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Color(0xFFB9CED4),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(child: syncIndicator),
+              const SizedBox(width: BafSpacing.sm),
+              GestureDetector(onTap: onProfileTap, child: avatar),
+            ],
+          ),
+          const SizedBox(height: BafSpacing.lg),
+          const Text(
+            'Shift overview',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              height: 1.1,
             ),
-            const SizedBox(width: 8),
-            syncIndicator,
-            const SizedBox(width: 8),
-            GestureDetector(onTap: onProfileTap, child: avatar),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Text(
-          'Welcome, $firstName',
-          style: const TextStyle(
-            color: BafColors.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            height: 1.1,
           ),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Your operational priorities.',
-          style: TextStyle(
-            color: BafColors.textSecondary,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+          const SizedBox(height: BafSpacing.xs),
+          Text(
+            'Welcome, $firstName. Your priorities at a glance.',
+            style: const TextStyle(
+              color: Color(0xFFC6D7DB),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

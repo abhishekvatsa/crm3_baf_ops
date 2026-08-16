@@ -234,9 +234,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         extended: constraints.maxWidth >= 1200,
                         minExtendedWidth: 210,
                         backgroundColor: BafColors.card,
-                        indicatorColor: BafColors.navySoft.withValues(
-                          alpha: 0.12,
-                        ),
+                        indicatorColor: BafColors.surfaceStrong,
                         onDestinationSelected:
                             (index) => setState(() => _currentIndex = index),
                         labelType:
@@ -271,7 +269,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onDestinationSelected:
                     (index) => setState(() => _currentIndex = index),
                 backgroundColor: BafColors.card,
-                indicatorColor: BafColors.navySoft.withValues(alpha: 0.12),
+                indicatorColor: BafColors.surfaceStrong,
                 labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                 destinations: tabs.map((t) => t.destination).toList(),
               ),
@@ -677,9 +675,9 @@ class _DashboardHome extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 760),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(
-              BafSpacing.lg,
               BafSpacing.md,
-              BafSpacing.lg,
+              BafSpacing.sm,
+              BafSpacing.md,
               BafSpacing.xl,
             ),
             children: [
@@ -689,7 +687,7 @@ class _DashboardHome extends StatelessWidget {
                 syncIndicator: _CompactSyncPill(onManualSync: onManualSync),
                 onProfileTap: onProfileTap,
               ),
-              const SizedBox(height: BafSpacing.lg),
+              const SizedBox(height: BafSpacing.md),
               Row(
                 children: [
                   Expanded(
@@ -701,67 +699,89 @@ class _DashboardHome extends StatelessWidget {
                       style: FilledButton.styleFrom(
                         backgroundColor: BafColors.maintenance,
                         foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(48),
+                        minimumSize: const Size.fromHeight(46),
                       ),
                     ),
                   ),
                   const SizedBox(width: BafSpacing.sm),
-                  IconButton.outlined(
+                  _HomeQuickIcon(
                     tooltip: 'Open abnormalities',
                     onPressed: onAbnormalities,
                     icon: const Icon(Icons.memory_outlined),
+                    color: BafColors.instrument,
+                  ),
+                  const SizedBox(width: BafSpacing.sm),
+                  _HomeQuickIcon(
+                    tooltip: 'Operational events',
+                    onPressed: onOperationalEvents,
+                    icon: const Icon(Icons.crisis_alert_outlined),
+                    color: BafColors.warning,
                   ),
                 ],
               ),
-              const SizedBox(height: BafSpacing.xl),
+              const SizedBox(height: BafSpacing.lg),
               PlantOverviewPanel(
                 overview: plantOverview,
                 onOpen: onPlantCondition,
               ),
-              const SizedBox(height: BafSpacing.xl),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Needs attention',
-                      style: TextStyle(
-                        color: BafColors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  StatusBadge(
-                    label:
-                        attentionDataUnavailable
-                            ? 'Incomplete'
-                            : totalAttention == 0
-                            ? 'All clear'
-                            : '$totalAttention',
-                    color:
-                        attentionDataUnavailable
-                            ? BafColors.danger
-                            : totalAttention == 0
-                            ? BafColors.success
-                            : BafColors.warning,
-                  ),
-                ],
+              const SizedBox(height: BafSpacing.lg),
+              _HomeSectionHeader(
+                title: 'Needs attention',
+                icon: Icons.rule_folder_outlined,
+                trailing: StatusBadge(
+                  label:
+                      attentionDataUnavailable
+                          ? 'Incomplete'
+                          : totalAttention == 0
+                          ? 'All clear'
+                          : '$totalAttention',
+                  color:
+                      attentionDataUnavailable
+                          ? BafColors.danger
+                          : totalAttention == 0
+                          ? BafColors.success
+                          : BafColors.warning,
+                ),
               ),
               const SizedBox(height: BafSpacing.sm),
-              _AttentionPanel(
-                ticketCount: ticketCount,
-                executionCount: executionCount,
-                directiveCount: directiveCount,
-                workflowAttentionCount: workflowAttentionCount,
-                openOperationalEventCount: openOperationalEventCount,
-                openQualityWarningCount: openQualityWarningCount,
-                attentionDataUnavailable: attentionDataUnavailable,
-                onIssues: onIssues,
-                onWork: onWork,
-                onDirectives: onDirectives,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: BafSpacing.md,
+                  vertical: BafSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: BafColors.card,
+                  border: Border.all(color: BafColors.border),
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
+                ),
+                child: _AttentionPanel(
+                  ticketCount: ticketCount,
+                  executionCount: executionCount,
+                  directiveCount: directiveCount,
+                  workflowAttentionCount: workflowAttentionCount,
+                  openOperationalEventCount: openOperationalEventCount,
+                  openQualityWarningCount: openQualityWarningCount,
+                  attentionDataUnavailable: attentionDataUnavailable,
+                  onIssues: onIssues,
+                  onWork: onWork,
+                  onDirectives: onDirectives,
+                  onOperationalEvents: onOperationalEvents,
+                  onQuality: onQuality,
+                  onRetry: onManualSync,
+                ),
+              ),
+              const SizedBox(height: BafSpacing.lg),
+              const _HomeSectionHeader(
+                title: 'Operational watch',
+                icon: Icons.monitor_heart_outlined,
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              _OperationalWatch(
+                operationalEventCount: openOperationalEventCount,
+                qualityWarningCount: openQualityWarningCount,
                 onOperationalEvents: onOperationalEvents,
                 onQuality: onQuality,
-                onRetry: onManualSync,
+                onAbnormalities: onAbnormalities,
               ),
             ],
           ),
@@ -769,6 +789,176 @@ class _DashboardHome extends StatelessWidget {
       ),
     );
   }
+}
+
+class _HomeQuickIcon extends StatelessWidget {
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Widget icon;
+  final Color color;
+
+  const _HomeQuickIcon({
+    required this.tooltip,
+    required this.onPressed,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) => IconButton.outlined(
+    tooltip: tooltip,
+    onPressed: onPressed,
+    style: IconButton.styleFrom(
+      foregroundColor: color,
+      backgroundColor: BafColors.card,
+      side: BorderSide(color: color.withValues(alpha: 0.28)),
+    ),
+    icon: icon,
+  );
+}
+
+class _HomeSectionHeader extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Widget? trailing;
+
+  const _HomeSectionHeader({
+    required this.title,
+    required this.icon,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, size: 20, color: BafColors.steel),
+      const SizedBox(width: BafSpacing.sm),
+      Expanded(
+        child: Text(
+          title,
+          style: const TextStyle(
+            color: BafColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+      if (trailing != null) trailing!,
+    ],
+  );
+}
+
+class _OperationalWatch extends StatelessWidget {
+  final int operationalEventCount;
+  final int qualityWarningCount;
+  final VoidCallback onOperationalEvents;
+  final VoidCallback onQuality;
+  final VoidCallback onAbnormalities;
+
+  const _OperationalWatch({
+    required this.operationalEventCount,
+    required this.qualityWarningCount,
+    required this.onOperationalEvents,
+    required this.onQuality,
+    required this.onAbnormalities,
+  });
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: _WatchTile(
+          icon: Icons.crisis_alert_outlined,
+          color: BafColors.warning,
+          value: '$operationalEventCount',
+          label: 'Events',
+          onTap: onOperationalEvents,
+        ),
+      ),
+      const SizedBox(width: BafSpacing.sm),
+      Expanded(
+        child: _WatchTile(
+          icon: Icons.verified_user_outlined,
+          color: BafColors.charges,
+          value: '$qualityWarningCount',
+          label: 'Quality',
+          onTap: onQuality,
+        ),
+      ),
+      const SizedBox(width: BafSpacing.sm),
+      Expanded(
+        child: _WatchTile(
+          icon: Icons.memory_outlined,
+          color: BafColors.instrument,
+          value: 'Review',
+          label: 'Abnormalities',
+          onTap: onAbnormalities,
+        ),
+      ),
+    ],
+  );
+}
+
+class _WatchTile extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String value;
+  final String label;
+  final VoidCallback onTap;
+
+  const _WatchTile({
+    required this.icon,
+    required this.color,
+    required this.value,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: BafColors.card,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+      side: const BorderSide(color: BafColors.border),
+    ),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+      child: SizedBox(
+        height: 96,
+        child: Padding(
+          padding: const EdgeInsets.all(BafSpacing.sm),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 23),
+              const SizedBox(height: BafSpacing.xs),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: BafColors.textSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _MoreScreen extends StatelessWidget {
@@ -825,26 +1015,14 @@ class _MoreScreen extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 760),
           child: ListView(
             padding: const EdgeInsets.fromLTRB(
-              BafSpacing.lg,
-              BafSpacing.lg,
-              BafSpacing.lg,
+              BafSpacing.md,
+              BafSpacing.sm,
+              BafSpacing.md,
               BafSpacing.xl,
             ),
             children: [
-              const Text(
-                'More',
-                style: TextStyle(
-                  color: BafColors.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: BafSpacing.xs),
-              const Text(
-                'Records, reporting and governed administration.',
-                style: TextStyle(color: BafColors.textSecondary, fontSize: 13),
-              ),
-              const SizedBox(height: BafSpacing.xl),
+              const _DirectoryHeader(),
+              const SizedBox(height: BafSpacing.lg),
               _MoreSection(
                 title: 'Operations and records',
                 children: [
@@ -874,29 +1052,6 @@ class _MoreScreen extends StatelessWidget {
                           'Base pairing, spare pool and fabrication history',
                       onTap: onInnerCovers,
                     ),
-                  _MoreDestinationTile(
-                    icon: Icons.memory_outlined,
-                    color: BafColors.charges,
-                    title: 'Abnormalities',
-                    subtitle: 'Charge events, RA traceability and root causes',
-                    onTap: onAbnormalities,
-                  ),
-                  if (appUser.canViewQuality)
-                    _MoreDestinationTile(
-                      icon: Icons.verified_user_outlined,
-                      color: BafColors.warning,
-                      title: 'Quality',
-                      subtitle: 'Warnings, closure assurance and monitoring',
-                      onTap: onQuality,
-                    ),
-                  _MoreDestinationTile(
-                    icon: Icons.crisis_alert_outlined,
-                    color: BafColors.warning,
-                    title: 'Operational events',
-                    subtitle:
-                        'Utilities, cranes, transfer cars and plant delays',
-                    onTap: onOperationalEvents,
-                  ),
                   if (canSeeClosed)
                     _MoreDestinationTile(
                       icon: Icons.history_rounded,
@@ -914,6 +1069,35 @@ class _MoreScreen extends StatelessWidget {
                           'Recent completed and cancelled planned-job records',
                       onTap: onClosedJobs,
                     ),
+                ],
+              ),
+              const SizedBox(height: BafSpacing.lg),
+              _MoreSection(
+                title: 'Assurance and performance',
+                children: [
+                  _MoreDestinationTile(
+                    icon: Icons.memory_outlined,
+                    color: BafColors.instrument,
+                    title: 'Abnormalities',
+                    subtitle: 'Charge events, RA traceability and root causes',
+                    onTap: onAbnormalities,
+                  ),
+                  if (appUser.canViewQuality)
+                    _MoreDestinationTile(
+                      icon: Icons.verified_user_outlined,
+                      color: BafColors.charges,
+                      title: 'Quality',
+                      subtitle: 'Warnings, closure assurance and monitoring',
+                      onTap: onQuality,
+                    ),
+                  _MoreDestinationTile(
+                    icon: Icons.crisis_alert_outlined,
+                    color: BafColors.warning,
+                    title: 'Operational events',
+                    subtitle:
+                        'Utilities, cranes, transfer cars and plant delays',
+                    onTap: onOperationalEvents,
+                  ),
                   if (canSeeReports)
                     _MoreDestinationTile(
                       icon: Icons.bar_chart_rounded,
@@ -1100,15 +1284,30 @@ class _AttentionPanel extends StatelessWidget {
 
     if (rows.isEmpty) {
       return const Padding(
-        padding: EdgeInsets.symmetric(vertical: BafSpacing.xl),
+        padding: EdgeInsets.symmetric(vertical: BafSpacing.lg),
         child: Row(
           children: [
-            Icon(Icons.task_alt_rounded, color: BafColors.success),
+            SizedBox(
+              width: 38,
+              height: 38,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Color(0xFFE7F2EA),
+                  borderRadius: BorderRadius.all(
+                    Radius.circular(BafRadius.small),
+                  ),
+                ),
+                child: Icon(Icons.task_alt_rounded, color: BafColors.success),
+              ),
+            ),
             SizedBox(width: BafSpacing.md),
             Expanded(
               child: Text(
                 'No open work currently requires your attention.',
-                style: TextStyle(color: BafColors.textSecondary),
+                style: TextStyle(
+                  color: BafColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -1145,13 +1344,80 @@ class _AttentionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: color),
+      leading: Container(
+        width: 38,
+        height: 38,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(BafRadius.small),
+        ),
+        child: Icon(icon, color: color, size: 21),
+      ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Text(detail),
-      trailing: const Icon(Icons.chevron_right_rounded),
+      trailing: const Icon(
+        Icons.chevron_right_rounded,
+        color: BafColors.textSecondary,
+      ),
       onTap: onTap,
     );
   }
+}
+
+class _DirectoryHeader extends StatelessWidget {
+  const _DirectoryHeader();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(BafSpacing.lg),
+    decoration: BoxDecoration(
+      color: BafColors.navy,
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+      boxShadow: BafShadows.soft,
+    ),
+    child: const Row(
+      children: [
+        SizedBox(
+          width: 42,
+          height: 42,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: BafColors.copper,
+              borderRadius: BorderRadius.all(Radius.circular(BafRadius.small)),
+            ),
+            child: Icon(Icons.apps_rounded, color: Colors.white, size: 24),
+          ),
+        ),
+        SizedBox(width: BafSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'More',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(height: BafSpacing.xs),
+              Text(
+                'Operations, assurance, records and administration',
+                style: TextStyle(
+                  color: Color(0xFFC6D7DB),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _MoreSection extends StatelessWidget {
@@ -1162,23 +1428,48 @@ class _MoreSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: BafColors.textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-          ),
+        Row(
+          children: [
+            Container(
+              width: 4,
+              height: 18,
+              decoration: BoxDecoration(
+                color: BafColors.copper,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: BafSpacing.sm),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: BafColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: BafSpacing.sm),
-        ...List<Widget>.generate(children.length * 2 - 1, (index) {
-          return index.isEven
-              ? children[index ~/ 2]
-              : const Divider(height: 1, color: BafColors.border);
-        }),
+        Container(
+          decoration: BoxDecoration(
+            color: BafColors.card,
+            border: Border.all(color: BafColors.border),
+            borderRadius: BorderRadius.circular(BafRadius.medium),
+          ),
+          child: Column(
+            children: List<Widget>.generate(children.length * 2 - 1, (index) {
+              return index.isEven
+                  ? children[index ~/ 2]
+                  : const Divider(height: 1, color: BafColors.border);
+            }),
+          ),
+        ),
       ],
     );
   }
@@ -1204,10 +1495,13 @@ class _MoreDestinationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: BafSpacing.xs),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: BafSpacing.md,
+        vertical: BafSpacing.xs,
+      ),
       leading: Container(
-        width: 40,
-        height: 40,
+        width: 42,
+        height: 42,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.10),
@@ -1216,10 +1510,32 @@ class _MoreDestinationTile extends StatelessWidget {
         child: Icon(icon, color: color, size: 22),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        subtitle,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: BafColors.textSecondary,
+          fontSize: 12,
+          height: 1.25,
+        ),
+      ),
       trailing:
           badge == null
-              ? const Icon(Icons.chevron_right_rounded)
+              ? Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: BafColors.surfaceMuted,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 19,
+                  color: BafColors.textSecondary,
+                ),
+              )
               : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
