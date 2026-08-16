@@ -189,6 +189,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 )
                 .length ??
             0;
+        final operationalEventsUnavailable =
+            operationalEventsAsync.value == null;
+        final qualityWarningsUnavailable = qualityWarningsAsync.value == null;
         final attentionDataUnavailable =
             ticketCountAsync.value == null ||
             directiveCountAsync.value == null ||
@@ -197,8 +200,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             (workflowLanesAsync != null && workflowLanesAsync.value == null) ||
             (workflowComplianceAsync != null &&
                 workflowComplianceAsync.value == null) ||
-            operationalEventsAsync.value == null ||
-            qualityWarningsAsync.value == null;
+            operationalEventsUnavailable ||
+            qualityWarningsUnavailable;
 
         final tabs = _buildTabs(
           appUser: appUser,
@@ -208,6 +211,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           workflowAttentionCount: workflowAttentionCount,
           openOperationalEventCount: openOperationalEventCount,
           openQualityWarningCount: openQualityWarningCount,
+          operationalEventsUnavailable: operationalEventsUnavailable,
+          qualityWarningsUnavailable: qualityWarningsUnavailable,
           attentionDataUnavailable: attentionDataUnavailable,
           plantOverview: plantOverviewAsync,
         );
@@ -288,6 +293,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required int workflowAttentionCount,
     required int openOperationalEventCount,
     required int openQualityWarningCount,
+    required bool operationalEventsUnavailable,
+    required bool qualityWarningsUnavailable,
     required bool attentionDataUnavailable,
     required AsyncValue<PlantAssetOverview> plantOverview,
   }) {
@@ -303,6 +310,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               workflowAttentionCount: workflowAttentionCount,
               openOperationalEventCount: openOperationalEventCount,
               openQualityWarningCount: openQualityWarningCount,
+              operationalEventsUnavailable: operationalEventsUnavailable,
+              qualityWarningsUnavailable: qualityWarningsUnavailable,
               attentionDataUnavailable: attentionDataUnavailable,
               plantOverview: plantOverview,
               onProfileTap: () => _showProfileSheet(context, ref, appUser),
@@ -622,6 +631,8 @@ class _DashboardHome extends StatelessWidget {
   final int workflowAttentionCount;
   final int openOperationalEventCount;
   final int openQualityWarningCount;
+  final bool operationalEventsUnavailable;
+  final bool qualityWarningsUnavailable;
   final bool attentionDataUnavailable;
   final AsyncValue<PlantAssetOverview> plantOverview;
   final VoidCallback onProfileTap;
@@ -643,6 +654,8 @@ class _DashboardHome extends StatelessWidget {
     required this.workflowAttentionCount,
     required this.openOperationalEventCount,
     required this.openQualityWarningCount,
+    required this.operationalEventsUnavailable,
+    required this.qualityWarningsUnavailable,
     required this.attentionDataUnavailable,
     required this.plantOverview,
     required this.onProfileTap,
@@ -779,6 +792,8 @@ class _DashboardHome extends StatelessWidget {
               _OperationalWatch(
                 operationalEventCount: openOperationalEventCount,
                 qualityWarningCount: openQualityWarningCount,
+                operationalEventsUnavailable: operationalEventsUnavailable,
+                qualityWarningsUnavailable: qualityWarningsUnavailable,
                 onOperationalEvents: onOperationalEvents,
                 onQuality: onQuality,
                 onAbnormalities: onAbnormalities,
@@ -851,6 +866,8 @@ class _HomeSectionHeader extends StatelessWidget {
 class _OperationalWatch extends StatelessWidget {
   final int operationalEventCount;
   final int qualityWarningCount;
+  final bool operationalEventsUnavailable;
+  final bool qualityWarningsUnavailable;
   final VoidCallback onOperationalEvents;
   final VoidCallback onQuality;
   final VoidCallback onAbnormalities;
@@ -858,6 +875,8 @@ class _OperationalWatch extends StatelessWidget {
   const _OperationalWatch({
     required this.operationalEventCount,
     required this.qualityWarningCount,
+    required this.operationalEventsUnavailable,
+    required this.qualityWarningsUnavailable,
     required this.onOperationalEvents,
     required this.onQuality,
     required this.onAbnormalities,
@@ -869,8 +888,14 @@ class _OperationalWatch extends StatelessWidget {
       Expanded(
         child: _WatchTile(
           icon: Icons.crisis_alert_outlined,
-          color: BafColors.warning,
-          value: '$operationalEventCount',
+          color:
+              operationalEventsUnavailable
+                  ? BafColors.danger
+                  : BafColors.warning,
+          value:
+              operationalEventsUnavailable
+                  ? 'Unavailable'
+                  : '$operationalEventCount',
           label: 'Events',
           onTap: onOperationalEvents,
         ),
@@ -879,8 +904,12 @@ class _OperationalWatch extends StatelessWidget {
       Expanded(
         child: _WatchTile(
           icon: Icons.verified_user_outlined,
-          color: BafColors.charges,
-          value: '$qualityWarningCount',
+          color:
+              qualityWarningsUnavailable ? BafColors.danger : BafColors.charges,
+          value:
+              qualityWarningsUnavailable
+                  ? 'Unavailable'
+                  : '$qualityWarningCount',
           label: 'Quality',
           onTap: onQuality,
         ),
@@ -939,7 +968,7 @@ class _WatchTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: color,
-                  fontSize: 15,
+                  fontSize: value.length > 6 ? 10 : 15,
                   fontWeight: FontWeight.w900,
                 ),
               ),
