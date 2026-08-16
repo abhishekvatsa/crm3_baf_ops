@@ -117,6 +117,20 @@
       ]
     },
     {
+      "collectionGroup": "burner_condition_rounds",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assetInstanceId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "observedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "charge_abnormalities",
       "queryScope": "COLLECTION",
       "fields": [

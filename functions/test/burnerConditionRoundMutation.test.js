@@ -247,6 +247,21 @@ describe('burner condition round mutation', () => {
     });
   });
 
+  test('red-hot directive rejects a Furnace number outside legacy support', async () => {
+    const data = seed('seniorInstrumentation');
+    data[`asset_instances/${IDS.asset}`].assetNumber = 27;
+    data[`asset_instances/${IDS.asset}`].name = 'Furnace 27';
+    await expect(invoke(fakeDb(data), request({
+      observations: observations({3: {redHotObserved: true}}),
+    }))).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode:
+          'burner-condition-round-directive-furnace-number-unsupported',
+      },
+    });
+  });
+
   test('non-Furnace and stale asset identity fail closed', async () => {
     const wrongClass = seed();
     wrongClass[`asset_classes/${IDS.class}`].legacyAssetTypeKey = 'base';

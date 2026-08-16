@@ -156,8 +156,13 @@ class _BurnerReliabilityBodyState
       startInclusive: _startDate,
       endExclusive: _endDate.add(const Duration(days: 1)),
     );
+    final roundsQuery = (
+      startInclusive: period.startInclusive,
+      endExclusive: period.endExclusive,
+      assetInstanceId: selectedAsset?.id,
+    );
     final ticketsAsync = ref.watch(operationsReportTicketsProvider(period));
-    final roundsAsync = ref.watch(burnerConditionRoundsProvider(period));
+    final roundsAsync = ref.watch(burnerConditionRoundsProvider(roundsQuery));
     if ((roundsAsync.isLoading && !roundsAsync.hasValue) ||
         (ticketsAsync.isLoading && !ticketsAsync.hasValue)) {
       return _shell(const Center(child: CircularProgressIndicator()));
@@ -169,7 +174,7 @@ class _BurnerReliabilityBodyState
           message: 'Could not load burner reliability evidence.',
           onRetry: () {
             ref.invalidate(operationsReportTicketsProvider(period));
-            ref.invalidate(burnerConditionRoundsProvider(period));
+            ref.invalidate(burnerConditionRoundsProvider(roundsQuery));
           },
         ),
       );
@@ -201,7 +206,7 @@ class _BurnerReliabilityBodyState
               ref.invalidate(assetClassesProvider);
               ref.invalidate(allAssetInstancesProvider);
               ref.invalidate(operationsReportTicketsProvider(period));
-              ref.invalidate(burnerConditionRoundsProvider(period));
+              ref.invalidate(burnerConditionRoundsProvider(roundsQuery));
             },
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -301,12 +306,16 @@ class _BurnerReliabilityBodyState
     );
     if (!mounted || result == null) return;
     ref.invalidate(burnerConditionRoundsProvider);
+    final recordedMessage =
+        result.directiveId == null
+            ? 'Burner round recorded.'
+            : 'Burner round and critical I&A directive recorded.';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          result.directiveId == null
-              ? 'Burner round recorded.'
-              : 'Burner round and critical I&A directive recorded.',
+          result.retryIdentityCleanupPending
+              ? '$recordedMessage Local retry cleanup is pending; the committed round remains safe.'
+              : recordedMessage,
         ),
       ),
     );

@@ -25,12 +25,22 @@ path for fault attendance and resolution.
 - Red-hot evidence creates a deterministic critical directive to I&A in the
   same transaction. The directive requires acknowledgement and recorded
   compliance and explicitly performs no automatic plant actuation.
+- An unchanged submission retains its idempotency identity across timeout,
+  disconnect and app restart. Editing any submitted value rotates that
+  identity before another write.
+- A valid committed server result is never replaced by a local retry-cleanup
+  failure. The UI reports the committed round with a cleanup warning, while
+  the retained identity keeps an unchanged retry bound to the same receipt.
+- Red-hot directives are limited to legacy-compatible Furnace numbers 1-26
+  until operational directives adopt governed physical-asset identity.
 
 ## Storage and access
 
 `burner_condition_rounds` is approved-user readable and client-write denied.
-`burner_condition_round_receipts` is server-only. The report query is date
-bounded and visibly limited to 1,000 round records per selected period.
+`burner_condition_round_receipts` is server-only. Report queries are date
+bounded and visibly limited to 1,000 round records per selected period. A
+selected Furnace is filtered before that limit; fleet reports retain the
+explicit global limit.
 
 ## Deliberate boundaries
 

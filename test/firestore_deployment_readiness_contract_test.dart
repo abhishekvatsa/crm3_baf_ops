@@ -176,6 +176,16 @@ void main() {
           ]),
           isTrue,
         );
+        expect(
+          _hasIndex(indexes, 'burner_condition_rounds', const [
+            'assetInstanceId:ASCENDING',
+            'observedAt:DESCENDING',
+          ]),
+          isTrue,
+          reason:
+              'A Furnace-specific burner report must filter by physical asset '
+              'before applying its bounded observedAt query.',
+        );
       },
     );
   });
