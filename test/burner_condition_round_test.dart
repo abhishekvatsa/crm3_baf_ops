@@ -1,6 +1,11 @@
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
+import 'package:crm3_baf_ops/features/assets/services/burner_condition_round_idempotency_store.dart';
 import 'package:crm3_baf_ops/features/assets/services/burner_condition_round_service.dart';
+import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> roundMap({
@@ -141,4 +146,104 @@ void main() {
       );
     }
   });
+
+  test('callable result translates non-object responses into data loss', () {
+    for (final malformed in <Object?>[null, true, 'not-a-map', <Object?>[]]) {
+      expect(
+        () => BurnerConditionRoundResult.fromCallableData(
+          malformed,
+          expectedRequestId: requestId,
+          expectedAssetClassId: 'furnace-class',
+          expectedAssetInstanceId: 'furnace-2',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    }
+  });
+
+  test('committed round survives local retry cleanup failure', () async {
+    final committed = BurnerConditionRoundResult.fromMap(
+      resultMap(),
+      expectedRequestId: requestId,
+      expectedAssetClassId: 'furnace-class',
+      expectedAssetInstanceId: 'furnace-2',
+    );
+
+    final result = await finalizeBurnerConditionRoundResult(
+      result: committed,
+      clearPendingIdentity: () async {
+        throw StateError('local storage unavailable');
+      },
+    );
+
+    expect(result.roundId, committed.roundId);
+    expect(result.committedAt, committed.committedAt);
+    expect(result.retryIdentityCleanupPending, isTrue);
+  });
+
+  test('storage admission failure becomes an operator-facing error', () async {
+    final now = DateTime.utc(2026, 8, 16);
+    final service = BurnerConditionRoundService(
+      idempotencyStore: _ThrowingBurnerRoundIdentityStore(),
+    );
+
+    await expectLater(
+      service.record(
+        furnace: _furnace(now),
+        observations: List<BurnerConditionObservation>.generate(
+          8,
+          (index) => BurnerConditionObservation(
+            position: index + 1,
+            flameObservation: BurnerRoundFlameObservation.seen,
+            redHotObserved: false,
+          ),
+        ),
+        actor: AppUser(
+          uid: 'operations-1',
+          name: 'Operations One',
+          email: 'operations@example.com',
+          roles: const [AppRole.operations],
+          isApproved: true,
+          createdAt: now,
+        ),
+      ),
+      throwsA(
+        isA<BurnerConditionRoundException>().having(
+          (error) => error.code,
+          'code',
+          'failed-precondition',
+        ),
+      ),
+    );
+  });
 }
+
+class _ThrowingBurnerRoundIdentityStore
+    extends BurnerConditionRoundIdempotencyStore {
+  @override
+  Future<BurnerConditionRoundPendingIdentity> resolve({
+    required String actorUid,
+    required String payloadFingerprint,
+  }) {
+    throw Exception('platform storage unavailable');
+  }
+}
+
+AssetInstanceRecord _furnace(DateTime now) => AssetInstanceRecord(
+  id: 'furnace-2',
+  assetClassId: 'furnace-class',
+  assetClassCode: 'FURNACE',
+  assetClassName: 'Furnace',
+  assetNumber: 2,
+  name: 'Furnace 2',
+  serviceState: AssetServiceState.inService,
+  ownershipStatus: AssetOwnershipStatus.confirmed,
+  ownerDiscipline: 'Operations',
+  accountableRoleKeys: const ['operations'],
+  status: AssetHierarchyStatus.active,
+  activeComponentCount: 8,
+  version: 4,
+  createdAt: now,
+  updatedAt: now,
+  lastMutationId: 'asset-mutation-1',
+);

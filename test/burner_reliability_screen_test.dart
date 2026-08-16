@@ -20,6 +20,16 @@ void main() {
     startInclusive: startDate,
     endExclusive: DateTime(2026, 9, 1),
   );
+  final allRoundsQuery = (
+    startInclusive: startDate,
+    endExclusive: DateTime(2026, 9, 1),
+    assetInstanceId: null as String?,
+  );
+  final furnaceRoundsQuery = (
+    startInclusive: startDate,
+    endExclusive: DateTime(2026, 9, 1),
+    assetInstanceId: 'furnace-2' as String?,
+  );
 
   testWidgets(
     'approved user sees phone-width burner reliability and microamp evidence',
@@ -47,13 +57,14 @@ void main() {
               period,
             ).overrideWith((ref) => Stream.value([ticket])),
             burnerConditionRoundsProvider(
-              period,
+              furnaceRoundsQuery,
             ).overrideWith((ref) => Stream.value([_round(now: now)])),
           ],
           child: MaterialApp(
             home: BurnerReliabilityScreen(
               initialStartDate: startDate,
               initialEndDate: endDate,
+              initialAssetInstanceId: 'furnace-2',
             ),
           ),
         ),
@@ -163,7 +174,7 @@ void main() {
             period,
           ).overrideWith((ref) => Stream.value([corrupt])),
           burnerConditionRoundsProvider(
-            period,
+            allRoundsQuery,
           ).overrideWith((ref) => Stream.value(const [])),
         ],
         child: MaterialApp(

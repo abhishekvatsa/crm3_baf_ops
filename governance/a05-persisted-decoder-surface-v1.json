@@ -828,7 +828,23 @@
       "compatibility": "none for request, round, operation, asset, directive, replay, or commit-time evidence",
       "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js",
       "reArmCondition": "malformed response fields are coerced or accepted as a successful burner-condition round",
-      "riskFingerprint": "9b34cfd77c7c22342706f6fdcd9b83073548be933665839d886ad3c55803ca4f"
+      "riskFingerprint": "f6bb8c2ff5e2917159c0e24d563e52b1178e40e5d1737f12bf5528c68e5917c3"
+    },
+    {
+      "id": "burner-condition-round-pending-identity",
+      "file": "lib/features/assets/services/burner_condition_round_idempotency_store.dart",
+      "markers": [
+        "factory BurnerConditionRoundPendingIdentity.fromMap",
+        "Future<BurnerConditionRoundPendingIdentity> resolve"
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "furnace-reliability",
+      "authorityBoundary": "durable client retry identity for an unchanged burner-condition round submission",
+      "malformedDisposition": "fail closed before invoking the mutation callable",
+      "compatibility": "absent pre-feature pending identity only",
+      "regression": "test/burner_condition_round_idempotency_store_test.dart",
+      "reArmCondition": "malformed identity is discarded, an unchanged payload rotates request ID, or a changed payload reuses an old ID",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
   "catchSites": [
@@ -1329,7 +1345,7 @@
     {
       "id": "burner-condition-round-transport-translation",
       "file": "lib/features/assets/services/burner_condition_round_service.dart",
-      "siteFingerprint": "bad9e0aaf1d0d19ede8b441ccc07bb531412c94431a8fad03e3596457bb4c20d",
+      "siteFingerprint": "e5193f0f3c72702d41b6ebd5efac1cc3cf691d2908b7ce5a53a247f2c0cb9d4c",
       "classification": "TRANSPORT_ERROR_TRANSLATION",
       "purpose": "translate callable transport failures while preserving strict burner-round response-format failure",
       "authorityBoundary": "governed burner-condition round mutation response",
@@ -1338,6 +1354,32 @@
       "malformedDisposition": "throw a data-loss command error and do not report round capture success",
       "regression": "test/burner_condition_round_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
       "reArmCondition": "transport or response-format failure becomes a successful burner-condition round"
+    },
+    {
+      "id": "backend-release-identity-response-translation",
+      "file": "lib/core/release/backend_release_identity_service.dart",
+      "siteFingerprint": "b647175e6fb3e863ede11bb631f170cdeacff3adf9a5df817578b90199f83728",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "translate malformed backend-release identity evidence into a stable invalid-response error",
+      "authorityBoundary": "read-only deployed backend release identity",
+      "mutability": "none",
+      "dataScope": "backend release identity callable response",
+      "malformedDisposition": "throw invalid-response and withhold backend readiness",
+      "regression": "test/backend_release_identity_service_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "malformed backend identity is accepted or reported as ready"
+    },
+    {
+      "id": "published-assignment-response-translation",
+      "file": "lib/features/planned_maintenance/services/published_template_assignment_server_service.dart",
+      "siteFingerprint": "6a4fe5ddd7c450c357ffe774d6185653e71c0e3dc788122fccb080dd0084ad88",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "translate malformed governed assignment evidence into a stable invalid-response error",
+      "authorityBoundary": "server-governed published template assignment response",
+      "mutability": "remote mutation already governed by the server; no local assignment success is manufactured",
+      "dataScope": "published-template assignment callable response",
+      "malformedDisposition": "throw invalid-response and do not persist assignment success",
+      "regression": "test/published_template_assignment_server_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py",
+      "reArmCondition": "malformed assignment response is accepted or persisted as success"
     }
   ]
 }

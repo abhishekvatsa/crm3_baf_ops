@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 202,
-    "SUCCESSOR_MODIFIED": 208
+    "BYTE_IDENTICAL": 201,
+    "SUCCESSOR_MODIFIED": 209
   },
   "paths": [
     {
@@ -457,9 +457,9 @@
     {
       "path": "firestore.indexes.json",
       "canonicalSha256": "D0D7120DB00D8FAB3130861776AB6E956CE6E224FB40665B3A28CB1C7B7C7D33",
-      "candidateSha256": "D294AAE47B95BA0A4123FB98E96DDD34CA651740B5827D0BCD865582053E148D",
+      "candidateSha256": "8443C50E56D9C1BA5EF19F430782C10D2F623E2CA64512CD10CBFF9844FD0A70",
       "canonicalBytes": 10543,
-      "candidateBytes": 21001,
+      "candidateBytes": 21309,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2737,10 +2737,10 @@
     {
       "path": "test/firestore_deployment_readiness_contract_test.dart",
       "canonicalSha256": "0E2B505A963160D5F2997C937B1FCE11F796AC3C85AC3917B4FDB65E0ADB55AB",
-      "candidateSha256": "0E2B505A963160D5F2997C937B1FCE11F796AC3C85AC3917B4FDB65E0ADB55AB",
+      "candidateSha256": "D1C69B2DC03B3369A02351C9304721DF4344A0C3E4990F34073129C7BBB45506",
       "canonicalBytes": 7330,
-      "candidateBytes": 7330,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 7692,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "test/global_pull_service_decomposition_contract_test.dart",

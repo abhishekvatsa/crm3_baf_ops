@@ -302,6 +302,18 @@ function verifyFurnace(
       {reasonCode: "burner-condition-round-furnace-invalid"},
     );
   }
+  const redHotObserved = request.observations.some(
+    (observation) => observation.redHotObserved,
+  );
+  if (redHotObserved && (asset.assetNumber as number) > 26) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "Red-hot directives require a legacy-compatible Furnace number from 1 to 26.",
+      {
+        reasonCode: "burner-condition-round-directive-furnace-number-unsupported",
+      },
+    );
+  }
   if (asset.version !== request.expectedAssetVersion) {
     throw new AssetHierarchyMutationError(
       "aborted",

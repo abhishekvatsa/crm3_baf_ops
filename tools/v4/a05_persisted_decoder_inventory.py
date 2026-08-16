@@ -33,7 +33,7 @@ DECODER_FLOW_PATTERN = re.compile(
     r"|\bread(?:Required|Optional|Nullable)Persisted\w*\s*\("
     r"|\bread(?:Required|Optional)JsonObject(?:List)?\s*\("
     r"|\b(?:decode\w*|readRemote\w*|readValidated\w*|parse\w*)\s*\("
-    r"|\.(?:fromMap|fromFirestore|fromJson|fromPayloads|fromRawJson)\s*\("
+    r"|\.(?:fromMap|fromFirestore|fromJson|fromCallableData|fromPayloads|fromRawJson)\s*\("
 )
 RISK_PATTERNS = {
     "raw-json": RAW_JSON_PATTERN,

@@ -362,8 +362,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 202
-    and counts.get("SUCCESSOR_MODIFIED") == 208
+    and counts.get("BYTE_IDENTICAL") == 201
+    and counts.get("SUCCESSOR_MODIFIED") == 209
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -8450,17 +8450,17 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 53
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 39
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 34
+    and a05_decoder_inventory_report.get("surfaceCount") == 54
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 41
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 35
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 25
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 271
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 275
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 53
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 39
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 54
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 41
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool
@@ -9038,8 +9038,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 202
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 208
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 201
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 209
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections
