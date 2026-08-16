@@ -856,6 +856,7 @@ class AssetHierarchyRepository {
     required String reason,
     bool allowTagTransfer = false,
     String? expectedTagOwnerComponentId,
+    ComponentReplacementEvidenceReference? evidenceReference,
   }) async {
     _requireAdmin(actor);
     if (!asset.isActive ||
@@ -891,6 +892,8 @@ class AssetHierarchyRepository {
       'reason': _validateReason(reason),
       'allowTagTransfer': allowTagTransfer,
       'expectedTagOwnerComponentId': expectedTagOwnerComponentId,
+      if (evidenceReference != null)
+        'evidenceReference': evidenceReference.toMap(),
       'componentDraft': _componentDraftMap(normalized),
     });
     return replacementComponentInstanceId;

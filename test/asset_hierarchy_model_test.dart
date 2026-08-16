@@ -235,12 +235,45 @@ void main() {
       'performedByName': 'Admin One',
       'performedAt': DateTime.utc(2026, 8, 16, 1, 30),
       'requestId': 'request-1',
+      'acceptedEvidenceType': 'maintenanceIssue',
+      'acceptedEvidenceId': 'issue-1',
+      'acceptedEvidenceVersion': 4,
+      'acceptedEvidenceSnapshotJson':
+          '{"sourceId":"issue-1","sourceType":"maintenanceIssue","sourceVersion":4}',
     }, 'audit-1');
 
     expect(audit.entityId, 'component-new');
     expect(audit.componentLineageId, 'component-old');
     expect(audit.relatedEntityId, 'component-old');
     expect(audit.action, 'replacement_installed');
+    expect(
+      audit.acceptedEvidenceType,
+      ComponentReplacementEvidenceSource.maintenanceIssue,
+    );
+    expect(audit.acceptedEvidenceId, 'issue-1');
+    expect(audit.acceptedEvidenceVersion, 4);
+  });
+
+  test('component lifecycle audit rejects partial replacement evidence', () {
+    expect(
+      () => InstalledComponentLifecycleAudit.fromMap({
+        'schemaVersion': 1,
+        'auditId': 'audit-1',
+        'entityType': 'installed_component',
+        'entityId': 'component-new',
+        'componentLineageId': 'component-old',
+        'relatedEntityId': 'component-old',
+        'action': 'replacement_installed',
+        'reason': 'Replace after confirmed calibration failure.',
+        'beforeJson': null,
+        'afterJson': '{"status":"active"}',
+        'performedByName': 'Admin One',
+        'performedAt': DateTime.utc(2026, 8, 16, 1, 30),
+        'requestId': 'request-1',
+        'acceptedEvidenceType': 'maintenanceIssue',
+      }, 'audit-1'),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
   });
 
   test('physical Base reference freezes the linked Inner Cover identity', () {

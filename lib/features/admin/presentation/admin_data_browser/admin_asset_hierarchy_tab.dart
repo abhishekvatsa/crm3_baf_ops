@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
+import '../../providers/admin_stream_providers.dart';
 import '../../../assets/data/asset_hierarchy_model.dart';
 import '../../../assets/data/asset_registry_model.dart';
 import '../../../assets/providers/asset_hierarchy_provider.dart';
 import '../../../assets/repositories/asset_hierarchy_repository.dart';
 import '../../../auth/data/user_model.dart';
 import '../../../maintenance/data/maintenance_model.dart';
+import '../../../planned_maintenance/data/job_template_model.dart';
 
 class AssetHierarchyAdminTab extends ConsumerStatefulWidget {
   final AppUser actor;
@@ -2240,12 +2242,15 @@ class _PhysicalAssetRegistryState
       );
       return;
     }
+    final evidenceOptions = await _replacementEvidenceOptions(asset, before);
+    if (!mounted) return;
     final result = await showDialog<_InstalledComponentDialogResult>(
       context: context,
       builder:
           (_) => _InstalledComponentDialog(
             replacementFor: before,
             definitions: definitions,
+            evidenceOptions: evidenceOptions,
           ),
     );
     if (result == null) return;
@@ -2258,9 +2263,125 @@ class _PhysicalAssetRegistryState
         reason: result.reason,
         allowTagTransfer: reviewedOwnerComponentId != null,
         expectedTagOwnerComponentId: reviewedOwnerComponentId,
+        evidenceReference: result.evidenceReference,
       ),
       'Component replaced and lifecycle history recorded.',
     );
+  }
+
+  Future<List<_ReplacementEvidenceOption>> _replacementEvidenceOptions(
+    AssetInstanceRecord asset,
+    InstalledComponentRecord component,
+  ) async {
+    try {
+      final ticketsFuture = ref.read(adminTicketsStreamProvider.future);
+      final executionsFuture = ref.read(adminExecutionsStreamProvider.future);
+      final tickets = await ticketsFuture;
+      final executions = await executionsFuture;
+      final options = <_ReplacementEvidenceOption>[];
+      for (final ticket in tickets) {
+        final id = ticket.firestoreId;
+        AssetHierarchyReference? hierarchy;
+        try {
+          hierarchy = ticket.assetHierarchyReference;
+        } on Object {
+          continue;
+        }
+        if (id == null ||
+            ticket.isDeleted ||
+            !ticket.isResolved ||
+            ticket.status != TicketStatus.resolved ||
+            ticket.endDate == null ||
+            !_replacementReferenceMatches(hierarchy, asset, component)) {
+          continue;
+        }
+        options.add(
+          _ReplacementEvidenceOption(
+            reference: ComponentReplacementEvidenceReference(
+              sourceType: ComponentReplacementEvidenceSource.maintenanceIssue,
+              sourceId: id,
+              expectedVersion: ticket.version,
+            ),
+            title: 'Resolved issue · ${ticket.description}',
+            subtitle:
+                '${DateFormat('dd MMM yyyy').format(ticket.endDate!.toLocal())} · ${ticket.closedByName ?? 'Recorded closure'}',
+            completedAt: ticket.endDate!,
+          ),
+        );
+      }
+      for (final execution in executions) {
+        final id = execution.firestoreId;
+        AssignmentPhysicalAssetIdentity? identity;
+        AssetHierarchyReference? hierarchy;
+        try {
+          identity = execution.assignmentPhysicalAssetIdentity;
+          hierarchy = execution.assignmentAssetHierarchyReference;
+        } on Object {
+          continue;
+        }
+        if (id == null ||
+            execution.isDeleted ||
+            !execution.isCompleted ||
+            execution.isCancelled ||
+            execution.completedAt == null ||
+            identity == null ||
+            identity.assetClassId != asset.assetClassId ||
+            identity.assetInstanceId != asset.id ||
+            identity.assetNumber != asset.assetNumber) {
+          continue;
+        }
+        if (hierarchy != null &&
+            (hierarchy.scope == AssetHierarchyReferenceScope.physicalAsset ||
+                hierarchy.scope ==
+                    AssetHierarchyReferenceScope.installedComponent) &&
+            !_replacementReferenceMatches(hierarchy, asset, component)) {
+          continue;
+        }
+        options.add(
+          _ReplacementEvidenceOption(
+            reference: ComponentReplacementEvidenceReference(
+              sourceType: ComponentReplacementEvidenceSource.plannedJob,
+              sourceId: id,
+              expectedVersion: execution.version,
+            ),
+            title:
+                'Completed planned work · ${execution.templateName ?? 'Job $id'}',
+            subtitle:
+                '${DateFormat('dd MMM yyyy').format(execution.completedAt!.toLocal())} · ${execution.completedByName ?? 'Recorded completion'}',
+            completedAt: execution.completedAt!,
+          ),
+        );
+      }
+      options.sort((a, b) => b.completedAt.compareTo(a.completedAt));
+      return options;
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Closed-work evidence is unavailable. You can still record a governed manual replacement.',
+            ),
+          ),
+        );
+      }
+      return const <_ReplacementEvidenceOption>[];
+    }
+  }
+
+  bool _replacementReferenceMatches(
+    AssetHierarchyReference? reference,
+    AssetInstanceRecord asset,
+    InstalledComponentRecord component,
+  ) {
+    if (reference == null ||
+        reference.scope == AssetHierarchyReferenceScope.definition ||
+        reference.assetClassId != asset.assetClassId ||
+        reference.assetInstanceId != asset.id ||
+        reference.assetNumber != asset.assetNumber) {
+      return false;
+    }
+    return reference.scope != AssetHierarchyReferenceScope.installedComponent ||
+        reference.componentInstanceId == component.id;
   }
 
   Future<void> _showComponentHistory(
@@ -2754,7 +2875,7 @@ class _InstalledComponentHistoryDialog extends ConsumerWidget {
                               ),
                             ),
                             subtitle: Text(
-                              '${entry.reason}\n${date.format(entry.performedAt.toLocal())} · ${entry.performedByName}',
+                              _componentAuditSubtitle(entry, date),
                             ),
                             isThreeLine: true,
                           );
@@ -2788,6 +2909,22 @@ String _componentAuditLabel(String action) => switch (action) {
   'tag_transferred_out' => 'Tag transferred out',
   _ => action.replaceAll('_', ' '),
 };
+
+String _componentAuditSubtitle(
+  InstalledComponentLifecycleAudit entry,
+  DateFormat date,
+) {
+  final evidenceType = entry.acceptedEvidenceType;
+  final evidenceLine =
+      evidenceType == null
+          ? null
+          : '${evidenceType == ComponentReplacementEvidenceSource.maintenanceIssue ? 'Resolved issue' : 'Completed planned work'} · ${entry.acceptedEvidenceId} · v${entry.acceptedEvidenceVersion}';
+  return <String>[
+    entry.reason,
+    if (evidenceLine != null) evidenceLine,
+    '${date.format(entry.performedAt.toLocal())} · ${entry.performedByName}',
+  ].join('\n');
+}
 
 IconData _componentAuditIcon(String action) => switch (action) {
   'create' || 'replacement_installed' => Icons.add_circle_outline_rounded,
@@ -3054,18 +3191,41 @@ class _AssetInstanceDialogState extends State<_AssetInstanceDialog> {
 class _InstalledComponentDialogResult {
   final InstalledComponentDraft draft;
   final String reason;
-  const _InstalledComponentDialogResult(this.draft, this.reason);
+  final ComponentReplacementEvidenceReference? evidenceReference;
+  const _InstalledComponentDialogResult(
+    this.draft,
+    this.reason, {
+    this.evidenceReference,
+  });
+}
+
+class _ReplacementEvidenceOption {
+  final ComponentReplacementEvidenceReference reference;
+  final String title;
+  final String subtitle;
+  final DateTime completedAt;
+
+  const _ReplacementEvidenceOption({
+    required this.reference,
+    required this.title,
+    required this.subtitle,
+    required this.completedAt,
+  });
+
+  String get key => '${reference.sourceType.name}:${reference.sourceId}';
 }
 
 class _InstalledComponentDialog extends StatefulWidget {
   final InstalledComponentRecord? existing;
   final InstalledComponentRecord? replacementFor;
   final List<AssetHierarchyNode> definitions;
+  final List<_ReplacementEvidenceOption> evidenceOptions;
 
   const _InstalledComponentDialog({
     this.existing,
     this.replacementFor,
     required this.definitions,
+    this.evidenceOptions = const <_ReplacementEvidenceOption>[],
   }) : assert(existing == null || replacementFor == null);
 
   @override
@@ -3086,6 +3246,7 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
   late AssetOwnershipStatus _ownership;
   late Set<AppRole> _roles;
   late DateTime? _installedOn;
+  String? _evidenceKey;
 
   bool get _isReplacement => widget.replacementFor != null;
 
@@ -3153,6 +3314,37 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
                   child: const Text(
                     'The current identity will be retired and the new identity installed in one governed change. Historical work remains linked.',
                   ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _evidenceKey,
+                  decoration: const InputDecoration(
+                    labelText: 'Completed work evidence',
+                    helperText:
+                        'Optional. Only exact-asset resolved work is eligible.',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.fact_check_outlined),
+                  ),
+                  isExpanded: true,
+                  items: <DropdownMenuItem<String>>[
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('Manual Admin confirmation'),
+                    ),
+                    ...widget.evidenceOptions.map(
+                      (option) => DropdownMenuItem<String>(
+                        value: option.key,
+                        child: Tooltip(
+                          message: option.subtitle,
+                          child: Text(
+                            option.title,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) => setState(() => _evidenceKey = value),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -3339,7 +3531,15 @@ class _InstalledComponentDialogState extends State<_InstalledComponentDialog> {
     }
     Navigator.pop(
       context,
-      _InstalledComponentDialogResult(draft, _reason.text.trim()),
+      _InstalledComponentDialogResult(
+        draft,
+        _reason.text.trim(),
+        evidenceReference:
+            widget.evidenceOptions
+                .where((option) => option.key == _evidenceKey)
+                .firstOrNull
+                ?.reference,
+      ),
     );
   }
 

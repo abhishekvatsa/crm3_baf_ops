@@ -1,9 +1,11 @@
 import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_asset_hierarchy_tab.dart';
+import 'package:crm3_baf_ops/features/admin/providers/admin_stream_providers.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -96,6 +98,45 @@ void main() {
         updatedAt: now,
         lastMutationId: 'component-mutation',
       );
+      final resolvedIssue =
+          MaintenanceRecord()
+            ..firestoreId = 'issue-pt-1'
+            ..version = 4
+            ..isDeleted = false
+            ..assetType = AssetType.furnace
+            ..assetNumber = asset.assetNumber
+            ..assetHierarchyRefJson =
+                AssetHierarchyReference(
+                  scope: AssetHierarchyReferenceScope.installedComponent,
+                  assetClassId: asset.assetClassId,
+                  assetClassCode: asset.assetClassCode,
+                  assetClassName: asset.assetClassName,
+                  nodeId: definition.id,
+                  nodeVersion: definition.version,
+                  nodeName: definition.name,
+                  assetInstanceId: asset.id,
+                  assetInstanceVersion: asset.version,
+                  assetNumber: asset.assetNumber,
+                  assetInstanceName: asset.name,
+                  componentInstanceId: component.id,
+                  componentInstanceVersion: component.version,
+                  componentTag: component.componentTag,
+                  hierarchyPath: definition.hierarchyPath,
+                  ownershipStatus: AssetOwnershipStatus.confirmed,
+                  ownerDiscipline: 'Instrumentation',
+                  accountableRoleKeys: const ['seniorInstrumentation'],
+                ).encode()
+            ..maintenanceType = MaintenanceType.breakdown
+            ..description = 'Pressure transmitter failed calibration'
+            ..routedTo = RoutedTo.instrumentation
+            ..status = TicketStatus.resolved
+            ..isResolved = true
+            ..closedByUid = 'admin-1'
+            ..closedByName = 'Admin One'
+            ..startDate = now.subtract(const Duration(hours: 4))
+            ..endDate = now.subtract(const Duration(hours: 1))
+            ..createdAt = now.subtract(const Duration(hours: 4))
+            ..updatedAt = now.subtract(const Duration(hours: 1));
       final audit = InstalledComponentLifecycleAudit(
         id: 'audit-1',
         entityId: component.id,
@@ -110,6 +151,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            adminTicketsStreamProvider.overrideWith(
+              (ref) => Stream.value(<MaintenanceRecord>[resolvedIssue]),
+            ),
+            adminExecutionsStreamProvider.overrideWith(
+              (ref) => Stream.value(const <JobExecution>[]),
+            ),
             assetClassesProvider.overrideWith(
               (ref) => Stream.value([assetClass]),
             ),
@@ -142,6 +189,18 @@ void main() {
 
       expect(find.text('Replace installed component'), findsOneWidget);
       expect(find.text('Replacement installed on'), findsOneWidget);
+      expect(find.text('Completed work evidence'), findsOneWidget);
+      expect(find.text('Manual Admin confirmation'), findsOneWidget);
+      await tester.tap(find.text('Manual Admin confirmation'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Resolved issue · Pressure transmitter'),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.textContaining('Resolved issue · Pressure transmitter'),
+      );
+      await tester.pumpAndSettle();
       expect(find.text('Replace'), findsOneWidget);
       expect(tester.takeException(), isNull);
 

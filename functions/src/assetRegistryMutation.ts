@@ -58,6 +58,14 @@ interface ComponentDraft {
   accountableRoleKeys: ReadonlyArray<string>;
 }
 
+type ReplacementEvidenceSource = "maintenanceIssue" | "plannedJob";
+
+interface ReplacementEvidenceReference {
+  sourceType: ReplacementEvidenceSource;
+  sourceId: string;
+  expectedVersion: number;
+}
+
 interface RegistryRequest {
   requestId: string;
   operation: RegistryOperation;
@@ -72,6 +80,7 @@ interface RegistryRequest {
   reason: string;
   allowTagTransfer: boolean;
   expectedTagOwnerComponentId: string | null;
+  evidenceReference: ReplacementEvidenceReference | null;
   assetDraft: AssetDraft | null;
   componentDraft: ComponentDraft | null;
   fingerprint: string;
@@ -97,6 +106,9 @@ const OPERATIONS = new Set<RegistryOperation>([
 ]);
 const SERVICE_STATES = new Set(["inService", "standby", "outOfService"]);
 const OWNERSHIP = new Set(["unassigned", "provisional", "confirmed"]);
+const REPLACEMENT_EVIDENCE_SOURCES = new Set<ReplacementEvidenceSource>([
+  "maintenanceIssue", "plannedJob",
+]);
 
 export function isAssetRegistryOperation(value: unknown): value is RegistryOperation {
   return typeof value === "string" && OPERATIONS.has(value as RegistryOperation);
@@ -278,13 +290,44 @@ function parseComponentDraft(value: unknown): ComponentDraft {
   };
 }
 
+function parseReplacementEvidenceReference(
+  value: unknown,
+): ReplacementEvidenceReference | null {
+  if (value == null) return null;
+  if (typeof value !== "object" || Array.isArray(value)) {
+    invalid("evidenceReference", "must be an object or null");
+  }
+  const map = value as JsonMap;
+  const allowed = new Set(["sourceType", "sourceId", "expectedVersion"]);
+  for (const key of Object.keys(map)) {
+    if (!allowed.has(key)) invalid(`evidenceReference.${key}`, "is unsupported");
+  }
+  const sourceType = requiredString(
+    map.sourceType, "evidenceReference.sourceType", 32,
+  ) as ReplacementEvidenceSource;
+  if (!REPLACEMENT_EVIDENCE_SOURCES.has(sourceType)) {
+    invalid("evidenceReference.sourceType", "is unsupported");
+  }
+  const expectedVersion = optionalVersion(
+    map.expectedVersion, "evidenceReference.expectedVersion",
+  );
+  if (expectedVersion == null) {
+    invalid("evidenceReference.expectedVersion", "is required");
+  }
+  return {
+    sourceType,
+    sourceId: documentId(map.sourceId, "evidenceReference.sourceId"),
+    expectedVersion,
+  };
+}
+
 export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest {
   const allowed = new Set([
     "requestId", "operation", "assetClassId", "assetInstanceId",
     "componentInstanceId", "replacementComponentInstanceId", "expectedVersion",
     "expectedAssetClassVersion",
     "expectedAssetInstanceVersion", "status", "reason", "allowTagTransfer",
-    "expectedTagOwnerComponentId", "assetDraft", "componentDraft",
+    "expectedTagOwnerComponentId", "evidenceReference", "assetDraft", "componentDraft",
   ]);
   for (const key of Object.keys(raw)) if (!allowed.has(key)) invalid(key, "is unsupported");
   const operation = requiredString(raw.operation, "operation", 40) as RegistryOperation;
@@ -312,6 +355,7 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
     allowTagTransfer: raw.allowTagTransfer === true,
     expectedTagOwnerComponentId: raw.expectedTagOwnerComponentId == null ? null :
       documentId(raw.expectedTagOwnerComponentId, "expectedTagOwnerComponentId"),
+    evidenceReference: parseReplacementEvidenceReference(raw.evidenceReference),
     assetDraft: raw.assetDraft == null ? null : parseAssetDraft(raw.assetDraft),
     componentDraft: raw.componentDraft == null ? null : parseComponentDraft(raw.componentDraft),
   };
@@ -332,6 +376,9 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
     invalid("componentInstanceId", componentOperation ? "is required" : "is not allowed");
   }
   const replacementOperation = operation === "REPLACE_COMPONENT_INSTANCE";
+  if (request.evidenceReference != null && !replacementOperation) {
+    invalid("evidenceReference", "is allowed only for component replacement");
+  }
   if ((request.replacementComponentInstanceId != null) !== replacementOperation) {
     invalid(
       "replacementComponentInstanceId",
@@ -367,9 +414,19 @@ export function parseAssetRegistryMutationRequest(raw: JsonMap): RegistryRequest
   if (replacementOperation && !UUID.test(request.replacementComponentInstanceId!)) {
     invalid("replacementComponentInstanceId", "must be a canonical UUID");
   }
-  const {replacementComponentInstanceId, ...legacyRequest} = request;
-  const fingerprintPayload = replacementOperation ? request : legacyRequest;
-  const fingerprintVersion = replacementOperation ? "assetreg2" : "assetreg1";
+  const {
+    replacementComponentInstanceId,
+    evidenceReference,
+    ...legacyRequest
+  } = request;
+  const replacementLegacyRequest = {
+    ...legacyRequest,
+    replacementComponentInstanceId,
+  };
+  const fingerprintPayload = replacementOperation ?
+    (evidenceReference == null ? replacementLegacyRequest : request) : legacyRequest;
+  const fingerprintVersion = replacementOperation ?
+    (evidenceReference == null ? "assetreg2" : "assetreg3") : "assetreg1";
   const fingerprint = `${fingerprintVersion}-sha256:${createHash("sha256")
     .update(stableJson(fingerprintPayload), "utf8").digest("hex")}`;
   return {...request, fingerprint};
@@ -445,6 +502,244 @@ function timestampOrNull(date: Date | null, convert: (date: Date) => unknown): u
   return date == null ? null : convert(date);
 }
 
+function timestampIso(value: unknown, field: string): string {
+  let date: unknown = value;
+  if (value != null && typeof value === "object" &&
+      typeof (value as {toDate?: unknown}).toDate === "function") {
+    try {
+      date = (value as {toDate: () => unknown}).toDate();
+    } catch {
+      date = null;
+    }
+  }
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition", `Replacement evidence has malformed ${field}.`,
+      {reasonCode: "asset-component-replacement-evidence-malformed", field},
+    );
+  }
+  return date.toISOString();
+}
+
+function parsedJsonObject(value: unknown, field: string): JsonMap {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition", `Replacement evidence has no ${field}.`,
+      {reasonCode: "asset-component-replacement-evidence-unbound", field},
+    );
+  }
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (parsed != null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as JsonMap;
+    }
+  } catch {
+    // The stable failure below is intentionally shared with non-object JSON.
+  }
+  throw new AssetHierarchyMutationError(
+    "failed-precondition", `Replacement evidence has malformed ${field}.`,
+    {reasonCode: "asset-component-replacement-evidence-malformed", field},
+  );
+}
+
+function requireReplacementEvidenceIdentity(args: {
+  reference: JsonMap;
+  asset: JsonMap;
+  outgoingComponentInstanceId: string;
+  sourceId: string;
+}): string | null {
+  const {reference, asset, outgoingComponentInstanceId, sourceId} = args;
+  if ((reference.schemaVersion !== 2 && reference.schemaVersion !== 3) ||
+      !["physicalAsset", "installedComponent"].includes(reference.scope as string) ||
+      reference.assetClassId !== asset.assetClassId ||
+      reference.assetInstanceId !== asset.assetInstanceId ||
+      reference.assetNumber !== asset.assetNumber) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `Replacement evidence ${sourceId} belongs to a different or malformed asset identity.`,
+      {
+        reasonCode: "asset-component-replacement-evidence-asset-mismatch",
+        sourceId,
+      },
+    );
+  }
+  if (reference.scope === "installedComponent" &&
+      reference.componentInstanceId !== outgoingComponentInstanceId) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      `Replacement evidence ${sourceId} identifies a different installed component.`,
+      {
+        reasonCode: "asset-component-replacement-evidence-component-mismatch",
+        sourceId,
+      },
+    );
+  }
+  return reference.scope === "installedComponent" ?
+    outgoingComponentInstanceId : null;
+}
+
+function verifyReplacementEvidence(args: {
+  data: JsonMap;
+  reference: ReplacementEvidenceReference;
+  asset: JsonMap;
+  outgoingComponentInstanceId: string;
+}): JsonMap {
+  const {data, reference, asset, outgoingComponentInstanceId} = args;
+  if (!Number.isSafeInteger(data.version) || data.version !== reference.expectedVersion) {
+    throw new AssetHierarchyMutationError(
+      "aborted", "The selected replacement evidence changed before commit.",
+      {
+        reasonCode: "asset-component-replacement-evidence-version-mismatch",
+        sourceType: reference.sourceType,
+        sourceId: reference.sourceId,
+        currentVersion: data.version,
+      },
+    );
+  }
+  if (data.isDeleted !== false) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition", "Deleted or malformed work cannot justify replacement.",
+      {
+        reasonCode: "asset-component-replacement-evidence-lifecycle-invalid",
+        sourceType: reference.sourceType,
+        sourceId: reference.sourceId,
+      },
+    );
+  }
+
+  let hierarchyReference: JsonMap | null = null;
+  let completedAtIso: string;
+  let completedByUid: unknown;
+  let completedByName: unknown;
+  let summary: unknown;
+  if (reference.sourceType === "maintenanceIssue") {
+    if (data.isResolved !== true || data.status !== "resolved") {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition", "Only a resolved issue can justify component replacement.",
+        {
+          reasonCode: "asset-component-replacement-evidence-lifecycle-invalid",
+          sourceType: reference.sourceType,
+          sourceId: reference.sourceId,
+        },
+      );
+    }
+    completedAtIso = timestampIso(data.endDate, "issue endDate");
+    completedByUid = data.closedByUid;
+    completedByName = data.closedByName;
+    summary = data.description;
+    hierarchyReference = parsedJsonObject(
+      data.assetHierarchyRefJson, "issue assetHierarchyRefJson",
+    );
+  } else {
+    if (data.isCompleted !== true || data.isCancelled !== false) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition", "Only a completed, non-cancelled planned job can justify replacement.",
+        {
+          reasonCode: "asset-component-replacement-evidence-lifecycle-invalid",
+          sourceType: reference.sourceType,
+          sourceId: reference.sourceId,
+        },
+      );
+    }
+    completedAtIso = timestampIso(data.completedAt, "job completedAt");
+    completedByUid = data.completedByUid;
+    completedByName = data.completedByName;
+    summary = data.templateName;
+    const metadata = parsedJsonObject(data.metadataJson, "job metadataJson");
+    const identity = metadata.assignmentAssetIdentity;
+    if (identity == null || typeof identity !== "object" || Array.isArray(identity) ||
+        (identity as JsonMap).assetClassId !== asset.assetClassId ||
+        (identity as JsonMap).assetInstanceId !== asset.assetInstanceId ||
+        (identity as JsonMap).assetNumber !== asset.assetNumber) {
+      throw new AssetHierarchyMutationError(
+        "failed-precondition",
+        `Replacement evidence ${reference.sourceId} belongs to a different or malformed asset identity.`,
+        {
+          reasonCode: "asset-component-replacement-evidence-asset-mismatch",
+          sourceId: reference.sourceId,
+        },
+      );
+    }
+    const jobSnapshot = metadata.jobTemplateSnapshot;
+    if (jobSnapshot != null && typeof jobSnapshot === "object" && !Array.isArray(jobSnapshot)) {
+      const encoded = (jobSnapshot as JsonMap).assetHierarchyRefJson;
+      if (encoded != null) {
+        const candidate = parsedJsonObject(encoded, "job assetHierarchyRefJson");
+        if (candidate.scope === "physicalAsset" || candidate.scope === "installedComponent") {
+          hierarchyReference = candidate;
+        }
+      }
+    }
+  }
+
+  if (typeof completedByUid !== "string" || completedByUid.trim().length === 0 ||
+      typeof completedByName !== "string" || completedByName.trim().length === 0 ||
+      typeof summary !== "string" || summary.trim().length === 0) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition", "Replacement evidence has incomplete closure attribution.",
+      {
+        reasonCode: "asset-component-replacement-evidence-malformed",
+        sourceType: reference.sourceType,
+        sourceId: reference.sourceId,
+      },
+    );
+  }
+  const componentInstanceId = hierarchyReference == null ? null :
+    requireReplacementEvidenceIdentity({
+      reference: hierarchyReference,
+      asset,
+      outgoingComponentInstanceId,
+      sourceId: reference.sourceId,
+    });
+  return {
+    sourceType: reference.sourceType,
+    sourceId: reference.sourceId,
+    sourceVersion: reference.expectedVersion,
+    assetClassId: asset.assetClassId,
+    assetInstanceId: asset.assetInstanceId,
+    assetNumber: asset.assetNumber,
+    componentInstanceId,
+    summary: summary.trim(),
+    completedAtIso,
+    completedByUid: completedByUid.trim(),
+    completedByName: completedByName.trim(),
+  };
+}
+
+function acceptedEvidenceSnapshotJson(
+  data: JsonMap,
+  request: RegistryRequest,
+): string | null {
+  const evidence = request.evidenceReference;
+  if (evidence == null) return null;
+  const encoded = data.acceptedEvidenceSnapshotJson;
+  let snapshot: unknown;
+  try {
+    snapshot = typeof encoded === "string" ? JSON.parse(encoded) : null;
+  } catch {
+    snapshot = null;
+  }
+  const map = snapshot != null && typeof snapshot === "object" &&
+      !Array.isArray(snapshot) ? snapshot as JsonMap : null;
+  if (data.acceptedEvidenceType !== evidence.sourceType ||
+      data.acceptedEvidenceId !== evidence.sourceId ||
+      data.acceptedEvidenceVersion !== evidence.expectedVersion ||
+      map == null || stableJson(map) !== encoded ||
+      map.sourceType !== evidence.sourceType ||
+      map.sourceId !== evidence.sourceId ||
+      map.sourceVersion !== evidence.expectedVersion ||
+      map.assetClassId !== request.assetClassId ||
+      map.assetInstanceId !== request.assetInstanceId ||
+      (map.componentInstanceId != null &&
+       map.componentInstanceId !== request.componentInstanceId)) {
+    throw new AssetHierarchyMutationError(
+      "data-loss", "The accepted replacement-evidence snapshot is malformed or mismatched.",
+      {reasonCode: "asset-registry-replay-evidence-drift"},
+    );
+  }
+  return encoded as string;
+}
+
 function replayResult(
   request: RegistryRequest,
   actorUid: string,
@@ -453,6 +748,7 @@ function replayResult(
   const entityId = resultEntityId(request);
   const sourceEntityId = request.operation === "REPLACE_COMPONENT_INSTANCE" ?
     request.componentInstanceId : null;
+  acceptedEvidenceSnapshotJson(data, request);
   if (data.actorUid !== actorUid || data.fingerprint !== request.fingerprint ||
       data.operation !== request.operation || data.entityId !== entityId ||
       !Number.isSafeInteger(data.version) || typeof data.auditId !== "string" ||
@@ -497,6 +793,8 @@ export async function mutateAssetRegistryWithDb(args: {
   const operationalConditions = db.collection("asset_operational_conditions");
   const numberClaims = db.collection("asset_instance_numbers");
   const components = db.collection("asset_component_instances");
+  const maintenanceIssues = db.collection("maintenance_records");
+  const plannedJobs = db.collection("job_executions");
   const tagClaims = db.collection("asset_tag_claims");
   const audits = db.collection("asset_hierarchy_audits");
   const receipts = db.collection("asset_hierarchy_mutation_receipts");
@@ -513,6 +811,9 @@ export async function mutateAssetRegistryWithDb(args: {
   const auditId = `asset_registry_${request.requestId}`;
   const auditRef = audits.doc(auditId);
   const replacementSourceAuditRef = audits.doc(`${auditId}_replacement_source`);
+  const evidenceRef = request.evidenceReference == null ? null :
+    (request.evidenceReference.sourceType === "maintenanceIssue" ?
+      maintenanceIssues : plannedJobs).doc(request.evidenceReference.sourceId);
 
   const preflight = record(await actorRef.get(), "Registry actor");
   const preflightAuthority = canonicalApprovedUserAuthority(preflight);
@@ -538,7 +839,11 @@ export async function mutateAssetRegistryWithDb(args: {
       );
     }
     if (receiptSnapshot.exists) {
-      const replay = replayResult(request, actorUid, receiptSnapshot.data() ?? {});
+      const receiptData = receiptSnapshot.data() ?? {};
+      const replay = replayResult(request, actorUid, receiptData);
+      const recordedEvidenceSnapshot = acceptedEvidenceSnapshotJson(
+        receiptData, request,
+      );
       const currentEntity = record(
         asSnapshot(await transaction.get(entityRef), "Registry replay entity lookup"),
         "Recorded registry entity",
@@ -549,7 +854,8 @@ export async function mutateAssetRegistryWithDb(args: {
       );
       if (currentEntity.version !== replay.version ||
           currentEntity.lastMutationId !== request.requestId ||
-          audit.requestId !== request.requestId || audit.performedByUid !== actorUid) {
+          audit.requestId !== request.requestId || audit.performedByUid !== actorUid ||
+          acceptedEvidenceSnapshotJson(audit, request) !== recordedEvidenceSnapshot) {
         throw new AssetHierarchyMutationError(
           "data-loss", "The registry receipt no longer matches its evidence.",
           {reasonCode: "asset-registry-replay-evidence-drift"},
@@ -567,12 +873,13 @@ export async function mutateAssetRegistryWithDb(args: {
           ),
           "Recorded replacement-source audit",
         );
-        if (source.version !== receiptSnapshot.data()?.sourceVersion ||
+        if (source.version !== receiptData.sourceVersion ||
             source.lastMutationId !== request.requestId || source.status !== "retired" ||
             source.replacedByComponentInstanceId !== request.replacementComponentInstanceId ||
             sourceAudit.requestId !== request.requestId ||
             sourceAudit.entityId !== request.componentInstanceId ||
-            sourceAudit.performedByUid !== actorUid) {
+            sourceAudit.performedByUid !== actorUid ||
+            acceptedEvidenceSnapshotJson(sourceAudit, request) !== recordedEvidenceSnapshot) {
           throw new AssetHierarchyMutationError(
             "data-loss", "The replacement receipt no longer matches its source evidence.",
             {reasonCode: "asset-registry-replay-evidence-drift"},
@@ -597,6 +904,9 @@ export async function mutateAssetRegistryWithDb(args: {
       componentSnapshot.data() ?? {} : null;
     const replacementComponentSnapshot = replacementComponentRef == null ? null : asSnapshot(
       await transaction.get(replacementComponentRef), "Replacement component lookup",
+    );
+    const evidenceSnapshot = evidenceRef == null ? null : asSnapshot(
+      await transaction.get(evidenceRef), "Replacement evidence lookup",
     );
     if (request.operation === "SET_COMPONENT_INSTANCE_STATUS" &&
         request.status === "active" &&
@@ -769,6 +1079,20 @@ export async function mutateAssetRegistryWithDb(args: {
         await transaction.get(operationalConditionRef),
         "Asset operational-condition lookup",
       ) : null;
+
+    const acceptedEvidenceSnapshot = request.evidenceReference == null ? null :
+      verifyReplacementEvidence({
+        data: record(evidenceSnapshot!, "Replacement work evidence"),
+        reference: request.evidenceReference,
+        asset: assetData ?? record(assetSnapshot, "Replacement asset"),
+        outgoingComponentInstanceId: request.componentInstanceId!,
+      });
+    const acceptedEvidenceFields = acceptedEvidenceSnapshot == null ? {} : {
+      acceptedEvidenceType: request.evidenceReference!.sourceType,
+      acceptedEvidenceId: request.evidenceReference!.sourceId,
+      acceptedEvidenceVersion: request.evidenceReference!.expectedVersion,
+      acceptedEvidenceSnapshotJson: stableJson(acceptedEvidenceSnapshot),
+    };
 
     const nowDate = args.now?.() ?? new Date();
     const committedAtIso = nowDate.toISOString();
@@ -1033,6 +1357,7 @@ export async function mutateAssetRegistryWithDb(args: {
           performedByName: actorName,
           performedAt: committedAt,
           requestId: request.requestId,
+          ...acceptedEvidenceFields,
         });
       } else if (request.operation === "CREATE_COMPONENT_INSTANCE") {
         if (componentData != null) throw new AssetHierarchyMutationError("already-exists", "Installed component already exists.");
@@ -1214,6 +1539,7 @@ export async function mutateAssetRegistryWithDb(args: {
       performedAt: committedAt,
       requestId: request.requestId,
       tagTransferApproved: request.allowTagTransfer,
+      ...acceptedEvidenceFields,
     });
     transaction.set(receiptRef, {
       schemaVersion: 1,
@@ -1229,6 +1555,7 @@ export async function mutateAssetRegistryWithDb(args: {
       auditId,
       committedAt,
       committedAtIso,
+      ...acceptedEvidenceFields,
     });
     return {
       ok: true,
