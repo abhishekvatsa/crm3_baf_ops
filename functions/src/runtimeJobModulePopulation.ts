@@ -1,5 +1,6 @@
 import {createHash} from "crypto";
 import {laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
+import {MODULE_DISCIPLINE_SUBMIT_ROLES} from "./maintenanceWorkflow/policy.generated";
 import {
   PersistedActionPayloadError,
   readComponentActionPayload,
@@ -668,24 +669,16 @@ function userCanSubmitDiscipline(
   roles: Set<string>,
   discipline: unknown,
 ): boolean {
-  if (discipline === "emd") return roles.has("admin") || roles.has("si");
-  if (hasAnyRole(roles, MODERATOR_ROLES)) return true;
-  if (discipline === "mechanical") return roles.has("seniorMechanical");
-  if (discipline === "electrical") return roles.has("seniorElectrical");
-  if (
-    discipline === "instrumentation" ||
-    discipline === "instrument" ||
-    discipline === "ia" ||
-    discipline === "iAndA" ||
-    discipline === "instrumentationAndAutomation" ||
-    discipline === "instrumentationAutomation"
-  ) {
-    return roles.has("seniorInstrumentation");
-  }
-  if (discipline === "refractory" || discipline === "others") {
-    return roles.has("seniorRefractory");
-  }
-  return false;
+  if (typeof discipline !== "string") return false;
+  const canonicalDiscipline = new Set([
+    "instrument",
+    "ia",
+    "iAndA",
+    "instrumentationAndAutomation",
+    "instrumentationAutomation",
+  ]).has(discipline) ? "instrumentation" : discipline;
+  const allowed = MODULE_DISCIPLINE_SUBMIT_ROLES[canonicalDiscipline];
+  return allowed?.some((role) => roles.has(role)) ?? false;
 }
 
 function laneKeyForDiscipline(discipline: unknown): string {

@@ -121,9 +121,9 @@
     {
       "path": "README.md",
       "canonicalSha256": "1DE7D30CC85FDB88E103349EFF9E8875F71C4BB872D6636CB5AF33A2B4E96FF3",
-      "candidateSha256": "EF5DDABAE944F08ACB591F395AF82E68D77E80E8EC936EADC793CF91D9AB0FD7",
+      "candidateSha256": "EE0174B779B97EAB9A8B0A784407920D7ABD24900E1DDB5E127495DE107317D5",
       "canonicalBytes": 564,
-      "candidateBytes": 7616,
+      "candidateBytes": 7993,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -553,9 +553,9 @@
     {
       "path": "functions/src/runtimeJobModulePopulation.ts",
       "canonicalSha256": "50844312827F112F49FA7E6406358BFCA2E617F81D81AC4EE4134E57A3A0E1F8",
-      "candidateSha256": "91493B638665261AE3314EB17D60A965EF79FC811B06F3D6F3B5328160590FC5",
+      "candidateSha256": "717AA5C20A7AB72C1B6FC638FFF0BD42BE29F18FC503CB7F729C98157F974907",
       "canonicalBytes": 50845,
-      "candidateBytes": 57031,
+      "candidateBytes": 56809,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -689,9 +689,9 @@
     {
       "path": "governance/programme-ledger.json",
       "canonicalSha256": "30FC5520D44172C2F6E0AD3E954AC7482C350292464AA972CE929D2740B02C56",
-      "candidateSha256": "AB214B93A08C03D0C545A4ECE1720B9D297B650CFD06F840D9C283D1E307AC48",
+      "candidateSha256": "3A47769E5979D6995D83137ACC072A40B6DE77C88F96761DDE5D84B18FAF224D",
       "canonicalBytes": 73391,
-      "candidateBytes": 211042,
+      "candidateBytes": 211757,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1405,9 +1405,9 @@
     {
       "path": "lib/features/auth/data/user_model.dart",
       "canonicalSha256": "DCBFB4D7AA4D57579F5BFAD3B58B19DFD08B17418355969971F8C66762E5585E",
-      "candidateSha256": "3ABD2F61DE5B181680DAEFE3D0840D497D6B7DF8866411CD985A85D44F3CA636",
+      "candidateSha256": "61A0AD94682BB33512639FA5025487E298B40FEBE19098859474DEC720B8269D",
       "canonicalBytes": 17328,
-      "candidateBytes": 23852,
+      "candidateBytes": 23815,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2369,9 +2369,9 @@
     {
       "path": "lib/main.dart",
       "canonicalSha256": "6DE20D01D9D00FAA761B6231101DD873CDB9A442194FAB2691E7B34809B87A97",
-      "candidateSha256": "49287F8F8FAC0D489DCE2ABA045E9962635E686F8ACCAAFA8E18F01876B1A4C1",
+      "candidateSha256": "3603946569F82202E3AC4B926A4CE29333A597BA383C7B956147941796701B81",
       "canonicalBytes": 41433,
-      "candidateBytes": 50636,
+      "candidateBytes": 50564,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2729,9 +2729,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "1A92D6FA0035C1D07CAC6A15518B064CF2A4AF310573BF4C0B1C029671FA6FDD",
+      "candidateSha256": "89A64C2CB5DDD495D065EA8CF4EF24B716C1C12B4111F6C41B213E0BDD0AFCA2",
       "canonicalBytes": 78841,
-      "candidateBytes": 129592,
+      "candidateBytes": 130674,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

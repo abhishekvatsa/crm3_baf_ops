@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "authorityId": "CRM3-SUCCESSOR-ENGINEERING-REARM-2026-08-16",
+  "effectiveDate": "2026-08-16",
+  "status": "ACTIVE_SOURCE_AND_CI_ONLY",
+  "authorityBasis": "Explicit project-owner direction to correct the independent audit findings, complete remaining business capability and then redesign the user experience.",
+  "admittedBaseline": {
+    "branch": "main",
+    "commit": "8b796132adb6fa60dcb2b2b533a1d4d3b6cf2724",
+    "tree": "e18780ac0d37ab01d45f5ce4da2010cc5d51d2ac"
+  },
+  "authorizedScope": [
+    "source correction and regression tests",
+    "incremental architecture containment",
+    "completion of approved business workflows",
+    "role-aware UI and UX redesign",
+    "local and hosted CI verification",
+    "review, pull request and merge evidence"
+  ],
+  "sequence": [
+    "correct release-blocking source and authority contradictions",
+    "complete remaining business-function gaps",
+    "redesign and visually verify representative role workflows",
+    "freeze a separately numbered successor artifact only after source acceptance"
+  ],
+  "preservedAuthorities": {
+    "sealedBuild11Pilot": "UNCHANGED_EXACT_ARTIFACT_AND_ROSTER_ONLY",
+    "build11ProgrammeDecisionPath": "governance/programme-ledger.json#programmeDecision",
+    "successorArchitecturePath": "governance/v4_successor_programme_authority_v1.json",
+    "appCheckDecision": "GOVERNED_DEFERRAL_UNCHANGED",
+    "unrestrictedDistribution": "NO_GO"
+  },
+  "notAuthorized": [
+    "production Firebase deployment",
+    "production data mutation",
+    "App Check or Play Integrity activation",
+    "reuse of the Build 11 package identity",
+    "pilot handout of an unsealed successor build",
+    "unrestricted distribution"
+  ],
+  "successorReleasePrerequisites": [
+    "new monotonically increasing build number",
+    "exact source, tree, dependency, Firebase and signing binding",
+    "exact Functions, Rules and index deployment readback",
+    "signed-device role and business-flow validation",
+    "legacy-store migration and recovery evidence",
+    "explicit successor pilot and distribution decision"
+  ]
+}

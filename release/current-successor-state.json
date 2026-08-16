@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "indexId": "CRM3-CURRENT-SUCCESSOR-STATE-2026-08-16",
+  "asOfDate": "2026-08-16",
+  "status": "SUCCESSOR_SOURCE_CAMPAIGN_ACTIVE_NOT_RELEASE_AUTHORITY",
+  "source": {
+    "admittedBaselineCommit": "8b796132adb6fa60dcb2b2b533a1d4d3b6cf2724",
+    "admittedBaselineTree": "e18780ac0d37ab01d45f5ce4da2010cc5d51d2ac",
+    "successorEngineeringAuthority": "governance/successor-engineering-rearm-2026-08-16.json",
+    "exactCandidateBinding": "REQUIRED_PER_SOURCE_TRANCHE"
+  },
+  "localStore": {
+    "schemaVersion": 6,
+    "verifier": "tools/isar/verify_v4_isar_schema.py --release",
+    "governedIdentityCrossingRepair": "SOURCE_CORRECTED_WITH_POPULATED_V3_V4_TO_V6_REGRESSIONS_RELEASE_AUTHORITY_REQUIRES_MERGED_CI"
+  },
+  "deployedBackend": {
+    "historicCapture": "release/backend-current-state.prod.json",
+    "historicCaptureStatus": "PRESERVED_NOT_CURRENT_SOURCE_AUTHORITY",
+    "currentSuccessorSourceDeployment": "NOT_PROVED"
+  },
+  "rulesAndIndexes": {
+    "sourceFiles": [
+      "firestore.rules",
+      "firestore.indexes.json"
+    ],
+    "currentSuccessorDeploymentReadback": "NOT_PROVED",
+    "burnerSelectedFurnaceIndex": "DECLARED_IN_SOURCE_DEPLOYMENT_REQUIRED"
+  },
+  "runtimeIam": {
+    "dedicatedIdentityProgramme": "CLOSED_FOR_ITS_CAPTURED_DEPLOYMENT",
+    "currentSuccessorDeploymentBinding": "NOT_PROVED"
+  },
+  "appCheck": {
+    "mutatingCallableSourceDefault": false,
+    "programmeStatus": "GOVERNED_DEFERRAL",
+    "broadDistributionStatus": "BLOCKER_UNTIL_REARMED_AND_PROVED"
+  },
+  "client": {
+    "sealedBuild11": "AUTHORIZED_EXACT_ARTIFACT_AND_ROSTER_ONLY",
+    "currentSourcePackageVersion": "1.0.0-rc.1+11_COMPATIBILITY_LABEL_NOT_DISTRIBUTION_AUTHORITY",
+    "successorBuild": "NOT_FROZEN_NOT_NUMBERED_NOT_SIGNED"
+  },
+  "deviceAndPilot": {
+    "sealedBuild11Evidence": "PRESERVED_HISTORIC_EXACT_ARTIFACT",
+    "currentSuccessorDeviceProof": "ABSENT",
+    "currentSuccessorPilotHandout": "NOT_AUTHORIZED",
+    "unrestrictedDistribution": "NO_GO"
+  },
+  "nextRequiredSequence": [
+    "complete every source tranche through exact-head and postmerge CI",
+    "complete business-function and UI/UX source tranches",
+    "freeze a new successor build identity",
+    "deploy and read back exact backend, Rules and indexes",
+    "perform signed-device and migration validation",
+    "issue explicit successor pilot decision"
+  ]
+}

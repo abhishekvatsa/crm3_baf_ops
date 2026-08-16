@@ -417,8 +417,8 @@ class AppUser {
 
   /// Supervisory actors can review and govern module lifecycle transitions.
   /// This intentionally excludes ordinary operations/refractory users so that
-  /// submit/accept/reopen/not-applicable decisions remain auditable authority
-  /// events rather than casual edits.
+  /// accept/reopen/not-applicable decisions remain supervisory authority
+  /// events. Discipline submission is governed separately below.
   bool get isModuleLifecycleSupervisor =>
       isApproved &&
       _hasAnyWorkflowRole(
@@ -429,18 +429,18 @@ class AppUser {
   bool get canReopenJobModule => isModuleLifecycleSupervisor;
   bool get canMarkJobModuleNotApplicable => isModuleLifecycleSupervisor;
 
-  /// Saving module responses/work is limited to Admin/SI, supervisors, and
-  /// senior discipline users. Ordinary Operations/plain Refractory can view
-  /// planned work, but cannot mutate planned-maintenance module responses.
+  /// Saving module responses follows the generated discipline policy.
+  /// Operations and plain Refractory may work only their own disciplines;
+  /// cross-discipline work remains denied.
   bool get canSaveJobModuleWork =>
       isApproved &&
       WorkflowPolicyGenerated.moduleDisciplineWorkRoles.values.any(
         _hasAnyWorkflowRole,
       );
 
-  /// Supervisors/Admin/SI can submit any module. Senior discipline users can
-  /// submit only their own discipline lane. Operations users cannot submit
-  /// planned-maintenance modules, including operations-discipline modules.
+  /// Supervisors/Admin/SI can submit any permitted module. Senior discipline
+  /// users, Operations and plain Refractory may submit only the disciplines
+  /// assigned to their roles by the generated policy.
   bool canSubmitJobModule(String? moduleDisciplineName) {
     if (!isApproved) return false;
     final discipline = _canonicalModuleDisciplinePermissionKey(

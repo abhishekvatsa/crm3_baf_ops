@@ -24,13 +24,18 @@ new, monotonically increasing build number and its own governed evidence.
 Authoritative status sources:
 
 - `governance/programme-ledger.json`
+- `governance/successor-engineering-rearm-2026-08-16.json`
+- `release/current-successor-state.json`
 - `release/production-release-policy.json`
-- `release/backend-current-state.prod.json`
+- `release/backend-current-state.prod.json` (historic deployed-state capture)
 - `docs/v4_2/PROGRAMME_AUTHORITY.md`
 
-At the time of this update, the programme authorizes the exact sealed Build 11
-controlled pilot and roster. Unrestricted distribution remains prohibited,
-and App Check/Play Integrity activation remains a governed decision.
+The sealed Build 11 decision remains exact to that artifact and roster. A
+separate source-and-CI successor campaign was re-armed on 16 August 2026 for
+audit remediation, remaining business capability and UI/UX redesign. It grants
+no deployment, successor pilot or distribution authority. Unrestricted
+distribution remains prohibited, and App Check/Play Integrity activation
+remains a governed decision.
 
 ## Product scope
 
@@ -107,10 +112,11 @@ See `docs/FIREBASE_CONFIGURATION_CUSTODY.md`.
 
 ## Isar persistence authority
 
-The current local-store contract is Isar schema v5. Authentic checked-in
+The current local-store contract is Isar schema v6. Authentic checked-in
 generated bindings contain zero `PROVISIONAL_V4_ISAR_CODEGEN` markers. Schema
-v5 adds governed asset identity to workflow and equipment projections while
-retaining explicit v1, v3 and v4 fingerprints and migration steps.
+v5 added governed asset identity to workflow and equipment projections; v6
+adds operational-event issue-link projections while retaining explicit v1,
+v3, v4 and v5 fingerprints and ordered migration steps.
 
 Before any release claim, run:
 
@@ -120,7 +126,7 @@ dart run build_runner build --delete-conflicting-outputs
 python tools/isar/verify_v4_isar_schema.py --release
 ```
 
-The release verifier must report schema v5, zero provisional bindings and
+The release verifier must report schema v6, zero provisional bindings and
 `release_authority=YES`. Existing-store adoption, migration, quarantine and
 recovery evidence remain governed separately from successful code generation.
 
