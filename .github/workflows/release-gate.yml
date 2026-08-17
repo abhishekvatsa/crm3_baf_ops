@@ -37,9 +37,6 @@ jobs:
       - name: Validate and publish test evidence taxonomy
         run: python3 tools/testing/verify_test_evidence_taxonomy.py
 
-      - name: Canonical source and authority audit
-        run: python3 tools/v4/v4_2_r1_canonical_audit.py --phase post-codegen
-
       - name: Production policy and package-verifier runtime gate
         shell: pwsh
         run: |
@@ -65,6 +62,9 @@ jobs:
 
       - name: Install Flutter dependencies
         run: flutter pub get
+
+      - name: Canonical source and authority audit
+        run: python3 tools/v4/v4_2_r1_canonical_audit.py --phase post-codegen
 
       - name: A-05 read-only production sweep contracts
         run: npm run test:a05-production-sweep
