@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 void main() {
   group('69D.1 job-module offline lifecycle replay contract', () {
     test('sync path attempts lifecycle replay before standard batch push', () {
@@ -136,57 +138,48 @@ void main() {
       }
     });
 
-    test(
-      'accept replay payload mirrors Firestore accept whitelist exactly',
-      () {
-        final source = _read(_syncPath);
-        final rules = _readFirstExisting(_rulePaths);
-        final payloadBlock = _blockStartingAt(
-          source,
-          'Map<String, dynamic> _jobModuleAcceptReplayStepData',
-        );
-        final rulesBlock = _blockStartingAt(
-          rules,
-          'function jobModuleAcceptChangedFieldsOnly',
-        );
+    test('accept replay payload mirrors Firestore accept whitelist exactly', () {
+      final source = _read(_syncPath);
+      final rules = _readFirstExisting(_rulePaths);
+      final payloadBlock = _blockStartingAt(
+        source,
+        'Map<String, dynamic> _jobModuleAcceptReplayStepData',
+      );
+      final rulesBlock = _blockStartingAt(
+        rules,
+        'function jobModuleAcceptChangedFieldsOnly',
+      );
 
-        expect(_quotedStrings(payloadBlock), _quotedStrings(rulesBlock));
-        expect(
-          payloadBlock,
-          contains("'status': JobModuleStatus.accepted.name"),
-        );
-        expect(
-          payloadBlock,
-          contains("'isOpenForWork': false"),
-          reason:
-              'field-scoped accept replay must preserve the closed lifecycle invariant',
-        );
-        expect(
-          payloadBlock,
-          contains("'updatedAt': full['acceptedAt'] ?? full['updatedAt']"),
-          reason: 'accept replay must use accept-time chronology',
-        );
-        expect(payloadBlock, contains("'updatedByUid': full['acceptedByUid']"));
-        expect(
-          payloadBlock,
-          contains("'updatedByName': full['acceptedByName']"),
-        );
-        expect(payloadBlock, contains("'version': full['version']"));
+      expect(_quotedStrings(payloadBlock), _quotedStrings(rulesBlock));
+      expect(payloadBlock, contains("'status': JobModuleStatus.accepted.name"));
+      expect(
+        payloadBlock,
+        contains("'isOpenForWork': false"),
+        reason:
+            'field-scoped accept replay must preserve the closed lifecycle invariant',
+      );
+      expect(
+        payloadBlock,
+        contains("'updatedAt': full['acceptedAt'] ?? full['updatedAt']"),
+        reason: 'accept replay must use accept-time chronology',
+      );
+      expect(payloadBlock, contains("'updatedByUid': full['acceptedByUid']"));
+      expect(payloadBlock, contains("'updatedByName': full['acceptedByName']"));
+      expect(payloadBlock, contains("'version': full['version']"));
 
-        for (final forbidden in <String>[
-          'responsesJson',
-          'actionsJson',
-          'submittedByUid',
-          'submittedAt',
-          'submissionNote',
-          'reopenedByUid',
-          'notApplicableByUid',
-          'isDeleted',
-        ]) {
-          expect(payloadBlock, isNot(contains("'$forbidden'")));
-        }
-      },
-    );
+      for (final forbidden in <String>[
+        'responsesJson',
+        'actionsJson',
+        'submittedByUid',
+        'submittedAt',
+        'submissionNote',
+        'reopenedByUid',
+        'notApplicableByUid',
+        'isDeleted',
+      ]) {
+        expect(payloadBlock, isNot(contains("'$forbidden'")));
+      }
+    });
 
     test(
       'two-step replay uses remote+1 submit then final local accept version',
@@ -267,46 +260,53 @@ void main() {
       }
     });
 
-    test('direct Firestore lifecycle transitions persist the open-state invariant', () {
-      final provider = _read(_providerPath);
-      final remoteRepository = provider.substring(
-        provider.indexOf('class FirestoreJobModuleRepository'),
-      );
-
-      final expectedTransitions = <(String, String, String)>[
-        (
-          'Future<void> submitModule(',
-          "'status': JobModuleStatus.submitted.name",
-          "'isOpenForWork': false",
-        ),
-        (
-          'Future<void> reopenModule(',
-          "'status': JobModuleStatus.reopened.name",
-          "'isOpenForWork': true",
-        ),
-        (
-          'Future<void> markModuleNotApplicable(',
-          "'status': JobModuleStatus.notApplicable.name",
-          "'isOpenForWork': false",
-        ),
-        (
-          'Future<void> acceptModule(',
-          "'status': JobModuleStatus.accepted.name",
-          "'isOpenForWork': false",
-        ),
-      ];
-
-      for (final (method, status, openState) in expectedTransitions) {
-        final block = _methodBlockStartingAt(remoteRepository, method);
-        expect(block, contains(status), reason: 'Missing lifecycle status in $method');
-        expect(
-          block,
-          contains(openState),
-          reason:
-              '$method must persist the derived open-state field used by Rules and canonical closure',
+    test(
+      'direct Firestore lifecycle transitions persist the open-state invariant',
+      () {
+        final provider = _read(_providerPath);
+        final remoteRepository = provider.substring(
+          provider.indexOf('class FirestoreJobModuleRepository'),
         );
-      }
-    });
+
+        final expectedTransitions = <(String, String, String)>[
+          (
+            'Future<void> submitModule(',
+            "'status': JobModuleStatus.submitted.name",
+            "'isOpenForWork': false",
+          ),
+          (
+            'Future<void> reopenModule(',
+            "'status': JobModuleStatus.reopened.name",
+            "'isOpenForWork': true",
+          ),
+          (
+            'Future<void> markModuleNotApplicable(',
+            "'status': JobModuleStatus.notApplicable.name",
+            "'isOpenForWork': false",
+          ),
+          (
+            'Future<void> acceptModule(',
+            "'status': JobModuleStatus.accepted.name",
+            "'isOpenForWork': false",
+          ),
+        ];
+
+        for (final (method, status, openState) in expectedTransitions) {
+          final block = _methodBlockStartingAt(remoteRepository, method);
+          expect(
+            block,
+            contains(status),
+            reason: 'Missing lifecycle status in $method',
+          );
+          expect(
+            block,
+            contains(openState),
+            reason:
+                '$method must persist the derived open-state field used by Rules and canonical closure',
+          );
+        }
+      },
+    );
 
     test('remote-only repository primitive is explicit and merge-scoped', () {
       final provider = _read(_providerPath);
@@ -368,7 +368,7 @@ const _rulePaths = <String>[
   'Other root files/firestore.rules',
 ];
 
-String _read(String path) => File(path).readAsStringSync();
+String _read(String path) => readDartLibrarySource(path);
 
 String _readFirstExisting(List<String> paths) {
   for (final path in paths) {
@@ -442,7 +442,11 @@ String _methodBlockStartingAt(String source, String marker) {
     }
   }
 
-  expect(closeParen, isNot(-1), reason: 'Missing closing parenthesis for $marker');
+  expect(
+    closeParen,
+    isNot(-1),
+    reason: 'Missing closing parenthesis for $marker',
+  );
   final openBrace = source.indexOf('{', closeParen + 1);
   expect(openBrace, isNot(-1), reason: 'Missing method body after $marker');
 

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 void main() {
   group('ND-1/ND-2 complete runtime-module population fence contract', () {
     test(
@@ -266,7 +268,7 @@ void main() {
 String _read(String path) {
   final file = File(path);
   expect(file.existsSync(), isTrue, reason: '$path must exist.');
-  return file.readAsStringSync();
+  return readDartLibrarySource(path);
 }
 
 String _blockStartingAt(String source, String marker) {

@@ -5,6 +5,8 @@ import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart'
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 void main() {
   group('A-05 abnormality-type persisted integrity', () {
     test('a complete type retains exact persisted authority', () {
@@ -375,10 +377,9 @@ void main() {
           File(
             'lib/features/abnormalities/data/remote_abnormality_reader.dart',
           ).readAsStringSync();
-      final provider =
-          File(
-            'lib/features/abnormalities/providers/abnormality_provider.dart',
-          ).readAsStringSync();
+      final provider = readDartLibrarySource(
+        'lib/features/abnormalities/providers/abnormality_provider.dart',
+      );
 
       expect(model, contains('readRemoteAbnormalityType('));
       expect(model, contains('readRemoteChargeAbnormality('));

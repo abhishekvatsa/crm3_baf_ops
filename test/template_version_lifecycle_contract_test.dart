@@ -1,8 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
-String _read(String path) => File(path).readAsStringSync();
+import '../tools/testing/dart_library_source.dart';
+
+String _read(String path) => readDartLibrarySource(path);
 
 void main() {
   group('TemplateVersion draft resume lifecycle contract', () {
