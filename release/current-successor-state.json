@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "indexId": "CRM3-CURRENT-SUCCESSOR-STATE-2026-08-16",
-  "asOfDate": "2026-08-16",
-  "status": "SUCCESSOR_SOURCE_CAMPAIGN_ACTIVE_NOT_RELEASE_AUTHORITY",
+  "asOfDate": "2026-08-18",
+  "status": "BUILD12_SOURCE_FROZEN_PENDING_MERGE_DEPLOYMENT_AND_SIGNING",
   "source": {
-    "admittedBaselineCommit": "8b796132adb6fa60dcb2b2b533a1d4d3b6cf2724",
-    "admittedBaselineTree": "e18780ac0d37ab01d45f5ce4da2010cc5d51d2ac",
+    "admittedBaselineCommit": "b020dc639cd0b69bf09808de9f6a750cde38259c",
+    "admittedBaselineTree": "a65ff08db541bea2aa72c6930ead60b430028eea",
     "successorEngineeringAuthority": "governance/successor-engineering-rearm-2026-08-16.json",
     "exactCandidateBinding": "REQUIRED_PER_SOURCE_TRANCHE"
   },
@@ -38,20 +38,21 @@
   },
   "client": {
     "sealedBuild11": "AUTHORIZED_EXACT_ARTIFACT_AND_ROSTER_ONLY",
-    "currentSourcePackageVersion": "1.0.0-rc.1+11_COMPATIBILITY_LABEL_NOT_DISTRIBUTION_AUTHORITY",
-    "successorBuild": "NOT_FROZEN_NOT_NUMBERED_NOT_SIGNED"
+    "currentSourcePackageVersion": "1.0.0-rc.2+12",
+    "successorBuild": "BUILD12_SOURCE_RESERVED_NOT_REMOTELY_CONSUMED_NOT_SIGNED",
+    "releaseAuthority": "release/production-release-policy.json",
+    "build11SameVersionOverwriteProhibited": true
   },
   "deviceAndPilot": {
     "sealedBuild11Evidence": "PRESERVED_HISTORIC_EXACT_ARTIFACT",
-    "currentSuccessorDeviceProof": "ABSENT",
+    "currentSuccessorDeviceProof": "ABSENT_PENDING_SIGNED_BUILD12_IN_PLACE_UPGRADE",
     "currentSuccessorPilotHandout": "NOT_AUTHORIZED",
     "unrestrictedDistribution": "NO_GO"
   },
   "nextRequiredSequence": [
-    "complete every source tranche through exact-head and postmerge CI",
-    "complete business-function and UI/UX source tranches",
-    "freeze a new successor build identity",
+    "merge exact Build 12 source authority after full CI",
     "deploy and read back exact backend, Rules and indexes",
+    "construct and finalize exact production-signed non-distributable Build 12",
     "perform signed-device and migration validation",
     "issue explicit successor pilot decision"
   ]
