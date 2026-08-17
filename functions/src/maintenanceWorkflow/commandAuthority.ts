@@ -34,6 +34,7 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   Partial<Record<WorkflowCommandType, WorkflowAuthorityCapability>>
 > = {
   createLegacyWorkflowJob: "laneSet.finalize",
+  createMaintenanceTicket: "ticket.create",
   finalizeLaneSet: "laneSet.finalize",
   addLane: "lanePopulation.manage",
   removeLane: "lanePopulation.manage",
@@ -57,6 +58,7 @@ const LANE_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
 ]);
 
 const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
+  "ticket.create",
   "laneSet.finalize",
   "lanePopulation.manage",
   "workflow.cancel",
@@ -154,6 +156,10 @@ export const assertWorkflowAuthorityScope = (
   };
 
   switch (scope.capability) {
+  case "ticket.create":
+    // The callable and transaction have already revalidated the canonical
+    // approved-user capsule. Every approved role may raise an issue.
+    return;
   case "lane.acknowledge":
     assertLaneAuthority(actor, scope.laneKey as LaneKey, "acknowledge");
     return;

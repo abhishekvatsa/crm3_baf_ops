@@ -54,7 +54,287 @@ const acknowledgeCommand = (commandId = 'ack-ticket-1') => ({
   payload: {},
 });
 
+function createServiceFor(currentActor = admin) {
+  const store = new MemoryWorkflowStore();
+  for (const current of [admin, electrical, mechanical, contractSupervisor]) {
+    store.seed(`users/${current.uid}`, {
+      isApproved: true,
+      roles: [...current.roles],
+      name: current.name,
+    });
+  }
+  store.seed('asset_classes/class-furnace', {
+    schemaVersion: 1,
+    assetClassId: 'class-furnace',
+    status: 'active',
+    legacyAssetTypeKey: 'furnace',
+    code: 'FR',
+    name: 'Furnace',
+  });
+  store.seed('asset_instances/asset-furnace-7', {
+    schemaVersion: 1,
+    assetInstanceId: 'asset-furnace-7',
+    assetClassId: 'class-furnace',
+    assetClassCode: 'FR',
+    assetClassName: 'Furnace',
+    assetNumber: 7,
+    name: 'Furnace 7',
+    status: 'active',
+    version: 4,
+    ownershipStatus: 'confirmed',
+    ownerDiscipline: 'Operations',
+    accountableRoleKeys: ['operations'],
+  });
+  return {
+    store,
+    service: new MaintenanceWorkflowCommandService(store),
+    context: {actor: currentActor, serverNow: at},
+  };
+}
+
+function physicalAssetReference(assetVersion = 4) {
+  return JSON.stringify({
+    schemaVersion: 3,
+    scope: 'physicalAsset',
+    assetClassId: 'class-furnace',
+    assetInstanceId: 'asset-furnace-7',
+    assetInstanceVersion: assetVersion,
+  });
+}
+
+function createCommand({
+  commandId = 'create-ticket-2',
+  ticketId = 'ticket-2',
+  ticket = {},
+} = {}) {
+  return {
+    commandId,
+    commandType: 'createMaintenanceTicket',
+    aggregateId: ticketId,
+    expectedVersion: 0,
+    payload: {
+      ticket: {
+        schemaVersion: 1,
+        version: 1,
+        assetType: 'furnace',
+        assetNumber: 7,
+        component: 'Furnace body',
+        subsystem: null,
+        tag: null,
+        hierarchyPath: ['Untrusted', 'Client path'],
+        assetHierarchyRefJson: physicalAssetReference(),
+        maintenanceType: 'breakdown',
+        classification: null,
+        description: 'Furnace shell temperature is above the expected range.',
+        routedTo: 'mechanical',
+        otherDepartment: null,
+        isCritical: false,
+        startDate: '2026-08-14T16:20:00.000Z',
+        chargeNoAtEvent: null,
+        qualityIntentSchemaVersion: 1,
+        qualityImpactAssessment: 'notSuspected',
+        qualityWarningReason: null,
+        ...ticket,
+      },
+    },
+  };
+}
+
 describe('governed maintenance-ticket supervision', () => {
+  test('creates an asset-bound issue atomically with server actor and time', async () => {
+    const {store, service, context} = createServiceFor(mechanical);
+    const command = createCommand();
+
+    const applied = await service.execute(command, context);
+    const replay = await service.execute(command, context);
+
+    expect(replay).toEqual(applied);
+    expect(applied).toMatchObject({
+      resultKey: 'maintenance-ticket-created',
+      aggregateVersion: 1,
+      result: {
+        ticketId: 'ticket-2',
+        auditId: 'server_maintenance_ticket_create-ticket-2',
+        warningId: null,
+        directiveId: null,
+      },
+    });
+    const created = store.read('maintenance_records/ticket-2');
+    expect(created).toMatchObject({
+      firestoreId: 'ticket-2',
+      version: 1,
+      loggedByUid: mechanical.uid,
+      loggedByName: mechanical.name,
+      status: 'open',
+      isResolved: false,
+      startDate: '2026-08-14T16:20:00.000Z',
+      createdAt: at.toISOString(),
+      updatedAt: at.toISOString(),
+      hierarchyPath: ['Furnace', 'Furnace 7'],
+    });
+    expect(JSON.parse(created.assetHierarchyRefJson)).toMatchObject({
+      schemaVersion: 3,
+      scope: 'physicalAsset',
+      assetClassId: 'class-furnace',
+      assetInstanceId: 'asset-furnace-7',
+      assetInstanceVersion: 4,
+      hierarchyPath: ['Furnace', 'Furnace 7'],
+    });
+    expect(store.read('audit_logs/server_maintenance_ticket_create-ticket-2'))
+      .toMatchObject({
+        action: 'create',
+        operation: 'createMaintenanceTicket',
+        performedByUid: mechanical.uid,
+        resultVersion: 1,
+      });
+    const audit = store.read(
+      'audit_logs/server_maintenance_ticket_create-ticket-2',
+    );
+    expect(JSON.parse(audit.afterJson)).toMatchObject({
+      firestoreId: 'ticket-2',
+      assetHierarchyRefJson: created.assetHierarchyRefJson,
+      hierarchyPath: ['Furnace', 'Furnace 7'],
+      qualityImpactAssessment: 'notSuspected',
+      createdAt: at.toISOString(),
+    });
+  });
+
+  test('creates a quality warning with the issue in the same command', async () => {
+    const {store, service, context} = createServiceFor(electrical);
+    const command = createCommand({
+      commandId: 'create-quality-ticket',
+      ticketId: 'quality-ticket',
+      ticket: {
+        isCritical: true,
+        chargeNoAtEvent: 123456,
+        qualityImpactAssessment: 'suspected',
+        qualityWarningReason: 'Temperature deviation may have affected the coil.',
+      },
+    });
+
+    const receipt = await service.execute(command, context);
+
+    expect(receipt.result.warningId).toBe('issue_quality-ticket');
+    expect(store.read('quality_warnings/issue_quality-ticket')).toMatchObject({
+      warningId: 'issue_quality-ticket',
+      sourceType: 'issue',
+      sourceId: 'quality-ticket',
+      sourceVersion: 1,
+      sourceChargeNo: 123456,
+      sourceSeverity: 'critical',
+      status: 'open',
+      createdByUid: electrical.uid,
+      createdAt: at.toISOString(),
+    });
+  });
+
+  test('creates a red-hot burner directive with the specialized issue', async () => {
+    const {store, service, context} = createServiceFor(electrical);
+    const command = createCommand({
+      commandId: 'create-red-hot-ticket',
+      ticketId: 'red-hot-ticket',
+      ticket: {
+        component: 'Burner system',
+        maintenanceType: 'breakdown',
+        classification: 'furnaceBurnerLockout',
+        routedTo: 'instrumentation',
+        isCritical: true,
+        burnerLockoutSchemaVersion: 1,
+        burnerPositions: [2, 5],
+        burnerCommonMode: true,
+        burnerCycleStage: 'firing',
+        burnerHmiAlarm: 'Flame failure',
+        burnerFlameObservation: 'notSeen',
+        burnerSparkObservation: 'seen',
+        burnerRelightAttempts: 1,
+        burnerRemainsLockedOut: true,
+        burnerRedHotPositions: [5],
+        burnerAttendedPositions: [],
+        burnerResolutionEvidence: {},
+      },
+    });
+
+    const receipt = await service.execute(command, context);
+
+    expect(receipt.result.directiveId).toBe('burner_red_hot_red-hot-ticket');
+    expect(store.read('directives/burner_red_hot_red-hot-ticket'))
+      .toMatchObject({
+        status: 'open',
+        priority: 'critical',
+        directedTo: 'seniorInstrumentation',
+        linkedMaintenanceFirestoreId: 'red-hot-ticket',
+        createdByUid: electrical.uid,
+      });
+  });
+
+  test('fails closed on stale asset evidence and orphan projections', async () => {
+    const stale = createServiceFor(admin);
+    await expect(stale.service.execute(createCommand({
+      commandId: 'create-stale-ticket',
+      ticketId: 'stale-ticket',
+      ticket: {assetHierarchyRefJson: physicalAssetReference(3)},
+    }), stale.context)).rejects.toMatchObject({
+      code: 'aborted',
+      details: {reasonCode: 'maintenance-ticket-governed-asset-changed'},
+    });
+
+    const orphan = createServiceFor(admin);
+    orphan.store.seed('quality_warnings/issue_orphan-ticket', {
+      warningId: 'issue_orphan-ticket',
+    });
+    await expect(orphan.service.execute(createCommand({
+      commandId: 'create-orphan-ticket',
+      ticketId: 'orphan-ticket',
+    }), orphan.context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'maintenance-ticket-create-orphan-evidence'},
+    });
+  });
+
+  test('replay fails closed when derived evidence no longer matches', async () => {
+    const {store, service, context} = createServiceFor(admin);
+    const command = createCommand({
+      commandId: 'create-replay-quality',
+      ticketId: 'replay-quality',
+      ticket: {
+        chargeNoAtEvent: 223344,
+        qualityImpactAssessment: 'suspected',
+        qualityWarningReason: 'The reported deviation requires quality review.',
+      },
+    });
+    await service.execute(command, context);
+    store.seed('quality_warnings/issue_replay-quality', {
+      warningId: 'issue_replay-quality',
+      sourceType: 'issue',
+      sourceId: 'another-ticket',
+      createdByUid: admin.uid,
+    });
+
+    await expect(service.execute(command, context)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'maintenance-ticket-create-replay-warning-invalid'},
+    });
+
+    const noDerived = createServiceFor(admin);
+    const noDerivedCommand = createCommand({
+      commandId: 'create-no-derived',
+      ticketId: 'no-derived',
+    });
+    await noDerived.service.execute(noDerivedCommand, noDerived.context);
+    noDerived.store.seed('directives/burner_red_hot_no-derived', {
+      firestoreId: 'burner_red_hot_no-derived',
+    });
+    await expect(noDerived.service.execute(
+      noDerivedCommand,
+      noDerived.context,
+    )).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-create-replay-directive-invalid',
+      },
+    });
+  });
+
   test('route authority acknowledges once with audit and idempotent receipt', async () => {
     const {store, service, context} = serviceFor(electrical);
     const command = acknowledgeCommand();

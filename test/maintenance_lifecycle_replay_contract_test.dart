@@ -10,6 +10,9 @@ void main() {
 
       _expectOrder(syncBlock, const [
         'final remote = remoteMap[record.firestoreId];',
+        'if (remote == null)',
+        'await _pushMissingMaintenanceTicket(record);',
+        'continue;',
         'final replayed = await _tryPushDecomposedMaintenanceTicket',
         'skippedButSyncedSnapshots.add(_syncPushSnapshot(record));',
         'recordsToPush.add(record);',
@@ -24,48 +27,54 @@ void main() {
       );
     });
 
-    test(
-      'replay scope covers create-close and close-reopen without becoming generic',
-      () {
-        final source = _read(_syncPath);
-        final plan = _blockStartingAt(
-          source,
-          'List<_MaintenanceReplayStep> _maintenanceLifecycleReplayPlan',
-        );
+    test('governed create and lifecycle replay stay deliberately separate', () {
+      final source = _read(_syncPath);
+      final create = _blockStartingAt(
+        source,
+        'Future<_MaintenanceCreationReplayResult> _pushMissingMaintenanceTicket',
+      );
+      final plan = _blockStartingAt(
+        source,
+        'List<_MaintenanceReplayStep> _maintenanceLifecycleReplayPlan',
+      );
 
-        expect(plan, contains('remote == null'));
-        expect(plan, contains('local.isResolved'));
-        expect(plan, contains('_hasMaintenanceReopenEvidence(local)'));
-        expect(plan, contains('remote.isResolved'));
-        expect(plan, contains('local.version > remote.version + 1'));
-        expect(plan, contains('_maintenancePinnedFieldDiff(local, remote)'));
-        expect(plan, contains('_MaintenanceReplayStep.createOpen'));
-        expect(plan, contains('_MaintenanceReplayStep.close'));
-        expect(plan, contains('_MaintenanceReplayStep.reopen'));
+      expect(create, contains('buildMaintenanceIssueCreateCommand'));
+      expect(create, contains('_maintenanceCommands.execute(command)'));
+      expect(create, contains('_maintenanceCloseReplayStepData'));
+      expect(create, contains('_maintenanceReopenReplayStepData'));
+      expect(plan, contains('local.isResolved'));
+      expect(plan, contains('_hasMaintenanceReopenEvidence(local)'));
+      expect(plan, contains('remote.isResolved'));
+      expect(plan, contains('local.version > remote.version + 1'));
+      expect(plan, contains('_maintenancePinnedFieldDiff(local, remote)'));
+      expect(plan, contains('_MaintenanceReplayStep.close'));
+      expect(plan, contains('_MaintenanceReplayStep.reopen'));
 
-        expect(
-          source,
-          contains('enum _MaintenanceReplayStep { createOpen, close, reopen }'),
-          reason:
-              '69D.2 should stay limited to maintenance create/close/reopen replay.',
-        );
-        expect(source, isNot(contains('TemplateVersion')));
-        expect(source, isNot(contains('ModuleRegistry')));
-        expect(source, isNot(contains('Directive')));
-      },
-    );
+      expect(
+        source,
+        contains('enum _MaintenanceReplayStep { close, reopen }'),
+        reason: 'Post-create replay should stay limited to close/reopen.',
+      );
+      expect(source, isNot(contains('TemplateVersion')));
+      expect(source, isNot(contains('ModuleRegistry')));
+      expect(source, isNot(contains('Directive')));
+    });
 
     test(
       'same-user guards protect create and close replay under request.auth',
       () {
         final source = _read(_syncPath);
+        final create = _blockStartingAt(
+          source,
+          'Future<_MaintenanceCreationReplayResult> _pushMissingMaintenanceTicket',
+        );
         final plan = _blockStartingAt(
           source,
           'List<_MaintenanceReplayStep> _maintenanceLifecycleReplayPlan',
         );
 
-        expect(plan, contains('FirebaseAuth.instance.currentUser?.uid'));
-        expect(plan, contains('_canReplayMaintenanceCreateForCurrentUser'));
+        expect(create, contains('FirebaseAuth.instance.currentUser?.uid'));
+        expect(create, contains('_canReplayMaintenanceCreateForCurrentUser'));
         expect(plan, contains('_canReplayMaintenanceCloseForCurrentUser'));
 
         final createGuard = _blockStartingAt(
@@ -85,41 +94,29 @@ void main() {
     );
 
     test(
-      'create-open replay preserves ticket identity and required create shape',
+      'governed create command carries business input without authority fields',
       () {
-        final source = _read(_syncPath);
-        final payload = _blockStartingAt(
-          source,
-          'Map<String, dynamic> _maintenanceCreateOpenReplayStepData',
-        );
+        final payload = _read(_createCommandPath);
         final rules = _readFirstExisting(_rulePaths);
-        final createRules = _blockStartingAt(
+        final maintenanceRules = _blockStartingAt(
           rules,
-          'function validMaintenanceCreate',
+          'match /maintenance_records/{docId}',
         );
 
-        for (final field in _quotedStrings(createRules)) {
-          if (_ruleMetaStrings.contains(field)) continue;
-          expect(
-            payload,
-            contains("'$field'"),
-            reason: 'create replay should include required create field $field',
-          );
-        }
-
-        expect(payload, contains("'status': TicketStatus.open.name"));
-        expect(payload, contains("'isResolved': false"));
-        expect(payload, contains("'isDeleted': false"));
         expect(
           payload,
-          contains("'updatedAt': local.createdAt.toIso8601String()"),
+          contains('WorkflowCommandType.createMaintenanceTicket'),
         );
-        expect(payload, contains("'resolutionHistoryJson': '[]'"));
-        expect(payload, contains("'burnerAttendedPositions': <int>[]"));
-        expect(
-          payload,
-          contains("'burnerResolutionEvidence': <String, dynamic>{}"),
-        );
+        expect(payload, contains(r"'createMaintenanceTicket_$ticketId'"));
+        expect(payload, contains('expectedVersion: 0'));
+        expect(payload, contains("'assetHierarchyRefJson'"));
+        expect(payload, contains('qualityIntent.toSynchronizedFields()'));
+        expect(payload, contains('burnerLockout.toSynchronizedFields()'));
+        expect(payload, isNot(contains("'loggedByUid'")));
+        expect(payload, isNot(contains("'loggedByName'")));
+        expect(payload, isNot(contains("'createdAt'")));
+        expect(payload, isNot(contains("'updatedAt'")));
+        expect(maintenanceRules, contains('allow create: if false;'));
       },
     );
 
@@ -156,7 +153,15 @@ void main() {
         }
         expect(payload, contains("'isResolved': true"));
         expect(payload, contains("'status': TicketStatus.resolved.name"));
-        expect(payload, contains("'endDate': timestamp.toIso8601String()"));
+        expect(
+          payload,
+          contains("'endDate': eventTimestamp.toIso8601String()"),
+        );
+        expect(
+          payload,
+          contains("'updatedAt': mutationTimestamp.toUtc().toIso8601String()"),
+        );
+        expect(payload, contains('serverMutationFloor'));
         expect(payload, contains("'closedByUid': evidence.closedByUid"));
         expect(payload, contains("'updatedByUid': evidence.closedByUid"));
         expect(payload, contains('final proposedVersion ='));
@@ -203,6 +208,11 @@ void main() {
           payload,
           contains("'resolutionHistoryJson': local.resolutionHistoryJson"),
         );
+        expect(
+          payload,
+          contains("'updatedAt': mutationTimestamp.toUtc().toIso8601String()"),
+        );
+        expect(payload, contains('serverMutationFloor'));
         expect(payload, contains("'version': local.version"));
       },
     );
@@ -577,6 +587,24 @@ void main() {
       );
     });
 
+    test('never-created local tombstones do not attempt remote creation', () {
+      final source = _read(_syncPath);
+      final syncBlock = _blockStartingAt(source, 'Future<void> _syncTickets()');
+
+      _expectOrder(syncBlock, const [
+        'if (record.isDeleted)',
+        'if (remote == null)',
+        'skippedButSyncedSnapshots.add(_syncPushSnapshot(record));',
+        'continue;',
+        'if (remote == null)',
+        'await _pushMissingMaintenanceTicket(record)',
+      ]);
+      expect(
+        syncBlock,
+        contains('The issue never crossed the governed creation boundary'),
+      );
+    });
+
     test(
       'does not touch closure, pull, job-module, or governance contracts',
       () {
@@ -596,14 +624,14 @@ void main() {
 }
 
 const _syncPath = 'lib/core/services/sync_service.tickets_templates.dart';
+const _createCommandPath =
+    'lib/features/maintenance/services/maintenance_issue_create_command.dart';
 const _providerPath =
     'lib/features/maintenance/providers/maintenance_provider.dart';
 const _rulePaths = <String>[
   'firestore.rules',
   'Other root files/firestore.rules',
 ];
-
-const _ruleMetaStrings = <String>{'maintenanceType', 'string', 'int', 'bool'};
 
 String _read(String path) => File(path).readAsStringSync();
 

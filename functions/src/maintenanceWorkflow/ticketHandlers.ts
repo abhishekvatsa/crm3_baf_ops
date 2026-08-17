@@ -18,11 +18,34 @@ const MAINTENANCE_TYPES = new Set([
   "scheduled", "breakdown", "performance", "inspection", "overhaul",
 ]);
 const STATUSES = new Set(["open", "acknowledged", "inProgress", "resolved"]);
+const ASSET_TYPES = new Set([
+  "base", "furnace", "forceCooler", "innerCover", "governedCustom",
+]);
+const QUALITY_ASSESSMENTS = new Set(["notSuspected", "suspected"]);
+const BURNER_CYCLE_STAGES = new Set([
+  "notRecorded", "purge", "ignition", "firing", "unknown",
+]);
+const BURNER_OBSERVATIONS = new Set(["seen", "notSeen", "notChecked"]);
 const CORRECTABLE_FIELDS = new Set([
   "description", "routedTo", "maintenanceType", "isCritical", "component",
   "subsystem", "tag", "classification", "otherDepartment", "remarks",
 ]);
 const BURNER_LOCKOUT_CLASSIFICATION = "furnaceBurnerLockout";
+const CREATE_TICKET_FIELDS = [
+  "schemaVersion", "version", "assetType", "assetNumber", "component",
+  "subsystem", "tag", "hierarchyPath", "assetHierarchyRefJson",
+  "maintenanceType", "classification", "description", "routedTo",
+  "otherDepartment", "isCritical", "startDate", "chargeNoAtEvent",
+  "qualityIntentSchemaVersion", "qualityImpactAssessment",
+  "qualityWarningReason",
+] as const;
+const CREATE_BURNER_FIELDS = [
+  "burnerLockoutSchemaVersion", "burnerPositions", "burnerCommonMode",
+  "burnerCycleStage", "burnerHmiAlarm", "burnerFlameObservation",
+  "burnerSparkObservation", "burnerRelightAttempts",
+  "burnerRemainsLockedOut", "burnerRedHotPositions",
+  "burnerAttendedPositions", "burnerResolutionEvidence",
+] as const;
 
 const isValidBurnerPositionList = (
   value: unknown,
@@ -112,6 +135,484 @@ const instantText = (value: unknown): string | null => {
     "Maintenance ticket timestamp evidence is malformed.",
     {reasonCode: "maintenance-ticket-timestamp-invalid"},
   );
+};
+
+const requiredInteger = (
+  value: unknown,
+  field: string,
+  minimum: number,
+  maximum: number,
+): number => {
+  if (!Number.isSafeInteger(value) ||
+      (value as number) < minimum || (value as number) > maximum) {
+    throw new WorkflowError(
+      "invalid-argument",
+      `${field} must be an integer between ${minimum} and ${maximum}.`,
+    );
+  }
+  return value as number;
+};
+
+const requiredBoolean = (value: unknown, field: string): boolean => {
+  if (typeof value !== "boolean") {
+    throw new WorkflowError("invalid-argument", `${field} must be boolean.`);
+  }
+  return value;
+};
+
+const optionalStringList = (
+  value: unknown,
+  field: string,
+  maximumItems: number,
+  maximumLength: number,
+): string[] | null => {
+  if (value == null) return null;
+  if (!Array.isArray(value) || value.length > maximumItems ||
+      value.some((item) => typeof item !== "string" ||
+        item.trim().length === 0 || item.trim().length > maximumLength)) {
+    throw new WorkflowError("invalid-argument", `${field} is invalid.`);
+  }
+  return value.map((item) => (item as string).trim());
+};
+
+const persistedStringList = (
+  value: unknown,
+  field: string,
+  maximumItems = 10,
+  maximumLength = 120,
+): string[] => optionalStringList(
+  value ?? [], field, maximumItems, maximumLength,
+) ?? [];
+
+const parseIsoInstant = (
+  value: unknown,
+  field: string,
+  serverNow: Date,
+): string => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new WorkflowError("invalid-argument", `${field} is required.`);
+  }
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    throw new WorkflowError("invalid-argument", `${field} is invalid.`);
+  }
+  if (parsed.getTime() > serverNow.getTime() + 5 * 60 * 1000) {
+    throw new WorkflowError(
+      "invalid-argument",
+      `${field} cannot be in the future.`,
+      {reasonCode: "maintenance-ticket-start-time-future"},
+    );
+  }
+  return parsed.toISOString();
+};
+
+const normalizeTag = (value: string): string =>
+  value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "");
+
+const optionalStoredText = (
+  data: JsonMap,
+  field: string,
+  maximum: number,
+): string | null => optionalText(data[field], field, maximum);
+
+const requiredStoredVersion = (data: JsonMap, field: string): number =>
+  requiredInteger(data[field], field, 1, 2147483647);
+
+const requireFreshAssetReference = async (args: {
+  tx: WorkflowTransaction;
+  raw: unknown;
+  assetType: string;
+  assetNumber: number;
+  tag: string | null;
+  startDate: string;
+  actor: Actor;
+  serverNow: Date;
+}): Promise<string> => {
+  if (typeof args.raw !== "string" || args.raw.trim().length === 0 ||
+      args.raw.length > 12000) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "assetHierarchyRefJson is required.",
+      {reasonCode: "maintenance-ticket-asset-reference-required"},
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(args.raw);
+  } catch {
+    throw new WorkflowError(
+      "invalid-argument",
+      "The governed asset reference is malformed.",
+      {reasonCode: "maintenance-ticket-asset-reference-invalid"},
+    );
+  }
+  const reference = record(parsed, "assetHierarchyRefJson");
+  if (reference.schemaVersion !== 3 ||
+      (reference.scope !== "physicalAsset" &&
+        reference.scope !== "installedComponent")) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The governed asset reference is not an exact physical identity.",
+      {reasonCode: "maintenance-ticket-asset-reference-scope-invalid"},
+    );
+  }
+  const classId = boundedText(reference.assetClassId, "assetClassId", 1, 160);
+  const scope = reference.scope as "physicalAsset" | "installedComponent";
+  const assetId = boundedText(
+    reference.assetInstanceId,
+    "assetInstanceId",
+    1,
+    160,
+  );
+  const expectedAssetVersion = requiredInteger(
+    reference.assetInstanceVersion,
+    "assetInstanceVersion",
+    1,
+    2147483647,
+  );
+  const assetClassSnapshot = await args.tx.get(`asset_classes/${classId}`);
+  const assetSnapshot = await args.tx.get(`asset_instances/${assetId}`);
+  if (!assetClassSnapshot.exists || assetClassSnapshot.data == null ||
+      !assetSnapshot.exists || assetSnapshot.data == null) {
+    throw new WorkflowError(
+      "not-found",
+      "The selected governed asset no longer exists.",
+      {reasonCode: "maintenance-ticket-governed-asset-not-found"},
+    );
+  }
+  const assetClass = assetClassSnapshot.data;
+  const asset = assetSnapshot.data;
+  const legacyType = assetClass.legacyAssetTypeKey;
+  const classMatches = args.assetType === "innerCover" ?
+    legacyType === "base" :
+    args.assetType === "governedCustom" ?
+      !["base", "furnace", "forceCooler", "innerCover"].includes(
+        legacyType as string,
+      ) : legacyType === args.assetType;
+  if (assetClass.schemaVersion !== 1 ||
+      assetClass.assetClassId !== classId || assetClass.status !== "active" ||
+      !classMatches || typeof assetClass.code !== "string" ||
+      typeof assetClass.name !== "string" ||
+      asset.schemaVersion !== 1 || asset.assetInstanceId !== assetId ||
+      asset.assetClassId !== classId || asset.status !== "active" ||
+      asset.assetNumber !== args.assetNumber ||
+      (scope === "physicalAsset" && asset.version !== expectedAssetVersion) ||
+      asset.assetClassCode !== assetClass.code ||
+      asset.assetClassName !== assetClass.name ||
+      typeof asset.name !== "string") {
+    throw new WorkflowError(
+      "aborted",
+      "The selected governed asset changed before the issue was created.",
+      {reasonCode: "maintenance-ticket-governed-asset-changed"},
+    );
+  }
+
+  if (args.assetType === "innerCover") {
+    const innerCoverClasses = await args.tx.query("asset_classes", [{
+      field: "legacyAssetTypeKey",
+      op: "==",
+      value: "innerCover",
+    }, {
+      field: "status",
+      op: "==",
+      value: "active",
+    }]);
+    if (innerCoverClasses.length !== 1) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The active Inner Cover class register is ambiguous.",
+        {reasonCode: "maintenance-ticket-inner-cover-class-ambiguous"},
+      );
+    }
+  }
+
+  let nodeId = assetId;
+  let nodeVersion = expectedAssetVersion;
+  let nodeName = asset.name as string;
+  let componentInstanceId: string | null = null;
+  let componentInstanceVersion: number | null = null;
+  let componentTag: string | null = null;
+  let hierarchyPath = [assetClass.name as string, asset.name as string];
+  let ownershipStatus = cleanText(asset.ownershipStatus, "ownershipStatus");
+  let ownerDiscipline = optionalStoredText(asset, "ownerDiscipline", 120);
+  let accountableRoleKeys = persistedStringList(
+    asset.accountableRoleKeys,
+    "accountableRoleKeys",
+    10,
+    80,
+  );
+  if (scope === "installedComponent") {
+    componentInstanceId = boundedText(
+      reference.componentInstanceId,
+      "componentInstanceId",
+      1,
+      160,
+    );
+    componentInstanceVersion = requiredInteger(
+      reference.componentInstanceVersion,
+      "componentInstanceVersion",
+      1,
+      2147483647,
+    );
+    const componentSnapshot = await args.tx.get(
+      `asset_component_instances/${componentInstanceId}`,
+    );
+    const component = componentSnapshot.data;
+    if (!componentSnapshot.exists || component == null ||
+        component.schemaVersion !== 1 ||
+        component.componentInstanceId !== componentInstanceId ||
+        component.assetClassId !== classId ||
+        component.assetInstanceId !== assetId ||
+        component.assetNumber !== args.assetNumber ||
+        component.status !== "active" ||
+        component.version !== componentInstanceVersion ||
+        component.assetInstanceVersionAtMutation !== expectedAssetVersion ||
+        typeof component.definitionNodeId !== "string" ||
+        typeof component.definitionName !== "string" ||
+        !Number.isSafeInteger(component.definitionNodeVersion)) {
+      throw new WorkflowError(
+        "aborted",
+        "The selected installed component changed before the issue was created.",
+        {reasonCode: "maintenance-ticket-governed-component-changed"},
+      );
+    }
+    componentTag = optionalStoredText(component, "componentTag", 160);
+    if (args.tag == null || componentTag == null ||
+        normalizeTag(args.tag) !== normalizeTag(componentTag)) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The issue tag no longer identifies the selected installed component.",
+        {reasonCode: "maintenance-ticket-governed-tag-mismatch"},
+      );
+    }
+    nodeId = component.definitionNodeId as string;
+    nodeVersion = component.definitionNodeVersion as number;
+    nodeName = component.definitionName as string;
+    hierarchyPath = persistedStringList(
+      component.hierarchyPath,
+      "hierarchyPath",
+      20,
+      200,
+    );
+    ownershipStatus = cleanText(
+      component.ownershipStatus,
+      "ownershipStatus",
+    );
+    ownerDiscipline = optionalStoredText(component, "ownerDiscipline", 120);
+    accountableRoleKeys = persistedStringList(
+      component.accountableRoleKeys,
+      "accountableRoleKeys",
+      10,
+      80,
+    );
+  }
+  if (!["unassigned", "provisional", "confirmed"].includes(ownershipStatus) ||
+      (scope === "installedComponent" && ownershipStatus !== "confirmed")) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The selected asset ownership evidence is invalid.",
+      {reasonCode: "maintenance-ticket-asset-ownership-invalid"},
+    );
+  }
+
+  let innerCoverAssociation: JsonMap | null = null;
+  if (args.assetType === "base" || args.assetType === "innerCover") {
+    const assignmentSnapshot = await args.tx.get(
+      `base_inner_cover_assignments/${assetId}`,
+    );
+    if (!assignmentSnapshot.exists || assignmentSnapshot.data == null) {
+      if (args.assetType === "innerCover") {
+        throw new WorkflowError(
+          "failed-precondition",
+          "No Inner Cover is currently linked to the selected Base.",
+          {reasonCode: "maintenance-ticket-inner-cover-not-linked"},
+        );
+      }
+      innerCoverAssociation = {
+        baseAssetInstanceId: assetId,
+        baseAssetNumber: args.assetNumber,
+        positionState: "noneLinked",
+        innerCoverId: null,
+        innerCoverSerialNumber: null,
+        linkageId: null,
+        assignmentVersion: null,
+        linkedAt: null,
+        eventAt: args.startDate,
+        confirmedAt: iso(args.serverNow),
+        confirmedByUid: args.actor.uid,
+        confirmedByName: args.actor.name,
+      };
+    } else {
+      const assignment = assignmentSnapshot.data;
+      const innerCoverId = cleanText(assignment.innerCoverId, "innerCoverId");
+      const profileSnapshot = await args.tx.get(
+        `inner_cover_profiles/${innerCoverId}`,
+      );
+      const profile = profileSnapshot.data;
+      if (assignment.schemaVersion !== 1 ||
+          assignment.baseAssetInstanceId !== assetId ||
+          assignment.baseAssetClassId !== classId ||
+          assignment.baseAssetNumber !== args.assetNumber ||
+          !Number.isSafeInteger(assignment.version) ||
+          typeof assignment.linkageId !== "string" ||
+          typeof assignment.innerCoverSerialNumber !== "string" ||
+          instantText(assignment.linkedAt) == null ||
+          !profileSnapshot.exists || profile == null ||
+          profile.schemaVersion !== 1 || profile.innerCoverId !== innerCoverId ||
+          profile.lifecycleState !== "installed" ||
+          profile.currentBaseAssetInstanceId !== assetId ||
+          profile.currentBaseAssetNumber !== args.assetNumber ||
+          profile.currentLinkageId !== assignment.linkageId ||
+          profile.serialNumber !== assignment.innerCoverSerialNumber) {
+        throw new WorkflowError(
+          "failed-precondition",
+          "The Base and Inner Cover projections disagree.",
+          {reasonCode: "maintenance-ticket-inner-cover-projection-invalid"},
+        );
+      }
+      innerCoverAssociation = {
+        baseAssetInstanceId: assetId,
+        baseAssetNumber: args.assetNumber,
+        positionState: "linked",
+        innerCoverId,
+        innerCoverSerialNumber: assignment.innerCoverSerialNumber as string,
+        linkageId: assignment.linkageId as string,
+        assignmentVersion: assignment.version as number,
+        linkedAt: instantText(assignment.linkedAt),
+        eventAt: args.startDate,
+        confirmedAt: iso(args.serverNow),
+        confirmedByUid: args.actor.uid,
+        confirmedByName: args.actor.name,
+      };
+    }
+  }
+
+  return stableJson({
+    schemaVersion: 3,
+    scope,
+    assetClassId: classId,
+    assetClassCode: assetClass.code as string,
+    assetClassName: assetClass.name as string,
+    nodeId,
+    nodeVersion,
+    nodeName,
+    assetInstanceId: assetId,
+    assetInstanceVersion: expectedAssetVersion,
+    assetNumber: args.assetNumber,
+    assetInstanceName: asset.name as string,
+    componentInstanceId,
+    componentInstanceVersion,
+    componentTag,
+    hierarchyPath,
+    ownershipStatus,
+    ownerDiscipline,
+    accountableRoleKeys,
+    innerCoverAssociation,
+  });
+};
+
+const qualityWarningProjection = (args: {
+  ticketId: string;
+  ticket: JsonMap;
+  actor: Actor;
+  timestamp: string;
+}): JsonMap | null => {
+  if (args.ticket.qualityImpactAssessment !== "suspected") return null;
+  const warningId = `issue_${args.ticketId}`;
+  return {
+    schemaVersion: 1,
+    warningId,
+    sourceType: "issue",
+    sourceId: args.ticketId,
+    sourceVersion: args.ticket.version as number,
+    sourceChargeNo: args.ticket.chargeNoAtEvent as number,
+    sourceSummary: args.ticket.description as string,
+    sourceSeverity: args.ticket.isCritical === true ? "critical" : "standard",
+    warningReason: args.ticket.qualityWarningReason as string,
+    affectedAssets: [{
+      assetType: args.ticket.assetType as string,
+      assetNumber: args.ticket.assetNumber as number,
+    }],
+    component: args.ticket.component ?? null,
+    status: "open",
+    closureRequestReason: null,
+    closureRequestedAt: null,
+    closureRequestedByUid: null,
+    closureRequestedByName: null,
+    closedAt: null,
+    closedByUid: null,
+    closedByName: null,
+    closureDisposition: null,
+    linkedReannealingChargeNos: [],
+    decisionReason: null,
+    createdAt: args.timestamp,
+    createdByUid: args.actor.uid,
+    createdByName: args.actor.name,
+    updatedAt: args.timestamp,
+    updatedByUid: args.actor.uid,
+    updatedByName: args.actor.name,
+    version: 1,
+  };
+};
+
+const redHotDirectiveProjection = (args: {
+  ticketId: string;
+  ticket: JsonMap;
+  actor: Actor;
+  timestamp: string;
+}): JsonMap | null => {
+  const positions = args.ticket.burnerRedHotPositions;
+  if (!Array.isArray(positions) || positions.length === 0) return null;
+  const directiveId = `burner_red_hot_${args.ticketId}`;
+  const burnerList = positions.map((position) => `B${position}`).join(", ");
+  return {
+    firestoreId: directiveId,
+    title: `Red-hot burner block: ${burnerList}`,
+    description:
+      `Furnace ${args.ticket.assetNumber} has a reported red-hot burner block ` +
+      `at ${burnerList}. I&A must acknowledge, apply the approved plant ` +
+      "procedure to take the affected burner position out of firing service, " +
+      "and record compliance. This directive does not actuate the PLC.",
+    assetType: "furnace",
+    assetNumber: args.ticket.assetNumber,
+    component: "Burner block",
+    subsystem: "Burner system",
+    tag: null,
+    hierarchyPath: ["Furnace", "Combustion system", "Burner block"],
+    directedTo: "seniorInstrumentation",
+    status: "open",
+    priority: "critical",
+    createdByUid: args.actor.uid,
+    createdByName: args.actor.name,
+    issuedByUid: args.actor.uid,
+    issuedByName: args.actor.name,
+    issuedAt: args.timestamp,
+    isActive: true,
+    acknowledgedByUid: null,
+    acknowledgedByName: null,
+    acknowledgedAt: null,
+    closedByUid: null,
+    closedByName: null,
+    closedAt: null,
+    closedWithoutAcknowledgement: false,
+    remarks: null,
+    linkedMaintenanceFirestoreId: args.ticketId,
+    linkedExecutionFirestoreId: null,
+    metadataJson: JSON.stringify({
+      schemaVersion: 1,
+      trigger: "burnerBlockRedHot",
+      burnerPositions: positions,
+      automaticPlantActuation: false,
+    }),
+    isDeleted: false,
+    deletedAt: null,
+    deletedByUid: null,
+    deletedByName: null,
+    deleteReason: null,
+    createdAt: args.timestamp,
+    updatedAt: args.timestamp,
+    version: 1,
+  };
 };
 
 const ticketSnapshot = (ticket: JsonMap): JsonMap => ({
@@ -219,6 +720,7 @@ const writeAudit = (args: {
   before: JsonMap;
   after: JsonMap;
   resultVersion: number;
+  action?: "create" | "update";
 }): string => {
   const id = auditId(args.command.commandId);
   args.tx.create(auditPath(args.command.commandId), {
@@ -226,7 +728,7 @@ const writeAudit = (args: {
     auditId: id,
     entityType: "maintenance",
     entityId: args.command.aggregateId,
-    action: "update",
+    action: args.action ?? "update",
     operation: args.command.commandType,
     performedByUid: args.actor.uid,
     performedByName: args.actor.name,
@@ -242,6 +744,270 @@ const writeAudit = (args: {
     resultVersion: args.resultVersion,
   });
   return id;
+};
+
+export const createMaintenanceTicket = async ({
+  tx,
+  command,
+  context,
+}: HandlerArgs): Promise<HandlerResult> => {
+  exactKeys(command.payload, ["ticket"], "payload");
+  if (command.expectedVersion !== 0 || command.aggregateId.length > 160 ||
+      command.aggregateId.includes("/")) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Maintenance ticket creation requires a new valid aggregate identity.",
+      {reasonCode: "maintenance-ticket-create-envelope-invalid"},
+    );
+  }
+  const input = record(command.payload.ticket, "ticket");
+  const burner = input.classification === BURNER_LOCKOUT_CLASSIFICATION;
+  exactKeys(
+    input,
+    burner ? [...CREATE_TICKET_FIELDS, ...CREATE_BURNER_FIELDS] :
+      [...CREATE_TICKET_FIELDS],
+    "ticket",
+  );
+  if (input.schemaVersion !== 1) {
+    throw new WorkflowError("invalid-argument", "ticket schemaVersion is unsupported.");
+  }
+  const version = requiredInteger(input.version, "version", 1, 2147483647);
+  const assetType = cleanText(input.assetType, "assetType");
+  if (!ASSET_TYPES.has(assetType)) {
+    throw new WorkflowError("invalid-argument", "assetType is unsupported.");
+  }
+  const assetNumber = requiredInteger(input.assetNumber, "assetNumber", 1, 9999);
+  const maintenanceType = cleanText(input.maintenanceType, "maintenanceType");
+  if (!MAINTENANCE_TYPES.has(maintenanceType)) {
+    throw new WorkflowError("invalid-argument", "maintenanceType is unsupported.");
+  }
+  const routedTo = cleanText(input.routedTo, "routedTo");
+  if (!ROUTES.has(routedTo)) {
+    throw new WorkflowError("invalid-argument", "routedTo is unsupported.");
+  }
+  const otherDepartment = optionalText(input.otherDepartment, "otherDepartment", 80);
+  if ((routedTo === "others") !== (otherDepartment != null)) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Other department is required only when the issue route is Others.",
+      {reasonCode: "maintenance-ticket-route-department-invalid"},
+    );
+  }
+  const component = boundedText(input.component, "component", 2, 120);
+  const subsystem = optionalText(input.subsystem, "subsystem", 200);
+  const tag = optionalText(input.tag, "tag", 160)?.toUpperCase() ?? null;
+  optionalStringList(input.hierarchyPath, "hierarchyPath", 20, 200);
+  const classification = optionalText(input.classification, "classification", 120);
+  const description = boundedText(input.description, "description", 5, 2000);
+  const isCritical = requiredBoolean(input.isCritical, "isCritical");
+  const startDate = parseIsoInstant(input.startDate, "startDate", context.serverNow);
+  const chargeNoAtEvent = input.chargeNoAtEvent == null ? null :
+    requiredInteger(input.chargeNoAtEvent, "chargeNoAtEvent", 1, 999999999);
+  if (input.qualityIntentSchemaVersion !== 1 ||
+      typeof input.qualityImpactAssessment !== "string" ||
+      !QUALITY_ASSESSMENTS.has(input.qualityImpactAssessment)) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "The issue quality assessment is invalid.",
+      {reasonCode: "maintenance-ticket-quality-intent-invalid"},
+    );
+  }
+  const qualityWarningReason = optionalText(
+    input.qualityWarningReason,
+    "qualityWarningReason",
+    1000,
+  );
+  const suspected = input.qualityImpactAssessment === "suspected";
+  if (suspected ?
+    (qualityWarningReason == null || qualityWarningReason.length < 8 ||
+      chargeNoAtEvent == null) : qualityWarningReason != null) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Suspected quality impact requires charge and warning-reason evidence.",
+      {reasonCode: "maintenance-ticket-quality-evidence-invalid"},
+    );
+  }
+
+  const burnerFieldsPresent = CREATE_BURNER_FIELDS.some((field) =>
+    Object.prototype.hasOwnProperty.call(input, field));
+  let burnerFields: JsonMap = {};
+  if (burner) {
+    const positions = input.burnerPositions;
+    const redHot = input.burnerRedHotPositions;
+    if (input.burnerLockoutSchemaVersion !== 1 ||
+        assetType !== "furnace" || maintenanceType !== "breakdown" ||
+        routedTo !== "instrumentation" || component !== "Burner system" ||
+        tag != null || !isValidBurnerPositionList(positions, false) ||
+        !isValidBurnerPositionList(redHot, true) ||
+        !redHot.every((position) => positions.includes(position)) ||
+        typeof input.burnerCommonMode !== "boolean" ||
+        (input.burnerCommonMode === true && positions.length < 2) ||
+        typeof input.burnerCycleStage !== "string" ||
+        !BURNER_CYCLE_STAGES.has(input.burnerCycleStage) ||
+        optionalText(input.burnerHmiAlarm, "burnerHmiAlarm", 300) !==
+          (input.burnerHmiAlarm ?? null) ||
+        typeof input.burnerFlameObservation !== "string" ||
+        !BURNER_OBSERVATIONS.has(input.burnerFlameObservation) ||
+        typeof input.burnerSparkObservation !== "string" ||
+        !BURNER_OBSERVATIONS.has(input.burnerSparkObservation) ||
+        !Number.isSafeInteger(input.burnerRelightAttempts) ||
+        (input.burnerRelightAttempts as number) < 0 ||
+        (input.burnerRelightAttempts as number) > 20 ||
+        typeof input.burnerRemainsLockedOut !== "boolean" ||
+        !Array.isArray(input.burnerAttendedPositions) ||
+        input.burnerAttendedPositions.length !== 0 ||
+        input.burnerResolutionEvidence == null ||
+        typeof input.burnerResolutionEvidence !== "object" ||
+        Array.isArray(input.burnerResolutionEvidence) ||
+        Object.keys(input.burnerResolutionEvidence as JsonMap).length !== 0 ||
+        (redHot.length > 0 && !isCritical)) {
+      throw new WorkflowError(
+        "invalid-argument",
+        "The burner-lockout issue evidence is invalid.",
+        {reasonCode: "maintenance-ticket-burner-evidence-invalid"},
+      );
+    }
+    burnerFields = {
+      burnerLockoutSchemaVersion: 1,
+      burnerPositions: [...positions],
+      burnerCommonMode: input.burnerCommonMode as boolean,
+      burnerCycleStage: input.burnerCycleStage as string,
+      burnerHmiAlarm: optionalText(input.burnerHmiAlarm, "burnerHmiAlarm", 300),
+      burnerFlameObservation: input.burnerFlameObservation as string,
+      burnerSparkObservation: input.burnerSparkObservation as string,
+      burnerRelightAttempts: input.burnerRelightAttempts as number,
+      burnerRemainsLockedOut: input.burnerRemainsLockedOut as boolean,
+      burnerRedHotPositions: [...redHot],
+      burnerAttendedPositions: [],
+      burnerResolutionEvidence: {},
+    };
+  } else if (burnerFieldsPresent) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Burner evidence requires the burner-lockout classification.",
+      {reasonCode: "maintenance-ticket-burner-evidence-unscoped"},
+    );
+  }
+
+  const timestamp = iso(context.serverNow);
+  const assetHierarchyRefJson = await requireFreshAssetReference({
+    tx,
+    raw: input.assetHierarchyRefJson,
+    assetType,
+    assetNumber,
+    tag,
+    startDate,
+    actor: context.actor,
+    serverNow: context.serverNow,
+  });
+  const canonicalAssetReference = JSON.parse(assetHierarchyRefJson) as JsonMap;
+  const hierarchyPath = persistedStringList(
+    canonicalAssetReference.hierarchyPath,
+    "hierarchyPath",
+    20,
+    200,
+  );
+  const ticket: JsonMap = {
+    firestoreId: command.aggregateId,
+    version,
+    assetType,
+    assetNumber,
+    component,
+    subsystem,
+    tag,
+    hierarchyPath,
+    assetHierarchyRefJson,
+    maintenanceType,
+    classification,
+    description,
+    routedTo,
+    otherDepartment,
+    status: "open",
+    isResolved: false,
+    isCritical,
+    loggedByUid: context.actor.uid,
+    loggedByName: context.actor.name,
+    reportedBy: context.actor.name,
+    acknowledgedByUid: null,
+    acknowledgedByName: null,
+    acknowledgedAt: null,
+    closedByUid: null,
+    closedByName: null,
+    teamsInvolved: [],
+    performedBy: null,
+    remarks: null,
+    startDate,
+    endDate: null,
+    downtimeHours: null,
+    chargeNoAtEvent,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    metadataJson: null,
+    actionsJson: "[]",
+    resolutionHistoryJson: "[]",
+    qualityIntentSchemaVersion: 1,
+    qualityImpactAssessment: input.qualityImpactAssessment as string,
+    qualityWarningReason,
+    ...burnerFields,
+    isDeleted: false,
+    deletedAt: null,
+    deletedByUid: null,
+    deletedByName: null,
+    deleteReason: null,
+  };
+  const warning = qualityWarningProjection({
+    ticketId: command.aggregateId,
+    ticket,
+    actor: context.actor,
+    timestamp,
+  });
+  const directive = redHotDirectiveProjection({
+    ticketId: command.aggregateId,
+    ticket,
+    actor: context.actor,
+    timestamp,
+  });
+  const warningId = `issue_${command.aggregateId}`;
+  const directiveId = `burner_red_hot_${command.aggregateId}`;
+  const [existingTicket, existingWarning, existingDirective] = await Promise.all([
+    tx.get(maintenancePath(command.aggregateId)),
+    tx.get(`quality_warnings/${warningId}`),
+    tx.get(`directives/${directiveId}`),
+  ]);
+  if (existingTicket.exists || existingWarning.exists || existingDirective.exists) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance issue evidence already exists without this command receipt.",
+      {reasonCode: "maintenance-ticket-create-orphan-evidence"},
+    );
+  }
+  await requireVacantAudit(tx, command.commandId);
+  const id = writeAudit({
+    tx,
+    command,
+    actor: context.actor,
+    at: context.serverNow,
+    reason: "Maintenance issue created through the governed command boundary.",
+    summary: "Maintenance issue created",
+    severity: isCritical ? "medium" : "low",
+    before: {},
+    after: ticket,
+    resultVersion: version,
+    action: "create",
+  });
+  tx.create(maintenancePath(command.aggregateId), ticket);
+  if (warning != null) tx.create(`quality_warnings/${warningId}`, warning);
+  if (directive != null) tx.create(`directives/${directiveId}`, directive);
+  return {
+    resultKey: "maintenance-ticket-created",
+    aggregateVersion: version,
+    result: {
+      ticketId: command.aggregateId,
+      auditId: id,
+      warningId: warning == null ? null : warningId,
+      directiveId: directive == null ? null : directiveId,
+    },
+  };
 };
 
 export const acknowledgeMaintenanceTicket = async ({
@@ -513,7 +1279,8 @@ export const verifyMaintenanceTicketAudit = async (args: {
   actor: Actor;
   receipt: WorkflowCommandReceipt;
 }): Promise<void> => {
-  if (args.command.commandType !== "acknowledgeMaintenanceTicket" &&
+  if (args.command.commandType !== "createMaintenanceTicket" &&
+      args.command.commandType !== "acknowledgeMaintenanceTicket" &&
       args.command.commandType !== "correctMaintenanceTicket") return;
   const id = auditId(args.command.commandId);
   const audit = await args.tx.get(auditPath(args.command.commandId));
@@ -523,6 +1290,8 @@ export const verifyMaintenanceTicketAudit = async (args: {
       data.entityType !== "maintenance" ||
       data.entityId !== args.command.aggregateId ||
       data.operation !== args.command.commandType ||
+      data.action !== (args.command.commandType === "createMaintenanceTicket" ?
+        "create" : "update") ||
       data.requestId !== args.command.commandId ||
       data.performedByUid !== args.actor.uid ||
       data.resultVersion !== args.receipt.aggregateVersion ||
@@ -534,5 +1303,81 @@ export const verifyMaintenanceTicketAudit = async (args: {
       "Maintenance ticket receipt no longer matches its immutable audit.",
       {reasonCode: "maintenance-ticket-replay-audit-invalid"},
     );
+  }
+  if (args.command.commandType !== "createMaintenanceTicket") return;
+  const ticket = await args.tx.get(maintenancePath(args.command.aggregateId));
+  const ticketData = ticket.data;
+  if (!ticket.exists || ticketData == null ||
+      ticketData.firestoreId !== args.command.aggregateId ||
+      ticketData.loggedByUid !== args.actor.uid ||
+      instantText(ticketData.createdAt) !== instantText(args.receipt.appliedAt) ||
+      args.receipt.result.ticketId !== args.command.aggregateId) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance ticket creation receipt no longer matches its source record.",
+      {reasonCode: "maintenance-ticket-create-replay-source-invalid"},
+    );
+  }
+  const warningId = args.receipt.result.warningId;
+  const deterministicWarningId = `issue_${args.command.aggregateId}`;
+  const warning = await args.tx.get(
+    `quality_warnings/${deterministicWarningId}`,
+  );
+  if (warningId == null && warning.exists) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance ticket warning evidence contradicts its receipt.",
+      {reasonCode: "maintenance-ticket-create-replay-warning-invalid"},
+    );
+  }
+  if (warningId != null) {
+    if (warningId !== deterministicWarningId) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Maintenance ticket warning identity is invalid.",
+        {reasonCode: "maintenance-ticket-create-replay-warning-invalid"},
+      );
+    }
+    if (!warning.exists || warning.data == null ||
+        warning.data.warningId !== warningId ||
+        warning.data.sourceType !== "issue" ||
+        warning.data.sourceId !== args.command.aggregateId ||
+        warning.data.createdByUid !== args.actor.uid) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Maintenance ticket warning evidence is missing or inconsistent.",
+        {reasonCode: "maintenance-ticket-create-replay-warning-invalid"},
+      );
+    }
+  }
+  const directiveId = args.receipt.result.directiveId;
+  const deterministicDirectiveId = `burner_red_hot_${args.command.aggregateId}`;
+  const directive = await args.tx.get(`directives/${deterministicDirectiveId}`);
+  if (directiveId == null && directive.exists) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance ticket directive evidence contradicts its receipt.",
+      {reasonCode: "maintenance-ticket-create-replay-directive-invalid"},
+    );
+  }
+  if (directiveId != null) {
+    if (directiveId !== deterministicDirectiveId) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Maintenance ticket directive identity is invalid.",
+        {reasonCode: "maintenance-ticket-create-replay-directive-invalid"},
+      );
+    }
+    if (!directive.exists || directive.data == null ||
+        directive.data.firestoreId !== directiveId ||
+        directive.data.linkedMaintenanceFirestoreId !==
+          args.command.aggregateId ||
+        directive.data.createdByUid !== args.actor.uid) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Maintenance ticket directive evidence is missing or inconsistent.",
+        {reasonCode: "maintenance-ticket-create-replay-directive-invalid"},
+      );
+    }
   }
 };

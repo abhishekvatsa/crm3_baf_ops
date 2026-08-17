@@ -27,6 +27,7 @@ import {createLegacyWorkflowJob} from "./jobCreationHandler";
 import {reopenWorkflowModule} from "./moduleLifecycleHandlers";
 import {canonicalApprovedUserAuthority} from "../userAuthority";
 import {
+  createMaintenanceTicket,
   acknowledgeMaintenanceTicket,
   correctMaintenanceTicket,
   verifyMaintenanceTicketAudit,
@@ -34,6 +35,7 @@ import {
 
 const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   createLegacyWorkflowJob,
+  createMaintenanceTicket,
   finalizeLaneSet,
   acknowledgeLane,
   addLane,

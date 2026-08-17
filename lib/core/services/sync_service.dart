@@ -16,6 +16,9 @@ import 'remote_tombstone_apply_result.dart';
 
 import '../../features/maintenance/data/maintenance_model.dart';
 import '../../features/maintenance/providers/maintenance_provider.dart';
+import '../../features/maintenance/services/maintenance_issue_create_command.dart';
+import '../../features/maintenance_workflow/domain/workflow_command_contract.dart';
+import '../../features/maintenance_workflow/services/workflow_command_gateway.dart';
 import '../../features/planned_maintenance/data/job_template_model.dart';
 import '../../features/planned_maintenance/data/job_diary_model.dart';
 import '../../features/planned_maintenance/data/job_module_model.dart';
@@ -126,6 +129,7 @@ class SyncPendingCounts {
 class SyncService {
   final MaintenanceRepository _maintenanceRepo;
   final MaintenanceRepository _firestoreMaintenance;
+  final WorkflowCommandGateway _maintenanceCommands;
 
   final PlannedMaintenanceRepository _plannedRepo;
   final PlannedMaintenanceRepository _firestorePlanned;
@@ -165,6 +169,7 @@ class SyncService {
   SyncService({
     required MaintenanceRepository maintenanceRepo,
     required MaintenanceRepository firestoreMaintenance,
+    WorkflowCommandGateway? maintenanceCommandGateway,
     required PlannedMaintenanceRepository plannedRepo,
     required PlannedMaintenanceRepository firestorePlanned,
     required PlannedJobServerCompletionService serverCompletion,
@@ -183,6 +188,8 @@ class SyncService {
     required AuditRepository auditRepository,
   }) : _maintenanceRepo = maintenanceRepo,
        _firestoreMaintenance = firestoreMaintenance,
+       _maintenanceCommands =
+           maintenanceCommandGateway ?? const FirebaseWorkflowCommandGateway(),
        _plannedRepo = plannedRepo,
        _firestorePlanned = firestorePlanned,
        _serverCompletion = serverCompletion,

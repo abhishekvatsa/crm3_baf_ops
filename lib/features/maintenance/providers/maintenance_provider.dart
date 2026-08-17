@@ -341,6 +341,17 @@ abstract class MaintenanceRepository {
     Map<String, dynamic> stepData,
   );
 
+  /// Adopts server-owned creation evidence after an idempotent create command.
+  /// The local row is changed only if it still matches the snapshot sent to the
+  /// server; concurrent local edits therefore remain dirty for a later sync.
+  Future<bool> applyGovernedCreationReceiptForSync({
+    required String firestoreId,
+    required SyncPushSnapshot expectedLocal,
+    required int serverCreateVersion,
+    required DateTime serverAppliedAt,
+    required bool hasPostCreateLifecycle,
+  });
+
   Future<void> markTicketsSynced(List<int> ids);
   Future<void> markTicketsSyncedIfUnchanged(List<SyncPushSnapshot> snapshots);
 }
@@ -1136,6 +1147,46 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
+  Future<bool> applyGovernedCreationReceiptForSync({
+    required String firestoreId,
+    required SyncPushSnapshot expectedLocal,
+    required int serverCreateVersion,
+    required DateTime serverAppliedAt,
+    required bool hasPostCreateLifecycle,
+  }) async {
+    if (firestoreId.trim().isEmpty || serverCreateVersion < 1) {
+      throw ArgumentError('Governed creation receipt evidence is invalid.');
+    }
+    final appliedAt = serverAppliedAt.toUtc();
+    return isar.writeTxn<bool>(() async {
+      final record = await isar.maintenanceRecords.get(expectedLocal.id);
+      if (record == null ||
+          record.firestoreId != firestoreId ||
+          record.isDeleted ||
+          !expectedLocal.matches(
+            currentVersion: record.version,
+            currentUpdatedAt: record.updatedAt,
+          )) {
+        return false;
+      }
+
+      record.createdAt = appliedAt;
+      if (hasPostCreateLifecycle) {
+        if (record.updatedAt.isBefore(appliedAt)) {
+          record.updatedAt = appliedAt;
+        }
+      } else {
+        record
+          ..version = serverCreateVersion
+          ..updatedAt = appliedAt;
+      }
+      record.isSynced = true;
+      await isar.maintenanceRecords.put(record);
+      return true;
+    });
+  }
+
+  @override
   Future<void> markTicketsSynced(List<int> ids) async {
     await isar.writeTxn(() async {
       final records =
@@ -1875,6 +1926,20 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
       batch.set(_burnerClosures.doc(id), burnerClosure);
     }
     await batch.commit();
+  }
+
+  @override
+  Future<bool> applyGovernedCreationReceiptForSync({
+    required String firestoreId,
+    required SyncPushSnapshot expectedLocal,
+    required int serverCreateVersion,
+    required DateTime serverAppliedAt,
+    required bool hasPostCreateLifecycle,
+  }) {
+    throw UnsupportedError(
+      'applyGovernedCreationReceiptForSync is a local sync primitive and is '
+      'not supported by the Firestore maintenance repository.',
+    );
   }
 
   Future<Set<String>> _existingQualityWarningIds(
