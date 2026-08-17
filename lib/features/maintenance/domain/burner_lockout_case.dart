@@ -547,13 +547,11 @@ ComponentAction buildBurnerComponentAction({
     severity: ActionSeverity.high,
     performedBy: performedBy,
     updatedAt: performedAt,
-    extensions: <String, dynamic>{
-      'attendanceSessionId': burnerActionSessionId(ticketId, burnerPosition),
-      'burnerPosition': burnerPosition,
-      'burnerActionCode': code.name,
-      'burnerOutcome': outcome.name,
-      if (microampReading != null) 'burnerMicroampReading': microampReading,
-    },
+    attendanceSessionId: burnerActionSessionId(ticketId, burnerPosition),
+    burnerPosition: burnerPosition,
+    burnerActionCode: code.name,
+    burnerOutcome: outcome.name,
+    burnerMicroampReading: microampReading,
   );
 }
 
@@ -579,10 +577,10 @@ BurnerLockoutResolution burnerResolutionFromActions({
   final outcomes = <int, BurnerResolutionOutcome>{};
   final microampReadings = <int, double>{};
   for (final action in actions) {
-    final rawPosition = action.extensions['burnerPosition'];
-    final rawCode = action.extensions['burnerActionCode'];
-    final rawOutcome = action.extensions['burnerOutcome'];
-    final rawMicroampReading = action.extensions['burnerMicroampReading'];
+    final rawPosition = action.burnerPosition;
+    final rawCode = action.burnerActionCode;
+    final rawOutcome = action.burnerOutcome;
+    final rawMicroampReading = action.burnerMicroampReading;
     final hasBurnerEvidence =
         rawPosition != null ||
         rawCode != null ||
@@ -671,10 +669,10 @@ _BurnerActionEvidence _burnerActionEvidenceForResolution({
   };
   final microampReadings = <int, double>{};
   for (final action in actions) {
-    final rawPosition = action.extensions['burnerPosition'];
-    final rawCode = action.extensions['burnerActionCode'];
-    final rawOutcome = action.extensions['burnerOutcome'];
-    final rawMicroampReading = action.extensions['burnerMicroampReading'];
+    final rawPosition = action.burnerPosition;
+    final rawCode = action.burnerActionCode;
+    final rawOutcome = action.burnerOutcome;
+    final rawMicroampReading = action.burnerMicroampReading;
     final hasBurnerEvidence =
         rawPosition != null ||
         rawCode != null ||

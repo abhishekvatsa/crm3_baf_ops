@@ -367,3 +367,254 @@ Map<String, dynamic>? readOptionalJsonObject(
     );
   }
 }
+
+int readPersistedPayloadSchemaVersion(
+  Map<String, dynamic> record, {
+  required String field,
+  String? source,
+  int currentVersion = 1,
+  bool allowLegacyAbsent = true,
+}) {
+  if (!record.containsKey(field)) {
+    if (allowLegacyAbsent) return 0;
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'required payload schema version',
+    );
+  }
+  final value = record[field];
+  if (value is! int || value != currentVersion) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'supported payload schema version is $currentVersion ($value)',
+    );
+  }
+  return value;
+}
+
+dynamic readBoundedPersistedJsonValue(
+  dynamic value, {
+  required String field,
+  String? source,
+  int maximumDepth = 6,
+  int maximumCollectionEntries = 128,
+  int maximumStringLength = 8192,
+  int maximumEncodedBytes = 32768,
+}) {
+  dynamic validate(dynamic current, String path, int depth) {
+    if (depth > maximumDepth) {
+      throw PersistedDataFormatException(
+        field: path,
+        source: source,
+        detail: 'JSON nesting exceeds $maximumDepth levels',
+      );
+    }
+    if (current == null || current is bool || current is int) return current;
+    if (current is double) {
+      if (current.isFinite) return current;
+      throw PersistedDataFormatException(
+        field: path,
+        source: source,
+        detail: 'JSON number must be finite',
+      );
+    }
+    if (current is String) {
+      if (current.length <= maximumStringLength) return current;
+      throw PersistedDataFormatException(
+        field: path,
+        source: source,
+        detail: 'JSON string exceeds $maximumStringLength characters',
+      );
+    }
+    if (current is List) {
+      if (current.length > maximumCollectionEntries) {
+        throw PersistedDataFormatException(
+          field: path,
+          source: source,
+          detail: 'JSON array exceeds $maximumCollectionEntries entries',
+        );
+      }
+      return List<dynamic>.unmodifiable(<dynamic>[
+        for (var index = 0; index < current.length; index++)
+          validate(current[index], '$path[$index]', depth + 1),
+      ]);
+    }
+    if (current is Map) {
+      if (current.length > maximumCollectionEntries) {
+        throw PersistedDataFormatException(
+          field: path,
+          source: source,
+          detail: 'JSON object exceeds $maximumCollectionEntries fields',
+        );
+      }
+      final result = <String, dynamic>{};
+      for (final entry in current.entries) {
+        if (entry.key is! String || (entry.key as String).trim().isEmpty) {
+          throw PersistedDataFormatException(
+            field: path,
+            source: source,
+            detail: 'JSON object keys must be non-empty strings',
+          );
+        }
+        final key = entry.key as String;
+        if (key.length > 128) {
+          throw PersistedDataFormatException(
+            field: '$path.$key',
+            source: source,
+            detail: 'JSON object key exceeds 128 characters',
+          );
+        }
+        result[key] = validate(entry.value, '$path.$key', depth + 1);
+      }
+      return Map<String, dynamic>.unmodifiable(result);
+    }
+    throw PersistedDataFormatException(
+      field: path,
+      source: source,
+      detail: 'unsupported JSON value (${current.runtimeType})',
+    );
+  }
+
+  final validated = validate(value, field, 0);
+  final encoded = jsonEncode(validated);
+  if (utf8.encode(encoded).length > maximumEncodedBytes) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'encoded JSON exceeds $maximumEncodedBytes bytes',
+    );
+  }
+  return validated;
+}
+
+Map<String, dynamic>? readOptionalBoundedJsonObject(
+  dynamic value, {
+  required String field,
+  String? source,
+  int maximumDepth = 6,
+  int maximumCollectionEntries = 128,
+  int maximumStringLength = 8192,
+  int maximumEncodedBytes = 32768,
+}) {
+  final object = readOptionalJsonObject(value, field: field, source: source);
+  if (object == null) return null;
+  return readBoundedPersistedJsonValue(
+        object,
+        field: field,
+        source: source,
+        maximumDepth: maximumDepth,
+        maximumCollectionEntries: maximumCollectionEntries,
+        maximumStringLength: maximumStringLength,
+        maximumEncodedBytes: maximumEncodedBytes,
+      )
+      as Map<String, dynamic>;
+}
+
+Map<String, dynamic> readBoundedPersistedExtensionBag(
+  Map<String, dynamic> record, {
+  required Set<String> knownFields,
+  required Map<String, PersistedExtensionValueKind> allowedFields,
+  required String field,
+  String? source,
+  int maximumEntries = 8,
+  int maximumEncodedBytes = 8192,
+}) {
+  final extensions = <String, dynamic>{
+    for (final entry in record.entries)
+      if (!knownFields.contains(entry.key)) entry.key: entry.value,
+  };
+  return validateBoundedPersistedExtensionBag(
+    extensions,
+    allowedFields: allowedFields,
+    field: field,
+    source: source,
+    maximumEntries: maximumEntries,
+    maximumEncodedBytes: maximumEncodedBytes,
+  );
+}
+
+enum PersistedExtensionValueKind {
+  string,
+  boolean,
+  integer,
+  finiteNumber,
+  stringList,
+}
+
+Map<String, dynamic> validateBoundedPersistedExtensionBag(
+  Map<String, dynamic> extensions, {
+  required Map<String, PersistedExtensionValueKind> allowedFields,
+  required String field,
+  String? source,
+  int maximumEntries = 8,
+  int maximumEncodedBytes = 8192,
+}) {
+  if (extensions.length > maximumEntries) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'at most $maximumEntries registered extension fields are allowed',
+    );
+  }
+
+  for (final entry in extensions.entries) {
+    final expected = allowedFields[entry.key];
+    if (expected == null) {
+      throw PersistedDataFormatException(
+        field: '$field.${entry.key}',
+        source: source,
+        detail: 'unregistered extension field',
+      );
+    }
+    _validatePersistedExtensionValue(
+      entry.value,
+      expected: expected,
+      field: '$field.${entry.key}',
+      source: source,
+    );
+  }
+
+  late final String encoded;
+  try {
+    encoded = jsonEncode(extensions);
+  } on JsonUnsupportedObjectError {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'extension bag must be JSON serializable',
+    );
+  }
+  if (utf8.encode(encoded).length > maximumEncodedBytes) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'encoded extension bag exceeds $maximumEncodedBytes bytes',
+    );
+  }
+  return Map<String, dynamic>.unmodifiable(extensions);
+}
+
+void _validatePersistedExtensionValue(
+  dynamic value, {
+  required PersistedExtensionValueKind expected,
+  required String field,
+  String? source,
+}) {
+  final valid = switch (expected) {
+    PersistedExtensionValueKind.string => value is String,
+    PersistedExtensionValueKind.boolean => value is bool,
+    PersistedExtensionValueKind.integer => value is int,
+    PersistedExtensionValueKind.finiteNumber => value is num && value.isFinite,
+    PersistedExtensionValueKind.stringList =>
+      value is List && value.every((entry) => entry is String),
+  };
+  if (!valid) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'expected registered ${expected.name} extension value',
+    );
+  }
+}

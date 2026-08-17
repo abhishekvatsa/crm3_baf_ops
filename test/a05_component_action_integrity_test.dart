@@ -28,12 +28,11 @@ Map<String, dynamic> _validAction({Map<String, dynamic>? additions}) =>
 
 void main() {
   group('A-05 component-action persisted integrity', () {
-    test('valid actions round-trip without losing extension fields', () {
+    test('valid legacy actions canonicalize to payload schema version 1', () {
       final raw = jsonEncode([
         _validAction(
           additions: {
             'hierarchyPath': ['base-1', 'hydraulics'],
-            'futureExtension': {'retained': true},
           },
         ),
       ]);
@@ -44,10 +43,10 @@ void main() {
       );
       expect(actions, hasLength(1));
       expect(actions.single.createdAt, DateTime.utc(2026, 8, 5, 8));
-      expect(actions.single.extensions['futureExtension'], {'retained': true});
+      expect(actions.single.extensions, isEmpty);
 
       final rewritten = jsonDecode(ComponentAction.encode(actions)) as List;
-      expect((rewritten.single as Map)['futureExtension'], {'retained': true});
+      expect((rewritten.single as Map)['schemaVersion'], 1);
     });
 
     test('malformed or incomplete saved actions fail closed', () {
@@ -78,6 +77,12 @@ void main() {
               'hierarchyPath': [3],
             },
           ),
+        ]),
+        jsonEncode([
+          _validAction(additions: {'futureAuthority': true}),
+        ]),
+        jsonEncode([
+          _validAction(additions: {'schemaVersion': 2}),
         ]),
       ];
 

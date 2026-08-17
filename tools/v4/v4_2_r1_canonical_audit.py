@@ -7,6 +7,7 @@ import ast
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -362,8 +363,8 @@ check(
     "Canonical reconciliation is no-loss with explicit successor delta",
     counts.get("BYTE_IDENTICAL") == recon.get("counts", {}).get("BYTE_IDENTICAL")
     and counts.get("SUCCESSOR_MODIFIED") == recon.get("counts", {}).get("SUCCESSOR_MODIFIED")
-    and counts.get("BYTE_IDENTICAL") == 201
-    and counts.get("SUCCESSOR_MODIFIED") == 209
+    and counts.get("BYTE_IDENTICAL") == 200
+    and counts.get("SUCCESSOR_MODIFIED") == 210
     and counts.get("MISSING", 0) == 0,
     str(counts),
 )
@@ -8364,6 +8365,47 @@ a03_surfaces = a03_manifest.get("surfaces", [])
 a03_remediation = text(
     "docs/v4_2_r1/A03_PERSISTENCE_BOUNDARY_REMEDIATION.md"
 )
+a04_record = a02_a05_records.get("A-04", {})
+a04_history = [
+    entry.get("status")
+    for entry in a04_record.get("statusHistory", [])
+]
+a04_manifest = data("governance/a04-persisted-schema-v1.json")
+a04_fields = a04_manifest.get("fields", [])
+a04_inherited_decoders = a04_manifest.get("inheritedDecoderSurfaces", [])
+a04_extension_policy = a04_manifest.get("extensionPolicy", {})
+a04_remediation = text("docs/v4_2_r1/A04_PERSISTED_SCHEMA_REMEDIATION.md")
+dart_executable = shutil.which("dart")
+if sys.platform == "win32" and dart_executable:
+    located_dart = Path(dart_executable)
+    if located_dart.suffix.lower() in {".bat", ".cmd"}:
+        sdk_dart = located_dart.parent / "cache" / "dart-sdk" / "bin" / "dart.exe"
+        dart_executable = str(sdk_dart) if sdk_dart.is_file() else None
+if dart_executable:
+    a04_inventory_process = subprocess.run(
+        [
+            dart_executable,
+            "run",
+            str(ROOT / "tools/v4/a04_persisted_schema_inventory.dart"),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+else:
+    a04_inventory_process = subprocess.CompletedProcess(
+        args=["dart", "run", "tools/v4/a04_persisted_schema_inventory.dart"],
+        returncode=127,
+        stdout="",
+        stderr="Dart SDK executable was not found.",
+    )
+try:
+    a04_json_start = a04_inventory_process.stdout.index("{")
+    a04_inventory_report = json.loads(
+        a04_inventory_process.stdout[a04_json_start:]
+    )
+except (ValueError, json.JSONDecodeError):
+    a04_inventory_report = {}
 a03_presentation_persistence = []
 for a03_path in (ROOT / "lib").rglob("*.dart"):
     a03_relative = a03_path.relative_to(ROOT).as_posix()
@@ -8491,16 +8533,11 @@ a05_source_delta_paths = {
 check(
     "A-02 to A-05 carry explicit architecture exit and re-arm constraints",
     set(a02_a05_records) == a02_a05_ids
-    and all(
-        record.get("currentStatus") == "OPEN"
-        and record.get("evidence") == []
-        and len(record.get("requiredExitEvidence", [])) == 5
-        and len(record.get("reArmTriggers", [])) == 3
-        and [entry.get("status") for entry in record.get("statusHistory", [])]
-        == ["OPEN"]
-        for finding_id, record in a02_a05_records.items()
-        if finding_id == "A-04"
-    )
+    and a04_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
+    and a04_record.get("evidence") == []
+    and len(a04_record.get("requiredExitEvidence", [])) == 5
+    and len(a04_record.get("reArmTriggers", [])) == 3
+    and a04_history == ["OPEN", "SOURCE_IMPLEMENTED"]
     and a03_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
     and a03_record.get("evidence") == []
     and len(a03_record.get("requiredExitEvidence", [])) == 5
@@ -8552,6 +8589,45 @@ check(
     and "Status: SOURCE_IMPLEMENTED" in a03_remediation
     and "484 operations" in a03_remediation
     and "No file under a presentation or widget directory" in a03_remediation,
+)
+check(
+    "A-04 persisted schemas are completely classified and source-enforced",
+    a04_inventory_process.returncode == 0
+    and a04_inventory_report.get("result") == "PASS"
+    and a04_inventory_report.get("findingId") == "A-04"
+    and a04_inventory_report.get("fieldCount") == 53
+    and a04_inventory_report.get("jsonStringFieldCount") == 47
+    and a04_inventory_report.get("dynamicValueFieldCount") == 6
+    and a04_inventory_report.get("extensionBagCount") == 3
+    and a04_inventory_report.get("registeredExtensionFieldCount") == 0
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 54
+    and a04_inventory_report.get("inventoryDigest")
+        == "27863AC2C3E366BD34BFAC9D092EA86AF269756BAD56C05C1974D78F843697C9"
+    and a04_inventory_report.get("failures") == []
+    and a04_manifest.get("schemaVersion") == 1
+    and a04_manifest.get("findingId") == "A-04"
+    and len(a04_fields) == 53
+    and len({field.get("id") for field in a04_fields}) == 53
+    and len(a04_inherited_decoders) == 54
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 54
+    and all(
+        field.get("classification")
+            in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
+        and field.get("policy")
+        and field.get("decoderContract")
+        and field.get("malformedPresentDisposition")
+            == "FAIL_CLOSED_PENDING_REPAIR"
+        and field.get("compatibility")
+        and field.get("regression")
+        for field in a04_fields
+    )
+    and a04_extension_policy.get("authorityOrBusinessInvariantFieldsAllowed")
+        is False
+    and a04_extension_policy.get("registeredFields") == {}
+    and "Status: SOURCE_IMPLEMENTED" in a04_remediation
+    and "classifies 53" in a04_remediation
+    and "current extension registry contains zero fields" in a04_remediation
+    and "supported-local-generation reconciliation" in a04_remediation,
 )
 check(
     "A-02 responsibility hotspots are completely classified and source-enforced",
@@ -9121,7 +9197,9 @@ check(
     and "fieldDefinitionsJson must contain a JSON array when present"
         in a05_red_resolver
     and "readFieldDefinitionPayload" in a05_assignment
-    and "canonicalizes aliases and retains unknown response extensions"
+    and "canonicalizes aliases and writes payload schema version 1"
+        in a05_response_test
+    and "unregistered response extensions fail closed"
         in a05_response_test
     and "only an absent pre-feature action field initializes empty"
         in a05_response_test
@@ -9263,8 +9341,8 @@ check(
     and "cannot advance past a quarantined document" in a05_decision_8
     and "`A-05` remains open" in a05_decision_8
     and "does not inspect or mutate production documents" in a05_decision_8
-    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 201
-    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 209
+    and recon.get("counts", {}).get("BYTE_IDENTICAL") == 200
+    and recon.get("counts", {}).get("SUCCESSOR_MODIFIED") == 210
     and all(
         row_map.get(path, {}).get("disposition") == "SUCCESSOR_MODIFIED"
         for path in a05_reconciliation_corrections

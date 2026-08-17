@@ -351,6 +351,9 @@ class TemplateFieldReadResult {
 }
 
 class TemplateField {
+  static const int payloadSchemaVersion = 1;
+  static const Map<String, PersistedExtensionValueKind> _allowedExtensions =
+      <String, PersistedExtensionValueKind>{};
   static const _knownFields = <String>{
     'key',
     'fieldKey',
@@ -371,6 +374,7 @@ class TemplateField {
     'instructionText',
     'order',
     'meta',
+    'schemaVersion',
   };
 
   late String key;
@@ -409,32 +413,97 @@ class TemplateField {
     this.key = key ?? '';
     this.label = label ?? '';
     this.type = type ?? FieldType.text;
-    this.extensions = Map<String, dynamic>.from(
+    validation =
+        validation == null
+            ? null
+            : readBoundedPersistedJsonValue(
+                  validation,
+                  field: 'validation',
+                  source: 'TemplateField constructor',
+                )
+                as Map<String, dynamic>;
+    validationJson = _validateOptionalJsonObjectText(
+      validationJson,
+      field: 'validationJson',
+      source: 'TemplateField constructor',
+    );
+    meta =
+        meta == null
+            ? null
+            : readBoundedPersistedJsonValue(
+                  meta,
+                  field: 'meta',
+                  source: 'TemplateField constructor',
+                )
+                as Map<String, dynamic>;
+    this.extensions = validateBoundedPersistedExtensionBag(
       extensions ?? const <String, dynamic>{},
+      allowedFields: _allowedExtensions,
+      field: 'extensions',
+      source: 'TemplateField constructor',
     );
   }
 
-  Map<String, dynamic> toMap() => {
-    ...extensions,
-    'key': key,
-    'label': label,
-    'type': type.name,
-    'isRequired': isRequired,
-    'unit': unit,
-    'options': options,
-    'version': version,
-    'validationJson':
-        validationJson ?? (validation != null ? jsonEncode(validation) : null),
-    'instructionText': instructionText,
-    'order': order,
-    'meta': meta,
-  };
+  Map<String, dynamic> toMap() {
+    final boundedValidation =
+        validation == null
+            ? null
+            : readBoundedPersistedJsonValue(
+                  validation,
+                  field: 'validation',
+                  source: 'TemplateField.toMap',
+                )
+                as Map<String, dynamic>;
+    final boundedValidationJson = _validateOptionalJsonObjectText(
+      validationJson,
+      field: 'validationJson',
+      source: 'TemplateField.toMap',
+    );
+    final boundedMeta =
+        meta == null
+            ? null
+            : readBoundedPersistedJsonValue(
+                  meta,
+                  field: 'meta',
+                  source: 'TemplateField.toMap',
+                )
+                as Map<String, dynamic>;
+    final boundedExtensions = validateBoundedPersistedExtensionBag(
+      extensions,
+      allowedFields: _allowedExtensions,
+      field: 'extensions',
+      source: 'TemplateField.toMap',
+    );
+    return <String, dynamic>{
+      ...boundedExtensions,
+      'schemaVersion': payloadSchemaVersion,
+      'key': key,
+      'label': label,
+      'type': type.name,
+      'isRequired': isRequired,
+      'unit': unit,
+      'options': options,
+      'version': version,
+      'validationJson':
+          boundedValidationJson ??
+          (boundedValidation != null ? jsonEncode(boundedValidation) : null),
+      'instructionText': instructionText,
+      'order': order,
+      'meta': boundedMeta,
+    };
+  }
 
   factory TemplateField.fromMap(Map<String, dynamic> map, {String? source}) {
+    readPersistedPayloadSchemaVersion(
+      map,
+      field: 'schemaVersion',
+      source: source,
+      currentVersion: payloadSchemaVersion,
+    );
     _validateFieldDefinition(map, field: 'field', source: source);
     final structuredValidation =
         map.containsKey('validation')
-            ? readOptionalJsonObject(
+            ? readOptionalBoundedJsonObject(
               map['validation'],
               field: 'field.validation',
               source: source,
@@ -442,17 +511,20 @@ class TemplateField {
             : null;
     final encodedValidation =
         map.containsKey('validationJson')
-            ? readOptionalJsonObject(
+            ? readOptionalBoundedJsonObject(
               map['validationJson'],
               field: 'field.validationJson',
               source: source,
             )
             : null;
     final validation = structuredValidation ?? encodedValidation;
-    final extensions = <String, dynamic>{
-      for (final entry in map.entries)
-        if (!_knownFields.contains(entry.key)) entry.key: entry.value,
-    };
+    final extensions = readBoundedPersistedExtensionBag(
+      map,
+      knownFields: _knownFields,
+      allowedFields: _allowedExtensions,
+      field: 'extensions',
+      source: source,
+    );
     return TemplateField(
       key: _readAliasedRequiredText(
         map,
@@ -501,7 +573,7 @@ class TemplateField {
       order: map['order'] as int? ?? 0,
       meta:
           map.containsKey('meta')
-              ? readOptionalJsonObject(
+              ? readOptionalBoundedJsonObject(
                 map['meta'],
                 field: 'field.meta',
                 source: source,
@@ -558,6 +630,9 @@ class FieldResponseReadResult {
 }
 
 class FieldResponse {
+  static const int payloadSchemaVersion = 1;
+  static const Map<String, PersistedExtensionValueKind> _allowedExtensions =
+      <String, PersistedExtensionValueKind>{};
   static const _knownFields = <String>{
     'key',
     'fieldId',
@@ -571,6 +646,7 @@ class FieldResponse {
     'type',
     'value',
     'answer',
+    'schemaVersion',
   };
 
   final String key;
@@ -583,14 +659,23 @@ class FieldResponse {
     required this.key,
     required this.fieldLabel,
     required this.fieldType,
-    required this.value,
+    required dynamic value,
     Map<String, dynamic>? extensions,
-  }) : extensions = Map<String, dynamic>.unmodifiable(
+  }) : value = readBoundedPersistedJsonValue(
+         value,
+         field: 'value',
+         source: 'FieldResponse constructor',
+       ),
+       extensions = validateBoundedPersistedExtensionBag(
          extensions ?? const <String, dynamic>{},
+         allowedFields: _allowedExtensions,
+         field: 'extensions',
+         source: 'FieldResponse constructor',
        );
 
   Map<String, dynamic> toMap() => {
     ...extensions,
+    'schemaVersion': payloadSchemaVersion,
     'key': key,
     'fieldLabel': fieldLabel,
     'fieldType': fieldType.name,
@@ -598,6 +683,12 @@ class FieldResponse {
   };
 
   factory FieldResponse.fromMap(Map<String, dynamic> map, {String? source}) {
+    readPersistedPayloadSchemaVersion(
+      map,
+      field: 'schemaVersion',
+      source: source,
+      currentVersion: payloadSchemaVersion,
+    );
     final key = _readAliasedRequiredText(
       map,
       _responseKeyAliases,
@@ -611,20 +702,18 @@ class FieldResponse {
         detail: 'required value/answer field',
       );
     }
-    final value = map.containsKey('value') ? map['value'] : map['answer'];
-    try {
-      jsonEncode(value);
-    } on JsonUnsupportedObjectError {
-      throw PersistedDataFormatException(
-        field: 'value',
-        source: source,
-        detail: 'value is not JSON serializable',
-      );
-    }
-    final extensions = <String, dynamic>{
-      for (final entry in map.entries)
-        if (!_knownFields.contains(entry.key)) entry.key: entry.value,
-    };
+    final value = readBoundedPersistedJsonValue(
+      map.containsKey('value') ? map['value'] : map['answer'],
+      field: 'value',
+      source: source,
+    );
+    final extensions = readBoundedPersistedExtensionBag(
+      map,
+      knownFields: _knownFields,
+      allowedFields: _allowedExtensions,
+      field: 'extensions',
+      source: source,
+    );
     return FieldResponse(
       key: key,
       fieldLabel:
@@ -747,6 +836,16 @@ class FieldResponse {
     }
     return encode(responses);
   }
+}
+
+String? _validateOptionalJsonObjectText(
+  String? value, {
+  required String field,
+  required String source,
+}) {
+  if (value == null) return null;
+  readOptionalBoundedJsonObject(value, field: field, source: source);
+  return value;
 }
 
 // ─────────────────────────────────────────────────────────────

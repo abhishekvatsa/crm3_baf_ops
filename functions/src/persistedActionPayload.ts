@@ -19,6 +19,16 @@ const ACTION_TYPES = new Set(["issue", "repair", "replacement", "inspection"]);
 const REPLACEMENT_TYPES = new Set(["newPart", "repaired", "revised"]);
 const ACTION_SEVERITIES = new Set(["low", "medium", "high", "critical"]);
 const ACTION_STATUSES = new Set(["issue", "inProgress", "resolved"]);
+const PAYLOAD_SCHEMA_VERSION = 1;
+const ACTION_FIELDS = new Set([
+  "schemaVersion", "id", "asset", "component", "hierarchyPath",
+  "assetHierarchyRef", "system", "subsystem", "subComponent", "tag",
+  "instance", "actionType", "action", "replacement", "issue", "resolution",
+  "remarks", "templateFieldKey", "isAutoResolved", "status", "createdAt",
+  "severity", "performedBy", "updatedAt", "version", "metadataJson",
+  "attendanceSessionId", "burnerPosition", "burnerActionCode",
+  "burnerOutcome", "burnerMicroampReading",
+]);
 
 const requiredText = (value: unknown, field: string): void => {
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -29,6 +39,54 @@ const requiredText = (value: unknown, field: string): void => {
 const optionalText = (value: unknown, field: string): void => {
   if (value != null && typeof value !== "string") {
     throw new PersistedActionPayloadError(field, "expected string or null");
+  }
+};
+
+const assertBoundedJsonValue = (
+  value: unknown,
+  field: string,
+  depth = 0,
+): void => {
+  if (depth > 6) {
+    throw new PersistedActionPayloadError(field, "JSON nesting exceeds 6 levels");
+  }
+  if (value == null || typeof value === "boolean") return;
+  if (typeof value === "number") {
+    if (Number.isFinite(value)) return;
+    throw new PersistedActionPayloadError(field, "JSON number must be finite");
+  }
+  if (typeof value === "string") {
+    if (value.length <= 8192) return;
+    throw new PersistedActionPayloadError(field, "JSON string exceeds 8192 characters");
+  }
+  if (Array.isArray(value)) {
+    if (value.length > 128) {
+      throw new PersistedActionPayloadError(field, "JSON array exceeds 128 entries");
+    }
+    value.forEach((entry, index) =>
+      assertBoundedJsonValue(entry, `${field}[${index}]`, depth + 1));
+    return;
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length > 128) {
+      throw new PersistedActionPayloadError(field, "JSON object exceeds 128 fields");
+    }
+    for (const [key, entry] of entries) {
+      if (key.trim().length === 0 || key.length > 128) {
+        throw new PersistedActionPayloadError(field, "invalid JSON object key");
+      }
+      assertBoundedJsonValue(entry, `${field}.${key}`, depth + 1);
+    }
+    return;
+  }
+  throw new PersistedActionPayloadError(field, "unsupported JSON value");
+};
+
+const assertBoundedJson = (value: unknown, field: string): void => {
+  assertBoundedJsonValue(value, field);
+  if (Buffer.byteLength(JSON.stringify(value), "utf8") > 32768) {
+    throw new PersistedActionPayloadError(field, "encoded JSON exceeds 32768 bytes");
   }
 };
 
@@ -50,6 +108,9 @@ const optionalEnum = (
   if (value != null) requiredEnum(value, allowed, field);
 };
 
+const normalizedActionType = (value: unknown): unknown =>
+  value === "inspect" ? "inspection" : value;
+
 const validInstant = (value: unknown): boolean =>
   typeof value === "string" &&
   value.trim().length > 0 &&
@@ -63,9 +124,35 @@ const assertAction = (
     throw new PersistedActionPayloadError(field, "expected JSON object");
   }
   const action = value as Record<string, unknown>;
+  if (Object.prototype.hasOwnProperty.call(action, "schemaVersion") &&
+      action.schemaVersion !== PAYLOAD_SCHEMA_VERSION) {
+    throw new PersistedActionPayloadError(
+      `${field}.schemaVersion`,
+      `supported payload schema version is ${PAYLOAD_SCHEMA_VERSION}`,
+    );
+  }
+  const unknown = Object.keys(action).find((key) => !ACTION_FIELDS.has(key));
+  if (unknown != null) {
+    throw new PersistedActionPayloadError(
+      `${field}.${unknown}`,
+      "unregistered extension field",
+    );
+  }
   requiredText(action.asset, `${field}.asset`);
   requiredText(action.component, `${field}.component`);
-  requiredEnum(action.actionType, ACTION_TYPES, `${field}.actionType`);
+  const rawActionType = action.actionType ?? action.action;
+  if (action.actionType != null && action.action != null &&
+      normalizedActionType(action.actionType) !== normalizedActionType(action.action)) {
+    throw new PersistedActionPayloadError(
+      `${field}.actionType`,
+      "conflicts with legacy action alias",
+    );
+  }
+  requiredEnum(
+    normalizedActionType(rawActionType),
+    ACTION_TYPES,
+    `${field}.actionType`,
+  );
   requiredEnum(action.severity, ACTION_SEVERITIES, `${field}.severity`);
   optionalEnum(action.replacement, REPLACEMENT_TYPES, `${field}.replacement`);
   optionalEnum(action.status, ACTION_STATUSES, `${field}.status`);
@@ -119,7 +206,9 @@ const assertAction = (
     "remarks",
     "templateFieldKey",
     "performedBy",
-    "metadataJson",
+    "attendanceSessionId",
+    "burnerActionCode",
+    "burnerOutcome",
   ]) {
     optionalText(action[optionalField], `${field}.${optionalField}`);
   }
@@ -127,6 +216,75 @@ const assertAction = (
     throw new PersistedActionPayloadError(
       `${field}.updatedAt`,
       "expected timestamp or null",
+    );
+  }
+  if (action.assetHierarchyRef != null) {
+    if (typeof action.assetHierarchyRef !== "object" ||
+        Array.isArray(action.assetHierarchyRef)) {
+      throw new PersistedActionPayloadError(
+        `${field}.assetHierarchyRef`,
+        "expected JSON object or null",
+      );
+    }
+    assertBoundedJson(action.assetHierarchyRef, `${field}.assetHierarchyRef`);
+  }
+  if (action.metadataJson != null) {
+    optionalText(action.metadataJson, `${field}.metadataJson`);
+    if ((action.metadataJson as string).trim().length === 0) {
+      throw new PersistedActionPayloadError(
+        `${field}.metadataJson`,
+        "expected non-empty JSON object string",
+      );
+    }
+    let metadata: unknown;
+    try {
+      metadata = JSON.parse(action.metadataJson as string);
+    } catch (_) {
+      throw new PersistedActionPayloadError(
+        `${field}.metadataJson`,
+        "malformed JSON object string",
+      );
+    }
+    if (metadata == null || typeof metadata !== "object" || Array.isArray(metadata)) {
+      throw new PersistedActionPayloadError(
+        `${field}.metadataJson`,
+        "expected JSON object string",
+      );
+    }
+    assertBoundedJson(metadata, `${field}.metadataJson`);
+  }
+  if (action.burnerPosition != null &&
+      (typeof action.burnerPosition !== "number" ||
+        !Number.isSafeInteger(action.burnerPosition) ||
+        action.burnerPosition < 1 || action.burnerPosition > 8)) {
+    throw new PersistedActionPayloadError(
+      `${field}.burnerPosition`,
+      "expected integer between 1 and 8",
+    );
+  }
+  if (action.burnerMicroampReading != null &&
+      (typeof action.burnerMicroampReading !== "number" ||
+        !Number.isFinite(action.burnerMicroampReading) ||
+        action.burnerMicroampReading < 0 ||
+        action.burnerMicroampReading > 1000000)) {
+    throw new PersistedActionPayloadError(
+      `${field}.burnerMicroampReading`,
+      "expected finite number between 0 and 1000000",
+    );
+  }
+  const burnerEvidence = [
+    action.attendanceSessionId,
+    action.burnerPosition,
+    action.burnerActionCode,
+    action.burnerOutcome,
+    action.burnerMicroampReading,
+  ];
+  if (burnerEvidence.some((entry) => entry != null) &&
+      (action.attendanceSessionId == null || action.burnerPosition == null ||
+        action.burnerActionCode == null || action.burnerOutcome == null)) {
+    throw new PersistedActionPayloadError(
+      `${field}.burnerEvidence`,
+      "burner evidence is incomplete",
     );
   }
   return action;

@@ -61,14 +61,13 @@ Map<String, dynamic> _executionMap({
 
 void main() {
   group('A-05 persisted response integrity', () {
-    test('canonicalizes aliases and retains unknown response extensions', () {
+    test('canonicalizes aliases and writes payload schema version 1', () {
       final raw = jsonEncode([
         {
           'fieldId': 'pressure',
           'label': 'Pressure',
           'type': 'numericWithUnit',
           'answer': 2.1,
-          'futureExtension': {'retained': true},
         },
       ]);
       final module = JobModuleInstance.fromMap(
@@ -87,9 +86,28 @@ void main() {
       expect(rewritten.single.containsKey('answer'), isFalse);
       expect(rewritten.single.containsKey('label'), isFalse);
       expect(rewritten.single.containsKey('type'), isFalse);
-      expect(rewritten.single['futureExtension'], {'retained': true});
+      expect(rewritten.single['schemaVersion'], 1);
       expect(rewritten.single['key'], 'pressure');
       expect(rewritten.single['value'], 2.1);
+    });
+
+    test('unregistered response extensions fail closed', () {
+      final module = JobModuleInstance.fromMap(
+        _moduleMap(
+          responsesJson: jsonEncode([
+            {
+              'key': 'pressure',
+              'fieldType': 'number',
+              'value': 2.1,
+              'futureAuthority': true,
+            },
+          ]),
+        ),
+        'module-1',
+      );
+
+      expect(module.responsesReadResult.isValid, isFalse);
+      expect(() => module.responses, throwsA(isA<FormatException>()));
     });
 
     test(

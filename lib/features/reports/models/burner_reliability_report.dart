@@ -236,8 +236,8 @@ void _applyClosureEvidence({
   }
   for (final action in actions) {
     if (!_hasBurnerActionEvidence(action)) continue;
-    final position = action.extensions['burnerPosition'];
-    final codeName = action.extensions['burnerActionCode'];
+    final position = action.burnerPosition;
+    final codeName = action.burnerActionCode;
     final code = BurnerActionCode.values.firstWhere(
       (value) => value.name == codeName,
     );
@@ -253,10 +253,10 @@ void _applyClosureEvidence({
 }
 
 bool _hasBurnerActionEvidence(ComponentAction action) =>
-    action.extensions['burnerPosition'] != null ||
-    action.extensions['burnerActionCode'] != null ||
-    action.extensions['burnerOutcome'] != null ||
-    action.extensions['burnerMicroampReading'] != null;
+    action.burnerPosition != null ||
+    action.burnerActionCode != null ||
+    action.burnerOutcome != null ||
+    action.burnerMicroampReading != null;
 
 class _MutableBurnerReliabilityRow {
   _MutableBurnerReliabilityRow({
