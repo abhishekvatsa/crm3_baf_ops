@@ -655,8 +655,8 @@ void main() {
     expect(_object(a02Closure['boundaries'])['a03CarryoversClosed'], isFalse);
 
     final a03 = architecture['A-03']!;
-    expect(a03['currentStatus'], 'SOURCE_IMPLEMENTED');
-    expect(_objects(a03['evidence']), isEmpty);
+    expect(a03['currentStatus'], 'CLOSED');
+    expect(_objects(a03['evidence']), hasLength(1));
     expect(_strings(a03['requiredExitEvidence']), hasLength(5));
     expect(_strings(a03['reArmTriggers']), hasLength(3));
     expect(_strings(a03['notes']), hasLength(4));
@@ -664,8 +664,35 @@ void main() {
       _objects(
         a03['statusHistory'],
       ).map((entry) => entry['status']).toList(growable: false),
-      <String>['OPEN', 'SOURCE_IMPLEMENTED'],
+      <String>['OPEN', 'SOURCE_IMPLEMENTED', 'MERGED', 'CLOSED'],
     );
+    final a03Evidence = _objects(a03['evidence']).single;
+    expect(
+      a03Evidence['decision'],
+      'PASS_A03_PERSISTENCE_BOUNDARY_SOURCE_AND_CI_CLOSURE',
+    );
+    expect(a03Evidence['pullRequest'], 234);
+    expect(a03Evidence['pullRequestWorkflowRun'], 32042648071);
+    expect(a03Evidence['postMergeWorkflowRun'], 32043979797);
+    final a03Closure = _readJson(
+      'release/evidence/a03-persistence-boundary-source-and-ci-closure.json',
+    );
+    expect(a03Closure['findingId'], 'A-03');
+    expect(
+      a03Closure['decision'],
+      'PASS_A03_PERSISTENCE_BOUNDARY_SOURCE_AND_CI_CLOSURE',
+    );
+    expect(
+      _object(a03Closure['sourceAuthority'])['sourceTree'],
+      '0ccc46eedec7c88c9c2e2df0e8bc5f498e2a1eff',
+    );
+    final a03Inventory = _object(a03Closure['inventoryProof']);
+    expect(a03Inventory['operationCount'], 484);
+    expect(a03Inventory['siteCount'], 1548);
+    expect(a03Inventory['surfaceCount'], 44);
+    expect(a03Inventory['presentationPersistenceCount'], 0);
+    expect(_object(a03Closure['pullRequestCi'])['conclusion'], 'success');
+    expect(_object(a03Closure['postMergeCi'])['conclusion'], 'success');
     final a03Manifest = _readJson(
       'governance/a03-persistence-boundaries-v1.json',
     );
@@ -677,17 +704,60 @@ void main() {
     expect(_objects(a03Manifest['surfaces']), hasLength(44));
 
     final a04 = architecture['A-04']!;
-    expect(a04['currentStatus'], 'SOURCE_IMPLEMENTED');
-    expect(_objects(a04['evidence']), isEmpty);
+    expect(a04['currentStatus'], 'CLOSED');
+    expect(_objects(a04['evidence']), hasLength(1));
     expect(_strings(a04['requiredExitEvidence']), hasLength(5));
     expect(_strings(a04['reArmTriggers']), hasLength(3));
-    expect(_strings(a04['notes']), isNotEmpty);
+    expect(_strings(a04['notes']), hasLength(5));
     expect(
       _objects(
         a04['statusHistory'],
       ).map((entry) => entry['status']).toList(growable: false),
-      <String>['OPEN', 'SOURCE_IMPLEMENTED'],
+      <String>['OPEN', 'SOURCE_IMPLEMENTED', 'MERGED', 'CLOSED'],
     );
+    final a04Evidence = _objects(a04['evidence']).single;
+    expect(
+      a04Evidence['decision'],
+      'PASS_A04_PERSISTED_SCHEMA_SOURCE_CI_AND_RECONCILIATION_CLOSURE',
+    );
+    expect(a04Evidence['pullRequest'], 235);
+    expect(a04Evidence['pullRequestWorkflowRun'], 32050533628);
+    expect(a04Evidence['postMergeWorkflowRun'], 32051729235);
+    final a04Closure = _readJson(
+      'release/evidence/a04-persisted-schema-source-ci-and-reconciliation-closure.json',
+    );
+    expect(a04Closure['findingId'], 'A-04');
+    expect(
+      a04Closure['decision'],
+      'PASS_A04_PERSISTED_SCHEMA_SOURCE_CI_AND_RECONCILIATION_CLOSURE',
+    );
+    expect(
+      _object(a04Closure['sourceAuthority'])['sourceTree'],
+      '55c73664ce7cc2f8f60142d92e8920a4686a385f',
+    );
+    final a04Inventory = _object(a04Closure['inventoryProof']);
+    expect(a04Inventory['fieldCount'], 53);
+    expect(a04Inventory['inheritedDecoderSurfaceCount'], 54);
+    final a04Production = _object(a04Closure['productionReconciliation']);
+    expect(a04Production['cleanFetchedMain'], isTrue);
+    expect(a04Production['readOnly'], isTrue);
+    expect(a04Production['cloudMutationCapability'], 'NONE');
+    expect(a04Production['blockingFindingCount'], 0);
+    expect(a04Production['warningCount'], 0);
+    expect(a04Production['strictReaderAttemptedCount'], 9);
+    expect(a04Production['strictReaderPassedCount'], 9);
+    expect(a04Production['strictReaderFailedCount'], 0);
+    final a04Local = _object(
+      a04Closure['supportedLocalGenerationAuthority'],
+    );
+    expect(_strings(a04Local['testFiles']), hasLength(4));
+    expect(a04Local['passedCount'], 27);
+    expect(a04Local['failedCount'], 0);
+    expect(_strings(a04Local['dispositions']), hasLength(5));
+    expect(a04Local['repairDisposition'], 'PRESERVE_AND_BLOCK_PENDING_REPAIR');
+    expect(a04Local['silentRewritePerformed'], isFalse);
+    expect(_object(a04Closure['pullRequestCi'])['conclusion'], 'success');
+    expect(_object(a04Closure['postMergeCi'])['conclusion'], 'success');
     final a04Manifest = _readJson('governance/a04-persisted-schema-v1.json');
     expect(a04Manifest['findingId'], 'A-04');
     expect(

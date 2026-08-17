@@ -3202,14 +3202,33 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Architecture",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "evidenceFile": "release/evidence/a03-persistence-boundary-source-and-ci-closure.json",
+          "evidenceSha256": "0850DD09E7A2C0DFEFDCD54855F9C29404D982AE9C979B3221D09905B6E0671E",
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 234,
+          "headCommit": "af14218f5281cb210bda5382fbedc5eaa2ca27e8",
+          "sourceTree": "0ccc46eedec7c88c9c2e2df0e8bc5f498e2a1eff",
+          "mergeCommit": "829c87ee07de43846f1d6b5e6d0b1879a3801d93",
+          "mergeTree": "0ccc46eedec7c88c9c2e2df0e8bc5f498e2a1eff",
+          "pullRequestWorkflowRun": 32042648071,
+          "postMergeWorkflowRun": 32043979797,
+          "decision": "PASS_A03_PERSISTENCE_BOUNDARY_SOURCE_AND_CI_CLOSURE",
+          "productionDeploymentPerformed": false,
+          "productionDataReadPerformed": false,
+          "productionDataMutationPerformed": false,
+          "deviceEvidenceClaimed": false,
+          "pilotAuthorizationChanged": false
+        }
+      ],
       "requiredExitEvidence": [
         "exact-commit inventory of direct Firestore and Isar access classified by layer, operation, authority boundary and read-only versus mutating behavior",
         "removal of presentation-layer database access except explicitly registered authority-gated read-only diagnostic adapters",
@@ -3226,7 +3245,7 @@
         "The currently observed presentation hits do not determine severity or closure; the structured operation-level inventory is authoritative.",
         "The source-implemented AST inventory classifies 484 operations and 1,548 concrete sites across 44 persistence surfaces with digest 7923E15F9D3DBCD24C84FEBFD053A9056843E64D0BDDA2A484CDFBD826E3B92A.",
         "All direct presentation/widget persistence was removed. User roster, closed-history paging, template correction harvesting, sync-rejection resolution and privileged local diagnostics now cross explicit repository/service or read-adapter boundaries with authority-first tests.",
-        "Closure remains pending exact-head pull-request CI, merge-tree identity and admitted-main post-merge CI. This tranche creates no deployment, production-data, device, pilot or distribution authority."
+        "PR #234 exact-head run 32042648071 and admitted-main run 32043979797 passed all five governed jobs with identical source and merge trees. A-03 is closed without deployment, production-data, device, pilot or distribution authority."
       ],
       "statusHistory": [
       {
@@ -3238,6 +3257,16 @@
         "status": "SOURCE_IMPLEMENTED",
         "effectiveDate": "2026-08-17",
         "basis": "Exact AST inventory and policy classify all 484 operations across 44 persistence surfaces; presentation/widget persistence is zero and focused authority-first, loading, error, offline and denial regressions pass."
+      },
+      {
+        "status": "MERGED",
+        "effectiveDate": "2026-08-17",
+        "basis": "PR #234 exact green head af14218f5281cb210bda5382fbedc5eaa2ca27e8 merged as 829c87ee07de43846f1d6b5e6d0b1879a3801d93 with identical tree 0ccc46eedec7c88c9c2e2df0e8bc5f498e2a1eff."
+      },
+      {
+        "status": "CLOSED",
+        "effectiveDate": "2026-08-17",
+        "basis": "PASS_A03_PERSISTENCE_BOUNDARY_SOURCE_AND_CI_CLOSURE binds the 484-operation inventory, zero presentation persistence, exact-head run 32042648071 and successful admitted-main run 32043979797."
       }
       ]
     },
@@ -3249,14 +3278,34 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "SOURCE_IMPLEMENTED",
+      "currentStatus": "CLOSED",
       "ownerClass": "Architecture",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "evidenceFile": "release/evidence/a04-persisted-schema-source-ci-and-reconciliation-closure.json",
+          "evidenceSha256": "8F15E105A17C5F3D582580572FA58CC257D646B3306E87F5DBB7EFF90ABD48D2",
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 235,
+          "headCommit": "1c4192c4b833919b5a045741866e9c7d6e17b79c",
+          "sourceTree": "55c73664ce7cc2f8f60142d92e8920a4686a385f",
+          "mergeCommit": "f54f88c4e1e526e1493712824c1b281d17c70b2e",
+          "mergeTree": "55c73664ce7cc2f8f60142d92e8920a4686a385f",
+          "pullRequestWorkflowRun": 32050533628,
+          "postMergeWorkflowRun": 32051729235,
+          "productionReconciliationEvidenceSha256": "8581F54892ED2973CE0D4B94C61277970DA4056BC3F4269979E4DE1C21BE2FFE",
+          "decision": "PASS_A04_PERSISTED_SCHEMA_SOURCE_CI_AND_RECONCILIATION_CLOSURE",
+          "productionDeploymentPerformed": false,
+          "productionDataReadPerformed": true,
+          "productionDataMutationPerformed": false,
+          "deviceEvidenceClaimed": false,
+          "pilotAuthorizationChanged": false
+        }
+      ],
       "requiredExitEvidence": [
         "exact-commit structured inventory of persisted dynamic map and JSON fields classified as schema-bearing payloads or bounded extension bags",
         "typed or versioned strict decoders plus explicit migration or reconciliation handling for every schema-bearing payload",
@@ -3273,7 +3322,8 @@
         "Field-name and grep counts are not schema classifications. metadataJson and similarly named fields require field-specific evidence rather than blanket exemption.",
         "The source-implemented analyzer inventory classifies 53 persisted fields (47 JSON strings and six dynamic values), binds all 54 strict A-05 decoder surfaces, and fails on inventory or policy drift.",
         "ComponentAction, TemplateField and FieldResponse now use nested schema version 1, strict documented legacy handling, bounded dynamic JSON and fail-closed registered extension bags. The current extension registry is empty.",
-        "Closure remains pending exact-head and admitted-main CI plus current-source read-only production and supported-local-generation reconciliation. No production data, Firebase, device, pilot or distribution authority changes in this tranche."
+        "PR #235 exact-head run 32050533628 and admitted-main run 32051729235 passed all five governed jobs with identical source and merge trees.",
+        "Exact clean-main read-only production reconciliation found zero blockers, zero warnings and 9/9 strict-reader passes; 27 supported-local-generation schema, migration and recovery checks passed. No production mutation, Firebase deployment, device, pilot or distribution authority changed."
       ],
       "statusHistory": [
         {
@@ -3285,6 +3335,16 @@
           "status": "SOURCE_IMPLEMENTED",
           "effectiveDate": "2026-08-17",
           "basis": "Exact AST inventory and policy classify all 53 persisted JSON/dynamic fields and inherit 54 strict decoder surfaces; nested payload versions, bounded JSON, registered extension rejection and compatibility regressions pass."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-08-17",
+          "basis": "PR #235 exact green head 1c4192c4b833919b5a045741866e9c7d6e17b79c merged as f54f88c4e1e526e1493712824c1b281d17c70b2e with identical tree 55c73664ce7cc2f8f60142d92e8920a4686a385f."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-17",
+          "basis": "PASS_A04_PERSISTED_SCHEMA_SOURCE_CI_AND_RECONCILIATION_CLOSURE binds the complete schema inventory, exact-head and admitted-main CI, zero-blocker read-only production reconciliation, and 27 passing supported-local-generation checks."
         }
       ]
     },

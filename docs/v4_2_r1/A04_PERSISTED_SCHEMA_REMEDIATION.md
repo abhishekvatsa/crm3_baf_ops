@@ -1,11 +1,9 @@
 # A-04 Persisted Schema Remediation
 
-Status: SOURCE_IMPLEMENTED
+Status: CLOSED
 
-Programme adjudication: `FINDING:A-04` is source-implemented as of 17 August
-2026. Closure remains contingent on exact-head pull-request CI, merge with an
-identical source tree, admitted-main post-merge CI, and current-source
-production and supported-local-generation reconciliation.
+Programme adjudication: `FINDING:A-04` is closed as of 17 August 2026 by
+`PASS_A04_PERSISTED_SCHEMA_SOURCE_CI_AND_RECONCILIATION_CLOSURE`.
 
 ## Exact Inventory
 
@@ -70,9 +68,29 @@ fields, malformed present JSON, unbounded payloads and unsupported versions are
 preserved by the owning record's existing repair/quarantine path and are not
 silently rewritten.
 
-This source tranche performs no production read or mutation, local data
-migration, Firebase deployment, device operation, pilot authorization,
-distribution action, or cutover authorization. A-04 remains open until the
-post-merge read-only production sweep and supported-local-generation fixtures
-prove that current records are compatible or have an explicit blocking repair
-disposition.
+PR #235 exact green head `1c4192c4b833919b5a045741866e9c7d6e17b79c`
+merged as `f54f88c4e1e526e1493712824c1b281d17c70b2e` with identical
+tree `55c73664ce7cc2f8f60142d92e8920a4686a385f`. Exact-head run
+`32050533628` and admitted-main run `32051729235` passed all five governed
+jobs.
+
+The governed production sweep then ran from fetched, clean `main` at that
+exact commit and tree. It was read-only, had no cloud mutation capability,
+emitted no raw identifiers or document data, covered all 67 registered root
+collections and two registered subcollection groups, and found zero
+unregistered collections, blockers, or warnings. All 9 attempted strict
+readers passed. The privacy-safe evidence digest is
+`8581F54892ED2973CE0D4B94C61277970DA4056BC3F4269979E4DE1C21BE2FFE`.
+
+The same admitted source passed 27 focused local-generation checks across
+strict payload compatibility, repository-proven v1 migration to current v6,
+isolated v2 handling, populated v3 migration, provenance rejection, restart
+recovery, and byte-sealed backup/restore. Malformed or unsupported state is
+preserved and blocked pending repair rather than silently rewritten.
+This supplies the required supported-local-generation reconciliation.
+
+The closure is sealed in
+`release/evidence/a04-persisted-schema-source-ci-and-reconciliation-closure.json`.
+No production data mutation, Firebase deployment, device operation, pilot
+authorization, distribution action, or cutover authorization occurred. Its
+three ledger re-arm triggers remain binding.

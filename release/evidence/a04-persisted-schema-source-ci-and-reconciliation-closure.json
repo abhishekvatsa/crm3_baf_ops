@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "findingId": "A-04",
+  "decision": "PASS_A04_PERSISTED_SCHEMA_SOURCE_CI_AND_RECONCILIATION_CLOSURE",
+  "effectiveDate": "2026-08-17",
+  "repository": "abhishekvatsa/crm3_baf_ops",
+  "sourceAuthority": {
+    "pullRequest": 235,
+    "headCommit": "1c4192c4b833919b5a045741866e9c7d6e17b79c",
+    "sourceTree": "55c73664ce7cc2f8f60142d92e8920a4686a385f",
+    "mergeCommit": "f54f88c4e1e526e1493712824c1b281d17c70b2e",
+    "mergeTree": "55c73664ce7cc2f8f60142d92e8920a4686a385f"
+  },
+  "inventoryProof": {
+    "audit": "tools/v4/a04_persisted_schema_inventory.dart",
+    "manifest": "governance/a04-persisted-schema-v1.json",
+    "contract": "test/a04_persisted_schema_contract_test.dart",
+    "fieldCount": 53,
+    "jsonStringFieldCount": 47,
+    "dynamicValueFieldCount": 6,
+    "extensionBagCount": 3,
+    "registeredExtensionFieldCount": 0,
+    "inheritedDecoderSurfaceCount": 54,
+    "inventoryDigest": "27863AC2C3E366BD34BFAC9D092EA86AF269756BAD56C05C1974D78F843697C9",
+    "manifestSha256": "197DA9DD3607B823853F8B9327D180F0A63F807EF3E1B8BFEDFE6E17C251A081",
+    "auditSha256": "641FDB90BEEE618C7F2012E71DCA2C4B3B5888D0AC91DF526658D987EFE707E8",
+    "contractSha256": "45FC890E18366C8A91A44FCF6F41A9F2C29270ABDCC2AF8069083CB13DBF4CF5",
+    "result": "PASS"
+  },
+  "pullRequestCi": {
+    "workflowRun": 32050533628,
+    "workflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/32050533628",
+    "headCommit": "1c4192c4b833919b5a045741866e9c7d6e17b79c",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "jobId": 95448629236,
+        "name": "Android emulator app-shell integration (not physical-device evidence)",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95448629307,
+        "name": "Android release package + cold-start proof (non-production)",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95448629377,
+        "name": "Firestore Rules + governed callable emulator",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95448629409,
+        "name": "Flutter host analysis + tests + no-loss contracts",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95448629506,
+        "name": "Cloud Functions host build + non-emulator tests",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "postMergeCi": {
+    "workflowRun": 32051729235,
+    "workflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/32051729235",
+    "headCommit": "f54f88c4e1e526e1493712824c1b281d17c70b2e",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "jobId": 95452436215,
+        "name": "Android release package + cold-start proof (non-production)",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95452436301,
+        "name": "Android emulator app-shell integration (not physical-device evidence)",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95452436312,
+        "name": "Flutter host analysis + tests + no-loss contracts",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95452436326,
+        "name": "Cloud Functions host build + non-emulator tests",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95452436553,
+        "name": "Firestore Rules + governed callable emulator",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "productionReconciliation": {
+    "projectId": "crm3-baf-ops-b8638",
+    "evidenceFile": "release_evidence/a04-production-persisted-schema-f54f88c.json",
+    "evidenceSha256": "8581F54892ED2973CE0D4B94C61277970DA4056BC3F4269979E4DE1C21BE2FFE",
+    "decision": "PASS_A05_READ_ONLY_PRODUCTION_RECONCILIATION",
+    "sourceCommit": "f54f88c4e1e526e1493712824c1b281d17c70b2e",
+    "sourceTree": "55c73664ce7cc2f8f60142d92e8920a4686a385f",
+    "cleanFetchedMain": true,
+    "readOnly": true,
+    "cloudMutationCapability": "NONE",
+    "rawIdentifiersEmitted": false,
+    "rawDocumentDataPersisted": false,
+    "registeredRootCollectionCount": 67,
+    "enumeratedRootCollectionCount": 8,
+    "registeredSubcollectionGroupCount": 2,
+    "unregisteredRootCollectionCount": 0,
+    "blockingFindingCount": 0,
+    "warningCount": 0,
+    "strictReaderAttemptedCount": 9,
+    "strictReaderPassedCount": 9,
+    "strictReaderFailedCount": 0
+  },
+  "supportedLocalGenerationAuthority": {
+    "sourceCommit": "f54f88c4e1e526e1493712824c1b281d17c70b2e",
+    "sourceTree": "55c73664ce7cc2f8f60142d92e8920a4686a385f",
+    "sameCheckout": true,
+    "testFiles": [
+      "test/a04_persisted_schema_contract_test.dart",
+      "test/70k_isar_populated_migration_fixture_test.dart",
+      "test/isar_installed_store_provenance_test.dart",
+      "test/startup_recovery_hardening_contract_test.dart"
+    ],
+    "passedCount": 27,
+    "failedCount": 0,
+    "dispositions": [
+      "legacy nested payloads canonicalize to schema version 1 without loss while unknown extensions and malformed present values fail closed",
+      "repository-proven populated v1 migrates to current v6 with rows, relationships and strict payload authority intact",
+      "governed populated v2 remains unsupported by production and is admitted only by its isolated adoption plan",
+      "populated v3 compliance evidence migrates through v6 without loss",
+      "PREPARED restart, idempotent repair, COMMITTED restart, byte-sealed backup restore and generation rotation remain exact"
+    ],
+    "repairDisposition": "PRESERVE_AND_BLOCK_PENDING_REPAIR",
+    "silentRewritePerformed": false
+  },
+  "closureBoundary": {
+    "a04ClosureAuthorized": true,
+    "productionDeploymentPerformed": false,
+    "productionDataMutationPerformed": false,
+    "firebaseDeploymentPerformed": false,
+    "deviceEvidenceClaimed": false,
+    "pilotAuthorizationChanged": false,
+    "distributionAuthorityChanged": false,
+    "cutoverAuthorized": false
+  }
+}
