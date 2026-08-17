@@ -52,7 +52,7 @@ export interface WorkflowCommand {
 export type WorkflowAuthorityCapability =
   | "lane.acknowledge" | "lane.work" | "lane.close"
   | "compliance.raise"
-  | "ticket.acknowledge" | "ticket.correct"
+  | "ticket.create" | "ticket.acknowledge" | "ticket.correct"
   | "laneSet.finalize" | "lanePopulation.manage" | "workflow.cancel"
   | "condition.markDue" | "redLane.prepare" | "workflowModule.reopen"
   | "job.finalize" | "equipment.deploy" | "equipment.reconcile"
@@ -65,7 +65,7 @@ export interface WorkflowAuthorityScope extends JsonMap {
 }
 
 export type WorkflowCommandType =
-  | "createLegacyWorkflowJob"
+  | "createLegacyWorkflowJob" | "createMaintenanceTicket"
   | "finalizeLaneSet" | "acknowledgeLane" | "addLane" | "removeLane"
   | "terminateLane" | "closeLane" | "cancelWorkflow"
   | "raiseCompliance" | "acknowledgeCompliance"

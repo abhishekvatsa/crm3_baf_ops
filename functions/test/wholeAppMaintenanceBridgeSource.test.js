@@ -48,9 +48,9 @@ describe('whole-app maintenance workflow bridge source contract', () => {
     }
   });
 
-  test('client replay serializers do not author server-owned workflow projection fields', () => {
+  test('client command and replay serializers omit server-owned workflow fields', () => {
     const sync = read('lib/core/services/sync_service.tickets_templates.dart');
-    const create = functionBody(sync, '_maintenanceCreateOpenReplayStepData', '_maintenanceCloseReplayStepData');
+    const create = read('lib/features/maintenance/services/maintenance_issue_create_command.dart');
     const close = functionBody(sync, '_maintenanceCloseReplayStepData', '_maintenanceReopenReplayStepData');
     const reopen = functionBody(sync, '_maintenanceReopenReplayStepData', '_maintenanceCloseEvidence');
     for (const body of [create, close, reopen]) {

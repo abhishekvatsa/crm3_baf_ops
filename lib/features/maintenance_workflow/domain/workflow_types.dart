@@ -56,6 +56,7 @@ enum EquipmentWorkflowState {
 
 enum WorkflowCommandType {
   createLegacyWorkflowJob,
+  createMaintenanceTicket,
   finalizeLaneSet,
   acknowledgeLane,
   addLane,

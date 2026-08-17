@@ -717,11 +717,11 @@ describe("maintenance_records", () => {
     await seedUser("ia1", ["seniorInstrumentation"]);
   });
 
-  test("approved user can create maintenance record only with valid create payload", async () => {
+  test("approved clients cannot create maintenance records directly", async () => {
     const db = dbAs("ops1");
     const now = new Date().toISOString();
 
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(db, "maintenance_records/ticket1"), {
         firestoreId: "ticket1",
         version: 1,
@@ -741,7 +741,7 @@ describe("maintenance_records", () => {
     );
   });
 
-  test("quality assessment is complete and suspected impact requires charge evidence", async () => {
+  test("clients cannot bypass governed creation with paired quality evidence", async () => {
     const db = dbAs("ops1");
     const now = new Date().toISOString();
     const base = {
@@ -825,7 +825,7 @@ describe("maintenance_records", () => {
       doc(db, "quality_warnings/issue_qualityWarning"),
       warningProjection
     );
-    await assertSucceeds(warningBatch.commit());
+    await assertFails(warningBatch.commit());
     const poisonedTicket = {
       ...warningTicket,
       firestoreId: "qualityPoisoned",
@@ -840,7 +840,7 @@ describe("maintenance_records", () => {
       doc(db, "maintenance_records/qualityPoisoned"),
       poisonedTicket
     ));
-    await assertSucceeds(setDoc(doc(db, "maintenance_records/qualityClear"), {
+    await assertFails(setDoc(doc(db, "maintenance_records/qualityClear"), {
       ...base,
       firestoreId: "qualityClear",
       qualityIntentSchemaVersion: 1,
@@ -984,7 +984,9 @@ describe("maintenance_records", () => {
       doc(db, "directives/burner_red_hot_burnerTicket"),
       directive
     );
-    await assertSucceeds(createBatch.commit());
+    await assertFails(createBatch.commit());
+    await seedDoc("maintenance_records/burnerTicket", ticket);
+    await seedDoc("directives/burner_red_hot_burnerTicket", directive);
 
     const closeBase = {
       isResolved: true,

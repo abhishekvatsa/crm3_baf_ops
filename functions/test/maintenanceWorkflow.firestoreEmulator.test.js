@@ -258,6 +258,149 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
     });
   });
 
+  test('ticket creation atomically writes canonical issue and derived evidence', async () => {
+    await Promise.all([
+      db.collection('asset_classes').doc('furnace-class').set({
+        schemaVersion: 1,
+        assetClassId: 'furnace-class',
+        legacyAssetTypeKey: 'furnace',
+        code: 'FR',
+        name: 'Furnace',
+        status: 'active',
+      }),
+      db.collection('asset_instances').doc('furnace-7').set({
+        schemaVersion: 1,
+        assetInstanceId: 'furnace-7',
+        assetClassId: 'furnace-class',
+        assetClassCode: 'FR',
+        assetClassName: 'Furnace',
+        assetNumber: 7,
+        name: 'Furnace 7',
+        status: 'active',
+        version: 4,
+        ownershipStatus: 'confirmed',
+        ownerDiscipline: 'Operations',
+        accountableRoleKeys: ['operations'],
+      }),
+    ]);
+    const command = {
+      commandId: 'ticket-create-command',
+      commandType: 'createMaintenanceTicket',
+      aggregateId: 'ticket-create',
+      expectedVersion: 0,
+      payload: {
+        ticket: {
+          schemaVersion: 1,
+          version: 1,
+          assetType: 'furnace',
+          assetNumber: 7,
+          component: 'Burner system',
+          subsystem: 'Client supplied path is not authoritative',
+          tag: null,
+          hierarchyPath: ['Untrusted', 'Client path'],
+          assetHierarchyRefJson: JSON.stringify({
+            schemaVersion: 3,
+            scope: 'physicalAsset',
+            assetClassId: 'furnace-class',
+            assetInstanceId: 'furnace-7',
+            assetInstanceVersion: 4,
+          }),
+          maintenanceType: 'breakdown',
+          classification: 'furnaceBurnerLockout',
+          description: 'Burners 2 and 5 remain locked out during firing.',
+          routedTo: 'instrumentation',
+          otherDepartment: null,
+          isCritical: true,
+          startDate: '2026-08-14T16:20:00.000Z',
+          chargeNoAtEvent: 123456,
+          qualityIntentSchemaVersion: 1,
+          qualityImpactAssessment: 'suspected',
+          qualityWarningReason:
+            'Burner instability may have affected temperature uniformity.',
+          burnerLockoutSchemaVersion: 1,
+          burnerPositions: [2, 5],
+          burnerCommonMode: true,
+          burnerCycleStage: 'firing',
+          burnerHmiAlarm: 'Flame failure',
+          burnerFlameObservation: 'notSeen',
+          burnerSparkObservation: 'seen',
+          burnerRelightAttempts: 1,
+          burnerRemainsLockedOut: true,
+          burnerRedHotPositions: [5],
+          burnerAttendedPositions: [],
+          burnerResolutionEvidence: {},
+        },
+      },
+    };
+    const first = await service.execute(command, {
+      actor,
+      serverNow: new Date('2026-08-14T17:00:00.000Z'),
+    });
+    const replay = await service.execute(command, {
+      actor,
+      serverNow: new Date('2026-08-14T17:01:00.000Z'),
+    });
+
+    expect(replay).toEqual(first);
+    expect(first).toMatchObject({
+      resultKey: 'maintenance-ticket-created',
+      result: {
+        ticketId: 'ticket-create',
+        warningId: 'issue_ticket-create',
+        directiveId: 'burner_red_hot_ticket-create',
+      },
+    });
+    const [ticket, warning, directive, audit, receipt] = await Promise.all([
+      db.collection('maintenance_records').doc('ticket-create').get(),
+      db.collection('quality_warnings').doc('issue_ticket-create').get(),
+      db.collection('directives').doc('burner_red_hot_ticket-create').get(),
+      db.collection('audit_logs')
+        .doc('server_maintenance_ticket_ticket-create-command').get(),
+      db.collection('maintenance_workflow_command_receipts')
+        .doc('ticket-create-command').get(),
+    ]);
+    expect(ticket.data()).toMatchObject({
+      loggedByUid: actor.uid,
+      hierarchyPath: ['Furnace', 'Furnace 7'],
+      qualityImpactAssessment: 'suspected',
+      burnerRedHotPositions: [5],
+      status: 'open',
+      version: 1,
+    });
+    expect(ticket.data().createdAt).toBeInstanceOf(admin.firestore.Timestamp);
+    expect(JSON.parse(ticket.data().assetHierarchyRefJson)).toMatchObject({
+      assetClassId: 'furnace-class',
+      assetInstanceId: 'furnace-7',
+      hierarchyPath: ['Furnace', 'Furnace 7'],
+    });
+    expect(warning.data()).toMatchObject({
+      sourceId: 'ticket-create',
+      createdByUid: actor.uid,
+    });
+    expect(directive.data()).toMatchObject({
+      linkedMaintenanceFirestoreId: 'ticket-create',
+      createdByUid: actor.uid,
+    });
+    expect(audit.data()).toMatchObject({
+      action: 'create',
+      operation: 'createMaintenanceTicket',
+      entityId: 'ticket-create',
+    });
+    expect(receipt.data()).toMatchObject({
+      commandType: 'createMaintenanceTicket',
+      aggregateVersion: 1,
+    });
+
+    await directive.ref.delete();
+    await expect(service.execute(command, {
+      actor,
+      serverNow: new Date('2026-08-14T17:02:00.000Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {reasonCode: 'maintenance-ticket-create-replay-directive-invalid'},
+    });
+  });
+
   test('ticket acknowledgement commits ticket, audit, and receipt atomically', async () => {
     await db.collection('maintenance_records').doc('ticket-ack').set({
       firestoreId: 'ticket-ack',

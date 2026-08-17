@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import '../data/maintenance_model.dart';
 import '../domain/governed_issue_asset_selection.dart';
 import '../providers/maintenance_provider.dart';
+import '../services/maintenance_issue_create_command.dart';
 import '../validation/maintenance_input_validator.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../planned_maintenance/domain/baf_tag_resolver_v2.dart';
@@ -23,6 +25,7 @@ import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/repositories/asset_hierarchy_repository.dart';
 import '../../quality/domain/issue_quality_intent.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../domain/burner_lockout_case.dart';
 
 class MaintenanceForm extends ConsumerStatefulWidget {
@@ -73,6 +76,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   bool _isAutoResolved = false;
   bool _isGovernedTagResolution = false;
   bool _userOverrodeComponent = false;
+  String? _pendingTicketId;
 
   @override
   void initState() {
@@ -644,7 +648,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
       final record =
           MaintenanceRecord()
-            ..firestoreId = const Uuid().v4()
+            ..firestoreId = (_pendingTicketId ??= const Uuid().v4())
             ..assetType = assetType
             ..assetNumber = assetNumber
             ..maintenanceType =
@@ -690,42 +694,59 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 : null,
       );
 
-      final repository = ref.read(maintenanceRepositoryProvider);
-      final syncCoordinator = ref.read(syncCoordinatorProvider);
-      final autoSyncService = ref.read(autoSyncServiceProvider);
-
-      await repository.saveTicket(record);
-
-      if (record.isCritical) {
-        unawaited(
-          syncCoordinator.runFullSync(
-            reason: 'critical_ticket_created',
-            force: true,
-          ),
+      if (kIsWeb) {
+        final command = buildMaintenanceIssueCreateCommand(
+          record,
+          createVersion: record.version,
         );
+        final receipt = await ref
+            .read(workflowCommandGatewayProvider)
+            .execute(command);
+        validateMaintenanceIssueCreateReceipt(
+          command: command,
+          receipt: receipt,
+          createVersion: record.version,
+        );
+        record
+          ..version = receipt.aggregateVersion
+          ..createdAt = receipt.appliedAt
+          ..updatedAt = receipt.appliedAt
+          ..isSynced = true;
       } else {
-        // Normal raised issues must still leave the sender immediately so a
-        // receiving device's manual sync can fetch them before the 5-minute
-        // safety window. The 5-minute queue now acts as retry/catch-up if the
-        // immediate attempt fails, is interrupted, or misses connectivity.
-        autoSyncService.scheduleTicketSyncWithinFiveMinutes(
-          reason: 'normal_ticket_created_retry',
-        );
+        final repository = ref.read(maintenanceRepositoryProvider);
+        final syncCoordinator = ref.read(syncCoordinatorProvider);
+        final autoSyncService = ref.read(autoSyncServiceProvider);
+        await repository.saveTicket(record);
 
-        unawaited(
-          syncCoordinator
-              .runFullSyncWithResult(
-                reason: 'normal_ticket_created_immediate',
-                force: true,
-              )
-              .then((outcome) {
-                if (outcome.isSuccessful) {
-                  autoSyncService.clearPendingTicketSync(
-                    reason: 'normal_ticket_created_immediate_success',
-                  );
-                }
-              }),
-        );
+        if (record.isCritical) {
+          unawaited(
+            syncCoordinator.runFullSync(
+              reason: 'critical_ticket_created',
+              force: true,
+            ),
+          );
+        } else {
+          // Normal raised issues leave the sender immediately. The delayed
+          // queue is only a retry if the governed command cannot run now.
+          autoSyncService.scheduleTicketSyncWithinFiveMinutes(
+            reason: 'normal_ticket_created_retry',
+          );
+
+          unawaited(
+            syncCoordinator
+                .runFullSyncWithResult(
+                  reason: 'normal_ticket_created_immediate',
+                  force: true,
+                )
+                .then((outcome) {
+                  if (outcome.isSuccessful) {
+                    autoSyncService.clearPendingTicketSync(
+                      reason: 'normal_ticket_created_immediate_success',
+                    );
+                  }
+                }),
+          );
+        }
       }
 
       if (!mounted) return;
@@ -737,6 +758,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         ),
       );
 
+      _pendingTicketId = null;
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;

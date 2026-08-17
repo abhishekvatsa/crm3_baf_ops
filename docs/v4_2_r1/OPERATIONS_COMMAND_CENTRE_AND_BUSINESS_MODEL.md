@@ -97,6 +97,33 @@ warning. Issue creation asks whether coil quality may be affected. A suspected
 impact requires a charge number and creates both the issue and its source-bound
 warning atomically; an issue without suspected impact creates no warning.
 
+Maintenance issue creation now crosses one server-governed command boundary.
+The backend revalidates the approved actor and rereads the selected active asset
+class, physical asset and, where applicable, installed component or current
+Base/Inner Cover association. It rebuilds the canonical asset reference, assigns
+server actor/time evidence and atomically creates the issue, immutable audit,
+idempotency receipt, required quality warning and required red-hot burner
+directive. Firestore Rules reject direct client creation of maintenance records.
+
+Native clients remain local-first: an offline issue retains one stable identity
+and is sent through the governed command when connectivity returns. Only the
+original signed-in reporter may replay that pending creation; completed command
+receipts are integrity-checked before they are returned. Web submission uses the
+same command directly. Existing close/reopen replay remains a separate lifecycle
+step after creation so an interrupted offline sequence can converge without
+reintroducing direct create authority. The originating local row adopts the
+server creation version and timestamp only if it has not changed during the
+network call; concurrent local work remains dirty. Historical close time remains
+event evidence, while the remote mutation timestamp is floored at server creation
+time so an offline create/close or create/close/reopen sequence remains valid.
+
+Deployment is deliberately staged for installed-client compatibility: deploy the
+new callable first, distribute and verify a client build that uses it, then deny
+direct Firestore creation only after every supported installed build has crossed
+the command boundary. Deploying the new Rules before that client cutover would
+strand issue creation in older builds and is prohibited. This source tranche does
+not itself authorize a Firebase deployment or a new signed-client handout.
+
 Warnings progress through `open`, `closureRequested` and `closed`:
 
 - Operations or supervision may request closure when follow-up indicates that
@@ -160,5 +187,6 @@ to repair genuine business-data mistakes.
    sufficient governed history exists.
 3. Add record-specific Admin correction commands only where an actual mutable
    correction need is demonstrated; do not introduce a generic database editor.
-4. Consider direct create-and-link ergonomics only after maintenance issue
-   creation has a server-governed atomic command boundary.
+4. The server-governed maintenance issue creation prerequisite is complete.
+   Consider direct create-and-link ergonomics as a separate increment, retaining
+   immutable disruption occurrence identity and explicit link semantics.

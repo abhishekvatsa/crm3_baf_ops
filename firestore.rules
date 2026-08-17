@@ -3834,8 +3834,9 @@ service cloud.firestore {
 
     match /maintenance_records/{docId} {
       allow read: if isApprovedUser();
-      allow create: if globalPullStampAbsentOnCreate()
-        && validMaintenanceCreate(docId);
+      // New issues are created only by the idempotent backend command, which
+      // also writes quality/directive projections and immutable audit evidence.
+      allow create: if false;
       // A single transition router prevents Firestore from evaluating four
       // independent update allow expressions for the same request.
       allow update: if globalPullStampValidOnUpdate()
