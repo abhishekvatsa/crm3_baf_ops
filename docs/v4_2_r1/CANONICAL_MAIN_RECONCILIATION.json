@@ -1301,9 +1301,9 @@
     {
       "path": "lib/features/admin/presentation/local_diagnostics_screen.dart",
       "canonicalSha256": "6E59F2DA4062137E4D50F5FA8AA19A2C20A9AB9CE06EB7A8662EA3A68D17A42F",
-      "candidateSha256": "4AE54ACD4093C84CCF21CD18B789945AE4F6C4E9909CE0388402F688B542F609",
+      "candidateSha256": "EE42F68A1A46DD7E4E51DD6E52FD70293D89117434F000CFD5DDD45AEB050408",
       "canonicalBytes": 51571,
-      "candidateBytes": 48397,
+      "candidateBytes": 48433,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2817,9 +2817,9 @@
     {
       "path": "test/local_diagnostics_visibility_contract_test.dart",
       "canonicalSha256": "A6F67C233D49EBBB0E5FF9A955049AF2D19B96477F8A47DFB989CBE7142B5AD7",
-      "candidateSha256": "4E482AC4C0605A746CA1299110CC7A34DB05A9A3E6EAE69BF10CEF04805CF74A",
+      "candidateSha256": "DA5D7ACBFAAAD29011A9442510F26C7A4E65B79795D2812F3925BE9730F85A8D",
       "canonicalBytes": 2769,
-      "candidateBytes": 3754,
+      "candidateBytes": 4127,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

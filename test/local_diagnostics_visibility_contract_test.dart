@@ -39,6 +39,16 @@ void main() {
         expect(source, contains('firebaseStorageBucket'));
         expect(source, contains('syncSkippedSummary'));
         expect(source, contains('syncRunCounterSummary'));
+        expect(
+          source,
+          contains("label: 'Session runs / latest sync outcomes'"),
+        );
+        expect(source, contains(r'$syncRunCount session runs'));
+        expect(source, contains(r'latest push: $syncSuccessCount succeeded'));
+        expect(
+          source,
+          contains(r'latest full sync: $syncConflictCount conflicts'),
+        );
         expect(source, contains('syncFailureDetailSummary'));
         expect(source, contains("title: 'Runtime support context'"));
         expect(source, contains("label: 'Storage bucket'"));
