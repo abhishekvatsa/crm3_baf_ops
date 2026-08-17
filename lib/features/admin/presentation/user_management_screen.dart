@@ -1,6 +1,5 @@
 // FILE: lib/features/admin/presentation/user_management_screen.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,24 +9,13 @@ import '../../auth/validation/user_input_validator.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../providers/user_directory_provider.dart';
 import '../providers/user_authority_command_provider.dart';
 import '../services/user_authority_command_service.dart';
 
 // ─────────────────────────────────────────────────────────────
 // Providers
 // ─────────────────────────────────────────────────────────────
-
-final allUsersProvider = StreamProvider<List<AppUser>>((ref) {
-  return FirebaseFirestore.instance
-      .collection('users')
-      .snapshots()
-      .map(
-        (snapshot) =>
-            snapshot.docs
-                .map((doc) => AppUser.fromFirestore(doc.data(), doc.id))
-                .toList(),
-      );
-});
 
 final _authorityMutationBusyProvider = StateProvider.autoDispose
     .family<bool, String>((ref, uid) => false);

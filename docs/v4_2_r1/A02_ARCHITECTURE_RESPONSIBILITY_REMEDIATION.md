@@ -48,9 +48,10 @@ part and the root remain below the governed size threshold.
 Remaining large presentation entries are single operational workflows or
 already-extracted companion sections. They retain no unregistered transaction
 ownership and have individual growth ceilings and regression tests. The
-inventory explicitly identifies the remaining presentation-level persistence
-reads; A-03 owns their removal or read-only-adapter disposition. They are not
-hidden by the A-02 decision.
+original closure inventory identified three presentation-level persistence
+reads as A-03 carryovers. The A-03 source tranche subsequently removed those
+reads from presentation, and the current A-02 inventory no longer classifies
+the three files as persistence hotspots.
 
 ## Enforcement
 
@@ -67,7 +68,7 @@ passed the inventory, canonical audit, complete Flutter suite and all governed
 release-gate jobs. The immutable adjudication is recorded in
 `release/evidence/a02-architecture-responsibility-source-and-ci-closure.json`.
 
-This is A-02 source-and-CI closure only. The three registered presentation
-persistence reads remain A-03 work. No production deployment, production-data
-mutation, device proof, pilot authorization or distribution authority is
-claimed.
+This remains A-02 source-and-CI closure only. A-03 owns the admitted
+repository/service extraction and its separate CI closure evidence. No
+production deployment, production-data mutation, device proof, pilot
+authorization or distribution authority is claimed.

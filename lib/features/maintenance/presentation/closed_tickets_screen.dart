@@ -2,7 +2,6 @@
 
 import 'dart:async' show unawaited;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,10 +9,12 @@ import 'package:intl/intl.dart';
 
 import '../data/maintenance_model.dart';
 import '../providers/maintenance_provider.dart';
+import '../services/closed_ticket_history_service.dart';
 import '../../../core/providers/refresh_providers.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../../features/auth/data/user_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 
 class ClosedTicketsScreen extends ConsumerWidget {
@@ -38,14 +39,16 @@ class ClosedTicketsScreen extends ConsumerWidget {
             body: Center(child: Text('Approved access is required.')),
           );
         }
-        return const _ClosedTicketsBody();
+        return _ClosedTicketsBody(actor: actor);
       },
     );
   }
 }
 
 class _ClosedTicketsBody extends ConsumerStatefulWidget {
-  const _ClosedTicketsBody();
+  const _ClosedTicketsBody({required this.actor});
+
+  final AppUser actor;
 
   @override
   ConsumerState<_ClosedTicketsBody> createState() =>
@@ -59,7 +62,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
   bool _isLoading = false;
   bool _hasMore = true;
   int _totalCount = 0;
-  DocumentSnapshot? _lastDocument;
+  ClosedTicketPageCursor? _lastDocument;
   final Set<String> _reopeningTicketKeys = <String>{};
   late final ProviderSubscription<int> _refreshSubscription;
 
@@ -91,14 +94,14 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     setState(() => _isLoading = true);
 
     try {
-      final repo = ref.read(maintenanceRepositoryProvider);
-      final count = await repo.getClosedTicketsCount();
-      final tickets = await repo.getClosedTickets(
+      final service = ref.read(closedTicketHistoryServiceProvider);
+      final count = await service.count(actor: widget.actor);
+      final page = await service.loadPage(
+        actor: widget.actor,
         limit: _pageSize,
         offset: 0,
-        lastDocument: null,
       );
-      final lastDocument = await _lastDocumentForTickets(tickets);
+      final tickets = page.records;
 
       if (!mounted) {
         return;
@@ -111,7 +114,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
           ..addAll(tickets);
         _hasMore = tickets.length == _pageSize && _tickets.length < _totalCount;
         _currentPage = 0;
-        _lastDocument = lastDocument;
+        _lastDocument = page.cursor;
         _isLoading = false;
       });
     } catch (e) {
@@ -142,14 +145,15 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     setState(() => _isLoading = true);
 
     try {
-      final repo = ref.read(maintenanceRepositoryProvider);
+      final service = ref.read(closedTicketHistoryServiceProvider);
       final nextPage = _currentPage + 1;
-      final nextTickets = await repo.getClosedTickets(
+      final page = await service.loadPage(
+        actor: widget.actor,
         limit: _pageSize,
         offset: nextPage * _pageSize,
-        lastDocument: _lastDocument,
+        cursor: _lastDocument,
       );
-      final nextLastDocument = await _lastDocumentForTickets(nextTickets);
+      final nextTickets = page.records;
 
       if (!mounted) {
         return;
@@ -160,8 +164,8 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
         _hasMore =
             nextTickets.length == _pageSize && _tickets.length < _totalCount;
         _currentPage = nextPage;
-        if (nextLastDocument != null) {
-          _lastDocument = nextLastDocument;
+        if (page.cursor != null) {
+          _lastDocument = page.cursor;
         } else if (kIsWeb && nextTickets.isNotEmpty && _hasMore) {
           _hasMore = false;
         }
@@ -177,28 +181,6 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
         color: BafColors.danger,
       );
     }
-  }
-
-  Future<DocumentSnapshot?> _lastDocumentForTickets(
-    List<MaintenanceRecord> tickets,
-  ) async {
-    if (!kIsWeb || tickets.isEmpty) {
-      return null;
-    }
-
-    final lastTicket = tickets.last;
-    final firestoreId = lastTicket.firestoreId;
-    if (firestoreId == null || firestoreId.trim().isEmpty) {
-      return null;
-    }
-
-    final lastDoc =
-        await FirebaseFirestore.instance
-            .collection('maintenance_records')
-            .doc(firestoreId)
-            .get();
-
-    return lastDoc.exists ? lastDoc : null;
   }
 
   static String _ticketKey(MaintenanceRecord ticket) {

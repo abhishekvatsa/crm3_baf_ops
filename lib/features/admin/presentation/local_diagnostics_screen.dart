@@ -3,7 +3,6 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
-import 'package:isar/isar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,297 +12,79 @@ import '../../../core/release/app_build_identity.dart';
 import '../../../core/release/backend_release_identity_service.dart';
 import '../../../core/services/isar_installed_store_provenance.dart';
 import '../../../core/services/isar_production_recovery.dart';
-import '../../../core/services/isar_schema_guard.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../services/local_diagnostics_read_adapter.dart';
 import 'local_diagnostics_exporter.dart';
-import '../../../features/abnormalities/data/abnormality_model.dart';
-import '../../../features/audit/models/audit_event_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
-import '../../../features/charges/data/charge_model.dart';
-import '../../../features/directives/data/operational_directive_model.dart';
-import '../../../features/maintenance/data/maintenance_model.dart';
-import '../../../features/planned_maintenance/data/baf_knowledge_model.dart';
-import '../../../features/planned_maintenance/data/job_diary_model.dart';
-import '../../../features/planned_maintenance/data/job_module_model.dart';
-import '../../../features/planned_maintenance/data/job_template_model.dart';
-import '../../../features/planned_maintenance/data/template_governance_model.dart';
 import '../../../features/planned_maintenance/services/planned_job_server_completion_service.dart';
 import '../../../features/planned_maintenance/services/published_template_assignment_server_service.dart';
 import '../../../firebase_options.dart';
-import '../../../core/persistence/app_database.dart' as app_main;
 
-final localDiagnosticsReportProvider = FutureProvider.autoDispose<
-  LocalDiagnosticsReport
->((ref) async {
-  final actor = await ref.watch(currentAppUserProvider.future);
-  if (actor == null || !actor.canManageTemplateGovernance) {
-    throw StateError('Admin/SI access is required for local diagnostics.');
-  }
+final localDiagnosticsReportProvider =
+    FutureProvider.autoDispose<LocalDiagnosticsReport>((ref) async {
+      final actor = await ref.watch(currentAppUserProvider.future);
+      if (actor == null || !actor.canManageTemplateGovernance) {
+        throw StateError('Admin/SI access is required for local diagnostics.');
+      }
 
-  final syncStatus = ref.watch(syncStatusProvider);
-  final syncHealth = ref.watch(syncRunHealthProvider);
-  final supportSnapshot = LocalDiagnosticsSupportSnapshot.capture(
-    syncStatus: syncStatus,
-    syncHealth: syncHealth,
-  );
-  final releaseSnapshot = await LocalReleaseDiagnosticsSnapshot.capture(
-    ref,
-    loadBackend: !kIsWeb,
-  );
+      final syncStatus = ref.watch(syncStatusProvider);
+      final syncHealth = ref.watch(syncRunHealthProvider);
+      final supportSnapshot = LocalDiagnosticsSupportSnapshot.capture(
+        syncStatus: syncStatus,
+        syncHealth: syncHealth,
+      );
+      final releaseSnapshot = await LocalReleaseDiagnosticsSnapshot.capture(
+        ref,
+        loadBackend: !kIsWeb,
+      );
 
-  if (kIsWeb) {
-    return LocalDiagnosticsReport.webUnavailable(
-      supportSnapshot: supportSnapshot,
-      releaseSnapshot: releaseSnapshot,
-      provenanceInventory: IsarInstalledStoreProvenanceInventory.unsupported(),
-    );
-  }
+      if (kIsWeb) {
+        return LocalDiagnosticsReport.webUnavailable(
+          supportSnapshot: supportSnapshot,
+          releaseSnapshot: releaseSnapshot,
+          provenanceInventory:
+              IsarInstalledStoreProvenanceInventory.unsupported(),
+        );
+      }
 
-  final provenanceInventory =
-      readStartupPreOpenIsarProvenanceInventory() ??
-      await readPrivacySafeIsarProvenanceInventory();
+      final persistence = await LocalDiagnosticsReadAdapter().read();
+      final rows = persistence.rows
+          .map(
+            (row) => LocalDiagnosticsRow(
+              label: row.label,
+              totalCount: row.totalCount,
+              unsyncedCount: row.unsyncedCount,
+              note: row.note,
+            ),
+          )
+          .toList(growable: false);
+      final governance = persistence.governance;
+      final governanceSummary = LocalGovernanceDiagnosticsSummary(
+        activePackages: governance.activePackages,
+        retiredPackages: governance.retiredPackages,
+        archivedPackages: governance.archivedPackages,
+        publishedVersions: governance.publishedVersions,
+        draftVersions: governance.draftVersions,
+        retiredVersions: governance.retiredVersions,
+        archivedVersions: governance.archivedVersions,
+        publishAuditRows: governance.publishAuditRows,
+      );
 
-  final rows = <LocalDiagnosticsRow>[
-    await _row(
-      label: 'Maintenance tickets',
-      total: () => app_main.isar.maintenanceRecords.where().count(),
-      dirty:
-          () =>
-              app_main.isar.maintenanceRecords
-                  .filter()
-                  .isSyncedEqualTo(false)
-                  .count(),
-    ),
-    await _row(
-      label: 'Legacy job templates',
-      total: () => app_main.isar.jobTemplates.where().count(),
-      dirty:
-          () =>
-              app_main.isar.jobTemplates
-                  .filter()
-                  .isSyncedEqualTo(false)
-                  .count(),
-    ),
-    await _row(
-      label: 'Job executions',
-      total: () => app_main.isar.jobExecutions.where().count(),
-      dirty:
-          () =>
-              app_main.isar.jobExecutions
-                  .filter()
-                  .isSyncedEqualTo(false)
-                  .count(),
-    ),
-    await _row(
-      label: 'Job modules',
-      total: () => app_main.isar.jobModuleInstances.where().count(),
-      dirty:
-          () =>
-              app_main.isar.jobModuleInstances
-                  .filter()
-                  .isSyncedEqualTo(false)
-                  .count(),
-    ),
-    await _row(
-      label: 'Job diary entries',
-      total: () => app_main.isar.jobDiaryEntrys.where().count(),
-      dirty:
-          () =>
-              app_main.isar.jobDiaryEntrys
-                  .filter()
-                  .isSyncedEqualTo(false)
-                  .count(),
-    ),
-    await _row(
-      label: 'Operational directives',
-      total: () => app_main.isar.operationalDirectives.where().count(),
-      dirty:
-          () =>
-              app_main.isar.operationalDirectives
-                  .filter()
-                  .isSyncedEqualTo(false)
-                  .count(),
-    ),
-    await _row(
-      label: 'Abnormality types',
-      total: () => app_main.isar.abnormalityTypes.where().count(),
-      dirty:
-          () =>
-              app_main.isar.abnormalityTypes
-                  .filter()
-                  .isSyncedEqualTo(false)
-                  .count(),
-    ),
-    await _row(
-      label: 'Charge abnormalities',
-      total: () => app_main.isar.chargeAbnormalitys.where().count(),
-      dirty:
-          () =>
-              app_main.isar.chargeAbnormalitys
-                  .filter()
-                  .isSyncedEqualTo(false)
-                  .count(),
-    ),
-    await _row(
-      label: 'Template packages',
-      total: () => app_main.isar.templatePackages.where().count(),
-      dirty:
-          () =>
-              app_main.isar.templatePackages
-                  .filter()
-                  .isSyncedEqualTo(false)
-                  .count(),
-    ),
-    await _row(
-      label: 'Template versions',
-      total: () => app_main.isar.templateVersions.where().count(),
-      dirty:
-          () =>
-              app_main.isar.templateVersions
-                  .filter()
-                  .isSyncedEqualTo(false)
-                  .count(),
-    ),
-    await _row(
-      label: 'Template publish audits',
-      total: () => app_main.isar.templatePublishAudits.where().count(),
-      dirty:
-          () =>
-              app_main.isar.templatePublishAudits
-                  .filter()
-                  .isSyncedEqualTo(false)
-                  .count(),
-    ),
-    await _row(
-      label: 'BAF knowledge rows',
-      total: () => app_main.isar.bafKnowledgeRows.where().count(),
-      dirty:
-          () =>
-              app_main.isar.bafKnowledgeRows
-                  .filter()
-                  .isSyncedEqualTo(false)
-                  .count(),
-    ),
-    await _row(
-      label: 'Audit events',
-      total: () => app_main.isar.auditEvents.where().count(),
-      dirty:
-          () =>
-              app_main.isar.auditEvents.filter().isSyncedEqualTo(false).count(),
-    ),
-    await _row(
-      label: 'Base Charge rows (reserved future integration)',
-      total: () => app_main.isar.charges.where().count(),
-      dirty:
-          () => app_main.isar.charges.filter().isSyncedEqualTo(false).count(),
-      note:
-          'Reserved for future IoT / Level-2 integration; not an app-owned operational sync entity today.',
-    ),
-  ];
-
-  final unresolvedRejections =
-      await app_main.isar.syncRejections
-          .filter()
-          .isResolvedEqualTo(false)
-          .count();
-  final likelyPermanentRejections =
-      await app_main.isar.syncRejections
-          .filter()
-          .isResolvedEqualTo(false)
-          .isLikelyPermanentEqualTo(true)
-          .count();
-  final totalRejections = await app_main.isar.syncRejections.where().count();
-  final knowledgeMetaRows =
-      await app_main.isar.bafKnowledgeMatrixMetaStores.where().count();
-  final governanceSummary = await _loadGovernanceDiagnosticsSummary();
-
-  return LocalDiagnosticsReport(
-    generatedAt: DateTime.now(),
-    rows: rows,
-    unresolvedRejections: unresolvedRejections,
-    likelyPermanentRejections: likelyPermanentRejections,
-    totalRejections: totalRejections,
-    knowledgeMetaRows: knowledgeMetaRows,
-    collectionCount: rows.length + 2,
-    governanceSummary: governanceSummary,
-    supportSnapshot: supportSnapshot,
-    releaseSnapshot: releaseSnapshot,
-    provenanceInventory: provenanceInventory,
-  );
-});
-
-Future<LocalGovernanceDiagnosticsSummary>
-_loadGovernanceDiagnosticsSummary() async {
-  final activePackages =
-      await app_main.isar.templatePackages
-          .filter()
-          .isDeletedEqualTo(false)
-          .lifecycleStatusEqualTo(TemplatePackageLifecycleStatus.active)
-          .count();
-  final retiredPackages =
-      await app_main.isar.templatePackages
-          .filter()
-          .isDeletedEqualTo(false)
-          .lifecycleStatusEqualTo(TemplatePackageLifecycleStatus.retired)
-          .count();
-  final archivedPackages =
-      await app_main.isar.templatePackages
-          .filter()
-          .isDeletedEqualTo(false)
-          .lifecycleStatusEqualTo(TemplatePackageLifecycleStatus.archived)
-          .count();
-  final publishedVersions =
-      await app_main.isar.templateVersions
-          .filter()
-          .isDeletedEqualTo(false)
-          .statusEqualTo(TemplateVersionStatus.published)
-          .count();
-  final draftVersions =
-      await app_main.isar.templateVersions
-          .filter()
-          .isDeletedEqualTo(false)
-          .statusEqualTo(TemplateVersionStatus.draft)
-          .count();
-  final retiredVersions =
-      await app_main.isar.templateVersions
-          .filter()
-          .isDeletedEqualTo(false)
-          .statusEqualTo(TemplateVersionStatus.retired)
-          .count();
-  final archivedVersions =
-      await app_main.isar.templateVersions
-          .filter()
-          .isDeletedEqualTo(false)
-          .statusEqualTo(TemplateVersionStatus.archived)
-          .count();
-  final audits = await app_main.isar.templatePublishAudits.where().count();
-
-  return LocalGovernanceDiagnosticsSummary(
-    activePackages: activePackages,
-    retiredPackages: retiredPackages,
-    archivedPackages: archivedPackages,
-    publishedVersions: publishedVersions,
-    draftVersions: draftVersions,
-    retiredVersions: retiredVersions,
-    archivedVersions: archivedVersions,
-    publishAuditRows: audits,
-  );
-}
-
-Future<LocalDiagnosticsRow> _row({
-  required String label,
-  required Future<int> Function() total,
-  required Future<int> Function() dirty,
-  String? note,
-}) async {
-  return LocalDiagnosticsRow(
-    label: label,
-    totalCount: await total(),
-    unsyncedCount: await dirty(),
-    note: note,
-  );
-}
+      return LocalDiagnosticsReport(
+        generatedAt: DateTime.now(),
+        rows: rows,
+        unresolvedRejections: persistence.unresolvedRejections,
+        likelyPermanentRejections: persistence.likelyPermanentRejections,
+        totalRejections: persistence.totalRejections,
+        knowledgeMetaRows: persistence.knowledgeMetaRows,
+        collectionCount: rows.length + 2,
+        governanceSummary: governanceSummary,
+        supportSnapshot: supportSnapshot,
+        releaseSnapshot: releaseSnapshot,
+        provenanceInventory: persistence.provenanceInventory,
+      );
+    });
 
 class LocalDiagnosticsReport {
   final DateTime generatedAt;

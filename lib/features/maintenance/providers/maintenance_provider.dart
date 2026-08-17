@@ -201,6 +201,21 @@ class PaginatedMaintenanceResult {
   }
 }
 
+abstract interface class ClosedTicketPageCursor {}
+
+class _FirestoreClosedTicketPageCursor implements ClosedTicketPageCursor {
+  const _FirestoreClosedTicketPageCursor(this.snapshot);
+
+  final DocumentSnapshot snapshot;
+}
+
+class ClosedTicketPage {
+  const ClosedTicketPage({required this.records, this.cursor});
+
+  final List<MaintenanceRecord> records;
+  final ClosedTicketPageCursor? cursor;
+}
+
 bool maintenanceRecordOverlapsPeriod(
   MaintenanceRecord record,
   DateTime startInclusive,
@@ -314,6 +329,21 @@ abstract class MaintenanceRepository {
     int offset = 0,
     DocumentSnapshot? lastDocument, // 🔥 NEW: for Firestore cursor pagination
   });
+
+  Future<ClosedTicketPage> getClosedTicketPage({
+    int limit = 50,
+    int offset = 0,
+    ClosedTicketPageCursor? cursor,
+  }) async {
+    final records = await getClosedTickets(
+      limit: limit,
+      offset: offset,
+      lastDocument:
+          cursor is _FirestoreClosedTicketPageCursor ? cursor.snapshot : null,
+    );
+    return ClosedTicketPage(records: records);
+  }
+
   Future<int> getClosedTicketsCount();
 
   Future<List<MaintenanceRecord>> getUnsyncedTickets();

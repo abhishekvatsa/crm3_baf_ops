@@ -1,6 +1,5 @@
 // FILE: lib/features/planned_maintenance/presentation/widgets/knowledge_correction_promoter_panel.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -8,64 +7,11 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/baf_design_system.dart';
 import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/data/user_model.dart';
-import '../../data/baf_knowledge_model.dart';
 import '../../domain/baf_knowledge_layer.dart';
 import '../../domain/knowledge_correction_promoter.dart';
 import '../../domain/knowledge_governance_models.dart';
+import '../../providers/knowledge_correction_source_provider.dart';
 import '../../providers/knowledge_governance_provider.dart';
-
-/// Stream of harvested promotable corrections.
-///
-/// Reads the published `template_versions` (status='published'), pulls the
-/// `composer.tagResolverCorrections` block out of each `jobTemplateSnapshotJson`,
-/// then de-duplicates by normalised tag. The local `BafKnowledgeRow` set is
-/// joined in so already-promoted tags can be greyed out.
-final knowledgePromotableCorrectionsProvider =
-    FutureProvider.autoDispose<List<PromotableTagCorrection>>((ref) async {
-      final view = ref.watch(knowledgeRowsViewProvider).valueOrNull;
-      final byCode = <String, BafKnowledgeRow>{
-        for (final row in view?.rows ?? const <BafKnowledgeRow>[])
-          row.rowCode: row,
-      };
-
-      final firestore = FirebaseFirestore.instance;
-      final snap =
-          await firestore
-              .collection('template_versions')
-              .where('status', isEqualTo: 'published')
-              .orderBy('publishedAt', descending: true)
-              .limit(50)
-              .get();
-      final snapshots = <HarvestableTemplateSnapshot>[];
-      for (final doc in snap.docs) {
-        final data = doc.data();
-        final json = (data['jobTemplateSnapshotJson'] ?? '').toString();
-        if (json.isEmpty) {
-          continue;
-        }
-        final publishedAt = data['publishedAt'];
-        final harvestedAt =
-            publishedAt is Timestamp
-                ? publishedAt.toDate()
-                : (publishedAt is DateTime ? publishedAt : DateTime.now());
-        snapshots.add(
-          HarvestableTemplateSnapshot(
-            versionFirestoreId: doc.id,
-            packageCode: (data['packageCode'] ?? '').toString(),
-            versionNumber:
-                (data['versionNumber'] is num)
-                    ? (data['versionNumber'] as num).toInt()
-                    : 0,
-            jobTemplateSnapshotJson: json,
-            harvestedAt: harvestedAt,
-          ),
-        );
-      }
-      return KnowledgeCorrectionPromoter.harvestMany(
-        snapshots: snapshots,
-        existingRowsByCode: byCode,
-      );
-    });
 
 class KnowledgeCorrectionPromoterPanel extends ConsumerStatefulWidget {
   final AppUser appUser;
@@ -83,11 +29,14 @@ class _KnowledgeCorrectionPromoterPanelState
 
   @override
   Widget build(BuildContext context) {
-    final correctionsAsync = ref.watch(knowledgePromotableCorrectionsProvider);
+    final correctionsProvider = knowledgePromotableCorrectionsProvider(
+      widget.appUser,
+    );
+    final correctionsAsync = ref.watch(correctionsProvider);
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(knowledgePromotableCorrectionsProvider);
-        await ref.read(knowledgePromotableCorrectionsProvider.future);
+        ref.invalidate(correctionsProvider);
+        await ref.read(correctionsProvider.future);
       },
       child: correctionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -173,7 +122,7 @@ class _KnowledgeCorrectionPromoterPanelState
       if (!mounted) {
         return;
       }
-      ref.invalidate(knowledgePromotableCorrectionsProvider);
+      ref.invalidate(knowledgePromotableCorrectionsProvider(widget.appUser));
       ref.invalidate(knowledgeRowsViewProvider);
       ref.invalidate(knowledgeGovernanceAuditFeedProvider);
       if (!context.mounted) {
