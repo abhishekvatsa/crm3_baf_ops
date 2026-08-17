@@ -8683,6 +8683,15 @@ check(
         == "PASS_A03_PERSISTENCE_BOUNDARY_SOURCE_AND_CI_CLOSURE"
     and a03_closure.get("decision")
         == "PASS_A03_PERSISTENCE_BOUNDARY_SOURCE_AND_CI_CLOSURE"
+    and a03_closure.get("sourceAuthority", {}).get("pullRequest") == 234
+    and a03_closure.get("sourceAuthority", {}).get("headCommit")
+        == "af14218f5281cb210bda5382fbedc5eaa2ca27e8"
+    and a03_closure.get("sourceAuthority", {}).get("sourceTree")
+        == "0ccc46eedec7c88c9c2e2df0e8bc5f498e2a1eff"
+    and a03_closure.get("sourceAuthority", {}).get("mergeCommit")
+        == "829c87ee07de43846f1d6b5e6d0b1879a3801d93"
+    and a03_closure.get("sourceAuthority", {}).get("mergeTree")
+        == "0ccc46eedec7c88c9c2e2df0e8bc5f498e2a1eff"
     and a03_inventory_proof.get("operationCount") == 484
     and a03_inventory_proof.get("siteCount") == 1548
     and a03_inventory_proof.get("surfaceCount") == 44
@@ -8738,6 +8747,15 @@ check(
         == "PASS_A04_PERSISTED_SCHEMA_SOURCE_CI_AND_RECONCILIATION_CLOSURE"
     and a04_closure.get("decision")
         == "PASS_A04_PERSISTED_SCHEMA_SOURCE_CI_AND_RECONCILIATION_CLOSURE"
+    and a04_closure.get("sourceAuthority", {}).get("pullRequest") == 235
+    and a04_closure.get("sourceAuthority", {}).get("headCommit")
+        == "1c4192c4b833919b5a045741866e9c7d6e17b79c"
+    and a04_closure.get("sourceAuthority", {}).get("sourceTree")
+        == "55c73664ce7cc2f8f60142d92e8920a4686a385f"
+    and a04_closure.get("sourceAuthority", {}).get("mergeCommit")
+        == "f54f88c4e1e526e1493712824c1b281d17c70b2e"
+    and a04_closure.get("sourceAuthority", {}).get("mergeTree")
+        == "55c73664ce7cc2f8f60142d92e8920a4686a385f"
     and a04_inventory_proof.get("fieldCount") == 53
     and a04_inventory_proof.get("jsonStringFieldCount") == 47
     and a04_inventory_proof.get("dynamicValueFieldCount") == 6
