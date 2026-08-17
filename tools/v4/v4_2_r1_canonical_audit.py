@@ -8321,6 +8321,21 @@ try:
     a02_inventory_report = json.loads(a02_inventory_process.stdout)
 except json.JSONDecodeError:
     a02_inventory_report = {}
+a02_closure_path = (
+    ROOT
+    / "release/evidence/a02-architecture-responsibility-source-and-ci-closure.json"
+)
+a02_closure = data(
+    "release/evidence/a02-architecture-responsibility-source-and-ci-closure.json"
+)
+a02_manifest = data("governance/a02-architecture-boundaries-v1.json")
+a02_expected_jobs = {
+    "Android emulator app-shell integration (not physical-device evidence)",
+    "Android release package + cold-start proof (non-production)",
+    "Cloud Functions host build + non-emulator tests",
+    "Firestore Rules + governed callable emulator",
+    "Flutter host analysis + tests + no-loss contracts",
+}
 a02_a05_exit_decision = text(
     "docs/v4_2_r1/A02_A05_ARCHITECTURE_EXIT_CRITERIA.md"
 )
@@ -8330,6 +8345,16 @@ a02_a05_records = {
     for record in programme_ledger.get("technicalFindings", [])
     if record.get("findingId") in a02_a05_ids
 }
+a02_record = a02_a05_records.get("A-02", {})
+a02_evidence = a02_record.get("evidence", [])
+a02_history = [
+    entry.get("status")
+    for entry in a02_record.get("statusHistory", [])
+]
+a02_pr_ci = a02_closure.get("pullRequestCi", {})
+a02_postmerge_ci = a02_closure.get("postMergeCi", {})
+a02_inventory_proof = a02_closure.get("inventoryProof", {})
+a02_boundaries = a02_closure.get("boundaries", {})
 a05_records = [
     record
     for record in programme_ledger.get("technicalFindings", [])
@@ -8441,8 +8466,12 @@ check(
         and [entry.get("status") for entry in record.get("statusHistory", [])]
         == ["OPEN"]
         for finding_id, record in a02_a05_records.items()
-        if finding_id != "A-05"
+        if finding_id in {"A-03", "A-04"}
     )
+    and a02_record.get("currentStatus") == "CLOSED"
+    and len(a02_record.get("requiredExitEvidence", [])) == 5
+    and len(a02_record.get("reArmTriggers", [])) == 3
+    and a02_history == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
     and a05_record.get("currentStatus") == "CLOSED"
     and len(a05_record.get("requiredExitEvidence", [])) == 5
     and len(a05_record.get("reArmTriggers", [])) == 3
@@ -8452,7 +8481,7 @@ check(
     and "registered, authority-gated, read-only diagnostic adapters"
         in a02_a05_exit_decision
     and "governed read-only inventory" in a02_a05_exit_decision
-    and "finding status. Closure still requires" in a02_a05_exit_decision,
+    and "finding status. Each closure still requires" in a02_a05_exit_decision,
 )
 check(
     "A-02 responsibility hotspots are completely classified and source-enforced",
@@ -8463,8 +8492,71 @@ check(
     and a02_inventory_report.get("failures") == []
     and "three explicit units"
         in text("docs/v4_2_r1/A02_ARCHITECTURE_RESPONSIBILITY_REMEDIATION.md")
-    and "separate evidence-bound ledger adjudication"
+    and "Status: CLOSED"
         in text("docs/v4_2_r1/A02_ARCHITECTURE_RESPONSIBILITY_REMEDIATION.md"),
+)
+check(
+    "A-02 closes on exact source inventory and admitted CI authority",
+    a02_record.get("currentStatus") == "CLOSED"
+    and a02_history == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(a02_evidence) == 1
+    and a02_evidence[0].get("evidenceFile")
+        == "release/evidence/a02-architecture-responsibility-source-and-ci-closure.json"
+    and a02_evidence[0].get("evidenceSha256") == sha(a02_closure_path)
+    and a02_evidence[0].get("pullRequest") == 232
+    and a02_evidence[0].get("headCommit")
+        == "8874c1d4d7b6ad0d07ec7924769c6aa97c76af06"
+    and a02_evidence[0].get("sourceTree")
+        == "a6ffe16758711d587a213a85f95bea3f6f1730ad"
+    and a02_evidence[0].get("mergeCommit")
+        == "0c0ddb7219c1043fe3924cd164acf06147d01e34"
+    and a02_evidence[0].get("mergeTree")
+        == "a6ffe16758711d587a213a85f95bea3f6f1730ad"
+    and a02_evidence[0].get("pullRequestWorkflowRun") == 32036713473
+    and a02_evidence[0].get("postMergeWorkflowRun") == 32037634060
+    and a02_evidence[0].get("decision")
+        == "PASS_A02_ARCHITECTURE_RESPONSIBILITY_SOURCE_AND_CI_CLOSURE"
+    and a02_closure.get("decision")
+        == "PASS_A02_ARCHITECTURE_RESPONSIBILITY_SOURCE_AND_CI_CLOSURE"
+    and a02_closure.get("sourceAuthority", {}).get("headCommit")
+        == "8874c1d4d7b6ad0d07ec7924769c6aa97c76af06"
+    and a02_closure.get("sourceAuthority", {}).get("sourceTree")
+        == "a6ffe16758711d587a213a85f95bea3f6f1730ad"
+    and a02_closure.get("sourceAuthority", {}).get("mergeCommit")
+        == "0c0ddb7219c1043fe3924cd164acf06147d01e34"
+    and a02_closure.get("sourceAuthority", {}).get("mergeTree")
+        == "a6ffe16758711d587a213a85f95bea3f6f1730ad"
+    and a02_inventory_proof.get("hotspotCount") == 40
+    and a02_inventory_proof.get("decomposedSurfaceCount") == 16
+    and a02_inventory_proof.get("boundedExceptionCount") == 24
+    and a02_inventory_proof.get("a03PresentationPersistenceCarryoverCount")
+        == 3
+    and a02_inventory_proof.get("inventoryDigest")
+        == "617D22F40961FF828A96F84328E5209085656C22C48077535B8B70BDC07ECCAA"
+    and len(a02_manifest.get("surfaces", [])) == 40
+    and a02_pr_ci.get("workflowRun") == 32036713473
+    and a02_pr_ci.get("headCommit")
+        == "8874c1d4d7b6ad0d07ec7924769c6aa97c76af06"
+    and a02_pr_ci.get("conclusion") == "success"
+    and {
+        (job.get("name"), job.get("conclusion"))
+        for job in a02_pr_ci.get("jobs", [])
+    } == {(name, "success") for name in a02_expected_jobs}
+    and a02_postmerge_ci.get("workflowRun") == 32037634060
+    and a02_postmerge_ci.get("headCommit")
+        == "0c0ddb7219c1043fe3924cd164acf06147d01e34"
+    and a02_postmerge_ci.get("conclusion") == "success"
+    and {
+        (job.get("name"), job.get("conclusion"))
+        for job in a02_postmerge_ci.get("jobs", [])
+    } == {(name, "success") for name in a02_expected_jobs}
+    and a02_boundaries.get("a03CarryoversClosed") is False
+    and a02_boundaries.get("a04PersistedSchemaClosed") is False
+    and a02_boundaries.get("productionDeploymentPerformed") is False
+    and a02_boundaries.get("productionDataMutationPerformed") is False
+    and a02_boundaries.get("deviceEvidenceClaimed") is False
+    and a02_boundaries.get("pilotAuthorizationChanged") is False
+    and a02_boundaries.get("distributionAuthorityChanged") is False,
 )
 check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",

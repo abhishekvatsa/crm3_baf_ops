@@ -614,7 +614,47 @@ void main() {
     );
     expect(_object(a01Closure['pullRequestCi'])['conclusion'], 'success');
     expect(_object(a01Closure['postMergeCi'])['conclusion'], 'success');
-    for (final findingId in <String>['A-02', 'A-03', 'A-04']) {
+    final a02 = architecture['A-02']!;
+    expect(a02['currentStatus'], 'CLOSED');
+    expect(_objects(a02['evidence']), hasLength(1));
+    expect(_strings(a02['requiredExitEvidence']), hasLength(5));
+    expect(_strings(a02['reArmTriggers']), hasLength(3));
+    expect(
+      _objects(
+        a02['statusHistory'],
+      ).map((entry) => entry['status']).toList(growable: false),
+      <String>['OPEN', 'SOURCE_IMPLEMENTED', 'MERGED', 'CLOSED'],
+    );
+    final a02Evidence = _objects(a02['evidence']).single;
+    expect(
+      a02Evidence['decision'],
+      'PASS_A02_ARCHITECTURE_RESPONSIBILITY_SOURCE_AND_CI_CLOSURE',
+    );
+    expect(a02Evidence['pullRequest'], 232);
+    expect(a02Evidence['pullRequestWorkflowRun'], 32036713473);
+    expect(a02Evidence['postMergeWorkflowRun'], 32037634060);
+    final a02Closure = _readJson(
+      'release/evidence/a02-architecture-responsibility-source-and-ci-closure.json',
+    );
+    expect(a02Closure['findingId'], 'A-02');
+    expect(
+      a02Closure['decision'],
+      'PASS_A02_ARCHITECTURE_RESPONSIBILITY_SOURCE_AND_CI_CLOSURE',
+    );
+    expect(
+      _object(a02Closure['sourceAuthority'])['sourceTree'],
+      'a6ffe16758711d587a213a85f95bea3f6f1730ad',
+    );
+    final a02Inventory = _object(a02Closure['inventoryProof']);
+    expect(a02Inventory['hotspotCount'], 40);
+    expect(a02Inventory['decomposedSurfaceCount'], 16);
+    expect(a02Inventory['boundedExceptionCount'], 24);
+    expect(a02Inventory['a03PresentationPersistenceCarryoverCount'], 3);
+    expect(_object(a02Closure['pullRequestCi'])['conclusion'], 'success');
+    expect(_object(a02Closure['postMergeCi'])['conclusion'], 'success');
+    expect(_object(a02Closure['boundaries'])['a03CarryoversClosed'], isFalse);
+
+    for (final findingId in <String>['A-03', 'A-04']) {
       final finding = architecture[findingId]!;
       expect(finding['currentStatus'], 'OPEN');
       expect(_objects(finding['evidence']), isEmpty);

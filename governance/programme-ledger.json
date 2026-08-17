@@ -3127,14 +3127,32 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "CLOSED",
       "ownerClass": "Architecture",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
       "legacyReferences": [],
       "supersedes": [],
       "supersededBy": null,
-      "evidence": [],
+      "evidence": [
+        {
+          "evidenceFile": "release/evidence/a02-architecture-responsibility-source-and-ci-closure.json",
+          "evidenceSha256": "68A80774DED1D49E6BB52C0D4BB2ACCC5C4775FC5E6422B8E7892B738FC69DDB",
+          "repository": "abhishekvatsa/crm3_baf_ops",
+          "pullRequest": 232,
+          "headCommit": "8874c1d4d7b6ad0d07ec7924769c6aa97c76af06",
+          "sourceTree": "a6ffe16758711d587a213a85f95bea3f6f1730ad",
+          "mergeCommit": "0c0ddb7219c1043fe3924cd164acf06147d01e34",
+          "mergeTree": "a6ffe16758711d587a213a85f95bea3f6f1730ad",
+          "pullRequestWorkflowRun": 32036713473,
+          "postMergeWorkflowRun": 32037634060,
+          "decision": "PASS_A02_ARCHITECTURE_RESPONSIBILITY_SOURCE_AND_CI_CLOSURE",
+          "productionDeploymentPerformed": false,
+          "productionDataMutationPerformed": false,
+          "deviceEvidenceClaimed": false,
+          "pilotAuthorizationChanged": false
+        }
+      ],
       "requiredExitEvidence": [
         "exact-commit machine-generated inventory of providers and presentation files above the governed size or mixed-responsibility threshold, with every admitted hotspot classified by owned responsibilities",
         "source decomposition or an evidence-bound exception for every admitted hotspot, with presentation, orchestration, persistence and transaction ownership made explicit",
@@ -3148,13 +3166,31 @@
         "presentation code reacquires persistence, cross-aggregate transaction or broad orchestration ownership removed by an admitted decomposition"
       ],
       "notes": [
-        "Text-search counts are orientation only; closure requires the exact-commit machine-generated inventory named in requiredExitEvidence. Criteria authoring does not change OPEN status."
+        "Text-search counts are orientation only; closure requires the exact-commit machine-generated inventory named in requiredExitEvidence.",
+        "PR #232 admitted a machine-discovered inventory of 40 hotspots: 16 decomposed responsibility units and 24 named bounded exceptions, each with explicit owner, purpose, authority, persistence and transaction boundaries, tests, growth ceiling and re-arm condition.",
+        "Three presentation-level persistence reads remain deliberately visible as A-03 carryovers; A-02 closure does not close or weaken A-03.",
+        "Exact-head run 32036713473 and admitted-main run 32037634060 passed the inventory, canonical audit, complete Flutter suite and all governed release-gate jobs. This source-and-CI closure creates no deployment, device, data, pilot or distribution authority."
       ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-08-17",
+          "basis": "PR #232 exact head 8874c1d4d7b6ad0d07ec7924769c6aa97c76af06 classified all 40 machine-discovered hotspots, decomposed mixed local/remote providers and asset-hierarchy UI ownership, and installed source-enforced boundary and regression checks."
+        },
+        {
+          "status": "MERGED",
+          "effectiveDate": "2026-08-17",
+          "basis": "PR #232 exact green head 8874c1d4d7b6ad0d07ec7924769c6aa97c76af06 merged as 0c0ddb7219c1043fe3924cd164acf06147d01e34 with identical tree a6ffe16758711d587a213a85f95bea3f6f1730ad."
+        },
+        {
+          "status": "CLOSED",
+          "effectiveDate": "2026-08-17",
+          "basis": "PASS_A02_ARCHITECTURE_RESPONSIBILITY_SOURCE_AND_CI_CLOSURE binds the complete 40-hotspot inventory and re-arm audit to exact-head run 32036713473 and successful admitted-main run 32037634060; A-03 and operational authorities remain unchanged."
         }
       ]
     },

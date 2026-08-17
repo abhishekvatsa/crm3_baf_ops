@@ -1,5 +1,12 @@
 # A-02 Architecture Responsibility Remediation
 
+Status: CLOSED
+
+Programme adjudication: `FINDING:A-02` is `CLOSED` as of 17 August 2026.
+PR #232 exact head `8874c1d4d7b6ad0d07ec7924769c6aa97c76af06`
+and admitted-main merge `0c0ddb7219c1043fe3924cd164acf06147d01e34`
+share source tree `a6ffe16758711d587a213a85f95bea3f6f1730ad`.
+
 ## Scope
 
 This source tranche replaces orientation-by-line-count with an enforceable
@@ -53,6 +60,14 @@ boundary marker disappears, a forbidden marker returns, or named regression
 evidence is missing. The canonical audit and Flutter source contract both run
 this enforcement.
 
-This source tranche does not itself claim closure. A-02 moves through closure
-only after exact-head pull-request CI, admission to `main`, post-merge CI and a
-separate evidence-bound ledger adjudication.
+## Closure Evidence
+
+Exact-head release-gate run `32036713473` and admitted-main run `32037634060`
+passed the inventory, canonical audit, complete Flutter suite and all governed
+release-gate jobs. The immutable adjudication is recorded in
+`release/evidence/a02-architecture-responsibility-source-and-ci-closure.json`.
+
+This is A-02 source-and-CI closure only. The three registered presentation
+persistence reads remain A-03 work. No production deployment, production-data
+mutation, device proof, pilot authorization or distribution authority is
+claimed.
