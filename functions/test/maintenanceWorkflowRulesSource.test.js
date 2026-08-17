@@ -53,6 +53,36 @@ describe('maintenance workflow Firestore source contract', () => {
     expect(rules.slice(emdStart, moderatorStart)).toContain("roles.hasAny(['admin', 'si'])");
   });
 
+  test('identical submit and work role policy is compiled through one expression', () => {
+    const submitStart = rules.indexOf(
+      'function rolesCanSubmitJobModuleDiscipline',
+    );
+    const submitEnd = rules.indexOf(
+      '// END GENERATED WORKFLOW MODULE AUTHORITY',
+      submitStart,
+    );
+    expect(submitStart).toBeGreaterThanOrEqual(0);
+    expect(rules.slice(submitStart, submitEnd)).toContain(
+      'return rolesCanSaveJobModuleWork(roles, discipline);',
+    );
+    expect(rules.slice(submitStart, submitEnd)).not.toContain(
+      "discipline == 'electrical'",
+    );
+  });
+
+  test('unreachable legacy helpers stay absent from compiler input', () => {
+    for (const helper of [
+      'isModuleLifecycleModerator',
+      'canAddJobModuleDuringExecution',
+      'validJobExecutionComplete',
+      'jobModuleSoftDeleteChangedFieldsOnly',
+      'maintenanceWorkflowFields()',
+      'validMaintenanceAdminSoftDelete',
+    ]) {
+      expect(rules).not.toContain(`function ${helper}`);
+    }
+  });
+
   test('maintenance creation is server-only and deferred tickets block legacy lifecycle writes', () => {
     const maintenanceBlock = collectionBlock('maintenance_records', 500);
     expect(maintenanceBlock).toContain('allow create: if false;');

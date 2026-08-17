@@ -153,15 +153,6 @@ service cloud.firestore {
       return hasAnyRole(['admin', 'si']);
     }
 
-    function isModuleLifecycleModerator() {
-      return hasAnyRole([
-        'admin',
-        'si',
-        'contractSupervisor',
-        'shiftSupervisor'
-      ]);
-    }
-
     function isJobExecutionAssigner() {
       return hasAnyRole([
         'admin',
@@ -173,10 +164,6 @@ service cloud.firestore {
         'seniorInstrumentation',
         'seniorRefractory'
       ]);
-    }
-
-    function canAddJobModuleDuringExecution() {
-      return isJobExecutionAssigner();
     }
 
     function canCreateJobDiaryEntry() {
@@ -509,17 +496,6 @@ service cloud.firestore {
         && jobExecutionWorkChangedFieldsOnly();
     }
 
-    function validJobExecutionComplete() {
-      // M6 full closure enforcement:
-      // client SDKs may no longer complete JobExecution documents directly.
-      // Final completion is performed only by the trusted Cloud Function
-      // completePlannedJobExecution, which uses the Admin SDK and therefore
-      // bypasses Firestore rules after validating the current job_modules
-      // server-side. This prevents stale or tampered clients from bypassing the
-      // module-closure invariant that rules cannot query here.
-      return false;
-    }
-
     function validJobExecutionUpdate(docId) {
       return request.resource.data.get('isCompleted', false) !=
           resource.data.get('isCompleted', false)
@@ -554,17 +530,7 @@ service cloud.firestore {
     }
 
     function rolesCanSubmitJobModuleDiscipline(roles, discipline) {
-      return (discipline == 'electrical' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorElectrical']))
-          || (discipline == 'mechanical' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorMechanical']))
-          || (discipline in ['instrumentation', 'instrument', 'ia', 'iAndA', 'instrumentationAndAutomation', 'instrumentationAutomation'] && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorInstrumentation']))
-          || (discipline == 'operations' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'operations']))
-          || (discipline == 'shiftInCharge' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']))
-          || (discipline == 'emd' && roles.hasAny(['admin', 'si']))
-          || (discipline == 'refractory' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'refractory', 'seniorRefractory']))
-          || (discipline == 'safety' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']))
-          || (discipline == 'admin' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']))
-          || (discipline == 'shared' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor']))
-          || (discipline == 'others' && roles.hasAny(['admin', 'si', 'contractSupervisor', 'shiftSupervisor', 'seniorRefractory']));
+      return rolesCanSaveJobModuleWork(roles, discipline);
     }
     // END GENERATED WORKFLOW MODULE AUTHORITY
 
@@ -749,22 +715,6 @@ service cloud.firestore {
         'notApplicableByName',
         'notApplicableAt',
         'notApplicableReason',
-        'updatedAt',
-        'updatedByUid',
-        'updatedByName',
-        'version',
-        'metadataJson'
-      ]);
-    }
-
-    function jobModuleSoftDeleteChangedFieldsOnly(changedKeys) {
-      return jobModuleChangedFieldsOnly(changedKeys, [
-        'isDeleted',
-        'isOpenForWork',
-        'deletedByUid',
-        'deletedByName',
-        'deletedAt',
-        'deleteReason',
         'updatedAt',
         'updatedByUid',
         'updatedByName',
@@ -2384,30 +2334,6 @@ service cloud.firestore {
     // 🔧 MAINTENANCE HELPERS
     // ─────────────────────────────────────────────
 
-    function maintenanceWorkflowFields() {
-      return [
-          'workflowDeferred',
-          'workflowQueueState',
-          'workflowAggregateId',
-          'workflowComplianceId',
-          'workflowOriginLaneKey',
-          'workflowTargetLaneKey',
-          'workflowConditionTypeKey',
-          'workflowConditionRef',
-          'workflowDeferredAt',
-          'workflowDeferredByUid',
-          'workflowDeferredByName',
-          'workflowReactivatedAt',
-          'workflowReactivatedByUid',
-          'workflowReactivatedByName',
-          'workflowReleasedAt',
-          'workflowReleasedByUid',
-          'workflowReleasedByName',
-          'workflowCorrectionReason',
-          'workflowUpdatedAt'
-        ];
-    }
-
     function maintenanceWorkflowFieldsUnchanged() {
       return request.resource.data.get('workflowDeferred', false) == resource.data.get('workflowDeferred', false)
         && request.resource.data.get('workflowQueueState', 'independent') == resource.data.get('workflowQueueState', 'independent')
@@ -2885,20 +2811,6 @@ service cloud.firestore {
             ? validMaintenanceCloseUpdate()
             : validMaintenanceReopenUpdate())
           : false));
-    }
-
-    function validMaintenanceAdminSoftDelete(affected) {
-      return maintenanceSoftDeleteChangedFieldsOnly(affected)
-        && isAdmin()
-        && resource.data.get('isDeleted', false) == false
-        && request.resource.data.get('isDeleted', false) == true
-        && request.resource.data.get('firestoreId', null) == resource.data.get('firestoreId', null)
-        && request.resource.data.get('assetType', null) == resource.data.get('assetType', null)
-        && request.resource.data.get('assetNumber', -1) == resource.data.get('assetNumber', -1)
-        && request.resource.data.get('loggedByUid', null) == resource.data.get('loggedByUid', null)
-        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
-        && request.resource.data.get('deletedByUid', null) == request.auth.uid
-        && maintenanceVersionAdvances();
     }
 
     // ─────────────────────────────────────────────
