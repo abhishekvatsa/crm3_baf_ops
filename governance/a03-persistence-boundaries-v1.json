@@ -1,0 +1,655 @@
+{
+  "schemaVersion": 1,
+  "findingId": "A-03",
+  "title": "Operation-level persistence boundary inventory",
+  "inventoryDigest": "7923E15F9D3DBCD24C84FEBFD053A9056843E64D0BDDA2A484CDFBD826E3B92A",
+  "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
+  "profiles": {
+    "composition-root": {
+      "layer": "composition-root",
+      "authorityBoundary": "Startup opens the governed local store before user-facing providers run; it grants no application role.",
+      "offlineSemantics": "Owns database lifecycle only and does not read or mutate business records.",
+      "transactionOwnership": "No business transaction is admitted at the composition root."
+    },
+    "service": {
+      "layer": "service",
+      "authorityBoundary": "The service validates caller or workflow admission before privileged reads and mutations, while Firestore Rules remain final remote authority.",
+      "offlineSemantics": "Coordinates explicit local, remote, or cross-source behavior and surfaces failures without treating partial work as success.",
+      "transactionOwnership": "The service owns orchestration; atomic store mutations remain explicit in the inventoried operation."
+    },
+    "repository": {
+      "layer": "repository",
+      "authorityBoundary": "The repository consumes admitted calls; Firestore Rules enforce remote access and local callers must not infer authority from stored payloads.",
+      "offlineSemantics": "Owns the declared store boundary and exposes typed outcomes to callers.",
+      "transactionOwnership": "Repository methods own their declared reads, batches, and transactions."
+    },
+    "repository-adapter": {
+      "layer": "repository-adapter",
+      "authorityBoundary": "The adapter consumes admitted repository calls; remote Rules remain final authority and local data never grants roles.",
+      "offlineSemantics": "Local adapters preserve dirty-state and replay semantics; remote adapters preserve server truth and strict decoding.",
+      "transactionOwnership": "The adapter alone owns its declared local or remote transaction primitives."
+    },
+    "read-provider": {
+      "layer": "read-provider",
+      "authorityBoundary": "The provider exposes a bounded read stream after feature admission; Firestore Rules remain final remote authority.",
+      "offlineSemantics": "Read-only projection failures remain visible as loading or error state and never mutate durable data.",
+      "transactionOwnership": "No mutation or transaction is admitted."
+    },
+    "auth-provider": {
+      "layer": "authentication-provider",
+      "authorityBoundary": "Firebase identity establishes the subject; approval and roles are read from the governed user document and are never self-asserted.",
+      "offlineSemantics": "Authentication/profile failures deny application admission instead of using stale role data.",
+      "transactionOwnership": "Only authentication bootstrap/profile registration writes are admitted; no business transaction is owned."
+    },
+    "diagnostic-read-adapter": {
+      "layer": "diagnostic-read-adapter",
+      "authorityBoundary": "The presentation verifies Admin/SI authority before constructing this privacy-safe local read adapter.",
+      "offlineSemantics": "Reads local counts and provenance only; it does not sync, reset, delete, or mark records clean.",
+      "transactionOwnership": "No mutation or transaction is admitted."
+    }
+  },
+  "surfaces": [
+    {
+      "path": "lib/core/services/governed_asset_identity_local_repair.dart",
+      "profile": "service",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/core/services/live_remote_sync_service.dart",
+      "profile": "service",
+      "allowedStores": [
+        "firestore",
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/core/services/operational_assurance_local_repair.dart",
+      "profile": "service",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/core/services/planned_job_local_link_repair.dart",
+      "profile": "service",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/core/services/sync_rejection_service.dart",
+      "profile": "service",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/core/services/sync_service.knowledge_base.dart",
+      "profile": "service",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/core/services/sync_service.push_infrastructure.dart",
+      "profile": "service",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/abnormalities/providers/abnormality_provider.local.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/abnormalities/providers/abnormality_provider.remote.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/admin/repositories/user_directory_repository.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/admin/services/local_diagnostics_read_adapter.dart",
+      "profile": "diagnostic-read-adapter",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/assets/providers/burner_condition_round_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/assets/repositories/asset_hierarchy_repository.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/audit/repositories/audit_repository.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "firestore",
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/auth/providers/auth_provider.dart",
+      "profile": "auth-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/auth/services/notification_installation_registry.dart",
+      "profile": "service",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/directives/providers/operational_directive_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/directives/providers/operational_directive_provider.local.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/directives/providers/operational_directive_provider.remote.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/maintenance/providers/maintenance_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/maintenance/providers/maintenance_provider.local.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/maintenance/providers/maintenance_provider.remote.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/maintenance_workflow/providers/workflow_providers.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/maintenance_workflow/repositories/firestore_workflow_read_repository.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/maintenance_workflow/repositories/isar_workflow_repository.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/operational_events/providers/operational_event_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/domain/baf_knowledge_repository.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "firestore",
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/job_diary_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/job_diary_provider.local.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/job_diary_provider.remote.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/job_module_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/job_module_provider.local.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/job_module_provider.remote.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/knowledge_governance_provider.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/module_registry_provider.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/planned_maintenance_provider.local.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/planned_maintenance_provider.remote.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/template_governance_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/template_governance_provider.local.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/template_governance_provider.remote.dart",
+      "profile": "repository-adapter",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/repositories/knowledge_correction_source_repository.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/quality/providers/quality_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/main.dart",
+      "profile": "composition-root",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "lifecycle"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    }
+  ]
+}

@@ -545,6 +545,30 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
+  Future<ClosedTicketPage> getClosedTicketPage({
+    int limit = 50,
+    int offset = 0,
+    ClosedTicketPageCursor? cursor,
+  }) async {
+    var query = _collection
+        .where('isResolved', isEqualTo: true)
+        .where('isDeleted', isEqualTo: false)
+        .orderBy('endDate', descending: true)
+        .limit(limit);
+    if (cursor is _FirestoreClosedTicketPageCursor) {
+      query = query.startAfterDocument(cursor.snapshot);
+    }
+    final snap = await query.get();
+    return ClosedTicketPage(
+      records: snap.docs.map(_mapTicket).toList(growable: false),
+      cursor:
+          snap.docs.isEmpty
+              ? null
+              : _FirestoreClosedTicketPageCursor(snap.docs.last),
+    );
+  }
+
+  @override
   Future<int> getClosedTicketsCount() async {
     final snap =
         await _collection

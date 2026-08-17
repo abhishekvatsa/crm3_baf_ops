@@ -66,9 +66,15 @@ void main() {
       );
       expect(
         source.indexOf('await ref.watch(currentAppUserProvider.future)'),
-        lessThan(source.indexOf('readPrivacySafeIsarProvenanceInventory()')),
+        lessThan(source.indexOf('LocalDiagnosticsReadAdapter().read()')),
       );
-      expect(source, contains('readStartupPreOpenIsarProvenanceInventory()'));
+      final adapter =
+          File(
+            'lib/features/admin/services/local_diagnostics_read_adapter.dart',
+          ).readAsStringSync();
+      expect(adapter, contains('readStartupPreOpenIsarProvenanceInventory()'));
+      expect(adapter, contains('readPrivacySafeIsarProvenanceInventory()'));
+      expect(adapter, isNot(contains('writeTxn(')));
       expect(
         source,
         contains(

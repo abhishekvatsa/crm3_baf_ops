@@ -4,8 +4,9 @@
 
 This record supplies the forcing constraints for architecture findings `A-02`,
 `A-03`, `A-04`, and `A-05`. `A-02` and `A-05` are now evidence-closed;
-`A-03` and `A-04` remain `OPEN`. No source hotspot count, grep result, partial
-remediation tranche, or absence of a known failure is sufficient for closure.
+`A-03` is `SOURCE_IMPLEMENTED` pending exact-head and admitted-main CI; `A-04`
+remains `OPEN`. No source hotspot count, grep result, partial remediation
+tranche, or absence of a known failure is sufficient for closure.
 
 The ledger is the status authority. This document explains the evidence now
 required by its `requiredExitEvidence` and `reArmTriggers` fields.

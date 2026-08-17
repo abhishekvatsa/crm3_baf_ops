@@ -5,11 +5,16 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('67B.1 sync status indicator hardening contract', () {
     late String source;
+    late String rejectionServiceSource;
 
     setUpAll(() {
       source =
           File(
             'lib/core/widgets/sync_status_indicator.dart',
+          ).readAsStringSync();
+      rejectionServiceSource =
+          File(
+            'lib/core/services/sync_rejection_service.dart',
           ).readAsStringSync();
     });
 
@@ -45,10 +50,16 @@ void main() {
     );
 
     test('durable rejection provider uses a named recent-limit constant', () {
-      expect(source, contains('const int _recentSyncRejectionLimit = 5;'));
-      expect(source, contains('.limit(_recentSyncRejectionLimit)'));
       expect(
-        source,
+        rejectionServiceSource,
+        contains('const int recentSyncRejectionLimit = 5;'),
+      );
+      expect(
+        rejectionServiceSource,
+        contains('.watchRecent(limit: recentSyncRejectionLimit)'),
+      );
+      expect(
+        rejectionServiceSource,
         isNot(contains('.limit(5)')),
         reason:
             'The recent rejection limit should not be magic-numbered inline.',

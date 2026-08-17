@@ -654,20 +654,40 @@ void main() {
     expect(_object(a02Closure['postMergeCi'])['conclusion'], 'success');
     expect(_object(a02Closure['boundaries'])['a03CarryoversClosed'], isFalse);
 
-    for (final findingId in <String>['A-03', 'A-04']) {
-      final finding = architecture[findingId]!;
-      expect(finding['currentStatus'], 'OPEN');
-      expect(_objects(finding['evidence']), isEmpty);
-      expect(_strings(finding['requiredExitEvidence']), hasLength(5));
-      expect(_strings(finding['reArmTriggers']), hasLength(3));
-      expect(_strings(finding['notes']), isNotEmpty);
-      expect(
-        _objects(
-          finding['statusHistory'],
-        ).map((entry) => entry['status']).toList(growable: false),
-        <String>['OPEN'],
-      );
-    }
+    final a03 = architecture['A-03']!;
+    expect(a03['currentStatus'], 'SOURCE_IMPLEMENTED');
+    expect(_objects(a03['evidence']), isEmpty);
+    expect(_strings(a03['requiredExitEvidence']), hasLength(5));
+    expect(_strings(a03['reArmTriggers']), hasLength(3));
+    expect(_strings(a03['notes']), hasLength(4));
+    expect(
+      _objects(
+        a03['statusHistory'],
+      ).map((entry) => entry['status']).toList(growable: false),
+      <String>['OPEN', 'SOURCE_IMPLEMENTED'],
+    );
+    final a03Manifest = _readJson(
+      'governance/a03-persistence-boundaries-v1.json',
+    );
+    expect(a03Manifest['findingId'], 'A-03');
+    expect(
+      a03Manifest['inventoryDigest'],
+      '7923E15F9D3DBCD24C84FEBFD053A9056843E64D0BDDA2A484CDFBD826E3B92A',
+    );
+    expect(_objects(a03Manifest['surfaces']), hasLength(44));
+
+    final a04 = architecture['A-04']!;
+    expect(a04['currentStatus'], 'OPEN');
+    expect(_objects(a04['evidence']), isEmpty);
+    expect(_strings(a04['requiredExitEvidence']), hasLength(5));
+    expect(_strings(a04['reArmTriggers']), hasLength(3));
+    expect(_strings(a04['notes']), isNotEmpty);
+    expect(
+      _objects(
+        a04['statusHistory'],
+      ).map((entry) => entry['status']).toList(growable: false),
+      <String>['OPEN'],
+    );
 
     final a05 = architecture['A-05']!;
     expect(a05['currentStatus'], 'CLOSED');

@@ -2714,6 +2714,9 @@ isar_inventory = text("lib/core/services/isar_installed_store_provenance.dart")
 local_diagnostics = text(
     "lib/features/admin/presentation/local_diagnostics_screen.dart"
 )
+local_diagnostics_adapter = text(
+    "lib/features/admin/services/local_diagnostics_read_adapter.dart"
+)
 isar_fixture_test = text("test/70k_isar_populated_migration_fixture_test.dart")
 isar_inventory_test = text("test/isar_installed_store_provenance_test.dart")
 recovery_source_tranche = text(
@@ -2737,10 +2740,14 @@ check(
     and "stored-schema-fingerprint-unrecognized" in isar_inventory
     and "preserveStartupPreOpenIsarProvenanceInventory" in startup
     and '"installedStoreProvenance": $installedStoreProvenance' in startup
-    and "readStartupPreOpenIsarProvenanceInventory()" in local_diagnostics
+    and "readStartupPreOpenIsarProvenanceInventory()"
+        in local_diagnostics_adapter
+    and "readPrivacySafeIsarProvenanceInventory()"
+        in local_diagnostics_adapter
+    and "writeTxn(" not in local_diagnostics_adapter
     and local_diagnostics.index(
         "await ref.watch(currentAppUserProvider.future)"
-    ) < local_diagnostics.index("readPrivacySafeIsarProvenanceInventory()")
+    ) < local_diagnostics.index("LocalDiagnosticsReadAdapter().read()")
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
@@ -2892,7 +2899,7 @@ check(
     "late Isar isar;" in app_database_source
     and "late Isar isar;" not in main_source
     and main_importers == []
-    and len(app_database_consumers) == 12
+    and len(app_database_consumers) == 11
     and "lib has no internal Dart import cycles" in dart_import_cycle_test
     and "final lowLinks = <String, int>{};" in dart_import_cycle_test
     and "component.length > 1 || graph[node]!.contains(node)"
@@ -8346,6 +8353,32 @@ a02_a05_records = {
     if record.get("findingId") in a02_a05_ids
 }
 a02_record = a02_a05_records.get("A-02", {})
+a03_record = a02_a05_records.get("A-03", {})
+a03_history = [
+    entry.get("status")
+    for entry in a03_record.get("statusHistory", [])
+]
+a03_manifest = data("governance/a03-persistence-boundaries-v1.json")
+a03_profiles = a03_manifest.get("profiles", {})
+a03_surfaces = a03_manifest.get("surfaces", [])
+a03_remediation = text(
+    "docs/v4_2_r1/A03_PERSISTENCE_BOUNDARY_REMEDIATION.md"
+)
+a03_presentation_persistence = []
+for a03_path in (ROOT / "lib").rglob("*.dart"):
+    a03_relative = a03_path.relative_to(ROOT).as_posix()
+    if "/presentation/" not in a03_relative and "/widgets/" not in a03_relative:
+        continue
+    a03_source = a03_path.read_text(encoding="utf-8")
+    if any(
+        marker in a03_source
+        for marker in (
+            "FirebaseFirestore.instance",
+            "Isar.getInstance()",
+            ".writeTxn(",
+        )
+    ):
+        a03_presentation_persistence.append(a03_relative)
 a02_evidence = a02_record.get("evidence", [])
 a02_history = [
     entry.get("status")
@@ -8466,8 +8499,13 @@ check(
         and [entry.get("status") for entry in record.get("statusHistory", [])]
         == ["OPEN"]
         for finding_id, record in a02_a05_records.items()
-        if finding_id in {"A-03", "A-04"}
+        if finding_id == "A-04"
     )
+    and a03_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
+    and a03_record.get("evidence") == []
+    and len(a03_record.get("requiredExitEvidence", [])) == 5
+    and len(a03_record.get("reArmTriggers", [])) == 3
+    and a03_history == ["OPEN", "SOURCE_IMPLEMENTED"]
     and a02_record.get("currentStatus") == "CLOSED"
     and len(a02_record.get("requiredExitEvidence", [])) == 5
     and len(a02_record.get("reArmTriggers", [])) == 3
@@ -8482,6 +8520,38 @@ check(
         in a02_a05_exit_decision
     and "governed read-only inventory" in a02_a05_exit_decision
     and "finding status. Each closure still requires" in a02_a05_exit_decision,
+)
+check(
+    "A-03 persistence boundaries are completely classified and presentation-clean",
+    a03_manifest.get("schemaVersion") == 1
+    and a03_manifest.get("findingId") == "A-03"
+    and a03_manifest.get("inventoryDigest")
+        == "7923E15F9D3DBCD24C84FEBFD053A9056843E64D0BDDA2A484CDFBD826E3B92A"
+    and len(a03_surfaces) == 44
+    and len({surface.get("path") for surface in a03_surfaces}) == 44
+    and a03_presentation_persistence == []
+    and all(
+        surface.get("profile") in a03_profiles
+        and surface.get("allowedStores")
+        and surface.get("allowedModes")
+        and surface.get("regressionTests")
+            == ["test/a03_persistence_boundary_contract_test.dart"]
+        for surface in a03_surfaces
+    )
+    and all(
+        surface.get("profile")
+            in {"service", "repository", "repository-adapter", "auth-provider"}
+        for surface in a03_surfaces
+        if "mutating" in surface.get("allowedModes", [])
+    )
+    and all(
+        surface.get("profile") in {"service", "repository"}
+        for surface in a03_surfaces
+        if len(surface.get("allowedStores", [])) > 1
+    )
+    and "Status: SOURCE_IMPLEMENTED" in a03_remediation
+    and "484 operations" in a03_remediation
+    and "No file under a presentation or widget directory" in a03_remediation,
 )
 check(
     "A-02 responsibility hotspots are completely classified and source-enforced",
@@ -8533,7 +8603,8 @@ check(
         == 3
     and a02_inventory_proof.get("inventoryDigest")
         == "617D22F40961FF828A96F84328E5209085656C22C48077535B8B70BDC07ECCAA"
-    and len(a02_manifest.get("surfaces", [])) == 40
+    and len(a02_manifest.get("surfaces", []))
+        == a02_inventory_report.get("hotspotCount")
     and a02_pr_ci.get("workflowRun") == 32036713473
     and a02_pr_ci.get("headCommit")
         == "8874c1d4d7b6ad0d07ec7924769c6aa97c76af06"

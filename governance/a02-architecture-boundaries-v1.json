@@ -181,35 +181,6 @@
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
     },
     {
-      "path": "lib/features/admin/presentation/user_management_screen.dart",
-      "disposition": "bounded-exception",
-      "owner": "Architecture / admin",
-      "purpose": "Owns the user management screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
-      "responsibilities": [
-        "authority",
-        "presentation",
-        "provider-wiring",
-        "remote-persistence",
-        "state-orchestration"
-      ],
-      "authorityBoundary": "This individually registered presentation residual must remain authority-gated and read-only until A-03 extraction; no mutation or transaction is admitted.",
-      "persistenceOwnership": "Direct read access is explicitly visible in this record and is assigned to A-03 removal; persistence mutation is prohibited here.",
-      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
-      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
-      "regressionTests": [
-        "test/user_authority_atomic_mutation_contract_test.dart"
-      ],
-      "maximumLines": 1030,
-      "requiredMarkers": [
-        "class UserManagementScreen"
-      ],
-      "forbiddenMarkers": [
-        "writeTxn(",
-        "runTransaction("
-      ],
-      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
-    },
-    {
       "path": "lib/features/assets/presentation/inner_cover_lifecycle_screen.dart",
       "disposition": "bounded-exception",
       "owner": "Architecture / assets",
@@ -318,34 +289,6 @@
       "forbiddenMarkers": [
         "FirebaseFirestore.instance",
         "class Firestore"
-      ],
-      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
-    },
-    {
-      "path": "lib/features/maintenance/presentation/closed_tickets_screen.dart",
-      "disposition": "bounded-exception",
-      "owner": "Architecture / maintenance",
-      "purpose": "Owns the closed tickets screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
-      "responsibilities": [
-        "authority",
-        "presentation",
-        "remote-persistence",
-        "state-orchestration"
-      ],
-      "authorityBoundary": "This individually registered presentation residual must remain authority-gated and read-only until A-03 extraction; no mutation or transaction is admitted.",
-      "persistenceOwnership": "Direct read access is explicitly visible in this record and is assigned to A-03 removal; persistence mutation is prohibited here.",
-      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
-      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
-      "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
-      ],
-      "maximumLines": 1136,
-      "requiredMarkers": [
-        "class ClosedTicketsScreen"
-      ],
-      "forbiddenMarkers": [
-        "writeTxn(",
-        "runTransaction("
       ],
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
     },
@@ -783,35 +726,6 @@
       "forbiddenMarkers": [
         "FirebaseFirestore.instance",
         "Isar.getInstance()"
-      ],
-      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
-    },
-    {
-      "path": "lib/features/planned_maintenance/presentation/widgets/knowledge_correction_promoter_panel.dart",
-      "disposition": "bounded-exception",
-      "owner": "Architecture / planned_maintenance",
-      "purpose": "Owns the knowledge correction promoter panel user workflow and its tightly coupled loading, error, empty, and interaction states.",
-      "responsibilities": [
-        "authority",
-        "presentation",
-        "provider-wiring",
-        "remote-persistence",
-        "state-orchestration"
-      ],
-      "authorityBoundary": "This individually registered presentation residual must remain authority-gated and read-only until A-03 extraction; no mutation or transaction is admitted.",
-      "persistenceOwnership": "Direct read access is explicitly visible in this record and is assigned to A-03 removal; persistence mutation is prohibited here.",
-      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
-      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
-      "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
-      ],
-      "maximumLines": 513,
-      "requiredMarkers": [
-        "class KnowledgeCorrectionPromoterPanel"
-      ],
-      "forbiddenMarkers": [
-        "writeTxn(",
-        "runTransaction("
       ],
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
     },

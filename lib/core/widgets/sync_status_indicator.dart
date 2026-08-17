@@ -1,39 +1,23 @@
 // FILE: lib/core/widgets/sync_status_indicator.dart
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
 
 import '../providers/sync_conflict_provider.dart';
 import '../providers/sync_status_provider.dart';
 import '../services/auto_sync_service.dart';
 import '../services/live_remote_sync_service.dart';
 import '../services/sync_coordinator.dart';
+import '../services/sync_rejection_service.dart';
 import '../services/sync_service.dart';
 import '../../features/audit/models/audit_event_model.dart';
 import '../../features/auth/data/user_model.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../theme/baf_design_system.dart';
 
-const int _recentSyncRejectionLimit = 5;
-
 // ─────────────────────────────────────────────────────────────
 // DURABLE LOCAL SYNC REJECTION SUMMARY
 // ─────────────────────────────────────────────────────────────
-
-final recentSyncRejectionsProvider = StreamProvider<List<SyncRejection>>((ref) {
-  if (kIsWeb) return Stream.value(const []);
-  final localIsar = Isar.getInstance();
-  if (localIsar == null) return Stream.value(const []);
-
-  return localIsar.syncRejections
-      .filter()
-      .isResolvedEqualTo(false)
-      .sortByLastSeenAtDesc()
-      .limit(_recentSyncRejectionLimit)
-      .watch(fireImmediately: true);
-});
 
 // ─────────────────────────────────────────────────────────────
 // SYNC STATUS INDICATOR + HEALTH PANEL
@@ -756,27 +740,10 @@ Future<void> _resolveSyncRejection(
   AppUser actor, {
   required String notes,
 }) async {
-  final localIsar = Isar.getInstance();
-  if (localIsar == null) {
-    _showSyncSnack(
-      context,
-      'Local database is not available.',
-      BafColors.danger,
-    );
-    return;
-  }
-
   try {
-    await localIsar.writeTxn(() async {
-      final current = await localIsar.syncRejections.get(rejection.id);
-      if (current == null || current.isResolved) return;
-      current.markResolved(
-        resolvedByUid: actor.uid,
-        resolvedByName: actor.name,
-        notes: notes.isEmpty ? null : notes,
-      );
-      await localIsar.syncRejections.put(current);
-    });
+    await ref
+        .read(syncRejectionServiceProvider)
+        .resolve(rejectionId: rejection.id, actor: actor, notes: notes);
 
     ref.invalidate(recentSyncRejectionsProvider);
     ref.invalidate(syncPendingCountsProvider);

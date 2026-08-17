@@ -78,7 +78,9 @@ void main() {
       expect(compact, contains('onPressed: canPromote ?'));
       expect(
         source,
-        contains('ref.invalidate(knowledgePromotableCorrectionsProvider)'),
+        contains(
+          'ref.invalidate(knowledgePromotableCorrectionsProvider(widget.appUser))',
+        ),
       );
       expect(source, contains('ref.invalidate(knowledgeRowsViewProvider)'));
       expect(
@@ -141,10 +143,7 @@ void main() {
         source,
         contains('setState(() => _reopeningTicketKeys.remove(ticketKey))'),
       );
-      expect(
-        source,
-        contains('final nextTickets = await repo.getClosedTickets'),
-      );
+      expect(source, contains('final page = await service.loadPage'));
       expect(
         source,
         isNot(contains('ref.listen<int>(refreshClosedTicketsProvider')),
