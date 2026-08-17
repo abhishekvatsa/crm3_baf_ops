@@ -157,20 +157,24 @@ test("final phase proves exact fleet, IAM, scheduler and safe callable probes", 
   );
 });
 
-test("provisioned phase requires additive rollback safety and trigger bootstrap", () => {
-  const state = live();
-  state.projectRoles[defaultCompute] = [
-    "roles/cloudbuild.builds.builder",
-    "roles/editor",
-  ];
-  for (const name of functionNames) {
-    if (policy.functionBindings[name].requiredCloudRunServiceRoles != null) {
-      state.projectRoles[emails[name]].push("roles/run.invoker");
-      state.projectRoles[emails[name]].sort();
+test("provisioned phase accepts Editor rollback or an already-hardened fleet", () => {
+  for (const retainEditor of [true, false]) {
+    const state = live();
+    if (retainEditor) {
+      state.projectRoles[defaultCompute] = [
+        "roles/cloudbuild.builds.builder",
+        "roles/editor",
+      ];
     }
+    for (const name of functionNames) {
+      if (policy.functionBindings[name].requiredCloudRunServiceRoles != null) {
+        state.projectRoles[emails[name]].push("roles/run.invoker");
+        state.projectRoles[emails[name]].sort();
+      }
+    }
+    const result = adjudicate("provisioned", state, {probeCallables: false});
+    assert.deepEqual(result.failedChecks, []);
   }
-  const result = adjudicate("provisioned", state, {probeCallables: false});
-  assert.deepEqual(result.failedChecks, []);
 });
 
 test("final phase fails closed on Editor, a wrong runtime identity or extra role", () => {

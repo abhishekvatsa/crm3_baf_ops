@@ -1957,11 +1957,17 @@ check(
     and "05-scheduler-preflight.json" in function_fleet_campaign_executor
     and "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK=false"
         in function_fleet_campaign_executor
-    and "Default Compute Editor was restored"
+    and "prior Default Compute Editor posture was restored"
+        in function_fleet_campaign_executor
+    and "exact five-job successful post-merge release gate"
+        in function_fleet_campaign_executor
+    and "$defaultComputeAlreadyHardened"
+        in function_fleet_campaign_executor
+    and "if ($defaultComputeEditorPresentBeforeFinalization)"
         in function_fleet_campaign_executor
     and "service-accounts delete" not in function_fleet_campaign_executor
     and "functions delete" not in function_fleet_campaign_executor
-    and "Editor removal is final, reversible"
+    and "Editor removal is final, conditionally reversible"
         in function_fleet_campaign_executor_test
     and "2026-08-04T10:32:19.779Z" in function_fleet_identity_decision
     and "repeats the same three aggregate counts"
