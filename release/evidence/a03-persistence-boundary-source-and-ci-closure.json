@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "findingId": "A-03",
+  "decision": "PASS_A03_PERSISTENCE_BOUNDARY_SOURCE_AND_CI_CLOSURE",
+  "effectiveDate": "2026-08-17",
+  "repository": "abhishekvatsa/crm3_baf_ops",
+  "sourceAuthority": {
+    "pullRequest": 234,
+    "headCommit": "af14218f5281cb210bda5382fbedc5eaa2ca27e8",
+    "sourceTree": "0ccc46eedec7c88c9c2e2df0e8bc5f498e2a1eff",
+    "mergeCommit": "829c87ee07de43846f1d6b5e6d0b1879a3801d93",
+    "mergeTree": "0ccc46eedec7c88c9c2e2df0e8bc5f498e2a1eff"
+  },
+  "inventoryProof": {
+    "audit": "tools/v4/a03_persistence_boundary_inventory.dart",
+    "manifest": "governance/a03-persistence-boundaries-v1.json",
+    "contract": "test/a03_persistence_boundary_contract_test.dart",
+    "operationCount": 484,
+    "siteCount": 1548,
+    "surfaceCount": 44,
+    "presentationPersistenceCount": 0,
+    "inventoryDigest": "7923E15F9D3DBCD24C84FEBFD053A9056843E64D0BDDA2A484CDFBD826E3B92A",
+    "manifestSha256": "2CD28491CC36E4DA02175D258EE3E4B6E9118DD520B9AC9B7B05C0D96E292C5E",
+    "auditSha256": "0D6826995F6F9FFAB04E8BFCBF0C043FB14EBBA4DB92BB1BC3C8D52DF6761F87",
+    "contractSha256": "FE3D1280BCA9D8D999592A7D28B0037ADB5B3BD2DAF88A32DF3F028836A7E01C",
+    "result": "PASS"
+  },
+  "pullRequestCi": {
+    "workflowRun": 32042648071,
+    "workflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/32042648071",
+    "headCommit": "af14218f5281cb210bda5382fbedc5eaa2ca27e8",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "jobId": 95426488465,
+        "name": "Android emulator app-shell integration (not physical-device evidence)",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95426488782,
+        "name": "Firestore Rules + governed callable emulator",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95426488890,
+        "name": "Android release package + cold-start proof (non-production)",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95426504553,
+        "name": "Flutter host analysis + tests + no-loss contracts",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95426507582,
+        "name": "Cloud Functions host build + non-emulator tests",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "postMergeCi": {
+    "workflowRun": 32043979797,
+    "workflowUrl": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/32043979797",
+    "headCommit": "829c87ee07de43846f1d6b5e6d0b1879a3801d93",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "jobId": 95446189813,
+        "name": "Android emulator app-shell integration (not physical-device evidence)",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95446190493,
+        "name": "Flutter host analysis + tests + no-loss contracts",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95446190885,
+        "name": "Firestore Rules + governed callable emulator",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95446212890,
+        "name": "Android release package + cold-start proof (non-production)",
+        "conclusion": "success"
+      },
+      {
+        "jobId": 95446216741,
+        "name": "Cloud Functions host build + non-emulator tests",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "boundaries": {
+    "presentationPersistenceRemoved": true,
+    "a04PersistedSchemaClosedByThisEvidence": false,
+    "productionDeploymentPerformed": false,
+    "productionDataReadPerformed": false,
+    "productionDataMutationPerformed": false,
+    "deviceEvidenceClaimed": false,
+    "pilotAuthorizationChanged": false,
+    "distributionAuthorityChanged": false
+  }
+}

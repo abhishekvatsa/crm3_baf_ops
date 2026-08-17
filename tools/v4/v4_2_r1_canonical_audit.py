@@ -8365,6 +8365,18 @@ a03_surfaces = a03_manifest.get("surfaces", [])
 a03_remediation = text(
     "docs/v4_2_r1/A03_PERSISTENCE_BOUNDARY_REMEDIATION.md"
 )
+a03_closure_path = (
+    ROOT
+    / "release/evidence/a03-persistence-boundary-source-and-ci-closure.json"
+)
+a03_closure = data(
+    "release/evidence/a03-persistence-boundary-source-and-ci-closure.json"
+)
+a03_evidence = a03_record.get("evidence", [])
+a03_pr_ci = a03_closure.get("pullRequestCi", {})
+a03_postmerge_ci = a03_closure.get("postMergeCi", {})
+a03_inventory_proof = a03_closure.get("inventoryProof", {})
+a03_boundaries = a03_closure.get("boundaries", {})
 a04_record = a02_a05_records.get("A-04", {})
 a04_history = [
     entry.get("status")
@@ -8375,6 +8387,24 @@ a04_fields = a04_manifest.get("fields", [])
 a04_inherited_decoders = a04_manifest.get("inheritedDecoderSurfaces", [])
 a04_extension_policy = a04_manifest.get("extensionPolicy", {})
 a04_remediation = text("docs/v4_2_r1/A04_PERSISTED_SCHEMA_REMEDIATION.md")
+a04_closure_path = (
+    ROOT
+    / "release/evidence/a04-persisted-schema-source-ci-and-reconciliation-closure.json"
+)
+a04_closure = data(
+    "release/evidence/a04-persisted-schema-source-ci-and-reconciliation-closure.json"
+)
+a04_evidence = a04_record.get("evidence", [])
+a04_pr_ci = a04_closure.get("pullRequestCi", {})
+a04_postmerge_ci = a04_closure.get("postMergeCi", {})
+a04_inventory_proof = a04_closure.get("inventoryProof", {})
+a04_production_reconciliation = a04_closure.get(
+    "productionReconciliation", {}
+)
+a04_local_generation = a04_closure.get(
+    "supportedLocalGenerationAuthority", {}
+)
+a04_closure_boundary = a04_closure.get("closureBoundary", {})
 dart_executable = shutil.which("dart")
 if sys.platform == "win32" and dart_executable:
     located_dart = Path(dart_executable)
@@ -8533,16 +8563,16 @@ a05_source_delta_paths = {
 check(
     "A-02 to A-05 carry explicit architecture exit and re-arm constraints",
     set(a02_a05_records) == a02_a05_ids
-    and a04_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
-    and a04_record.get("evidence") == []
+    and a04_record.get("currentStatus") == "CLOSED"
+    and len(a04_record.get("evidence", [])) == 1
     and len(a04_record.get("requiredExitEvidence", [])) == 5
     and len(a04_record.get("reArmTriggers", [])) == 3
-    and a04_history == ["OPEN", "SOURCE_IMPLEMENTED"]
-    and a03_record.get("currentStatus") == "SOURCE_IMPLEMENTED"
-    and a03_record.get("evidence") == []
+    and a04_history == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and a03_record.get("currentStatus") == "CLOSED"
+    and len(a03_record.get("evidence", [])) == 1
     and len(a03_record.get("requiredExitEvidence", [])) == 5
     and len(a03_record.get("reArmTriggers", [])) == 3
-    and a03_history == ["OPEN", "SOURCE_IMPLEMENTED"]
+    and a03_history == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
     and a02_record.get("currentStatus") == "CLOSED"
     and len(a02_record.get("requiredExitEvidence", [])) == 5
     and len(a02_record.get("reArmTriggers", [])) == 3
@@ -8556,7 +8586,8 @@ check(
     and "registered, authority-gated, read-only diagnostic adapters"
         in a02_a05_exit_decision
     and "governed read-only inventory" in a02_a05_exit_decision
-    and "finding status. Each closure still requires" in a02_a05_exit_decision,
+    and "All four findings are now evidence-closed" in a02_a05_exit_decision
+    and "The recorded closures" in a02_a05_exit_decision,
 )
 check(
     "A-03 persistence boundaries are completely classified and presentation-clean",
@@ -8586,7 +8617,7 @@ check(
         for surface in a03_surfaces
         if len(surface.get("allowedStores", [])) > 1
     )
-    and "Status: SOURCE_IMPLEMENTED" in a03_remediation
+    and "Status: CLOSED" in a03_remediation
     and "484 operations" in a03_remediation
     and "No file under a presentation or widget directory" in a03_remediation,
 )
@@ -8624,10 +8655,152 @@ check(
     and a04_extension_policy.get("authorityOrBusinessInvariantFieldsAllowed")
         is False
     and a04_extension_policy.get("registeredFields") == {}
-    and "Status: SOURCE_IMPLEMENTED" in a04_remediation
+    and "Status: CLOSED" in a04_remediation
     and "classifies 53" in a04_remediation
     and "current extension registry contains zero fields" in a04_remediation
     and "supported-local-generation reconciliation" in a04_remediation,
+)
+check(
+    "A-03 closes on exact persistence inventory and admitted CI authority",
+    a03_record.get("currentStatus") == "CLOSED"
+    and a03_history == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(a03_evidence) == 1
+    and a03_evidence[0].get("evidenceFile")
+        == "release/evidence/a03-persistence-boundary-source-and-ci-closure.json"
+    and a03_evidence[0].get("evidenceSha256") == sha(a03_closure_path)
+    and a03_evidence[0].get("pullRequest") == 234
+    and a03_evidence[0].get("headCommit")
+        == "af14218f5281cb210bda5382fbedc5eaa2ca27e8"
+    and a03_evidence[0].get("sourceTree")
+        == "0ccc46eedec7c88c9c2e2df0e8bc5f498e2a1eff"
+    and a03_evidence[0].get("mergeCommit")
+        == "829c87ee07de43846f1d6b5e6d0b1879a3801d93"
+    and a03_evidence[0].get("mergeTree")
+        == "0ccc46eedec7c88c9c2e2df0e8bc5f498e2a1eff"
+    and a03_evidence[0].get("pullRequestWorkflowRun") == 32042648071
+    and a03_evidence[0].get("postMergeWorkflowRun") == 32043979797
+    and a03_evidence[0].get("decision")
+        == "PASS_A03_PERSISTENCE_BOUNDARY_SOURCE_AND_CI_CLOSURE"
+    and a03_closure.get("decision")
+        == "PASS_A03_PERSISTENCE_BOUNDARY_SOURCE_AND_CI_CLOSURE"
+    and a03_inventory_proof.get("operationCount") == 484
+    and a03_inventory_proof.get("siteCount") == 1548
+    and a03_inventory_proof.get("surfaceCount") == 44
+    and a03_inventory_proof.get("presentationPersistenceCount") == 0
+    and a03_inventory_proof.get("inventoryDigest")
+        == "7923E15F9D3DBCD24C84FEBFD053A9056843E64D0BDDA2A484CDFBD826E3B92A"
+    and a03_pr_ci.get("workflowRun") == 32042648071
+    and a03_pr_ci.get("headCommit")
+        == "af14218f5281cb210bda5382fbedc5eaa2ca27e8"
+    and a03_pr_ci.get("conclusion") == "success"
+    and {
+        (job.get("name"), job.get("conclusion"))
+        for job in a03_pr_ci.get("jobs", [])
+    } == {(name, "success") for name in a02_expected_jobs}
+    and a03_postmerge_ci.get("workflowRun") == 32043979797
+    and a03_postmerge_ci.get("headCommit")
+        == "829c87ee07de43846f1d6b5e6d0b1879a3801d93"
+    and a03_postmerge_ci.get("conclusion") == "success"
+    and {
+        (job.get("name"), job.get("conclusion"))
+        for job in a03_postmerge_ci.get("jobs", [])
+    } == {(name, "success") for name in a02_expected_jobs}
+    and a03_boundaries.get("presentationPersistenceRemoved") is True
+    and a03_boundaries.get("productionDeploymentPerformed") is False
+    and a03_boundaries.get("productionDataReadPerformed") is False
+    and a03_boundaries.get("productionDataMutationPerformed") is False
+    and a03_boundaries.get("deviceEvidenceClaimed") is False
+    and a03_boundaries.get("pilotAuthorizationChanged") is False
+    and a03_boundaries.get("distributionAuthorityChanged") is False,
+)
+check(
+    "A-04 closes on exact schema, CI and reconciliation authority",
+    a04_record.get("currentStatus") == "CLOSED"
+    and a04_history == ["OPEN", "SOURCE_IMPLEMENTED", "MERGED", "CLOSED"]
+    and len(a04_evidence) == 1
+    and a04_evidence[0].get("evidenceFile")
+        == "release/evidence/a04-persisted-schema-source-ci-and-reconciliation-closure.json"
+    and a04_evidence[0].get("evidenceSha256") == sha(a04_closure_path)
+    and a04_evidence[0].get("pullRequest") == 235
+    and a04_evidence[0].get("headCommit")
+        == "1c4192c4b833919b5a045741866e9c7d6e17b79c"
+    and a04_evidence[0].get("sourceTree")
+        == "55c73664ce7cc2f8f60142d92e8920a4686a385f"
+    and a04_evidence[0].get("mergeCommit")
+        == "f54f88c4e1e526e1493712824c1b281d17c70b2e"
+    and a04_evidence[0].get("mergeTree")
+        == "55c73664ce7cc2f8f60142d92e8920a4686a385f"
+    and a04_evidence[0].get("pullRequestWorkflowRun") == 32050533628
+    and a04_evidence[0].get("postMergeWorkflowRun") == 32051729235
+    and a04_evidence[0].get("productionReconciliationEvidenceSha256")
+        == "8581F54892ED2973CE0D4B94C61277970DA4056BC3F4269979E4DE1C21BE2FFE"
+    and a04_evidence[0].get("decision")
+        == "PASS_A04_PERSISTED_SCHEMA_SOURCE_CI_AND_RECONCILIATION_CLOSURE"
+    and a04_closure.get("decision")
+        == "PASS_A04_PERSISTED_SCHEMA_SOURCE_CI_AND_RECONCILIATION_CLOSURE"
+    and a04_inventory_proof.get("fieldCount") == 53
+    and a04_inventory_proof.get("jsonStringFieldCount") == 47
+    and a04_inventory_proof.get("dynamicValueFieldCount") == 6
+    and a04_inventory_proof.get("extensionBagCount") == 3
+    and a04_inventory_proof.get("registeredExtensionFieldCount") == 0
+    and a04_inventory_proof.get("inheritedDecoderSurfaceCount") == 54
+    and a04_inventory_proof.get("inventoryDigest")
+        == "27863AC2C3E366BD34BFAC9D092EA86AF269756BAD56C05C1974D78F843697C9"
+    and a04_pr_ci.get("workflowRun") == 32050533628
+    and a04_pr_ci.get("headCommit")
+        == "1c4192c4b833919b5a045741866e9c7d6e17b79c"
+    and a04_pr_ci.get("conclusion") == "success"
+    and {
+        (job.get("name"), job.get("conclusion"))
+        for job in a04_pr_ci.get("jobs", [])
+    } == {(name, "success") for name in a02_expected_jobs}
+    and a04_postmerge_ci.get("workflowRun") == 32051729235
+    and a04_postmerge_ci.get("headCommit")
+        == "f54f88c4e1e526e1493712824c1b281d17c70b2e"
+    and a04_postmerge_ci.get("conclusion") == "success"
+    and {
+        (job.get("name"), job.get("conclusion"))
+        for job in a04_postmerge_ci.get("jobs", [])
+    } == {(name, "success") for name in a02_expected_jobs}
+    and a04_production_reconciliation.get("decision")
+        == "PASS_A05_READ_ONLY_PRODUCTION_RECONCILIATION"
+    and a04_production_reconciliation.get("sourceCommit")
+        == "f54f88c4e1e526e1493712824c1b281d17c70b2e"
+    and a04_production_reconciliation.get("sourceTree")
+        == "55c73664ce7cc2f8f60142d92e8920a4686a385f"
+    and a04_production_reconciliation.get("cleanFetchedMain") is True
+    and a04_production_reconciliation.get("readOnly") is True
+    and a04_production_reconciliation.get("cloudMutationCapability") == "NONE"
+    and a04_production_reconciliation.get("rawIdentifiersEmitted") is False
+    and a04_production_reconciliation.get("rawDocumentDataPersisted") is False
+    and a04_production_reconciliation.get("registeredRootCollectionCount") == 67
+    and a04_production_reconciliation.get("enumeratedRootCollectionCount") == 8
+    and a04_production_reconciliation.get("unregisteredRootCollectionCount") == 0
+    and a04_production_reconciliation.get("blockingFindingCount") == 0
+    and a04_production_reconciliation.get("warningCount") == 0
+    and a04_production_reconciliation.get("strictReaderAttemptedCount") == 9
+    and a04_production_reconciliation.get("strictReaderPassedCount") == 9
+    and a04_production_reconciliation.get("strictReaderFailedCount") == 0
+    and a04_local_generation.get("sourceCommit")
+        == "f54f88c4e1e526e1493712824c1b281d17c70b2e"
+    and a04_local_generation.get("sourceTree")
+        == "55c73664ce7cc2f8f60142d92e8920a4686a385f"
+    and a04_local_generation.get("sameCheckout") is True
+    and len(a04_local_generation.get("testFiles", [])) == 4
+    and a04_local_generation.get("passedCount") == 27
+    and a04_local_generation.get("failedCount") == 0
+    and len(a04_local_generation.get("dispositions", [])) == 5
+    and a04_local_generation.get("repairDisposition")
+        == "PRESERVE_AND_BLOCK_PENDING_REPAIR"
+    and a04_local_generation.get("silentRewritePerformed") is False
+    and a04_closure_boundary.get("a04ClosureAuthorized") is True
+    and a04_closure_boundary.get("productionDeploymentPerformed") is False
+    and a04_closure_boundary.get("productionDataMutationPerformed") is False
+    and a04_closure_boundary.get("firebaseDeploymentPerformed") is False
+    and a04_closure_boundary.get("deviceEvidenceClaimed") is False
+    and a04_closure_boundary.get("pilotAuthorizationChanged") is False
+    and a04_closure_boundary.get("distributionAuthorityChanged") is False
+    and a04_closure_boundary.get("cutoverAuthorized") is False,
 )
 check(
     "A-02 responsibility hotspots are completely classified and source-enforced",

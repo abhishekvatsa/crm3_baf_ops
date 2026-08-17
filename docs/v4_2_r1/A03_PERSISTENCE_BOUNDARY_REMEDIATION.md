@@ -1,10 +1,9 @@
 # A-03 Persistence Boundary Remediation
 
-Status: SOURCE_IMPLEMENTED
+Status: CLOSED
 
-Programme adjudication: `FINDING:A-03` is source-implemented as of 17 August
-2026. Closure remains contingent on exact-head pull-request CI, merge with an
-identical source tree, and admitted-main post-merge CI.
+Programme adjudication: `FINDING:A-03` is closed as of 17 August 2026 by
+`PASS_A03_PERSISTENCE_BOUNDARY_SOURCE_AND_CI_CLOSURE`.
 
 ## Exact Inventory
 
@@ -60,7 +59,14 @@ A-02 remains closed and its current machine inventory passes.
 
 ## Boundary
 
-This tranche changes source architecture and tests only. It performs no
+PR #234 exact green head `af14218f5281cb210bda5382fbedc5eaa2ca27e8`
+merged as `829c87ee07de43846f1d6b5e6d0b1879a3801d93` with identical
+tree `0ccc46eedec7c88c9c2e2df0e8bc5f498e2a1eff`. Exact-head run
+`32042648071` and admitted-main run `32043979797` passed all five governed
+jobs. The closure is sealed in
+`release/evidence/a03-persistence-boundary-source-and-ci-closure.json`.
+
+This closure changes source architecture and evidence only. It performs no
 Firebase deployment, production data read or mutation, local data migration,
 device validation, distribution action, pilot authorization, or cutover
-authorization. A-04 remains independent and open.
+authorization. Its three ledger re-arm triggers remain binding.
