@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 void main() {
   group('planned-job local identity architecture contract', () {
     test('Firestore serializers do not transport Isar relation ids', () {
@@ -28,14 +30,12 @@ void main() {
     });
 
     test('both UI repository and completion use the shared resolver', () {
-      final moduleProvider =
-          File(
-            'lib/features/planned_maintenance/providers/job_module_provider.dart',
-          ).readAsStringSync();
-      final plannedProvider =
-          File(
-            'lib/features/planned_maintenance/providers/planned_maintenance_provider.dart',
-          ).readAsStringSync();
+      final moduleProvider = readDartLibrarySource(
+        'lib/features/planned_maintenance/providers/job_module_provider.dart',
+      );
+      final plannedProvider = readDartLibrarySource(
+        'lib/features/planned_maintenance/providers/planned_maintenance_provider.dart',
+      );
 
       expect(
         'PlannedJobModuleSetResolver.resolve'.allMatches(moduleProvider).length,

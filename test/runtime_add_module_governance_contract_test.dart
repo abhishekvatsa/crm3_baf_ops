@@ -8,6 +8,8 @@ import 'package:crm3_baf_ops/features/planned_maintenance/data/template_governan
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/published_runtime_module_catalogue.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 void main() {
   group('Runtime add-module governance contract', () {
     test('active add-module UI prefers published catalogue before seed fallback', () {
@@ -19,10 +21,9 @@ void main() {
           File(
             'lib/features/planned_maintenance/presentation/dossier/planned_job_module_dossier.dart',
           ).readAsStringSync();
-      final providerSource =
-          File(
-            'lib/features/planned_maintenance/providers/job_module_provider.dart',
-          ).readAsStringSync();
+      final providerSource = readDartLibrarySource(
+        'lib/features/planned_maintenance/providers/job_module_provider.dart',
+      );
 
       expect(detailSource, contains('_loadPublishedRuntimeCatalogue'));
       expect(

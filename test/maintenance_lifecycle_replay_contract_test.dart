@@ -541,7 +541,7 @@ void main() {
     );
 
     test('remote-only repository primitive is explicit and merge-scoped', () {
-      final provider = _read(_providerPath);
+      final provider = _readMaintenanceProviderLibrary();
 
       expect(
         provider,
@@ -559,7 +559,7 @@ void main() {
     });
 
     test('ordinary batch upload atomically pairs every red-hot directive', () {
-      final provider = _read(_providerPath);
+      final provider = _readMaintenanceProviderLibrary();
       final batch = _blockStartingAt(
         provider,
         'const maximumPairedRecordsPerBatch = 166;',
@@ -609,7 +609,7 @@ void main() {
       'does not touch closure, pull, job-module, or governance contracts',
       () {
         final source = _read(_syncPath);
-        final provider = _read(_providerPath);
+        final provider = _readMaintenanceProviderLibrary();
         final rules = _readFirstExisting(_rulePaths);
 
         expect(source, isNot(contains('completePlannedJobExecution')));
@@ -626,14 +626,20 @@ void main() {
 const _syncPath = 'lib/core/services/sync_service.tickets_templates.dart';
 const _createCommandPath =
     'lib/features/maintenance/services/maintenance_issue_create_command.dart';
-const _providerPath =
-    'lib/features/maintenance/providers/maintenance_provider.dart';
+const _providerPaths = <String>[
+  'lib/features/maintenance/providers/maintenance_provider.dart',
+  'lib/features/maintenance/providers/maintenance_provider.local.dart',
+  'lib/features/maintenance/providers/maintenance_provider.remote.dart',
+];
 const _rulePaths = <String>[
   'firestore.rules',
   'Other root files/firestore.rules',
 ];
 
 String _read(String path) => File(path).readAsStringSync();
+
+String _readMaintenanceProviderLibrary() =>
+    _providerPaths.map(_read).join('\n');
 
 String _readFirstExisting(List<String> paths) {
   for (final path in paths) {

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crm3_baf_ops/core/services/remote_tombstone_apply_result.dart';
@@ -8,6 +6,8 @@ import 'package:crm3_baf_ops/features/planned_maintenance/data/job_diary_model.d
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/template_governance_model.dart';
+
+import '../tools/testing/dart_library_source.dart';
 
 void main() {
   group('A-05 remote tombstone authority', () {
@@ -115,7 +115,7 @@ void main() {
       ];
 
       for (final path in paths) {
-        final source = File(path).readAsStringSync();
+        final source = readDartLibrarySource(path);
         expect(source, isNot(contains('remote.deletedAt ??')), reason: path);
         expect(
           source,

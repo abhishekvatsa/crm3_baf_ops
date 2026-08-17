@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 void main() {
   test('ticket supervision is represented from UI through server authority', () {
     final types =
@@ -16,10 +18,9 @@ void main() {
         File(
           'lib/features/admin/presentation/admin_data_browser/admin_tickets_browser.dart',
         ).readAsStringSync();
-    final repository =
-        File(
-          'lib/features/maintenance/providers/maintenance_provider.dart',
-        ).readAsStringSync();
+    final repository = readDartLibrarySource(
+      'lib/features/maintenance/providers/maintenance_provider.dart',
+    );
     final backend =
         File(
           'functions/src/maintenanceWorkflow/ticketHandlers.ts',

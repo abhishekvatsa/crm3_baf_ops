@@ -223,10 +223,11 @@ void main() {
     });
 
     test('provider delegates reads and persists document identity', () {
-      final source =
-          File(
-            'lib/features/directives/providers/operational_directive_provider.dart',
-          ).readAsStringSync();
+      final source = <String>[
+        'lib/features/directives/providers/operational_directive_provider.dart',
+        'lib/features/directives/providers/operational_directive_provider.local.dart',
+        'lib/features/directives/providers/operational_directive_provider.remote.dart',
+      ].map((path) => File(path).readAsStringSync()).join('\n');
       final mapper = source.substring(
         source.indexOf('OperationalDirective _mapDirective'),
       );

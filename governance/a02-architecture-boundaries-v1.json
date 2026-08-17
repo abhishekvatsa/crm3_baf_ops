@@ -1,0 +1,1137 @@
+{
+  "schemaVersion": 1,
+  "findingId": "A-02",
+  "title": "Governed architecture hotspot and responsibility boundaries",
+  "thresholds": {
+    "sizeLines": 1200,
+    "mixedMinimumLines": 500,
+    "mixedResponsibilityCount": 4
+  },
+  "decision": "Every discovered hotspot is either decomposed into an explicit responsibility unit or retained as a named bounded exception with no hidden persistence or transaction ownership.",
+  "surfaces": [
+    {
+      "path": "lib/features/abnormalities/presentation/abnormality_types_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / abnormalities",
+      "purpose": "Owns the abnormality types screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/charge_abnormality_atomic_mutation_contract_test.dart"
+      ],
+      "maximumLines": 1383,
+      "requiredMarkers": [
+        "class AbnormalityTypesScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/abnormalities/presentation/charge_abnormalities_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / abnormalities",
+      "purpose": "Owns the charge abnormalities screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/charge_abnormality_atomic_mutation_contract_test.dart"
+      ],
+      "maximumLines": 1839,
+      "requiredMarkers": [
+        "class ChargeAbnormalitiesScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/abnormalities/providers/abnormality_provider.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / abnormalities",
+      "purpose": "Defines the abnormalities repository contract, shared mapping, and Riverpod selection/wiring.",
+      "responsibilities": [
+        "authority",
+        "command-boundary",
+        "provider-wiring",
+        "remote-persistence",
+        "repository-contract",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Chooses admitted repository implementations and role-scoped streams but performs no local or remote transaction.",
+      "persistenceOwnership": "Persistence implementations are delegated to named local and remote library parts.",
+      "transactionOwnership": "No transaction is owned here; local and remote adapters retain their respective transaction semantics.",
+      "rationale": "The mixed implementation body was decomposed while the public contract and provider identities remain stable for callers.",
+      "regressionTests": [
+        "test/charge_abnormality_atomic_mutation_contract_test.dart"
+      ],
+      "maximumLines": 759,
+      "requiredMarkers": [
+        "part '",
+        "abstract class"
+      ],
+      "forbiddenMarkers": [
+        "class Isar",
+        "class Firestore"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/abnormalities/providers/abnormality_provider.local.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / abnormalities",
+      "purpose": "Owns the abnormalities offline repository adapter only.",
+      "responsibilities": [
+        "authority",
+        "local-persistence",
+        "repository-implementation",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Receives already-admitted repository calls; actor evidence is persisted or compared but this adapter does not grant roles.",
+      "persistenceOwnership": "Isar access is confined to this local adapter; no Firestore client is permitted.",
+      "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
+      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring.",
+      "regressionTests": [
+        "test/charge_abnormality_atomic_mutation_contract_test.dart"
+      ],
+      "maximumLines": 1072,
+      "requiredMarkers": [
+        "part of '"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "class Firestore"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/abnormalities/providers/abnormality_provider.remote.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / abnormalities",
+      "purpose": "Owns the abnormalities Firestore repository adapter only.",
+      "responsibilities": [
+        "authority",
+        "remote-persistence",
+        "repository-implementation",
+        "serialization",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Consumes authenticated repository calls and preserves server/Rules authority; it does not derive approval from payload data.",
+      "persistenceOwnership": "Firestore access is confined to this remote adapter; no Isar transaction is permitted.",
+      "transactionOwnership": "This adapter owns only the feature Firestore batches, transactions, and remote replay operations.",
+      "rationale": "Extracted from the former mixed provider so remote transport and mapping cannot silently reacquire offline-store ownership.",
+      "regressionTests": [
+        "test/charge_abnormality_atomic_mutation_contract_test.dart"
+      ],
+      "maximumLines": 831,
+      "requiredMarkers": [
+        "part of '"
+      ],
+      "forbiddenMarkers": [
+        "writeTxn(",
+        "class Isar"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/admin/presentation/local_diagnostics_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / admin",
+      "purpose": "Owns the local diagnostics screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "provider-wiring",
+        "serialization",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/local_diagnostics_visibility_contract_test.dart"
+      ],
+      "maximumLines": 1776,
+      "requiredMarkers": [
+        "class LocalDiagnosticsReport"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/admin/presentation/user_management_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / admin",
+      "purpose": "Owns the user management screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "provider-wiring",
+        "remote-persistence",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "This individually registered presentation residual must remain authority-gated and read-only until A-03 extraction; no mutation or transaction is admitted.",
+      "persistenceOwnership": "Direct read access is explicitly visible in this record and is assigned to A-03 removal; persistence mutation is prohibited here.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/user_authority_atomic_mutation_contract_test.dart"
+      ],
+      "maximumLines": 1030,
+      "requiredMarkers": [
+        "class UserManagementScreen"
+      ],
+      "forbiddenMarkers": [
+        "writeTxn(",
+        "runTransaction("
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/assets/presentation/inner_cover_lifecycle_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / assets",
+      "purpose": "Owns the inner cover lifecycle screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/asset_hierarchy_business_reference_test.dart"
+      ],
+      "maximumLines": 1916,
+      "requiredMarkers": [
+        "class InnerCoverLifecycleScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/audit/presentation/audit_timeline_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / audit",
+      "purpose": "Owns the audit timeline screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "provider-wiring",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/ui_business_alignment_test.dart"
+      ],
+      "maximumLines": 650,
+      "requiredMarkers": [
+        "class AuditTimelineScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/directives/providers/operational_directive_provider.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / directives",
+      "purpose": "Defines the directives repository contract, shared mapping, and Riverpod selection/wiring.",
+      "responsibilities": [
+        "authority",
+        "provider-wiring",
+        "repository-contract",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Chooses admitted repository implementations and role-scoped streams but performs no local or remote transaction.",
+      "persistenceOwnership": "Persistence implementations are delegated to named local and remote library parts.",
+      "transactionOwnership": "No transaction is owned here; local and remote adapters retain their respective transaction semantics.",
+      "rationale": "The mixed implementation body was decomposed while the public contract and provider identities remain stable for callers.",
+      "regressionTests": [
+        "test/a05_operational_directive_integrity_test.dart"
+      ],
+      "maximumLines": 609,
+      "requiredMarkers": [
+        "part '",
+        "abstract class"
+      ],
+      "forbiddenMarkers": [
+        "class Isar",
+        "class Firestore"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/directives/providers/operational_directive_provider.local.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / directives",
+      "purpose": "Owns the directives offline repository adapter only.",
+      "responsibilities": [
+        "authority",
+        "local-persistence",
+        "repository-implementation",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Receives already-admitted repository calls; actor evidence is persisted or compared but this adapter does not grant roles.",
+      "persistenceOwnership": "Isar access is confined to this local adapter; no Firestore client is permitted.",
+      "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
+      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring.",
+      "regressionTests": [
+        "test/a05_operational_directive_integrity_test.dart"
+      ],
+      "maximumLines": 594,
+      "requiredMarkers": [
+        "part of '"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "class Firestore"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/maintenance/presentation/closed_tickets_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / maintenance",
+      "purpose": "Owns the closed tickets screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "remote-persistence",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "This individually registered presentation residual must remain authority-gated and read-only until A-03 extraction; no mutation or transaction is admitted.",
+      "persistenceOwnership": "Direct read access is explicitly visible in this record and is assigned to A-03 removal; persistence mutation is prohibited here.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 1136,
+      "requiredMarkers": [
+        "class ClosedTicketsScreen"
+      ],
+      "forbiddenMarkers": [
+        "writeTxn(",
+        "runTransaction("
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/maintenance/presentation/maintenance_form.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / maintenance",
+      "purpose": "Owns the maintenance form user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 2546,
+      "requiredMarkers": [
+        "class MaintenanceForm"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/maintenance/presentation/resolve_form.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / maintenance",
+      "purpose": "Owns the resolve form user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 1570,
+      "requiredMarkers": [
+        "class ResolveForm"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/maintenance/providers/maintenance_provider.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / maintenance",
+      "purpose": "Defines the maintenance repository contract, shared mapping, and Riverpod selection/wiring.",
+      "responsibilities": [
+        "authority",
+        "provider-wiring",
+        "repository-contract",
+        "serialization",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Chooses admitted repository implementations and role-scoped streams but performs no local or remote transaction.",
+      "persistenceOwnership": "Persistence implementations are delegated to named local and remote library parts.",
+      "transactionOwnership": "No transaction is owned here; local and remote adapters retain their respective transaction semantics.",
+      "rationale": "The mixed implementation body was decomposed while the public contract and provider identities remain stable for callers.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 603,
+      "requiredMarkers": [
+        "part '",
+        "abstract class"
+      ],
+      "forbiddenMarkers": [
+        "class Isar",
+        "class Firestore"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/maintenance/providers/maintenance_provider.local.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / maintenance",
+      "purpose": "Owns the maintenance offline repository adapter only.",
+      "responsibilities": [
+        "authority",
+        "local-persistence",
+        "repository-implementation",
+        "serialization",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Receives already-admitted repository calls; actor evidence is persisted or compared but this adapter does not grant roles.",
+      "persistenceOwnership": "Isar access is confined to this local adapter; no Firestore client is permitted.",
+      "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
+      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 887,
+      "requiredMarkers": [
+        "part of '"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "class Firestore"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/maintenance/providers/maintenance_provider.remote.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / maintenance",
+      "purpose": "Owns the maintenance Firestore repository adapter only.",
+      "responsibilities": [
+        "authority",
+        "remote-persistence",
+        "repository-implementation",
+        "serialization",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Consumes authenticated repository calls and preserves server/Rules authority; it does not derive approval from payload data.",
+      "persistenceOwnership": "Firestore access is confined to this remote adapter; no Isar transaction is permitted.",
+      "transactionOwnership": "This adapter owns only the feature Firestore batches, transactions, and remote replay operations.",
+      "rationale": "Extracted from the former mixed provider so remote transport and mapping cannot silently reacquire offline-store ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 897,
+      "requiredMarkers": [
+        "part of '"
+      ],
+      "forbiddenMarkers": [
+        "writeTxn(",
+        "class Isar"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / maintenance_workflow",
+      "purpose": "Owns the planned job workflow panel user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "command-boundary",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_workflow/workflow_command_contract_test.dart"
+      ],
+      "maximumLines": 1162,
+      "requiredMarkers": [
+        "class PlannedJobWorkflowPanel"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/complete_job_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the complete job screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 2254,
+      "requiredMarkers": [
+        "class CompleteJobScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/dossier/planned_job_detail_common.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the planned job detail common user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "serialization"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 1903,
+      "requiredMarkers": [
+        "class _DossierHeaderCard"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/dossier/planned_job_module_dossier.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the planned job module dossier user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 2177,
+      "requiredMarkers": [
+        "class _ProcessModuleDossier"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/job_history_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the job history screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 1393,
+      "requiredMarkers": [
+        "class JobHistoryScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/job_module_detail_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the job module detail screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "serialization",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 2149,
+      "requiredMarkers": [
+        "class JobModuleDetailScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/module_composer_screen.actions.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the module composer screen actions user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 1353,
+      "requiredMarkers": [
+        "part of"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/module_composer_screen.builders.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the module composer screen builders user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 1407,
+      "requiredMarkers": [
+        "part of"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/module_editor_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the module editor screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 1737,
+      "requiredMarkers": [
+        "class ModuleEditorScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/published_template_assignment_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the published template assignment screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 1624,
+      "requiredMarkers": [
+        "class PublishedTemplateAssignmentScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/template_publisher_sections.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the template publisher sections user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 1355,
+      "requiredMarkers": [
+        "class _PublisherHeader"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/widgets/knowledge_correction_promoter_panel.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the knowledge correction promoter panel user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "authority",
+        "presentation",
+        "provider-wiring",
+        "remote-persistence",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "This individually registered presentation residual must remain authority-gated and read-only until A-03 extraction; no mutation or transaction is admitted.",
+      "persistenceOwnership": "Direct read access is explicitly visible in this record and is assigned to A-03 removal; persistence mutation is prohibited here.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 513,
+      "requiredMarkers": [
+        "class KnowledgeCorrectionPromoterPanel"
+      ],
+      "forbiddenMarkers": [
+        "writeTxn(",
+        "runTransaction("
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/job_module_provider.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Defines the planned_maintenance repository contract, shared mapping, and Riverpod selection/wiring.",
+      "responsibilities": [
+        "authority",
+        "provider-wiring",
+        "remote-persistence",
+        "repository-contract",
+        "serialization",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Chooses admitted repository implementations and role-scoped streams but performs no local or remote transaction.",
+      "persistenceOwnership": "Persistence implementations are delegated to named local and remote library parts.",
+      "transactionOwnership": "No transaction is owned here; local and remote adapters retain their respective transaction semantics.",
+      "rationale": "The mixed implementation body was decomposed while the public contract and provider identities remain stable for callers.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 702,
+      "requiredMarkers": [
+        "part '",
+        "abstract class"
+      ],
+      "forbiddenMarkers": [
+        "class Isar",
+        "class Firestore"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/job_module_provider.local.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the planned_maintenance offline repository adapter only.",
+      "responsibilities": [
+        "authority",
+        "local-persistence",
+        "repository-implementation",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Receives already-admitted repository calls; actor evidence is persisted or compared but this adapter does not grant roles.",
+      "persistenceOwnership": "Isar access is confined to this local adapter; no Firestore client is permitted.",
+      "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
+      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 959,
+      "requiredMarkers": [
+        "part of '"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "class Firestore"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/job_module_provider.remote.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the planned_maintenance Firestore repository adapter only.",
+      "responsibilities": [
+        "authority",
+        "remote-persistence",
+        "repository-implementation",
+        "serialization",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Consumes authenticated repository calls and preserves server/Rules authority; it does not derive approval from payload data.",
+      "persistenceOwnership": "Firestore access is confined to this remote adapter; no Isar transaction is permitted.",
+      "transactionOwnership": "This adapter owns only the feature Firestore batches, transactions, and remote replay operations.",
+      "rationale": "Extracted from the former mixed provider so remote transport and mapping cannot silently reacquire offline-store ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 636,
+      "requiredMarkers": [
+        "part of '"
+      ],
+      "forbiddenMarkers": [
+        "writeTxn(",
+        "class Isar"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/knowledge_governance_provider.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the planned_maintenance knowledge governance provider repository/controller contract and provider wiring.",
+      "responsibilities": [
+        "authority",
+        "provider-wiring",
+        "remote-persistence",
+        "serialization",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Authority-sensitive operations remain behind the named repository or command service and approved provider inputs.",
+      "persistenceOwnership": "Any observed persistence belongs to the single named adapter/controller in this file; cross-source ownership is prohibited.",
+      "transactionOwnership": "Transaction ownership is limited to the repository/controller operation named by this surface and may not enter provider wiring.",
+      "rationale": "This is a bounded feature adapter or controller, not a presentation surface; its cohesive contract and mapping are protected by feature regression tests and a growth ceiling.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 757,
+      "requiredMarkers": [
+        "class KnowledgeGovernanceWriteResult"
+      ],
+      "forbiddenMarkers": [
+        "StatelessWidget",
+        "StatefulWidget"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/module_registry_provider.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the planned_maintenance module registry provider repository/controller contract and provider wiring.",
+      "responsibilities": [
+        "authority",
+        "provider-wiring",
+        "remote-persistence",
+        "serialization",
+        "state-orchestration",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Authority-sensitive operations remain behind the named repository or command service and approved provider inputs.",
+      "persistenceOwnership": "Any observed persistence belongs to the single named adapter/controller in this file; cross-source ownership is prohibited.",
+      "transactionOwnership": "Transaction ownership is limited to the repository/controller operation named by this surface and may not enter provider wiring.",
+      "rationale": "This is a bounded feature adapter or controller, not a presentation surface; its cohesive contract and mapping are protected by feature regression tests and a growth ceiling.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 846,
+      "requiredMarkers": [
+        "class ModuleRegistryRepository"
+      ],
+      "forbiddenMarkers": [
+        "StatelessWidget",
+        "StatefulWidget"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/planned_maintenance_provider.local.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the planned_maintenance offline repository adapter only.",
+      "responsibilities": [
+        "authority",
+        "local-persistence",
+        "repository-implementation",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Receives already-admitted repository calls; actor evidence is persisted or compared but this adapter does not grant roles.",
+      "persistenceOwnership": "Isar access is confined to this local adapter; no Firestore client is permitted.",
+      "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
+      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 1170,
+      "requiredMarkers": [
+        "part of '"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "class Firestore"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/planned_maintenance_provider.remote.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the planned_maintenance Firestore repository adapter only.",
+      "responsibilities": [
+        "authority",
+        "remote-persistence",
+        "repository-implementation",
+        "serialization",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Consumes authenticated repository calls and preserves server/Rules authority; it does not derive approval from payload data.",
+      "persistenceOwnership": "Firestore access is confined to this remote adapter; no Isar transaction is permitted.",
+      "transactionOwnership": "This adapter owns only the feature Firestore batches, transactions, and remote replay operations.",
+      "rationale": "Extracted from the former mixed provider so remote transport and mapping cannot silently reacquire offline-store ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 723,
+      "requiredMarkers": [
+        "part of '"
+      ],
+      "forbiddenMarkers": [
+        "writeTxn(",
+        "class Isar"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/template_governance_provider.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Defines the planned_maintenance repository contract, shared mapping, and Riverpod selection/wiring.",
+      "responsibilities": [
+        "authority",
+        "provider-wiring",
+        "remote-persistence",
+        "repository-contract",
+        "serialization",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Chooses admitted repository implementations and role-scoped streams but performs no local or remote transaction.",
+      "persistenceOwnership": "Persistence implementations are delegated to named local and remote library parts.",
+      "transactionOwnership": "No transaction is owned here; local and remote adapters retain their respective transaction semantics.",
+      "rationale": "The mixed implementation body was decomposed while the public contract and provider identities remain stable for callers.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 662,
+      "requiredMarkers": [
+        "part '",
+        "abstract class"
+      ],
+      "forbiddenMarkers": [
+        "class Isar",
+        "class Firestore"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/template_governance_provider.local.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the planned_maintenance offline repository adapter only.",
+      "responsibilities": [
+        "authority",
+        "local-persistence",
+        "repository-implementation",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Receives already-admitted repository calls; actor evidence is persisted or compared but this adapter does not grant roles.",
+      "persistenceOwnership": "Isar access is confined to this local adapter; no Firestore client is permitted.",
+      "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
+      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 1114,
+      "requiredMarkers": [
+        "part of '"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "class Firestore"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/template_governance_provider.remote.dart",
+      "disposition": "decomposed",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the planned_maintenance Firestore repository adapter only.",
+      "responsibilities": [
+        "authority",
+        "remote-persistence",
+        "repository-implementation",
+        "serialization",
+        "transaction-ownership"
+      ],
+      "authorityBoundary": "Consumes authenticated repository calls and preserves server/Rules authority; it does not derive approval from payload data.",
+      "persistenceOwnership": "Firestore access is confined to this remote adapter; no Isar transaction is permitted.",
+      "transactionOwnership": "This adapter owns only the feature Firestore batches, transactions, and remote replay operations.",
+      "rationale": "Extracted from the former mixed provider so remote transport and mapping cannot silently reacquire offline-store ownership.",
+      "regressionTests": [
+        "test/maintenance_lifecycle_replay_contract_test.dart"
+      ],
+      "maximumLines": 934,
+      "requiredMarkers": [
+        "part of '"
+      ],
+      "forbiddenMarkers": [
+        "writeTxn(",
+        "class Isar"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/reports/presentation/fleet_status_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / reports",
+      "purpose": "Owns the fleet status screen user workflow and its tightly coupled loading, error, empty, and interaction states.",
+      "responsibilities": [
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Role and command admission is obtained from approved-user and feature providers before privileged actions; the screen does not own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; repositories, command services, or read providers own data access.",
+      "transactionOwnership": "No cross-source or database transaction is owned by this presentation surface.",
+      "rationale": "The file represents one cohesive operational screen or companion section whose state and widgets share one lifecycle; extraction beyond existing parts would split invariant UI state without reducing authority or persistence ownership.",
+      "regressionTests": [
+        "test/operations_report_test.dart"
+      ],
+      "maximumLines": 1352,
+      "requiredMarkers": [
+        "class FleetStatusScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    }
+  ]
+}

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 void main() {
   group('70A TemplateVersion publish lifecycle replay contract', () {
     test('sync path attempts replay before standard batch push', () {
@@ -458,7 +460,7 @@ const _rulePaths = <String>[
   'Other root files/firestore.rules',
 ];
 
-String _read(String path) => File(path).readAsStringSync();
+String _read(String path) => readDartLibrarySource(path);
 
 String _readFirstExisting(List<String> paths) {
   for (final path in paths) {

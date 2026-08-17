@@ -2654,7 +2654,14 @@ identity_repair = text(
 startup = text("lib/main.dart")
 workflow_panel = text("lib/features/maintenance_workflow/presentation/widgets/planned_job_workflow_panel.dart")
 compliance_dialog = text("lib/features/maintenance_workflow/presentation/widgets/raise_compliance_dialog.dart")
-module_provider = text("lib/features/planned_maintenance/providers/job_module_provider.dart")
+module_provider = "\n".join(
+    text(path)
+    for path in (
+        "lib/features/planned_maintenance/providers/job_module_provider.dart",
+        "lib/features/planned_maintenance/providers/job_module_provider.local.dart",
+        "lib/features/planned_maintenance/providers/job_module_provider.remote.dart",
+    )
+)
 retry_test = text("test/maintenance_workflow/workflow_retry_policy_test.dart")
 red_gate_test = text("test/maintenance_workflow/red_exit_gate_test.dart")
 complete_screen = text("lib/features/planned_maintenance/presentation/complete_job_screen.dart")
@@ -7928,8 +7935,13 @@ a05_auth_provider = text("lib/features/auth/providers/auth_provider.dart")
 a05_maintenance_model = text(
     "lib/features/maintenance/data/maintenance_model.dart"
 )
-a05_maintenance_provider = text(
-    "lib/features/maintenance/providers/maintenance_provider.dart"
+a05_maintenance_provider = "\n".join(
+    text(path)
+    for path in (
+        "lib/features/maintenance/providers/maintenance_provider.dart",
+        "lib/features/maintenance/providers/maintenance_provider.local.dart",
+        "lib/features/maintenance/providers/maintenance_provider.remote.dart",
+    )
 )
 a05_resolve_form = text(
     "lib/features/maintenance/presentation/resolve_form.dart"
@@ -8020,20 +8032,6 @@ a05_decision_4 = text(
 a05_tombstone_guard = text(
     "lib/core/services/remote_tombstone_apply_result.dart"
 )
-a05_tombstone_models = "\n".join(
-    text(path)
-    for path in (
-        "lib/core/services/live_remote_sync_service.dart",
-        "lib/features/abnormalities/data/abnormality_model.dart",
-        "lib/features/directives/providers/operational_directive_provider.dart",
-        "lib/features/maintenance/providers/maintenance_provider.dart",
-        "lib/features/planned_maintenance/data/job_diary_model.dart",
-        "lib/features/planned_maintenance/data/job_module_model.dart",
-        "lib/features/planned_maintenance/data/job_template_model.dart",
-        "lib/features/planned_maintenance/data/template_governance_model.dart",
-        "lib/features/planned_maintenance/data/remote_template_governance_reader.dart",
-    )
-)
 a05_tombstone_provider_paths = (
     "lib/features/abnormalities/providers/abnormality_provider.dart",
     "lib/features/directives/providers/operational_directive_provider.dart",
@@ -8043,9 +8041,31 @@ a05_tombstone_provider_paths = (
     "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",
     "lib/features/planned_maintenance/providers/template_governance_provider.dart",
 )
-a05_tombstone_providers = "\n".join(
-    text(path) for path in a05_tombstone_provider_paths
+a05_tombstone_provider_sources = {
+    path: "\n".join(
+        text(part_path)
+        for part_path in (
+            path,
+            path.removesuffix(".dart") + ".local.dart",
+            path.removesuffix(".dart") + ".remote.dart",
+        )
+    )
+    for path in a05_tombstone_provider_paths
+}
+a05_tombstone_providers = "\n".join(a05_tombstone_provider_sources.values())
+a05_tombstone_models = "\n".join(
+    text(path)
+    for path in (
+        "lib/core/services/live_remote_sync_service.dart",
+        "lib/features/abnormalities/data/abnormality_model.dart",
+        "lib/features/planned_maintenance/data/job_diary_model.dart",
+        "lib/features/planned_maintenance/data/job_module_model.dart",
+        "lib/features/planned_maintenance/data/job_template_model.dart",
+        "lib/features/planned_maintenance/data/template_governance_model.dart",
+        "lib/features/planned_maintenance/data/remote_template_governance_reader.dart",
+    )
 )
+a05_tombstone_models = f"{a05_tombstone_models}\n{a05_tombstone_providers}"
 a05_tombstone_test = text("test/a05_remote_tombstone_integrity_test.dart")
 a05_tombstone_conflict_test = text(
     "test/issue_1_tombstone_conflict_regression_test.dart"
@@ -8131,8 +8151,13 @@ a05_decision_10 = text(
 a05_directive_reader = text(
     "lib/features/directives/data/remote_operational_directive_reader.dart"
 )
-a05_directive_provider = text(
-    "lib/features/directives/providers/operational_directive_provider.dart"
+a05_directive_provider = "\n".join(
+    text(path)
+    for path in (
+        "lib/features/directives/providers/operational_directive_provider.dart",
+        "lib/features/directives/providers/operational_directive_provider.local.dart",
+        "lib/features/directives/providers/operational_directive_provider.remote.dart",
+    )
 )
 a05_directive_test = text(
     "test/a05_operational_directive_integrity_test.dart"
@@ -8146,8 +8171,13 @@ a05_abnormality_model = text(
 a05_abnormality_reader = text(
     "lib/features/abnormalities/data/remote_abnormality_reader.dart"
 )
-a05_abnormality_provider = text(
-    "lib/features/abnormalities/providers/abnormality_provider.dart"
+a05_abnormality_provider = "\n".join(
+    text(path)
+    for path in (
+        "lib/features/abnormalities/providers/abnormality_provider.dart",
+        "lib/features/abnormalities/providers/abnormality_provider.local.dart",
+        "lib/features/abnormalities/providers/abnormality_provider.remote.dart",
+    )
 )
 a05_abnormality_test = text("test/a05_abnormality_integrity_test.dart")
 a05_decision_12 = text(
@@ -8281,6 +8311,16 @@ try:
     )
 except json.JSONDecodeError:
     a05_decoder_inventory_report = {}
+a02_inventory_process = subprocess.run(
+    [sys.executable, str(ROOT / "tools/v4/a02_architecture_inventory.py")],
+    cwd=ROOT,
+    capture_output=True,
+    text=True,
+)
+try:
+    a02_inventory_report = json.loads(a02_inventory_process.stdout)
+except json.JSONDecodeError:
+    a02_inventory_report = {}
 a02_a05_exit_decision = text(
     "docs/v4_2_r1/A02_A05_ARCHITECTURE_EXIT_CRITERIA.md"
 )
@@ -8413,6 +8453,18 @@ check(
         in a02_a05_exit_decision
     and "governed read-only inventory" in a02_a05_exit_decision
     and "finding status. Closure still requires" in a02_a05_exit_decision,
+)
+check(
+    "A-02 responsibility hotspots are completely classified and source-enforced",
+    a02_inventory_process.returncode == 0
+    and a02_inventory_report.get("result") == "PASS"
+    and a02_inventory_report.get("findingId") == "A-02"
+    and a02_inventory_report.get("hotspotCount", 0) > 0
+    and a02_inventory_report.get("failures") == []
+    and "three explicit units"
+        in text("docs/v4_2_r1/A02_ARCHITECTURE_RESPONSIBILITY_REMEDIATION.md")
+    and "separate evidence-bound ledger adjudication"
+        in text("docs/v4_2_r1/A02_ARCHITECTURE_RESPONSIBILITY_REMEDIATION.md"),
 )
 check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
@@ -8941,8 +8993,8 @@ check(
     and "DateTime requireRemoteTombstoneDeletedAt(" in a05_tombstone_guard
     and a05_tombstone_models.count("requireRemoteTombstoneDeletedAt(") >= 11
     and all(
-        "requireRemoteTombstoneDeletedAt(" in text(path)
-        for path in a05_tombstone_provider_paths
+        "requireRemoteTombstoneDeletedAt(" in source
+        for source in a05_tombstone_provider_sources.values()
     )
     and "remote.deletedAt ??" not in a05_tombstone_providers
     and "function targetTombstoneHasDeletionAuthority()" in rules_source

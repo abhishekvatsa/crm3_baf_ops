@@ -14,6 +14,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 void main() {
   group('A-05 maintenance and audit integrity', () {
     test(
@@ -437,10 +439,9 @@ void main() {
     });
 
     test('source paths reject silent replacement and surface the UI state', () {
-      final maintenanceProvider =
-          File(
-            'lib/features/maintenance/providers/maintenance_provider.dart',
-          ).readAsStringSync();
+      final maintenanceProvider = readDartLibrarySource(
+        'lib/features/maintenance/providers/maintenance_provider.dart',
+      );
       final auditRepository =
           File(
             'lib/features/audit/repositories/audit_repository.dart',

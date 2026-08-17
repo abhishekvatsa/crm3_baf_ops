@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 void main() {
   group('69A global pull service decomposition contract', () {
     test('global pull service remains the single coordinator-facing shell', () {
@@ -299,7 +301,7 @@ void sample(String id, {String? reason}) {
       final pullSource = _read(
         'lib/core/services/global_pull_service.template_governance.dart',
       );
-      final repositorySource = _read(
+      final repositorySource = readDartLibrarySource(
         'lib/features/planned_maintenance/providers/'
         'template_governance_provider.dart',
       );

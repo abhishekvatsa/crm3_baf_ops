@@ -7,6 +7,8 @@ import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider
     show PaginatedMaintenanceResult;
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 void main() {
   group('A-05 remote maintenance timestamp integrity', () {
     test('accepts only the governed timestamp representations', () {
@@ -138,10 +140,9 @@ void main() {
           File(
             'lib/features/maintenance/data/remote_maintenance_reader.dart',
           ).readAsStringSync();
-      final maintenanceProvider =
-          File(
-            'lib/features/maintenance/providers/maintenance_provider.dart',
-          ).readAsStringSync();
+      final maintenanceProvider = readDartLibrarySource(
+        'lib/features/maintenance/providers/maintenance_provider.dart',
+      );
       final liveRemoteSync =
           File(
             'lib/core/services/live_remote_sync_service.dart',

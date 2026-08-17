@@ -5,6 +5,8 @@ import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/template_governance_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../tools/testing/dart_library_source.dart';
+
 const _contentHash =
     'tg2-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
@@ -375,10 +377,9 @@ void main() {
         File(
           'lib/features/planned_maintenance/data/remote_template_governance_reader.dart',
         ).readAsStringSync();
-    final provider =
-        File(
-          'lib/features/planned_maintenance/providers/template_governance_provider.dart',
-        ).readAsStringSync();
+    final provider = readDartLibrarySource(
+      'lib/features/planned_maintenance/providers/template_governance_provider.dart',
+    );
 
     expect(model, contains('readRemoteTemplatePackage('));
     expect(model, contains('readRemoteTemplateVersion('));

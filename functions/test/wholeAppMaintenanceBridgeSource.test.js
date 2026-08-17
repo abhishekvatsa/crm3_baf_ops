@@ -4,6 +4,14 @@ const path = require('path');
 const root = path.resolve(__dirname, '..', '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 
+function readDartLibrary(relative) {
+  const source = read(relative);
+  const directory = path.dirname(relative);
+  const parts = [...source.matchAll(/^\s*part\s+['"]([^'"]+)['"];\s*$/gm)]
+    .map((match) => read(path.join(directory, match[1])));
+  return [source, ...parts].join('\n');
+}
+
 const workflowFields = [
   'workflowDeferred',
   'workflowQueueState',
@@ -38,7 +46,9 @@ describe('whole-app maintenance workflow bridge source contract', () => {
   test('all server-owned workflow fields exist in model, both pull paths, and Rules', () => {
     const model = read('lib/features/maintenance/data/maintenance_model.dart');
     const livePull = read('lib/core/services/live_remote_sync_service.dart');
-    const repository = read('lib/features/maintenance/providers/maintenance_provider.dart');
+    const repository = readDartLibrary(
+      'lib/features/maintenance/providers/maintenance_provider.dart',
+    );
     const rules = read('firestore.rules');
     for (const field of workflowFields) {
       expect(model).toContain(field);
@@ -59,7 +69,9 @@ describe('whole-app maintenance workflow bridge source contract', () => {
   });
 
   test('original maintenance actions are blocked locally and by Rules while deferred', () => {
-    const provider = read('lib/features/maintenance/providers/maintenance_provider.dart');
+    const provider = readDartLibrary(
+      'lib/features/maintenance/providers/maintenance_provider.dart',
+    );
     const resolve = read('lib/features/maintenance/presentation/resolve_form.dart');
     const closed = read('lib/features/maintenance/presentation/closed_tickets_screen.dart');
     const ticket = read('lib/features/maintenance/presentation/ticket_screen.dart');
