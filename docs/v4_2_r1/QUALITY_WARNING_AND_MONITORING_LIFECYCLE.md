@@ -30,19 +30,23 @@ record. A partial current field set fails closed. Opaque pre-feature local
 metadata remains readable only when it does not claim to contain a current
 `qualityIntent` envelope.
 
-A suspected issue and its warning are written in the same Firestore batch. A
-charge abnormality always requires a paired warning in the same way. Warning
-IDs are deterministic:
+A suspected issue and its warning are written atomically by the governed
+maintenance command, together with its audit and idempotency evidence. Direct
+client creation of both the issue and its issue-originated warning is denied.
+A charge abnormality still requires a paired warning in the same client batch.
+Warning IDs are deterministic:
 
 - `issue_<maintenance-record-id>`; and
 - `abnormality_<charge-abnormality-id>`.
 
-Rules verify the warning against its source identity, version, charge,
-summary, severity, reason, asset/component projection, timestamp and actor.
-A missing warning blocks the source mutation. A pre-existing warning satisfies
-the pairing requirement only when its original projection still matches the
-source. Historical remediation must therefore use a governed backfill; another
-client actor cannot manufacture or replace source evidence.
+The governed maintenance command validates and constructs the complete issue
+projection. Rules verify an abnormality warning against its source identity,
+version, charge, summary, severity, reason, asset/component projection,
+timestamp and actor. A missing abnormality warning blocks the source mutation.
+A pre-existing warning satisfies the pairing requirement only when its
+original projection still matches the source. Historical remediation must
+therefore use a governed backfill; another client actor cannot manufacture or
+replace source evidence.
 
 Repository batches are limited to 250 source records because each record can
 require a second warning write. This preserves each source/warning pair within
@@ -60,9 +64,10 @@ separated as follows:
 | Close or reopen warning | No | No | Yes | Yes |
 | Create or close monitoring request | No | No | Yes | Yes |
 
-Client Rules permit only a valid source-bound warning create and an exact
-no-op retry. Warning lifecycle changes, monitoring changes, receipts and
-server audit events are committed only by the governed callable.
+Client Rules permit only a valid abnormality-bound warning create and an exact
+no-op retry. Issue-originated warning creation, warning lifecycle changes,
+monitoring changes, receipts and server audit events are committed only by the
+governed backend.
 
 The quality operation is carried over the existing secured
 `mutateChargeAbnormality` callable surface. The callable performs authority

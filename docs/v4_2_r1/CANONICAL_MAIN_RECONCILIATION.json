@@ -465,9 +465,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "76B00BAB37A4873390DB273C2251264C74EBCCF03B411CFA161A5285D0B7DC0A",
+      "candidateSha256": "E29C7DD7D4DD35BE1BBE045CF1956755C9FF552A9D1DEA9D465644B0AB35CF2A",
       "canonicalBytes": 111981,
-      "candidateBytes": 175211,
+      "candidateBytes": 164964,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
