@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "BUILD11-ADMITTED-DEVICE-HEALTH-RECHECK-20260818",
+  "evidenceType": "build11-admitted-device-health-recheck",
+  "decision": "PASS_BUILD11_HEALTH_RECHECK_NO_SUCCESSOR_DEVICE_EVIDENCE",
+  "recordedAtUtc": "2026-08-17T19:10:46.6493056Z",
+  "operatorSourceContext": {
+    "branch": "main",
+    "commit": "007c7499c04871ad5cafbc17e2295478e565c967",
+    "tree": "b56cb9459d40262121800eb8c1b8e1fca18e23ef",
+    "qualification": "This is the repository state used to perform the recheck, not the source authority of the installed application."
+  },
+  "installedBuildAuthority": {
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "versionName": "1.0.0-rc.1",
+    "versionCode": 11,
+    "sourceCommit": "ca65d3deead23cccdf07ca24255bc073221d84db",
+    "installedApkSha256": "9D63F459B9BB8CC45671677C3DDB44745855A0D468F4858DAD5D4A6DC456E4DB",
+    "expectedApkSha256": "9D63F459B9BB8CC45671677C3DDB44745855A0D468F4858DAD5D4A6DC456E4DB",
+    "certificateSha256BoundByExactApk": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "finalizationReceipt": "release/evidence/build-11-finalization-closure.json",
+    "finalizationReceiptSha256": "59AE1BBDB9F9F4ACACF5B32342E2F1330A4915441726F44432D5CFBB50737DD3",
+    "exactApkMatch": true
+  },
+  "target": {
+    "kind": "physical-android",
+    "manufacturer": "samsung",
+    "model": "SM-G990E",
+    "androidVersion": "16",
+    "androidSdk": 36,
+    "privacySafeAdbSerialSha256": "D5BADBAE21E335B1E21A6A694445F3E7A454BFE5525650BFA9E1B1D637523E74",
+    "rawDeviceIdentifierRetained": false
+  },
+  "observations": {
+    "coldStart": {
+      "result": "PASS",
+      "androidReportedLaunchState": "COLD",
+      "androidReportedTotalTimeMs": 497,
+      "approvedRoleHomeRendered": true,
+      "startupCrashObserved": false,
+      "permissionDenialObserved": false,
+      "tokenRaceSymptomObserved": false
+    },
+    "preSyncDiagnostics": {
+      "unsyncedRows": 0,
+      "unresolvedRejections": 0,
+      "likelyPermanentRejections": 0,
+      "lastSyncResult": "success"
+    },
+    "manualSync": {
+      "result": "PASS",
+      "reason": "manual_home",
+      "completedAtDeviceLocal": "2026-08-18T00:34:50.844255",
+      "latestPushSucceededRows": 0,
+      "latestPushFailedRows": 0,
+      "latestPushConflicts": 0,
+      "postSyncUnsyncedRows": 0,
+      "postSyncUnresolvedRejections": 0,
+      "postSyncLikelyPermanentRejections": 0,
+      "fatalCrashObserved": false,
+      "permissionDenialObserved": false
+    }
+  },
+  "sourceFollowUp": {
+    "finding": "Build 11 labels latest pushed-row counts as success counts beside a session run count, which is technically accurate but operationally ambiguous.",
+    "correction": "Current successor source now distinguishes session runs, latest push row outcomes, and latest full-sync conflicts.",
+    "physicalDeviceValidationOfCorrection": false,
+    "reason": "The correction is successor source and must not be installed over sealed Build 11 without a separately numbered governed artifact."
+  },
+  "executionBoundary": {
+    "packageInstalledOrUpgraded": false,
+    "applicationDataCleared": false,
+    "applicationUninstalled": false,
+    "accountOrRoleChanged": false,
+    "offlineBusinessMutationPerformed": false,
+    "recoveryPackageCreated": false,
+    "rawBusinessPayloadRetained": false,
+    "rawDeviceIdentifierRetained": false,
+    "firebaseDeploymentPerformed": false,
+    "successorPhysicalDeviceEvidenceClaimed": false,
+    "programmeGateTransitionClaimed": false,
+    "build11AuthorityChanged": false
+  },
+  "qualification": "This receipt is a non-destructive health recheck of exact governed Build 11 on its admitted physical target. It does not validate successor features added after Build 11 and does not authorize a same-version overwrite, a new pilot artifact, or broader distribution."
+}

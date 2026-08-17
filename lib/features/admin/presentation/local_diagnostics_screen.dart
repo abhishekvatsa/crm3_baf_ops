@@ -496,7 +496,7 @@ class LocalDiagnosticsSupportSnapshot {
   }
 
   String get syncRunCounterSummary =>
-      '$syncRunCount runs · $syncSuccessCount success · $syncFailureCount failures · $syncConflictCount conflicts';
+      '$syncRunCount session runs · latest push: $syncSuccessCount succeeded · $syncFailureCount failed · latest full sync: $syncConflictCount conflicts';
 
   String get syncFailureDetailSummary =>
       '$syncFailureDetailCount captured${syncFailureDetailOverflowCount > 0 ? ', +$syncFailureDetailOverflowCount overflow' : ''}';
@@ -976,7 +976,7 @@ class _DiagnosticsSupportPanel extends StatelessWidget {
             value: snapshot.syncSkippedSummary,
           ),
           _DiagnosticsInfoRow(
-            label: 'Run / success / fail / conflict counts',
+            label: 'Session runs / latest sync outcomes',
             value: snapshot.syncRunCounterSummary,
           ),
           _DiagnosticsInfoRow(
