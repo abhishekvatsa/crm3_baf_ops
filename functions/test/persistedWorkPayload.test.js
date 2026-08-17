@@ -12,7 +12,6 @@ describe('persisted work payloads', () => {
         type: 'numericWithUnit',
         required: true,
         options: ['bar'],
-        futureExtension: {retained: true},
       },
     ]);
 
@@ -21,7 +20,7 @@ describe('persisted work payloads', () => {
     });
 
     expect(parsed.text).toBe(raw);
-    expect(parsed.rows[0].futureExtension).toEqual({retained: true});
+    expect(parsed.rows[0].fieldId).toBe('pressure');
   });
 
   test('accepts canonical and historical response aliases', () => {
@@ -31,14 +30,13 @@ describe('persisted work payloads', () => {
         label: 'Pressure',
         type: 'numericWithUnit',
         answer: 2.1,
-        futureExtension: ['retained'],
       },
     ]);
 
     const parsed = readFieldResponsePayload(raw, {field: 'responsesJson'});
 
     expect(parsed.text).toBe(raw);
-    expect(parsed.rows[0].futureExtension).toEqual(['retained']);
+    expect(parsed.rows[0].answer).toBe(2.1);
   });
 
   test.each([
@@ -51,6 +49,8 @@ describe('persisted work payloads', () => {
     ['unknown type', '[{"key":"pressure","type":"telepathy"}]'],
     ['wrong options', '[{"key":"pressure","options":[2]}]'],
     ['duplicate key', '[{"key":"pressure"},{"fieldId":"PRESSURE"}]'],
+    ['future schema', '[{"schemaVersion":2,"key":"pressure"}]'],
+    ['unknown extension', '[{"key":"pressure","futureAuthority":true}]'],
   ])('rejects field definitions with %s', (_label, raw) => {
     expect(() => readFieldDefinitionPayload(raw, {
       field: 'fieldDefinitionsJson',
@@ -65,6 +65,8 @@ describe('persisted work payloads', () => {
     ['missing value', '[{"key":"pressure"}]'],
     ['unknown type', '[{"key":"pressure","value":2.1,"fieldType":"telepathy"}]'],
     ['duplicate key', '[{"key":"pressure","value":1},{"fieldId":"PRESSURE","answer":2}]'],
+    ['future schema', '[{"schemaVersion":2,"key":"pressure","value":1}]'],
+    ['unknown extension', '[{"key":"pressure","value":1,"futureAuthority":true}]'],
   ])('rejects responses with %s', (_label, raw) => {
     expect(() => readFieldResponsePayload(raw, {field: 'responsesJson'}))
       .toThrow(/Invalid persisted work field/);

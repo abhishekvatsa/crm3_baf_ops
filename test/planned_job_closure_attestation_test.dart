@@ -108,7 +108,7 @@ void main() {
 
       expect(
         attestation.hash,
-        '1c19c2b037f2e3fa944b7765a6d8d7fbf6c692567987ee49ba899c3cc4f577ae',
+        '815359e2224faef4c3d6c7925053c0013d2b326cc57092025a4584ff9d98b4ee',
       );
       expect(
         attestation.canonicalJson,
@@ -118,7 +118,7 @@ void main() {
       final modules = attestation.payload['modules'] as List<dynamic>;
       expect(
         modules.single['snapshotHash'],
-        '81aab978a5a136d236a673297410c501484f5e6d5ec7b50020462ab783c0bc76',
+        '16181a9bf6da5e2399917925c29c6ab29d8631cc3efb310e8eab2a439d1e20b1',
       );
     });
 

@@ -14,14 +14,14 @@ const validAction = (overrides = {}) => ({
 });
 
 describe('persisted component-action payload', () => {
-  test('accepts canonical actions and retains extension fields verbatim', () => {
+  test('accepts canonical and schema-versioned actions', () => {
     const raw = JSON.stringify([
-      validAction({futureExtension: {retained: true}}),
+      validAction({schemaVersion: 1}),
     ]);
     const parsed = readComponentActionPayload(raw, {field: 'actionsJson'});
 
     expect(parsed.text).toBe(raw);
-    expect(parsed.rows[0].futureExtension).toEqual({retained: true});
+    expect(parsed.rows[0].schemaVersion).toBe(1);
   });
 
   test.each([
@@ -36,6 +36,13 @@ describe('persisted component-action payload', () => {
     ['invalid severity', JSON.stringify([validAction({severity: 'urgent'})])],
     ['invalid version', JSON.stringify([validAction({version: 0})])],
     ['coerced hierarchy', JSON.stringify([validAction({hierarchyPath: [3]})])],
+    ['future schema', JSON.stringify([validAction({schemaVersion: 2})])],
+    ['unknown extension', JSON.stringify([validAction({futureAuthority: true})])],
+    ['partial burner evidence', JSON.stringify([validAction({burnerPosition: 2})])],
+    ['empty metadata object text', JSON.stringify([validAction({metadataJson: ''})])],
+    ['conflicting action aliases', JSON.stringify([
+      validAction({action: 'replacement'}),
+    ])],
   ])('rejects %s', (_label, raw) => {
     expect(() => readComponentActionPayload(raw, {field: 'actionsJson'}))
       .toThrow(/Invalid persisted component-action field/);

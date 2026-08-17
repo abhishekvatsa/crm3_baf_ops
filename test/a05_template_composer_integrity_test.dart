@@ -38,7 +38,7 @@ Map<String, dynamic> _templateMap({
 
 void main() {
   group('A-05 JobTemplate field integrity', () {
-    test('canonical structured fields retain aliases and extensions', () {
+    test('canonical structured fields retain typed aliases and validation', () {
       final template = JobTemplate.fromMap(
         _templateMap(
           includeFields: true,
@@ -49,7 +49,6 @@ void main() {
               'fieldType': 'numericWithUnit',
               'required': true,
               'validation': <String, dynamic>{'minimum': 0},
-              'futureAuthority': <String, dynamic>{'retained': true},
             },
           ],
           includeFieldsJson: true,
@@ -64,14 +63,28 @@ void main() {
       expect(field.type, FieldType.number);
       expect(field.isRequired, isTrue);
       expect(field.validation, <String, dynamic>{'minimum': 0});
-      expect(field.extensions['futureAuthority'], <String, dynamic>{
-        'retained': true,
-      });
+      expect(field.extensions, isEmpty);
 
       final persisted = template.toMap()['fields'] as List<dynamic>;
+      expect((persisted.single as Map<String, dynamic>)['schemaVersion'], 1);
+    });
+
+    test('unregistered field extensions fail closed', () {
       expect(
-        (persisted.single as Map<String, dynamic>)['futureAuthority'],
-        <String, dynamic>{'retained': true},
+        () => JobTemplate.fromMap(
+          _templateMap(
+            includeFields: true,
+            fields: <Map<String, dynamic>>[
+              <String, dynamic>{
+                'key': 'pressure',
+                'type': 'number',
+                'futureAuthority': true,
+              },
+            ],
+          ),
+          'template-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
       );
     });
 

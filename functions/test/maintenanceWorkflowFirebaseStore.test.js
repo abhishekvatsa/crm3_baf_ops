@@ -137,7 +137,6 @@ describe('maintenance workflow Firestore persistence adapter', () => {
       createdAt: '2026-07-21T04:30:00.000Z',
       severity: 'medium',
       version: 1,
-      futureActionField: {retained: true},
     };
     const projection = maintenanceProjectionForCorrection({
       maintenance: {
@@ -164,8 +163,44 @@ describe('maintenance workflow Firestore persistence adapter', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0].futureHistoryField).toEqual({retained: true});
     expect(rows[1].resolvedAt).toBe('2026-07-21T05:00:00.000Z');
-    expect(JSON.parse(rows[1].actionsJson)[0].futureActionField).toEqual({
-      retained: true,
+    expect(JSON.parse(rows[1].actionsJson)[0]).toEqual(action);
+  });
+
+  test('workflow correction rejects unregistered action extensions', () => {
+    let caught;
+    try {
+      maintenanceProjectionForCorrection({
+        maintenance: {
+          version: 7,
+          isResolved: true,
+          endDate: new Date('2026-07-21T05:00:00.000Z'),
+          actionsJson: JSON.stringify([{
+            asset: 'furnace-1',
+            component: 'burner',
+            actionType: 'inspection',
+            isAutoResolved: false,
+            createdAt: '2026-07-21T04:30:00.000Z',
+            severity: 'medium',
+            version: 1,
+            futureActionField: {retained: true},
+          }]),
+          teamsInvolved: ['operations'],
+          resolutionHistoryJson: '[]',
+        },
+        reason: 'Further correction required',
+        actorUid: 'elec-1',
+        actorName: 'Electrical',
+        at: new Date('2026-07-21T05:15:00.000Z'),
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'maintenance-resolution-history-invalid',
+        field: expect.stringContaining('futureActionField'),
+      }),
     });
   });
 

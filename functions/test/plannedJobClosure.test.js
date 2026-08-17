@@ -54,6 +54,7 @@ describe('planned job server closure validation', () => {
       ]),
       responsesJson: JSON.stringify([
         {
+          schemaVersion: 1,
           key: 'vt_reading',
           fieldLabel: 'vt_reading',
           fieldType: 'text',
@@ -74,13 +75,13 @@ describe('planned job server closure validation', () => {
     });
 
     expect(attestation.hash).toBe(
-      '8a78dc8f9ce6c6bfc0a5d5eddf74f026efb68702aeff0b2608d72b08f7194296',
+      '40f61396ca52bc0b1c007209c2ca469301ebedb2877ffdc1bc12a6b91dc4cdea',
     );
     expect(attestation.canonicalJson).toContain(
       '"moduleKey":"firestore:module_gold_1"',
     );
     expect(attestation.payload.modules[0].snapshotHash).toBe(
-      '81aab978a5a136d236a673297410c501484f5e6d5ec7b50020462ab783c0bc76',
+      '16181a9bf6da5e2399917925c29c6ab29d8631cc3efb310e8eab2a439d1e20b1',
     );
   });
 

@@ -677,7 +677,7 @@ void main() {
     expect(_objects(a03Manifest['surfaces']), hasLength(44));
 
     final a04 = architecture['A-04']!;
-    expect(a04['currentStatus'], 'OPEN');
+    expect(a04['currentStatus'], 'SOURCE_IMPLEMENTED');
     expect(_objects(a04['evidence']), isEmpty);
     expect(_strings(a04['requiredExitEvidence']), hasLength(5));
     expect(_strings(a04['reArmTriggers']), hasLength(3));
@@ -686,8 +686,16 @@ void main() {
       _objects(
         a04['statusHistory'],
       ).map((entry) => entry['status']).toList(growable: false),
-      <String>['OPEN'],
+      <String>['OPEN', 'SOURCE_IMPLEMENTED'],
     );
+    final a04Manifest = _readJson('governance/a04-persisted-schema-v1.json');
+    expect(a04Manifest['findingId'], 'A-04');
+    expect(
+      a04Manifest['inventoryDigest'],
+      '27863AC2C3E366BD34BFAC9D092EA86AF269756BAD56C05C1974D78F843697C9',
+    );
+    expect(_objects(a04Manifest['fields']), hasLength(53));
+    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(54));
 
     final a05 = architecture['A-05']!;
     expect(a05['currentStatus'], 'CLOSED');

@@ -3249,7 +3249,7 @@
       "authorityType": "SOURCE_AND_CI",
       "transitionProfile": "SOURCE_AND_CI",
       "baselineCommit": "382fd2485fc629b5f28ae708ae87fb138888bc65",
-      "currentStatus": "OPEN",
+      "currentStatus": "SOURCE_IMPLEMENTED",
       "ownerClass": "Architecture",
       "pilotSeverity": "MEDIUM",
       "unrestrictedSeverity": "HIGH",
@@ -3270,13 +3270,21 @@
         "a decoder silently defaults, erases or stringifies malformed persisted structure"
       ],
       "notes": [
-        "Field-name and grep counts are not schema classifications. metadataJson and similarly named fields require field-specific evidence rather than blanket exemption. Criteria authoring does not change OPEN status."
+        "Field-name and grep counts are not schema classifications. metadataJson and similarly named fields require field-specific evidence rather than blanket exemption.",
+        "The source-implemented analyzer inventory classifies 53 persisted fields (47 JSON strings and six dynamic values), binds all 54 strict A-05 decoder surfaces, and fails on inventory or policy drift.",
+        "ComponentAction, TemplateField and FieldResponse now use nested schema version 1, strict documented legacy handling, bounded dynamic JSON and fail-closed registered extension bags. The current extension registry is empty.",
+        "Closure remains pending exact-head and admitted-main CI plus current-source read-only production and supported-local-generation reconciliation. No production data, Firebase, device, pilot or distribution authority changes in this tranche."
       ],
       "statusHistory": [
         {
           "status": "OPEN",
           "effectiveDate": "2026-07-13",
           "basis": "Deep Dart-by-Dart re-audit admitted as current technical authority"
+        },
+        {
+          "status": "SOURCE_IMPLEMENTED",
+          "effectiveDate": "2026-08-17",
+          "basis": "Exact AST inventory and policy classify all 53 persisted JSON/dynamic fields and inherit 54 strict decoder surfaces; nested payload versions, bounded JSON, registered extension rejection and compatibility regressions pass."
         }
       ]
     },
