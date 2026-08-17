@@ -256,6 +256,8 @@ if ($policy.signing.productionSigningApproved -ne $true -or
 if ([string]$policy.distribution.authority -ne
       'exact-build11-sealed-small-group-pilot' -or
     $policy.distribution.approved -ne $true -or
+    $policy.distribution.preservedHistoricalAuthority -ne $true -or
+    $policy.distribution.appliesToCurrentCandidate -ne $false -or
     [int]$policy.distribution.approvedBuildNumber -ne 11 -or
     [string]$policy.distribution.approvedPackageSha256 -ne
       '104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970' -or
@@ -302,10 +304,11 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
     $requiredFiles += [string]$failedAttempt.evidenceFile
   }
 } elseif ($finalizationStatus -eq 'pending-source-authorized') {
-  $requiredFiles += @(
+  $requiredFiles +=
     [string]$policy.finalization.priorCompletedBuild.completionReceiptFile
-    [string]$policy.finalization.priorFailedAttempt.evidenceFile
-  )
+  foreach ($failedAttempt in @($policy.finalization.historicalFailedAttempts)) {
+    $requiredFiles += [string]$failedAttempt.evidenceFile
+  }
 } else {
   throw 'Production policy finalization state is unsupported.'
 }
@@ -324,13 +327,19 @@ if ((Get-Sha256 $promotionReceiptPath) -ne
 }
 $promotionReceipt = Get-Content -LiteralPath $promotionReceiptPath -Raw |
   ConvertFrom-Json
+$promotionAuthorityBuild =
+  if ($finalizationStatus -eq 'pending-source-authorized') {
+    $policy.finalization.priorCompletedBuild
+  } else {
+    $policy.finalization
+  }
 if ([string]$policy.postBuildPromotion.status -ne
       'completed-controlled-pilot-only' -or
     [int]$policy.postBuildPromotion.buildNumber -ne 11 -or
     [string]$policy.postBuildPromotion.sourceCommit -ne
-      [string]$policy.finalization.sourceCommit -or
+      [string]$promotionAuthorityBuild.sourceCommit -or
     [string]$policy.postBuildPromotion.governedPackageSha256 -ne
-      [string]$policy.finalization.governedPackageSha256 -or
+      [string]$promotionAuthorityBuild.governedPackageSha256 -or
     $policy.postBuildPromotion.controlledPilotApproved -ne $true -or
     $policy.postBuildPromotion.pilotHandoutPerformed -ne $false -or
     $policy.postBuildPromotion.publicArtifactApproved -ne $false -or
@@ -348,7 +357,7 @@ if ([string]$policy.postBuildPromotion.status -ne
       'PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED' -or
     [int]$promotionReceipt.promotion.authorizedBuildNumber -ne 11 -or
     [string]$promotionReceipt.promotion.authorizedPackageSha256 -ne
-      [string]$policy.finalization.governedPackageSha256 -or
+      [string]$promotionAuthorityBuild.governedPackageSha256 -or
     $promotionReceipt.promotion.pilotHandoutAuthorized -ne $true -or
     $promotionReceipt.promotion.pilotHandoutPerformedByThisRecord -ne $false -or
     $promotionReceipt.promotion.publicArtifactAuthorized -ne $false -or
@@ -382,6 +391,7 @@ foreach ($requiredFinalizerControl in @(
   '$approvedRequiredReviewerReviews.Count -lt 1'
   'environmentApprovalReference'
   'environmentAuthorityMergeCommit'
+  'successorFreezeBaselineCommit'
   'github-environment-secrets.json'
   'environmentSecretValuesInspected = $false'
   'Authorized dispatcher ID:'
@@ -635,6 +645,7 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
     $versionSource.controls.
       firestoreValueNormalizationRemediationRequired -ne $true -or
     $versionSource.controls.integratedSuccessorRequired -ne $true -or
+    $versionSource.controls.successorFreezeRequired -ne $true -or
     $versionSource.controls.startupRemediationRequired -ne $true -or
     $versionSource.controls.crashlyticsGradlePluginRequired -ne $true -or
     $versionSource.controls.compiledCrashlyticsMappingIdRequired -ne $true -or
@@ -694,24 +705,30 @@ if ((Get-Sha256 $policy.versionPolicy.sourceDocumentFile) -ne
       $ExpectedEnvironmentAuthorityTree -or
     $versionSource.requiredSource.
       environmentAuthorityMustBeAncestorOfDispatchCommit -ne $true -or
+    [string]$versionSource.requiredSource.successorFreezeBaselineCommit -notmatch
+      '^[0-9a-f]{40}$' -or
+    [string]$versionSource.requiredSource.successorFreezeBaselineTree -notmatch
+      '^[0-9a-f]{40}$' -or
+    $versionSource.requiredSource.
+      successorFreezeMustBeAncestorOfDispatchCommit -ne $true -or
+    [string]$environmentApproval.controls.requiredSuccessorFreezeCommit -ne
+      [string]$versionSource.requiredSource.successorFreezeBaselineCommit -or
+    [int64]$versionSource.requiredSource.
+      successorFreezePostMergeGithubRunId -le 0 -or
+    [string]$versionSource.requiredSource.
+      successorFreezePostMergeGithubRunConclusion -ne 'success' -or
+    [int64]$versionSource.requiredSource.
+      successorFreezeCanonicalAuditPassCount -lt 144 -or
     $versionSource.requiredSource.crashlyticsGradlePluginRequired -ne
       $true -or
     $versionSource.requiredSource.compiledCrashlyticsMappingIdRequired -ne
       $true -or
     $versionSource.requiredSource.exactReleaseApkColdStartCiRequired -ne
       $true -or
-    [string]$versionSource.requiredSource.build9FinalizationReceiptFile -ne
+    [string]$versionSource.requiredSource.build11FinalizationReceiptFile -ne
       [string]$versionSource.preservedCompletedBuild.completionReceiptFile -or
-    [string]$versionSource.requiredSource.build9FinalizationReceiptSha256 -ne
+    [string]$versionSource.requiredSource.build11FinalizationReceiptSha256 -ne
       [string]$versionSource.preservedCompletedBuild.completionReceiptSha256 -or
-    [string]$versionSource.requiredSource.build10FinalizationEvidenceFile -ne
-      [string]$versionSource.consumedBuild.finalizationEvidenceFile -or
-    [string]$versionSource.requiredSource.build10FinalizationEvidenceSha256 -ne
-      [string]$versionSource.consumedBuild.finalizationEvidenceSha256 -or
-    [int64]$versionSource.requiredSource.postMergeGithubRunId -ne
-      $ExpectedEnvironmentAuthorityPostMergeRunId -or
-    [string]$versionSource.requiredSource.postMergeGithubRunConclusion -ne
-      'success' -or
     $versionSource.distributionApproved -ne $false -or
     $versionSource.unrestrictedPlantReleaseApproved -ne $false) {
   throw 'Governed build-number rollover authority is incomplete.'
@@ -752,6 +769,22 @@ git merge-base --is-ancestor `
   HEAD
 if ($LASTEXITCODE -ne 0) {
   throw 'Dispatch source does not contain the approved environment authority baseline.'
+}
+git merge-base --is-ancestor `
+  ([string]$versionSource.requiredSource.successorFreezeBaselineCommit) `
+  HEAD
+if ($LASTEXITCODE -ne 0) {
+  throw 'Dispatch source does not contain the approved successor freeze baseline.'
+}
+$successorFreezeTree = @(
+  git show -s --format='%T' `
+    ([string]$versionSource.requiredSource.successorFreezeBaselineCommit)
+)
+if ($LASTEXITCODE -ne 0 -or $successorFreezeTree.Count -ne 1 -or
+    $successorFreezeTree[0].Trim().ToLowerInvariant() -ne
+      ([string]$versionSource.requiredSource.successorFreezeBaselineTree).
+        ToLowerInvariant()) {
+  throw 'Approved successor freeze commit/tree binding differs from Git.'
 }
 
 $completionReceiptPath = $null
@@ -843,10 +876,36 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
 } else {
   $prior = $policy.finalization.priorCompletedBuild
   $preserved = $versionSource.preservedCompletedBuild
-  $failed = $policy.finalization.priorFailedAttempt
   $consumed = $versionSource.consumedBuild
-  if ([int64]$prior.buildNumber -ne
+  $successfulPredecessor =
+    $consumed.closureFinalizationCompleted -eq $true -and
+    $consumed.dualCustodyCompleted -eq $true -and
+    $consumed.remoteBuiltTagCreated -eq $true
+  $predecessorBoundaryInvalid = $false
+  if ($successfulPredecessor) {
+    $predecessorBoundaryInvalid =
+      [int64]$prior.buildNumber -ne
         [int64]$preserved.buildNumber -or
+      [int64]$prior.buildNumber -ne [int64]$consumed.buildNumber -or
+      [string]$prior.completionReceiptFile -ne
+        [string]$preserved.completionReceiptFile -or
+      [string]$prior.completionReceiptFile -ne
+        [string]$consumed.completionReceiptFile -or
+      [string]$prior.completionReceiptSha256 -ne
+        [string]$preserved.completionReceiptSha256 -or
+      [string]$prior.completionReceiptSha256 -ne
+        [string]$consumed.completionReceiptSha256 -or
+      (Get-Sha256 $prior.completionReceiptFile) -ne
+        ([string]$prior.completionReceiptSha256).ToUpperInvariant() -or
+      [string]$prior.sourceCommit -ne
+        [string]$consumed.remoteBuiltCommit -or
+      [int64]$prior.githubRunId -ne [int64]$consumed.githubRunId -or
+      [string]$prior.governedPackageSha256 -ne
+        [string]$consumed.governedPackageSha256
+  } else {
+    $failed = $policy.finalization.priorFailedAttempt
+    $predecessorBoundaryInvalid =
+      [int64]$prior.buildNumber -ne [int64]$preserved.buildNumber -or
       [string]$prior.completionReceiptFile -ne
         [string]$preserved.completionReceiptFile -or
       [string]$prior.completionReceiptSha256 -ne
@@ -870,12 +929,14 @@ if ($finalizationStatus -eq 'completed-non-distributable') {
         [string]$consumed.governedPackageSha256 -or
       $failed.independentVerificationCompleted -ne $true -or
       $failed.dualCustodyCompleted -ne $false -or
-      $failed.distributionPerformed -ne $false -or
+      $failed.distributionPerformed -ne $false
+  }
+  if ($predecessorBoundaryInvalid -or
       $policy.finalization.dualCustodyCompleted -ne $false -or
       $policy.finalization.firebaseBackendDeploymentPerformed -ne $false -or
       $policy.finalization.controlledPilotApproved -ne $false -or
       $policy.finalization.unrestrictedPlantReleaseApproved -ne $false) {
-    throw 'Pending finalization does not preserve completed and failed build boundaries.'
+    throw 'Pending finalization does not preserve its completed predecessor boundary.'
   }
 }
 
@@ -940,9 +1001,12 @@ foreach ($pin in @($actionPins.actions.PSObject.Properties)) {
 $ledger = Get-Content -LiteralPath $policy.versionPolicy.ledgerFile -Raw |
   ConvertFrom-Json
 $historicalFailedAttempts = @($policy.finalization.historicalFailedAttempts)
-if ($finalizationStatus -eq 'completed-non-distributable') {
+if ($finalizationStatus -in @(
+    'completed-non-distributable'
+    'pending-source-authorized'
+  )) {
   if ($historicalFailedAttempts.Count -lt 1) {
-    throw 'Completed finalization omits historical failed-attempt authority.'
+    throw 'Production policy omits historical failed-attempt authority.'
   }
   foreach ($failed in $historicalFailedAttempts) {
     $failedLedgerMatches = @(

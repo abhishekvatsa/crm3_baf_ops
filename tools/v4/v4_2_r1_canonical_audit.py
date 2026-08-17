@@ -3340,6 +3340,21 @@ build11_environment_approval = data(
     "release/approvals/"
     "public-repository-environment-reviewer-approval-build-11.json"
 )
+build12_approval_path = (
+    ROOT / "release/approvals/build-number-12-successor-approval.json"
+)
+build12_environment_approval_path = (
+    ROOT
+    / "release/approvals/"
+    / "public-repository-environment-reviewer-approval-build-12.json"
+)
+build12_approval = data(
+    "release/approvals/build-number-12-successor-approval.json"
+)
+build12_environment_approval = data(
+    "release/approvals/"
+    "public-repository-environment-reviewer-approval-build-12.json"
+)
 build10_finalization_block_path = (
     ROOT / "release/evidence/build-10-finalization-block.json"
 )
@@ -3501,8 +3516,14 @@ build11_entries = [
     if entry.get("buildNumber") == 11
 ]
 build11_entry = build11_entries[0] if len(build11_entries) == 1 else {}
+build12_entries = [
+    entry
+    for entry in build_number_ledger.get("entries", [])
+    if entry.get("buildNumber") == 12
+]
+build12_entry = build12_entries[0] if len(build12_entries) == 1 else {}
 check(
-    "Builds 6 through 9 are preserved, Build 10 is blocked, and Build 11 is finalized",
+    "Builds 6-11 are preserved and Build 12 is source-reserved",
     sha(build6_approval_path)
         == "3BEF74A8976E2D01F04E49F38DB4D59EAC05C68EC2C44D603BCBF014A6542141"
     and sha(build6_exception_path)
@@ -3695,28 +3716,14 @@ check(
         "environmentReviewControl", {}
     ).get("adminBypassAllowed")
         is False
-    and version_policy_approval.get("reference") == "BAF-REF-003-C10"
-    and version_policy_approval.get("buildNumber") == 11
-    and combined_policy.get("release", {}).get("buildNumber") == 11
+    and version_policy_approval.get("reference") == "BAF-REF-003-C11"
+    and version_policy_approval.get("buildNumber") == 12
+    and version_policy_approval.get("versionName") == "1.0.0-rc.2"
+    and combined_policy.get("release", {}).get("buildNumber") == 12
+    and combined_policy.get("release", {}).get("versionName") == "1.0.0-rc.2"
     and combined_policy.get("finalization", {}).get("status")
-        == "completed-non-distributable"
+        == "pending-source-authorized"
     and sha(build11_completion_path)
-        == combined_policy.get("finalization", {}).get(
-            "completionReceiptSha256"
-        )
-    and combined_policy.get("finalization", {}).get("sourceCommit")
-        == "ca65d3deead23cccdf07ca24255bc073221d84db"
-    and combined_policy.get("finalization", {}).get("githubRunId")
-        == 31552161470
-    and combined_policy.get("finalization", {}).get(
-        "governedPackageSha256"
-    )
-        == "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970"
-    and combined_policy.get("finalization", {}).get("dualCustodyCompleted")
-        is True
-    and combined_policy.get("finalization", {}).get("runtimeValidationPassed")
-        is True
-    and sha(build9_completion_path)
         == combined_policy.get("finalization", {}).get(
             "priorCompletedBuild", {}
         ).get(
@@ -3724,24 +3731,32 @@ check(
         )
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
+    ).get("buildNumber") == 11
+    and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get("status") == "completed-non-distributable"
+    and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
     ).get("sourceCommit")
-        == "f51749c3f0200a5a03b065f0644d7759c747de7f"
+        == "ca65d3deead23cccdf07ca24255bc073221d84db"
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
     ).get("githubRunId")
-        == 31528293704
+        == 31552161470
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
-    ).get(
-        "governedPackageSha256"
-    )
-        == "4D1EA1781FBAB0E047A1605644E329712E717B66A594147D55095DF21DF9960E"
+    ).get("governedPackageSha256")
+        == "104D5ADA33244CCC9090C31A72FBF167F4D69699C93EDD75FA3F6AAB6D99D970"
     and combined_policy.get("finalization", {}).get(
         "priorCompletedBuild", {}
-    ).get(
-        "dualCustodyCompleted"
-    )
+    ).get("dualCustodyCompleted")
         is True
+    and combined_policy.get("finalization", {}).get(
+        "priorCompletedBuild", {}
+    ).get("runtimeValidationPassed")
+        is True
+    and combined_policy.get("finalization", {}).get("dualCustodyCompleted")
+        is False
     and len(combined_policy.get("finalization", {}).get(
         "historicalFailedAttempts", []
     )) == 1
@@ -4174,10 +4189,6 @@ check(
     ) is False
     and sha(build11_approval_path)
         == "9AC12BEF69FB8DB48ED974F557CB25A93B35010487782DBBA627F34D2E397DEE"
-    and sha(build11_approval_path)
-        == combined_policy.get("versionPolicy", {}).get(
-            "sourceDocumentSha256"
-        )
     and build11_approval.get("approvalReference") == "BAF-REF-003-C10"
     and build11_approval.get("consumedBuild", {}).get("buildNumber") == 10
     and build11_approval.get("nextBuild", {}).get("buildNumber") == 11
@@ -4198,10 +4209,6 @@ check(
     and build11_approval.get("distributionApproved") is False
     and sha(build11_environment_approval_path)
         == "47C598A3F15F5D84676A1CC645BE39636AA39A713B1B0B6B9E03F9EB81019BC6"
-    and sha(build11_environment_approval_path)
-        == combined_policy.get("github", {})
-        .get("environmentReviewControl", {})
-        .get("approvalReceiptSha256")
     and build11_environment_approval.get("approvalReference")
         == "BAF-GH-ENV-007"
     and build11_environment_approval.get("scope", {}).get("buildNumber")
@@ -4246,7 +4253,67 @@ check(
         == "passed-two-target-in-place"
     and build11_completion.get("releaseBoundary", {}).get(
         "distributionPerformed"
-    ) is False,
+    ) is False
+    and sha(build12_approval_path)
+        == "E7E0F289A99B062F8EECDFCDE944B9C4266F58F00542C34AF49FBB7834469985"
+    and sha(build12_approval_path)
+        == combined_policy.get("versionPolicy", {}).get(
+            "sourceDocumentSha256"
+        )
+    and build12_approval.get("approvalReference") == "BAF-REF-003-C11"
+    and build12_approval.get("consumedBuild", {}).get("buildNumber") == 11
+    and build12_approval.get("nextBuild", {}).get("buildNumber") == 12
+    and build12_approval.get("nextBuild", {}).get("versionName")
+        == "1.0.0-rc.2"
+    and build12_approval.get("requiredSource", {}).get(
+        "successorFreezeBaselineCommit"
+    ) == "b020dc639cd0b69bf09808de9f6a750cde38259c"
+    and build12_approval.get("requiredSource", {}).get(
+        "successorFreezeBaselineTree"
+    ) == "a65ff08db541bea2aa72c6930ead60b430028eea"
+    and build12_approval.get("requiredSource", {}).get(
+        "successorFreezePostMergeGithubRunId"
+    ) == 32062710341
+    and build12_approval.get("controls", {}).get("successorFreezeRequired")
+        is True
+    and build12_approval.get("controls", {}).get(
+        "build11AuthorityPreserved"
+    ) is True
+    and build12_approval.get("controls", {}).get("inPlaceUpgradeRequired")
+        is True
+    and build12_approval.get("controls", {}).get("deviceDataClearProhibited")
+        is True
+    and build12_approval.get("distributionApproved") is False
+    and sha(build12_environment_approval_path)
+        == "552C8A34CEED2A4AFCD71B3521BF8547807761E59537CBA6D87257747638E1DB"
+    and sha(build12_environment_approval_path)
+        == combined_policy.get("github", {})
+        .get("environmentReviewControl", {})
+        .get("approvalReceiptSha256")
+    and build12_environment_approval.get("approvalReference")
+        == "BAF-GH-ENV-008"
+    and build12_environment_approval.get("scope", {}).get("buildNumber")
+        == 12
+    and build12_environment_approval.get("controls", {}).get(
+        "requiredSuccessorFreezeCommit"
+    ) == build12_approval.get("requiredSource", {}).get(
+        "successorFreezeBaselineCommit"
+    )
+    and build12_environment_approval.get("liveStateEvidence", {}).get(
+        "canAdminsBypass"
+    ) is False
+    and build12_entry.get("status")
+        == "source-reserved-awaiting-remote-consumption"
+    and build12_entry.get("baselineCommit")
+        == "b020dc639cd0b69bf09808de9f6a750cde38259c"
+    and build12_entry.get("versionApprovalReference") == "BAF-REF-003-C11"
+    and build12_entry.get("versionApprovalDocumentSha256")
+        == sha(build12_approval_path)
+    and build12_entry.get("remoteReservationTag")
+        == "crm3-build-reserved/12"
+    and build12_entry.get("remoteBuiltTag") == "crm3-build-built/12"
+    and "githubRunId" not in build12_entry
+    and "remoteReservationTagObject" not in build12_entry,
 )
 check(
     "Build 8 backend is ready and its one physical sync retry stays bounded",
@@ -10012,8 +10079,13 @@ check(
         == lr07_latest_artifact.get("ledgerDisposition")
     and lr07_latest_ledger.get("dualCustodyCompleted") is True
     and lr07_latest_ledger.get("distributionPerformed") is False
-    and lr07_current_build == 11
-    and len(lr07_successor_ledger) == 0
+    and lr07_current_build == 12
+    and len(lr07_successor_ledger) == 1
+    and lr07_successor_ledger[0].get("buildNumber") == 12
+    and lr07_successor_ledger[0].get("status")
+        == "source-reserved-awaiting-remote-consumption"
+    and "githubRunId" not in lr07_successor_ledger[0]
+    and "remoteReservationTagObject" not in lr07_successor_ledger[0]
     and combined_policy.get("distribution", {}).get("authority")
         == "exact-build11-sealed-small-group-pilot"
     and combined_policy.get("distribution", {}).get("approved") is True

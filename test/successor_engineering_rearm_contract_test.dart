@@ -59,12 +59,15 @@ void main() {
 
       expect(
         state['status'],
-        'SUCCESSOR_SOURCE_CAMPAIGN_ACTIVE_NOT_RELEASE_AUTHORITY',
+        'BUILD12_SOURCE_FROZEN_PENDING_MERGE_DEPLOYMENT_AND_SIGNING',
       );
       expect(localStore['schemaVersion'], 6);
       expect(backend['currentSuccessorSourceDeployment'], 'NOT_PROVED');
       expect(appCheck['mutatingCallableSourceDefault'], isFalse);
-      expect(client['successorBuild'], 'NOT_FROZEN_NOT_NUMBERED_NOT_SIGNED');
+      expect(
+        client['successorBuild'],
+        'BUILD12_SOURCE_RESERVED_NOT_REMOTELY_CONSUMED_NOT_SIGNED',
+      );
       expect(device['currentSuccessorPilotHandout'], 'NOT_AUTHORIZED');
       expect(device['unrestrictedDistribution'], 'NO_GO');
     },

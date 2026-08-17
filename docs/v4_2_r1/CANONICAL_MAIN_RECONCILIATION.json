@@ -121,9 +121,9 @@
     {
       "path": "README.md",
       "canonicalSha256": "1DE7D30CC85FDB88E103349EFF9E8875F71C4BB872D6636CB5AF33A2B4E96FF3",
-      "candidateSha256": "EE0174B779B97EAB9A8B0A784407920D7ABD24900E1DDB5E127495DE107317D5",
+      "candidateSha256": "1C28DC0C93CB6D8F5B7C44012D4C2BB1B21A68C6606DB349C9B2B918FD86A9AE",
       "canonicalBytes": 564,
-      "candidateBytes": 7993,
+      "candidateBytes": 8083,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2449,7 +2449,7 @@
     {
       "path": "pubspec.yaml",
       "canonicalSha256": "AA50252F720ECFF280AEB9703F4602ED76BAD8636EF6922250A80B8733AC58B2",
-      "candidateSha256": "5DBB29C340188A0F74038E916B9517FD3599E378FEFDF0AB74E2D3848BF7B820",
+      "candidateSha256": "31D13ED1C8F3ED0C6A65EE8C4835C77B028758883DCF8357EBAAED4CE1F0A5C4",
       "canonicalBytes": 845,
       "candidateBytes": 903,
       "disposition": "SUCCESSOR_MODIFIED"
@@ -2497,9 +2497,9 @@
     {
       "path": "release/approvals/version-policy-approval.json",
       "canonicalSha256": "40F82419238953032CB2350936D68C179339E5B020DBF5D59105E63BB326CC6D",
-      "candidateSha256": "9400A98B3319D84F48DA38C68B930965771C2C5DAF1C8DB1E7CBF36D27285A67",
+      "candidateSha256": "B76B69B53B336FCD6FAD9ACDBBB8C1A310066E578D3BA5CB3949892A174D8025",
       "canonicalBytes": 530,
-      "candidateBytes": 616,
+      "candidateBytes": 618,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2569,9 +2569,9 @@
     {
       "path": "release/build-number-ledger.json",
       "canonicalSha256": "6F60C54ADB8180013766D707F175ADE744F1C46FBE95349CA60C834930E633E6",
-      "candidateSha256": "19F116E46A430BF11D60A37025EF58155580DEF64C4FEF823B023CB9E52DDF8E",
+      "candidateSha256": "D59A4F9013727FBB683A3940C07E770C26C1D92B9EBD2055E3832D29AB032E2F",
       "canonicalBytes": 1097,
-      "candidateBytes": 31612,
+      "candidateBytes": 32508,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2593,9 +2593,9 @@
     {
       "path": "release/production-release-policy.json",
       "canonicalSha256": "599E82E90BE8424F4552690DB548968B4BFF364A6EF59CC96CFBA9A3AF1950F4",
-      "candidateSha256": "78FCA6D9E786BC9350A654134AA16831747298A0F7639E10EB69CEB6FC1500DF",
+      "candidateSha256": "7CB974A3EA1F6FFF171DF6ED562EB7CF948C34D8E41C5A8B691A64313DA0B145",
       "canonicalBytes": 5884,
-      "candidateBytes": 13018,
+      "candidateBytes": 12583,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3077,9 +3077,9 @@
     {
       "path": "test/production_release_provenance_contract_test.dart",
       "canonicalSha256": "3906E9F4737E325D73259BA259C8A2088CA9084C817AEAD6260FC510049FE985",
-      "candidateSha256": "8B283314C01C481AEF80EA48FF944EE3855038B13C02D1DA392938F069E79F0F",
+      "candidateSha256": "05A347C0D478E82C8E60711CD6D49C5FEE36EDAB435510067197EF7DBC22AA74",
       "canonicalBytes": 7635,
-      "candidateBytes": 52160,
+      "candidateBytes": 54524,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3381,9 +3381,9 @@
     {
       "path": "tools/release/Test-ProductionReleasePolicy.ps1",
       "canonicalSha256": "6A7A51C91BCF2276ACEE8FE48AEC70783808F687E6539B600273178CD8FDF7D6",
-      "candidateSha256": "F0125C7A28486D9645DE99B4E132099FC9B2C3596DAEC83F2A94FE988F0C9F3B",
+      "candidateSha256": "C64D7C33CFB4AA3FED8AE43EFEDAB818A3260F1CDC60B657C86F634344CE4A12",
       "canonicalBytes": 15649,
-      "candidateBytes": 73650,
+      "candidateBytes": 76383,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
