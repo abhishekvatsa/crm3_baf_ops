@@ -1961,6 +1961,8 @@ check(
         in function_fleet_campaign_executor
     and "exact five-job successful post-merge release gate"
         in function_fleet_campaign_executor
+    and "-DifferenceObject $actualJobNames -CaseSensitive"
+        in function_fleet_campaign_executor
     and "$defaultComputeAlreadyHardened"
         in function_fleet_campaign_executor
     and "if ($defaultComputeEditorPresentBeforeFinalization)"

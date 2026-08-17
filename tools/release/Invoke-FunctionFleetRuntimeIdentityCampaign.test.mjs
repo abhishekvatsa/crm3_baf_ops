@@ -35,6 +35,7 @@ test("campaign is exact-target, phased and clean-main bound", () => {
   ]) {
     assert.ok(source.includes(value), value);
   }
+  assert.ok(source.includes("-DifferenceObject $actualJobNames -CaseSensitive"));
   for (const phase of [
     "Preflight",
     "Provision",

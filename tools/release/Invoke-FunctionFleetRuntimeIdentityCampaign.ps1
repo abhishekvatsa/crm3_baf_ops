@@ -372,7 +372,7 @@ switch ($Phase) {
     } | Sort-Object)
     $jobNameMismatch = @(
       Compare-Object -ReferenceObject $expectedJobNames `
-        -DifferenceObject $actualJobNames
+        -DifferenceObject $actualJobNames -CaseSensitive
     ).Count -ne 0
     if (
       $run.databaseId -ne $PostMergeRunId -or
