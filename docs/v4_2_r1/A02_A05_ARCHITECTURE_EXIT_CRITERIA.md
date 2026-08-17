@@ -2,10 +2,10 @@
 
 ## Decision
 
-This record supplies the missing forcing constraints for architecture findings
-`A-02`, `A-03`, `A-04`, and `A-05`. All four findings remain `OPEN`. No source
-hotspot count, grep result, partial remediation tranche, or absence of a known
-failure is sufficient for closure.
+This record supplies the forcing constraints for architecture findings `A-02`,
+`A-03`, `A-04`, and `A-05`. `A-02` and `A-05` are now evidence-closed;
+`A-03` and `A-04` remain `OPEN`. No source hotspot count, grep result, partial
+remediation tranche, or absence of a known failure is sufficient for closure.
 
 The ledger is the status authority. This document explains the evidence now
 required by its `requiredExitEvidence` and `reArmTriggers` fields.
@@ -71,7 +71,7 @@ authority-bearing persisted state re-arms A-05.
 
 ## Transition Boundary
 
-These criteria do not inspect or mutate production data, deploy backend code or
-Rules, close a programme gate, change pilot authorization, or change any
-finding status. Closure still requires exact-head pull-request CI and
-admitted-main post-merge CI in addition to the evidence listed above.
+The criteria themselves do not inspect or mutate production data, deploy
+backend code or Rules, close a programme gate, change pilot authorization, or
+change any finding status. Each closure still requires exact-head pull-request
+CI and admitted-main post-merge CI in addition to the evidence listed above.
