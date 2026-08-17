@@ -7,11 +7,11 @@ const indexes = JSON.parse(
   fs.readFileSync(path.join(repoRoot, 'firestore.indexes.json'), 'utf8'),
 );
 
-function collectionBlock(name) {
+function collectionBlock(name, length = 300) {
   const marker = `match /${name}/{docId}`;
   const start = rules.indexOf(marker);
   expect(start).toBeGreaterThanOrEqual(0);
-  return rules.slice(start, start + 300);
+  return rules.slice(start, start + length);
 }
 
 function hasIndex(collectionGroup, fields) {
@@ -53,11 +53,13 @@ describe('maintenance workflow Firestore source contract', () => {
     expect(rules.slice(emdStart, moderatorStart)).toContain("roles.hasAny(['admin', 'si'])");
   });
 
-  test('maintenance workflow bridge fields are server-owned and deferred tickets block legacy lifecycle writes', () => {
+  test('maintenance creation is server-only and deferred tickets block legacy lifecycle writes', () => {
+    const maintenanceBlock = collectionBlock('maintenance_records', 500);
+    expect(maintenanceBlock).toContain('allow create: if false;');
+    expect(maintenanceBlock).toContain('validMaintenanceUpdate()');
     expect(rules).toContain('function maintenanceWorkflowFieldsUnchanged()');
     expect(rules).toContain("resource.data.get('workflowDeferred', false) == false");
     expect(rules).toContain('maintenanceWorkflowAllowsClientLifecycle()');
-    expect(rules).toContain('!request.resource.data.keys().hasAny(maintenanceWorkflowFields())');
   });
 
   test('workflow-v1 job creation is denied to direct client writes', () => {

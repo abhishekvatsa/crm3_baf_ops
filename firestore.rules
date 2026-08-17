@@ -2466,31 +2466,6 @@ service cloud.firestore {
               && chargeNo > 0)));
     }
 
-    function maintenanceBurnerLockoutFields() {
-      return [
-        'burnerLockoutSchemaVersion',
-        'burnerPositions',
-        'burnerCommonMode',
-        'burnerCycleStage',
-        'burnerHmiAlarm',
-        'burnerFlameObservation',
-        'burnerSparkObservation',
-        'burnerRelightAttempts',
-        'burnerRemainsLockedOut',
-        'burnerRedHotPositions',
-        'burnerAttendedPositions',
-        'burnerResolutionEvidence'
-      ];
-    }
-
-    function validBurnerPositionList(value, allowEmpty) {
-      return value is list
-        && (allowEmpty || value.size() >= 1)
-        && value.size() <= 8
-        && value.hasOnly([1, 2, 3, 4, 5, 6, 7, 8])
-        && value.toSet().size() == value.size();
-    }
-
     function validBurnerResolutionEvidenceEntry(evidence, key) {
       let entry = evidence.get(key, {});
       let codes = entry.get('actionCodes', []);
@@ -2630,103 +2605,6 @@ service cloud.firestore {
             request.resource.data.get('burnerResolutionEvidence', null));
     }
 
-    function validMaintenanceBurnerLockout() {
-      let fields = maintenanceBurnerLockoutFields();
-      let hasAny = request.resource.data.keys().hasAny(fields);
-      let hasAll = request.resource.data.keys().hasAll(fields);
-      let special = request.resource.data.get('classification', null) ==
-        'furnaceBurnerLockout';
-      let positions = request.resource.data.get('burnerPositions', []);
-      let redHot = request.resource.data.get('burnerRedHotPositions', []);
-      let attended = request.resource.data.get('burnerAttendedPositions', []);
-      let evidence = request.resource.data.get('burnerResolutionEvidence', {});
-      let hmiAlarm = request.resource.data.get('burnerHmiAlarm', null);
-      return special
-        ? (hasAll
-          && request.resource.data.get('burnerLockoutSchemaVersion', -1) == 1
-          && request.resource.data.get('assetType', null) == 'furnace'
-          && request.resource.data.get('component', null) == 'Burner system'
-          && request.resource.data.get('routedTo', null) == 'instrumentation'
-          && validBurnerPositionList(positions, false)
-          && request.resource.data.get('burnerCommonMode', null) is bool
-          && (request.resource.data.get('burnerCommonMode', false) == false
-            || positions.size() > 1)
-          && [
-            'notRecorded',
-            'purge',
-            'ignition',
-            'firing',
-            'unknown'
-          ].hasAny([
-            request.resource.data.get('burnerCycleStage', null)
-          ])
-          && (hmiAlarm == null
-            || (hmiAlarm is string && hmiAlarm.size() <= 300))
-          && ['seen', 'notSeen', 'notChecked'].hasAny([
-            request.resource.data.get('burnerFlameObservation', null)
-          ])
-          && ['seen', 'notSeen', 'notChecked'].hasAny([
-            request.resource.data.get('burnerSparkObservation', null)
-          ])
-          && request.resource.data.get('burnerRelightAttempts', -1) is int
-          && request.resource.data.get('burnerRelightAttempts', -1) >= 0
-          && request.resource.data.get('burnerRelightAttempts', -1) <= 20
-          && request.resource.data.get('burnerRemainsLockedOut', null) is bool
-          && validBurnerPositionList(redHot, true)
-          && positions.hasAll(redHot)
-          && validBurnerPositionList(attended, true)
-          && positions.hasAll(attended)
-          && (request.resource.data.get('isResolved', false) == false
-            ? (attended.size() == 0
-              && evidence is map
-              && evidence.size() == 0)
-            : (attended.size() == positions.size()
-              && attended.hasAll(positions)
-              && validBurnerResolutionEvidence(positions, evidence))))
-        : !hasAny;
-    }
-
-    function requiredIssueQualityWarningExists(docId) {
-      let warningId = 'issue_' + docId;
-      let warningPath =
-        /databases/$(database)/documents/quality_warnings/$(warningId);
-      let warning = getAfter(warningPath).data;
-      return request.resource.data.get(
-          'qualityImpactAssessment',
-          null
-        ) != 'suspected'
-        || ((!exists(warningPath) && existsAfter(warningPath))
-          || (exists(warningPath)
-          && initialQualityWarningProjection(warning, warningId)
-          && warning.get('sourceType', null) == 'issue'
-          && warning.get('sourceId', null) == docId
-          && warning.get('sourceVersion', -1) ==
-            request.resource.data.get('version', -2)
-          && warning.get('sourceChargeNo', -1) ==
-            request.resource.data.get('chargeNoAtEvent', -2)
-          && warning.get('sourceSummary', null) ==
-            request.resource.data.get('description', null)
-          && warning.get('warningReason', null) ==
-            request.resource.data.get('qualityWarningReason', null)
-          && warning.get('component', null) ==
-            request.resource.data.get('component', null)
-          && warning.get('createdAt', null) ==
-            request.resource.data.get('createdAt', null)
-          && warning.get('createdByUid', null) ==
-            request.resource.data.get('loggedByUid', null)
-          && warning.get('createdByName', null) ==
-            request.resource.data.get('loggedByName', null)
-          && warning.get('affectedAssets', []).size() == 1
-          && warning.get('affectedAssets', [])[0].get('assetType', null) ==
-            request.resource.data.get('assetType', null)
-          && warning.get('affectedAssets', [])[0].get('assetNumber', -1) ==
-            request.resource.data.get('assetNumber', -2)
-          && ((request.resource.data.get('isCritical', false) == true
-              && warning.get('sourceSeverity', null) == 'critical')
-            || (request.resource.data.get('isCritical', false) == false
-              && warning.get('sourceSeverity', null) == 'standard'))));
-    }
-
     function validBurnerRedHotDirectiveProjection(
       directive,
       source,
@@ -2774,63 +2652,6 @@ service cloud.firestore {
         && directive.get('deletedByName', null) == null
         && directive.get('deleteReason', null) == null
         && directive.get('version', -1) == 1;
-    }
-
-    function requiredBurnerRedHotDirectiveExists(docId) {
-      let redHot = request.resource.data.get('burnerRedHotPositions', []);
-      let directiveId = 'burner_red_hot_' + docId;
-      let directivePath =
-        /databases/$(database)/documents/directives/$(directiveId);
-      let directive = getAfter(directivePath).data;
-      return request.resource.data.get('classification', null) !=
-          'furnaceBurnerLockout'
-        || redHot.size() == 0
-        || (existsAfter(directivePath)
-          && directive.get('firestoreId', null) == directiveId
-          && directive.get('linkedMaintenanceFirestoreId', null) == docId
-          && directive.get('directedTo', null) == 'seniorInstrumentation'
-          && directive.get('status', null) == 'open'
-          && directive.get('priority', null) == 'critical');
-    }
-
-    function validMaintenanceCreate(docId) {
-      return isApprovedUser()
-        && validMaintenanceQualityIntent()
-        && validMaintenanceBurnerLockout()
-        && requiredIssueQualityWarningExists(docId)
-        && requiredBurnerRedHotDirectiveExists(docId)
-        && !request.resource.data.keys().hasAny(maintenanceWorkflowFields())
-        && request.resource.data.keys().hasAll([
-          'firestoreId',
-          'version',
-          'assetType',
-          'assetNumber',
-          'maintenanceType',
-          'description',
-          'routedTo',
-          'status',
-          'isResolved',
-          'isCritical',
-          'loggedByUid',
-          'createdAt',
-          'updatedAt',
-          'isDeleted'
-        ])
-        && request.resource.data.get('firestoreId', null) == docId
-        && request.resource.data.get('version', -1) is int
-        && request.resource.data.get('version', -1) >= 1
-        && request.resource.data.get('assetType', null) is string
-        && request.resource.data.get('assetNumber', -1) is int
-        && request.resource.data.get('maintenanceType', null) is string
-        && request.resource.data.get('description', null) is string
-        && request.resource.data.get('routedTo', null) is string
-        && request.resource.data.get('status', null) is string
-        && request.resource.data.get('isResolved', null) == false
-        && request.resource.data.get('isCritical', null) is bool
-        && request.resource.data.get('loggedByUid', null) == request.auth.uid
-        && request.resource.data.get('createdAt', null) is string
-        && request.resource.data.get('updatedAt', null) is string
-        && request.resource.data.get('isDeleted', null) == false;
     }
 
     function maintenanceCloseChangedFieldsOnly(affected) {
@@ -3447,47 +3268,6 @@ service cloud.firestore {
           request.resource.data.get('loggedByName', null));
     }
 
-    function validIssueQualityWarning(docId) {
-      let sourceId = request.resource.data.get('sourceId', '');
-      let sourcePath = /databases/$(database)/documents/maintenance_records/$(sourceId);
-      let source = getAfter(sourcePath).data;
-      return request.resource.data.get('sourceType', null) == 'issue'
-        && docId == 'issue_' + sourceId
-        && existsAfter(sourcePath)
-        && source.get('firestoreId', null) == sourceId
-        && source.get('qualityIntentSchemaVersion', -1) == 1
-        && source.get('qualityImpactAssessment', null) == 'suspected'
-        && request.resource.data.get('sourceVersion', -1) ==
-          source.get('version', -2)
-        && request.resource.data.get('sourceChargeNo', -1) ==
-          source.get('chargeNoAtEvent', -2)
-        && request.resource.data.get('sourceSummary', null) ==
-          source.get('description', null)
-        && request.resource.data.get('warningReason', null) ==
-          source.get('qualityWarningReason', null)
-        && request.resource.data.get('component', null) ==
-          source.get('component', null)
-        && request.resource.data.get('createdAt', null) ==
-          source.get('createdAt', null)
-        && request.resource.data.get('createdByUid', null) ==
-          source.get('loggedByUid', null)
-        && request.resource.data.get('createdByName', null) ==
-          source.get('loggedByName', null)
-        && request.resource.data.get('affectedAssets', []).size() == 1
-        && request.resource.data.get('affectedAssets', [])[0].get(
-          'assetType',
-          null
-        ) == source.get('assetType', null)
-        && request.resource.data.get('affectedAssets', [])[0].get(
-          'assetNumber',
-          -1
-        ) == source.get('assetNumber', -2)
-        && ((source.get('isCritical', false) == true
-            && request.resource.data.get('sourceSeverity', null) == 'critical')
-          || (source.get('isCritical', false) == false
-            && request.resource.data.get('sourceSeverity', null) == 'standard'));
-    }
-
     function validAbnormalityQualityWarning(docId) {
       let sourceId = request.resource.data.get('sourceId', '');
       let sourcePath = /databases/$(database)/documents/charge_abnormalities/$(sourceId);
@@ -3522,8 +3302,7 @@ service cloud.firestore {
       return isApprovedUser()
         && globalPullStampAbsentOnCreate()
         && validQualityWarningCommon(docId)
-        && (validIssueQualityWarning(docId)
-          || validAbnormalityQualityWarning(docId));
+        && validAbnormalityQualityWarning(docId);
     }
 
     // ─────────────────────────────────────────────
