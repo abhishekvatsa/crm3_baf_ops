@@ -359,16 +359,32 @@ switch ($Phase) {
         '--json', 'databaseId,headSha,conclusion,event,workflowName,jobs,url'
       )
     $run = $runRaw | ConvertFrom-Json
+    $expectedJobNames = @(
+      'Android emulator app-shell integration (not physical-device evidence)',
+      'Android release package + cold-start proof (non-production)',
+      'Cloud Functions host build + non-emulator tests',
+      'Firestore Rules + governed callable emulator',
+      'Flutter host analysis + tests + no-loss contracts'
+    )
+    $runJobs = @($run.jobs)
+    $actualJobNames = @($runJobs | ForEach-Object {
+      [string]$_.name
+    } | Sort-Object)
+    $jobNameMismatch = @(
+      Compare-Object -ReferenceObject $expectedJobNames `
+        -DifferenceObject $actualJobNames -CaseSensitive
+    ).Count -ne 0
     if (
       $run.databaseId -ne $PostMergeRunId -or
       $run.headSha -cne $head -or
       $run.workflowName -cne 'release-gate' -or
       $run.event -cne 'push' -or
       $run.conclusion -cne 'success' -or
-      @($run.jobs).Count -ne 4 -or
-      @($run.jobs | Where-Object { $_.conclusion -cne 'success' }).Count -ne 0
+      $runJobs.Count -ne $expectedJobNames.Count -or
+      $jobNameMismatch -or
+      @($runJobs | Where-Object { $_.conclusion -cne 'success' }).Count -ne 0
     ) {
-      throw 'Preflight requires the exact four-job successful post-merge release gate.'
+      throw 'Preflight requires the exact five-job successful post-merge release gate.'
     }
     Invoke-Readback -ReadbackPhase 'preflight' -OutputPath $preflightPath
   }
@@ -376,8 +392,16 @@ switch ($Phase) {
   'Provision' {
     Assert-Receipt -Path $preflightPath `
       -Decision 'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_PREFLIGHT' | Out-Null
-    if ((Get-ProjectRoles -Email $defaultCompute) -notcontains 'roles/editor') {
-      throw 'Default Compute Editor must remain available as rollback authority during provisioning.'
+    $defaultComputeRoles = @(Get-ProjectRoles -Email $defaultCompute)
+    $defaultComputeAlreadyHardened = (
+      $defaultComputeRoles.Count -eq 1 -and
+      $defaultComputeRoles -contains 'roles/cloudbuild.builds.builder'
+    )
+    if (
+      $defaultComputeRoles -notcontains 'roles/editor' -and
+      -not $defaultComputeAlreadyHardened
+    ) {
+      throw 'Default Compute must retain Editor or the exact hardened build-only posture during provisioning.'
     }
 
     $roles = @(Get-GcloudJson -Arguments @(
@@ -504,6 +528,8 @@ switch ($Phase) {
   'Finalize' {
     Assert-Receipt -Path $fleetPath `
       -Decision 'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FLEET' | Out-Null
+    $defaultComputeEditorPresentBeforeFinalization =
+      (Get-ProjectRoles -Email $defaultCompute) -contains 'roles/editor'
     Invoke-ExternalText -FilePath 'node' -WorkingDirectory $root -Arguments @(
       'tools/release/collectFunctionsIamDependenciesReadback.js',
       '--repository-root', $root,
@@ -535,8 +561,10 @@ switch ($Phase) {
       Invoke-Readback -ReadbackPhase 'final' -OutputPath $finalPath `
         -ProbeCallables
     } catch {
-      Ensure-ProjectRole -Email $defaultCompute -Role 'roles/editor'
-      throw 'Final readback failed; Default Compute Editor was restored.'
+      if ($defaultComputeEditorPresentBeforeFinalization) {
+        Ensure-ProjectRole -Email $defaultCompute -Role 'roles/editor'
+      }
+      throw 'Final readback failed; the prior Default Compute Editor posture was restored.'
     }
     try {
       Invoke-ExternalText -FilePath 'node' -WorkingDirectory $root -Arguments @(
@@ -558,8 +586,10 @@ switch ($Phase) {
       }
     } catch {
       $dependencyError = $_.Exception.Message
-      Ensure-ProjectRole -Email $defaultCompute -Role 'roles/editor'
-      throw "Final dependency readback failed; Default Compute Editor was restored. $dependencyError"
+      if ($defaultComputeEditorPresentBeforeFinalization) {
+        Ensure-ProjectRole -Email $defaultCompute -Role 'roles/editor'
+      }
+      throw "Final dependency readback failed; the prior Default Compute Editor posture was restored. $dependencyError"
     }
   }
 

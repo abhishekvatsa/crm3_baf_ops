@@ -596,13 +596,16 @@ function adjudicateReadback({
     checks.schedulerBacklogZero = live.backlog.total === 0;
   }
   if (phase !== "preflight") {
+    const defaultComputeProvisioningPostureValid =
+      defaultComputeRoles.includes("roles/editor") ||
+      sameValues(defaultComputeRoles, ["roles/cloudbuild.builds.builder"]);
     Object.assign(checks, {
       allRuntimeAccountsReady: allAccountsReady,
       notificationCustomRoleExact: customRoleReady,
       allRequiredProjectRolesPresent: allRequiredRolesPresent,
       noForbiddenRuntimeProjectRoles: broadRuntimeGrants.length === 0,
-      defaultComputeEditorRetainedUntilFinal:
-        phase === "final" || defaultComputeRoles.includes("roles/editor"),
+      defaultComputeProvisioningPostureValid:
+        phase === "final" || defaultComputeProvisioningPostureValid,
       defaultComputeBuildRolePresent:
         defaultComputeRoles.includes("roles/cloudbuild.builds.builder"),
     });
@@ -637,7 +640,7 @@ function adjudicateReadback({
       defaultComputeRolesReducedToBuildOnly:
         sameValues(defaultComputeRoles, ["roles/cloudbuild.builds.builder"]),
     });
-    delete checks.defaultComputeEditorRetainedUntilFinal;
+    delete checks.defaultComputeProvisioningPostureValid;
   }
 
   const failedChecks = Object.entries(checks)

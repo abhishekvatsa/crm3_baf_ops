@@ -31,10 +31,11 @@ test("campaign is exact-target, phased and clean-main bound", () => {
     "crm3-baf-ops-b8638",
     "asia-south1",
     "Campaign phases require exact tracked-clean main equal to origin/main.",
-    "exact four-job successful post-merge release gate",
+    "exact five-job successful post-merge release gate",
   ]) {
     assert.ok(source.includes(value), value);
   }
+  assert.ok(source.includes("-DifferenceObject $actualJobNames -CaseSensitive"));
   for (const phase of [
     "Preflight",
     "Provision",
@@ -57,7 +58,7 @@ test("scheduler deployment is preceded by a fresh zero-backlog readback", () => 
   assert.ok(source.includes("05-scheduler-preflight.json"));
 });
 
-test("Editor removal is final, reversible and never coupled to Function deletion", () => {
+test("Editor removal is final, conditionally reversible and never coupled to Function deletion", () => {
   const final = source.indexOf("  'Finalize' {");
   const removeEditor = source.indexOf(
     "Remove-ProjectRole -Email $defaultCompute -Role 'roles/editor'",
@@ -68,6 +69,8 @@ test("Editor removal is final, reversible and never coupled to Function deletion
   );
   assert.ok(removeEditor > final);
   assert.ok(restoreEditor > removeEditor);
+  assert.ok(source.includes("$defaultComputeEditorPresentBeforeFinalization"));
+  assert.ok(source.includes("if ($defaultComputeEditorPresentBeforeFinalization)"));
   for (const forbidden of [
     "service-accounts delete",
     "functions delete",
@@ -118,7 +121,16 @@ test("dependency posture gates removal and every post-removal collector failure 
   assert.ok(finalDependencyCatch > finalCollector);
   assert.ok(restoreEditor > finalDependencyCatch);
   assert.ok(final.includes(
-    "Final dependency readback failed; Default Compute Editor was restored.",
+    "Final dependency readback failed; the prior Default Compute Editor posture was restored.",
+  ));
+});
+
+test("provisioning accepts only Editor rollback or the exact hardened build posture", () => {
+  assert.ok(source.includes("$defaultComputeAlreadyHardened"));
+  assert.ok(source.includes("$defaultComputeRoles.Count -eq 1"));
+  assert.ok(source.includes("roles/cloudbuild.builds.builder"));
+  assert.ok(source.includes(
+    "Default Compute must retain Editor or the exact hardened build-only posture",
   ));
 });
 
