@@ -454,6 +454,69 @@ test("completed successor still requires every retained failed-attempt receipt",
     },
   );
 
+  const successor = {
+    buildNumber: 12,
+    id: 121,
+    name: "build-12",
+    sizeBytes: 1200,
+    digest: `sha256:${"2".repeat(64)}`,
+    workflowRunId: 1212,
+    headSha: "2".repeat(40),
+    ledgerDisposition: "successful-build-finalized-non-distributable",
+    dualCustodyCompleted: true,
+    governedPackageSha256: "2".repeat(64).toUpperCase(),
+  };
+  const successorReceiptPath =
+    "release/evidence/build-12-finalization-closure.json";
+  const successorReceiptSha = "3".repeat(64).toUpperCase();
+  const preservedPolicy = structuredClone(promotedPolicy);
+  preservedPolicy.release.buildNumber = successor.buildNumber;
+  preservedPolicy.finalization = {
+    ...preservedPolicy.finalization,
+    status: "completed-non-distributable",
+    completionReceiptFile: successorReceiptPath,
+    completionReceiptSha256: successorReceiptSha,
+    sourceCommit: successor.headSha,
+    githubRunId: successor.workflowRunId,
+    governedPackageSha256: successor.governedPackageSha256,
+    dualCustodyCompleted: true,
+    controlledPilotApproved: false,
+  };
+  preservedPolicy.distribution.preservedHistoricalAuthority = true;
+  preservedPolicy.distribution.appliesToCurrentCandidate = false;
+  const successorPolicy = structuredClone(policy);
+  successorPolicy.expectedArtifactsForContainment.push(successor);
+  successorPolicy.sourceEvidence.push({
+    path: successorReceiptPath,
+    sha256: successorReceiptSha,
+  });
+  const successorLedger = {
+    buildNumber: successor.buildNumber,
+    githubArtifactId: successor.id,
+    githubArtifactName: successor.name,
+    githubArtifactSizeBytes: successor.sizeBytes,
+    githubArtifactDigest: successor.digest,
+    githubRunId: successor.workflowRunId,
+    remoteReservationCommit: successor.headSha,
+    disposition: successor.ledgerDisposition,
+    dualCustodyCompleted: true,
+    distributionPerformed: false,
+  };
+  assert.deepEqual(
+    summarizeMutableSourceAuthority({
+      policy: successorPolicy,
+      releasePolicy: preservedPolicy,
+      buildLedger: {entries: [...ledgers, successorLedger]},
+      promotionReceipt,
+    }),
+    {
+      releasePolicyExact: true,
+      buildLedgerExact: true,
+      latestContainmentAttemptExact: true,
+      controlledPilotPromotionExact: true,
+    },
+  );
+
   const broadenedPromotion = structuredClone(promotedPolicy);
   broadenedPromotion.postBuildPromotion.publicArtifactApproved = true;
   assert.equal(

@@ -53,6 +53,7 @@ void main() {
 
   test('current successor index distinguishes every release authority plane', () {
     final state = _readObject('release/current-successor-state.json');
+    final successorSource = (state['source'] as Map).cast<String, dynamic>();
     final localStore = (state['localStore'] as Map).cast<String, dynamic>();
     final backend = (state['deployedBackend'] as Map).cast<String, dynamic>();
     final rules = (state['rulesAndIndexes'] as Map).cast<String, dynamic>();
@@ -73,7 +74,7 @@ void main() {
 
     expect(
       state['status'],
-      'BUILD12_BACKEND_RULES_INDEXES_DEPLOYED_PENDING_SIGNING_AND_DEVICE_PROOF',
+      'BUILD12_FINALIZED_DEVICE_UPGRADE_PROVED_POST_ASSET_LIVE_WORKFLOW_AND_PILOT_PENDING',
     );
     expect(localStore['schemaVersion'], 6);
     expect(
@@ -91,7 +92,7 @@ void main() {
     expect(appCheck['mutatingCallableSourceDefault'], isFalse);
     expect(
       client['successorBuild'],
-      'BUILD12_LIVE_BACKEND_READY_PENDING_REMOTE_SIGNING',
+      'BUILD12_PRODUCTION_SIGNED_FINALIZED_NON_DISTRIBUTABLE',
     );
     expect(
       deployment['status'],
@@ -125,7 +126,15 @@ void main() {
     );
     expect(
       deploymentSource['artifactDispatchCommit'],
-      'PENDING_EVIDENCE_MERGE',
+      '8ba5b237cef151b001d9bea41e16e68015091e43',
+    );
+    expect(
+      deploymentSource['finalizationReceiptSha256'],
+      _sha256('release/evidence/build-12-finalization-closure.json'),
+    );
+    expect(
+      successorSource['build12FinalizationReceiptSha256'],
+      _sha256('release/evidence/build-12-finalization-closure.json'),
     );
     expect(
       deploymentSource['functionsSourceUnchangedThroughLiveDeploymentAuthorityCommit'],
@@ -135,9 +144,18 @@ void main() {
     expect(deploymentBoundary['backendDeploymentProved'], isTrue);
     expect(deploymentBoundary['rulesAndIndexesDeploymentProved'], isTrue);
     expect(deploymentBoundary['runtimeIamProved'], isTrue);
-    expect(deploymentBoundary['productionSignedClientConstructed'], isFalse);
-    expect(deploymentBoundary['deviceUpgradeProved'], isFalse);
+    expect(deploymentBoundary['productionSignedClientConstructed'], isTrue);
+    expect(deploymentBoundary['deviceUpgradeProved'], isTrue);
+    expect(
+      deploymentBoundary['postAssetPopulationLiveWorkflowValidationProved'],
+      isFalse,
+    );
     expect(deploymentBoundary['pilotHandoutAuthorized'], isFalse);
+    expect(
+      device['currentSuccessorDeviceProof'],
+      'PASS_EXACT_BUILD12_PHYSICAL_IN_PLACE_UPGRADE_AND_FEATURE_SURFACES',
+    );
+    expect(device['postAssetPopulationLiveWorkflowProof'], 'PENDING');
     expect(device['currentSuccessorPilotHandout'], 'NOT_AUTHORIZED');
     expect(device['unrestrictedDistribution'], 'NO_GO');
   });

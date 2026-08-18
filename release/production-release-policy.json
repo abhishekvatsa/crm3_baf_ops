@@ -69,7 +69,7 @@
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
-    "status": "pending-source-authorized",
+    "status": "completed-non-distributable",
     "priorCompletedBuild": {
       "buildNumber": 11,
       "status": "completed-non-distributable",
@@ -102,7 +102,21 @@
         "distributionPerformed": false
       }
     ],
-    "dualCustodyCompleted": false,
+    "completionReceiptFile": "release/evidence/build-12-finalization-closure.json",
+    "completionReceiptSha256": "3568B9600A531E3C606ADD90FBA4D3A451892D5C068904AD173225ACD4A74BDC",
+    "sourceCommit": "8ba5b237cef151b001d9bea41e16e68015091e43",
+    "githubRunId": 32088466492,
+    "governedPackageSha256": "8BBDB5C6F6CB72243F426AB795C1ADA96F78C7C904512784332048C8A9B901CB",
+    "remoteReservationTagObject": "db8e0c347ad7278ef1ac83d4880f29ae5832274a",
+    "remoteBuiltTagObject": "b705e33b68a1deaed0d2b71f88d024b8e8db1515",
+    "closurePackageSha256": "6E4F4512A5B90F2B58FED8AC0AEDAC4882E51960F74A66073DFCE0F6F78EF6D0",
+    "custodyRecordSha256": "496A7CD7081190EFEA40206F6FBF9A779882BF1C1783FC91F5DC0194C854DBB9",
+    "closureCustodyReconciliationSha256": "C12D43C0D32DD1F9FEFCB5E5CF32CA50215292B0DE602C3439F88011FEAD8C5D",
+    "dualCustodyCompleted": true,
+    "runtimeValidationPassed": true,
+    "runtimeDisposition": "passed-exact-build12-physical-in-place-feature-surfaces",
+    "fullBusinessFlowValidationCompleted": false,
+    "assetMasterPopulatedAfterRuntimeEvidence": true,
     "firebaseBackendDeploymentPerformed": false,
     "controlledPilotApproved": false,
     "unrestrictedPlantReleaseApproved": false

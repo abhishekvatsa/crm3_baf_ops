@@ -281,6 +281,10 @@ function summarizeMutableSourceAuthority({
     releasePolicy.distribution?.approved === false &&
     releasePolicy.distribution?.unrestrictedPlantReleaseApproved === false;
   const postBuildPromotion = releasePolicy.postBuildPromotion ?? {};
+  const promotedArtifact = expectedArtifacts.find(
+    (artifact) =>
+      artifact.buildNumber === releasePolicy.distribution?.approvedBuildNumber,
+  );
   const promotedReceiptBuild = promotionReceipt?.admittedEvidence?.governedBuild;
   const promotedReceiptBoundary = promotionReceipt?.promotion;
   const promotionReceiptExact =
@@ -289,14 +293,14 @@ function summarizeMutableSourceAuthority({
       "stage2d-f6-build11-controlled-pilot-authorization" &&
     promotionReceipt?.decision ===
       "PASS_LR07_CLOSED_AND_STAGE2D_F6_CONTROLLED_PILOT_AUTHORIZED" &&
-    promotedReceiptBuild?.buildNumber === latestCompletedArtifact?.buildNumber &&
-    promotedReceiptBuild?.sourceCommit === latestCompletedArtifact?.headSha &&
+    promotedReceiptBuild?.buildNumber === promotedArtifact?.buildNumber &&
+    promotedReceiptBuild?.sourceCommit === promotedArtifact?.headSha &&
     promotedReceiptBuild?.governedPackageSha256 ===
-      latestCompletedArtifact?.governedPackageSha256 &&
+      promotedArtifact?.governedPackageSha256 &&
     promotedReceiptBoundary?.authorizedBuildNumber ===
-      latestCompletedArtifact?.buildNumber &&
+      promotedArtifact?.buildNumber &&
     promotedReceiptBoundary?.authorizedPackageSha256 ===
-      latestCompletedArtifact?.governedPackageSha256 &&
+      promotedArtifact?.governedPackageSha256 &&
     promotedReceiptBoundary?.pilotHandoutAuthorized === true &&
     promotedReceiptBoundary?.pilotHandoutPerformedByThisRecord === false &&
     promotedReceiptBoundary?.publicArtifactAuthorized === false &&
@@ -307,16 +311,16 @@ function summarizeMutableSourceAuthority({
     promotedReceiptBoundary?.webDistributionAuthorized === false &&
     promotedReceiptBoundary?.unrestrictedDistributionAuthorized === false;
   const controlledPilotPromotionExact =
-    latestCompletedArtifact != null &&
+    promotedArtifact != null &&
     promotionReceiptAuthority != null &&
     promotionReceiptExact &&
     postBuildPromotion.status === "completed-controlled-pilot-only" &&
     postBuildPromotion.promotionReceiptFile === promotionReceiptAuthority.path &&
     postBuildPromotion.promotionReceiptSha256 === promotionReceiptAuthority.sha256 &&
-    postBuildPromotion.buildNumber === latestCompletedArtifact.buildNumber &&
-    postBuildPromotion.sourceCommit === latestCompletedArtifact.headSha &&
+    postBuildPromotion.buildNumber === promotedArtifact.buildNumber &&
+    postBuildPromotion.sourceCommit === promotedArtifact.headSha &&
     postBuildPromotion.governedPackageSha256 ===
-      latestCompletedArtifact.governedPackageSha256 &&
+      promotedArtifact.governedPackageSha256 &&
     postBuildPromotion.controlledPilotApproved === true &&
     postBuildPromotion.pilotHandoutPerformed === false &&
     postBuildPromotion.publicArtifactApproved === false &&
@@ -330,9 +334,9 @@ function summarizeMutableSourceAuthority({
       "exact-build11-sealed-small-group-pilot" &&
     releasePolicy.distribution?.approved === true &&
     releasePolicy.distribution?.approvedBuildNumber ===
-      latestCompletedArtifact.buildNumber &&
+      promotedArtifact.buildNumber &&
     releasePolicy.distribution?.approvedPackageSha256 ===
-      latestCompletedArtifact.governedPackageSha256 &&
+      promotedArtifact.governedPackageSha256 &&
     releasePolicy.distribution?.promotionReceiptFile ===
       promotionReceiptAuthority.path &&
     releasePolicy.distribution?.promotionReceiptSha256 ===
@@ -340,7 +344,11 @@ function summarizeMutableSourceAuthority({
     releasePolicy.distribution?.pilotHandoutPerformed === false &&
     releasePolicy.distribution?.unrestrictedPlantReleaseApproved === false &&
     releasePolicy.distribution?.postBuildPromotionRequiredForAnyDistribution ===
-      true;
+      true &&
+    (currentBuildNumber === promotedArtifact.buildNumber ||
+      (releasePolicy.distribution?.preservedHistoricalAuthority === true &&
+        releasePolicy.distribution?.appliesToCurrentCandidate === false &&
+        finalization.controlledPilotApproved === false));
 
   return {
     releasePolicyExact:

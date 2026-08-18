@@ -53,8 +53,13 @@ identity.
 
 ## Remaining boundary
 
-Build 12 is still unsigned and absent from the device. The remaining sequence
-is remote production signing and finalization, followed by an in-place physical
-device upgrade that preserves application data and proves the successor
-features and UI. The signed artifact will be bound separately to the exact
-evidence-merge dispatch commit. Pilot handout remains separately prohibited.
+Build 12 is production-signed, finalized in dual custody and installed as an
+exact in-place upgrade on one physical device. Package UID, first-install time,
+application data and the approved session were preserved, and the principal
+successor feature surfaces rendered without crash or ANR.
+
+That device observation preceded governed asset-master population. Live burner
+and Inner Cover record workflows therefore remain to be exercised against the
+now-populated production asset authorities. Pilot handout remains separately
+prohibited until that bounded business-flow validation and an explicit pilot
+adjudication are recorded.

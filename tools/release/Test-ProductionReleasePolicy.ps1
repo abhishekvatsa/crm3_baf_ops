@@ -327,15 +327,21 @@ if ((Get-Sha256 $promotionReceiptPath) -ne
 }
 $promotionReceipt = Get-Content -LiteralPath $promotionReceiptPath -Raw |
   ConvertFrom-Json
-$promotionAuthorityBuild =
-  if ($finalizationStatus -eq 'pending-source-authorized') {
-    $policy.finalization.priorCompletedBuild
-  } else {
-    $policy.finalization
-  }
+$promotionBuildNumber = [int]$policy.postBuildPromotion.buildNumber
+$promotionAuthorityBuild = $null
+if ($finalizationStatus -eq 'completed-non-distributable' -and
+    [int]$policy.release.buildNumber -eq $promotionBuildNumber) {
+  $promotionAuthorityBuild = $policy.finalization
+} elseif ([int]$policy.finalization.priorCompletedBuild.buildNumber -eq
+    $promotionBuildNumber) {
+  $promotionAuthorityBuild = $policy.finalization.priorCompletedBuild
+}
+if ($null -eq $promotionAuthorityBuild) {
+  throw 'Post-build promotion has no matching finalized build authority.'
+}
 if ([string]$policy.postBuildPromotion.status -ne
       'completed-controlled-pilot-only' -or
-    [int]$policy.postBuildPromotion.buildNumber -ne 11 -or
+    $promotionBuildNumber -ne 11 -or
     [string]$policy.postBuildPromotion.sourceCommit -ne
       [string]$promotionAuthorityBuild.sourceCommit -or
     [string]$policy.postBuildPromotion.governedPackageSha256 -ne
