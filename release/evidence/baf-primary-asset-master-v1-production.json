@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "BAF_PRIMARY_ASSET_MASTER_PRODUCTION_POPULATION",
+  "generatedAt": "2026-08-18T08:44:15.196Z",
+  "manifestId": "crm3-baf-primary-asset-master-v1",
+  "manifestSha256": "2172e8179918f01bfc388e6738ac151c4a4d87fa34272c61d4ab2f2ab353349c",
+  "projectId": "crm3-baf-ops-b8638",
+  "sourceCommit": "df4182b60718b8bb7f1ba85ddc4e2a4fe80ea461",
+  "sourceTree": "7e1a9cf9f5e5319b1044af2a4dc41b1a68a5c501",
+  "actorUidSha256": "80aa9d5d542c3a17387c5c5f1551c28cf917a3e2d95776fec9c6c77a13ed6ea4",
+  "authorizationBasis": "Owner instruction dated 2026-08-18",
+  "executionBoundary": "One-time ADC-backed invocation of the production mutation services with preflight and in-transaction Admin revalidation, deterministic receipts and audits. Callable admission and rate limiting were not used.",
+  "counts": {
+    "assetClasses": 4,
+    "hierarchyNodes": 125,
+    "physicalAssets": 98,
+    "bases": 47,
+    "furnaces": 26,
+    "forcedCoolers": 25,
+    "registeredInnerCovers": 0,
+    "pendingRealSerialIntakeSlots": 44,
+    "receipts": 227,
+    "audits": 227
+  },
+  "innerCoverIdentityDecision": {
+    "operationalProfilesCreated": false,
+    "reason": "Real serial number is the permanent Inner Cover identity; placeholders are prohibited.",
+    "nextAction": "Register each of the 44 covers through REGISTER_INNER_COVER when its real serial and source details are supplied."
+  },
+  "result": "PASS"
+}
