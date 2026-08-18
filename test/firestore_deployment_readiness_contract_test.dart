@@ -82,12 +82,17 @@ void main() {
             fallback: 'Other root files/firestore.rules',
           ).readAsStringSync();
 
-      expect(rules, contains('function validJobExecutionComplete()'));
+      expect(rules, contains('function validJobExecutionUpdate(docId)'));
       expect(
-        rules,
-        contains('client SDKs may no longer complete JobExecution'),
+        RegExp(
+          r"request\.resource\.data\.get\('isCompleted', false\)\s*!=\s*"
+          r"resource\.data\.get\('isCompleted', false\)\s*\?\s*false",
+        ).hasMatch(rules),
+        isTrue,
+        reason:
+            'A direct client completion transition must fail before the '
+            'ordinary work-update path.',
       );
-      expect(rules, contains('return false;'));
       expect(rules, contains('match /module_registry/{registryModuleId}'));
       expect(rules, contains('match /revisions/{revisionId}'));
       final exactRegistryVersionAdvance = RegExp(

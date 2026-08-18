@@ -54,8 +54,12 @@ function renderRulesRoleExpression(roleMap) {
 }
 
 function renderRulesPolicyBlock() {
-  const work = renderRulesRoleExpression(policy.moduleDisciplineWorkRoles ?? {});
-  const submit = renderRulesRoleExpression(policy.moduleDisciplineSubmitRoles ?? policy.moduleDisciplineWorkRoles ?? {});
+  const workRoles = policy.moduleDisciplineWorkRoles ?? {};
+  const submitRoles = policy.moduleDisciplineSubmitRoles ?? workRoles;
+  const work = renderRulesRoleExpression(workRoles);
+  const submit = JSON.stringify(submitRoles) === JSON.stringify(workRoles)
+    ? 'rolesCanSaveJobModuleWork(roles, discipline)'
+    : renderRulesRoleExpression(submitRoles);
   const moderators = (policy.moduleLifecycleModeratorRoles ?? []).map((role) => q(role).replaceAll('"', "'")).join(', ');
   return `    // BEGIN GENERATED WORKFLOW MODULE AUTHORITY\n` +
     `    // Source: governance/maintenance_workflow_policy_v1.json\n` +
