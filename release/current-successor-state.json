@@ -2,34 +2,48 @@
   "schemaVersion": 1,
   "indexId": "CRM3-CURRENT-SUCCESSOR-STATE-2026-08-16",
   "asOfDate": "2026-08-18",
-  "status": "BUILD12_SOURCE_FROZEN_PENDING_MERGE_DEPLOYMENT_AND_SIGNING",
+  "status": "BUILD12_BACKEND_RULES_INDEXES_DEPLOYED_PENDING_SIGNING_AND_DEVICE_PROOF",
   "source": {
     "admittedBaselineCommit": "b020dc639cd0b69bf09808de9f6a750cde38259c",
     "admittedBaselineTree": "a65ff08db541bea2aa72c6930ead60b430028eea",
     "successorEngineeringAuthority": "governance/successor-engineering-rearm-2026-08-16.json",
-    "exactCandidateBinding": "REQUIRED_PER_SOURCE_TRANCHE"
+    "liveDeploymentAuthority": "release/approvals/build12-backend-rules-indexes-deployment-authorization.json",
+    "exactCandidateBinding": "release/build12-live-deployment-authority.json",
+    "build12LiveDeploymentAuthorityCommit": "ce2a85acc9eca322dc1288c1df600d4c84f0e738",
+    "build12LiveDeploymentAuthorityTree": "84bba6dcb204c141924450a149d84cd7a92a00de",
+    "build12LiveDeploymentPostMergeReleaseGateRunId": 32083536385,
+    "build12ArtifactDispatchCommit": "PENDING_EVIDENCE_MERGE"
   },
   "localStore": {
     "schemaVersion": 6,
     "verifier": "tools/isar/verify_v4_isar_schema.py --release",
-    "governedIdentityCrossingRepair": "SOURCE_CORRECTED_WITH_POPULATED_V3_V4_TO_V6_REGRESSIONS_RELEASE_AUTHORITY_REQUIRES_MERGED_CI"
+    "governedIdentityCrossingRepair": "SOURCE_CORRECTED_WITH_POPULATED_V3_V4_TO_V6_REGRESSIONS_MERGED_CI_PROVED"
   },
   "deployedBackend": {
     "historicCapture": "release/backend-current-state.prod.json",
     "historicCaptureStatus": "PRESERVED_NOT_CURRENT_SOURCE_AUTHORITY",
-    "currentSuccessorSourceDeployment": "NOT_PROVED"
+    "currentSuccessorSourceDeployment": "PROVED_EXACT_FUNCTION_FLEET",
+    "deploymentCommit": "08ee9eb70c930204f942d1094eb9257ef1e192c5",
+    "functionsSourceUnchangedThroughBuild12LiveDeploymentAuthorityCommit": true,
+    "functionCount": 15,
+    "evidenceAuthority": "release/build12-live-deployment-authority.json"
   },
   "rulesAndIndexes": {
     "sourceFiles": [
       "firestore.rules",
       "firestore.indexes.json"
     ],
-    "currentSuccessorDeploymentReadback": "NOT_PROVED",
-    "burnerSelectedFurnaceIndex": "DECLARED_IN_SOURCE_DEPLOYMENT_REQUIRED"
+    "currentSuccessorDeploymentReadback": "PASS_EXACT_RULES_AND_61_READY_INDEXES",
+    "rulesSha256": "ED6D3E0A67E7C2353BE0B691594E27EEC230596155EAA4365DDA97EBCDB6D87A",
+    "indexCount": 61,
+    "burnerSelectedFurnaceIndex": "DEPLOYED_AND_READY",
+    "evidenceAuthority": "release/build12-live-deployment-authority.json"
   },
   "runtimeIam": {
     "dedicatedIdentityProgramme": "CLOSED_FOR_ITS_CAPTURED_DEPLOYMENT",
-    "currentSuccessorDeploymentBinding": "NOT_PROVED"
+    "currentSuccessorDeploymentBinding": "PASS_EXACT_LIVE_READBACK",
+    "defaultCompute": "BUILD_ONLY_NO_EDITOR",
+    "evidenceAuthority": "release/build12-live-deployment-authority.json"
   },
   "appCheck": {
     "mutatingCallableSourceDefault": false,
@@ -39,19 +53,17 @@
   "client": {
     "sealedBuild11": "AUTHORIZED_EXACT_ARTIFACT_AND_ROSTER_ONLY",
     "currentSourcePackageVersion": "1.0.0-rc.2+12",
-    "successorBuild": "BUILD12_SOURCE_RESERVED_NOT_REMOTELY_CONSUMED_NOT_SIGNED",
+    "successorBuild": "BUILD12_LIVE_BACKEND_READY_PENDING_REMOTE_SIGNING",
     "releaseAuthority": "release/production-release-policy.json",
     "build11SameVersionOverwriteProhibited": true
   },
   "deviceAndPilot": {
     "sealedBuild11Evidence": "PRESERVED_HISTORIC_EXACT_ARTIFACT",
-    "currentSuccessorDeviceProof": "ABSENT_PENDING_SIGNED_BUILD12_IN_PLACE_UPGRADE",
+    "currentSuccessorDeviceProof": "ABSENT_PENDING_PRODUCTION_SIGNED_BUILD12_IN_PLACE_UPGRADE",
     "currentSuccessorPilotHandout": "NOT_AUTHORIZED",
     "unrestrictedDistribution": "NO_GO"
   },
   "nextRequiredSequence": [
-    "merge exact Build 12 source authority after full CI",
-    "deploy and read back exact backend, Rules and indexes",
     "construct and finalize exact production-signed non-distributable Build 12",
     "perform signed-device and migration validation",
     "issue explicit successor pilot decision"
