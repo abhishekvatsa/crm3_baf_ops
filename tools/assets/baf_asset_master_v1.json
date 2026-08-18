@@ -1,0 +1,374 @@
+{
+  "schemaVersion": 1,
+  "manifestId": "crm3-baf-primary-asset-master-v1",
+  "productionProjectId": "crm3-baf-ops-b8638",
+  "basis": {
+    "plantNumberingAuthority": "Owner instruction dated 2026-08-18",
+    "manuals": [
+      "7-1-13-0028-41-1011 - Safety and Operations Manual",
+      "7-1-13-0028-41-1012 - Maintenance Manual"
+    ],
+    "sourceRegister": "CRM3_BAF_Asset_Class_Group_Component_Tag_Register.xlsx",
+    "boundary": "Manual-derived hierarchy is a source baseline, not an as-installed certificate. Ownership is provisional and uncertain tags are omitted pending plant verification."
+  },
+  "assetClasses": [
+    {
+      "key": "base",
+      "code": "BASE",
+      "name": "Base",
+      "majorArea": "BAF Shop Equipment",
+      "legacyAssetTypeKey": "base",
+      "shortDescription": "Insulated charge-support base and protective-atmosphere interface.",
+      "longDescription": "Supports the charge and Inner Cover, circulates protective atmosphere, provides sealing, temperature measurement, water cooling and hydraulic clamping interfaces.",
+      "assetNumberRanges": [[101, 124], [201, 223]],
+      "assetNameFormat": "Base {number}",
+      "hierarchy": [
+        {
+          "key": "structure",
+          "nodeType": "grouping",
+          "name": "Structure, sealing and charge support",
+          "shortDescription": "Load-bearing, insulated, sealing and charge-support elements.",
+          "sourceReference": "SOM pp.17-24; MM pp.4-5",
+          "children": [
+            {"key": "frame", "nodeType": "component", "name": "Base frame", "shortDescription": "Structural steel frame supporting charge, Inner Cover and operating assemblies.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Base / Insulated Frame description", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "sheath", "nodeType": "component", "name": "Insulated sheath", "shortDescription": "Stainless covering over the base insulation.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Base / Insulated Frame description", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "seal", "nodeType": "component", "name": "Base seal (O-ring)", "shortDescription": "Forms the protective-atmosphere seal with the Inner Cover mating surface.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Base / Insulated Frame; MM p.4", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "oil-trough", "nodeType": "component", "name": "Oil trough", "shortDescription": "Collects volatilized oil, water and debris at the base.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Base / Insulated Frame; MM p.4", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "guide-pins", "nodeType": "component", "name": "Inner Cover guide pins", "shortDescription": "Guide the Inner Cover into its final position on the Base.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Base / Insulated Frame description", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "diffuser", "nodeType": "component", "name": "Diffuser", "shortDescription": "Directs protective-atmosphere flow through the charge stack.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Base / Insulated Frame; MM pp.4-5", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "charge-plate", "nodeType": "component", "name": "Charge plate", "shortDescription": "Supports the charge and forms part of the atmosphere-flow path.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Base / Insulated Frame; MM p.5", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "convector-plate", "nodeType": "component", "name": "Convector plate", "shortDescription": "Separates coils and permits protective-atmosphere circulation between them.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Base / Insulated Frame; MM p.5", "ownerRoleKeys": ["seniorMechanical"]}
+          ]
+        },
+        {
+          "key": "fan",
+          "nodeType": "grouping",
+          "name": "Base fan and convection system",
+          "shortDescription": "Recirculates protective atmosphere through the charge.",
+          "sourceReference": "SOM Base / Insulated Frame; MM pp.4-6",
+          "children": [
+            {"key": "fan-assembly", "nodeType": "assembly", "name": "Base fan assembly", "shortDescription": "Motor, impeller and mounting elements for atmosphere circulation.", "discipline": "Mechanical / Electrical", "operatingType": "Electrical drive", "sourceReference": "SOM and MM base-fan sections", "ownerRoleKeys": ["seniorMechanical", "seniorElectrical"], "children": [
+              {"key": "motor", "nodeType": "component", "name": "Base fan motor", "shortDescription": "Drives the base fan wheel, normally under variable-frequency control.", "discipline": "Electrical", "operatingType": "Electrical", "sourceReference": "SOM Base / Insulated Frame; MM base-fan service procedures", "ownerRoleKeys": ["seniorElectrical"]},
+              {"key": "wheel", "nodeType": "component", "name": "Fan wheel", "shortDescription": "Impeller that circulates protective atmosphere through the charge.", "discipline": "Mechanical", "operatingType": "Rotating", "sourceReference": "SOM Base / Insulated Frame; MM pp.4-5", "ownerRoleKeys": ["seniorMechanical"]},
+              {"key": "mounting", "nodeType": "component", "name": "Motor mounting and shaft hardware", "shortDescription": "Mounting studs, lock washers, shaft key and service adapter used by the fan assembly.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "MM base-fan service procedure", "ownerRoleKeys": ["seniorMechanical"]},
+              {"key": "tsh06", "nodeType": "component", "name": "Base fan motor high-temperature switch", "componentTag": "TSH06", "shortDescription": "Signals excessive base fan-motor temperature.", "discipline": "Electrical", "operatingType": "Process-actuated electrical switch", "sourceReference": "SOM device list; installed parent to verify", "ownerRoleKeys": ["seniorElectrical"]},
+              {"key": "fsl08", "nodeType": "component", "name": "Base fan motor purge low-flow switch", "componentTag": "FSL08", "shortDescription": "Proves minimum purge airflow for the base fan motor.", "discipline": "Instrumentation & Automation", "operatingType": "Process-actuated electrical switch", "sourceReference": "SOM device list; installed parent to verify", "ownerRoleKeys": ["seniorInstrumentation"]},
+              {"key": "vt07", "nodeType": "component", "name": "Base fan motor vibration transmitter", "componentTag": "VT07", "shortDescription": "Transmits fan-motor vibration for alarm and condition monitoring.", "discipline": "Instrumentation & Automation", "operatingType": "Electrical sensing", "sourceReference": "SOM device list; MM pp.4,6", "ownerRoleKeys": ["seniorInstrumentation"]}
+            ]}
+          ]
+        },
+        {
+          "key": "clamping",
+          "nodeType": "grouping",
+          "name": "Hydraulic clamping system",
+          "shortDescription": "Clamps the Inner Cover against the Base seal and proves clamping pressure.",
+          "sourceReference": "SOM Base / Insulated Frame; MM pp.4,7",
+          "children": [
+            {"key": "clamps", "nodeType": "component", "name": "Hydraulic clamps", "shortDescription": "Hold the Inner Cover against the Base O-ring seal.", "discipline": "Mechanical", "operatingType": "Hydraulic", "sourceReference": "SOM Base / Insulated Frame; MM pp.4,7", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "pressure-gauge", "nodeType": "component", "name": "Hydraulic pressure gauge", "shortDescription": "Indicates actual hydraulic clamping pressure.", "discipline": "Mechanical / I&A", "operatingType": "Hydraulic indication", "sourceReference": "SOM Base / Insulated Frame", "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]},
+            {"key": "psl13", "nodeType": "component", "name": "Clamp low-pressure switch A", "componentTag": "PSL13", "shortDescription": "Proves hydraulic clamping pressure for one clamp circuit.", "discipline": "Mechanical / I&A", "operatingType": "Hydraulic pressure switch", "sourceReference": "SOM device list; MM pp.4,7", "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]},
+            {"key": "psl14", "nodeType": "component", "name": "Clamp low-pressure switch B", "componentTag": "PSL14", "shortDescription": "Proves hydraulic clamping pressure for the second clamp circuit.", "discipline": "Mechanical / I&A", "operatingType": "Hydraulic pressure switch", "sourceReference": "SOM device list; MM pp.4,7", "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]},
+            {"key": "yv13", "nodeType": "component", "name": "Clamp solenoid valve A", "componentTag": "YV13", "shortDescription": "Actuates one half of the hydraulic clamps.", "discipline": "Mechanical / I&A", "operatingType": "Electro-hydraulic", "sourceReference": "SOM device list p.205", "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]},
+            {"key": "yv14", "nodeType": "component", "name": "Clamp solenoid valve B", "componentTag": "YV14", "shortDescription": "Actuates the other half of the hydraulic clamps.", "discipline": "Mechanical / I&A", "operatingType": "Electro-hydraulic", "sourceReference": "SOM device list p.205", "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]},
+            {"key": "manual-valves", "nodeType": "component", "name": "Hydraulic manual valves", "shortDescription": "Provide local isolation or operation of the clamp circuits.", "discipline": "Mechanical", "operatingType": "Manual hydraulic", "sourceReference": "SOM Base / Insulated Frame", "ownerRoleKeys": ["seniorMechanical"]}
+          ]
+        },
+        {
+          "key": "atmosphere",
+          "nodeType": "grouping",
+          "name": "Protective-atmosphere piping and pressure control",
+          "shortDescription": "Contains, measures and controls the protective atmosphere under the Inner Cover.",
+          "sourceReference": "SOM pp.53,205; MM pp.4-6",
+          "children": [
+            {"key": "piping", "nodeType": "assembly", "name": "Base atmosphere piping", "shortDescription": "Piping and valves serving the protective-atmosphere circuit at the Base.", "discipline": "Mechanical / I&A", "operatingType": "Gas service", "sourceReference": "MM p.5", "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]},
+            {"key": "pt74", "nodeType": "component", "name": "Inner Cover pressure transmitter", "componentTag": "PT74", "shortDescription": "Transmits pressure under the Inner Cover to the control system.", "discipline": "Instrumentation & Automation", "operatingType": "Pressure sensing", "sourceReference": "SOM p.53; MM pp.5-6", "ownerRoleKeys": ["seniorInstrumentation"]},
+            {"key": "pcv77", "nodeType": "component", "name": "Back-pressure valve", "componentTag": "PCV77", "shortDescription": "Maintains positive pressure under the Inner Cover.", "discipline": "Mechanical / I&A", "operatingType": "Pressure control", "sourceReference": "SOM p.53; MM p.4", "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]},
+            {"key": "yiv72", "nodeType": "component", "name": "Atmosphere oil-drain control valve", "componentTag": "YIV72", "shortDescription": "Controls oil drainage from the atmosphere circuit.", "discipline": "Mechanical / I&A", "operatingType": "Electrically actuated valve", "normalState": "Normally closed", "sourceReference": "SOM device list p.205", "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]},
+            {"key": "yiv73", "nodeType": "component", "name": "Atmosphere exhaust control valve", "componentTag": "YIV73", "shortDescription": "Diverts atmosphere exhaust to the waste-gas system.", "discipline": "Mechanical / I&A", "operatingType": "Electrically actuated valve", "normalState": "Normally closed", "sourceReference": "SOM device list p.205", "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]}
+          ]
+        },
+        {
+          "key": "water",
+          "nodeType": "grouping",
+          "name": "Water cooling and drainage",
+          "shortDescription": "Base and Inner Cover cooling-water interfaces, measurement and collection.",
+          "sourceReference": "SOM pp.64-65,205; MM pp.4-5",
+          "children": [
+            {"key": "water-box", "nodeType": "component", "name": "Water box", "shortDescription": "Collects water returning from the Base and Forced Cooler interfaces.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Base / Insulated Frame", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "water-jackets", "nodeType": "component", "name": "Base water jackets", "shortDescription": "Carry cooling water through the Base cooling surfaces.", "discipline": "Mechanical", "operatingType": "Water service", "sourceReference": "MM p.5", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "water-connections", "nodeType": "component", "name": "Water connections", "shortDescription": "Connect Base and Inner Cover cooling-water circuits.", "discipline": "Mechanical", "operatingType": "Water service", "sourceReference": "MM p.4", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "fisl61", "nodeType": "component", "name": "Base cooling-water flow switch and indicator", "componentTag": "FISL61", "shortDescription": "Indicates water flow and initiates the documented low-flow protective response.", "discipline": "Instrumentation & Automation", "operatingType": "Flow sensing and switching", "sourceReference": "SOM pp.64-65,205", "ownerRoleKeys": ["seniorInstrumentation"]},
+            {"key": "te05", "nodeType": "component", "name": "Cooling-water exit temperature element", "componentTag": "TE05", "shortDescription": "Reports water temperature leaving the Inner Cover water jacket.", "discipline": "Instrumentation & Automation", "operatingType": "Electrical temperature sensing", "sourceReference": "SOM pp.64-65; MM p.5", "ownerRoleKeys": ["seniorInstrumentation"]}
+          ]
+        },
+        {
+          "key": "temperature",
+          "nodeType": "grouping",
+          "name": "Charge and Base temperature measurement",
+          "shortDescription": "Measures gas-stream and Base temperatures used by process control and maintenance.",
+          "sourceReference": "SOM Base / Insulated Frame; MM p.5",
+          "children": [
+            {"key": "te02a", "nodeType": "component", "name": "Gas-stream thermocouple A", "componentTag": "TE02A", "shortDescription": "Transmits one protective-atmosphere gas-stream temperature.", "discipline": "Instrumentation & Automation", "operatingType": "Electrical temperature sensing", "sourceReference": "SOM Base / Insulated Frame; MM p.5", "ownerRoleKeys": ["seniorInstrumentation"]},
+            {"key": "te02b", "nodeType": "component", "name": "Gas-stream thermocouple B", "componentTag": "TE02B", "shortDescription": "Transmits the second protective-atmosphere gas-stream temperature.", "discipline": "Instrumentation & Automation", "operatingType": "Electrical temperature sensing", "sourceReference": "SOM Base / Insulated Frame; MM p.5", "ownerRoleKeys": ["seniorInstrumentation"]},
+            {"key": "te03", "nodeType": "component", "name": "Base thermocouple", "componentTag": "TE03", "shortDescription": "Transmits Base temperature to the control system.", "discipline": "Instrumentation & Automation", "operatingType": "Electrical temperature sensing", "sourceReference": "SOM Base / Insulated Frame; MM p.5", "ownerRoleKeys": ["seniorInstrumentation"]}
+          ]
+        }
+      ]
+    },
+    {
+      "key": "furnace",
+      "code": "FURNACE",
+      "name": "Furnace",
+      "majorArea": "BAF Shop Equipment",
+      "legacyAssetTypeKey": "furnace",
+      "shortDescription": "Movable recuperated mixed-fuel direct-fired heating furnace.",
+      "longDescription": "Provides controlled heating around an Inner Cover through combustion-air, mixed-fuel, burner, recuperation, exhaust, refractory, electrical-control and safety systems.",
+      "assetNumberRanges": [[1, 26]],
+      "assetNameFormat": "Furnace {number:02}",
+      "hierarchy": [
+        {
+          "key": "structure",
+          "nodeType": "grouping",
+          "name": "Structure, movement and sealing",
+          "shortDescription": "Movable furnace shell, guidance, lifting and Base sealing interface.",
+          "sourceReference": "SOM Furnace Assembly; MM pp.10-11",
+          "children": [
+            {"key": "casing", "nodeType": "component", "name": "Furnace casing", "shortDescription": "Mild-steel shell carrying insulation and furnace-mounted systems.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Furnace Assembly", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "lifting-eye", "nodeType": "component", "name": "Lifting eye", "shortDescription": "Provides the approved crane lifting point for furnace movement.", "discipline": "Mechanical", "operatingType": "Lifting", "sourceReference": "SOM Furnace Assembly; MM pp.10-11", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "guide-arms", "nodeType": "component", "name": "Guide arms", "shortDescription": "Engage Base guide posts to position the Furnace.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Furnace Assembly", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "draft-seal", "nodeType": "assembly", "name": "Draft-seal assembly", "shortDescription": "Limits waste-gas leakage at the Furnace-to-Base interface.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Typical Draft Seal Assembly; MM pp.10-11", "ownerRoleKeys": ["seniorMechanical"], "children": [
+              {"key": "seal", "nodeType": "component", "name": "Draft seal", "shortDescription": "Flexible sealing element around the lower furnace opening.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Typical Draft Seal Assembly", "ownerRoleKeys": ["seniorMechanical"]},
+              {"key": "support", "nodeType": "component", "name": "Draft-seal support and clamping hardware", "shortDescription": "Supports and retains the draft-seal element.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "MM furnace draft-seal assembly", "ownerRoleKeys": ["seniorMechanical"]}
+            ]}
+          ]
+        },
+        {
+          "key": "refractory",
+          "nodeType": "grouping",
+          "name": "Refractory and heat containment",
+          "shortDescription": "Insulation and refractory elements retaining process heat and protecting the shell.",
+          "sourceReference": "SOM Furnace and Recuperator assemblies; MM furnace sections",
+          "children": [
+            {"key": "lining", "nodeType": "component", "name": "Furnace insulation and refractory lining", "shortDescription": "Thermally insulates the steel casing from the furnace chamber.", "discipline": "Refractory", "operatingType": "Passive", "sourceReference": "SOM Furnace/Recuperator assemblies", "ownerRoleKeys": ["refractory", "seniorRefractory"]},
+            {"key": "burner-block", "nodeType": "component", "name": "Burner blocks and firing tubes", "shortDescription": "Refractory burner interfaces whose condition affects flame shape and hot-spot risk.", "discipline": "Refractory / Mechanical", "operatingType": "Combustion service", "sourceReference": "MM p.11", "ownerRoleKeys": ["seniorMechanical", "refractory", "seniorRefractory"]}
+          ]
+        },
+        {
+          "key": "air",
+          "nodeType": "grouping",
+          "name": "Combustion-air system",
+          "shortDescription": "Supplies, measures, heats and distributes combustion air to the burners.",
+          "sourceReference": "SOM Air Piping and Recuperator assemblies; MM pp.10,12-13",
+          "children": [
+            {"key": "blower", "nodeType": "assembly", "name": "Combustion-air blower assembly", "shortDescription": "Supplies combustion air to the furnace air manifold.", "discipline": "Mechanical / Electrical", "operatingType": "Electrical drive", "sourceReference": "SOM Air Piping Assembly; MM pp.10,12-13", "ownerRoleKeys": ["seniorMechanical", "seniorElectrical"]},
+            {"key": "piping", "nodeType": "component", "name": "Combustion-air piping and manifold", "shortDescription": "Distributes combustion air from the blower and recuperator to each burner.", "discipline": "Mechanical", "operatingType": "Air service", "sourceReference": "SOM Air Piping Assembly", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "recuperator", "nodeType": "component", "name": "Recuperator", "shortDescription": "Recovers heat from furnace waste gas to preheat combustion air.", "discipline": "Mechanical", "operatingType": "Heat recovery", "sourceReference": "SOM Recuperator Assembly", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "fcv31", "nodeType": "component", "name": "Combustion-air flow control valve", "componentTag": "FCV31", "shortDescription": "Modulates combustion-air flow to the Furnace.", "discipline": "Instrumentation & Automation", "operatingType": "Electric motor operated valve", "sourceReference": "SOM tagged-device list", "ownerRoleKeys": ["seniorInstrumentation"]},
+            {"key": "zs31", "nodeType": "component", "name": "Combustion-air valve position feedback", "componentTag": "ZS31", "shortDescription": "Reports the combustion-air control-valve position.", "discipline": "Instrumentation & Automation", "operatingType": "Electrical position sensing", "sourceReference": "SOM tagged-device list", "ownerRoleKeys": ["seniorInstrumentation"]},
+            {"key": "air-proving", "nodeType": "component", "name": "Combustion-air flow and pressure proving", "shortDescription": "Provides flow and pressure permissives for safe burner operation.", "discipline": "Instrumentation & Automation", "operatingType": "Flow and pressure switching", "sourceReference": "SOM Air Piping Assembly; MM pp.12-13", "ownerRoleKeys": ["seniorInstrumentation"]}
+          ]
+        },
+        {
+          "key": "fuel",
+          "nodeType": "grouping",
+          "name": "Mixed-fuel gas train",
+          "shortDescription": "Admits, measures, regulates, isolates and distributes mixed fuel to the burners.",
+          "sourceReference": "SOM Mixed Fuel Piping Assembly; MM pp.10-13",
+          "children": [
+            {"key": "piping", "nodeType": "component", "name": "Mixed-fuel piping and header", "shortDescription": "Distributes mixed fuel from the Furnace inlet to individual burners.", "discipline": "Mechanical", "operatingType": "Fuel-gas service", "sourceReference": "SOM Mixed Fuel Piping Assembly; MM pp.10-11", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "flex-hose", "nodeType": "component", "name": "Mixed-fuel flexible hose and quick connect", "shortDescription": "Connects the movable Furnace to the fixed fuel supply.", "discipline": "Mechanical", "operatingType": "Fuel-gas service", "sourceReference": "SOM Mixed Fuel Piping Assembly; MM p.10", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "yiv53", "nodeType": "component", "name": "Furnace fuel safety shutoff valve", "componentTag": "YIV53", "shortDescription": "Admits or isolates mixed fuel under combustion-safety control.", "discipline": "Mechanical / I&A", "operatingType": "Electrical solenoid valve", "normalState": "Normally closed", "sourceReference": "SOM tagged-device list", "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]},
+            {"key": "ys53", "nodeType": "component", "name": "Furnace fuel-valve solenoid operator", "componentTag": "YS53", "shortDescription": "Operates the Furnace fuel safety shutoff valve.", "discipline": "Instrumentation & Automation", "operatingType": "Electrical solenoid", "sourceReference": "SOM tagged-device list", "ownerRoleKeys": ["seniorInstrumentation"]},
+            {"key": "fcv54", "nodeType": "component", "name": "Fuel flow control valve", "componentTag": "FCV54", "shortDescription": "Modulates mixed-fuel flow to the Furnace.", "discipline": "Instrumentation & Automation", "operatingType": "Electric motor operated valve", "sourceReference": "SOM tagged-device list", "ownerRoleKeys": ["seniorInstrumentation"]},
+            {"key": "zs54", "nodeType": "component", "name": "Fuel control-valve position feedback", "componentTag": "ZS54A&B", "shortDescription": "Reports fuel control-valve position feedback channels.", "discipline": "Instrumentation & Automation", "operatingType": "Electrical position sensing", "sourceReference": "SOM tagged-device list", "ownerRoleKeys": ["seniorInstrumentation"]},
+            {"key": "pressure", "nodeType": "component", "name": "Fuel pressure measurement and switches", "shortDescription": "Measures fuel pressure and proves high/low safety limits.", "discipline": "Instrumentation & Automation", "operatingType": "Pressure sensing and switching", "sourceReference": "SOM Mixed Fuel Piping Assembly; MM furnace troubleshooting", "ownerRoleKeys": ["seniorInstrumentation"]}
+          ]
+        },
+        {
+          "key": "burners",
+          "nodeType": "grouping",
+          "name": "Eight-burner firing system",
+          "shortDescription": "Eight burner positions with ignition, flame detection and local fuel isolation.",
+          "sourceReference": "SOM Typical Burner Assembly; MM pp.10-13",
+          "children": [
+            {"key": "burner-assembly", "nodeType": "assembly", "name": "Typical burner assembly (positions 1-8)", "shortDescription": "Reusable component definition for each of the eight numbered burner positions.", "discipline": "Mechanical / Electrical / I&A", "operatingType": "Mixed-fuel combustion", "applicability": "Eight installed positions per Furnace; retain burner number in work and installed-component records.", "sourceReference": "SOM Typical Burner Assembly", "ownerRoleKeys": ["seniorMechanical", "seniorElectrical", "seniorInstrumentation"], "children": [
+              {"key": "burner-body", "nodeType": "component", "name": "Burner body, air inlet and fuel inlet", "shortDescription": "Mixes and directs combustion air and fuel into the firing zone.", "discipline": "Mechanical", "operatingType": "Combustion service", "sourceReference": "SOM Typical Burner Assembly", "ownerRoleKeys": ["seniorMechanical"]},
+              {"key": "ignitor", "nodeType": "component", "name": "Spark ignitor, rod and holder", "shortDescription": "Produces and positions the ignition spark for burner light-off.", "discipline": "Electrical / I&A", "operatingType": "High-voltage electrical ignition", "sourceReference": "SOM Typical Burner Assembly; MM p.10", "ownerRoleKeys": ["seniorElectrical", "seniorInstrumentation"]},
+              {"key": "transformer", "nodeType": "component", "name": "Burner ignition transformer", "shortDescription": "Supplies high voltage to the spark ignitor.", "discipline": "Electrical", "operatingType": "Electrical", "sourceReference": "SOM Typical Burner Assembly", "ownerRoleKeys": ["seniorElectrical"]},
+              {"key": "uv", "nodeType": "component", "name": "UV flame scanner and peep sight", "shortDescription": "Detects burner flame and provides an inspection path.", "discipline": "Instrumentation & Automation", "operatingType": "Optical flame sensing", "sourceReference": "SOM Typical Burner Assembly; MM pp.10,13", "ownerRoleKeys": ["seniorInstrumentation"]},
+              {"key": "shutoff", "nodeType": "component", "name": "Burner fuel safety shutoff valve", "shortDescription": "Admits or isolates fuel at one burner under flame-safety control.", "discipline": "Mechanical / I&A", "operatingType": "Safety shutoff valve", "normalState": "Normally closed", "sourceReference": "SOM tagged-device list; exact position tags to verify", "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]},
+              {"key": "guard", "nodeType": "component", "name": "Burner guard", "shortDescription": "Protects exposed burner hardware from accidental contact or damage.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Typical Burner Assembly", "ownerRoleKeys": ["seniorMechanical"]}
+            ]}
+          ]
+        },
+        {
+          "key": "exhaust",
+          "nodeType": "grouping",
+          "name": "Waste-gas collection and downcomer",
+          "shortDescription": "Collects Furnace exhaust and directs it to the waste-gas flue tunnel.",
+          "sourceReference": "SOM Furnace Downcomer Assembly",
+          "children": [
+            {"key": "hood", "nodeType": "component", "name": "Furnace waste-gas collection hood", "shortDescription": "Collects combustion products leaving the Furnace.", "discipline": "Mechanical", "operatingType": "Hot gas service", "sourceReference": "SOM Furnace and Downcomer assemblies", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "downcomer", "nodeType": "component", "name": "Downcomer", "shortDescription": "Directs collected waste gas to the foundation flue tunnel.", "discipline": "Mechanical", "operatingType": "Hot gas service", "sourceReference": "SOM Furnace Downcomer Assembly", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "damper", "nodeType": "component", "name": "Waste-gas damper", "shortDescription": "Controls the Furnace exhaust path into the waste-gas flue.", "discipline": "Mechanical / I&A", "operatingType": "Damper", "sourceReference": "SOM Furnace Downcomer Assembly", "ownerRoleKeys": ["seniorMechanical", "seniorInstrumentation"]}
+          ]
+        },
+        {
+          "key": "temperature",
+          "nodeType": "grouping",
+          "name": "Furnace temperature measurement",
+          "shortDescription": "Measures Furnace temperature for control and high-limit protection.",
+          "sourceReference": "SOM Furnace Assembly; MM p.10",
+          "children": [
+            {"key": "te00", "nodeType": "component", "name": "Furnace thermocouple A", "componentTag": "TE00", "shortDescription": "Provides one Furnace temperature measurement channel.", "discipline": "Instrumentation & Automation", "operatingType": "Electrical temperature sensing", "sourceReference": "SOM tagged-device list", "ownerRoleKeys": ["seniorInstrumentation"]},
+            {"key": "te01", "nodeType": "component", "name": "Furnace thermocouple B", "componentTag": "TE01", "shortDescription": "Provides the second Furnace temperature measurement channel.", "discipline": "Instrumentation & Automation", "operatingType": "Electrical temperature sensing", "sourceReference": "SOM tagged-device list", "ownerRoleKeys": ["seniorInstrumentation"]}
+          ]
+        },
+        {
+          "key": "control",
+          "nodeType": "grouping",
+          "name": "Electrical control and flame safety",
+          "shortDescription": "Distributes power and executes purge, permissive, ignition and flame-safety logic.",
+          "sourceReference": "SOM Furnace Assembly; MM pp.10-13",
+          "children": [
+            {"key": "power-panel", "nodeType": "component", "name": "Furnace power panel", "shortDescription": "Distributes high- and low-voltage power to Furnace systems.", "discipline": "Electrical", "operatingType": "Electrical distribution", "sourceReference": "SOM Furnace Assembly", "ownerRoleKeys": ["seniorElectrical"]},
+            {"key": "control-panel", "nodeType": "component", "name": "Furnace control and flame-safety panel", "shortDescription": "Contains flame-safety, purge and high-limit control equipment.", "discipline": "Electrical / I&A", "operatingType": "Electrical control", "sourceReference": "SOM Furnace Assembly; MM pp.12-13", "ownerRoleKeys": ["seniorElectrical", "seniorInstrumentation"]},
+            {"key": "connections", "nodeType": "component", "name": "Power, control and analog plugs", "shortDescription": "Connect movable Furnace power, control and thermocouple circuits to the Base services.", "discipline": "Electrical / I&A", "operatingType": "Electrical connection", "sourceReference": "SOM Furnace Assembly", "ownerRoleKeys": ["seniorElectrical", "seniorInstrumentation"]}
+          ]
+        }
+      ]
+    },
+    {
+      "key": "forceCooler",
+      "code": "FORCED_COOLER",
+      "name": "Forced Cooler",
+      "majorArea": "BAF Shop Equipment",
+      "legacyAssetTypeKey": "forceCooler",
+      "shortDescription": "Movable air-and-water cooling package for post-heating charge cooling.",
+      "longDescription": "Fits over an Inner Cover and provides forced-air and spray-water cooling through structural, blower, water-manifold and electrical-control assemblies.",
+      "assetNumberRanges": [[1, 25]],
+      "assetNameFormat": "Forced Cooler {number}",
+      "hierarchy": [
+        {
+          "key": "structure",
+          "nodeType": "grouping",
+          "name": "Structure, movement and positioning",
+          "shortDescription": "Movable casing and hardware used to lift, guide and position the Forced Cooler.",
+          "sourceReference": "SOM Forced Cooler Assembly; MM p.14",
+          "children": [
+            {"key": "casing", "nodeType": "component", "name": "Forced-cooling casing", "shortDescription": "Stainless shell that sits over the Inner Cover during cooling.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Forced Cooler Assembly", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "lifting-eye", "nodeType": "component", "name": "Lifting eye", "shortDescription": "Provides the approved crane lifting point for Forced Cooler movement.", "discipline": "Mechanical", "operatingType": "Lifting", "sourceReference": "SOM Forced Cooler Assembly; MM p.14", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "guide-arms", "nodeType": "component", "name": "Guide arms", "shortDescription": "Engage Base guide posts to position the Forced Cooler.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Forced Cooler Assembly", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "striker-arms", "nodeType": "component", "name": "Striker arms", "shortDescription": "Engage the Inner Cover drain spout to support cooling-water drainage.", "discipline": "Mechanical", "operatingType": "Mechanical actuation", "sourceReference": "SOM Forced Cooler Assembly; MM p.14", "ownerRoleKeys": ["seniorMechanical"]}
+          ]
+        },
+        {
+          "key": "air",
+          "nodeType": "grouping",
+          "name": "Forced-air cooling system",
+          "shortDescription": "Two blower trains circulate cooling air around the Inner Cover.",
+          "sourceReference": "SOM Forced Cooler Assembly; MM pp.14-15",
+          "children": [
+            {"key": "blowers", "nodeType": "assembly", "name": "Cooler blower assemblies", "shortDescription": "Two motor-driven blowers provide forced cooling air.", "discipline": "Mechanical / Electrical", "operatingType": "Electrical drive", "applicability": "Two blower assemblies per Forced Cooler.", "sourceReference": "SOM Forced Cooler Assembly; MM pp.14-15", "ownerRoleKeys": ["seniorMechanical", "seniorElectrical"]},
+            {"key": "ducts", "nodeType": "component", "name": "Blower transition ducts", "shortDescription": "Direct blower discharge into the cooling casing.", "discipline": "Mechanical", "operatingType": "Air service", "sourceReference": "MM p.14", "ownerRoleKeys": ["seniorMechanical"]}
+          ]
+        },
+        {
+          "key": "water",
+          "nodeType": "grouping",
+          "name": "Spray-water system",
+          "shortDescription": "Connects, distributes, sprays, indicates and drains cooling water.",
+          "sourceReference": "SOM Forced Cooler and Water Piping assemblies; MM pp.14-15",
+          "children": [
+            {"key": "piping", "nodeType": "assembly", "name": "Forced Cooler water piping", "shortDescription": "Directs plant water to the two spray manifolds.", "discipline": "Mechanical", "operatingType": "Water service", "sourceReference": "SOM Water Piping Assembly; MM p.14", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "hose", "nodeType": "component", "name": "Flexible water hose and quick connect", "shortDescription": "Connects the movable cooler to the Base-area water supply.", "discipline": "Mechanical", "operatingType": "Manual connection", "sourceReference": "SOM Water Piping Assembly; MM p.14", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "manual-valve", "nodeType": "component", "name": "Spray-water manual shutoff valve", "shortDescription": "Provides local manual isolation of spray-water flow.", "discipline": "Mechanical / Operations", "operatingType": "Manual valve", "sourceReference": "SOM Water Piping Assembly; MM p.14", "ownerRoleKeys": ["seniorMechanical", "operations"]},
+            {"key": "manifolds", "nodeType": "component", "name": "Water manifolds", "shortDescription": "Two manifolds distribute cooling water around the Inner Cover.", "discipline": "Mechanical", "operatingType": "Water service", "applicability": "Two manifolds per Forced Cooler.", "sourceReference": "SOM Water Piping Assembly", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "nozzles", "nodeType": "component", "name": "Spray nozzles", "shortDescription": "Apply cooling water evenly to the Inner Cover exterior.", "discipline": "Mechanical", "operatingType": "Water spray", "sourceReference": "SOM Water Piping Assembly; MM p.14", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "cleanout", "nodeType": "component", "name": "Water-manifold clean-out", "shortDescription": "Provides access for cleaning the spray-water manifold.", "discipline": "Mechanical", "operatingType": "Manual access", "sourceReference": "SOM Forced Cooler Assembly", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "flow", "nodeType": "component", "name": "Forced Cooler water flow indicator/switch", "shortDescription": "Indicates or proves cooling-water flow; exact installed tag must be verified before tag assignment.", "discipline": "Instrumentation & Automation", "operatingType": "Flow indication and switching", "sourceReference": "SOM/MM references conflict between FISL60 and Base FISL61; tag intentionally unassigned", "ownerRoleKeys": ["seniorInstrumentation"]}
+          ]
+        },
+        {
+          "key": "control",
+          "nodeType": "grouping",
+          "name": "Electrical supply and control",
+          "shortDescription": "Powers and controls the blower and cooling-water interfaces.",
+          "sourceReference": "SOM Forced Cooler Assembly; MM p.14",
+          "children": [
+            {"key": "panel", "nodeType": "component", "name": "Forced Cooler control panel", "shortDescription": "Contains local electrical control equipment for cooler operation.", "discipline": "Electrical / I&A", "operatingType": "Electrical control", "sourceReference": "SOM Forced Cooler Assembly", "ownerRoleKeys": ["seniorElectrical", "seniorInstrumentation"]},
+            {"key": "plugs", "nodeType": "component", "name": "Power and control plugs", "shortDescription": "Connect the movable cooler to Base-area power and control services.", "discipline": "Electrical / I&A", "operatingType": "Electrical connection", "sourceReference": "SOM Forced Cooler Assembly; MM p.14", "ownerRoleKeys": ["seniorElectrical", "seniorInstrumentation"]}
+          ]
+        }
+      ]
+    },
+    {
+      "key": "innerCover",
+      "code": "INNER_COVER",
+      "name": "Inner Cover",
+      "majorArea": "BAF Shop Equipment",
+      "legacyAssetTypeKey": "innerCover",
+      "shortDescription": "Serial-controlled protective-atmosphere enclosure used on a Base.",
+      "longDescription": "Movable stainless enclosure forming the protective chamber around the charge, with fabrication genealogy, sealing, guidance, lifting, water-cooling and drainage elements.",
+      "assetNumberRanges": [],
+      "assetNameFormat": null,
+      "pendingSerialIntakeCount": 44,
+      "hierarchy": [
+        {
+          "key": "enclosure",
+          "nodeType": "grouping",
+          "name": "Fabricated enclosure and genealogy sections",
+          "shortDescription": "Serial-controlled enclosure sections captured during purchase or fabrication registration.",
+          "sourceReference": "SOM Inner Cover; governed fabrication model aligned to plant instruction",
+          "children": [
+            {"key": "lower", "nodeType": "component", "name": "Lower assembly", "shortDescription": "Lower fabricated section supporting the shell and sealing interface.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "Governed fabrication section: lowerAssembly", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "flat", "nodeType": "component", "name": "Flat vertical section", "shortDescription": "Flat stainless vertical section recorded as new or donor-derived material.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "Governed fabrication section: flatVertical", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "corrugated", "nodeType": "component", "name": "Corrugated shell", "shortDescription": "Corrugated shell section assembled from recorded new or donor cut lengths.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "Governed fabrication section: corrugatedShell", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "top", "nodeType": "component", "name": "Top cover / head", "shortDescription": "Dished top section closing the protective-atmosphere enclosure.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Inner Cover; governed fabrication section: topCover", "ownerRoleKeys": ["seniorMechanical"]}
+          ]
+        },
+        {
+          "key": "handling",
+          "nodeType": "grouping",
+          "name": "Lifting, guidance and positioning",
+          "shortDescription": "Features used to lift and locate the Inner Cover on a Base.",
+          "sourceReference": "SOM Inner Cover; MM p.8",
+          "children": [
+            {"key": "lifting-ring", "nodeType": "component", "name": "Lifting ring and lugs", "shortDescription": "Provides the approved crane lifting interface for Inner Cover movement.", "discipline": "Mechanical", "operatingType": "Lifting", "sourceReference": "SOM Inner Cover; MM p.8", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "guide-arms", "nodeType": "component", "name": "Guide arms", "shortDescription": "Engage Base guide posts during positioning.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Inner Cover", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "guide-pin-guides", "nodeType": "component", "name": "Guide-pin guides", "shortDescription": "Receive Base guide pins and guide final placement.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Inner Cover", "ownerRoleKeys": ["seniorMechanical"]}
+          ]
+        },
+        {
+          "key": "water",
+          "nodeType": "grouping",
+          "name": "Water cooling and drainage",
+          "shortDescription": "Receives Forced Cooler spray water, cools the seal area and drains collected water.",
+          "sourceReference": "SOM Inner Cover; MM pp.8-9",
+          "children": [
+            {"key": "catch-ring", "nodeType": "component", "name": "Water catch ring", "shortDescription": "Collects water sprayed onto the Inner Cover by the Forced Cooler.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Inner Cover", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "jacket", "nodeType": "component", "name": "Cooling jacket", "shortDescription": "Carries cooling water to protect the lower seal region.", "discipline": "Mechanical", "operatingType": "Water service", "sourceReference": "SOM Inner Cover; MM p.8", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "connections", "nodeType": "component", "name": "Water connections", "shortDescription": "Connect the Inner Cover cooling jacket to Base-area water hoses.", "discipline": "Mechanical", "operatingType": "Manual connection", "sourceReference": "SOM Inner Cover; MM p.8", "ownerRoleKeys": ["seniorMechanical"]},
+            {"key": "drain-spout", "nodeType": "assembly", "name": "Drain-spout assembly", "shortDescription": "Drains collected cooling water when actuated by the Forced Cooler striker arm.", "discipline": "Mechanical", "operatingType": "Mechanical actuation", "sourceReference": "SOM Inner Cover", "ownerRoleKeys": ["seniorMechanical"], "children": [
+              {"key": "spout", "nodeType": "component", "name": "Drain spout", "shortDescription": "Directs collected water away from the Inner Cover.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Inner Cover", "ownerRoleKeys": ["seniorMechanical"]},
+              {"key": "spring", "nodeType": "subcomponent", "name": "Drain-spout spring", "shortDescription": "Returns or biases the drain mechanism.", "discipline": "Mechanical", "operatingType": "Spring return", "sourceReference": "SOM Inner Cover", "ownerRoleKeys": ["seniorMechanical"]},
+              {"key": "plunger", "nodeType": "component", "name": "Drain-spout plunger", "shortDescription": "Opens the drain path when mechanically actuated.", "discipline": "Mechanical", "operatingType": "Mechanical actuation", "sourceReference": "SOM Inner Cover; MM p.8", "ownerRoleKeys": ["seniorMechanical"]},
+              {"key": "gasket", "nodeType": "subcomponent", "name": "Plunger gasket", "shortDescription": "Seals the drain plunger when closed.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Inner Cover", "ownerRoleKeys": ["seniorMechanical"]}
+            ]},
+            {"key": "fusible-plug", "nodeType": "component", "name": "Fusible plug", "shortDescription": "Relieves pressure arising from excessive water-jacket temperature under the documented design condition.", "discipline": "Mechanical", "operatingType": "Thermally actuated pressure relief", "sourceReference": "SOM Inner Cover; MM pp.8-9", "ownerRoleKeys": ["seniorMechanical"]}
+          ]
+        },
+        {
+          "key": "seal",
+          "nodeType": "grouping",
+          "name": "Protective-atmosphere sealing interface",
+          "shortDescription": "Mates with the Base O-ring to form the protective chamber around the charge.",
+          "sourceReference": "SOM Inner Cover; MM pp.8-9",
+          "children": [
+            {"key": "mating-surface", "nodeType": "component", "name": "Seal mating surface", "shortDescription": "Machined lower surface that bears against the Base seal.", "discipline": "Mechanical", "operatingType": "Passive", "sourceReference": "SOM Inner Cover; MM pp.8-9", "ownerRoleKeys": ["seniorMechanical"]}
+          ]
+        }
+      ]
+    }
+  ]
+}
