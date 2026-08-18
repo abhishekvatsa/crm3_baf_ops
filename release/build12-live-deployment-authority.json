@@ -6,6 +6,12 @@
   "projectId": "crm3-baf-ops-b8638",
   "region": "asia-south1",
   "capturedThroughUtc": "2026-08-18T00:31:26.440Z",
+  "authorization": {
+    "reference": "BAF-FIREBASE-DEPLOY-012",
+    "record": "release/approvals/build12-backend-rules-indexes-deployment-authorization.json",
+    "recordSha256": "6ED271DA1E8A58E5374590C479C3492ECDB9659B8F8F73488554943A4B449C10",
+    "recordingTiming": "POST_DEPLOYMENT_RECORD_OF_PREEXISTING_TASK_AUTHORIZATION"
+  },
   "source": {
     "liveDeploymentAuthorityCommit": "ce2a85acc9eca322dc1288c1df600d4c84f0e738",
     "liveDeploymentAuthorityTree": "84bba6dcb204c141924450a149d84cd7a92a00de",

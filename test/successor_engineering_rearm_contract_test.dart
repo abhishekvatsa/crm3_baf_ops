@@ -1,12 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _readObject(String path) =>
     (jsonDecode(File(path).readAsStringSync()) as Map).cast<String, dynamic>();
 
 List<String> _strings(dynamic value) => (value as List<dynamic>).cast<String>();
+
+String _sha256(String path) =>
+    sha256.convert(File(path).readAsBytesSync()).toString().toUpperCase();
 
 void main() {
   test(
@@ -59,6 +63,9 @@ void main() {
     final deployment = _readObject(
       'release/build12-live-deployment-authority.json',
     );
+    final deploymentApproval = _readObject(
+      'release/approvals/build12-backend-rules-indexes-deployment-authorization.json',
+    );
     final deploymentSource =
         (deployment['source'] as Map).cast<String, dynamic>();
     final deploymentBoundary =
@@ -90,6 +97,28 @@ void main() {
       deployment['status'],
       'PASS_BUILD12_BACKEND_RULES_INDEXES_IAM_DEPLOYED_EXACT',
     );
+    expect(deploymentApproval['approved'], isTrue);
+    expect(deploymentApproval['approvalReference'], 'BAF-FIREBASE-DEPLOY-012');
+    expect(
+      deploymentApproval['recordingTiming'],
+      'POST_DEPLOYMENT_RECORD_OF_PREEXISTING_TASK_AUTHORIZATION',
+    );
+    expect(
+      (deployment['authorization'] as Map<String, dynamic>)['recordSha256'],
+      _sha256(
+        'release/approvals/build12-backend-rules-indexes-deployment-authorization.json',
+      ),
+    );
+    final deploymentControls =
+        (deploymentApproval['requiredControls'] as Map).cast<String, dynamic>();
+    expect(deploymentControls['exactCleanMergedMain'], isTrue);
+    expect(deploymentControls['fullReleaseGateRequired'], isTrue);
+    expect(
+      deploymentControls['productionBusinessDataMutationAuthorized'],
+      isFalse,
+    );
+    expect(deploymentControls['appCheckActivationAuthorized'], isFalse);
+    expect(deploymentControls['pilotHandoutAuthorized'], isFalse);
     expect(
       deploymentSource['liveDeploymentAuthorityCommit'],
       'ce2a85acc9eca322dc1288c1df600d4c84f0e738',

@@ -8,6 +8,7 @@ authorize a pilot handout, unrestricted distribution or App Check activation.
 
 ## Exact bindings
 
+- operator deployment authority: `BAF-FIREBASE-DEPLOY-012`
 - Build 12 live-deployment authority: `ce2a85acc9eca322dc1288c1df600d4c84f0e738`
 - Build 12 live-deployment tree: `84bba6dcb204c141924450a149d84cd7a92a00de`
 - deployed Functions authority: `08ee9eb70c930204f942d1094eb9257ef1e192c5`
@@ -19,6 +20,11 @@ The Functions source and dependency manifests are unchanged between the
 deployment commit and the Build 12 live-deployment authority. Later source changes
 in this interval are confined to Firestore Rules, Rules tests and governance
 records.
+
+The deployment authority is recorded at
+`release/approvals/build12-backend-rules-indexes-deployment-authorization.json`.
+It transparently records a pre-existing project-owner instruction after the
+deployment event; it is not backdated and does not claim independent approval.
 
 ## Live outcomes
 

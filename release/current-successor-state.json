@@ -7,6 +7,7 @@
     "admittedBaselineCommit": "b020dc639cd0b69bf09808de9f6a750cde38259c",
     "admittedBaselineTree": "a65ff08db541bea2aa72c6930ead60b430028eea",
     "successorEngineeringAuthority": "governance/successor-engineering-rearm-2026-08-16.json",
+    "liveDeploymentAuthority": "release/approvals/build12-backend-rules-indexes-deployment-authorization.json",
     "exactCandidateBinding": "release/build12-live-deployment-authority.json",
     "build12LiveDeploymentAuthorityCommit": "ce2a85acc9eca322dc1288c1df600d4c84f0e738",
     "build12LiveDeploymentAuthorityTree": "84bba6dcb204c141924450a149d84cd7a92a00de",
