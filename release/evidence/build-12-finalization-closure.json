@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "production-build-finalization-closure",
+  "status": "passed-non-distributable",
+  "recordingTiming": "POST_FINALIZATION_SOURCE_RECONCILIATION",
+  "release": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.2-b12",
+    "versionName": "1.0.0-rc.2",
+    "buildNumber": 12,
+    "releaseChannel": "production-candidate",
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "distributionAuthority": "production-signed-pre-release-candidate"
+  },
+  "sourceAuthority": {
+    "commit": "8ba5b237cef151b001d9bea41e16e68015091e43",
+    "tree": "d86a56b708856d62e39e0495feb24d81797b0415",
+    "pullRequestNumber": 242,
+    "productionPolicySha256AtBuild": "7CB974A3EA1F6FFF171DF6ED562EB7CF948C34D8E41C5A8B691A64313DA0B145",
+    "finalizerSha256AtBuild": "871D29AFC06FBEA9B8FF74F20CEE227285BC9E413D250A2F14425B55F1C68AC3"
+  },
+  "workflow": {
+    "provider": "github-actions",
+    "workflow": ".github/workflows/production-artifact.yml",
+    "runId": 32088466492,
+    "runAttempt": 1,
+    "url": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/32088466492",
+    "startedAtUtc": "2026-08-18T01:30:31Z",
+    "completedAtUtc": "2026-08-18T01:53:44Z",
+    "conclusion": "success",
+    "actor": "abhishekvatsa",
+    "actorId": 213690022,
+    "triggeringActor": "abhishekvatsa",
+    "dispatchApprovalReference": "BAF-REF-003-C11",
+    "environmentReviewControlMode": "public-repository-required-reviewer",
+    "secretNamesVerified": 4,
+    "secretValuesInspected": false,
+    "environment": "crm3-baf-ops-production-signing",
+    "environmentApprovalReference": "BAF-GH-ENV-008"
+  },
+  "githubArtifact": {
+    "id": 9307950694,
+    "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.2-b12-8ba5b237cef151b001d9bea41e16e68015091e43-run-32088466492",
+    "sizeBytes": 149581975,
+    "digest": "sha256:dba9951554c2d35e5ab1dae1a681d2460a4a86b3d126360d8e35c4ad5f42fd29"
+  },
+  "governedPackage": {
+    "sha256": "8BBDB5C6F6CB72243F426AB795C1ADA96F78C7C904512784332048C8A9B901CB",
+    "sidecarSha256": "D6FD85ACF9A7A86F64BC2C45705C75169837F0D6A9F472478F1C1E915F8BBC17",
+    "manifestSha256": "30964357B68DA83AFF4E70F37E99B147E638191BA2298AF365029BBFF746FEB0",
+    "apkSha256": "385FF28C86A8EB8191257A369C8A0A4B2DDFB06BDDBC20251A649E6924AA0818",
+    "apkSizeBytes": 83718777,
+    "aabSha256": "A00281D208CE26971DB955E9BF872C617F9F12EEE6CC2BC352BF28148E8903E7",
+    "aabSizeBytes": 77522567,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "version": "1.0.0-rc.2+12",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "independentVerificationCompleted": true
+  },
+  "remoteAuthority": {
+    "reservationTag": "crm3-build-reserved/12",
+    "reservationTagObjectSha": "db8e0c347ad7278ef1ac83d4880f29ae5832274a",
+    "reservationTagCommit": "8ba5b237cef151b001d9bea41e16e68015091e43",
+    "builtTag": "crm3-build-built/12",
+    "builtTagObjectSha": "b705e33b68a1deaed0d2b71f88d024b8e8db1515",
+    "builtTagCommit": "8ba5b237cef151b001d9bea41e16e68015091e43"
+  },
+  "dualCustody": {
+    "status": "passed",
+    "governedPackageCompletedAtUtc": "2026-08-18T02:00:58.4818499Z",
+    "closureArchiveCompletedAtUtc": "2026-08-18T15:49:08.5099800Z",
+    "distinctVolumes": true,
+    "allFileHashesMatched": true,
+    "closureCustodyReconciliationFile": "release/evidence/build-12-closure-custody-reconciliation.json",
+    "closureCustodyReconciliationSha256": "C12D43C0D32DD1F9FEFCB5E5CF32CA50215292B0DE602C3439F88011FEAD8C5D"
+  },
+  "closure": {
+    "decisionAtUtc": "2026-08-18T02:01:07.5212651Z",
+    "closurePackageSha256": "6E4F4512A5B90F2B58FED8AC0AEDAC4882E51960F74A66073DFCE0F6F78EF6D0",
+    "closurePackageSidecarSha256": "26363EA39844FD1A8BBF4D223DE0A864205589112266374D31A674A165B84A8B",
+    "custodyRecordSha256": "496A7CD7081190EFEA40206F6FBF9A779882BF1C1783FC91F5DC0194C854DBB9",
+    "closureCustodyReconciliationSha256": "C12D43C0D32DD1F9FEFCB5E5CF32CA50215292B0DE602C3439F88011FEAD8C5D"
+  },
+  "runtimeAdjudication": {
+    "status": "passed-exact-build12-physical-in-place-feature-surfaces",
+    "observedAtUtc": "2026-08-18T02:32:41.9302002Z",
+    "physicalTargetCount": 1,
+    "emulatorTargetCount": 0,
+    "exactInstalledApkMatch": true,
+    "coldStartPassed": true,
+    "packageUidPreserved": true,
+    "firstInstallTimePreserved": true,
+    "appDataPreserved": true,
+    "approvedSessionPreserved": true,
+    "uninstallPerformed": false,
+    "appDataClearPerformed": false,
+    "principalFeatureSurfacesRendered": true,
+    "liveAssetWorkflowValidationCompleted": false,
+    "externalEvidenceSha256": "E1AAD15FABA04AEA02264AB51445265525834623002BBBB7A62F88A6B6E49D7F",
+    "qualification": "The exact Build 12 package upgraded and rendered on one physical device. Burner and Inner Cover live-record workflows were configuration-blocked because the governed asset master had not yet been populated."
+  },
+  "postDeviceEvidence": {
+    "assetMasterPopulationReceiptFile": "release/evidence/baf-primary-asset-master-v1-production.json",
+    "assetMasterPopulationReceiptSha256": "9924381186948BBB1EE83A4165AB00C3800625B89756D548F3F19DFE0E1E536A",
+    "assetMasterPopulatedAtUtc": "2026-08-18T08:44:15.196Z",
+    "liveAssetWorkflowValidationStillRequired": true
+  },
+  "recoveryIncident": {
+    "occurred": false,
+    "forceUsed": false
+  },
+  "releaseBoundary": {
+    "authority": "production-signed-pre-release-candidate",
+    "exactBackendRulesIndexesIamProvedSeparately": true,
+    "firebaseBackendDeploymentPerformed": false,
+    "firebaseDeploymentPerformedDuringArtifactFinalization": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false,
+    "distributionPerformed": false,
+    "postBuildPromotionRequiredForAnyDistribution": true,
+    "runtimeValidationPassed": true,
+    "fullBusinessFlowValidationPassed": false,
+    "disposition": "finalized-dual-custody-device-upgrade-proved-awaiting-post-asset-live-workflow-and-pilot-adjudication"
+  }
+}

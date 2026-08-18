@@ -1,6 +1,6 @@
 # Build 12 successor feature and UI rollover
 
-Status: SOURCE AUTHORIZED; REMOTE RESERVATION, SIGNING, DEPLOYMENT AND DEVICE PROOF PENDING
+Status: SIGNED, FINALIZED AND DEVICE-UPGRADE PROVED; POST-ASSET LIVE WORKFLOW AND PILOT DECISION PENDING
 
 ## Purpose
 
@@ -56,18 +56,16 @@ release.
 
 ## Required sequence
 
-1. Merge the Build 12 source authority only after exact-head CI passes.
-2. Deploy the exact successor Functions, Firestore Rules and indexes through
-   the governed production path and capture readback against the merged commit.
-3. Dispatch the production-signing workflow from exact live `main`, obtain the
-   protected-environment approval and atomically consume build number 12.
-4. Independently verify and finalize the signed APK/AAB into dual custody.
-5. Install the exact signed APK as an in-place upgrade. Uninstall and app-data
-   clearing are prohibited.
-6. Prove startup, sign-in, local-store migration, sync and representative
-   role/business flows, including burner and asset workflows and the refreshed
-   UI.
-7. Record a separate pilot decision. No distribution follows automatically.
+Steps 1 through 5 are complete. The exact package upgraded one physical device
+without uninstall or app-data clearing, and startup plus the principal feature
+surfaces passed. The remaining sequence is:
+
+1. Exercise representative burner, Inner Cover and asset workflows against the
+   governed production asset master populated after the first device check.
+2. Record the bounded live-workflow result without broadening business-data or
+   distribution authority.
+3. Record a separate Build 12 pilot decision. No distribution follows
+   automatically.
 
 ## Device acceptance minimum
 

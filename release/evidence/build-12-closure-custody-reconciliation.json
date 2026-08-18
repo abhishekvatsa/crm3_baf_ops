@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "BUILD12-CLOSURE-CUSTODY-RECONCILIATION-20260818",
+  "evidenceType": "build12-post-finalization-closure-custody-reconciliation",
+  "decision": "PASS_EXACT_BUILD12_CLOSURE_ARCHIVE_PRESERVED_ON_DISTINCT_VOLUMES",
+  "recordedAtUtc": "2026-08-18T15:49:08.5099800Z",
+  "release": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.2-b12",
+    "version": "1.0.0-rc.2+12",
+    "buildNumber": 12,
+    "sourceCommit": "8ba5b237cef151b001d9bea41e16e68015091e43",
+    "sourceTree": "d86a56b708856d62e39e0495feb24d81797b0415"
+  },
+  "remoteAuthority": {
+    "githubRunId": 32088466492,
+    "githubArtifactId": 9307950694,
+    "reservationTag": "crm3-build-reserved/12",
+    "reservationTagObjectSha": "db8e0c347ad7278ef1ac83d4880f29ae5832274a",
+    "builtTag": "crm3-build-built/12",
+    "builtTagObjectSha": "b705e33b68a1deaed0d2b71f88d024b8e8db1515"
+  },
+  "originalFinalization": {
+    "decisionAtUtc": "2026-08-18T02:01:07.5212651Z",
+    "governedPackageDualCustodyCompletedAtUtc": "2026-08-18T02:00:58.4818499Z",
+    "governedPackageDualCustodyPassed": true,
+    "closureArchiveBackupCopyCompleted": false,
+    "closureArchiveBackupCopyBlock": "The offline volume did not have sufficient free space at finalization time."
+  },
+  "governedPackage": {
+    "fileName": "crm3-baf-ops-1.0.0-rc.2-b12-GOVERNED-PACKAGE.zip",
+    "sizeBytes": 149637880,
+    "sha256": "8BBDB5C6F6CB72243F426AB795C1ADA96F78C7C904512784332048C8A9B901CB",
+    "sidecarSha256": "D6FD85ACF9A7A86F64BC2C45705C75169837F0D6A9F472478F1C1E915F8BBC17",
+    "primaryVolume": "C",
+    "backupVolume": "D",
+    "distinctVolumes": true,
+    "allFileHashesMatched": true
+  },
+  "closureArchive": {
+    "fileName": "CRM_III_BAF_Ops_O1_O5_CLOSURE_20260818_072715.zip",
+    "sizeBytes": 149596020,
+    "sha256": "6E4F4512A5B90F2B58FED8AC0AEDAC4882E51960F74A66073DFCE0F6F78EF6D0",
+    "sidecarSha256": "26363EA39844FD1A8BBF4D223DE0A864205589112266374D31A674A165B84A8B",
+    "primaryVolume": "C",
+    "backupVolume": "D",
+    "distinctVolumes": true,
+    "sourcePrimaryAndBackupHashesMatched": true,
+    "copyCompletedAtUtc": "2026-08-18T15:49:08.5099800Z"
+  },
+  "safetyBoundary": {
+    "artifactRebuilt": false,
+    "remoteTagChanged": false,
+    "githubWorkflowRunChanged": false,
+    "firebaseDeploymentPerformed": false,
+    "distributionPerformed": false,
+    "deviceChanged": false,
+    "businessDataReadOrWritten": false,
+    "filesDeleted": false
+  },
+  "status": "passed"
+}

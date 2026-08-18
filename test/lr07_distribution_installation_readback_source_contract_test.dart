@@ -48,6 +48,7 @@ void main() {
         9,
         10,
         11,
+        12,
       ]);
       expect(artifacts.map((entry) => entry['id']).toSet(), <int>{
         8711253816,
@@ -58,10 +59,11 @@ void main() {
         9116320474,
         9122790773,
         9125100777,
+        9307950694,
       });
       expect(
         artifacts.where((entry) => entry['dualCustodyCompleted'] == true),
-        hasLength(6),
+        hasLength(7),
       );
       expect(
         artifacts.singleWhere(
@@ -82,9 +84,15 @@ void main() {
         'FINALIZED_DUAL_CUSTODY_DEVICE_PROVED_NON_DISTRIBUTABLE',
       );
       expect(
+        artifacts.singleWhere(
+          (entry) => entry['buildNumber'] == 12,
+        )['deletionBasis'],
+        'FINALIZED_DUAL_CUSTODY_DEVICE_UPGRADE_PROVED_NON_DISTRIBUTABLE',
+      );
+      expect(
         (policy['executionAuthority']
             as Map<String, dynamic>)['requiredPresentArtifactIds'],
-        <int>[9116320474, 9122790773, 9125100777],
+        <int>[9307950694],
       );
 
       final installation =

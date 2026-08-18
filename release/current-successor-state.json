@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "indexId": "CRM3-CURRENT-SUCCESSOR-STATE-2026-08-16",
   "asOfDate": "2026-08-18",
-  "status": "BUILD12_BACKEND_RULES_INDEXES_DEPLOYED_PENDING_SIGNING_AND_DEVICE_PROOF",
+  "status": "BUILD12_FINALIZED_DEVICE_UPGRADE_PROVED_POST_ASSET_LIVE_WORKFLOW_AND_PILOT_PENDING",
   "source": {
     "admittedBaselineCommit": "b020dc639cd0b69bf09808de9f6a750cde38259c",
     "admittedBaselineTree": "a65ff08db541bea2aa72c6930ead60b430028eea",
@@ -12,7 +12,9 @@
     "build12LiveDeploymentAuthorityCommit": "ce2a85acc9eca322dc1288c1df600d4c84f0e738",
     "build12LiveDeploymentAuthorityTree": "84bba6dcb204c141924450a149d84cd7a92a00de",
     "build12LiveDeploymentPostMergeReleaseGateRunId": 32083536385,
-    "build12ArtifactDispatchCommit": "PENDING_EVIDENCE_MERGE"
+    "build12ArtifactDispatchCommit": "8ba5b237cef151b001d9bea41e16e68015091e43",
+    "build12FinalizationReceipt": "release/evidence/build-12-finalization-closure.json",
+    "build12FinalizationReceiptSha256": "3568B9600A531E3C606ADD90FBA4D3A451892D5C068904AD173225ACD4A74BDC"
   },
   "localStore": {
     "schemaVersion": 6,
@@ -53,19 +55,19 @@
   "client": {
     "sealedBuild11": "AUTHORIZED_EXACT_ARTIFACT_AND_ROSTER_ONLY",
     "currentSourcePackageVersion": "1.0.0-rc.2+12",
-    "successorBuild": "BUILD12_LIVE_BACKEND_READY_PENDING_REMOTE_SIGNING",
+    "successorBuild": "BUILD12_PRODUCTION_SIGNED_FINALIZED_NON_DISTRIBUTABLE",
     "releaseAuthority": "release/production-release-policy.json",
     "build11SameVersionOverwriteProhibited": true
   },
   "deviceAndPilot": {
     "sealedBuild11Evidence": "PRESERVED_HISTORIC_EXACT_ARTIFACT",
-    "currentSuccessorDeviceProof": "ABSENT_PENDING_PRODUCTION_SIGNED_BUILD12_IN_PLACE_UPGRADE",
+    "currentSuccessorDeviceProof": "PASS_EXACT_BUILD12_PHYSICAL_IN_PLACE_UPGRADE_AND_FEATURE_SURFACES",
+    "postAssetPopulationLiveWorkflowProof": "PENDING",
     "currentSuccessorPilotHandout": "NOT_AUTHORIZED",
     "unrestrictedDistribution": "NO_GO"
   },
   "nextRequiredSequence": [
-    "construct and finalize exact production-signed non-distributable Build 12",
-    "perform signed-device and migration validation",
+    "validate Build 12 live asset workflows after governed asset-master population",
     "issue explicit successor pilot decision"
   ]
 }
