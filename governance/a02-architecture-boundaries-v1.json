@@ -308,7 +308,7 @@
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart"
       ],
-      "maximumLines": 2546,
+      "maximumLines": 2700,
       "requiredMarkers": [
         "class MaintenanceForm"
       ],
@@ -1046,6 +1046,147 @@
         "Isar.getInstance()"
       ],
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
+    },
+    {
+      "path": "lib/features/inspections/presentation/inspection_programmes_editors.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / inspections",
+      "purpose": "Owns the coordinated definition, campaign, observation, correction, and issue-link editors for the inspection workspace.",
+      "responsibilities": [
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Receives already-approved workspace actions and returns validated drafts; it does not read authority or own persistence.",
+      "persistenceOwnership": "No direct persistence is admitted; the inspection repository and governed workflow command own reads and writes.",
+      "transactionOwnership": "No database or cross-source transaction is owned by these editors.",
+      "rationale": "The part file keeps closely coupled form state outside the main workspace while sharing its private domain widgets and validation vocabulary.",
+      "regressionTests": [
+        "test/inspection_campaign_model_test.dart"
+      ],
+      "maximumLines": 1550,
+      "requiredMarkers": [
+        "class _InspectionDefinitionEditor"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, responsibilities change, direct persistence appears, or inspection model regressions no longer pass."
+    },
+    {
+      "path": "lib/features/inspections/presentation/inspection_programmes_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / inspections",
+      "purpose": "Owns the role-scoped inspection workspace, campaign coverage, findings, missing-target, and governed action presentation.",
+      "responsibilities": [
+        "authority",
+        "command-boundary",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Uses approved-user capabilities for affordances and sends mutations only through the governed workflow command boundary.",
+      "persistenceOwnership": "Read providers and the inspection repository own Firestore access; the screen owns none.",
+      "transactionOwnership": "Server command handlers own all inspection mutation transactions.",
+      "rationale": "The workspace is decomposed into editor and screen part files while preserving one route-level state and private visual language.",
+      "regressionTests": [
+        "test/inspection_campaign_model_test.dart",
+        "test/ui_business_alignment_test.dart"
+      ],
+      "maximumLines": 1600,
+      "requiredMarkers": [
+        "class InspectionProgrammesScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, responsibilities change, command admission bypasses actor capability, or direct persistence appears."
+    },
+    {
+      "path": "lib/features/maintenance/presentation/frequent_issue_catalogue_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / maintenance",
+      "purpose": "Owns frequent-issue catalogue browsing and governed definition-management interactions.",
+      "responsibilities": [
+        "authority",
+        "command-boundary",
+        "presentation",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Uses approved-user catalogue capabilities and delegates mutations to the governed workflow command service.",
+      "persistenceOwnership": "The frequent-issue repository owns reads and the backend command owns writes.",
+      "transactionOwnership": "No client transaction is owned by the catalogue screen.",
+      "rationale": "The screen keeps one cohesive catalogue-management interaction while business parsing and persistence remain outside presentation.",
+      "regressionTests": [
+        "test/maintenance_issue_create_command_test.dart"
+      ],
+      "maximumLines": 900,
+      "requiredMarkers": [
+        "class FrequentIssueCatalogueScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, responsibilities change, catalogue writes bypass the command boundary, or direct persistence appears."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/maintenance_intelligence_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns maintenance-class, cadence, due-state, and planning workspace interactions.",
+      "responsibilities": [
+        "authority",
+        "command-boundary",
+        "presentation",
+        "serialization",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Uses approved-user planning capabilities and sends mutations only through governed workflow commands.",
+      "persistenceOwnership": "Read repositories and server command handlers own persistence; form serialization is limited to command payload construction.",
+      "transactionOwnership": "All maintenance-intelligence transactions remain server-owned.",
+      "rationale": "One workspace coordinates tightly related class definitions, live due state, and planning decisions without owning persistence.",
+      "regressionTests": [
+        "test/ui_business_alignment_test.dart"
+      ],
+      "maximumLines": 1600,
+      "requiredMarkers": [
+        "class MaintenanceIntelligenceScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, responsibilities change, direct persistence appears, or a planning mutation bypasses the command boundary."
+    },
+    {
+      "path": "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / planned_maintenance",
+      "purpose": "Owns the governed planned-job dossier, module and diary affordances, maintenance classification display, and completion navigation.",
+      "responsibilities": [
+        "authority",
+        "command-boundary",
+        "presentation",
+        "serialization",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Approved-user capabilities control affordances; governed services and screens own all mutations, while metadata parsing is display-only.",
+      "persistenceOwnership": "Job, module, diary, and maintenance-intelligence providers own reads; this screen owns no direct database access.",
+      "transactionOwnership": "No database transaction is owned by the dossier.",
+      "rationale": "The route coordinates a single job dossier and delegates large visual sections to existing dossier parts while preserving one lifecycle.",
+      "regressionTests": [
+        "test/ui_business_alignment_test.dart"
+      ],
+      "maximumLines": 1200,
+      "requiredMarkers": [
+        "class PlannedJobDetailScreen"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore.instance",
+        "Isar.getInstance()"
+      ],
+      "reArmCondition": "Re-arm when the line ceiling is exceeded, responsibilities change, metadata becomes authority, or direct persistence appears."
     }
   ]
 }

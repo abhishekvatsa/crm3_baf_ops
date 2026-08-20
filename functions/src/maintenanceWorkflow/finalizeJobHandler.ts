@@ -21,6 +21,10 @@ import {WorkflowError} from "./errors";
 import {eventPlan} from "./events";
 import {CommandHandler} from "./handlerTypes";
 import {
+  applyMaintenanceCompletionWritePlan,
+  prepareMaintenanceCompletionWritePlan,
+} from "./maintenanceIntelligence";
+import {
   compliancePath,
   equipmentIdentityFromWorkflow,
   equipmentPathForIdentity,
@@ -265,6 +269,16 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
     }
   }
 
+  const maintenanceCompletionPlan = await prepareMaintenanceCompletionWritePlan({
+    tx,
+    execution: currentExecution,
+    executionId: parentExecutionId,
+    sourceType: "workflowPlannedJob",
+    completedAt: now,
+    completedBy: context.actor,
+    recordedAt: now,
+  });
+
   // All transaction reads have completed. Writes begin below.
   if (successorWorkflowId != null && successorExecutionId != null && successorTemplate != null) {
     const awaitingPreparation = red.action === "createREDSuccessorAwaitingPreparation";
@@ -450,6 +464,7 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
 
   tx.update(parentExecutionRef, {
     ...closurePlan.executionUpdate,
+    maintenanceClassificationPending: maintenanceCompletionPlan == null,
     spawnedRedExecutionFirestoreId: successorExecutionId,
     redAnswerJson: JSON.stringify({
       required: redRequired,
@@ -460,6 +475,7 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
     }),
   });
   tx.set(closurePlan.auditPath, closurePlan.auditData, true);
+  applyMaintenanceCompletionWritePlan(tx, maintenanceCompletionPlan);
 
   tx.set(equipmentId, equipmentProjectionWrite(equipment.data, facts, projection, {
     assetTypeKey,
@@ -486,6 +502,7 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       equipmentState: projection.state,
       closureAttestationHash: closurePlan.attestationHash,
       validatedModuleCount: closurePlan.modules.length,
+      maintenanceCompletionEventId: maintenanceCompletionPlan?.eventId ?? null,
     },
   });
   tx.create(event.path, event.data);
@@ -500,6 +517,7 @@ export const finalizeJob: CommandHandler = async ({tx, command, context}) => {
       equipmentState: projection.state,
       closureAttestationHash: closurePlan.attestationHash,
       validatedModuleCount: closurePlan.modules.length,
+      maintenanceCompletionEventId: maintenanceCompletionPlan?.eventId ?? null,
     },
   };
 };

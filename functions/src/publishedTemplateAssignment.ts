@@ -1,4 +1,5 @@
 import {createHash} from "crypto";
+import {isFiveDigitChargeNumber} from "./chargeNumber";
 
 import {canonicalModuleDiscipline, laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
 import {
@@ -10,6 +11,11 @@ import {
   EquipmentIdentity,
   equipmentDocumentIdForIdentity,
 } from "./maintenanceWorkflow/paths";
+import {
+  assertMaintenanceClassApplies,
+  FrozenMaintenanceClass,
+  parseFrozenMaintenanceClass,
+} from "./maintenanceWorkflow/maintenanceIntelligence";
 export type AssignmentHttpsErrorCode =
   | "invalid-argument"
   | "not-found"
@@ -413,6 +419,13 @@ export function parsePublishedTemplateAssignmentRequest(
     raw.chargeNoAtEvent,
     "chargeNoAtEvent",
   );
+  if (chargeNoAtEvent != null && !isFiveDigitChargeNumber(chargeNoAtEvent)) {
+    throw new AssignmentValidationError(
+      "invalid-argument",
+      "chargeNoAtEvent must contain exactly five digits.",
+      {reasonCode: "charge-number-invalid", field: "chargeNoAtEvent"},
+    );
+  }
   const remarks = cleanOptionalText(raw.remarks);
   if (remarks != null && remarks.length > MAX_REMARKS_LENGTH) {
     throw new AssignmentValidationError(
@@ -1763,6 +1776,7 @@ export function computeTemplateVersionContentHash(
 ): string {
   const bundle = parseSnapshotBundle(version);
   const closure = deriveClosureState(bundle);
+  const maintenanceClassification = maintenanceClassificationFromVersion(version);
   const canonical = JSON.stringify({
     jobTemplateSnapshotJson: assertNonEmptyString(
       version.jobTemplateSnapshotJson,
@@ -1809,10 +1823,44 @@ export function computeTemplateVersionContentHash(
       typeof version.schemaVersion === "number"
         ? Math.trunc(version.schemaVersion)
         : 1,
+    ...(maintenanceClassification == null ? {} : {maintenanceClassification}),
   });
   return `tg2-sha256:${createHash("sha256")
     .update(canonical, "utf8")
     .digest("hex")}`;
+}
+
+function maintenanceClassificationFromVersion(
+  version: AssignmentJsonMap,
+): FrozenMaintenanceClass | null {
+  const raw = cleanOptionalText(version.metadataJson);
+  if (raw == null) return null;
+  let metadata: AssignmentJsonMap;
+  try {
+    const decoded = JSON.parse(raw) as unknown;
+    if (decoded == null || typeof decoded !== "object" || Array.isArray(decoded)) {
+      throw new Error("metadata-not-object");
+    }
+    metadata = decoded as AssignmentJsonMap;
+  } catch (_) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The TemplateVersion metadata is malformed.",
+      {reasonCode: "template-version-metadata-invalid"},
+    );
+  }
+  if (!Object.prototype.hasOwnProperty.call(metadata, "maintenanceClassification")) {
+    return null;
+  }
+  try {
+    return parseFrozenMaintenanceClass(metadata.maintenanceClassification);
+  } catch (_) {
+    throw new AssignmentValidationError(
+      "failed-precondition",
+      "The TemplateVersion maintenance classification is malformed.",
+      {reasonCode: "template-maintenance-classification-invalid"},
+    );
+  }
 }
 
 function normalizeAgency(value: string): string {
@@ -2428,6 +2476,26 @@ function buildCanonicalAssignment(args: {
   );
   const agencies = assignedAgencies(packageData, bundle.jobSnapshot);
   const packageCode = cleanOptionalText(packageData.packageCode);
+  const maintenanceClassification = maintenanceClassificationFromVersion(versionData);
+  if (maintenanceClassification != null) {
+    try {
+      assertMaintenanceClassApplies(maintenanceClassification, {
+        assetIdentityKey: equipmentIdentity.assetClassId == null ?
+          `${request.assetType}:${request.assetNumber}` :
+          `${equipmentIdentity.assetClassId}:${equipmentIdentity.assetInstanceId}`,
+        assetTypeKey: request.assetType,
+        assetNumber: request.assetNumber,
+        assetClassId: equipmentIdentity.assetClassId,
+        assetInstanceId: equipmentIdentity.assetInstanceId,
+      });
+    } catch (_) {
+      throw new AssignmentValidationError(
+        "failed-precondition",
+        "The published maintenance class does not apply to the selected asset.",
+        {reasonCode: "template-maintenance-class-asset-scope-mismatch"},
+      );
+    }
+  }
 
   const execution: AssignmentJsonMap = {
     firestoreId: executionId,
@@ -2483,6 +2551,7 @@ function buildCanonicalAssignment(args: {
       versionNumber: request.expectedVersionNumber,
       versionLabel: cleanOptionalText(versionData.versionLabel),
       contentHash: request.expectedContentHash,
+      ...(maintenanceClassification == null ? {} : {maintenanceClassification}),
       ...(equipmentIdentity.assetClassId != null ? {
         assignmentAssetIdentity: {
           assetClassId: equipmentIdentity.assetClassId,

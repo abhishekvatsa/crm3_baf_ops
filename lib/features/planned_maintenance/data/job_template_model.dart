@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'package:isar/isar.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../../core/validation/charge_number.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
@@ -1901,11 +1902,10 @@ class JobExecution {
             field: 'teamsInvolved',
             source: source,
           )
-          ..chargeNoAtEvent = readOptionalPersistedInt(
+          ..chargeNoAtEvent = readOptionalPersistedChargeNumber(
             map['chargeNoAtEvent'],
             field: 'chargeNoAtEvent',
             source: source,
-            minimum: 1,
           )
           ..actionsJson = actionsJson
           ..version = readRequiredPersistedInt(

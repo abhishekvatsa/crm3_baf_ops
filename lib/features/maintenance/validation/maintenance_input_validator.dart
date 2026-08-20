@@ -1,6 +1,7 @@
 // FILE: lib/features/maintenance/validation/maintenance_input_validator.dart
 
 import '../../../core/validation/field_validators.dart';
+import '../../../core/validation/charge_number.dart';
 import '../../../core/validation/validation_result.dart';
 import '../data/maintenance_model.dart';
 import '../utils/asset_validator.dart';
@@ -52,7 +53,7 @@ class MaintenanceInputValidator {
   static const int maxComponentLength = 120;
   static const int maxTagLength = 80;
   static const int maxRemarksLength = 4000;
-  static const int maxChargeNumber = 99999999;
+  static const int maxChargeNumber = maximumChargeNumber;
 
   static const Set<String> allowedResolutionTeams = <String>{
     'electrical',
@@ -134,14 +135,12 @@ class MaintenanceInputValidator {
   }
 
   static ValidationResult validateChargeNumber(String? value) {
-    return FieldValidators.integerText(
-      value,
-      field: 'chargeNoAtEvent',
-      label: 'Charge number',
-      isRequired: false,
-      min: 0,
-      max: maxChargeNumber,
-    );
+    final message = validateChargeNumberText(value);
+    return message == null
+        ? const ValidationResult.valid()
+        : ValidationResult.invalid(<ValidationIssue>[
+          ValidationIssue(field: 'chargeNoAtEvent', message: message),
+        ]);
   }
 
   static ValidationResult validateCreate(MaintenanceCreateInput input) {

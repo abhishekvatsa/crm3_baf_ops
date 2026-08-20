@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../../core/validation/charge_number.dart';
 import '../data/compliance_attempt_record.dart';
 import '../data/compliance_request_record.dart';
 import '../data/equipment_prompt_record.dart';
@@ -168,17 +169,6 @@ int _optionalInt(
   if (data[field] == null) return fallback;
   return _requiredInt(data, field, minimum: minimum);
 }
-
-int? _optionalNullableInt(
-  Map<String, dynamic> data,
-  String field, {
-  int minimum = 0,
-}) => readOptionalPersistedInt(
-  data[field],
-  field: field,
-  source: 'workflow remote projection',
-  minimum: minimum,
-);
 
 bool _optionalBool(
   Map<String, dynamic> data,
@@ -354,10 +344,10 @@ ComplianceRequestRecord complianceRequestRecordFromFirestoreData({
           allowed: _assetTypeKeys,
         )
         ..assetNumber = _requiredInt(data, 'assetNumber', minimum: 1)
-        ..chargeNoAtEvent = _optionalNullableInt(
-          data,
-          'chargeNoAtEvent',
-          minimum: 1,
+        ..chargeNoAtEvent = readOptionalPersistedChargeNumber(
+          data['chargeNoAtEvent'],
+          field: 'chargeNoAtEvent',
+          source: 'workflow remote projection',
         )
         ..escalationTier = _optionalInt(data, 'escalationTier', fallback: 0)
         ..lastEscalatedAt = _optionalDate(data['lastEscalatedAt'])

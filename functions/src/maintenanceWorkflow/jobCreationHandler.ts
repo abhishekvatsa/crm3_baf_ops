@@ -17,6 +17,7 @@ import {
 import {DocSnapshot, WorkflowTransaction} from "./store";
 import {JsonMap} from "./types";
 import {cleanText, intValue, iso, optionalText} from "./utils";
+import {isFiveDigitChargeNumber} from "../chargeNumber";
 
 const assignmentSchemaVersion = 2;
 const assetTypes = new Set([
@@ -620,7 +621,14 @@ export const createLegacyWorkflowJob: CommandHandler = async ({tx, command, cont
     "assetInstanceId",
   );
   const chargeNoAtEvent = command.payload.chargeNoAtEvent == null ? null :
-    intValue(command.payload.chargeNoAtEvent, "chargeNoAtEvent", 1);
+    intValue(command.payload.chargeNoAtEvent, "chargeNoAtEvent", 10000);
+  if (chargeNoAtEvent != null && !isFiveDigitChargeNumber(chargeNoAtEvent)) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "chargeNoAtEvent must contain exactly five digits.",
+      {reasonCode: "charge-number-invalid", field: "chargeNoAtEvent"},
+    );
+  }
   const remarks = optionalText(command.payload.remarks);
 
   const templateSnapshot = await tx.get(`job_templates/${templateFirestoreId}`);

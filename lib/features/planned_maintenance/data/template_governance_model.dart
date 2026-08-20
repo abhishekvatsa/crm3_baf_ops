@@ -7,6 +7,7 @@ import 'package:isar/isar.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
+import 'maintenance_intelligence.dart';
 
 part 'template_governance_model.g.dart';
 part 'remote_template_governance_reader.dart';
@@ -28,6 +29,28 @@ String? _cleanOptionalText(dynamic value) {
 String _cleanRequiredText(dynamic value, String fallback) {
   final cleaned = _cleanOptionalText(value);
   return cleaned ?? fallback;
+}
+
+Map<String, dynamic>? _maintenanceClassificationFromMetadata(
+  String? metadataJson,
+) {
+  final cleaned = _cleanOptionalText(metadataJson);
+  if (cleaned == null) return null;
+  final decoded = jsonDecode(cleaned);
+  if (decoded is! Map<String, dynamic>) {
+    throw const FormatException('TemplateVersion metadata must be an object.');
+  }
+  final raw = decoded['maintenanceClassification'];
+  if (raw == null) return null;
+  if (raw is! Map) {
+    throw const FormatException(
+      'TemplateVersion maintenance classification must be an object.',
+    );
+  }
+  return FrozenMaintenanceClass.fromMap(
+    Map<String, dynamic>.from(raw),
+    source: 'TemplateVersion.metadataJson/maintenanceClassification',
+  ).toMap();
 }
 
 bool _moduleRequiresClosure(
@@ -408,6 +431,9 @@ class TemplateVersion {
       jobTemplateSnapshotJson: jobTemplateSnapshotJson,
       moduleSnapshotsJson: moduleSnapshotsJson,
     );
+    final maintenanceClassification = _maintenanceClassificationFromMetadata(
+      metadataJson,
+    );
     return jsonEncode({
       'jobTemplateSnapshotJson': jobTemplateSnapshotJson,
       'moduleSnapshotsJson': moduleSnapshotsJson,
@@ -429,6 +455,8 @@ class TemplateVersion {
       'procedureRefs': procedureRefs,
       'operationalStatePreconditions': operationalStatePreconditions,
       'schemaVersion': schemaVersion,
+      if (maintenanceClassification != null)
+        'maintenanceClassification': maintenanceClassification,
     });
   }
 

@@ -140,8 +140,9 @@ export const maintenanceProjectionForRaise = (args: {
   readonly actorUid: string;
   readonly actorName: string;
   readonly at: Date;
+  readonly forceDeferred?: boolean;
 }): JsonMap => {
-  const deferred = args.conditionTypeKey !== "manual";
+  const deferred = args.forceDeferred ?? args.conditionTypeKey !== "manual";
   return {
     ...commonProjection({
       ...args,

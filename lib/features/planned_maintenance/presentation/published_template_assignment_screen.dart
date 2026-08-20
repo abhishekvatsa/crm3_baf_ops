@@ -24,6 +24,7 @@ import 'governed_planned_work_asset_selector.dart';
 import 'template_publisher_screen.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../data/job_module_model.dart';
 
@@ -430,17 +431,12 @@ class _PublishedTemplateAssignmentScreenState
                             TextFormField(
                               controller: _chargeNoController,
                               keyboardType: TextInputType.number,
+                              inputFormatters: chargeNumberInputFormatters,
                               decoration: _inputDecoration(
                                 'Active charge number',
-                                hint: 'Optional',
+                                hint: 'Optional, exactly 5 digits',
                               ),
-                              validator: (value) {
-                                final text = value?.trim() ?? '';
-                                if (text.isEmpty) return null;
-                                return int.tryParse(text) == null
-                                    ? 'Invalid number'
-                                    : null;
-                              },
+                              validator: validateChargeNumberText,
                             ),
                             const SizedBox(height: BafSpacing.md),
                             TextFormField(

@@ -8,15 +8,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/maintenance/presentation/ticket_screen.dart';
 import 'features/maintenance/presentation/maintenance_form.dart';
+import 'features/maintenance/presentation/frequent_issue_catalogue_screen.dart';
 import 'features/planned_maintenance/presentation/templates_screen.dart';
 import 'features/planned_maintenance/presentation/module_composer_screen.dart';
 import 'features/planned_maintenance/presentation/template_publisher_screen.dart';
 import 'features/planned_maintenance/presentation/knowledge_governance_screen.dart';
 import 'features/planned_maintenance/presentation/closed_job_dossiers_screen.dart';
+import 'features/planned_maintenance/presentation/maintenance_intelligence_screen.dart';
+import 'features/inspections/presentation/inspection_programmes_screen.dart';
 import 'features/assets/presentation/asset_timeline_screen.dart';
 import 'features/assets/presentation/asset_registry_screen.dart';
 import 'features/assets/presentation/asset_condition_board.dart';
 import 'features/assets/presentation/inner_cover_lifecycle_screen.dart';
+import 'features/assets/presentation/furnace_stuckup_board.dart';
 import 'features/assets/domain/plant_asset_overview.dart';
 import 'features/assets/providers/plant_asset_overview_provider.dart';
 import 'features/audit/presentation/audit_timeline_screen.dart';
@@ -415,9 +419,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onAssets: () => _push(context, const AssetTimelineScreen()),
               onInnerCovers:
                   () => _push(context, const InnerCoverLifecycleScreen()),
+              onFurnaceStuckup:
+                  () => _push(context, const FurnaceStuckupBoard()),
               onClosed: () => _push(context, const ClosedTicketsScreen()),
               onClosedJobs:
                   () => _push(context, const ClosedJobDossiersScreen()),
+              onMaintenanceRhythm:
+                  () => _push(context, const MaintenanceIntelligenceScreen()),
+              onInspectionProgrammes:
+                  () => _push(context, const InspectionProgrammesScreen()),
               onReports: () => _push(context, const FleetStatusScreen()),
               onBurnerReliability:
                   () => _push(context, const BurnerReliabilityScreen()),
@@ -433,6 +443,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const TemplatePublisherScreen()),
               onKnowledgeGovernance:
                   () => _push(context, const KnowledgeGovernanceScreen()),
+              onFrequentIssues:
+                  () => _push(context, const FrequentIssueCatalogueScreen()),
               onLocalDiagnostics:
                   () => _push(context, const LocalDiagnosticsScreen()),
             ),
@@ -1011,8 +1023,11 @@ class _MoreScreen extends StatelessWidget {
   final VoidCallback onAssetRegistry;
   final VoidCallback onAssets;
   final VoidCallback onInnerCovers;
+  final VoidCallback onFurnaceStuckup;
   final VoidCallback onClosed;
   final VoidCallback onClosedJobs;
+  final VoidCallback onMaintenanceRhythm;
+  final VoidCallback onInspectionProgrammes;
   final VoidCallback onReports;
   final VoidCallback onBurnerReliability;
   final VoidCallback onAdmin;
@@ -1023,6 +1038,7 @@ class _MoreScreen extends StatelessWidget {
   final VoidCallback onTemplateAuthoring;
   final VoidCallback onTemplatePublisher;
   final VoidCallback onKnowledgeGovernance;
+  final VoidCallback onFrequentIssues;
   final VoidCallback onLocalDiagnostics;
 
   const _MoreScreen({
@@ -1030,8 +1046,11 @@ class _MoreScreen extends StatelessWidget {
     required this.onAssetRegistry,
     required this.onAssets,
     required this.onInnerCovers,
+    required this.onFurnaceStuckup,
     required this.onClosed,
     required this.onClosedJobs,
+    required this.onMaintenanceRhythm,
+    required this.onInspectionProgrammes,
     required this.onReports,
     required this.onBurnerReliability,
     required this.onAdmin,
@@ -1042,6 +1061,7 @@ class _MoreScreen extends StatelessWidget {
     required this.onTemplateAuthoring,
     required this.onTemplatePublisher,
     required this.onKnowledgeGovernance,
+    required this.onFrequentIssues,
     required this.onLocalDiagnostics,
   });
 
@@ -1097,6 +1117,15 @@ class _MoreScreen extends StatelessWidget {
                           'Base pairing, spare pool and fabrication history',
                       onTap: onInnerCovers,
                     ),
+                  if (canSeeOperationalData)
+                    _MoreDestinationTile(
+                      icon: Icons.vertical_align_top_rounded,
+                      color: BafColors.warning,
+                      title: 'Furnace stuck-up',
+                      subtitle:
+                          'Blocked assemblies, cause review and Inner Cover evidence',
+                      onTap: onFurnaceStuckup,
+                    ),
                   if (canSeeClosed)
                     _MoreDestinationTile(
                       icon: Icons.history_rounded,
@@ -1113,6 +1142,15 @@ class _MoreScreen extends StatelessWidget {
                       subtitle:
                           'Recent completed and cancelled planned-job records',
                       onTap: onClosedJobs,
+                    ),
+                  if (appUser.canViewPlannedMaintenance)
+                    _MoreDestinationTile(
+                      icon: Icons.event_repeat_rounded,
+                      color: BafColors.planned,
+                      title: 'Maintenance rhythm',
+                      subtitle:
+                          'Due counters, forward plans and classified outcomes',
+                      onTap: onMaintenanceRhythm,
                     ),
                 ],
               ),
@@ -1143,6 +1181,14 @@ class _MoreScreen extends StatelessWidget {
                         'Utilities, cranes, transfer cars and plant delays',
                     onTap: onOperationalEvents,
                   ),
+                  _MoreDestinationTile(
+                    icon: Icons.fact_check_outlined,
+                    color: BafColors.instrument,
+                    title: 'Inspection programmes',
+                    subtitle:
+                        'Component checks, cross-asset coverage and findings',
+                    onTap: onInspectionProgrammes,
+                  ),
                   if (canSeeReports)
                     _MoreDestinationTile(
                       icon: Icons.bar_chart_rounded,
@@ -1162,33 +1208,46 @@ class _MoreScreen extends StatelessWidget {
                     ),
                 ],
               ),
-              if (appUser.canManageTemplateGovernance) ...[
+              if (appUser.canManageTemplateGovernance ||
+                  appUser.canManageFrequentIssueDefinitions) ...[
                 const SizedBox(height: BafSpacing.xl),
                 _MoreSection(
                   title: 'Governance',
                   children: [
-                    _MoreDestinationTile(
-                      icon: Icons.architecture_outlined,
-                      color: BafColors.planned,
-                      title: 'Template authoring',
-                      subtitle: 'Build modules and governed template versions',
-                      onTap: onTemplateAuthoring,
-                    ),
-                    _MoreDestinationTile(
-                      icon: Icons.data_object_rounded,
-                      color: BafColors.textSecondary,
-                      title: 'Legacy template publisher',
-                      subtitle: 'Import or inspect historical snapshot JSON',
-                      badge: 'Legacy',
-                      onTap: onTemplatePublisher,
-                    ),
-                    _MoreDestinationTile(
-                      icon: Icons.schema_outlined,
-                      color: BafColors.audit,
-                      title: 'Knowledge governance',
-                      subtitle: 'BAF knowledge rows, tags and matrix versions',
-                      onTap: onKnowledgeGovernance,
-                    ),
+                    if (appUser.canManageFrequentIssueDefinitions)
+                      _MoreDestinationTile(
+                        icon: Icons.rule_folder_outlined,
+                        color: BafColors.maintenance,
+                        title: 'Frequent issues',
+                        subtitle: 'Governed issue choices and default routing',
+                        onTap: onFrequentIssues,
+                      ),
+                    if (appUser.canManageTemplateGovernance) ...[
+                      _MoreDestinationTile(
+                        icon: Icons.architecture_outlined,
+                        color: BafColors.planned,
+                        title: 'Template authoring',
+                        subtitle:
+                            'Build modules and governed template versions',
+                        onTap: onTemplateAuthoring,
+                      ),
+                      _MoreDestinationTile(
+                        icon: Icons.data_object_rounded,
+                        color: BafColors.textSecondary,
+                        title: 'Legacy template publisher',
+                        subtitle: 'Import or inspect historical snapshot JSON',
+                        badge: 'Legacy',
+                        onTap: onTemplatePublisher,
+                      ),
+                      _MoreDestinationTile(
+                        icon: Icons.schema_outlined,
+                        color: BafColors.audit,
+                        title: 'Knowledge governance',
+                        subtitle:
+                            'BAF knowledge rows, tags and matrix versions',
+                        onTap: onKnowledgeGovernance,
+                      ),
+                    ],
                   ],
                 ),
               ],

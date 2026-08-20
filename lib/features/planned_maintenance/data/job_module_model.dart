@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:isar/isar.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../../core/validation/charge_number.dart';
 import '../../../core/services/remote_tombstone_apply_result.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/utils/asset_validator.dart';
@@ -785,11 +786,10 @@ class JobModuleInstance {
                   : '[]'
           ..assetType = assetType
           ..assetNumber = assetNumber
-          ..chargeNoAtEvent = readOptionalPersistedInt(
+          ..chargeNoAtEvent = readOptionalPersistedChargeNumber(
             map['chargeNoAtEvent'],
             field: 'chargeNoAtEvent',
             source: source,
-            minimum: 1,
           )
           ..pairedEquipmentJson = _readOptionalModuleString(
             map,

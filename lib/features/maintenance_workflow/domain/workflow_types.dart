@@ -57,6 +57,20 @@ enum EquipmentWorkflowState {
 enum WorkflowCommandType {
   createLegacyWorkflowJob,
   createMaintenanceTicket,
+  startIssueCoordination,
+  upsertFrequentIssueDefinition,
+  setFrequentIssueDefinitionStatus,
+  upsertMaintenanceClassDefinition,
+  setMaintenanceClassDefinitionStatus,
+  classifyMaintenanceExecution,
+  upsertMaintenancePlan,
+  setMaintenancePlanStatus,
+  upsertInspectionDefinition,
+  setInspectionDefinitionStatus,
+  createInspectionCampaign,
+  setInspectionCampaignStatus,
+  recordInspectionObservation,
+  linkInspectionObservationIssue,
   finalizeLaneSet,
   acknowledgeLane,
   addLane,
@@ -79,6 +93,8 @@ enum WorkflowCommandType {
   reconcileEquipment,
   acknowledgeMaintenanceTicket,
   correctMaintenanceTicket,
+  releaseFurnaceStuckup,
+  adjudicateFurnaceStuckup,
 }
 
 enum WorkflowCommandDeliveryState {

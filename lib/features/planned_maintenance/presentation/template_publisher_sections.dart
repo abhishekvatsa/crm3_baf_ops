@@ -360,6 +360,57 @@ class _DisciplineSection extends StatelessWidget {
   }
 }
 
+class _MaintenanceClassSection extends StatelessWidget {
+  const _MaintenanceClassSection({
+    required this.definitions,
+    required this.selectedDefinitionId,
+    required this.onChanged,
+  });
+
+  final List<MaintenanceClassDefinition> definitions;
+  final String? selectedDefinitionId;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected =
+        definitions.any((definition) => definition.id == selectedDefinitionId)
+            ? selectedDefinitionId
+            : null;
+    return _Panel(
+      title: '3. Maintenance class',
+      subtitle:
+          'Optional for non-maintenance templates. A selected class and its reset matrix are frozen into this version and every future execution.',
+      icon: Icons.event_repeat_rounded,
+      child: DropdownButtonFormField<String?>(
+        initialValue: selected,
+        isExpanded: true,
+        decoration: _inputDecoration(
+          label: 'Classified maintenance outcome',
+          hint: 'No maintenance counter reset',
+          icon: Icons.fact_check_rounded,
+        ),
+        items: [
+          const DropdownMenuItem<String?>(
+            value: null,
+            child: Text('Not a classified maintenance template'),
+          ),
+          ...definitions.map(
+            (definition) => DropdownMenuItem<String?>(
+              value: definition.id,
+              child: Text(
+                '${definition.title} · ${definition.resetCounters.map((counter) => counter.label).join(', ')}',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ],
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
 class _VersionSection extends StatelessWidget {
   final int nextVersionNumber;
   final TextEditingController versionLabelController;
@@ -380,7 +431,7 @@ class _VersionSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _Panel(
-      title: '3. Version notes',
+      title: '4. Version notes',
       subtitle:
           'Prepare the draft version metadata that will become part of the publish audit trail.',
       icon: Icons.new_releases_rounded,

@@ -1,4 +1,5 @@
 import {createHash} from "crypto";
+import {isFiveDigitChargeNumber} from "./chargeNumber";
 
 import {stableJson} from "./stableJson";
 import {
@@ -243,6 +244,9 @@ function positiveIntegerList(
   }
   const result = value.map((item, index) =>
     positiveInteger(item, `${field}[${index}]`));
+  if (result.some((item) => !isFiveDigitChargeNumber(item))) {
+    invalid(field, "must contain only five-digit charge numbers");
+  }
   if (new Set(result).size !== result.length) {
     invalid(field, "must not contain duplicates");
   }
@@ -451,6 +455,9 @@ function validateWarning(
   }
   positiveExistingInteger(data.sourceVersion, "sourceVersion", "quality-warning");
   positiveExistingInteger(data.sourceChargeNo, "sourceChargeNo", "quality-warning");
+  if (!isFiveDigitChargeNumber(data.sourceChargeNo)) {
+    malformed("quality-warning", "sourceChargeNo");
+  }
   requiredExistingString(data.sourceSummary, "sourceSummary", "quality-warning");
   requiredExistingString(data.sourceSeverity, "sourceSeverity", "quality-warning");
   requiredExistingString(data.warningReason, "warningReason", "quality-warning");

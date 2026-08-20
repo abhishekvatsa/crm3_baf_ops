@@ -74,7 +74,7 @@ void main() {
           'gatesLaneFirestoreId': 'job_lanes/l-1',
           'assetTypeKey': 'furnace',
           'assetNumber': 7,
-          'chargeNoAtEvent': 1234,
+          'chargeNoAtEvent': 12345,
           'escalationTier': 2,
           'lastEscalatedAt': instant,
           'acknowledgementDueAt': instant,

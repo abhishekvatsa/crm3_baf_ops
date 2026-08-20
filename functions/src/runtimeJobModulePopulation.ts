@@ -1,4 +1,5 @@
 import {createHash} from "crypto";
+import {isFiveDigitChargeNumber} from "./chargeNumber";
 import {laneForModuleDiscipline} from "./maintenanceWorkflow/modulePolicy";
 import {MODULE_DISCIPLINE_SUBMIT_ROLES} from "./maintenanceWorkflow/policy.generated";
 import {
@@ -973,7 +974,21 @@ function validateCreateShape(module: RuntimePopulationJsonMap): void {
   assertCanonicalText(module.moduleTitle, "module.moduleTitle", 500);
   assertCanonicalText(module.assetType, "module.assetType", 100);
   assertInteger(module.assetNumber, "module.assetNumber", 0);
-  assertOptionalInteger(module.chargeNoAtEvent, "module.chargeNoAtEvent", 0);
+  const moduleChargeNo = assertOptionalInteger(
+    module.chargeNoAtEvent,
+    "module.chargeNoAtEvent",
+    10000,
+  );
+  if (moduleChargeNo != null && !isFiveDigitChargeNumber(moduleChargeNo)) {
+    throw new RuntimePopulationValidationError(
+      "invalid-argument",
+      "module.chargeNoAtEvent must contain exactly five digits.",
+      {
+        reasonCode: "charge-number-invalid",
+        fieldName: "module.chargeNoAtEvent",
+      },
+    );
+  }
   assertEnumText(module.status, "module.status", MODULE_STATUSES);
   assertEnumText(module.useMode, "module.useMode", MODULE_USE_MODES);
   assertEnumText(module.discipline, "module.discipline", MODULE_DISCIPLINES);

@@ -415,12 +415,24 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
   }
 
   String _buildVersionMetadataJson() {
+    final definitions =
+        ref.read(maintenanceClassDefinitionsProvider).value ??
+        const <MaintenanceClassDefinition>[];
+    MaintenanceClassDefinition? selected;
+    for (final definition in definitions) {
+      if (definition.id == _selectedMaintenanceClassId) {
+        selected = definition;
+        break;
+      }
+    }
     return jsonEncode({
       'source': 'TemplatePublisherScreen',
       'disciplineScope': _selectedDisciplines.toList()..sort(),
       'packageCode': _packageCodeController.text.trim(),
       'assetType': _assetTypeController.text.trim(),
       'generatedAt': DateTime.now().toIso8601String(),
+      if (selected != null)
+        'maintenanceClassification': selected.frozen.toMap(),
     });
   }
 }

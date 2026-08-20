@@ -13,9 +13,11 @@ import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/template_governance_model.dart';
+import '../data/maintenance_intelligence.dart';
 import '../domain/module_composer_models.dart';
 import '../domain/template_version_snapshot_contract.dart';
 import '../providers/template_governance_provider.dart';
+import '../providers/maintenance_intelligence_provider.dart';
 import 'module_composer_screen.dart';
 
 part 'template_publisher_screen.builders.dart';
@@ -64,6 +66,7 @@ class _TemplatePublisherScreenState
   final _checklistJsonController = TextEditingController(text: '[\n  \n]');
 
   final _selectedDisciplines = <String>{'mechanical'};
+  String? _selectedMaintenanceClassId;
   String? _selectedPackageId = _newPackageSentinel;
   TemplatePackage? _selectedPackage;
   TemplateVersion? _workingDraft;

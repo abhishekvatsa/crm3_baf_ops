@@ -32,10 +32,51 @@ import {
   correctMaintenanceTicket,
   verifyMaintenanceTicketAudit,
 } from "./ticketHandlers";
+import {
+  releaseFurnaceStuckup,
+  adjudicateFurnaceStuckup,
+  verifyFurnaceStuckupAudit,
+} from "./furnaceStuckupHandlers";
+import {startIssueCoordination} from "./issueCoordinationHandler";
+import {
+  upsertFrequentIssueDefinition,
+  setFrequentIssueDefinitionStatus,
+} from "./frequentIssueDefinitionHandlers";
+import {
+  classifyMaintenanceExecution,
+  setMaintenanceClassDefinitionStatus,
+  upsertMaintenanceClassDefinition,
+} from "./maintenanceClassHandlers";
+import {
+  setMaintenancePlanStatus,
+  upsertMaintenancePlan,
+} from "./maintenancePlanHandlers";
+import {
+  createInspectionCampaign,
+  linkInspectionObservationIssue,
+  recordInspectionObservation,
+  setInspectionCampaignStatus,
+  setInspectionDefinitionStatus,
+  upsertInspectionDefinition,
+} from "./inspectionCampaignHandlers";
 
 const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   createLegacyWorkflowJob,
   createMaintenanceTicket,
+  startIssueCoordination,
+  upsertFrequentIssueDefinition,
+  setFrequentIssueDefinitionStatus,
+  upsertMaintenanceClassDefinition,
+  setMaintenanceClassDefinitionStatus,
+  classifyMaintenanceExecution,
+  upsertMaintenancePlan,
+  setMaintenancePlanStatus,
+  upsertInspectionDefinition,
+  setInspectionDefinitionStatus,
+  createInspectionCampaign,
+  setInspectionCampaignStatus,
+  recordInspectionObservation,
+  linkInspectionObservationIssue,
   finalizeLaneSet,
   acknowledgeLane,
   addLane,
@@ -58,6 +99,8 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   reconcileEquipment,
   acknowledgeMaintenanceTicket,
   correctMaintenanceTicket,
+  releaseFurnaceStuckup,
+  adjudicateFurnaceStuckup,
 };
 
 export class MaintenanceWorkflowCommandService {
@@ -107,6 +150,7 @@ export class MaintenanceWorkflowCommandService {
       const replay = await readExistingReceipt(tx, command, actor);
       if (replay != null) {
         await verifyMaintenanceTicketAudit({tx, command, actor, receipt: replay});
+        await verifyFurnaceStuckupAudit({tx, command, actor, receipt: replay});
         return replay;
       }
       const authorityScope = await resolveFreshWorkflowAuthorityScope(

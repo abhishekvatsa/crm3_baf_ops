@@ -15,6 +15,15 @@ classifies each operation by store and read, mutation, or lifecycle mode.
 The source-implemented inventory contains 484 operations and 1,548 concrete
 sites across 44 files. Its stable digest is
 `7923E15F9D3DBCD24C84FEBFD053A9056843E64D0BDDA2A484CDFBD826E3B92A`.
+
+Post-closure re-arms on 20-21 August 2026 classified the read-only
+`asset_availability_current`, furnace stuck-up/condition, frequent-issue,
+maintenance-intelligence, and inspection-programme surfaces under existing
+read/repository profiles. The current manifest therefore covers 494 operations
+and 1,574 sites across 49 surfaces with digest
+`48868D446DB73331A74220690BC2ECAD078859B1C822FFFDAD4D1EFDFC501183`;
+the original closure evidence remains preserved as historical source and CI
+proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.
 
 The audit fails when the operation digest changes, a persistence-owning file is

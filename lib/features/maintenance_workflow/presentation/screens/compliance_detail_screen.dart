@@ -155,10 +155,12 @@ class ComplianceDetailScreen extends ConsumerWidget {
     final mayWorkOrigin =
         record.originLaneKey == null
             ? actor?.isModuleLifecycleSupervisor == true
-            : actor?.canAcknowledgeOrWorkMaintenanceLane(
-                  record.originLaneKey,
-                ) ??
-                false;
+            : (record.raisedUnderCoordination &&
+                    actor?.canCoordinateMaintenanceCompliance == true) ||
+                (actor?.canAcknowledgeOrWorkMaintenanceLane(
+                      record.originLaneKey,
+                    ) ??
+                    false);
     final mayMarkCondition =
         actor?.canMarkMaintenanceWorkflowConditionDue ?? false;
 

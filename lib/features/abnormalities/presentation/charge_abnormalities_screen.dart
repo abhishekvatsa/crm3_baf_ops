@@ -4,6 +4,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/validation/charge_number.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
@@ -38,8 +40,9 @@ class _ChargeAbnormalitiesScreenState
     extends ConsumerState<ChargeAbnormalitiesScreen> {
   @override
   Widget build(BuildContext context) {
-    final abnormalitiesAsync =
-    ref.watch(abnormalitiesForChargeProvider(widget.sourceChargeNo));
+    final abnormalitiesAsync = ref.watch(
+      abnormalitiesForChargeProvider(widget.sourceChargeNo),
+    );
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -66,12 +69,13 @@ class _ChargeAbnormalitiesScreenState
       ),
       body: abnormalitiesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => _StateCard(
-          icon: Icons.error_outline_rounded,
-          title: 'Could not load abnormalities',
-          message: '$err',
-          color: BafColors.danger,
-        ),
+        error:
+            (err, _) => _StateCard(
+              icon: Icons.error_outline_rounded,
+              title: 'Could not load abnormalities',
+              message: '$err',
+              color: BafColors.danger,
+            ),
         data: (records) {
           return Column(
             children: [
@@ -86,41 +90,44 @@ class _ChargeAbnormalitiesScreenState
                   sourceChargeNo: widget.sourceChargeNo,
                   subtitle: widget.subtitle,
                   total: records.length,
-                  raCount: records
-                      .where((record) => record.requiresReannealing)
-                      .length,
-                  completedRaCount: records
-                      .where((record) => record.hasCompletedReannealing)
-                      .length,
+                  raCount:
+                      records
+                          .where((record) => record.requiresReannealing)
+                          .length,
+                  completedRaCount:
+                      records
+                          .where((record) => record.hasCompletedReannealing)
+                          .length,
                 ),
               ),
               Expanded(
-                child: records.isEmpty
-                    ? const _StateCard(
-                  icon: Icons.fact_check_outlined,
-                  title: 'No abnormalities logged',
-                  message:
-                  'Use “Log Abnormality” to record process, equipment, result-quality or RA observations for this charge.',
-                )
-                    : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(
-                    BafSpacing.lg,
-                    BafSpacing.sm,
-                    BafSpacing.lg,
-                    96,
-                  ),
-                  itemCount: records.length,
-                  itemBuilder: (context, index) {
-                    final record = records[index];
+                child:
+                    records.isEmpty
+                        ? const _StateCard(
+                          icon: Icons.fact_check_outlined,
+                          title: 'No abnormalities logged',
+                          message:
+                              'Use “Log Abnormality” to record process, equipment, result-quality or RA observations for this charge.',
+                        )
+                        : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(
+                            BafSpacing.lg,
+                            BafSpacing.sm,
+                            BafSpacing.lg,
+                            96,
+                          ),
+                          itemCount: records.length,
+                          itemBuilder: (context, index) {
+                            final record = records[index];
 
-                    return _ChargeAbnormalityCard(
-                      record: record,
-                      onEdit: () =>
-                          _showAbnormalityForm(existing: record),
-                      onDelete: () => _confirmDelete(record),
-                    );
-                  },
-                ),
+                            return _ChargeAbnormalityCard(
+                              record: record,
+                              onEdit:
+                                  () => _showAbnormalityForm(existing: record),
+                              onDelete: () => _confirmDelete(record),
+                            );
+                          },
+                        ),
               ),
             ],
           );
@@ -129,14 +136,13 @@ class _ChargeAbnormalitiesScreenState
     );
   }
 
-  Future<void> _showAbnormalityForm({
-    ChargeAbnormality? existing,
-  }) async {
+  Future<void> _showAbnormalityForm({ChargeAbnormality? existing}) async {
     final actor = ref.read(currentAppUserProvider).value;
 
-    final allowed = existing == null
-        ? actor?.canLogChargeAbnormality == true
-        : actor?.canEditChargeAbnormality == true;
+    final allowed =
+        existing == null
+            ? actor?.canLogChargeAbnormality == true
+            : actor?.canEditChargeAbnormality == true;
 
     if (actor == null || !allowed) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -189,9 +195,10 @@ class _ChargeAbnormalitiesScreenState
     try {
       final now = DateTime.now();
 
-      final record = existing == null
-          ? ChargeAbnormality()
-          : copyChargeAbnormality(existing);
+      final record =
+          existing == null
+              ? ChargeAbnormality()
+              : copyChargeAbnormality(existing);
 
       if (existing == null) {
         record
@@ -244,9 +251,7 @@ class _ChargeAbnormalitiesScreenState
               expectedVersion: existing.version,
               reason: 'Updated charge abnormality',
             );
-        await repository.updateAbnormalityFromRemote(
-          result.abnormality,
-        );
+        await repository.updateAbnormalityFromRemote(result.abnormality);
       }
 
       unawaited(
@@ -326,9 +331,7 @@ class _ChargeAbnormalitiesScreenState
             expectedVersion: record.version,
             reason: deleteReason,
           );
-      await repository.applyTombstoneFromAbnormalityRemote(
-        result.abnormality,
-      );
+      await repository.applyTombstoneFromAbnormalityRemote(result.abnormality);
 
       unawaited(
         syncCoordinator.runFullSync(
@@ -409,12 +412,13 @@ class _ChargeAbnormalityFormDialogState
     _selectedRootReason =
         existing?.possibleRootReasonCategory ?? RootReasonCategory.unknown;
 
-    _selectedReannealingStatus = existing?.reannealingStatus ??
-        _defaultRaStatusForType(_selectedType);
+    _selectedReannealingStatus =
+        existing?.reannealingStatus ?? _defaultRaStatusForType(_selectedType);
 
-    _selectedAssetType = _selectedType.applicableAssetTypes.isNotEmpty
-        ? _selectedType.applicableAssetTypes.first
-        : AssetType.base;
+    _selectedAssetType =
+        _selectedType.applicableAssetTypes.isNotEmpty
+            ? _selectedType.applicableAssetTypes.first
+            : AssetType.base;
 
     _componentController = TextEditingController(
       text: existing?.component ?? '',
@@ -451,9 +455,10 @@ class _ChargeAbnormalityFormDialogState
 
   @override
   Widget build(BuildContext context) {
-    final applicableAssetTypes = _selectedType.applicableAssetTypes.isEmpty
-        ? AssetType.values
-        : _selectedType.applicableAssetTypes;
+    final applicableAssetTypes =
+        _selectedType.applicableAssetTypes.isEmpty
+            ? AssetType.values
+            : _selectedType.applicableAssetTypes;
 
     if (!applicableAssetTypes.contains(_selectedAssetType)) {
       _selectedAssetType = applicableAssetTypes.first;
@@ -473,16 +478,12 @@ class _ChargeAbnormalityFormDialogState
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _ChargeContextStrip(
-                  sourceChargeNo: widget.sourceChargeNo,
-                ),
+                _ChargeContextStrip(sourceChargeNo: widget.sourceChargeNo),
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<AbnormalityType>(
                   initialValue: _selectedType,
                   isExpanded: true,
-                  decoration: _inputDecoration(
-                    label: 'Abnormality Type',
-                  ),
+                  decoration: _inputDecoration(label: 'Abnormality Type'),
                   selectedItemBuilder: (context) {
                     return widget.activeTypes.map((type) {
                       return Text(
@@ -492,16 +493,17 @@ class _ChargeAbnormalityFormDialogState
                       );
                     }).toList();
                   },
-                  items: widget.activeTypes.map((type) {
-                    return DropdownMenuItem(
-                      value: type,
-                      child: Text(
-                        '${type.code} — ${type.title}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
+                  items:
+                      widget.activeTypes.map((type) {
+                        return DropdownMenuItem(
+                          value: type,
+                          child: Text(
+                            '${type.code} — ${type.title}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
                   onChanged: (value) {
                     if (value == null) return;
 
@@ -510,13 +512,15 @@ class _ChargeAbnormalityFormDialogState
                       _selectedSeverity = value.severity;
 
                       if (widget.existing == null) {
-                        _selectedReannealingStatus =
-                            _defaultRaStatusForType(value);
+                        _selectedReannealingStatus = _defaultRaStatusForType(
+                          value,
+                        );
                       }
 
                       if (value.applicableAssetTypes.isNotEmpty &&
-                          !value.applicableAssetTypes
-                              .contains(_selectedAssetType)) {
+                          !value.applicableAssetTypes.contains(
+                            _selectedAssetType,
+                          )) {
                         _selectedAssetType = value.applicableAssetTypes.first;
                       }
                     });
@@ -552,15 +556,14 @@ class _ChargeAbnormalityFormDialogState
                 const SizedBox(height: BafSpacing.md),
                 DropdownButtonFormField<AbnormalitySeverity>(
                   initialValue: _selectedSeverity,
-                  decoration: _inputDecoration(
-                    label: 'Severity',
-                  ),
-                  items: AbnormalitySeverity.values.map((severity) {
-                    return DropdownMenuItem(
-                      value: severity,
-                      child: Text(_severityLabel(severity)),
-                    );
-                  }).toList(),
+                  decoration: _inputDecoration(label: 'Severity'),
+                  items:
+                      AbnormalitySeverity.values.map((severity) {
+                        return DropdownMenuItem(
+                          value: severity,
+                          child: Text(_severityLabel(severity)),
+                        );
+                      }).toList(),
                   onChanged: (value) {
                     if (value == null) return;
                     setState(() => _selectedSeverity = value);
@@ -581,7 +584,7 @@ class _ChargeAbnormalityFormDialogState
                   decoration: _inputDecoration(
                     label: 'Observed reason',
                     hint:
-                    'Example: Cycle completed but coil colour indicated RA required',
+                        'Example: Cycle completed but coil colour indicated RA required',
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -613,19 +616,18 @@ class _ChargeAbnormalityFormDialogState
                       child: DropdownButtonFormField<AssetType>(
                         initialValue: _selectedAssetType,
                         isExpanded: true,
-                        decoration: _inputDecoration(
-                          label: 'Asset',
-                        ),
-                        items: applicableAssetTypes.map((assetType) {
-                          return DropdownMenuItem(
-                            value: assetType,
-                            child: Text(
-                              _assetTypeLabel(assetType),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          );
-                        }).toList(),
+                        decoration: _inputDecoration(label: 'Asset'),
+                        items:
+                            applicableAssetTypes.map((assetType) {
+                              return DropdownMenuItem(
+                                value: assetType,
+                                child: Text(
+                                  _assetTypeLabel(assetType),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList(),
                         onChanged: (value) {
                           if (value == null) return;
                           setState(() => _selectedAssetType = value);
@@ -637,10 +639,7 @@ class _ChargeAbnormalityFormDialogState
                       child: TextFormField(
                         controller: _assetNumberController,
                         keyboardType: TextInputType.number,
-                        decoration: _inputDecoration(
-                          label: 'No.',
-                          hint: '105',
-                        ),
+                        decoration: _inputDecoration(label: 'No.', hint: '105'),
                       ),
                     ),
                     const SizedBox(width: BafSpacing.sm),
@@ -658,38 +657,42 @@ class _ChargeAbnormalityFormDialogState
                 const SizedBox(height: BafSpacing.sm),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: _affectedAssets.isEmpty
-                      ? const Text(
-                    'No affected asset added yet.',
-                    style: TextStyle(
-                      color: BafColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  )
-                      : Wrap(
-                    spacing: BafSpacing.sm,
-                    runSpacing: BafSpacing.sm,
-                    children: _affectedAssets.map((asset) {
-                      return InputChip(
-                        avatar: Icon(
-                          _assetIcon(asset.assetType),
-                          color: BafColors.assets,
-                          size: 16,
-                        ),
-                        label: Text(asset.label),
-                        onDeleted: () {
-                          setState(() {
-                            _affectedAssets.removeWhere((candidate) {
-                              return candidate.assetType ==
-                                  asset.assetType &&
-                                  candidate.assetNumber ==
-                                      asset.assetNumber;
-                            });
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
+                  child:
+                      _affectedAssets.isEmpty
+                          ? const Text(
+                            'No affected asset added yet.',
+                            style: TextStyle(
+                              color: BafColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          )
+                          : Wrap(
+                            spacing: BafSpacing.sm,
+                            runSpacing: BafSpacing.sm,
+                            children:
+                                _affectedAssets.map((asset) {
+                                  return InputChip(
+                                    avatar: Icon(
+                                      _assetIcon(asset.assetType),
+                                      color: BafColors.assets,
+                                      size: 16,
+                                    ),
+                                    label: Text(asset.label),
+                                    onDeleted: () {
+                                      setState(() {
+                                        _affectedAssets.removeWhere((
+                                          candidate,
+                                        ) {
+                                          return candidate.assetType ==
+                                                  asset.assetType &&
+                                              candidate.assetNumber ==
+                                                  asset.assetNumber;
+                                        });
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                          ),
                 ),
                 const SizedBox(height: BafSpacing.lg),
                 const _SectionTitle(
@@ -701,19 +704,18 @@ class _ChargeAbnormalityFormDialogState
                 DropdownButtonFormField<RootReasonCategory>(
                   initialValue: _selectedRootReason,
                   isExpanded: true,
-                  decoration: _inputDecoration(
-                    label: 'Root reason category',
-                  ),
-                  items: RootReasonCategory.values.map((rootCategory) {
-                    return DropdownMenuItem(
-                      value: rootCategory,
-                      child: Text(
-                        _rootReasonCategoryLabel(rootCategory),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
+                  decoration: _inputDecoration(label: 'Root reason category'),
+                  items:
+                      RootReasonCategory.values.map((rootCategory) {
+                        return DropdownMenuItem(
+                          value: rootCategory,
+                          child: Text(
+                            _rootReasonCategoryLabel(rootCategory),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
                   onChanged: (value) {
                     if (value == null) return;
                     setState(() => _selectedRootReason = value);
@@ -733,25 +735,24 @@ class _ChargeAbnormalityFormDialogState
                   icon: Icons.repeat_rounded,
                   title: 'Re-annealing / RA Traceability',
                   subtitle:
-                  'Use this when the abnormality results in RA or RA decision tracking.',
+                      'Use this when the abnormality results in RA or RA decision tracking.',
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 DropdownButtonFormField<ReannealingStatus>(
                   initialValue: _selectedReannealingStatus,
                   isExpanded: true,
-                  decoration: _inputDecoration(
-                    label: 'RA status',
-                  ),
-                  items: ReannealingStatus.values.map((status) {
-                    return DropdownMenuItem(
-                      value: status,
-                      child: Text(
-                        _raStatusLabel(status),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
+                  decoration: _inputDecoration(label: 'RA status'),
+                  items:
+                      ReannealingStatus.values.map((status) {
+                        return DropdownMenuItem(
+                          value: status,
+                          child: Text(
+                            _raStatusLabel(status),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
                   onChanged: (value) {
                     if (value == null) return;
                     setState(() => _selectedReannealingStatus = value);
@@ -761,6 +762,7 @@ class _ChargeAbnormalityFormDialogState
                 TextFormField(
                   controller: _reannealedToChargeController,
                   keyboardType: TextInputType.number,
+                  inputFormatters: chargeNumberInputFormatters,
                   decoration: _inputDecoration(
                     label: 'New / RA charge no.',
                     hint: 'Optional. Filling this marks RA completed.',
@@ -769,10 +771,8 @@ class _ChargeAbnormalityFormDialogState
                     final text = value?.trim() ?? '';
                     if (text.isEmpty) return null;
 
-                    final number = int.tryParse(text);
-                    if (number == null || number <= 0) {
-                      return 'Enter a valid charge number';
-                    }
+                    final number = parseOptionalChargeNumber(text);
+                    if (number == null) return 'Enter exactly five digits';
 
                     if (number == widget.sourceChargeNo) {
                       return 'New charge cannot be same as source charge';
@@ -792,9 +792,7 @@ class _ChargeAbnormalityFormDialogState
           child: const Text('Cancel'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: BafColors.charges,
-          ),
+          style: FilledButton.styleFrom(backgroundColor: BafColors.charges),
           onPressed: _submit,
           child: Text(widget.existing == null ? 'Log' : 'Save'),
         ),
@@ -807,9 +805,7 @@ class _ChargeAbnormalityFormDialogState
 
     if (number == null || number <= 0) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Enter a valid asset number'),
-        ),
+        const SnackBar(content: Text('Enter a valid asset number')),
       );
       return;
     }
@@ -887,28 +883,24 @@ class _DeleteAbnormalityDialogState extends State<_DeleteAbnormalityDialog> {
           children: [
             const Text(
               'This abnormality will be hidden but retained for audit and sync traceability.',
-              style: TextStyle(
-                color: BafColors.textSecondary,
-              ),
+              style: TextStyle(color: BafColors.textSecondary),
             ),
             const SizedBox(height: BafSpacing.md),
             DropdownButtonFormField<AuditReason>(
               initialValue: _selectedReason,
               isExpanded: true,
-              decoration: _inputDecoration(
-                label: 'Reason',
-                hint: 'Optional',
-              ),
-              items: AuditReason.values.map((reason) {
-                return DropdownMenuItem(
-                  value: reason,
-                  child: Text(
-                    _auditReasonLabel(reason),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                );
-              }).toList(),
+              decoration: _inputDecoration(label: 'Reason', hint: 'Optional'),
+              items:
+                  AuditReason.values.map((reason) {
+                    return DropdownMenuItem(
+                      value: reason,
+                      child: Text(
+                        _auditReasonLabel(reason),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
               onChanged: (value) {
                 setState(() => _selectedReason = value);
               },
@@ -931,9 +923,7 @@ class _DeleteAbnormalityDialogState extends State<_DeleteAbnormalityDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: BafColors.danger,
-          ),
+          style: FilledButton.styleFrom(backgroundColor: BafColors.danger),
           onPressed: () {
             Navigator.pop(
               context,
@@ -980,10 +970,7 @@ class _DeleteDecision {
   final AuditReason? reason;
   final String? notes;
 
-  const _DeleteDecision({
-    required this.reason,
-    required this.notes,
-  });
+  const _DeleteDecision({required this.reason, required this.notes});
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1019,10 +1006,7 @@ class _HeaderCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
-            child: const Icon(
-              Icons.fact_check_outlined,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.fact_check_outlined, color: Colors.white),
           ),
           const SizedBox(width: BafSpacing.md),
           Expanded(
@@ -1066,10 +1050,7 @@ class _MetricPill extends StatelessWidget {
   final String label;
   final int value;
 
-  const _MetricPill({
-    required this.label,
-    required this.value,
-  });
+  const _MetricPill({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -1082,9 +1063,7 @@ class _MetricPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
       ),
       child: Column(
         children: [
@@ -1097,10 +1076,7 @@ class _MetricPill extends StatelessWidget {
           ),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 10,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 10),
           ),
         ],
       ),
@@ -1220,7 +1196,7 @@ class _ChargeAbnormalityCard extends StatelessWidget {
                             _SoftChip(
                               icon: Icons.repeat_rounded,
                               label:
-                              'New charge ${record.reannealedToChargeNo}',
+                                  'New charge ${record.reannealedToChargeNo}',
                             ),
                           _SoftChip(
                             icon: Icons.precision_manufacturing_rounded,
@@ -1249,7 +1225,7 @@ class _ChargeAbnormalityCard extends StatelessWidget {
                       const SizedBox(height: BafSpacing.md),
                       Text(
                         'Logged ${DateFormat('dd MMM yyyy, HH:mm').format(record.loggedAt)}'
-                            '${record.loggedByName == null ? '' : ' by ${record.loggedByName}'}',
+                        '${record.loggedByName == null ? '' : ' by ${record.loggedByName}'}',
                         style: const TextStyle(
                           color: BafColors.textSecondary,
                           fontSize: 11,
@@ -1288,9 +1264,7 @@ class _ChargeAbnormalityCard extends StatelessWidget {
 class _ChargeContextStrip extends StatelessWidget {
   final int sourceChargeNo;
 
-  const _ChargeContextStrip({
-    required this.sourceChargeNo,
-  });
+  const _ChargeContextStrip({required this.sourceChargeNo});
 
   @override
   Widget build(BuildContext context) {
@@ -1367,20 +1341,13 @@ class _SoftChip extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _SoftChip({
-    required this.icon,
-    required this.label,
-  });
+  const _SoftChip({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Chip(
       visualDensity: VisualDensity.compact,
-      avatar: Icon(
-        icon,
-        size: 16,
-        color: BafColors.assets,
-      ),
+      avatar: Icon(icon, size: 16, color: BafColors.assets),
       label: Text(label),
       labelStyle: const TextStyle(
         color: BafColors.textPrimary,
@@ -1388,9 +1355,7 @@ class _SoftChip extends StatelessWidget {
         fontWeight: FontWeight.w600,
       ),
       backgroundColor: BafColors.assets.withValues(alpha: 0.08),
-      side: BorderSide(
-        color: BafColors.assets.withValues(alpha: 0.16),
-      ),
+      side: BorderSide(color: BafColors.assets.withValues(alpha: 0.16)),
     );
   }
 }
@@ -1451,10 +1416,7 @@ class _StateCard extends StatelessWidget {
 // HELPERS
 // ─────────────────────────────────────────────────────────────
 
-InputDecoration _inputDecoration({
-  required String label,
-  String? hint,
-}) {
+InputDecoration _inputDecoration({required String label, String? hint}) {
   return InputDecoration(
     labelText: label,
     hintText: hint,
@@ -1470,10 +1432,7 @@ InputDecoration _inputDecoration({
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(BafRadius.medium),
-      borderSide: const BorderSide(
-        color: BafColors.navySoft,
-        width: 1.4,
-      ),
+      borderSide: const BorderSide(color: BafColors.navySoft, width: 1.4),
     ),
   );
 }
@@ -1658,9 +1617,9 @@ String _auditReasonLabel(AuditReason reason) {
 
   final words = raw
       .replaceAllMapped(
-    RegExp(r'([a-z])([A-Z])'),
+        RegExp(r'([a-z])([A-Z])'),
         (match) => '${match.group(1)} ${match.group(2)}',
-  )
+      )
       .replaceAll('_', ' ')
       .split(RegExp(r'\s+'));
 

@@ -2,6 +2,7 @@ import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
+import 'package:crm3_baf_ops/features/maintenance/domain/frequent_issue_selection.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -233,6 +234,47 @@ void main() {
       expect(
         () => readRemoteMaintenanceRecord(
           Map<String, dynamic>.from(valid)..['isCritical'] = false,
+          documentId: 'ticket-1',
+        ),
+        throwsA(isA<PersistedDataFormatException>()),
+      );
+    });
+
+    test('frequent issue selection is strict and preserved locally', () {
+      final record = readRemoteMaintenanceRecord(
+        _validRecord()
+          ..['frequentIssueSelection'] = <String, dynamic>{
+            'schemaVersion': 1,
+            'selectionType': 'definition',
+            'definitionId': 'issue-1',
+            'definitionVersion': 3,
+            'definitionCode': 'FLAME_UNSTABLE',
+            'definitionTitle': 'Unstable flame',
+            'codeOwnedWorkflowProfile': null,
+            'unlistedReason': null,
+          },
+        documentId: 'ticket-1',
+      );
+
+      expect(
+        record.frequentIssueSelection?.type,
+        FrequentIssueSelectionType.definition,
+      );
+      expect(record.frequentIssueSelection?.definitionId, 'issue-1');
+
+      expect(
+        () => readRemoteMaintenanceRecord(
+          _validRecord()
+            ..['frequentIssueSelection'] = <String, dynamic>{
+              'schemaVersion': 1,
+              'selectionType': 'definition',
+              'definitionId': 'issue-1',
+              'definitionVersion': 3,
+              'definitionCode': null,
+              'definitionTitle': 'Unstable flame',
+              'codeOwnedWorkflowProfile': null,
+              'unlistedReason': null,
+            },
           documentId: 'ticket-1',
         ),
         throwsA(isA<PersistedDataFormatException>()),

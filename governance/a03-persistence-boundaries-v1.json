@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "7923E15F9D3DBCD24C84FEBFD053A9056843E64D0BDDA2A484CDFBD826E3B92A",
+  "inventoryDigest": "48868D446DB73331A74220690BC2ECAD078859B1C822FFFDAD4D1EFDFC501183",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -202,7 +202,33 @@
       ]
     },
     {
+      "path": "lib/features/assets/providers/asset_availability_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
       "path": "lib/features/assets/providers/burner_condition_round_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/assets/providers/furnace_stuckup_provider.dart",
       "profile": "read-provider",
       "allowedStores": [
         "firestore"
@@ -312,6 +338,19 @@
       ]
     },
     {
+      "path": "lib/features/inspections/repositories/inspection_repository.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
       "path": "lib/features/maintenance/providers/maintenance_provider.dart",
       "profile": "read-provider",
       "allowedStores": [
@@ -346,6 +385,19 @@
       ],
       "allowedModes": [
         "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/maintenance/repositories/frequent_issue_repository.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
         "read"
       ],
       "regressionTests": [
@@ -614,6 +666,19 @@
     },
     {
       "path": "lib/features/planned_maintenance/repositories/knowledge_correction_source_repository.dart",
+      "profile": "repository",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/repositories/maintenance_intelligence_repository.dart",
       "profile": "repository",
       "allowedStores": [
         "firestore"

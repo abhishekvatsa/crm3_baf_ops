@@ -650,6 +650,126 @@
       "authorityBoundary": "remote-burner-condition-round-command-response",
       "regression": "test/burner_condition_round_test.dart",
       "reArmCondition": "any burner-condition round callable receipt timestamp change"
+    },
+    {
+      "id": "asset-availability-record",
+      "readerFile": "lib/features/assets/data/asset_availability_record.dart",
+      "readerMarker": "factory AssetAvailabilityRecord.fromMap",
+      "requiredFields": ["updatedAt"],
+      "optionalFields": ["since"],
+      "owner": "asset-operations",
+      "purpose": "restore the current asset availability state and the start of its active constraint",
+      "authorityBoundary": "remote-asset-availability-record",
+      "regression": "test/asset_availability_record_test.dart",
+      "reArmCondition": "any asset-availability timestamp schema change"
+    },
+    {
+      "id": "furnace-stuckup-record",
+      "readerFile": "lib/features/assets/data/furnace_stuckup_record.dart",
+      "readerMarker": "factory FurnaceStuckupRecord.fromMap",
+      "requiredFields": ["reportedAt", "updatedAt"],
+      "optionalFields": ["releasedAt", "adjudicatedAt"],
+      "owner": "asset-operations",
+      "purpose": "restore stuck-up reporting, release, cause-adjudication, and update chronology",
+      "authorityBoundary": "remote-furnace-stuckup-record",
+      "regression": "test/furnace_stuckup_case_test.dart",
+      "reArmCondition": "any furnace stuck-up lifecycle timestamp schema change"
+    },
+    {
+      "id": "asset-condition-declaration-record",
+      "readerFile": "lib/features/assets/data/furnace_stuckup_record.dart",
+      "readerMarker": "factory AssetConditionDeclarationRecord.fromMap",
+      "requiredFields": ["firstConfirmedAt", "latestEvidenceAt"],
+      "optionalFields": [],
+      "owner": "asset-operations",
+      "purpose": "restore the first and latest evidence chronology for a declared asset condition",
+      "authorityBoundary": "remote-asset-condition-declaration-record",
+      "regression": "test/furnace_stuckup_case_test.dart",
+      "reArmCondition": "any asset-condition declaration timestamp schema change"
+    },
+    {
+      "id": "inspection-definition-record",
+      "readerFile": "lib/features/inspections/data/inspection_campaign.dart",
+      "readerMarker": "factory InspectionDefinition.fromMap",
+      "requiredFields": ["updatedAt"],
+      "optionalFields": [],
+      "owner": "asset-inspection",
+      "purpose": "restore the latest governed inspection-definition revision instant",
+      "authorityBoundary": "remote-inspection-definition-record",
+      "regression": "test/inspection_campaign_model_test.dart",
+      "reArmCondition": "any inspection-definition timestamp schema change"
+    },
+    {
+      "id": "inspection-campaign-record",
+      "readerFile": "lib/features/inspections/data/inspection_campaign.dart",
+      "readerMarker": "factory InspectionCampaign.fromMap",
+      "requiredFields": ["createdAt"],
+      "optionalFields": ["latestObservationAt"],
+      "owner": "asset-inspection",
+      "purpose": "restore campaign creation and latest-observation chronology",
+      "authorityBoundary": "remote-inspection-campaign-record",
+      "regression": "test/inspection_campaign_model_test.dart",
+      "reArmCondition": "any inspection-campaign timestamp schema change"
+    },
+    {
+      "id": "inspection-observation-record",
+      "readerFile": "lib/features/inspections/data/inspection_campaign.dart",
+      "readerMarker": "factory InspectionObservation.fromMap",
+      "requiredFields": ["observedAt", "recordedAt"],
+      "optionalFields": [],
+      "owner": "asset-inspection",
+      "purpose": "restore immutable field-observation and server-recording chronology",
+      "authorityBoundary": "remote-inspection-observation-record",
+      "regression": "test/inspection_campaign_model_test.dart",
+      "reArmCondition": "any inspection-observation timestamp schema change"
+    },
+    {
+      "id": "frequent-issue-definition-record",
+      "readerFile": "lib/features/maintenance/data/frequent_issue_definition.dart",
+      "readerMarker": "factory FrequentIssueDefinition.fromMap",
+      "requiredFields": ["createdAt", "updatedAt"],
+      "optionalFields": [],
+      "owner": "maintenance-intake",
+      "purpose": "restore governed frequent-issue creation and revision chronology",
+      "authorityBoundary": "remote-frequent-issue-definition-record",
+      "regression": "test/maintenance_issue_create_command_test.dart",
+      "reArmCondition": "any frequent-issue definition timestamp schema change"
+    },
+    {
+      "id": "maintenance-class-definition-record",
+      "readerFile": "lib/features/planned_maintenance/data/maintenance_intelligence.dart",
+      "readerMarker": "factory MaintenanceClassDefinition.fromMap",
+      "requiredFields": ["updatedAt"],
+      "optionalFields": [],
+      "owner": "planned-maintenance",
+      "purpose": "restore the latest governed maintenance-class revision instant",
+      "authorityBoundary": "remote-maintenance-class-definition-record",
+      "regression": "test/ui_business_alignment_test.dart",
+      "reArmCondition": "any maintenance-class definition timestamp schema change"
+    },
+    {
+      "id": "maintenance-due-state-record",
+      "readerFile": "lib/features/planned_maintenance/data/maintenance_intelligence.dart",
+      "readerMarker": "factory MaintenanceDueState.fromMap",
+      "requiredFields": [],
+      "optionalFields": ["lastCompletionAt", "nextDueAt"],
+      "owner": "planned-maintenance",
+      "purpose": "restore the last completion and next due chronology for one asset counter",
+      "authorityBoundary": "remote-maintenance-due-state-record",
+      "regression": "test/ui_business_alignment_test.dart",
+      "reArmCondition": "any maintenance due-state timestamp schema change"
+    },
+    {
+      "id": "maintenance-plan-record",
+      "readerFile": "lib/features/planned_maintenance/data/maintenance_intelligence.dart",
+      "readerMarker": "factory MaintenancePlan.fromMap",
+      "requiredFields": ["targetWindowStart", "targetWindowEnd"],
+      "optionalFields": [],
+      "owner": "planned-maintenance",
+      "purpose": "restore the governed target window for a planned maintenance intervention",
+      "authorityBoundary": "remote-maintenance-plan-record",
+      "regression": "test/ui_business_alignment_test.dart",
+      "reArmCondition": "any maintenance-plan target-window timestamp schema change"
     }
   ]
 }

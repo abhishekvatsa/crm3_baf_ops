@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -779,7 +780,7 @@ class _CloseWarningDialogState extends State<_CloseWarningDialog> {
           }
           if (charges == null) {
             setState(
-              () => _error = 'Use up to 20 distinct positive charge numbers.',
+              () => _error = 'Use up to 20 distinct five-digit charge numbers.',
             );
             return;
           }
@@ -916,7 +917,7 @@ class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
           }
           if (charges == null) {
             setState(
-              () => _error = 'Use up to 50 distinct positive charge numbers.',
+              () => _error = 'Use up to 50 distinct five-digit charge numbers.',
             );
             return;
           }
@@ -1022,7 +1023,11 @@ List<int>? _tryParsePositiveInts(String raw, {required int maximum}) {
   final values = <int>[];
   for (final token in tokens) {
     final value = int.tryParse(token);
-    if (value == null || value <= 0 || values.contains(value)) return null;
+    if (value == null ||
+        !isValidChargeNumber(value) ||
+        values.contains(value)) {
+      return null;
+    }
     values.add(value);
   }
   values.sort();

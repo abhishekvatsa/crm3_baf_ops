@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "27863AC2C3E366BD34BFAC9D092EA86AF269756BAD56C05C1974D78F843697C9",
+  "inventoryDigest": "8371B1827B6CE0F2FA2B119A6D37B32E7B83AF18C35D2DF1D4946C57B34A9F6F",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "64E18AF60C367AD6BEA55D2DABD6145E66B7AD45543FF4B24F7C61CEB1C81155",
+  "a05ManifestSha256": "6D9B93995C1FC932FA152A7E414CEEC29B0F1F1AEBE5CDF8A1A5F6AFED261AD0",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -779,6 +779,15 @@
       "regression": "test/user_model_test.dart"
     },
     {
+      "id": "asset-availability-record",
+      "file": "lib/features/assets/data/asset_availability_record.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "current governed availability, constraint, linked evidence, and version for one asset",
+      "malformedDisposition": "fail closed before an incomplete or contradictory availability state reaches the plant overview",
+      "compatibility": "schema version 1 only; state-specific constraint evidence must be complete",
+      "regression": "test/asset_availability_record_test.dart"
+    },
+    {
       "id": "asset-hierarchy-records",
       "file": "lib/features/assets/data/asset_hierarchy_model.dart",
       "classification": "REMOTE_GOVERNANCE_RECORD",
@@ -878,6 +887,15 @@
       "regression": "test/burner_condition_round_test.dart; functions/test/burnerConditionRoundMutation.test.js"
     },
     {
+      "id": "charge-number-boundary",
+      "file": "lib/core/validation/charge_number.dart",
+      "classification": "SHARED_DOMAIN_READER",
+      "authorityBoundary": "exact five-digit persisted charge identity",
+      "malformedDisposition": "fail closed before an invalid charge identity enters an issue, stuck-up case, observation, or quality record",
+      "compatibility": "none for a present charge number; only a schema-declared optional absence is admitted",
+      "regression": "test/charge_number_contract_test.dart"
+    },
+    {
       "id": "closure-attestation",
       "file": "lib/features/planned_maintenance/domain/planned_job_closure_attestation.dart",
       "classification": "BOUNDED_LEGACY_METADATA_PRESERVATION",
@@ -932,6 +950,24 @@
       "regression": "test/a05_template_composer_integrity_test.dart"
     },
     {
+      "id": "frequent-issue-definition-record",
+      "file": "lib/features/maintenance/data/frequent_issue_definition.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "governed frequent-issue applicability, route, evidence, workflow profile, version, and lifecycle",
+      "malformedDisposition": "fail closed before a malformed catalogue definition can prefill or route maintenance intake",
+      "compatibility": "schema version 1 only; applicability and required evidence collections must be complete and duplicate-free",
+      "regression": "test/maintenance_issue_create_command_test.dart; functions/test/frequentIssueDefinition.test.js"
+    },
+    {
+      "id": "frequent-issue-selection",
+      "file": "lib/features/maintenance/domain/frequent_issue_selection.dart",
+      "classification": "VERSIONED_OPERATIONAL_INTENT",
+      "authorityBoundary": "issue-time frozen catalogue selection or explicit unlisted reason",
+      "malformedDisposition": "fail closed for a present current selection while allowing a wholly absent pre-feature selection",
+      "compatibility": "complete schema-versioned selection or wholly absent legacy fields",
+      "regression": "test/maintenance_issue_create_command_test.dart"
+    },
+    {
       "id": "furnace-burner-lockout-envelope",
       "file": "lib/features/maintenance/domain/burner_lockout_case.dart",
       "classification": "REMOTE_AND_LOCAL_OPERATIONAL_RECORD",
@@ -939,6 +975,24 @@
       "malformedDisposition": "fail closed for a present or classified burner-lockout record before workflow, closure, reporting, or replay",
       "compatibility": "wholly absent pre-feature burner fields on a non-burner maintenance record only; unrelated opaque metadata is preserved",
       "regression": "test/burner_lockout_case_test.dart; test/a05_remote_maintenance_record_integrity_test.dart; test/firestore.rules.test.js"
+    },
+    {
+      "id": "furnace-stuckup-intent",
+      "file": "lib/features/maintenance/domain/furnace_stuckup_case.dart",
+      "classification": "VERSIONED_OPERATIONAL_INTENT",
+      "authorityBoundary": "issue-time Furnace stuck-up classification, Base identity, and linked Inner Cover evidence",
+      "malformedDisposition": "fail closed for present synchronized fields; malformed optional local display metadata carries no authority",
+      "compatibility": "complete schema-versioned stuck-up fields or wholly absent legacy fields",
+      "regression": "test/furnace_stuckup_case_test.dart"
+    },
+    {
+      "id": "furnace-stuckup-records",
+      "file": "lib/features/assets/data/furnace_stuckup_record.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "stuck-up case lifecycle and accumulated asset-condition evidence",
+      "malformedDisposition": "fail closed before mismatched Furnace, Base, Inner Cover, charge, lifecycle, cause, or condition evidence enters operations",
+      "compatibility": "schema version 1 only; lifecycle fields and condition evidence obey complete state-specific contracts",
+      "regression": "test/furnace_stuckup_case_test.dart"
     },
     {
       "id": "global-pull-cursor",
@@ -957,6 +1011,15 @@
       "malformedDisposition": "fail closed before incomplete identity, linkage, or genealogy enters lifecycle decisions or issue evidence",
       "compatibility": "schema version 1 only; optional fabrication and acceptance evidence remains optional only where explicitly modelled",
       "regression": "test/inner_cover_lifecycle_model_test.dart; test/inner_cover_lifecycle_screen_test.dart; functions/test/innerCoverLifecycleMutation.firestoreEmulator.test.js"
+    },
+    {
+      "id": "inspection-programme-records",
+      "file": "lib/features/inspections/data/inspection_campaign.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "version-frozen inspection definition, campaign scope, coverage, typed observation, component identity, and correction evidence",
+      "malformedDisposition": "fail closed before malformed scope, typed values, component identity, chronology, coverage, or correction evidence enters inspection decisions",
+      "compatibility": "schema version 1 only; no partial identity, typed value, counter set, or frozen-definition projection",
+      "regression": "test/inspection_campaign_model_test.dart; functions/test/inspectionCampaign.test.js"
     },
     {
       "id": "isar-schema-provenance",
@@ -1020,6 +1083,15 @@
       "malformedDisposition": "reject import with diagnostics",
       "compatibility": "supported CSV and JSON import formats",
       "regression": "test/knowledge_governance_export_test.dart"
+    },
+    {
+      "id": "maintenance-intelligence-records",
+      "file": "lib/features/planned_maintenance/data/maintenance_intelligence.dart",
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "authorityBoundary": "version-frozen maintenance class, cadence counters, due state, and planning window",
+      "malformedDisposition": "fail closed before malformed class, reset-counter, due, scope, chronology, or plan evidence enters maintenance planning",
+      "compatibility": "schema version 1 only; complete class identity and state-specific cadence evidence",
+      "regression": "test/ui_business_alignment_test.dart; functions/test/maintenanceIntelligence.test.js"
     },
     {
       "id": "maintenance-record",
@@ -1130,6 +1202,15 @@
       "regression": "tools/v4/a05_persisted_decoder_inventory.py"
     },
     {
+      "id": "planned-job-maintenance-metadata-display",
+      "file": "lib/features/planned_maintenance/presentation/planned_job_detail_screen.dart",
+      "classification": "REPAIRABLE_LOCAL_RECORD",
+      "authorityBoundary": "read-only display of frozen maintenance classification and assignment asset class",
+      "malformedDisposition": "withhold the optional display enrichment; mutation authority remains derived from approved user and server-governed execution state",
+      "compatibility": "absent pre-feature metadata and unrelated opaque metadata only",
+      "regression": "test/ui_business_alignment_test.dart"
+    },
+    {
       "id": "quality-command-result",
       "file": "lib/features/quality/services/quality_command_service.dart",
       "classification": "SERVER_COMMAND_RECEIPT",
@@ -1182,6 +1263,15 @@
       "malformedDisposition": "return or throw a blocking input error before persistence",
       "compatibility": "valid JSON object/list roots only",
       "regression": "test/template_version_snapshot_contract_test.dart; tools/v4/a05_persisted_decoder_inventory.py"
+    },
+    {
+      "id": "template-publisher-maintenance-metadata-display",
+      "file": "lib/features/planned_maintenance/presentation/template_publisher_screen.support.dart",
+      "classification": "REPAIRABLE_LOCAL_RECORD",
+      "authorityBoundary": "read-only restoration of an optional maintenance-class selection from draft metadata",
+      "malformedDisposition": "withhold the optional selection and require explicit user choice before publication",
+      "compatibility": "absent pre-feature metadata and unrelated opaque metadata only",
+      "regression": "test/template_version_snapshot_contract_test.dart"
     },
     {
       "id": "template-snapshot-contract",

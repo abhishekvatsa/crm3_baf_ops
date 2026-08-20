@@ -1,4 +1,5 @@
 import '../../maintenance_workflow/data/equipment_status_record.dart';
+import '../data/asset_availability_record.dart';
 import '../data/asset_hierarchy_model.dart';
 import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
@@ -6,11 +7,13 @@ import '../data/asset_registry_model.dart';
 class PlantAssetState {
   final AssetInstanceRecord asset;
   final AssetOperationalConditionRecord? operationalCondition;
+  final AssetAvailabilityRecord? availability;
   final EquipmentStatusRecord? workflowStatus;
 
   const PlantAssetState({
     required this.asset,
     required this.operationalCondition,
+    required this.availability,
     required this.workflowStatus,
   });
 
@@ -28,6 +31,8 @@ class PlantAssetState {
       operationalCondition?.active == true &&
       operationalCondition?.condition == AssetOperationalCondition.unfit;
 
+  bool get isTemporarilyBlocked => availability?.isTemporarilyBlocked == true;
+
   bool get isStandby => asset.serviceState == AssetServiceState.standby;
 
   bool get isAdministrativelyOutOfService =>
@@ -38,7 +43,8 @@ class PlantAssetState {
       asset.serviceState == AssetServiceState.inService &&
       !isUnderMaintenance &&
       !isDown &&
-      !isUnfit;
+      !isUnfit &&
+      !isTemporarilyBlocked;
 }
 
 class PlantAssetClassSummary {
@@ -56,6 +62,8 @@ class PlantAssetClassSummary {
       assets.where((asset) => asset.isUnderMaintenance).length;
   int get down => assets.where((asset) => asset.isDown).length;
   int get unfit => assets.where((asset) => asset.isUnfit).length;
+  int get temporarilyBlocked =>
+      assets.where((asset) => asset.isTemporarilyBlocked).length;
   int get standby => assets.where((asset) => asset.isStandby).length;
   int get outOfService =>
       assets.where((asset) => asset.isAdministrativelyOutOfService).length;
@@ -65,6 +73,7 @@ class PlantAssetClassSummary {
             (asset) =>
                 asset.isDown ||
                 asset.isUnfit ||
+                asset.isTemporarilyBlocked ||
                 asset.isUnderMaintenance ||
                 asset.isAdministrativelyOutOfService,
           )
@@ -83,6 +92,8 @@ class PlantAssetOverview {
       assets.where((asset) => asset.isUnderMaintenance).length;
   int get down => assets.where((asset) => asset.isDown).length;
   int get unfit => assets.where((asset) => asset.isUnfit).length;
+  int get temporarilyBlocked =>
+      assets.where((asset) => asset.isTemporarilyBlocked).length;
   int get standby => assets.where((asset) => asset.isStandby).length;
   int get outOfService =>
       assets.where((asset) => asset.isAdministrativelyOutOfService).length;
@@ -92,6 +103,7 @@ class PlantAssetOverview {
     required List<AssetInstanceRecord> assetInstances,
     required List<AssetOperationalConditionRecord> operationalConditions,
     required List<EquipmentStatusRecord> workflowStatuses,
+    List<AssetAvailabilityRecord> availabilityProjections = const [],
   }) {
     final classesById = <String, AssetClassRecord>{};
     for (final assetClass in assetClasses.where((item) => item.isActive)) {
@@ -120,6 +132,16 @@ class PlantAssetOverview {
       workflowByKey[key] = status;
     }
 
+    final availabilityByAssetId = <String, AssetAvailabilityRecord>{};
+    for (final projection in availabilityProjections) {
+      if (availabilityByAssetId.containsKey(projection.assetInstanceId)) {
+        throw StateError(
+          'Duplicate availability projection for ${projection.assetInstanceId}.',
+        );
+      }
+      availabilityByAssetId[projection.assetInstanceId] = projection;
+    }
+
     final states = <PlantAssetState>[];
     for (final asset in assetInstances.where((item) => item.isActive)) {
       final assetClass = classesById[asset.assetClassId];
@@ -138,10 +160,19 @@ class PlantAssetOverview {
         );
       }
       final legacyKey = assetClass.legacyAssetTypeKey;
+      final availability = availabilityByAssetId[asset.id];
+      if (availability != null &&
+          (availability.assetClassId != asset.assetClassId ||
+              availability.assetNumber != asset.assetNumber)) {
+        throw StateError(
+          'Availability projection for ${asset.id} disagrees with the asset registry.',
+        );
+      }
       states.add(
         PlantAssetState(
           asset: asset,
           operationalCondition: condition,
+          availability: availability,
           workflowStatus:
               legacyKey == null
                   ? workflowByKey['governedCustom:${asset.assetClassId}:${asset.id}']

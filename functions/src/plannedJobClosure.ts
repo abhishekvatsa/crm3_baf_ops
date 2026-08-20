@@ -9,6 +9,12 @@ import {
   readFieldResponsePayload,
 } from "./persistedWorkPayload";
 import {canonicalUserHasAnyRole} from "./userAuthority";
+import {
+  applyMaintenanceCompletionWritePlan,
+  prepareMaintenanceCompletionWritePlan,
+} from "./maintenanceWorkflow/maintenanceIntelligence";
+import {WorkflowTransaction} from "./maintenanceWorkflow/store";
+import {RoleKey} from "./maintenanceWorkflow/types";
 
 export type HttpsErrorCode =
   | "ok"
@@ -62,6 +68,48 @@ type TransactionLike = {
   update: (ref: DocumentRefLike, data: JsonMap) => void;
   set: (ref: DocumentRefLike, data: JsonMap, options?: JsonMap) => void;
 };
+
+function workflowTransactionAdapter(
+  db: FirestoreLike,
+  transaction: TransactionLike,
+): WorkflowTransaction {
+  const refForPath = (path: string): DocumentRefLike => {
+    const segments = path.split("/");
+    if (segments.length !== 2 || segments.some((segment) => segment.length === 0)) {
+      throw new ClosureValidationError("internal", "Maintenance ledger path is invalid.");
+    }
+    return db.collection(segments[0]).doc(segments[1]);
+  };
+  return {
+    get: async (path) => {
+      const snapshot = asDocumentSnapshot(await transaction.get(refForPath(path)));
+      return {
+        path,
+        exists: snapshot.exists,
+        data: (snapshot.data() ?? null) as never,
+      };
+    },
+    query: async () => {
+      throw new ClosureValidationError(
+        "internal",
+        "Maintenance completion preparation does not support collection queries.",
+      );
+    },
+    create: (path, value) => transaction.set(
+      refForPath(path),
+      value as unknown as JsonMap,
+    ),
+    set: (path, value, merge = false) => transaction.set(
+      refForPath(path),
+      value as unknown as JsonMap,
+      merge ? {merge: true} : undefined,
+    ),
+    update: (path, value) => transaction.update(
+      refForPath(path),
+      value as unknown as JsonMap,
+    ),
+  };
+}
 
 const COMPLETER_ROLES = new Set([
   "admin",
@@ -977,6 +1025,24 @@ export async function completePlannedJobWithDb(params: {
 
     const guardIssueCounts = assertClosureReady(modules);
     const completedAt = new Date().toISOString();
+    const maintenanceTx = workflowTransactionAdapter(db, transaction);
+    const maintenanceCompletionPlan = await prepareMaintenanceCompletionWritePlan({
+      tx: maintenanceTx,
+      execution: beforeData as never,
+      executionId,
+      sourceType: "legacyPlannedJob",
+      completedAt,
+      completedBy: {
+        uid: authUid,
+        name: completedByName,
+        roles: new Set(
+          cleanStringList(userData?.roles).filter((role) => [
+            "admin", "si", "contractSupervisor", "shiftSupervisor",
+          ].includes(role)),
+        ) as ReadonlySet<RoleKey>,
+      },
+      recordedAt: completedAt,
+    });
     const attestation = buildClosureAttestation({
       executionFirestoreId: executionId,
       modules,
@@ -1007,6 +1073,7 @@ export async function completePlannedJobWithDb(params: {
       version: nextVersion,
       modulePopulationVersion,
       modulePopulationSchemaVersion: MODULE_POPULATION_SCHEMA_VERSION,
+      maintenanceClassificationPending: maintenanceCompletionPlan == null,
     };
 
     if (remarks != null) updateData.remarks = remarks;
@@ -1015,6 +1082,7 @@ export async function completePlannedJobWithDb(params: {
     if (actionsJson != null) updateData.actionsJson = actionsJson;
 
     transaction.update(executionRef, updateData);
+    applyMaintenanceCompletionWritePlan(maintenanceTx, maintenanceCompletionPlan);
 
     const afterData: JsonMap = {...beforeData, ...updateData, firestoreId: executionId};
     const auditRef = db
@@ -1052,6 +1120,7 @@ export async function completePlannedJobWithDb(params: {
       executionId,
       version: nextVersion,
       closureAttestationHash: attestation.hash,
+      maintenanceCompletionEventId: maintenanceCompletionPlan?.eventId ?? null,
       execution: executionResponse(afterData, executionId),
     };
   });

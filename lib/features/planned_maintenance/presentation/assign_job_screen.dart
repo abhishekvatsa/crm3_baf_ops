@@ -13,6 +13,7 @@ import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../maintenance_workflow/domain/workflow_error.dart';
 import '../../maintenance_workflow/domain/workflow_policy.dart';
@@ -283,18 +284,12 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
                 TextFormField(
                   controller: _chargeNoController,
                   keyboardType: TextInputType.number,
+                  inputFormatters: chargeNumberInputFormatters,
                   decoration: _inputDecoration(
                     'Active charge number',
-                    hint: 'Optional',
+                    hint: 'Optional, exactly 5 digits',
                   ),
-                  validator: (value) {
-                    final text = value?.trim() ?? '';
-                    if (text.isEmpty) return null;
-                    final number = int.tryParse(text);
-                    return number == null || number < 1
-                        ? 'Enter a positive charge number'
-                        : null;
-                  },
+                  validator: validateChargeNumberText,
                 ),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(

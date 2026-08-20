@@ -5,6 +5,8 @@ import '../../planned_maintenance/models/component_action_model.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../quality/domain/issue_quality_intent.dart';
 import '../domain/burner_lockout_case.dart';
+import '../domain/furnace_stuckup_case.dart';
+import '../domain/frequent_issue_selection.dart';
 
 part 'maintenance_model.g.dart';
 
@@ -397,6 +399,46 @@ class MaintenanceRecord {
   Map<String, dynamic> get burnerLockoutSynchronizedFields =>
       burnerLockoutCase?.toSynchronizedFields() ?? const <String, dynamic>{};
 
+  @ignore
+  FurnaceStuckupCase? get furnaceStuckupCase {
+    final value = FurnaceStuckupCase.tryDecodeLocal(metadataJson);
+    final isStuckup = classification == furnaceStuckupClassification;
+    if (isStuckup != (value != null)) {
+      throw PersistedDataFormatException(
+        field: 'furnaceStuckup',
+        source:
+            firestoreId == null
+                ? 'local maintenance $id'
+                : 'maintenance $firestoreId',
+        detail:
+            'Furnace stuck-up classification and evidence must be present together',
+      );
+    }
+    return value;
+  }
+
+  set furnaceStuckupCase(FurnaceStuckupCase? value) {
+    metadataJson = mergeFurnaceStuckupIntoMaintenanceMetadata(
+      metadataJson,
+      value,
+    );
+  }
+
+  @ignore
+  Map<String, dynamic> get furnaceStuckupSynchronizedFields =>
+      furnaceStuckupCase?.toSynchronizedFields() ?? const <String, dynamic>{};
+
+  @ignore
+  FrequentIssueSelection? get frequentIssueSelection =>
+      FrequentIssueSelection.tryDecodeLocal(metadataJson);
+
+  set frequentIssueSelection(FrequentIssueSelection? value) {
+    metadataJson = mergeFrequentIssueSelectionIntoMaintenanceMetadata(
+      metadataJson,
+      value,
+    );
+  }
+
   // ── Actions (structured work done) ───────────────────────────────────────
   String actionsJson = '[]';
 
@@ -518,5 +560,6 @@ class MaintenanceRecord {
     'isDeleted': isDeleted,
     'component': component,
     'tag': tag,
+    'frequentIssueDefinitionId': frequentIssueSelection?.definitionId,
   };
 }

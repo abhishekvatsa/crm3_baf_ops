@@ -47,6 +47,21 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   deployEquipment: "equipment.deploy",
   reconcileEquipment: "equipment.reconcile",
   correctMaintenanceTicket: "ticket.correct",
+  upsertFrequentIssueDefinition: "issueDefinition.manage",
+  setFrequentIssueDefinitionStatus: "issueDefinition.manage",
+  upsertMaintenanceClassDefinition: "maintenanceClass.manage",
+  setMaintenanceClassDefinitionStatus: "maintenanceClass.manage",
+  classifyMaintenanceExecution: "maintenance.classify",
+  upsertMaintenancePlan: "maintenancePlan.manage",
+  setMaintenancePlanStatus: "maintenancePlan.manage",
+  upsertInspectionDefinition: "inspectionDefinition.manage",
+  setInspectionDefinitionStatus: "inspectionDefinition.manage",
+  createInspectionCampaign: "inspectionCampaign.manage",
+  setInspectionCampaignStatus: "inspectionCampaign.manage",
+  recordInspectionObservation: "inspection.observe",
+  linkInspectionObservationIssue: "inspectionIssue.link",
+  releaseFurnaceStuckup: "integrity.supervise",
+  adjudicateFurnaceStuckup: "integrity.adjudicate",
 };
 
 const LANE_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
@@ -70,6 +85,16 @@ const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
   "equipment.reconcile",
   "compliance.unscoped.manage",
   "ticket.correct",
+  "issueDefinition.manage",
+  "maintenanceClass.manage",
+  "maintenance.classify",
+  "maintenancePlan.manage",
+  "inspectionDefinition.manage",
+  "inspectionCampaign.manage",
+  "inspection.observe",
+  "inspectionIssue.link",
+  "integrity.supervise",
+  "integrity.adjudicate",
 ]);
 
 const laneScope = (
@@ -92,6 +117,25 @@ const staticScope = (
   schemaVersion: AUTHORITY_SCOPE_SCHEMA_VERSION,
   capability,
 });
+
+const ticketRouteLane = (route: string): LaneKey =>
+  route === "electrical" ? "elec" :
+    route === "mechanical" ? "mech" :
+      route === "instrumentation" ? "inst" :
+        route === "operations" || route === "shiftInCharge" ? "oprn" :
+          route === "emd" ? "emd" :
+            route === "refractory" ? "red" :
+              route === "others" ? "shared" :
+                (() => {
+                  throw new WorkflowError(
+                    "failed-precondition",
+                    "Maintenance ticket routing is malformed.",
+                    {
+                      reasonCode: "maintenance-ticket-route-invalid",
+                      routedTo: route,
+                    },
+                  );
+                })();
 
 const unscopedComplianceOrLane = (
   rawLane: unknown,
@@ -181,6 +225,31 @@ export const assertWorkflowAuthorityScope = (
   case "ticket.correct":
     if (!actor.roles.has("admin")) denied();
     return;
+  case "issueDefinition.manage":
+    if (!actor.roles.has("admin") && !actor.roles.has("si")) denied();
+    return;
+  case "maintenanceClass.manage":
+    if (!actor.roles.has("admin") && !actor.roles.has("si")) denied();
+    return;
+  case "maintenance.classify":
+  case "maintenancePlan.manage":
+  case "inspectionCampaign.manage":
+    if (!["admin", "si", "contractSupervisor", "shiftSupervisor"]
+      .some((role) => actor.roles.has(role as RoleKey))) denied();
+    return;
+  case "inspectionDefinition.manage":
+    if (!actor.roles.has("admin") && !actor.roles.has("si")) denied();
+    return;
+  case "inspection.observe":
+  case "inspectionIssue.link":
+    return;
+  case "integrity.supervise":
+    if (!["admin", "si", "contractSupervisor", "shiftSupervisor"]
+      .some((role) => actor.roles.has(role as RoleKey))) denied();
+    return;
+  case "integrity.adjudicate":
+    if (!actor.roles.has("admin") && !actor.roles.has("si")) denied();
+    return;
   case "laneSet.finalize":
     if (!mayFinalizeLaneSet(actor)) denied();
     return;
@@ -230,6 +299,21 @@ export const resolveFreshWorkflowAuthorityScope = async (
   }
 
   switch (command.commandType) {
+  case "startIssueCoordination": {
+    const ticketId = cleanText(command.payload.ticketId, "ticketId");
+    const ticket = await tx.get(maintenancePath(ticketId));
+    if (!ticket.exists || ticket.data == null) {
+      throw new WorkflowError(
+        "not-found",
+        "Maintenance ticket was not found.",
+        {reasonCode: "maintenance-ticket-not-found"},
+      );
+    }
+    return laneScope(
+      "compliance.raise",
+      ticketRouteLane(cleanText(ticket.data.routedTo, "routedTo")),
+    );
+  }
   case "acknowledgeMaintenanceTicket": {
     const ticket = await tx.get(maintenancePath(command.aggregateId));
     if (!ticket.exists || ticket.data == null) {
@@ -240,20 +324,7 @@ export const resolveFreshWorkflowAuthorityScope = async (
       );
     }
     const route = cleanText(ticket.data.routedTo, "routedTo");
-    const lane: LaneKey = route === "electrical" ? "elec" :
-      route === "mechanical" ? "mech" :
-      route === "instrumentation" ? "inst" :
-      route === "operations" || route === "shiftInCharge" ? "oprn" :
-      route === "emd" ? "emd" :
-      route === "refractory" ? "red" :
-      route === "others" ? "shared" :
-      (() => {
-        throw new WorkflowError(
-          "failed-precondition",
-          "Maintenance ticket routing is malformed.",
-          {reasonCode: "maintenance-ticket-route-invalid", routedTo: route},
-        );
-      })();
+    const lane = ticketRouteLane(route);
     return laneScope("ticket.acknowledge", lane);
   }
   case "acknowledgeLane":
@@ -297,10 +368,16 @@ export const resolveFreshWorkflowAuthorityScope = async (
       complianceId,
       command.aggregateId,
     );
-    return unscopedComplianceOrLane(
-      compliance.originLaneKey,
-      "originLaneKey",
-    );
+    return compliance.raisedUnderCoordination === true &&
+      compliance.originLaneKey != null ?
+      laneScope(
+        "compliance.raise",
+        laneKey(compliance.originLaneKey, "originLaneKey"),
+      ) :
+      unscopedComplianceOrLane(
+        compliance.originLaneKey,
+        "originLaneKey",
+      );
   }
   default:
     throw new WorkflowError(

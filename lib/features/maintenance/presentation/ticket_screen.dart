@@ -15,10 +15,12 @@ import '../../auth/providers/auth_provider.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../maintenance_workflow/services/workflow_command_factory.dart';
+import '../../maintenance_workflow/presentation/screens/compliance_detail_screen.dart';
 import '../../operational_events/presentation/operational_event_issue_links_screen.dart';
 import '../data/maintenance_model.dart';
 import '../providers/maintenance_provider.dart';
 import 'maintenance_form.dart';
+import 'issue_coordination_dialog.dart';
 import 'resolve_form.dart';
 
 class TicketScreen extends ConsumerStatefulWidget {
@@ -233,6 +235,15 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                   ticketId != null &&
                   ticketId.isNotEmpty &&
                   appUser.canAcknowledgeMaintenanceTicket(ticket.routedTo);
+              final canCoordinate =
+                  (ticket.status == TicketStatus.acknowledged ||
+                      ticket.status == TicketStatus.inProgress) &&
+                  !ticket.isResolved &&
+                  (ticket.workflowQueueState == 'independent' ||
+                      ticket.workflowQueueState == 'released') &&
+                  ticketId != null &&
+                  ticketId.isNotEmpty &&
+                  appUser.canStartIssueCoordination(ticket.routedTo);
               return Padding(
                 padding: const EdgeInsets.only(bottom: BafSpacing.md),
                 child: _TicketCard(
@@ -242,6 +253,12 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                   canAcknowledge: canAcknowledge,
                   isBusy: _busyTicketId == ticketId,
                   onAcknowledge: () => _acknowledgeTicket(ticket),
+                  canCoordinate: canCoordinate,
+                  onCoordinate: () => _startIssueCoordination(ticket),
+                  onOpenCoordination:
+                      ticket.workflowComplianceId?.trim().isNotEmpty == true
+                          ? () => _openIssueCoordination(ticket)
+                          : null,
                   onViewEventLinks:
                       ticket.operationalEventIssueLinkIds.isEmpty
                           ? null
@@ -356,6 +373,87 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
       );
     } finally {
       if (mounted) setState(() => _busyTicketId = null);
+    }
+  }
+
+  Future<void> _startIssueCoordination(MaintenanceRecord ticket) async {
+    final ticketId = ticket.firestoreId?.trim();
+    if (ticketId == null || ticketId.isEmpty || _busyTicketId != null) return;
+    final draft = await showIssueCoordinationDialog(context, ticket: ticket);
+    if (draft == null || !mounted) return;
+    final workflowId = WorkflowCommandFactory.uniqueId('issue_coordination');
+    final complianceId = WorkflowCommandFactory.uniqueId('issue_compliance');
+    setState(() => _busyTicketId = ticketId);
+    try {
+      await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(
+            WorkflowCommandFactory.create(
+              type: WorkflowCommandType.startIssueCoordination,
+              aggregateId: workflowId,
+              expectedVersion: 0,
+              payload: draft.toCommandPayload(
+                ticketId: ticketId,
+                expectedTicketVersion: ticket.version,
+                complianceId: complianceId,
+              ),
+            ),
+          );
+      await ref
+          .read(syncCoordinatorProvider)
+          .runFullSync(
+            reason: 'maintenance_issue_coordination_started',
+            force: true,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Operations coordination started'),
+          backgroundColor: BafColors.success,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text('Could not coordinate this issue: $error'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busyTicketId = null);
+    }
+  }
+
+  Future<void> _openIssueCoordination(MaintenanceRecord ticket) async {
+    final complianceId = ticket.workflowComplianceId?.trim();
+    if (complianceId == null || complianceId.isEmpty) return;
+    try {
+      final record = await ref.read(
+        workflowComplianceRecordProvider(complianceId).future,
+      );
+      if (!mounted) return;
+      if (record == null) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(
+            content: Text('Coordination record is not available yet.'),
+          ),
+        );
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ComplianceDetailScreen(record: record),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text('Could not open coordination: $error'),
+          backgroundColor: BafColors.danger,
+        ),
+      );
     }
   }
 
@@ -605,6 +703,9 @@ class _TicketCard extends StatelessWidget {
   final bool canAcknowledge;
   final bool isBusy;
   final VoidCallback onAcknowledge;
+  final bool canCoordinate;
+  final VoidCallback onCoordinate;
+  final VoidCallback? onOpenCoordination;
   final VoidCallback? onViewEventLinks;
 
   const _TicketCard({
@@ -614,6 +715,9 @@ class _TicketCard extends StatelessWidget {
     required this.canAcknowledge,
     required this.isBusy,
     required this.onAcknowledge,
+    required this.canCoordinate,
+    required this.onCoordinate,
+    required this.onOpenCoordination,
     required this.onViewEventLinks,
   });
 
@@ -864,6 +968,17 @@ class _TicketCard extends StatelessWidget {
                   ),
                 ),
               ],
+              if (onOpenCoordination != null) ...[
+                const SizedBox(height: BafSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: isBusy ? null : onOpenCoordination,
+                    icon: const Icon(Icons.handshake_outlined),
+                    label: const Text('Open Operations coordination'),
+                  ),
+                ),
+              ],
               if (canAcknowledge) ...[
                 const SizedBox(height: BafSpacing.lg),
                 SizedBox(
@@ -878,6 +993,27 @@ class _TicketCard extends StatelessWidget {
                             )
                             : const Icon(Icons.verified_rounded, size: 20),
                     label: Text(isBusy ? 'Acknowledging...' : 'Acknowledge'),
+                  ),
+                ),
+              ],
+              if (canCoordinate) ...[
+                const SizedBox(height: BafSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: isBusy ? null : onCoordinate,
+                    icon:
+                        isBusy
+                            ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Icon(Icons.handshake_outlined, size: 20),
+                    label: Text(
+                      isBusy
+                          ? 'Starting coordination...'
+                          : 'Defer / request Operations',
+                    ),
                   ),
                 ),
               ],

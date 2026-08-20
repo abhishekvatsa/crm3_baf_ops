@@ -320,6 +320,47 @@ void main() {
     );
   });
 
+  test('component-on-asset references freeze schema-4 hierarchy identity', () {
+    const reference = AssetHierarchyReference(
+      scope: AssetHierarchyReferenceScope.componentDefinitionOnAsset,
+      assetClassId: 'furnace-class',
+      assetClassCode: 'FURNACE',
+      assetClassName: 'Furnace',
+      nodeId: 'pressure-transmitter',
+      nodeVersion: 5,
+      nodeName: 'Pressure transmitter',
+      assetInstanceId: 'furnace-7',
+      assetInstanceVersion: 3,
+      assetNumber: 7,
+      assetInstanceName: 'Furnace 7',
+      hierarchyPath: <String>[
+        'Combustion system',
+        'Pressure transmitter',
+      ],
+      ownershipStatus: AssetOwnershipStatus.confirmed,
+      ownerDiscipline: 'Instrumentation',
+      accountableRoleKeys: <String>['seniorInstrumentation'],
+    );
+
+    expect(reference.toMap()['schemaVersion'], 4);
+    final decoded = AssetHierarchyReference.decode(reference.encode());
+    expect(
+      decoded.scope,
+      AssetHierarchyReferenceScope.componentDefinitionOnAsset,
+    );
+    expect(decoded.assetInstanceId, 'furnace-7');
+    expect(decoded.nodeId, 'pressure-transmitter');
+    expect(decoded.componentInstanceId, isNull);
+
+    expect(
+      () => AssetHierarchyReference.fromMap(<String, dynamic>{
+        ...reference.toMap(),
+        'schemaVersion': 3,
+      }),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+  });
+
   test(
     'Base reference records a confirmed absence without inventing a serial',
     () {
