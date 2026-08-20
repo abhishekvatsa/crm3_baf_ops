@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
@@ -82,10 +83,12 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Operations report'),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        surfaceTintColor: BafColors.card,
+        title: const BafAppBarTitle(
+          title: 'Operations report',
+          subtitle: 'Asset health, work and failure performance',
+          icon: Icons.bar_chart_rounded,
+          accent: BafColors.planned,
+        ),
         actions: [
           IconButton(
             onPressed:

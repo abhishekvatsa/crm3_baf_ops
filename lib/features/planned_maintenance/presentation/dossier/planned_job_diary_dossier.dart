@@ -142,7 +142,7 @@ class _DiaryEntryCard extends StatelessWidget {
                 height: 38,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
                 child: Icon(_diaryIcon(entry.kind), color: color, size: 21),
               ),
@@ -335,7 +335,7 @@ class _AddDiaryEntrySheetState extends State<_AddDiaryEntrySheet> {
                     height: 44,
                     decoration: BoxDecoration(
                       color: BafColors.planned.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(BafRadius.medium),
                     ),
                     child: const Icon(
                       Icons.add_comment_rounded,

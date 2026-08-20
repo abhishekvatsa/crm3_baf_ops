@@ -7298,8 +7298,8 @@ check(
     and "actor.canAcknowledgeOrWorkMaintenanceLane" in operational_ux_workflow
     and "directives-search" in operational_ux_directives
     and "BoxConstraints(maxWidth: 960)" in operational_ux_directives
-    and "static const large = 10.0" in operational_ux_theme
-    and "static const xLarge = 12.0" in operational_ux_theme
+    and "static const large = 8.0" in operational_ux_theme
+    and "static const xLarge = 8.0" in operational_ux_theme
     and "operations Work is task-first" in operational_ux_test
     and "empty Issues keeps reporting primary" in operational_ux_test
     and "Directives supports immediate search" in operational_ux_test,
@@ -8571,6 +8571,10 @@ if sys.platform == "win32" and dart_executable:
         dart_executable = str(sdk_dart)
     elif located_dart.suffix.lower() in {".bat", ".cmd", ""}:
         dart_executable = None
+    elif located_dart.suffix == ".EXE":
+        # Dart native-asset hooks compare the executable suffix
+        # case-sensitively before appending ".exe" on Windows.
+        dart_executable = str(located_dart.with_suffix(".exe"))
 if dart_executable:
     a04_inventory_process = subprocess.run(
         [
@@ -8820,6 +8824,14 @@ check(
     and "classifies 53" in a04_remediation
     and "current extension registry contains zero fields" in a04_remediation
     and "supported-local-generation reconciliation" in a04_remediation,
+    (
+        f"returncode={a04_inventory_process.returncode} "
+        f"result={a04_inventory_report.get('result')} "
+        f"fields={a04_inventory_report.get('fieldCount')} "
+        f"decoders={a04_inventory_report.get('inheritedDecoderSurfaceCount')} "
+        f"digest={a04_inventory_report.get('inventoryDigest')} "
+        f"stderr={a04_inventory_process.stderr.strip()}"
+    ),
 )
 check(
     "A-03 closes on exact persistence inventory and admitted CI authority",

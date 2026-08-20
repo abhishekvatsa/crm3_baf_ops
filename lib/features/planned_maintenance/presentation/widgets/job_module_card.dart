@@ -67,7 +67,7 @@ class JobModuleCard extends StatelessWidget {
                     height: 42,
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(13),
+                      borderRadius: BorderRadius.circular(BafRadius.medium),
                     ),
                     child: Icon(
                       _statusIcon(module.status),
@@ -216,7 +216,9 @@ class JobModuleCard extends StatelessWidget {
                     ),
                 ],
               ),
-              if (needsPayloadRepair || needsClosureEvidence || hasFollowUp) ...[
+              if (needsPayloadRepair ||
+                  needsClosureEvidence ||
+                  hasFollowUp) ...[
                 const SizedBox(height: BafSpacing.sm),
                 if (needsPayloadRepair)
                   const _ModuleAttentionBox(

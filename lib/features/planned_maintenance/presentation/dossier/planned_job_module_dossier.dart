@@ -566,7 +566,7 @@ class _ModuleDossierOverview extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   color: BafColors.planned.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
                 child: const Icon(
                   Icons.account_tree_rounded,
@@ -1151,7 +1151,7 @@ class _AddPublishedRuntimeModuleSheetState
                     height: 42,
                     decoration: BoxDecoration(
                       color: BafColors.sync.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(13),
+                      borderRadius: BorderRadius.circular(BafRadius.medium),
                     ),
                     child: const Icon(
                       Icons.verified_rounded,
@@ -1429,7 +1429,7 @@ class _AddJobModuleSheetState extends State<_AddJobModuleSheet> {
                     height: 42,
                     decoration: BoxDecoration(
                       color: BafColors.planned.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(13),
+                      borderRadius: BorderRadius.circular(BafRadius.medium),
                     ),
                     child: const Icon(
                       Icons.account_tree_rounded,

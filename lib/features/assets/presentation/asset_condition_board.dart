@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -25,9 +26,12 @@ class AssetConditionBoard extends ConsumerWidget {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Plant condition'),
-        backgroundColor: BafColors.card,
-        surfaceTintColor: Colors.transparent,
+        title: const BafAppBarTitle(
+          title: 'Plant condition',
+          subtitle: 'Live availability and maintenance state',
+          icon: Icons.precision_manufacturing_outlined,
+          accent: BafColors.assets,
+        ),
       ),
       body: SafeArea(
         child: Align(

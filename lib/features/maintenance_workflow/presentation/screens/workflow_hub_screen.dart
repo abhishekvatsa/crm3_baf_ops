@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/brand/brand_widgets.dart';
 import '../../../auth/providers/auth_provider.dart';
 
 import '../widgets/planned_job_workflow_panel.dart';
@@ -22,7 +24,15 @@ class WorkflowHubScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final actorAsync = ref.watch(currentAppUserProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Maintenance Workflow')),
+      backgroundColor: BafColors.background,
+      appBar: AppBar(
+        title: const BafAppBarTitle(
+          title: 'Maintenance workflow',
+          subtitle: 'Lanes, obligations and equipment control',
+          icon: Icons.account_tree_outlined,
+          accent: BafColors.audit,
+        ),
+      ),
       body: actorAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error:

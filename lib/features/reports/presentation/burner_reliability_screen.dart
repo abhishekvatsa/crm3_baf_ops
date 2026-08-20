@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
@@ -279,10 +280,12 @@ class _BurnerReliabilityBodyState
   Scaffold _shell(Widget body) => Scaffold(
     backgroundColor: BafColors.background,
     appBar: AppBar(
-      title: const Text('Burner reliability'),
-      backgroundColor: BafColors.card,
-      foregroundColor: BafColors.textPrimary,
-      surfaceTintColor: BafColors.card,
+      title: const BafAppBarTitle(
+        title: 'Burner reliability',
+        subtitle: 'Lockouts, readings and burner-block life',
+        icon: Icons.local_fire_department_outlined,
+        accent: BafColors.maintenance,
+      ),
       actions: [
         if (widget.actor.canRecordBurnerConditionRound)
           IconButton(

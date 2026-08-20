@@ -157,7 +157,7 @@ class _UserManagementHeader extends StatelessWidget {
             height: 52,
             decoration: BoxDecoration(
               color: BafColors.admin.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
             child: const Icon(
               Icons.admin_panel_settings_rounded,

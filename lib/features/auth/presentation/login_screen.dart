@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -20,54 +21,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: BafColors.navySoft,
+      backgroundColor: BafColors.graphite,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(BafSpacing.xl),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 440),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    width: 92,
-                    height: 92,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(BafRadius.xLarge),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.18),
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.factory_rounded,
-                      size: 58,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: BafSpacing.lg),
+                  const ManmithasMark(size: 112, framed: false),
+                  const SizedBox(height: BafSpacing.xl),
                   const Text(
-                    'CRM-III BAF Ops',
+                    BafBrand.productName,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.4,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      height: 1.08,
                     ),
                   ),
                   const SizedBox(height: BafSpacing.sm),
-                  Text(
-                    'SAIL Bokaro Steel Plant',
+                  const Text(
+                    BafBrand.plantName,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.72),
+                      color: Color(0xFFB9C8CE),
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 54),
+                  const SizedBox(height: 44),
                   if (_errorMessage != null) ...[
                     _LoginErrorCard(message: _errorMessage!),
                     const SizedBox(height: BafSpacing.lg),
@@ -76,26 +62,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: _isSigningIn ? null : _signIn,
-                      icon: _isSigningIn
-                          ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                          : const Icon(Icons.login_rounded),
+                      icon:
+                          _isSigningIn
+                              ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Icon(Icons.login_rounded),
                       label: Text(
                         _isSigningIn ? 'Signing in…' : 'Sign in with Google',
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
-                        foregroundColor: BafColors.navySoft,
-                        disabledBackgroundColor:
-                        Colors.white.withValues(alpha: 0.72),
-                        disabledForegroundColor:
-                        BafColors.navySoft.withValues(alpha: 0.60),
+                        foregroundColor: BafColors.graphite,
+                        disabledBackgroundColor: Colors.white.withValues(
+                          alpha: 0.72,
+                        ),
+                        disabledForegroundColor: BafColors.graphite.withValues(
+                          alpha: 0.60,
+                        ),
                         padding: const EdgeInsets.symmetric(
                           horizontal: BafSpacing.xl,
-                          vertical: 15,
+                          vertical: BafSpacing.lg,
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(BafRadius.medium),
@@ -108,9 +99,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     'Access is granted only after admin approval.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.62),
+                      color: Colors.white.withValues(alpha: 0.58),
                       fontSize: 12,
                     ),
+                  ),
+                  const SizedBox(height: 48),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 22,
+                        child: Divider(color: BafColors.ember, thickness: 2),
+                      ),
+                      SizedBox(width: BafSpacing.sm),
+                      Flexible(
+                        child: Text(
+                          BafBrand.makerLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Color(0xFF9FB0B6),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: BafSpacing.sm),
+                      SizedBox(
+                        width: 22,
+                        child: Divider(color: BafColors.cobalt, thickness: 2),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -160,7 +179,11 @@ class _LoginErrorCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
           const SizedBox(width: BafSpacing.sm),
           Expanded(
             child: Text(

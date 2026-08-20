@@ -45,6 +45,7 @@ import 'features/planned_maintenance/providers/planned_maintenance_provider.dart
 import 'features/directives/providers/operational_directive_provider.dart';
 
 import 'core/theme/baf_design_system.dart';
+import 'core/widgets/brand/brand_widgets.dart';
 import 'core/widgets/dashboard/dashboard_widgets.dart';
 import 'core/widgets/dashboard/status_badge.dart';
 import 'core/providers/sync_status_provider.dart';
@@ -238,8 +239,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         selectedIndex: safeIndex,
                         extended: constraints.maxWidth >= 1200,
                         minExtendedWidth: 210,
-                        backgroundColor: BafColors.card,
-                        indicatorColor: BafColors.surfaceStrong,
+                        leading: Padding(
+                          padding: const EdgeInsets.only(
+                            top: BafSpacing.sm,
+                            bottom: BafSpacing.lg,
+                          ),
+                          child:
+                              constraints.maxWidth >= 1200
+                                  ? const BafBrandLockup(compact: true)
+                                  : const ManmithasMark(size: 38),
+                        ),
                         onDestinationSelected:
                             (index) => setState(() => _currentIndex = index),
                         labelType:
@@ -269,14 +278,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             return Scaffold(
               backgroundColor: BafColors.background,
               body: body,
-              bottomNavigationBar: NavigationBar(
-                selectedIndex: safeIndex,
-                onDestinationSelected:
-                    (index) => setState(() => _currentIndex = index),
-                backgroundColor: BafColors.card,
-                indicatorColor: BafColors.surfaceStrong,
-                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-                destinations: tabs.map((t) => t.destination).toList(),
+              bottomNavigationBar: DecoratedBox(
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: BafColors.border)),
+                ),
+                child: NavigationBar(
+                  selectedIndex: safeIndex,
+                  onDestinationSelected:
+                      (index) => setState(() => _currentIndex = index),
+                  labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                  destinations: tabs.map((t) => t.destination).toList(),
+                ),
               ),
             );
           },
@@ -612,6 +624,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: BafSpacing.lg),
+                        const Divider(),
+                        const SizedBox(height: BafSpacing.md),
+                        const Center(child: BafBrandLockup(compact: true)),
                       ],
                     ),
                   ),
@@ -1413,10 +1429,10 @@ class _DirectoryHeader extends StatelessWidget {
           height: 42,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: BafColors.copper,
+              color: Color(0x1FFFFFFF),
               borderRadius: BorderRadius.all(Radius.circular(BafRadius.small)),
             ),
-            child: Icon(Icons.apps_rounded, color: Colors.white, size: 24),
+            child: ManmithasMark(size: 34, framed: false),
           ),
         ),
         SizedBox(width: BafSpacing.md),

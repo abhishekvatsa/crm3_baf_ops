@@ -509,7 +509,7 @@ class _FieldCard extends StatelessWidget {
                   height: 42,
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(13),
+                    borderRadius: BorderRadius.circular(BafRadius.medium),
                   ),
                   child: Icon(_fieldIcon(field.type), color: color, size: 24),
                 ),

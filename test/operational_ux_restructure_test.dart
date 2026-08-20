@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/directives/data/operational_directive_model.dart';
@@ -81,8 +82,8 @@ void main() {
     expect(work, contains('_PlannedWorkView.workflow'));
     expect(work, contains('WorkflowQueueView('));
     expect(work, contains('BoxConstraints(maxWidth: 1000)'));
-    expect(theme, contains('static const large = 10.0'));
-    expect(theme, contains('static const xLarge = 12.0'));
+    expect(theme, contains('static const large = 8.0'));
+    expect(theme, contains('static const xLarge = 8.0'));
   });
 
   testWidgets('operations Work is task-first and hides governance templates', (
@@ -112,7 +113,10 @@ void main() {
             (ref) => Stream<List<ComplianceRequestRecord>>.value(const []),
           ),
         ],
-        child: const MaterialApp(home: Scaffold(body: TemplatesScreen())),
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: const Scaffold(body: TemplatesScreen()),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -150,7 +154,10 @@ void main() {
             (ref) => Stream<List<MaintenanceRecord>>.value(const []),
           ),
         ],
-        child: const MaterialApp(home: Scaffold(body: TicketScreen())),
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: const Scaffold(body: TicketScreen()),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -189,7 +196,10 @@ void main() {
             ]),
           ),
         ],
-        child: const MaterialApp(home: Scaffold(body: DirectivesScreen())),
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: const Scaffold(body: DirectivesScreen()),
+        ),
       ),
     );
     await tester.pumpAndSettle();

@@ -60,6 +60,7 @@ import 'core/services/operational_assurance_local_repair.dart';
 import 'core/services/planned_job_local_link_repair.dart';
 import 'core/services/sync_coordinator.dart';
 import 'core/theme/baf_design_system.dart';
+import 'core/widgets/brand/brand_widgets.dart';
 
 // ── UI ───────────────────────────────────────────────────────
 import 'home_screen.dart';
@@ -768,209 +769,9 @@ class _CrmBafAppState extends ConsumerState<CrmBafApp> {
     }
 
     return MaterialApp(
-      title: 'CRM-III BAF Ops',
+      title: BafBrand.productName,
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: const ColorScheme(
-          brightness: Brightness.light,
-          primary: BafColors.navySoft,
-          onPrimary: Colors.white,
-          secondary: BafColors.charges,
-          onSecondary: Colors.white,
-          error: BafColors.danger,
-          onError: Colors.white,
-          surface: BafColors.card,
-          onSurface: BafColors.textPrimary,
-        ),
-        useMaterial3: true,
-        scaffoldBackgroundColor: BafColors.background,
-        visualDensity: VisualDensity.standard,
-        textTheme: const TextTheme(
-          headlineSmall: TextStyle(
-            color: BafColors.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            height: 1.15,
-          ),
-          titleLarge: TextStyle(
-            color: BafColors.textPrimary,
-            fontSize: 19,
-            fontWeight: FontWeight.w800,
-            height: 1.2,
-          ),
-          titleMedium: TextStyle(
-            color: BafColors.textPrimary,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            height: 1.25,
-          ),
-          bodyLarge: TextStyle(
-            color: BafColors.textPrimary,
-            fontSize: 15,
-            height: 1.4,
-          ),
-          bodyMedium: TextStyle(
-            color: BafColors.textPrimary,
-            fontSize: 13,
-            height: 1.4,
-          ),
-          bodySmall: TextStyle(
-            color: BafColors.textSecondary,
-            fontSize: 12,
-            height: 1.35,
-          ),
-          labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: BafColors.card,
-          foregroundColor: BafColors.textPrimary,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          centerTitle: false,
-          titleTextStyle: TextStyle(
-            color: BafColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: BafColors.card,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: BafSpacing.md,
-            vertical: BafSpacing.md,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(BafRadius.medium),
-            borderSide: const BorderSide(color: BafColors.border),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(BafRadius.medium),
-            borderSide: const BorderSide(color: BafColors.border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(BafRadius.medium),
-            borderSide: const BorderSide(color: BafColors.navySoft, width: 1.5),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(48, 46),
-            padding: const EdgeInsets.symmetric(horizontal: BafSpacing.lg),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(BafRadius.small),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(48, 44),
-            side: const BorderSide(color: BafColors.border),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(BafRadius.small),
-            ),
-            textStyle: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ),
-        iconButtonTheme: IconButtonThemeData(
-          style: IconButton.styleFrom(
-            minimumSize: const Size.square(44),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(BafRadius.small),
-            ),
-          ),
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          height: 66,
-          backgroundColor: BafColors.card,
-          elevation: 0,
-          indicatorShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(BafRadius.small),
-          ),
-          indicatorColor: BafColors.surfaceStrong,
-          labelTextStyle: WidgetStateProperty.resolveWith(
-            (states) => TextStyle(
-              color:
-                  states.contains(WidgetState.selected)
-                      ? BafColors.navy
-                      : BafColors.textSecondary,
-              fontSize: 11,
-              fontWeight:
-                  states.contains(WidgetState.selected)
-                      ? FontWeight.w800
-                      : FontWeight.w600,
-            ),
-          ),
-          iconTheme: WidgetStateProperty.resolveWith(
-            (states) => IconThemeData(
-              color:
-                  states.contains(WidgetState.selected)
-                      ? BafColors.navySoft
-                      : BafColors.textSecondary,
-              size: 23,
-            ),
-          ),
-        ),
-        navigationRailTheme: const NavigationRailThemeData(
-          backgroundColor: BafColors.card,
-          indicatorColor: BafColors.surfaceStrong,
-          selectedIconTheme: IconThemeData(color: BafColors.navySoft),
-          unselectedIconTheme: IconThemeData(color: BafColors.textSecondary),
-          selectedLabelTextStyle: TextStyle(
-            color: BafColors.navy,
-            fontWeight: FontWeight.w800,
-          ),
-          unselectedLabelTextStyle: TextStyle(
-            color: BafColors.textSecondary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        cardTheme: CardThemeData(
-          elevation: 0,
-          color: BafColors.card,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(BafRadius.medium),
-            side: const BorderSide(color: BafColors.border),
-          ),
-        ),
-        dividerTheme: const DividerThemeData(
-          color: BafColors.border,
-          thickness: 1,
-          space: 1,
-        ),
-        chipTheme: ChipThemeData(
-          backgroundColor: BafColors.surfaceMuted,
-          side: const BorderSide(color: BafColors.border),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(BafRadius.small),
-          ),
-          labelStyle: const TextStyle(
-            color: BafColors.textPrimary,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-          ),
-        ),
-        snackBarTheme: SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: BafColors.navy,
-          contentTextStyle: const TextStyle(color: Colors.white),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(BafRadius.medium),
-          ),
-        ),
-        dialogTheme: DialogThemeData(
-          backgroundColor: BafColors.card,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(BafRadius.large),
-          ),
-        ),
-      ),
+      theme: BafAppTheme.light,
       home: _buildStartupHome(),
     );
   }
@@ -1617,6 +1418,8 @@ class _FullScreenStatus extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    const BafBrandLockup(compact: true),
+                    const SizedBox(height: BafSpacing.xl),
                     Container(
                       width: 76,
                       height: 76,

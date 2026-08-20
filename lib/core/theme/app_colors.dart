@@ -1,29 +1,40 @@
 import 'package:flutter/material.dart';
 
+import 'baf_design_system.dart';
+
 class AppColors {
-  // ── Brand ──────────────────────────────────────────────────────────────────
-  static const navy = Color(0xFF1B3A6B);
+  static const navy = BafColors.graphite;
 
   // ── Department / Agency Colors ────────────────────────────────────────────
   static Color agencyColor(String agency) {
     switch (agency) {
-      case 'electrical':      return Colors.amber.shade700;
-      case 'mechanical':      return Colors.blue.shade700;
-      case 'instrumentation': return Colors.purple.shade600;
-      case 'refractory':      return Colors.red.shade700;
-      case 'emd':             return Colors.teal.shade600;
-      case 'operations':      return Colors.green.shade700;
-      case 'shiftInCharge':   return Colors.indigo.shade600;
-      default:                return Colors.grey.shade600;
+      case 'electrical':
+        return BafColors.warning;
+      case 'mechanical':
+        return BafColors.cobalt;
+      case 'instrumentation':
+        return BafColors.instrument;
+      case 'refractory':
+        return BafColors.maintenance;
+      case 'emd':
+        return BafColors.charges;
+      case 'operations':
+        return BafColors.assets;
+      case 'shiftInCharge':
+        return BafColors.audit;
+      default:
+        return BafColors.admin;
     }
   }
 
   // ── Ticket Status Colors ──────────────────────────────────────────────────
   static Color statusColor(bool isResolved) {
-    return isResolved ? Colors.green.shade700 : Colors.orange.shade700;
+    return isResolved ? BafColors.success : BafColors.warning;
   }
 
   static Color statusBackground(bool isResolved) {
-    return isResolved ? Colors.green.shade50 : Colors.orange.shade50;
+    return isResolved
+        ? BafColors.success.withValues(alpha: 0.08)
+        : BafColors.warning.withValues(alpha: 0.08);
   }
 }

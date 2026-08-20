@@ -492,7 +492,7 @@ class _ClosedTicketsHeader extends StatelessWidget {
             height: 52,
             decoration: BoxDecoration(
               color: BafColors.audit.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
             child: const Icon(
               Icons.history_rounded,
@@ -611,7 +611,9 @@ class _ClosedTicketCard extends StatelessWidget {
                             height: 44,
                             decoration: BoxDecoration(
                               color: agencyColor.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(
+                                BafRadius.medium,
+                              ),
                             ),
                             child: Icon(
                               _assetIcon(ticket.assetType),

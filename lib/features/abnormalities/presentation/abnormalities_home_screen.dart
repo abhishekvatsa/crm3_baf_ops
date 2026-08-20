@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -53,17 +54,12 @@ class _AbnormalitiesHomeScreenState
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Abnormalities',
-          style: TextStyle(
-            color: BafColors.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
+        title: const BafAppBarTitle(
+          title: 'Abnormalities',
+          subtitle: 'Charge events, RA traceability and root causes',
+          icon: Icons.memory_outlined,
+          accent: BafColors.instrument,
         ),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
         actions: [
           if (canManageTypes)
             IconButton(

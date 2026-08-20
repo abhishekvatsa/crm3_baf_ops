@@ -175,7 +175,9 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
         return Container(
           decoration: const BoxDecoration(
             color: BafColors.background,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(BafRadius.medium),
+            ),
           ),
           child: Column(
             children: [

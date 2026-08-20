@@ -208,7 +208,7 @@ class _ActionBottomSheetState extends ConsumerState<ActionBottomSheet> {
                     height: 46,
                     decoration: BoxDecoration(
                       color: BafColors.planned.withValues(alpha: 0.11),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(BafRadius.medium),
                     ),
                     child: const Icon(
                       Icons.add_task_rounded,
