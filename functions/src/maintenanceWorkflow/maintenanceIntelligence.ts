@@ -340,7 +340,10 @@ export const prepareMaintenanceCompletionWritePlan = async (args: {
   readonly executionId: string;
   readonly sourceType: string;
   readonly completedAt: string;
-  readonly completedBy: Actor;
+  readonly completedBy: Actor | {
+    readonly uid: string | null;
+    readonly name: string | null;
+  };
   readonly recordedAt: string;
   readonly classification?: FrozenMaintenanceClass | null;
   readonly classificationRevision?: number;

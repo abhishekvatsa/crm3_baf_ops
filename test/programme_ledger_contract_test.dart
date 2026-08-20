@@ -699,7 +699,7 @@ void main() {
     expect(a03Manifest['findingId'], 'A-03');
     expect(
       a03Manifest['inventoryDigest'],
-      '0A637D21496CEEF9A892E3BE131BE6E32B640ED0A00CC4E5F9BCE050A116F3C0',
+      '920BEB183C45956F39E2E28ED8FA755EF21C7D90CE4250BC03545613E4627E70',
     );
     expect(_objects(a03Manifest['surfaces']), hasLength(49));
 
@@ -747,9 +747,7 @@ void main() {
     expect(a04Production['strictReaderAttemptedCount'], 9);
     expect(a04Production['strictReaderPassedCount'], 9);
     expect(a04Production['strictReaderFailedCount'], 0);
-    final a04Local = _object(
-      a04Closure['supportedLocalGenerationAuthority'],
-    );
+    final a04Local = _object(a04Closure['supportedLocalGenerationAuthority']);
     expect(_strings(a04Local['testFiles']), hasLength(4));
     expect(a04Local['passedCount'], 27);
     expect(a04Local['failedCount'], 0);
@@ -762,7 +760,7 @@ void main() {
     expect(a04Manifest['findingId'], 'A-04');
     expect(
       a04Manifest['inventoryDigest'],
-      '63ACC5A22F9C7ED8BBA9D7E17A50099650770F857B059611BDE072B8BA0F7DB9',
+      'C19F918A75E8BE4853A4F952A1408CF076CC1B7A55961390E967CAC064644F59',
     );
     expect(_objects(a04Manifest['fields']), hasLength(53));
     expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(65));

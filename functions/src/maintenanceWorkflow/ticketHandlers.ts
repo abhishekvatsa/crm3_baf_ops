@@ -1234,6 +1234,32 @@ export const createMaintenanceTicket = async ({
         {reasonCode: "furnace-stuckup-inner-cover-not-linked"},
       );
     }
+    const requestedReference = JSON.parse(
+      input.stuckupBaseAssetRefJson as string,
+    ) as JsonMap;
+    const requestedAssociation = requestedReference.innerCoverAssociation;
+    if (requestedAssociation == null ||
+        typeof requestedAssociation !== "object" ||
+        Array.isArray(requestedAssociation) ||
+        (requestedAssociation as JsonMap).positionState !== "linked" ||
+        (requestedAssociation as JsonMap).baseAssetInstanceId !==
+          (association as JsonMap).baseAssetInstanceId ||
+        (requestedAssociation as JsonMap).baseAssetNumber !==
+          (association as JsonMap).baseAssetNumber ||
+        (requestedAssociation as JsonMap).innerCoverId !==
+          (association as JsonMap).innerCoverId ||
+        (requestedAssociation as JsonMap).innerCoverSerialNumber !==
+          (association as JsonMap).innerCoverSerialNumber ||
+        (requestedAssociation as JsonMap).linkageId !==
+          (association as JsonMap).linkageId ||
+        (requestedAssociation as JsonMap).assignmentVersion !==
+          (association as JsonMap).assignmentVersion) {
+      throw new WorkflowError(
+        "aborted",
+        "The Base-to-Inner-Cover pairing changed after physical confirmation. Reconfirm the installed cover before submitting.",
+        {reasonCode: "furnace-stuckup-inner-cover-confirmation-stale"},
+      );
+    }
     stuckupInnerCoverAssociation = association as JsonMap;
   }
   const ticket: JsonMap = {

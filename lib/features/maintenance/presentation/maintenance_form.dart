@@ -24,6 +24,7 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/data/asset_registry_model.dart';
+import '../../assets/presentation/inner_cover_lifecycle_screen.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/repositories/asset_hierarchy_repository.dart';
 import '../../quality/domain/issue_quality_intent.dart';
@@ -54,6 +55,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   bool _isBurnerLockout = false;
   _IssueIntakeMode _intakeMode = _IssueIntakeMode.standard;
   String? _stuckupBaseAssetId;
+  String? _stuckupConfirmedLinkageId;
+  bool _stuckupPhysicalMismatch = false;
   FurnaceStuckupCause _stuckupSuspectedCause = FurnaceStuckupCause.unknown;
   FurnaceStuckupOperatingContext _stuckupOperatingContext =
       FurnaceStuckupOperatingContext.postAnnealingRemoval;
@@ -419,6 +422,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         _assetType = AssetType.furnace;
         _assetInstanceId = null;
         _stuckupBaseAssetId = null;
+        _stuckupConfirmedLinkageId = null;
+        _stuckupPhysicalMismatch = false;
         _resetAssetEvidence();
         _componentController.text = 'Furnace / Inner Cover interface';
         _resolvedSubsystem = 'Furnace positioning and sealing';
@@ -431,6 +436,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     setState(() {
       _intakeMode = mode;
       _stuckupBaseAssetId = null;
+      _stuckupConfirmedLinkageId = null;
+      _stuckupPhysicalMismatch = false;
       _issueAssetClassId = null;
       _assetInstanceId = null;
       _assetType = AssetType.base;
@@ -794,6 +801,27 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         BafColors.warning,
       );
       return;
+    }
+    if (_isFurnaceStuckup) {
+      final currentAssignment =
+          ref
+              .read(innerCoverAssignmentsProvider)
+              .value
+              ?.where(
+                (item) => item.baseAssetInstanceId == selectedStuckupBase!.id,
+              )
+              .firstOrNull;
+      if (_stuckupPhysicalMismatch ||
+          currentAssignment == null ||
+          currentAssignment.linkageId != _stuckupConfirmedLinkageId) {
+        _showMessage(
+          _stuckupPhysicalMismatch
+              ? 'Correct the Base–Inner Cover pairing before raising this stuck-up.'
+              : 'Confirm that the currently linked Inner Cover is physically installed on this Base.',
+          BafColors.warning,
+        );
+        return;
+      }
     }
     BurnerLockoutCase? burnerLockout;
     if (_isBurnerLockout) {
@@ -1224,9 +1252,23 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                   _FurnaceStuckupAssetSelector(
                     selectedBaseAssetId: _stuckupBaseAssetId,
                     selectedFurnaceAssetId: _assetInstanceId,
+                    confirmedLinkageId: _stuckupConfirmedLinkageId,
+                    physicalMismatch: _stuckupPhysicalMismatch,
                     onBaseChanged:
                         (asset) => setState(() {
                           _stuckupBaseAssetId = asset?.id;
+                          _stuckupConfirmedLinkageId = null;
+                          _stuckupPhysicalMismatch = false;
+                        }),
+                    onLinkedCoverConfirmed:
+                        (linkageId) => setState(() {
+                          _stuckupConfirmedLinkageId = linkageId;
+                          _stuckupPhysicalMismatch = false;
+                        }),
+                    onPhysicalMismatch:
+                        () => setState(() {
+                          _stuckupConfirmedLinkageId = null;
+                          _stuckupPhysicalMismatch = true;
                         }),
                     onFurnaceChanged: (route, asset) {
                       setState(() {
@@ -2099,13 +2141,21 @@ class _FurnaceStuckupAssetSelector extends ConsumerWidget {
   const _FurnaceStuckupAssetSelector({
     required this.selectedBaseAssetId,
     required this.selectedFurnaceAssetId,
+    required this.confirmedLinkageId,
+    required this.physicalMismatch,
     required this.onBaseChanged,
+    required this.onLinkedCoverConfirmed,
+    required this.onPhysicalMismatch,
     required this.onFurnaceChanged,
   });
 
   final String? selectedBaseAssetId;
   final String? selectedFurnaceAssetId;
+  final String? confirmedLinkageId;
+  final bool physicalMismatch;
   final ValueChanged<AssetInstanceRecord?> onBaseChanged;
+  final ValueChanged<String> onLinkedCoverConfirmed;
+  final VoidCallback onPhysicalMismatch;
   final void Function(GovernedIssueAssetRoute route, AssetInstanceRecord? asset)
   onFurnaceChanged;
 
@@ -2183,12 +2233,17 @@ class _FurnaceStuckupAssetSelector extends ConsumerWidget {
         eligibleFurnaces
             .where((item) => item.id == selectedFurnaceAssetId)
             .firstOrNull;
+    final selectedAssignment =
+        selectedBase == null ? null : assignmentByBase[selectedBase.id];
+    final confirmed =
+        selectedAssignment != null &&
+        confirmedLinkageId == selectedAssignment.linkageId;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          '1  Base and linked Inner Cover',
+          '1  Base',
           style: TextStyle(
             color: BafColors.textPrimary,
             fontWeight: FontWeight.w900,
@@ -2201,13 +2256,13 @@ class _FurnaceStuckupAssetSelector extends ConsumerWidget {
           ),
           initialValue: selectedBase?.id,
           isExpanded: true,
-          decoration: _decoration('Base carrying the Inner Cover'),
+          decoration: _decoration('Base'),
           items: [
             for (final asset in eligibleBases)
               DropdownMenuItem(
                 value: asset.id,
                 child: Text(
-                  'Base ${asset.assetNumber} · IC ${assignmentByBase[asset.id]!.innerCoverSerialNumber}',
+                  'Base ${asset.assetNumber}',
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -2216,20 +2271,76 @@ class _FurnaceStuckupAssetSelector extends ConsumerWidget {
               (assetId) => onBaseChanged(
                 eligibleBases.where((item) => item.id == assetId).firstOrNull,
               ),
-          validator:
-              (value) =>
-                  value == null
-                      ? 'Choose the Base and linked Inner Cover'
-                      : null,
+          validator: (value) => value == null ? 'Choose the Base' : null,
         ),
-        if (selectedBase != null) ...[
+        if (selectedBase != null && selectedAssignment != null) ...[
           const SizedBox(height: BafSpacing.sm),
           _AssetSelectorMessage(
             icon: Icons.link_rounded,
             message:
-                'Inner Cover ${assignmentByBase[selectedBase.id]!.innerCoverSerialNumber} is currently linked to Base ${selectedBase.assetNumber}. This exact linkage will be frozen.',
+                'The register links Inner Cover ${selectedAssignment.innerCoverSerialNumber} to Base ${selectedBase.assetNumber}.',
             color: BafColors.maintenance,
           ),
+          const SizedBox(height: BafSpacing.sm),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Is this the Inner Cover physically installed on the Base now?',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          const SizedBox(height: BafSpacing.sm),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'matches',
+                icon: Icon(Icons.check_circle_outline_rounded),
+                label: Text('Yes'),
+              ),
+              ButtonSegment(
+                value: 'different',
+                icon: Icon(Icons.link_off_rounded),
+                label: Text('Different cover'),
+              ),
+            ],
+            emptySelectionAllowed: true,
+            selected: {
+              if (confirmed) 'matches' else if (physicalMismatch) 'different',
+            },
+            onSelectionChanged: (selection) {
+              if (selection.contains('matches')) {
+                onLinkedCoverConfirmed(selectedAssignment.linkageId);
+              } else if (selection.contains('different')) {
+                onPhysicalMismatch();
+              }
+            },
+          ),
+          if (physicalMismatch) ...[
+            const SizedBox(height: BafSpacing.sm),
+            _AssetSelectorMessage(
+              icon: Icons.warning_amber_rounded,
+              message:
+                  'Submission is blocked. An Admin must first delink ${selectedAssignment.innerCoverSerialNumber} and link the physically installed serial to Base ${selectedBase.assetNumber}.',
+              color: BafColors.danger,
+            ),
+            const SizedBox(height: BafSpacing.sm),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const InnerCoverLifecycleScreen(),
+                    ),
+                  );
+                  ref.invalidate(innerCoverAssignmentsProvider);
+                  ref.invalidate(innerCoverProfilesProvider);
+                },
+                icon: const Icon(Icons.layers_outlined),
+                label: const Text('Open Inner Cover pairing'),
+              ),
+            ),
+          ],
         ],
         const SizedBox(height: BafSpacing.lg),
         const Text(

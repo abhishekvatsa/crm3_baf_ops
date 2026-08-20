@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crm3_baf_ops/core/serialization/persisted_data_reader.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
@@ -111,4 +112,24 @@ void main() {
     expect(decoded['furnaceStuckup'], isNotNull);
     expect(FurnaceStuckupCase.tryDecodeLocal(merged)?.baseNumber, 117);
   });
+
+  test(
+    'intake is Base-first and binds physical confirmation to one linkage',
+    () {
+      final source =
+          File(
+            'lib/features/maintenance/presentation/maintenance_form.dart',
+          ).readAsStringSync();
+
+      expect(source, contains("_decoration('Base')"));
+      expect(source, contains("label: Text('Different cover')"));
+      expect(source, contains('_stuckupConfirmedLinkageId'));
+      expect(source, contains('currentAssignment.linkageId !='));
+      expect(source, contains("label: const Text('Open Inner Cover pairing')"));
+      expect(
+        source,
+        contains('Correct the Base–Inner Cover pairing before raising'),
+      );
+    },
+  );
 }

@@ -3473,6 +3473,16 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /historical_maintenance_records/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /historical_maintenance_audits/{docId} {
+      allow read: if isAdminOrSI();
+      allow create, update, delete: if false;
+    }
+
     match /maintenance_due_states/{docId} {
       allow read: if isApprovedUser();
       allow create, update, delete: if false;

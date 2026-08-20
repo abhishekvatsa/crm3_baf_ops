@@ -15,6 +15,7 @@ const assetReference = ({
   assetId,
   assetNumber,
   assetName,
+  innerCoverAssociation = null,
 }) => JSON.stringify({
   schemaVersion: 3,
   scope: 'physicalAsset',
@@ -35,7 +36,22 @@ const assetReference = ({
   ownershipStatus: 'unassigned',
   ownerDiscipline: null,
   accountableRoleKeys: [],
-  innerCoverAssociation: null,
+  innerCoverAssociation,
+});
+
+const linkedInnerCoverReference = () => ({
+  baseAssetInstanceId: 'base-117',
+  baseAssetNumber: 117,
+  positionState: 'linked',
+  innerCoverId: 'inner-gr26',
+  innerCoverSerialNumber: 'GR26',
+  linkageId: 'link-gr26-base-117',
+  assignmentVersion: 3,
+  linkedAt: '2026-08-01T04:00:00.000Z',
+  eventAt: '2026-08-20T04:00:00.000Z',
+  confirmedAt: '2026-08-20T04:04:00.000Z',
+  confirmedByUid: 'operations-1',
+  confirmedByName: 'operations-1',
 });
 
 const seedAssets = (store) => {
@@ -148,6 +164,7 @@ const createCommand = (ticketId = 'stuckup-case-1') => ({
         assetId: 'base-117',
         assetNumber: 117,
         assetName: 'Base 117',
+        innerCoverAssociation: linkedInnerCoverReference(),
       }),
       stuckupSuspectedCause: 'innerCoverBulging',
       stuckupOperatingContext: 'postAnnealingRemoval',
@@ -279,5 +296,44 @@ describe('Furnace stuck-up governed lifecycle', () => {
     })).rejects.toMatchObject({code: 'permission-denied'});
     expect(store.read('asset_condition_declarations/inner_cover_bulged_inner-gr26'))
       .toBeNull();
+  });
+
+  test('rejects when the confirmed Inner Cover pairing changed before submit', async () => {
+    const store = new MemoryWorkflowStore();
+    seedAssets(store);
+    const operations = seedActor(store, 'operations-1', ['operations']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    const command = createCommand('stale-pairing');
+
+    store.seed('base_inner_cover_assignments/base-117', {
+      schemaVersion: 1,
+      baseAssetInstanceId: 'base-117',
+      baseAssetClassId: 'base-class',
+      baseAssetNumber: 117,
+      innerCoverId: 'inner-gr27',
+      innerCoverSerialNumber: 'GR27',
+      linkageId: 'link-gr27-base-117',
+      linkedAt: '2026-08-20T04:02:00.000Z',
+      version: 4,
+    });
+    store.seed('inner_cover_profiles/inner-gr27', {
+      schemaVersion: 1,
+      innerCoverId: 'inner-gr27',
+      serialNumber: 'GR27',
+      lifecycleState: 'installed',
+      currentBaseAssetInstanceId: 'base-117',
+      currentBaseAssetNumber: 117,
+      currentLinkageId: 'link-gr27-base-117',
+    });
+
+    await expect(service.execute(command, {
+      actor: operations,
+      serverNow: at('2026-08-20T04:05:00Z'),
+    })).rejects.toMatchObject({
+      code: 'aborted',
+      details: {reasonCode: 'furnace-stuckup-inner-cover-confirmation-stale'},
+    });
+    expect(store.read('maintenance_tickets/stale-pairing')).toBeNull();
+    expect(store.read('furnace_stuckup_cases/stale-pairing')).toBeNull();
   });
 });

@@ -784,6 +784,18 @@
       "reArmCondition": "any maintenance due-state timestamp schema change"
     },
     {
+      "id": "maintenance-completion-event-record",
+      "readerFile": "lib/features/planned_maintenance/data/maintenance_intelligence.dart",
+      "readerMarker": "factory MaintenanceCompletionEvent.fromMap",
+      "requiredFields": ["completedAt", "recordedAt"],
+      "optionalFields": [],
+      "owner": "planned-maintenance",
+      "purpose": "restore the effective completion date and immutable recording chronology for modern and historical maintenance",
+      "authorityBoundary": "remote-maintenance-completion-event-record",
+      "regression": "test/maintenance_plan_model_test.dart; functions/test/maintenanceIntelligence.test.js",
+      "reArmCondition": "any maintenance completion-event timestamp schema change"
+    },
+    {
       "id": "maintenance-plan-record",
       "readerFile": "lib/features/planned_maintenance/data/maintenance_intelligence.dart",
       "readerMarker": "factory MaintenancePlan.fromMap",

@@ -53,6 +53,7 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   setMaintenanceClassDefinitionStatus: "maintenanceClass.manage",
   classifyMaintenanceExecution: "maintenance.classify",
   classifyMaintenanceTicket: "maintenance.classify",
+  recordHistoricalMaintenance: "maintenanceHistory.record",
   upsertMaintenancePlan: "maintenancePlan.manage",
   setMaintenancePlanStatus: "maintenancePlan.manage",
   completeMaintenancePlan: "maintenancePlan.manage",
@@ -94,6 +95,7 @@ const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
   "issueDefinition.manage",
   "maintenanceClass.manage",
   "maintenance.classify",
+  "maintenanceHistory.record",
   "maintenancePlan.manage",
   "inspectionDefinition.manage",
   "inspectionCampaign.manage",
@@ -237,6 +239,9 @@ export const assertWorkflowAuthorityScope = (
     return;
   case "maintenanceClass.manage":
     if (!actor.roles.has("admin") && !actor.roles.has("si")) denied();
+    return;
+  case "maintenanceHistory.record":
+    if (!actor.roles.has("admin")) denied();
     return;
   case "maintenance.classify":
   case "maintenancePlan.manage":

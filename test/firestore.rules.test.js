@@ -4369,6 +4369,7 @@ describe("governed dynamic asset hierarchy", () => {
       "maintenance_class_definitions/class-1",
       "maintenance_completion_events/event-1",
       "maintenance_completion_sources/source-1",
+      "historical_maintenance_records/history-1",
       "maintenance_due_states/due-1",
       "maintenance_plans/plan-1",
     ];
@@ -4383,6 +4384,7 @@ describe("governed dynamic asset hierarchy", () => {
       "maintenance_class_audits/audit-1",
       "maintenance_classification_audits/audit-2",
       "maintenance_plan_audits/audit-3",
+      "historical_maintenance_audits/audit-4",
     ]) {
       await seedDoc(path, {schemaVersion: 1, identity: path});
       await assertSucceeds(getDoc(doc(dbAs("admin1"), path)));

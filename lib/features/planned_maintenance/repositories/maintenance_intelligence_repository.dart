@@ -36,6 +36,18 @@ class MaintenanceIntelligenceRepository {
         return List.unmodifiable(rows);
       });
 
+  Stream<List<MaintenanceCompletionEvent>> watchCompletionEvents() => _firestore
+      .collection('maintenance_completion_events')
+      .snapshots()
+      .map((snapshot) {
+        final rows = snapshot.docs
+          .map((doc) => MaintenanceCompletionEvent.fromMap(doc.data(), doc.id))
+          .toList(
+            growable: false,
+          )..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+        return List.unmodifiable(rows);
+      });
+
   Stream<List<MaintenancePlan>> watchPlans() =>
       _firestore.collection('maintenance_plans').snapshots().map((snapshot) {
         final rows = snapshot.docs

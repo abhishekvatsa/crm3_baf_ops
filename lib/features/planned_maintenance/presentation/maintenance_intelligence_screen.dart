@@ -17,6 +17,8 @@ import '../data/maintenance_intelligence.dart';
 import '../providers/maintenance_intelligence_provider.dart';
 import 'published_template_assignment_screen.dart';
 
+part 'maintenance_intelligence_history.dart';
+
 class MaintenanceIntelligenceScreen extends ConsumerWidget {
   const MaintenanceIntelligenceScreen({super.key});
 
@@ -52,19 +54,20 @@ class _MaintenanceIntelligenceBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         backgroundColor: BafColors.background,
         appBar: AppBar(
           title: const BafAppBarTitle(
             title: 'Maintenance rhythm',
-            subtitle: 'Due state, forward plans and governed classes',
+            subtitle: 'Due state, history, forward plans and governed classes',
             icon: Icons.event_repeat_rounded,
             accent: BafColors.planned,
           ),
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.monitor_heart_outlined), text: 'Due state'),
+              Tab(icon: Icon(Icons.history_rounded), text: 'History'),
               Tab(icon: Icon(Icons.calendar_month_outlined), text: 'Plans'),
               Tab(icon: Icon(Icons.rule_folder_outlined), text: 'Classes'),
             ],
@@ -73,6 +76,7 @@ class _MaintenanceIntelligenceBody extends ConsumerWidget {
         body: TabBarView(
           children: [
             const _DueStateTab(),
+            _HistoryTab(actor: actor),
             _PlansTab(actor: actor),
             _ClassesTab(actor: actor),
           ],
@@ -1067,6 +1071,40 @@ class _ClassEditorState extends State<_ClassEditor> {
   );
 }
 
+class _HistoricalMaintenanceDraft {
+  const _HistoricalMaintenanceDraft({
+    required this.assetClass,
+    required this.asset,
+    required this.definition,
+    required this.completedOn,
+    required this.performedByName,
+    required this.evidenceNote,
+    required this.sourceReference,
+  });
+
+  final AssetClassRecord assetClass;
+  final _PlanAssetChoice asset;
+  final MaintenanceClassDefinition definition;
+  final DateTime completedOn;
+  final String? performedByName;
+  final String evidenceNote;
+  final String? sourceReference;
+
+  Map<String, dynamic> toPayload() => {
+    'assetTypeKey': assetClass.legacyAssetTypeKey ?? 'governedCustom',
+    'assetNumber': asset.assetNumber,
+    'assetClassId': assetClass.id,
+    'assetInstanceId': asset.id,
+    'assetInstanceVersion': asset.version,
+    'definitionId': definition.id,
+    'definitionVersion': definition.version,
+    'completedAt': completedOn.toUtc().toIso8601String(),
+    'performedByName': performedByName,
+    'evidenceNote': evidenceNote,
+    'sourceReference': sourceReference,
+  };
+}
+
 class _PlanDraft {
   const _PlanDraft({
     required this.assetClass,
@@ -1115,16 +1153,6 @@ class _PlanAssetChoice {
   final String name;
   final int? assetNumber;
 }
-
-bool _isMaintainableInnerCover(InnerCoverProfile profile) => const {
-  InnerCoverLifecycleState.available,
-  InnerCoverLifecycleState.reserved,
-  InnerCoverLifecycleState.installed,
-  InnerCoverLifecycleState.awaitingInspection,
-  InnerCoverLifecycleState.underInspection,
-  InnerCoverLifecycleState.underRepair,
-  InnerCoverLifecycleState.quarantined,
-}.contains(profile.lifecycleState);
 
 class _PlanEditor extends ConsumerStatefulWidget {
   const _PlanEditor({required this.definitions});

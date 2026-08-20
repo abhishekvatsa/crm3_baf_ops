@@ -967,15 +967,16 @@
         "factory FrozenMaintenanceClass.fromMap",
         "factory MaintenanceClassDefinition.fromMap",
         "factory MaintenanceDueState.fromMap",
+        "factory MaintenanceCompletionEvent.fromMap",
         "factory MaintenancePlan.fromMap"
       ],
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "owner": "planned-maintenance",
-      "authorityBoundary": "version-frozen maintenance class, cadence counters, due state, and planning window",
-      "malformedDisposition": "fail closed before malformed class, reset-counter, due, scope, chronology, or plan evidence enters maintenance planning",
+      "authorityBoundary": "version-frozen maintenance class, completion history, cadence counters, due state, and planning window",
+      "malformedDisposition": "fail closed before malformed class, completion history, reset-counter, due, scope, chronology, or plan evidence enters maintenance planning",
       "compatibility": "schema version 1 only; complete class identity and state-specific cadence evidence",
       "regression": "test/ui_business_alignment_test.dart; functions/test/maintenanceIntelligence.test.js",
-      "reArmCondition": "maintenance class, counter, due-state, plan-window, status, or version validation changes",
+      "reArmCondition": "maintenance class, completion-event, counter, due-state, plan-window, status, or version validation changes",
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {

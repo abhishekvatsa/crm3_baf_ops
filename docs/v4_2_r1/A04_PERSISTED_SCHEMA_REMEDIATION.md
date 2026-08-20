@@ -20,7 +20,7 @@ extension bags. The current extension registry contains zero fields, so an
 unknown key cannot silently acquire authority or business meaning. The
 inventory now inherits all 65 strict A-05 decoder surfaces, including the
 business-function tranche added on 21 August 2026. Its current stable digest is
-`63ACC5A22F9C7ED8BBA9D7E17A50099650770F857B059611BDE072B8BA0F7DB9`.
+`C19F918A75E8BE4853A4F952A1408CF076CC1B7A55961390E967CAC064644F59`.
 
 The audit fails on a new or removed field, policy drift, decoder-manifest drift,
 an unregistered extension, a missing strict-reader primitive, or missing

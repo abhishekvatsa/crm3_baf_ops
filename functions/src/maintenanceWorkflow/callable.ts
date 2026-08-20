@@ -30,6 +30,7 @@ const commandTypes = new Set<WorkflowCommandType>([
   "upsertFrequentIssueDefinition", "setFrequentIssueDefinitionStatus",
   "upsertMaintenanceClassDefinition", "setMaintenanceClassDefinitionStatus",
   "classifyMaintenanceExecution", "classifyMaintenanceTicket",
+  "recordHistoricalMaintenance",
   "upsertMaintenancePlan", "setMaintenancePlanStatus",
   "completeMaintenancePlan",
   "upsertInspectionDefinition", "setInspectionDefinitionStatus",

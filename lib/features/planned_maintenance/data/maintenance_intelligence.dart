@@ -391,6 +391,148 @@ class MaintenanceDueState {
   }
 }
 
+class MaintenanceCompletionEvent {
+  const MaintenanceCompletionEvent({
+    required this.id,
+    required this.sourceType,
+    required this.sourceId,
+    required this.assetTypeKey,
+    required this.assetNumber,
+    required this.assetClassId,
+    required this.assetInstanceId,
+    required this.assetDisplayName,
+    required this.maintenanceClass,
+    required this.completedAt,
+    required this.completedByName,
+    required this.recordedAt,
+  });
+
+  final String id;
+  final String sourceType;
+  final String sourceId;
+  final String assetTypeKey;
+  final int? assetNumber;
+  final String? assetClassId;
+  final String? assetInstanceId;
+  final String? assetDisplayName;
+  final FrozenMaintenanceClass maintenanceClass;
+  final DateTime completedAt;
+  final String? completedByName;
+  final DateTime recordedAt;
+
+  bool get isHistorical => sourceType == 'historicalMaintenance';
+
+  factory MaintenanceCompletionEvent.fromMap(
+    Map<String, dynamic> map,
+    String documentId,
+  ) {
+    final source = 'maintenance_completion_events/$documentId';
+    if (readRequiredPersistedInt(
+          map['schemaVersion'],
+          field: 'schemaVersion',
+          source: source,
+        ) !=
+        1) {
+      throw PersistedDataFormatException(
+        field: 'schemaVersion',
+        source: source,
+        detail: 'unsupported completion-event schema',
+      );
+    }
+    final eventId = readRequiredPersistedString(
+      map['eventId'],
+      field: 'eventId',
+      source: source,
+    );
+    if (eventId != documentId) {
+      throw PersistedDataFormatException(
+        field: 'eventId',
+        source: source,
+        detail: 'must match the document ID',
+      );
+    }
+    final rawClass = map['maintenanceClass'];
+    if (rawClass is! Map) {
+      throw PersistedDataFormatException(
+        field: 'maintenanceClass',
+        source: source,
+        detail: 'frozen maintenance type is absent',
+      );
+    }
+    final assetTypeKey = readRequiredPersistedString(
+      map['assetTypeKey'],
+      field: 'assetTypeKey',
+      source: source,
+    );
+    final assetNumber = readOptionalPersistedInt(
+      map['assetNumber'],
+      field: 'assetNumber',
+      source: source,
+      minimum: 1,
+    );
+    final assetClassId = readOptionalPersistedString(
+      map['assetClassId'],
+      field: 'assetClassId',
+      source: source,
+    );
+    final assetInstanceId = readOptionalPersistedString(
+      map['assetInstanceId'],
+      field: 'assetInstanceId',
+      source: source,
+    );
+    if ((assetClassId == null) != (assetInstanceId == null) ||
+        (assetNumber == null &&
+            (assetTypeKey != 'innerCover' || assetClassId == null))) {
+      throw PersistedDataFormatException(
+        field: 'assetNumber',
+        source: source,
+        detail: 'completion event has incomplete asset identity',
+      );
+    }
+    return MaintenanceCompletionEvent(
+      id: eventId,
+      sourceType: readRequiredPersistedString(
+        map['sourceType'],
+        field: 'sourceType',
+        source: source,
+      ),
+      sourceId: readRequiredPersistedString(
+        map['sourceId'],
+        field: 'sourceId',
+        source: source,
+      ),
+      assetTypeKey: assetTypeKey,
+      assetNumber: assetNumber,
+      assetClassId: assetClassId,
+      assetInstanceId: assetInstanceId,
+      assetDisplayName: readOptionalPersistedString(
+        map['assetDisplayName'],
+        field: 'assetDisplayName',
+        source: source,
+      ),
+      maintenanceClass: FrozenMaintenanceClass.fromMap(
+        Map<String, dynamic>.from(rawClass),
+        source: '$source/maintenanceClass',
+      ),
+      completedAt: readRequiredPersistedDateTime(
+        map['completedAt'],
+        field: 'completedAt',
+        source: source,
+      ),
+      completedByName: readOptionalPersistedString(
+        map['completedByName'],
+        field: 'completedByName',
+        source: source,
+      ),
+      recordedAt: readRequiredPersistedDateTime(
+        map['recordedAt'],
+        field: 'recordedAt',
+        source: source,
+      ),
+    );
+  }
+}
+
 class MaintenancePlan {
   const MaintenancePlan({
     required this.id,

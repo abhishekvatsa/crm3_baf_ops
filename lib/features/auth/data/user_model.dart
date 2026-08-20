@@ -494,6 +494,8 @@ class AppUser {
 
   bool get canClassifyCompletedMaintenance => isApproved && (isAdmin || isSI);
 
+  bool get canRecordHistoricalMaintenance => isApproved && isAdmin;
+
   bool get canManageInspectionDefinitions => isApproved && (isAdmin || isSI);
 
   bool get canManageInspectionCampaigns =>

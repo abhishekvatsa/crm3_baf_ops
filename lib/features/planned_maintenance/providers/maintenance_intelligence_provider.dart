@@ -21,6 +21,13 @@ final maintenanceDueStatesProvider = StreamProvider<List<MaintenanceDueState>>((
   return ref.watch(maintenanceIntelligenceRepositoryProvider).watchDueStates();
 });
 
+final maintenanceCompletionEventsProvider =
+    StreamProvider<List<MaintenanceCompletionEvent>>((ref) {
+      return ref
+          .watch(maintenanceIntelligenceRepositoryProvider)
+          .watchCompletionEvents();
+    });
+
 final maintenancePlansProvider = StreamProvider<List<MaintenancePlan>>((ref) {
   return ref.watch(maintenanceIntelligenceRepositoryProvider).watchPlans();
 });

@@ -52,6 +52,7 @@ EXPECTED_WORKFLOW_COMMANDS = frozenset({
     'setMaintenanceClassDefinitionStatus',
     'classifyMaintenanceExecution',
     'classifyMaintenanceTicket',
+    'recordHistoricalMaintenance',
     'upsertMaintenancePlan',
     'setMaintenancePlanStatus',
     'completeMaintenancePlan',

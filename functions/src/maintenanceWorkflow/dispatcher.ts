@@ -67,6 +67,7 @@ import {
   setInspectionTargetDisposition,
   verifyInspectionFinding,
 } from "./inspectionEvidenceHandlers";
+import {recordHistoricalMaintenance} from "./historicalMaintenanceHandlers";
 
 const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   createLegacyWorkflowJob,
@@ -78,6 +79,7 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   setMaintenanceClassDefinitionStatus,
   classifyMaintenanceExecution,
   classifyMaintenanceTicket,
+  recordHistoricalMaintenance,
   upsertMaintenancePlan,
   setMaintenancePlanStatus,
   completeMaintenancePlan,

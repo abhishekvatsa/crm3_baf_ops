@@ -19,10 +19,15 @@ device validation remain separate release activities.
 ### Furnace stuck-up
 
 - Operations can raise the classified Furnace stuck-up case against the familiar
-  Furnace and Base route.
+  Furnace and Base route. Base is the only Inner-Cover identity the intake asks
+  the user to choose; the app resolves the currently linked serial in context.
 - The current Base-to-Inner-Cover association, linked serial, charge, operating
   context, suspected cause, availability constraints, release and adjudication are
   frozen and validated.
+- The user must physically confirm that exact linked cover before submission. If a
+  different cover is found, intake stops and routes the user to delink the recorded
+  cover and link the physical cover before the stuck-up record can be accepted. The
+  server also rejects the submission if that confirmed linkage changes before commit.
 - A confirmed bulged condition becomes durable asset-condition evidence instead of
   disappearing with ticket closure.
 - UI: maintenance intake, stuck-up operations workspace, asset overview and reports.
@@ -38,6 +43,10 @@ device validation remain separate release activities.
   directly with immutable completion evidence.
 - Qualifying resolved maintenance issues can be classified after the reopen window;
   the actual issue completion time resets the same common cadence ledger.
+- Admin can add an immutable previous-maintenance record against an exact governed
+  asset and maintenance class, with completion date and evidence note plus optional
+  performer and source reference. Older additions enrich history but cannot rewind
+  a newer current due-state projection.
 - Classification correction recomputes affected counters rather than layering a
   contradictory second reset.
 - UI: Maintenance programme and Closed Tickets; due and overdue state also appears
@@ -172,7 +181,7 @@ device validation remain separate release activities.
   responsive layout and source-to-screen reachability.
 - A-02 through A-05 machine inventories own architecture, persistence, schema,
   timestamp and decoder re-arm conditions.
-- The expanded implementation audit requires all 46 Dart and TypeScript workflow
+- The expanded implementation audit requires all 47 Dart and TypeScript workflow
   commands to match and have a client entry point.
 
 ## Remaining Release Work

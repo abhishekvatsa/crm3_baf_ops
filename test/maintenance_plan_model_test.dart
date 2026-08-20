@@ -37,6 +37,30 @@ Map<String, dynamic> planMap() => <String, dynamic>{
   'releasedExecutionId': null,
 };
 
+Map<String, dynamic> completionEventMap() => <String, dynamic>{
+  'schemaVersion': 1,
+  'eventId': 'event-history-1',
+  'sourceType': 'historicalMaintenance',
+  'sourceId': 'history-furnace-7-20260810',
+  'sourceRevision': 1,
+  'assetIdentityKey': 'class-furnace:furnace-7',
+  'assetTypeKey': 'furnace',
+  'assetNumber': 7,
+  'assetClassId': 'class-furnace',
+  'assetInstanceId': 'furnace-7',
+  'assetDisplayName': 'Furnace 07',
+  'maintenanceClass': planMap()['maintenanceClass'],
+  'maintenanceClassDefinitionId': 'maintenance-class-furnace-mid',
+  'maintenanceClassDefinitionVersion': 2,
+  'maintenanceClassCode': 'FURNACE_MID',
+  'maintenanceClassTitle': 'Furnace Mid Maintenance',
+  'resetCounterKeys': <String>['FURNACE_ANY'],
+  'completedAt': '2026-08-10T06:30:00.000Z',
+  'completedByUid': null,
+  'completedByName': 'Mechanical maintenance team',
+  'recordedAt': '2026-08-21T08:00:00.000Z',
+};
+
 void main() {
   test('decodes exact governed asset maintenance plan', () {
     final plan = MaintenancePlan.fromMap(planMap(), 'plan-furnace-7');
@@ -91,6 +115,27 @@ void main() {
 
     expect(
       () => MaintenancePlan.fromMap(malformed, 'plan-furnace-7'),
+      throwsA(isA<PersistedDataFormatException>()),
+    );
+  });
+
+  test('decodes an immutable historical maintenance completion event', () {
+    final event = MaintenanceCompletionEvent.fromMap(
+      completionEventMap(),
+      'event-history-1',
+    );
+
+    expect(event.isHistorical, isTrue);
+    expect(event.assetDisplayName, 'Furnace 07');
+    expect(event.maintenanceClass.title, 'Furnace Mid Maintenance');
+    expect(event.completedByName, 'Mechanical maintenance team');
+  });
+
+  test('completion history fails closed on partial asset identity', () {
+    final malformed = completionEventMap()..['assetInstanceId'] = null;
+
+    expect(
+      () => MaintenanceCompletionEvent.fromMap(malformed, 'event-history-1'),
       throwsA(isA<PersistedDataFormatException>()),
     );
   });

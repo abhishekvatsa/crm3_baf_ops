@@ -181,6 +181,32 @@ function resolvedFurnaceTicket(overrides = {}) {
   };
 }
 
+function historicalMaintenanceCommand({
+  recordId = 'history-furnace-7-20260810',
+  commandId = 'record-history-1',
+  completedAt = '2026-08-10T06:30:00.000Z',
+} = {}) {
+  return {
+    commandId,
+    commandType: 'recordHistoricalMaintenance',
+    aggregateId: recordId,
+    expectedVersion: 0,
+    payload: {
+      assetTypeKey: 'furnace',
+      assetNumber: 7,
+      assetClassId: 'class-furnace',
+      assetInstanceId: 'furnace-7',
+      assetInstanceVersion: 3,
+      definitionId: 'maintenance-class-furnace-mid',
+      definitionVersion: 1,
+      completedAt,
+      performedByName: 'Mechanical maintenance team',
+      evidenceNote: 'Copied from the signed Furnace maintenance register.',
+      sourceReference: 'Furnace register page 114',
+    },
+  };
+}
+
 describe('classified maintenance completion and planning', () => {
   test('completed maintenance creates one immutable event and due projections at actual completion time', async () => {
     const store = new MemoryWorkflowStore();
@@ -552,5 +578,75 @@ describe('classified maintenance completion and planning', () => {
         code: 'failed-precondition',
         details: {reasonCode: 'maintenance-ticket-inner-cover-serial-required'},
       });
+  });
+
+  test('Admin can add immutable previous maintenance against exact asset and class', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceClass(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertClass(), {actor: admin, serverNow: now});
+
+    const receipt = await service.execute(historicalMaintenanceCommand(), {
+      actor: admin,
+      serverNow: now,
+    });
+
+    expect(receipt).toMatchObject({
+      resultKey: 'historical-maintenance-recorded',
+      aggregateVersion: 1,
+      result: {maintenanceClassCode: 'FURNACE_MID'},
+    });
+    expect(store.read(
+      'historical_maintenance_records/history-furnace-7-20260810',
+    )).toMatchObject({
+      schemaVersion: 1,
+      assetDisplayName: 'Furnace 07',
+      maintenanceClassTitle: 'Furnace Mid Maintenance',
+      completedAt: '2026-08-10T06:30:00.000Z',
+      datePrecision: 'date',
+      recordedByUid: 'admin-1',
+    });
+    const event = store.entries().find(([path]) =>
+      path.startsWith('maintenance_completion_events/'))?.[1];
+    expect(event).toMatchObject({
+      sourceType: 'historicalMaintenance',
+      sourceId: 'history-furnace-7-20260810',
+      completedByUid: null,
+      completedByName: 'Mechanical maintenance team',
+    });
+  });
+
+  test('previous records are Admin-only and an older addition cannot rewind due state', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceClass(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const supervisor = seedActor(store, 'supervisor-1', ['contractSupervisor']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertClass(), {actor: admin, serverNow: now});
+
+    await expect(service.execute(historicalMaintenanceCommand(), {
+      actor: supervisor,
+      serverNow: now,
+    })).rejects.toMatchObject({code: 'permission-denied'});
+
+    await service.execute(historicalMaintenanceCommand(), {
+      actor: admin,
+      serverNow: now,
+    });
+    await service.execute(historicalMaintenanceCommand({
+      recordId: 'history-furnace-7-20260701',
+      commandId: 'record-history-older',
+      completedAt: '2026-07-01T06:30:00.000Z',
+    }), {actor: admin, serverNow: now});
+
+    const due = store.entries()
+      .filter(([path]) => path.startsWith('maintenance_due_states/'))
+      .map(([, data]) => data)
+      .find((row) => row.counterKey === 'FURNACE_ANY');
+    expect(due).toMatchObject({
+      lastCompletionAt: '2026-08-10T06:30:00.000Z',
+      lastCompletionSourceId: 'history-furnace-7-20260810',
+    });
   });
 });

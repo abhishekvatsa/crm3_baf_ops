@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "63ACC5A22F9C7ED8BBA9D7E17A50099650770F857B059611BDE072B8BA0F7DB9",
+  "inventoryDigest": "C19F918A75E8BE4853A4F952A1408CF076CC1B7A55961390E967CAC064644F59",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "B1E7C9E2A22F16961FC1AE4B64D1985744E264F9B21B009B32A830F7E12866B0",
+  "a05ManifestSha256": "AD3E27A84D62AC0AF5EBE10E0BB4064FFC19BDC2379CB66559F4E54EBD514229",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1097,8 +1097,8 @@
       "id": "maintenance-intelligence-records",
       "file": "lib/features/planned_maintenance/data/maintenance_intelligence.dart",
       "classification": "REMOTE_OPERATIONAL_RECORD",
-      "authorityBoundary": "version-frozen maintenance class, cadence counters, due state, and planning window",
-      "malformedDisposition": "fail closed before malformed class, reset-counter, due, scope, chronology, or plan evidence enters maintenance planning",
+      "authorityBoundary": "version-frozen maintenance class, completion history, cadence counters, due state, and planning window",
+      "malformedDisposition": "fail closed before malformed class, completion history, reset-counter, due, scope, chronology, or plan evidence enters maintenance planning",
       "compatibility": "schema version 1 only; complete class identity and state-specific cadence evidence",
       "regression": "test/ui_business_alignment_test.dart; functions/test/maintenanceIntelligence.test.js"
     },

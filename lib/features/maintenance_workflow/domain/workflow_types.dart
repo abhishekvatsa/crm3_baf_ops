@@ -64,6 +64,7 @@ enum WorkflowCommandType {
   setMaintenanceClassDefinitionStatus,
   classifyMaintenanceExecution,
   classifyMaintenanceTicket,
+  recordHistoricalMaintenance,
   upsertMaintenancePlan,
   setMaintenancePlanStatus,
   completeMaintenancePlan,
