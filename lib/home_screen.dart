@@ -15,7 +15,10 @@ import 'features/planned_maintenance/presentation/template_publisher_screen.dart
 import 'features/planned_maintenance/presentation/knowledge_governance_screen.dart';
 import 'features/planned_maintenance/presentation/closed_job_dossiers_screen.dart';
 import 'features/planned_maintenance/presentation/maintenance_intelligence_screen.dart';
+import 'features/planned_maintenance/providers/maintenance_intelligence_provider.dart';
+import 'features/inspections/data/inspection_campaign.dart';
 import 'features/inspections/presentation/inspection_programmes_screen.dart';
+import 'features/inspections/providers/inspection_provider.dart';
 import 'features/assets/presentation/asset_timeline_screen.dart';
 import 'features/assets/presentation/asset_registry_screen.dart';
 import 'features/assets/presentation/asset_condition_board.dart';
@@ -153,6 +156,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final plantOverviewAsync = ref.watch(plantAssetOverviewProvider);
         final operationalEventsAsync = ref.watch(operationalEventsProvider);
         final qualityWarningsAsync = ref.watch(qualityWarningsProvider);
+        final maintenanceDueStatesAsync = ref.watch(
+          maintenanceDueStatesProvider,
+        );
+        final inspectionFindingsAsync = ref.watch(
+          allInspectionFindingsProvider,
+        );
 
         final ticketCount = ticketCountAsync.value ?? 0;
         final executionCount = executionCountAsync?.value ?? 0;
@@ -194,6 +203,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 )
                 .length ??
             0;
+        final overdueMaintenanceCount =
+            maintenanceDueStatesAsync.value
+                ?.where((state) => state.isOverdue)
+                .length ??
+            0;
+        final activeInspectionFindingCount =
+            inspectionFindingsAsync.value
+                ?.where(
+                  (finding) => {
+                    InspectionFindingStatus.open,
+                    InspectionFindingStatus.correctiveActionLinked,
+                    InspectionFindingStatus.awaitingVerification,
+                  }.contains(finding.status),
+                )
+                .length ??
+            0;
         final operationalEventsUnavailable =
             operationalEventsAsync.value == null;
         final qualityWarningsUnavailable = qualityWarningsAsync.value == null;
@@ -206,7 +231,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             (workflowComplianceAsync != null &&
                 workflowComplianceAsync.value == null) ||
             operationalEventsUnavailable ||
-            qualityWarningsUnavailable;
+            qualityWarningsUnavailable ||
+            maintenanceDueStatesAsync.value == null ||
+            inspectionFindingsAsync.value == null;
 
         final tabs = _buildTabs(
           appUser: appUser,
@@ -216,6 +243,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           workflowAttentionCount: workflowAttentionCount,
           openOperationalEventCount: openOperationalEventCount,
           openQualityWarningCount: openQualityWarningCount,
+          overdueMaintenanceCount: overdueMaintenanceCount,
+          activeInspectionFindingCount: activeInspectionFindingCount,
           operationalEventsUnavailable: operationalEventsUnavailable,
           qualityWarningsUnavailable: qualityWarningsUnavailable,
           attentionDataUnavailable: attentionDataUnavailable,
@@ -309,6 +338,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required int workflowAttentionCount,
     required int openOperationalEventCount,
     required int openQualityWarningCount,
+    required int overdueMaintenanceCount,
+    required int activeInspectionFindingCount,
     required bool operationalEventsUnavailable,
     required bool qualityWarningsUnavailable,
     required bool attentionDataUnavailable,
@@ -326,6 +357,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               workflowAttentionCount: workflowAttentionCount,
               openOperationalEventCount: openOperationalEventCount,
               openQualityWarningCount: openQualityWarningCount,
+              overdueMaintenanceCount: overdueMaintenanceCount,
+              activeInspectionFindingCount: activeInspectionFindingCount,
               operationalEventsUnavailable: operationalEventsUnavailable,
               qualityWarningsUnavailable: qualityWarningsUnavailable,
               attentionDataUnavailable: attentionDataUnavailable,
@@ -342,6 +375,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const OperationalEventsScreen()),
               onPlantCondition:
                   () => _push(context, const AssetConditionBoard()),
+              onMaintenanceRhythm:
+                  () => _push(context, const MaintenanceIntelligenceScreen()),
+              onInspectionProgrammes:
+                  () => _push(context, const InspectionProgrammesScreen()),
               onManualSync: () => _retryAttentionData(context, appUser),
             ),
         destination: const NavigationDestination(
@@ -500,6 +537,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     ref.invalidate(operationalEventsProvider);
     ref.invalidate(qualityWarningsProvider);
+    ref.invalidate(maintenanceDueStatesProvider);
+    ref.invalidate(allInspectionFindingsProvider);
     unawaited(_runManualSync(context));
   }
 
@@ -659,6 +698,8 @@ class _DashboardHome extends StatelessWidget {
   final int workflowAttentionCount;
   final int openOperationalEventCount;
   final int openQualityWarningCount;
+  final int overdueMaintenanceCount;
+  final int activeInspectionFindingCount;
   final bool operationalEventsUnavailable;
   final bool qualityWarningsUnavailable;
   final bool attentionDataUnavailable;
@@ -672,6 +713,8 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onQuality;
   final VoidCallback onOperationalEvents;
   final VoidCallback onPlantCondition;
+  final VoidCallback onMaintenanceRhythm;
+  final VoidCallback onInspectionProgrammes;
   final VoidCallback onManualSync;
 
   const _DashboardHome({
@@ -682,6 +725,8 @@ class _DashboardHome extends StatelessWidget {
     required this.workflowAttentionCount,
     required this.openOperationalEventCount,
     required this.openQualityWarningCount,
+    required this.overdueMaintenanceCount,
+    required this.activeInspectionFindingCount,
     required this.operationalEventsUnavailable,
     required this.qualityWarningsUnavailable,
     required this.attentionDataUnavailable,
@@ -695,6 +740,8 @@ class _DashboardHome extends StatelessWidget {
     required this.onQuality,
     required this.onOperationalEvents,
     required this.onPlantCondition,
+    required this.onMaintenanceRhythm,
+    required this.onInspectionProgrammes,
     required this.onManualSync,
   });
 
@@ -706,7 +753,9 @@ class _DashboardHome extends StatelessWidget {
         directiveCount +
         workflowAttentionCount +
         openOperationalEventCount +
-        openQualityWarningCount;
+        openQualityWarningCount +
+        overdueMaintenanceCount +
+        activeInspectionFindingCount;
 
     return SafeArea(
       bottom: false,
@@ -802,12 +851,16 @@ class _DashboardHome extends StatelessWidget {
                   workflowAttentionCount: workflowAttentionCount,
                   openOperationalEventCount: openOperationalEventCount,
                   openQualityWarningCount: openQualityWarningCount,
+                  overdueMaintenanceCount: overdueMaintenanceCount,
+                  activeInspectionFindingCount: activeInspectionFindingCount,
                   attentionDataUnavailable: attentionDataUnavailable,
                   onIssues: onIssues,
                   onWork: onWork,
                   onDirectives: onDirectives,
                   onOperationalEvents: onOperationalEvents,
                   onQuality: onQuality,
+                  onMaintenanceRhythm: onMaintenanceRhythm,
+                  onInspectionProgrammes: onInspectionProgrammes,
                   onRetry: onManualSync,
                 ),
               ),
@@ -1301,12 +1354,16 @@ class _AttentionPanel extends StatelessWidget {
   final int workflowAttentionCount;
   final int openOperationalEventCount;
   final int openQualityWarningCount;
+  final int overdueMaintenanceCount;
+  final int activeInspectionFindingCount;
   final bool attentionDataUnavailable;
   final VoidCallback onIssues;
   final VoidCallback onWork;
   final VoidCallback onDirectives;
   final VoidCallback onOperationalEvents;
   final VoidCallback onQuality;
+  final VoidCallback onMaintenanceRhythm;
+  final VoidCallback onInspectionProgrammes;
   final VoidCallback onRetry;
 
   const _AttentionPanel({
@@ -1316,12 +1373,16 @@ class _AttentionPanel extends StatelessWidget {
     required this.workflowAttentionCount,
     required this.openOperationalEventCount,
     required this.openQualityWarningCount,
+    required this.overdueMaintenanceCount,
+    required this.activeInspectionFindingCount,
     required this.attentionDataUnavailable,
     required this.onIssues,
     required this.onWork,
     required this.onDirectives,
     required this.onOperationalEvents,
     required this.onQuality,
+    required this.onMaintenanceRhythm,
+    required this.onInspectionProgrammes,
     required this.onRetry,
   });
 
@@ -1383,6 +1444,23 @@ class _AttentionPanel extends StatelessWidget {
           title: 'Quality warnings',
           detail: '$openQualityWarningCount awaiting disposition',
           onTap: onQuality,
+        ),
+      if (overdueMaintenanceCount > 0)
+        _AttentionRow(
+          icon: Icons.event_busy_outlined,
+          color: BafColors.danger,
+          title: 'Overdue maintenance cadence',
+          detail: '$overdueMaintenanceCount asset counters overdue',
+          onTap: onMaintenanceRhythm,
+        ),
+      if (activeInspectionFindingCount > 0)
+        _AttentionRow(
+          icon: Icons.fact_check_outlined,
+          color: BafColors.maintenance,
+          title: 'Active inspection findings',
+          detail:
+              '$activeInspectionFindingCount conditions under follow-through',
+          onTap: onInspectionProgrammes,
         ),
     ];
 

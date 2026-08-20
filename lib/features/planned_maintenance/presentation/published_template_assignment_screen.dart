@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -12,6 +13,7 @@ import '../../assets/data/asset_registry_model.dart';
 import '../../assets/data/inner_cover_lifecycle.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../data/template_governance_model.dart';
+import '../data/maintenance_intelligence.dart';
 import '../domain/governed_planned_work_asset_selection.dart';
 import '../domain/template_publication_readiness.dart';
 import '../domain/template_version_assignment_builder.dart';
@@ -29,7 +31,9 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 import '../data/job_module_model.dart';
 
 class PublishedTemplateAssignmentScreen extends ConsumerStatefulWidget {
-  const PublishedTemplateAssignmentScreen({super.key});
+  const PublishedTemplateAssignmentScreen({super.key, this.sourcePlan});
+
+  final MaintenancePlan? sourcePlan;
 
   @override
   ConsumerState<PublishedTemplateAssignmentScreen> createState() =>
@@ -49,6 +53,16 @@ class _PublishedTemplateAssignmentScreenState
   TemplatePublicationReadinessDecision? _displayedReadiness;
   bool _displayedPreviewValid = false;
   bool _displayedAssetSelectionValid = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final plan = widget.sourcePlan;
+    if (plan != null) {
+      _selectedAssetInstanceId = plan.assetInstanceId;
+      _remarksController.text = plan.planningNotes ?? '';
+    }
+  }
 
   @override
   void dispose() {
@@ -261,6 +275,10 @@ class _PublishedTemplateAssignmentScreenState
                         120,
                       ),
                       children: [
+                        if (widget.sourcePlan != null) ...[
+                          _SourcePlanCallout(plan: widget.sourcePlan!),
+                          const SizedBox(height: BafSpacing.lg),
+                        ],
                         _AssignmentHeaderCard(
                           package: selectedPackage,
                           version: selectedVersion,
@@ -310,7 +328,8 @@ class _PublishedTemplateAssignmentScreenState
                                       : (value) => setState(() {
                                         _selectedPackageId = value;
                                         _selectedVersionId = null;
-                                        _selectedAssetInstanceId = null;
+                                        _selectedAssetInstanceId =
+                                            widget.sourcePlan?.assetInstanceId;
                                         _displayedReadiness = null;
                                         _displayedPreviewValid = false;
                                         _displayedAssetSelectionValid = false;
@@ -419,7 +438,7 @@ class _PublishedTemplateAssignmentScreenState
                               eligibleAssets: eligibleAssets,
                               selectedAssetInstanceId: _selectedAssetInstanceId,
                               onAssetChanged:
-                                  _isSubmitting
+                                  _isSubmitting || widget.sourcePlan != null
                                       ? null
                                       : (asset) => setState(
                                         () =>
@@ -658,6 +677,8 @@ class _PublishedTemplateAssignmentScreenState
         assetInstanceId: selectedAsset.id,
         chargeNoAtEvent: chargeNo,
         remarks: remarks,
+        sourcePlanId: widget.sourcePlan?.id,
+        sourcePlanExpectedVersion: widget.sourcePlan?.version,
       );
       final pendingIdentity = await ref
           .read(publishedTemplateAssignmentIdempotencyStoreProvider)
@@ -679,6 +700,8 @@ class _PublishedTemplateAssignmentScreenState
         assetInstanceId: selectedAsset.id,
         chargeNoAtEvent: chargeNo,
         remarks: remarks,
+        sourcePlanId: widget.sourcePlan?.id,
+        sourcePlanExpectedVersion: widget.sourcePlan?.version,
       );
 
       final result = await ref
@@ -1355,6 +1378,69 @@ class _PublisherPromptCallout extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SourcePlanCallout extends StatelessWidget {
+  const _SourcePlanCallout({required this.plan});
+
+  final MaintenancePlan plan;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(BafSpacing.md),
+    decoration: BoxDecoration(
+      color: BafColors.planned.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+      border: Border.all(color: BafColors.planned.withValues(alpha: 0.3)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.event_available_rounded, color: BafColors.planned),
+        const SizedBox(width: BafSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Release ready maintenance plan',
+                style: TextStyle(
+                  color: BafColors.textPrimary,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${plan.assetInstanceName} · ${plan.maintenanceClass.title}',
+                style: const TextStyle(
+                  color: BafColors.textSecondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                '${DateFormat('dd MMM, HH:mm').format(plan.targetWindowStart.toLocal())} – '
+                '${DateFormat('dd MMM, HH:mm').format(plan.targetWindowEnd.toLocal())}',
+                style: const TextStyle(
+                  color: BafColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'Assignment and plan release commit together. Select a published catalogue carrying this exact maintenance class.',
+                style: TextStyle(
+                  color: BafColors.textSecondary,
+                  fontSize: 12,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _InlineEmpty extends StatelessWidget {

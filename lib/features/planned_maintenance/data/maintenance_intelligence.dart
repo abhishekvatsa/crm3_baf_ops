@@ -2,7 +2,14 @@ import '../../../core/serialization/persisted_data_reader.dart';
 
 enum MaintenanceClassStatus { active, retired }
 
-enum MaintenancePlanStatus { proposed, scheduled, ready, released, cancelled }
+enum MaintenancePlanStatus {
+  proposed,
+  scheduled,
+  ready,
+  released,
+  completed,
+  cancelled,
+}
 
 class MaintenanceResetCounter {
   const MaintenanceResetCounter({
@@ -270,6 +277,7 @@ class MaintenanceDueState {
     required this.assetNumber,
     required this.assetClassId,
     required this.assetInstanceId,
+    required this.assetDisplayName,
     required this.counterKey,
     required this.counterLabel,
     required this.thresholdDays,
@@ -281,9 +289,10 @@ class MaintenanceDueState {
   final String id;
   final String assetIdentityKey;
   final String assetTypeKey;
-  final int assetNumber;
+  final int? assetNumber;
   final String? assetClassId;
   final String? assetInstanceId;
+  final String? assetDisplayName;
   final String counterKey;
   final String counterLabel;
   final int? thresholdDays;
@@ -306,6 +315,36 @@ class MaintenanceDueState {
     String documentId,
   ) {
     final source = 'maintenance_due_states/$documentId';
+    final assetTypeKey = readRequiredPersistedString(
+      map['assetTypeKey'],
+      field: 'assetTypeKey',
+      source: source,
+    );
+    final assetNumber = readOptionalPersistedInt(
+      map['assetNumber'],
+      field: 'assetNumber',
+      source: source,
+      minimum: 1,
+    );
+    final assetClassId = readOptionalPersistedString(
+      map['assetClassId'],
+      field: 'assetClassId',
+      source: source,
+    );
+    final assetInstanceId = readOptionalPersistedString(
+      map['assetInstanceId'],
+      field: 'assetInstanceId',
+      source: source,
+    );
+    if ((assetClassId == null) != (assetInstanceId == null) ||
+        (assetNumber == null &&
+            (assetTypeKey != 'innerCover' || assetClassId == null))) {
+      throw PersistedDataFormatException(
+        field: 'assetNumber',
+        source: source,
+        detail: 'serial identity is allowed only for an exact Inner Cover',
+      );
+    }
     return MaintenanceDueState(
       id: documentId,
       assetIdentityKey: readRequiredPersistedString(
@@ -313,25 +352,13 @@ class MaintenanceDueState {
         field: 'assetIdentityKey',
         source: source,
       ),
-      assetTypeKey: readRequiredPersistedString(
-        map['assetTypeKey'],
-        field: 'assetTypeKey',
-        source: source,
-      ),
-      assetNumber: readRequiredPersistedInt(
-        map['assetNumber'],
-        field: 'assetNumber',
-        source: source,
-        minimum: 1,
-      ),
-      assetClassId: readOptionalPersistedString(
-        map['assetClassId'],
-        field: 'assetClassId',
-        source: source,
-      ),
-      assetInstanceId: readOptionalPersistedString(
-        map['assetInstanceId'],
-        field: 'assetInstanceId',
+      assetTypeKey: assetTypeKey,
+      assetNumber: assetNumber,
+      assetClassId: assetClassId,
+      assetInstanceId: assetInstanceId,
+      assetDisplayName: readOptionalPersistedString(
+        map['assetDisplayName'],
+        field: 'assetDisplayName',
         source: source,
       ),
       counterKey: readRequiredPersistedString(
@@ -374,6 +401,8 @@ class MaintenancePlan {
     required this.assetNumber,
     required this.assetClassId,
     required this.assetInstanceId,
+    required this.assetInstanceVersion,
+    required this.assetInstanceName,
     required this.maintenanceClass,
     required this.targetWindowStart,
     required this.targetWindowEnd,
@@ -386,17 +415,34 @@ class MaintenancePlan {
   final MaintenancePlanStatus status;
   final String assetIdentityKey;
   final String assetTypeKey;
-  final int assetNumber;
-  final String? assetClassId;
-  final String? assetInstanceId;
+  final int? assetNumber;
+  final String assetClassId;
+  final String assetInstanceId;
+  final int assetInstanceVersion;
+  final String assetInstanceName;
   final FrozenMaintenanceClass maintenanceClass;
   final DateTime targetWindowStart;
   final DateTime targetWindowEnd;
   final String? planningNotes;
   final String? releasedExecutionId;
 
+  bool get isSerialInnerCover =>
+      assetTypeKey == 'innerCover' && assetNumber == null;
+
   factory MaintenancePlan.fromMap(Map<String, dynamic> map, String documentId) {
     final source = 'maintenance_plans/$documentId';
+    if (readRequiredPersistedInt(
+          map['schemaVersion'],
+          field: 'schemaVersion',
+          source: source,
+        ) !=
+        2) {
+      throw PersistedDataFormatException(
+        field: 'schemaVersion',
+        source: source,
+        detail: 'maintenance plans require exact governed asset schema 2',
+      );
+    }
     final rawClass = map['maintenanceClass'];
     if (rawClass is! Map) {
       throw PersistedDataFormatException(
@@ -405,7 +451,23 @@ class MaintenancePlan {
         detail: 'frozen maintenance class is absent',
       );
     }
-    return MaintenancePlan(
+    final planId = readRequiredPersistedString(
+      map['planId'],
+      field: 'planId',
+      source: source,
+    );
+    final assetTypeKey = readRequiredPersistedString(
+      map['assetTypeKey'],
+      field: 'assetTypeKey',
+      source: source,
+    );
+    final assetNumber = readOptionalPersistedInt(
+      map['assetNumber'],
+      field: 'assetNumber',
+      source: source,
+      minimum: 1,
+    );
+    final plan = MaintenancePlan(
       id: documentId,
       version: readRequiredPersistedInt(
         map['version'],
@@ -424,25 +486,27 @@ class MaintenancePlan {
         field: 'assetIdentityKey',
         source: source,
       ),
-      assetTypeKey: readRequiredPersistedString(
-        map['assetTypeKey'],
-        field: 'assetTypeKey',
-        source: source,
-      ),
-      assetNumber: readRequiredPersistedInt(
-        map['assetNumber'],
-        field: 'assetNumber',
-        source: source,
-        minimum: 1,
-      ),
-      assetClassId: readOptionalPersistedString(
+      assetTypeKey: assetTypeKey,
+      assetNumber: assetNumber,
+      assetClassId: readRequiredPersistedString(
         map['assetClassId'],
         field: 'assetClassId',
         source: source,
       ),
-      assetInstanceId: readOptionalPersistedString(
+      assetInstanceId: readRequiredPersistedString(
         map['assetInstanceId'],
         field: 'assetInstanceId',
+        source: source,
+      ),
+      assetInstanceVersion: readRequiredPersistedInt(
+        map['assetInstanceVersion'],
+        field: 'assetInstanceVersion',
+        source: source,
+        minimum: 1,
+      ),
+      assetInstanceName: readRequiredPersistedString(
+        map['assetInstanceName'],
+        field: 'assetInstanceName',
         source: source,
       ),
       maintenanceClass: FrozenMaintenanceClass.fromMap(
@@ -470,5 +534,22 @@ class MaintenancePlan {
         source: source,
       ),
     );
+    if (planId != documentId ||
+        plan.assetIdentityKey !=
+            '${plan.assetClassId}:${plan.assetInstanceId}' ||
+        (!plan.maintenanceClass.assetTypeKeys.contains(plan.assetTypeKey) &&
+            !plan.maintenanceClass.assetClassIds.contains(plan.assetClassId)) ||
+        (plan.assetNumber == null && !plan.isSerialInnerCover) ||
+        !plan.targetWindowEnd.isAfter(plan.targetWindowStart) ||
+        ((plan.status == MaintenancePlanStatus.released) !=
+            (plan.releasedExecutionId != null))) {
+      throw PersistedDataFormatException(
+        field: 'planProjection',
+        source: source,
+        detail:
+            'plan identity, class, window or release evidence is inconsistent',
+      );
+    }
+    return plan;
   }
 }

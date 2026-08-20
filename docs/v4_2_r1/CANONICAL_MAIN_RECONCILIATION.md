@@ -18,30 +18,32 @@ The exact post-PR38/post-PR39 maintenance-workflow source collector was used as 
 
 `43A728FB58DC4C3155030BB65009C050158322DB27324E04002C05666A5B7627`
 
-Within its 410 included source/configuration paths, v4.2_R1 contains:
+The original reconciliation contained 344 byte-identical paths and 66
+intentional successor modifications. After the accepted source tranches through
+21 August 2026, the same no-loss 410-path scope now contains:
 
-- 344 byte-identical canonical paths;
-- 66 intentional successor modifications;
+- 188 byte-identical canonical paths;
+- 222 intentional successor modifications;
 - 0 missing canonical paths.
 
 The machine-readable path and hash record is `CANONICAL_MAIN_RECONCILIATION.json`.
 
 ## Closures preserved exactly
 
-The following canonical-main authorities remain byte-identical:
+The following canonical-main authority remains byte-identical and is checked as
+an immutable release boundary:
 
-- `governance/programme-ledger.json`, including Stage 2D-F2 closure and the historical F3 cursor;
 - `release/stage2d-f-internal-controlled-deployment-scope.json`;
-- all three canonical GitHub workflows;
-- Android namespace/application identity and Gradle wrapper/build configuration;
-- the Stage 2D-F and programme-ledger contract tests;
-- release approvals, signing receipts and Firebase registration receipts not explicitly listed as successor-modified.
+
+Historical release evidence retains its own recorded hashes. Mutable workflows,
+the programme ledger, Android configuration and source contracts are explicitly
+classified as successor modifications when they evolve.
 
 The PR39 `websocket-driver` security closure is preserved in both root and Functions lockfiles at version `0.7.5` with the same integrity hash. Later dependency hardening is additive.
 
 ## Intentional successor modifications
 
-The 65 modified canonical paths fall into these classes:
+The 222 modified canonical paths fall into these classes:
 
 1. **New workflow architecture and UI integration** — workflow lanes, compliance, equipment state, ticket bridge, canonical closure and diagnostics.
 2. **Server authority and Rules hardening** — generated policy, server-owned workflow fields, exact user schema and canonical approval/roles.

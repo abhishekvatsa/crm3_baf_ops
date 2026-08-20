@@ -900,7 +900,9 @@
         "factory FrozenInspectionDefinition.fromMap",
         "factory InspectionDefinition.fromMap",
         "factory InspectionCampaign.fromMap",
-        "factory InspectionObservation.fromMap"
+        "factory InspectionCampaignTarget.fromMap",
+        "factory InspectionObservation.fromMap",
+        "factory InspectionFinding.fromMap"
       ],
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "owner": "asset-inspection",
@@ -991,6 +993,21 @@
       "regression": "test/ui_business_alignment_test.dart",
       "reArmCondition": "metadata display output becomes command authority or malformed metadata enables a mutation",
       "riskFingerprint": "51b6019dff6ea1087397760c1a5ff60cf763e26136e3d9f2a098cdbad7539d5b"
+    },
+    {
+      "id": "closed-ticket-maintenance-metadata-display",
+      "file": "lib/features/maintenance/presentation/closed_tickets_screen.dart",
+      "markers": [
+        "FrozenMaintenanceClass? _ticketMaintenanceClass("
+      ],
+      "classification": "REPAIRABLE_LOCAL_RECORD",
+      "owner": "maintenance-history-presentation",
+      "authorityBoundary": "read-only display of a frozen maintenance classification attached to a completed issue",
+      "malformedDisposition": "withhold the optional classification badge; correction authority and all mutation validation remain server-derived",
+      "compatibility": "absent pre-feature metadata and unrelated or malformed opaque metadata only",
+      "regression": "test/operational_ux_restructure_test.dart; functions/test/maintenanceIntelligence.test.js",
+      "reArmCondition": "decoded ticket metadata becomes mutation authority or malformed metadata enables maintenance classification",
+      "riskFingerprint": "16181ba05c48297231a854c8d9bb63394e1ee094100acad8d832596ceb2d2be6"
     },
     {
       "id": "template-publisher-maintenance-metadata-display",

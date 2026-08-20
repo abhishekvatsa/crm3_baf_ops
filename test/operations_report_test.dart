@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/domain/plant_asset_overview.dart';
+import 'package:crm3_baf_ops/features/inspections/data/inspection_campaign.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/operational_events/data/operational_event.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/data/maintenance_intelligence.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
 import 'package:crm3_baf_ops/features/reports/models/operations_report.dart';
 import 'package:crm3_baf_ops/features/reports/presentation/fleet_status_screen.dart';
@@ -91,6 +93,42 @@ JobExecution execution(DateTime created) =>
       ..updatedAt = created
       ..isCompleted = false
       ..isCancelled = false;
+
+InspectionFinding finding({
+  required String id,
+  required String assetClassId,
+  required String assetInstanceId,
+  required InspectionFindingStatus status,
+  required DateTime observedAt,
+}) => InspectionFinding(
+  id: id,
+  version: 1,
+  campaignId: 'campaign-1',
+  targetKey: '$assetInstanceId:burner-1',
+  assetTypeKey: 'furnace',
+  assetNumber: 7,
+  assetClassId: assetClassId,
+  assetInstanceId: assetInstanceId,
+  componentNodeId: 'burner-1',
+  componentName: 'Burner block 1',
+  physicalPosition: 'Burner 1',
+  status: status,
+  firstObservationId: 'observation-$id',
+  currentObservationId: 'observation-$id',
+  firstObservedAt: observedAt,
+  latestObservedAt: observedAt,
+  recurrenceCount: 1,
+  linkedTicketId:
+      status == InspectionFindingStatus.correctiveActionLinked
+          ? 'ticket-$id'
+          : null,
+  verificationCount: status == InspectionFindingStatus.verifiedResolved ? 1 : 0,
+  lastVerificationOutcome:
+      status == InspectionFindingStatus.verifiedResolved
+          ? InspectionComparisonOutcome.resolved
+          : null,
+  updatedAt: observedAt,
+);
 
 OperationalEvent event() => OperationalEvent(
   eventId: 'event-1',
@@ -1173,5 +1211,109 @@ void main() {
     expect(report.issueCount, 0);
     expect(report.plannedJobCount, 0);
     expect(report.disruptionCount, 0);
+  });
+
+  test('report includes current cadence and active inspection assurance', () {
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final base = assetClass('base-class', 'Base', 'base');
+    final furnace7 = asset('furnace-7', furnace, 7);
+    final base101 = asset('base-101', base, 101);
+    final asOf = DateTime.utc(2026, 8, 21, 12);
+    MaintenanceDueState due({
+      required String id,
+      required AssetClassRecord assetClass,
+      required AssetInstanceRecord asset,
+      required DateTime nextDueAt,
+    }) => MaintenanceDueState(
+      id: id,
+      assetIdentityKey: '${assetClass.legacyAssetTypeKey}:${asset.assetNumber}',
+      assetTypeKey: assetClass.legacyAssetTypeKey!,
+      assetNumber: asset.assetNumber,
+      assetClassId: assetClass.id,
+      assetInstanceId: asset.id,
+      assetDisplayName: asset.name,
+      counterKey: 'routine',
+      counterLabel: 'Routine maintenance',
+      thresholdDays: 30,
+      lastCompletionAt: nextDueAt.subtract(const Duration(days: 30)),
+      nextDueAt: nextDueAt,
+      lastMaintenanceClassCode: 'RM',
+    );
+
+    final report = buildOperationsReport(
+      filter: OperationsReportFilter(
+        startDate: DateTime.utc(2026, 8, 1),
+        endDate: DateTime.utc(2026, 8, 21),
+        assetClassId: furnace.id,
+      ),
+      tickets: const [],
+      executions: const [],
+      events: const [],
+      dueStates: [
+        due(
+          id: 'furnace-overdue',
+          assetClass: furnace,
+          asset: furnace7,
+          nextDueAt: asOf.subtract(const Duration(days: 1)),
+        ),
+        due(
+          id: 'furnace-due-soon',
+          assetClass: furnace,
+          asset: furnace7,
+          nextDueAt: asOf.add(const Duration(days: 6)),
+        ),
+        due(
+          id: 'base-overdue',
+          assetClass: base,
+          asset: base101,
+          nextDueAt: asOf.subtract(const Duration(days: 2)),
+        ),
+      ],
+      inspectionFindings: [
+        finding(
+          id: 'active-old',
+          assetClassId: furnace.id,
+          assetInstanceId: furnace7.id,
+          status: InspectionFindingStatus.awaitingVerification,
+          observedAt: DateTime.utc(2026, 7, 1),
+        ),
+        finding(
+          id: 'resolved-in-period',
+          assetClassId: furnace.id,
+          assetInstanceId: furnace7.id,
+          status: InspectionFindingStatus.verifiedResolved,
+          observedAt: DateTime.utc(2026, 8, 15),
+        ),
+        finding(
+          id: 'base-active',
+          assetClassId: base.id,
+          assetInstanceId: base101.id,
+          status: InspectionFindingStatus.open,
+          observedAt: DateTime.utc(2026, 8, 16),
+        ),
+      ],
+      assetClasses: [furnace, base],
+      assetInstances: [furnace7, base101],
+      overview: PlantAssetOverview.build(
+        assetClasses: [furnace, base],
+        assetInstances: [furnace7, base101],
+        operationalConditions: const [],
+        workflowStatuses: const [],
+      ),
+      asOf: asOf,
+    );
+
+    expect(report.sourceDueStateCount, 3);
+    expect(report.sourceInspectionFindingCount, 3);
+    expect(report.dueStates, hasLength(2));
+    expect(report.overdueMaintenanceCount, 1);
+    expect(report.dueSoonMaintenanceCount, 1);
+    expect(report.inspectionFindings, hasLength(2));
+    expect(report.activeInspectionFindingCount, 1);
+    expect(report.awaitingInspectionVerificationCount, 1);
+    expect(report.activeInspectionFindings.single.id, 'active-old');
+    expect(report.classSummaries.single.overdueMaintenanceCount, 1);
+    expect(report.classSummaries.single.dueSoonMaintenanceCount, 1);
+    expect(report.classSummaries.single.activeInspectionFindingCount, 1);
   });
 }

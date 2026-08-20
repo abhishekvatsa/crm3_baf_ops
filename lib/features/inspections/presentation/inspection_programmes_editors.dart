@@ -504,6 +504,8 @@ class _InspectionCampaignDraft {
     required this.assetClassId,
     required this.targetNumbers,
     required this.expectedPopulation,
+    required this.physicalPositionLabels,
+    required this.baselineCampaignId,
     required this.observerRoles,
     required this.reason,
   });
@@ -513,7 +515,9 @@ class _InspectionCampaignDraft {
   final String assetTypeKey;
   final String? assetClassId;
   final List<int> targetNumbers;
-  final int? expectedPopulation;
+  final int expectedPopulation;
+  final List<String> physicalPositionLabels;
+  final String? baselineCampaignId;
   final List<String> observerRoles;
   final String reason;
 
@@ -525,15 +529,23 @@ class _InspectionCampaignDraft {
     'assetClassId': assetClassId,
     'targetAssetNumbers': targetNumbers,
     'expectedPopulation': expectedPopulation,
+    'physicalPositionLabels': physicalPositionLabels,
+    'baselineCampaignId': baselineCampaignId,
     'observerRoleKeys': observerRoles,
     'reason': reason,
   };
 }
 
 class _InspectionCampaignEditor extends StatefulWidget {
-  const _InspectionCampaignEditor({required this.definitions});
+  const _InspectionCampaignEditor({
+    required this.definitions,
+    required this.assets,
+    required this.closedCampaigns,
+  });
 
   final List<InspectionDefinition> definitions;
+  final List<AssetInstanceRecord> assets;
+  final List<InspectionCampaign> closedCampaigns;
 
   @override
   State<_InspectionCampaignEditor> createState() =>
@@ -545,8 +557,9 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
   late InspectionDefinition _definition;
   late final TextEditingController _purpose;
   late final TextEditingController _targets;
-  late final TextEditingController _expected;
+  late final TextEditingController _positions;
   late final TextEditingController _reason;
+  String? _baselineCampaignId;
   final Set<String> _roles = {
     'operations',
     'seniorElectrical',
@@ -560,10 +573,8 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
     super.initState();
     _definition = widget.definitions.first;
     _purpose = TextEditingController();
-    _targets = TextEditingController();
-    _expected = TextEditingController(
-      text: '${_defaultPopulation(_assetTypeKey(_definition)) ?? ''}',
-    );
+    _targets = TextEditingController(text: _defaultTargets(_definition));
+    _positions = TextEditingController();
     _reason = TextEditingController(
       text: 'Open a governed cross-asset inspection programme.',
     );
@@ -573,7 +584,7 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
   void dispose() {
     _purpose.dispose();
     _targets.dispose();
-    _expected.dispose();
+    _positions.dispose();
     _reason.dispose();
     super.dispose();
   }
@@ -616,8 +627,9 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                   onChanged:
                       (value) => setState(() {
                         _definition = value!;
-                        _expected.text =
-                            '${_defaultPopulation(_assetTypeKey(value)) ?? ''}';
+                        _targets.text = _defaultTargets(value);
+                        _positions.clear();
+                        _baselineCampaignId = null;
                       }),
                 ),
                 const SizedBox(height: BafSpacing.md),
@@ -641,34 +653,53 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                   controller: _targets,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Target asset numbers (optional)',
-                    hintText: '1, 2, 3, 8, 12',
+                    labelText: 'Exact target asset numbers',
+                    hintText: '1-26 or 1, 2, 3, 8, 12',
                     helperText:
-                        'Leave blank for an open population; list exact numbers for a defined subset.',
+                        'Every target remains accounted. Use ranges or comma-separated numbers.',
                     prefixIcon: Icon(Icons.format_list_numbered_rounded),
                   ),
                   validator:
                       (value) =>
-                          _parseNumbers(value) == null
+                          _parseNumbers(value) == null ||
+                                  _parseNumbers(value)!.isEmpty
                               ? 'Use comma-separated positive whole numbers.'
                               : null,
                 ),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(
-                  controller: _expected,
-                  keyboardType: TextInputType.number,
+                  controller: _positions,
                   decoration: const InputDecoration(
-                    labelText: 'Expected population (optional)',
-                    prefixIcon: Icon(Icons.groups_2_outlined),
+                    labelText: 'Physical positions (optional)',
+                    hintText: 'B01, B02, B03',
+                    helperText:
+                        'Use when every listed position is a separate target, such as eight burners.',
+                    prefixIcon: Icon(Icons.pin_drop_outlined),
                   ),
-                  validator: (value) {
-                    final text = value?.trim() ?? '';
-                    if (text.isEmpty) return null;
-                    final parsed = int.tryParse(text);
-                    return parsed != null && parsed > 0 && parsed <= 5000
-                        ? null
-                        : 'Use a number from 1 to 5,000.';
-                  },
+                ),
+                const SizedBox(height: BafSpacing.md),
+                DropdownButtonFormField<String?>(
+                  initialValue: _baselineCampaignId,
+                  decoration: const InputDecoration(
+                    labelText: 'Re-audit baseline (optional)',
+                    prefixIcon: Icon(Icons.compare_arrows_rounded),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('No baseline · first campaign'),
+                    ),
+                    ..._baselineOptions.map(
+                      (campaign) => DropdownMenuItem<String?>(
+                        value: campaign.id,
+                        child: Text(
+                          '${campaign.definition.title} · ${DateFormat('dd MMM yyyy').format(campaign.createdAt.toLocal())}',
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged:
+                      (value) => setState(() => _baselineCampaignId = value),
                 ),
                 const SizedBox(height: BafSpacing.lg),
                 Text(
@@ -734,11 +765,29 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
       return;
     }
     final numbers = _parseNumbers(_targets.text)!;
-    final expected = int.tryParse(_expected.text.trim());
-    if (expected != null && numbers.length > expected) {
+    final available = _matchingAssets.map((item) => item.assetNumber).toSet();
+    final unknown =
+        numbers.where((number) => !available.contains(number)).toList();
+    if (unknown.isNotEmpty) {
       _showEditorError(
         context,
-        'Expected population cannot be smaller than the target list.',
+        'These asset numbers are absent or inactive in the selected class: ${unknown.join(', ')}.',
+      );
+      return;
+    }
+    final positions = _commaValues(_positions.text);
+    final componentCount =
+        _definition.frozen.componentNodeIds.isEmpty
+            ? 1
+            : _definition.frozen.componentNodeIds.length;
+    final expected =
+        numbers.length *
+        componentCount *
+        (positions.isEmpty ? 1 : positions.length);
+    if (expected > 500) {
+      _showEditorError(
+        context,
+        'This programme creates $expected targets. Split it so each campaign has at most 500.',
       );
       return;
     }
@@ -751,10 +800,40 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
         assetClassId: _definition.frozen.assetClassIds.firstOrNull,
         targetNumbers: numbers,
         expectedPopulation: expected,
+        physicalPositionLabels: positions,
+        baselineCampaignId: _baselineCampaignId,
         observerRoles: _roles.toList()..sort(),
         reason: _reason.text.trim(),
       ),
     );
+  }
+
+  List<AssetInstanceRecord> get _matchingAssets {
+    final classId = _definition.frozen.assetClassIds.firstOrNull;
+    return widget.assets
+        .where((asset) => asset.assetClassId == classId)
+        .toList(growable: false)
+      ..sort((left, right) => left.assetNumber.compareTo(right.assetNumber));
+  }
+
+  List<InspectionCampaign> get _baselineOptions => widget.closedCampaigns
+      .where(
+        (campaign) =>
+            campaign.definition.id == _definition.id &&
+            campaign.assetClassId ==
+                _definition.frozen.assetClassIds.firstOrNull,
+      )
+      .toList(growable: false);
+
+  String _defaultTargets(InspectionDefinition definition) {
+    final classId = definition.frozen.assetClassIds.firstOrNull;
+    final numbers =
+        widget.assets
+            .where((asset) => asset.assetClassId == classId)
+            .map((asset) => asset.assetNumber)
+            .toList()
+          ..sort();
+    return _compactNumberRanges(numbers);
   }
 }
 
@@ -845,14 +924,10 @@ class _InspectionObservationEditor extends StatefulWidget {
 class _InspectionObservationEditorState
     extends State<_InspectionObservationEditor> {
   final _formKey = GlobalKey<FormState>();
-  late final List<int> _availableNumbers;
-  late int? _assetNumber;
-  late String? _componentId;
+  late String? _targetKey;
   late DateTime _observedAt;
   late bool _booleanValue;
   late String? _choiceValue;
-  late final TextEditingController _assetNumberText;
-  late final TextEditingController _position;
   late final TextEditingController _value;
   late final TextEditingController _charge;
   late final TextEditingController _conditions;
@@ -863,27 +938,13 @@ class _InspectionObservationEditorState
   void initState() {
     super.initState();
     final correction = widget.correction;
-    _availableNumbers =
-        (widget.campaign.targetAssetNumbers.isNotEmpty
-                ? widget.campaign.targetAssetNumbers
-                : widget.instances
-                    .map((item) => item.assetNumber)
-                    .toSet()
-                    .toList())
-            .toList()
-          ..sort();
-    _assetNumber = correction?.assetNumber ?? _availableNumbers.firstOrNull;
-    _componentId =
-        correction?.componentNodeId ?? _eligibleNodes(widget).firstOrNull?.id;
+    _targetKey =
+        correction?.targetKey ?? _selectableTargets.firstOrNull?.targetKey;
     _observedAt = DateTime.now();
     _booleanValue = correction?.booleanValue ?? false;
     _choiceValue =
         correction?.choiceValue ??
         widget.campaign.definition.choiceValues.firstOrNull;
-    _assetNumberText = TextEditingController(
-      text: '${correction?.assetNumber ?? ''}',
-    );
-    _position = TextEditingController(text: correction?.physicalPosition ?? '');
     _value = TextEditingController(
       text: switch (widget.campaign.definition.valueType) {
         InspectionValueType.number => '${correction?.numericValue ?? ''}',
@@ -907,15 +968,7 @@ class _InspectionObservationEditorState
 
   @override
   void dispose() {
-    for (final controller in [
-      _assetNumberText,
-      _position,
-      _value,
-      _charge,
-      _conditions,
-      _note,
-      _evidence,
-    ]) {
+    for (final controller in [_value, _charge, _conditions, _note, _evidence]) {
       controller.dispose();
     }
     super.dispose();
@@ -927,6 +980,7 @@ class _InspectionObservationEditorState
     final correction = widget.correction;
     final nodes = _eligibleNodes(widget);
     final locked = correction != null;
+    final targets = _selectableTargets;
     return AlertDialog(
       insetPadding: const EdgeInsets.all(BafSpacing.md),
       title: Text(locked ? 'Record correction' : 'Add field reading'),
@@ -950,90 +1004,41 @@ class _InspectionObservationEditorState
                           : definition.description,
                 ),
                 const SizedBox(height: BafSpacing.lg),
-                if (_availableNumbers.isNotEmpty)
-                  DropdownButtonFormField<int>(
-                    initialValue: _assetNumber,
-                    decoration: InputDecoration(
-                      labelText:
-                          '${_assetTypeLabel(widget.campaign.assetTypeKey)} number',
-                      prefixIcon: const Icon(
-                        Icons.precision_manufacturing_outlined,
-                      ),
+                if (targets.isEmpty)
+                  const _InlineNotice(
+                    icon: Icons.gpp_bad_outlined,
+                    text:
+                        'No governed target is currently eligible for a reading. Restore a target disposition or add a target first.',
+                    danger: true,
+                  )
+                else
+                  DropdownButtonFormField<String>(
+                    initialValue: _targetKey,
+                    decoration: const InputDecoration(
+                      labelText: 'Governed inspection target',
+                      prefixIcon: Icon(Icons.my_location_rounded),
                     ),
                     items:
-                        _availableNumbers
+                        targets
                             .map(
-                              (number) => DropdownMenuItem(
-                                value: number,
-                                child: Text(
-                                  '${_assetTypeLabel(widget.campaign.assetTypeKey)} $number',
-                                ),
+                              (target) => DropdownMenuItem(
+                                value: target.targetKey,
+                                child: Text(_targetLabel(target, nodes)),
                               ),
                             )
                             .toList(),
                     onChanged:
                         locked
                             ? null
-                            : (value) => setState(() => _assetNumber = value),
-                  )
-                else
-                  TextFormField(
-                    controller: _assetNumberText,
-                    enabled: !locked,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText:
-                          '${_assetTypeLabel(widget.campaign.assetTypeKey)} number',
-                      prefixIcon: const Icon(
-                        Icons.precision_manufacturing_outlined,
-                      ),
-                    ),
-                    validator: (value) {
-                      final parsed = int.tryParse(value?.trim() ?? '');
-                      return parsed != null && parsed > 0
-                          ? null
-                          : 'Enter a positive asset number.';
-                    },
+                            : (value) => setState(() => _targetKey = value),
                   ),
-                const SizedBox(height: BafSpacing.md),
                 if (definition.componentNodeIds.isNotEmpty && nodes.isEmpty)
                   const _InlineNotice(
                     icon: Icons.gpp_bad_outlined,
                     text:
                         'The governed component could not be resolved at its current hierarchy version. Recording is blocked.',
                     danger: true,
-                  )
-                else if (nodes.isNotEmpty)
-                  DropdownButtonFormField<String>(
-                    initialValue: _componentId,
-                    decoration: const InputDecoration(
-                      labelText: 'Component',
-                      prefixIcon: Icon(Icons.settings_outlined),
-                    ),
-                    items:
-                        nodes
-                            .map(
-                              (node) => DropdownMenuItem(
-                                value: node.id,
-                                child: Text(node.name),
-                              ),
-                            )
-                            .toList(),
-                    onChanged:
-                        locked
-                            ? null
-                            : (value) => setState(() => _componentId = value),
                   ),
-                if (nodes.isNotEmpty) const SizedBox(height: BafSpacing.md),
-                TextFormField(
-                  controller: _position,
-                  enabled: !locked,
-                  decoration: const InputDecoration(
-                    labelText: 'Physical position (optional)',
-                    hintText: 'Gas train, Burner 3, Zone 2',
-                    prefixIcon: Icon(Icons.location_on_outlined),
-                  ),
-                ),
                 const SizedBox(height: BafSpacing.md),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(
@@ -1127,7 +1132,8 @@ class _InspectionObservationEditorState
         ),
         FilledButton.icon(
           onPressed:
-              definition.componentNodeIds.isNotEmpty && nodes.isEmpty
+              targets.isEmpty ||
+                      (definition.componentNodeIds.isNotEmpty && nodes.isEmpty)
                   ? null
                   : _submit,
           icon: const Icon(Icons.save_outlined),
@@ -1228,14 +1234,19 @@ class _InspectionObservationEditorState
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    final number = _assetNumber ?? int.tryParse(_assetNumberText.text.trim());
-    if (number == null) return;
-    final asset = _matchingAsset(widget.instances, number);
+    final target =
+        widget.campaign.targets
+            .where((item) => item.targetKey == _targetKey)
+            .firstOrNull;
+    if (target == null) return;
+    final asset =
+        widget.instances
+            .where((item) => item.id == target.assetInstanceId)
+            .firstOrNull;
     final component =
         _eligibleNodes(
           widget,
-        ).where((item) => item.id == _componentId).firstOrNull;
-    final position = _position.text.trim();
+        ).where((item) => item.id == target.componentNodeId).firstOrNull;
     final charge = int.tryParse(_charge.text.trim());
     final definition = widget.campaign.definition;
     Navigator.pop(
@@ -1243,10 +1254,10 @@ class _InspectionObservationEditorState
       _InspectionObservationDraft(
         observationId: 'inspection-observation-${const Uuid().v4()}',
         campaign: widget.campaign,
-        assetNumber: number,
+        assetNumber: target.assetNumber,
         asset: asset,
         component: component,
-        physicalPosition: position.isEmpty ? null : position,
+        physicalPosition: target.physicalPosition,
         observedAt: _observedAt,
         numericValue:
             definition.valueType == InspectionValueType.number
@@ -1271,6 +1282,23 @@ class _InspectionObservationEditorState
         supersedesObservationId: widget.correction?.id,
       ),
     );
+  }
+
+  List<InspectionCampaignTarget> get _selectableTargets {
+    final correction = widget.correction;
+    if (correction != null) {
+      return widget.campaign.targets
+          .where((target) => target.targetKey == correction.targetKey)
+          .toList(growable: false);
+    }
+    return widget.campaign.targets
+        .where(
+          (target) =>
+              target.disposition !=
+                  InspectionTargetDisposition.excludedWithReason &&
+              target.disposition != InspectionTargetDisposition.unavailable,
+        )
+        .toList(growable: false);
   }
 }
 
@@ -1365,11 +1393,50 @@ List<int>? _parseNumbers(String? value) {
   if (text.isEmpty) return <int>[];
   final numbers = <int>{};
   for (final part in text.split(RegExp(r'[,\s]+'))) {
-    final parsed = int.tryParse(part);
-    if (parsed == null || parsed < 1) return null;
-    numbers.add(parsed);
+    final range = part.split('-');
+    if (range.length == 1) {
+      final parsed = int.tryParse(part);
+      if (parsed == null || parsed < 1) return null;
+      numbers.add(parsed);
+      continue;
+    }
+    if (range.length != 2) return null;
+    final start = int.tryParse(range.first);
+    final end = int.tryParse(range.last);
+    if (start == null || end == null || start < 1 || end < start) return null;
+    if (end - start > 500) return null;
+    for (var number = start; number <= end; number += 1) {
+      numbers.add(number);
+    }
   }
   return numbers.toList()..sort();
+}
+
+List<String> _commaValues(String? value) =>
+    (value ?? '')
+        .split(RegExp(r'[,\r\n]+'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+
+String _compactNumberRanges(List<int> values) {
+  if (values.isEmpty) return '';
+  final sorted = values.toSet().toList()..sort();
+  final parts = <String>[];
+  var start = sorted.first;
+  var previous = start;
+  for (final value in sorted.skip(1)) {
+    if (value == previous + 1) {
+      previous = value;
+      continue;
+    }
+    parts.add(start == previous ? '$start' : '$start-$previous');
+    start = previous = value;
+  }
+  parts.add(start == previous ? '$start' : '$start-$previous');
+  return parts.join(', ');
 }
 
 Map<String, String>? _parseConditions(String? value) {
@@ -1388,14 +1455,6 @@ Map<String, String>? _parseConditions(String? value) {
 String _assetTypeKey(InspectionDefinition definition) =>
     definition.frozen.assetTypeKeys.firstOrNull ?? 'governedCustom';
 
-int? _defaultPopulation(String type) => switch (type) {
-  'furnace' => 26,
-  'base' => 47,
-  'forceCooler' => 25,
-  'innerCover' => 44,
-  _ => null,
-};
-
 List<AssetHierarchyNode> _eligibleNodes(_InspectionObservationEditor widget) {
   final allowed = widget.campaign.definition.componentNodeIds.toSet();
   return widget.nodes
@@ -1409,14 +1468,17 @@ List<AssetHierarchyNode> _eligibleNodes(_InspectionObservationEditor widget) {
       .toList(growable: false);
 }
 
-AssetInstanceRecord? _matchingAsset(
-  List<AssetInstanceRecord> instances,
-  int number,
+String _targetLabel(
+  InspectionCampaignTarget target,
+  List<AssetHierarchyNode> nodes,
 ) {
-  for (final item in instances) {
-    if (item.isActive && item.assetNumber == number) return item;
-  }
-  return null;
+  final component =
+      nodes.where((node) => node.id == target.componentNodeId).firstOrNull;
+  return [
+    target.assetInstanceName,
+    if (component != null) component.name,
+    if (target.physicalPosition != null) target.physicalPosition!,
+  ].join(' · ');
 }
 
 void _showEditorError(BuildContext context, String message) {

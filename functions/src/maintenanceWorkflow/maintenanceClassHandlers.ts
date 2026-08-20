@@ -12,7 +12,7 @@ import {
   parseFrozenMaintenanceClass,
   prepareMaintenanceCompletionWritePlan,
 } from "./maintenanceIntelligence";
-import {executionPath} from "./paths";
+import {executionPath, maintenancePath} from "./paths";
 import {JsonMap, LaneKey} from "./types";
 import {cleanText, iso, stableJson} from "./utils";
 
@@ -448,6 +448,7 @@ const dueProjectionFromSource = (
     assetNumber: latest.assetNumber,
     assetClassId: latest.assetClassId ?? null,
     assetInstanceId: latest.assetInstanceId ?? null,
+    assetDisplayName: latest.assetDisplayName ?? null,
     counterKey,
     counterLabel: counter.label,
     thresholdDays: counter.thresholdDays,
@@ -630,6 +631,230 @@ export const classifyMaintenanceExecution: CommandHandler = async ({
       classificationRevision: revision,
       completionEventId: completionPlan?.eventId ?? null,
       completionEffectiveAt: completed ? execution.data.completedAt : null,
+    },
+  };
+};
+
+const maintenanceTicketCompletionRecord = (ticket: JsonMap): JsonMap => {
+  const assetTypeKey = cleanText(ticket.assetType, "ticket.assetType");
+  if (assetTypeKey === "innerCover") {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Inner Cover cadence must be recorded against its serial-based maintenance plan.",
+      {reasonCode: "maintenance-ticket-inner-cover-serial-required"},
+    );
+  }
+  const assetNumber = ticket.assetNumber;
+  if (!Number.isSafeInteger(assetNumber) || (assetNumber as number) < 1) {
+    throw new WorkflowError("failed-precondition", "The issue asset number is invalid.");
+  }
+  if (typeof ticket.assetHierarchyRefJson !== "string" ||
+      ticket.assetHierarchyRefJson.trim().length === 0) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The resolved issue has no frozen governed asset identity.",
+    );
+  }
+  let rawReference: unknown;
+  try {
+    rawReference = JSON.parse(ticket.assetHierarchyRefJson);
+  } catch (_) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The resolved issue asset identity is malformed.",
+    );
+  }
+  const reference = record(rawReference, "ticket.assetHierarchyRefJson");
+  if (![3, 4].includes(reference.schemaVersion as number) ||
+      !["physicalAsset", "installedComponent", "componentDefinitionOnAsset"]
+        .includes(String(reference.scope)) ||
+      reference.assetNumber !== assetNumber) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The resolved issue does not carry an exact physical asset identity.",
+      {reasonCode: "maintenance-ticket-asset-identity-invalid"},
+    );
+  }
+  const assetClassId = documentId(reference.assetClassId, "assetClassId");
+  const assetInstanceId = documentId(reference.assetInstanceId, "assetInstanceId");
+  const assetInstanceName = boundedText(
+    reference.assetInstanceName,
+    "assetInstanceName",
+    1,
+    160,
+  );
+  return {
+    ...ticket,
+    assetTypeKey,
+    assetNumber: assetNumber as number,
+    assetClassId,
+    assetInstanceId,
+    assetInstanceName,
+  };
+};
+
+export const classifyMaintenanceTicket: CommandHandler = async ({
+  tx,
+  command,
+  context,
+}) => {
+  exactKeys(command.payload, ["definitionId", "definitionVersion", "reason"], "payload");
+  if (!context.actor.roles.has("admin") && !context.actor.roles.has("si")) {
+    throw new WorkflowError(
+      "permission-denied",
+      "Only Admin or SI can classify completed maintenance issues.",
+    );
+  }
+  const ticketId = documentId(command.aggregateId, "aggregateId");
+  const definitionId = documentId(command.payload.definitionId, "definitionId");
+  const definitionVersion = command.payload.definitionVersion;
+  if (typeof definitionVersion !== "number" ||
+      !Number.isSafeInteger(definitionVersion) || definitionVersion < 1) {
+    throw new WorkflowError("invalid-argument", "definitionVersion is invalid.");
+  }
+  const reason = boundedText(command.payload.reason, "reason", 5, 500);
+  const [ticket, definition, audit] = await Promise.all([
+    tx.get(maintenancePath(ticketId)),
+    tx.get(definitionPath(definitionId)),
+    tx.get(classificationAuditPath(command.commandId)),
+  ]);
+  if (!ticket.exists || ticket.data == null) {
+    throw new WorkflowError("not-found", "Maintenance issue was not found.");
+  }
+  if (ticket.data.version !== command.expectedVersion) {
+    throw new WorkflowError(
+      "aborted",
+      "The maintenance issue changed before classification.",
+      {reasonCode: "maintenance-ticket-version-conflict"},
+    );
+  }
+  if (ticket.data.isDeleted === true || ticket.data.isResolved !== true ||
+      ticket.data.status !== "resolved") {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Only a final resolved maintenance issue can be classified.",
+    );
+  }
+  if (!definition.exists || definition.data == null ||
+      definition.data.status !== "active" || definition.data.version !== definitionVersion) {
+    throw new WorkflowError(
+      "aborted",
+      "The selected maintenance class is missing, inactive or changed.",
+    );
+  }
+  if (audit.exists) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Maintenance-classification audit evidence already exists without this receipt.",
+    );
+  }
+  const completedDate = typeof ticket.data.endDate === "string" ?
+    new Date(ticket.data.endDate) : null;
+  const completedAt = completedDate != null && !Number.isNaN(completedDate.getTime()) ?
+    completedDate.toISOString() : null;
+  const now = iso(context.serverNow);
+  if (completedAt == null || Number.isNaN(Date.parse(completedAt))) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "The resolved maintenance issue has no valid completion timestamp.",
+    );
+  }
+  const ageMilliseconds = Date.parse(now) - Date.parse(completedAt);
+  if (ageMilliseconds < 4 * 60 * 60 * 1000) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Classify the issue after its four-hour reopen window has elapsed.",
+      {reasonCode: "maintenance-ticket-reopen-window-active"},
+    );
+  }
+  const completionRecord = maintenanceTicketCompletionRecord(ticket.data);
+  const identity = maintenanceAssetIdentityFromExecution(completionRecord);
+  const classification = frozenMaintenanceClassFromDefinition(definition.data);
+  assertMaintenanceClassApplies(classification, identity);
+  const previous = frozenMaintenanceClassFromExecution(ticket.data);
+  const previousRevision = classificationRevision(ticket.data.metadataJson);
+  if (previous != null && previous.definitionId === classification.definitionId &&
+      previous.definitionVersion === classification.definitionVersion) {
+    throw new WorkflowError("failed-precondition", "This exact maintenance class is already assigned.");
+  }
+  const revision = previousRevision + 1;
+  const metadataJson = metadataWithMaintenanceClassification(
+    ticket.data.metadataJson,
+    classification,
+    revision,
+    context.actor,
+    now,
+    reason,
+  );
+  const existingSources = (await tx.query("maintenance_completion_sources", [
+    {field: "assetIdentityKey", op: "==", value: identity.assetIdentityKey},
+  ])).filter((row) => row.data != null)
+    .map((row) => ({path: row.path, data: row.data!}));
+  const completionPlan = await prepareMaintenanceCompletionWritePlan({
+    tx,
+    execution: completionRecord,
+    executionId: ticketId,
+    sourceType: "maintenanceIssue",
+    completedAt,
+    completedBy: {
+      uid: typeof ticket.data.closedByUid === "string" ?
+        ticket.data.closedByUid : context.actor.uid,
+      name: typeof ticket.data.closedByName === "string" ?
+        ticket.data.closedByName : context.actor.name,
+      roles: context.actor.roles,
+    },
+    recordedAt: now,
+    classification,
+    classificationRevision: revision,
+  });
+  const nextVersion = command.expectedVersion + 1;
+  tx.update(maintenancePath(ticketId), {
+    metadataJson,
+    maintenanceClassificationPending: false,
+    version: nextVersion,
+    updatedAt: now,
+  });
+  tx.create(classificationAuditPath(command.commandId), {
+    schemaVersion: 1,
+    auditId: command.commandId,
+    sourceType: "maintenanceIssue",
+    maintenanceTicketId: ticketId,
+    operation: previous == null ? "classify" : "correct-classification",
+    classificationRevision: revision,
+    performedByUid: context.actor.uid,
+    performedByName: context.actor.name,
+    performedAt: now,
+    reason,
+    beforeJson: stableJson(previous == null ? {} : previous as unknown as JsonMap),
+    afterJson: stableJson(classification as unknown as JsonMap),
+    completionEffectiveAt: completedAt,
+  });
+  applyMaintenanceCompletionWritePlan(tx, completionPlan);
+  if (completionPlan != null && previous != null) {
+    const sources = [
+      ...existingSources.filter((source) => source.path !== completionPlan.sourcePath),
+      {path: completionPlan.sourcePath, data: completionPlan.sourceData},
+    ];
+    const affectedCounters = new Set([
+      ...previous.resetCounters.map((counter) => counter.key),
+      ...classification.resetCounters.map((counter) => counter.key),
+    ]);
+    for (const counterKey of affectedCounters) {
+      const path = dueStatePath(identity.assetIdentityKey, counterKey);
+      tx.set(path, dueProjectionFromSource(path, counterKey, sources, now), true);
+    }
+  }
+  return {
+    resultKey: previous == null ?
+      "completed-maintenance-issue-classified" :
+      "completed-maintenance-issue-classification-corrected",
+    aggregateVersion: nextVersion,
+    result: {
+      maintenanceTicketId: ticketId,
+      maintenanceClassCode: classification.code,
+      classificationRevision: revision,
+      completionEventId: completionPlan?.eventId ?? null,
+      completionEffectiveAt: completedAt,
     },
   };
 };

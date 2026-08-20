@@ -184,6 +184,22 @@ function assetClassFixture(overrides = {}) {
   };
 }
 
+function frozenBaseMaintenanceClass() {
+  return {
+    schemaVersion: 1,
+    definitionId: 'maintenance-class-base',
+    definitionVersion: 2,
+    code: 'BASE_MAINTENANCE',
+    title: 'Base Maintenance',
+    assetTypeKeys: ['base'],
+    assetClassIds: [],
+    resetCounters: [
+      {key: 'BASE_MAINTENANCE', label: 'Base maintenance', thresholdDays: 50},
+    ],
+    principalLaneKey: 'mech',
+  };
+}
+
 function fakeAssignmentDb({
   user = {
     isApproved: true,
@@ -199,6 +215,7 @@ function fakeAssignmentDb({
   assetInstances = [assetInstanceFixture()],
   innerCoverAssignments = [],
   innerCoverProfiles = [],
+  maintenancePlans = [],
 } = {}) {
   const store = new Map();
   const writes = [];
@@ -242,6 +259,10 @@ function fakeAssignmentDb({
   innerCoverProfiles.forEach((profile, index) => {
     const id = profile.innerCoverId ?? `inner-cover-${index + 1}`;
     seed(`inner_cover_profiles/${id}`, profile);
+  });
+  maintenancePlans.forEach((plan, index) => {
+    const id = plan.planId ?? `plan-${index + 1}`;
+    seed(`maintenance_plans/${id}`, plan);
   });
 
   function docRef(collectionName, id) {
@@ -425,6 +446,23 @@ describe("published TemplateVersion server assignment", () => {
     }));
   });
 
+  test("source plan identity is complete and participates in the fingerprint", () => {
+    const parsed = parsePublishedTemplateAssignmentRequest(requestFixture({
+      sourcePlanId: 'plan-base-101',
+      sourcePlanExpectedVersion: 3,
+    }));
+    expect(parsed.payloadFingerprint).not.toBe(
+      parsePublishedTemplateAssignmentRequest(requestFixture()).payloadFingerprint,
+    );
+    expect(() => parsePublishedTemplateAssignmentRequest(requestFixture({
+      sourcePlanId: 'plan-base-101',
+    }))).toThrow(expect.objectContaining({
+      details: expect.objectContaining({
+        reasonCode: 'assignment-source-plan-identity-incomplete',
+      }),
+    }));
+  });
+
   test("creates canonical execution, frozen module, and idempotency receipt atomically", async () => {
     const {db, store, writes} = fakeAssignmentDb();
     const result = await assignPublishedTemplateVersionWithDb({
@@ -492,6 +530,149 @@ describe("published TemplateVersion server assignment", () => {
       version: 1,
     });
     expect(writes).toHaveLength(5);
+  });
+
+  test("atomically releases a matching ready maintenance plan and replays once", async () => {
+    const classification = frozenBaseMaintenanceClass();
+    const versionData = rehashedVersion({
+      metadataJson: JSON.stringify({maintenanceClassification: classification}),
+    });
+    const fixture = fakeAssignmentDb({
+      versionData,
+      audits: [auditFixture({afterHash: versionData.contentHash})],
+      assetClasses: [assetClassFixture({
+        assetClassId: 'base-class',
+        code: 'BASE',
+        name: 'Base',
+        legacyAssetTypeKey: 'base',
+      })],
+      assetInstances: [assetInstanceFixture({
+        assetInstanceId: 'base-101',
+        assetClassId: 'base-class',
+        assetNumber: 101,
+        name: 'Base 101',
+      })],
+      maintenancePlans: [{
+        schemaVersion: 2,
+        planId: 'plan-base-101',
+        version: 3,
+        status: 'ready',
+        assetIdentityKey: 'base-class:base-101',
+        assetTypeKey: 'base',
+        assetNumber: 101,
+        assetClassId: 'base-class',
+        assetInstanceId: 'base-101',
+        assetInstanceVersion: 1,
+        assetInstanceName: 'Base 101',
+        maintenanceClassDefinitionId: classification.definitionId,
+        maintenanceClassDefinitionVersion: classification.definitionVersion,
+        maintenanceClass: classification,
+        templatePackageId: null,
+        templateVersionId: null,
+        templateContentHash: null,
+      }],
+    });
+    const request = requestFixture({
+      expectedContentHash: versionData.contentHash,
+      assetClassId: 'base-class',
+      assetInstanceId: 'base-101',
+      sourcePlanId: 'plan-base-101',
+      sourcePlanExpectedVersion: 3,
+    });
+
+    const first = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: 'supervisor1',
+      data: request,
+      now: () => new Date('2026-06-19T11:00:00.000Z'),
+    });
+    expect(first.idempotentReplay).toBe(false);
+    expect(first.execution).toMatchObject({
+      sourceMaintenancePlanId: 'plan-base-101',
+      sourceMaintenancePlanVersion: 3,
+    });
+    expect(fixture.store.get('maintenance_plans/plan-base-101')).toMatchObject({
+      status: 'released',
+      version: 4,
+      releasedExecutionId: first.executionId,
+    });
+    expect(fixture.store.get(
+      `maintenance_plan_audits/assignment_${REQUEST_ID}`,
+    )).toMatchObject({
+      operation: 'release-to-governed-assignment',
+      planId: 'plan-base-101',
+    });
+    expect(fixture.writes).toHaveLength(7);
+
+    const replay = await assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: 'supervisor1',
+      data: request,
+      now: () => new Date('2026-06-19T11:01:00.000Z'),
+    });
+    expect(replay).toMatchObject({
+      idempotentReplay: true,
+      executionId: first.executionId,
+    });
+    expect(fixture.writes).toHaveLength(7);
+  });
+
+  test("rejects release when the planned asset version is stale", async () => {
+    const classification = frozenBaseMaintenanceClass();
+    const versionData = rehashedVersion({
+      metadataJson: JSON.stringify({maintenanceClassification: classification}),
+    });
+    const fixture = fakeAssignmentDb({
+      versionData,
+      audits: [auditFixture({afterHash: versionData.contentHash})],
+      assetClasses: [assetClassFixture({
+        assetClassId: "base-class",
+        code: "BASE",
+        name: "Base",
+        legacyAssetTypeKey: "base",
+      })],
+      assetInstances: [assetInstanceFixture({
+        assetInstanceId: "base-101",
+        assetClassId: "base-class",
+        assetNumber: 101,
+        name: "Base 101",
+        version: 2,
+      })],
+      maintenancePlans: [{
+        schemaVersion: 2,
+        planId: "plan-base-101",
+        version: 3,
+        status: "ready",
+        assetIdentityKey: "base-class:base-101",
+        assetTypeKey: "base",
+        assetNumber: 101,
+        assetClassId: "base-class",
+        assetInstanceId: "base-101",
+        assetInstanceVersion: 1,
+        assetInstanceName: "Base 101",
+        maintenanceClassDefinitionId: classification.definitionId,
+        maintenanceClassDefinitionVersion: classification.definitionVersion,
+        maintenanceClass: classification,
+        templatePackageId: null,
+        templateVersionId: null,
+        templateContentHash: null,
+      }],
+    });
+
+    await expect(assignPublishedTemplateVersionWithDb({
+      db: fixture.db,
+      authUid: "supervisor1",
+      data: requestFixture({
+        expectedContentHash: versionData.contentHash,
+        assetClassId: "base-class",
+        assetInstanceId: "base-101",
+        sourcePlanId: "plan-base-101",
+        sourcePlanExpectedVersion: 3,
+      }),
+    })).rejects.toMatchObject({
+      details: {reasonCode: "assignment-source-plan-mismatch"},
+    });
+    expect(fixture.writes).toHaveLength(0);
   });
 
   test("binds a legacy-type assignment to the selected governed physical asset", async () => {

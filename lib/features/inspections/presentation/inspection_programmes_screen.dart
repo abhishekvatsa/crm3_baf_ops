@@ -96,6 +96,9 @@ class _CampaignList extends ConsumerWidget {
     final definitions =
         ref.watch(inspectionDefinitionsProvider).value ??
         const <InspectionDefinition>[];
+    final assets =
+        ref.watch(allAssetInstancesProvider).value ??
+        const <AssetInstanceRecord>[];
     return campaigns.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error:
@@ -128,7 +131,19 @@ class _CampaignList extends ConsumerWidget {
                     !closed &&
                             actor.canManageInspectionCampaigns &&
                             definitions.any((item) => item.isActive)
-                        ? () => _createCampaign(context, ref, definitions)
+                        ? () => _createCampaign(
+                          context,
+                          ref,
+                          definitions,
+                          assets,
+                          all
+                              .where(
+                                (item) =>
+                                    item.status ==
+                                    InspectionCampaignStatus.closed,
+                              )
+                              .toList(growable: false),
+                        )
                         : null,
               ),
               const SizedBox(height: BafSpacing.lg),
@@ -317,9 +332,7 @@ class _CampaignCard extends StatelessWidget {
                   ),
                   const SizedBox(width: BafSpacing.md),
                   Text(
-                    campaign.expectedPopulation == null
-                        ? '${campaign.distinctTargetCount} targets'
-                        : '${campaign.distinctTargetCount}/${campaign.expectedPopulation}',
+                    '${campaign.accountedTargetCount}/${campaign.expectedPopulation} accounted',
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(width: BafSpacing.sm),
@@ -569,23 +582,16 @@ class _CampaignDetail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final observations = ref.watch(inspectionObservationsProvider(campaign.id));
-    final classes =
-        ref.watch(assetClassesProvider).value ?? const <AssetClassRecord>[];
-    final classId =
-        campaign.assetClassId ?? _legacyClassId(classes, campaign.assetTypeKey);
+    final findings =
+        ref.watch(inspectionFindingsProvider(campaign.id)).value ??
+        const <InspectionFinding>[];
+    final classId = campaign.assetClassId;
     final nodes =
-        classId == null
-            ? const <AssetHierarchyNode>[]
-            : ref.watch(assetHierarchyNodesProvider(classId)).value ??
-                const <AssetHierarchyNode>[];
+        ref.watch(assetHierarchyNodesProvider(classId)).value ??
+        const <AssetHierarchyNode>[];
     final instances = (ref.watch(allAssetInstancesProvider).value ??
             const <AssetInstanceRecord>[])
-        .where(
-          (item) =>
-              classId == null
-                  ? campaign.targetAssetNumbers.contains(item.assetNumber)
-                  : item.assetClassId == classId,
-        )
+        .where((item) => item.assetClassId == classId)
         .toList(growable: false);
     return Scaffold(
       appBar: AppBar(
@@ -600,11 +606,22 @@ class _CampaignDetail extends ConsumerWidget {
               campaign.status != InspectionCampaignStatus.closed)
             PopupMenuButton<String>(
               tooltip: 'Campaign actions',
-              onSelected:
-                  (status) =>
-                      _transitionCampaign(context, ref, campaign, status),
+              onSelected: (action) {
+                if (action == 'addTargets') {
+                  _addCampaignTargets(context, ref, campaign, instances);
+                } else {
+                  _transitionCampaign(context, ref, campaign, action);
+                }
+              },
               itemBuilder:
                   (_) => [
+                    const PopupMenuItem(
+                      value: 'addTargets',
+                      child: ListTile(
+                        leading: Icon(Icons.playlist_add_rounded),
+                        title: Text('Add governed targets'),
+                      ),
+                    ),
                     PopupMenuItem(
                       value:
                           campaign.status == InspectionCampaignStatus.paused
@@ -669,11 +686,13 @@ class _CampaignDetail extends ConsumerWidget {
           final currentRows = rows
               .where((item) => !supersededIds.contains(item.id))
               .toList(growable: false);
-          final findings = currentRows.where((item) => item.outOfRange).length;
-          final observedAssets =
-              currentRows.map((item) => item.assetNumber).toSet();
-          final missing = campaign.targetAssetNumbers
-              .where((number) => !observedAssets.contains(number))
+          final blockingFindings =
+              findings.where((finding) => finding.blocksCampaignClosure).length;
+          final dispositionTargets = campaign.targets
+              .where(
+                (target) =>
+                    target.disposition != InspectionTargetDisposition.observed,
+              )
               .toList(growable: false);
           return ListView(
             padding: const EdgeInsets.fromLTRB(
@@ -685,7 +704,7 @@ class _CampaignDetail extends ConsumerWidget {
             children: [
               _CampaignSummary(
                 campaign: campaign,
-                currentFindingCount: findings,
+                currentFindingCount: blockingFindings,
               ),
               const SizedBox(height: BafSpacing.lg),
               if (campaign.definition.preconditions.isNotEmpty)
@@ -695,9 +714,58 @@ class _CampaignDetail extends ConsumerWidget {
                   body: campaign.definition.preconditions.join(' · '),
                   color: BafColors.warning,
                 ),
-              if (missing.isNotEmpty) ...[
+              if (dispositionTargets.isNotEmpty) ...[
                 const SizedBox(height: BafSpacing.md),
-                _MissingTargets(numbers: missing),
+                _TargetPopulationPanel(
+                  campaign: campaign,
+                  targets: dispositionTargets,
+                  nodes: nodes,
+                  canManage: actor.canManageInspectionCampaigns,
+                  onDisposition:
+                      (target, disposition) => _setTargetDisposition(
+                        context,
+                        ref,
+                        campaign,
+                        target,
+                        disposition,
+                      ),
+                ),
+              ],
+              if (findings.isNotEmpty) ...[
+                const SizedBox(height: BafSpacing.xl),
+                BafSectionHeading(
+                  title: 'Findings and verification',
+                  subtitle:
+                      '${findings.length} finding${findings.length == 1 ? '' : 's'} · $blockingFindings still need an accountable outcome',
+                  icon: Icons.rule_rounded,
+                ),
+                const SizedBox(height: BafSpacing.md),
+                ...findings.map(
+                  (finding) => Padding(
+                    padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+                    child: _FindingCard(
+                      finding: finding,
+                      observations: currentRows,
+                      canSupervise: actor.canSuperviseInspectionObservations,
+                      onVerify:
+                          () => _verifyFinding(
+                            context,
+                            ref,
+                            campaign,
+                            finding,
+                            currentRows,
+                          ),
+                      onAdjudicate:
+                          (status) => _adjudicateFinding(
+                            context,
+                            ref,
+                            campaign,
+                            finding,
+                            status,
+                          ),
+                    ),
+                  ),
+                ),
               ],
               const SizedBox(height: BafSpacing.xl),
               BafSectionHeading(
@@ -820,27 +888,25 @@ class _CampaignSummary extends StatelessWidget {
               ),
             ],
           ),
-          if (coverage != null) ...[
-            const SizedBox(height: BafSpacing.md),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(BafRadius.small),
-              child: LinearProgressIndicator(
-                value: coverage,
-                minHeight: 8,
-                color: BafColors.teal,
-                backgroundColor: Colors.white.withValues(alpha: 0.14),
-              ),
+          const SizedBox(height: BafSpacing.md),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(BafRadius.small),
+            child: LinearProgressIndicator(
+              value: coverage,
+              minHeight: 8,
+              color: BafColors.teal,
+              backgroundColor: Colors.white.withValues(alpha: 0.14),
             ),
-            const SizedBox(height: 6),
-            Text(
-              '${(coverage * 100).round()}% of expected population covered · ${campaign.remainingPopulation} remaining',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.72),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${(coverage * 100).round()}% observed · ${campaign.accountedTargetCount}/${campaign.expectedPopulation} accounted · ${campaign.remainingPopulation} pending',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.72),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -945,6 +1011,13 @@ class _ObservationCard extends StatelessWidget {
                           icon: Icons.edit_note_rounded,
                           text: 'Correction',
                         ),
+                      if (observation.comparisonOutcome != null)
+                        _InfoChip(
+                          icon: Icons.compare_arrows_rounded,
+                          text: _comparisonLabel(
+                            observation.comparisonOutcome!,
+                          ),
+                        ),
                     ],
                   ),
                 ],
@@ -981,22 +1054,241 @@ class _ObservationCard extends StatelessWidget {
   }
 }
 
-class _MissingTargets extends StatelessWidget {
-  const _MissingTargets({required this.numbers});
+class _TargetPopulationPanel extends StatelessWidget {
+  const _TargetPopulationPanel({
+    required this.campaign,
+    required this.targets,
+    required this.nodes,
+    required this.canManage,
+    required this.onDisposition,
+  });
 
-  final List<int> numbers;
+  final InspectionCampaign campaign;
+  final List<InspectionCampaignTarget> targets;
+  final List<AssetHierarchyNode> nodes;
+  final bool canManage;
+  final void Function(
+    InspectionCampaignTarget target,
+    InspectionTargetDisposition disposition,
+  )
+  onDisposition;
 
   @override
-  Widget build(BuildContext context) => _DetailBand(
-    icon: Icons.pending_actions_outlined,
-    title:
-        '${numbers.length} listed asset${numbers.length == 1 ? '' : 's'} not yet observed',
-    body:
-        numbers.length <= 24
-            ? numbers.join(', ')
-            : '${numbers.take(24).join(', ')} and ${numbers.length - 24} more',
-    color: BafColors.instrument,
-  );
+  Widget build(BuildContext context) {
+    final pending =
+        targets
+            .where(
+              (target) =>
+                  target.disposition == InspectionTargetDisposition.pending,
+            )
+            .length;
+    return Container(
+      decoration: BoxDecoration(
+        color: BafColors.instrument.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(color: BafColors.instrument.withValues(alpha: 0.2)),
+      ),
+      child: ExpansionTile(
+        leading: const Icon(
+          Icons.pending_actions_outlined,
+          color: BafColors.instrument,
+        ),
+        title: Text(
+          '$pending target${pending == 1 ? '' : 's'} still need accounting',
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        subtitle: const Text(
+          'Record evidence or give each target an explicit field disposition.',
+        ),
+        children: [
+          const Divider(height: 1),
+          for (final target in targets)
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.my_location_rounded, size: 20),
+              title: Text(_targetLabel(target, nodes)),
+              subtitle: Text(
+                [
+                  _targetDispositionLabel(target.disposition),
+                  if (target.dispositionReason != null)
+                    target.dispositionReason!,
+                  if (target.addedLater) 'Added after campaign opening',
+                ].join(' · '),
+              ),
+              trailing:
+                  canManage &&
+                          campaign.status != InspectionCampaignStatus.closed
+                      ? PopupMenuButton<InspectionTargetDisposition>(
+                        tooltip: 'Account for target',
+                        onSelected: (value) => onDisposition(target, value),
+                        itemBuilder:
+                            (_) => [
+                              if (target.disposition !=
+                                  InspectionTargetDisposition.pending)
+                                const PopupMenuItem(
+                                  value: InspectionTargetDisposition.pending,
+                                  child: Text('Return to pending'),
+                                ),
+                              const PopupMenuItem(
+                                value: InspectionTargetDisposition.deferred,
+                                child: Text('Defer to another window'),
+                              ),
+                              const PopupMenuItem(
+                                value: InspectionTargetDisposition.unavailable,
+                                child: Text('Asset unavailable'),
+                              ),
+                              const PopupMenuItem(
+                                value:
+                                    InspectionTargetDisposition
+                                        .excludedWithReason,
+                                child: Text('Exclude with reason'),
+                              ),
+                              const PopupMenuItem(
+                                value:
+                                    InspectionTargetDisposition.requiresReaudit,
+                                child: Text('Requires re-audit'),
+                              ),
+                            ],
+                      )
+                      : null,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FindingCard extends StatelessWidget {
+  const _FindingCard({
+    required this.finding,
+    required this.observations,
+    required this.canSupervise,
+    required this.onVerify,
+    required this.onAdjudicate,
+  });
+
+  final InspectionFinding finding;
+  final List<InspectionObservation> observations;
+  final bool canSupervise;
+  final VoidCallback onVerify;
+  final ValueChanged<String> onAdjudicate;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        finding.blocksCampaignClosure ? BafColors.danger : BafColors.success;
+    final hasLaterObservation = observations.any(
+      (observation) =>
+          observation.targetKey == finding.targetKey &&
+          observation.observedAt.isAfter(finding.firstObservedAt),
+    );
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(BafSpacing.md),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(BafRadius.small),
+              ),
+              child: Icon(Icons.rule_rounded, color: color),
+            ),
+            const SizedBox(width: BafSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_assetTypeLabel(finding.assetTypeKey)} ${finding.assetNumber} · ${finding.componentName ?? 'Asset level'}',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _findingStatusLabel(finding.status),
+                    style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                  ),
+                  if (finding.physicalPosition != null)
+                    Text(
+                      finding.physicalPosition!,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  const SizedBox(height: BafSpacing.sm),
+                  Wrap(
+                    spacing: BafSpacing.sm,
+                    runSpacing: BafSpacing.xs,
+                    children: [
+                      _InfoChip(
+                        icon: Icons.replay_rounded,
+                        text:
+                            '${finding.recurrenceCount} abnormal reading${finding.recurrenceCount == 1 ? '' : 's'}',
+                      ),
+                      if (finding.linkedTicketId != null)
+                        const _InfoChip(
+                          icon: Icons.link_rounded,
+                          text: 'Corrective issue linked',
+                        ),
+                      if (finding.verificationCount > 0)
+                        _InfoChip(
+                          icon: Icons.verified_outlined,
+                          text:
+                              '${finding.verificationCount} verification${finding.verificationCount == 1 ? '' : 's'}',
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (canSupervise)
+              PopupMenuButton<String>(
+                tooltip: 'Finding actions',
+                onSelected:
+                    (value) =>
+                        value == 'verify' ? onVerify() : onAdjudicate(value),
+                itemBuilder:
+                    (_) => [
+                      PopupMenuItem(
+                        value: 'verify',
+                        enabled: hasLaterObservation,
+                        child: const ListTile(
+                          leading: Icon(Icons.verified_outlined),
+                          title: Text('Verify from later reading'),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'acceptedCondition',
+                        child: ListTile(
+                          leading: Icon(Icons.fact_check_outlined),
+                          title: Text('Accept continuing condition'),
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'invalidated',
+                        child: ListTile(
+                          leading: Icon(Icons.block_outlined),
+                          title: Text('Invalidate with reason'),
+                        ),
+                      ),
+                      if (!finding.blocksCampaignClosure)
+                        const PopupMenuItem(
+                          value: 'open',
+                          child: ListTile(
+                            leading: Icon(Icons.replay_rounded),
+                            title: Text('Reopen finding'),
+                          ),
+                        ),
+                    ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _DetailBand extends StatelessWidget {
@@ -1206,13 +1498,6 @@ String _assetTypeLabel(String value) => switch (value) {
   _ => 'Asset',
 };
 
-String? _legacyClassId(List<AssetClassRecord> classes, String type) {
-  for (final item in classes) {
-    if (item.isActive && item.legacyAssetTypeKey == type) return item.id;
-  }
-  return null;
-}
-
 Future<WorkflowCommandReceipt?> _runInspectionCommand(
   BuildContext context,
   WidgetRef ref,
@@ -1309,12 +1594,16 @@ Future<void> _createCampaign(
   BuildContext context,
   WidgetRef ref,
   List<InspectionDefinition> definitions,
+  List<AssetInstanceRecord> assets,
+  List<InspectionCampaign> closedCampaigns,
 ) async {
   final draft = await showDialog<_InspectionCampaignDraft>(
     context: context,
     builder:
         (_) => _InspectionCampaignEditor(
           definitions: definitions.where((item) => item.isActive).toList(),
+          assets: assets.where((item) => item.isActive).toList(),
+          closedCampaigns: closedCampaigns,
         ),
   );
   if (draft == null || !context.mounted) return;
@@ -1338,6 +1627,17 @@ Future<void> _transitionCampaign(
   InspectionCampaign campaign,
   String status,
 ) async {
+  if (status == 'closed' && !campaign.canClose) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${campaign.remainingPopulation} target${campaign.remainingPopulation == 1 ? '' : 's'} still need evidence or an explicit disposition.',
+        ),
+        backgroundColor: BafColors.warning,
+      ),
+    );
+    return;
+  }
   final confirmed =
       status != 'closed' ||
       await showDialog<bool>(
@@ -1345,11 +1645,8 @@ Future<void> _transitionCampaign(
             builder:
                 (context) => AlertDialog(
                   title: const Text('Close this programme?'),
-                  content: Text(
-                    campaign.remainingPopulation == null ||
-                            campaign.remainingPopulation == 0
-                        ? 'The campaign will become read-only. Its observations and correction history remain available.'
-                        : '${campaign.remainingPopulation} expected targets remain unobserved. Partial closure is allowed and will remain visible.',
+                  content: const Text(
+                    'All targets are accounted. The campaign will become read-only, while findings and verification evidence remain available.',
                   ),
                   actions: [
                     TextButton(
@@ -1379,6 +1676,171 @@ Future<void> _transitionCampaign(
       },
     ),
     'Inspection campaign moved to $status.',
+  );
+}
+
+Future<void> _setTargetDisposition(
+  BuildContext context,
+  WidgetRef ref,
+  InspectionCampaign campaign,
+  InspectionCampaignTarget target,
+  InspectionTargetDisposition disposition,
+) async {
+  final reason =
+      disposition == InspectionTargetDisposition.pending
+          ? ''
+          : await showDialog<String>(
+            context: context,
+            builder:
+                (_) => _InspectionReasonDialog(
+                  title: _targetDispositionLabel(disposition),
+                  message:
+                      '${target.assetInstanceName}${target.physicalPosition == null ? '' : ' · ${target.physicalPosition}'} remains visible in the campaign population.',
+                ),
+          );
+  if ((disposition != InspectionTargetDisposition.pending && reason == null) ||
+      !context.mounted) {
+    return;
+  }
+  await _runInspectionCommand(
+    context,
+    ref,
+    WorkflowCommand(
+      commandId: 'setInspectionTargetDisposition_${const Uuid().v4()}',
+      type: WorkflowCommandType.setInspectionTargetDisposition,
+      aggregateId: campaign.id,
+      expectedVersion: campaign.version,
+      payload: {
+        'targetKey': target.targetKey,
+        'disposition': disposition.name,
+        'reason':
+            disposition == InspectionTargetDisposition.pending ? null : reason,
+      },
+    ),
+    'Target recorded as ${_targetDispositionLabel(disposition).toLowerCase()}.',
+  );
+}
+
+Future<void> _addCampaignTargets(
+  BuildContext context,
+  WidgetRef ref,
+  InspectionCampaign campaign,
+  List<AssetInstanceRecord> instances,
+) async {
+  final draft = await showDialog<_AddedTargetDraft>(
+    context: context,
+    builder:
+        (_) => _AddInspectionTargetsDialog(
+          availableNumbers:
+              instances
+                  .where(
+                    (asset) =>
+                        asset.isActive &&
+                        asset.assetClassId == campaign.assetClassId,
+                  )
+                  .map((asset) => asset.assetNumber)
+                  .toList(),
+        ),
+  );
+  if (draft == null || !context.mounted) return;
+  await _runInspectionCommand(
+    context,
+    ref,
+    WorkflowCommand(
+      commandId: 'addInspectionCampaignTargets_${const Uuid().v4()}',
+      type: WorkflowCommandType.addInspectionCampaignTargets,
+      aggregateId: campaign.id,
+      expectedVersion: campaign.version,
+      payload: {
+        'assetNumbers': draft.assetNumbers,
+        'physicalPositionLabels': draft.physicalPositions,
+        'reason': draft.reason,
+      },
+    ),
+    'New targets added without changing the original population history.',
+  );
+}
+
+Future<void> _verifyFinding(
+  BuildContext context,
+  WidgetRef ref,
+  InspectionCampaign campaign,
+  InspectionFinding finding,
+  List<InspectionObservation> observations,
+) async {
+  final candidates =
+      observations
+          .where(
+            (observation) =>
+                observation.targetKey == finding.targetKey &&
+                observation.observedAt.isAfter(finding.firstObservedAt),
+          )
+          .toList()
+        ..sort((left, right) => right.observedAt.compareTo(left.observedAt));
+  if (candidates.isEmpty) return;
+  final draft = await showDialog<_FindingVerificationDraft>(
+    context: context,
+    builder:
+        (_) => _FindingVerificationDialog(
+          observations: candidates,
+          suggestedOutcome:
+              candidates.first.outOfRange ? 'recurred' : 'resolved',
+        ),
+  );
+  if (draft == null || !context.mounted) return;
+  await _runInspectionCommand(
+    context,
+    ref,
+    WorkflowCommand(
+      commandId: 'verifyInspectionFinding_${const Uuid().v4()}',
+      type: WorkflowCommandType.verifyInspectionFinding,
+      aggregateId: campaign.id,
+      expectedVersion: campaign.version,
+      payload: {
+        'findingId': finding.id,
+        'observationId': draft.observationId,
+        'outcome': draft.outcome,
+        'reason': draft.reason,
+      },
+    ),
+    'Finding verification recorded.',
+  );
+}
+
+Future<void> _adjudicateFinding(
+  BuildContext context,
+  WidgetRef ref,
+  InspectionCampaign campaign,
+  InspectionFinding finding,
+  String status,
+) async {
+  final reason = await showDialog<String>(
+    context: context,
+    builder:
+        (_) => _InspectionReasonDialog(
+          title:
+              status == 'open'
+                  ? 'Reopen finding'
+                  : status == 'invalidated'
+                  ? 'Invalidate finding'
+                  : 'Accept continuing condition',
+          message:
+              'This is an SI/Admin adjudication. The original reading remains immutable.',
+          minimumLength: 10,
+        ),
+  );
+  if (reason == null || !context.mounted) return;
+  await _runInspectionCommand(
+    context,
+    ref,
+    WorkflowCommand(
+      commandId: 'adjudicateInspectionFinding_${const Uuid().v4()}',
+      type: WorkflowCommandType.adjudicateInspectionFinding,
+      aggregateId: campaign.id,
+      expectedVersion: campaign.version,
+      payload: {'findingId': finding.id, 'status': status, 'reason': reason},
+    ),
+    'Finding adjudication recorded.',
   );
 }
 
@@ -1499,3 +1961,340 @@ class _LinkInspectionIssueDialogState
     ],
   );
 }
+
+class _InspectionReasonDialog extends StatefulWidget {
+  const _InspectionReasonDialog({
+    required this.title,
+    required this.message,
+    this.minimumLength = 5,
+  });
+
+  final String title;
+  final String message;
+  final int minimumLength;
+
+  @override
+  State<_InspectionReasonDialog> createState() =>
+      _InspectionReasonDialogState();
+}
+
+class _AddedTargetDraft {
+  const _AddedTargetDraft({
+    required this.assetNumbers,
+    required this.physicalPositions,
+    required this.reason,
+  });
+
+  final List<int> assetNumbers;
+  final List<String> physicalPositions;
+  final String reason;
+}
+
+class _AddInspectionTargetsDialog extends StatefulWidget {
+  const _AddInspectionTargetsDialog({required this.availableNumbers});
+
+  final List<int> availableNumbers;
+
+  @override
+  State<_AddInspectionTargetsDialog> createState() =>
+      _AddInspectionTargetsDialogState();
+}
+
+class _AddInspectionTargetsDialogState
+    extends State<_AddInspectionTargetsDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _numbers;
+  final _positions = TextEditingController();
+  final _reason = TextEditingController(
+    text: 'Extend the live campaign through a governed population exception.',
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _numbers = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _numbers.dispose();
+    _positions.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Add inspection targets'),
+    content: SizedBox(
+      width: 520,
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _numbers,
+              decoration: InputDecoration(
+                labelText: 'Asset numbers',
+                hintText: _compactNumberRanges(widget.availableNumbers),
+                helperText: 'Use comma-separated values or ranges.',
+              ),
+              validator: (value) {
+                final parsed = _parseNumbers(value);
+                if (parsed == null || parsed.isEmpty) return 'Add a target.';
+                final available = widget.availableNumbers.toSet();
+                return parsed.every(available.contains)
+                    ? null
+                    : 'One or more assets are absent or inactive.';
+              },
+            ),
+            const SizedBox(height: BafSpacing.md),
+            TextFormField(
+              controller: _positions,
+              decoration: const InputDecoration(
+                labelText: 'Physical positions (optional)',
+                hintText: 'B01, B02',
+              ),
+            ),
+            const SizedBox(height: BafSpacing.md),
+            TextFormField(
+              controller: _reason,
+              decoration: const InputDecoration(labelText: 'Reason'),
+              validator:
+                  (value) =>
+                      (value?.trim().length ?? 0) >= 5
+                          ? null
+                          : 'Record a reason.',
+            ),
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton.icon(
+        onPressed: () {
+          if (!_formKey.currentState!.validate()) return;
+          Navigator.pop(
+            context,
+            _AddedTargetDraft(
+              assetNumbers: _parseNumbers(_numbers.text)!,
+              physicalPositions: _commaValues(_positions.text),
+              reason: _reason.text.trim(),
+            ),
+          );
+        },
+        icon: const Icon(Icons.playlist_add_rounded),
+        label: const Text('Add'),
+      ),
+    ],
+  );
+}
+
+class _InspectionReasonDialogState extends State<_InspectionReasonDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.title),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.message),
+        const SizedBox(height: BafSpacing.md),
+        TextField(
+          controller: _controller,
+          autofocus: true,
+          minLines: 2,
+          maxLines: 5,
+          decoration: const InputDecoration(
+            labelText: 'Reason',
+            alignLabelWithHint: true,
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+      ],
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed:
+            _controller.text.trim().length >= widget.minimumLength
+                ? () => Navigator.pop(context, _controller.text.trim())
+                : null,
+        child: const Text('Record'),
+      ),
+    ],
+  );
+}
+
+class _FindingVerificationDraft {
+  const _FindingVerificationDraft({
+    required this.observationId,
+    required this.outcome,
+    required this.reason,
+  });
+
+  final String observationId;
+  final String outcome;
+  final String reason;
+}
+
+class _FindingVerificationDialog extends StatefulWidget {
+  const _FindingVerificationDialog({
+    required this.observations,
+    required this.suggestedOutcome,
+  });
+
+  final List<InspectionObservation> observations;
+  final String suggestedOutcome;
+
+  @override
+  State<_FindingVerificationDialog> createState() =>
+      _FindingVerificationDialogState();
+}
+
+class _FindingVerificationDialogState
+    extends State<_FindingVerificationDialog> {
+  late String _observationId;
+  late String _outcome;
+  final _reason = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _observationId = widget.observations.first.id;
+    _outcome = widget.suggestedOutcome;
+  }
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Verify inspection finding'),
+    content: SizedBox(
+      width: 520,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<String>(
+            initialValue: _observationId,
+            decoration: const InputDecoration(
+              labelText: 'Later verification reading',
+            ),
+            items:
+                widget.observations
+                    .map(
+                      (observation) => DropdownMenuItem(
+                        value: observation.id,
+                        child: Text(
+                          '${observation.displayValue} · ${DateFormat('dd MMM, HH:mm').format(observation.observedAt.toLocal())}',
+                        ),
+                      ),
+                    )
+                    .toList(),
+            onChanged: (value) => setState(() => _observationId = value!),
+          ),
+          const SizedBox(height: BafSpacing.md),
+          DropdownButtonFormField<String>(
+            initialValue: _outcome,
+            decoration: const InputDecoration(labelText: 'Outcome'),
+            items: const [
+              DropdownMenuItem(value: 'resolved', child: Text('Resolved')),
+              DropdownMenuItem(value: 'improved', child: Text('Improved')),
+              DropdownMenuItem(value: 'unchanged', child: Text('Unchanged')),
+              DropdownMenuItem(
+                value: 'deteriorated',
+                child: Text('Deteriorated'),
+              ),
+              DropdownMenuItem(value: 'recurred', child: Text('Recurred')),
+              DropdownMenuItem(
+                value: 'notComparable',
+                child: Text('Not comparable'),
+              ),
+            ],
+            onChanged: (value) => setState(() => _outcome = value!),
+          ),
+          const SizedBox(height: BafSpacing.md),
+          TextField(
+            controller: _reason,
+            minLines: 2,
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: 'Verification reasoning',
+              alignLabelWithHint: true,
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton.icon(
+        onPressed:
+            _reason.text.trim().length >= 5
+                ? () => Navigator.pop(
+                  context,
+                  _FindingVerificationDraft(
+                    observationId: _observationId,
+                    outcome: _outcome,
+                    reason: _reason.text.trim(),
+                  ),
+                )
+                : null,
+        icon: const Icon(Icons.verified_outlined),
+        label: const Text('Verify'),
+      ),
+    ],
+  );
+}
+
+String _targetDispositionLabel(InspectionTargetDisposition value) =>
+    switch (value) {
+      InspectionTargetDisposition.pending => 'Pending',
+      InspectionTargetDisposition.observed => 'Observed',
+      InspectionTargetDisposition.deferred => 'Deferred',
+      InspectionTargetDisposition.unavailable => 'Unavailable',
+      InspectionTargetDisposition.excludedWithReason => 'Excluded with reason',
+      InspectionTargetDisposition.requiresReaudit => 'Requires re-audit',
+    };
+
+String _findingStatusLabel(InspectionFindingStatus value) => switch (value) {
+  InspectionFindingStatus.open => 'Open finding',
+  InspectionFindingStatus.correctiveActionLinked => 'Corrective action linked',
+  InspectionFindingStatus.awaitingVerification => 'Awaiting verification',
+  InspectionFindingStatus.verifiedResolved => 'Verified resolved',
+  InspectionFindingStatus.acceptedCondition => 'Continuing condition accepted',
+  InspectionFindingStatus.invalidated => 'Invalidated with audit evidence',
+};
+
+String _comparisonLabel(InspectionComparisonOutcome value) => switch (value) {
+  InspectionComparisonOutcome.improved => 'Improved from baseline',
+  InspectionComparisonOutcome.unchanged => 'Unchanged from baseline',
+  InspectionComparisonOutcome.deteriorated => 'Deteriorated from baseline',
+  InspectionComparisonOutcome.resolved => 'Resolved from baseline',
+  InspectionComparisonOutcome.recurred => 'Recurred from baseline',
+  InspectionComparisonOutcome.notComparable => 'Not comparable to baseline',
+};

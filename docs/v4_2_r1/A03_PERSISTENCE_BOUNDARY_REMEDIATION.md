@@ -19,9 +19,9 @@ sites across 44 files. Its stable digest is
 Post-closure re-arms on 20-21 August 2026 classified the read-only
 `asset_availability_current`, furnace stuck-up/condition, frequent-issue,
 maintenance-intelligence, and inspection-programme surfaces under existing
-read/repository profiles. The current manifest therefore covers 494 operations
-and 1,574 sites across 49 surfaces with digest
-`48868D446DB73331A74220690BC2ECAD078859B1C822FFFDAD4D1EFDFC501183`;
+read/repository profiles. The current manifest therefore covers 496 operations
+and 1,578 sites across 49 surfaces with digest
+`0A637D21496CEEF9A892E3BE131BE6E32B640ED0A00CC4E5F9BCE050A116F3C0`;
 the original closure evidence remains preserved as historical source and CI
 proof.
 The governed policy is `governance/a03-persistence-boundaries-v1.json`.

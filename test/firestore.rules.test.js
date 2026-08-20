@@ -4400,6 +4400,9 @@ describe("governed dynamic asset hierarchy", () => {
       "inspection_campaigns/campaign-1",
       "inspection_observations/observation-1",
       "inspection_issue_links/link-1",
+      "inspection_findings/finding-1",
+      "inspection_finding_events/event-1",
+      "inspection_verifications/verification-1",
     ];
     for (const path of approvedReadable) {
       await seedDoc(path, {schemaVersion: 1, identity: path});
@@ -4411,6 +4414,7 @@ describe("governed dynamic asset hierarchy", () => {
     for (const path of [
       "inspection_definition_audits/audit-1",
       "inspection_campaign_audits/audit-2",
+      "inspection_target_audits/audit-3",
     ]) {
       await seedDoc(path, {schemaVersion: 1, identity: path});
       await assertSucceeds(getDoc(doc(dbAs("admin1"), path)));

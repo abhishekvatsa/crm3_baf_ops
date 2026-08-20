@@ -52,14 +52,20 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   upsertMaintenanceClassDefinition: "maintenanceClass.manage",
   setMaintenanceClassDefinitionStatus: "maintenanceClass.manage",
   classifyMaintenanceExecution: "maintenance.classify",
+  classifyMaintenanceTicket: "maintenance.classify",
   upsertMaintenancePlan: "maintenancePlan.manage",
   setMaintenancePlanStatus: "maintenancePlan.manage",
+  completeMaintenancePlan: "maintenancePlan.manage",
   upsertInspectionDefinition: "inspectionDefinition.manage",
   setInspectionDefinitionStatus: "inspectionDefinition.manage",
   createInspectionCampaign: "inspectionCampaign.manage",
   setInspectionCampaignStatus: "inspectionCampaign.manage",
+  addInspectionCampaignTargets: "inspectionCampaign.manage",
+  setInspectionTargetDisposition: "inspectionCampaign.manage",
   recordInspectionObservation: "inspection.observe",
   linkInspectionObservationIssue: "inspectionIssue.link",
+  verifyInspectionFinding: "inspection.observe",
+  adjudicateInspectionFinding: "inspectionFinding.adjudicate",
   releaseFurnaceStuckup: "integrity.supervise",
   adjudicateFurnaceStuckup: "integrity.adjudicate",
 };
@@ -93,6 +99,7 @@ const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
   "inspectionCampaign.manage",
   "inspection.observe",
   "inspectionIssue.link",
+  "inspectionFinding.adjudicate",
   "integrity.supervise",
   "integrity.adjudicate",
 ]);
@@ -238,6 +245,9 @@ export const assertWorkflowAuthorityScope = (
       .some((role) => actor.roles.has(role as RoleKey))) denied();
     return;
   case "inspectionDefinition.manage":
+    if (!actor.roles.has("admin") && !actor.roles.has("si")) denied();
+    return;
+  case "inspectionFinding.adjudicate":
     if (!actor.roles.has("admin") && !actor.roles.has("si")) denied();
     return;
   case "inspection.observe":

@@ -724,6 +724,30 @@
       "reArmCondition": "any inspection-observation timestamp schema change"
     },
     {
+      "id": "inspection-campaign-target-record",
+      "readerFile": "lib/features/inspections/data/inspection_campaign.dart",
+      "readerMarker": "factory InspectionCampaignTarget.fromMap",
+      "requiredFields": ["dispositionAt"],
+      "optionalFields": ["lastObservedAt"],
+      "owner": "asset-inspection",
+      "purpose": "restore target disposition and latest-observation chronology within an exact campaign population",
+      "authorityBoundary": "remote-inspection-campaign-target-record",
+      "regression": "test/inspection_campaign_model_test.dart; functions/test/inspectionCampaign.test.js",
+      "reArmCondition": "any inspection-target disposition or observation timestamp schema change"
+    },
+    {
+      "id": "inspection-finding-record",
+      "readerFile": "lib/features/inspections/data/inspection_campaign.dart",
+      "readerMarker": "factory InspectionFinding.fromMap",
+      "requiredFields": ["firstObservedAt", "latestObservedAt", "updatedAt"],
+      "optionalFields": [],
+      "owner": "asset-inspection",
+      "purpose": "restore finding origin, recurrence, and latest governed revision chronology",
+      "authorityBoundary": "remote-inspection-finding-record",
+      "regression": "test/inspection_campaign_model_test.dart; functions/test/inspectionCampaign.test.js",
+      "reArmCondition": "any inspection-finding chronology schema change"
+    },
+    {
       "id": "frequent-issue-definition-record",
       "readerFile": "lib/features/maintenance/data/frequent_issue_definition.dart",
       "readerMarker": "factory FrequentIssueDefinition.fromMap",

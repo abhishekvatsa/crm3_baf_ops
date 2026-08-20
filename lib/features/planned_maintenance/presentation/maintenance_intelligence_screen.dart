@@ -7,11 +7,15 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../assets/data/asset_hierarchy_model.dart';
+import '../../assets/data/inner_cover_lifecycle.dart';
+import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../data/maintenance_intelligence.dart';
 import '../providers/maintenance_intelligence_provider.dart';
+import 'published_template_assignment_screen.dart';
 
 class MaintenanceIntelligenceScreen extends ConsumerWidget {
   const MaintenanceIntelligenceScreen({super.key});
@@ -182,7 +186,7 @@ class _DueStateCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${_assetLabel(state.assetTypeKey)} ${state.assetNumber} · ${state.counterLabel}',
+                  '${state.assetDisplayName ?? '${_assetLabel(state.assetTypeKey)} ${state.assetNumber ?? state.assetInstanceId}'} · ${state.counterLabel}',
                   style: const TextStyle(
                     color: BafColors.textPrimary,
                     fontSize: 16,
@@ -488,16 +492,35 @@ Future<void> _transitionPlan(
   MaintenancePlan plan,
   String status,
 ) async {
-  String? executionId;
   if (status == 'released') {
-    executionId = await _askText(
-      context,
-      title: 'Link released execution',
-      label: 'Governed execution ID',
-      message:
-          'Assign the frozen published template first, then link the exact new execution. Release remains blocked if its asset or maintenance class differs.',
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PublishedTemplateAssignmentScreen(sourcePlan: plan),
+      ),
     );
-    if (executionId == null || !context.mounted) return;
+    return;
+  }
+  if (status == 'completed') {
+    final draft = await _capturePlanCompletion(context);
+    if (draft == null || !context.mounted) return;
+    await _execute(
+      context,
+      ref,
+      WorkflowCommand(
+        commandId: 'completeMaintenancePlan_${const Uuid().v4()}',
+        type: WorkflowCommandType.completeMaintenancePlan,
+        aggregateId: plan.id,
+        expectedVersion: plan.version,
+        payload: {
+          'completedAt': draft.completedAt.toUtc().toIso8601String(),
+          'completionEvidence': draft.evidence,
+          'reason':
+              'Record supervised serial Inner Cover maintenance completion.',
+        },
+      ),
+      'Inner Cover maintenance completion recorded.',
+    );
+    return;
   }
   await _execute(
     context,
@@ -511,11 +534,115 @@ Future<void> _transitionPlan(
         'status': status,
         'reason':
             'Move maintenance plan to $status through the planning board.',
-        'executionId': executionId,
+        'executionId': null,
       },
     ),
     'Plan moved to $status.',
   );
+}
+
+class _PlanCompletionDraft {
+  const _PlanCompletionDraft({
+    required this.completedAt,
+    required this.evidence,
+  });
+
+  final DateTime completedAt;
+  final String evidence;
+}
+
+Future<_PlanCompletionDraft?> _capturePlanCompletion(
+  BuildContext context,
+) async {
+  final evidence = TextEditingController();
+  var completedAt = DateTime.now();
+  final result = await showDialog<_PlanCompletionDraft>(
+    context: context,
+    builder:
+        (context) => StatefulBuilder(
+          builder:
+              (context, setState) => AlertDialog(
+                title: const Text('Record Inner Cover completion'),
+                content: SizedBox(
+                  width: 520,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.event_available_outlined),
+                        title: const Text('Actual completion time'),
+                        subtitle: Text(
+                          DateFormat('dd MMM yyyy, HH:mm').format(completedAt),
+                        ),
+                        trailing: const Icon(Icons.edit_calendar_outlined),
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            firstDate: DateTime.now().subtract(
+                              const Duration(days: 365),
+                            ),
+                            lastDate: DateTime.now(),
+                            initialDate: completedAt,
+                          );
+                          if (date == null || !context.mounted) return;
+                          final time = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.fromDateTime(completedAt),
+                          );
+                          if (time == null || !context.mounted) return;
+                          setState(
+                            () =>
+                                completedAt = DateTime(
+                                  date.year,
+                                  date.month,
+                                  date.day,
+                                  time.hour,
+                                  time.minute,
+                                ),
+                          );
+                        },
+                      ),
+                      TextField(
+                        controller: evidence,
+                        minLines: 3,
+                        maxLines: 6,
+                        decoration: const InputDecoration(
+                          labelText: 'Completion evidence',
+                          hintText:
+                              'Work performed, inspection result and resulting disposition',
+                          alignLabelWithHint: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () {
+                      final text = evidence.text.trim();
+                      if (text.length < 10) return;
+                      Navigator.pop(
+                        context,
+                        _PlanCompletionDraft(
+                          completedAt: completedAt,
+                          evidence: text,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.fact_check_outlined),
+                    label: const Text('Record completion'),
+                  ),
+                ],
+              ),
+        ),
+  );
+  evidence.dispose();
+  return result;
 }
 
 class _PlanCard extends StatelessWidget {
@@ -534,7 +661,8 @@ class _PlanCard extends StatelessWidget {
     final next = switch (plan.status) {
       MaintenancePlanStatus.proposed => 'scheduled',
       MaintenancePlanStatus.scheduled => 'ready',
-      MaintenancePlanStatus.ready => 'released',
+      MaintenancePlanStatus.ready =>
+        plan.isSerialInnerCover ? 'completed' : 'released',
       _ => null,
     };
     return Card(
@@ -552,7 +680,7 @@ class _PlanCard extends StatelessWidget {
                 const SizedBox(width: BafSpacing.sm),
                 Expanded(
                   child: Text(
-                    '${_assetLabel(plan.assetTypeKey)} ${plan.assetNumber} · ${plan.maintenanceClass.title}',
+                    '${plan.assetInstanceName} · ${plan.maintenanceClass.title}',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w900,
@@ -587,10 +715,16 @@ class _PlanCard extends StatelessWidget {
                     icon: Icon(
                       next == 'released'
                           ? Icons.rocket_launch_outlined
+                          : next == 'completed'
+                          ? Icons.fact_check_outlined
                           : Icons.arrow_forward_rounded,
                     ),
                     label: Text(
-                      next == 'released' ? 'Link & release' : 'Mark $next',
+                      next == 'released'
+                          ? 'Link & release'
+                          : next == 'completed'
+                          ? 'Record completion'
+                          : 'Mark $next',
                     ),
                   ),
                 ],
@@ -935,25 +1069,26 @@ class _ClassEditorState extends State<_ClassEditor> {
 
 class _PlanDraft {
   const _PlanDraft({
-    required this.assetType,
-    required this.assetNumber,
+    required this.assetClass,
+    required this.asset,
     required this.definition,
     required this.start,
     required this.end,
     required this.notes,
   });
-  final String assetType;
-  final int assetNumber;
+  final AssetClassRecord assetClass;
+  final _PlanAssetChoice asset;
   final MaintenanceClassDefinition definition;
   final DateTime start;
   final DateTime end;
   final String? notes;
 
   Map<String, dynamic> toPayload() => {
-    'assetTypeKey': assetType,
-    'assetNumber': assetNumber,
-    'assetClassId': null,
-    'assetInstanceId': null,
+    'assetTypeKey': assetClass.legacyAssetTypeKey ?? 'governedCustom',
+    'assetNumber': asset.assetNumber,
+    'assetClassId': assetClass.id,
+    'assetInstanceId': asset.id,
+    'assetInstanceVersion': asset.version,
     'maintenanceClassDefinitionId': definition.id,
     'maintenanceClassDefinitionVersion': definition.version,
     'targetWindowStart': start.toUtc().toIso8601String(),
@@ -967,30 +1102,48 @@ class _PlanDraft {
   };
 }
 
-class _PlanEditor extends StatefulWidget {
+class _PlanAssetChoice {
+  const _PlanAssetChoice({
+    required this.id,
+    required this.version,
+    required this.name,
+    required this.assetNumber,
+  });
+
+  final String id;
+  final int version;
+  final String name;
+  final int? assetNumber;
+}
+
+bool _isMaintainableInnerCover(InnerCoverProfile profile) => const {
+  InnerCoverLifecycleState.available,
+  InnerCoverLifecycleState.reserved,
+  InnerCoverLifecycleState.installed,
+  InnerCoverLifecycleState.awaitingInspection,
+  InnerCoverLifecycleState.underInspection,
+  InnerCoverLifecycleState.underRepair,
+  InnerCoverLifecycleState.quarantined,
+}.contains(profile.lifecycleState);
+
+class _PlanEditor extends ConsumerStatefulWidget {
   const _PlanEditor({required this.definitions});
   final List<MaintenanceClassDefinition> definitions;
 
   @override
-  State<_PlanEditor> createState() => _PlanEditorState();
+  ConsumerState<_PlanEditor> createState() => _PlanEditorState();
 }
 
-class _PlanEditorState extends State<_PlanEditor> {
-  String _assetType = 'furnace';
-  final _number = TextEditingController();
+class _PlanEditorState extends ConsumerState<_PlanEditor> {
+  String? _assetClassId;
+  String? _assetInstanceId;
   final _notes = TextEditingController();
   DateTime _start = DateTime.now().add(const Duration(days: 1));
   DateTime _end = DateTime.now().add(const Duration(days: 1, hours: 8));
   String? _definitionId;
 
-  List<MaintenanceClassDefinition> get _matching =>
-      widget.definitions
-          .where((definition) => definition.appliesTo(assetTypeKey: _assetType))
-          .toList();
-
   @override
   void dispose() {
-    _number.dispose();
     _notes.dispose();
     super.dispose();
   }
@@ -1028,7 +1181,89 @@ class _PlanEditorState extends State<_PlanEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final matching = _matching;
+    final classValue = ref.watch(assetClassesProvider);
+    final classes =
+        classValue.asData?.value
+            .where(
+              (assetClass) =>
+                  assetClass.isActive &&
+                  widget.definitions.any(
+                    (definition) => definition.appliesTo(
+                      assetTypeKey:
+                          assetClass.legacyAssetTypeKey ?? 'governedCustom',
+                      assetClassId: assetClass.id,
+                    ),
+                  ),
+            )
+            .toList() ??
+        const <AssetClassRecord>[];
+    if (!classes.any((item) => item.id == _assetClassId)) {
+      _assetClassId = classes.firstOrNull?.id;
+      _assetInstanceId = null;
+    }
+    final selectedClass =
+        classes.where((item) => item.id == _assetClassId).firstOrNull;
+    final assetType = selectedClass?.legacyAssetTypeKey ?? 'governedCustom';
+    final matching =
+        selectedClass == null
+            ? const <MaintenanceClassDefinition>[]
+            : widget.definitions
+                .where(
+                  (definition) => definition.appliesTo(
+                    assetTypeKey: assetType,
+                    assetClassId: selectedClass.id,
+                  ),
+                )
+                .toList();
+    final AsyncValue<List<_PlanAssetChoice>>? assetsValue;
+    if (selectedClass == null) {
+      assetsValue = null;
+    } else if (assetType == 'innerCover') {
+      assetsValue = ref
+          .watch(innerCoverProfilesProvider)
+          .whenData(
+            (profiles) =>
+                profiles
+                    .where(
+                      (profile) =>
+                          profile.assetClassId == selectedClass.id &&
+                          _isMaintainableInnerCover(profile),
+                    )
+                    .map(
+                      (profile) => _PlanAssetChoice(
+                        id: profile.id,
+                        version: profile.version,
+                        name:
+                            profile.isInstalled
+                                ? 'Base ${profile.currentBaseAssetNumber} · Inner Cover ${profile.serialNumber}'
+                                : 'Pool · Inner Cover ${profile.serialNumber} · ${profile.lifecycleState.label}',
+                        assetNumber: null,
+                      ),
+                    )
+                    .toList(),
+          );
+    } else {
+      assetsValue = ref
+          .watch(assetInstancesProvider(selectedClass.id))
+          .whenData(
+            (assets) =>
+                assets
+                    .where((asset) => asset.isActive)
+                    .map(
+                      (asset) => _PlanAssetChoice(
+                        id: asset.id,
+                        version: asset.version,
+                        name: asset.name,
+                        assetNumber: asset.assetNumber,
+                      ),
+                    )
+                    .toList(),
+          );
+    }
+    final assets = assetsValue?.asData?.value ?? const <_PlanAssetChoice>[];
+    if (!assets.any((item) => item.id == _assetInstanceId)) {
+      _assetInstanceId = assets.firstOrNull?.id;
+    }
     if (!matching.any((item) => item.id == _definitionId)) {
       _definitionId = matching.firstOrNull?.id;
     }
@@ -1040,32 +1275,52 @@ class _PlanEditorState extends State<_PlanEditor> {
           child: Column(
             children: [
               DropdownButtonFormField<String>(
-                initialValue: _assetType,
+                initialValue: _assetClassId,
                 decoration: const InputDecoration(labelText: 'Asset class'),
                 items:
-                    _assetTypeOptions
+                    classes
                         .map(
-                          (value) => DropdownMenuItem(
-                            value: value,
-                            child: Text(_assetLabel(value)),
+                          (assetClass) => DropdownMenuItem(
+                            value: assetClass.id,
+                            child: Text(assetClass.name),
                           ),
                         )
                         .toList(),
                 onChanged:
                     (value) => setState(() {
-                      _assetType = value ?? _assetType;
+                      _assetClassId = value;
+                      _assetInstanceId = null;
                       _definitionId = null;
                     }),
               ),
               const SizedBox(height: BafSpacing.sm),
-              TextField(
-                controller: _number,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Asset number'),
+              DropdownButtonFormField<String>(
+                key: ValueKey(_assetClassId),
+                initialValue: _assetInstanceId,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: 'Physical asset',
+                  helperText:
+                      assetsValue?.isLoading == true
+                          ? 'Loading active assets…'
+                          : assetType == 'innerCover'
+                          ? 'Installed covers are Base-first; pool covers are selected by serial'
+                          : 'Exact identity from the governed asset register',
+                ),
+                items:
+                    assets
+                        .map(
+                          (asset) => DropdownMenuItem(
+                            value: asset.id,
+                            child: Text(asset.name),
+                          ),
+                        )
+                        .toList(),
+                onChanged: (value) => setState(() => _assetInstanceId = value),
               ),
               const SizedBox(height: BafSpacing.sm),
               DropdownButtonFormField<String>(
-                key: ValueKey(_assetType),
+                key: ValueKey('${_assetClassId ?? ''}-${_definitionId ?? ''}'),
                 initialValue: _definitionId,
                 decoration: const InputDecoration(
                   labelText: 'Maintenance class',
@@ -1116,11 +1371,12 @@ class _PlanEditorState extends State<_PlanEditor> {
         ),
         FilledButton(
           onPressed: () {
-            final number = int.tryParse(_number.text.trim());
             final definition =
                 matching.where((item) => item.id == _definitionId).firstOrNull;
-            if (number == null ||
-                number < 1 ||
+            final asset =
+                assets.where((item) => item.id == _assetInstanceId).firstOrNull;
+            if (selectedClass == null ||
+                asset == null ||
                 definition == null ||
                 !_end.isAfter(_start)) {
               return;
@@ -1128,8 +1384,8 @@ class _PlanEditorState extends State<_PlanEditor> {
             Navigator.pop(
               context,
               _PlanDraft(
-                assetType: _assetType,
-                assetNumber: number,
+                assetClass: selectedClass,
+                asset: asset,
                 definition: definition,
                 start: _start,
                 end: _end,
@@ -1313,79 +1569,6 @@ class _RetryState extends StatelessWidget {
         ),
       ],
     ),
-  );
-}
-
-Future<String?> _askText(
-  BuildContext context, {
-  required String title,
-  required String label,
-  required String message,
-}) async {
-  final result = await showDialog<String>(
-    context: context,
-    builder:
-        (_) => _MaintenanceTextPromptDialog(
-          title: title,
-          label: label,
-          message: message,
-        ),
-  );
-  return result == null || result.isEmpty ? null : result;
-}
-
-class _MaintenanceTextPromptDialog extends StatefulWidget {
-  const _MaintenanceTextPromptDialog({
-    required this.title,
-    required this.label,
-    required this.message,
-  });
-
-  final String title;
-  final String label;
-  final String message;
-
-  @override
-  State<_MaintenanceTextPromptDialog> createState() =>
-      _MaintenanceTextPromptDialogState();
-}
-
-class _MaintenanceTextPromptDialogState
-    extends State<_MaintenanceTextPromptDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.title),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(widget.message),
-        const SizedBox(height: BafSpacing.md),
-        TextField(
-          controller: _controller,
-          autofocus: true,
-          decoration: InputDecoration(labelText: widget.label),
-        ),
-      ],
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () => Navigator.pop(context, _controller.text.trim()),
-        child: const Text('Continue'),
-      ),
-    ],
   );
 }
 

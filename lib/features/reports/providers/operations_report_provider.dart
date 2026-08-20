@@ -7,11 +7,15 @@ import '../../assets/data/asset_registry_model.dart';
 import '../../assets/domain/plant_asset_overview.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/providers/plant_asset_overview_provider.dart';
+import '../../inspections/data/inspection_campaign.dart';
+import '../../inspections/providers/inspection_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
 import '../../operational_events/data/operational_event.dart';
 import '../../operational_events/providers/operational_event_provider.dart';
 import '../../planned_maintenance/data/job_template_model.dart';
+import '../../planned_maintenance/data/maintenance_intelligence.dart';
+import '../../planned_maintenance/providers/maintenance_intelligence_provider.dart';
 import '../../planned_maintenance/providers/planned_maintenance_provider.dart';
 import '../models/operations_report.dart';
 
@@ -70,6 +74,8 @@ final operationsReportProvider = Provider.family<
   final tickets = ref.watch(operationsReportTicketsProvider(period));
   final executions = ref.watch(operationsReportExecutionsProvider(period));
   final events = ref.watch(operationalEventsForReportsProvider);
+  final dueStates = ref.watch(maintenanceDueStatesProvider);
+  final inspectionFindings = ref.watch(allInspectionFindingsProvider);
   final classes = ref.watch(assetClassesProvider);
   final assets = ref.watch(allAssetInstancesProvider);
   final overview = ref.watch(plantAssetOverviewProvider);
@@ -78,6 +84,8 @@ final operationsReportProvider = Provider.family<
       tickets.asError ??
       executions.asError ??
       events.asError ??
+      dueStates.asError ??
+      inspectionFindings.asError ??
       classes.asError ??
       assets.asError ??
       overview.asError;
@@ -85,6 +93,8 @@ final operationsReportProvider = Provider.family<
   if (tickets.isLoading ||
       executions.isLoading ||
       events.isLoading ||
+      dueStates.isLoading ||
+      inspectionFindings.isLoading ||
       classes.isLoading ||
       assets.isLoading ||
       overview.isLoading) {
@@ -97,6 +107,8 @@ final operationsReportProvider = Provider.family<
         tickets: tickets.requireValue,
         executions: executions.requireValue,
         events: events.requireValue,
+        dueStates: dueStates.requireValue,
+        inspectionFindings: inspectionFindings.requireValue,
         assetClasses: classes.requireValue,
         assetInstances: assets.requireValue,
         overview: overview.requireValue,
@@ -113,6 +125,8 @@ OperationsReport buildOperationsReport({
   required List<MaintenanceRecord> tickets,
   required List<JobExecution> executions,
   required List<OperationalEvent> events,
+  List<MaintenanceDueState> dueStates = const [],
+  List<InspectionFinding> inspectionFindings = const [],
   required List<AssetClassRecord> assetClasses,
   required List<AssetInstanceRecord> assetInstances,
   required PlantAssetOverview overview,
@@ -165,6 +179,29 @@ OperationsReport buildOperationsReport({
         )
         .map((asset) => asset.id)
         .firstOrNull;
+  }
+
+  String? dueStateClassId(MaintenanceDueState state) =>
+      state.assetClassId ?? legacyClasses[state.assetTypeKey]?.id;
+
+  String? dueStateAssetId(MaintenanceDueState state) {
+    if (state.assetInstanceId != null) return state.assetInstanceId;
+    final classId = dueStateClassId(state);
+    if (classId == null) return null;
+    final matches = assetInstances
+        .where(
+          (asset) =>
+              asset.assetClassId == classId &&
+              asset.assetNumber == state.assetNumber,
+        )
+        .map((asset) => asset.id)
+        .toList(growable: false);
+    if (matches.length > 1) {
+      throw StateError(
+        'Maintenance due state ${state.id} matches multiple physical assets.',
+      );
+    }
+    return matches.firstOrNull;
   }
 
   final executionIdentityCache =
@@ -262,6 +299,50 @@ OperationsReport buildOperationsReport({
                 ),
           )
           .toList();
+  final filteredDueStates =
+      dueStates
+          .where(
+            (state) =>
+                matchesIdentity(dueStateClassId(state), dueStateAssetId(state)),
+          )
+          .toList();
+  bool isActiveFinding(InspectionFinding finding) => {
+    InspectionFindingStatus.open,
+    InspectionFindingStatus.correctiveActionLinked,
+    InspectionFindingStatus.awaitingVerification,
+  }.contains(finding.status);
+  final filteredInspectionFindings =
+      inspectionFindings
+          .where(
+            (finding) =>
+                matchesIdentity(
+                  finding.assetClassId,
+                  finding.assetInstanceId,
+                ) &&
+                (isActiveFinding(finding) ||
+                    (finding.latestObservedAt.isBefore(filter.endExclusive) &&
+                        !finding.latestObservedAt.isBefore(
+                          filter.startInclusive,
+                        ))),
+          )
+          .toList()
+        ..sort((left, right) {
+          final activeOrder = (isActiveFinding(right) ? 1 : 0).compareTo(
+            isActiveFinding(left) ? 1 : 0,
+          );
+          return activeOrder != 0
+              ? activeOrder
+              : right.updatedAt.compareTo(left.updatedAt);
+        });
+
+  bool isOverdue(MaintenanceDueState state) =>
+      state.nextDueAt != null && state.nextDueAt!.isBefore(reportAsOf);
+  bool isDueSoon(MaintenanceDueState state) {
+    final dueAt = state.nextDueAt;
+    return dueAt != null &&
+        !dueAt.isBefore(reportAsOf) &&
+        !dueAt.isAfter(reportAsOf.add(const Duration(days: 7)));
+  }
 
   bool occurrenceMatchesIdentity(OperationalEventInterval occurrence) {
     if (occurrence.scope == OperationalEventScope.plantWide) return true;
@@ -464,6 +545,14 @@ OperationsReport buildOperationsReport({
                     (execution) => executionClassId(execution) == assetClass.id,
                   )
                   .toList();
+          final classDueStates =
+              filteredDueStates
+                  .where((state) => dueStateClassId(state) == assetClass.id)
+                  .toList();
+          final classFindings =
+              filteredInspectionFindings
+                  .where((finding) => finding.assetClassId == assetClass.id)
+                  .toList();
           return AssetClassReportSummary(
             assetClassId: assetClass.id,
             assetClassName: assetClass.name,
@@ -491,6 +580,10 @@ OperationsReport buildOperationsReport({
                       ),
                     )
                     .length,
+            overdueMaintenanceCount: classDueStates.where(isOverdue).length,
+            dueSoonMaintenanceCount: classDueStates.where(isDueSoon).length,
+            activeInspectionFindingCount:
+                classFindings.where(isActiveFinding).length,
           );
         }).toList()
         ..sort(
@@ -508,6 +601,10 @@ OperationsReport buildOperationsReport({
     eventOccurrences: List<OperationalEventReportOccurrence>.unmodifiable(
       filteredOccurrences,
     ),
+    dueStates: List<MaintenanceDueState>.unmodifiable(filteredDueStates),
+    inspectionFindings: List<InspectionFinding>.unmodifiable(
+      filteredInspectionFindings,
+    ),
     assetStates: List<PlantAssetState>.unmodifiable(filteredStates),
     classSummaries: List<AssetClassReportSummary>.unmodifiable(classSummaries),
     topComponents: rank(componentDimension),
@@ -515,6 +612,8 @@ OperationsReport buildOperationsReport({
     sourceTicketCount: tickets.length,
     sourceExecutionCount: executions.length,
     sourceEventCount: events.length,
+    sourceDueStateCount: dueStates.length,
+    sourceInspectionFindingCount: inspectionFindings.length,
     disruptionCount: filteredOccurrences.length,
     openDisruptionCount:
         filteredOccurrences.where((occurrence) => occurrence.isOpen).length,

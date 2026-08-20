@@ -28,6 +28,8 @@ class PublishedTemplateAssignmentRequest {
   final int assetNumber;
   final String? assetClassId;
   final String? assetInstanceId;
+  final String? sourcePlanId;
+  final int? sourcePlanExpectedVersion;
   final int? chargeNoAtEvent;
   final String? remarks;
 
@@ -41,6 +43,8 @@ class PublishedTemplateAssignmentRequest {
     required this.assetNumber,
     this.assetClassId,
     this.assetInstanceId,
+    this.sourcePlanId,
+    this.sourcePlanExpectedVersion,
     this.chargeNoAtEvent,
     this.remarks,
   });
@@ -58,6 +62,9 @@ class PublishedTemplateAssignmentRequest {
       if (_clean(assetClassId) != null) 'assetClassId': _clean(assetClassId),
       if (_clean(assetInstanceId) != null)
         'assetInstanceId': _clean(assetInstanceId),
+      if (_clean(sourcePlanId) != null) 'sourcePlanId': _clean(sourcePlanId),
+      if (sourcePlanExpectedVersion != null)
+        'sourcePlanExpectedVersion': sourcePlanExpectedVersion,
       if (chargeNoAtEvent != null) 'chargeNoAtEvent': chargeNoAtEvent,
       if (_clean(remarks) != null) 'remarks': _clean(remarks),
     };
@@ -80,6 +87,9 @@ class PublishedTemplateAssignmentRequest {
       if (_clean(assetClassId) != null) 'assetClassId': _clean(assetClassId),
       if (_clean(assetInstanceId) != null)
         'assetInstanceId': _clean(assetInstanceId),
+      if (_clean(sourcePlanId) != null) 'sourcePlanId': _clean(sourcePlanId),
+      if (sourcePlanExpectedVersion != null)
+        'sourcePlanExpectedVersion': sourcePlanExpectedVersion,
       'chargeNoAtEvent': chargeNoAtEvent,
       'remarks': _clean(remarks),
     });
@@ -92,6 +102,13 @@ class PublishedTemplateAssignmentRequest {
     if (hasClass != hasInstance) {
       throw StateError(
         'Governed assignment identity requires both assetClassId and assetInstanceId.',
+      );
+    }
+    final hasPlan = _clean(sourcePlanId) != null;
+    if (hasPlan != (sourcePlanExpectedVersion != null) ||
+        (sourcePlanExpectedVersion != null && sourcePlanExpectedVersion! < 1)) {
+      throw StateError(
+        'A source maintenance plan requires its identity and positive expected version.',
       );
     }
   }

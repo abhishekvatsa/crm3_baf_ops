@@ -6,6 +6,33 @@ enum InspectionCampaignStatus { open, paused, closed }
 
 enum InspectionValueType { number, boolean, text, choice }
 
+enum InspectionTargetDisposition {
+  pending,
+  observed,
+  deferred,
+  unavailable,
+  excludedWithReason,
+  requiresReaudit,
+}
+
+enum InspectionFindingStatus {
+  open,
+  correctiveActionLinked,
+  awaitingVerification,
+  verifiedResolved,
+  acceptedCondition,
+  invalidated,
+}
+
+enum InspectionComparisonOutcome {
+  improved,
+  unchanged,
+  deteriorated,
+  resolved,
+  recurred,
+  notComparable,
+}
+
 Map<String, dynamic> _object(
   dynamic value, {
   required String field,
@@ -50,6 +77,25 @@ Map<String, String> _stringMap(
     );
   }
   return Map<String, String>.unmodifiable(raw.cast<String, String>());
+}
+
+Map<String, int> _requiredIntegerMap(
+  dynamic value, {
+  required String field,
+  required String source,
+  required Set<String> exactKeys,
+}) {
+  final raw = _object(value, field: field, source: source);
+  if (raw.keys.toSet().difference(exactKeys).isNotEmpty ||
+      exactKeys.difference(raw.keys.toSet()).isNotEmpty ||
+      raw.values.any((item) => item is! int || item < 0)) {
+    throw PersistedDataFormatException(
+      field: field,
+      source: source,
+      detail: 'required complete non-negative integer counter set',
+    );
+  }
+  return Map<String, int>.unmodifiable(raw.cast<String, int>());
 }
 
 class FrozenInspectionDefinition {
@@ -293,7 +339,10 @@ class InspectionCampaign {
     required this.assetTypeKey,
     required this.assetClassId,
     required this.targetAssetNumbers,
+    required this.physicalPositionLabels,
+    required this.targets,
     required this.expectedPopulation,
+    required this.baselineCampaignId,
     required this.observerRoleKeys,
     required this.observationCount,
     required this.distinctTargetKeys,
@@ -307,27 +356,40 @@ class InspectionCampaign {
   final FrozenInspectionDefinition definition;
   final String purpose;
   final String assetTypeKey;
-  final String? assetClassId;
+  final String assetClassId;
   final List<int> targetAssetNumbers;
-  final int? expectedPopulation;
+  final List<String> physicalPositionLabels;
+  final List<InspectionCampaignTarget> targets;
+  final int expectedPopulation;
+  final String? baselineCampaignId;
   final List<String> observerRoleKeys;
   final int observationCount;
   final List<String> distinctTargetKeys;
   final DateTime? latestObservationAt;
   final DateTime createdAt;
 
-  int get distinctTargetCount => distinctTargetKeys.length;
-  int? get remainingPopulation =>
-      expectedPopulation == null
-          ? null
-          : (expectedPopulation! - distinctTargetCount).clamp(
-            0,
-            expectedPopulation!,
-          );
-  double? get coverageFraction =>
-      expectedPopulation == null
-          ? null
-          : (distinctTargetCount / expectedPopulation!).clamp(0, 1);
+  int get distinctTargetCount =>
+      targets
+          .where(
+            (target) =>
+                target.disposition == InspectionTargetDisposition.observed,
+          )
+          .length;
+  int get accountedTargetCount =>
+      targets
+          .where(
+            (target) =>
+                target.disposition != InspectionTargetDisposition.pending,
+          )
+          .length;
+  int get remainingPopulation => expectedPopulation - accountedTargetCount;
+  double get coverageFraction =>
+      expectedPopulation == 0 ? 0 : distinctTargetCount / expectedPopulation;
+  bool get canClose => remainingPopulation == 0;
+  Map<InspectionTargetDisposition, int> get dispositionCounts => {
+    for (final value in InspectionTargetDisposition.values)
+      value: targets.where((target) => target.disposition == value).length,
+  };
 
   factory InspectionCampaign.fromMap(
     Map<String, dynamic> map,
@@ -349,6 +411,45 @@ class InspectionCampaign {
     final definition = FrozenInspectionDefinition.fromMap(
       _object(map['definition'], field: 'definition', source: source),
       source: '$source/definition',
+    );
+    final schemaVersion = readRequiredPersistedInt(
+      map['schemaVersion'],
+      field: 'schemaVersion',
+      source: source,
+    );
+    if (schemaVersion != 2) {
+      throw PersistedDataFormatException(
+        field: 'schemaVersion',
+        source: source,
+        detail: 'campaign requires exact population schema 2',
+      );
+    }
+    final rawTargets = map['targetPopulation'];
+    if (rawTargets is! List || rawTargets.isEmpty || rawTargets.length > 500) {
+      throw PersistedDataFormatException(
+        field: 'targetPopulation',
+        source: source,
+        detail: 'required non-empty target population of at most 500',
+      );
+    }
+    final targets = List<InspectionCampaignTarget>.unmodifiable(
+      rawTargets.indexed.map(
+        (entry) => InspectionCampaignTarget.fromMap(
+          _object(
+            entry.$2,
+            field: 'targetPopulation[${entry.$1}]',
+            source: source,
+          ),
+          source: '$source/targetPopulation/${entry.$1}',
+        ),
+      ),
+    );
+    final storedDispositionCounts = _requiredIntegerMap(
+      map['targetDispositionCounts'],
+      field: 'targetDispositionCounts',
+      source: source,
+      exactKeys:
+          InspectionTargetDisposition.values.map((value) => value.name).toSet(),
     );
     if (definition.id !=
             readRequiredPersistedString(
@@ -394,7 +495,7 @@ class InspectionCampaign {
         field: 'assetTypeKey',
         source: source,
       ),
-      assetClassId: readOptionalPersistedString(
+      assetClassId: readRequiredPersistedString(
         map['assetClassId'],
         field: 'assetClassId',
         source: source,
@@ -404,11 +505,24 @@ class InspectionCampaign {
         field: 'targetAssetNumbers',
         source: source,
       ),
-      expectedPopulation: readOptionalPersistedInt(
+      physicalPositionLabels: List<String>.unmodifiable(
+        readOptionalPersistedStringList(
+          map['physicalPositionLabels'],
+          field: 'physicalPositionLabels',
+          source: source,
+        ),
+      ),
+      targets: targets,
+      expectedPopulation: readRequiredPersistedInt(
         map['expectedPopulation'],
         field: 'expectedPopulation',
         source: source,
         minimum: 1,
+      ),
+      baselineCampaignId: readOptionalPersistedString(
+        map['baselineCampaignId'],
+        field: 'baselineCampaignId',
+        source: source,
       ),
       observerRoleKeys: List<String>.unmodifiable(
         readOptionalPersistedStringList(
@@ -442,18 +556,28 @@ class InspectionCampaign {
       ),
     );
     if ((!campaign.definition.assetTypeKeys.contains(campaign.assetTypeKey) &&
-            (campaign.assetClassId == null ||
-                !campaign.definition.assetClassIds.contains(
-                  campaign.assetClassId,
-                ))) ||
-        (campaign.expectedPopulation != null &&
-            campaign.targetAssetNumbers.length >
-                campaign.expectedPopulation!) ||
+            !campaign.definition.assetClassIds.contains(
+              campaign.assetClassId,
+            )) ||
+        campaign.expectedPopulation != campaign.targets.length ||
         campaign.observationCount < campaign.distinctTargetKeys.length ||
         campaign.targetAssetNumbers.toSet().length !=
             campaign.targetAssetNumbers.length ||
         campaign.distinctTargetKeys.toSet().length !=
-            campaign.distinctTargetKeys.length) {
+            campaign.distinctTargetKeys.length ||
+        campaign.targets.map((target) => target.targetKey).toSet().length !=
+            campaign.targets.length ||
+        campaign.targets.any(
+          (target) =>
+              target.assetClassId != campaign.assetClassId ||
+              target.assetTypeKey != campaign.assetTypeKey ||
+              !campaign.targetAssetNumbers.contains(target.assetNumber),
+        ) ||
+        InspectionTargetDisposition.values.any(
+          (disposition) =>
+              storedDispositionCounts[disposition.name] !=
+              campaign.dispositionCounts[disposition],
+        )) {
       throw PersistedDataFormatException(
         field: 'campaignProjection',
         source: source,
@@ -461,6 +585,171 @@ class InspectionCampaign {
       );
     }
     return campaign;
+  }
+}
+
+class InspectionCampaignTarget {
+  const InspectionCampaignTarget({
+    required this.targetKey,
+    required this.assetTypeKey,
+    required this.assetClassId,
+    required this.assetNumber,
+    required this.assetInstanceId,
+    required this.assetInstanceVersion,
+    required this.assetInstanceName,
+    required this.componentNodeId,
+    required this.physicalPosition,
+    required this.disposition,
+    required this.dispositionReason,
+    required this.dispositionAt,
+    required this.dispositionByUid,
+    required this.dispositionByName,
+    required this.addedLater,
+    required this.lastObservationId,
+    required this.lastObservedAt,
+  });
+
+  final String targetKey;
+  final String assetTypeKey;
+  final String assetClassId;
+  final int assetNumber;
+  final String assetInstanceId;
+  final int assetInstanceVersion;
+  final String assetInstanceName;
+  final String? componentNodeId;
+  final String? physicalPosition;
+  final InspectionTargetDisposition disposition;
+  final String? dispositionReason;
+  final DateTime dispositionAt;
+  final String dispositionByUid;
+  final String dispositionByName;
+  final bool addedLater;
+  final String? lastObservationId;
+  final DateTime? lastObservedAt;
+
+  factory InspectionCampaignTarget.fromMap(
+    Map<String, dynamic> map, {
+    required String source,
+  }) {
+    if (readRequiredPersistedInt(
+          map['schemaVersion'],
+          field: 'schemaVersion',
+          source: source,
+        ) !=
+        1) {
+      throw PersistedDataFormatException(
+        field: 'schemaVersion',
+        source: source,
+        detail: 'unsupported target schema',
+      );
+    }
+    final target = InspectionCampaignTarget(
+      targetKey: readRequiredPersistedString(
+        map['targetKey'],
+        field: 'targetKey',
+        source: source,
+      ),
+      assetTypeKey: readRequiredPersistedString(
+        map['assetTypeKey'],
+        field: 'assetTypeKey',
+        source: source,
+      ),
+      assetClassId: readRequiredPersistedString(
+        map['assetClassId'],
+        field: 'assetClassId',
+        source: source,
+      ),
+      assetNumber: readRequiredPersistedInt(
+        map['assetNumber'],
+        field: 'assetNumber',
+        source: source,
+        minimum: 1,
+      ),
+      assetInstanceId: readRequiredPersistedString(
+        map['assetInstanceId'],
+        field: 'assetInstanceId',
+        source: source,
+      ),
+      assetInstanceVersion: readRequiredPersistedInt(
+        map['assetInstanceVersion'],
+        field: 'assetInstanceVersion',
+        source: source,
+        minimum: 1,
+      ),
+      assetInstanceName: readRequiredPersistedString(
+        map['assetInstanceName'],
+        field: 'assetInstanceName',
+        source: source,
+      ),
+      componentNodeId: readOptionalPersistedString(
+        map['componentNodeId'],
+        field: 'componentNodeId',
+        source: source,
+      ),
+      physicalPosition: readOptionalPersistedString(
+        map['physicalPosition'],
+        field: 'physicalPosition',
+        source: source,
+      ),
+      disposition: readRequiredPersistedEnum(
+        InspectionTargetDisposition.values,
+        map['disposition'],
+        field: 'disposition',
+        source: source,
+      ),
+      dispositionReason: readOptionalPersistedString(
+        map['dispositionReason'],
+        field: 'dispositionReason',
+        source: source,
+      ),
+      dispositionAt: readRequiredPersistedDateTime(
+        map['dispositionAt'],
+        field: 'dispositionAt',
+        source: source,
+      ),
+      dispositionByUid: readRequiredPersistedString(
+        map['dispositionByUid'],
+        field: 'dispositionByUid',
+        source: source,
+      ),
+      dispositionByName: readRequiredPersistedString(
+        map['dispositionByName'],
+        field: 'dispositionByName',
+        source: source,
+      ),
+      addedLater: readRequiredPersistedBool(
+        map['addedLater'],
+        field: 'addedLater',
+        source: source,
+      ),
+      lastObservationId: readOptionalPersistedString(
+        map['lastObservationId'],
+        field: 'lastObservationId',
+        source: source,
+      ),
+      lastObservedAt: readOptionalPersistedDateTime(
+        map['lastObservedAt'],
+        field: 'lastObservedAt',
+        source: source,
+      ),
+    );
+    if ((target.disposition == InspectionTargetDisposition.observed &&
+            (target.lastObservationId == null ||
+                target.lastObservedAt == null)) ||
+        (target.disposition == InspectionTargetDisposition.pending &&
+            target.dispositionReason != null) ||
+        (![
+              InspectionTargetDisposition.pending,
+              InspectionTargetDisposition.observed,
+            ].contains(target.disposition) &&
+            target.dispositionReason == null)) {
+      throw PersistedDataFormatException(
+        field: 'disposition',
+        source: source,
+        detail: 'target disposition evidence is inconsistent',
+      );
+    }
+    return target;
   }
 }
 
@@ -493,6 +782,9 @@ class InspectionObservation {
     required this.note,
     required this.evidenceUrls,
     required this.supersedesObservationId,
+    required this.baselineCampaignId,
+    required this.baselineObservationId,
+    required this.comparisonOutcome,
     required this.recordedAt,
   });
 
@@ -523,6 +815,9 @@ class InspectionObservation {
   final String? note;
   final List<String> evidenceUrls;
   final String? supersedesObservationId;
+  final String? baselineCampaignId;
+  final String? baselineObservationId;
+  final InspectionComparisonOutcome? comparisonOutcome;
   final DateTime recordedAt;
 
   String get displayValue => switch (definition.valueType) {
@@ -713,6 +1008,22 @@ class InspectionObservation {
         field: 'supersedesObservationId',
         source: source,
       ),
+      baselineCampaignId: readOptionalPersistedString(
+        map['baselineCampaignId'],
+        field: 'baselineCampaignId',
+        source: source,
+      ),
+      baselineObservationId: readOptionalPersistedString(
+        map['baselineObservationId'],
+        field: 'baselineObservationId',
+        source: source,
+      ),
+      comparisonOutcome: readOptionalPersistedEnum(
+        InspectionComparisonOutcome.values,
+        map['comparisonOutcome'],
+        field: 'comparisonOutcome',
+        source: source,
+      ),
       recordedAt: readRequiredPersistedDateTime(
         map['recordedAt'],
         field: 'recordedAt',
@@ -752,6 +1063,10 @@ class InspectionObservation {
             )) ||
         valuePartCount != 1 ||
         !valueMatches ||
+        ((observation.baselineCampaignId == null) !=
+            (observation.baselineObservationId == null)) ||
+        ((observation.baselineObservationId == null) !=
+            (observation.comparisonOutcome == null)) ||
         (observation.chargeNo != null && observation.chargeNo! > 99999)) {
       throw PersistedDataFormatException(
         field: 'observationProjection',
@@ -760,5 +1075,195 @@ class InspectionObservation {
       );
     }
     return observation;
+  }
+}
+
+class InspectionFinding {
+  const InspectionFinding({
+    required this.id,
+    required this.version,
+    required this.campaignId,
+    required this.targetKey,
+    required this.assetTypeKey,
+    required this.assetNumber,
+    required this.assetClassId,
+    required this.assetInstanceId,
+    required this.componentNodeId,
+    required this.componentName,
+    required this.physicalPosition,
+    required this.status,
+    required this.firstObservationId,
+    required this.currentObservationId,
+    required this.firstObservedAt,
+    required this.latestObservedAt,
+    required this.recurrenceCount,
+    required this.linkedTicketId,
+    required this.verificationCount,
+    required this.lastVerificationOutcome,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final int version;
+  final String campaignId;
+  final String targetKey;
+  final String assetTypeKey;
+  final int assetNumber;
+  final String assetClassId;
+  final String assetInstanceId;
+  final String? componentNodeId;
+  final String? componentName;
+  final String? physicalPosition;
+  final InspectionFindingStatus status;
+  final String firstObservationId;
+  final String currentObservationId;
+  final DateTime firstObservedAt;
+  final DateTime latestObservedAt;
+  final int recurrenceCount;
+  final String? linkedTicketId;
+  final int verificationCount;
+  final InspectionComparisonOutcome? lastVerificationOutcome;
+  final DateTime updatedAt;
+
+  bool get blocksCampaignClosure =>
+      !{
+        InspectionFindingStatus.correctiveActionLinked,
+        InspectionFindingStatus.verifiedResolved,
+        InspectionFindingStatus.acceptedCondition,
+        InspectionFindingStatus.invalidated,
+      }.contains(status);
+
+  factory InspectionFinding.fromMap(
+    Map<String, dynamic> map,
+    String documentId,
+  ) {
+    final source = 'inspection_findings/$documentId';
+    final id = readRequiredPersistedString(
+      map['findingId'],
+      field: 'findingId',
+      source: source,
+    );
+    if (id != documentId ||
+        readRequiredPersistedInt(
+              map['schemaVersion'],
+              field: 'schemaVersion',
+              source: source,
+            ) !=
+            1) {
+      throw PersistedDataFormatException(
+        field: 'findingId',
+        source: source,
+        detail: 'finding identity or schema is invalid',
+      );
+    }
+    return InspectionFinding(
+      id: id,
+      version: readRequiredPersistedInt(
+        map['version'],
+        field: 'version',
+        source: source,
+        minimum: 1,
+      ),
+      campaignId: readRequiredPersistedString(
+        map['campaignId'],
+        field: 'campaignId',
+        source: source,
+      ),
+      targetKey: readRequiredPersistedString(
+        map['targetKey'],
+        field: 'targetKey',
+        source: source,
+      ),
+      assetTypeKey: readRequiredPersistedString(
+        map['assetTypeKey'],
+        field: 'assetTypeKey',
+        source: source,
+      ),
+      assetNumber: readRequiredPersistedInt(
+        map['assetNumber'],
+        field: 'assetNumber',
+        source: source,
+        minimum: 1,
+      ),
+      assetClassId: readRequiredPersistedString(
+        map['assetClassId'],
+        field: 'assetClassId',
+        source: source,
+      ),
+      assetInstanceId: readRequiredPersistedString(
+        map['assetInstanceId'],
+        field: 'assetInstanceId',
+        source: source,
+      ),
+      componentNodeId: readOptionalPersistedString(
+        map['componentNodeId'],
+        field: 'componentNodeId',
+        source: source,
+      ),
+      componentName: readOptionalPersistedString(
+        map['componentName'],
+        field: 'componentName',
+        source: source,
+      ),
+      physicalPosition: readOptionalPersistedString(
+        map['physicalPosition'],
+        field: 'physicalPosition',
+        source: source,
+      ),
+      status: readRequiredPersistedEnum(
+        InspectionFindingStatus.values,
+        map['status'],
+        field: 'status',
+        source: source,
+      ),
+      firstObservationId: readRequiredPersistedString(
+        map['firstObservationId'],
+        field: 'firstObservationId',
+        source: source,
+      ),
+      currentObservationId: readRequiredPersistedString(
+        map['currentObservationId'],
+        field: 'currentObservationId',
+        source: source,
+      ),
+      firstObservedAt: readRequiredPersistedDateTime(
+        map['firstObservedAt'],
+        field: 'firstObservedAt',
+        source: source,
+      ),
+      latestObservedAt: readRequiredPersistedDateTime(
+        map['latestObservedAt'],
+        field: 'latestObservedAt',
+        source: source,
+      ),
+      recurrenceCount: readRequiredPersistedInt(
+        map['recurrenceCount'],
+        field: 'recurrenceCount',
+        source: source,
+        minimum: 1,
+      ),
+      linkedTicketId: readOptionalPersistedString(
+        map['linkedTicketId'],
+        field: 'linkedTicketId',
+        source: source,
+      ),
+      verificationCount: readRequiredPersistedInt(
+        map['verificationCount'],
+        field: 'verificationCount',
+        source: source,
+        minimum: 0,
+      ),
+      lastVerificationOutcome: readOptionalPersistedEnum(
+        InspectionComparisonOutcome.values,
+        map['lastVerificationOutcome'],
+        field: 'lastVerificationOutcome',
+        source: source,
+      ),
+      updatedAt: readRequiredPersistedDateTime(
+        map['updatedAt'],
+        field: 'updatedAt',
+        source: source,
+      ),
+    );
   }
 }

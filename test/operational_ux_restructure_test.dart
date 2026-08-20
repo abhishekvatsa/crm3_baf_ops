@@ -61,6 +61,10 @@ void main() {
     expect(home, contains("'Incomplete'"));
     expect(home, contains('ref.invalidate(operationalEventsProvider)'));
     expect(home, contains('ref.invalidate(qualityWarningsProvider)'));
+    expect(home, contains('maintenanceDueStatesProvider'));
+    expect(home, contains('allInspectionFindingsProvider'));
+    expect(home, contains("title: 'Overdue maintenance cadence'"));
+    expect(home, contains("title: 'Active inspection findings'"));
     for (final provider in [
       'assetClassesProvider',
       'allAssetInstancesProvider',
@@ -68,6 +72,8 @@ void main() {
       'equipmentStatusProvider(null)',
       'plantAssetOverviewProvider',
       'operationsReportClockProvider',
+      'maintenanceDueStatesProvider',
+      'allInspectionFindingsProvider',
     ]) {
       expect(reports, contains('ref.invalidate($provider)'));
     }

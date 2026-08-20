@@ -44,10 +44,12 @@ import {
 } from "./frequentIssueDefinitionHandlers";
 import {
   classifyMaintenanceExecution,
+  classifyMaintenanceTicket,
   setMaintenanceClassDefinitionStatus,
   upsertMaintenanceClassDefinition,
 } from "./maintenanceClassHandlers";
 import {
+  completeMaintenancePlan,
   setMaintenancePlanStatus,
   upsertMaintenancePlan,
 } from "./maintenancePlanHandlers";
@@ -59,6 +61,12 @@ import {
   setInspectionDefinitionStatus,
   upsertInspectionDefinition,
 } from "./inspectionCampaignHandlers";
+import {
+  addInspectionCampaignTargets,
+  adjudicateInspectionFinding,
+  setInspectionTargetDisposition,
+  verifyInspectionFinding,
+} from "./inspectionEvidenceHandlers";
 
 const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   createLegacyWorkflowJob,
@@ -69,14 +77,20 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   upsertMaintenanceClassDefinition,
   setMaintenanceClassDefinitionStatus,
   classifyMaintenanceExecution,
+  classifyMaintenanceTicket,
   upsertMaintenancePlan,
   setMaintenancePlanStatus,
+  completeMaintenancePlan,
   upsertInspectionDefinition,
   setInspectionDefinitionStatus,
   createInspectionCampaign,
   setInspectionCampaignStatus,
+  addInspectionCampaignTargets,
+  setInspectionTargetDisposition,
   recordInspectionObservation,
   linkInspectionObservationIssue,
+  verifyInspectionFinding,
+  adjudicateInspectionFinding,
   finalizeLaneSet,
   acknowledgeLane,
   addLane,

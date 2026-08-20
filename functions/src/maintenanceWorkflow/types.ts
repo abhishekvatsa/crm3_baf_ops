@@ -62,6 +62,7 @@ export type WorkflowAuthorityCapability =
   | "maintenanceClass.manage" | "maintenance.classify" | "maintenancePlan.manage"
   | "inspectionDefinition.manage" | "inspectionCampaign.manage"
   | "inspection.observe" | "inspectionIssue.link"
+  | "inspectionFinding.adjudicate"
   | "integrity.supervise" | "integrity.adjudicate";
 
 export interface WorkflowAuthorityScope extends JsonMap {
@@ -75,11 +76,13 @@ export type WorkflowCommandType =
   | "startIssueCoordination"
   | "upsertFrequentIssueDefinition" | "setFrequentIssueDefinitionStatus"
   | "upsertMaintenanceClassDefinition" | "setMaintenanceClassDefinitionStatus"
-  | "classifyMaintenanceExecution"
-  | "upsertMaintenancePlan" | "setMaintenancePlanStatus"
+  | "classifyMaintenanceExecution" | "classifyMaintenanceTicket"
+  | "upsertMaintenancePlan" | "setMaintenancePlanStatus" | "completeMaintenancePlan"
   | "upsertInspectionDefinition" | "setInspectionDefinitionStatus"
   | "createInspectionCampaign" | "setInspectionCampaignStatus"
+  | "addInspectionCampaignTargets" | "setInspectionTargetDisposition"
   | "recordInspectionObservation" | "linkInspectionObservationIssue"
+  | "verifyInspectionFinding" | "adjudicateInspectionFinding"
   | "finalizeLaneSet" | "acknowledgeLane" | "addLane" | "removeLane"
   | "terminateLane" | "closeLane" | "cancelWorkflow"
   | "raiseCompliance" | "acknowledgeCompliance"

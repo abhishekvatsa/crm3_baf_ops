@@ -81,10 +81,9 @@ def main() -> int:
         "default is 0; server creation elevates to 1",
     )
 
-    repository = text(
-        "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart"
+    remote_batch = text(
+        "lib/features/planned_maintenance/providers/planned_maintenance_provider.remote.dart"
     )
-    remote_batch = repository[repository.rfind("class FirestorePlannedRepository") :]
     add(
         checks,
         "all live batch execution writes use the client-safe serializer",

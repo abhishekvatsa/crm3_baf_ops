@@ -24,7 +24,7 @@ export interface FrozenMaintenanceClass {
 export interface MaintenanceAssetIdentity {
   readonly assetIdentityKey: string;
   readonly assetTypeKey: string;
-  readonly assetNumber: number;
+  readonly assetNumber: number | null;
   readonly assetClassId: string | null;
   readonly assetInstanceId: string | null;
 }
@@ -237,8 +237,10 @@ export const maintenanceAssetIdentityFromExecution = (
     48,
   );
   const assetNumber = execution.assetNumber;
-  if (typeof assetNumber !== "number" || !Number.isSafeInteger(assetNumber) ||
-      assetNumber < 1) {
+  const serialInnerCover = assetTypeKey === "innerCover" && assetNumber == null;
+  if (!serialInnerCover &&
+      (typeof assetNumber !== "number" || !Number.isSafeInteger(assetNumber) ||
+       assetNumber < 1)) {
     throw new WorkflowError(
       "failed-precondition",
       "The execution asset number is invalid.",
@@ -257,12 +259,19 @@ export const maintenanceAssetIdentityFromExecution = (
       {reasonCode: "maintenance-completion-asset-identity-incomplete"},
     );
   }
+  if (serialInnerCover && (assetClassId == null || assetInstanceId == null)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A serial-based Inner Cover requires its complete governed identity.",
+      {reasonCode: "maintenance-completion-asset-identity-incomplete"},
+    );
+  }
   const assetIdentityKey = assetClassId != null ?
     `${assetClassId}:${assetInstanceId}` : `${assetTypeKey}:${assetNumber}`;
   return {
     assetIdentityKey,
     assetTypeKey,
-    assetNumber,
+    assetNumber: serialInnerCover ? null : assetNumber as number,
     assetClassId,
     assetInstanceId,
   };
@@ -371,6 +380,9 @@ export const prepareMaintenanceCompletionWritePlan = async (args: {
     );
   }
   const resetCounterKeys = classification.resetCounters.map((counter) => counter.key);
+  const assetDisplayName = typeof args.execution.assetInstanceName === "string" &&
+    args.execution.assetInstanceName.trim().length > 0 ?
+    args.execution.assetInstanceName.trim() : null;
   const common: JsonMap = {
     schemaVersion: 1,
     sourceType: args.sourceType,
@@ -381,6 +393,7 @@ export const prepareMaintenanceCompletionWritePlan = async (args: {
     assetNumber: identity.assetNumber,
     assetClassId: identity.assetClassId,
     assetInstanceId: identity.assetInstanceId,
+    assetDisplayName,
     maintenanceClass: classification as unknown as JsonMap,
     maintenanceClassDefinitionId: classification.definitionId,
     maintenanceClassDefinitionVersion: classification.definitionVersion,
@@ -414,6 +427,7 @@ export const prepareMaintenanceCompletionWritePlan = async (args: {
         assetNumber: identity.assetNumber,
         assetClassId: identity.assetClassId,
         assetInstanceId: identity.assetInstanceId,
+        assetDisplayName,
         counterKey: counter.key,
         counterLabel: counter.label,
         thresholdDays: counter.thresholdDays,

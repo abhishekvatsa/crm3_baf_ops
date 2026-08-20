@@ -1,6 +1,8 @@
 import '../../assets/domain/plant_asset_overview.dart';
+import '../../inspections/data/inspection_campaign.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../operational_events/data/operational_event.dart';
+import '../../planned_maintenance/data/maintenance_intelligence.dart';
 import '../../planned_maintenance/data/job_template_model.dart';
 
 class OperationsReportFilter {
@@ -58,6 +60,9 @@ class AssetClassReportSummary {
     required this.plannedJobCount,
     required this.openPlannedJobCount,
     required this.disruptionCount,
+    required this.overdueMaintenanceCount,
+    required this.dueSoonMaintenanceCount,
+    required this.activeInspectionFindingCount,
   });
 
   final String assetClassId;
@@ -72,6 +77,9 @@ class AssetClassReportSummary {
   final int plannedJobCount;
   final int openPlannedJobCount;
   final int disruptionCount;
+  final int overdueMaintenanceCount;
+  final int dueSoonMaintenanceCount;
+  final int activeInspectionFindingCount;
 }
 
 class OperationalEventReportOccurrence {
@@ -96,6 +104,8 @@ class OperationsReport {
     required this.executions,
     required this.events,
     required this.eventOccurrences,
+    required this.dueStates,
+    required this.inspectionFindings,
     required this.assetStates,
     required this.classSummaries,
     required this.topComponents,
@@ -103,6 +113,8 @@ class OperationsReport {
     required this.sourceTicketCount,
     required this.sourceExecutionCount,
     required this.sourceEventCount,
+    required this.sourceDueStateCount,
+    required this.sourceInspectionFindingCount,
     required this.disruptionCount,
     required this.openDisruptionCount,
     required this.disruptionDuration,
@@ -114,6 +126,8 @@ class OperationsReport {
   final List<JobExecution> executions;
   final List<OperationalEvent> events;
   final List<OperationalEventReportOccurrence> eventOccurrences;
+  final List<MaintenanceDueState> dueStates;
+  final List<InspectionFinding> inspectionFindings;
   final List<PlantAssetState> assetStates;
   final List<AssetClassReportSummary> classSummaries;
   final List<CountedReportLabel> topComponents;
@@ -121,6 +135,8 @@ class OperationsReport {
   final int sourceTicketCount;
   final int sourceExecutionCount;
   final int sourceEventCount;
+  final int sourceDueStateCount;
+  final int sourceInspectionFindingCount;
   final int disruptionCount;
   final int openDisruptionCount;
   final Duration disruptionDuration;
@@ -140,6 +156,42 @@ class OperationsReport {
       executions.where((job) => job.isCompleted).length;
   int get cancelledPlannedJobCount =>
       executions.where((job) => job.isCancelled).length;
+
+  int get overdueMaintenanceCount =>
+      dueStates
+          .where(
+            (state) =>
+                state.nextDueAt != null && state.nextDueAt!.isBefore(asOf),
+          )
+          .length;
+  int get dueSoonMaintenanceCount =>
+      dueStates.where((state) {
+        final dueAt = state.nextDueAt;
+        return dueAt != null &&
+            !dueAt.isBefore(asOf) &&
+            !dueAt.isAfter(asOf.add(const Duration(days: 7)));
+      }).length;
+
+  bool _isActiveFinding(InspectionFinding finding) => {
+    InspectionFindingStatus.open,
+    InspectionFindingStatus.correctiveActionLinked,
+    InspectionFindingStatus.awaitingVerification,
+  }.contains(finding.status);
+
+  int get activeInspectionFindingCount =>
+      inspectionFindings.where(_isActiveFinding).length;
+  int get awaitingInspectionVerificationCount =>
+      inspectionFindings
+          .where(
+            (finding) =>
+                finding.status == InspectionFindingStatus.awaitingVerification,
+          )
+          .length;
+
+  List<InspectionFinding> get activeInspectionFindings =>
+      List<InspectionFinding>.unmodifiable(
+        inspectionFindings.where(_isActiveFinding),
+      );
 
   Set<String> get linkedDisruptionIssueIds => Set<String>.unmodifiable(
     eventOccurrences.expand((occurrence) => occurrence.interval.linkedIssueIds),

@@ -159,14 +159,14 @@ check(
 )
 
 query_files = [
-    "lib/features/abnormalities/providers/abnormality_provider.dart",
-    "lib/features/directives/providers/operational_directive_provider.dart",
-    "lib/features/maintenance/providers/maintenance_provider.dart",
+    "lib/features/abnormalities/providers/abnormality_provider.remote.dart",
+    "lib/features/directives/providers/operational_directive_provider.remote.dart",
+    "lib/features/maintenance/providers/maintenance_provider.remote.dart",
     "lib/features/planned_maintenance/domain/baf_knowledge_repository.dart",
-    "lib/features/planned_maintenance/providers/job_diary_provider.dart",
-    "lib/features/planned_maintenance/providers/job_module_provider.dart",
-    "lib/features/planned_maintenance/providers/planned_maintenance_provider.dart",
-    "lib/features/planned_maintenance/providers/template_governance_provider.dart",
+    "lib/features/planned_maintenance/providers/job_diary_provider.remote.dart",
+    "lib/features/planned_maintenance/providers/job_module_provider.remote.dart",
+    "lib/features/planned_maintenance/providers/planned_maintenance_provider.remote.dart",
+    "lib/features/planned_maintenance/providers/template_governance_provider.remote.dart",
 ]
 query_source = "\n".join(source(path) for path in query_files)
 check(

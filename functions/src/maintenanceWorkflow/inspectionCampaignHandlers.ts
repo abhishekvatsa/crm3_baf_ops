@@ -3,6 +3,14 @@ import {WorkflowError} from "./errors";
 import {CommandHandler} from "./handlerTypes";
 import {JsonMap, RoleKey} from "./types";
 import {cleanText, iso, stableJson} from "./utils";
+import {
+  buildInspectionTargetPopulation,
+  inspectionPopulationCounts,
+  inspectionTargetKey,
+  inspectionTargetPopulationJson,
+  markInspectionTargetObserved,
+  parseInspectionTargetPopulation,
+} from "./inspectionPopulation";
 
 const definitionPath = (id: string): string => `inspection_definitions/${id}`;
 const definitionAuditPath = (id: string): string => `inspection_definition_audits/${id}`;
@@ -431,7 +439,7 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
   exactKeys(command.payload, [
     "definitionId", "definitionVersion", "purpose", "assetTypeKey",
     "assetClassId", "targetAssetNumbers", "expectedPopulation",
-    "observerRoleKeys", "reason",
+    "physicalPositionLabels", "baselineCampaignId", "observerRoleKeys", "reason",
   ], "payload");
   const campaignId = documentId(command.aggregateId, "aggregateId");
   if (command.expectedVersion !== 0) {
@@ -447,23 +455,40 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
     throw new WorkflowError("invalid-argument", "assetTypeKey is unsupported.");
   }
   const assetClassId = optionalDocumentId(command.payload.assetClassId, "assetClassId");
+  if (assetClassId == null) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Inspection campaigns require one exact governed asset class.",
+      {reasonCode: "inspection-campaign-asset-class-required"},
+    );
+  }
   const targetAssetNumbers = integerList(
     command.payload.targetAssetNumbers,
     "targetAssetNumbers",
     500,
+  );
+  if (targetAssetNumbers.length === 0) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Inspection campaigns require an exact target population.",
+      {reasonCode: "inspection-campaign-target-population-required"},
+    );
+  }
+  const physicalPositionLabels = stringList(
+    command.payload.physicalPositionLabels,
+    "physicalPositionLabels",
+    32,
+    80,
+  );
+  const baselineCampaignId = optionalDocumentId(
+    command.payload.baselineCampaignId,
+    "baselineCampaignId",
   );
   const expectedPopulation = command.payload.expectedPopulation;
   if (expectedPopulation != null &&
       (!Number.isSafeInteger(expectedPopulation) || (expectedPopulation as number) < 1 ||
        (expectedPopulation as number) > 5000)) {
     throw new WorkflowError("invalid-argument", "expectedPopulation is invalid.");
-  }
-  if (targetAssetNumbers.length > 0 && expectedPopulation != null &&
-      targetAssetNumbers.length > (expectedPopulation as number)) {
-    throw new WorkflowError(
-      "invalid-argument",
-      "Target assets cannot exceed the expected population.",
-    );
   }
   const observerRoleKeys = stringList(
     command.payload.observerRoleKeys,
@@ -476,11 +501,16 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
     throw new WorkflowError("invalid-argument", "observerRoleKeys contains an unsupported role.");
   }
   const reason = boundedText(command.payload.reason, "reason", 5, 500);
-  const [current, definition, audit, campaignClass] = await Promise.all([
+  const [current, definition, audit, campaignClass, campaignAssets, baseline] = await Promise.all([
     tx.get(campaignPath(campaignId)),
     tx.get(definitionPath(definitionId)),
     tx.get(campaignAuditPath(command.commandId)),
-    assetClassId == null ? Promise.resolve(null) : tx.get(`asset_classes/${assetClassId}`),
+    tx.get(`asset_classes/${assetClassId}`),
+    tx.query("asset_instances", [
+      {field: "assetClassId", op: "==", value: assetClassId},
+    ]),
+    baselineCampaignId == null ? Promise.resolve(null) :
+      tx.get(campaignPath(baselineCampaignId)),
   ]);
   if (current.exists || audit.exists) {
     throw new WorkflowError("already-exists", "Inspection campaign identity is already used.");
@@ -489,11 +519,11 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
       definition.data.version !== definitionVersion) {
     throw new WorkflowError("failed-precondition", "Inspection definition is missing, inactive or changed.");
   }
-  if (campaignClass != null && (!campaignClass.exists || campaignClass.data == null ||
+  if (!campaignClass.exists || campaignClass.data == null ||
       campaignClass.data.status !== "active" ||
       campaignClass.data.assetClassId !== assetClassId ||
       (campaignClass.data.legacyAssetTypeKey != null &&
-       campaignClass.data.legacyAssetTypeKey !== assetTypeKey))) {
+       campaignClass.data.legacyAssetTypeKey !== assetTypeKey)) {
     throw new WorkflowError("failed-precondition", "Campaign asset class is inactive or mismatched.");
   }
   const types = definition.data.assetTypeKeys;
@@ -502,9 +532,85 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
       (assetClassId == null || !Array.isArray(classes) || !classes.includes(assetClassId))) {
     throw new WorkflowError("failed-precondition", "Campaign asset scope does not match its definition.");
   }
+  if (baseline != null && (!baseline.exists || baseline.data == null ||
+      baseline.data.status !== "closed" ||
+      baseline.data.definitionId !== definitionId ||
+      baseline.data.assetClassId !== assetClassId)) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A re-audit baseline must be a closed campaign for the same definition and asset class.",
+      {reasonCode: "inspection-baseline-invalid"},
+    );
+  }
+  const assetRows = campaignAssets.filter((row) => row.data != null &&
+    row.data.status === "active" &&
+    Number.isSafeInteger(row.data.assetNumber) &&
+    targetAssetNumbers.includes(row.data.assetNumber as number));
+  const byNumber = new Map<number, (typeof assetRows)[number]>();
+  for (const row of assetRows) {
+    const number = row.data!.assetNumber as number;
+    if (byNumber.has(number)) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "The governed asset class contains duplicate active asset numbers.",
+        {reasonCode: "inspection-campaign-asset-number-ambiguous", assetNumber: number},
+      );
+    }
+    byNumber.set(number, row);
+  }
+  const missingAssets = targetAssetNumbers.filter((number) => !byNumber.has(number));
+  if (missingAssets.length > 0) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "One or more inspection targets are absent or inactive in the governed asset registry.",
+      {reasonCode: "inspection-campaign-assets-missing", missingAssetNumbers: missingAssets},
+    );
+  }
   const now = iso(context.serverNow);
+  const componentNodeIds = Array.isArray(definition.data.componentNodeIds) ?
+    definition.data.componentNodeIds.filter((item): item is string => typeof item === "string") : [];
+  const targetPopulation = buildInspectionTargetPopulation({
+    assetTypeKey,
+    assetClassId,
+    assets: targetAssetNumbers.map((number) => {
+      const row = byNumber.get(number)!;
+      const data = row.data!;
+      if (typeof data.assetInstanceId !== "string" ||
+          typeof data.name !== "string" || !Number.isSafeInteger(data.version) ||
+          (data.version as number) < 1) {
+        throw new WorkflowError(
+          "failed-precondition",
+          "An inspection target has malformed governed identity.",
+          {reasonCode: "inspection-campaign-asset-identity-malformed", assetNumber: number},
+        );
+      }
+      return {
+        assetNumber: number,
+        assetInstanceId: data.assetInstanceId,
+        assetInstanceVersion: data.version as number,
+        assetInstanceName: data.name,
+      };
+    }),
+    componentNodeIds,
+    physicalPositions: physicalPositionLabels,
+    at: now,
+    actorUid: context.actor.uid,
+    actorName: context.actor.name,
+    addedLater: false,
+  });
+  if (targetPopulation.length > 500 || expectedPopulation !== targetPopulation.length) {
+    throw new WorkflowError(
+      "invalid-argument",
+      "Expected population must exactly match the governed asset, component and position targets.",
+      {
+        reasonCode: "inspection-campaign-population-count-mismatch",
+        expectedPopulation: expectedPopulation ?? null,
+        derivedPopulation: targetPopulation.length,
+      },
+    );
+  }
   const after: JsonMap = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     campaignId,
     version: 1,
     status: "open",
@@ -517,7 +623,11 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
     assetTypeKey,
     assetClassId,
     targetAssetNumbers,
-    expectedPopulation: expectedPopulation as number | null,
+    physicalPositionLabels,
+    targetPopulation: inspectionTargetPopulationJson(targetPopulation),
+    targetDispositionCounts: inspectionPopulationCounts(targetPopulation),
+    expectedPopulation: targetPopulation.length,
+    baselineCampaignId,
     observerRoleKeys,
     observationCount: 0,
     distinctTargetKeys: [],
@@ -557,9 +667,12 @@ export const setInspectionCampaignStatus: CommandHandler = async ({tx, command, 
     throw new WorkflowError("invalid-argument", "status is unsupported.");
   }
   const reason = boundedText(command.payload.reason, "reason", 5, 500);
-  const [current, audit] = await Promise.all([
+  const [current, audit, findings] = await Promise.all([
     tx.get(campaignPath(campaignId)),
     tx.get(campaignAuditPath(command.commandId)),
+    tx.query("inspection_findings", [
+      {field: "campaignId", op: "==", value: campaignId},
+    ]),
   ]);
   if (!current.exists || current.data == null) {
     throw new WorkflowError("not-found", "Inspection campaign was not found.");
@@ -574,6 +687,34 @@ export const setInspectionCampaignStatus: CommandHandler = async ({tx, command, 
   };
   if (!(transitions[String(current.data.status)] ?? []).includes(target) || audit.exists) {
     throw new WorkflowError("failed-precondition", "The inspection campaign transition is invalid.");
+  }
+  if (target === "closed") {
+    const population = parseInspectionTargetPopulation(current.data.targetPopulation);
+    const counts = inspectionPopulationCounts(population);
+    if (counts.pending > 0) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Every inspection target needs evidence or an explicit disposition before closure.",
+        {
+          reasonCode: "inspection-campaign-population-incomplete",
+          pendingTargetCount: counts.pending,
+        },
+      );
+    }
+    const blockingFindings = findings.filter((finding) => finding.data != null &&
+      !["correctiveActionLinked", "verifiedResolved", "acceptedCondition", "invalidated"]
+        .includes(String(finding.data.status)));
+    if (blockingFindings.length > 0) {
+      throw new WorkflowError(
+        "failed-precondition",
+        "Inspection findings require corrective linkage, verification or adjudication before closure.",
+        {
+          reasonCode: "inspection-campaign-findings-unaccounted",
+          blockingFindingIds: blockingFindings.map((finding) =>
+            finding.path.split("/").at(-1)!),
+        },
+      );
+    }
   }
   const now = iso(context.serverNow);
   const nextVersion = command.expectedVersion + 1;
@@ -613,6 +754,44 @@ interface ParsedObservationValue {
   readonly textValue: string | null;
   readonly choiceValue: string | null;
 }
+
+type InspectionComparisonOutcome =
+  | "improved" | "unchanged" | "deteriorated"
+  | "resolved" | "recurred" | "notComparable";
+
+const numericDeviation = (value: number, definition: JsonMap): number => {
+  const minimum = typeof definition.minimumValue === "number" ?
+    definition.minimumValue : null;
+  const maximum = typeof definition.maximumValue === "number" ?
+    definition.maximumValue : null;
+  if (minimum != null && value < minimum) return minimum - value;
+  if (maximum != null && value > maximum) return value - maximum;
+  return 0;
+};
+
+const compareInspectionObservation = (
+  current: ParsedObservationValue,
+  baseline: JsonMap,
+  definition: JsonMap,
+): InspectionComparisonOutcome => {
+  if (current.valueType === "number" && current.numericValue != null &&
+      typeof baseline.numericValue === "number") {
+    const previous = numericDeviation(baseline.numericValue, definition);
+    const next = numericDeviation(current.numericValue, definition);
+    if (previous > 0 && next === 0) return "resolved";
+    if (previous === 0 && next > 0) return "recurred";
+    if (next < previous) return "improved";
+    if (next > previous) return "deteriorated";
+    return "unchanged";
+  }
+  const key = current.valueType === "boolean" ? "booleanValue" :
+    current.valueType === "text" ? "textValue" :
+      current.valueType === "choice" ? "choiceValue" : null;
+  if (key == null || baseline[key] == null) return "notComparable";
+  const next = current.valueType === "boolean" ? current.booleanValue :
+    current.valueType === "text" ? current.textValue : current.choiceValue;
+  return baseline[key] === next ? "unchanged" : "notComparable";
+};
 
 const parseObservationValue = (
   value: unknown,
@@ -727,8 +906,8 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   }
   const assetClassId = optionalDocumentId(command.payload.assetClassId, "assetClassId");
   const assetInstanceId = optionalDocumentId(command.payload.assetInstanceId, "assetInstanceId");
-  if ((assetClassId == null) !== (assetInstanceId == null) ||
-      (campaign.data.assetClassId != null && assetClassId !== campaign.data.assetClassId)) {
+  if (assetClassId == null || assetInstanceId == null ||
+      assetClassId !== campaign.data.assetClassId) {
     throw new WorkflowError("invalid-argument", "Observation registry identity is invalid.");
   }
   const componentNodeId = optionalDocumentId(command.payload.componentNodeId, "componentNodeId");
@@ -745,6 +924,30 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   if (Array.isArray(definedComponents) && definedComponents.length > 0 &&
       (componentNodeId == null || !definedComponents.includes(componentNodeId))) {
     throw new WorkflowError("failed-precondition", "Observation component is outside the definition.");
+  }
+  const physicalPosition = optionalText(
+    command.payload.physicalPosition,
+    "physicalPosition",
+    80,
+  );
+  const targetKey = inspectionTargetKey({
+    assetClassId,
+    assetInstanceId,
+    componentNodeId,
+    physicalPosition,
+  });
+  const targetPopulation = parseInspectionTargetPopulation(
+    campaign.data.targetPopulation,
+  );
+  const governedTarget = targetPopulation.find((target) =>
+    target.targetKey === targetKey);
+  if (governedTarget == null || governedTarget.assetNumber !== assetNumber ||
+      governedTarget.assetTypeKey !== assetTypeKey) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Observation target is not part of the governed campaign population.",
+      {reasonCode: "inspection-target-not-in-population", targetKey},
+    );
   }
   const value = parseObservationValue(command.payload.value, definition);
   const unit = optionalText(command.payload.unit, "unit", 40);
@@ -791,7 +994,6 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   const maximum = typeof definition.maximumValue === "number" ? definition.maximumValue : null;
   const outOfRange = numeric != null &&
     ((minimum != null && numeric < minimum) || (maximum != null && numeric > maximum));
-  const targetKey = `${assetTypeKey}:${assetNumber}|${componentNodeId ?? "asset"}|${optionalText(command.payload.physicalPosition, "physicalPosition", 80) ?? "-"}`;
   if (superseded?.data != null &&
       (superseded.data.targetKey !== targetKey ||
        superseded.data.definitionVersion !== campaign.data.definitionVersion)) {
@@ -814,6 +1016,40 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   }
   const now = iso(context.serverNow);
   const nextVersion = command.expectedVersion + 1;
+  const baselineCampaignId = typeof campaign.data.baselineCampaignId === "string" ?
+    campaign.data.baselineCampaignId : null;
+  const [baselineRows, findingRows] = await Promise.all([
+    baselineCampaignId == null ? Promise.resolve([]) :
+      tx.query("inspection_observations", [
+        {field: "campaignId", op: "==", value: baselineCampaignId},
+        {field: "targetKey", op: "==", value: targetKey},
+      ]),
+    tx.query("inspection_findings", [
+      {field: "campaignId", op: "==", value: campaignId},
+      {field: "targetKey", op: "==", value: targetKey},
+    ]),
+  ]);
+  const baselineSupersededIds = new Set(baselineRows
+    .map((row) => row.data?.supersedesObservationId)
+    .filter((item): item is string => typeof item === "string"));
+  const baselineObservation = baselineRows
+    .filter((row) => row.data != null && !baselineSupersededIds.has(
+      String(row.data.observationId ?? ""),
+    ))
+    .sort((left, right) => String(right.data?.observedAt ?? "")
+      .localeCompare(String(left.data?.observedAt ?? "")))[0]?.data ?? null;
+  const comparisonOutcome = baselineObservation == null ? null :
+    compareInspectionObservation(value, baselineObservation, definition);
+  const activeFindings = findingRows.filter((row) => row.data != null &&
+    !["verifiedResolved", "acceptedCondition", "invalidated"]
+      .includes(String(row.data.status)));
+  if (activeFindings.length > 1) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Inspection target has multiple active findings and requires adjudication.",
+      {reasonCode: "inspection-finding-population-conflict", targetKey},
+    );
+  }
   const observation: JsonMap = {
     schemaVersion: 1,
     observationId,
@@ -831,7 +1067,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     componentNodeVersion: componentNodeVersion as number | null,
     componentName,
     hierarchyPath,
-    physicalPosition: optionalText(command.payload.physicalPosition, "physicalPosition", 80),
+    physicalPosition,
     targetKey,
     observedAt,
     observerUid: context.actor.uid,
@@ -852,15 +1088,81 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     evidenceUrls: stringList(command.payload.evidenceUrls, "evidenceUrls", 20, 1000),
     supersedesObservationId: superseded?.data == null ? null :
       documentId(command.payload.supersedesObservationId, "supersedesObservationId"),
+    baselineCampaignId,
+    baselineObservationId: baselineObservation?.observationId ?? null,
+    comparisonOutcome,
     recordedAt: now,
   };
   tx.create(observationPath(observationId), observation);
+  const observedPopulation = markInspectionTargetObserved({
+    targets: targetPopulation,
+    targetKey,
+    observationId,
+    observedAt,
+    actorUid: context.actor.uid,
+    actorName: context.actor.name,
+  });
+  let findingId: string | null = null;
+  const activeFinding = activeFindings[0] ?? null;
+  if (outOfRange || activeFinding != null) {
+    findingId = typeof activeFinding?.data?.findingId === "string" ?
+      activeFinding.data.findingId : `inspection-finding-${observationId}`;
+    const previous = activeFinding?.data ?? null;
+    const findingVersion = previous == null ? 1 : Number(previous.version ?? 0) + 1;
+    const finding: JsonMap = {
+      schemaVersion: 1,
+      findingId,
+      version: findingVersion,
+      campaignId,
+      definitionId: campaign.data.definitionId,
+      definitionVersion: campaign.data.definitionVersion,
+      targetKey,
+      assetTypeKey,
+      assetNumber: assetNumber as number,
+      assetClassId,
+      assetInstanceId,
+      componentNodeId,
+      componentName,
+      physicalPosition,
+      status: outOfRange ? "open" : "awaitingVerification",
+      firstObservationId: previous?.firstObservationId ?? observationId,
+      currentObservationId: observationId,
+      firstObservedAt: previous?.firstObservedAt ?? observedAt,
+      latestObservedAt: observedAt,
+      recurrenceCount: Number(previous?.recurrenceCount ?? 0) + (outOfRange ? 1 : 0),
+      linkedTicketId: previous?.linkedTicketId ?? null,
+      verificationCount: Number(previous?.verificationCount ?? 0),
+      createdAt: previous?.createdAt ?? now,
+      createdByUid: previous?.createdByUid ?? context.actor.uid,
+      createdByName: previous?.createdByName ?? context.actor.name,
+      updatedAt: now,
+      updatedByUid: context.actor.uid,
+      updatedByName: context.actor.name,
+    };
+    if (activeFinding == null) tx.create(`inspection_findings/${findingId}`, finding);
+    else tx.update(activeFinding.path, finding);
+    tx.create(`inspection_finding_events/${command.commandId}`, {
+      schemaVersion: 1,
+      eventId: command.commandId,
+      findingId,
+      campaignId,
+      operation: previous == null ? "create" : "record-follow-up-observation",
+      previousStatus: previous?.status ?? null,
+      resultingStatus: finding.status,
+      observationId,
+      performedAt: now,
+      performedByUid: context.actor.uid,
+      performedByName: context.actor.name,
+    });
+  }
   const priorLatest = typeof campaign.data.latestObservationAt === "string" ?
     campaign.data.latestObservationAt : null;
   tx.update(campaignPath(campaignId), {
     version: nextVersion,
     observationCount: Number(campaign.data.observationCount ?? 0) + 1,
     distinctTargetKeys: distinct,
+    targetPopulation: inspectionTargetPopulationJson(observedPopulation),
+    targetDispositionCounts: inspectionPopulationCounts(observedPopulation),
     latestObservationAt: priorLatest == null || observedAt > priorLatest ?
       observedAt : priorLatest,
     updatedAt: now,
@@ -877,6 +1179,8 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
       targetKey,
       outOfRange,
       issueRecommended: outOfRange,
+      findingId,
+      comparisonOutcome,
       observationCount: Number(campaign.data.observationCount ?? 0) + 1,
       distinctTargetCount: distinct.length,
     },
@@ -921,6 +1225,29 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
   if (link.exists) {
     throw new WorkflowError("already-exists", "This observation and issue are already linked.");
   }
+  const findingRows = await tx.query("inspection_findings", [
+    {field: "campaignId", op: "==", value: campaignId},
+    {field: "targetKey", op: "==", value: observation.data.targetKey},
+  ]);
+  const activeFindings = findingRows.filter((row) => row.data != null &&
+    !["verifiedResolved", "acceptedCondition", "invalidated"]
+      .includes(String(row.data.status)));
+  if (activeFindings.length > 1) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "Inspection target has multiple active findings and requires adjudication.",
+      {reasonCode: "inspection-finding-population-conflict"},
+    );
+  }
+  const finding = activeFindings[0] ?? null;
+  if (finding?.data != null && typeof finding.data.linkedTicketId === "string" &&
+      finding.data.linkedTicketId !== ticketId) {
+    throw new WorkflowError(
+      "failed-precondition",
+      "This finding is already bound to another corrective maintenance issue.",
+      {reasonCode: "inspection-finding-corrective-action-already-linked"},
+    );
+  }
   const now = iso(context.serverNow);
   tx.create(issueLinkPath(linkId), {
     schemaVersion: 1,
@@ -936,6 +1263,35 @@ export const linkInspectionObservationIssue: CommandHandler = async ({tx, comman
     linkedAt: now,
     reason,
   });
+  if (finding?.data != null) {
+    const findingId = documentId(finding.data.findingId, "findingId");
+    tx.update(finding.path, {
+      version: Number(finding.data.version ?? 0) + 1,
+      status: "correctiveActionLinked",
+      linkedTicketId: ticketId,
+      linkedAt: now,
+      linkedByUid: context.actor.uid,
+      linkedByName: context.actor.name,
+      updatedAt: now,
+      updatedByUid: context.actor.uid,
+      updatedByName: context.actor.name,
+    });
+    tx.create(`inspection_finding_events/${command.commandId}`, {
+      schemaVersion: 1,
+      eventId: command.commandId,
+      findingId,
+      campaignId,
+      operation: "link-corrective-action",
+      previousStatus: finding.data.status,
+      resultingStatus: "correctiveActionLinked",
+      observationId,
+      ticketId,
+      reason,
+      performedAt: now,
+      performedByUid: context.actor.uid,
+      performedByName: context.actor.name,
+    });
+  }
   return {
     resultKey: "inspection-observation-issue-linked",
     aggregateVersion: command.expectedVersion,

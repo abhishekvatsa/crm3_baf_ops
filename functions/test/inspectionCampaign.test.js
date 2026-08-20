@@ -28,6 +28,17 @@ function seedFurnaceHierarchy(store) {
     version: 2,
     status: 'active',
   });
+  for (const assetNumber of [1, 2, 3, 4]) {
+    store.seed(`asset_instances/furnace-${assetNumber}`, {
+      schemaVersion: 1,
+      assetInstanceId: `furnace-${assetNumber}`,
+      assetClassId: 'class-furnace',
+      assetNumber,
+      name: `Furnace ${assetNumber}`,
+      version: 1,
+      status: 'active',
+    });
+  }
 }
 
 function definition(overrides = {}) {
@@ -63,20 +74,27 @@ function upsertDefinition({expectedVersion = 0, commandId = 'definition-1', over
   };
 }
 
-function createCampaign() {
+function createCampaign({
+  commandId = 'campaign-1',
+  campaignId = 'campaign-furnace-pt-august',
+  targetAssetNumbers = [1, 2, 3],
+  baselineCampaignId = null,
+} = {}) {
   return {
-    commandId: 'campaign-1',
+    commandId,
     commandType: 'createInspectionCampaign',
-    aggregateId: 'campaign-furnace-pt-august',
+    aggregateId: campaignId,
     expectedVersion: 0,
     payload: {
       definitionId: 'inspection-definition-furnace-pt',
       definitionVersion: 1,
       purpose: 'Verify pressure-transmitter settings without stopping every Furnace together.',
       assetTypeKey: 'furnace',
-      assetClassId: null,
-      targetAssetNumbers: [1, 2, 3],
-      expectedPopulation: 26,
+      assetClassId: 'class-furnace',
+      targetAssetNumbers,
+      expectedPopulation: targetAssetNumbers.length,
+      physicalPositionLabels: ['Gas train'],
+      baselineCampaignId,
       observerRoleKeys: ['seniorInstrumentation'],
       reason: 'Open the August cross-Furnace instrument audit.',
     },
@@ -91,19 +109,20 @@ function observation({
   numericValue = 1.8,
   observedAt = '2026-08-21T05:00:00.000Z',
   supersedesObservationId = null,
+  campaignId = 'campaign-furnace-pt-august',
 } = {}) {
   return {
     commandId,
     commandType: 'recordInspectionObservation',
-    aggregateId: 'campaign-furnace-pt-august',
+    aggregateId: campaignId,
     expectedVersion,
     payload: {
       observationId,
       definitionVersion: 1,
       assetTypeKey: 'furnace',
       assetNumber,
-      assetClassId: null,
-      assetInstanceId: null,
+      assetClassId: 'class-furnace',
+      assetInstanceId: `furnace-${assetNumber}`,
       componentNodeId: 'furnace-pressure-transmitter',
       componentNodeVersion: 2,
       componentName: 'Pressure transmitter',
@@ -170,12 +189,20 @@ describe('cross-asset inspection campaigns', () => {
       definitionVersion: 1,
       maximumValue: 4,
       outOfRange: true,
-      targetKey: 'furnace:1|furnace-pressure-transmitter|Gas train',
+      targetKey: 'class-furnace:furnace-1|furnace-pressure-transmitter|Gas train',
     });
     expect(store.read('inspection_campaigns/campaign-furnace-pt-august')).toMatchObject({
-      expectedPopulation: 26,
+      expectedPopulation: 3,
       observationCount: 1,
-      distinctTargetKeys: ['furnace:1|furnace-pressure-transmitter|Gas train'],
+      distinctTargetKeys: ['class-furnace:furnace-1|furnace-pressure-transmitter|Gas train'],
+      targetDispositionCounts: {
+        pending: 2,
+        observed: 1,
+        deferred: 0,
+        unavailable: 0,
+        excludedWithReason: 0,
+        requiresReaudit: 0,
+      },
     });
   });
 
@@ -222,7 +249,7 @@ describe('cross-asset inspection campaigns', () => {
     });
   });
 
-  test('supports early campaign closure and links a finding only to the same asset', async () => {
+  test('blocks silent partial closure and links a finding only to the same asset', async () => {
     const store = new MemoryWorkflowStore();
     seedFurnaceHierarchy(store);
     const admin = seedActor(store, 'admin-1', ['admin']);
@@ -268,12 +295,46 @@ describe('cross-asset inspection campaigns', () => {
       commandType: 'setInspectionCampaignStatus',
       aggregateId: 'campaign-furnace-pt-august',
       expectedVersion: 2,
-      payload: {status: 'closed', reason: 'Close with documented partial coverage.'},
+      payload: {status: 'closed', reason: 'Attempt to close with missing targets.'},
     }, {actor: supervisor, serverNow: at('2026-08-21T05:30:00Z')}))
+      .rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'inspection-campaign-population-incomplete'},
+      });
+
+    await service.execute({
+      commandId: 'defer-2',
+      commandType: 'setInspectionTargetDisposition',
+      aggregateId: 'campaign-furnace-pt-august',
+      expectedVersion: 2,
+      payload: {
+        targetKey: 'class-furnace:furnace-2|furnace-pressure-transmitter|Gas train',
+        disposition: 'deferred',
+        reason: 'Furnace 2 remains in a heating cycle during this campaign window.',
+      },
+    }, {actor: supervisor, serverNow: at('2026-08-21T05:31:00Z')});
+    await service.execute({
+      commandId: 'unavailable-3',
+      commandType: 'setInspectionTargetDisposition',
+      aggregateId: 'campaign-furnace-pt-august',
+      expectedVersion: 3,
+      payload: {
+        targetKey: 'class-furnace:furnace-3|furnace-pressure-transmitter|Gas train',
+        disposition: 'unavailable',
+        reason: 'Furnace 3 was not safely accessible during the campaign window.',
+      },
+    }, {actor: supervisor, serverNow: at('2026-08-21T05:32:00Z')});
+    await expect(service.execute({
+      commandId: 'close-2',
+      commandType: 'setInspectionCampaignStatus',
+      aggregateId: 'campaign-furnace-pt-august',
+      expectedVersion: 4,
+      payload: {status: 'closed', reason: 'Close with every target and finding accounted.'},
+    }, {actor: supervisor, serverNow: at('2026-08-21T05:33:00Z')}))
       .resolves.toMatchObject({resultKey: 'inspection-campaign-closed'});
     expect(store.read('inspection_campaigns/campaign-furnace-pt-august')).toMatchObject({
       status: 'closed',
-      expectedPopulation: 26,
+      expectedPopulation: 3,
       observationCount: 1,
     });
   });
@@ -302,5 +363,157 @@ describe('cross-asset inspection campaigns', () => {
       overrides: {componentNodeIds: ['base-water-jacket']},
     }), {actor: admin, serverNow: at('2026-08-21T04:00:00Z')}))
       .rejects.toMatchObject({code: 'failed-precondition'});
+  });
+
+  test('adds later campaign targets without hiding the population change', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign({targetAssetNumbers: [1]}), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    });
+
+    const result = await service.execute({
+      commandId: 'add-target-4',
+      commandType: 'addInspectionCampaignTargets',
+      aggregateId: 'campaign-furnace-pt-august',
+      expectedVersion: 1,
+      payload: {
+        assetNumbers: [4],
+        physicalPositionLabels: ['North test point'],
+        reason: 'Furnace 4 entered the governed inspection population.',
+      },
+    }, {actor: admin, serverNow: at('2026-08-21T04:20:00Z')});
+
+    expect(result).toMatchObject({
+      resultKey: 'inspection-campaign-targets-added',
+      aggregateVersion: 2,
+      result: {addedTargetCount: 1, expectedPopulation: 2},
+    });
+    expect(store.read('inspection_campaigns/campaign-furnace-pt-august'))
+      .toMatchObject({
+        targetAssetNumbers: [1, 4],
+        physicalPositionLabels: ['Gas train', 'North test point'],
+        expectedPopulation: 2,
+        targetDispositionCounts: {
+          pending: 2,
+          observed: 0,
+          deferred: 0,
+          unavailable: 0,
+          excludedWithReason: 0,
+          requiresReaudit: 0,
+        },
+      });
+    expect(store.read('inspection_campaign_audits/add-target-4')).toMatchObject({
+      operation: 'add-targets',
+      campaignId: 'campaign-furnace-pt-august',
+    });
+  });
+
+  test('requires a later same-target observation to verify a finding', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const observer = seedActor(store, 'instrument-1', ['seniorInstrumentation']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign({targetAssetNumbers: [1]}), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    });
+    await service.execute(observation(), {
+      actor: observer,
+      serverNow: at('2026-08-21T05:10:00Z'),
+    });
+    await service.execute(observation({
+      commandId: 'correction-1',
+      observationId: 'correction-1',
+      expectedVersion: 2,
+      numericValue: 2.8,
+      observedAt: '2026-08-21T05:30:00.000Z',
+      supersedesObservationId: 'observation-1',
+    }), {actor: observer, serverNow: at('2026-08-21T05:40:00Z')});
+
+    await expect(service.execute({
+      commandId: 'verify-1',
+      commandType: 'verifyInspectionFinding',
+      aggregateId: 'campaign-furnace-pt-august',
+      expectedVersion: 3,
+      payload: {
+        findingId: 'inspection-finding-observation-1',
+        observationId: 'correction-1',
+        outcome: 'resolved',
+        reason: 'The corrected setting was rechecked at the same governed test point.',
+      },
+    }, {actor: observer, serverNow: at('2026-08-21T05:45:00Z')}))
+      .resolves.toMatchObject({
+        resultKey: 'inspection-finding-verifiedResolved',
+        result: {status: 'verifiedResolved'},
+      });
+    expect(store.read('inspection_findings/inspection-finding-observation-1'))
+      .toMatchObject({
+        status: 'verifiedResolved',
+        currentObservationId: 'correction-1',
+        verificationCount: 1,
+      });
+  });
+
+  test('compares a re-audit against the latest baseline observation', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const observer = seedActor(store, 'instrument-1', ['seniorInstrumentation']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign({
+      commandId: 'baseline-create',
+      campaignId: 'baseline-campaign',
+      targetAssetNumbers: [1],
+    }), {actor: admin, serverNow: at('2026-08-21T04:10:00Z')});
+    await service.execute(observation({
+      commandId: 'baseline-observation',
+      observationId: 'baseline-observation',
+      campaignId: 'baseline-campaign',
+      numericValue: 2.8,
+    }), {actor: observer, serverNow: at('2026-08-21T05:10:00Z')});
+    await service.execute({
+      commandId: 'baseline-close',
+      commandType: 'setInspectionCampaignStatus',
+      aggregateId: 'baseline-campaign',
+      expectedVersion: 2,
+      payload: {status: 'closed', reason: 'Close the fully observed baseline.'},
+    }, {actor: admin, serverNow: at('2026-08-21T05:20:00Z')});
+
+    await service.execute(createCampaign({
+      commandId: 'reaudit-create',
+      campaignId: 'reaudit-campaign',
+      targetAssetNumbers: [1],
+      baselineCampaignId: 'baseline-campaign',
+    }), {actor: admin, serverNow: at('2026-08-22T04:10:00Z')});
+    const result = await service.execute(observation({
+      commandId: 'reaudit-observation',
+      observationId: 'reaudit-observation',
+      campaignId: 'reaudit-campaign',
+      numericValue: 1.8,
+      observedAt: '2026-08-22T05:00:00.000Z',
+    }), {actor: observer, serverNow: at('2026-08-22T05:10:00Z')});
+    expect(result.result).toMatchObject({comparisonOutcome: 'recurred'});
+    expect(store.read('inspection_observations/reaudit-observation')).toMatchObject({
+      baselineCampaignId: 'baseline-campaign',
+      baselineObservationId: 'baseline-observation',
+      comparisonOutcome: 'recurred',
+    });
   });
 });

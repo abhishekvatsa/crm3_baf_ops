@@ -24,3 +24,14 @@ final inspectionObservationsProvider = StreamProvider.family<
 >((ref, campaignId) {
   return ref.watch(inspectionRepositoryProvider).watchObservations(campaignId);
 });
+
+final inspectionFindingsProvider =
+    StreamProvider.family<List<InspectionFinding>, String>((ref, campaignId) {
+      return ref.watch(inspectionRepositoryProvider).watchFindings(campaignId);
+    });
+
+final allInspectionFindingsProvider = StreamProvider<List<InspectionFinding>>((
+  ref,
+) {
+  return ref.watch(inspectionRepositoryProvider).watchAllFindings();
+});

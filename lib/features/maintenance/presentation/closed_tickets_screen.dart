@@ -1,6 +1,7 @@
 // FILE: lib/features/maintenance/presentation/closed_tickets_screen.dart
 
 import 'dart:async' show unawaited;
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -16,6 +17,12 @@ import '../../../core/services/sync_coordinator.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../features/auth/data/user_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../maintenance_workflow/domain/workflow_command_contract.dart';
+import '../../maintenance_workflow/domain/workflow_types.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
+import '../../maintenance_workflow/services/workflow_command_factory.dart';
+import '../../planned_maintenance/data/maintenance_intelligence.dart';
+import '../../planned_maintenance/providers/maintenance_intelligence_provider.dart';
 
 class ClosedTicketsScreen extends ConsumerWidget {
   const ClosedTicketsScreen({super.key});
@@ -64,6 +71,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
   int _totalCount = 0;
   ClosedTicketPageCursor? _lastDocument;
   final Set<String> _reopeningTicketKeys = <String>{};
+  final Set<String> _classifyingTicketKeys = <String>{};
   late final ProviderSubscription<int> _refreshSubscription;
 
   @override
@@ -284,6 +292,62 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     }
   }
 
+  Future<void> _classifyTicket(
+    MaintenanceRecord ticket,
+    List<MaintenanceClassDefinition> definitions,
+  ) async {
+    final ticketId = ticket.firestoreId?.trim();
+    if (ticketId == null || ticketId.isEmpty) return;
+    final current = _ticketMaintenanceClass(ticket);
+    final draft = await showDialog<_TicketClassificationDraft>(
+      context: context,
+      builder:
+          (_) => _TicketClassificationDialog(
+            definitions: definitions,
+            current: current,
+          ),
+    );
+    if (draft == null || !mounted) return;
+    final ticketKey = _ticketKey(ticket);
+    setState(() => _classifyingTicketKeys.add(ticketKey));
+    try {
+      await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(
+            WorkflowCommand(
+              commandId: WorkflowCommandFactory.uniqueId(
+                'classify_maintenance_ticket',
+              ),
+              type: WorkflowCommandType.classifyMaintenanceTicket,
+              aggregateId: ticketId,
+              expectedVersion: ticket.version,
+              payload: {
+                'definitionId': draft.definition.id,
+                'definitionVersion': draft.definition.version,
+                'reason': draft.reason,
+              },
+            ),
+          );
+      await ref
+          .read(syncCoordinatorProvider)
+          .runFullSync(reason: 'maintenance_issue_classified', force: true);
+      await _loadInitial();
+      _showSnack(
+        message: 'Maintenance class recorded against the actual closure time.',
+        color: BafColors.success,
+      );
+    } catch (error) {
+      _showSnack(
+        message: 'Could not classify maintenance: $error',
+        color: BafColors.danger,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _classifyingTicketKeys.remove(ticketKey));
+      }
+    }
+  }
+
   void _showSnack({required String message, required Color color}) {
     if (!mounted) {
       return;
@@ -297,6 +361,9 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
   Widget build(BuildContext context) {
     final appUser = ref.watch(currentAppUserProvider).value;
     final canReopenTickets = appUser?.canReopenMaintenanceTicket == true;
+    final maintenanceClasses =
+        ref.watch(maintenanceClassDefinitionsProvider).value ??
+        const <MaintenanceClassDefinition>[];
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -344,6 +411,20 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
 
                     final ticket = _tickets[index - 1];
                     final ticketKey = _ticketKey(ticket);
+                    final assetClassId =
+                        ticket.assetHierarchyReference?.assetClassId;
+                    final matchingClasses =
+                        maintenanceClasses
+                            .where(
+                              (definition) => definition.appliesTo(
+                                assetTypeKey: ticket.assetType.name,
+                                assetClassId: assetClassId,
+                              ),
+                            )
+                            .toList();
+                    final closedAt = ticket.endDate ?? ticket.updatedAt;
+                    final reopenWindowElapsed =
+                        DateTime.now().difference(closedAt).inHours >= 4;
                     return Padding(
                       key: ValueKey(ticketKey),
                       padding: const EdgeInsets.only(bottom: BafSpacing.md),
@@ -352,12 +433,41 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
                         canReopenTicket: canReopenTickets,
                         isReopening: _reopeningTicketKeys.contains(ticketKey),
                         onReopen: () => _reopenTicket(ticket),
+                        maintenanceClass: _ticketMaintenanceClass(ticket),
+                        canClassify:
+                            appUser?.canClassifyCompletedMaintenance == true &&
+                            reopenWindowElapsed &&
+                            ticket.assetType != AssetType.innerCover &&
+                            ticket.firestoreId?.trim().isNotEmpty == true &&
+                            matchingClasses.isNotEmpty,
+                        isClassifying: _classifyingTicketKeys.contains(
+                          ticketKey,
+                        ),
+                        onClassify:
+                            () => _classifyTicket(ticket, matchingClasses),
                       ),
                     );
                   },
                 ),
       ),
     );
+  }
+
+  FrozenMaintenanceClass? _ticketMaintenanceClass(MaintenanceRecord ticket) {
+    final metadata = ticket.metadataJson?.trim();
+    if (metadata == null || metadata.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(metadata);
+      if (decoded is! Map || decoded['maintenanceClassification'] is! Map) {
+        return null;
+      }
+      return FrozenMaintenanceClass.fromMap(
+        Map<String, dynamic>.from(decoded['maintenanceClassification'] as Map),
+        source: 'maintenance ${ticket.firestoreId}/maintenanceClassification',
+      );
+    } on Object {
+      return null;
+    }
   }
 
   static String _assetTypeLabel(AssetType type) {
@@ -463,6 +573,133 @@ class _ReopenTicketDialogState extends State<_ReopenTicketDialog> {
   }
 }
 
+class _TicketClassificationDraft {
+  const _TicketClassificationDraft({
+    required this.definition,
+    required this.reason,
+  });
+
+  final MaintenanceClassDefinition definition;
+  final String reason;
+}
+
+class _TicketClassificationDialog extends StatefulWidget {
+  const _TicketClassificationDialog({
+    required this.definitions,
+    required this.current,
+  });
+
+  final List<MaintenanceClassDefinition> definitions;
+  final FrozenMaintenanceClass? current;
+
+  @override
+  State<_TicketClassificationDialog> createState() =>
+      _TicketClassificationDialogState();
+}
+
+class _TicketClassificationDialogState
+    extends State<_TicketClassificationDialog> {
+  late String _definitionId;
+  late final TextEditingController _reason;
+
+  @override
+  void initState() {
+    super.initState();
+    final currentId = widget.current?.definitionId;
+    _definitionId =
+        widget.definitions.any((item) => item.id == currentId)
+            ? currentId!
+            : widget.definitions.first.id;
+    _reason = TextEditingController(
+      text:
+          widget.current == null
+              ? 'Classify final resolved issue work against the reviewed scope.'
+              : 'Correct the completed issue classification with audited evidence.',
+    );
+  }
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        widget.current == null
+            ? 'Classify completed maintenance'
+            : 'Correct maintenance class',
+      ),
+      content: SizedBox(
+        width: 540,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This writes an immutable completion event at the issue’s actual closure time and updates the applicable cadence counters.',
+              style: TextStyle(color: BafColors.textSecondary, height: 1.35),
+            ),
+            const SizedBox(height: BafSpacing.md),
+            DropdownButtonFormField<String>(
+              initialValue: _definitionId,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Maintenance class'),
+              items:
+                  widget.definitions
+                      .map(
+                        (definition) => DropdownMenuItem(
+                          value: definition.id,
+                          child: Text(definition.title),
+                        ),
+                      )
+                      .toList(),
+              onChanged:
+                  (value) =>
+                      setState(() => _definitionId = value ?? _definitionId),
+            ),
+            const SizedBox(height: BafSpacing.sm),
+            TextField(
+              controller: _reason,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Classification reason',
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: () {
+            final definition = widget.definitions.firstWhere(
+              (item) => item.id == _definitionId,
+            );
+            final reason = _reason.text.trim();
+            if (reason.length < 5) return;
+            Navigator.pop(
+              context,
+              _TicketClassificationDraft(
+                definition: definition,
+                reason: reason,
+              ),
+            );
+          },
+          icon: const Icon(Icons.event_repeat_rounded),
+          label: const Text('Record class'),
+        ),
+      ],
+    );
+  }
+}
+
 class _ClosedTicketsHeader extends StatelessWidget {
   final int totalCount;
   final int loadedCount;
@@ -562,12 +799,20 @@ class _ClosedTicketCard extends StatelessWidget {
   final bool canReopenTicket;
   final bool isReopening;
   final VoidCallback onReopen;
+  final FrozenMaintenanceClass? maintenanceClass;
+  final bool canClassify;
+  final bool isClassifying;
+  final VoidCallback onClassify;
 
   const _ClosedTicketCard({
     required this.ticket,
     required this.canReopenTicket,
     required this.isReopening,
     required this.onReopen,
+    required this.maintenanceClass,
+    required this.canClassify,
+    required this.isClassifying,
+    required this.onClassify,
   });
 
   @override
@@ -689,6 +934,12 @@ class _ClosedTicketCard extends StatelessWidget {
                                       ? Icons.pause_circle_outline_rounded
                                       : Icons.account_tree_outlined,
                             ),
+                          if (maintenanceClass != null)
+                            StatusBadge(
+                              label: maintenanceClass!.title,
+                              color: BafColors.success,
+                              icon: Icons.event_repeat_rounded,
+                            ),
                         ],
                       ),
                       const SizedBox(height: BafSpacing.md),
@@ -793,6 +1044,32 @@ class _ClosedTicketCard extends StatelessWidget {
                             ],
                           ),
                         ),
+                      if (canClassify) ...[
+                        const SizedBox(height: BafSpacing.sm),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: isClassifying ? null : onClassify,
+                            icon:
+                                isClassifying
+                                    ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                    : const Icon(Icons.event_repeat_rounded),
+                            label: Text(
+                              isClassifying
+                                  ? 'Recording class…'
+                                  : maintenanceClass == null
+                                  ? 'Classify completed maintenance'
+                                  : 'Correct maintenance class',
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

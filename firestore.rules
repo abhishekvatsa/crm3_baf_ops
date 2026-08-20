@@ -3508,12 +3508,32 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /inspection_target_audits/{docId} {
+      allow read: if isAdminOrSI();
+      allow create, update, delete: if false;
+    }
+
     match /inspection_observations/{docId} {
       allow read: if isApprovedUser();
       allow create, update, delete: if false;
     }
 
     match /inspection_issue_links/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_findings/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_finding_events/{docId} {
+      allow read: if isApprovedUser();
+      allow create, update, delete: if false;
+    }
+
+    match /inspection_verifications/{docId} {
       allow read: if isApprovedUser();
       allow create, update, delete: if false;
     }

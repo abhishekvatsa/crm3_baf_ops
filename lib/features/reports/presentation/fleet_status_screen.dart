@@ -8,11 +8,14 @@ import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/providers/plant_asset_overview_provider.dart';
+import '../../inspections/data/inspection_campaign.dart';
+import '../../inspections/providers/inspection_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/domain/burner_lockout_case.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../operational_events/presentation/operational_events_screen.dart';
 import '../../operational_events/providers/operational_event_provider.dart';
+import '../../planned_maintenance/providers/maintenance_intelligence_provider.dart';
 import '../models/operations_report.dart';
 import '../models/burner_reliability_report.dart';
 import '../providers/operations_report_provider.dart';
@@ -227,6 +230,40 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 24),
+                  const _SectionTitle(
+                    title: 'Maintenance assurance',
+                    subtitle: 'Current cadence and inspection follow-through',
+                  ),
+                  const SizedBox(height: 10),
+                  _MetricGrid(
+                    metrics: [
+                      _MetricData(
+                        'Overdue cadence',
+                        report.overdueMaintenanceCount,
+                        Icons.event_busy_outlined,
+                        BafColors.danger,
+                      ),
+                      _MetricData(
+                        'Due in 7 days',
+                        report.dueSoonMaintenanceCount,
+                        Icons.upcoming_outlined,
+                        BafColors.warning,
+                      ),
+                      _MetricData(
+                        'Active findings',
+                        report.activeInspectionFindingCount,
+                        Icons.fact_check_outlined,
+                        BafColors.maintenance,
+                      ),
+                      _MetricData(
+                        'Awaiting verification',
+                        report.awaitingInspectionVerificationCount,
+                        Icons.verified_outlined,
+                        BafColors.planned,
+                      ),
+                    ],
+                  ),
                   if (report.classSummaries.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     const _SectionTitle(
@@ -249,6 +286,12 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                   _BurnerHistorySection(tickets: report.tickets),
                   const SizedBox(height: 24),
                   _OpenIssuesSection(issues: report.openIssues),
+                  if (report.activeInspectionFindings.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _InspectionFindingsSection(
+                      findings: report.activeInspectionFindings,
+                    ),
+                  ],
                   if (report.eventOccurrences.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     _DisruptionSection(occurrences: report.eventOccurrences),
@@ -311,6 +354,8 @@ void _invalidateReportSources(WidgetRef ref, OperationsReportFilter filter) {
   ref.invalidate(operationsReportTicketsProvider(period));
   ref.invalidate(operationsReportExecutionsProvider(period));
   ref.invalidate(operationalEventsForReportsProvider);
+  ref.invalidate(maintenanceDueStatesProvider);
+  ref.invalidate(allInspectionFindingsProvider);
   ref.invalidate(assetClassesProvider);
   ref.invalidate(allAssetInstancesProvider);
   ref.invalidate(assetOperationalConditionsProvider);
@@ -676,6 +721,12 @@ class _ClassSummaryCard extends StatelessWidget {
             _CompactCount('Open issues', summary.openIssueCount),
             _CompactCount('PM jobs', summary.plannedJobCount),
             _CompactCount('Open PM', summary.openPlannedJobCount),
+            _CompactCount('Overdue', summary.overdueMaintenanceCount),
+            _CompactCount('Due soon', summary.dueSoonMaintenanceCount),
+            _CompactCount(
+              'Active findings',
+              summary.activeInspectionFindingCount,
+            ),
             _CompactCount('Disruptions', summary.disruptionCount),
           ],
         ),
@@ -1073,6 +1124,110 @@ class _OpenIssuesSection extends StatelessWidget {
   );
 }
 
+class _InspectionFindingsSection extends StatelessWidget {
+  const _InspectionFindingsSection({required this.findings});
+
+  final List<InspectionFinding> findings;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _SectionTitle(
+        title: 'Active inspection findings',
+        subtitle: '${findings.length} conditions still under follow-through',
+      ),
+      const SizedBox(height: 8),
+      ...findings
+          .take(50)
+          .map(
+            (finding) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: BafColors.card,
+                  borderRadius: BorderRadius.circular(BafRadius.medium),
+                  border: Border.all(
+                    color:
+                        finding.status == InspectionFindingStatus.open
+                            ? BafColors.danger.withValues(alpha: 0.28)
+                            : BafColors.border,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      finding.status ==
+                              InspectionFindingStatus.awaitingVerification
+                          ? Icons.verified_outlined
+                          : Icons.fact_check_outlined,
+                      color:
+                          finding.status == InspectionFindingStatus.open
+                              ? BafColors.danger
+                              : BafColors.maintenance,
+                      size: 21,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            finding.componentName ?? 'Asset-level finding',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '${finding.assetTypeKey} ${finding.assetNumber}'
+                            '${finding.physicalPosition == null ? '' : ' · ${finding.physicalPosition}'}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: BafColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            '${_inspectionFindingStatusLabel(finding.status)} · '
+                            'last observed ${DateFormat('dd MMM yyyy').format(finding.latestObservedAt)}'
+                            '${finding.linkedTicketId == null ? '' : ' · issue linked'}',
+                            style: const TextStyle(
+                              color: BafColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      if (findings.length > 50)
+        Text(
+          '${findings.length - 50} more active findings are included in the totals.',
+          style: const TextStyle(color: BafColors.textSecondary, fontSize: 12),
+        ),
+    ],
+  );
+}
+
+String _inspectionFindingStatusLabel(
+  InspectionFindingStatus status,
+) => switch (status) {
+  InspectionFindingStatus.open => 'Open',
+  InspectionFindingStatus.correctiveActionLinked => 'Corrective issue linked',
+  InspectionFindingStatus.awaitingVerification => 'Awaiting verification',
+  InspectionFindingStatus.verifiedResolved => 'Verified resolved',
+  InspectionFindingStatus.acceptedCondition => 'Accepted condition',
+  InspectionFindingStatus.invalidated => 'Invalidated',
+};
+
 class _DisruptionSection extends StatelessWidget {
   const _DisruptionSection({required this.occurrences});
   final List<OperationalEventReportOccurrence> occurrences;
@@ -1154,7 +1309,7 @@ class _SourceWindowNotice extends StatelessWidget {
         SizedBox(width: 7),
         Expanded(
           child: Text(
-            'All issue, planned-job and disruption records overlapping the selected period were evaluated.',
+            'Issue, planned-job and disruption records overlapping the selected period were evaluated. Current maintenance cadence and active inspection findings are included for the selected asset scope.',
             style: TextStyle(
               color: BafColors.textSecondary,
               fontSize: 11,
