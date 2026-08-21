@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/core/widgets/baf_ui.dart';
+import 'package:crm3_baf_ops/core/widgets/dashboard/dashboard_widgets.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -158,7 +160,10 @@ void main() {
         await tester.pump();
 
         expect(find.text('Maintenance intelligence'), findsOneWidget);
-        expect(find.byTooltip('Refresh maintenance intelligence'), findsOneWidget);
+        expect(
+          find.byTooltip('Refresh maintenance intelligence'),
+          findsOneWidget,
+        );
         expect(tester.takeException(), isNull);
       });
     }
@@ -197,7 +202,182 @@ void main() {
       await tester.pump();
 
       expect(find.text('Inspection programmes'), findsOneWidget);
-      expect(find.text('Component evidence across selected assets'), findsNothing);
+      expect(
+        find.text('Component evidence across selected assets'),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    test('surface depth and text contrast remain materially distinct', () {
+      expect(BafColors.background, isNot(BafColors.surfaceTint));
+      expect(BafColors.surfaceTint, isNot(BafColors.surfaceRaised));
+      expect(
+        BafShadows.raised.single.blurRadius,
+        greaterThan(BafShadows.soft.single.blurRadius),
+      );
+      expect(
+        BafShadows.soft.single.blurRadius,
+        greaterThan(BafShadows.subtle.single.blurRadius),
+      );
+      expect(
+        _contrastRatio(BafColors.textPrimary, BafColors.surfaceRaised),
+        greaterThanOrEqualTo(7),
+      );
+      expect(
+        _contrastRatio(BafColors.textSecondary, BafColors.surfaceRaised),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(
+        _contrastRatio(Colors.white, BafColors.graphite),
+        greaterThanOrEqualTo(7),
+      );
+    });
+
+    testWidgets('screen context rail and solid canvas have stable geometry', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          home: const BafScreenScaffold(
+            title: 'Asset condition',
+            subtitle: 'Operational readiness by equipment class',
+            icon: Icons.precision_manufacturing_outlined,
+            accent: BafColors.assets,
+            body: SizedBox.expand(),
+          ),
+        ),
+      );
+
+      expect(tester.getSize(find.byType(BafContextRail)).height, 3);
+      expect(tester.getSize(find.byType(BafContextRail)).width, 320);
+      expect(find.byType(BafPageCanvas), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('full-screen states scroll at accessibility text sizes', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(640, 260));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          builder:
+              (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(2)),
+                child: child!,
+              ),
+          home: BafScreenStateScaffold.error(
+            appBarTitle: 'Maintenance intelligence',
+            appBarSubtitle: 'Governed evidence and recommendations',
+            appBarIcon: Icons.analytics_outlined,
+            message:
+                'The current evidence could not be opened safely. '
+                'Review the connection and try the governed read again.',
+            onRetry: () {},
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+      await tester.ensureVisible(find.text('Try again'));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('interactive records gain depth without changing geometry', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(412, 300));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 320,
+                child: BafRecordSurface(
+                  accent: BafColors.assets,
+                  onTap: () {},
+                  child: const Text('Furnace 12 - ready for operation'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final surface = find.byType(BafRecordSurface);
+      final initialRect = tester.getRect(surface);
+      final initial = tester.widget<AnimatedContainer>(
+        find.descendant(of: surface, matching: find.byType(AnimatedContainer)),
+      );
+      final initialDecoration = initial.decoration! as BoxDecoration;
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(initialRect.center);
+      await tester.pump(BafMotion.standard);
+
+      final highlighted = tester.widget<AnimatedContainer>(
+        find.descendant(of: surface, matching: find.byType(AnimatedContainer)),
+      );
+      final highlightedDecoration = highlighted.decoration! as BoxDecoration;
+
+      expect(tester.getRect(surface), initialRect);
+      expect(
+        highlightedDecoration.boxShadow!.single.blurRadius,
+        greaterThan(initialDecoration.boxShadow!.single.blurRadius),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('industrial header treatment remains quiet at phone width', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 300));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          home: const Scaffold(
+            body: Padding(
+              padding: EdgeInsets.all(BafSpacing.md),
+              child: BafDarkHeaderSurface(
+                child: Row(
+                  children: [
+                    Icon(Icons.factory_outlined, color: Colors.white),
+                    SizedBox(width: BafSpacing.md),
+                    Expanded(
+                      child: Text(
+                        'Shift overview',
+                        style: TextStyle(color: Colors.white, fontSize: 22),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(CustomPaint), findsWidgets);
+      expect(find.text('Shift overview'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -223,9 +403,10 @@ void main() {
     });
 
     test('primary creation does not float over directive records', () {
-      final source = File(
-        'lib/features/directives/presentation/directives_screen.dart',
-      ).readAsStringSync();
+      final source =
+          File(
+            'lib/features/directives/presentation/directives_screen.dart',
+          ).readAsStringSync();
 
       expect(source, contains("label: const Text('New Directive')"));
       expect(source, contains('onCreate:'));
@@ -234,10 +415,11 @@ void main() {
     });
 
     test('operational events exposes one stable creation control', () {
-      final source = File(
-        'lib/features/operational_events/presentation/'
-        'operational_events_screen.dart',
-      ).readAsStringSync();
+      final source =
+          File(
+            'lib/features/operational_events/presentation/'
+            'operational_events_screen.dart',
+          ).readAsStringSync();
 
       expect(source, contains("tooltip: 'Record event'"));
       expect(source, isNot(contains('FloatingActionButton')));
@@ -294,4 +476,16 @@ void main() {
       }
     });
   });
+}
+
+double _contrastRatio(Color first, Color second) {
+  final lighter =
+      first.computeLuminance() > second.computeLuminance()
+          ? first.computeLuminance()
+          : second.computeLuminance();
+  final darker =
+      first.computeLuminance() > second.computeLuminance()
+          ? second.computeLuminance()
+          : first.computeLuminance();
+  return (lighter + 0.05) / (darker + 0.05);
 }

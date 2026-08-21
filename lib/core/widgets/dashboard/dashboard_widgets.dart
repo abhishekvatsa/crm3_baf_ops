@@ -6,6 +6,123 @@ import '../../theme/baf_design_system.dart';
 import '../brand/brand_widgets.dart';
 import 'status_badge.dart';
 
+class BafDarkHeaderSurface extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  const BafDarkHeaderSurface({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(BafSpacing.lg),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: BafColors.graphite,
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(color: const Color(0xFF2D3C44)),
+        boxShadow: BafShadows.raised,
+      ),
+      child: Stack(
+        children: [
+          const Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _IndustrialHeaderPainter()),
+            ),
+          ),
+          Padding(padding: padding, child: child),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 3,
+            child: Row(
+              children: [
+                Expanded(flex: 5, child: ColoredBox(color: BafColors.teal)),
+                Expanded(flex: 3, child: ColoredBox(color: BafColors.cobalt)),
+                Expanded(flex: 2, child: ColoredBox(color: BafColors.ember)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BafSectionSurface extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final Color? accent;
+
+  const BafSectionSurface({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(BafSpacing.md),
+    this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: BafColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(BafRadius.medium),
+        border: Border.all(
+          color: accent?.withValues(alpha: 0.20) ?? BafColors.border,
+        ),
+        boxShadow: BafShadows.subtle,
+      ),
+      child: child,
+    );
+  }
+}
+
+class _IndustrialHeaderPainter extends CustomPainter {
+  const _IndustrialHeaderPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final line =
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.045)
+          ..strokeWidth = 1;
+    final strongLine =
+        Paint()
+          ..color = BafColors.teal.withValues(alpha: 0.16)
+          ..strokeWidth = 1.2;
+    final start = size.width * 0.60;
+    for (var index = 0; index < 5; index++) {
+      final x = start + index * 34;
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x + size.height * 0.55, size.height),
+        line,
+      );
+    }
+    canvas.drawLine(
+      Offset(size.width * 0.76, size.height * 0.18),
+      Offset(size.width, size.height * 0.18),
+      strongLine,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.70, size.height * 0.72),
+      Offset(size.width, size.height * 0.72),
+      line,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _IndustrialHeaderPainter oldDelegate) => false;
+}
+
 class DashboardCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -26,10 +143,13 @@ class DashboardCard extends StatelessWidget {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color:
+            backgroundColor == BafColors.card
+                ? BafColors.surfaceRaised
+                : backgroundColor,
         borderRadius: BorderRadius.circular(BafRadius.large),
         border: Border.all(color: borderColor ?? BafColors.border),
-        boxShadow: BafShadows.subtle,
+        boxShadow: BafShadows.soft,
       ),
       child: child,
     );
@@ -57,14 +177,7 @@ class DashboardHeader extends StatelessWidget {
             ? 'there'
             : userName.trim().split(RegExp(r'\s+')).first;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(BafSpacing.lg),
-      decoration: BoxDecoration(
-        color: BafColors.navy,
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        boxShadow: BafShadows.soft,
-      ),
+    return BafDarkHeaderSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -274,10 +274,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            final body = _LazyIndexedStack(
-              index: safeIndex,
-              itemCount: tabs.length,
-              itemBuilder: (context, index) => tabs[index].buildScreen(context),
+            final body = BafPageCanvas(
+              child: _LazyIndexedStack(
+                index: safeIndex,
+                itemCount: tabs.length,
+                itemBuilder:
+                    (context, index) => tabs[index].buildScreen(context),
+              ),
             );
             final useRail = constraints.maxWidth >= 900;
 
@@ -286,38 +289,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 backgroundColor: BafColors.background,
                 body: Row(
                   children: [
-                    SafeArea(
-                      child: NavigationRail(
-                        selectedIndex: safeIndex,
-                        extended: constraints.maxWidth >= 1200,
-                        minExtendedWidth: 210,
-                        leading: Padding(
-                          padding: const EdgeInsets.only(
-                            top: BafSpacing.sm,
-                            bottom: BafSpacing.lg,
+                    Container(
+                      decoration: const BoxDecoration(
+                        color: BafColors.surfaceRaised,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x120D1C22),
+                            blurRadius: 14,
+                            offset: Offset(4, 0),
                           ),
-                          child:
+                        ],
+                      ),
+                      child: SafeArea(
+                        child: NavigationRail(
+                          selectedIndex: safeIndex,
+                          extended: constraints.maxWidth >= 1200,
+                          minExtendedWidth: 210,
+                          leading: Padding(
+                            padding: const EdgeInsets.only(
+                              top: BafSpacing.sm,
+                              bottom: BafSpacing.lg,
+                            ),
+                            child:
+                                constraints.maxWidth >= 1200
+                                    ? const BafBrandLockup(compact: true)
+                                    : const ManmithasMark(size: 38),
+                          ),
+                          onDestinationSelected:
+                              (index) => setState(() => _currentIndex = index),
+                          labelType:
                               constraints.maxWidth >= 1200
-                                  ? const BafBrandLockup(compact: true)
-                                  : const ManmithasMark(size: 38),
+                                  ? NavigationRailLabelType.none
+                                  : NavigationRailLabelType.all,
+                          destinations: tabs
+                              .map(
+                                (tab) => NavigationRailDestination(
+                                  icon: tab.destination.icon,
+                                  selectedIcon:
+                                      tab.destination.selectedIcon ??
+                                      tab.destination.icon,
+                                  label: Text(tab.label),
+                                ),
+                              )
+                              .toList(growable: false),
                         ),
-                        onDestinationSelected:
-                            (index) => setState(() => _currentIndex = index),
-                        labelType:
-                            constraints.maxWidth >= 1200
-                                ? NavigationRailLabelType.none
-                                : NavigationRailLabelType.all,
-                        destinations: tabs
-                            .map(
-                              (tab) => NavigationRailDestination(
-                                icon: tab.destination.icon,
-                                selectedIcon:
-                                    tab.destination.selectedIcon ??
-                                    tab.destination.icon,
-                                label: Text(tab.label),
-                              ),
-                            )
-                            .toList(growable: false),
                       ),
                     ),
                     const VerticalDivider(width: 1),
@@ -333,6 +348,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               bottomNavigationBar: DecoratedBox(
                 decoration: const BoxDecoration(
                   border: Border(top: BorderSide(color: BafColors.border)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x140D1C22),
+                      blurRadius: 16,
+                      offset: Offset(0, -4),
+                    ),
+                  ],
                 ),
                 child: NavigationBar(
                   selectedIndex: safeIndex,
@@ -853,15 +875,10 @@ class _DashboardHome extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: BafSpacing.sm),
-              Container(
+              BafSectionSurface(
                 padding: const EdgeInsets.symmetric(
                   horizontal: BafSpacing.md,
                   vertical: BafSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: BafColors.card,
-                  border: Border.all(color: BafColors.border),
-                  borderRadius: BorderRadius.circular(BafRadius.medium),
                 ),
                 child: _AttentionPanel(
                   ticketCount: ticketCount,
@@ -920,15 +937,21 @@ class _HomeQuickIcon extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => IconButton.outlined(
-    tooltip: tooltip,
-    onPressed: onPressed,
-    style: IconButton.styleFrom(
-      foregroundColor: color,
-      backgroundColor: BafColors.card,
-      side: BorderSide(color: color.withValues(alpha: 0.28)),
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(BafRadius.small),
+      boxShadow: BafShadows.subtle,
     ),
-    icon: icon,
+    child: IconButton.outlined(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        foregroundColor: color,
+        backgroundColor: BafColors.surfaceRaised,
+        side: BorderSide(color: color.withValues(alpha: 0.30)),
+      ),
+      icon: icon,
+    ),
   );
 }
 
@@ -946,7 +969,18 @@ class _HomeSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Icon(icon, size: 20, color: BafColors.steel),
+      Container(
+        width: 30,
+        height: 30,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: BafColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(BafRadius.small),
+          border: Border.all(color: BafColors.border),
+          boxShadow: BafShadows.subtle,
+        ),
+        child: Icon(icon, size: 17, color: BafColors.steel),
+      ),
       const SizedBox(width: BafSpacing.sm),
       Expanded(
         child: Text(
@@ -1044,46 +1078,40 @@ class _WatchTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: BafColors.card,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(BafRadius.medium),
-      side: const BorderSide(color: BafColors.border),
-    ),
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(BafRadius.medium),
-      child: SizedBox(
-        height: 96,
-        child: Padding(
-          padding: const EdgeInsets.all(BafSpacing.sm),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 23),
-              const SizedBox(height: BafSpacing.xs),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: color,
-                  fontSize: value.length > 6 ? 10 : 15,
-                  fontWeight: FontWeight.w900,
-                ),
+  Widget build(BuildContext context) => BafRecordSurface(
+    onTap: onTap,
+    accent: color,
+    padding: EdgeInsets.zero,
+    child: SizedBox(
+      height: 96,
+      child: Padding(
+        padding: const EdgeInsets.all(BafSpacing.sm),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 23),
+            const SizedBox(height: BafSpacing.xs),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: value.length > 6 ? 10 : 15,
+                fontWeight: FontWeight.w900,
               ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: BafColors.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
+            ),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: BafColors.textSecondary,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     ),
@@ -1570,15 +1598,8 @@ class _DirectoryHeader extends StatelessWidget {
   const _DirectoryHeader();
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(BafSpacing.lg),
-    decoration: BoxDecoration(
-      color: BafColors.navy,
-      borderRadius: BorderRadius.circular(BafRadius.medium),
-      boxShadow: BafShadows.soft,
-    ),
-    child: const Row(
+  Widget build(BuildContext context) => const BafDarkHeaderSurface(
+    child: Row(
       children: [
         SizedBox(
           width: 42,
@@ -1657,12 +1678,8 @@ class _MoreSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: BafSpacing.sm),
-        Container(
-          decoration: BoxDecoration(
-            color: BafColors.card,
-            border: Border.all(color: BafColors.border),
-            borderRadius: BorderRadius.circular(BafRadius.medium),
-          ),
+        BafSectionSurface(
+          padding: EdgeInsets.zero,
           child: Column(
             children: List<Widget>.generate(children.length * 2 - 1, (index) {
               return index.isEven
