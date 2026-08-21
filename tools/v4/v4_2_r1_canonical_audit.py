@@ -7934,7 +7934,7 @@ check(
     and p05_record.get("currentStatus") == "CLOSED"
     and p05_record.get("title")
         == "Production Firestore recovery posture lacks PITR, delete protection, native backups and restore proof"
-    and len(p05_record.get("evidence", [])) == 4
+    and len(p05_record.get("evidence", [])) == 6
     and [
         entry.get("status")
         for entry in p05_record.get("statusHistory", [])
@@ -7969,7 +7969,32 @@ p05_closure_path = (
 p05_closure = data(
     "release/evidence/p05-firestore-recoverability-closure.json"
 )
+p05_authority_receipt_path = (
+    ROOT
+    / "release/evidence/p05-firestore-recoverability-authority-repair-live-readback.json"
+)
+p05_authority_receipt = data(
+    "release/evidence/p05-firestore-recoverability-authority-repair-live-readback.json"
+)
+p05_authority_receipt_body = dict(p05_authority_receipt)
+p05_authority_receipt_body.pop("receiptSha256", None)
+p05_authority_receipt_canonical_sha = hashlib.sha256(
+    json.dumps(
+        p05_authority_receipt_body,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+).hexdigest()
+p05_authority_repair_path = (
+    ROOT
+    / "release/evidence/p05-firestore-recoverability-authority-repair.json"
+)
+p05_authority_repair = data(
+    "release/evidence/p05-firestore-recoverability-authority-repair.json"
+)
 p05_contract = text("test/p05_programme_ledger_closure_contract_test.dart")
+p05_authority_contract = text("test/p05_authority_repair_contract_test.dart")
 check(
     "P-05 Firestore recoverability is closed by exact live controls, READY backup and isolated restore proof",
     sha(p05_receipt_path)
@@ -8085,7 +8110,110 @@ check(
     and p05_closure.get("historicalBoundary", {}).get(
         "priorAdversePostureRewritten"
     ) is False
+    and sha(p05_authority_receipt_path)
+        == "80875E8284D6AB24C8B20E18E795CA24B5D37C9A4CD9BC2C308287167E35597D"
+    and p05_authority_receipt_path.stat().st_size == 8364
+    and p05_authority_receipt.get("receiptSha256")
+        == p05_authority_receipt_canonical_sha
+    and p05_authority_receipt.get("receiptSha256")
+        == "46db50312e005f60e22117a14bcf03845d489296e277eb65cf1ff6de3e3f57b0"
+    and p05_authority_receipt.get("failedChecks") == []
+    and all(
+        value is True
+        for value in p05_authority_receipt.get("checks", {}).values()
+    )
+    and p05_authority_receipt.get("source", {}).get("before")
+        == p05_authority_receipt.get("source", {}).get("after")
+    and p05_authority_receipt.get("source", {}).get("before", {}).get(
+        "commit"
+    ) == "e1e1126f0d5d86f68d9fb1cf017271014c1396e9"
+    and p05_authority_receipt.get("outputs", {}).get("operations", {}).get(
+        "isolatedRestoreSourceExport", {}
+    ).get("outputUriPrefixSha256")
+        == p05_authority_receipt.get("outputs", {}).get(
+            "isolatedRestore", {}
+        ).get("operation", {}).get("inputUriPrefixSha256")
+    and p05_authority_receipt.get("checks", {}).get(
+        "isolatedRestoreSourceExportExact"
+    ) is True
+    and p05_authority_receipt.get("checks", {}).get(
+        "isolatedRestoreDerivationExact"
+    ) is True
+    and sha(p05_authority_repair_path)
+        == "EC7B4A3C7BB58BC67B4E8E55C2EBB9700BF793E126D0871350585F8EB97D2AAF"
+    and p05_authority_repair_path.stat().st_size == 5606
+    and p05_authority_repair.get("decision")
+        == "PASS_P05_AUTHORITY_GAPS_REPAIRED"
+    and p05_authority_repair.get("historicalEvidenceBoundary", {}).get(
+        "historicalClosureRewritten"
+    ) is False
+    and p05_authority_repair.get("historicalEvidenceBoundary", {}).get(
+        "repairIsAdditive"
+    ) is True
+    and p05_authority_repair.get("collectorSourceAuthority", {}).get(
+        "pullRequest"
+    ) == 253
+    and p05_authority_repair.get("collectorSourceAuthority", {}).get(
+        "pullRequestRun", {}
+    ).get("runId") == 32503561030
+    and p05_authority_repair.get("collectorSourceAuthority", {}).get(
+        "postMergeRun", {}
+    ).get("runId") == 32504753533
+    and p05_authority_repair.get("correctedClosureRevisionAuthority", {}).get(
+        "pullRequest"
+    ) == 174
+    and p05_authority_repair.get("correctedClosureRevisionAuthority", {}).get(
+        "pullRequestRun", {}
+    ).get("runId") == 31396537688
+    and p05_authority_repair.get("correctedClosureRevisionAuthority", {}).get(
+        "postMergeRun", {}
+    ).get("runId") == 31397464741
+    and all(
+        run.get("conclusion") == "success"
+        and run.get("requiredJobCount") == 5
+        and run.get("allRequiredJobsSuccessful") is True
+        for run in (
+            p05_authority_repair.get("collectorSourceAuthority", {}).get(
+                "pullRequestRun", {}
+            ),
+            p05_authority_repair.get("collectorSourceAuthority", {}).get(
+                "postMergeRun", {}
+            ),
+            p05_authority_repair.get(
+                "correctedClosureRevisionAuthority", {}
+            ).get("pullRequestRun", {}),
+            p05_authority_repair.get(
+                "correctedClosureRevisionAuthority", {}
+            ).get("postMergeRun", {}),
+        )
+    )
+    and p05_authority_repair.get("ownerRatification", {}).get(
+        "authorizationMode"
+    ) == "POST_IMPLEMENTATION_OWNER_RATIFICATION"
+    and p05_authority_repair.get("ownerRatification", {}).get(
+        "ownerApprovalAcknowledged"
+    ) is True
+    and p05_authority_repair.get("ownerRatification", {}).get(
+        "rawApprovalPhrasesRetained"
+    ) is False
+    and {
+        entry.get("approvalPhraseSha256")
+        for entry in p05_authority_repair.get("ownerRatification", {}).get(
+            "approvalEvidence", []
+        )
+    } == {
+        "328A62A785E21AA2F67FC5D3DB631DD0DBD80CA149D0346E85B5002C6E225C95",
+        "8CAF93C7EB3D05A3A07452B144AB769D04A33791CAAC8F4BCC105034EEC4D446",
+    }
+    and all(
+        value is False
+        for value in p05_authority_repair.get(
+            "mutationBoundary", {}
+        ).values()
+    )
     and "P-05 closes only on exact clean-main recovery proof" in p05_contract
+    and "P-05 authority repair is additive, exact and privacy safe"
+        in p05_authority_contract
     and p05_record.get("currentStatus") == "CLOSED"
     and {
         entry.get("sha256") for entry in p05_record.get("evidence", [])
@@ -8094,6 +8222,8 @@ check(
         "E760C24874C3905A675C213E1997E6BFFEE9C403683CE0F86B07CABD05A36302",
         "4DDA4B23DA7F12AC958B92B7196513A7DA301D19505A489A9D88626A20BD9FCA",
         "176A143BACD196701A782F8959B96B69FC11CE401DB6D122E4F16DE2C1B4EE79",
+        "80875E8284D6AB24C8B20E18E795CA24B5D37C9A4CD9BC2C308287167E35597D",
+        "EC7B4A3C7BB58BC67B4E8E55C2EBB9700BF793E126D0871350585F8EB97D2AAF",
     }
     and [
         entry.get("status")

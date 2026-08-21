@@ -169,7 +169,7 @@ void main() {
       <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],
     );
     expect(p05['currentStatus'], 'CLOSED');
-    expect(_objects(p05['evidence']), hasLength(4));
+    expect(_objects(p05['evidence']), hasLength(6));
     expect(
       _objects(p05['statusHistory']).map((entry) => entry['status']),
       <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],

@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "evidenceId": "P05-FIRESTORE-RECOVERABILITY-AUTHORITY-REPAIR-20260821",
+  "evidenceType": "p05-firestore-recoverability-authority-repair",
+  "recordIds": [
+    "FINDING:P-05"
+  ],
+  "authorityType": "ADDITIVE_LIVE_READBACK_OWNER_RATIFICATION_AND_CI_CORRECTION",
+  "decision": "PASS_P05_AUTHORITY_GAPS_REPAIRED",
+  "historicalEvidenceBoundary": {
+    "closurePath": "release/evidence/p05-firestore-recoverability-closure.json",
+    "closureFileSha256": "176A143BACD196701A782F8959B96B69FC11CE401DB6D122E4F16DE2C1B4EE79",
+    "historicalClosureRewritten": false,
+    "historicalLiveReceiptRewritten": false,
+    "repairIsAdditive": true
+  },
+  "collectorSourceAuthority": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "pullRequest": 253,
+    "sourceHeadCommit": "935eb471e7cda90e62ee16e8d1e0a5a3de8c2f35",
+    "mergeCommit": "e1e1126f0d5d86f68d9fb1cf017271014c1396e9",
+    "mergeTree": "dffd3d30ffcef0a4bc6ebeb570422818219f1772",
+    "pullRequestRun": {
+      "runId": 32503561030,
+      "event": "pull_request",
+      "headSha": "935eb471e7cda90e62ee16e8d1e0a5a3de8c2f35",
+      "conclusion": "success",
+      "requiredJobCount": 5,
+      "allRequiredJobsSuccessful": true
+    },
+    "postMergeRun": {
+      "runId": 32504753533,
+      "event": "push",
+      "headSha": "e1e1126f0d5d86f68d9fb1cf017271014c1396e9",
+      "conclusion": "success",
+      "requiredJobCount": 5,
+      "allRequiredJobsSuccessful": true
+    }
+  },
+  "liveReceipt": {
+    "path": "release/evidence/p05-firestore-recoverability-authority-repair-live-readback.json",
+    "fileSha256": "80875E8284D6AB24C8B20E18E795CA24B5D37C9A4CD9BC2C308287167E35597D",
+    "fileBytes": 8364,
+    "receiptSha256": "46db50312e005f60e22117a14bcf03845d489296e277eb65cf1ff6de3e3f57b0",
+    "capturedAtUtc": "2026-08-21T16:48:11.882Z",
+    "sourceCommit": "e1e1126f0d5d86f68d9fb1cf017271014c1396e9",
+    "sourceTree": "dffd3d30ffcef0a4bc6ebeb570422818219f1772",
+    "acquisitionDecision": "PASS_FIRESTORE_RECOVERABILITY_LIVE_READBACK",
+    "postureDecision": "PASS_FIRESTORE_RECOVERABILITY_POSTURE"
+  },
+  "isolatedRestoreDerivation": {
+    "sourceExportOperationNameSha256": "EF6A0FF2E809EA2D0C209B92380D1752E301D6C504D04BBA81D83168883C7F74",
+    "sourceExportOutputUriPrefixSha256": "787CD0B6BD458AF7965D5F8128B6D6EB6715591B2FAFE71F6F8A7AC6938F8E65",
+    "isolatedImportInputUriPrefixSha256": "787CD0B6BD458AF7965D5F8128B6D6EB6715591B2FAFE71F6F8A7AC6938F8E65",
+    "sourceExportOutputMatchesImportInput": true,
+    "sourceExportCompletedDocuments": 81,
+    "sourceExportEstimatedDocuments": 81,
+    "isolatedImportCompletedDocuments": 81,
+    "isolatedImportEstimatedDocuments": 81,
+    "exact": true
+  },
+  "correctedClosureRevisionAuthority": {
+    "pullRequest": 174,
+    "sourceHeadCommit": "61f7f65cb52de3ce7b558edaa57b68ed22f96221",
+    "mergeCommit": "a0a0c7d8b7e854bf37e97c04e3fbaba32c7f7b24",
+    "pullRequestRun": {
+      "runId": 31396537688,
+      "event": "pull_request",
+      "headSha": "61f7f65cb52de3ce7b558edaa57b68ed22f96221",
+      "conclusion": "success",
+      "requiredJobCount": 5,
+      "allRequiredJobsSuccessful": true
+    },
+    "postMergeRun": {
+      "runId": 31397464741,
+      "event": "push",
+      "headSha": "a0a0c7d8b7e854bf37e97c04e3fbaba32c7f7b24",
+      "conclusion": "success",
+      "requiredJobCount": 5,
+      "allRequiredJobsSuccessful": true
+    },
+    "qualification": "These runs are authority for the corrected closure revision introduced by PR #174; the immutable historical closure file still names its predecessor runs."
+  },
+  "ownerRatification": {
+    "authorityClass": "REPOSITORY_OWNER_AND_PRODUCTION_PROJECT_OPERATOR",
+    "authorizationMode": "POST_IMPLEMENTATION_OWNER_RATIFICATION",
+    "approvalEvidence": [
+      {
+        "approvalPhraseSha256": "328A62A785E21AA2F67FC5D3DB631DD0DBD80CA149D0346E85B5002C6E225C95",
+        "approvalPhraseUtf8Bytes": 84,
+        "meaning": "OWNER_ASSERTED_PITR_AND_BACKUP_ENABLEMENT"
+      },
+      {
+        "approvalPhraseSha256": "8CAF93C7EB3D05A3A07452B144AB769D04A33791CAAC8F4BCC105034EEC4D446",
+        "approvalPhraseUtf8Bytes": 30,
+        "meaning": "OWNER_DIRECTED_P05_CLOSURE_AFTER_RECOVERY_EXERCISE"
+      }
+    ],
+    "ownerApprovalAcknowledged": true,
+    "rawApprovalPhrasesRetained": false,
+    "ratifiedScope": [
+      "production point-in-time recovery enabled",
+      "production database delete protection enabled",
+      "native Firestore backup schedules enabled",
+      "READY native backup evidence",
+      "isolated governed restore rehearsal",
+      "strict post-change recoverability readback"
+    ],
+    "qualification": "This is explicit post-implementation owner ratification of the observed P-05 control state and closure. It does not fabricate or claim contemporaneous pre-change authorization."
+  },
+  "closurePosture": {
+    "p05RemainsClosed": true,
+    "requiredExitEvidenceCount": 6,
+    "allRequiredExitEvidenceNowBound": true,
+    "reArmTriggersUnchanged": true
+  },
+  "mutationBoundary": {
+    "productionRecoveryControlChanged": false,
+    "backupScheduleChanged": false,
+    "backupCreatedOrDeleted": false,
+    "firestoreExportOrImportPerformed": false,
+    "firestoreDocumentReadOrWritePerformed": false,
+    "storageObjectReadOrWritePerformed": false,
+    "iamChanged": false,
+    "billingChanged": false
+  },
+  "privacyBoundary": {
+    "ownerApprovalPhrasesRetained": false,
+    "operatorAccountIdentityRetained": false,
+    "firestoreDocumentOrBusinessPayloadRetained": false,
+    "operationNamesOrOutputPrefixesRetained": false,
+    "privateCustodyPathsRetained": false
+  }
+}
