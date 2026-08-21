@@ -331,7 +331,15 @@ void main() {
             'npm run build && npm run test:emitted-output-custody && '
                 'npm run test:callable-inventory && '
                 'npm run test:notification-inventory && '
+                'npm run test:asset-master && '
                 'jest --runInBand',
+          ),
+        );
+        expect(
+          functionsPackage['scripts'],
+          containsPair(
+            'test:asset-master',
+            'node --test tools/apply_baf_asset_master_v1.test.mjs',
           ),
         );
         expect(

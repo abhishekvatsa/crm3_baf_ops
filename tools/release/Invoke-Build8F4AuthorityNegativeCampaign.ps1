@@ -595,7 +595,10 @@ $promotionSha256 = Get-Sha256 $promotionAbsolute
 $artifact = $promotion.artifactAuthority
 $evidenceRoot = [IO.Path]::GetFullPath($EvidenceDirectory)
 $repoWithSeparator = $repositoryRoot.TrimEnd('\') + '\'
-if ($evidenceRoot.StartsWith(
+if ($evidenceRoot.Equals(
+      $repositoryRoot,
+      [StringComparison]::OrdinalIgnoreCase
+    ) -or $evidenceRoot.StartsWith(
     $repoWithSeparator,
     [StringComparison]::OrdinalIgnoreCase
   )) {
@@ -667,6 +670,15 @@ try {
   if (-not (Test-Path -LiteralPath $LiveBackendReadbackPath -PathType Leaf)) {
     throw 'Fresh live backend readback is required.'
   }
+  $node = (Get-Command node -ErrorAction Stop).Source
+  $null = Invoke-ExternalText -FilePath $node -Arguments @(
+    (Join-Path $repositoryRoot `
+      'tools/release/collectFunctionFleetRuntimeIdentityReadback.js'),
+    '--verify-receipt',
+    (Resolve-Path -LiteralPath $LiveBackendReadbackPath).Path,
+    '--label',
+    'PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL'
+  )
   $liveBackendReadback = Get-Content -LiteralPath $LiveBackendReadbackPath `
     -Raw | ConvertFrom-Json
   Assert-LiveBackendReadback -Receipt $liveBackendReadback `

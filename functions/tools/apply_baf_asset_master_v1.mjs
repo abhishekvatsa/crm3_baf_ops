@@ -18,6 +18,27 @@ const defaultManifestPath = path.join(
 );
 const namespaceUuid = "7a23d7b7-6fdc-4a2d-8e85-1879c4df786d";
 const expectedProjectId = "crm3-baf-ops-b8638";
+const governedManifestId = "crm3-baf-primary-asset-master-v1";
+const governedManifestSha256 =
+  "2172E8179918F01BFC388E6738AC151C4A4D87FA34272C61D4AB2F2AB353349C";
+
+function sha256Hex(value) {
+  return crypto.createHash("sha256").update(value).digest("hex").toUpperCase();
+}
+
+export function assertGovernedApplyManifest({apply, manifest, manifestBytes}) {
+  if (!apply) return;
+  assert.equal(
+    manifest.manifestId,
+    governedManifestId,
+    "Production apply requires the governed BAF asset-master manifest ID.",
+  );
+  assert.equal(
+    sha256Hex(manifestBytes),
+    governedManifestSha256,
+    "Production apply requires the exact approved BAF asset-master manifest bytes.",
+  );
+}
 
 function uuidBytes(uuid) {
   return Buffer.from(uuid.replaceAll("-", ""), "hex");
@@ -367,7 +388,78 @@ async function productionPreflight(db, plan, actorUid) {
   };
 }
 
-async function verifyReceiptsAndAudits(db, plan) {
+function timestampIso(value, label) {
+  const date = value instanceof Date ? value : value?.toDate?.();
+  assert.ok(date instanceof Date && Number.isFinite(date.getTime()), `${label} must be a timestamp.`);
+  return date.toISOString();
+}
+
+export function validateReceiptAndAudit({
+  entry,
+  actorUid,
+  receipt,
+  audit,
+  parseHierarchyRequest,
+  parseRegistryRequest,
+}) {
+  const parsed = entry.entityType === "asset" ?
+    parseRegistryRequest(entry.data) : parseHierarchyRequest(entry.data);
+  const expectedAuditId = `${entry.entityType === "asset" ? "asset_registry" : "asset_hierarchy"}_${entry.requestId}`;
+  const expectedEntityType = {
+    class: "asset_class",
+    node: "hierarchy_node",
+    asset: "asset_instance",
+  }[entry.entityType];
+  const expectedAfterIdField = {
+    class: "assetClassId",
+    node: "nodeId",
+    asset: "assetInstanceId",
+  }[entry.entityType];
+
+  assert.equal(receipt.schemaVersion, 1);
+  assert.equal(receipt.requestId, entry.requestId);
+  assert.equal(receipt.actorUid, actorUid);
+  assert.equal(receipt.fingerprint, parsed.fingerprint);
+  assert.equal(receipt.operation, entry.data.operation);
+  assert.equal(receipt.auditId, expectedAuditId);
+  assert.equal(receipt.version, 1);
+  if (entry.entityType === "asset") {
+    assert.equal(receipt.entityId, entry.entityId);
+  } else {
+    assert.equal(receipt.assetClassId, entry.data.assetClassId);
+    assert.equal(receipt.nodeId, entry.entityType === "node" ? entry.entityId : null);
+  }
+  const committedAtIso = timestampIso(receipt.committedAt, "Receipt committedAt");
+  assert.equal(receipt.committedAtIso, committedAtIso);
+
+  assert.equal(audit.schemaVersion, 1);
+  assert.equal(audit.auditId, expectedAuditId);
+  assert.equal(audit.entityType, expectedEntityType);
+  assert.equal(audit.entityId, entry.entityId);
+  assert.equal(audit.assetClassId, entry.data.assetClassId);
+  assert.equal(audit.action, "create");
+  assert.equal(audit.reason, entry.data.reason);
+  assert.equal(audit.beforeJson, null);
+  assert.equal(audit.performedByUid, actorUid);
+  assert.ok(typeof audit.performedByName === "string" && audit.performedByName.length > 0);
+  assert.equal(timestampIso(audit.performedAt, "Audit performedAt"), committedAtIso);
+  assert.equal(audit.requestId, entry.requestId);
+  assert.equal(audit.tagTransferApproved, false);
+  const after = JSON.parse(audit.afterJson);
+  assert.equal(after[expectedAfterIdField], entry.entityId);
+  assert.equal(after.assetClassId, entry.data.assetClassId);
+  assert.equal(after.lastMutationId, entry.requestId);
+  assert.equal(after.version, receipt.version);
+  assert.equal(after.updatedByUid, actorUid);
+}
+
+async function verifyReceiptsAndAudits(
+  db,
+  plan,
+  actorUid,
+  parseHierarchyRequest,
+  parseRegistryRequest,
+) {
   const entries = [...plan.classes, ...plan.nodes, ...plan.assets];
   const receiptRefs = entries.map((entry) => db.collection("asset_hierarchy_mutation_receipts").doc(entry.requestId));
   const auditRefs = entries.map((entry) => {
@@ -377,6 +469,16 @@ async function verifyReceiptsAndAudits(db, plan) {
   const snapshots = await db.getAll(...receiptRefs, ...auditRefs);
   const missing = snapshots.filter((snapshot) => !snapshot.exists).map((snapshot) => snapshot.ref.path);
   assert.deepEqual(missing, [], "Every migration entity must have a receipt and audit record.");
+  for (let index = 0; index < entries.length; index += 1) {
+    validateReceiptAndAudit({
+      entry: entries[index],
+      actorUid,
+      receipt: snapshots[index].data(),
+      audit: snapshots[index + entries.length].data(),
+      parseHierarchyRequest,
+      parseRegistryRequest,
+    });
+  }
   return {receiptCount: receiptRefs.length, auditCount: auditRefs.length};
 }
 
@@ -389,6 +491,7 @@ async function main() {
   assert.equal(process.env.FIRESTORE_EMULATOR_HOST, undefined, "Production migration cannot run against an emulator environment.");
   const manifestBytes = await fs.readFile(options.manifestPath);
   const manifest = JSON.parse(manifestBytes.toString("utf8"));
+  assertGovernedApplyManifest({apply: options.apply, manifest, manifestBytes});
   const plan = buildPlan(manifest);
   const admin = require("firebase-admin");
   if (admin.apps.length === 0) {
@@ -419,8 +522,10 @@ async function main() {
     return;
   }
 
-  const {mutateAssetHierarchyWithDb} = require(path.join(functionsDir, "lib", "assetHierarchyMutation.js"));
-  const {mutateAssetRegistryWithDb} = require(path.join(functionsDir, "lib", "assetRegistryMutation.js"));
+  const hierarchyModule = require(path.join(functionsDir, "lib", "assetHierarchyMutation.js"));
+  const registryModule = require(path.join(functionsDir, "lib", "assetRegistryMutation.js"));
+  const {mutateAssetHierarchyWithDb, parseAssetHierarchyMutationRequest} = hierarchyModule;
+  const {mutateAssetRegistryWithDb, parseAssetRegistryMutationRequest} = registryModule;
   const common = {
     db,
     authUid: options.actorUid,
@@ -443,13 +548,19 @@ async function main() {
   assert.equal(after.summary.existingClasses, plan.classes.length);
   assert.equal(after.summary.existingNodes, plan.nodes.length);
   assert.equal(after.summary.existingAssets, plan.assets.length);
-  const evidence = await verifyReceiptsAndAudits(db, plan);
+  const evidence = await verifyReceiptsAndAudits(
+    db,
+    plan,
+    options.actorUid,
+    parseAssetHierarchyMutationRequest,
+    parseAssetRegistryMutationRequest,
+  );
   const report = {
     schemaVersion: 1,
     evidenceType: "BAF_PRIMARY_ASSET_MASTER_PRODUCTION_POPULATION",
     generatedAt: new Date().toISOString(),
     manifestId: manifest.manifestId,
-    manifestSha256: crypto.createHash("sha256").update(manifestBytes).digest("hex"),
+    manifestSha256: sha256Hex(manifestBytes).toLowerCase(),
     projectId: options.projectId,
     sourceCommit: gitValue(["rev-parse", "HEAD"]),
     sourceTree: gitValue(["rev-parse", "HEAD^{tree}"]),
