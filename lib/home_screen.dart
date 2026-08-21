@@ -38,6 +38,7 @@ import 'features/quality/presentation/quality_home_screen.dart';
 import 'features/quality/data/quality_warning.dart';
 import 'features/quality/providers/quality_provider.dart';
 import 'features/operational_events/presentation/operational_events_screen.dart';
+import 'features/operational_events/presentation/operational_control_screen.dart';
 import 'features/operational_events/providers/operational_event_provider.dart';
 import 'features/maintenance_workflow/presentation/screens/compliance_inbox_screen.dart';
 import 'features/maintenance_workflow/presentation/screens/compliance_notification_screen.dart';
@@ -58,6 +59,8 @@ import 'core/widgets/dashboard/dashboard_widgets.dart';
 import 'core/widgets/dashboard/status_badge.dart';
 import 'core/providers/sync_status_provider.dart';
 import 'core/services/sync_coordinator.dart';
+
+part 'home_insight_widgets.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -266,6 +269,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           activeInspectionFindingCount: activeInspectionFindingCount,
           operationalEventsUnavailable: operationalEventsUnavailable,
           qualityWarningsUnavailable: qualityWarningsUnavailable,
+          directiveDataUnavailable: directiveCountAsync.value == null,
+          workflowDataUnavailable:
+              workflowLanesAsync?.value == null ||
+              workflowComplianceAsync?.value == null,
+          inspectionFindingsUnavailable: inspectionFindingsAsync.value == null,
           attentionDataUnavailable: attentionDataUnavailable,
           plantOverview: plantOverviewAsync,
         );
@@ -383,6 +391,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required int activeInspectionFindingCount,
     required bool operationalEventsUnavailable,
     required bool qualityWarningsUnavailable,
+    required bool directiveDataUnavailable,
+    required bool workflowDataUnavailable,
+    required bool inspectionFindingsUnavailable,
     required bool attentionDataUnavailable,
     required AsyncValue<PlantAssetOverview> plantOverview,
   }) {
@@ -417,6 +428,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onPlantCondition:
                   () => _push(context, const AssetConditionBoard()),
               onReports: () => _push(context, const FleetStatusScreen()),
+              onControl: () => setState(() => _currentIndex = 3),
               onMaintenanceRhythm:
                   () => _push(context, const MaintenanceIntelligenceScreen()),
               onInspectionProgrammes:
@@ -472,24 +484,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       _AppTab(
-        label: 'Directives',
-        screenBuilder: (_) => const DirectivesScreen(),
+        label: 'Control',
+        screenBuilder:
+            (_) => OperationalControlScreen(
+              appUser: appUser,
+              directiveCount: directiveCount,
+              workflowAttentionCount: workflowAttentionCount,
+              operationalEventCount: openOperationalEventCount,
+              qualityWarningCount: openQualityWarningCount,
+              inspectionFindingCount: activeInspectionFindingCount,
+              directiveDataUnavailable: directiveDataUnavailable,
+              workflowDataUnavailable: workflowDataUnavailable,
+              operationalEventsUnavailable: operationalEventsUnavailable,
+              qualityWarningsUnavailable: qualityWarningsUnavailable,
+              inspectionFindingsUnavailable: inspectionFindingsUnavailable,
+              onDirectives: () => _push(context, const DirectivesScreen()),
+              onWorkflow: () => setState(() => _currentIndex = 2),
+              onOperationalEvents:
+                  () => _push(context, const OperationalEventsScreen()),
+              onQuality: () => _push(context, const QualityHomeScreen()),
+              onAbnormalities:
+                  () => _push(context, const AbnormalitiesHomeScreen()),
+              onInspections:
+                  () => _push(context, const InspectionProgrammesScreen()),
+            ),
         destination: NavigationDestination(
           icon: Badge(
-            isLabelVisible: directiveCount > 0,
-            label: Text('$directiveCount'),
-            child: const Icon(Icons.assignment_late_outlined),
+            isLabelVisible:
+                directiveCount +
+                    openOperationalEventCount +
+                    openQualityWarningCount +
+                    activeInspectionFindingCount >
+                0,
+            label: Text(
+              '${directiveCount + openOperationalEventCount + openQualityWarningCount + activeInspectionFindingCount}',
+            ),
+            child: const Icon(Icons.radar_outlined),
           ),
           selectedIcon: Badge(
-            isLabelVisible: directiveCount > 0,
-            label: Text('$directiveCount'),
-            child: const Icon(Icons.assignment_late_rounded),
+            isLabelVisible:
+                directiveCount +
+                    openOperationalEventCount +
+                    openQualityWarningCount +
+                    activeInspectionFindingCount >
+                0,
+            label: Text(
+              '${directiveCount + openOperationalEventCount + openQualityWarningCount + activeInspectionFindingCount}',
+            ),
+            child: const Icon(Icons.radar_rounded),
           ),
-          label: 'Directives',
+          label: 'Control',
         ),
       ),
       _AppTab(
-        label: 'More',
+        label: 'Explore',
         screenBuilder:
             (_) => _MoreScreen(
               appUser: appUser,
@@ -530,9 +578,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   () => _push(context, const LocalDiagnosticsScreen()),
             ),
         destination: const NavigationDestination(
-          icon: Icon(Icons.more_horiz_rounded),
-          selectedIcon: Icon(Icons.more_horiz_rounded),
-          label: 'More',
+          icon: Icon(Icons.apps_outlined),
+          selectedIcon: Icon(Icons.apps_rounded),
+          label: 'Explore',
         ),
       ),
     ];
@@ -758,6 +806,7 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onOperationalEvents;
   final VoidCallback onPlantCondition;
   final VoidCallback onReports;
+  final VoidCallback onControl;
   final VoidCallback onMaintenanceRhythm;
   final VoidCallback onInspectionProgrammes;
   final VoidCallback onManualSync;
@@ -786,6 +835,7 @@ class _DashboardHome extends StatelessWidget {
     required this.onOperationalEvents,
     required this.onPlantCondition,
     required this.onReports,
+    required this.onControl,
     required this.onMaintenanceRhythm,
     required this.onInspectionProgrammes,
     required this.onManualSync,
@@ -828,6 +878,7 @@ class _DashboardHome extends StatelessWidget {
                 onRaiseIssue: onRaiseIssue,
                 onPlantCondition: onPlantCondition,
                 onReports: onReports,
+                onControl: onControl,
               ),
               const SizedBox(height: BafSpacing.lg),
               PlantOverviewPanel(
@@ -848,6 +899,21 @@ class _DashboardHome extends StatelessWidget {
                     overdueMaintenanceCount + activeInspectionFindingCount,
                 dataUnavailable: attentionDataUnavailable,
                 onOpenReports: onReports,
+                onPlantCondition: onPlantCondition,
+                onIssues: onIssues,
+                onWork: onWork,
+                onControl: onControl,
+                onRetry: onManualSync,
+                onMaintenanceRhythm: onMaintenanceRhythm,
+                onInspectionProgrammes: onInspectionProgrammes,
+                ticketCount: ticketCount,
+                executionCount: executionCount,
+                directiveCount: directiveCount,
+                workflowAttentionCount: workflowAttentionCount,
+                openOperationalEventCount: openOperationalEventCount,
+                openQualityWarningCount: openQualityWarningCount,
+                overdueMaintenanceCount: overdueMaintenanceCount,
+                activeInspectionFindingCount: activeInspectionFindingCount,
               ),
               const SizedBox(height: BafSpacing.lg),
               _HomeSectionHeader(
@@ -915,315 +981,6 @@ class _DashboardHome extends StatelessWidget {
       ),
     );
   }
-}
-
-class HomeCommandBar extends StatelessWidget {
-  const HomeCommandBar({
-    super.key,
-    required this.onRaiseIssue,
-    required this.onPlantCondition,
-    required this.onReports,
-  });
-
-  final VoidCallback onRaiseIssue;
-  final VoidCallback onPlantCondition;
-  final VoidCallback onReports;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final raiseIssue = FilledButton.icon(
-        key: const ValueKey('home-raise-issue'),
-        onPressed: onRaiseIssue,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Raise issue'),
-        style: FilledButton.styleFrom(
-          backgroundColor: BafColors.maintenance,
-          foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(48),
-        ),
-      );
-      final plant = _HomeSecondaryCommand(
-        key: const ValueKey('home-plant-condition'),
-        icon: Icons.precision_manufacturing_outlined,
-        label: 'Plant status',
-        color: BafColors.assets,
-        onPressed: onPlantCondition,
-      );
-      final reports = _HomeSecondaryCommand(
-        key: const ValueKey('home-reports'),
-        icon: Icons.insights_outlined,
-        label: 'Reports',
-        color: BafColors.cobalt,
-        onPressed: onReports,
-      );
-
-      if (constraints.maxWidth < 430) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            raiseIssue,
-            const SizedBox(height: BafSpacing.sm),
-            Row(
-              children: [
-                Expanded(child: plant),
-                const SizedBox(width: BafSpacing.sm),
-                Expanded(child: reports),
-              ],
-            ),
-          ],
-        );
-      }
-      return Row(
-        children: [
-          Expanded(flex: 3, child: raiseIssue),
-          const SizedBox(width: BafSpacing.sm),
-          Expanded(flex: 2, child: plant),
-          const SizedBox(width: BafSpacing.sm),
-          Expanded(flex: 2, child: reports),
-        ],
-      );
-    },
-  );
-}
-
-class _HomeSecondaryCommand extends StatelessWidget {
-  const _HomeSecondaryCommand({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => OutlinedButton.icon(
-    onPressed: onPressed,
-    icon: Icon(icon, size: 19),
-    label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-    style: OutlinedButton.styleFrom(
-      foregroundColor: color,
-      minimumSize: const Size.fromHeight(48),
-      padding: const EdgeInsets.symmetric(horizontal: BafSpacing.sm),
-      side: BorderSide(color: color.withValues(alpha: 0.32)),
-    ),
-  );
-}
-
-class HomeManagementPulsePanel extends StatelessWidget {
-  const HomeManagementPulsePanel({
-    super.key,
-    required this.plantOverview,
-    required this.actionCount,
-    required this.assuranceCount,
-    required this.dataUnavailable,
-    required this.onOpenReports,
-  });
-
-  final AsyncValue<PlantAssetOverview> plantOverview;
-  final int actionCount;
-  final int assuranceCount;
-  final bool dataUnavailable;
-  final VoidCallback onOpenReports;
-
-  @override
-  Widget build(BuildContext context) {
-    final overview = plantOverview.value;
-    final availability =
-        overview == null || overview.total == 0
-            ? '--'
-            : '${((overview.available / overview.total) * 100).round()}%';
-    final availabilityDetail =
-        overview == null
-            ? 'Plant data unavailable'
-            : '${overview.available} of ${overview.total} assets';
-    final availabilityColor =
-        overview == null || overview.total == 0
-            ? BafColors.textSecondary
-            : overview.available / overview.total >= 0.9
-            ? BafColors.success
-            : overview.available / overview.total >= 0.75
-            ? BafColors.warning
-            : BafColors.danger;
-    final leadingSignal =
-        dataUnavailable
-            ? 'Some live sources need refresh before decisions are final.'
-            : assuranceCount > 0
-            ? 'Assurance follow-through is the leading current obligation.'
-            : actionCount > 0
-            ? 'The active action queue is the leading current obligation.'
-            : 'No active exception leads the current plant picture.';
-
-    return BafSectionSurface(
-      accent: BafColors.cobalt,
-      padding: const EdgeInsets.all(BafSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: BafColors.cobalt.withValues(alpha: 0.11),
-                  borderRadius: BorderRadius.circular(BafRadius.small),
-                ),
-                child: const Icon(
-                  Icons.insights_rounded,
-                  size: 19,
-                  color: BafColors.cobalt,
-                ),
-              ),
-              const SizedBox(width: BafSpacing.sm),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Management pulse',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Text(
-                      'Availability, action pressure and assurance',
-                      style: TextStyle(
-                        color: BafColors.textSecondary,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'Open operations reports',
-                onPressed: onOpenReports,
-                icon: const Icon(Icons.arrow_forward_rounded),
-                color: BafColors.cobalt,
-              ),
-            ],
-          ),
-          const SizedBox(height: BafSpacing.md),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final width = (constraints.maxWidth - BafSpacing.sm * 2) / 3;
-              return Wrap(
-                spacing: BafSpacing.sm,
-                runSpacing: BafSpacing.sm,
-                children: [
-                  SizedBox(
-                    width: width,
-                    child: _HomePulseMetric(
-                      value: availability,
-                      label: 'Availability',
-                      detail: availabilityDetail,
-                      color: availabilityColor,
-                    ),
-                  ),
-                  SizedBox(
-                    width: width,
-                    child: _HomePulseMetric(
-                      value: dataUnavailable ? '--' : '$actionCount',
-                      label: 'Action queue',
-                      detail: 'Issues, work and disruptions',
-                      color:
-                          actionCount == 0
-                              ? BafColors.success
-                              : BafColors.warning,
-                    ),
-                  ),
-                  SizedBox(
-                    width: width,
-                    child: _HomePulseMetric(
-                      value: dataUnavailable ? '--' : '$assuranceCount',
-                      label: 'Assurance',
-                      detail: 'Overdue and active findings',
-                      color:
-                          assuranceCount == 0
-                              ? BafColors.success
-                              : BafColors.maintenance,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: BafSpacing.md),
-          Text(
-            leadingSignal,
-            style: const TextStyle(
-              color: BafColors.textSecondary,
-              fontSize: 12,
-              height: 1.3,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HomePulseMetric extends StatelessWidget {
-  const _HomePulseMetric({
-    required this.value,
-    required this.label,
-    required this.detail,
-    required this.color,
-  });
-
-  final String value;
-  final String label;
-  final String detail;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    constraints: const BoxConstraints(minHeight: 88),
-    padding: const EdgeInsets.all(BafSpacing.sm),
-    decoration: BoxDecoration(
-      color: BafColors.surfaceTint,
-      borderRadius: BorderRadius.circular(BafRadius.small),
-      border: Border.all(color: color.withValues(alpha: 0.20)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          detail,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: BafColors.textSecondary,
-            fontSize: 9,
-            height: 1.15,
-          ),
-        ),
-      ],
-    ),
-  );
 }
 
 class _HomeSectionHeader extends StatelessWidget {
@@ -1666,14 +1423,14 @@ class _MoreScreen extends StatelessWidget {
               _WorkspaceSearch(destinations: visibleDestinations),
               const SizedBox(height: BafSpacing.xl),
               _MoreSection(
-                title: 'Plant and work records',
+                title: 'Assets and lifecycle',
                 icon: Icons.precision_manufacturing_outlined,
                 accent: BafColors.assets,
                 destinations: plantDestinations,
               ),
               const SizedBox(height: BafSpacing.lg),
               _MoreSection(
-                title: 'Assurance and performance',
+                title: 'Performance and assurance',
                 icon: Icons.insights_outlined,
                 accent: BafColors.cobalt,
                 destinations: assuranceDestinations,
@@ -1682,7 +1439,7 @@ class _MoreScreen extends StatelessWidget {
                   appUser.canManageFrequentIssueDefinitions) ...[
                 const SizedBox(height: BafSpacing.xl),
                 _MoreSection(
-                  title: 'Governance',
+                  title: 'Standards and governance',
                   icon: Icons.account_tree_outlined,
                   accent: BafColors.audit,
                   destinations: governanceDestinations,
@@ -1757,12 +1514,31 @@ class _AttentionPanel extends StatelessWidget {
           detail: 'Some work counts could not be loaded. Tap to retry sync.',
           onTap: onRetry,
         ),
+      if (openQualityWarningCount > 0)
+        _AttentionRow(
+          icon: Icons.verified_user_outlined,
+          color: BafColors.danger,
+          title: 'Quality disposition required',
+          detail: '$openQualityWarningCount warnings remain open',
+          urgency: 'Immediate',
+          onTap: onQuality,
+        ),
+      if (openOperationalEventCount > 0)
+        _AttentionRow(
+          icon: Icons.crisis_alert_outlined,
+          color: BafColors.warning,
+          title: 'Operational disruptions',
+          detail: '$openOperationalEventCount currently open',
+          urgency: 'Plant',
+          onTap: onOperationalEvents,
+        ),
       if (ticketCount > 0)
         _AttentionRow(
           icon: Icons.report_problem_outlined,
           color: BafColors.maintenance,
           title: 'Open issues',
           detail: '$ticketCount requiring attention',
+          urgency: 'Action',
           onTap: onIssues,
         ),
       if (executionCount > 0)
@@ -1771,6 +1547,7 @@ class _AttentionPanel extends StatelessWidget {
           color: BafColors.planned,
           title: 'Open planned jobs',
           detail: '$executionCount active',
+          urgency: 'Work',
           onTap: onWork,
         ),
       if (workflowAttentionCount > 0)
@@ -1779,6 +1556,7 @@ class _AttentionPanel extends StatelessWidget {
           color: BafColors.warning,
           title: 'Workflow obligations',
           detail: '$workflowAttentionCount lane or compliance tasks',
+          urgency: 'Due',
           onTap: onWork,
         ),
       if (directiveCount > 0)
@@ -1787,23 +1565,8 @@ class _AttentionPanel extends StatelessWidget {
           color: BafColors.directives,
           title: 'Active directives',
           detail: '$directiveCount visible to your role',
+          urgency: 'Direction',
           onTap: onDirectives,
-        ),
-      if (openOperationalEventCount > 0)
-        _AttentionRow(
-          icon: Icons.crisis_alert_outlined,
-          color: BafColors.warning,
-          title: 'Operational disruptions',
-          detail: '$openOperationalEventCount currently open',
-          onTap: onOperationalEvents,
-        ),
-      if (openQualityWarningCount > 0)
-        _AttentionRow(
-          icon: Icons.verified_user_outlined,
-          color: BafColors.danger,
-          title: 'Quality warnings',
-          detail: '$openQualityWarningCount awaiting disposition',
-          onTap: onQuality,
         ),
       if (overdueMaintenanceCount > 0)
         _AttentionRow(
@@ -1811,6 +1574,7 @@ class _AttentionPanel extends StatelessWidget {
           color: BafColors.danger,
           title: 'Overdue maintenance cadence',
           detail: '$overdueMaintenanceCount asset counters overdue',
+          urgency: 'Overdue',
           onTap: onMaintenanceRhythm,
         ),
       if (activeInspectionFindingCount > 0)
@@ -1820,6 +1584,7 @@ class _AttentionPanel extends StatelessWidget {
           title: 'Active inspection findings',
           detail:
               '$activeInspectionFindingCount conditions under follow-through',
+          urgency: 'Assurance',
           onTap: onInspectionProgrammes,
         ),
     ];
@@ -1872,6 +1637,7 @@ class _AttentionRow extends StatelessWidget {
   final Color color;
   final String title;
   final String detail;
+  final String? urgency;
   final VoidCallback onTap;
 
   const _AttentionRow({
@@ -1879,6 +1645,7 @@ class _AttentionRow extends StatelessWidget {
     required this.color,
     required this.title,
     required this.detail,
+    this.urgency,
     required this.onTap,
   });
 
@@ -1898,9 +1665,16 @@ class _AttentionRow extends StatelessWidget {
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
       subtitle: Text(detail),
-      trailing: const Icon(
-        Icons.chevron_right_rounded,
-        color: BafColors.textSecondary,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (urgency != null) StatusBadge(label: urgency!, color: color),
+          const SizedBox(width: BafSpacing.xs),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: BafColors.textSecondary,
+          ),
+        ],
       ),
       onTap: onTap,
     );
@@ -2038,7 +1812,7 @@ class _DirectoryHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Workspace',
+                'Explore workspace',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 21,
@@ -2047,7 +1821,7 @@ class _DirectoryHeader extends StatelessWidget {
               ),
               SizedBox(height: BafSpacing.xs),
               Text(
-                'Every function available to your approved roles',
+                'Find every function available to your approved roles',
                 style: TextStyle(
                   color: Color(0xFFC6D7DB),
                   fontSize: 12,

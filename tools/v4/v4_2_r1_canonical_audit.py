@@ -7281,6 +7281,10 @@ operational_ux_workflow = text(
 operational_ux_directives = text(
     "lib/features/directives/presentation/directives_screen.dart"
 )
+operational_ux_control = text(
+    "lib/features/operational_events/presentation/"
+    "operational_control_screen.dart"
+)
 operational_ux_theme = text("lib/core/theme/baf_design_system.dart")
 operational_ux_test = text("test/operational_ux_restructure_test.dart")
 functionality_representation_test = text(
@@ -7311,9 +7315,11 @@ check(
     and "NavigationRail(" in operational_ux_home
     and "ModeSwitchCard(" not in operational_ux_home
     and "'Needs attention'" in operational_ux_home
-    and "title: 'Plant and work records'" in operational_ux_home
-    and "title: 'Assurance and performance'" in operational_ux_home
-    and "title: 'Governance'" in operational_ux_home
+    and "label: 'Control'" in operational_ux_home
+    and "label: 'Explore'" in operational_ux_home
+    and "title: 'Assets and lifecycle'" in operational_ux_home
+    and "title: 'Performance and assurance'" in operational_ux_home
+    and "title: 'Standards and governance'" in operational_ux_home
     and "title: 'Administration and support'" in operational_ux_home
     and "title: 'Plant condition'" in operational_ux_home
     and "title: 'Operations intelligence'" in operational_ux_home
@@ -7328,6 +7334,10 @@ check(
     and "actor.canAcknowledgeOrWorkMaintenanceLane" in operational_ux_workflow
     and "directives-search" in operational_ux_directives
     and "BoxConstraints(maxWidth: 960)" in operational_ux_directives
+    and "class OperationalControlScreen" in operational_ux_control
+    and "title: 'Workflow obligations'" in operational_ux_control
+    and "title: 'Quality warnings'" in operational_ux_control
+    and "title: 'Cycle abnormalities'" in operational_ux_control
     and "static const large = 8.0" in operational_ux_theme
     and "static const xLarge = 8.0" in operational_ux_theme
     and "operations Work is task-first" in operational_ux_test

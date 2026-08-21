@@ -6,18 +6,24 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/dashboard_widgets.dart';
+import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/providers/plant_asset_overview_provider.dart';
+import '../../assets/presentation/asset_condition_board.dart';
 import '../../inspections/data/inspection_campaign.dart';
 import '../../inspections/providers/inspection_provider.dart';
+import '../../inspections/presentation/inspection_programmes_screen.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/domain/burner_lockout_case.dart';
+import '../../maintenance/presentation/ticket_screen.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../operational_events/presentation/operational_events_screen.dart';
 import '../../operational_events/providers/operational_event_provider.dart';
 import '../../planned_maintenance/providers/maintenance_intelligence_provider.dart';
+import '../../planned_maintenance/presentation/maintenance_intelligence_screen.dart';
+import '../../planned_maintenance/presentation/templates_screen.dart';
 import '../models/operations_report.dart';
 import '../models/burner_reliability_report.dart';
 import '../providers/operations_report_provider.dart';
@@ -202,6 +208,16 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
     OperationsReportSelection selection,
   ) => [
     OperationsManagementReadout(report: report),
+    const SizedBox(height: BafSpacing.lg),
+    OperationsDecisionBrief(
+      report: report,
+      onPlantCondition: () => _open(const AssetConditionBoard()),
+      onIssues: () => _open(const TicketScreen()),
+      onOperationalEvents: () => _open(const OperationalEventsScreen()),
+      onMaintenanceRhythm: () => _open(const MaintenanceIntelligenceScreen()),
+      onInspections: () => _open(const InspectionProgrammesScreen()),
+      onPlannedWork: () => _open(const TemplatesScreen()),
+    ),
     const SizedBox(height: BafSpacing.xl),
     _SectionTitle(
       title: 'Current plant picture',
@@ -357,6 +373,10 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
       _InspectionFindingsSection(findings: report.activeInspectionFindings),
     ],
   ];
+
+  void _open(Widget screen) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+  }
 }
 
 class _ReportFilters extends StatelessWidget {

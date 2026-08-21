@@ -30,6 +30,10 @@ void main() {
         File(
           'lib/features/operational_events/presentation/operational_events_screen.dart',
         ).readAsStringSync();
+    final operationalControl =
+        File(
+          'lib/features/operational_events/presentation/operational_control_screen.dart',
+        ).readAsStringSync();
     final work =
         File(
           'lib/features/planned_maintenance/presentation/templates_screen.dart',
@@ -41,13 +45,13 @@ void main() {
     expect(home, contains("label: 'Home'"));
     expect(home, contains("label: 'Issues'"));
     expect(home, contains("label: 'Work'"));
-    expect(home, contains("label: 'Directives'"));
-    expect(home, contains("label: 'More'"));
+    expect(home, contains("label: 'Control'"));
+    expect(home, contains("label: 'Explore'"));
     expect(home, isNot(contains('ModeSwitchCard(')));
     expect(home, isNot(contains("title: 'Core modules'")));
-    expect(home, contains("title: 'Plant and work records'"));
-    expect(home, contains("title: 'Assurance and performance'"));
-    expect(home, contains("title: 'Governance'"));
+    expect(home, contains("title: 'Assets and lifecycle'"));
+    expect(home, contains("title: 'Performance and assurance'"));
+    expect(home, contains("title: 'Standards and governance'"));
     expect(home, contains("title: 'Administration and support'"));
     expect(home, contains("title: 'Plant condition'"));
     expect(home, contains("title: 'Operations intelligence'"));
@@ -69,6 +73,12 @@ void main() {
     expect(home, contains('allInspectionFindingsProvider'));
     expect(home, contains("title: 'Overdue maintenance cadence'"));
     expect(home, contains("title: 'Active inspection findings'"));
+    expect(operationalControl, contains("title: 'Directives'"));
+    expect(operationalControl, contains("title: 'Workflow obligations'"));
+    expect(operationalControl, contains("title: 'Plant disruptions'"));
+    expect(operationalControl, contains("title: 'Quality warnings'"));
+    expect(operationalControl, contains("title: 'Cycle abnormalities'"));
+    expect(operationalControl, contains("title: 'Inspection findings'"));
     for (final provider in [
       'assetClassesProvider',
       'allAssetInstancesProvider',

@@ -39,6 +39,7 @@ AssetInstanceRecord asset(
   AssetClassRecord assetClass,
   int number, {
   AssetHierarchyStatus status = AssetHierarchyStatus.active,
+  AssetServiceState serviceState = AssetServiceState.inService,
 }) => AssetInstanceRecord(
   id: id,
   assetClassId: assetClass.id,
@@ -46,7 +47,7 @@ AssetInstanceRecord asset(
   assetClassName: assetClass.name,
   assetNumber: number,
   name: '${assetClass.name} $number',
-  serviceState: AssetServiceState.inService,
+  serviceState: serviceState,
   ownershipStatus: AssetOwnershipStatus.confirmed,
   status: status,
   activeComponentCount: 0,
@@ -289,7 +290,64 @@ void main() {
     expect(report.unavailableAssetCount, 0);
     expect(report.actionBacklogCount, 3);
     expect(report.assuranceBacklogCount, 0);
-    expect(report.leadingManagementSignal, 'Open issues');
+    expect(report.leadingManagementSignal, '2 issues remain open');
+    expect(report.managementSignals.map((signal) => signal.type), [
+      OperationsManagementSignalType.openIssues,
+      OperationsManagementSignalType.openPlannedWork,
+    ]);
+  });
+
+  test('management signals rank operational severity before raw count', () {
+    final now = DateTime.utc(2026, 8, 22);
+    final furnace = assetClass('furnace-class', 'Furnace', 'furnace');
+    final standby = asset(
+      'furnace-standby',
+      furnace,
+      3,
+      serviceState: AssetServiceState.standby,
+    );
+    final critical = issue(type: AssetType.furnace, number: 1, started: now)
+      ..isCritical = true;
+    final ordinary = issue(type: AssetType.furnace, number: 2, started: now);
+    final report = OperationsReport(
+      filter: OperationsReportFilter(startDate: now, endDate: now),
+      asOf: now,
+      tickets: [critical, ordinary],
+      executions: const [],
+      events: const [],
+      eventOccurrences: const [],
+      dueStates: const [],
+      inspectionFindings: const [],
+      assetStates: [
+        PlantAssetState(
+          asset: standby,
+          operationalCondition: null,
+          availability: null,
+          workflowStatus: null,
+        ),
+      ],
+      classSummaries: const [],
+      topComponents: const [],
+      topSubsystemPaths: const [],
+      sourceTicketCount: 2,
+      sourceExecutionCount: 0,
+      sourceEventCount: 1,
+      sourceDueStateCount: 0,
+      sourceInspectionFindingCount: 0,
+      disruptionCount: 1,
+      openDisruptionCount: 1,
+      disruptionDuration: Duration.zero,
+    );
+
+    expect(report.openCriticalIssueCount, 1);
+    expect(report.managementSignals.map((signal) => signal.type), [
+      OperationsManagementSignalType.criticalIssues,
+      OperationsManagementSignalType.operationalDisruptions,
+      OperationsManagementSignalType.unavailableAssets,
+      OperationsManagementSignalType.openIssues,
+    ]);
+    expect(report.highRiskUnavailableAssetCount, 0);
+    expect(report.leadingManagementSignal, '1 critical issue remains open');
   });
 
   test('governed identity drives rankings instead of editable ticket text', () {

@@ -1,5 +1,8 @@
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/features/assets/domain/plant_asset_overview.dart';
+import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
+import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/operational_events/presentation/operational_control_screen.dart';
 import 'package:crm3_baf_ops/features/reports/models/operations_report.dart';
 import 'package:crm3_baf_ops/features/reports/presentation/fleet_status_screen.dart';
 import 'package:crm3_baf_ops/home_screen.dart';
@@ -16,6 +19,7 @@ void main() {
     var raised = 0;
     var plant = 0;
     var reports = 0;
+    var control = 0;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -27,6 +31,7 @@ void main() {
               onRaiseIssue: () => raised += 1,
               onPlantCondition: () => plant += 1,
               onReports: () => reports += 1,
+              onControl: () => control += 1,
             ),
           ),
         ),
@@ -35,12 +40,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Raise issue'), findsOneWidget);
-    expect(find.text('Plant status'), findsOneWidget);
+    expect(find.text('Plant'), findsOneWidget);
     expect(find.text('Reports'), findsOneWidget);
+    expect(find.text('Control'), findsOneWidget);
     await tester.tap(find.text('Raise issue'));
-    await tester.tap(find.text('Plant status'));
+    await tester.tap(find.text('Plant'));
     await tester.tap(find.text('Reports'));
-    expect((raised, plant, reports), (1, 1, 1));
+    await tester.tap(find.text('Control'));
+    expect((raised, plant, reports, control), (1, 1, 1, 1));
     expect(tester.takeException(), isNull);
   });
 
@@ -49,6 +56,7 @@ void main() {
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
+      var control = 0;
 
       await tester.pumpWidget(
         ProviderScope(
@@ -62,10 +70,25 @@ void main() {
                     plantOverview: const AsyncData(
                       PlantAssetOverview(classes: [], assets: []),
                     ),
-                    actionCount: 7,
-                    assuranceCount: 2,
+                    actionCount: 2,
+                    assuranceCount: 0,
                     dataUnavailable: false,
                     onOpenReports: () {},
+                    onPlantCondition: () {},
+                    onIssues: () {},
+                    onWork: () {},
+                    onControl: () => control += 1,
+                    onRetry: () {},
+                    onMaintenanceRhythm: () {},
+                    onInspectionProgrammes: () {},
+                    ticketCount: 0,
+                    executionCount: 0,
+                    directiveCount: 2,
+                    workflowAttentionCount: 0,
+                    openOperationalEventCount: 0,
+                    openQualityWarningCount: 0,
+                    overdueMaintenanceCount: 0,
+                    activeInspectionFindingCount: 0,
                   ),
                 ),
               ),
@@ -80,9 +103,116 @@ void main() {
       expect(find.text('Action queue'), findsOneWidget);
       expect(find.text('Assurance'), findsOneWidget);
       expect(find.byTooltip('Open operations reports'), findsOneWidget);
+      expect(find.text('2 directives remain active.'), findsOneWidget);
+      await tester.tap(find.text('2 directives remain active.'));
+      expect(control, 1);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('incomplete management data invokes the retry action', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var retries = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: HomeManagementPulsePanel(
+                plantOverview: const AsyncData(
+                  PlantAssetOverview(classes: [], assets: []),
+                ),
+                actionCount: 0,
+                assuranceCount: 0,
+                dataUnavailable: true,
+                onOpenReports: () {},
+                onPlantCondition: () {},
+                onIssues: () {},
+                onWork: () {},
+                onControl: () {},
+                onRetry: () => retries += 1,
+                onMaintenanceRhythm: () {},
+                onInspectionProgrammes: () {},
+                ticketCount: 0,
+                executionCount: 0,
+                directiveCount: 0,
+                workflowAttentionCount: 0,
+                openOperationalEventCount: 0,
+                openQualityWarningCount: 0,
+                overdueMaintenanceCount: 0,
+                activeInspectionFindingCount: 0,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final prompt = find.text(
+      'Live sources are incomplete. Refresh before final decisions.',
+    );
+    expect(prompt, findsOneWidget);
+    await tester.tap(prompt);
+    expect(retries, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('operational control represents cross-functional queues', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final actor = AppUser(
+      uid: 'admin',
+      name: 'Admin',
+      email: 'admin@example.com',
+      roles: const [AppRole.admin],
+      isApproved: true,
+      createdAt: DateTime.utc(2026),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: BafAppTheme.light,
+        home: Scaffold(
+          body: OperationalControlScreen(
+            appUser: actor,
+            directiveCount: 2,
+            workflowAttentionCount: 1,
+            operationalEventCount: 1,
+            qualityWarningCount: 3,
+            inspectionFindingCount: 2,
+            directiveDataUnavailable: false,
+            workflowDataUnavailable: false,
+            operationalEventsUnavailable: false,
+            qualityWarningsUnavailable: false,
+            inspectionFindingsUnavailable: false,
+            onDirectives: () {},
+            onWorkflow: () {},
+            onOperationalEvents: () {},
+            onQuality: () {},
+            onAbnormalities: () {},
+            onInspections: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Operational control'), findsOneWidget);
+    expect(find.text('3 quality warnings remain open'), findsOneWidget);
+    expect(find.text('Directives'), findsOneWidget);
+    expect(find.text('Plant disruptions'), findsOneWidget);
+    expect(find.text('Cycle abnormalities'), findsOneWidget);
+    expect(find.text('Inspection findings'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('report modes remain selectable at phone width', (tester) async {
     await tester.binding.setSurfaceSize(const Size(320, 640));
