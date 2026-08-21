@@ -145,11 +145,12 @@ recovery and delete protection enabled, one daily and one weekly native backup
 schedule, and five native backups in `READY` state.
 
 The same receipt binds the delete-protected isolated database
-`p05-restore-20260806` to the policy-pinned successful import operation. The
-operation imported all 81 expected documents from the sealed pre-purge export,
-with completed and estimated counts both equal to 81. The production database
-has no import operation in the bounded history; the rehearsal did not restore
-into production.
+`p05-restore-20260806` to the policy-pinned successful import operation, with
+completed and estimated counts both equal to 81. The historical receipt did
+not itself derive that import input from the corresponding production export
+output. That narrow evidence gap is repaired additively below. The production
+database has no import operation in the bounded history; the rehearsal did not
+restore into production.
 
 PR #172 merged the exact isolated-restore collector and policy corrections.
 GitHub created PR run `31124450098` and post-merge run `31124445219`, but both
@@ -168,3 +169,32 @@ F4, authorize pilot handout, or weaken any re-arm trigger. The finding re-arms
 if protection is disabled, schedules or backup readiness cease to satisfy the
 declared posture, restore evidence becomes unverifiable, the evidence set or
 collector changes, or its clean-main source authority is no longer admitted.
+
+## P-05 Additive Authority Repair
+
+PR #253 added exact source-export discovery and requires the policy-pinned
+successful production export output URI hash to equal the isolated import input
+URI hash. Exact-head run `32503561030` and exact-main run `32504753533` each
+passed all five required release-gate jobs. A new strict receipt was then
+captured from clean merged `main` at
+`e1e1126f0d5d86f68d9fb1cf017271014c1396e9`:
+
+- `release/evidence/p05-firestore-recoverability-authority-repair-live-readback.json`
+- `release/evidence/p05-firestore-recoverability-authority-repair.json`
+
+The privacy-safe receipt proves one exact successful production source export
+and one exact successful isolated import, each with 81 completed and 81
+estimated documents. Their output and input URI hashes are identical. No raw
+operation name, storage URI, account identity, business payload or custody path
+is retained.
+
+The authority repair also records that PR #174, rather than PR #173, supplied
+the successful CI for the corrected closure revision: exact-head run
+`31396537688` and exact-main run `31397464741` each passed all five required
+jobs. The old closure file remains immutable and is not silently rewritten.
+
+Finally, the repository owner and production project operator explicitly
+ratified the implemented recovery posture and directed P-05 closure after the
+recovery exercise. Only SHA-256 hashes and byte lengths of those approval
+phrases are retained. This is post-implementation ratification; it does not
+claim that a contemporaneous pre-change approval artifact existed.

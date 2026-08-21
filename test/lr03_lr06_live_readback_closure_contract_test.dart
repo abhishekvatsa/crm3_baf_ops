@@ -187,7 +187,14 @@ void main() {
       _objects(p05['statusHistory']).map((entry) => entry['status']),
       <String>['OPEN', 'LIVE_READBACK_PROVED', 'CLOSED'],
     );
-    expect(_objects(p05['evidence']), hasLength(4));
+    expect(_objects(p05['evidence']), hasLength(6));
+    expect(
+      _objects(p05['evidence']).map((entry) => entry['sha256']).toSet(),
+      containsAll(<String>{
+        '80875E8284D6AB24C8B20E18E795CA24B5D37C9A4CD9BC2C308287167E35597D',
+        'EC7B4A3C7BB58BC67B4E8E55C2EBB9700BF793E126D0871350585F8EB97D2AAF',
+      }),
+    );
     expect(
       _object(ledger['programmeDecision'])['nextMutation'],
       'NONE_ALL_PROGRAMME_GATES_CLOSED',
