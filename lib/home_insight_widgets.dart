@@ -123,10 +123,12 @@ class HomeManagementPulsePanel extends StatelessWidget {
     required this.onIssues,
     required this.onWork,
     required this.onControl,
+    required this.onRetry,
     required this.onMaintenanceRhythm,
     required this.onInspectionProgrammes,
     required this.ticketCount,
     required this.executionCount,
+    required this.directiveCount,
     required this.workflowAttentionCount,
     required this.openOperationalEventCount,
     required this.openQualityWarningCount,
@@ -143,10 +145,12 @@ class HomeManagementPulsePanel extends StatelessWidget {
   final VoidCallback onIssues;
   final VoidCallback onWork;
   final VoidCallback onControl;
+  final VoidCallback onRetry;
   final VoidCallback onMaintenanceRhythm;
   final VoidCallback onInspectionProgrammes;
   final int ticketCount;
   final int executionCount;
+  final int directiveCount;
   final int workflowAttentionCount;
   final int openOperationalEventCount;
   final int openQualityWarningCount;
@@ -337,7 +341,7 @@ class HomeManagementPulsePanel extends StatelessWidget {
         text: 'Live sources are incomplete. Refresh before final decisions.',
         icon: Icons.sync_problem_outlined,
         color: BafColors.danger,
-        onTap: onControl,
+        onTap: onRetry,
       );
     }
     if (openQualityWarningCount > 0) {
@@ -379,6 +383,16 @@ class HomeManagementPulsePanel extends StatelessWidget {
         icon: Icons.account_tree_outlined,
         color: BafColors.warning,
         onTap: onWork,
+      );
+    }
+    if (directiveCount > 0) {
+      return _HomeLeadingSignal(
+        text:
+            '$directiveCount '
+            '${directiveCount == 1 ? 'directive remains' : 'directives remain'} active.',
+        icon: Icons.assignment_late_outlined,
+        color: BafColors.directives,
+        onTap: onControl,
       );
     }
     if (overdueMaintenanceCount > 0) {

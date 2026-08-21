@@ -56,6 +56,7 @@ void main() {
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 640));
       addTearDown(() => tester.binding.setSurfaceSize(null));
+      var control = 0;
 
       await tester.pumpWidget(
         ProviderScope(
@@ -69,23 +70,25 @@ void main() {
                     plantOverview: const AsyncData(
                       PlantAssetOverview(classes: [], assets: []),
                     ),
-                    actionCount: 7,
-                    assuranceCount: 2,
+                    actionCount: 2,
+                    assuranceCount: 0,
                     dataUnavailable: false,
                     onOpenReports: () {},
                     onPlantCondition: () {},
                     onIssues: () {},
                     onWork: () {},
-                    onControl: () {},
+                    onControl: () => control += 1,
+                    onRetry: () {},
                     onMaintenanceRhythm: () {},
                     onInspectionProgrammes: () {},
-                    ticketCount: 4,
-                    executionCount: 1,
-                    workflowAttentionCount: 1,
+                    ticketCount: 0,
+                    executionCount: 0,
+                    directiveCount: 2,
+                    workflowAttentionCount: 0,
                     openOperationalEventCount: 0,
-                    openQualityWarningCount: 1,
-                    overdueMaintenanceCount: 1,
-                    activeInspectionFindingCount: 1,
+                    openQualityWarningCount: 0,
+                    overdueMaintenanceCount: 0,
+                    activeInspectionFindingCount: 0,
                   ),
                 ),
               ),
@@ -100,9 +103,65 @@ void main() {
       expect(find.text('Action queue'), findsOneWidget);
       expect(find.text('Assurance'), findsOneWidget);
       expect(find.byTooltip('Open operations reports'), findsOneWidget);
+      expect(find.text('2 directives remain active.'), findsOneWidget);
+      await tester.tap(find.text('2 directives remain active.'));
+      expect(control, 1);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('incomplete management data invokes the retry action', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var retries = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: BafAppTheme.light,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: HomeManagementPulsePanel(
+                plantOverview: const AsyncData(
+                  PlantAssetOverview(classes: [], assets: []),
+                ),
+                actionCount: 0,
+                assuranceCount: 0,
+                dataUnavailable: true,
+                onOpenReports: () {},
+                onPlantCondition: () {},
+                onIssues: () {},
+                onWork: () {},
+                onControl: () {},
+                onRetry: () => retries += 1,
+                onMaintenanceRhythm: () {},
+                onInspectionProgrammes: () {},
+                ticketCount: 0,
+                executionCount: 0,
+                directiveCount: 0,
+                workflowAttentionCount: 0,
+                openOperationalEventCount: 0,
+                openQualityWarningCount: 0,
+                overdueMaintenanceCount: 0,
+                activeInspectionFindingCount: 0,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final prompt = find.text(
+      'Live sources are incomplete. Refresh before final decisions.',
+    );
+    expect(prompt, findsOneWidget);
+    await tester.tap(prompt);
+    expect(retries, 1);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('operational control represents cross-functional queues', (
     tester,
