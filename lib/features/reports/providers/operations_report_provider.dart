@@ -2,21 +2,32 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../abnormalities/data/abnormality_model.dart';
+import '../../abnormalities/providers/abnormality_provider.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/domain/plant_asset_overview.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/providers/plant_asset_overview_provider.dart';
+import '../../auth/data/user_model.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../directives/data/operational_directive_model.dart';
+import '../../directives/providers/operational_directive_provider.dart';
 import '../../inspections/data/inspection_campaign.dart';
 import '../../inspections/providers/inspection_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
+import '../../maintenance_workflow/data/compliance_request_record.dart';
+import '../../maintenance_workflow/data/job_lane_record.dart';
+import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../operational_events/data/operational_event.dart';
 import '../../operational_events/providers/operational_event_provider.dart';
 import '../../planned_maintenance/data/job_template_model.dart';
 import '../../planned_maintenance/data/maintenance_intelligence.dart';
 import '../../planned_maintenance/providers/maintenance_intelligence_provider.dart';
 import '../../planned_maintenance/providers/planned_maintenance_provider.dart';
+import '../../quality/data/quality_warning.dart';
+import '../../quality/providers/quality_provider.dart';
 import '../models/operations_report.dart';
 
 const operationsReportClockInterval = Duration(minutes: 1);
@@ -63,10 +74,27 @@ final operationsReportExecutionsProvider =
           );
     });
 
+final operationsReportAbnormalitiesProvider =
+    FutureProvider<List<ChargeAbnormality>>((ref) {
+      return ref.watch(abnormalityRepositoryProvider).getAllAbnormalities();
+    });
+
 final operationsReportProvider = Provider.family<
   AsyncValue<OperationsReport>,
   OperationsReportFilter
 >((ref, filter) {
+  final actor = ref.watch(currentAppUserProvider);
+  if (actor.isLoading) return const AsyncLoading();
+  if (actor.hasError) {
+    return AsyncError(actor.error!, actor.stackTrace ?? StackTrace.current);
+  }
+  final authorizedActor = actor.value;
+  if (authorizedActor == null || !authorizedActor.canViewReports) {
+    return AsyncError(
+      StateError('Approved report access is required.'),
+      StackTrace.current,
+    );
+  }
   final period = (
     startInclusive: filter.startInclusive,
     endExclusive: filter.endExclusive,
@@ -76,6 +104,12 @@ final operationsReportProvider = Provider.family<
   final events = ref.watch(operationalEventsForReportsProvider);
   final dueStates = ref.watch(maintenanceDueStatesProvider);
   final inspectionFindings = ref.watch(allInspectionFindingsProvider);
+  final qualityWarnings = ref.watch(qualityWarningsProvider);
+  final qualityMonitoring = ref.watch(qualityMonitoringRequestsProvider);
+  final abnormalities = ref.watch(operationsReportAbnormalitiesProvider);
+  final directives = ref.watch(openDirectivesProvider);
+  final workflowLanes = ref.watch(workflowAllLanesProvider);
+  final complianceRequests = ref.watch(workflowAllComplianceProvider);
   final classes = ref.watch(assetClassesProvider);
   final assets = ref.watch(allAssetInstancesProvider);
   final overview = ref.watch(plantAssetOverviewProvider);
@@ -86,6 +120,12 @@ final operationsReportProvider = Provider.family<
       events.asError ??
       dueStates.asError ??
       inspectionFindings.asError ??
+      qualityWarnings.asError ??
+      qualityMonitoring.asError ??
+      abnormalities.asError ??
+      directives.asError ??
+      workflowLanes.asError ??
+      complianceRequests.asError ??
       classes.asError ??
       assets.asError ??
       overview.asError;
@@ -95,6 +135,12 @@ final operationsReportProvider = Provider.family<
       events.isLoading ||
       dueStates.isLoading ||
       inspectionFindings.isLoading ||
+      qualityWarnings.isLoading ||
+      qualityMonitoring.isLoading ||
+      abnormalities.isLoading ||
+      directives.isLoading ||
+      workflowLanes.isLoading ||
+      complianceRequests.isLoading ||
       classes.isLoading ||
       assets.isLoading ||
       overview.isLoading) {
@@ -109,6 +155,13 @@ final operationsReportProvider = Provider.family<
         events: events.requireValue,
         dueStates: dueStates.requireValue,
         inspectionFindings: inspectionFindings.requireValue,
+        qualityWarnings: qualityWarnings.requireValue,
+        qualityMonitoringRequests: qualityMonitoring.requireValue,
+        abnormalities: abnormalities.requireValue,
+        directives: directives.requireValue,
+        workflowLanes: workflowLanes.requireValue,
+        complianceRequests: complianceRequests.requireValue,
+        actor: authorizedActor,
         assetClasses: classes.requireValue,
         assetInstances: assets.requireValue,
         overview: overview.requireValue,
@@ -127,6 +180,13 @@ OperationsReport buildOperationsReport({
   required List<OperationalEvent> events,
   List<MaintenanceDueState> dueStates = const [],
   List<InspectionFinding> inspectionFindings = const [],
+  List<QualityWarning> qualityWarnings = const [],
+  List<QualityMonitoringRequest> qualityMonitoringRequests = const [],
+  List<ChargeAbnormality> abnormalities = const [],
+  List<OperationalDirective> directives = const [],
+  List<JobLaneRecord> workflowLanes = const [],
+  List<ComplianceRequestRecord> complianceRequests = const [],
+  AppUser? actor,
   required List<AssetClassRecord> assetClasses,
   required List<AssetInstanceRecord> assetInstances,
   required PlantAssetOverview overview,
@@ -183,6 +243,27 @@ OperationsReport buildOperationsReport({
 
   String? dueStateClassId(MaintenanceDueState state) =>
       state.assetClassId ?? legacyClasses[state.assetTypeKey]?.id;
+
+  ({String? classId, String? assetId}) legacyIdentity(
+    String assetTypeKey,
+    int assetNumber,
+  ) {
+    final classId = legacyClasses[assetTypeKey]?.id;
+    if (classId == null) return (classId: null, assetId: null);
+    final matches = assetInstances
+        .where(
+          (asset) =>
+              asset.assetClassId == classId && asset.assetNumber == assetNumber,
+        )
+        .map((asset) => asset.id)
+        .toList(growable: false);
+    if (matches.length > 1) {
+      throw StateError(
+        '$assetTypeKey $assetNumber matches multiple physical assets.',
+      );
+    }
+    return (classId: classId, assetId: matches.firstOrNull);
+  }
 
   String? dueStateAssetId(MaintenanceDueState state) {
     if (state.assetInstanceId != null) return state.assetInstanceId;
@@ -334,6 +415,108 @@ OperationsReport buildOperationsReport({
               ? activeOrder
               : right.updatedAt.compareTo(left.updatedAt);
         });
+
+  bool legacyRecordMatches(String assetTypeKey, int assetNumber) {
+    final identity = legacyIdentity(assetTypeKey, assetNumber);
+    return matchesIdentity(identity.classId, identity.assetId);
+  }
+
+  bool affectedAssetsMatch(Iterable<QualityAffectedAsset> affectedAssets) {
+    if (effectiveClassId == null && filter.assetInstanceId == null) return true;
+    return affectedAssets.any(
+      (asset) => legacyRecordMatches(asset.assetType, asset.assetNumber),
+    );
+  }
+
+  final filteredQualityWarnings =
+      qualityWarnings
+          .where(
+            (warning) =>
+                overlaps(warning.createdAt, warning.closedAt) &&
+                affectedAssetsMatch(warning.affectedAssets),
+          )
+          .toList()
+        ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+  final filteredQualityMonitoring =
+      qualityMonitoringRequests
+          .where(
+            (request) =>
+                overlaps(request.createdAt, request.closedAt) &&
+                legacyRecordMatches('base', request.baseNumber),
+          )
+          .toList()
+        ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+
+  bool abnormalityMatchesIdentity(ChargeAbnormality abnormality) {
+    if (effectiveClassId == null && filter.assetInstanceId == null) return true;
+    return abnormality.affectedAssets.any(
+      (asset) => legacyRecordMatches(asset.assetType.name, asset.assetNumber),
+    );
+  }
+
+  final filteredAbnormalities =
+      abnormalities
+          .where(
+            (record) =>
+                !record.isDeleted &&
+                !record.loggedAt.isBefore(filter.startInclusive) &&
+                record.loggedAt.isBefore(filter.endExclusive) &&
+                abnormalityMatchesIdentity(record),
+          )
+          .toList()
+        ..sort((left, right) => right.loggedAt.compareTo(left.loggedAt));
+
+  bool directiveMatchesIdentity(OperationalDirective directive) {
+    if (effectiveClassId == null && filter.assetInstanceId == null) return true;
+    final type = directive.assetType;
+    final number = directive.assetNumber;
+    return type != null &&
+        number != null &&
+        legacyRecordMatches(type.name, number);
+  }
+
+  final filteredDirectives =
+      directives
+          .where(
+            (directive) =>
+                !directive.isDeleted &&
+                !directive.isClosed &&
+                (actor == null || canUserSeeDirective(directive, actor)) &&
+                directiveMatchesIdentity(directive),
+          )
+          .toList()
+        ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+
+  bool workflowRecordVisible(String laneKey, {String? raisedByUid}) =>
+      actor == null ||
+      actor.isAdmin ||
+      actor.isSI ||
+      actor.canAcknowledgeOrWorkMaintenanceLane(laneKey) ||
+      (raisedByUid != null && raisedByUid == actor.uid);
+
+  final filteredWorkflowLanes =
+      workflowLanes
+          .where(
+            (lane) =>
+                !lane.isDeleted &&
+                workflowRecordVisible(lane.laneKey) &&
+                legacyRecordMatches(lane.assetTypeKey, lane.assetNumber),
+          )
+          .toList()
+        ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+  final filteredComplianceRequests =
+      complianceRequests
+          .where(
+            (request) =>
+                !request.isDeleted &&
+                workflowRecordVisible(
+                  request.targetLaneKey,
+                  raisedByUid: request.raisedByUid,
+                ) &&
+                legacyRecordMatches(request.assetTypeKey, request.assetNumber),
+          )
+          .toList()
+        ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
 
   bool isOverdue(MaintenanceDueState state) =>
       state.nextDueAt != null && state.nextDueAt!.isBefore(reportAsOf);
@@ -626,5 +809,21 @@ OperationsReport buildOperationsReport({
             filter.endExclusive,
           ),
     ),
+    qualityWarnings: List<QualityWarning>.unmodifiable(filteredQualityWarnings),
+    qualityMonitoringRequests: List<QualityMonitoringRequest>.unmodifiable(
+      filteredQualityMonitoring,
+    ),
+    abnormalities: List<ChargeAbnormality>.unmodifiable(filteredAbnormalities),
+    directives: List<OperationalDirective>.unmodifiable(filteredDirectives),
+    workflowLanes: List<JobLaneRecord>.unmodifiable(filteredWorkflowLanes),
+    complianceRequests: List<ComplianceRequestRecord>.unmodifiable(
+      filteredComplianceRequests,
+    ),
+    sourceQualityWarningCount: qualityWarnings.length,
+    sourceQualityMonitoringCount: qualityMonitoringRequests.length,
+    sourceAbnormalityCount: abnormalities.length,
+    sourceDirectiveCount: directives.length,
+    sourceWorkflowLaneCount: workflowLanes.length,
+    sourceComplianceRequestCount: complianceRequests.length,
   );
 }

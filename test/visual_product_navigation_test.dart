@@ -233,12 +233,72 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Overview'), findsOneWidget);
+    expect(find.text('Control'), findsOneWidget);
     expect(find.text('Work'), findsOneWidget);
     expect(find.text('Reliability'), findsOneWidget);
     expect(find.text('Assurance'), findsOneWidget);
-    await tester.tap(find.text('Work'));
+    await tester.tap(find.text('Control'));
     await tester.pump();
-    expect(selected, OperationsReportView.work);
+    expect(selected, OperationsReportView.control);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('control report routes remain actionable at phone width', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final now = DateTime.utc(2026, 8, 22, 12, 30);
+    final report = OperationsReport(
+      filter: OperationsReportFilter(startDate: now, endDate: now),
+      asOf: now,
+      tickets: const [],
+      executions: const [],
+      events: const [],
+      eventOccurrences: const [],
+      dueStates: const [],
+      inspectionFindings: const [],
+      assetStates: const [],
+      classSummaries: const [],
+      topComponents: const [],
+      topSubsystemPaths: const [],
+      sourceTicketCount: 0,
+      sourceExecutionCount: 0,
+      sourceEventCount: 0,
+      sourceDueStateCount: 0,
+      sourceInspectionFindingCount: 0,
+      disruptionCount: 0,
+      openDisruptionCount: 0,
+      disruptionDuration: Duration.zero,
+    );
+    var qualityOpens = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: BafAppTheme.light,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(BafSpacing.md),
+            child: OperationsControlReportPanel(
+              report: report,
+              onQuality: () => qualityOpens += 1,
+              onAbnormalities: () {},
+              onDirectives: () {},
+              onWorkflow: () {},
+              onOperationalEvents: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Decision routes'), findsOneWidget);
+    expect(find.text('Quality disposition'), findsOneWidget);
+    expect(find.text('Maintenance coordination'), findsOneWidget);
+    expect(find.text('Charge abnormalities'), findsOneWidget);
+    await tester.tap(find.text('Quality disposition'));
+    expect(qualityOpens, 1);
     expect(tester.takeException(), isNull);
   });
 

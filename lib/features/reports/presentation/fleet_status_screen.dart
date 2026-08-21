@@ -12,6 +12,9 @@ import '../../assets/data/asset_registry_model.dart';
 import '../../assets/providers/asset_hierarchy_provider.dart';
 import '../../assets/providers/plant_asset_overview_provider.dart';
 import '../../assets/presentation/asset_condition_board.dart';
+import '../../abnormalities/presentation/abnormalities_home_screen.dart';
+import '../../directives/presentation/directives_screen.dart';
+import '../../directives/providers/operational_directive_provider.dart';
 import '../../inspections/data/inspection_campaign.dart';
 import '../../inspections/providers/inspection_provider.dart';
 import '../../inspections/presentation/inspection_programmes_screen.dart';
@@ -19,18 +22,22 @@ import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/domain/burner_lockout_case.dart';
 import '../../maintenance/presentation/ticket_screen.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
+import '../../maintenance_workflow/presentation/screens/workflow_hub_screen.dart';
 import '../../operational_events/presentation/operational_events_screen.dart';
 import '../../operational_events/providers/operational_event_provider.dart';
 import '../../planned_maintenance/providers/maintenance_intelligence_provider.dart';
 import '../../planned_maintenance/presentation/maintenance_intelligence_screen.dart';
 import '../../planned_maintenance/presentation/templates_screen.dart';
+import '../../quality/presentation/quality_home_screen.dart';
+import '../../quality/providers/quality_provider.dart';
 import '../models/operations_report.dart';
 import '../models/burner_reliability_report.dart';
 import '../providers/operations_report_provider.dart';
 
 part 'fleet_status_insight_widgets.dart';
+part 'fleet_status_control_widgets.dart';
 
-enum OperationsReportView { overview, work, reliability, assurance }
+enum OperationsReportView { overview, control, work, reliability, assurance }
 
 class FleetStatusScreen extends ConsumerStatefulWidget {
   const FleetStatusScreen({super.key});
@@ -187,6 +194,8 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
     switch (_view) {
       case OperationsReportView.overview:
         return _overviewSections(report, classes, selection);
+      case OperationsReportView.control:
+        return _controlSections(report);
       case OperationsReportView.work:
         return _workSections(report);
       case OperationsReportView.reliability:
@@ -217,6 +226,10 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
       onMaintenanceRhythm: () => _open(const MaintenanceIntelligenceScreen()),
       onInspections: () => _open(const InspectionProgrammesScreen()),
       onPlannedWork: () => _open(const TemplatesScreen()),
+      onQuality: () => _open(const QualityHomeScreen()),
+      onAbnormalities: () => _open(const AbnormalitiesHomeScreen()),
+      onDirectives: () => _open(const DirectivesScreen()),
+      onWorkflow: () => _open(const WorkflowHubScreen()),
     ),
     const SizedBox(height: BafSpacing.xl),
     _SectionTitle(
@@ -281,6 +294,71 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
         ),
       ),
     ],
+  ];
+
+  List<Widget> _controlSections(OperationsReport report) => [
+    const _SectionTitle(
+      title: 'Control and quality',
+      subtitle: 'Current obligations plus charge events in the selected period',
+    ),
+    const SizedBox(height: BafSpacing.sm),
+    _MetricGrid(
+      metrics: [
+        _MetricData(
+          'Quality warnings',
+          report.openQualityWarningCount,
+          Icons.verified_user_outlined,
+          BafColors.charges,
+          detail: '${report.qualityClosureRequestCount} closure decisions',
+        ),
+        _MetricData(
+          'Directives',
+          report.activeDirectiveCount,
+          Icons.assignment_late_outlined,
+          BafColors.directives,
+          detail: '${report.highPriorityDirectiveCount} high priority',
+        ),
+        _MetricData(
+          'Workflow due',
+          report.workflowObligationCount,
+          Icons.account_tree_outlined,
+          BafColors.warning,
+          detail:
+              '${report.pendingLaneAcknowledgementCount} lanes · '
+              '${report.dueComplianceRequestCount} compliance',
+        ),
+        _MetricData(
+          'High abnormalities',
+          report.highSeverityAbnormalityCount,
+          Icons.monitor_heart_outlined,
+          BafColors.instrument,
+          detail: '${report.pendingReannealingCount} need RA follow-through',
+        ),
+        _MetricData(
+          'Cycle monitoring',
+          report.activeQualityMonitoringCount,
+          Icons.visibility_outlined,
+          BafColors.cobalt,
+          detail: 'Active bases, grades and cycle requests',
+        ),
+        _MetricData(
+          'Plant disruptions',
+          report.openDisruptionCount,
+          Icons.crisis_alert_outlined,
+          BafColors.warning,
+          detail: '${report.disruptionCount} occurrences in scope',
+        ),
+      ],
+    ),
+    const SizedBox(height: BafSpacing.xl),
+    OperationsControlReportPanel(
+      report: report,
+      onQuality: () => _open(const QualityHomeScreen()),
+      onAbnormalities: () => _open(const AbnormalitiesHomeScreen()),
+      onDirectives: () => _open(const DirectivesScreen()),
+      onWorkflow: () => _open(const WorkflowHubScreen()),
+      onOperationalEvents: () => _open(const OperationalEventsScreen()),
+    ),
   ];
 
   List<Widget> _workSections(OperationsReport report) => [
@@ -365,6 +443,18 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
           report.awaitingInspectionVerificationCount,
           Icons.verified_outlined,
           BafColors.planned,
+        ),
+        _MetricData(
+          'Quality decisions',
+          report.qualityClosureRequestCount,
+          Icons.gavel_outlined,
+          BafColors.charges,
+        ),
+        _MetricData(
+          'RA follow-through',
+          report.pendingReannealingCount,
+          Icons.replay_circle_filled_outlined,
+          BafColors.instrument,
         ),
       ],
     ),
@@ -1347,32 +1437,6 @@ class _DisruptionSection extends StatelessWidget {
   );
 }
 
-class _SourceWindowNotice extends StatelessWidget {
-  const _SourceWindowNotice({required this.report});
-  final OperationsReport report;
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.verified_outlined, size: 17, color: BafColors.textSecondary),
-        SizedBox(width: 7),
-        Expanded(
-          child: Text(
-            'Issue, planned-job and disruption records overlapping the selected period were evaluated. Current maintenance cadence and active inspection findings are included for the selected asset scope.',
-            style: TextStyle(
-              color: BafColors.textSecondary,
-              fontSize: 11,
-              height: 1.35,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _QuietEmpty extends StatelessWidget {
   const _QuietEmpty({required this.text});
   final String text;
@@ -1428,11 +1492,3 @@ String _assetTypeLabel(AssetType type) => switch (type) {
   AssetType.innerCover => 'Inner cover',
   AssetType.governedCustom => 'Governed asset',
 };
-
-String _formatDuration(Duration duration) {
-  final hours = duration.inHours;
-  if (hours < 24) return '${hours}h';
-  final days = hours ~/ 24;
-  final remainder = hours % 24;
-  return remainder == 0 ? '${days}d' : '${days}d ${remainder}h';
-}

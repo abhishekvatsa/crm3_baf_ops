@@ -7316,7 +7316,9 @@ check(
     and "ModeSwitchCard(" not in operational_ux_home
     and "'Needs attention'" in operational_ux_home
     and "label: 'Control'" in operational_ux_home
-    and "label: 'Explore'" in operational_ux_home
+    and "label: 'More'" in operational_ux_home
+    and "'Start here'" in operational_ux_home
+    and "title: 'Work and coordination'" in operational_ux_home
     and "title: 'Assets and lifecycle'" in operational_ux_home
     and "title: 'Performance and assurance'" in operational_ux_home
     and "title: 'Standards and governance'" in operational_ux_home
