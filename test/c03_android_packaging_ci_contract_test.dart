@@ -137,10 +137,23 @@ void main() {
         gradle,
         contains('manifestPlaceholders["crm3FirebaseDataCollectionEnabled"]'),
       );
+      expect(
+        gradle,
+        contains('manifestPlaceholders["crm3FirebaseInitProviderEnabled"]'),
+      );
       expect(manifest, contains('firebase_data_collection_default_enabled'));
       expect(manifest, contains('firebase_crashlytics_collection_enabled'));
       expect(manifest, contains('firebase_messaging_auto_init_enabled'));
       expect(manifest, contains('firebase_analytics_collection_enabled'));
+      expect(
+        manifest,
+        contains('com.google.firebase.provider.FirebaseInitProvider'),
+      );
+      expect(manifest, contains(r'${crm3FirebaseInitProviderEnabled}'));
+      expect(
+        script,
+        contains('firebaseNativeInitProviderEnabled=false'),
+      );
       expect(
         mainSource,
         contains("bool.fromEnvironment('CRM3_CI_PACKAGE_PROOF')"),
@@ -183,7 +196,18 @@ void main() {
           contains('Release process is not alive after cold launch.'),
         );
         expect(script, contains('PASS_C03_ANDROID_RELEASE_COLD_START_PROOF'));
-        expect(script, contains('firebaseInitializationAttempted=false'));
+        expect(script, contains("'apkanalyzer.bat'"));
+        expect(
+          script,
+          contains('com.google.firebase.provider.FirebaseInitProvider'),
+        );
+        expect(
+          script,
+          contains('CI proof APK must disable FirebaseInitProvider'),
+        );
+        expect(script, contains('firebaseNativeInitProviderEnabled=false'));
+        expect(script, contains('firebaseDartInitializationAttempted=false'));
+        expect(script, isNot(contains('firebaseInitializationAttempted=false')));
         expect(script, isNot(contains('pm clear')));
         expect(script, isNot(contains('uninstall')));
         expect(

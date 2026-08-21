@@ -499,13 +499,14 @@ Future<StartupFailure?> _initializeLocalDatabase() async {
 }
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
   if (_ciPackageProof) {
+    WidgetsFlutterBinding.ensureInitialized();
     runApp(const _CiPackageProofApp());
     return;
   }
 
   runCrashReportingZoned(() async {
+    WidgetsFlutterBinding.ensureInitialized();
     var startupFailure = await _initializeFirebaseAndCrashReporting();
 
     if (startupFailure == null) {

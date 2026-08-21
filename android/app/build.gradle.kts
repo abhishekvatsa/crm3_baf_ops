@@ -61,6 +61,8 @@ android {
         versionName = flutter.versionName
         manifestPlaceholders["crm3FirebaseDataCollectionEnabled"] =
             (!ciPackageProof).toString()
+        manifestPlaceholders["crm3FirebaseInitProviderEnabled"] =
+            (!ciPackageProof).toString()
     }
 
     signingConfigs {

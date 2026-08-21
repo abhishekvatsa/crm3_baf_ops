@@ -794,11 +794,16 @@ check(
     and "firebaseProductionTrafficDisabled=true" in c03_package_script
     and "crashlyticsMappingUploadEnabled=false" in c03_package_script
     and "firebaseAutomaticCollectionEnabled=false" in c03_package_script
+    and "firebaseNativeInitProviderEnabled=false" in c03_package_script
     and "mappingFileUploadEnabled = !ciPackageProof" in c06_android_build
+    and 'manifestPlaceholders["crm3FirebaseInitProviderEnabled"]'
+        in c06_android_build
     and "firebase_data_collection_default_enabled" in c03_android_manifest
     and "firebase_crashlytics_collection_enabled" in c03_android_manifest
     and "firebase_messaging_auto_init_enabled" in c03_android_manifest
     and "firebase_analytics_collection_enabled" in c03_android_manifest
+    and "com.google.firebase.provider.FirebaseInitProvider"
+        in c03_android_manifest
     and "bool.fromEnvironment('CRM3_CI_PACKAGE_PROOF')" in c03_main_source
     and c03_main_source.index("if (_ciPackageProof) {")
         < c03_main_source.index("runCrashReportingZoned")
@@ -808,6 +813,10 @@ check(
     and "logcat', '-b', 'crash" in c03_startup_script
     and "Release process is not alive after cold launch."
         in c03_startup_script
+    and "CI proof APK must disable FirebaseInitProvider"
+        in c03_startup_script
+    and "firebaseNativeInitProviderEnabled=false" in c03_startup_script
+    and "firebaseDartInitializationAttempted=false" in c03_startup_script
     and "Test-CIAndroidReleaseStartup.ps1" in c03_job_source
     and "release gate builds APK and AAB with no production authority"
         in c03_package_test
