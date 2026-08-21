@@ -313,7 +313,7 @@ describe('Furnace stuck-up governed lifecycle', () => {
       innerCoverId: 'inner-gr27',
       innerCoverSerialNumber: 'GR27',
       linkageId: 'link-gr27-base-117',
-      linkedAt: '2026-08-20T04:02:00.000Z',
+      linkedAt: '2026-08-20T03:59:00.000Z',
       version: 4,
     });
     store.seed('inner_cover_profiles/inner-gr27', {
@@ -335,5 +335,28 @@ describe('Furnace stuck-up governed lifecycle', () => {
     });
     expect(store.read('maintenance_tickets/stale-pairing')).toBeNull();
     expect(store.read('furnace_stuckup_cases/stale-pairing')).toBeNull();
+  });
+
+  test('rejects an issue that predates the current Inner Cover assignment', async () => {
+    const store = new MemoryWorkflowStore();
+    seedAssets(store);
+    const operations = seedActor(store, 'operations-1', ['operations']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    store.seed('base_inner_cover_assignments/base-117', {
+      ...store.read('base_inner_cover_assignments/base-117'),
+      linkedAt: '2026-08-20T04:02:00.000Z',
+    });
+
+    await expect(service.execute(createCommand('pre-linkage-issue'), {
+      actor: operations,
+      serverNow: at('2026-08-20T04:05:00Z'),
+    })).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: {
+        reasonCode: 'maintenance-ticket-inner-cover-linkage-after-event',
+      },
+    });
+    expect(store.read('maintenance_tickets/pre-linkage-issue')).toBeNull();
+    expect(store.read('furnace_stuckup_cases/pre-linkage-issue')).toBeNull();
   });
 });

@@ -466,9 +466,9 @@
     {
       "path": "firestore.rules",
       "canonicalSha256": "2CABD7561467EA71A86DBD18DD09BCE00B25B8FD5999F96712EEA791CC2C2BA0",
-      "candidateSha256": "51C7D673F758B8C2F2980258FFB273043EC2DC53015C451E44514408BE7D0BD1",
+      "candidateSha256": "309B79AA7D773E7A92202C966F98FEA60F50DA76D84E383ECA662448A2C00F73",
       "canonicalBytes": 111981,
-      "candidateBytes": 168263,
+      "candidateBytes": 168258,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -498,9 +498,9 @@
     {
       "path": "functions/package.json",
       "canonicalSha256": "B0A0CAD2A2F76012579544631D37DA260261FFA6F33BC3AF24F91F4C039EF1AC",
-      "candidateSha256": "A341EBFEC7054332E3271B5A0B3E7D408B3572F1A592293E9DDD09052CB30E06",
+      "candidateSha256": "12622689AC3A4FA8B873D6B5213B892B3520C6F531FC9D39E8299B465B166467",
       "canonicalBytes": 1115,
-      "candidateBytes": 3749,
+      "candidateBytes": 3847,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1078,9 +1078,9 @@
     {
       "path": "lib/core/services/sync_service.tickets_templates.dart",
       "canonicalSha256": "234C8A55AC89596929E0BBDA8FDA197809502505CD803C814085B37A5B883290",
-      "candidateSha256": "CB4D822F5250A8705037C14075649071D78F7DDE1775A73503B3A2A61BD512D1",
+      "candidateSha256": "4A9632F2E25C5785147C36B46BEB4A48AEE09C2760CAE70C8325FAF30EB2B6D1",
       "canonicalBytes": 20107,
-      "candidateBytes": 26172,
+      "candidateBytes": 26200,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -1550,9 +1550,9 @@
     {
       "path": "lib/features/maintenance/providers/maintenance_provider.dart",
       "canonicalSha256": "A9ECCD861BAE74BDAE1BD898D9DA47222C003487ECFB5A6C6E134BADB72A5597",
-      "candidateSha256": "3B11AC9E2C2EC51EAAA9BEE827D581DBA8EB8FA56FA9BA7C996DC9138DC46F7B",
+      "candidateSha256": "39C64AE2917211AC5739C97077B0B1D4261F679454686C13466ED6D512A895F0",
       "canonicalBytes": 54587,
-      "candidateBytes": 19278,
+      "candidateBytes": 19619,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2730,9 +2730,9 @@
     {
       "path": "test/firestore.rules.test.js",
       "canonicalSha256": "C6C3D640CD1A69189F0D77D27AF8F7FF3AF6A0A0F2DEAF941F80E2F86EDEB0D2",
-      "candidateSha256": "ADB445BAD4B0F9FE3BA28A1C2851F78D79FD0D8746F07FC415BC54FF619D876D",
+      "candidateSha256": "8E698C04F7B86ADADEE5D4EC5B6399230B8CB6E962064D08DEED620452F86430",
       "canonicalBytes": 78841,
-      "candidateBytes": 136781,
+      "candidateBytes": 137329,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -2826,9 +2826,9 @@
     {
       "path": "test/maintenance_lifecycle_replay_contract_test.dart",
       "canonicalSha256": "F0E6B4CD5FA4B519998FA947242F926D61C5F9524BC8E0641AB40DF0199DB970",
-      "candidateSha256": "F9E44D9D36FF25A0CFCE013A4B6041AE33C065FFFB4B057B20F97D5661154AFF",
+      "candidateSha256": "0272D9B4E4E7F5986961A39B4E7F2D560126EAAFEE75B2A1A63AEFE5DFAE7024",
       "canonicalBytes": 21051,
-      "candidateBytes": 26490,
+      "candidateBytes": 27276,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3086,7 +3086,7 @@
     {
       "path": "test/programme_ledger_contract_test.dart",
       "canonicalSha256": "DC917915EE0EA58C4B7B5A794AF361AEDCCA8927DE1420BA3A98A18D59024491",
-      "candidateSha256": "B1E58AFA2EFBB68E6219D4574F962A75F83F2825314A7B20ADDAE014392F1043",
+      "candidateSha256": "DD8F96D4107D1EF92E4071DC0886AE63D48D747BDC94D49B8AD6AA623387B571",
       "canonicalBytes": 18375,
       "candidateBytes": 40327,
       "disposition": "SUCCESSOR_MODIFIED"
@@ -3158,9 +3158,9 @@
     {
       "path": "test/release_startup_hygiene_contract_test.dart",
       "canonicalSha256": "C709DF5B31A5CA444CAB63F4A538CF9551B538542C6F1B1F199D6B9E64B0A90F",
-      "candidateSha256": "816770FDD361956C0C46A0A515E8328B039BB1C8FE9A1BB2F2319D86ECC93FF1",
+      "candidateSha256": "89F839352EA6C46FEC96D8355E8BABE976FB23038B8E7A614535C8D0DFC4851A",
       "canonicalBytes": 17177,
-      "candidateBytes": 20579,
+      "candidateBytes": 20800,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {

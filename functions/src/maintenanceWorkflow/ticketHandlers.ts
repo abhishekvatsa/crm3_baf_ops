@@ -675,6 +675,8 @@ const requireFreshAssetReference = async (args: {
         `inner_cover_profiles/${innerCoverId}`,
       );
       const profile = profileSnapshot.data;
+      const linkedAt = instantText(assignment.linkedAt);
+      const linkedAtMillis = linkedAt == null ? Number.NaN : Date.parse(linkedAt);
       if (assignment.schemaVersion !== 1 ||
           assignment.baseAssetInstanceId !== assetId ||
           assignment.baseAssetClassId !== classId ||
@@ -682,7 +684,7 @@ const requireFreshAssetReference = async (args: {
           !Number.isSafeInteger(assignment.version) ||
           typeof assignment.linkageId !== "string" ||
           typeof assignment.innerCoverSerialNumber !== "string" ||
-          instantText(assignment.linkedAt) == null ||
+          !Number.isFinite(linkedAtMillis) ||
           !profileSnapshot.exists || profile == null ||
           profile.schemaVersion !== 1 || profile.innerCoverId !== innerCoverId ||
           profile.lifecycleState !== "installed" ||
@@ -696,6 +698,13 @@ const requireFreshAssetReference = async (args: {
           {reasonCode: "maintenance-ticket-inner-cover-projection-invalid"},
         );
       }
+      if (Date.parse(args.startDate) < linkedAtMillis) {
+        throw new WorkflowError(
+          "failed-precondition",
+          "The issue predates the current Inner Cover assignment.",
+          {reasonCode: "maintenance-ticket-inner-cover-linkage-after-event"},
+        );
+      }
       innerCoverAssociation = {
         baseAssetInstanceId: assetId,
         baseAssetNumber: args.assetNumber,
@@ -704,7 +713,7 @@ const requireFreshAssetReference = async (args: {
         innerCoverSerialNumber: assignment.innerCoverSerialNumber as string,
         linkageId: assignment.linkageId as string,
         assignmentVersion: assignment.version as number,
-        linkedAt: instantText(assignment.linkedAt),
+        linkedAt: new Date(linkedAtMillis).toISOString(),
         eventAt: args.startDate,
         confirmedAt: iso(args.serverNow),
         confirmedByUid: args.actor.uid,

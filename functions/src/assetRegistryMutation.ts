@@ -505,7 +505,7 @@ function timestampOrNull(date: Date | null, convert: (date: Date) => unknown): u
 function timestampIso(value: unknown, field: string): string {
   let date: unknown = value;
   if (typeof value === "string") {
-    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?$/.exec(value);
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value);
     const parts = match?.slice(1, 7).map(Number) ?? [];
     const calendar = parts.length === 6 ? new Date(Date.UTC(
       parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5],

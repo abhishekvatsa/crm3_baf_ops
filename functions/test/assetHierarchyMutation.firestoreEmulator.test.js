@@ -726,6 +726,20 @@ describeWithEmulator('governed asset-hierarchy mutation', () => {
       },
     };
 
+    await db.collection('maintenance_records').doc('resolved-issue-1').update({
+      endDate: '2026-08-13T11:30:00.000',
+    });
+    await expect(invokeRegistry(replacement)).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: expect.objectContaining({
+        reasonCode: 'asset-component-replacement-evidence-malformed',
+        field: 'issue endDate',
+      }),
+    });
+    await db.collection('maintenance_records').doc('resolved-issue-1').update({
+      endDate: '2026-08-13T11:30:00.000Z',
+    });
+
     const first = await invokeRegistry(replacement);
     expect(await invokeRegistry(replacement)).toEqual({
       ...first,

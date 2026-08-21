@@ -713,6 +713,23 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
+  Future<Map<String, dynamic>?>
+  readRemoteMaintenanceLifecycleReplayFieldsForSync(String firestoreId) async {
+    final id = _cleanOptionalMaintenanceText(firestoreId);
+    if (id == null) {
+      throw ArgumentError(
+        'readRemoteMaintenanceLifecycleReplayFieldsForSync requires a '
+        'non-empty firestoreId',
+      );
+    }
+    final document = await _collection.doc(id).get();
+    final data = document.data();
+    return document.exists && data != null
+        ? Map<String, dynamic>.from(data)
+        : null;
+  }
+
+  @override
   Future<bool> applyGovernedCreationReceiptForSync({
     required String firestoreId,
     required SyncPushSnapshot expectedLocal,

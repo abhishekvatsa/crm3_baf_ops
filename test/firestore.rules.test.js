@@ -310,11 +310,28 @@ describe("global pull server clock custody", () => {
       lastEditedByName: "admin1",
       version: 2,
     }));
+    await assertSucceeds(updateDoc(ref, {
+      title: "Type 1 revised twice while offline",
+      updatedAt: new Date().toISOString(),
+      lastEditedByUid: "admin1",
+      lastEditedByName: "admin1",
+      version: 4,
+    }));
+    await assertFails(updateDoc(ref, {
+      title: "Same version must not overwrite",
+      updatedAt: new Date().toISOString(),
+      version: 4,
+    }));
+    await assertFails(updateDoc(ref, {
+      title: "Version rollback must not overwrite",
+      updatedAt: new Date().toISOString(),
+      version: 3,
+    }));
     await assertFails(
       updateDoc(ref, {
         _globalPullServerUpdatedAt: serverTimestamp(),
         updatedAt: new Date().toISOString(),
-        version: 3,
+        version: 5,
       })
     );
     await assertFails(

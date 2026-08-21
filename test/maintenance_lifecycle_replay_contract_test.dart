@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/services/sync_service.dart';
-import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -593,53 +592,59 @@ void main() {
     test('uncertain lifecycle outcomes require exact readback evidence', () {
       final closeAt = DateTime.utc(2026, 8, 21, 10);
       final updatedAt = DateTime.utc(2026, 8, 21, 10, 1);
-      final remote =
-          MaintenanceRecord()
-            ..version = 2
-            ..isResolved = true
-            ..status = TicketStatus.resolved
-            ..endDate = closeAt
-            ..closedByUid = 'si-1'
-            ..actionsJson = '[{"action":"inspection"}]'
-            ..updatedAt = updatedAt;
       final step = <String, dynamic>{
         'version': 2,
         'isResolved': true,
         'status': 'resolved',
         'endDate': closeAt.toIso8601String(),
         'closedByUid': 'si-1',
+        'closedByName': 'Senior Mechanical',
+        'remarks': 'Inspection complete',
+        'downtimeHours': 1.5,
+        'teamsInvolved': <String>['mechanical', 'operations'],
         'actionsJson': '[{"action":"inspection"}]',
+        'burnerAttendedPositions': <int>[2, 5],
+        'burnerResolutionEvidence': <String, dynamic>{
+          '2': <String, dynamic>{
+            'outcome': 'returnedToService',
+            'actionCodes': <String>['uvDetectorCleaning'],
+            'microampReading': 3.75,
+          },
+        },
         'updatedAt': updatedAt.toIso8601String(),
+        'updatedByUid': 'si-1',
+        'updatedByName': 'Senior Mechanical',
       };
+      final remote = <String, dynamic>{...step, 'unrelatedServerField': true};
 
       expect(maintenanceLifecycleReplayOutcomeMatches(remote, step), isTrue);
+      for (final field in step.keys) {
+        expect(
+          maintenanceLifecycleReplayOutcomeMatches(<String, dynamic>{
+            ...remote,
+            field: _differentReplayValue(step[field]),
+          }, step),
+          isFalse,
+          reason: 'A mismatch in replayed field $field must fail readback.',
+        );
+      }
       expect(
-        maintenanceLifecycleReplayOutcomeMatches(remote, <String, dynamic>{
-          ...step,
-          'version': 3,
-        }),
-        isFalse,
-      );
-      expect(
-        maintenanceLifecycleReplayOutcomeMatches(remote, <String, dynamic>{
-          ...step,
-          'actionsJson': '[]',
-        }),
+        maintenanceLifecycleReplayOutcomeMatches(<String, dynamic>{
+          ...remote,
+          'burnerResolutionEvidence': <String, dynamic>{
+            '2': <String, dynamic>{
+              'outcome': 'returnedToService',
+              'actionCodes': <String>['uvDetectorCleaning'],
+              'microampReading': 1.0,
+            },
+          },
+        }, step),
         isFalse,
       );
     });
 
     test('uncertain reopen outcome preserves exact resolution history', () {
       final updatedAt = DateTime.utc(2026, 8, 21, 10, 5);
-      final remote =
-          MaintenanceRecord()
-            ..version = 3
-            ..isResolved = false
-            ..status = TicketStatus.open
-            ..endDate = null
-            ..actionsJson = '[]'
-            ..resolutionHistoryJson = '[{"version":2}]'
-            ..updatedAt = updatedAt;
       final step = <String, dynamic>{
         'version': 3,
         'isResolved': false,
@@ -648,6 +653,7 @@ void main() {
         'resolutionHistoryJson': '[{"version":2}]',
         'updatedAt': updatedAt.toIso8601String(),
       };
+      final remote = <String, dynamic>{...step};
 
       expect(maintenanceLifecycleReplayOutcomeMatches(remote, step), isTrue);
       expect(
@@ -703,6 +709,19 @@ void main() {
       },
     );
   });
+}
+
+Object? _differentReplayValue(Object? value) {
+  return switch (value) {
+    null => 'unexpected',
+    bool current => !current,
+    int current => current + 1,
+    double current => current + 1,
+    String current => '$current changed',
+    List current => <Object?>[...current, 'unexpected'],
+    Map current => <Object?, Object?>{...current, 'unexpected': true},
+    _ => 'unexpected',
+  };
 }
 
 const _syncPath = 'lib/core/services/sync_service.tickets_templates.dart';
