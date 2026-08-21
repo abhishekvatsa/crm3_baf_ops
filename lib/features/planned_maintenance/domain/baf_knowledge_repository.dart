@@ -320,18 +320,16 @@ class BafKnowledgeRepository {
               throughInclusive: through,
             ).limit(_knowledgePullPageSize);
 
-    final Future<DocumentSnapshot<Map<String, dynamic>>?> metaFuture =
-        _firestore
-            .doc(metaPath)
-            .get()
-            .then<DocumentSnapshot<Map<String, dynamic>>?>((doc) => doc);
+    late final QuerySnapshot<Map<String, dynamic>> firstPage;
+    late final DocumentSnapshot<Map<String, dynamic>> metaDoc;
+    await Future.wait<void>(<Future<void>>[
+      baseQuery.get().then((value) => firstPage = value),
+      _firestore.doc(metaPath).get().then((value) => metaDoc = value),
+    ]);
 
     final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-    QueryDocumentSnapshot<Map<String, dynamic>>? lastDoc;
+    var page = firstPage;
     while (true) {
-      final pageQuery =
-          lastDoc == null ? baseQuery : baseQuery.startAfterDocument(lastDoc);
-      final page = await pageQuery.get();
       if (page.docs.isEmpty) break;
       if (through != null) {
         for (final document in page.docs) {
@@ -340,10 +338,9 @@ class BafKnowledgeRepository {
       }
       docs.addAll(page.docs);
       if (page.docs.length < _knowledgePullPageSize) break;
-      lastDoc = page.docs.last;
+      page = await baseQuery.startAfterDocument(page.docs.last).get();
     }
-    final metaDoc = await metaFuture;
-    final metaData = metaDoc?.data();
+    final metaData = metaDoc.data();
     final metaStore =
         metaData == null
             ? null

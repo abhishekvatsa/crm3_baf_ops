@@ -168,6 +168,44 @@ void main() {
       'mrg1-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     );
   });
+
+  test('registry family canonicalizes repeated persisted list values', () {
+    final source =
+        _module()
+          ..ownerDisciplines = <String>[
+            'mechanical',
+            ' mechanical ',
+            'instrumentation',
+            'mechanical',
+          ]
+          ..targetRefs = <String>['PSL13', ' PSL13 ', 'BASE-101']
+          ..deviceTagRefs = <String>['PSL13-LP-SW', 'PSL13-LP-SW', 'PSL13-SOL']
+          ..safetyClasses = <String>['hydraulic', ' hydraulic ', 'interlock'];
+
+    final family = ModuleRegistryFamily.fromModule(
+      module: source,
+      actor: _actor(),
+      now: DateTime.utc(2026, 1, 1),
+    );
+
+    expect(family.ownerDisciplines, <String>['mechanical', 'instrumentation']);
+    expect(family.targetRefs, <String>['PSL13', 'BASE-101']);
+    expect(family.deviceTagRefs, <String>['PSL13-LP-SW', 'PSL13-SOL']);
+    expect(family.safetyClasses, <String>['hydraulic', 'interlock']);
+    expect(
+      () =>
+          ModuleRegistryFamily.fromMap(family.toMap(), family.registryModuleId),
+      returnsNormally,
+    );
+
+    source
+      ..ownerDisciplines = <String>['operations', 'operations']
+      ..targetRefs = <String>['FURNACE-01', 'FURNACE-01'];
+    family.refreshFromModule(source, _actor(), now: DateTime.utc(2026, 1, 2));
+
+    expect(family.ownerDisciplines, <String>['operations']);
+    expect(family.targetRefs, <String>['FURNACE-01']);
+  });
 }
 
 AppUser _actor() {

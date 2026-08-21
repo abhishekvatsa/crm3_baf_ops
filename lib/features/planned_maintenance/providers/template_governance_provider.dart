@@ -35,10 +35,19 @@ String _cleanRequiredText(String? value, String fallback) {
 }
 
 List<String> _cleanStringList(List<String> values) {
-  return values
-      .map((value) => value.trim())
-      .where((value) => value.isNotEmpty)
-      .toList();
+  final seen = <String>{};
+  return <String>[
+    for (final value in values)
+      if (value.trim().isNotEmpty && seen.add(value.trim())) value.trim(),
+  ];
+}
+
+void _validatePackageForPersistence(TemplatePackage record) {
+  final firestoreId = _cleanOptionalText(record.firestoreId);
+  if (firestoreId == null) {
+    throw StateError('Template package persistence requires a Firestore ID.');
+  }
+  readRemoteTemplatePackage(record.toMap(), documentId: firestoreId);
 }
 
 void _validateTemplateVersionSnapshotForPublish(TemplateVersion record) {
@@ -178,6 +187,8 @@ void _normalizePackageForUserSave(
   if (markUnsynced) {
     record.isSynced = false;
   }
+
+  _validatePackageForPersistence(record);
 }
 
 void _normalizeVersionForUserSave(

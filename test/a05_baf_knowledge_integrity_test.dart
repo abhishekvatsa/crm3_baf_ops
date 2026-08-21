@@ -296,8 +296,12 @@ void main() {
       contains('BafKnowledgeRow.fromCloudMap(doc.data(), doc.id).toEntry(i)'),
     );
     expect(repository, isNot(contains('.catchError((_) => null)')));
+    expect(repository, contains('await Future.wait<void>'));
+    expect(repository, contains('baseQuery.get().then'));
+    expect(repository, contains('_firestore.doc(metaPath).get().then'));
+    expect(repository, isNot(contains('final Future<DocumentSnapshot')));
     expect(
-      repository.indexOf('final metaDoc = await metaFuture;'),
+      repository.indexOf('final metaData = metaDoc.data();'),
       lessThan(
         repository.indexOf(
           'if (docs.isEmpty) return const BafKnowledgePullResult',

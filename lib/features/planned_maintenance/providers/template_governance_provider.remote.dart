@@ -656,6 +656,7 @@ class FirestoreTemplateGovernanceRepository
     final batch = FirebaseFirestore.instance.batch();
     for (final record in records) {
       if (record.firestoreId != null) {
+        _validatePackageForPersistence(record);
         batch.set(
           _packages.doc(record.firestoreId),
           record.toMap(),

@@ -2820,6 +2820,86 @@ service cloud.firestore {
     // ⚠️ ABNORMALITY HELPERS
     // ─────────────────────────────────────────────
 
+    function validOptionalAbnormalityTypeText(value, maxLength) {
+      return value == null || validNonEmptyString(value, maxLength);
+    }
+
+    function validAbnormalityTypeAssetTypes(value) {
+      return value is list
+        && value.size() <= 5
+        && value.hasOnly([
+          'base',
+          'furnace',
+          'forceCooler',
+          'innerCover',
+          'governedCustom'
+        ])
+        && value.toSet().size() == value.size();
+    }
+
+    function validAbnormalityTypeWrite(docId) {
+      let isDeleted = request.resource.data.get('isDeleted', null);
+      let deletedAt = request.resource.data.get('deletedAt', null);
+      let deletedByUid = request.resource.data.get('deletedByUid', null);
+      let deletedByName = request.resource.data.get('deletedByName', null);
+      let deleteReason = request.resource.data.get('deleteReason', null);
+      let category = request.resource.data.get('category', null);
+      let severity = request.resource.data.get('severity', null);
+      return request.resource.data.get('firestoreId', null) == docId
+        && validNonEmptyString(request.resource.data.get('code', null), 160)
+        && validNonEmptyString(request.resource.data.get('title', null), 500)
+        && validOptionalAbnormalityTypeText(
+          request.resource.data.get('description', null),
+          4000
+        )
+        && (category == 'process'
+          || category == 'equipment'
+          || category == 'resultQuality'
+          || category == 'reannealing'
+          || category == 'other')
+        && (severity == 'low'
+          || severity == 'medium'
+          || severity == 'high'
+          || severity == 'critical')
+        && validAbnormalityTypeAssetTypes(
+          request.resource.data.get('applicableAssetTypes', null)
+        )
+        && request.resource.data.get('suggestsReannealing', null) is bool
+        && request.resource.data.get('isActive', null) is bool
+        && isDeleted is bool
+        && request.resource.data.get('version', -1) is int
+        && request.resource.data.get('version', -1) >= 1
+        && isPersistedTimestamp(request.resource.data.get('createdAt', null))
+        && isPersistedTimestamp(request.resource.data.get('updatedAt', null))
+        && validNonEmptyString(
+          request.resource.data.get('createdByUid', null),
+          512
+        )
+        && validOptionalAbnormalityTypeText(
+          request.resource.data.get('createdByName', null),
+          500
+        )
+        && validNonEmptyString(
+          request.resource.data.get('lastEditedByUid', null),
+          512
+        )
+        && validOptionalAbnormalityTypeText(
+          request.resource.data.get('lastEditedByName', null),
+          500
+        )
+        && validOptionalAbnormalityTypeText(deletedByUid, 512)
+        && validOptionalAbnormalityTypeText(deletedByName, 500)
+        && validOptionalAbnormalityTypeText(deleteReason, 2000)
+        && (isDeleted
+          ? (request.resource.data.get('isActive', null) == false
+            && isPersistedTimestamp(deletedAt)
+            && validNonEmptyString(deletedByUid, 512))
+          : (deletedAt == null
+            && deletedByUid == null
+            && deletedByName == null
+            && deleteReason == null));
+    }
+
     function validChargeAbnormalityCreate(docId) {
       let sourceChargeNo = request.resource.data.get('sourceChargeNo', -1);
       let reannealingStatus =
@@ -3857,10 +3937,18 @@ service cloud.firestore {
       allow read: if isApprovedUser();
       allow create: if globalPullStampAbsentOnCreate()
         && isAdmin()
-        && targetTombstoneHasDeletionAuthority();
+        && targetTombstoneHasDeletionAuthority()
+        && validAbnormalityTypeWrite(docId);
       allow update: if globalPullStampValidOnUpdate()
         && isAdmin()
-        && targetTombstoneHasDeletionAuthority();
+        && targetTombstoneHasDeletionAuthority()
+        && validAbnormalityTypeWrite(docId)
+        && (
+          resource.data.get('version', null) is int
+            ? request.resource.data.get('version', -1) ==
+              resource.data.get('version', -1) + 1
+            : request.resource.data.get('version', -1) >= 1
+        );
       allow delete: if false;
     }
 
