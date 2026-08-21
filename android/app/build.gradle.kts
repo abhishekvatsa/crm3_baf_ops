@@ -1,3 +1,5 @@
+import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -12,6 +14,13 @@ val releaseKeyAlias = System.getenv("CRM_ANDROID_RELEASE_KEY_ALIAS")
 val releaseKeyPassword = System.getenv("CRM_ANDROID_RELEASE_KEY_PASSWORD")
 val releaseTaskRequested =
     gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+val ciPackageProofRaw = System.getenv("CRM3_CI_PACKAGE_PROOF")
+if (ciPackageProofRaw != null && ciPackageProofRaw != "true") {
+    throw org.gradle.api.GradleException(
+        "CRM3_CI_PACKAGE_PROOF must be absent or exactly true."
+    )
+}
+val ciPackageProof = ciPackageProofRaw == "true"
 
 val missingReleaseInputs = mapOf(
     "CRM_ANDROID_RELEASE_STORE_FILE" to releaseStoreFilePath,
@@ -50,6 +59,8 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["crm3FirebaseDataCollectionEnabled"] =
+            (!ciPackageProof).toString()
     }
 
     signingConfigs {
@@ -73,6 +84,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            configure<CrashlyticsExtension> {
+                mappingFileUploadEnabled = !ciPackageProof
+            }
         }
     }
 }

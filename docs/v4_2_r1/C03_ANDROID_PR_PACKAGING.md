@@ -33,6 +33,28 @@ signing secrets.
 8. records package hashes in the job log;
 9. uploads no artifact and removes the temporary signing material.
 
+The later review hardening also prevents this disposable package from touching
+the production Firebase plane. The proof creates a temporary release-variant
+`google-services.json` with an isolated non-production identity, supplies the
+compile-time `CRM3_CI_PACKAGE_PROOF=true` marker, and removes the override in a
+`finally` block. In that mode:
+
+- Dart renders a minimal package-proof screen before Firebase, App Check,
+  Crashlytics, messaging, Isar, authentication or synchronization can start;
+- Android manifest metadata disables default Firebase data collection,
+  Crashlytics collection, Messaging auto-init and Analytics collection;
+- the Crashlytics Gradle plugin still generates mapping identity and shrinking
+  evidence, but mapping upload is disabled;
+- the verifier reads the compiled APK and requires the isolated app ID, project
+  ID, sender ID and API key, and all four collection flags set to `false`;
+- the permanent production application ID is retained, while no production
+  Firebase identity, signing certificate, secret or artifact is used.
+
+The governed production-artifact workflow invokes the same package proof only
+as a preflight. Its `finally` cleanup and the workflow's subsequent
+`flutter clean` ensure the real artifact is rebuilt from the repository-owned
+production Firebase configuration with the proof marker absent.
+
 The job is a packaging and dependency-graph proof. Its outputs are not governed
 release candidates and are not authorized for installation or distribution.
 

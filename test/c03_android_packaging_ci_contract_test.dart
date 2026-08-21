@@ -64,6 +64,10 @@ void main() {
         script,
         contains('CI packaging proof refuses pre-existing signing input'),
       );
+      expect(
+        script,
+        contains('CI packaging proof refuses a pre-existing Firebase override'),
+      );
       expect(script, contains('RandomNumberGenerator]::Create()'));
       expect(script, contains(r'$generator.GetBytes($bytes)'));
       expect(script, contains(r"New-Object byte[] 24"));
@@ -73,6 +77,25 @@ void main() {
       expect(script, contains("'apk'"));
       expect(script, contains("'appbundle'"));
       expect(script, contains("'--release'"));
+      expect(script, contains("'--dart-define=CRM3_CI_PACKAGE_PROOF=true'"));
+      expect(script, contains("\$env:CRM3_CI_PACKAGE_PROOF = 'true'"));
+      expect(script, contains('android/app/src/release/google-services.json'));
+      expect(script, contains('crm3-ci-package-proof-isolated'));
+      expect(script, contains('crm3-ci-package-proof-no-api-access'));
+      expect(
+        RegExp(r'AIza[0-9A-Za-z_-]{35}').hasMatch(script),
+        isFalse,
+        reason: 'The CI Firebase fixture must not look like a real API key.',
+      );
+      expect(script, contains("'google_app_id'"));
+      expect(script, contains("'gcm_defaultSenderId'"));
+      expect(script, contains("'project_id'"));
+      expect(script, contains("'google_api_key'"));
+      expect(script, contains('isolatedFirebaseIdentity=true'));
+      expect(script, contains('productionFirebaseIdentityEmbedded=false'));
+      expect(script, contains('firebaseProductionTrafficDisabled=true'));
+      expect(script, contains('crashlyticsMappingUploadEnabled=false'));
+      expect(script, contains('firebaseAutomaticCollectionEnabled=false'));
       expect(script, contains("'apksigner'"));
       expect(script, contains("'jarsigner'"));
       expect(script, contains("'manifest', 'application-id'"));
@@ -100,7 +123,34 @@ void main() {
       expect(script, contains('productionSecretsReferenced=false'));
       expect(script, contains('artifactUploadPerformed=false'));
       expect(script, contains('Remove-Item -LiteralPath \$temporaryStore'));
+      expect(
+        script,
+        contains('Remove-Item -LiteralPath \$ciFirebaseConfigPath'),
+      );
       expect(script, isNot(contains(productionCertificate)));
+
+      final gradle = _read('android/app/build.gradle.kts');
+      final manifest = _read('android/app/src/main/AndroidManifest.xml');
+      final mainSource = _read('lib/main.dart');
+      expect(gradle, contains('mappingFileUploadEnabled = !ciPackageProof'));
+      expect(
+        gradle,
+        contains('manifestPlaceholders["crm3FirebaseDataCollectionEnabled"]'),
+      );
+      expect(manifest, contains('firebase_data_collection_default_enabled'));
+      expect(manifest, contains('firebase_crashlytics_collection_enabled'));
+      expect(manifest, contains('firebase_messaging_auto_init_enabled'));
+      expect(manifest, contains('firebase_analytics_collection_enabled'));
+      expect(
+        mainSource,
+        contains("bool.fromEnvironment('CRM3_CI_PACKAGE_PROOF')"),
+      );
+      expect(mainSource, contains('if (_ciPackageProof) {'));
+      expect(mainSource, contains('runApp(const _CiPackageProofApp())'));
+      expect(
+        mainSource.indexOf('if (_ciPackageProof) {'),
+        lessThan(mainSource.indexOf('runCrashReportingZoned')),
+      );
     });
 
     test(
@@ -115,7 +165,10 @@ void main() {
         expect(script, contains('Android Debug Bridge is unavailable.'));
         expect(script, contains('-not (\$devices -match'));
         expect(script, contains("'install', '-r', \$resolvedApk"));
-        expect(script, contains("'android.permission.POST_NOTIFICATIONS'"));
+        expect(
+          script,
+          isNot(contains("'android.permission.POST_NOTIFICATIONS'")),
+        );
         expect(script, contains("'am',"));
         expect(script, contains("'start',"));
         expect(script, contains("'-W',"));
@@ -130,6 +183,7 @@ void main() {
           contains('Release process is not alive after cold launch.'),
         );
         expect(script, contains('PASS_C03_ANDROID_RELEASE_COLD_START_PROOF'));
+        expect(script, contains('firebaseInitializationAttempted=false'));
         expect(script, isNot(contains('pm clear')));
         expect(script, isNot(contains('uninstall')));
         expect(

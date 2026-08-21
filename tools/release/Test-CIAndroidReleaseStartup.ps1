@@ -62,15 +62,6 @@ $null = Invoke-AdbCaptured `
   -ArgumentList @('logcat', '-c') `
   -FailureMessage 'Unable to clear the isolated emulator log buffer.'
 $null = Invoke-AdbCaptured `
-  -ArgumentList @(
-    'shell',
-    'pm',
-    'grant',
-    $ApplicationId,
-    'android.permission.POST_NOTIFICATIONS'
-  ) `
-  -FailureMessage 'Unable to grant notification permission on the isolated emulator.'
-$null = Invoke-AdbCaptured `
   -ArgumentList @('shell', 'am', 'force-stop', $ApplicationId) `
   -FailureMessage 'Unable to stop the isolated release process.'
 $launchOutput = @(
@@ -123,3 +114,4 @@ Write-Output "applicationId=$ApplicationId"
 Write-Output "deviceId=$DeviceId"
 Write-Output 'processAlive=true'
 Write-Output 'startupCrashRecorded=false'
+Write-Output 'firebaseInitializationAttempted=false'

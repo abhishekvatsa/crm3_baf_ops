@@ -82,8 +82,8 @@
     ]
   },
   "counts": {
-    "BYTE_IDENTICAL": 178,
-    "SUCCESSOR_MODIFIED": 232,
+    "BYTE_IDENTICAL": 177,
+    "SUCCESSOR_MODIFIED": 233,
     "MISSING": 0
   },
   "paths": [
@@ -146,9 +146,9 @@
     {
       "path": "android/app/build.gradle.kts",
       "canonicalSha256": "5B04387D1042C0770E38315702F2A86B7DDA8C09D06987C98218A4B37A5A1A19",
-      "candidateSha256": "EB0C4BAF2E547F63E022523990F98579581CD898FB306954E1B37728479BE718",
+      "candidateSha256": "235C13061C48C7744D5150B2B972707A273FFC7D1AE88D845021C45B283EE7D2",
       "canonicalBytes": 2536,
-      "candidateBytes": 2729,
+      "candidateBytes": 3326,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -166,10 +166,10 @@
     {
       "path": "android/app/src/main/AndroidManifest.xml",
       "canonicalSha256": "746DDF5CE95480F3EFEB72EC08880B7674BDB89DE0E6404F88BC5178DBF82FA8",
-      "candidateSha256": "746DDF5CE95480F3EFEB72EC08880B7674BDB89DE0E6404F88BC5178DBF82FA8",
+      "candidateSha256": "E17577CB06C34ABAE79919F0B977C730037DCAA4F3EBFC332B5B3A14721ACA97",
       "canonicalBytes": 2203,
-      "candidateBytes": 2203,
-      "disposition": "BYTE_IDENTICAL"
+      "candidateBytes": 2815,
+      "disposition": "SUCCESSOR_MODIFIED"
     },
     {
       "path": "android/app/src/main/kotlin/in/co/sail/bsl/crm3/bafops/MainActivity.kt",
@@ -2370,9 +2370,9 @@
     {
       "path": "lib/main.dart",
       "canonicalSha256": "6DE20D01D9D00FAA761B6231101DD873CDB9A442194FAB2691E7B34809B87A97",
-      "candidateSha256": "EFBCBC7204827686B6A29F42223DBEEA22B55749440A91A65189FD900BC67337",
+      "candidateSha256": "CEDC61B880CAC18039742B484D7F03FF0B0AEDBAAABAFB02850E573C87243546",
       "canonicalBytes": 41433,
-      "candidateBytes": 48676,
+      "candidateBytes": 49240,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
@@ -3158,9 +3158,9 @@
     {
       "path": "test/release_startup_hygiene_contract_test.dart",
       "canonicalSha256": "C709DF5B31A5CA444CAB63F4A538CF9551B538542C6F1B1F199D6B9E64B0A90F",
-      "candidateSha256": "2CD5B6183B0D85B7B8886E9BFF28BFBFFE2CE16CFA39D55A9437D59651668506",
+      "candidateSha256": "816770FDD361956C0C46A0A515E8328B039BB1C8FE9A1BB2F2319D86ECC93FF1",
       "canonicalBytes": 17177,
-      "candidateBytes": 20332,
+      "candidateBytes": 20579,
       "disposition": "SUCCESSOR_MODIFIED"
     },
     {
