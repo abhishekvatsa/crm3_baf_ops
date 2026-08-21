@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "C19F918A75E8BE4853A4F952A1408CF076CC1B7A55961390E967CAC064644F59",
+  "inventoryDigest": "EA096D6B6693F083A7B359D556C963331F2C0018FCB5812A8CCB5A0A19A520E3",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "AD3E27A84D62AC0AF5EBE10E0BB4064FFC19BDC2379CB66559F4E54EBD514229",
+  "a05ManifestSha256": "A90C5A81223E18B4CF4CC01EC6CAF7BB3F3B0121800B9523C63C3293EC727599",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
