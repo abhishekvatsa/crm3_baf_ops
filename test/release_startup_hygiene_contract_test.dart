@@ -16,11 +16,12 @@ void main() {
         );
 
         _expectOrder(mainBlock, const [
-          'WidgetsFlutterBinding.ensureInitialized();',
           'if (_ciPackageProof) {',
+          'WidgetsFlutterBinding.ensureInitialized();',
           'runApp(const _CiPackageProofApp());',
           'return;',
           'runCrashReportingZoned(() async {',
+          'WidgetsFlutterBinding.ensureInitialized();',
           'var startupFailure = await _initializeFirebaseAndCrashReporting();',
           'await _requestStartupNotificationPermission();',
           'startupFailure = await _initializeLocalDatabase();',
@@ -28,6 +29,10 @@ void main() {
         ]);
         expect(mainBlock, isNot(contains('Firebase.initializeApp')));
         expect(mainBlock, isNot(contains('Isar.open')));
+        expect(
+          _occurrences(mainBlock, 'WidgetsFlutterBinding.ensureInitialized();'),
+          2,
+        );
         expect(
           mainBlock.indexOf('if (_ciPackageProof) {'),
           lessThan(mainBlock.indexOf('runCrashReportingZoned')),

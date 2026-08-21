@@ -41,12 +41,16 @@ compile-time `CRM3_CI_PACKAGE_PROOF=true` marker, and removes the override in a
 
 - Dart renders a minimal package-proof screen before Firebase, App Check,
   Crashlytics, messaging, Isar, authentication or synchronization can start;
+- the compiled proof manifest disables Android's native `FirebaseInitProvider`,
+  while production packages retain the provider;
 - Android manifest metadata disables default Firebase data collection,
   Crashlytics collection, Messaging auto-init and Analytics collection;
 - the Crashlytics Gradle plugin still generates mapping identity and shrinking
   evidence, but mapping upload is disabled;
-- the verifier reads the compiled APK and requires the isolated app ID, project
-  ID, sender ID and API key, and all four collection flags set to `false`;
+- the packaging and cold-start verifiers independently read the compiled APK,
+  require the native provider to be disabled, and require the isolated app ID,
+  project ID, sender ID and API key plus all four collection flags set to
+  `false`;
 - the permanent production application ID is retained, while no production
   Firebase identity, signing certificate, secret or artifact is used.
 

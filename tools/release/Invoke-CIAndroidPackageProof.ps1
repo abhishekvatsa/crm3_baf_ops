@@ -219,6 +219,27 @@ function Get-AndroidManifestMetaDataValue {
   $node.GetAttribute('value', $androidNamespace)
 }
 
+function Get-AndroidManifestProviderEnabled {
+  param(
+    [Parameter(Mandatory)][xml]$Manifest,
+    [Parameter(Mandatory)][string]$ProviderName
+  )
+
+  $androidNamespace = 'http://schemas.android.com/apk/res/android'
+  $namespaceManager = [Xml.XmlNamespaceManager]::new($Manifest.NameTable)
+  $namespaceManager.AddNamespace('android', $androidNamespace)
+  $nodes = @(
+    $Manifest.SelectNodes(
+      "/manifest/application/provider[@android:name='$ProviderName']",
+      $namespaceManager
+    )
+  )
+  if ($nodes.Count -ne 1) {
+    throw "Expected one Android provider named $ProviderName; found $($nodes.Count)."
+  }
+  $nodes[0].GetAttribute('enabled', $androidNamespace)
+}
+
 $root = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $policyPath = Join-Path $root 'release/production-release-policy.json'
 $policy = Get-Content -Raw -LiteralPath $policyPath | ConvertFrom-Json
@@ -549,6 +570,15 @@ try {
       throw "Release APK Firebase control is not disabled: $name=$value"
     }
   }
+  $firebaseInitProviderEnabled = Get-AndroidManifestProviderEnabled `
+    -Manifest $compiledManifest `
+    -ProviderName 'com.google.firebase.provider.FirebaseInitProvider'
+  if ($firebaseInitProviderEnabled.ToLowerInvariant() -ne 'false') {
+    throw (
+      'Release APK FirebaseInitProvider is not disabled: enabled=' +
+      $firebaseInitProviderEnabled
+    )
+  }
 
   $crashlyticsMappingIdOutput = @(
     Invoke-Captured `
@@ -600,6 +630,7 @@ try {
   Write-Output 'isolatedFirebaseIdentity=true'
   Write-Output 'productionFirebaseIdentityEmbedded=false'
   Write-Output 'firebaseAutomaticCollectionEnabled=false'
+  Write-Output 'firebaseNativeInitProviderEnabled=false'
   Write-Output 'crashlyticsMappingUploadEnabled=false'
   Write-Output 'firebaseProductionTrafficDisabled=true'
   Write-Output 'artifactUploadPerformed=false'

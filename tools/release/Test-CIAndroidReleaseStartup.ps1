@@ -46,7 +46,84 @@ function Invoke-AdbCaptured {
   $output
 }
 
+function Get-ApkAnalyzer {
+  $command = Get-Command apkanalyzer -ErrorAction SilentlyContinue
+  if ($null -ne $command) {
+    return $command.Source
+  }
+
+  $roots = @(
+    $env:ANDROID_HOME,
+    $env:ANDROID_SDK_ROOT,
+    $(if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+      Join-Path $HOME 'AppData/Local/Android/Sdk'
+    }),
+    $(if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
+      Join-Path $HOME 'Android/Sdk'
+    })
+  ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+  $fileName = if (
+    [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
+  ) {
+    'apkanalyzer.bat'
+  }
+  else {
+    'apkanalyzer'
+  }
+  foreach ($root in $roots) {
+    $candidate = Get-ChildItem `
+      -LiteralPath (Join-Path $root 'cmdline-tools') `
+      -Recurse `
+      -Filter $fileName `
+      -File `
+      -ErrorAction SilentlyContinue |
+      Select-Object -First 1
+    if ($null -ne $candidate) {
+      return $candidate.FullName
+    }
+  }
+
+  throw 'Android apkanalyzer is unavailable.'
+}
+
+function Get-FirebaseInitProviderEnabled {
+  param([Parameter(Mandatory)][xml]$Manifest)
+
+  $androidNamespace = 'http://schemas.android.com/apk/res/android'
+  $namespaceManager = [Xml.XmlNamespaceManager]::new($Manifest.NameTable)
+  $namespaceManager.AddNamespace('android', $androidNamespace)
+  $providers = @(
+    $Manifest.SelectNodes(
+      "/manifest/application/provider[@android:name='com.google.firebase.provider.FirebaseInitProvider']",
+      $namespaceManager
+    )
+  )
+  if ($providers.Count -ne 1) {
+    throw "Expected one FirebaseInitProvider; found $($providers.Count)."
+  }
+  $providers[0].GetAttribute('enabled', $androidNamespace)
+}
+
 $resolvedApk = (Resolve-Path -LiteralPath $ApkPath).Path
+$apkanalyzer = Get-ApkAnalyzer
+$manifestOutput = @(& $apkanalyzer manifest print $resolvedApk 2>&1)
+if ($LASTEXITCODE -ne 0) {
+  throw "Unable to inspect the release APK manifest.`n$($manifestOutput -join "`n")"
+}
+try {
+  [xml]$compiledManifest = $manifestOutput -join "`n"
+}
+catch {
+  throw "Compiled APK manifest is not valid XML. $($_.Exception.Message)"
+}
+$firebaseInitProviderEnabled = Get-FirebaseInitProviderEnabled `
+  -Manifest $compiledManifest
+if ($firebaseInitProviderEnabled.ToLowerInvariant() -ne 'false') {
+  throw (
+    'CI proof APK must disable FirebaseInitProvider; observed enabled=' +
+    $firebaseInitProviderEnabled
+  )
+}
 $devices = @(& $adb devices)
 if (
   $LASTEXITCODE -ne 0 -or
@@ -114,4 +191,5 @@ Write-Output "applicationId=$ApplicationId"
 Write-Output "deviceId=$DeviceId"
 Write-Output 'processAlive=true'
 Write-Output 'startupCrashRecorded=false'
-Write-Output 'firebaseInitializationAttempted=false'
+Write-Output 'firebaseNativeInitProviderEnabled=false'
+Write-Output 'firebaseDartInitializationAttempted=false'
