@@ -370,10 +370,12 @@ export const verifyInspectionFinding: CommandHandler = async ({
     throw new WorkflowError("failed-precondition", "Finding verification evidence is unavailable.");
   }
   if (finding.data.targetKey !== observation.data.targetKey ||
+      finding.data.currentObservationId !== observationId ||
+      String(finding.data.latestObservedAt) !== String(observation.data.observedAt) ||
       String(observation.data.observedAt) <= String(finding.data.firstObservedAt)) {
     throw new WorkflowError(
       "failed-precondition",
-      "Verification must be a later observation of the same governed target.",
+      "Verification must use the current latest observation of the same governed target.",
     );
   }
   if (outcome === "resolved" && observation.data.outOfRange === true) {

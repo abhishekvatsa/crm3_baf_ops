@@ -3,13 +3,10 @@ import {CommandHandler} from "./handlerTypes";
 import {
   applyMaintenanceCompletionWritePlan,
   assertMaintenanceClassApplies,
-  frozenMaintenanceClassFromExecution,
-  maintenanceAssetIdentityFromExecution,
   parseFrozenMaintenanceClass,
   prepareMaintenanceCompletionWritePlan,
 } from "./maintenanceIntelligence";
 import {frozenMaintenanceClassFromDefinition} from "./maintenanceClassHandlers";
-import {executionPath} from "./paths";
 import {JsonMap} from "./types";
 import {cleanText, iso, stableJson} from "./utils";
 
@@ -288,7 +285,13 @@ export const setMaintenancePlanStatus: CommandHandler = async ({tx, command, con
   exactKeys(command.payload, ["status", "reason", "executionId"], "payload");
   const planId = documentId(command.aggregateId, "aggregateId");
   const target = cleanText(command.payload.status, "status");
-  if (!["scheduled", "ready", "released", "cancelled"].includes(target)) {
+  if (target === "released") {
+    throw new WorkflowError(
+      "failed-precondition",
+      "A ready maintenance plan can be released only through governed template assignment.",
+    );
+  }
+  if (!["scheduled", "ready", "cancelled"].includes(target)) {
     throw new WorkflowError("invalid-argument", "status is unsupported.");
   }
   const reason = optionalText(command.payload.reason, "reason", 500);
@@ -296,10 +299,10 @@ export const setMaintenancePlanStatus: CommandHandler = async ({tx, command, con
     throw new WorkflowError("invalid-argument", "reason must contain at least 5 characters.");
   }
   const executionId = optionalDocumentId(command.payload.executionId, "executionId");
-  if ((target === "released") !== (executionId != null)) {
+  if (executionId != null) {
     throw new WorkflowError(
       "invalid-argument",
-      "A released plan requires its governed execution; other transitions must not include one.",
+      "Generic maintenance-plan transitions must not include an execution.",
     );
   }
   const current = await tx.get(planPath(planId));
@@ -312,7 +315,7 @@ export const setMaintenancePlanStatus: CommandHandler = async ({tx, command, con
   const transitions: Readonly<Record<string, readonly string[]>> = {
     proposed: ["scheduled", "cancelled"],
     scheduled: ["ready", "cancelled"],
-    ready: ["released", "cancelled"],
+    ready: ["cancelled"],
     released: [],
     cancelled: [],
   };
@@ -323,33 +326,6 @@ export const setMaintenancePlanStatus: CommandHandler = async ({tx, command, con
       `Maintenance plan cannot move from ${currentStatus} to ${target}.`,
     );
   }
-  let execution: Awaited<ReturnType<typeof tx.get>> | null = null;
-  if (executionId != null) {
-    execution = await tx.get(executionPath(executionId));
-    if (!execution.exists || execution.data == null || execution.data.isDeleted === true ||
-        execution.data.isCompleted === true) {
-      throw new WorkflowError(
-        "failed-precondition",
-        "The release execution is missing, deleted or already completed.",
-      );
-    }
-    const executionIdentity = maintenanceAssetIdentityFromExecution(execution.data);
-    if (executionIdentity.assetIdentityKey !== current.data.assetIdentityKey) {
-      throw new WorkflowError(
-        "failed-precondition",
-        "The release execution targets a different asset.",
-      );
-    }
-    const executionClass = frozenMaintenanceClassFromExecution(execution.data);
-    if (executionClass == null ||
-        executionClass.definitionId !== current.data.maintenanceClassDefinitionId ||
-        executionClass.definitionVersion !== current.data.maintenanceClassDefinitionVersion) {
-      throw new WorkflowError(
-        "failed-precondition",
-        "The release execution does not carry the plan's frozen maintenance class.",
-      );
-    }
-  }
   const audit = await tx.get(auditPath(command.commandId));
   if (audit.exists) {
     throw new WorkflowError("failed-precondition", "Maintenance-plan audit evidence is orphaned.");
@@ -359,8 +335,8 @@ export const setMaintenancePlanStatus: CommandHandler = async ({tx, command, con
   const update: JsonMap = {
     status: target,
     version: nextVersion,
-    releasedExecutionId: executionId,
-    releasedAt: target === "released" ? now : current.data.releasedAt ?? null,
+    releasedExecutionId: null,
+    releasedAt: current.data.releasedAt ?? null,
     cancelledAt: target === "cancelled" ? now : current.data.cancelledAt ?? null,
     updatedAt: now,
     updatedByUid: context.actor.uid,

@@ -467,6 +467,63 @@ describe('cross-asset inspection campaigns', () => {
       });
   });
 
+  test('rejects verification against an observation superseded by a later fault', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceHierarchy(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const observer = seedActor(store, 'instrument-1', ['seniorInstrumentation']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertDefinition(), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:00:00Z'),
+    });
+    await service.execute(createCampaign({targetAssetNumbers: [1]}), {
+      actor: admin,
+      serverNow: at('2026-08-21T04:10:00Z'),
+    });
+    await service.execute(observation(), {
+      actor: observer,
+      serverNow: at('2026-08-21T05:10:00Z'),
+    });
+    await service.execute(observation({
+      commandId: 'in-range-2',
+      observationId: 'in-range-2',
+      expectedVersion: 2,
+      numericValue: 2.8,
+      observedAt: '2026-08-21T05:30:00.000Z',
+    }), {actor: observer, serverNow: at('2026-08-21T05:35:00Z')});
+    await service.execute(observation({
+      commandId: 'fault-3',
+      observationId: 'fault-3',
+      expectedVersion: 3,
+      numericValue: 1.7,
+      observedAt: '2026-08-21T05:40:00.000Z',
+    }), {actor: observer, serverNow: at('2026-08-21T05:45:00Z')});
+
+    await expect(service.execute({
+      commandId: 'stale-verification-attempt',
+      commandType: 'verifyInspectionFinding',
+      aggregateId: 'campaign-furnace-pt-august',
+      expectedVersion: 4,
+      payload: {
+        findingId: 'inspection-finding-observation-1',
+        observationId: 'in-range-2',
+        outcome: 'resolved',
+        reason: 'Attempt to reuse an older in-range reading after recurrence.',
+      },
+    }, {actor: observer, serverNow: at('2026-08-21T05:50:00Z')}))
+      .rejects.toMatchObject({code: 'failed-precondition'});
+    expect(store.read('inspection_findings/inspection-finding-observation-1'))
+      .toMatchObject({
+        status: 'open',
+        currentObservationId: 'fault-3',
+        latestObservedAt: '2026-08-21T05:40:00.000Z',
+        verificationCount: 0,
+      });
+    expect(store.read('inspection_verifications/stale-verification-attempt'))
+      .toBeNull();
+  });
+
   test('compares a re-audit against the latest baseline observation', async () => {
     const store = new MemoryWorkflowStore();
     seedFurnaceHierarchy(store);

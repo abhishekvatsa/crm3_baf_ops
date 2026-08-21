@@ -1180,6 +1180,8 @@ class _FindingCard extends StatelessWidget {
     final hasLaterObservation = observations.any(
       (observation) =>
           observation.targetKey == finding.targetKey &&
+          observation.id == finding.currentObservationId &&
+          observation.observedAt.isAtSameMomentAs(finding.latestObservedAt) &&
           observation.observedAt.isAfter(finding.firstObservedAt),
     );
     return Card(
@@ -1773,6 +1775,10 @@ Future<void> _verifyFinding(
           .where(
             (observation) =>
                 observation.targetKey == finding.targetKey &&
+                observation.id == finding.currentObservationId &&
+                observation.observedAt.isAtSameMomentAs(
+                  finding.latestObservedAt,
+                ) &&
                 observation.observedAt.isAfter(finding.firstObservedAt),
           )
           .toList()

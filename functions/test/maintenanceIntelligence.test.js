@@ -392,6 +392,72 @@ describe('classified maintenance completion and planning', () => {
     });
   });
 
+  test('generic plan status cannot bypass governed template assignment', async () => {
+    const store = new MemoryWorkflowStore();
+    seedFurnaceClass(store);
+    const admin = seedActor(store, 'admin-1', ['admin']);
+    const supervisor = seedActor(store, 'supervisor-1', ['shiftSupervisor']);
+    const service = new MaintenanceWorkflowCommandService(store);
+    await service.execute(upsertClass(), {actor: admin, serverNow: now});
+    await service.execute({
+      commandId: 'plan-release-guard-create',
+      commandType: 'upsertMaintenancePlan',
+      aggregateId: 'plan-furnace-7',
+      expectedVersion: 0,
+      payload: {
+        assetTypeKey: 'furnace',
+        assetNumber: 7,
+        assetClassId: 'class-furnace',
+        assetInstanceId: 'furnace-7',
+        assetInstanceVersion: 3,
+        maintenanceClassDefinitionId: 'maintenance-class-furnace-mid',
+        maintenanceClassDefinitionVersion: 1,
+        targetWindowStart: '2026-08-25T02:00:00.000Z',
+        targetWindowEnd: '2026-08-25T10:00:00.000Z',
+        sourceDueStateId: null,
+        templatePackageId: 'package-furnace-mid',
+        templateVersionId: 'version-furnace-mid-1',
+        templateContentHash: 'tg2-sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        planningNotes: 'Release only through the governed assignment transaction.',
+        reason: 'Prepare an exact governed release-path regression.',
+      },
+    }, {actor: supervisor, serverNow: now});
+    for (const [version, status] of [[1, 'scheduled'], [2, 'ready']]) {
+      await service.execute({
+        commandId: `plan-release-guard-${status}`,
+        commandType: 'setMaintenancePlanStatus',
+        aggregateId: 'plan-furnace-7',
+        expectedVersion: version,
+        payload: {
+          status,
+          reason: `Move the governed plan to ${status}.`,
+          executionId: null,
+        },
+      }, {actor: supervisor, serverNow: now});
+    }
+
+    await expect(service.execute({
+      commandId: 'plan-release-bypass-attempt',
+      commandType: 'setMaintenancePlanStatus',
+      aggregateId: 'plan-furnace-7',
+      expectedVersion: 3,
+      payload: {
+        status: 'released',
+        reason: 'Attempt the deprecated generic release route.',
+        executionId: 'unbound-execution-7',
+      },
+    }, {actor: supervisor, serverNow: now})).rejects.toMatchObject({
+      code: 'failed-precondition',
+    });
+    expect(store.read('maintenance_plans/plan-furnace-7')).toMatchObject({
+      status: 'ready',
+      version: 3,
+      releasedExecutionId: null,
+    });
+    expect(store.read('maintenance_plan_audits/plan-release-bypass-attempt'))
+      .toBeNull();
+  });
+
   test('pool Inner Cover cleaning follows serial identity into immutable due evidence', async () => {
     const store = new MemoryWorkflowStore();
     seedInnerCoverClassAndProfile(store);
