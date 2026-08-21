@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../data/baf_module_catalogue_seed.dart';
 import '../domain/module_composer_models.dart';
 import '../data/module_registry_model.dart';
@@ -90,10 +91,12 @@ class ModuleWorkshopScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0.4,
-        title: const Text('Module Workshop'),
+        title: const BafAppBarTitle(
+          title: 'Module Workshop',
+          subtitle: 'Choose, clone or refine governed work modules',
+          icon: Icons.handyman_outlined,
+          accent: BafColors.planned,
+        ),
       ),
       body: SafeArea(
         child: LayoutBuilder(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
@@ -58,25 +59,12 @@ class _OperationalEventsScreenState
             ),
         ],
       ),
-      floatingActionButton:
-          actor?.canRecordOperationalEvent == true
-              ? FloatingActionButton.extended(
-                onPressed:
-                    _busy
-                        ? null
-                        : () => _editEvent(
-                          actor: actor!,
-                          classes: classes,
-                          assets: assets,
-                        ),
-                backgroundColor: BafColors.navySoft,
-                foregroundColor: Colors.white,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Record event'),
-              )
-              : null,
       body: eventsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Loading operational events',
+              color: BafColors.warning,
+            ),
         error:
             (error, _) => _ErrorState(
               message: error.toString(),

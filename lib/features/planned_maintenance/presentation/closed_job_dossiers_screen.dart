@@ -38,7 +38,11 @@ class _ClosedJobDossiersScreenState
         ),
       ),
       body: actorAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Checking dossier access',
+              color: BafColors.planned,
+            ),
         error:
             (error, _) => _DossierMessage(
               icon: Icons.error_outline_rounded,
@@ -76,7 +80,11 @@ class _ClosedDossierList extends ConsumerWidget {
     final dossiersAsync = ref.watch(closedExecutionsProvider);
 
     return dossiersAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading:
+          () => const BafLoadingPanel(
+            label: 'Loading closed job dossiers',
+            color: BafColors.planned,
+          ),
       error:
           (error, _) => _DossierMessage(
             icon: Icons.cloud_off_outlined,

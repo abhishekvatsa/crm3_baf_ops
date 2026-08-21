@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
 import '../../providers/admin_stream_providers.dart';
 import '../../../assets/data/asset_hierarchy_model.dart';
 import '../../../assets/data/asset_registry_model.dart';
@@ -42,7 +43,11 @@ class _AssetHierarchyAdminTabState
     return ColoredBox(
       color: BafColors.background,
       child: classesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Loading asset hierarchy',
+              color: BafColors.admin,
+            ),
         error:
             (error, _) => _LoadFailure(
               message: 'Asset hierarchy could not be loaded: $error',

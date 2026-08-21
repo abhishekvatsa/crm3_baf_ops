@@ -10,6 +10,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../audit/models/audit_event_model.dart';
@@ -38,11 +40,12 @@ class _AbnormalityTypesScreenState
       return Scaffold(
         backgroundColor: BafColors.background,
         appBar: AppBar(
-          title: const Text('Abnormality Types'),
-          backgroundColor: BafColors.card,
-          foregroundColor: BafColors.textPrimary,
-          elevation: 0,
-          surfaceTintColor: BafColors.card,
+          title: const BafAppBarTitle(
+            title: 'Abnormality types',
+            subtitle: 'Governed cycle-event classification and quality rules',
+            icon: Icons.rule_folder_outlined,
+            accent: BafColors.charges,
+          ),
         ),
         body: const _StateCard(
           icon: Icons.lock_outline_rounded,
@@ -58,17 +61,12 @@ class _AbnormalityTypesScreenState
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Abnormality Types',
-          style: TextStyle(
-            color: BafColors.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
+        title: const BafAppBarTitle(
+          title: 'Abnormality types',
+          subtitle: 'Governed cycle-event classification and quality rules',
+          icon: Icons.rule_folder_outlined,
+          accent: BafColors.charges,
         ),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
         actions: [
           IconButton(
             tooltip: 'Seed RA coil colour type',
@@ -87,7 +85,11 @@ class _AbnormalityTypesScreenState
         onPressed: () => _showTypeForm(),
       ),
       body: typesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Loading abnormality types',
+              color: BafColors.charges,
+            ),
         error:
             (err, _) => _StateCard(
               icon: Icons.error_outline_rounded,

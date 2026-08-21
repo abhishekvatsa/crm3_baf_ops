@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -19,17 +20,30 @@ class AssetRegistryScreen extends ConsumerWidget {
         .watch(currentAppUserProvider)
         .when(
           loading:
-              () => const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
+              () => BafScreenStateScaffold.loading(
+                appBarTitle: 'Operational access',
+                appBarSubtitle: 'Verifying your approved asset scope',
+                appBarIcon: Icons.verified_user_outlined,
+                accent: BafColors.assets,
+                label: 'Checking asset access',
               ),
           error:
-              (_, _) => const Scaffold(
-                body: Center(child: Text('Could not verify asset access.')),
+              (_, _) => BafScreenStateScaffold.error(
+                appBarTitle: 'Operational access',
+                appBarSubtitle: 'Verifying your approved asset scope',
+                appBarIcon: Icons.verified_user_outlined,
+                accent: BafColors.assets,
+                message: 'Asset access could not be verified.',
               ),
           data: (actor) {
             if (actor == null || !actor.canViewOperationalAssets) {
-              return const Scaffold(
-                body: Center(child: Text('Approved access is required.')),
+              return BafScreenStateScaffold.access(
+                appBarTitle: 'Operational access',
+                appBarSubtitle: 'Approved plant records only',
+                appBarIcon: Icons.verified_user_outlined,
+                accent: BafColors.assets,
+                title: 'Asset access required',
+                message: 'Approved access is required.',
               );
             }
             return const _AssetRegistryBody();
@@ -73,7 +87,7 @@ class _AssetRegistryBodyState extends ConsumerState<_AssetRegistryBody> {
         ),
       ),
       body: assetsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const BafLoadingPanel(label: 'Loading asset registry'),
         error:
             (error, _) => _RegistryError(
               message: 'Could not load the asset registry.',
@@ -81,7 +95,10 @@ class _AssetRegistryBodyState extends ConsumerState<_AssetRegistryBody> {
             ),
         data: (assets) {
           if (conditionsAsync.isLoading && !conditionsAsync.hasValue) {
-            return const Center(child: CircularProgressIndicator());
+            return const BafLoadingPanel(
+              label: 'Loading current equipment condition',
+              color: BafColors.assets,
+            );
           }
           if (conditionsAsync.hasError && !conditionsAsync.hasValue) {
             return _RegistryError(
@@ -429,24 +446,45 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final actorAsync = ref.watch(currentAppUserProvider);
     if (actorAsync.isLoading && !actorAsync.hasValue) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Asset details',
+        appBarSubtitle: 'Identity, condition and installed components',
+        appBarIcon: Icons.precision_manufacturing_outlined,
+        accent: BafColors.assets,
+        label: 'Checking asset access',
+      );
     }
     final actor = actorAsync.value;
     if (actor == null || !actor.canViewOperationalAssets) {
-      return const Scaffold(
-        body: Center(child: Text('Approved access is required.')),
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Asset details',
+        appBarSubtitle: 'Identity, condition and installed components',
+        appBarIcon: Icons.precision_manufacturing_outlined,
+        accent: BafColors.assets,
+        title: 'Asset access required',
+        message: 'An approved operational role is required to inspect this asset.',
       );
     }
     final assetsAsync = ref.watch(allAssetInstancesProvider);
     final conditionsAsync = ref.watch(assetOperationalConditionsProvider);
     if ((assetsAsync.isLoading && !assetsAsync.hasValue) ||
         (conditionsAsync.isLoading && !conditionsAsync.hasValue)) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return BafScreenStateScaffold.loading(
+        appBarTitle: 'Asset details',
+        appBarSubtitle: 'Identity, condition and installed components',
+        appBarIcon: Icons.precision_manufacturing_outlined,
+        accent: BafColors.assets,
+        label: 'Loading current asset state',
+      );
     }
     if ((assetsAsync.hasError && !assetsAsync.hasValue) ||
         (conditionsAsync.hasError && !conditionsAsync.hasValue)) {
-      return Scaffold(
-        body: _RegistryError(
+      return BafScreenStateScaffold(
+        appBarTitle: 'Asset details',
+        appBarSubtitle: 'Identity, condition and installed components',
+        appBarIcon: Icons.precision_manufacturing_outlined,
+        accent: BafColors.assets,
+        state: _RegistryError(
           message: 'Could not refresh the current asset state.',
           onRetry: () {
             ref.invalidate(allAssetInstancesProvider);
@@ -457,8 +495,17 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
     }
     final asset = _findAsset(assetsAsync.value ?? const [], assetInstanceId);
     if (asset == null) {
-      return const Scaffold(
-        body: Center(child: Text('Asset record is no longer available.')),
+      return BafScreenStateScaffold(
+        appBarTitle: 'Asset details',
+        appBarSubtitle: 'Identity, condition and installed components',
+        appBarIcon: Icons.precision_manufacturing_outlined,
+        accent: BafColors.assets,
+        state: BafStatePanel.empty(
+          title: 'Asset no longer available',
+          message: 'This asset is not present in the governed registry.',
+          icon: Icons.inventory_2_outlined,
+          color: BafColors.assets,
+        ),
       );
     }
     final condition = _findCondition(
@@ -471,13 +518,19 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: Text(asset.name),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        surfaceTintColor: BafColors.card,
+        title: BafAppBarTitle(
+          title: asset.name,
+          subtitle: '${asset.assetClassName} · ${asset.assetNumber}',
+          icon: Icons.precision_manufacturing_outlined,
+          accent: BafColors.assets,
+        ),
       ),
       body: componentsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Loading installed components',
+              color: BafColors.assets,
+            ),
         error:
             (_, _) => _RegistryError(
               message: 'Could not load installed components.',

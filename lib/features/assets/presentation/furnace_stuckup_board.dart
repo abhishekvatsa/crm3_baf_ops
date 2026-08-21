@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -48,7 +49,11 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 900),
             child: cases.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading:
+                  () => const BafLoadingPanel(
+                    label: 'Loading Furnace stuck-up cases',
+                    color: BafColors.warning,
+                  ),
               error:
                   (error, _) => _LoadFailure(
                     onRetry: () {

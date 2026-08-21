@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
+import '../../../../core/widgets/brand/brand_widgets.dart';
 import '../../providers/workflow_providers.dart';
 import 'compliance_detail_screen.dart';
 import 'compliance_inbox_screen.dart';
@@ -29,7 +31,10 @@ class ComplianceNotificationScreen extends ConsumerWidget {
           () => const Scaffold(
             backgroundColor: BafColors.background,
             appBar: _ComplianceNotificationAppBar(),
-            body: Center(child: CircularProgressIndicator()),
+            body: BafLoadingPanel(
+              label: 'Loading compliance update',
+              color: BafColors.directives,
+            ),
           ),
       error:
           (error, _) => _ComplianceNotificationFallback(
@@ -69,7 +74,14 @@ class _ComplianceNotificationAppBar extends StatelessWidget
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(title: const Text('Compliance update'));
+    return AppBar(
+      title: const BafAppBarTitle(
+        title: 'Compliance update',
+        subtitle: 'Operational obligation and response status',
+        icon: Icons.assignment_late_outlined,
+        accent: BafColors.directives,
+      ),
+    );
   }
 }
 
@@ -92,65 +104,21 @@ class _ComplianceNotificationFallback extends StatelessWidget {
       backgroundColor: BafColors.background,
       appBar: const _ComplianceNotificationAppBar(),
       body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(BafSpacing.xl),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.assignment_late_outlined,
-                  size: 46,
-                  color: BafColors.warning,
+        child: BafStatePanel(
+          icon: Icons.assignment_late_outlined,
+          color: BafColors.warning,
+          title: title,
+          message: message,
+          primaryLabel: 'Open inbox',
+          primaryIcon: Icons.inbox_outlined,
+          onPrimary:
+              () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute<void>(
+                  builder: (_) => ComplianceInboxScreen(laneKey: laneKey),
                 ),
-                const SizedBox(height: BafSpacing.md),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: BafColors.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: BafColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: BafSpacing.lg),
-                Wrap(
-                  spacing: BafSpacing.sm,
-                  runSpacing: BafSpacing.sm,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: onRetry,
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Retry'),
-                    ),
-                    FilledButton.icon(
-                      onPressed:
-                          () => Navigator.of(context).pushReplacement(
-                            MaterialPageRoute<void>(
-                              builder:
-                                  (_) =>
-                                      ComplianceInboxScreen(laneKey: laneKey),
-                            ),
-                          ),
-                      icon: const Icon(Icons.inbox_outlined),
-                      label: const Text('Open inbox'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+              ),
+          secondaryLabel: 'Retry',
+          onSecondary: onRetry,
         ),
       ),
     );

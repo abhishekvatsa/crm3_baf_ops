@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
@@ -33,10 +35,12 @@ class _OperationalEventIssueLinksScreenState
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Event-linked issues'),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        surfaceTintColor: BafColors.card,
+        title: const BafAppBarTitle(
+          title: 'Event-linked issues',
+          subtitle: 'Maintenance consequences of this operational event',
+          icon: Icons.link_outlined,
+          accent: BafColors.warning,
+        ),
       ),
       floatingActionButton:
           actor?.canRecordOperationalEvent == true
@@ -49,7 +53,11 @@ class _OperationalEventIssueLinksScreenState
               )
               : null,
       body: links.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Loading linked maintenance issues',
+              color: BafColors.warning,
+            ),
         error:
             (error, _) => _LinkState(
               icon: Icons.error_outline_rounded,
@@ -216,10 +224,12 @@ class MaintenanceIssueEventLinksScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Linked operational events'),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        surfaceTintColor: BafColors.card,
+        title: const BafAppBarTitle(
+          title: 'Linked operational events',
+          subtitle: 'Utility, crane and plant events related to this issue',
+          icon: Icons.crisis_alert_outlined,
+          accent: BafColors.warning,
+        ),
       ),
       body:
           issueId == null || issueId.isEmpty
@@ -234,7 +244,10 @@ class MaintenanceIssueEventLinksScreen extends ConsumerWidget {
                   .watch(operationalIssueEventLinksProvider(issueId))
                   .when(
                     loading:
-                        () => const Center(child: CircularProgressIndicator()),
+                        () => const BafLoadingPanel(
+                          label: 'Loading linked operational events',
+                          color: BafColors.warning,
+                        ),
                     error:
                         (error, _) => _LinkState(
                           icon: Icons.error_outline_rounded,

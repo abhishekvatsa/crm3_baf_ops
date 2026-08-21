@@ -1,6 +1,156 @@
 import 'package:flutter/material.dart';
 
 import '../theme/baf_design_system.dart';
+import 'brand/brand_widgets.dart';
+
+/// Standard top-level shell for operational and governance screens.
+///
+/// Keeping page identity and background treatment here prevents nested feature
+/// areas from quietly drifting back to unrelated app-bar styles.
+class BafScreenScaffold extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color accent;
+  final Widget body;
+  final List<Widget>? actions;
+  final PreferredSizeWidget? bottom;
+  final Widget? floatingActionButton;
+  final FloatingActionButtonLocation? floatingActionButtonLocation;
+  final Widget? bottomNavigationBar;
+  final bool resizeToAvoidBottomInset;
+
+  const BafScreenScaffold({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.body,
+    this.accent = BafColors.teal,
+    this.actions,
+    this.bottom,
+    this.floatingActionButton,
+    this.floatingActionButtonLocation,
+    this.bottomNavigationBar,
+    this.resizeToAvoidBottomInset = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: BafColors.background,
+      resizeToAvoidBottomInset: resizeToAvoidBottomInset,
+      appBar: AppBar(
+        title: BafAppBarTitle(
+          title: title,
+          subtitle: subtitle,
+          icon: icon,
+          accent: accent,
+        ),
+        actions: actions,
+        bottom: bottom,
+      ),
+      body: body,
+      floatingActionButton: floatingActionButton,
+      floatingActionButtonLocation: floatingActionButtonLocation,
+      bottomNavigationBar: bottomNavigationBar,
+    );
+  }
+}
+
+/// A complete screen for loading, access, empty, and fatal-error states.
+class BafScreenStateScaffold extends StatelessWidget {
+  final String appBarTitle;
+  final String appBarSubtitle;
+  final IconData appBarIcon;
+  final Color accent;
+  final Widget state;
+  final List<Widget>? actions;
+
+  const BafScreenStateScaffold({
+    super.key,
+    required this.appBarTitle,
+    required this.appBarSubtitle,
+    required this.appBarIcon,
+    required this.state,
+    this.accent = BafColors.teal,
+    this.actions,
+  });
+
+  factory BafScreenStateScaffold.loading({
+    Key? key,
+    required String appBarTitle,
+    required String appBarSubtitle,
+    required IconData appBarIcon,
+    String label = 'Loading',
+    Color accent = BafColors.teal,
+  }) => BafScreenStateScaffold(
+    key: key,
+    appBarTitle: appBarTitle,
+    appBarSubtitle: appBarSubtitle,
+    appBarIcon: appBarIcon,
+    accent: accent,
+    state: BafLoadingPanel(label: label, color: accent),
+  );
+
+  factory BafScreenStateScaffold.error({
+    Key? key,
+    required String appBarTitle,
+    required String appBarSubtitle,
+    required IconData appBarIcon,
+    String title = 'This view could not be opened',
+    required String message,
+    String retryLabel = 'Try again',
+    VoidCallback? onRetry,
+    Color accent = BafColors.teal,
+  }) => BafScreenStateScaffold(
+    key: key,
+    appBarTitle: appBarTitle,
+    appBarSubtitle: appBarSubtitle,
+    appBarIcon: appBarIcon,
+    accent: accent,
+    state: BafStatePanel.error(
+      title: title,
+      message: message,
+      primaryLabel: retryLabel,
+      onPrimary: onRetry,
+    ),
+  );
+
+  factory BafScreenStateScaffold.access({
+    Key? key,
+    required String appBarTitle,
+    required String appBarSubtitle,
+    required IconData appBarIcon,
+    String title = 'Access required',
+    required String message,
+    Color accent = BafColors.teal,
+  }) => BafScreenStateScaffold(
+    key: key,
+    appBarTitle: appBarTitle,
+    appBarSubtitle: appBarSubtitle,
+    appBarIcon: appBarIcon,
+    accent: accent,
+    state: BafStatePanel(
+      icon: Icons.lock_outline_rounded,
+      color: BafColors.danger,
+      title: title,
+      message: message,
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return BafScreenScaffold(
+      title: appBarTitle,
+      subtitle: appBarSubtitle,
+      icon: appBarIcon,
+      accent: accent,
+      actions: actions,
+      body: state,
+    );
+  }
+}
 
 /// Shared page geometry for operational screens.
 class BafContentFrame extends StatelessWidget {
@@ -302,27 +452,71 @@ class BafLoadingPanel extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       label: label,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(BafSpacing.xxl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox.square(
-                dimension: 30,
-                child: CircularProgressIndicator(color: color, strokeWidth: 3),
-              ),
-              const SizedBox(height: BafSpacing.md),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: BafColors.textSecondary,
-                  fontWeight: FontWeight.w700,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact =
+              constraints.hasBoundedHeight && constraints.maxHeight < 120;
+          if (compact) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: BafSpacing.md,
+                  vertical: BafSpacing.sm,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(
+                        color: color,
+                        strokeWidth: 2.4,
+                      ),
+                    ),
+                    const SizedBox(width: BafSpacing.sm),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: BafColors.textSecondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
+            );
+          }
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(BafSpacing.xxl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox.square(
+                    dimension: 30,
+                    child: CircularProgressIndicator(
+                      color: color,
+                      strokeWidth: 3,
+                    ),
+                  ),
+                  const SizedBox(height: BafSpacing.md),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: BafColors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

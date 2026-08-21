@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
@@ -38,19 +39,30 @@ class BurnerReliabilityScreen extends ConsumerWidget {
         .watch(currentAppUserProvider)
         .when(
           loading:
-              () => const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
+              () => BafScreenStateScaffold.loading(
+                appBarTitle: 'Report access',
+                appBarSubtitle: 'Verifying your approved reporting scope',
+                appBarIcon: Icons.verified_user_outlined,
+                accent: BafColors.maintenance,
+                label: 'Checking report access',
               ),
           error:
-              (_, _) => const Scaffold(
-                body: Center(child: Text('Could not verify report access.')),
+              (_, _) => BafScreenStateScaffold.error(
+                appBarTitle: 'Report access',
+                appBarSubtitle: 'Verifying your approved reporting scope',
+                appBarIcon: Icons.verified_user_outlined,
+                accent: BafColors.maintenance,
+                message: 'Report access could not be verified.',
               ),
           data: (actor) {
             if (actor == null || !actor.canViewReports) {
-              return const Scaffold(
-                body: Center(
-                  child: Text('Approved report access is required.'),
-                ),
+              return BafScreenStateScaffold.access(
+                appBarTitle: 'Report access',
+                appBarSubtitle: 'Approved operational reporting only',
+                appBarIcon: Icons.verified_user_outlined,
+                accent: BafColors.maintenance,
+                title: 'Report access required',
+                message: 'Approved report access is required.',
               );
             }
             return _BurnerReliabilityBody(
@@ -105,7 +117,12 @@ class _BurnerReliabilityBodyState
     final assetsAsync = ref.watch(allAssetInstancesProvider);
     if ((classesAsync.isLoading && !classesAsync.hasValue) ||
         (assetsAsync.isLoading && !assetsAsync.hasValue)) {
-      return _shell(const Center(child: CircularProgressIndicator()));
+      return _shell(
+        const BafLoadingPanel(
+          label: 'Loading governed Furnace records',
+          color: BafColors.maintenance,
+        ),
+      );
     }
     if ((classesAsync.hasError && !classesAsync.hasValue) ||
         (assetsAsync.hasError && !assetsAsync.hasValue)) {
@@ -166,7 +183,12 @@ class _BurnerReliabilityBodyState
     final roundsAsync = ref.watch(burnerConditionRoundsProvider(roundsQuery));
     if ((roundsAsync.isLoading && !roundsAsync.hasValue) ||
         (ticketsAsync.isLoading && !ticketsAsync.hasValue)) {
-      return _shell(const Center(child: CircularProgressIndicator()));
+      return _shell(
+        const BafLoadingPanel(
+          label: 'Loading burner reliability evidence',
+          color: BafColors.maintenance,
+        ),
+      );
     }
     if ((roundsAsync.hasError && !roundsAsync.hasValue) ||
         (ticketsAsync.hasError && !ticketsAsync.hasValue)) {

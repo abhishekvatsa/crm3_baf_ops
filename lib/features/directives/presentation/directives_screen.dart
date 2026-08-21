@@ -36,7 +36,11 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
     return ColoredBox(
       color: BafColors.background,
       child: directivesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Loading operational directives',
+              color: BafColors.directives,
+            ),
         error: (e, _) => _ErrorState(message: 'Error: $e'),
         data: (allDirectives) {
           final visible = _visibleDirectives(allDirectives, appUser);

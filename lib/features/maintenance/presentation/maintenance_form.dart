@@ -19,6 +19,7 @@ import '../../planned_maintenance/domain/baf_tag_resolver_v2.dart';
 import '../../../core/services/auto_sync_service.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
@@ -1136,14 +1137,12 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Raise Issue',
-          style: TextStyle(fontWeight: FontWeight.w900),
+        title: const BafAppBarTitle(
+          title: 'Raise issue',
+          subtitle: 'Capture asset, component, quality and routing context',
+          icon: Icons.report_problem_outlined,
+          accent: BafColors.maintenance,
         ),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
       ),
       body: Form(
         key: _formKey,

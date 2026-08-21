@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/services/sync_coordinator.dart';
 import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
 import '../../../audit/models/audit_event_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../directives/data/operational_directive_model.dart';
@@ -65,7 +66,11 @@ class _DirectivesBrowserState extends ConsumerState<DirectivesBrowser> {
           ),
           Expanded(
             child: directivesAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading:
+                  () => const BafLoadingPanel(
+                    label: 'Loading directive records',
+                    color: BafColors.admin,
+                  ),
               error:
                   (err, _) => Center(
                     child: Text(

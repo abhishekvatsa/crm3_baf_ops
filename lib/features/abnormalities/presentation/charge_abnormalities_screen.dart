@@ -11,6 +11,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../audit/models/audit_event_model.dart';
@@ -47,17 +49,12 @@ class _ChargeAbnormalitiesScreenState
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: Text(
-          widget.title ?? 'Charge Abnormalities',
-          style: const TextStyle(
-            color: BafColors.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
+        title: BafAppBarTitle(
+          title: widget.title ?? 'Charge abnormalities',
+          subtitle: 'Charge ${widget.sourceChargeNo} · governed cycle evidence',
+          icon: Icons.warning_amber_outlined,
+          accent: BafColors.charges,
         ),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'add_charge_abnormality_fab_${widget.sourceChargeNo}',
@@ -68,7 +65,11 @@ class _ChargeAbnormalitiesScreenState
         onPressed: () => _showAbnormalityForm(),
       ),
       body: abnormalitiesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Loading charge abnormalities',
+              color: BafColors.charges,
+            ),
         error:
             (err, _) => _StateCard(
               icon: Icons.error_outline_rounded,

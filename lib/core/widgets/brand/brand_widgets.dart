@@ -192,6 +192,11 @@ class BafAppBarTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    // Material AppBar clamps descendant text scaling. At the clamp boundary,
+    // retain the primary identity and remove the secondary line rather than
+    // squeezing two scaled baselines into a fixed-height toolbar.
+    final showSubtitle = textScale <= 1.2;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -222,18 +227,20 @@ class BafAppBarTitle extends StatelessWidget {
                   height: 1.15,
                 ),
               ),
-              const SizedBox(height: 1),
-              Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: BafColors.textSecondary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  height: 1.15,
+              if (showSubtitle) ...[
+                const SizedBox(height: 1),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    height: 1.15,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

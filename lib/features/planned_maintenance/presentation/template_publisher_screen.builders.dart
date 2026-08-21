@@ -17,12 +17,13 @@ extension _TemplatePublisherBuilders on _TemplatePublisherScreenState {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Template Authoring'),
+        title: const BafAppBarTitle(
+          title: 'Template authoring',
+          subtitle: 'Governed maintenance catalogues and versions',
+          icon: Icons.architecture_outlined,
+          accent: BafColors.planned,
+        ),
         centerTitle: false,
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0.4,
         actions: [
           IconButton(
             tooltip: 'Open Module Composer',

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
@@ -27,20 +28,33 @@ class InspectionProgrammesScreen extends ConsumerWidget {
         .watch(currentAppUserProvider)
         .when(
           loading:
-              () => const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
+              () => BafScreenStateScaffold.loading(
+                appBarTitle: 'Inspection programmes',
+                appBarSubtitle: 'Component evidence across selected assets',
+                appBarIcon: Icons.fact_check_outlined,
+                accent: BafColors.instrument,
+                label: 'Checking inspection authority',
               ),
           error:
-              (_, _) => const Scaffold(
-                body: Center(
-                  child: Text('Could not verify inspection authority.'),
-                ),
+              (_, _) => BafScreenStateScaffold.error(
+                appBarTitle: 'Inspection programmes',
+                appBarSubtitle: 'Component evidence across selected assets',
+                appBarIcon: Icons.fact_check_outlined,
+                accent: BafColors.instrument,
+                message: 'Inspection authority could not be verified.',
               ),
           data:
               (actor) =>
                   actor == null
-                      ? const Scaffold(
-                        body: Center(child: Text('Sign in is required.')),
+                      ? BafScreenStateScaffold.access(
+                        appBarTitle: 'Inspection programmes',
+                        appBarSubtitle:
+                            'Component evidence across selected assets',
+                        appBarIcon: Icons.fact_check_outlined,
+                        accent: BafColors.instrument,
+                        title: 'Sign in required',
+                        message:
+                            'Sign in with an approved account to view inspection programmes.',
                       )
                       : _InspectionProgrammeBody(actor: actor),
         );
@@ -100,7 +114,11 @@ class _CampaignList extends ConsumerWidget {
         ref.watch(allAssetInstancesProvider).value ??
         const <AssetInstanceRecord>[];
     return campaigns.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading:
+          () => const BafLoadingPanel(
+            label: 'Loading inspection campaigns',
+            color: BafColors.instrument,
+          ),
       error:
           (_, _) => _InspectionError(
             message: 'Inspection campaigns could not be read safely.',
@@ -361,7 +379,11 @@ class _DefinitionList extends ConsumerWidget {
     final classes =
         ref.watch(assetClassesProvider).value ?? const <AssetClassRecord>[];
     return definitions.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading:
+          () => const BafLoadingPanel(
+            label: 'Loading inspection definitions',
+            color: BafColors.instrument,
+          ),
       error:
           (_, _) => _InspectionError(
             message: 'Inspection definitions could not be read safely.',
@@ -543,18 +565,31 @@ class InspectionCampaignDetailScreen extends ConsumerWidget {
     final actor = ref.watch(currentAppUserProvider).value;
     final campaigns = ref.watch(inspectionCampaignsProvider);
     if (actor == null) {
-      return const Scaffold(body: Center(child: Text('Sign in is required.')));
+      return BafScreenStateScaffold.access(
+        appBarTitle: 'Inspection programme',
+        appBarSubtitle: 'Campaign targets, evidence and findings',
+        appBarIcon: Icons.fact_check_outlined,
+        accent: BafColors.instrument,
+        title: 'Sign in required',
+        message: 'Sign in with an approved account to inspect this campaign.',
+      );
     }
     return campaigns.when(
       loading:
-          () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          () => BafScreenStateScaffold.loading(
+            appBarTitle: 'Inspection programme',
+            appBarSubtitle: 'Campaign targets, evidence and findings',
+            appBarIcon: Icons.fact_check_outlined,
+            accent: BafColors.instrument,
+            label: 'Loading inspection campaign',
+          ),
       error:
-          (_, _) => Scaffold(
-            appBar: AppBar(title: const Text('Inspection programme')),
-            body: const Center(
-              child: Text('Campaign could not be read safely.'),
-            ),
+          (_, _) => BafScreenStateScaffold.error(
+            appBarTitle: 'Inspection programme',
+            appBarSubtitle: 'Campaign targets, evidence and findings',
+            appBarIcon: Icons.fact_check_outlined,
+            accent: BafColors.instrument,
+            message: 'The campaign could not be read safely.',
           ),
       data: (rows) {
         InspectionCampaign? campaign;
@@ -562,9 +597,17 @@ class InspectionCampaignDetailScreen extends ConsumerWidget {
           if (row.id == campaignId) campaign = row;
         }
         if (campaign == null) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Inspection programme')),
-            body: const Center(child: Text('Campaign was not found.')),
+          return BafScreenStateScaffold(
+            appBarTitle: 'Inspection programme',
+            appBarSubtitle: 'Campaign targets, evidence and findings',
+            appBarIcon: Icons.fact_check_outlined,
+            accent: BafColors.instrument,
+            state: BafStatePanel.empty(
+              title: 'Campaign not found',
+              message: 'This inspection campaign is no longer available.',
+              icon: Icons.find_in_page_outlined,
+              color: BafColors.instrument,
+            ),
           );
         }
         return _CampaignDetail(actor: actor, campaign: campaign);
@@ -668,7 +711,11 @@ class _CampaignDetail extends ConsumerWidget {
               )
               : null,
       body: observations.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Loading campaign readings',
+              color: BafColors.instrument,
+            ),
         error:
             (_, _) => _InspectionError(
               message: 'Campaign readings could not be decoded safely.',

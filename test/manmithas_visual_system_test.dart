@@ -2,6 +2,7 @@ import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/core/widgets/brand/brand_widgets.dart';
 import 'package:crm3_baf_ops/features/auth/presentation/login_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,6 +35,13 @@ void main() {
     expect(find.text(BafBrand.plantName), findsOneWidget);
     expect(find.text(BafBrand.makerLabel), findsOneWidget);
     expect(find.text('Sign in with Google'), findsOneWidget);
+    final systemStyle =
+        tester
+            .widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+              find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+            )
+            .value;
+    expect(systemStyle.statusBarIconBrightness, Brightness.light);
     expect(tester.takeException(), isNull);
   });
 

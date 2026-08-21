@@ -17,6 +17,7 @@ import '../../planned_maintenance/widgets/action_mini_card.dart';
 import '../../../core/providers/refresh_providers.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../domain/burner_lockout_case.dart';
@@ -428,14 +429,12 @@ class _ResolveFormState extends ConsumerState<ResolveForm> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Resolve Issue',
-          style: TextStyle(fontWeight: FontWeight.w900),
+        title: const BafAppBarTitle(
+          title: 'Resolve issue',
+          subtitle: 'Record work, components, evidence and outcome',
+          icon: Icons.task_alt_outlined,
+          accent: BafColors.maintenance,
         ),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
       ),
       body: Form(
         key: _formKey,

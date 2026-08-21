@@ -14,6 +14,7 @@ import '../../../features/assets/providers/asset_hierarchy_provider.dart';
 import '../../../features/maintenance/data/maintenance_model.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 
 class CreateTemplateScreen extends ConsumerStatefulWidget {
@@ -206,11 +207,12 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('New Template'),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
+        title: const BafAppBarTitle(
+          title: 'New template',
+          subtitle: 'Create reusable planned-maintenance work',
+          icon: Icons.note_add_outlined,
+          accent: BafColors.planned,
+        ),
       ),
       body: Form(
         key: _formKey,

@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../maintenance/data/maintenance_model.dart';
@@ -50,17 +52,12 @@ class _AbnormalityReportsScreenState
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Abnormality Reports',
-          style: TextStyle(
-            color: BafColors.textPrimary,
-            fontWeight: FontWeight.w800,
-          ),
+        title: const BafAppBarTitle(
+          title: 'Abnormality reports',
+          subtitle: 'Charge patterns, quality exposure and closure',
+          icon: Icons.analytics_outlined,
+          accent: BafColors.charges,
         ),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -74,7 +71,10 @@ class _AbnormalityReportsScreenState
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const BafLoadingPanel(
+              label: 'Building abnormality report',
+              color: BafColors.charges,
+            );
           }
 
           if (snapshot.hasError) {

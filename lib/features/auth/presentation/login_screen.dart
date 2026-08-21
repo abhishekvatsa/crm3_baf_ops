@@ -1,6 +1,7 @@
 // FILE: lib/features/auth/presentation/login_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/baf_design_system.dart';
@@ -20,118 +21,128 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: BafColors.graphite,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(BafSpacing.xl),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const ManmithasMark(size: 112, framed: false),
-                  const SizedBox(height: BafSpacing.xl),
-                  const Text(
-                    BafBrand.productName,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w800,
-                      height: 1.08,
-                    ),
-                  ),
-                  const SizedBox(height: BafSpacing.sm),
-                  const Text(
-                    BafBrand.plantName,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFFB9C8CE),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 44),
-                  if (_errorMessage != null) ...[
-                    _LoginErrorCard(message: _errorMessage!),
-                    const SizedBox(height: BafSpacing.lg),
-                  ],
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _isSigningIn ? null : _signIn,
-                      icon:
-                          _isSigningIn
-                              ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                              : const Icon(Icons.login_rounded),
-                      label: Text(
-                        _isSigningIn ? 'Signing in…' : 'Sign in with Google',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: BafColors.graphite,
-                        disabledBackgroundColor: Colors.white.withValues(
-                          alpha: 0.72,
-                        ),
-                        disabledForegroundColor: BafColors.graphite.withValues(
-                          alpha: 0.60,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: BafSpacing.xl,
-                          vertical: BafSpacing.lg,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(BafRadius.medium),
-                        ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: BafColors.graphite,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.black,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: BafColors.graphite,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(BafSpacing.xl),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const ManmithasMark(size: 112, framed: false),
+                    const SizedBox(height: BafSpacing.xl),
+                    const Text(
+                      BafBrand.productName,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        height: 1.08,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: BafSpacing.md),
-                  Text(
-                    'Access is granted only after admin approval.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.58),
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 22,
-                        child: Divider(color: BafColors.ember, thickness: 2),
+                    const SizedBox(height: BafSpacing.sm),
+                    const Text(
+                      BafBrand.plantName,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFFB9C8CE),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
-                      SizedBox(width: BafSpacing.sm),
-                      Flexible(
-                        child: Text(
-                          BafBrand.makerLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Color(0xFF9FB0B6),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
+                    ),
+                    const SizedBox(height: 44),
+                    if (_errorMessage != null) ...[
+                      _LoginErrorCard(message: _errorMessage!),
+                      const SizedBox(height: BafSpacing.lg),
+                    ],
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _isSigningIn ? null : _signIn,
+                        icon:
+                            _isSigningIn
+                                ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                                : const Icon(Icons.login_rounded),
+                        label: Text(
+                          _isSigningIn ? 'Signing in…' : 'Sign in with Google',
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: BafColors.graphite,
+                          disabledBackgroundColor: Colors.white.withValues(
+                            alpha: 0.72,
+                          ),
+                          disabledForegroundColor: BafColors.graphite
+                              .withValues(alpha: 0.60),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: BafSpacing.xl,
+                            vertical: BafSpacing.lg,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              BafRadius.medium,
+                            ),
                           ),
                         ),
                       ),
-                      SizedBox(width: BafSpacing.sm),
-                      SizedBox(
-                        width: 22,
-                        child: Divider(color: BafColors.cobalt, thickness: 2),
+                    ),
+                    const SizedBox(height: BafSpacing.md),
+                    Text(
+                      'Access is granted only after admin approval.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.58),
+                        fontSize: 12,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 48),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 22,
+                          child: Divider(color: BafColors.ember, thickness: 2),
+                        ),
+                        SizedBox(width: BafSpacing.sm),
+                        Flexible(
+                          child: Text(
+                            BafBrand.makerLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Color(0xFF9FB0B6),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: BafSpacing.sm),
+                        SizedBox(
+                          width: 22,
+                          child: Divider(color: BafColors.cobalt, thickness: 2),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

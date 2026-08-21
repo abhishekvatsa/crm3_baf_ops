@@ -11,6 +11,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../audit/models/audit_event_model.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import 'assign_job_screen.dart';
@@ -37,11 +38,12 @@ class TemplateDetailScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Template Details'),
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: BafColors.card,
+        title: const BafAppBarTitle(
+          title: 'Template details',
+          subtitle: 'Scope, fields and release actions',
+          icon: Icons.description_outlined,
+          accent: BafColors.planned,
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(

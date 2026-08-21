@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
 import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/data/user_model.dart';
 import '../../domain/baf_knowledge_layer.dart';
@@ -39,7 +40,11 @@ class _KnowledgeCorrectionPromoterPanelState
         await ref.read(correctionsProvider.future);
       },
       child: correctionsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Loading tag corrections',
+              color: BafColors.planned,
+            ),
         error:
             (e, _) => ListView(
               children: [

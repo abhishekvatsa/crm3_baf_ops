@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
 import '../../../../core/widgets/brand/brand_widgets.dart';
 import '../../../auth/providers/auth_provider.dart';
 
@@ -34,13 +35,26 @@ class WorkflowHubScreen extends ConsumerWidget {
         ),
       ),
       body: actorAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading:
+            () => const BafLoadingPanel(
+              label: 'Checking workflow access',
+              color: BafColors.audit,
+            ),
         error:
-            (_, _) =>
-                const Center(child: Text('Could not verify workflow access.')),
+            (_, _) => BafStatePanel.error(
+              title: 'Workflow unavailable',
+              message: 'Workflow access could not be verified.',
+              onPrimary: () => ref.invalidate(currentAppUserProvider),
+            ),
         data: (actor) {
           if (actor == null || !actor.isApproved) {
-            return const Center(child: Text('Approved access is required.'));
+            return const BafStatePanel(
+              icon: Icons.lock_outline_rounded,
+              color: BafColors.danger,
+              title: 'Approved access required',
+              message:
+                  'Sign in with an approved account to inspect maintenance workflow.',
+            );
           }
           return ListView(
             padding: const EdgeInsets.all(16),

@@ -159,7 +159,11 @@ class _InstalledComponentList extends ConsumerWidget {
         ),
         Expanded(
           child: componentsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading:
+                () => const BafLoadingPanel(
+                  label: 'Loading installed components',
+                  color: BafColors.admin,
+                ),
             error:
                 (error, _) => _LoadFailure(
                   message: 'Installed components could not be loaded: $error',
@@ -372,7 +376,11 @@ class _InstalledComponentHistoryDialog extends ConsumerWidget {
             const SizedBox(height: 12),
             Expanded(
               child: components.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading:
+                    () => const BafLoadingPanel(
+                      label: 'Loading component history',
+                      color: BafColors.admin,
+                    ),
                 error:
                     (error, _) => _LoadFailure(
                       message: 'Component lineage could not be loaded: $error',

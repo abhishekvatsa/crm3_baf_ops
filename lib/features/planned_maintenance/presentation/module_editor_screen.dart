@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/job_module_model.dart';
 import '../domain/module_workshop_actions.dart';
@@ -30,10 +31,12 @@ class _ModuleEditorScreenState extends State<ModuleEditorScreen> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        backgroundColor: BafColors.card,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0.4,
-        title: const Text('Focused Module Editor'),
+        title: const BafAppBarTitle(
+          title: 'Focused module editor',
+          subtitle: 'Fields, checks and module-level evidence',
+          icon: Icons.edit_note_outlined,
+          accent: BafColors.planned,
+        ),
         actions: [
           TextButton.icon(
             onPressed: _discard,
