@@ -256,6 +256,184 @@ class OperationsManagementReadout extends StatelessWidget {
       rate == null ? '--' : '${(rate * 100).round()}%';
 }
 
+class OperationsDecisionBrief extends StatelessWidget {
+  const OperationsDecisionBrief({
+    super.key,
+    required this.report,
+    required this.onPlantCondition,
+    required this.onIssues,
+    required this.onOperationalEvents,
+    required this.onMaintenanceRhythm,
+    required this.onInspections,
+    required this.onPlannedWork,
+  });
+
+  final OperationsReport report;
+  final VoidCallback onPlantCondition;
+  final VoidCallback onIssues;
+  final VoidCallback onOperationalEvents;
+  final VoidCallback onMaintenanceRhythm;
+  final VoidCallback onInspections;
+  final VoidCallback onPlannedWork;
+
+  @override
+  Widget build(BuildContext context) {
+    final signals = report.managementSignals;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Decision brief',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Risk-ranked conditions with direct operational routes',
+                    style: TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            StatusBadge(
+              label:
+                  signals.isEmpty ? 'All clear' : '${signals.length} signals',
+              color:
+                  signals.isEmpty
+                      ? BafColors.success
+                      : _signalColor(signals.first.level),
+            ),
+          ],
+        ),
+        const SizedBox(height: BafSpacing.sm),
+        if (signals.isEmpty)
+          const BafSectionSurface(
+            padding: EdgeInsets.all(BafSpacing.md),
+            child: Row(
+              children: [
+                Icon(Icons.task_alt_rounded, color: BafColors.success),
+                SizedBox(width: BafSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'No active exception leads the selected scope.',
+                    style: TextStyle(
+                      color: BafColors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          BafSectionSurface(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: List<Widget>.generate(signals.length * 2 - 1, (index) {
+                if (index.isOdd) {
+                  return const Divider(height: 1, color: BafColors.border);
+                }
+                final signal = signals[index ~/ 2];
+                return _DecisionSignalRow(
+                  signal: signal,
+                  onTap: _actionFor(signal.type),
+                );
+              }),
+            ),
+          ),
+      ],
+    );
+  }
+
+  VoidCallback _actionFor(
+    OperationsManagementSignalType type,
+  ) => switch (type) {
+    OperationsManagementSignalType.unavailableAssets => onPlantCondition,
+    OperationsManagementSignalType.criticalIssues => onIssues,
+    OperationsManagementSignalType.operationalDisruptions =>
+      onOperationalEvents,
+    OperationsManagementSignalType.overdueMaintenance => onMaintenanceRhythm,
+    OperationsManagementSignalType.inspectionFindings => onInspections,
+    OperationsManagementSignalType.openIssues => onIssues,
+    OperationsManagementSignalType.openPlannedWork => onPlannedWork,
+  };
+
+  static Color _signalColor(OperationsManagementSignalLevel level) =>
+      switch (level) {
+        OperationsManagementSignalLevel.critical => BafColors.danger,
+        OperationsManagementSignalLevel.warning => BafColors.warning,
+        OperationsManagementSignalLevel.attention => BafColors.cobalt,
+      };
+}
+
+class _DecisionSignalRow extends StatelessWidget {
+  const _DecisionSignalRow({required this.signal, required this.onTap});
+
+  final OperationsManagementSignal signal;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = OperationsDecisionBrief._signalColor(signal.level);
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: BafSpacing.md,
+        vertical: BafSpacing.xs,
+      ),
+      leading: Container(
+        width: 38,
+        height: 38,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(BafRadius.small),
+        ),
+        child: Icon(_signalIcon(signal.type), color: color, size: 20),
+      ),
+      title: Text(
+        signal.title,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+      ),
+      subtitle: Text(
+        signal.detail,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 11, height: 1.25),
+      ),
+      trailing: const Icon(
+        Icons.chevron_right_rounded,
+        color: BafColors.textSecondary,
+      ),
+      onTap: onTap,
+    );
+  }
+
+  static IconData _signalIcon(OperationsManagementSignalType type) =>
+      switch (type) {
+        OperationsManagementSignalType.unavailableAssets =>
+          Icons.precision_manufacturing_outlined,
+        OperationsManagementSignalType.criticalIssues =>
+          Icons.report_problem_outlined,
+        OperationsManagementSignalType.operationalDisruptions =>
+          Icons.crisis_alert_outlined,
+        OperationsManagementSignalType.overdueMaintenance =>
+          Icons.event_busy_outlined,
+        OperationsManagementSignalType.inspectionFindings =>
+          Icons.fact_check_outlined,
+        OperationsManagementSignalType.openIssues => Icons.build_outlined,
+        OperationsManagementSignalType.openPlannedWork =>
+          Icons.work_outline_rounded,
+      };
+}
+
 class _ManagementMetricData {
   const _ManagementMetricData({
     required this.label,

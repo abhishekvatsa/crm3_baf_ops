@@ -220,7 +220,9 @@ void main() {
         File(
           'tools/release/Invoke-Build8F4PhysicalSyncRetry.ps1',
         ).readAsStringSync();
-    final home = File('lib/home_screen.dart').readAsStringSync();
+    final home =
+        File('lib/home_screen.dart').readAsStringSync() +
+        File('lib/home_insight_widgets.dart').readAsStringSync();
 
     for (final required in <String>[
       'EvidenceDirectory must be outside the repository.',

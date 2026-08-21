@@ -46,6 +46,34 @@ class CountedReportLabel {
   final int count;
 }
 
+enum OperationsManagementSignalType {
+  unavailableAssets,
+  criticalIssues,
+  operationalDisruptions,
+  overdueMaintenance,
+  inspectionFindings,
+  openIssues,
+  openPlannedWork,
+}
+
+enum OperationsManagementSignalLevel { critical, warning, attention }
+
+class OperationsManagementSignal {
+  const OperationsManagementSignal({
+    required this.type,
+    required this.level,
+    required this.title,
+    required this.detail,
+    required this.count,
+  });
+
+  final OperationsManagementSignalType type;
+  final OperationsManagementSignalLevel level;
+  final String title;
+  final String detail;
+  final int count;
+}
+
 class AssetClassReportSummary {
   const AssetClassReportSummary({
     required this.assetClassId,
@@ -148,6 +176,8 @@ class OperationsReport {
       tickets.where((ticket) => ticket.isResolved).length;
   int get criticalIssueCount =>
       tickets.where((ticket) => ticket.isCritical).length;
+  int get openCriticalIssueCount =>
+      tickets.where((ticket) => ticket.isCritical && !ticket.isResolved).length;
 
   int get plannedJobCount => executions.length;
   int get openPlannedJobCount =>
@@ -216,6 +246,8 @@ class OperationsReport {
       plannedJobCount == 0 ? null : completedPlannedJobCount / plannedJobCount;
 
   int get unavailableAssetCount => assetCount - availableAssetCount;
+  int get highRiskUnavailableAssetCount =>
+      assetStates.where((state) => state.isDown || state.isUnfit).length;
 
   int get actionBacklogCount =>
       openIssueCount + openPlannedJobCount + openDisruptionCount;
@@ -223,20 +255,108 @@ class OperationsReport {
   int get assuranceBacklogCount =>
       overdueMaintenanceCount + activeInspectionFindingCount;
 
-  String get leadingManagementSignal {
-    final signals = <({String label, int value})>[
-      (label: 'Unavailable assets', value: unavailableAssetCount),
-      (label: 'Open issues', value: openIssueCount),
-      (label: 'Open planned work', value: openPlannedJobCount),
-      (label: 'Operational disruptions', value: openDisruptionCount),
-      (label: 'Overdue maintenance', value: overdueMaintenanceCount),
-      (label: 'Inspection findings', value: activeInspectionFindingCount),
+  List<OperationsManagementSignal> get managementSignals {
+    final signals = <OperationsManagementSignal>[
+      if (openCriticalIssueCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.criticalIssues,
+          level: OperationsManagementSignalLevel.critical,
+          title:
+              '$openCriticalIssueCount critical '
+              '${openCriticalIssueCount == 1 ? 'issue remains' : 'issues remain'} open',
+          detail: 'Review ownership, operating impact and next action.',
+          count: openCriticalIssueCount,
+        ),
+      if (highRiskUnavailableAssetCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.unavailableAssets,
+          level: OperationsManagementSignalLevel.critical,
+          title:
+              highRiskUnavailableAssetCount == 1
+                  ? '1 asset is down or unfit'
+                  : '$highRiskUnavailableAssetCount assets are down or unfit',
+          detail:
+              '$downAssetCount down, $unfitAssetCount unfit and '
+              '$underMaintenanceAssetCount under maintenance',
+          count: highRiskUnavailableAssetCount,
+        ),
+      if (openDisruptionCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.operationalDisruptions,
+          level: OperationsManagementSignalLevel.critical,
+          title:
+              '$openDisruptionCount plant '
+              '${openDisruptionCount == 1 ? 'disruption remains' : 'disruptions remain'} open',
+          detail:
+              'Confirm affected scope, linked issues and restoration evidence.',
+          count: openDisruptionCount,
+        ),
+      if (unavailableAssetCount > 0 && highRiskUnavailableAssetCount == 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.unavailableAssets,
+          level: OperationsManagementSignalLevel.warning,
+          title:
+              unavailableAssetCount == 1
+                  ? '1 asset is outside the available state'
+                  : '$unavailableAssetCount assets are outside the available state',
+          detail:
+              '$underMaintenanceAssetCount under maintenance; remaining '
+              'exceptions include blocks, standby or out-of-service state.',
+          count: unavailableAssetCount,
+        ),
+      if (overdueMaintenanceCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.overdueMaintenance,
+          level: OperationsManagementSignalLevel.warning,
+          title:
+              '$overdueMaintenanceCount maintenance '
+              '${overdueMaintenanceCount == 1 ? 'counter is' : 'counters are'} overdue',
+          detail: 'Review cadence exposure and planned intervention.',
+          count: overdueMaintenanceCount,
+        ),
+      if (activeInspectionFindingCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.inspectionFindings,
+          level: OperationsManagementSignalLevel.warning,
+          title:
+              '$activeInspectionFindingCount inspection '
+              '${activeInspectionFindingCount == 1 ? 'finding is' : 'findings are'} active',
+          detail:
+              '$awaitingInspectionVerificationCount await verification evidence.',
+          count: activeInspectionFindingCount,
+        ),
+      if (openIssueCount - openCriticalIssueCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.openIssues,
+          level: OperationsManagementSignalLevel.attention,
+          title:
+              openCriticalIssueCount == 0
+                  ? '$openIssueCount '
+                      '${openIssueCount == 1 ? 'issue remains' : 'issues remain'} open'
+                  : '${openIssueCount - openCriticalIssueCount} other '
+                      '${openIssueCount - openCriticalIssueCount == 1 ? 'issue remains' : 'issues remain'} open',
+          detail: 'Review lane ownership and resolution progress.',
+          count: openIssueCount - openCriticalIssueCount,
+        ),
+      if (openPlannedJobCount > 0)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.openPlannedWork,
+          level: OperationsManagementSignalLevel.attention,
+          title:
+              '$openPlannedJobCount planned '
+              '${openPlannedJobCount == 1 ? 'job remains' : 'jobs remain'} active',
+          detail: 'Review execution progress, modules and closure readiness.',
+          count: openPlannedJobCount,
+        ),
     ];
-    signals.sort((left, right) => right.value.compareTo(left.value));
-    final leading = signals.first;
-    return leading.value == 0
+    return List<OperationsManagementSignal>.unmodifiable(signals);
+  }
+
+  String get leadingManagementSignal {
+    final signals = managementSignals;
+    return signals.isEmpty
         ? 'No active exception leads the selected scope'
-        : leading.label;
+        : signals.first.title;
   }
 
   List<MaintenanceRecord> get openIssues {
