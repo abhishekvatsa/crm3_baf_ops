@@ -197,7 +197,16 @@ class BafScreenStateScaffold extends StatelessWidget {
       icon: appBarIcon,
       accent: accent,
       actions: actions,
-      body: state,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: state,
+            ),
+          );
+        },
+      ),
     );
   }
 }

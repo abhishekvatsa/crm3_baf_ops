@@ -259,6 +259,42 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('full-screen states scroll at accessibility text sizes', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(640, 260));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BafAppTheme.light,
+          builder:
+              (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(2)),
+                child: child!,
+              ),
+          home: BafScreenStateScaffold.error(
+            appBarTitle: 'Maintenance intelligence',
+            appBarSubtitle: 'Governed evidence and recommendations',
+            appBarIcon: Icons.analytics_outlined,
+            message:
+                'The current evidence could not be opened safely. '
+                'Review the connection and try the governed read again.',
+            onRetry: () {},
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+      await tester.ensureVisible(find.text('Try again'));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('interactive records gain depth without changing geometry', (
       tester,
     ) async {
