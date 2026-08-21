@@ -8,6 +8,8 @@ import '../../maintenance/data/maintenance_model.dart';
 import '../models/timeline_entry.dart';
 import '../providers/asset_timeline_provider.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -26,16 +28,29 @@ class AssetTimelineScreen extends ConsumerWidget {
     final actorAsync = ref.watch(currentAppUserProvider);
     return actorAsync.when(
       loading:
-          () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          () => const Scaffold(
+            body: BafLoadingPanel(
+              label: 'Checking asset access',
+              color: BafColors.assets,
+            ),
+          ),
       error:
-          (_, _) => const Scaffold(
-            body: Center(child: Text('Could not verify asset access.')),
+          (error, _) => Scaffold(
+            body: BafStatePanel.error(
+              title: 'Could not verify asset access',
+              message: '$error',
+            ),
           ),
       data: (actor) {
         if (actor == null || !actor.canViewOperationalAssets) {
           return const Scaffold(
-            body: Center(child: Text('Approved access is required.')),
+            body: BafStatePanel(
+              icon: Icons.lock_outline_rounded,
+              color: BafColors.audit,
+              title: 'Approved access is required',
+              message:
+                  'Asset history is available only to approved operational users.',
+            ),
           );
         }
         return _AssetTimelineBody(
@@ -105,11 +120,12 @@ class _AssetTimelineScreenState extends ConsumerState<_AssetTimelineBody> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Asset Timeline'),
-        backgroundColor: Colors.white,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: Colors.white,
+        title: const BafAppBarTitle(
+          title: 'Asset timeline',
+          subtitle: 'Corrective and planned work in one history',
+          icon: Icons.timeline_rounded,
+          accent: BafColors.assets,
+        ),
       ),
       body: Column(
         children: [

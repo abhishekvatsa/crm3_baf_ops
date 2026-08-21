@@ -31,26 +31,26 @@ class JobModuleResponseSummary extends StatelessWidget {
       fieldDefinitions: fieldDefinitions,
     );
 
-    final visibleResponses = responses
-        .where((response) => response.key.trim().isNotEmpty)
-        .toList()
-      ..sort((a, b) {
-        final aMeta = metadataByKey[a.key.trim()];
-        final bMeta = metadataByKey[b.key.trim()];
-        final orderCompare = (aMeta?.order ?? 999999).compareTo(
-          bMeta?.order ?? 999999,
-        );
-        if (orderCompare != 0) return orderCompare;
-        return _labelFor(a, aMeta).compareTo(_labelFor(b, bMeta));
-      });
+    final visibleResponses =
+        responses.where((response) => response.key.trim().isNotEmpty).toList()
+          ..sort((a, b) {
+            final aMeta = metadataByKey[a.key.trim()];
+            final bMeta = metadataByKey[b.key.trim()];
+            final orderCompare = (aMeta?.order ?? 999999).compareTo(
+              bMeta?.order ?? 999999,
+            );
+            if (orderCompare != 0) return orderCompare;
+            return _labelFor(a, aMeta).compareTo(_labelFor(b, bMeta));
+          });
 
     if (visibleResponses.isEmpty) {
       return _SummaryEmptyState(text: emptyText);
     }
 
-    final requiredCount = visibleResponses.where((response) {
-      return metadataByKey[response.key.trim()]?.required == true;
-    }).length;
+    final requiredCount =
+        visibleResponses.where((response) {
+          return metadataByKey[response.key.trim()]?.required == true;
+        }).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,7 +83,7 @@ class JobModuleResponseSummary extends StatelessWidget {
         ),
         const SizedBox(height: BafSpacing.md),
         ...visibleResponses.map(
-              (response) => Padding(
+          (response) => Padding(
             padding: const EdgeInsets.only(bottom: BafSpacing.sm),
             child: _ResponseSummaryTile(
               response: response,
@@ -100,10 +100,7 @@ class _ResponseSummaryTile extends StatelessWidget {
   final FieldResponse response;
   final _FieldMetadata? metadata;
 
-  const _ResponseSummaryTile({
-    required this.response,
-    required this.metadata,
-  });
+  const _ResponseSummaryTile({required this.response, required this.metadata});
 
   @override
   Widget build(BuildContext context) {
@@ -184,7 +181,7 @@ class _ResponseSummaryTile extends StatelessWidget {
                 color: BafColors.textSecondary,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 0.2,
+                letterSpacing: 0,
               ),
             ),
           ],
@@ -267,16 +264,18 @@ Map<String, _FieldMetadata> _metadataByFieldKey({
 }
 
 _FieldMetadata? _metadataFromMap(
-    Map<String, dynamic> map, {
-      required int fallbackOrder,
-    }) {
-  final key = _cleanOptional(map['fieldId']?.toString()) ??
+  Map<String, dynamic> map, {
+  required int fallbackOrder,
+}) {
+  final key =
+      _cleanOptional(map['fieldId']?.toString()) ??
       _cleanOptional(map['key']?.toString());
   if (key == null) return null;
 
   return _FieldMetadata(
     key: key,
-    label: _cleanOptional(map['label']?.toString()) ??
+    label:
+        _cleanOptional(map['label']?.toString()) ??
         _cleanOptional(map['fieldLabel']?.toString()),
     unit: _cleanOptional(map['unit']?.toString()),
     required: map['required'] == true || map['isRequired'] == true,
@@ -293,10 +292,10 @@ String _labelFor(FieldResponse response, [_FieldMetadata? metadata]) {
 }
 
 String _formatValue(
-    dynamic value, {
-      String? unit,
-      required FieldType fieldType,
-    }) {
+  dynamic value, {
+  String? unit,
+  required FieldType fieldType,
+}) {
   if (value == null) return '—';
 
   final formatted = _formatRawValue(value);
@@ -324,19 +323,21 @@ String _formatRawValue(dynamic value) {
   }
 
   if (value is Iterable) {
-    final items = value
-        .map((item) => item.toString().trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+    final items =
+        value
+            .map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList();
     return items.isEmpty ? '—' : items.join(', ');
   }
 
   if (value is Map) {
-    final parts = value.entries
-        .map((entry) => '${entry.key}: ${entry.value}')
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+    final parts =
+        value.entries
+            .map((entry) => '${entry.key}: ${entry.value}')
+            .map((item) => item.trim())
+            .where((item) => item.isNotEmpty)
+            .toList();
     return parts.isEmpty ? '—' : parts.join('\n');
   }
 

@@ -14,6 +14,7 @@ import '../services/closed_ticket_history_service.dart';
 import '../../../core/providers/refresh_providers.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/services/sync_coordinator.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../features/auth/data/user_model.dart';
 import '../../../features/auth/providers/auth_provider.dart';
@@ -368,11 +369,12 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Closed Tickets'),
-        backgroundColor: Colors.white,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: Colors.white,
+        title: const BafAppBarTitle(
+          title: 'Resolved issues',
+          subtitle: 'Closure evidence, classification and reopen history',
+          icon: Icons.history_rounded,
+          accent: BafColors.maintenance,
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: _loadInitial,

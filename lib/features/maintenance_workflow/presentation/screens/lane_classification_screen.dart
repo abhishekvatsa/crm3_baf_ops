@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
+import '../../../../core/widgets/brand/brand_widgets.dart';
+import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../domain/maintenance_lane.dart';
 import '../../domain/workflow_types.dart';
 import '../../providers/workflow_providers.dart';
@@ -18,50 +22,129 @@ class LaneClassificationScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<LaneClassificationScreen> createState() => _LaneClassificationScreenState();
+  ConsumerState<LaneClassificationScreen> createState() =>
+      _LaneClassificationScreenState();
 }
 
-class _LaneClassificationScreenState extends ConsumerState<LaneClassificationScreen> {
+class _LaneClassificationScreenState
+    extends ConsumerState<LaneClassificationScreen> {
   final Set<MaintenanceLaneId> selected = <MaintenanceLaneId>{};
 
   @override
   Widget build(BuildContext context) {
     final commandState = ref.watch(workflowCommandControllerProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Classify maintenance lanes')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text(
-            'Select every department that must independently acknowledge and close its work.',
-          ),
-          const SizedBox(height: 12),
-          for (final definition in MaintenanceLaneCatalog.crm3.definitions)
-            CheckboxListTile(
-              value: selected.contains(definition.id),
-              title: Text('${definition.code} — ${definition.displayName}'),
-              subtitle: definition.delegated
-                  ? const Text('Digitally coordinated by Admin/SI on behalf of EMD')
-                  : null,
-              onChanged: (value) => setState(() {
-                if (value == true) {
-                  selected.add(definition.id);
-                } else {
-                  selected.remove(definition.id);
-                }
-              }),
+      backgroundColor: BafColors.background,
+      appBar: AppBar(
+        title: const BafAppBarTitle(
+          title: 'Classify maintenance lanes',
+          subtitle: 'Set independent ownership before work begins',
+          icon: Icons.account_tree_outlined,
+          accent: BafColors.maintenance,
+        ),
+      ),
+      body: BafContentFrame(
+        maxWidth: 760,
+        child: ListView(
+          children: [
+            BafScreenIntro(
+              title: 'Required teams',
+              subtitle:
+                  'Select every department that must independently acknowledge and close its work.',
+              icon: Icons.groups_2_outlined,
+              accent: BafColors.maintenance,
+              trailing: StatusBadge(
+                label: '${selected.length} selected',
+                color:
+                    selected.isEmpty
+                        ? BafColors.textSecondary
+                        : BafColors.maintenance,
+              ),
             ),
-          const SizedBox(height: 20),
-          WorkflowActionGuard(
-            busy: commandState.isLoading,
-            enabled: selected.isNotEmpty,
-            label: 'Finalise lane set',
-            icon: Icons.account_tree_outlined,
-            onPressed: _submit,
+            const SizedBox(height: BafSpacing.lg),
+            for (final definition in MaintenanceLaneCatalog.crm3.definitions)
+              Padding(
+                padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+                child: BafRecordSurface(
+                  accent:
+                      selected.contains(definition.id)
+                          ? BafColors.maintenance
+                          : null,
+                  padding: EdgeInsets.zero,
+                  onTap:
+                      () => _setLane(
+                        definition.id,
+                        !selected.contains(definition.id),
+                      ),
+                  child: CheckboxListTile(
+                    value: selected.contains(definition.id),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: Text(
+                      '${definition.code} - ${definition.displayName}',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle:
+                        definition.delegated
+                            ? const Text(
+                              'Digitally coordinated by Admin/SI on behalf of EMD',
+                            )
+                            : const Text(
+                              'Independent acknowledgement and closure',
+                            ),
+                    onChanged:
+                        commandState.isLoading
+                            ? null
+                            : (value) =>
+                                _setLane(definition.id, value ?? false),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 84),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            color: BafColors.card,
+            border: Border(top: BorderSide(color: BafColors.border)),
           ),
-        ],
+          child: Padding(
+            padding: const EdgeInsets.all(BafSpacing.md),
+            child: Center(
+              heightFactor: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 736),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: WorkflowActionGuard(
+                    busy: commandState.isLoading,
+                    enabled: selected.isNotEmpty,
+                    label:
+                        selected.isEmpty
+                            ? 'Select at least one lane'
+                            : 'Finalise ${selected.length} lane${selected.length == 1 ? '' : 's'}',
+                    icon: Icons.account_tree_outlined,
+                    onPressed: _submit,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
+  }
+
+  void _setLane(MaintenanceLaneId lane, bool value) {
+    setState(() {
+      if (value) {
+        selected.add(lane);
+      } else {
+        selected.remove(lane);
+      }
+    });
   }
 
   Future<void> _submit() async {
@@ -74,11 +157,15 @@ class _LaneClassificationScreenState extends ConsumerState<LaneClassificationScr
       },
     );
     try {
-      await ref.read(workflowCommandControllerProvider.notifier).execute(command);
+      await ref
+          .read(workflowCommandControllerProvider.notifier)
+          .execute(command);
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$error')));
       }
     }
   }

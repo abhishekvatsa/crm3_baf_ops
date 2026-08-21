@@ -986,7 +986,7 @@ class _AssignmentHeaderCard extends StatelessWidget {
               color: BafColors.planned,
               fontSize: 11,
               fontWeight: FontWeight.w900,
-              letterSpacing: 0.7,
+              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 5),

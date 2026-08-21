@@ -63,7 +63,7 @@ class AdminChip extends StatelessWidget {
             color: color,
             fontSize: 10,
             fontWeight: FontWeight.w900,
-            letterSpacing: 0.3,
+            letterSpacing: 0,
           ),
         ),
       ),

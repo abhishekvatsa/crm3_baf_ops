@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../core/widgets/persisted_data_integrity_notice.dart';
 import '../../maintenance/data/maintenance_model.dart';
@@ -33,11 +34,12 @@ class JobHistoryScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: BafColors.background,
       appBar: AppBar(
-        title: const Text('Job History'),
-        backgroundColor: Colors.white,
-        foregroundColor: BafColors.textPrimary,
-        elevation: 0,
-        surfaceTintColor: Colors.white,
+        title: const BafAppBarTitle(
+          title: 'Job history',
+          subtitle: 'Assignments, completion evidence and outcomes',
+          icon: Icons.history_rounded,
+          accent: BafColors.planned,
+        ),
       ),
       body: FutureBuilder<List<JobExecution>>(
         future: executionsFuture,
@@ -854,7 +856,7 @@ class _SectionHeaderWidget extends StatelessWidget {
           color: BafColors.planned,
           fontWeight: FontWeight.w900,
           fontSize: 11,
-          letterSpacing: 0.9,
+          letterSpacing: 0,
         ),
       ),
     );

@@ -928,7 +928,7 @@ class _ModuleHeaderCard extends StatelessWidget {
                         color: statusColor,
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 0.7,
+                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 5),

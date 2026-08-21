@@ -57,7 +57,7 @@ class _DossierHeaderCard extends StatelessWidget {
                     color: statusColor,
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 0.7,
+                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -979,7 +979,7 @@ class _DossierSectionHeader extends StatelessWidget {
           color: BafColors.planned,
           fontWeight: FontWeight.w900,
           fontSize: 11,
-          letterSpacing: 0.9,
+          letterSpacing: 0,
         ),
       ),
     );

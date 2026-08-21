@@ -115,40 +115,62 @@ class BafPageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final identity = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(BafRadius.medium),
+            border: Border.all(color: accent.withValues(alpha: 0.16)),
+          ),
+          child: Icon(icon, color: accent, size: 23),
+        ),
+        const SizedBox(width: BafSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 2),
+              Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+        ),
+      ],
+    );
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(BafSpacing.lg),
       color: BafColors.card,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(BafRadius.medium),
-              border: Border.all(color: accent.withValues(alpha: 0.16)),
-            ),
-            child: Icon(icon, color: accent, size: 23),
-          ),
-          const SizedBox(width: BafSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (trailing != null &&
+              constraints.maxWidth < BafBreakpoints.compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(title, style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 2),
-                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                identity,
+                const SizedBox(height: BafSpacing.md),
+                Align(alignment: Alignment.centerLeft, child: trailing!),
               ],
-            ),
-          ),
-          if (trailing != null) ...[
-            const SizedBox(width: BafSpacing.md),
-            trailing!,
-          ],
-        ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: identity),
+              if (trailing != null) ...[
+                const SizedBox(width: BafSpacing.md),
+                trailing!,
+              ],
+            ],
+          );
+        },
       ),
     );
   }

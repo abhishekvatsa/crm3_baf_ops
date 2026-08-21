@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../../../core/providers/sync_status_provider.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -557,81 +558,35 @@ class _IssuesHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: BafColors.maintenance.withValues(alpha: 0.11),
-                      borderRadius: BorderRadius.circular(BafRadius.small),
-                    ),
-                    child: const Icon(
-                      Icons.report_problem_outlined,
-                      color: BafColors.maintenance,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: BafSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Open issues',
-                          style: TextStyle(
-                            color: BafColors.textPrimary,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: BafSpacing.xs),
-                        Text(
-                          canSeeAll
-                              ? 'Issues needing attention across the floor.'
-                              : canSeeAssigned
-                              ? 'Issues raised by you or routed to your team.'
-                              : 'Issues raised by you and still active.',
-                          style: const TextStyle(
-                            color: BafColors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: BafSpacing.sm),
-            IconButton(
-              tooltip: isSyncing ? 'Sync in progress' : 'Refresh issues',
-              onPressed: isSyncing ? null : () => onSyncNow(),
-              icon:
-                  isSyncing
-                      ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : const Icon(Icons.refresh_rounded),
-            ),
-          ],
+        BafScreenIntro(
+          title: 'Open issues',
+          subtitle:
+              canSeeAll
+                  ? 'Issues needing attention across the floor.'
+                  : canSeeAssigned
+                  ? 'Issues raised by you or routed to your team.'
+                  : 'Issues raised by you and still active.',
+          icon: Icons.report_problem_outlined,
+          accent: BafColors.maintenance,
+          trailing: IconButton.outlined(
+            tooltip: isSyncing ? 'Sync in progress' : 'Refresh issues',
+            onPressed: isSyncing ? null : () => onSyncNow(),
+            icon:
+                isSyncing
+                    ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : const Icon(Icons.refresh_rounded),
+          ),
         ),
         const SizedBox(height: BafSpacing.md),
         LayoutBuilder(
           builder: (context, constraints) {
-            final search = TextField(
-              key: const ValueKey('issues-search'),
+            final search = BafSearchField(
+              fieldKey: const ValueKey('issues-search'),
+              hintText: 'Search asset, component or description',
               onChanged: onQueryChanged,
-              decoration: const InputDecoration(
-                hintText: 'Search asset, component or description',
-                prefixIcon: Icon(Icons.search_rounded),
-                isDense: true,
-              ),
             );
             final raise = FilledButton.icon(
               key: const ValueKey('issues-raise-issue'),

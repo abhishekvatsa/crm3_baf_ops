@@ -8,6 +8,7 @@ import '../providers/planned_maintenance_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../features/maintenance/data/maintenance_model.dart';
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../maintenance_workflow/presentation/screens/workflow_queue_view.dart';
 import 'create_template_screen.dart';
@@ -267,51 +268,11 @@ class _PlannedWorkSelector extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Color(0xFFE4F0F4),
-                    borderRadius: BorderRadius.all(
-                      Radius.circular(BafRadius.small),
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.work_outline_rounded,
-                    color: BafColors.planned,
-                    size: 24,
-                  ),
-                ),
-              ),
-              SizedBox(width: BafSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Planned Maintenance',
-                      style: TextStyle(
-                        color: BafColors.textPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Jobs, workflow obligations and governed planning.',
-                      style: TextStyle(
-                        color: BafColors.textSecondary,
-                        fontSize: 12,
-                        height: 1.25,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const BafScreenIntro(
+            title: 'Planned maintenance',
+            subtitle: 'Jobs, workflow obligations and governed planning.',
+            icon: Icons.work_outline_rounded,
+            accent: BafColors.planned,
           ),
           const SizedBox(height: BafSpacing.md),
           SizedBox(
@@ -340,19 +301,15 @@ class _PlannedWorkSelector extends StatelessWidget {
             ),
           ),
           const SizedBox(height: BafSpacing.sm),
-          TextField(
-            key: const ValueKey('planned-work-search'),
+          BafSearchField(
+            fieldKey: const ValueKey('planned-work-search'),
             onChanged: onQueryChanged,
-            decoration: InputDecoration(
-              hintText:
-                  selectedView == _PlannedWorkView.openJobs
-                      ? 'Search jobs or assets'
-                      : selectedView == _PlannedWorkView.workflow
-                      ? 'Search lanes or compliance'
-                      : 'Search templates',
-              prefixIcon: const Icon(Icons.search_rounded),
-              isDense: true,
-            ),
+            hintText:
+                selectedView == _PlannedWorkView.openJobs
+                    ? 'Search jobs or assets'
+                    : selectedView == _PlannedWorkView.workflow
+                    ? 'Search lanes or compliance'
+                    : 'Search templates',
           ),
           const SizedBox(height: BafSpacing.xs),
           Text(
@@ -473,7 +430,7 @@ class _AssetSectionHeader extends StatelessWidget {
               color: BafColors.textPrimary,
               fontSize: 13,
               fontWeight: FontWeight.w900,
-              letterSpacing: 0.7,
+              letterSpacing: 0,
             ),
           ),
         ),

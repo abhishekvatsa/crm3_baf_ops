@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/baf_design_system.dart';
+import '../../../../core/widgets/baf_ui.dart';
+import '../../../../core/widgets/brand/brand_widgets.dart';
+import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/data/user_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/compliance_request_record.dart';
@@ -26,105 +30,181 @@ class ComplianceDetailScreen extends ConsumerWidget {
     final actor = ref.watch(currentAppUserProvider).value;
 
     return Scaffold(
-      appBar: AppBar(title: Text(record.title)),
-      body: aggregate.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error:
-            (error, _) =>
-                Center(child: Text('Workflow state unavailable: $error')),
-        data: (snapshot) {
-          final version = snapshot?.workflow.version;
-          final workflowFinal = snapshot?.workflow.isFinal ?? false;
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Text(
-                record.description,
-                style: Theme.of(context).textTheme.bodyLarge,
+      backgroundColor: BafColors.background,
+      appBar: AppBar(
+        title: BafAppBarTitle(
+          title: record.title,
+          subtitle: 'Compliance evidence and lifecycle action',
+          icon: Icons.fact_check_outlined,
+          accent: BafColors.directives,
+        ),
+      ),
+      body: BafContentFrame(
+        maxWidth: 840,
+        child: aggregate.when(
+          loading:
+              () => const BafLoadingPanel(
+                label: 'Loading authoritative workflow state',
+                color: BafColors.directives,
               ),
-              const SizedBox(height: 12),
-              Text('Request type: ${record.requestPurposeLabel}'),
-              Text('Target lane: ${record.targetLaneKey.toUpperCase()}'),
-              Text('Status: ${record.statusKey}'),
-              if (record.raisedUnderCoordination)
-                const Text('Raised under supervisory workflow coordination'),
-              if (record.defermentBasisKey != null)
-                Text(
-                  'Deferment basis: ${_businessLabel(record.defermentBasisKey!)}',
+          error:
+              (error, _) => BafStatePanel.error(
+                title: 'Workflow state is unavailable',
+                message: '$error',
+                onPrimary:
+                    workflowId.isEmpty
+                        ? null
+                        : () => ref.invalidate(
+                          workflowAggregateProvider(workflowId),
+                        ),
+              ),
+          data: (snapshot) {
+            final version = snapshot?.workflow.version;
+            final workflowFinal = snapshot?.workflow.isFinal ?? false;
+            return ListView(
+              children: [
+                BafScreenIntro(
+                  title: record.title,
+                  subtitle:
+                      record.description.trim().isEmpty
+                          ? 'No additional description was recorded.'
+                          : record.description,
+                  icon: Icons.assignment_turned_in_outlined,
+                  accent: BafColors.directives,
+                  trailing: StatusBadge(
+                    label: _businessLabel(record.statusKey),
+                    color: _statusColor(record.statusKey),
+                  ),
                 ),
-              if (record.operationsSupportTypeKey != null)
-                Text(
-                  'Support: ${_businessLabel(record.operationsSupportTypeKey!)}',
+                const SizedBox(height: BafSpacing.lg),
+                const BafSectionLabel(
+                  title: 'Request context',
+                  subtitle: 'Ownership, purpose and activation evidence',
                 ),
-              if (record.operationsResourceKey != null)
-                Text(
-                  'Resource: ${_businessLabel(record.operationsResourceKey!)}',
-                ),
-              if (record.requestedLocation != null)
-                Text('Location: ${record.requestedLocation}'),
-              if (record.linkedMaintenanceFirestoreId != null)
-                Text(
-                  'Linked maintenance ticket: '
-                  '${record.linkedMaintenanceFirestoreId}',
-                ),
-              if (record.conditionTypeKey != 'manual')
-                Text(
-                  'Condition: ${record.conditionTypeKey}'
-                  '${record.conditionRef == null ? '' : ' — ${record.conditionRef}'}',
-                ),
-              if (record.becameDueAt != null)
-                Text('Became due: ${record.becameDueAt}'),
-              if (record.currentAttemptId != null)
-                Text('Current compliance attempt: ${record.currentAttemptId}'),
-              if (record.counterRevisedDescription != null) ...[
-                const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
+                const SizedBox(height: BafSpacing.sm),
+                BafRecordSurface(child: Column(children: _contextRows())),
+                if (record.counterRevisedDescription != null) ...[
+                  const SizedBox(height: BafSpacing.lg),
+                  BafRecordSurface(
+                    accent: BafColors.warning,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'One revised condition proposed',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                        Text(
+                          'Revised condition proposed',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: BafSpacing.sm),
                         Text(record.counterRevisedDescription!),
-                        if (record.counterProposedByName != null)
-                          Text('Proposed by ${record.counterProposedByName}'),
+                        if (record.counterProposedByName != null) ...[
+                          const SizedBox(height: BafSpacing.xs),
+                          Text(
+                            'Proposed by ${record.counterProposedByName}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ],
                     ),
                   ),
+                ],
+                const SizedBox(height: BafSpacing.xl),
+                const BafSectionLabel(
+                  title: 'Available actions',
+                  subtitle: 'Actions follow lane authority and current state',
                 ),
-              ],
-              const SizedBox(height: 24),
-              if (version == null)
-                const Text(
-                  'Actions are disabled until the authoritative workflow version is available.',
-                )
-              else if (workflowFinal)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Text(
-                      'This workflow is completed or cancelled. Compliance evidence remains readable, but no further lifecycle action is permitted.',
+                const SizedBox(height: BafSpacing.sm),
+                if (version == null)
+                  const BafStatePanel(
+                    icon: Icons.cloud_off_outlined,
+                    color: BafColors.warning,
+                    title: 'Actions temporarily unavailable',
+                    message:
+                        'Actions are disabled until the authoritative workflow version is available.',
+                  )
+                else if (workflowFinal)
+                  const BafRecordSurface(
+                    accent: BafColors.audit,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.lock_clock_outlined, color: BafColors.audit),
+                        SizedBox(width: BafSpacing.md),
+                        Expanded(
+                          child: Text(
+                            'This workflow is completed or cancelled. Compliance evidence remains readable, but no further lifecycle action is permitted.',
+                          ),
+                        ),
+                      ],
                     ),
+                  )
+                else
+                  ..._actions(
+                    context,
+                    ref,
+                    workflowId: workflowId,
+                    expectedVersion: version,
+                    busy: commandState.isLoading,
+                    actor: actor,
                   ),
-                )
-              else
-                ..._actions(
-                  context,
-                  ref,
-                  workflowId: workflowId,
-                  expectedVersion: version,
-                  busy: commandState.isLoading,
-                  actor: actor,
-                ),
-            ],
-          );
-        },
+                const SizedBox(height: BafSpacing.xl),
+              ],
+            );
+          },
+        ),
       ),
     );
+  }
+
+  List<Widget> _contextRows() {
+    final values = <(String, String)>[
+      ('Request type', record.requestPurposeLabel),
+      ('Target lane', record.targetLaneKey.toUpperCase()),
+      ('Status', _businessLabel(record.statusKey)),
+      if (record.raisedUnderCoordination)
+        ('Coordination', 'Supervisory workflow coordination'),
+      if (record.defermentBasisKey != null)
+        ('Deferment basis', _businessLabel(record.defermentBasisKey!)),
+      if (record.operationsSupportTypeKey != null)
+        ('Support', _businessLabel(record.operationsSupportTypeKey!)),
+      if (record.operationsResourceKey != null)
+        ('Resource', _businessLabel(record.operationsResourceKey!)),
+      if (record.requestedLocation != null)
+        ('Location', record.requestedLocation!),
+      if (record.linkedMaintenanceFirestoreId != null)
+        ('Linked maintenance ticket', record.linkedMaintenanceFirestoreId!),
+      if (record.conditionTypeKey != 'manual')
+        (
+          'Condition',
+          '${_businessLabel(record.conditionTypeKey)}${record.conditionRef == null ? '' : ': ${record.conditionRef}'}',
+        ),
+      if (record.becameDueAt != null)
+        ('Became due', record.becameDueAt!.toLocal().toString()),
+      if (record.currentAttemptId != null)
+        ('Compliance attempt', record.currentAttemptId!),
+    ];
+    return List<Widget>.generate(
+      values.length,
+      (index) => _ComplianceInfoRow(
+        label: values[index].$1,
+        value: values[index].$2,
+        last: index == values.length - 1,
+      ),
+    );
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'confirmedClosed':
+      case 'complied':
+        return BafColors.success;
+      case 'cancelled':
+      case 'superseded':
+        return BafColors.textSecondary;
+      case 'acknowledged':
+        return BafColors.cobalt;
+      default:
+        return BafColors.warning;
+    }
   }
 
   String _businessLabel(String value) =>
@@ -412,6 +492,60 @@ class ComplianceDetailScreen extends ConsumerWidget {
             initialValue: initialValue,
             isRequired: required,
           ),
+    );
+  }
+}
+
+class _ComplianceInfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool last;
+
+  const _ComplianceInfoRow({
+    required this.label,
+    required this.value,
+    this.last = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: BafSpacing.sm),
+      decoration: BoxDecoration(
+        border:
+            last
+                ? null
+                : const Border(bottom: BorderSide(color: BafColors.border)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final labelWidget = Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: BafColors.textSecondary),
+          );
+          final valueWidget = Text(value);
+          if (constraints.maxWidth < 420) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                labelWidget,
+                const SizedBox(height: BafSpacing.xs),
+                valueWidget,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(width: 148, child: labelWidget),
+              const SizedBox(width: BafSpacing.md),
+              Expanded(child: valueWidget),
+            ],
+          );
+        },
+      ),
     );
   }
 }
