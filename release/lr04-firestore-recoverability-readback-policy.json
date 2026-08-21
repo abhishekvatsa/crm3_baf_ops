@@ -23,6 +23,12 @@
     "location": "asia-south1",
     "operationNameSha256": "7794A14E1ACA86B86009C644B8EABE8EE01786A909FC327C9747E600DF2C4AB6",
     "inputUriPrefixSha256": "787CD0B6BD458AF7965D5F8128B6D6EB6715591B2FAFE71F6F8A7AC6938F8E65",
+    "sourceExport": {
+      "operationNameSha256": "EF6A0FF2E809EA2D0C209B92380D1752E301D6C504D04BBA81D83168883C7F74",
+      "outputUriPrefixSha256": "787CD0B6BD458AF7965D5F8128B6D6EB6715591B2FAFE71F6F8A7AC6938F8E65",
+      "completedAtUtc": "2026-08-06T16:44:06.902374Z",
+      "expectedDocumentCount": 81
+    },
     "expectedDocumentCount": 81,
     "requiredDeleteProtectionState": "DELETE_PROTECTION_ENABLED"
   },
@@ -31,6 +37,7 @@
     "the production project, database and location match this policy exactly",
     "database protection states and complete backup schedule, backup and operation inventories are obtained by read-only gcloud commands",
     "the exact sealed managed-export operation is independently described and reconfirmed successful",
+    "the successful production source export is found exactly once and its output URI hash equals the isolated import input URI hash",
     "the exact isolated restore database and import operation are independently described and privacy-minimized",
     "only a READY native backup and an exact successful isolated import clear the P-05 posture holds",
     "the receipt is canonically sealed and written append-only outside the repository"
@@ -42,7 +49,8 @@
     "missingNativeBackupScheduleClosesUnderlyingFinding": false,
     "missingNativeBackupClosesUnderlyingFinding": false,
     "missingRestoreImportProofClosesUnderlyingFinding": false,
-    "managedExportIsNotRepresentedAsNativeBackupOrRestoreProof": true
+    "managedExportIsNotRepresentedAsNativeBackupOrRestoreProof": true,
+    "isolatedImportMustMatchSourceExportOutput": true
   },
   "mutationBoundary": {
     "pointInTimeRecoveryChanged": false,

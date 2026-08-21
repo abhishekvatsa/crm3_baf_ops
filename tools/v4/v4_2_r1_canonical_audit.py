@@ -7770,6 +7770,19 @@ check(
     and lr04_policy.get("postureSemantics", {}).get(
         "managedExportIsNotRepresentedAsNativeBackupOrRestoreProof"
     ) is True
+    and lr04_policy.get("postureSemantics", {}).get(
+        "isolatedImportMustMatchSourceExportOutput"
+    ) is True
+    and lr04_policy.get("isolatedRestore", {}).get(
+        "inputUriPrefixSha256"
+    )
+        == lr04_policy.get("isolatedRestore", {}).get(
+            "sourceExport", {}
+        ).get("outputUriPrefixSha256")
+    and lr04_policy.get("isolatedRestore", {}).get(
+        "sourceExport", {}
+    ).get("operationNameSha256")
+        == "EF6A0FF2E809EA2D0C209B92380D1752E301D6C504D04BBA81D83168883C7F74"
     and len(lr04_policy.get("mutationBoundary", {})) == 11
     and all(
         value is False
@@ -7811,6 +7824,8 @@ check(
     and "strict acquisition passes while adverse recoverability posture remains explicit"
         in lr04_collector_test
     and "summaries omit schedule, backup, operation and output identifiers"
+        in lr04_collector_test
+    and "isolated import must derive from the exact successful source export"
         in lr04_collector_test
     and "operation inventory at the configured limit fails closed"
         in lr04_collector_test
@@ -10784,6 +10799,8 @@ check(
         "statusHistory", []
     )] == ["OPEN", "CLOSED"]
     and build8_p07_finding.get("currentStatus") == "CLOSED"
+    and build8_p07_finding.get("title")
+        == "Physical-device signed-in sync, revocation and role-negative matrix is closed"
     and len(build8_p07_finding.get("evidence", [])) == 1
     and build8_p07_finding.get("evidence", [])[0].get("sha256")
         == "9FF79718C48C3B169C512433FED292FA69EA1A6BDBF9183EA7036E8EC9B78461"

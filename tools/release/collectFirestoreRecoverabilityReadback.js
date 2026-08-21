@@ -321,6 +321,7 @@ function summarizeOperations({
   sealedOperationName,
   sealedOutputUriPrefix,
   sealedCompletedAtUtc,
+  isolatedRestorePolicy,
   inventoryLimit,
 }) {
   if (!Array.isArray(operations)) fail("Operations response is not an array.");
@@ -338,6 +339,29 @@ function summarizeOperations({
   );
   const sealedHistoryMatches = operations.filter(
     (operation) => operation?.name === sealedOperationName,
+  );
+  const isolatedSourceMatches = exportOperations.filter((operation) => {
+    const operationName =
+      typeof operation?.name === "string" ? operation.name : "";
+    return (
+      sha256(operationName) ===
+      isolatedRestorePolicy?.sourceExport?.operationNameSha256
+    );
+  });
+  const isolatedSourceExport = isolatedSourceMatches[0];
+  const isolatedSourceMetadataOutput =
+    typeof isolatedSourceExport?.metadata?.outputUriPrefix === "string"
+      ? isolatedSourceExport.metadata.outputUriPrefix
+      : "";
+  const isolatedSourceResponseOutput =
+    typeof isolatedSourceExport?.response?.outputUriPrefix === "string"
+      ? isolatedSourceExport.response.outputUriPrefix
+      : "";
+  const isolatedSourceCompletedDocuments = exactProgressCount(
+    isolatedSourceExport?.metadata?.progressDocuments?.completedWork,
+  );
+  const isolatedSourceEstimatedDocuments = exactProgressCount(
+    isolatedSourceExport?.metadata?.progressDocuments?.estimatedWork,
   );
   return {
     inventoryLimit,
@@ -375,6 +399,42 @@ function summarizeOperations({
         describedExport?.response?.["@type"] === exportResponseType &&
         describedExport?.response?.outputUriPrefix === sealedOutputUriPrefix &&
         describedExport?.metadata?.endTime === sealedCompletedAtUtc,
+    },
+    isolatedRestoreSourceExport: {
+      operationNameSha256: sha256(
+        typeof isolatedSourceExport?.name === "string"
+          ? isolatedSourceExport.name
+          : "",
+      ),
+      outputUriPrefixSha256: sha256(isolatedSourceResponseOutput),
+      appearsExactlyOnceInHistory: isolatedSourceMatches.length === 1,
+      done: isolatedSourceExport?.done === true,
+      errorAbsent: isolatedSourceExport?.error == null,
+      operationState:
+        isolatedSourceExport?.metadata?.operationState ?? null,
+      metadataType: operationType(isolatedSourceExport),
+      responseType: isolatedSourceExport?.response?.["@type"] ?? null,
+      metadataAndResponseOutputMatch:
+        isolatedSourceMetadataOutput !== "" &&
+        isolatedSourceMetadataOutput === isolatedSourceResponseOutput,
+      completedDocuments: isolatedSourceCompletedDocuments,
+      estimatedDocuments: isolatedSourceEstimatedDocuments,
+      endTime: isolatedSourceExport?.metadata?.endTime ?? null,
+      exactSuccessfulExport:
+        isolatedSourceMatches.length === 1 &&
+        operationSucceeded(isolatedSourceExport) &&
+        operationType(isolatedSourceExport) === exportType &&
+        isolatedSourceExport?.response?.["@type"] === exportResponseType &&
+        isolatedSourceMetadataOutput !== "" &&
+        isolatedSourceMetadataOutput === isolatedSourceResponseOutput &&
+        sha256(isolatedSourceResponseOutput) ===
+          isolatedRestorePolicy?.sourceExport?.outputUriPrefixSha256 &&
+        isolatedSourceExport?.metadata?.endTime ===
+          isolatedRestorePolicy?.sourceExport?.completedAtUtc &&
+        isolatedSourceCompletedDocuments ===
+          isolatedRestorePolicy?.sourceExport?.expectedDocumentCount &&
+        isolatedSourceEstimatedDocuments ===
+          isolatedRestorePolicy?.sourceExport?.expectedDocumentCount,
     },
   };
 }
@@ -454,6 +514,18 @@ function adjudicateReadback({
     "privateCustodyPathsRetained",
     "operationalStateRepresentedByCountsStatesHashesAndTimesOnly",
   ];
+  const isolatedRestoreSourceExact =
+    operations.isolatedRestoreSourceExport?.exactSuccessfulExport === true;
+  const isolatedRestoreDerivationExact =
+    isolatedRestore == null ||
+    (isolatedRestoreSourceExact &&
+      isolatedRestore.operation?.inputUriPrefixSha256 ===
+        operations.isolatedRestoreSourceExport?.outputUriPrefixSha256 &&
+      isolatedRestore.operation?.inputUriPrefixSha256 ===
+        policy?.isolatedRestore?.inputUriPrefixSha256);
+  const isolatedRestoreProofExact =
+    isolatedRestore?.exactSuccessfulImportAndValidation === true &&
+    isolatedRestoreDerivationExact;
   const checks = {
     productionTargetExact:
       projectId === PRODUCTION_PROJECT_ID &&
@@ -474,6 +546,8 @@ function adjudicateReadback({
       policy?.postureSemantics?.collectionPassMayContainAdversePosture === true &&
       policy?.postureSemantics
         ?.managedExportIsNotRepresentedAsNativeBackupOrRestoreProof === true &&
+      policy?.postureSemantics?.isolatedImportMustMatchSourceExportOutput ===
+        true &&
       policy?.isolatedRestore?.databaseId === ISOLATED_RESTORE_DATABASE &&
       policy?.isolatedRestore?.location === PRODUCTION_LOCATION &&
       /^[0-9A-F]{64}$/.test(
@@ -482,6 +556,15 @@ function adjudicateReadback({
       /^[0-9A-F]{64}$/.test(
         policy?.isolatedRestore?.inputUriPrefixSha256 ?? "",
       ) &&
+      /^[0-9A-F]{64}$/.test(
+        policy?.isolatedRestore?.sourceExport?.operationNameSha256 ?? "",
+      ) &&
+      policy?.isolatedRestore?.sourceExport?.outputUriPrefixSha256 ===
+        policy?.isolatedRestore?.inputUriPrefixSha256 &&
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(
+        policy?.isolatedRestore?.sourceExport?.completedAtUtc ?? "",
+      ) &&
+      policy?.isolatedRestore?.sourceExport?.expectedDocumentCount === 81 &&
       policy?.isolatedRestore?.expectedDocumentCount === 81 &&
       policy?.isolatedRestore?.requiredDeleteProtectionState ===
         "DELETE_PROTECTION_ENABLED" &&
@@ -533,9 +616,10 @@ function adjudicateReadback({
     sealedExportReconfirmed:
       operations.sealedExport.appearsExactlyOnceInHistory &&
       operations.sealedExport.exactSuccessfulExport,
+    isolatedRestoreSourceExportExact: isolatedRestoreSourceExact,
+    isolatedRestoreDerivationExact,
     isolatedRestoreEvidenceExact:
-      isolatedRestore == null ||
-      isolatedRestore.exactSuccessfulImportAndValidation === true,
+      isolatedRestore == null || isolatedRestoreProofExact,
   };
   const failedChecks = Object.entries(checks)
     .filter(([, value]) => value !== true)
@@ -551,7 +635,7 @@ function adjudicateReadback({
   }
   if (schedules.count === 0) holds.push("noNativeBackupSchedule");
   if ((backups.stateCounts.READY ?? 0) === 0) holds.push("noReadyNativeBackup");
-  if (isolatedRestore?.exactSuccessfulImportAndValidation !== true) {
+  if (!isolatedRestoreProofExact) {
     holds.push("noRestoreImportProof");
   }
   const decision = observe
@@ -774,6 +858,7 @@ function collectLiveState(options, policy) {
       sealedOperationName: restoreSeal.operationName,
       sealedOutputUriPrefix: restoreSeal.outputUriPrefix,
       sealedCompletedAtUtc: restoreSeal.completedAtUtc,
+      isolatedRestorePolicy: policy.isolatedRestore,
       inventoryLimit: operationLimit,
     }),
     restoreSeal: restoreSeal.summary,
